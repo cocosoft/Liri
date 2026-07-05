@@ -1,5 +1,5 @@
-﻿import { join } from 'path';
-import { Database } from 'sqlite3';
+import { join } from 'path';
+import { Database } from '@modules/core/external/sqlite3';
 import type {
   ScheduledTask,
   TaskExecutionHistory,
@@ -519,7 +519,7 @@ export class ChronosDatabase {
             history.result || null,
             history.error || null,
           ],
-          function (err) {
+          function (this: { lastID: number }, err: Error | null) {
             if (err) {
               reject(err);
             } else {

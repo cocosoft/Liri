@@ -3,7 +3,7 @@
  * 使用 SQLite 替代 JSON 文件提供更可靠的并发访问
  */
 
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   CronJob,

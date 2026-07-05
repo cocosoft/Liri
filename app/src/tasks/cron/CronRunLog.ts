@@ -3,7 +3,7 @@
  * 对标 openclaw src/cron/run-log.ts
  */
 
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { CronJob, CronJobResult, CronRunStatus } from './types';
 

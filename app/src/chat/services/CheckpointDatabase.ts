@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import type { SessionCheckpoint } from '../types/checkpoint';
 import type { CheckpointStorage } from '../types/checkpoint';
 import { CHECKPOINT_TABLE, CHECKPOINT_MAX_AUTO } from '../types/checkpoint';

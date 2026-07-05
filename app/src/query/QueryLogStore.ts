@@ -4,7 +4,7 @@
  */
 
 import { join } from 'path';
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import { Logger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';

@@ -33,7 +33,7 @@
  *   - cleanupOrphans() 清理悬挂边
  */
 
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import { randomUUID } from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';

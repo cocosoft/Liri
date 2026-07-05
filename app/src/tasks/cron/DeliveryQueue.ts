@@ -3,7 +3,7 @@
  * 基于 SQLite 持久化，支持指数退避重试、失败管理、统计查询
  */
 
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { CronJob, CronJobResult } from './types';
 

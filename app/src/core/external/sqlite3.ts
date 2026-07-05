@@ -22,18 +22,9 @@
 /**
  * sqlite3 兼容层包装器
  *
- * 在 bun build --compile 单文件 exe 中，原生 C++ 插件（.node 文件）无法通过
- * process.dlopen 安全加载（退出时导致 segfault）。此包装器使用 Bun 内置的
- * bun:sqlite 模块，暴露与 sqlite3 npm 包相同的回调式 API（Database 类），
- * 使所有 24 个调用方无需修改代码。
- *
- * API 映射：
- *   sqlite3               bun:sqlite
- *   new Database(p)       new BunDB(p)
- *   db.run(sql, cb)       db.run(sql); cb?.(null)
- *   db.get(sql, cb)       cb(null, db.prepare(sql).get())
- *   db.all(sql, cb)       cb(null, db.prepare(sql).all())
- *   db.exec(sql)          db.run(sql) (无回调版)
+ * 使用 Bun 内置的 bun:sqlite 模块，暴露与 sqlite3 npm 包相同的回调式 API。
+ * 避免原生 C++ 插件（.node 文件）在 bun build --compile 单文件 exe 中
+ * 的加载问题。
  */
 
 import { mkdirSync } from 'fs';
@@ -74,24 +65,17 @@ const { Database: BunDB } = require('bun:sqlite') as {
 class Database {
   private _db: InstanceType<typeof BunDB>;
 
-  /**
-   * @param path  数据库文件路径
-   * @param mode  可选，兼容 sqlite3 的第二个参数（OPEN_READWRITE | OPEN_CREATE）
-   * @param openCallback  打开完成回调
-   */
   constructor(
     path: string,
     mode?: number | ((err: Error | null) => void),
     openCallback?: (err: Error | null) => void
   ) {
-    // 确保父目录存在
     try {
       mkdirSync(dirname(path), { recursive: true });
     } catch {
       /* 忽略 */
     }
 
-    // 解析回调参数
     let cb: ((err: Error | null) => void) | undefined;
     if (typeof mode === 'function') {
       cb = mode;
@@ -127,11 +111,48 @@ class Database {
    */
   private resolveParams(args: unknown[]): unknown[] {
     if (args.length === 1 && Array.isArray(args[0])) {
-      return args[0];
+      return args[0] as unknown[];
     }
     return args;
   }
 
+  // 类型重载：让 TS 能推断回调参数类型（兼容 sqlite3 npm 包）
+  run(sql: string): this;
+  run(sql: string, callback: (err: Error | null) => void): this;
+  run(sql: string, params: any[], callback?: (err: Error | null) => void): this;
+  run(sql: string, p1: any, callback: (err: Error | null) => void): this;
+  run(
+    sql: string,
+    p1: any,
+    p2: any,
+    callback: (err: Error | null) => void
+  ): this;
+  run(
+    sql: string,
+    p1: any,
+    p2: any,
+    p3: any,
+    callback: (err: Error | null) => void
+  ): this;
+  run(
+    sql: string,
+    p1: any,
+    p2: any,
+    p3: any,
+    p4: any,
+    callback: (err: Error | null) => void
+  ): this;
+  run(
+    sql: string,
+    p1: any,
+    p2: any,
+    p3: any,
+    p4: any,
+    p5: any,
+    callback: (err: Error | null) => void
+  ): this;
+  /** 无回调调用（5 个独立参数） */
+  run(sql: string, p1: any, p2: any, p3: any, p4: any, p5: any): this;
   /**
    * 执行 SQL（无返回结果集），兼容 sqlite3 回调式 API
    */
@@ -141,14 +162,32 @@ class Database {
         ? (args.pop() as (err: Error | null) => void)
         : undefined;
     try {
-      this._db.run(sql, ...this.resolveParams(args));
-      callback?.(null);
+      const result = this._db.run(sql, ...this.resolveParams(args));
+      if (callback) {
+        callback.call(
+          { lastID: Number(result.lastInsertRowid), changes: result.changes },
+          null
+        );
+      }
     } catch (e) {
       callback?.(e as Error);
     }
     return this;
   }
 
+  // 类型重载：让 TS 能推断回调参数类型
+  get(sql: string, callback: (err: Error | null, row: any) => void): this;
+  get(
+    sql: string,
+    p1: any,
+    callback: (err: Error | null, row: any) => void
+  ): this;
+  get(
+    sql: string,
+    p1: any,
+    p2: any,
+    callback: (err: Error | null, row: any) => void
+  ): this;
   /**
    * 执行查询并返回单行
    */
@@ -169,6 +208,43 @@ class Database {
     return this;
   }
 
+  // 类型重载：让 TS 能推断回调参数类型
+  all(sql: string, callback: (err: Error | null, rows: any[]) => void): this;
+  all(
+    sql: string,
+    p1: any,
+    callback: (err: Error | null, rows: any[]) => void
+  ): this;
+  all(
+    sql: string,
+    p1: any,
+    p2: any,
+    callback: (err: Error | null, rows: any[]) => void
+  ): this;
+  all(
+    sql: string,
+    p1: any,
+    p2: any,
+    p3: any,
+    callback: (err: Error | null, rows: any[]) => void
+  ): this;
+  all(
+    sql: string,
+    p1: any,
+    p2: any,
+    p3: any,
+    p4: any,
+    callback: (err: Error | null, rows: any[]) => void
+  ): this;
+  all(
+    sql: string,
+    p1: any,
+    p2: any,
+    p3: any,
+    p4: any,
+    p5: any,
+    callback: (err: Error | null, rows: any[]) => void
+  ): this;
   /**
    * 执行查询并返回所有行
    */
@@ -189,6 +265,13 @@ class Database {
     return this;
   }
 
+  // 类型重载：让 TS 能推断回调参数类型
+  each(sql: string, callback: (err: Error | null, row: any) => void): this;
+  each(
+    sql: string,
+    p1: any,
+    callback: (err: Error | null, row: any) => void
+  ): this;
   /**
    * 逐行迭代结果
    */
@@ -227,8 +310,13 @@ class Database {
   /**
    * 关闭数据库连接
    */
-  close(): void {
-    this._db.close();
+  close(callback?: (err: Error | null) => void): void {
+    try {
+      this._db.close();
+      callback?.(null);
+    } catch (e) {
+      callback?.(e as Error);
+    }
   }
 }
 

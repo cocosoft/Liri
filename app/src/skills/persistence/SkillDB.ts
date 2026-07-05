@@ -31,7 +31,7 @@
  * - skill_provenance：技能溯源信息
  */
 
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
 

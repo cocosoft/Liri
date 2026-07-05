@@ -20,7 +20,7 @@
  *   });
  */
 
-import { Database } from 'sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import { writeFile, unlink, stat, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';

@@ -16,7 +16,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /** 需要复制的外部依赖列表 */
-const EXTERNAL_DEPS = ['pdfjs-dist', 'sharp', 'sqlite3', 'bindings', 'file-uri-to-path'];
+const EXTERNAL_DEPS = ['pdfjs-dist', 'sharp'];
 
 /**
  * 递归复制目录或文件

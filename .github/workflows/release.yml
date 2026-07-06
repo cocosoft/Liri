@@ -253,6 +253,9 @@ jobs:
           if (Test-Path ../app/node_modules) {
             Copy-Item -Recurse -Force ../app/node_modules src-tauri/binaries/node_modules
           }
+          if (-not (Test-Path src-tauri/binaries/node_modules)) {
+            New-Item -ItemType Directory -Force -Path src-tauri/binaries/node_modules
+          }
         shell: powershell
         if: matrix.config.os == 'windows-latest'
 
@@ -263,6 +266,7 @@ jobs:
           if [ -d ../app/node_modules ]; then
             cp -r ../app/node_modules src-tauri/binaries/node_modules
           fi
+          mkdir -p src-tauri/binaries/node_modules
         shell: bash
         if: matrix.config.os != 'windows-latest'
 

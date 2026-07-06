@@ -20,13 +20,17 @@
 // SOFTWARE.
 
 fn main() {
-    // 仅在 binaries/node_modules 存在时通知 Cargo 重编译，避免 glob 匹配失败
+    // 确保 directories exist with at least a placeholder so the glob pattern
+    // "binaries/node_modules/**" in tauri.conf.json resources always matches
     let binaries_node_modules = "binaries/node_modules";
+    let _ = std::fs::create_dir_all(binaries_node_modules);
+
+    // 写入占位文件，确保空目录也能匹配 glob ** 模式
+    let placeholder = format!("{}/.gitkeep", binaries_node_modules);
+    let _ = std::fs::write(&placeholder, "");
+
     if std::path::Path::new(binaries_node_modules).exists() {
         println!("cargo:rerun-if-changed={}", binaries_node_modules);
-    } else {
-        // 目录不存在时创建它，确保 tauri.conf.json resources glob 不失败
-        let _ = std::fs::create_dir_all(binaries_node_modules);
     }
 
     #[cfg(windows)]

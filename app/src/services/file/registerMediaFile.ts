@@ -30,7 +30,7 @@ export async function registerGeneratedMedia(
   prompt: string,
   mediaType: MediaType,
   format: string
-): Promise<{ fileId: string; savedPath: string } | null> {
+): Promise<{ fileId: string; savedPath: string; savedFullPath: string } | null> {
   try {
     // Step 1: 下载远程文件
     const response = await fetch(url);
@@ -64,11 +64,13 @@ export async function registerGeneratedMedia(
       savedPath: result.savedPath,
     });
 
-    // 返回文件名（相对于媒体根目录），用于前端 URL 构造
-    // 如 handleImageStatic 中 media/ 前缀映射到 MEDIA_IMAGES_ROOT
+    // 返回文件名（相对于媒体根目录）和完整路径
+    // - savedPath: 文件名，用于前端 URL 构造（如 /v1/images/static/media/xxx）
+    // - savedFullPath: 完整文件系统路径，供后续工具（如 image_analysis）直接读取
     return {
       fileId: result.fileId,
       savedPath: path.basename(result.savedPath),
+      savedFullPath: result.savedPath,
     };
   } catch (err) {
     logger.error('注册媒体文件异常', {

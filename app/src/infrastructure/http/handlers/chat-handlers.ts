@@ -303,58 +303,6 @@ async function handleStreamingChat(
     })}\n\n`
   );
 
-  // 订阅上下文压缩事件，翻译为 SSE context_state chunk
-  const onCompressing = (evt: { type: string; data: unknown }) => {
-    const d = evt.data as { status: string; sessionId?: string };
-    if (d.status === 'start') {
-      res.write(
-        `data: ${JSON.stringify({
-          id: responseId,
-          object: 'chat.completion.chunk',
-          created,
-          model,
-          __pyapp_type: 'context_state',
-          choices: [
-            {
-              index: 0,
-              delta: { content: '🧠 正在压缩会话上下文...' },
-              finish_reason: null,
-            },
-          ],
-        })}\n\n`
-      );
-    }
-  };
-  const onCompressed = (evt: { type: string; data: unknown }) => {
-    const d = evt.data as {
-      status: string;
-      originalTokens?: number;
-      compressedTokens?: number;
-    };
-    if (d.status === 'completed') {
-      const tokenMsg =
-        d.originalTokens && d.compressedTokens
-          ? `\u2705 上下文压缩完成（${d.originalTokens} → ${d.compressedTokens} tokens）`
-          : `\u2705 上下文压缩完成`;
-      res.write(
-        `data: ${JSON.stringify({
-          id: responseId,
-          object: 'chat.completion.chunk',
-          created,
-          model,
-          __pyapp_type: 'context_state',
-          choices: [
-            {
-              index: 0,
-              delta: { content: tokenMsg },
-              finish_reason: null,
-            },
-          ],
-        })}\n\n`
-      );
-    }
-  };
-
   /** 生图完成事件 → SSE 转发（含结构化 resultData 用于前端渲染） */
   const onToolCompleted = (evt: { type: string; data: unknown }) => {
     const d = evt.data as {
@@ -401,9 +349,6 @@ async function handleStreamingChat(
 
     const generator = coreAPI.chatStream(chatRequest);
 
-    // 启用压缩事件→SSE 翻译
-    eventNotificationService.on('agent:context:compressing', onCompressing);
-    eventNotificationService.on('agent:context:compressed', onCompressed);
     eventNotificationService.on('tool:completed', onToolCompleted);
 
     let result = await generator.next();
@@ -603,9 +548,6 @@ async function handleStreamingChat(
     }
 
     res.write('data: [DONE]\n\n');
-    // 清理压缩事件订阅
-    eventNotificationService.off('agent:context:compressing', onCompressing);
-    eventNotificationService.off('agent:context:compressed', onCompressed);
     eventNotificationService.off('tool:completed', onToolCompleted);
     logger.info('Stream chat completed', {
       model,
@@ -613,9 +555,6 @@ async function handleStreamingChat(
     });
     res.end();
   } catch (err) {
-    // 清理压缩事件订阅
-    eventNotificationService.off('agent:context:compressing', onCompressing);
-    eventNotificationService.off('agent:context:compressed', onCompressed);
     eventNotificationService.off('tool:completed', onToolCompleted);
     await handleError(err, {
       module: 'infra:http',

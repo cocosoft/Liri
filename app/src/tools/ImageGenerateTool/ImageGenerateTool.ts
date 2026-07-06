@@ -62,8 +62,10 @@ export interface GeneratedImage {
   seed?: number;
   /** FileRegistry 注册后的本地文件 ID */
   fileId?: string;
-  /** 本地持久化 URL（/v1/images/static/...） */
+  /** 本地持久化虚拟 URL（/v1/images/static/...），供前端显示 */
   localUrl?: string;
+  /** 完整文件系统路径，供后续工具（如 image_analysis）直接读取 */
+  filePath?: string;
 }
 
 export class ImageGenerateTool extends BaseTool {
@@ -495,6 +497,7 @@ export class ImageGenerateTool extends BaseTool {
             localUrl: result?.savedPath
               ? `/v1/images/static/media/${result.savedPath}`
               : undefined,
+            filePath: result?.savedFullPath,
           };
         } catch (err) {
           logger.warn('ImageGenerateTool · 图片注册到本地失败（Router模式）', {
@@ -525,7 +528,16 @@ export class ImageGenerateTool extends BaseTool {
         `Prompt: "${params.prompt}"\n` +
         `Size: ${params.size ?? '1024x1024'} | Style: ${params.style ?? 'vivid'} | Quality: ${params.quality ?? 'standard'}\n` +
         `Cost: $${totalCostUsd.toFixed(4)}\n` +
-        `(You can reference these images in follow-up requests, e.g. "change the style to watercolor" or "make it larger".)`,
+        persistedImages
+          .map(
+            (img, i) =>
+              `Image #${i + 1}:\n` +
+              `  filePath: ${img.filePath ?? '(not registered)'}\n` +
+              `  localUrl: ${img.localUrl ?? '(not registered)'}\n` +
+              `  (Use filePath for follow-up tools like image_analysis)`
+          )
+          .join('\n') +
+        `\n(You can reference these images in follow-up requests, e.g. "change the style to watercolor" or "make it larger".)`,
       metadata: {
         images: images.map((img) => ({
           alt: img.alt,
@@ -642,6 +654,7 @@ export class ImageGenerateTool extends BaseTool {
             localUrl: result?.savedPath
               ? `/v1/images/static/media/${result.savedPath}`
               : undefined,
+            filePath: result?.savedFullPath,
           };
         } catch (err) {
           logger.warn('ImageGenerateTool · 图片注册到本地失败（兼容模式）', {
@@ -661,13 +674,22 @@ export class ImageGenerateTool extends BaseTool {
         model: result.model,
         durationMs: result.durationMs,
       },
-      // 增强的上下文回传：完整 prompt + 参数，让 AI 后续对话可引用图片元数据
+      // 增强的上下文回传：完整 prompt + 参数 + 文件路径，让 AI 后续可引用图片
       output:
         `[IMAGE_GENERATED]\n` +
         `Generated ${params.n ?? 1} image(s) using ${params.provider ?? 'openai'} (${result.model}).\n` +
         `Prompt: "${params.prompt}"\n` +
         `Size: ${params.size ?? '1024x1024'} | Style: ${params.style ?? 'vivid'} | Quality: ${params.quality ?? 'standard'}\n` +
-        `(You can reference these images in follow-up requests, e.g. "change the style to watercolor" or "make it larger".)`,
+        persistedImages
+          .map(
+            (img, i) =>
+              `Image #${i + 1}:\n` +
+              `  filePath: ${img.filePath ?? '(not registered)'}\n` +
+              `  localUrl: ${img.localUrl ?? '(not registered)'}\n` +
+              `  (Use filePath for follow-up tools like image_analysis)`
+          )
+          .join('\n') +
+        `\n(You can reference these images in follow-up requests, e.g. "change the style to watercolor" or "make it larger".)`,
       metadata: {
         images: images.map((img) => ({
           alt: img.alt,

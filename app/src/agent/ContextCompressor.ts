@@ -35,7 +35,7 @@ export const DEFAULT_COMPRESSION_CONFIG: ContextCompressionConfig = {
   triggerRatio: 0.8,
   reserveRatio: 0.5,
   compressionPrompt:
-    '请总结以上对话的核心内容。必须保留：(1)用户个人信息（姓名、背景、经历、偏好）；(2)关键决策与用户需求；(3)工具调用结果。去除冗余细节：',
+    '请总结以上对话的核心内容。必须保留：(1)用户个人信息（姓名、背景、经历、偏好）；(2)关键决策与用户需求；(3)当前任务进展状态与最新决策（最重要，模型将继续执行任务，必须知道做到哪了）；(4)工具调用结果。去除冗余细节和已完成的中间步骤：',
   maxTokens: 128000,
   preserveSystemMessages: true,
   preserveRecentToolResults: true,
@@ -163,7 +163,12 @@ export class ContextCompressor {
    * @returns 最近的消息
    */
   takeRecent(messages: CompressibleMessage[]): CompressibleMessage[] {
-    const recent = messages.slice(-this.config.recentMessageCount);
+    // 按比例动态计算保留数：总消息数的 30%，下限 6，上限 100
+    const dynamicCount = Math.max(
+      6,
+      Math.min(100, Math.floor(messages.length * 0.3))
+    );
+    const recent = messages.slice(-dynamicCount);
 
     if (this.config.preserveRecentToolResults) {
       // 收集 recent 中所有 tool 消息的 tool_call_id（从 metadata 中提取实际 API ID）

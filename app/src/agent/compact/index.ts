@@ -24,6 +24,8 @@
  * Agent级上下文压缩
  */
 
+import { extractKeyPaths, appendKeyPathsToTruncated } from './utils';
+
 export interface CompactionStrategy {
   name: string;
   priority: number;
@@ -214,7 +216,15 @@ export class CompactionManager {
 
         const summaryContent = removed
           .filter((m) => m.role !== 'system')
-          .map((m) => `[${m.role}]: ${m.content.slice(0, 100)}`)
+          .map((m) => {
+            const base = `[${m.role}]: ${m.content.slice(0, 100)}`;
+            // 提取并保留关键路径信息
+            const keyPaths = extractKeyPaths(m.content);
+            if (keyPaths.length > 0) {
+              return `${base}\n  路径: ${keyPaths.join(', ')}`;
+            }
+            return base;
+          })
           .join('\n');
 
         const summaryMsg: CompactionMessage = {
@@ -242,12 +252,16 @@ export class CompactionManager {
       compress: async (ctx: CompactionContext): Promise<CompactionResult> => {
         const messages = ctx.messages.map((m) => {
           if (m.role === 'tool' && m.content.length > 500) {
+            const maxSnippetLen = 200;
+            const truncated = appendKeyPathsToTruncated(
+              m.content.slice(0, maxSnippetLen),
+              m.content,
+              maxSnippetLen
+            );
             return {
               ...m,
-              content:
-                m.content.slice(0, 200) +
-                `\n... [truncated ${m.content.length - 200} chars]`,
-              tokenCount: Math.ceil(250 / 4),
+              content: truncated,
+              tokenCount: Math.ceil(truncated.length / 4),
             };
           }
           return m;

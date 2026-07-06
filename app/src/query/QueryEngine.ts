@@ -23,6 +23,7 @@ interface IChatManagerForQuery {
   ): Promise<Message>;
   executeTool(toolCall: ToolCall): Promise<ToolResult>;
   getSessions(): ChatSession[];
+  saveSession(session: ChatSession): Promise<void>;
 }
 import type {
   PostSamplingHookContext,
@@ -69,6 +70,7 @@ import {
   type StopHookReason,
 } from './StopHooks.js';
 import { ToolCallPartitioner } from '../tools/orchestration/Partitioner.js';
+import { ToolCallTracker } from '../utils/ToolCallTracker.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { QueryLogStore, getQueryLogStore } from './QueryLogStore.js';
 
@@ -368,6 +370,11 @@ export class QueryEngine {
   private queryLogStore: QueryLogStore | null = null;
 
   /**
+   * 工具调用跟踪器 — 按"工具名+参数"粒度检测重复失败，触发熔断
+   */
+  private toolCallTracker: ToolCallTracker = new ToolCallTracker();
+
+  /**
    * 构造函数
    * @param chatManager 聊天管理器
    * @param config 查询引擎配置
@@ -638,6 +645,7 @@ export class QueryEngine {
     await this.checkAndPerformCompact(sessionId || '');
 
     // 主循环
+    let isFirstCall = true;
     while (iteration < maxIterations) {
       iteration++;
 
@@ -654,8 +662,9 @@ export class QueryEngine {
       // 触发API开始进度事件
       this.emitProgress('api_start', { iteration, session_id: sessionId });
 
-      // 调用API获取响应
-      const response = await this.callAPI(prompt, sessionId || '');
+      // 调用API获取响应（非首次调用会加"继续执行"前缀）
+      const response = await this.callAPI(prompt, sessionId || '', isFirstCall);
+      isFirstCall = false;
 
       // 记录 Token 使用并检查预算
       if (response.usage) {
@@ -800,11 +809,13 @@ export class QueryEngine {
    * 调用API
    * @param prompt 提示词
    * @param sessionId 会话ID
+   * @param isFirstCall 是否为首次调用（非首次会在 prompt 前加"继续执行"前缀）
    * @returns 响应
    */
   private async callAPI(
     prompt: string,
-    sessionId: string
+    sessionId: string,
+    isFirstCall: boolean = true
   ): Promise<{
     message: Message;
     toolCalls?: ToolCall[];
@@ -816,6 +827,9 @@ export class QueryEngine {
     };
   }> {
     const apiStartTime = Date.now();
+
+    // 非首次调用时添加继续执行前缀，避免模型误解为"重新开始"
+    const messageContent = isFirstCall ? prompt : `[继续执行] ${prompt}`;
 
     // 使用重试机制包装API调用
     const apiCall = async (): Promise<{
@@ -829,7 +843,7 @@ export class QueryEngine {
       };
     }> => {
       // 使用ChatManager发送消息，实现完整的聊天循环
-      const message = await this.chatManager.sendMessage(prompt, {
+      const message = await this.chatManager.sendMessage(messageContent, {
         sessionId,
       });
 
@@ -1037,6 +1051,24 @@ export class QueryEngine {
       });
 
       try {
+        // 熔断检查：同一工具+参数连续失败超过阈值时跳过执行
+        const circuit = this.toolCallTracker.shouldCircuitBreak(
+          block.name,
+          block.input
+        );
+        if (circuit.break) {
+          const breakResult: ToolResult = {
+            toolCallId: block.id,
+            toolName: block.name,
+            result: `[熔断] ${circuit.reason}`,
+          };
+          this.emitProgress('tool_end', {
+            tool_name: block.name,
+            session_id: sessionId,
+          });
+          return breakResult;
+        }
+
         const result = await this.chatManager.executeTool(toolCall);
 
         if (this.sessionState) {
@@ -1060,6 +1092,9 @@ export class QueryEngine {
         });
 
         this.logToolCall(sessionId, block.name, 0, 0, toolDuration, true);
+
+        // 记录成功调用到跟踪器
+        this.toolCallTracker.record(block.name, block.input, true);
 
         return result;
       } catch (error) {
@@ -1100,6 +1135,14 @@ export class QueryEngine {
           0,
           0,
           toolDuration,
+          false,
+          queryError.message
+        );
+
+        // 记录失败调用到跟踪器
+        this.toolCallTracker.record(
+          block.name,
+          block.input,
           false,
           queryError.message
         );
@@ -1210,32 +1253,35 @@ export class QueryEngine {
         this.updateSessionState({ queryState: QueryState.COMPACTING });
 
         // 根据压缩级别执行不同的压缩策略
-        let artifacts: unknown[];
+        let compactResult: { artifacts: unknown[]; messagesToKeep: string[] };
         if (compactLevel === 3) {
           // Level 3: 深度压缩 - 保留最近1轮对话
-          artifacts = await this.performDeepCompact(sessionId, messages);
+          compactResult = await this.performDeepCompact(sessionId, messages);
         } else if (compactLevel === 2) {
           // Level 2: 中等压缩 - 保留最近2轮对话
-          artifacts = await this.performMediumCompact(sessionId, messages);
+          compactResult = await this.performMediumCompact(sessionId, messages);
         } else {
           // Level 1: 轻度压缩 - 保留最近3轮对话
-          artifacts = await this.performLightCompact(sessionId, messages);
+          compactResult = await this.performLightCompact(sessionId, messages);
         }
 
-        logger.info(`压缩完成，生成了 ${artifacts.length} 个压缩产物`);
+        logger.info(`压缩完成，生成了 ${compactResult.artifacts.length} 个压缩产物`);
 
         // 重新注入压缩产物
         await this.compactService.reinjectArtifacts(
           sessionId,
-          artifacts as CompactArtifact[]
+          compactResult.artifacts as CompactArtifact[]
         );
+
+        // 裁剪 session.messages — 用 messagesToKeep 落地压缩结果
+        this.applyCompactTrim(session, compactResult.messagesToKeep);
 
         // 记录压缩事件
         this.analyticsService.logEvent('compaction_performed', {
           session_id: sessionId,
           level: compactLevel,
           token_percent_used: percentUsed,
-          artifacts_count: artifacts.length,
+          artifacts_count: compactResult.artifacts.length,
           timestamp: Date.now(),
         });
 
@@ -1272,15 +1318,38 @@ export class QueryEngine {
   }
 
   /**
+   * 将压缩结果落地到 session.messages — 裁剪旧消息，仅保留 messagesToKeep 中的消息
+   * @param session 会话对象（引用，原地修改）
+   * @param messagesToKeep 需保留的消息 ID 列表
+   */
+  private applyCompactTrim(session: ChatSession, messagesToKeep: string[]): void {
+    const keepIds = new Set(messagesToKeep);
+    const originalCount = session.messages.length;
+    session.messages = session.messages.filter(
+      (m) => m.id && keepIds.has(m.id)
+    );
+
+    logger.info(
+      `压缩裁剪: ${originalCount} → ${session.messages.length} 条消息`,
+      { sessionId: session.id }
+    );
+
+    // 持久化裁剪后的消息列表
+    this.chatManager.saveSession(session).catch((err) => {
+      logger.error('压缩裁剪持久化失败', { error: err });
+    });
+  }
+
+  /**
    * 轻度压缩 - 保留最近3轮对话
    * @param sessionId 会话ID
    * @param messages 消息列表
-   * @returns 压缩产物
+   * @returns 压缩产物和需保留的消息ID列表
    */
   private async performLightCompact(
     sessionId: string,
     messages: unknown[]
-  ): Promise<unknown[]> {
+  ): Promise<{ artifacts: unknown[]; messagesToKeep: string[] }> {
     const result = await this.compactService.compactConversation(
       messages as SessionMessage[],
       {
@@ -1288,7 +1357,8 @@ export class QueryEngine {
         suppressFollowUpQuestions: true,
       }
     );
-    return result.summaryMessages.map((msg: string) => ({
+
+    const artifacts = result.summaryMessages.map((msg: string) => ({
       id: `compact_light_${Date.now()}`,
       sessionId,
       type: 'summary',
@@ -1296,25 +1366,28 @@ export class QueryEngine {
       createdAt: new Date(),
       updatedAt: new Date(),
     }));
+
+    return { artifacts, messagesToKeep: result.messagesToKeep ?? [] };
   }
 
   /**
    * 中等压缩 - 保留最近2轮对话
    * @param sessionId 会话ID
    * @param messages 消息列表
-   * @returns 压缩产物
+   * @returns 压缩产物和需保留的消息ID列表
    */
   private async performMediumCompact(
     sessionId: string,
     messages: unknown[]
-  ): Promise<unknown[]> {
+  ): Promise<{ artifacts: unknown[]; messagesToKeep: string[] }> {
     const pivotIndex = Math.max(0, messages.length - 6);
     const result = await this.compactService.partialCompactConversation(
       messages as SessionMessage[],
       pivotIndex,
       'up_to'
     );
-    return result.summaryMessages.map((msg: string) => ({
+
+    const artifacts = result.summaryMessages.map((msg: string) => ({
       id: `compact_medium_${Date.now()}`,
       sessionId,
       type: 'summary',
@@ -1322,18 +1395,20 @@ export class QueryEngine {
       createdAt: new Date(),
       updatedAt: new Date(),
     }));
+
+    return { artifacts, messagesToKeep: result.messagesToKeep ?? [] };
   }
 
   /**
    * 深度压缩 - 保留最近1轮对话
    * @param sessionId 会话ID
    * @param messages 消息列表
-   * @returns 压缩产物
+   * @returns 压缩产物和需保留的消息ID列表
    */
   private async performDeepCompact(
     sessionId: string,
     messages: unknown[]
-  ): Promise<unknown[]> {
+  ): Promise<{ artifacts: unknown[]; messagesToKeep: string[] }> {
     const pivotIndex = Math.max(0, messages.length - 3);
     const result = await this.compactService.partialCompactConversation(
       messages as SessionMessage[],
@@ -1356,7 +1431,7 @@ export class QueryEngine {
       updatedAt: new Date(),
     };
 
-    return [summaryArtifact, ...keyArtifacts];
+    return { artifacts: [summaryArtifact, ...keyArtifacts], messagesToKeep: result.messagesToKeep ?? [] };
   }
 
   /**

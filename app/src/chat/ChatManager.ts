@@ -145,7 +145,6 @@ import {
   handleError,
 } from '@modules/error';
 import { roughTokenCountForMessages } from '../services/tokenManagement/TokenCounter.js';
-import { ContextCompressor } from '@modules/agent/ContextCompressor';
 
 import { TaskStatus } from '@modules/tasks/types';
 
@@ -347,11 +346,6 @@ export class ChatManagerImpl implements ChatManager {
   private compactService: CompactServiceImpl;
 
   /**
-   * AI 上下文压缩器（智能摘要压缩，超限时优先使用）
-   */
-  private _contextCompressor: ContextCompressor;
-
-  /**
    * 令牌追踪器
    */
   private tokenTracker: SessionTokenTracker | null = null;
@@ -381,7 +375,6 @@ export class ChatManagerImpl implements ChatManager {
     this.streamService = createStreamService();
     this.sessionGateway = createSessionGateway();
     this.compactService = new CompactServiceImpl();
-    this._contextCompressor = new ContextCompressor();
     this.hookChainManager = HookChainManager.getInstance();
     this._checkpointService = getCheckpointService();
   }
@@ -1044,76 +1037,10 @@ export class ChatManagerImpl implements ChatManager {
     );
     if (estimatedTokens <= SAFE_LIMIT) return;
 
+    // 由 QueryEngine.checkAndPerformCompact() 在主循环中提前压缩，
+    // 此处仅在极端超限时做兜底截断
     logger.warn(
-      `上下文超限: 估算 ${estimatedTokens} tokens (上限 ${SAFE_LIMIT})，尝试 AI 摘要压缩`
-    );
-
-    // ── 优先尝试 AI 摘要压缩 ──
-    const compressibleMessages = apiMessages.map((msg, idx) => ({
-      role: msg.role as 'system' | 'user' | 'assistant' | 'tool',
-      content:
-        typeof msg.content === 'string'
-          ? msg.content
-          : JSON.stringify(msg.content),
-      tokenCount: roughTokenCountForMessages([
-        msg as { content?: string | unknown; role?: string },
-      ]),
-      timestamp: Date.now() + idx,
-      id: `msg_${idx}_${Date.now()}`,
-      // 保留原始 metadata，确保 tool_call_id / toolCallId 不丢失
-      metadata: { ...(msg as Record<string, unknown>) },
-    }));
-    try {
-      // 通知前端：开始压缩
-      eventNotificationService.emitCustomEvent('agent:context:compressing', {
-        status: 'start',
-        sessionId,
-      });
-
-      const compressResult =
-        await this._contextCompressor.compress(compressibleMessages);
-      if (
-        compressResult.compressionRatio < 0.9 &&
-        compressResult.messages.length > 0
-      ) {
-        // AI 压缩有效：将压缩结果转回 apiMessages 格式
-        apiMessages.length = 0;
-        for (const cm of compressResult.messages) {
-          const entry: Record<string, unknown> = {
-            role: cm.role,
-            content: cm.content,
-          };
-          if (cm.metadata?.tool_calls)
-            entry.tool_calls = cm.metadata.tool_calls;
-          if (cm.metadata?.tool_call_id)
-            entry.tool_call_id = cm.metadata.tool_call_id;
-          else if (cm.metadata?.toolCallId)
-            entry.tool_call_id = cm.metadata.toolCallId;
-          apiMessages.push(entry);
-        }
-        logger.warn(
-          `AI 摘要压缩完成: ${compressResult.originalTokenCount} → ${compressResult.compressedTokenCount} tokens (ratio=${compressResult.compressionRatio.toFixed(2)})`
-        );
-
-        // 通知前端：压缩完成
-        eventNotificationService.emitCustomEvent('agent:context:compressed', {
-          status: 'completed',
-          sessionId,
-          originalTokens: compressResult.originalTokenCount,
-          compressedTokens: compressResult.compressedTokenCount,
-        });
-
-        // 压缩后重新 sanitize，修复可能被破坏的 tool/tool_calls 配对
-        this._sanitizeApiMessages(apiMessages);
-        return;
-      }
-    } catch (err) {
-      logger.warn('AI 摘要压缩失败，退化为截断模式', { error: String(err) });
-    }
-
-    // ── AI 压缩失败/不足，退化为截断删除 ──
-    logger.warn(
-      `退化为截断模式: 估算 ${estimatedTokens} tokens (上限 ${SAFE_LIMIT})，将截断旧消息`
+      `上下文超限(兜底截断): 估算 ${estimatedTokens} tokens (上限 ${SAFE_LIMIT})，将截断旧消息`
     );
 
     // 保护系统消息和最近的 N 条消息，移除中间的旧消息

@@ -24,6 +24,9 @@ fn main() {
     let binaries_node_modules = "binaries/node_modules";
     if std::path::Path::new(binaries_node_modules).exists() {
         println!("cargo:rerun-if-changed={}", binaries_node_modules);
+    } else {
+        // 目录不存在时创建它，确保 tauri.conf.json resources glob 不失败
+        let _ = std::fs::create_dir_all(binaries_node_modules);
     }
 
     #[cfg(windows)]

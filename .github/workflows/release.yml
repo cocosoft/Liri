@@ -245,6 +245,7 @@ jobs:
 
       - name: Build sidecar (${{ matrix.config.name }})
         working-directory: ${{ github.workspace }}/app
+        shell: bash
         run: |
           bun install --frozen-lockfile
           bun build --target=bun --packages=external src/main.ts --outdir=dist

@@ -73,7 +73,12 @@ export class ToolCallTracker {
    * @param success 是否成功
    * @param error 失败时的错误信息
    */
-  record(toolName: string, params: unknown, success: boolean, error?: string): void {
+  record(
+    toolName: string,
+    params: unknown,
+    success: boolean,
+    error?: string
+  ): void {
     const key = this.hashKey(toolName, params);
 
     if (!this.records.has(key)) {
@@ -161,7 +166,7 @@ function simpleHash(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash |= 0;
   }
   return Math.abs(hash).toString(36);

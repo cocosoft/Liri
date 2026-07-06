@@ -130,16 +130,14 @@ export class SlidingWindow {
 
     const summaryLines: string[] = [];
     for (const msg of trimmedSection) {
-      const rawContent =
-        typeof msg.content === 'string'
-          ? msg.content
-          : '';
+      const rawContent = typeof msg.content === 'string' ? msg.content : '';
       const content = rawContent.slice(0, 100) || '[非文本内容]';
       // 提取并保留关键路径信息
       const keyPaths = extractKeyPaths(rawContent);
-      const line = keyPaths.length > 0
-        ? `[${msg.role}]: ${content} (路径: ${keyPaths.join(', ')})`
-        : `[${msg.role}]: ${content}`;
+      const line =
+        keyPaths.length > 0
+          ? `[${msg.role}]: ${content} (路径: ${keyPaths.join(', ')})`
+          : `[${msg.role}]: ${content}`;
       summaryLines.push(line);
     }
 

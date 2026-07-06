@@ -1265,7 +1265,9 @@ export class QueryEngine {
           compactResult = await this.performLightCompact(sessionId, messages);
         }
 
-        logger.info(`压缩完成，生成了 ${compactResult.artifacts.length} 个压缩产物`);
+        logger.info(
+          `压缩完成，生成了 ${compactResult.artifacts.length} 个压缩产物`
+        );
 
         // 重新注入压缩产物
         await this.compactService.reinjectArtifacts(
@@ -1322,7 +1324,10 @@ export class QueryEngine {
    * @param session 会话对象（引用，原地修改）
    * @param messagesToKeep 需保留的消息 ID 列表
    */
-  private applyCompactTrim(session: ChatSession, messagesToKeep: string[]): void {
+  private applyCompactTrim(
+    session: ChatSession,
+    messagesToKeep: string[]
+  ): void {
     const keepIds = new Set(messagesToKeep);
     const originalCount = session.messages.length;
     session.messages = session.messages.filter(
@@ -1431,7 +1436,10 @@ export class QueryEngine {
       updatedAt: new Date(),
     };
 
-    return { artifacts: [summaryArtifact, ...keyArtifacts], messagesToKeep: result.messagesToKeep ?? [] };
+    return {
+      artifacts: [summaryArtifact, ...keyArtifacts],
+      messagesToKeep: result.messagesToKeep ?? [],
+    };
   }
 
   /**

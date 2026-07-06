@@ -55,8 +55,7 @@ export function extractKeyPaths(content: string): string[] {
   }
 
   // 匹配形如 /v1/images/static/media/xxx 的静态资源路径
-  const staticPathPattern =
-    /(\/v1\/[a-zA-Z]+\/static\/[^\s"',;}\]\)]+)/g;
+  const staticPathPattern = /(\/v1\/[a-zA-Z]+\/static\/[^\s"',;}\]\)]+)/g;
   while ((match = staticPathPattern.exec(content)) !== null) {
     paths.push(match[1]);
   }

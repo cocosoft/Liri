@@ -30,7 +30,11 @@ export async function registerGeneratedMedia(
   prompt: string,
   mediaType: MediaType,
   format: string
-): Promise<{ fileId: string; savedPath: string; savedFullPath: string } | null> {
+): Promise<{
+  fileId: string;
+  savedPath: string;
+  savedFullPath: string;
+} | null> {
   try {
     // Step 1: 下载远程文件
     const response = await fetch(url);

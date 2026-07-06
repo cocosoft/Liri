@@ -446,6 +446,7 @@ export class ChatManagerImpl implements ChatManager {
       if (Array.isArray(images)) {
         for (const img of images) {
           if (img.filePath) paths.push(img.filePath);
+          if (img.localUrl) paths.push(img.localUrl);
         }
       }
     }

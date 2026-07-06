@@ -250,6 +250,20 @@ jobs:
           bun install --frozen-lockfile
           bun build --target=bun --packages=external src/main.ts --outdir=dist
           bun run ${{ matrix.config.sidecar-build }}
+
+          # Normalize sidecar artifact name to liri_coding for downstream copy steps
+          cd ../dist || { echo "ERROR: ../dist not found"; ls -la .. || true; exit 1; }
+          SIDEFILE=$(ls | grep -E '^liri_coding' | head -n1 || true)
+          if [ -z "$SIDEFILE" ]; then
+            echo "ERROR: no liri_coding* file found in dist:"
+            ls -la
+            exit 1
+          fi
+          if [ "$SIDEFILE" != "liri_coding${{ matrix.config.sidecar-ext }}" ]; then
+            mv "$SIDEFILE" "liri_coding${{ matrix.config.sidecar-ext }}"
+          fi
+          cd ../app
+
           if [ ! -d node_modules ]; then
             echo "ERROR: node_modules not found after sidecar build!"
             exit 1
@@ -266,7 +280,13 @@ jobs:
       - name: Copy sidecar to Tauri binaries dir
         run: |
           New-Item -ItemType Directory -Force -Path src-tauri/binaries
-          Copy-Item ../dist/liri_coding${{ matrix.config.sidecar-ext }} "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
+          $side = Get-ChildItem -Path ../dist -Filter "liri_coding*" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $side) {
+            Write-Error "ERROR: sidecar binary not found in ../dist"
+            Get-ChildItem ../dist -Force -ErrorAction SilentlyContinue
+            exit 1
+          }
+          Copy-Item $side.FullName "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}" -Force
           New-Item -ItemType Directory -Force -Path src-tauri/binaries/node_modules
           if (Test-Path ../dist/node_modules) {
             Get-ChildItem -Path ../dist/node_modules -Force | Copy-Item -Destination src-tauri/binaries/node_modules -Recurse -Force
@@ -279,7 +299,13 @@ jobs:
       - name: Copy sidecar to Tauri binaries dir (Unix)
         run: |
           mkdir -p src-tauri/binaries
-          cp ../dist/liri_coding "src-tauri/binaries/liri_coding-${{ matrix.config.target }}"
+          SIDEFILE=$(ls ../dist | grep -E '^liri_coding' | head -n1 || true)
+          if [ -z "$SIDEFILE" ]; then
+            echo "ERROR: sidecar binary not found in ../dist"
+            ls -la ../dist || true
+            exit 1
+          fi
+          cp "../dist/${SIDEFILE}" "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
           mkdir -p src-tauri/binaries/node_modules
           if [ -d ../dist/node_modules ]; then
             cp -a ../dist/node_modules/. src-tauri/binaries/node_modules/

@@ -257,8 +257,8 @@ jobs:
 
       - name: Verify sidecar artifact
         run: |
-          echo "=== ../app/dist ==="
-          ls -la ../app/dist || true
+          echo "=== ../dist ==="
+          ls -la ../dist || true
           echo "=== ../app/node_modules ==="
           ls -la ../app/node_modules || true
         shell: bash
@@ -266,9 +266,11 @@ jobs:
       - name: Copy sidecar to Tauri binaries dir
         run: |
           New-Item -ItemType Directory -Force -Path src-tauri/binaries
-          Copy-Item ../app/dist/liri_coding${{ matrix.config.sidecar-ext }} "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
+          Copy-Item ../dist/liri_coding${{ matrix.config.sidecar-ext }} "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
           New-Item -ItemType Directory -Force -Path src-tauri/binaries/node_modules
-          if (Test-Path ../app/node_modules) {
+          if (Test-Path ../dist/node_modules) {
+            Get-ChildItem -Path ../dist/node_modules -Force | Copy-Item -Destination src-tauri/binaries/node_modules -Recurse -Force
+          } elseif (Test-Path ../app/node_modules) {
             Get-ChildItem -Path ../app/node_modules -Force | Copy-Item -Destination src-tauri/binaries/node_modules -Recurse -Force
           }
         shell: powershell
@@ -277,9 +279,11 @@ jobs:
       - name: Copy sidecar to Tauri binaries dir (Unix)
         run: |
           mkdir -p src-tauri/binaries
-          cp ../app/dist/liri_coding "src-tauri/binaries/liri_coding-${{ matrix.config.target }}"
+          cp ../dist/liri_coding "src-tauri/binaries/liri_coding-${{ matrix.config.target }}"
           mkdir -p src-tauri/binaries/node_modules
-          if [ -d ../app/node_modules ]; then
+          if [ -d ../dist/node_modules ]; then
+            cp -a ../dist/node_modules/. src-tauri/binaries/node_modules/
+          elif [ -d ../app/node_modules ]; then
             cp -a ../app/node_modules/. src-tauri/binaries/node_modules/
           fi
         shell: bash

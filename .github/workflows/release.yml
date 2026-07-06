@@ -251,6 +251,12 @@ jobs:
           bun build --target=bun --packages=external src/main.ts --outdir=dist
           bun run ${{ matrix.config.sidecar-build }}
 
+          # Debug: show what the sidecar build produced
+          echo "=== Contents of ../dist after sidecar build ==="
+          ls -lah ../dist/ || true
+          echo "=== Contents of dist/ (JS build) ==="
+          ls -lah dist/ || true
+
           # Normalize sidecar artifact name to liri_coding for downstream copy steps
           cd ../dist || { echo "ERROR: ../dist not found"; ls -la .. || true; exit 1; }
           SIDEFILE=$(ls | grep -E '^liri_coding' | head -n1 || true)

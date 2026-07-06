@@ -20,6 +20,12 @@
 // SOFTWARE.
 
 fn main() {
+    // 仅在 binaries/node_modules 存在时通知 Cargo 重编译，避免 glob 匹配失败
+    let binaries_node_modules = "binaries/node_modules";
+    if std::path::Path::new(binaries_node_modules).exists() {
+        println!("cargo:rerun-if-changed={}", binaries_node_modules);
+    }
+
     #[cfg(windows)]
     {
         std::thread::Builder::new()

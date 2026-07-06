@@ -257,8 +257,8 @@ jobs:
 
       - name: Verify sidecar artifact
         run: |
-          echo "=== ../dist ==="
-          ls -la ../dist || true
+          echo "=== ../app/dist ==="
+          ls -la ../app/dist || true
           echo "=== ../app/node_modules ==="
           ls -la ../app/node_modules || true
         shell: bash
@@ -266,7 +266,7 @@ jobs:
       - name: Copy sidecar to Tauri binaries dir
         run: |
           New-Item -ItemType Directory -Force -Path src-tauri/binaries
-          Copy-Item ../dist/liri_coding${{ matrix.config.sidecar-ext }} "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
+          Copy-Item ../app/dist/liri_coding${{ matrix.config.sidecar-ext }} "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
           New-Item -ItemType Directory -Force -Path src-tauri/binaries/node_modules
           if (Test-Path ../app/node_modules) {
             Get-ChildItem -Path ../app/node_modules -Force | Copy-Item -Destination src-tauri/binaries/node_modules -Recurse -Force
@@ -277,7 +277,7 @@ jobs:
       - name: Copy sidecar to Tauri binaries dir (Unix)
         run: |
           mkdir -p src-tauri/binaries
-          cp ../dist/liri_coding "src-tauri/binaries/liri_coding-${{ matrix.config.target }}"
+          cp ../app/dist/liri_coding "src-tauri/binaries/liri_coding-${{ matrix.config.target }}"
           mkdir -p src-tauri/binaries/node_modules
           if [ -d ../app/node_modules ]; then
             cp -a ../app/node_modules/. src-tauri/binaries/node_modules/

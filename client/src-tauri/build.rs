@@ -20,17 +20,23 @@
 // SOFTWARE.
 
 fn main() {
-    // Ensure binaries/node_modules directory exists with a placeholder file,
-    // so the glob pattern "binaries/node_modules/**" in tauri.conf.json
-    // resources always matches at least one file during build.
+    // Ensure binaries and binaries/node_modules directories exist with
+    // visible placeholder files so the glob "binaries/**" in tauri.conf.json
+    // always matches at least one file during build.
+    let binaries_dir = "binaries";
     let binaries_node_modules = "binaries/node_modules";
+
     let _ = std::fs::create_dir_all(binaries_node_modules);
 
-    // Use a visible filename (not dot-prefixed) to avoid glob filtering
-    let placeholder = format!("{}/_placeholder.txt", binaries_node_modules);
-    let _ = std::fs::write(&placeholder, "Placeholder for build");
+    // Placeholder directly under binaries/ (not hidden in node_modules)
+    let root_placeholder = format!("{}/_placeholder.txt", binaries_dir);
+    let _ = std::fs::write(&root_placeholder, "Placeholder for Tauri build");
 
-    println!("cargo:rerun-if-changed={}", binaries_node_modules);
+    // Also keep placeholder inside node_modules
+    let nm_placeholder = format!("{}/_placeholder.txt", binaries_node_modules);
+    let _ = std::fs::write(&nm_placeholder, "Placeholder for binaries/node_modules");
+
+    println!("cargo:rerun-if-changed={}", binaries_dir);
 
     #[cfg(windows)]
     {

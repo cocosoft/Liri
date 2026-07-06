@@ -69,15 +69,17 @@ export default function ImageToolResult({ toolCall }: Props) {
     return <LoadingSkeleton />;
   }
 
-  const result = toolCall.result as { success: boolean; data?: unknown; error?: string };
+  const resultObj = toolCall.result as Record<string, unknown>;
 
-  // 2. failed
-  if (!result.success) {
-    return <ErrorBanner error={result.error || t("image.unknownError")} />;
+  // 2. failed — check for explicit error field
+  if (resultObj.error && typeof resultObj.error === "string") {
+    return <ErrorBanner error={resultObj.error} />;
   }
 
+  // Handle both direct ({ images, usage }) and wrapped ({ success, data }) structures
+  const data = (resultObj.data as Record<string, unknown>) ?? resultObj;
+
   // 3. empty
-  const data = result.data;
   if (!data || isEmpty(data)) {
     return <EmptyResult message={t("image.noImagesGenerated")} />;
   }

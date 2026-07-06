@@ -20,21 +20,26 @@
 // SOFTWARE.
 
 fn main() {
-    // Ensure binaries and binaries/node_modules directories exist with
-    // visible placeholder files so the glob "binaries/**" in tauri.conf.json
-    // always matches at least one file during build.
     let binaries_dir = "binaries";
     let binaries_node_modules = "binaries/node_modules";
 
     let _ = std::fs::create_dir_all(binaries_node_modules);
 
-    // Placeholder directly under binaries/ (not hidden in node_modules)
+    // Create placeholder to satisfy resources glob "binaries/**"
     let root_placeholder = format!("{}/_placeholder.txt", binaries_dir);
     let _ = std::fs::write(&root_placeholder, "Placeholder for Tauri build");
-
-    // Also keep placeholder inside node_modules
     let nm_placeholder = format!("{}/_placeholder.txt", binaries_node_modules);
     let _ = std::fs::write(&nm_placeholder, "Placeholder for binaries/node_modules");
+
+    // Create sidecar placeholder with the exact name Tauri expects from
+    // externalBin resolution (appends target triple + platform extension).
+    // This prevents "glob pattern binaries/** path not found" during build.
+    let target = std::env::var("TARGET").unwrap_or_default();
+    let ext = if cfg!(windows) { ".exe" } else { "" };
+    let sidecar_name = format!("binaries/liri_coding-{}{}", target, ext);
+    if !std::path::Path::new(&sidecar_name).exists() {
+        let _ = std::fs::write(&sidecar_name, "");
+    }
 
     println!("cargo:rerun-if-changed={}", binaries_dir);
 

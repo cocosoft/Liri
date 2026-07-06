@@ -280,6 +280,24 @@ jobs:
         run: cargo clean
         working-directory: client/src-tauri
 
+      - name: Recreate binaries directory
+        run: |
+          mkdir -p src-tauri/binaries/node_modules
+          if [ -d ../app/node_modules ]; then
+            cp -a ../app/node_modules/. src-tauri/binaries/node_modules/
+          fi
+        shell: bash
+        if: matrix.config.os != 'windows-latest'
+
+      - name: Recreate binaries directory (Windows)
+        run: |
+          New-Item -ItemType Directory -Force -Path src-tauri/binaries/node_modules
+          if (Test-Path ../app/node_modules) {
+            Get-ChildItem -Path ../app/node_modules -Force | Copy-Item -Destination src-tauri/binaries/node_modules -Recurse -Force
+          }
+        shell: powershell
+        if: matrix.config.os == 'windows-latest'
+
       - name: Build Tauri app
         run: bun run tauri build --bundles ${{ matrix.config.bundles }}
 

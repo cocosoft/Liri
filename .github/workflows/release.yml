@@ -357,8 +357,8 @@ jobs:
             Get-ChildItem ../dist -Force -ErrorAction SilentlyContinue
             exit 1
           }
-          Write-Host "Copying sidecar: $($side.Name) -> src-tauri/binaries/liri_coding${{ matrix.config.sidecar-ext }}"
-          Copy-Item $side.FullName "src-tauri/binaries/liri_coding${{ matrix.config.sidecar-ext }}" -Force
+          Write-Host "Copying sidecar: $($side.Name) -> src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
+          Copy-Item $side.FullName "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}" -Force
 
           # 只复制运行时必需的 2 个原生模块（sharp + pdfjs-dist），不复制全部 480+ 包
           New-Item -ItemType Directory -Force -Path src-tauri/binaries/node_modules
@@ -392,8 +392,8 @@ jobs:
             ls -la ../dist || true
             exit 1
           fi
-          echo "Copying sidecar from ../dist/${SIDEFILE} -> src-tauri/binaries/liri_coding${{ matrix.config.sidecar-ext }}"
-          cp "../dist/${SIDEFILE}" "src-tauri/binaries/liri_coding${{ matrix.config.sidecar-ext }}"
+          echo "Copying sidecar from ../dist/${SIDEFILE} -> src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
+          cp "../dist/${SIDEFILE}" "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
 
           # 只复制运行时必需的 2 个原生模块（sharp + pdfjs-dist），不复制全部 480+ 包
           mkdir -p src-tauri/binaries/node_modules

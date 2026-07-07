@@ -224,6 +224,12 @@ jobs:
             ~/.cargo/git
           key: ${{ runner.os }}-tauri-${{ hashFiles('client/src-tauri/Cargo.lock') }}
 
+      - name: Download JS dist bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-bundle
+          path: app/dist
+
       - name: Install system dependencies (Linux)
         if: matrix.config.os == 'ubuntu-latest'
         run: |
@@ -249,11 +255,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "=== [1/4] Installing app dependencies ==="
-          bun install --frozen-lockfile
-
-          echo "=== [2/4] Bundling JS ==="
-          bun build --target=bun --packages=external src/main.ts --outdir=dist
+          echo "=== [0] Check for downloaded dist bundle ==="
+          if [ -d dist ] && [ "$(ls -A dist 2>/dev/null || true)" ]; then
+            echo "Using downloaded JS bundle in dist/"
+          else
+            echo "No downloaded dist found; building JS bundle locally"
+            bun install --frozen-lockfile
+            bun build --target=bun --packages=external src/main.ts --outdir=dist
+          fi
 
           echo "=== [3/4] Building sidecar binary ==="
           echo "Running: bun run ${{ matrix.config.sidecar-build }}"
@@ -261,6 +270,8 @@ jobs:
             echo "ERROR: Sidecar build command '${{ matrix.config.sidecar-build }}' failed"
             echo "=== Checking ../dist contents ==="
             ls -lah ../dist/ 2>/dev/null || echo "../dist/ does not exist"
+            echo "=== Checking app/dist contents ==="
+            ls -lah dist/ 2>/dev/null || true
             exit 1
           fi
 
@@ -300,12 +311,15 @@ jobs:
       - name: Copy sidecar to Tauri binaries dir
         run: |
           New-Item -ItemType Directory -Force -Path src-tauri/binaries
-          $side = Get-ChildItem -Path ../dist -Filter "liri_coding*" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+          # 灵活匹配多种可能的输出名：liri_coding*, py_app*, py_app-*
+          $side = Get-ChildItem -Path ../dist -Include "liri_coding*","py_app*","py_app-*" -File -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $side) {
             Write-Error "ERROR: sidecar binary not found in ../dist"
+            Write-Host "=== ../dist contents for debugging ==="
             Get-ChildItem ../dist -Force -ErrorAction SilentlyContinue
             exit 1
           }
+          Write-Host "Copying sidecar: $($side.Name) -> src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
           Copy-Item $side.FullName "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}" -Force
 
           # 只复制运行时必需的 2 个原生模块（sharp + pdfjs-dist），不复制全部 480+ 包
@@ -332,12 +346,15 @@ jobs:
       - name: Copy sidecar to Tauri binaries dir (Unix)
         run: |
           mkdir -p src-tauri/binaries
-          SIDEFILE=$(ls ../dist | grep -E '^liri_coding' | head -n1 || true)
+          # 灵活匹配多种可能的输出名（优先：liri_coding*，回退：py_app*）
+          SIDEFILE=$(ls ../dist | grep -E '^liri_coding|^py_app' | head -n1 || true)
           if [ -z "$SIDEFILE" ]; then
             echo "ERROR: sidecar binary not found in ../dist"
+            echo "Listing ../dist for debugging:"
             ls -la ../dist || true
             exit 1
           fi
+          echo "Copying sidecar from ../dist/${SIDEFILE} -> src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
           cp "../dist/${SIDEFILE}" "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
 
           # 只复制运行时必需的 2 个原生模块（sharp + pdfjs-dist），不复制全部 480+ 包

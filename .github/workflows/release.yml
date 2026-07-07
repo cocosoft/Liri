@@ -243,7 +243,22 @@ jobs:
             libayatana-appindicator3-dev
 
       - name: Install client dependencies
-        run: bun install --frozen-lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt..."
+            bun install --frozen-lockfile && break || {
+              if [ $attempt -lt 3 ]; then
+                echo "Install failed, clearing cache and retrying..."
+                bun pm cache rm
+                sleep 5
+              else
+                echo "Final attempt failed"
+                exit 1
+              fi
+            }
+          done
 
       - name: Clean Cargo cache
         run: cargo clean
@@ -255,8 +270,20 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "=== [0] Installing dependencies ==="
-          bun install --frozen-lockfile
+          echo "=== [0] Installing dependencies with retry ==="
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt..."
+            bun install --frozen-lockfile && break || {
+              if [ $attempt -lt 3 ]; then
+                echo "Install failed, clearing cache and retrying..."
+                bun pm cache rm
+                sleep 5
+              else
+                echo "Final attempt failed"
+                exit 1
+              fi
+            }
+          done
 
           echo "=== [1] Check for downloaded dist bundle ==="
           if [ -d dist ] && [ "$(ls -A dist 2>/dev/null || true)" ]; then

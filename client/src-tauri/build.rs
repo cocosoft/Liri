@@ -49,7 +49,7 @@ fn main() {
     let sidecar_name = format!("{}/liri_coding-{}{}", binaries_dir, target, ext);
 
     if !std::path::Path::new(&sidecar_name).exists() {
-        if let Err(e) = std::fs::write(&sidecar_name, "") {
+        if let Err(e) = std::fs::write(&sidecar_name, "placeholder") {
             println!("cargo:warning=Failed to create sidecar placeholder '{}': {}", sidecar_name, e);
         } else {
             println!("cargo:warning=Created sidecar placeholder: {}", sidecar_name);

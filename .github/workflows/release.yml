@@ -268,7 +268,7 @@ jobs:
 
           echo "=== [2] Building sidecar binary ==="
           echo "Running: bun run ${{ matrix.config.sidecar-build }}"
-          if ! bun run ${{ matrix.config.sidecar-build }}; then
+          if ! bun run ${{ matrix.config.sidecar-build }} 2>&1; then
             echo "ERROR: Sidecar build command '${{ matrix.config.sidecar-build }}' failed"
             echo "=== Checking ../dist contents ==="
             ls -lah ../dist/ 2>/dev/null || echo "../dist/ does not exist"

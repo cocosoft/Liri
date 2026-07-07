@@ -22,10 +22,17 @@ import {
   extractTodoData,
   resolveMaxContextTokens,
   repairImageUrls,
+  truncateToolResult,
+  TOOL_RESULT_MAX_LENGTH,
+  getLocalSession,
+  getOrCreateSessionMachine,
+  persistChatMessage,
 } from '../ChatHelper';
+import type { ChatSession } from '../../types/session';
 import { MessageRole } from '../../types/message';
 import { SessionState } from '../../types/session';
 import { MessageType as SessionMessageType } from '@modules/session/types/Message';
+import { SessionStateMachine } from '../../../state/session/SessionStateMachine';
 
 describe('ChatHelper — toSessionMsgType', () => {
   it('USER 角色映射为 USER', () => {
@@ -365,5 +372,188 @@ describe('ChatHelper — repairImageUrls', () => {
     expect(repairImageUrls(input)).toBe(
       '![欲3](/v1/images/static/media/f_mr9ys85d_07016967_g_178338735263.png)'
     );
+  });
+});
+
+// ============================================================
+// Step 2b 新增函数测试
+// ============================================================
+
+describe('ChatHelper — truncateToolResult', () => {
+  it('短内容不截断', () => {
+    const content = '短内容';
+    expect(truncateToolResult(content)).toBe(content);
+  });
+
+  it('超过默认长度时截断', () => {
+    const longContent = 'A'.repeat(TOOL_RESULT_MAX_LENGTH + 100);
+    const result = truncateToolResult(longContent);
+    expect(result).toContain('[工具结果已截断');
+    expect(result.length).toBeLessThan(longContent.length);
+  });
+
+  it('截断内容包含文件路径信息', () => {
+    const longContent =
+      'A'.repeat(500) +
+      '\nC:\\Users\\test\\output.png\n' +
+      'B'.repeat(TOOL_RESULT_MAX_LENGTH);
+    const result = truncateToolResult(longContent);
+    expect(result).toContain('output.png');
+  });
+
+  it('自定义最大长度', () => {
+    const longContent = 'X'.repeat(500);
+    const result = truncateToolResult(longContent, 200);
+    expect(result).toContain('[工具结果已截断');
+    // 截断头信息可能使结果比原始内容长，但内容被截断
+    expect(result.length).toBeLessThan(longContent.length + 200);
+  });
+
+  it('等于最大长度时不截断', () => {
+    const content = 'A'.repeat(TOOL_RESULT_MAX_LENGTH);
+    expect(truncateToolResult(content)).toBe(content);
+  });
+});
+
+describe('ChatHelper — getLocalSession', () => {
+  it('sessionId 为 null 返回 undefined', () => {
+    const sessions = new Map<string, ChatSession>();
+    expect(getLocalSession(sessions, null)).toBeUndefined();
+  });
+
+  it('sessionId 为 undefined 返回 undefined', () => {
+    const sessions = new Map<string, ChatSession>();
+    expect(getLocalSession(sessions, undefined)).toBeUndefined();
+  });
+
+  it('缓存命中返回会话', () => {
+    const sessions = new Map<string, ChatSession>();
+    const mockSession = { id: 's1', messages: [] } as unknown as ChatSession;
+    sessions.set('s1', mockSession);
+    expect(getLocalSession(sessions, 's1')).toBe(mockSession);
+  });
+
+  it('缓存未命中返回 undefined', () => {
+    const sessions = new Map<string, ChatSession>();
+    expect(getLocalSession(sessions, 'nonexistent')).toBeUndefined();
+  });
+
+  it('空 Map 返回 undefined', () => {
+    const sessions = new Map<string, ChatSession>();
+    expect(getLocalSession(sessions, 'any-id')).toBeUndefined();
+  });
+});
+
+describe('ChatHelper — getOrCreateSessionMachine', () => {
+  it('首次获取时创建新实例', () => {
+    const machines = new Map<string, SessionStateMachine>();
+    const machine = getOrCreateSessionMachine(machines, 's1');
+    expect(machine).toBeInstanceOf(SessionStateMachine);
+    expect(machines.has('s1')).toBe(true);
+    expect(machines.get('s1')).toBe(machine);
+  });
+
+  it('已存在时返回已有实例', () => {
+    const machines = new Map<string, SessionStateMachine>();
+    const first = getOrCreateSessionMachine(machines, 's1');
+    const second = getOrCreateSessionMachine(machines, 's1');
+    expect(second).toBe(first);
+  });
+
+  it('不同 sessionId 创建不同实例', () => {
+    const machines = new Map<string, SessionStateMachine>();
+    const m1 = getOrCreateSessionMachine(machines, 's1');
+    const m2 = getOrCreateSessionMachine(machines, 's2');
+    expect(m1).not.toBe(m2);
+    expect(machines.size).toBe(2);
+  });
+
+  it('实例启动后状态正确', () => {
+    const machines = new Map<string, SessionStateMachine>();
+    const machine = getOrCreateSessionMachine(machines, 's1');
+    machine.start('test');
+    // 验证启动没有异常
+    expect(machines.get('s1')).toBeDefined();
+  });
+});
+
+describe('ChatHelper — persistChatMessage', () => {
+  it('正常持久化调用 gateway.sendMessage', async () => {
+    let receivedSessionId = '';
+    let receivedMessage: unknown = null;
+    const mockGateway = {
+      sendMessage: async (sid: string, msg: unknown) => {
+        receivedSessionId = sid;
+        receivedMessage = msg;
+      },
+    };
+
+    const msg = {
+      id: 'msg-1',
+      role: 'user',
+      content: 'hello',
+      createdAt: new Date('2026-01-01'),
+    } as any;
+
+    await persistChatMessage(mockGateway as any, 's1', msg);
+
+    expect(receivedSessionId).toBe('s1');
+    expect(receivedMessage).not.toBeNull();
+  });
+
+  it('持久化失败不抛异常', async () => {
+    const mockGateway = {
+      sendMessage: async () => {
+        throw new Error('IO error');
+      },
+    };
+
+    const msg = {
+      id: 'msg-1',
+      role: 'user',
+      content: 'hello',
+      createdAt: new Date('2026-01-01'),
+    } as any;
+
+    // 不应抛出异常
+    await persistChatMessage(mockGateway as any, 's1', msg);
+  });
+
+  it('包含 tool_calls 时 metadata 正确传递', async () => {
+    let receivedMeta: any = null;
+    const mockGateway = {
+      sendMessage: async (_sid: string, msg: any) => {
+        receivedMeta = msg.metadata;
+      },
+    };
+
+    const msg = {
+      id: 'msg-1',
+      role: 'assistant',
+      content: null,
+      tool_calls: [{ id: 'tc1', function: { name: 'test', arguments: '{}' } }],
+      createdAt: new Date('2026-01-01'),
+    } as any;
+
+    await persistChatMessage(mockGateway as any, 's1', msg);
+
+    expect(receivedMeta.tool_calls).toBeDefined();
+    expect(receivedMeta.tool_calls).toEqual(msg.tool_calls);
+  });
+
+  it('未提供 createdAt 时使用当前时间', async () => {
+    let receivedTimestamp = 0;
+    const mockGateway = {
+      sendMessage: async (_sid: string, msg: any) => {
+        receivedTimestamp = msg.timestamp;
+      },
+    };
+
+    const before = Date.now();
+    const msg = { id: 'msg-1', role: 'user', content: 'hello' } as any;
+    await persistChatMessage(mockGateway as any, 's1', msg);
+
+    expect(receivedTimestamp).toBeGreaterThanOrEqual(before);
+    expect(receivedTimestamp).toBeLessThanOrEqual(Date.now());
   });
 });

@@ -21,7 +21,11 @@
 //
 import { createChatService } from './services/chatService';
 export { createChatService };
-export type { ChatService } from '../chat/models/types';
+export type { ChatService } from './models/types';
+
+// ChatManager 核心导出
+export { createChatManager } from './ChatManager';
+export type { ChatManager } from './ChatManagerInterface';
 export { ChatSession } from './sessions/chatSession';
 export { ChatHistory } from './history/chatHistory';
 export type { ChatMessage, ChatSessionOptions } from './models/types';

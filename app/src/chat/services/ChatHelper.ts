@@ -5,13 +5,28 @@
  * 聊天辅助工具类
  * 从 ChatManager 拆分出的纯函数和轻量依赖方法，不依赖 ChatManager 的 this 上下文
  */
+import { Logger, LogLevel } from '@modules/monitoring';
 import type { Message } from '../types/message.js';
 import { MessageRole } from '../types/message.js';
 import { SessionState } from '../types/session.js';
+import type { ChatSession } from '../types/session.js';
 import type { ToolResult } from '../types/tool.js';
 import type { TodoBlockData } from '@modules/runtime/api/todo-types.js';
 import { MessageType as SessionMessageType } from '@modules/session/types/Message';
+import { MessageRole as SessionMessageRole } from '@modules/session/types/Message';
+import type {
+  UnifiedMessage,
+  FrontendMessageBlock,
+  MessageMetadata,
+} from '@modules/session/types/Message';
+import type { SessionGateway } from '@modules/session/SessionGateway';
+import { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 import { getAIModelManager } from '@modules/ai';
+
+const logger = new Logger({ module: 'chat:helper', level: LogLevel.INFO });
+
+/** 工具结果默认最大字符数 */
+export const TOOL_RESULT_MAX_LENGTH = 2000;
 
 /**
  * 将 Message 角色映射为 SessionMessageType
@@ -130,4 +145,115 @@ export function resolveMaxContextTokens(model?: string): number {
     }
   }
   return 128_000;
+}
+
+/**
+ * 截断工具结果，保留前后关键信息
+ * 策略：前 500 字符（上下文） + 后 1500 字符（file_path 等关键信息）
+ * 并在截断提示中列出工具结果中包含的文件路径，避免路径幻觉
+ */
+export function truncateToolResult(
+  content: string,
+  maxLen: number = TOOL_RESULT_MAX_LENGTH
+): string {
+  const sizeKB = Math.round(content.length / 1024);
+  if (content.length <= maxLen) return content;
+
+  const headLen = 500;
+  const tailLen = maxLen - headLen;
+  const omitted = content.length - headLen - tailLen;
+
+  // 从原始内容中提取文件路径（优先保留，减少路径幻觉）
+  const filePathRegex =
+    /[a-zA-Z]:\\(?:[^\\\n\r]+\\)*[^\\\n\r]*\.[a-zA-Z0-9]+|\/(?:[^/\n\r]+\/)*[^/\n\r]*\.[a-zA-Z0-9]+/g;
+  const matchedPaths = content.match(filePathRegex);
+  const uniquePaths = matchedPaths
+    ? [...new Set(matchedPaths)].slice(0, 5).join('\n  ')
+    : '';
+
+  const header = uniquePaths
+    ? `[工具结果已截断，原始大小 ${sizeKB}KB，保留首尾关键信息]\n涉及的路径:\n  ${uniquePaths}\n`
+    : `[工具结果已截断，原始大小 ${sizeKB}KB，保留首尾关键信息]\n`;
+
+  return (
+    header +
+    content.slice(0, headLen) +
+    `\n\n... [中间省略 ${omitted} 字符] ...\n\n` +
+    content.slice(content.length - tailLen)
+  );
+}
+
+/**
+ * 从会话缓存中获取会话
+ * @param sessions 会话缓存 Map
+ * @param sessionId 会话 ID
+ */
+export function getLocalSession(
+  sessions: Map<string, ChatSession>,
+  sessionId: string | null | undefined
+): ChatSession | undefined {
+  if (!sessionId) return undefined;
+  const session = sessions.get(sessionId);
+  if (!session) {
+    logger.warn('缓存未命中', { sessionId });
+  }
+  return session;
+}
+
+/**
+ * 获取或创建会话状态机
+ * @param machines 状态机缓存 Map
+ * @param sessionId 会话 ID
+ */
+export function getOrCreateSessionMachine(
+  machines: Map<string, SessionStateMachine>,
+  sessionId: string
+): SessionStateMachine {
+  let machine = machines.get(sessionId);
+  if (!machine) {
+    machine = new SessionStateMachine(sessionId);
+    machines.set(sessionId, machine);
+  }
+  return machine;
+}
+
+/**
+ * 将 chat Message 转换为 UnifiedMessage 并持久化到 SessionGateway
+ * @param gateway 会话持久化网关
+ * @param sessionId 会话 ID
+ * @param message 聊天消息
+ */
+export async function persistChatMessage(
+  gateway: SessionGateway,
+  sessionId: string,
+  message: Message
+): Promise<void> {
+  const toolCalls =
+    message.tool_calls ||
+    (message.metadata?.tool_calls as
+      | Array<Record<string, unknown>>
+      | undefined);
+  const metadataObj: MessageMetadata = {
+    ...(message.metadata as MessageMetadata | undefined),
+    ...(message.toolCallId ? { toolCallId: message.toolCallId } : {}),
+    ...(toolCalls ? { tool_calls: toolCalls } : {}),
+  };
+  const unifiedMessage: UnifiedMessage = {
+    id: message.id,
+    sessionId,
+    type: toSessionMsgType(message),
+    role: message.role as unknown as SessionMessageRole,
+    content:
+      typeof message.content === 'string'
+        ? message.content
+        : JSON.stringify(message.content),
+    timestamp: message.createdAt?.getTime() ?? Date.now(),
+    metadata: metadataObj,
+    blocks: message.blocks as unknown as FrontendMessageBlock[] | undefined,
+  };
+  try {
+    await gateway.sendMessage(sessionId, unifiedMessage);
+  } catch {
+    // 持久化失败不应影响主消息流，已由 Proxy 的 .catch 记录日志
+  }
 }

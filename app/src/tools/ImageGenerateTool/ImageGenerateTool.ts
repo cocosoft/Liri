@@ -26,6 +26,7 @@ import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile
 import { ImageGenerationRouter } from './ImageGenerationRouter';
 import type { CostRecord } from './types';
 import { RegistryImageProvider } from './providers/RegistryImageProvider';
+import { ImageUrlHelper } from '../ImageUrlHelper';
 import {
   resolveModelRoute,
   RouteKey,
@@ -495,7 +496,7 @@ export class ImageGenerateTool extends BaseTool {
             ...img,
             fileId: result?.fileId,
             localUrl: result?.savedPath
-              ? `/v1/images/static/media/${result.savedPath}`
+              ? ImageUrlHelper.toDisplayUrl(result.savedPath)
               : undefined,
             filePath: result?.savedFullPath,
           };
@@ -529,12 +530,10 @@ export class ImageGenerateTool extends BaseTool {
         `Size: ${params.size ?? '1024x1024'} | Style: ${params.style ?? 'vivid'} | Quality: ${params.quality ?? 'standard'}\n` +
         `Cost: $${totalCostUsd.toFixed(4)}\n` +
         persistedImages
-          .map(
-            (img, i) =>
-              `Image #${i + 1}:\n` +
-              `  filePath: ${img.filePath ?? '(not registered)'}\n` +
-              `  localUrl: ${img.localUrl ?? '(not registered)'}\n` +
-              `  (Use filePath for follow-up tools like image_analysis)`
+          .map((img, i) =>
+            img.localUrl
+              ? `Image #${i + 1}: ![Image #${i + 1}](${img.localUrl})`
+              : `Image #${i + 1}: (display URL not available)`
           )
           .join('\n') +
         `\n(You can reference these images in follow-up requests, e.g. "change the style to watercolor" or "make it larger".)`,
@@ -652,7 +651,7 @@ export class ImageGenerateTool extends BaseTool {
             ...img,
             fileId: result?.fileId,
             localUrl: result?.savedPath
-              ? `/v1/images/static/media/${result.savedPath}`
+              ? ImageUrlHelper.toDisplayUrl(result.savedPath)
               : undefined,
             filePath: result?.savedFullPath,
           };
@@ -681,12 +680,10 @@ export class ImageGenerateTool extends BaseTool {
         `Prompt: "${params.prompt}"\n` +
         `Size: ${params.size ?? '1024x1024'} | Style: ${params.style ?? 'vivid'} | Quality: ${params.quality ?? 'standard'}\n` +
         persistedImages
-          .map(
-            (img, i) =>
-              `Image #${i + 1}:\n` +
-              `  filePath: ${img.filePath ?? '(not registered)'}\n` +
-              `  localUrl: ${img.localUrl ?? '(not registered)'}\n` +
-              `  (Use filePath for follow-up tools like image_analysis)`
+          .map((img, i) =>
+            img.localUrl
+              ? `Image #${i + 1}: ![Image #${i + 1}](${img.localUrl})`
+              : `Image #${i + 1}: (display URL not available)`
           )
           .join('\n') +
         `\n(You can reference these images in follow-up requests, e.g. "change the style to watercolor" or "make it larger".)`,

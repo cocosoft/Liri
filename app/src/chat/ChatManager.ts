@@ -26,6 +26,15 @@ import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { repairModelJson } from '@modules/utils/json';
 import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator';
+import { ImageContextService } from './services/ImageContextService';
+import {
+  toSessionMsgType,
+  sanitizePass,
+  mapSessionStatusToState,
+  extractTodoData,
+  resolveMaxContextTokens,
+  repairImageUrls,
+} from './services/ChatHelper';
 
 const logger = new Logger({ module: 'chat:manager', level: LogLevel.INFO });
 
@@ -70,7 +79,6 @@ import type {
   StreamMessageOptions,
   ChatResponse,
 } from './types/message.js';
-import { MessageRole } from './types/message.js';
 import type { ChatSession, CreateSessionParams } from './types/session.js';
 import { SessionState } from './types/session.js';
 import type { ToolCall, ToolResult, ToolIntegration } from './types/tool.js';
@@ -99,7 +107,6 @@ import {
 } from '@modules/utils/sanitization.js';
 import { toolResultRegistry } from '../tool/ToolResultRegistry.js';
 import { ToolAwareClient } from '@modules/ai';
-import { getAIModelManager } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
 import { trackUsage } from '@modules/ai';
 import type { IToolExecutor } from '@modules/ai';
@@ -110,7 +117,6 @@ import type {
   ChatStreamChunk,
   QuestionData,
 } from '@modules/runtime/api/CoreAPI.js';
-import type { TodoBlockData } from '@modules/runtime/api/todo-types.js';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
 import type { SessionContext } from '@modules/memory/types/SessionContext';
@@ -135,7 +141,6 @@ import type {
   FrontendMessageBlock,
   MessageMetadata,
 } from '@modules/session/types/Message';
-import { MessageType as SessionMessageType } from '@modules/session/types/Message';
 import { MessageRole as SessionMessageRole } from '@modules/session/types/Message';
 import { resolveProjectRoot } from '@modules/core';
 import {
@@ -322,23 +327,10 @@ export class ChatManagerImpl implements ChatManager {
   private rollbackIntegrations: Map<string, RollbackIntegration> = new Map();
 
   /**
-   * 会话级已知图片路径集合（用于执行工具前校验 inputPath）
-   * key: sessionId, value: 已知的图片文件绝对路径集合
+   * 会话级图片上下文管理服务
+   * 负责图片路径注册、路径匹配、图像上下文跟踪
    */
-  private _sessionImagePaths: Map<string, Set<string>> = new Map();
-
-  /**
-   * 会话级图像上下文（用于跨轮对话中 AI 引用图片）
-   * key: sessionId, value: 最近图像操作记录
-   */
-  private _sessionImageContext: Map<
-    string,
-    {
-      lastGeneratedImage?: { filePath: string; prompt: string };
-      lastEditedImage?: { filePath: string; action: string };
-      lastAnalyzedImage?: { filePath: string; action: string };
-    }
-  > = new Map();
+  private imageContextService = new ImageContextService();
 
   /**
    * 压缩服务
@@ -377,179 +369,6 @@ export class ChatManagerImpl implements ChatManager {
     this.compactService = new CompactServiceImpl();
     this.hookChainManager = HookChainManager.getInstance();
     this._checkpointService = getCheckpointService();
-  }
-
-  /**
-   * 注册会话的已知图片路径（工具调用前校验用）
-   */
-  private _registerImagePaths(sessionId: string, paths: string[]): void {
-    if (!sessionId || paths.length === 0) return;
-    let imagePaths = this._sessionImagePaths.get(sessionId);
-    if (!imagePaths) {
-      imagePaths = new Set<string>();
-      this._sessionImagePaths.set(sessionId, imagePaths);
-    }
-    for (const p of paths) {
-      if (p) imagePaths.add(p);
-    }
-  }
-
-  /**
-   * 获取会话的已知图片路径集合
-   */
-  private _getKnownImagePaths(sessionId: string): string[] {
-    const paths = this._sessionImagePaths.get(sessionId);
-    return paths ? Array.from(paths) : [];
-  }
-
-  /**
-   * 在已知路径集合中查找最接近的路径
-   * 使用文件名匹配：如果 AI 编造的路径中文件名与已知路径中的文件名一致，则返回已知路径
-   */
-  private _findClosestPath(
-    inputPath: string,
-    knownPaths: string[]
-  ): string | null {
-    if (knownPaths.length === 0) return null;
-
-    const inputBasename = path.basename(inputPath);
-    for (const known of knownPaths) {
-      if (path.basename(known) === inputBasename) {
-        return known;
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * 从工具执行结果中提取图片文件路径
-   * 支持 image_generate (images[].filePath)、image (outputPath)、image_analysis (无输出)
-   */
-  private _extractImagePathsFromResult(
-    toolName: string,
-    result: Record<string, unknown>
-  ): string[] {
-    const paths: string[] = [];
-
-    if (toolName === 'image_generate') {
-      const images = result.images as
-        | Array<{ filePath?: string; localUrl?: string }>
-        | undefined;
-      if (Array.isArray(images)) {
-        for (const img of images) {
-          if (img.filePath) paths.push(img.filePath);
-          if (img.localUrl) paths.push(img.localUrl);
-        }
-      }
-    }
-
-    if (toolName === 'image') {
-      const outputPath = result.outputPath as string | undefined;
-      if (outputPath) paths.push(outputPath);
-    }
-
-    if (toolName === 'image_svg_generate') {
-      const savePath = result.savePath as string | undefined;
-      if (savePath) paths.push(savePath);
-    }
-
-    if (toolName === 'canvas') {
-      const outputPath = result.outputPath as string | undefined;
-      if (outputPath) paths.push(outputPath);
-    }
-
-    return paths;
-  }
-
-  /**
-   * 更新会话级图像上下文
-   */
-  private _updateImageContext(
-    sessionId: string,
-    toolName: string,
-    args: Record<string, unknown>,
-    result: Record<string, unknown>
-  ): void {
-    let ctx = this._sessionImageContext.get(sessionId);
-    if (!ctx) {
-      ctx = {};
-      this._sessionImageContext.set(sessionId, ctx);
-    }
-
-    if (toolName === 'image_generate') {
-      const images = result.images as Array<{ filePath?: string }> | undefined;
-      if (Array.isArray(images) && images.length > 0 && images[0].filePath) {
-        ctx.lastGeneratedImage = {
-          filePath: images[0].filePath,
-          prompt: (args.prompt as string) || '',
-        };
-      }
-    }
-
-    if (toolName === 'image') {
-      const outputPath = result.outputPath as string | undefined;
-      if (outputPath) {
-        ctx.lastEditedImage = {
-          filePath: outputPath,
-          action: (args.action as string) || '',
-        };
-      }
-    }
-
-    if (toolName === 'image_analysis') {
-      const inputPath = args.inputPath as string | undefined;
-      if (inputPath) {
-        ctx.lastAnalyzedImage = {
-          filePath: inputPath,
-          action: (args.action as string) || '',
-        };
-      }
-    }
-
-    if (toolName === 'canvas') {
-      const outputPath = result.outputPath as string | undefined;
-      if (outputPath) {
-        ctx.lastEditedImage = {
-          filePath: outputPath,
-          action: (args.action as string) || 'export',
-        };
-      }
-    }
-  }
-
-  /**
-   * 构建图像上下文提示词（注入到系统提示词中）
-   */
-  private _buildImageContextPrompt(sessionId: string): string {
-    const ctx = this._sessionImageContext.get(sessionId);
-    if (!ctx) return '';
-
-    const parts: string[] = [];
-
-    if (ctx.lastGeneratedImage) {
-      parts.push(
-        `- 最近生成的图片: ${ctx.lastGeneratedImage.filePath} (提示词: ${ctx.lastGeneratedImage.prompt.slice(0, 100)})`
-      );
-    }
-    if (ctx.lastEditedImage) {
-      parts.push(
-        `- 最近编辑的图片: ${ctx.lastEditedImage.filePath} (操作: ${ctx.lastEditedImage.action})`
-      );
-    }
-    if (ctx.lastAnalyzedImage) {
-      parts.push(
-        `- 最近分析的图片: ${ctx.lastAnalyzedImage.filePath} (操作: ${ctx.lastAnalyzedImage.action})`
-      );
-    }
-
-    if (parts.length === 0) return '';
-
-    return (
-      `\n## 当前会话图像上下文\n以下是本会话中最近操作的图片，用户可能用"这张图""刚才那张图"等指代：\n` +
-      parts.join('\n') +
-      `\n调用图像工具时，请使用上述真实路径作为 inputPath，不要编造路径。\n`
-    );
   }
 
   /**
@@ -635,7 +454,7 @@ export class ChatManagerImpl implements ChatManager {
     const unifiedMessage: UnifiedMessage = {
       id: message.id,
       sessionId,
-      type: this.toSessionMsgType(message),
+      type: toSessionMsgType(message),
       role: message.role as unknown as SessionMessageRole,
       content:
         typeof message.content === 'string'
@@ -676,7 +495,7 @@ export class ChatManagerImpl implements ChatManager {
     const unifiedMessage: UnifiedMessage = {
       id: message.id,
       sessionId,
-      type: this.toSessionMsgType(message),
+      type: toSessionMsgType(message),
       role: message.role as unknown as SessionMessageRole,
       content:
         typeof message.content === 'string'
@@ -691,15 +510,6 @@ export class ChatManagerImpl implements ChatManager {
     } catch {
       // 持久化失败不应影响主消息流，已由 Proxy 的 .catch 记录日志
     }
-  }
-
-  private toSessionMsgType(message: Message): SessionMessageType {
-    if (message.role === MessageRole.USER) return SessionMessageType.USER;
-    if (message.role === MessageRole.ASSISTANT)
-      return SessionMessageType.ASSISTANT;
-    if (message.role === MessageRole.TOOL)
-      return SessionMessageType.TOOL_RESULT;
-    return SessionMessageType.SYSTEM;
   }
 
   /**
@@ -739,7 +549,9 @@ export class ChatManagerImpl implements ChatManager {
 
     // 注入当前会话目标，防止上下文截断后 LLM 丢失当前任务
     const currentGoal = this._extractCurrentGoal(session, currentMessage);
-    const imageContext = this._buildImageContextPrompt(session.id);
+    const imageContext = this.imageContextService.buildImageContextPrompt(
+      session.id
+    );
     const basePrompt = currentGoal
       ? prompt +
         `\n\n## 当前会话目标\n你正在协助用户完成以下任务。对话中可能包含较早的无关话题，请以当前目标为准：\n\n${currentGoal}` +
@@ -881,7 +693,7 @@ export class ChatManagerImpl implements ChatManager {
           const chatSession: ChatSession = {
             id: stored.id,
             title: stored.title,
-            state: this._mapSessionStatusToState(stored.status),
+            state: mapSessionStatusToState(stored.status),
             metadata: {
               title: stored.title || '',
               ...stored.metadata,
@@ -935,7 +747,7 @@ export class ChatManagerImpl implements ChatManager {
    */
   private _sanitizeApiMessages(apiMessages: Record<string, unknown>[]): void {
     // 第一轮清理：移除 tool 响应不完整的 assistant
-    this._sanitizePass(apiMessages);
+    sanitizePass(apiMessages);
 
     // 末尾孤立 tool 消息（没有 preceding assistant 含 tool_calls）
     while (
@@ -968,49 +780,7 @@ export class ChatManagerImpl implements ChatManager {
 
     // 第二轮清理：末尾 pop 和中间清理可能移除了有效 assistant 的 tool 消息，
     // 导致 assistant 变为孤立，需要再次清理
-    this._sanitizePass(apiMessages);
-  }
-
-  /**
-   * 单轮清理：从后往前遍历，移除 tool_calls 未得到完整响应的 assistant 消息
-   * 及其紧随的 tool 消息
-   */
-  private _sanitizePass(apiMessages: Record<string, unknown>[]): void {
-    for (let i = apiMessages.length - 1; i >= 0; i--) {
-      const msg = apiMessages[i];
-
-      if (
-        msg.role === 'assistant' &&
-        Array.isArray(msg.tool_calls) &&
-        (msg.tool_calls as Array<{ id?: string }>).length > 0
-      ) {
-        // 收集此 assistant 的所有 tool_call_id
-        const pendingIds = new Set<string>();
-        for (const tc of msg.tool_calls as Array<{ id?: string }>) {
-          if (tc.id) pendingIds.add(tc.id);
-        }
-
-        if (pendingIds.size === 0) continue;
-
-        // 检查紧随其后的 tool 消息是否响应了所有 tool_call_id
-        let j = i + 1;
-        while (j < apiMessages.length && apiMessages[j]?.role === 'tool') {
-          const toolMsg = apiMessages[j];
-          if (toolMsg.tool_call_id) {
-            pendingIds.delete(toolMsg.tool_call_id as string);
-          }
-          j++;
-        }
-
-        if (pendingIds.size > 0) {
-          // 有未响应的 tool_call_id：删除此 assistant 及紧随其后的 tool 消息
-          apiMessages.splice(i, 1);
-          while (i < apiMessages.length && apiMessages[i]?.role === 'tool') {
-            apiMessages.splice(i, 1);
-          }
-        }
-      }
-    }
+    sanitizePass(apiMessages);
   }
 
   /**
@@ -1210,39 +980,6 @@ export class ChatManagerImpl implements ChatManager {
       sessionId: session.id,
       summaryLength: decisionPoints.length,
     });
-  }
-
-  /**
-   * 根据模型名称动态获取上下文窗口大小，如无法获取则返回保守默认值
-   */
-  private _resolveMaxContextTokens(model?: string): number {
-    if (model) {
-      try {
-        const ctx = getAIModelManager().getContextWindow(model);
-        if (ctx > 0) return ctx;
-      } catch {
-        // 模型未注册等情况，使用默认值
-      }
-    }
-    return 128_000; // 保守默认值
-  }
-
-  private _mapSessionStatusToState(status: string): SessionState {
-    switch (status) {
-      case 'active':
-      case 'running':
-        return SessionState.ACTIVE;
-      case 'paused':
-        return SessionState.PAUSED;
-      case 'ended':
-      case 'completed':
-      case 'aborted':
-        return SessionState.ENDED;
-      case 'archived':
-        return SessionState.ARCHIVED;
-      default:
-        return SessionState.ACTIVE;
-    }
   }
 
   /**
@@ -1485,7 +1222,7 @@ export class ChatManagerImpl implements ChatManager {
       }
 
       // 注册图片路径到会话已知路径集合
-      this._registerImagePaths(
+      this.imageContextService.registerImagePaths(
         options.sessionId || '',
         options.images.map((img) => img.path)
       );
@@ -1592,7 +1329,7 @@ export class ChatManagerImpl implements ChatManager {
     // ─────────────────────────────────────────────────────────
     // 上下文长度保护：超限则尝试 AI 压缩，失败则截断旧消息
     // ─────────────────────────────────────────────────────────
-    const maxCtx = this._resolveMaxContextTokens(options?.model);
+    const maxCtx = resolveMaxContextTokens(options?.model);
     await this._truncateApiMessages(apiMessages, maxCtx, session.id);
 
     // 通知进度：开始 LLM 分析
@@ -1645,10 +1382,13 @@ export class ChatManagerImpl implements ChatManager {
       });
     }
 
-    const assistantMessageContent =
+    const rawContent =
       typeof response.content === 'string'
         ? response.content
         : JSON.stringify(response.content);
+
+    // 修复 AI 可能拼错的图片 URL，统一为 /v1/images/static/media/ 格式
+    const assistantMessageContent = repairImageUrls(rawContent);
 
     const assistantMsg = this.messageService.createAssistantMessage(
       assistantMessageContent,
@@ -2283,7 +2023,7 @@ export class ChatManagerImpl implements ChatManager {
     const toolDefinitions = this.buildToolDefinitions(session.id);
 
     // 上下文长度保护：超限则尝试 AI 压缩，失败则截断旧消息
-    const maxCtx = this._resolveMaxContextTokens(options?.model);
+    const maxCtx = resolveMaxContextTokens(options?.model);
     await this._truncateApiMessages(apiMessages, maxCtx, session.id);
 
     // 通知进度：开始 LLM 分析
@@ -2915,7 +2655,7 @@ export class ChatManagerImpl implements ChatManager {
       }
 
       // 注册图片路径到会话已知路径集合
-      this._registerImagePaths(
+      this.imageContextService.registerImagePaths(
         options.sessionId || '',
         options.images.map((img) => img.path)
       );
@@ -2997,7 +2737,7 @@ export class ChatManagerImpl implements ChatManager {
     const activeClient = this.getClientForModel(options?.model);
 
     // 上下文长度保护：超限则尝试 AI 压缩，失败则截断旧消息
-    const maxCtx = this._resolveMaxContextTokens(options?.model);
+    const maxCtx = resolveMaxContextTokens(options?.model);
     await this._truncateApiMessages(apiMessages, maxCtx, session.id);
 
     const gen = activeClient.streamMessage(
@@ -3016,8 +2756,6 @@ export class ChatManagerImpl implements ChatManager {
       const chunk = result.value as string | ThinkingProviderChunk;
       if (typeof chunk === 'string') {
         accumulatedContent += chunk;
-        options?.onStream?.(chunk);
-        yield chunk;
       } else if (chunk?.type === 'thinking') {
         const thinkingChunk: ChatStreamChunk = {
           type: 'thinking',
@@ -3029,6 +2767,11 @@ export class ChatManagerImpl implements ChatManager {
       result = await gen.next();
     }
     finalResponse = result.value as unknown as ChatResponse;
+
+    // 攒够完整响应后统一修复图片 URL，再一次性发出，避免 AI 拼错 URL
+    const repairedContent = repairImageUrls(accumulatedContent);
+    options?.onStream?.(repairedContent);
+    yield repairedContent;
 
     this.recordChatResponseUsage(session.id, finalResponse?.usage);
 
@@ -3071,9 +2814,9 @@ export class ChatManagerImpl implements ChatManager {
       });
     }
 
-    // 创建助手消息
+    // 创建助手消息（使用上方已修复过 URL 的 repairedContent）
     assistantMessage = this.messageService.createAssistantMessage(
-      accumulatedContent,
+      repairedContent,
       {
         sessionId: session.id,
       }
@@ -3354,7 +3097,7 @@ export class ChatManagerImpl implements ChatManager {
           // ---- 结束工具完成通知 ----
 
           // ---- 检测 todo 数据并 yield todo chunk ----
-          const todoData = this._extractTodoData(toolResult);
+          const todoData = extractTodoData(toolResult);
           if (todoData) {
             const todoChunk: ChatStreamChunk = {
               type: 'todo',
@@ -3414,8 +3157,6 @@ export class ChatManagerImpl implements ChatManager {
 
           if (typeof chunk === 'string') {
             toolResultAccumulatedContent += chunk;
-            options?.onStream?.(chunk);
-            yield chunk;
           } else if (chunk?.type === 'thinking') {
             const thinkingChunk: ChatStreamChunk = {
               type: 'thinking',
@@ -3429,6 +3170,13 @@ export class ChatManagerImpl implements ChatManager {
         }
         const toolResultResponse =
           toolResultIter.value as unknown as ChatResponse;
+
+        // 攒够完整工具响应后统一修复图片 URL，再一次性发出
+        const repairedToolContent = repairImageUrls(
+          toolResultAccumulatedContent
+        );
+        options?.onStream?.(repairedToolContent);
+        yield repairedToolContent;
 
         this.recordChatResponseUsage(session.id, toolResultResponse?.usage);
 
@@ -3474,12 +3222,9 @@ export class ChatManagerImpl implements ChatManager {
         }
 
         const toolResultAssistantMessage =
-          this.messageService.createAssistantMessage(
-            toolResultAccumulatedContent,
-            {
-              sessionId: session.id,
-            }
-          );
+          this.messageService.createAssistantMessage(repairedToolContent, {
+            sessionId: session.id,
+          });
         // 传播 finishReason 到消息对象（修复 BUG #10 L3）
         toolResultAssistantMessage.finishReason =
           toolResultResponse?.finishReason || 'stop';
@@ -4038,7 +3783,9 @@ export class ChatManagerImpl implements ChatManager {
 
       if (!inputPath) {
         // inputPath 为空时，从 imageContext 自动回退补全
-        const ctx = this._sessionImageContext.get(toolCall.sessionId);
+        const ctx = this.imageContextService.getImageContext(
+          toolCall.sessionId
+        );
         if (ctx) {
           if (normalizedToolCall.name === 'image') {
             inputPath =
@@ -4067,10 +3814,15 @@ export class ChatManagerImpl implements ChatManager {
       }
 
       if (inputPath) {
-        const knownPaths = this._getKnownImagePaths(toolCall.sessionId);
+        const knownPaths = this.imageContextService.getKnownImagePaths(
+          toolCall.sessionId
+        );
 
         if (knownPaths.length > 0 && !knownPaths.includes(inputPath)) {
-          const closestPath = this._findClosestPath(inputPath, knownPaths);
+          const closestPath = this.imageContextService.findClosestPath(
+            inputPath,
+            knownPaths
+          );
 
           if (closestPath) {
             logger.warn('工具调用路径不匹配，自动修正为最接近的已知路径', {
@@ -4159,16 +3911,20 @@ export class ChatManagerImpl implements ChatManager {
           | Record<string, unknown>
           | undefined;
         if (resultData && !error && toolCall.sessionId) {
-          const extractedPaths = this._extractImagePathsFromResult(
-            normalizedToolCall.name,
-            resultData
-          );
+          const extractedPaths =
+            this.imageContextService.extractImagePathsFromResult(
+              normalizedToolCall.name,
+              resultData
+            );
           if (extractedPaths.length > 0) {
-            this._registerImagePaths(toolCall.sessionId, extractedPaths);
+            this.imageContextService.registerImagePaths(
+              toolCall.sessionId,
+              extractedPaths
+            );
           }
 
           // 更新会话级图像上下文
-          this._updateImageContext(
+          this.imageContextService.updateImageContext(
             toolCall.sessionId,
             normalizedToolCall.name,
             normalizedToolCall.arguments,
@@ -4341,7 +4097,7 @@ export class ChatManagerImpl implements ChatManager {
         const chatSession: ChatSession = {
           id: storedSession.id,
           title: storedSession.title,
-          state: this._mapSessionStatusToState(storedSession.status),
+          state: mapSessionStatusToState(storedSession.status),
           metadata: {
             title: storedSession.title || '',
             ...storedSession.metadata,
@@ -4420,7 +4176,7 @@ export class ChatManagerImpl implements ChatManager {
         const chatSession: ChatSession = {
           id: storedSession.id,
           title: storedSession.title,
-          state: this._mapSessionStatusToState(storedSession.status),
+          state: mapSessionStatusToState(storedSession.status),
           metadata: {
             title: storedSession.title || '',
             ...storedSession.metadata,
@@ -5340,30 +5096,6 @@ export class ChatManagerImpl implements ChatManager {
         error: String(err),
       });
     }
-  }
-
-  /**
-   * 从工具结果中提取 todo 数据
-   * 检测 metadata._todoData 并返回结构化 TodoBlockData
-   */
-  private _extractTodoData(toolResult: ToolResult): TodoBlockData | null {
-    const result = toolResult as unknown as {
-      metadata?: Record<string, unknown>;
-    };
-    const metadata = result.metadata;
-    if (!metadata?._todoData) return null;
-
-    const raw = metadata._todoData as Record<string, unknown>;
-
-    if (Array.isArray(raw.tasks)) {
-      return {
-        title: (raw.title as string) || '任务计划',
-        tasks: raw.tasks as TodoBlockData['tasks'],
-        phase: (raw.phase as TodoBlockData['phase']) || 'planning',
-        createdAt: Date.now(),
-      };
-    }
-    return null;
   }
 }
 

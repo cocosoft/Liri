@@ -230,7 +230,9 @@ export class CompactionManager {
         const summaryMsg: CompactionMessage = {
           id: `summary_${Date.now()}`,
           role: 'system',
-          content: `Previous conversation summary:\n${summaryContent}`,
+          content:
+            `⚠️ 以下为历史任务记录（已完成），当前任务见最近消息。旧任务仅做参考，以最近消息为准。\n` +
+            `Previous conversation summary:\n${summaryContent}`,
           tokenCount: Math.ceil(summaryContent.length / 4),
           timestamp: Date.now(),
         };

@@ -35,7 +35,22 @@ export const DEFAULT_COMPRESSION_CONFIG: ContextCompressionConfig = {
   triggerRatio: 0.8,
   reserveRatio: 0.5,
   compressionPrompt:
-    '请总结以上对话的核心内容。必须保留：(1)用户个人信息（姓名、背景、经历、偏好）；(2)关键决策与用户需求；(3)当前任务进展状态与最新决策（最重要，模型将继续执行任务，必须知道做到哪了）；(4)工具调用结果。去除冗余细节和已完成的中间步骤：',
+    '请总结以上对话的核心内容。\n' +
+    '【任务边界规则 — 最高优先级】\n' +
+    '1. 如果对话中发生了明显的任务/话题切换（例如从"A话题"切换到"B话题"），必须在摘要中明确标注：\n' +
+    '   "【旧任务已完成：XXX】"（列出已结束的任务），然后单独标注"【当前任务：YYY】"（当前正在进行的新任务）\n' +
+    '2. 对话中最后几条用户消息所代表的任务为"当前任务"，优先于所有历史内容。如果旧任务和新任务之间存在矛盾，以新任务为准\n' +
+    '3. 已完成的旧任务仅做简要记录（1-2句话），重点详细保留当前任务的进展\n' +
+    '\n' +
+    '【必须保留的内容】\n' +
+    '(1)用户个人信息（姓名、背景、经历、偏好）\n' +
+    '(2)关键决策与用户需求\n' +
+    '(3)当前任务进展状态与最新决策（最重要，模型将继续执行任务，必须知道做到哪了）\n' +
+    '(4)工具调用结果\n' +
+    '\n' +
+    '去除冗余细节和已完成的中间步骤。请直接输出摘要，不需要开场白。\n' +
+    '\n' +
+    '【图片URL规则】显示图片时必须使用 displayUrl（以 /v1/images/static/ 开头），禁止从 filePath 自行拼接 URL。',
   maxTokens: 128000,
   preserveSystemMessages: true,
   preserveRecentToolResults: true,
@@ -263,8 +278,10 @@ export class ContextCompressor {
    * @returns 摘要文本
    */
   private fallbackSummary(messages: CompressibleMessage[]): string {
-    const parts: string[] = [];
-    let totalLength = 0;
+    const parts: string[] = [
+      `⚠️ 以下为历史任务记录（已完成），当前任务见最近消息段。`,
+    ];
+    let totalLength = parts[0].length;
     const maxLength = 2000;
 
     for (const msg of messages) {

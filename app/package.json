@@ -137,7 +137,6 @@
     "react-reconciler": "^0.33.0",
     "sharp": "^0.34.5",
     "signal-exit": "^4.1.0",
-    "sqlite3": "^6.0.1",
     "strip-ansi": "^7.2.0",
     "supports-hyperlinks": "^4.4.0",
     "usehooks-ts": "^2.16.0",

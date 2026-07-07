@@ -311,12 +311,25 @@ jobs:
             exit 1
           }
           Copy-Item $side.FullName "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}" -Force
+
+          # 只复制运行时必需的 2 个原生模块（sharp + pdfjs-dist），不复制全部 480+ 包
           New-Item -ItemType Directory -Force -Path src-tauri/binaries/node_modules
           if (Test-Path ../dist/node_modules) {
             Get-ChildItem -Path ../dist/node_modules -Force | Copy-Item -Destination src-tauri/binaries/node_modules -Recurse -Force
-          } elseif (Test-Path ../app/node_modules) {
-            Get-ChildItem -Path ../app/node_modules -Force | Copy-Item -Destination src-tauri/binaries/node_modules -Recurse -Force
+          } else {
+            Write-Warning "dist/node_modules not found, copying from app/node_modules (sharp + pdfjs-dist only)"
+            foreach ($pkg in @('sharp', 'pdfjs-dist')) {
+              $src = "../app/node_modules/$pkg"
+              if (Test-Path $src) {
+                Copy-Item -Path $src -Destination "src-tauri/binaries/node_modules/$pkg" -Recurse -Force
+              } else {
+                Write-Error "ERROR: required native module '$pkg' not found at $src"
+                exit 1
+              }
+            }
           }
+          Write-Host "=== binaries/node_modules contents ==="
+          Get-ChildItem src-tauri/binaries/node_modules -Directory | Select-Object Name
         shell: powershell
         if: matrix.config.os == 'windows-latest'
 
@@ -330,12 +343,24 @@ jobs:
             exit 1
           fi
           cp "../dist/${SIDEFILE}" "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
+
+          # 只复制运行时必需的 2 个原生模块（sharp + pdfjs-dist），不复制全部 480+ 包
           mkdir -p src-tauri/binaries/node_modules
           if [ -d ../dist/node_modules ]; then
             cp -a ../dist/node_modules/. src-tauri/binaries/node_modules/
-          elif [ -d ../app/node_modules ]; then
-            cp -a ../app/node_modules/. src-tauri/binaries/node_modules/
+          else
+            echo "WARNING: dist/node_modules not found, copying from app/node_modules (sharp + pdfjs-dist only)"
+            for pkg in sharp pdfjs-dist; do
+              if [ -d "../app/node_modules/$pkg" ]; then
+                cp -a "../app/node_modules/$pkg/." "src-tauri/binaries/node_modules/$pkg/"
+              else
+                echo "ERROR: required native module '$pkg' not found at ../app/node_modules/$pkg"
+                exit 1
+              fi
+            done
           fi
+          echo "=== binaries/node_modules contents ==="
+          ls -d src-tauri/binaries/node_modules/*/ 2>/dev/null || true
         shell: bash
         if: matrix.config.os != 'windows-latest'
 

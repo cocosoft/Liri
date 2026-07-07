@@ -15,7 +15,7 @@
  *   - 支持断点续传（基于 source 和 source_id 去重）
  */
 
-import { Database } from 'sqlite3';
+import { Database } from '../src/core/external/sqlite3';
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { resolveDbPath } from '@modules/core/paths';

@@ -6,7 +6,7 @@
  * 用法: bun run scripts/seed-test-tasks.ts
  */
 
-import { Database } from 'sqlite3';
+import { Database } from '../src/core/external/sqlite3';
 import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import { SCHEMA as TASK_SCHEMA } from '../src/tasks/db/schema';

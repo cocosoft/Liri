@@ -255,16 +255,18 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "=== [0] Check for downloaded dist bundle ==="
+          echo "=== [0] Installing dependencies ==="
+          bun install --frozen-lockfile
+
+          echo "=== [1] Check for downloaded dist bundle ==="
           if [ -d dist ] && [ "$(ls -A dist 2>/dev/null || true)" ]; then
             echo "Using downloaded JS bundle in dist/"
           else
             echo "No downloaded dist found; building JS bundle locally"
-            bun install --frozen-lockfile
             bun build --target=bun --packages=external src/main.ts --outdir=dist
           fi
 
-          echo "=== [3/4] Building sidecar binary ==="
+          echo "=== [2] Building sidecar binary ==="
           echo "Running: bun run ${{ matrix.config.sidecar-build }}"
           if ! bun run ${{ matrix.config.sidecar-build }}; then
             echo "ERROR: Sidecar build command '${{ matrix.config.sidecar-build }}' failed"
@@ -275,7 +277,7 @@ jobs:
             exit 1
           fi
 
-          echo "=== [4/4] Verifying build artifacts ==="
+          echo "=== [3] Verifying build artifacts ==="
           echo "=== Contents of ../dist after sidecar build ==="
           ls -lah ../dist/ || true
           echo "=== Contents of dist/ (JS bundle) ==="

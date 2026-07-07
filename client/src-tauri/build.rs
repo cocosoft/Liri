@@ -58,6 +58,19 @@ fn main() {
 
     println!("cargo:rerun-if-changed={}", binaries_dir);
 
+    // 如果 sidecar 已存在（CI 中 workflow 已复制），单独监控其变化
+    // 确保后续 cargo 构建能检测到 sidecar 更新
+    if std::path::Path::new(&sidecar_name).exists() {
+        println!("cargo:rerun-if-changed={}", sidecar_name);
+    }
+
+    // 诊断输出：列出 binaries/ 目录内容，便于 CI 排查 glob 匹配问题
+    println!(
+        "cargo:warning=binaries/ contents: placeholder.txt={}, sidecar={}",
+        std::path::Path::new(&format!("{}/placeholder.txt", binaries_dir)).exists(),
+        std::path::Path::new(&sidecar_name).exists()
+    );
+
     #[cfg(windows)]
     {
         std::thread::Builder::new()

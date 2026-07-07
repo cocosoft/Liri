@@ -256,11 +256,13 @@ jobs:
           bun build --target=bun --packages=external src/main.ts --outdir=dist
 
           echo "=== [3/4] Building sidecar binary ==="
-          bun run ${{ matrix.config.sidecar-build }} || {
-            echo "ERROR: Sidecar build command '${{ matrix.config.sidecar-build }}' failed with exit code $?"
-            echo "Check the build output above for compilation errors."
+          echo "Running: bun run ${{ matrix.config.sidecar-build }}"
+          if ! bun run ${{ matrix.config.sidecar-build }}; then
+            echo "ERROR: Sidecar build command '${{ matrix.config.sidecar-build }}' failed"
+            echo "=== Checking ../dist contents ==="
+            ls -lah ../dist/ 2>/dev/null || echo "../dist/ does not exist"
             exit 1
-          }
+          fi
 
           echo "=== [4/4] Verifying build artifacts ==="
           echo "=== Contents of ../dist after sidecar build ==="
@@ -268,27 +270,21 @@ jobs:
           echo "=== Contents of dist/ (JS bundle) ==="
           ls -lah dist/ || true
 
-          # Verify sidecar binary exists in expected location
-          cd ../dist || { echo "ERROR: ../dist directory not found"; ls -la .. || true; exit 1; }
-          SIDEFILE=$(ls | grep -E '^liri_coding' | head -n1 || true)
-          if [ -z "$SIDEFILE" ]; then
+          # 验证 sidecar 二进制是否存在（停留在 app/ 目录内，不 cd 进 ../dist）
+          if ! ls ../dist/liri_coding* 1> /dev/null 2>&1; then
             echo "ERROR: no liri_coding* file found in ../dist after sidecar build"
             echo "Directory contents:"
-            ls -la
+            ls -la ../dist/
             exit 1
           fi
-          echo "Found sidecar binary: $SIDEFILE ($(du -sh "$SIDEFILE" | cut -f1))"
 
-          # Normalize sidecar artifact name to liri_coding for downstream copy steps
+          SIDEFILE=$(ls ../dist | grep -E '^liri_coding' | head -n1)
+          echo "Found sidecar binary: $SIDEFILE ($(du -sh "../dist/$SIDEFILE" | cut -f1))"
+
+          # 归一化 sidecar 产物名称为 liri_coding，供下游 copy 步骤使用
           if [ "$SIDEFILE" != "liri_coding${{ matrix.config.sidecar-ext }}" ]; then
             echo "Renaming $SIDEFILE -> liri_coding${{ matrix.config.sidecar-ext }}"
-            mv "$SIDEFILE" "liri_coding${{ matrix.config.sidecar-ext }}"
-          fi
-          cd ../app
-
-          if [ ! -d node_modules ]; then
-            echo "ERROR: app/node_modules not found after sidecar build!"
-            exit 1
+            mv "../dist/$SIDEFILE" "../dist/liri_coding${{ matrix.config.sidecar-ext }}"
           fi
 
           echo "Sidecar build completed successfully."

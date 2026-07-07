@@ -247,33 +247,51 @@ jobs:
         working-directory: ${{ github.workspace }}/app
         shell: bash
         run: |
-          bun install --frozen-lockfile
-          bun build --target=bun --packages=external src/main.ts --outdir=dist
-          bun run ${{ matrix.config.sidecar-build }}
+          set -euo pipefail
 
-          # Debug: show what the sidecar build produced
+          echo "=== [1/4] Installing app dependencies ==="
+          bun install --frozen-lockfile
+
+          echo "=== [2/4] Bundling JS ==="
+          bun build --target=bun --packages=external src/main.ts --outdir=dist
+
+          echo "=== [3/4] Building sidecar binary ==="
+          bun run ${{ matrix.config.sidecar-build }} || {
+            echo "ERROR: Sidecar build command '${{ matrix.config.sidecar-build }}' failed with exit code $?"
+            echo "Check the build output above for compilation errors."
+            exit 1
+          }
+
+          echo "=== [4/4] Verifying build artifacts ==="
           echo "=== Contents of ../dist after sidecar build ==="
           ls -lah ../dist/ || true
-          echo "=== Contents of dist/ (JS build) ==="
+          echo "=== Contents of dist/ (JS bundle) ==="
           ls -lah dist/ || true
 
-          # Normalize sidecar artifact name to liri_coding for downstream copy steps
-          cd ../dist || { echo "ERROR: ../dist not found"; ls -la .. || true; exit 1; }
+          # Verify sidecar binary exists in expected location
+          cd ../dist || { echo "ERROR: ../dist directory not found"; ls -la .. || true; exit 1; }
           SIDEFILE=$(ls | grep -E '^liri_coding' | head -n1 || true)
           if [ -z "$SIDEFILE" ]; then
-            echo "ERROR: no liri_coding* file found in dist:"
+            echo "ERROR: no liri_coding* file found in ../dist after sidecar build"
+            echo "Directory contents:"
             ls -la
             exit 1
           fi
+          echo "Found sidecar binary: $SIDEFILE ($(du -sh "$SIDEFILE" | cut -f1))"
+
+          # Normalize sidecar artifact name to liri_coding for downstream copy steps
           if [ "$SIDEFILE" != "liri_coding${{ matrix.config.sidecar-ext }}" ]; then
+            echo "Renaming $SIDEFILE -> liri_coding${{ matrix.config.sidecar-ext }}"
             mv "$SIDEFILE" "liri_coding${{ matrix.config.sidecar-ext }}"
           fi
           cd ../app
 
           if [ ! -d node_modules ]; then
-            echo "ERROR: node_modules not found after sidecar build!"
+            echo "ERROR: app/node_modules not found after sidecar build!"
             exit 1
           fi
+
+          echo "Sidecar build completed successfully."
 
       - name: Verify sidecar artifact
         run: |

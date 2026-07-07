@@ -23,22 +23,37 @@ fn main() {
     let binaries_dir = "binaries";
     let binaries_node_modules = "binaries/node_modules";
 
-    let _ = std::fs::create_dir_all(binaries_node_modules);
+    // 确保 binaries/ 目录结构存在（CI 环境 gitignore 后不会有此目录）
+    if let Err(e) = std::fs::create_dir_all(binaries_node_modules) {
+        println!("cargo:warning=Failed to create binaries/ dirs: {}", e);
+    }
 
-    // Create placeholder to satisfy resources glob "binaries/**"
-    let root_placeholder = format!("{}/_placeholder.txt", binaries_dir);
-    let _ = std::fs::write(&root_placeholder, "Placeholder for Tauri build");
-    let nm_placeholder = format!("{}/_placeholder.txt", binaries_node_modules);
-    let _ = std::fs::write(&nm_placeholder, "Placeholder for binaries/node_modules");
+    // 创建占位文件，确保 Tauri resources glob "binaries/**" 始终能匹配到文件
+    // 在 CI 环境中，binaries/ 被 gitignore，sidecar 由 workflow 构建后复制进来；
+    // 但 build.rs 先于 bundler 运行，必须确保此时目录非空
+    let placeholder_content = "Tauri build placeholder — safe to overwrite";
+    let placeholder_files = [
+        format!("{}/placeholder.txt", binaries_dir),
+        format!("{}/placeholder.txt", binaries_node_modules),
+    ];
+    for pf in &placeholder_files {
+        if let Err(e) = std::fs::write(pf, placeholder_content) {
+            println!("cargo:warning=Failed to write placeholder '{}': {}", pf, e);
+        }
+    }
 
-    // Create sidecar placeholder with the exact name Tauri expects from
-    // externalBin resolution (appends target triple + platform extension).
-    // This prevents "glob pattern binaries/** path not found" during build.
+    // 创建 sidecar 占位文件，与 Tauri externalBin 命名规则一致
+    // Tauri 会自动在 externalBin 名称后追加 target triple + 平台扩展名
     let target = std::env::var("TARGET").unwrap_or_default();
     let ext = if cfg!(windows) { ".exe" } else { "" };
-    let sidecar_name = format!("binaries/liri_coding-{}{}", target, ext);
+    let sidecar_name = format!("{}/liri_coding-{}{}", binaries_dir, target, ext);
+
     if !std::path::Path::new(&sidecar_name).exists() {
-        let _ = std::fs::write(&sidecar_name, "");
+        if let Err(e) = std::fs::write(&sidecar_name, "") {
+            println!("cargo:warning=Failed to create sidecar placeholder '{}': {}", sidecar_name, e);
+        } else {
+            println!("cargo:warning=Created sidecar placeholder: {}", sidecar_name);
+        }
     }
 
     println!("cargo:rerun-if-changed={}", binaries_dir);

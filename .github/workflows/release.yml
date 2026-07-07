@@ -349,15 +349,16 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path src-tauri/binaries
           # 灵活匹配多种可能的输出名：liri_coding*, py_app*, py_app-*
-          $side = Get-ChildItem -Path ../dist -Include "liri_coding*","py_app*","py_app-*" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+          # 注意：-Include 配合 -Path 目录时必须在路径末尾加 \*，否则不生效
+          $side = Get-ChildItem -Path "../dist/*" -Include "liri_coding*","py_app*","py_app-*" -File -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $side) {
             Write-Error "ERROR: sidecar binary not found in ../dist"
             Write-Host "=== ../dist contents for debugging ==="
             Get-ChildItem ../dist -Force -ErrorAction SilentlyContinue
             exit 1
           }
-          Write-Host "Copying sidecar: $($side.Name) -> src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
-          Copy-Item $side.FullName "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}" -Force
+          Write-Host "Copying sidecar: $($side.Name) -> src-tauri/binaries/liri_coding${{ matrix.config.sidecar-ext }}"
+          Copy-Item $side.FullName "src-tauri/binaries/liri_coding${{ matrix.config.sidecar-ext }}" -Force
 
           # 只复制运行时必需的 2 个原生模块（sharp + pdfjs-dist），不复制全部 480+ 包
           New-Item -ItemType Directory -Force -Path src-tauri/binaries/node_modules
@@ -391,8 +392,8 @@ jobs:
             ls -la ../dist || true
             exit 1
           fi
-          echo "Copying sidecar from ../dist/${SIDEFILE} -> src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
-          cp "../dist/${SIDEFILE}" "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
+          echo "Copying sidecar from ../dist/${SIDEFILE} -> src-tauri/binaries/liri_coding${{ matrix.config.sidecar-ext }}"
+          cp "../dist/${SIDEFILE}" "src-tauri/binaries/liri_coding${{ matrix.config.sidecar-ext }}"
 
           # 只复制运行时必需的 2 个原生模块（sharp + pdfjs-dist），不复制全部 480+ 包
           mkdir -p src-tauri/binaries/node_modules

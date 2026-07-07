@@ -268,14 +268,22 @@ jobs:
 
           echo "=== [2] Building sidecar binary ==="
           echo "Running: bun run ${{ matrix.config.sidecar-build }}"
-          if ! bun run ${{ matrix.config.sidecar-build }} 2>&1; then
-            echo "ERROR: Sidecar build command '${{ matrix.config.sidecar-build }}' failed"
+
+          # 捕获完整输出（stdout+stderr），失败时展示以辅助排查
+          BUILD_OUTPUT=$(bun run ${{ matrix.config.sidecar-build }} 2>&1) || {
+            BUILD_EXIT=$?
+            echo "ERROR: Sidecar build command failed with exit code $BUILD_EXIT"
+            echo "Build output:"
+            echo "$BUILD_OUTPUT"
             echo "=== Checking ../dist contents ==="
             ls -lah ../dist/ 2>/dev/null || echo "../dist/ does not exist"
             echo "=== Checking app/dist contents ==="
             ls -lah dist/ 2>/dev/null || true
             exit 1
-          fi
+          }
+
+          echo "Build output:"
+          echo "$BUILD_OUTPUT"
 
           echo "=== [3] Verifying build artifacts ==="
           echo "=== Contents of ../dist after sidecar build ==="

@@ -29,7 +29,7 @@
  * 对应方案文档 §3.6 的 xxHash 实现
  */
 
-import { createHash } from 'node:crypto';
+import { createHash } from 'crypto';
 import { readFile } from 'node:fs/promises';
 
 /**

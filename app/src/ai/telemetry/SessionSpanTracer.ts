@@ -2,7 +2,7 @@
  * Session-level Span 属性
  * 对标平安科技：增加自定义 Span 属性（model/agent/strategy），便于按代理策略分析性能
  */
-import { createHash } from 'node:crypto';
+import { createHash } from 'crypto';
 
 /**
  * Span 属性键常量

@@ -5,7 +5,7 @@
  * 该表存储理事会所需的专家 Agent 角色配置，
  * 支持前端管理页面进行增删改查。
  */
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 import { Database } from '@modules/core/external/sqlite3';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveDbPath } from '@modules/core';

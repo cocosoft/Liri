@@ -216,7 +216,7 @@ export function resolveWorktreeHash(
   const projectDir = env.PYAPP_PROJECT_DIR;
   if (!projectDir) return 'default';
 
-  const { createHash } = require('node:crypto');
+  const { createHash } = require('crypto');
   return createHash('sha256').update(projectDir).digest('hex').slice(0, 8);
 }
 

@@ -321,7 +321,7 @@ export class PluginInstallManager {
     options: InstallOptions,
     targetPath: string
   ): Promise<void> {
-    const { execSync } = await import('node:child_process');
+    const { execSync } = await import('child_process');
     const cloneUrl = options.version
       ? `${options.sourcePath}#${options.version}`
       : options.sourcePath;

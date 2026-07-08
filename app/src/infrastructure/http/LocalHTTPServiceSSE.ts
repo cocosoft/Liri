@@ -2,7 +2,7 @@
  * LocalHTTPServiceSSE.ts — SSE 事件总线系统（从 LocalHTTPService 提取）
  */
 
-import http from 'node:http';
+import http from 'http';
 
 /** SSE 客户端集合 */
 const clients = new Set<http.ServerResponse>();

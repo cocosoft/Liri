@@ -9,7 +9,7 @@
  * - DELETE /v1/workflows/templates/:id  — 删除模板
  */
 
-import type http from 'node:http';
+import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';

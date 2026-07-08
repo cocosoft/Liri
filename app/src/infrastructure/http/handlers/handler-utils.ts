@@ -26,7 +26,7 @@
  * 供 handlers/ 目录下各领域 handler 文件使用。
  */
 
-import http from 'node:http';
+import http from 'http';
 import path from 'path';
 
 import { Logger, LogLevel } from '@modules/monitoring';

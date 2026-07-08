@@ -5,8 +5,8 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
-import { randomUUID } from 'node:crypto';
-import { createHash } from 'node:crypto';
+import { randomUUID } from 'crypto';
+import { createHash } from 'crypto';
 
 const logger = new Logger({
   module: 'security:imageSanitization',

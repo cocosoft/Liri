@@ -4,7 +4,7 @@
  * 支持模板变量替换（如 ${SKILL_DIR}）和内联 Shell 执行（如 !`command`）
  */
 import path from 'path';
-import { execSync } from 'node:child_process';
+import { execSync } from 'child_process';
 import { configManager } from '@modules/config';
 
 /**

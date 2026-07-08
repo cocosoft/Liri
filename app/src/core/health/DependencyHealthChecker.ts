@@ -2,7 +2,7 @@
  * 依赖健康度检查
  * 对标平安科技，增加对 Redis/DB/外部 API 等依赖的健康检查能力
  */
-import { execSync } from 'node:child_process';
+import { execSync } from 'child_process';
 import fs from 'node:fs';
 import path from 'path';
 

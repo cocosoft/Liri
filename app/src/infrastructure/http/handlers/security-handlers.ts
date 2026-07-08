@@ -2,7 +2,7 @@
  * security-handlers.ts — 安全仪表盘、审计日志查询 HTTP handler
  */
 
-import type http from 'node:http';
+import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { queryAuditLogs, getAuditLogStats } from '@modules/security';

@@ -3,9 +3,9 @@
  * 对标 CC 的 --daemon-diagnostics 机制
  */
 import fs from 'node:fs';
-import os from 'node:os';
+import os from 'os';
 import path from 'path';
-import { execSync } from 'node:child_process';
+import { execSync } from 'child_process';
 import { DiskSpaceMonitor } from '../../core/delivery/monitor/DiskSpaceMonitor';
 import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';

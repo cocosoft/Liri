@@ -26,7 +26,7 @@
  * 支持精确匹配和正则匹配，消除巨型 switch/if-else 链。
  */
 
-import type http from 'node:http';
+import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 
 /**

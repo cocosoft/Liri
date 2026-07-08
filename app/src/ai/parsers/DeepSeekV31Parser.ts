@@ -4,7 +4,7 @@
  *
  * 格式: 使用 ǒ … ǒ 标记（JSON 包裹在特殊 Unicode 字符中）
  */
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 import { BaseParser } from './BaseParser';
 import type { ParsedResult, ParsedToolCall } from './types';
 import { emptyParsedResult, toolCallResult } from './types';

@@ -7,7 +7,7 @@
  * 参考：claude-tap 的 live.py (Python 实现)
  */
 
-import http from 'node:http';
+import http from 'http';
 import type { TraceRecord } from '../types';
 import { ViewerService } from '../viewer/ViewerService';
 import { TraceEngine } from '../engine/TraceEngine';

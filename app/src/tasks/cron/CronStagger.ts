@@ -4,7 +4,7 @@
  * 对标 openclaw src/cron/stagger.ts
  */
 
-import { createHash } from 'node:crypto';
+import { createHash } from 'crypto';
 
 const DEFAULT_TOP_OF_HOUR_STAGGER_MS = 5 * 60 * 1000; // 5 分钟窗口
 const STAGGER_OFFSET_CACHE_MAX = 4096;

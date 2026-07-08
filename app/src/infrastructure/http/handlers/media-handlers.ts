@@ -8,7 +8,7 @@
  *   GET  /v1/media/subtitle/:id/download — 下载字幕文件（SRT/TXT）
  */
 
-import type http from 'node:http';
+import type http from 'http';
 import { randomUUID } from 'crypto';
 import { join, extname } from 'path';
 import {

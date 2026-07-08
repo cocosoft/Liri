@@ -19,7 +19,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import crypto from 'node:crypto';
+import crypto from 'crypto';
 import fs from 'node:fs';
 import path from 'path';
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';

@@ -32,7 +32,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveTempDir } from '@modules/core/paths';
 import * as path from 'path';
 import * as fs from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 
 const logger = new Logger({
   level: LogLevel.INFO,

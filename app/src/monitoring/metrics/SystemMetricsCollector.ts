@@ -5,8 +5,8 @@
  * 所有需要显示系统指标的消费者都应通过此模块获取数据。
  */
 
-import os from 'node:os';
-import { execSync } from 'node:child_process';
+import os from 'os';
+import { execSync } from 'child_process';
 
 // ── CPU 计算器（进程级） ──────────────────────────────────────────
 

@@ -11,7 +11,7 @@
  * - GET  /v1/workspaces/:id/intelligence/resources 资源状态
  */
 
-import type http from 'node:http';
+import type http from 'http';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { HandlerCtx } from './handler-utils';
 import {

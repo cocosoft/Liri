@@ -2,7 +2,7 @@
  * SessionKeyManager 会话密钥管理
  * 对标 CC 的会话密钥管理
  */
-import crypto from 'node:crypto';
+import crypto from 'crypto';
 
 /**
  * 密钥配置

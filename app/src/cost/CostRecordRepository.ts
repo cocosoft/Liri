@@ -4,7 +4,7 @@
  * 支持逐条记录、会话摘要和历史查询。
  */
 import { join } from 'path';
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 import { Database } from '@modules/core/external/sqlite3';
 import { Logger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';

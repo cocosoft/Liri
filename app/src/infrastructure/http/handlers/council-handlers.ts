@@ -9,8 +9,8 @@
  * - POST /v1/workspace/:id/council/:sessionId/statement  提交 AI 发言
  */
 
-import type http from 'node:http';
-import { randomUUID } from 'node:crypto';
+import type http from 'http';
+import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { HandlerCtx } from './handler-utils';
 import {

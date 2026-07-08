@@ -4,7 +4,7 @@
  */
 import fs from 'node:fs';
 import path from 'path';
-import { spawn } from 'node:child_process';
+import { spawn } from 'child_process';
 
 /**
  * 视频信息

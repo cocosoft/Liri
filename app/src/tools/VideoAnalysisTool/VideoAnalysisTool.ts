@@ -32,10 +32,10 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolUseContext, ToolResult, ToolParam } from '../types';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { execSync } from 'node:child_process';
+import { execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 import { resolveTempDir } from '@modules/core/paths';
 
 const logger = new Logger({

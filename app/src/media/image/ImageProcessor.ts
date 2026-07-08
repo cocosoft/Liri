@@ -462,7 +462,7 @@ export class ImageProcessor {
 
       // 回退：尝试系统命令
       try {
-        const { execSync } = await import('node:child_process');
+        const { execSync } = await import('child_process');
         execSync(`magick "${inputPath}" "${outPath}"`, { timeout: 15000 });
         return outPath;
       } catch {

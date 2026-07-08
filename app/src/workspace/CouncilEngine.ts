@@ -12,7 +12,7 @@
  * 通过回调将 AI 发言注入 CouncilEngine。
  */
 
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 import type {
   CouncilSession,
   CouncilAgentRole,

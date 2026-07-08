@@ -25,7 +25,7 @@
  * analytics-handlers.ts — 分析面板、成本统计、健康报告处理器（从 LocalHTTPService 提取）
  */
 
-import type http from 'node:http';
+import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { getMonitoringService } from '@modules/monitoring';

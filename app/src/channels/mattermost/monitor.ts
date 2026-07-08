@@ -30,7 +30,7 @@ export declare interface MattermostMonitor {
  * 连接到 Mattermost 的 WebSocket 端点接收实时事件
  */
 export class MattermostMonitor extends EventEmitter {
-  private ws: import('node:net').Socket | null = null;
+  private ws: import('net').Socket | null = null;
   private serverUrl = '';
   private authToken = '';
   private running = false;

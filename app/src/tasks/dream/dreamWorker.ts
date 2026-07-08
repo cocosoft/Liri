@@ -1,4 +1,4 @@
-import { parentPort } from 'node:worker_threads';
+import { parentPort } from 'worker_threads';
 import { configManager } from '@modules/config';
 
 const prompt = configManager.env('LIRI_DREAM_PROMPT') || '默认思考主题';

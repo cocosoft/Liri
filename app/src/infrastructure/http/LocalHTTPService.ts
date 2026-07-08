@@ -9,7 +9,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
 
-import http from 'node:http';
+import http from 'http';
 import fs from 'node:fs';
 import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -5408,7 +5408,7 @@ export class LocalHTTPService {
         return;
       }
 
-      const { exec } = await import('node:child_process');
+      const { exec } = await import('child_process');
       const { promisify } = await import('util');
       const execAsync = promisify(exec);
 

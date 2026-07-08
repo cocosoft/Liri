@@ -1,4 +1,4 @@
-import { fork, ChildProcess } from 'node:child_process';
+import { fork, ChildProcess } from 'child_process';
 import path from 'path';
 import { EventEmitter } from 'events';
 import { resolveProjectRoot } from '@modules/core';

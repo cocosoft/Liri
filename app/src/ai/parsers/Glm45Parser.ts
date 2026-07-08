@@ -8,7 +8,7 @@
  *   <arg_key>param2</arg_key><arg_value>value2</arg_value>
  *   </tool_call>
  */
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 import { BaseParser } from './BaseParser';
 import type { ParsedResult, ParsedToolCall } from './types';
 import { emptyParsedResult, toolCallResult } from './types';

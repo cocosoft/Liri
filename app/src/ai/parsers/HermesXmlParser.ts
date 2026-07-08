@@ -5,7 +5,7 @@
  * 格式: <tool_call>{"name": "func", "arguments": {...}}</tool_call>
  * 适用于: Hermes、Qwen 2.5、以及所有使用此标签格式的模型
  */
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 import { BaseParser } from './BaseParser';
 import type { ParsedResult, ParsedToolCall } from './types';
 import { emptyParsedResult, toolCallResult } from './types';

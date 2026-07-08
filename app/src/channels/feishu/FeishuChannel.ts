@@ -11,7 +11,7 @@
  * - 健康检测优化 (token 过期检查)
  */
 
-import http from 'node:http';
+import http from 'http';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,

@@ -9,7 +9,7 @@
  * 5. 资源争用自动调度（ResourceScheduler）
  */
 
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'OrchIntelligence', level: LogLevel.INFO });

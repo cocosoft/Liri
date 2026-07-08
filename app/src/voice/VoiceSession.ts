@@ -5,7 +5,7 @@
  * 处理 Client→Server 事件路由、状态管理、会话摘要
  */
 
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { VoiceEventBus } from './VoiceEventBus';
 import { VoiceToolBridge } from './VoiceToolBridge';

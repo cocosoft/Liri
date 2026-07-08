@@ -14,7 +14,7 @@ import {
   unlinkSync,
 } from 'node:fs';
 import { join } from 'path';
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 
 const logger = new Logger({
   module: 'session:artifacts',

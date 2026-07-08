@@ -2,7 +2,7 @@
  * memory-handlers.ts — 记忆系统 HTTP 处理器（从 LocalHTTPService 提取）
  */
 
-import type http from 'node:http';
+import type http from 'http';
 import fs from 'node:fs';
 import path from 'path';
 import {
@@ -375,7 +375,7 @@ export async function handleFileOpen(
       return;
     }
 
-    const { exec } = await import('node:child_process');
+    const { exec } = await import('child_process');
     const { promisify } = await import('util');
     const execAsync = promisify(exec);
 

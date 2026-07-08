@@ -5,8 +5,8 @@
  * 包含 STT 转写、TTS 合成、语音会话管理等。
  */
 
-import http from 'node:http';
-import { randomUUID } from 'node:crypto';
+import http from 'http';
+import { randomUUID } from 'crypto';
 import {
   sendError,
   readRequestBody,

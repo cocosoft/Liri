@@ -25,8 +25,8 @@
  * monitoring-handlers.ts — 监控相关 HTTP 处理器（从 LocalHTTPService 提取）
  */
 
-import type http from 'node:http';
-import os from 'node:os';
+import type http from 'http';
+import os from 'os';
 import type { HandlerCtx } from './handler-utils';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { StructuredLogger } from '@modules/monitoring';

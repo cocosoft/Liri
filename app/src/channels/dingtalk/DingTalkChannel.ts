@@ -1,9 +1,9 @@
-﻿/**
+/**
  * 钉钉通道插件
  * 厂商: 阿里巴巴, SDK: dingtalk-robot-sender
  */
 
-import http from 'node:http';
+import http from 'http';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,

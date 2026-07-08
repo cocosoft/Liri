@@ -16,7 +16,7 @@ import {
   unwatchFile,
 } from 'fs';
 import { join, dirname, basename } from 'path';
-import { createHash } from 'node:crypto';
+import { createHash } from 'crypto';
 import { logger } from '../utils/log.js';
 import {
   GlobalConfig,

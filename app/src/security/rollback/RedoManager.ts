@@ -42,7 +42,7 @@ import {
 } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'path';
-import { createHash } from 'node:crypto';
+import { createHash } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { loadSnapshot, getSnapshotsRoot } from './SnapshotStorage';

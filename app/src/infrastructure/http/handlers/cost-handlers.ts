@@ -6,7 +6,7 @@
  * - GET /v1/workspaces/:id/cost/budget  — 预算状态
  */
 
-import type http from 'node:http';
+import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';

@@ -4,7 +4,7 @@
  * 由 LocalHTTPService.handleRequest 调用
  */
 
-import type http from 'node:http';
+import type http from 'http';
 import { tryHandleRoute } from '@modules/ai';
 
 // Voice handlers（直接函数调用，不使用 this.handleXxx）

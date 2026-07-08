@@ -10,7 +10,7 @@
  * - GET  /v1/workspaces/:id/rules/overview    规则总览
  */
 
-import type http from 'node:http';
+import type http from 'http';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { HandlerCtx } from './handler-utils';
 import {

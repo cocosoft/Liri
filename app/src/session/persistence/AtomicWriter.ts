@@ -6,7 +6,7 @@
 
 import fs from 'node:fs/promises';
 import path from 'path';
-import crypto from 'node:crypto';
+import crypto from 'crypto';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export class AtomicWriteError extends AppError {

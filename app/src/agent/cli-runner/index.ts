@@ -24,7 +24,7 @@
  * bundle-mcp/execute/reliability
  */
 
-import { execSync, spawn, type ChildProcess } from 'node:child_process';
+import { execSync, spawn, type ChildProcess } from 'child_process';
 import { configManager } from '@modules/config';
 
 export type CliRunnerMode = 'direct' | 'bundle-mcp' | 'pipe';

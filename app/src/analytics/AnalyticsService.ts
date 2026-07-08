@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('analytics');

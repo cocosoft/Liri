@@ -7,7 +7,7 @@
 import { Logger, LogLevel } from '@modules/monitoring';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'path';
-import { randomBytes } from 'node:crypto';
+import { randomBytes } from 'crypto';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'channels:pairing' });
 

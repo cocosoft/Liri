@@ -5,7 +5,7 @@
  * 格式: 内嵌 JSON 对象，包含 name 和 arguments 字段
  * 采用平衡括号提取，兼容嵌套 JSON
  */
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 import { BaseParser } from './BaseParser';
 import type { ParsedResult, ParsedToolCall } from './types';
 import { emptyParsedResult, toolCallResult } from './types';

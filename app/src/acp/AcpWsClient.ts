@@ -25,8 +25,8 @@
  * 封装 WebSocket 客户端连接的生命周期管理，包括帧解析、消息分发、连接断开处理。
  */
 
-import type { Duplex } from 'node:stream';
-import * as net from 'node:net';
+import type { Duplex } from 'stream';
+import * as net from 'net';
 import { resolveLogger, type ILogger } from '@modules/core';
 import {
   OpCode,

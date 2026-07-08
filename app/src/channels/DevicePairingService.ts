@@ -13,7 +13,7 @@
  *   - 被 channels/ 体系内其他模块通过事件总线消费配对结果
  */
 import { EventEmitter } from 'events';
-import crypto from 'node:crypto';
+import crypto from 'crypto';
 
 /**
  * 配对状态

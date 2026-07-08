@@ -1,6 +1,6 @@
-import net from 'node:net';
-import tls from 'node:tls';
-import { randomUUID } from 'node:crypto';
+import net from 'net';
+import tls from 'tls';
+import { randomUUID } from 'crypto';
 import { EventEmitter } from 'events';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {

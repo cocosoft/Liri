@@ -3,7 +3,7 @@
  * 对标 OpenClaw 的 Nostr 支持
  */
 import { EventEmitter } from 'events';
-import crypto from 'node:crypto';
+import crypto from 'crypto';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,

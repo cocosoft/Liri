@@ -1,4 +1,4 @@
-﻿import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,

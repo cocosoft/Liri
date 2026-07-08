@@ -2,7 +2,7 @@
  * Env 命令实现
  * 显示环境变量与系统信息
  */
-import { arch, platform } from 'node:os';
+import { arch, platform } from 'os';
 import { configManager } from '@modules/config';
 import type { CommandContext, CommandResult } from '@modules/commands';
 

@@ -9,7 +9,7 @@
  * - 三层上下文加载
  */
 
-import type http from 'node:http';
+import type http from 'http';
 import { join } from 'path';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';

@@ -24,7 +24,7 @@
  * 运行时依赖检测
  */
 
-import { execSync } from 'node:child_process';
+import { execSync } from 'child_process';
 
 export interface DependencyInfo {
   name: string;

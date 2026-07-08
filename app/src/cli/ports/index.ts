@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,7 +25,7 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import * as net from 'node:net';
+import * as net from 'net';
 
 export interface PortInfo {
   port: number;

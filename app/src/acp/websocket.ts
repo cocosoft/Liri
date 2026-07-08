@@ -26,7 +26,7 @@
  * 无需 ws 或 uws 等第三方依赖。
  */
 
-import * as crypto from 'node:crypto';
+import * as crypto from 'crypto';
 
 /** RFC 6455 WebSocket 魔术 GUID */
 export const MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';

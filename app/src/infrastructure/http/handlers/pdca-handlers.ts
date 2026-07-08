@@ -21,7 +21,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
 
-import type http from 'node:http';
+import type http from 'http';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
 // ========== PDCA Handlers ==========

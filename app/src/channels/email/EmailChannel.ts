@@ -6,11 +6,11 @@
  * 支持：EHLO、AUTH LOGIN、STARTTLS、MIME 附件（base64）、HTML 邮件。
  */
 import { EventEmitter } from 'events';
-import { Socket } from 'node:net';
-import { connect as tlsConnect, TLSSocket } from 'node:tls';
+import { Socket } from 'net';
+import { connect as tlsConnect, TLSSocket } from 'tls';
 import { readFileSync } from 'node:fs';
 import { basename } from 'path';
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,

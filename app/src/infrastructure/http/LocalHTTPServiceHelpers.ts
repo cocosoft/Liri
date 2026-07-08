@@ -4,7 +4,7 @@
  * 包含通道注册表、动态注册、知识库种子、编译调度等辅助功能。
  */
 
-import http from 'node:http';
+import http from 'http';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';

@@ -2,9 +2,9 @@
  * IDE 命令实现
  * 检测系统上已安装的 IDE，支持在当前 IDE 中打开项目目录
  */
-import { execSync } from 'node:child_process';
+import { execSync } from 'child_process';
 import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { homedir } from 'os';
 import { join } from 'path';
 import { configManager } from '@modules/config';
 import type { CommandContext, CommandResult } from '@modules/commands';

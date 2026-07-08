@@ -4,7 +4,7 @@
  * 支持容器生命周期管理、资源限制、卷挂载
  */
 
-import { execSync, exec } from 'node:child_process';
+import { execSync, exec } from 'child_process';
 import { promisify } from 'util';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type {

@@ -3,7 +3,7 @@
  *
  * POST /v1/workspaces/:id/intelligence/bottleneck
  */
-import type http from 'node:http';
+import type http from 'http';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { HandlerCtx } from './handler-utils';
 import { bottleneckAnalyzer } from '@modules/workspace/BottleneckAnalyzer';

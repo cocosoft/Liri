@@ -2,7 +2,7 @@
  * FFmpegWrapper FFmpeg 封装
  * 对标 OpenClaw 的 FFmpeg 集成
  */
-import { spawn } from 'node:child_process';
+import { spawn } from 'child_process';
 
 /**
  * FFmpeg 选项

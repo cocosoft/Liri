@@ -6,7 +6,7 @@
  * 提供确定性 JSON 序列化保证相同配置值产生相同 Hash。
  */
 
-import { createHash } from 'node:crypto';
+import { createHash } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({

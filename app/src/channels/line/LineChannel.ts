@@ -1,5 +1,5 @@
-﻿import crypto from 'node:crypto';
-import http from 'node:http';
+import crypto from 'crypto';
+import http from 'http';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,

@@ -44,8 +44,8 @@ import {
 } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'path';
-import { createHash } from 'node:crypto';
-import { homedir } from 'node:os';
+import { createHash } from 'crypto';
+import { homedir } from 'os';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { xxHash, encodeFilePath } from './xxHash';
 import type { RoundSnapshot, FileChange, SessionIndexEntry } from './types';

@@ -32,7 +32,7 @@
 import { readdir, unlink, stat, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'path';
-import { homedir } from 'node:os';
+import { homedir } from 'os';
 import { Logger, LogLevel } from '@modules/monitoring';
 import {
   getSnapshotsRoot,

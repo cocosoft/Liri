@@ -6,7 +6,7 @@
  * - GET  /v1/workspaces/:id/items/review  — 工作项回顾摘要
  */
 
-import type http from 'node:http';
+import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { createWorkItemStore } from '@modules/workspace/WorkItemStore';

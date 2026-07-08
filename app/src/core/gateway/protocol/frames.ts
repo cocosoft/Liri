@@ -1,5 +1,5 @@
-import crypto from 'node:crypto';
-import { randomUUID } from 'node:crypto';
+import crypto from 'crypto';
+import { randomUUID } from 'crypto';
 import type {
   RequestFrame,
   ResponseFrame,

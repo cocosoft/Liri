@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import tls from 'node:tls';
+import tls from 'tls';
 import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({

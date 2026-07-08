@@ -4,7 +4,7 @@
  */
 import fs from 'node:fs';
 import path from 'path';
-import os from 'node:os';
+import os from 'os';
 import { handleError } from '@modules/error';
 
 export interface TempFileConfig {

@@ -4,7 +4,7 @@
  */
 import fs from 'node:fs';
 import path from 'path';
-import crypto from 'node:crypto';
+import crypto from 'crypto';
 import { resolvePyappHome } from '@modules/core';
 import { handleError } from '@modules/error';
 

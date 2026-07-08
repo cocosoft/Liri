@@ -1,11 +1,11 @@
-﻿/**
+/**
  * FileEditTool - Utils
  * 对标CC FileEditTool utils.ts
  * 文件编辑工具函数
  */
 
 import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { createHash } from 'crypto';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import {
   type EditCommand,

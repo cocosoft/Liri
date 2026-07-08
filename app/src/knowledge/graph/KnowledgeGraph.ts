@@ -34,7 +34,7 @@
  */
 
 import { Database } from '@modules/core/external/sqlite3';
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolveDbPath } from '@modules/core';

@@ -4,7 +4,7 @@
  * 端口白名单依赖容器内 iptables（需 NET_ADMIN 权限），域名黑名单通过 /etc/hosts 实现
  */
 
-import { execSync } from 'node:child_process';
+import { execSync } from 'child_process';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { DockerNetworkConfig } from './DockerNetworkPolicy';
 

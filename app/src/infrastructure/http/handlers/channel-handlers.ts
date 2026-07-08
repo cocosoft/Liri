@@ -21,7 +21,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
 
-import type http from 'node:http';
+import type http from 'http';
 import { sendError, readRequestBody, type HandlerCtx } from './handler-utils';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';

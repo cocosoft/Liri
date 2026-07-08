@@ -19,7 +19,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import type http from 'node:http';
+import type http from 'http';
 import type { Dirent } from 'node:fs';
 import path from 'path';
 import type { HandlerCtx } from './handler-utils';
@@ -41,7 +41,7 @@ function resolveStorePath(rawPath: string): string {
     return (
       process.env.LIRI_HOME ||
       process.env.PYAPP_HOME ||
-      join(require('node:os').homedir(), '.pyapp')
+      join(require('os').homedir(), '.pyapp')
     );
   }
 

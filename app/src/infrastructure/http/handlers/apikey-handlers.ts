@@ -19,7 +19,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import type http from 'node:http';
+import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 
 const apiKeys = new Map<

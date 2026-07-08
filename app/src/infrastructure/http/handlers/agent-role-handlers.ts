@@ -9,7 +9,7 @@
  * - DELETE /v1/agent-roles/:agentId   删除 Agent 角色
  */
 
-import type http from 'node:http';
+import type http from 'http';
 import { getAgentRoleStore } from '@modules/workspace/AgentRoleStore';
 import type { HandlerCtx } from './handler-utils';
 

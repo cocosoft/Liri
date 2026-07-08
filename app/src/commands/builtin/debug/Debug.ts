@@ -11,7 +11,7 @@ import {
   cpus,
   uptime,
   loadavg,
-} from 'node:os';
+} from 'os';
 import type { CommandContext, CommandResult } from '@modules/commands';
 
 /**

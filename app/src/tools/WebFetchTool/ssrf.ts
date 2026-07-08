@@ -4,8 +4,8 @@
  * 服务端请求伪造防护，检测并阻断内网/元数据请求
  */
 
-import * as net from 'node:net';
-import * as dns from 'node:dns';
+import * as net from 'net';
+import * as dns from 'dns';
 import { normalizeUrl } from './utils.js';
 
 export interface SsrfCheckResult {

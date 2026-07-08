@@ -12,8 +12,8 @@
  */
 
 import { EventEmitter } from 'events';
-import { spawn, type ChildProcess } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { spawn, type ChildProcess } from 'child_process';
+import { createHash } from 'crypto';
 import path from 'path';
 import fs from 'node:fs';
 

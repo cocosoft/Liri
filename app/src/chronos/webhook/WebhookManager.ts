@@ -3,8 +3,8 @@
  * 对标 OpenClaw chronos/webhook/，通过 HTTP 调用触发任务
  * 使用系统自带的 http/https 模块
  */
-import http from 'node:http';
-import https from 'node:https';
+import http from 'http';
+import https from 'https';
 import { EventEmitter } from 'events';
 
 /**

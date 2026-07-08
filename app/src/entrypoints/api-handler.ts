@@ -15,7 +15,7 @@
  *   GET /health, GET /api/health
  */
 
-import os from 'node:os';
+import os from 'os';
 
 export type APIHandler = (req: Request) => Promise<Response>;
 
@@ -367,7 +367,7 @@ async function tryInitRealHandler(shared: {
 async function doInitRealHandler(shared: {
   realHandler: ((req: Request) => Promise<Response>) | null;
 }): Promise<void> {
-  const { default: http } = await import('node:http');
+  const { default: http } = await import('http');
 
   // 动态导入 LocalHTTPService
   const { LocalHTTPService } =
@@ -376,7 +376,7 @@ async function doInitRealHandler(shared: {
   // 创建服务实例
   const service = new LocalHTTPService({ host: '127.0.0.1', port: 0 });
 
-  // 创建 node:http 服务器
+  // 创建 HTTP 服务器
   const realServer = http.createServer((nodeReq, nodeRes) => {
     // LocalHTTPService 内部有 request 事件监听器
     // 这里我们利用 server 的 events 机制

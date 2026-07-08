@@ -39,7 +39,7 @@ import type {
 } from './AIProvider';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'ai:fal-provider' });
 

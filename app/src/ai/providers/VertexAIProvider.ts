@@ -5,7 +5,7 @@
  * 使用 Service Account（GOOGLE_APPLICATION_CREDENTIALS）认证，
  * 通过 OAuth2 JWT 断言获取访问令牌。
  */
-import { createSign } from 'node:crypto';
+import { createSign } from 'crypto';
 import { readFileSync, existsSync } from 'node:fs';
 import { configManager } from '@modules/config';
 import type {

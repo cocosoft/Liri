@@ -3,7 +3,7 @@
  * 对标 Hermes get_read_block_error()，防止 Agent 读取内部缓存文件和敏感配置
  */
 import path from 'path';
-import os from 'node:os';
+import os from 'os';
 import { resolveProjectRoot } from '@modules/core';
 
 /**

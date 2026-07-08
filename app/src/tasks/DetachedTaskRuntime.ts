@@ -1,4 +1,4 @@
-import { fork } from 'node:child_process';
+import { fork } from 'child_process';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { join } from 'path';
 import { resolveProjectRoot } from '@modules/core';

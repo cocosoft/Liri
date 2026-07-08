@@ -3,7 +3,7 @@
  * 对标 Hermes 的 Webhook 通道实现
  */
 import { EventEmitter } from 'events';
-import http from 'node:http';
+import http from 'http';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,

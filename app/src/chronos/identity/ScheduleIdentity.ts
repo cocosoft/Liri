@@ -2,7 +2,7 @@
  * ScheduleIdentity 调度身份管理器
  * 对标 OpenClaw chronos/identity/，管理定时任务的执行身份
  */
-import crypto from 'node:crypto';
+import crypto from 'crypto';
 
 /**
  * 身份类型

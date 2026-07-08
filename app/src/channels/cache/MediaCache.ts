@@ -14,7 +14,7 @@ import {
   stat,
 } from 'node:fs/promises';
 import { join, extname } from 'path';
-import { createHash } from 'node:crypto';
+import { createHash } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'channels:media' });

@@ -11,7 +11,7 @@
  *   <｜tool▁call▁end｜>
  *   <｜tool▁calls▁end｜>
  */
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 import { BaseParser } from './BaseParser';
 import type { ParsedResult, ParsedToolCall } from './types';
 import { emptyParsedResult, toolCallResult } from './types';

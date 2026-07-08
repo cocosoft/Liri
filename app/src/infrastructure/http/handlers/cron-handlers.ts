@@ -21,7 +21,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
 
-import type http from 'node:http';
+import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 
 /** 将 CronJob 转为前端 CronTask 响应格式 */

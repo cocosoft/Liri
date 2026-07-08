@@ -23,8 +23,8 @@
  * chat-handlers.ts — 聊天相关 HTTP 处理器（从 LocalHTTPService 提取）
  */
 
-import type http from 'node:http';
-import { randomUUID } from 'node:crypto';
+import type http from 'http';
+import { randomUUID } from 'crypto';
 import type { HandlerCtx } from './handler-utils';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';

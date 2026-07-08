@@ -9,10 +9,10 @@
  *   DELETE /v1/images/delete     — 删除图片（按路径）
  */
 
-import type http from 'node:http';
+import type http from 'http';
 import fs from 'node:fs';
 import path from 'path';
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'crypto';
 import type { HandlerCtx } from './handler-utils';
 import { readRawBody, parseMultipartBody } from './handler-utils';
 import { handleError } from '@modules/error';

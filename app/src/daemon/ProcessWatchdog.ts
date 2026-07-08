@@ -5,7 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, type ChildProcess } from 'child_process';
 
 const logger = new Logger({
   module: 'daemon:processWatchdog',

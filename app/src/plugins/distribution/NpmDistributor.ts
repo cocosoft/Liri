@@ -6,7 +6,7 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveProjectRoot } from '@modules/core';
-import { execSync } from 'node:child_process';
+import { execSync } from 'child_process';
 import {
   existsSync,
   readFileSync,

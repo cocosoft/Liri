@@ -26,7 +26,7 @@
  * 路由前缀: /v1/providers, /v1/usage, /v1/balance, /v1/pricing
  */
 
-import type http from 'node:http';
+import type http from 'http';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';

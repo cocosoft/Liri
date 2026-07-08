@@ -5,7 +5,7 @@
  * SessionsSpawnTool / SessionsSendTool 的功能为单一 Tool 接口
  */
 
-import * as crypto from 'node:crypto';
+import * as crypto from 'crypto';
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';

@@ -25,8 +25,8 @@
  * 仅处理 HTTP 请求/响应，不包含缓存、索引等逻辑。
  */
 
-import https from 'node:https';
-import http from 'node:http';
+import https from 'https';
+import http from 'http';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { ThirdPartySkillSearchResult } from '../ThirdPartySkillAdapter';
 import type { ClawHubSkillMeta } from './ClawHubMeta';

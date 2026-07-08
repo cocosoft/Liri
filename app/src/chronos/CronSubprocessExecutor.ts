@@ -3,7 +3,7 @@
  * 对标 Hermes cron/scheduler.py
  * 让定时任务运行在子进程中增强隔离性
  */
-import { spawn, ChildProcess } from 'node:child_process';
+import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import path from 'path';
 

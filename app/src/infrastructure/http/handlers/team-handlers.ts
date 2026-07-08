@@ -12,7 +12,7 @@
  * - PUT    /v1/workspaces/:id/teams/:teamId/members/:memberId/role
  */
 
-import type http from 'node:http';
+import type http from 'http';
 import * as path from 'path';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';

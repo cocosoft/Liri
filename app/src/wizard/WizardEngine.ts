@@ -4,7 +4,7 @@
  */
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { EventEmitter } from 'events';
-import readline from 'node:readline';
+import readline from 'readline';
 
 /**
  * 向导步骤类型

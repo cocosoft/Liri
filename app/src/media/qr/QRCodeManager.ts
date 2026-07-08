@@ -2,7 +2,7 @@
  * QRCodeManager QR 码生成与解析
  * 对标 OpenClaw 的二维码处理
  */
-import { spawn } from 'node:child_process';
+import { spawn } from 'child_process';
 import fs from 'node:fs';
 
 /**

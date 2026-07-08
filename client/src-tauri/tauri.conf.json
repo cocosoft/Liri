@@ -30,8 +30,8 @@
     "targets": "all",
     "externalBin": ["binaries/liri_coding"],
     "resources": [
-      "../../app/docs/**",
-      "../../app/config/**"
+      "../../app/docs",
+      "../../app/config"
     ],
     "icon": [
       "icons/icon.png",

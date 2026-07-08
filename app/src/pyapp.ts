@@ -336,12 +336,18 @@ try {
 
   const exeDir = path.dirname(process.execPath);
 
-  const EXTERNAL_REDIRECTS = ['sqlite3', 'bindings', 'file-uri-to-path', 'sharp', 'pdfjs-dist'];
+  const EXTERNAL_REDIRECTS = [
+    'sqlite3',
+    'bindings',
+    'file-uri-to-path',
+    'sharp',
+    'pdfjs-dist',
+  ];
 
   // 在多个可能的位置搜索 node_modules（优先同级，兼容旧版 binaries/ 子目录）
   const SEARCH_DIRS = [
-    exeDir,                         // 与 exe 同目录（独立部署 / Tauri 新版结构）
-    path.join(exeDir, 'binaries'),  // 旧版 Tauri bundle 的 resources 子目录（兼容）
+    exeDir, // 与 exe 同目录（独立部署 / Tauri 新版结构）
+    path.join(exeDir, 'binaries'), // 旧版 Tauri bundle 的 resources 子目录（兼容）
   ];
 
   function resolveExternalModule(request: string): string {
@@ -353,7 +359,9 @@ try {
         // 当前目录没有 node_modules，继续尝试下一个
       }
     }
-    throw new Error(`Cannot find external module '${request}' in any search directory`);
+    throw new Error(
+      `Cannot find external module '${request}' in any search directory`
+    );
   }
 
   const origResolveFilename = Module._resolveFilename.bind(Module);
@@ -364,7 +372,11 @@ try {
     options: any
   ): string {
     // 前缀匹配：支持子路径如 pdfjs-dist/legacy/build/pdf
-    if (EXTERNAL_REDIRECTS.some(pkg => request === pkg || request.startsWith(pkg + '/'))) {
+    if (
+      EXTERNAL_REDIRECTS.some(
+        (pkg) => request === pkg || request.startsWith(pkg + '/')
+      )
+    ) {
       try {
         return resolveExternalModule(request);
       } catch {

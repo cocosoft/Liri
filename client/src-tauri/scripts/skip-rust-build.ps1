@@ -1,5 +1,5 @@
 # Tauri build runner: skip Rust compilation, use existing binary
-$binaryName = "py-app-client.exe"
+$binaryName = "liri_client.exe"
 $targetDir = Join-Path $PSScriptRoot "..\target\release"
 $binaryPath = Join-Path $targetDir $binaryName
 

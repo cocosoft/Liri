@@ -1,5 +1,5 @@
 [package]
-name = "py-app-client"
+name = "liri_client"
 version = "0.4.28"
 description = "Liri Desktop Client"
 authors = ["Pengyun"]

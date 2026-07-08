@@ -1,4 +1,4 @@
-﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 
 /**
@@ -68,7 +68,7 @@ const PROD_OAUTH_CONFIG: OauthConfig = {
   ROLES_URL: 'https://api.claude.ai/api/oauth/claude/roles',
   SUCCESS_URL: 'https://claude.ai/oauth/code/success?app=py-app',
   MANUAL_REDIRECT_URL: 'https://claude.ai/oauth/code/callback',
-  CLIENT_ID: 'py-app-client-id',
+  CLIENT_ID: 'liri-client-id',
   OAUTH_FILE_SUFFIX: '-oauth',
   MCP_PROXY_URL: 'http://localhost:8205',
   MCP_PROXY_PATH: '/v1/mcp/{server_id}',

@@ -326,16 +326,35 @@ if (process.env['LIRI_DEBUG']) {
 
 // ── 策略 7: 模块解析重定向（bun build --compile 外部依赖兜底） ──
 // Bun 编译的单文件 exe 中，模块根路径为虚拟路径（如 B:/~BUN/root/liri_coding），
-// 导致 --external 标记的包（如 sqlite3）无法通过系统 require 找到。
-// 此处 hook Module._resolveFilename，将标记的外部包重定向到实际 node_modules。
+// 导致 --external 标记的包（如 sharp）无法通过系统 require 找到。
+// 此处 hook Module._resolveFilename，用 process.execPath 定位实际 exe 目录，
+// 并搜索多个可能的 node_modules 位置（同级目录 + binaries/ 子目录）。
 try {
   const Module = require('module') as any;
   const { createRequire } = await import('module');
-  const { fileURLToPath } = await import('url');
-  const hookFile = fileURLToPath(import.meta.url);
-  const exeRequire = createRequire(hookFile);
+  const path = require('path') as any;
 
-  const EXTERNAL_REDIRECTS = ['sqlite3', 'bindings', 'file-uri-to-path'];
+  const exeDir = path.dirname(process.execPath);
+
+  const EXTERNAL_REDIRECTS = ['sqlite3', 'bindings', 'file-uri-to-path', 'sharp', 'pdfjs-dist'];
+
+  // 在多个可能的位置搜索 node_modules（优先同级，兼容旧版 binaries/ 子目录）
+  const SEARCH_DIRS = [
+    exeDir,                         // 与 exe 同目录（独立部署 / Tauri 新版结构）
+    path.join(exeDir, 'binaries'),  // 旧版 Tauri bundle 的 resources 子目录（兼容）
+  ];
+
+  function resolveExternalModule(request: string): string {
+    for (const dir of SEARCH_DIRS) {
+      try {
+        const req = createRequire(path.join(dir, '_placeholder_.js'));
+        return req.resolve(request);
+      } catch {
+        // 当前目录没有 node_modules，继续尝试下一个
+      }
+    }
+    throw new Error(`Cannot find external module '${request}' in any search directory`);
+  }
 
   const origResolveFilename = Module._resolveFilename.bind(Module);
   Module._resolveFilename = function patchedResolveFilename(
@@ -344,9 +363,10 @@ try {
     isMain: boolean,
     options: any
   ): string {
-    if (EXTERNAL_REDIRECTS.includes(request)) {
+    // 前缀匹配：支持子路径如 pdfjs-dist/legacy/build/pdf
+    if (EXTERNAL_REDIRECTS.some(pkg => request === pkg || request.startsWith(pkg + '/'))) {
       try {
-        return exeRequire.resolve(request);
+        return resolveExternalModule(request);
       } catch {
         // fallback to original
       }

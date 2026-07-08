@@ -365,6 +365,12 @@ export function buildEnvironmentHints(): string {
   hints.push(
     '4. If a tool call fails because a path does not exist, report the error to the user. Do not silently try alternative made-up paths.'
   );
+  hints.push(
+    '5. Every file path referenced in your text response must have been confirmed to exist via Read/Write/Glob/Edit tool calls during this conversation. If you are recommending a new file location, explicitly mark it with "(new file)".'
+  );
+  hints.push(
+    '6. When working in a worktree environment, prefix path references with the worktree identifier (e.g., "in bridge-session123 app/src/file.ts") to avoid confusion with main repo files of the same name.'
+  );
 
   return hints.join('\n');
 }

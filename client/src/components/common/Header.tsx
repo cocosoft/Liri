@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAutoUpdate } from "../../hooks/useAutoUpdate";
+import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { DashboardIcon, BellIcon, UserIcon, HelpIcon } from "../../assets/icons";
 
 /**
@@ -11,6 +12,7 @@ import { DashboardIcon, BellIcon, UserIcon, HelpIcon } from "../../assets/icons"
 function Header() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const workspacePath = useWorkspaceStore((s) => s.currentWorkspace?.path);
   const [showUpdateMenu, setShowUpdateMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const {
@@ -71,9 +73,9 @@ function Header() {
           <span>{t("nav.dashboard")}</span>
         </button>
 
-        {/* 只读显示当前应用名称 */}
-        <span className="flex items-center gap-1.5 px-3 py-1.5 text-gray-400 dark:text-gray-500 text-sm select-none">
-          {t("header.currentApp")}: Liri
+        {/* 当前工作目录 — 来自 workspaceStore */}
+        <span className="flex items-center gap-1.5 px-3 py-1.5 text-gray-400 dark:text-gray-500 text-sm select-none" title={workspacePath}>
+          {t("header.currentDir")}: {workspacePath || "—"}
         </span>
 
         {/* 分隔线 */}

@@ -1530,7 +1530,7 @@ const en = {
     comingSoon: "AI multi-language translation, coming soon",
   },
   header: {
-    currentApp: "Current App",
+    currentDir: "Workspace",
     userCenter: "User Center",
     helpCenter: "Help Center",
     checkUpdate: "Check Update",

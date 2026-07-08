@@ -1656,6 +1656,15 @@ export async function dispatchRoute(
     await self['handleMonitorLogs'](req, res);
     return true;
   }
+  // 路径幻觉守卫指标
+  if (method === 'GET' && url === '/v1/metrics/path-guard') {
+    await self['handlePathGuardMetrics'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/metrics/path-guard/reset') {
+    await self['handlePathGuardMetricsReset'](req, res);
+    return true;
+  }
   if (method === 'POST' && url === '/v1/monitor/logs/export') {
     await self['handleExportLogs'](req, res);
     return true;

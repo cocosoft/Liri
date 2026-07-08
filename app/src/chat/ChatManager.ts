@@ -28,6 +28,10 @@ import { repairModelJson } from '@modules/utils/json';
 import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator';
 import { ImageContextService } from './services/ImageContextService';
 import {
+  validatePathsInOutput,
+  clearPathCheckCache,
+} from './services/PathGuardService';
+import {
   toSessionMsgType,
   mapSessionStatusToState,
   extractTodoData,
@@ -1054,7 +1058,16 @@ export class ChatManagerImpl implements ChatManager {
         : JSON.stringify(response.content);
 
     // 修复 AI 可能拼错的图片 URL，统一为 /v1/images/static/media/ 格式
-    const assistantMessageContent = repairImageUrls(rawContent);
+    let assistantMessageContent = repairImageUrls(rawContent);
+
+    // 方案 1: 路径幻觉事后校验（dry-run 模式，只记录不修改文本）
+    const pathGuardResult = await validatePathsInOutput(
+      assistantMessageContent,
+      this.imageContextService.confirmedPaths
+    );
+    if (pathGuardResult.corrections.length > 0) {
+      // 后续稳定后可切换为 assistantMessageContent = pathGuardResult.text
+    }
 
     const assistantMsg = this.messageService.createAssistantMessage(
       assistantMessageContent,
@@ -2463,6 +2476,18 @@ export class ChatManagerImpl implements ChatManager {
     // 响应后自动提取记忆
     await this.extractMemoryFromChat(content, accumulatedContent, session.id);
 
+    // 方案 1 路径幻觉校验（流式输出完成后 — 校验完整文本）
+    // 注意：流式场景下文本已发送到前端，此处仅在日志中记录 + 必要时追加纠正
+    if (accumulatedContent.length > 0) {
+      const pathGuardResult = await validatePathsInOutput(
+        accumulatedContent,
+        this.imageContextService.confirmedPaths
+      );
+      if (pathGuardResult.corrections.length > 0) {
+        // 后续稳定后可 yield 额外 chunk 通知前端纠正
+      }
+    }
+
     // 触发 ChatPostStream Hook
     await this.hookChainManager.execute('chat', {
       event: 'chat.post-stream',
@@ -3547,6 +3572,21 @@ export class ChatManagerImpl implements ChatManager {
             resultData
           );
 
+          // glob/FileSearch 结果注册到 SessionConfirmedPaths（方案 4）
+          if (
+            (normalizedToolCall.name === 'glob' ||
+              normalizedToolCall.name === 'FileSearch') &&
+            Array.isArray(resultData) &&
+            toolCall.sessionId
+          ) {
+            const searchPath =
+              (normalizedToolCall.arguments?.path as string) || process.cwd();
+            this.imageContextService.confirmedPaths.addDirectoryListing(
+              searchPath,
+              resultData as string[]
+            );
+          }
+
           // 生图完成后通知前端刷新图库
           if (normalizedToolCall.name === 'image_generate') {
             eventNotificationService.emitCustomEvent('tool:completed', {
@@ -3852,6 +3892,9 @@ export class ChatManagerImpl implements ChatManager {
 
       await this._ensureSessionLoaded(sessionId);
       this._currentSessionId = sessionId;
+
+      // 会话切换时清理路径校验缓存
+      clearPathCheckCache();
 
       // 检测回切：离开超过 30 秒时发射召回事件
       const leaveTime = this._sessionLeaveTimes.get(sessionId);

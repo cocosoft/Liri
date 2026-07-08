@@ -7,6 +7,7 @@ import { ToolParam } from '../types/Tool';
 import { ToolResult } from '../types/ToolResult';
 import { ToolProgressData } from '../types/ToolProgressData';
 import * as fs from 'fs';
+import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { configManager } from '@modules/config';
 
@@ -322,6 +323,67 @@ export function checkPathAccessibility(
 
   if (fs.existsSync(resolved)) {
     return { accessible: true, resolvedPath: resolved };
+  }
+
+  const suggestions: string[] = [];
+
+  const projectDir = configManager.env('LIRI_PROJECT_DIR') || process.cwd();
+  const resolvedProject = path.resolve(projectDir);
+
+  if (
+    resolvedProject &&
+    path.dirname(resolvedProject)[0] !== path.dirname(resolved)[0]
+  ) {
+    if (
+      path.dirname(resolvedProject).toLowerCase().charAt(0) !==
+      path.dirname(resolved).toLowerCase().charAt(0)
+    ) {
+      suggestions.push(
+        `目标路径位于 ${path.dirname(resolved).charAt(0).toUpperCase()}: 盘，项目根目录位于 ${path.dirname(resolvedProject).charAt(0).toUpperCase()}: 盘`
+      );
+      suggestions.push(
+        '可尝试通过 --project-dir 或 LIRI_PROJECT_DIR 指定正确路径'
+      );
+    }
+  }
+
+  const parentDir = path.dirname(resolved);
+  if (!fs.existsSync(parentDir)) {
+    suggestions.push(`上级目录不存在: ${parentDir}`);
+    suggestions.push('请确认项目源码已同步到当前磁盘');
+  } else {
+    suggestions.push('请确认路径拼写正确');
+  }
+
+  return {
+    accessible: false,
+    resolvedPath: resolved,
+    reason: `${label}不存在: ${resolved}`,
+    suggestions,
+  };
+}
+
+/**
+ * 异步检查目标路径是否可访问（不阻塞事件循环）
+ *
+ * 用于批量路径校验等异步场景。与同步版本相比，仅将 fs.existsSync 替换为
+ * fsp.access(F_OK)，其余逻辑（盘符检测、友好提示）保持一致。
+ *
+ * @param targetPath 用户传入的原始路径
+ * @param label 路径用途描述
+ * @returns 检查结果
+ */
+export async function checkPathAccessibilityAsync(
+  targetPath: string,
+  label: string = '路径'
+): Promise<PathAccessResult> {
+  const resolved = path.resolve(targetPath);
+
+  try {
+    await fsp.access(resolved, fs.constants.F_OK);
+    return { accessible: true, resolvedPath: resolved };
+  } catch {
+    // 路径不存在，走同步逻辑构建友好的错误提示
   }
 
   const suggestions: string[] = [];

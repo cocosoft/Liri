@@ -1563,7 +1563,7 @@ const zh = {
     comingSoon: "AI 多语言翻译功能，敬请期待",
   },
   header: {
-    currentApp: "当前应用",
+    currentDir: "工作区",
     userCenter: "用户中心",
     helpCenter: "帮助中心",
     checkUpdate: "检查更新",

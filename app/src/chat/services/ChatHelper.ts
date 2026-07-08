@@ -6,6 +6,7 @@
  * 从 ChatManager 拆分出的纯函数和轻量依赖方法，不依赖 ChatManager 的 this 上下文
  */
 import { Logger, LogLevel } from '@modules/monitoring';
+import type { SessionConfirmedPaths } from './SessionConfirmedPaths';
 import type { Message } from '../types/message.js';
 import { MessageRole } from '../types/message.js';
 import { SessionState } from '../types/session.js';
@@ -154,7 +155,8 @@ export function resolveMaxContextTokens(model?: string): number {
  */
 export function truncateToolResult(
   content: string,
-  maxLen: number = TOOL_RESULT_MAX_LENGTH
+  maxLen: number = TOOL_RESULT_MAX_LENGTH,
+  confirmedPaths?: SessionConfirmedPaths
 ): string {
   const sizeKB = Math.round(content.length / 1024);
   if (content.length <= maxLen) return content;
@@ -170,6 +172,13 @@ export function truncateToolResult(
   const uniquePaths = matchedPaths
     ? [...new Set(matchedPaths)].slice(0, 5).join('\n  ')
     : '';
+
+  // 将截断保留的路径注册到 SessionConfirmedPaths（方案 4 联动）
+  if (confirmedPaths && matchedPaths) {
+    for (const p of new Set(matchedPaths)) {
+      confirmedPaths.add(p);
+    }
+  }
 
   const header = uniquePaths
     ? `[工具结果已截断，原始大小 ${sizeKB}KB，保留首尾关键信息]\n涉及的路径:\n  ${uniquePaths}\n`

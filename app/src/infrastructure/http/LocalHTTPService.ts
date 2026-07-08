@@ -40,6 +40,8 @@ import {
   handleSessionsSummary,
   handleOTelMetrics,
   handleInfrastructureStatus,
+  handlePathGuardMetrics,
+  handlePathGuardMetricsReset,
 } from './handlers/monitoring-handlers';
 import {
   handleHealthReport,
@@ -531,6 +533,20 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     return handleInfrastructureStatus(this._handlerCtx, req, res);
+  }
+
+  private async handlePathGuardMetrics(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handlePathGuardMetrics(this._handlerCtx, req, res);
+  }
+
+  private async handlePathGuardMetricsReset(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handlePathGuardMetricsReset(this._handlerCtx, req, res);
   }
 
   // ========== Health / Analytics / Cost Handlers (extracted to handlers/analytics-handlers.ts) ==========

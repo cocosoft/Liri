@@ -6,6 +6,7 @@
  * 从 ChatManager 拆分出的独立模块，负责图片路径注册、路径匹配、上下文跟踪
  */
 import path from 'node:path';
+import { SessionConfirmedPaths } from './SessionConfirmedPaths';
 
 export interface ImageContext {
   lastGeneratedImage?: { filePath: string; prompt: string };
@@ -14,14 +15,18 @@ export interface ImageContext {
 }
 
 export class ImageContextService {
-  /** 会话级已知图片路径集合（用于执行工具前校验 inputPath） */
+  /** 会话级已知图片路径集合（委托给 SessionConfirmedPaths，方案 4） */
   private sessionImagePaths: Map<string, Set<string>> = new Map();
+
+  /** 通用已确认路径集合（方案 4 — 供 PathGuardService 校验用） */
+  readonly confirmedPaths: SessionConfirmedPaths = new SessionConfirmedPaths();
 
   /** 会话级图像上下文（用于跨轮对话中 AI 引用图片） */
   private sessionImageContext: Map<string, ImageContext> = new Map();
 
   /**
    * 注册会话的已知图片路径（工具调用前校验用）
+   * 同时注册到通用 confirmedPaths 集合
    */
   registerImagePaths(sessionId: string, paths: string[]): void {
     if (!sessionId || paths.length === 0) return;
@@ -31,7 +36,10 @@ export class ImageContextService {
       this.sessionImagePaths.set(sessionId, imagePaths);
     }
     for (const p of paths) {
-      if (p) imagePaths.add(p);
+      if (p) {
+        imagePaths.add(p);
+        this.confirmedPaths.add(p);
+      }
     }
   }
 

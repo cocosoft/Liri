@@ -666,3 +666,53 @@ export async function handleInfrastructureStatus(
     res.end(JSON.stringify({ error: '获取基础设施状态失败' }));
   }
 }
+
+// ── 路径幻觉守卫指标（P2 可观测性） ──────────────────────────────────
+
+/**
+ * GET /v1/metrics/path-guard
+ * 返回 PathGuardService 的累计指标
+ */
+export async function handlePathGuardMetrics(
+  _ctx: HandlerCtx,
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { getPathGuardMetrics } =
+      await import('@modules/chat/services/PathGuardService');
+    const metrics = getPathGuardMetrics();
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+    });
+    res.end(JSON.stringify(metrics));
+  } catch (error) {
+    logger.error('获取路径守卫指标失败', { error: String(error) });
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: '获取路径守卫指标失败' }));
+  }
+}
+
+/**
+ * POST /v1/metrics/path-guard/reset
+ * 重置 PathGuardService 的累计指标
+ */
+export async function handlePathGuardMetricsReset(
+  _ctx: HandlerCtx,
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { resetPathGuardMetrics } =
+      await import('@modules/chat/services/PathGuardService');
+    resetPathGuardMetrics();
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+    });
+    res.end(JSON.stringify({ ok: true }));
+  } catch (error) {
+    logger.error('重置路径守卫指标失败', { error: String(error) });
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: '重置路径守卫指标失败' }));
+  }
+}

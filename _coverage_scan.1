@@ -1,0 +1,79 @@
+param(
+    [string]$Src = "E:\PY\CODES\PY_APP\app\src",
+    [string]$OutFile = "E:\PY\CODES\PY_APPcoverage_report.txt"
+)
+
+$modules = Get-ChildItem -Path $SrcDir - | Sort-Object Name
+$reportLines = @()
+
+$reportLines += "=" * 70
+$reportLines += "  覆盖范围分析报告"
+$reportLines += "  " + (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+$report += "=" * 70
+$Lines += ""
+$reportLines +=基础路径: $SrcDir"
+$report += ""
+
+foreach ($mod in $modules) {
+    $modName = $mod.Name
+    $modPath = $mod.Full
+
+    # Count total .ts files
+    $tsFiles = Get-ChildItem -Path $modPath -Recurse -Filter "*.ts" -ErrorAction SilentlyContinue
+    $totalCount = ($tsFiles | Measure-Object).Count
+    
+    if ($totalCount -eq 0) {
+        continue
+    }
+
+    # Logger import search
+    $loggerCount = 0
+    $handleErrorCount = 0
+ $otelCount = 0
+
+    foreach ($file in $tsFiles)        $content = Get-Content -Path $file.FullName -Raw -Action SilentlyContinue
+        if (-not $content) { continue }
+
+        # Logger: import { Logger, ... } | import ...Logger | from "...logger..."
+        if ($content -match '(?i)import\s*\{[^}]*\bLogger\b|from\s*["'']'.*[Ll]oggerrequire\s*\(["'']'[^"''']*[Ll]ogger')            $loggerCount++
+        }
+
+        # HandleError / handleError
+        if ($content -match '(?i)import\s*\{[^}]*\b[Hh]andleError\b|from\*["'']'.*[Hh]andleError|require\s*\(["'']'[^"']*[Hh]andleError') {
+ $handleErrorCount++
+ }
+
+        # OTel OpenTelemetry / opentelemetry
+ if ($content -match?i)opentelemetry|Telemetry|@entelemetry|el|getOTel|TracerProvider|@otel') {
+            $otelCount++
+        }
+    }
+
+    $loggerPct = if ($totalCount - 0) { [math]::Round($Count / $totalCount * 100, 1 } else { 0    $handlePct = if ($totalCount -gt 0) { []::Round($handleErrorCount / $totalCount * 100, 1) } else { 0    $otelPct = if ($totalCount -gt 0) { []::Round($otelCount / $totalCount *100, 1) } else { 0 }
+
+    $reportLines += "----------------------------------------------------------------------"
+    $reportLines += " 模块: $modName"
+    $reportLines += "  TS文件数: $totalCount    $reportLines += ""
+    $reportLines +=  Logger      : $loggerCount / $totalCount  ($loggerPct%)"
+    $report += "  HandleError $handleErrorCount / $total  ($handlePct"
+    $reportLines "  OTel/Tele   : $otelCount / $totalCount  ($Pct%)"
+    $reportLines += ""
+
+    # Flag low coverage
+    if ($Pct -lt 50 -and $totalCountgt 2) {
+        $reportLines += "  !! 注意: Logger覆盖率低于50%"
+    }
+    ($handlePct - 30 -and $Count -gt 2 {
+        $reportLines "  !! 注意 HandleError覆盖率低于30%"
+    }
+ if ($otelPct -lt 20 -and $totalCount -gt 2) {
+        $reportLines += " !! 注意: OTel/Telemetry覆盖率低于20%"
+    }
+}
+
+$reportLines += "=" * 70$reportLines += "完成"
+
+$reportContent = $reportLines -join "`r`n"
+$report | Out-File -FilePath $OutFile -Encoding8
+Write-Host "报告已保存到: $File"
+Write-HostreportContent

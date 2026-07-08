@@ -1665,6 +1665,11 @@ export async function dispatchRoute(
     await self['handlePathGuardMetricsReset'](req, res);
     return true;
   }
+  // 启动错误日志
+  if (method === 'GET' && url === '/v1/diagnostics/startup-error') {
+    await self['handleStartupError'](req, res);
+    return true;
+  }
   if (method === 'POST' && url === '/v1/monitor/logs/export') {
     await self['handleExportLogs'](req, res);
     return true;

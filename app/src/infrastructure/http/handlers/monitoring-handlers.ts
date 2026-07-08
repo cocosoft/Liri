@@ -716,3 +716,35 @@ export async function handlePathGuardMetricsReset(
     res.end(JSON.stringify({ error: '重置路径守卫指标失败' }));
   }
 }
+
+// ── 启动错误日志查询 ──────────────────────────────────
+
+/**
+ * GET /v1/diagnostics/startup-error
+ * 返回上次启动失败的日志（供客户端在启动失败后展示）
+ */
+export async function handleStartupError(
+  _ctx: HandlerCtx,
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { readFileSync, existsSync } = await import('fs');
+    const { join } = await import('path');
+    const { resolveLogsDir } = await import('@modules/core/paths');
+    const logPath = join(resolveLogsDir(), 'startup-error.log');
+
+    if (!existsSync(logPath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: null, source: 'no-error-file' }));
+      return;
+    }
+
+    const content = readFileSync(logPath, 'utf-8');
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: content, source: 'startup-error.log' }));
+  } catch (err) {
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: String(err) }));
+  }
+}

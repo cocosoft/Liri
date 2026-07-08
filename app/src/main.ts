@@ -1063,6 +1063,21 @@ export async function launch(options: LaunchOptions): Promise<void> {
     ).handleError(error, { module: 'app:main', action: 'launch' });
     profileCheckpoint('launch_error');
     profileReport();
+
+    // 写入启动错误日志供客户端读取展示
+    try {
+      const { writeFileSync } = await import('fs');
+      const { join } = await import('path');
+      const { resolveLogsDir } = await import('./core/paths.js');
+      const logPath = join(resolveLogsDir(), 'startup-error.log');
+      writeFileSync(
+        logPath,
+        `${new Date().toISOString()} 启动失败\n${String(error)}\n`
+      );
+    } catch {
+      /* 静默 */
+    }
+
     process.exit(1);
   }
 }

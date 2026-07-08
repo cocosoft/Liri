@@ -42,6 +42,7 @@ import {
   handleInfrastructureStatus,
   handlePathGuardMetrics,
   handlePathGuardMetricsReset,
+  handleStartupError,
 } from './handlers/monitoring-handlers';
 import {
   handleHealthReport,
@@ -547,6 +548,13 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     return handlePathGuardMetricsReset(this._handlerCtx, req, res);
+  }
+
+  private async handleStartupError(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleStartupError(this._handlerCtx, req, res);
   }
 
   // ========== Health / Analytics / Cost Handlers (extracted to handlers/analytics-handlers.ts) ==========

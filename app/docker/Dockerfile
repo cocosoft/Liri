@@ -78,6 +78,9 @@ WORKDIR /app
 # 独立二进制（等同 Windows 版的 liri_coding.exe）
 COPY --from=app-builder /app/dist/liri_coding /app/liri_coding
 
+# 外部依赖（sharp, pdfjs-dist 等原生模块）
+COPY --from=app-builder /app/dist/deps /app/deps
+
 # 原生插件（运行时按需加载，不存在时优雅降级）
 COPY --from=app-builder /app/native/target/release/libpy_app_native.so \
     /app/native/target/release/libpy_app_native.so

@@ -344,11 +344,8 @@ try {
     'pdfjs-dist',
   ];
 
-  // 在多个可能的位置搜索 node_modules（优先同级，兼容旧版 binaries/ 子目录）
-  const SEARCH_DIRS = [
-    exeDir, // 与 exe 同目录（独立部署 / Tauri 新版结构）
-    path.join(exeDir, 'binaries'), // 旧版 Tauri bundle 的 resources 子目录（兼容）
-  ];
+  // 在 exe 同级 deps/ 目录搜索（统一存放 sharp, pdfjs-dist 等原生模块）
+  const SEARCH_DIRS = [path.join(exeDir, 'deps')];
 
   function resolveExternalModule(request: string): string {
     for (const dir of SEARCH_DIRS) {

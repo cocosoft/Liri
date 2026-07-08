@@ -11,8 +11,22 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   clearScreen: false,
+  cacheDir: 'node_modules/.vite',
   optimizeDeps: {
     entries: ['src/**/*.{ts,tsx,js,jsx}'],
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      'zustand',
+      'react-markdown',
+      'rehype-highlight',
+      'recharts',
+      'react-i18next',
+      'i18next',
+      '@tauri-apps/api/core',
+      '@tauri-apps/plugin-shell',
+    ],
   },
   server: {
     host: true,

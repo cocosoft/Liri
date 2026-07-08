@@ -81,7 +81,7 @@ function main(): void {
     process.exit(1);
   }
 
-  const nodeModulesDir = path.join(targetDir, 'node_modules');
+  const depsDir = path.join(targetDir, 'deps');
   let copiedCount = 0;
 
   for (const dep of EXTERNAL_DEPS) {
@@ -91,7 +91,7 @@ function main(): void {
       continue;
     }
 
-    const destPath = path.join(nodeModulesDir, dep);
+    const destPath = path.join(depsDir, dep);
 
     console.log(`[复制] ${dep}:`);
     console.log(`  源: ${srcPath}`);

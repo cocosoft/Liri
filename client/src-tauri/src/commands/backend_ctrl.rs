@@ -132,7 +132,7 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
 
     let command = app_handle
         .shell()
-        .sidecar("liri_coding")
+        .sidecar("liri_terminal")
         .map_err(|e| format!("Failed to create sidecar command: {}", e))?
         .args(["repl", "--http-port", &port_str])
         .current_dir(&data_dir)
@@ -142,7 +142,7 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
         .env("LIRI_API_SECRET", &secret);
 
     info!(
-        "Starting backend sidecar: liri_coding repl --http-port={}, LIRI_HOME={:?}",
+        "Starting backend sidecar: liri_terminal repl --http-port={}, LIRI_HOME={:?}",
         current_port,
         if config.data_dir.is_empty() {
             "(default)"

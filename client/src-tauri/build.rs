@@ -46,7 +46,7 @@ fn main() {
     // Tauri 会自动在 externalBin 名称后追加 target triple + 平台扩展名
     let target = std::env::var("TARGET").unwrap_or_default();
     let ext = if cfg!(windows) { ".exe" } else { "" };
-    let sidecar_name = format!("{}/liri_coding-{}{}", binaries_dir, target, ext);
+    let sidecar_name = format!("{}/liri_terminal-{}{}", binaries_dir, target, ext);
 
     if !std::path::Path::new(&sidecar_name).exists() {
         if let Err(e) = std::fs::write(&sidecar_name, "placeholder") {

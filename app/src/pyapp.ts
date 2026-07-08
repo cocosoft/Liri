@@ -325,7 +325,7 @@ if (process.env['LIRI_DEBUG']) {
 }
 
 // ── 策略 7: 模块解析重定向（bun build --compile 外部依赖兜底） ──
-// Bun 编译的单文件 exe 中，模块根路径为虚拟路径（如 B:/~BUN/root/liri_coding），
+// Bun 编译的单文件 exe 中，模块根路径为虚拟路径（如 B:/~BUN/root/liri_terminal），
 // 导致 --external 标记的包（如 sharp）无法通过系统 require 找到。
 // 此处 hook Module._resolveFilename，用 process.execPath 定位实际 exe 目录，
 // 并搜索多个可能的 node_modules 位置（同级目录 + binaries/ 子目录）。

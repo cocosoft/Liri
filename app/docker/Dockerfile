@@ -19,7 +19,7 @@ RUN mkdir src && echo 'fn main() {}' > src/lib.rs && \
 # 复制真实源码并编译
 COPY native/ .
 RUN cargo build --release && \
-    cp target/release/libpy_app_native.so /libpy_app_native.so
+    cp target/release/libliri_native.so /libliri_native.so
 
 # =============================================================================
 #  构建阶段 2：Bun 打包 JS bundle
@@ -43,7 +43,7 @@ RUN bun install --frozen-lockfile --no-progress 2>/dev/null || bun install --no-
 COPY . .
 
 # 复制编译好的原生插件
-COPY --from=native-builder /libpy_app_native.so native/target/release/libpy_app_native.so
+COPY --from=native-builder /libliri_native.so native/target/release/libliri_native.so
 
 # 生成版本 Feature Flags
 RUN bun run scripts/build-variant.ts --variant=coding
@@ -71,7 +71,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # 创建运行用户
-RUN useradd -r -s /bin/false -m pyapp
+RUN useradd -r -s /bin/false -m liri
 
 WORKDIR /app
 
@@ -80,8 +80,8 @@ WORKDIR /app
 COPY --from=app-builder /app/dist /app/dist
 
 # 原生插件（运行时按需加载，不存在时优雅降级）
-COPY --from=app-builder /app/native/target/release/libpy_app_native.so \
-    /app/native/target/release/libpy_app_native.so
+COPY --from=app-builder /app/native/target/release/libliri_native.so \
+    /app/native/target/release/libliri_native.so
 
 # 文档目录（/docs 命令加载用）
 COPY --from=app-builder /app/docs /app/docs
@@ -107,9 +107,9 @@ RUN mkdir -p \
     logs
 
 # 固定权限
-RUN chown -R pyapp:pyapp /app
+RUN chown -R liri:liri /app
 
-USER pyapp
+USER liri
 
 # ── 环境变量 ──
 ENV LIRI_PROJECT_DIR=/app \

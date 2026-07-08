@@ -4,9 +4,9 @@ const os = require("os");
 
 function loadLibrary() {
   const isWindows = os.platform() === "win32";
-  // 注意: DLL 名称由 Cargo.toml [package].name 决定 ("py-app-native" -> py_app_native.dll)
+  // 注意: DLL 名称由 Cargo.toml [package].name 决定 ("liri-native" -> liri_native.dll)
   // 如果修改了 Cargo.toml 中的 name，这里需要同步更新
-  const libName = isWindows ? "py_app_native.dll" : `libpy_app_native.${suffix}`;
+  const libName = isWindows ? "liri_native.dll" : `libliri_native.${suffix}`;
   const libPath = path.join(__dirname, "target", "release", libName);
 
   try {

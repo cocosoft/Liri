@@ -55,7 +55,7 @@ jobs:
 
   # ══════════════════════════════════════════════
   # 独立可执行文件（Standalone exe）
-  # 产物命名规则：py_app-{variant}-{platform}-v{version}.tar.gz
+  # 产物命名规则：liri_terminal-{variant}-{platform}-v{version}.tar.gz
   # ══════════════════════════════════════════════
   standalone-exe:
     name: Standalone (${{ matrix.display }})
@@ -131,7 +131,7 @@ jobs:
           --target=${{ matrix.bun-target }}
           --external=pdfjs-dist
           --external=sharp
-          --outfile=../dist/py_app-${{ matrix.variant }}-${{ matrix.platform }}-v${{ steps.version.outputs.version }}${{ matrix.ext }}
+          --outfile=../dist/liri_terminal-${{ matrix.variant }}-${{ matrix.platform }}-v${{ steps.version.outputs.version }}${{ matrix.ext }}
           src/pyapp.ts
 
       - name: Copy external dependencies
@@ -141,7 +141,7 @@ jobs:
         shell: bash
         run: |
           VER="${{ steps.version.outputs.version }}"
-          BASE="py_app-${{ matrix.variant }}-${{ matrix.platform }}"
+          BASE="liri_terminal-${{ matrix.variant }}-${{ matrix.platform }}"
           RELEASE_NAME="${BASE}-v${VER}"
           RELEASE_DIR="../dist/release/${RELEASE_NAME}"
 
@@ -164,7 +164,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: standalone-${{ matrix.variant }}-${{ matrix.platform }}
-          path: dist/release/py_app-${{ matrix.variant }}-${{ matrix.platform }}-v${{ steps.version.outputs.version }}.tar.gz
+          path: dist/release/liri_terminal-${{ matrix.variant }}-${{ matrix.platform }}-v${{ steps.version.outputs.version }}.tar.gz
 
   # ══════════════════════════════════════════════
   # Tauri 桌面客户端（嵌入 sidecar）
@@ -315,20 +315,20 @@ jobs:
           ls -lah dist/ || true
 
           # 验证 sidecar 二进制是否存在（停留在 app/ 目录内，不 cd 进 ../dist）
-          if ! ls ../dist/liri_coding* 1> /dev/null 2>&1; then
-            echo "ERROR: no liri_coding* file found in ../dist after sidecar build"
+          if ! ls ../dist/liri_terminal* 1> /dev/null 2>&1; then
+            echo "ERROR: no liri_terminal* file found in ../dist after sidecar build"
             echo "Directory contents:"
             ls -la ../dist/
             exit 1
           fi
 
-          SIDEFILE=$(ls ../dist | grep -E '^liri_coding' | head -n1)
+          SIDEFILE=$(ls ../dist | grep -E '^liri_terminal' | head -n1)
           echo "Found sidecar binary: $SIDEFILE ($(du -sh "../dist/$SIDEFILE" | cut -f1))"
 
-          # 归一化 sidecar 产物名称为 liri_coding，供下游 copy 步骤使用
-          if [ "$SIDEFILE" != "liri_coding${{ matrix.config.sidecar-ext }}" ]; then
-            echo "Renaming $SIDEFILE -> liri_coding${{ matrix.config.sidecar-ext }}"
-            mv "../dist/$SIDEFILE" "../dist/liri_coding${{ matrix.config.sidecar-ext }}"
+          # 归一化 sidecar 产物名称为 liri_terminal，供下游 copy 步骤使用
+          if [ "$SIDEFILE" != "liri_terminal${{ matrix.config.sidecar-ext }}" ]; then
+            echo "Renaming $SIDEFILE -> liri_terminal${{ matrix.config.sidecar-ext }}"
+            mv "../dist/$SIDEFILE" "../dist/liri_terminal${{ matrix.config.sidecar-ext }}"
           fi
 
           echo "Sidecar build completed successfully."
@@ -344,17 +344,17 @@ jobs:
       - name: Copy sidecar to Tauri binaries dir
         run: |
           New-Item -ItemType Directory -Force -Path src-tauri/binaries
-          # 灵活匹配多种可能的输出名：liri_coding*, py_app*, py_app-*
+          # 匹配 sidecar 输出：liri_terminal*
           # 注意：-Include 配合 -Path 目录时必须在路径末尾加 \*，否则不生效
-          $side = Get-ChildItem -Path "../dist/*" -Include "liri_coding*","py_app*","py_app-*" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+          $side = Get-ChildItem -Path "../dist/*" -Include "liri_terminal*" -File -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $side) {
             Write-Error "ERROR: sidecar binary not found in ../dist"
             Write-Host "=== ../dist contents for debugging ==="
             Get-ChildItem ../dist -Force -ErrorAction SilentlyContinue
             exit 1
           }
-          Write-Host "Copying sidecar: $($side.Name) -> src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
-          Copy-Item $side.FullName "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}" -Force
+          Write-Host "Copying sidecar: $($side.Name) -> src-tauri/binaries/liri_terminal-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
+          Copy-Item $side.FullName "src-tauri/binaries/liri_terminal-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}" -Force
 
           # 只复制运行时必需的 2 个原生模块（sharp + pdfjs-dist），不复制全部 480+ 包
           New-Item -ItemType Directory -Force -Path src-tauri/binaries/node_modules
@@ -380,16 +380,16 @@ jobs:
       - name: Copy sidecar to Tauri binaries dir (Unix)
         run: |
           mkdir -p src-tauri/binaries
-          # 灵活匹配多种可能的输出名（优先：liri_coding*，回退：py_app*）
-          SIDEFILE=$(ls ../dist | grep -E '^liri_coding|^py_app' | head -n1 || true)
+          # 匹配 sidecar 输出
+          SIDEFILE=$(ls ../dist | grep -E '^liri_terminal' | head -n1 || true)
           if [ -z "$SIDEFILE" ]; then
             echo "ERROR: sidecar binary not found in ../dist"
             echo "Listing ../dist for debugging:"
             ls -la ../dist || true
             exit 1
           fi
-          echo "Copying sidecar from ../dist/${SIDEFILE} -> src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
-          cp "../dist/${SIDEFILE}" "src-tauri/binaries/liri_coding-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
+          echo "Copying sidecar from ../dist/${SIDEFILE} -> src-tauri/binaries/liri_terminal-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
+          cp "../dist/${SIDEFILE}" "src-tauri/binaries/liri_terminal-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
 
           # 只复制运行时必需的 2 个原生模块（sharp + pdfjs-dist），不复制全部 480+ 包
           mkdir -p src-tauri/binaries/node_modules

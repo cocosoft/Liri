@@ -39,9 +39,9 @@ services:
     # 数据库、会话、记忆等运行时数据通过卷持久化
     volumes:
       # 运行时数据（数据库、会话、用户附件等）
-      - pyapp_data:/app/app/data
+      - liri_data:/app/app/data
       # 日志文件
-      - pyapp_logs:/app/app/logs
+      - liri_logs:/app/app/logs
       # 用户知识库（可在宿主机上直接编辑 md 文件）
       - ../docs/知识库:/app/docs/知识库
 
@@ -61,7 +61,7 @@ services:
 
 # ── 命名卷 ──
 volumes:
-  pyapp_data:
+  liri_data:
     driver: local
-  pyapp_logs:
+  liri_logs:
     driver: local

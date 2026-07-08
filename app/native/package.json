@@ -1,5 +1,5 @@
 {
-  "name": "py-app-native",
+  "name": "liri-native",
   "version": "0.4.28",
   "description": "Liri Rust performance core - Bun FFI bindings",
   "main": "index.js",

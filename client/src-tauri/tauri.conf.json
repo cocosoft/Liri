@@ -28,7 +28,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "externalBin": ["binaries/liri_coding"],
+    "externalBin": ["binaries/liri_terminal"],
     "resources": [
       "../../app/docs",
       "../../app/config"

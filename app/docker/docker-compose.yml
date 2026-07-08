@@ -52,13 +52,12 @@ services:
     restart: unless-stopped
 
     # ── 健康检查 ──
-    # 交互模式下 healthcheck 不适用，后台服务模式可取消注释
-    # healthcheck:
-    #   test: ["CMD-SHELL", "pgrep Liri_coding || exit 1"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
-    #   start_period: 30s
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 # ── 命名卷 ──
 volumes:

@@ -260,10 +260,6 @@ jobs:
             }
           done
 
-      - name: Clean Cargo cache
-        run: cargo clean
-        working-directory: client/src-tauri
-
       - name: Build sidecar (${{ matrix.config.name }})
         working-directory: ${{ github.workspace }}/app
         shell: bash

@@ -90,7 +90,6 @@ COPY --from=app-builder /app/native/target/release/libliri_native.so \
 COPY --from=app-builder /app/docs /app/docs
 
 # 配置文件模板
-COPY --from=app-builder /app/configs /app/configs
 COPY --from=app-builder /app/.env.example /app/.env.example
 
 # ── 预创建数据目录（同 pyapp.ts 中的 ROOT_LEVEL_DIRS） ──

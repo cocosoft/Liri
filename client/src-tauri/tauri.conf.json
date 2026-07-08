@@ -30,10 +30,8 @@
     "targets": "all",
     "externalBin": ["binaries/liri_coding"],
     "resources": [
-      "binaries/node_modules/**",
       "../../app/docs/**",
-      "../../app/config/**",
-      "../../app/config.json"
+      "../../app/config/**"
     ],
     "icon": [
       "icons/icon.png",

@@ -47,6 +47,10 @@ COPY --from=native-builder /libpy_app_native.so native/target/release/libpy_app_
 # 生成版本 Feature Flags
 RUN bun run scripts/build-variant.ts --variant=coding
 
+# 将 tsconfig paths 别名 (@modules/xxx) 展开为相对路径
+# bun build --compile 不支持 tsconfig paths，因此需要预处理
+RUN bun run scripts/resolve-module-aliases.ts
+
 # 编译为独立二进制（与 package.json build:linux 保持一致）
 RUN bun build --compile \
     --target=bun-linux-x64-modern \

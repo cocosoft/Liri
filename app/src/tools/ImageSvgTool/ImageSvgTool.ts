@@ -166,6 +166,12 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
   ): Promise<ToolResult<ImageSvgOutput>> {
     const size = input.size ?? '64x64';
     const [width, height] = size.split('x').map(Number);
+    if (isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
+      return {
+        success: false,
+        error: `Invalid size: "${input.size}". Expected format: WxH (e.g. "256x256")`,
+      };
+    }
 
     const styleHint = input.style ? `风格：${input.style}。` : '';
     const colorHint = input.color ? `主色：${input.color}。` : '';
@@ -189,7 +195,7 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
         style: input.style,
       });
 
-      const response = await aiService.generate(messages);
+      const response = await aiService.generate(messages, input.model);
       const elapsed = Date.now() - startTime;
       const rawContent = response.content.trim();
       const svgCode = this.extractSvg(rawContent);
@@ -326,7 +332,7 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
     }
 
     // 4. 检查基本标签闭合（简单计数）
-    const openTags = svgCode.match(/<(\w+)[\s>]/g) || [];
+    const openTags = svgCode.match(/<(?!!)(\w+)[\s>]/g) || [];
     const closeTags = svgCode.match(/<\/\w+>/g) || [];
     const selfCloseTags = svgCode.match(/<(\w+)[^>]*\/>/g) || [];
 

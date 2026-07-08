@@ -283,15 +283,16 @@ export class CanvasTool extends BaseTool {
     const instance = this.getOrError(input.canvasId);
     if (!instance) return this.noInstanceError(input.canvasId);
 
-    // 从 elements 中提取 text 类型元素
-    const textElements = (input.elements ?? []).filter(
-      (e) => e.type === 'text'
-    );
-    if (textElements.length === 0 && input.elements) {
-      // 如果传入了非 text 元素，也当普通 draw 处理
-      instance.addElements(input.elements);
-    } else {
+    // 从 elements 中提取 text 类型元素，其余作为普通图形添加
+    const elements = input.elements ?? [];
+    const textElements = elements.filter((e) => e.type === 'text');
+    const nonTextElements = elements.filter((e) => e.type !== 'text');
+
+    if (textElements.length > 0) {
       instance.addElements(textElements);
+    }
+    if (nonTextElements.length > 0) {
+      instance.addElements(nonTextElements);
     }
 
     const result: CanvasResult = {

@@ -3402,13 +3402,15 @@ export class ChatManagerImpl implements ChatManager {
     }
 
     // inputPath 安全校验：对图像类工具校验输入路径是否在已知路径集合中
+    // 注意：生成类工具（image_svg_generate/canvas）不需要 inputPath，仅需输入路径的
+    // 工具（image_analysis/image）才走校验与自动补全逻辑
+    const IMAGE_INPUT_TOOLS = new Set(['image_analysis', 'image']);
     const IMAGE_TOOL_NAMES = new Set([
-      'image_analysis',
-      'image',
+      ...IMAGE_INPUT_TOOLS,
       'image_svg_generate',
       'canvas',
     ]);
-    if (IMAGE_TOOL_NAMES.has(normalizedToolCall.name) && toolCall.sessionId) {
+    if (IMAGE_INPUT_TOOLS.has(normalizedToolCall.name) && toolCall.sessionId) {
       const args = normalizedToolCall.arguments;
       let inputPath = (args.inputPath || args.file_path || args.path) as
         | string

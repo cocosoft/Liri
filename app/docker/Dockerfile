@@ -5,9 +5,7 @@
 # =============================================================================
 #  构建阶段 1：Rust 原生插件编译
 # =============================================================================
-FROM rust:1.84-alpine3.21 AS native-builder
-
-RUN apk add --no-cache musl-dev
+FROM rust:1.84-slim-bookworm AS native-builder
 
 WORKDIR /native
 
@@ -25,14 +23,14 @@ RUN cargo build --release && \
 # =============================================================================
 #  构建阶段 2：Bun 编译独立二进制
 # =============================================================================
-FROM oven/bun:1.2-alpine AS app-builder
+FROM oven/bun:1.2 AS app-builder
 
 # 安装编译原生模块所需的系统依赖
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     make \
     g++ \
-    musl-dev
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -48,22 +46,23 @@ COPY --from=native-builder /libpy_app_native.so native/target/release/libpy_app_
 
 # 编译为独立二进制（等同 Windows 版 bun build --compile --target=bun-windows-x64-modern）
 RUN bun build --compile \
-    --target=bun-linux-x64-musl-modern \
+    --target=bun-linux-x64-modern \
     --outfile=/app/dist/liri_coding \
     src/pyapp.ts
 
 # =============================================================================
-#  运行阶段：最小化 Alpine 镜像
+#  运行阶段：最小化 Debian 镜像
 # =============================================================================
-FROM alpine:3.21 AS runtime
+FROM debian:bookworm-slim AS runtime
 
 # 安装运行时依赖
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    tzdata
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
 
 # 创建运行用户
-RUN addgroup -S pyapp && adduser -S pyapp -G pyapp
+RUN useradd -r -s /bin/false -m pyapp
 
 WORKDIR /app
 

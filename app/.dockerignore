@@ -18,7 +18,6 @@ logs/
 # ── 开发配置 ──
 .env
 .env.local
-tsconfig.json
 tsconfig.eslint.json
 .eslintrc.json
 eslint.config.js

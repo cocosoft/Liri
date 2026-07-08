@@ -11,13 +11,13 @@ FROM rust:1.84-slim-bookworm AS native-builder
 WORKDIR /native
 
 # 仅复制 Cargo 清单以缓存依赖（利用 Docker 层缓存）
-COPY native/Cargo.toml native/Cargo.lock* ./
+COPY app/native/Cargo.toml app/native/Cargo.lock* ./
 RUN mkdir src && echo 'fn main() {}' > src/lib.rs && \
     cargo build --release 2>/dev/null || true && \
     rm -rf src
 
 # 复制真实源码并编译
-COPY native/ .
+COPY app/native/ .
 RUN cargo build --release && \
     cp target/release/libliri_native.so /libliri_native.so
 
@@ -36,11 +36,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # 复制依赖清单（利用 Docker 层缓存）
-COPY package.json bun.lock* ./
+COPY app/package.json app/bun.lock* ./
 RUN bun install --frozen-lockfile --no-progress 2>/dev/null || bun install --no-progress
 
-# 复制源码
-COPY . .
+# 复制源码（app/ → /app/）
+COPY app/ .
+
+# 复制 shared/ 目录（供 @shared/* 路径别名解析）
+COPY shared/ /shared/
 
 # 复制编译好的原生插件
 COPY --from=native-builder /libliri_native.so native/target/release/libliri_native.so

@@ -284,7 +284,7 @@ class GoogleChatChannelPlugin extends BaseChannelPlugin {
     filePath: string
   ): Promise<SendResult> {
     try {
-      const fs = await import('node:fs');
+      const fs = await import('fs');
       const path = await import('path');
       const buffer = fs.readFileSync(filePath);
       const fileName = path.basename(filePath);

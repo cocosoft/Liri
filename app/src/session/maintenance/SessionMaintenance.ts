@@ -2,7 +2,7 @@
  * SessionMaintenance 会话存储维护
  * 对标 CC 的会话存储维护能力
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import { resolvePyappHome } from '@modules/core';
 import { handleError } from '@modules/error';

@@ -5,7 +5,7 @@
 
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { resolveProjectRoot } from '@modules/core';
 
@@ -56,7 +56,7 @@ export function auditPlugins(pluginsDir?: string): SecurityAuditFinding[] {
 function discoverPlugins(scanDir: string): PluginMeta[] {
   const metas: PluginMeta[] = [];
   try {
-    const { readdirSync, statSync } = require('node:fs');
+    const { readdirSync, statSync } = require('fs');
     const entries = readdirSync(scanDir, { withFileTypes: true });
 
     for (const entry of entries) {

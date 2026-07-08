@@ -125,7 +125,7 @@ async function runDoctor(flags: string): Promise<DoctorReport> {
 
 function checkConfig(report: DoctorReport): void {
   try {
-    const { existsSync } = require('node:fs');
+    const { existsSync } = require('fs');
     const { join } = require('path');
     const cwd = process.cwd();
 
@@ -158,7 +158,7 @@ function checkConfig(report: DoctorReport): void {
 
 function checkModelStatus(report: DoctorReport): void {
   try {
-    const { existsSync } = require('node:fs');
+    const { existsSync } = require('fs');
     const { join } = require('path');
     const modelsConfigPath = join(
       process.cwd(),

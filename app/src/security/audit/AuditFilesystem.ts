@@ -5,7 +5,7 @@
 
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, statSync } from 'fs';
 import { join } from 'path';
 import { resolveProjectRoot, resolveDataDir } from '@modules/core';
 
@@ -158,7 +158,7 @@ function auditSymlinkSafety(
     if (!existsSync(baseDir)) continue;
 
     try {
-      const { readdirSync } = require('node:fs');
+      const { readdirSync } = require('fs');
       const entries = readdirSync(baseDir, { withFileTypes: true });
       for (const entry of entries) {
         if (entry.isSymbolicLink()) {

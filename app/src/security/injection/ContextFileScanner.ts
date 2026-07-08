@@ -3,7 +3,7 @@
  * 对标 Hermes prompt_builder.py 的 AGENTS.md/SOUL.md 上下文文件扫描
  * 扫描并提取项目中的上下文文件内容
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 
 /**

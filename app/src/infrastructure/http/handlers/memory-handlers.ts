@@ -3,7 +3,7 @@
  */
 
 import type http from 'http';
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import {
   sendError,
@@ -161,8 +161,8 @@ export async function handleCreateMemoryFromFile(
       return;
     }
 
-    const { readFile } = await import('node:fs/promises');
-    const { existsSync } = await import('node:fs');
+    const { readFile } = await import('fs/promises');
+    const { existsSync } = await import('fs');
     const { basename } = await import('path');
 
     if (!existsSync(filePath)) {

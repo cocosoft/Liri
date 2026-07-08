@@ -4,7 +4,7 @@
  * 使用 tmp + rename 模式保证写入原子性
  */
 
-import fs from 'node:fs/promises';
+import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';

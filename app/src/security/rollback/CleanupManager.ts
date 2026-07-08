@@ -29,8 +29,8 @@
  * 对应方案文档 §3.5（中断轮次清理）和 §9（生命周期管理）
  */
 
-import { readdir, unlink, stat, rm } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { readdir, unlink, stat, rm } from 'fs/promises';
+import { existsSync } from 'fs';
 import { join, resolve } from 'path';
 import { homedir } from 'os';
 import { Logger, LogLevel } from '@modules/monitoring';

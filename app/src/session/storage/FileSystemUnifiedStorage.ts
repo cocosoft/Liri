@@ -1,5 +1,5 @@
-import fs from 'node:fs/promises';
-import { Dirent } from 'node:fs';
+import fs from 'fs/promises';
+import { Dirent } from 'fs';
 import path from 'path';
 
 import { registerStorage } from './StorageFactory.js';

@@ -3,7 +3,7 @@
  * 对标平安科技，增加对 Redis/DB/外部 API 等依赖的健康检查能力
  */
 import { execSync } from 'child_process';
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 
 /**

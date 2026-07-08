@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Mattermost 通道插件
  * 厂商: Mattermost, Inc.
  * 协议: REST API v4 + WebSocket
@@ -264,7 +264,7 @@ export class MattermostChannel
       const baseUrl = this.channelConfig.serverUrl.replace(/\/+$/, '');
       const url = `${baseUrl}/api/v4/files`;
 
-      const fs = await import('node:fs/promises');
+      const fs = await import('fs/promises');
       const fileBuffer = await fs.readFile(filePath);
       const fileName = filePath.split(/[/\\]/).pop() || 'file';
 

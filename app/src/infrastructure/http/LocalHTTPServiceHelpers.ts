@@ -190,7 +190,7 @@ export function verifyRequestAuth(
  * 种子知识库：若用户知识库目录为空，从源码或内建默认文档初始化
  */
 export async function seedKnowledgeBaseIfEmpty(): Promise<void> {
-  const fs = await import('node:fs/promises');
+  const fs = await import('fs/promises');
   const path = await import('path');
   const { resolvePyappHome } = await import('@modules/core/paths');
 
@@ -237,7 +237,7 @@ export async function seedKnowledgeBaseIfEmpty(): Promise<void> {
  */
 async function writeDefaultKnowledgeDocs(
   dir: string,
-  fs: typeof import('node:fs/promises'),
+  fs: typeof import('fs/promises'),
   path: typeof import('path')
 ): Promise<void> {
   const docs: Array<{ fileName: string; content: string }> = [

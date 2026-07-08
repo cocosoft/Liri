@@ -17,7 +17,7 @@
  * - 可配合 Step 4 的 Session Hooks 注册到生命周期
  */
 
-import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { EmbeddingManager } from '../../ai/embedding/EmbeddingManager';

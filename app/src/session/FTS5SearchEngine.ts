@@ -3,7 +3,7 @@
  * 对标 Hermes hermes_state.py 的 FTS5 搜索能力
  * 将全文搜索引入会话和记忆搜索
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import { resolveDataDir } from '@modules/core';
 

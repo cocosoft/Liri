@@ -5,7 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
-import { watch, type FSWatcher } from 'node:fs';
+import { watch, type FSWatcher } from 'fs';
 import { join } from 'path';
 import { EventEmitter } from 'events';
 

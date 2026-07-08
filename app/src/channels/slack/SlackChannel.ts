@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SlackChannel Slack 通道
  * 参考 OpenClaw 的 Slack 实现
  */
@@ -154,7 +154,7 @@ class SlackChannelPlugin extends BaseChannelPlugin {
   ): Promise<SendResult> {
     if (!this.botToken) return { success: false, error: '未配置 botToken' };
     try {
-      const fs = await import('node:fs');
+      const fs = await import('fs');
       const fileContent = fs.readFileSync(filePath);
       const formData = new FormData();
       formData.append('channels', target);

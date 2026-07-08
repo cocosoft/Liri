@@ -2,7 +2,7 @@
  * DaemonDiagnostics 守护进程诊断工具
  * 对标 CC 的 --daemon-diagnostics 机制
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { execSync } from 'child_process';

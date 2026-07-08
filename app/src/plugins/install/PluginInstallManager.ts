@@ -3,7 +3,7 @@
  * 处理插件的安装、更新、卸载流程，支持多源安装和依赖处理
  */
 import path from 'path';
-import fs from 'node:fs';
+import fs from 'fs';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolveProjectRoot } from '@modules/core';
 import { PluginRegistry } from '../core/PluginRegistry.js';

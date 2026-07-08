@@ -12,7 +12,7 @@ import {
   readFileSync,
   mkdirSync,
   unlinkSync,
-} from 'node:fs';
+} from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 

@@ -2,7 +2,7 @@
  * SessionPersistenceManager 会话持久化管理
  * 对标 CC 的会话持久化机制
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import { resolvePyappHome } from '@modules/core';
 import { handleError } from '@modules/error';

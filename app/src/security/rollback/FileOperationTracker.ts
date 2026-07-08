@@ -35,7 +35,7 @@
  * 对应方案文档 §3.4 的 FileOperationTracker 设计
  */
 
-import { stat, readdir, readFile } from 'node:fs/promises';
+import { stat, readdir, readFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { xxHash, encodeFilePath } from './xxHash';

@@ -4,7 +4,7 @@
  */
 
 import { configManager } from '@modules/config';
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import { enhancedMcpConfigManager } from '@modules/services/mcp/EnhancedMCPConfigManager';
 

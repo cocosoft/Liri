@@ -20,7 +20,7 @@
 // SOFTWARE.
 
 import crypto from 'crypto';
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';

@@ -41,8 +41,8 @@ import {
   unlink,
   stat,
   copyFile,
-} from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+} from 'fs/promises';
+import { existsSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { createHash } from 'crypto';
 import { homedir } from 'os';

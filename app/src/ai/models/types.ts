@@ -251,7 +251,7 @@ export function imageToContentPart(
       return { type: 'image_url', image_url: { url: input, detail } };
     }
 
-    const fs = require('node:fs');
+    const fs = require('fs');
     const buffer = fs.readFileSync(input);
     const ext = input.split('.').pop()?.toLowerCase() || 'png';
     const mimeMap: Record<string, string> = {

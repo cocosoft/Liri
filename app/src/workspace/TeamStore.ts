@@ -7,7 +7,7 @@
  * - 角色权限检查
  */
 
-import * as fs from 'node:fs';
+import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { Team, TeamMember, TeamRole } from '@modules/workspace/types';

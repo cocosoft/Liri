@@ -7,7 +7,7 @@
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { resolveDataDir, resolveSessionsDir } from '@modules/core';
 
@@ -140,7 +140,7 @@ export class SessionMigration {
     for (const dir of dirs) {
       if (!existsSync(dir)) continue;
       try {
-        const { readdirSync } = require('node:fs');
+        const { readdirSync } = require('fs');
         const entries = readdirSync(dir, { withFileTypes: true });
         for (const entry of entries) {
           if (

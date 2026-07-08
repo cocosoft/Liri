@@ -20,7 +20,7 @@
 // SOFTWARE.
 
 import type http from 'http';
-import type { Dirent } from 'node:fs';
+import type { Dirent } from 'fs';
 import path from 'path';
 import type { HandlerCtx } from './handler-utils';
 import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
@@ -88,7 +88,7 @@ export async function handleFileList(
     const rawPath = url.searchParams.get('path') || '.';
     const absPath = resolveStorePath(rawPath);
 
-    const { readdirSync, statSync, existsSync } = require('node:fs');
+    const { readdirSync, statSync, existsSync } = require('fs');
     if (!existsSync(absPath)) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify([]));
@@ -229,7 +229,7 @@ export async function handleFileRead(
 
     const absPath = resolveStorePath(rawPath);
 
-    const { readFileSync, existsSync, statSync } = require('node:fs');
+    const { readFileSync, existsSync, statSync } = require('fs');
     if (!existsSync(absPath)) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: '文件不存在' } }));
@@ -433,8 +433,8 @@ export async function handleSendFileToAI(
       return;
     }
 
-    const { readFile } = await import('node:fs/promises');
-    const { existsSync } = await import('node:fs');
+    const { readFile } = await import('fs/promises');
+    const { existsSync } = await import('fs');
     const { basename } = await import('path');
 
     if (!existsSync(filePath)) {

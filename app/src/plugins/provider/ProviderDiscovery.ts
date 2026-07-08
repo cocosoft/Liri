@@ -181,7 +181,7 @@ export class ProviderDiscovery {
       const configPath = configManager.env('LIRI_PROVIDER_CONFIG');
       if (!configPath) return results;
 
-      const fs = require('node:fs');
+      const fs = require('fs');
       if (fs.existsSync(configPath)) {
         const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
         if (Array.isArray(config.providers)) {

@@ -594,7 +594,7 @@ export class SessionGateway {
   async listLiteSessions(): Promise<
     Array<{ id: string; title?: string; status?: string; updatedAt?: string }>
   > {
-    const { readdirSync } = require('node:fs');
+    const { readdirSync } = require('fs');
     const { join } = require('path');
     const { readLiteSessionMeta } =
       await import('./storage/LiteSessionReader.js');
@@ -613,7 +613,7 @@ export class SessionGateway {
         if (entry.startsWith('.')) continue; // 跳过隐藏文件/迁移标记
         const fullPath = join(sessionsDir, entry);
         // 跳过目录和会话存储目录（directories have items inside）
-        const { statSync } = require('node:fs');
+        const { statSync } = require('fs');
         const isDir = (() => {
           try {
             return statSync(fullPath).isDirectory();

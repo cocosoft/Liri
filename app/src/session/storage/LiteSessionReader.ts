@@ -9,7 +9,7 @@
  * 避免列表查询时全量加载 JSON 文件。
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync } from 'fs';
 
 /** 头部读取大小（64KB） */
 export const LITE_READ_BUF_SIZE = 65536;
@@ -42,10 +42,10 @@ export function extractJsonStringField(
 export function readLiteSessionMeta(filePath: string): LiteSessionMeta | null {
   try {
     // 只读头部 64KB
-    const fd = require('node:fs').openSync(filePath, 'r');
+    const fd = require('fs').openSync(filePath, 'r');
     const buf = Buffer.alloc(LITE_READ_BUF_SIZE);
-    require('node:fs').readSync(fd, buf, 0, LITE_READ_BUF_SIZE, 0);
-    require('node:fs').closeSync(fd);
+    require('fs').readSync(fd, buf, 0, LITE_READ_BUF_SIZE, 0);
+    require('fs').closeSync(fd);
     const raw = buf.toString('utf-8');
 
     return {

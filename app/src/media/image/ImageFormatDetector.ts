@@ -1,5 +1,5 @@
 import { Logger, LogLevel } from '@modules/monitoring';
-import fs from 'node:fs';
+import fs from 'fs';
 
 const logger = new Logger({
   module: 'media:image:imageFormatDetector',

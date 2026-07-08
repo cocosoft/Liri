@@ -3,7 +3,7 @@
  * 对标平安科技：每季度更新 Bash 攻击模式库
  * 对新增攻击模式（如 prompt injection 变种）进行自动扫描和更新
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
 import { resolveDataDir } from '@modules/core';

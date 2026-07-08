@@ -3,7 +3,7 @@
  * 对标 OpenClaw 的二维码处理
  */
 import { spawn } from 'child_process';
-import fs from 'node:fs';
+import fs from 'fs';
 
 /**
  * QR 码选项

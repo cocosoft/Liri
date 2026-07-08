@@ -2,7 +2,7 @@
  * DaemonAudit 守护进程审计日志
  * 事件类型已对齐 SystemEvents，通过 EventBus 发布标准化事件。
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import { resolvePyappHome } from '@modules/core';
 import { globalEventBus, SystemEvents } from '@modules/core';

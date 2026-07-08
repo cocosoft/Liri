@@ -181,7 +181,7 @@ export class AuditEngine {
     ];
 
     try {
-      const { readFileSync, readdirSync } = require('node:fs');
+      const { readFileSync, readdirSync } = require('fs');
       const { join } = require('path');
       const srcDir = join(this.ctx.workspaceDir, 'src');
 
@@ -225,7 +225,7 @@ export class AuditEngine {
 
     // 检查 Dockerfile 和 docker-compose 安全性
     try {
-      const { existsSync, readFileSync } = require('node:fs');
+      const { existsSync, readFileSync } = require('fs');
       const { join } = require('path');
       const dockerfile = join(this.ctx.workspaceDir, 'Dockerfile');
 
@@ -267,7 +267,7 @@ export class AuditEngine {
   private findTsFiles(dir: string): string[] {
     const results: string[] = [];
     try {
-      const { readdirSync, statSync } = require('node:fs');
+      const { readdirSync, statSync } = require('fs');
       const { join } = require('path');
       const entries = readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
@@ -294,7 +294,7 @@ export class AuditEngine {
 
 function existsSync(p: string): boolean {
   try {
-    const { existsSync: fsExists } = require('node:fs');
+    const { existsSync: fsExists } = require('fs');
     return fsExists(p);
   } catch {
     return false;

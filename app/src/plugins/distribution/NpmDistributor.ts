@@ -13,7 +13,7 @@ import {
   writeFileSync,
   mkdirSync,
   unlinkSync,
-} from 'node:fs';
+} from 'fs';
 import { join } from 'path';
 import { handleError } from '@modules/error';
 
@@ -176,7 +176,7 @@ export class NpmDistributor {
       const nodeDir = join(this.pluginsDir, 'node_modules');
       if (!existsSync(nodeDir)) return info;
 
-      const { readdirSync, statSync } = require('node:fs');
+      const { readdirSync, statSync } = require('fs');
       const entries = readdirSync(nodeDir, { withFileTypes: true });
 
       for (const entry of entries) {

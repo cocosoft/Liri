@@ -3,7 +3,7 @@
  * 支持 systemd (Linux)、launchd (macOS)、schtasks (Windows) 三平台
  */
 import { execSync } from 'child_process';
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import type { CronScheduler } from '@modules/chronos/types';

@@ -6,7 +6,7 @@
  * 用法: bun run src/scripts/plugify.ts <模块名> [描述]
  * 示例: bun run src/scripts/plugify.ts canvas "画布工具模块插件"
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import { getLogger } from '@modules/monitoring';
 

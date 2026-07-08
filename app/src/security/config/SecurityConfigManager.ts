@@ -3,7 +3,7 @@
  * 对标平安科技：将安全验证规则外部化到配置文件，支持热更新
  * 可在不重启应用的情况下更新安全策略
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import { resolveSecurityDir } from '@modules/core';
 import { EventEmitter } from 'events';

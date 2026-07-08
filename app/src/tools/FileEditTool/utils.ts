@@ -4,7 +4,7 @@
  * 文件编辑工具函数
  */
 
-import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, statSync } from 'fs';
 import { createHash } from 'crypto';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import {

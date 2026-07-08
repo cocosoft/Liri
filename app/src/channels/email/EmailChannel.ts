@@ -8,7 +8,7 @@
 import { EventEmitter } from 'events';
 import { Socket } from 'net';
 import { connect as tlsConnect, TLSSocket } from 'tls';
-import { readFileSync } from 'node:fs';
+import { readFileSync } from 'fs';
 import { basename } from 'path';
 import { randomUUID } from 'crypto';
 import { BaseChannelPlugin } from '@modules/channels/base';

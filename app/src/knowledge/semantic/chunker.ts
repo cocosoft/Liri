@@ -26,9 +26,9 @@
  *
  */
 
-import * as fs from 'node:fs/promises';
+import * as fs from 'fs/promises';
 import * as path from 'path';
-import type { Dirent, Stats } from 'node:fs';
+import type { Dirent, Stats } from 'fs';
 
 /** 代码分块 */
 export interface CodeChunk {

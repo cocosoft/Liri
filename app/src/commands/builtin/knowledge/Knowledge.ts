@@ -6,9 +6,9 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { knowledgeDocsProvider } from '@modules/docs/FileDocsProvider.js';
 import { getDefaultDocumentVersionService } from '@modules/docs/DocumentVersionService.js';
 import { getDefaultTemplateService } from '@modules/docs/TemplateService.js';
-import { writeFile, unlink, mkdir, readFile } from 'node:fs/promises';
+import { writeFile, unlink, mkdir, readFile } from 'fs/promises';
 import { join, basename, dirname, extname } from 'path';
-import { existsSync } from 'node:fs';
+import { existsSync } from 'fs';
 
 const knowledgeCommand = {
   /**

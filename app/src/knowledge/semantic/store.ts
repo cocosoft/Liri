@@ -28,7 +28,7 @@
  * 借鉴: DeepSeek-Reasonix src/index/semantic/store.ts
  */
 
-import * as fs from 'node:fs/promises';
+import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { CodeChunk } from './chunker';
 

@@ -39,8 +39,8 @@ import {
   readdir,
   stat,
   rm,
-} from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+} from 'fs/promises';
+import { existsSync } from 'fs';
 import { join } from 'path';
 import { createHash } from 'crypto';
 import { homedir } from 'os';
@@ -83,7 +83,7 @@ const WalStore = {
    */
   async write(entry: WalEntry): Promise<void> {
     const walDir = getWalDir();
-    await import('node:fs/promises').then((fs) =>
+    await import('fs/promises').then((fs) =>
       fs.mkdir(walDir, { recursive: true })
     );
 
@@ -155,7 +155,7 @@ async function createUndoGuard(
     getUndoGuardDir(),
     `R${snapshot.roundId}_${Date.now()}`
   );
-  await import('node:fs/promises').then((fs) =>
+  await import('fs/promises').then((fs) =>
     fs.mkdir(guardDir, { recursive: true })
   );
 

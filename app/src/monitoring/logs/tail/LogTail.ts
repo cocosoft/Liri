@@ -2,7 +2,7 @@
  * LogTail 日志实时追踪
  * 对标 CC 的日志追踪功能
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import { EventEmitter } from 'events';
 import { handleError } from '@modules/error';
 

@@ -2,7 +2,7 @@
  * TempMediaManager 媒体临时文件管理
  * 对标 CC 的临时文件管理
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { handleError } from '@modules/error';

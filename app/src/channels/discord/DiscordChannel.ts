@@ -396,7 +396,7 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
   ): Promise<SendResult> {
     if (!this.st.botToken) return { success: false, error: '未连接' };
     try {
-      const fs = require('node:fs');
+      const fs = require('fs');
       const path = require('path');
       const fileContent = fs.readFileSync(filePath);
       const fileName = path.basename(filePath);

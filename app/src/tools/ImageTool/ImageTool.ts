@@ -6,7 +6,7 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
-import * as fs from 'node:fs';
+import * as fs from 'fs';
 import * as path from 'path';
 
 import { BaseTool } from '../BaseTool';

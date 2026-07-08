@@ -3,7 +3,7 @@
  * 检测系统上已安装的 IDE，支持在当前 IDE 中打开项目目录
  */
 import { execSync } from 'child_process';
-import { existsSync } from 'node:fs';
+import { existsSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 import { configManager } from '@modules/config';
@@ -263,7 +263,7 @@ function scanStartMenuPrograms(): IDEDetection[] {
 
   for (const dir of startMenuDirs) {
     try {
-      const { readdirSync } = require('node:fs');
+      const { readdirSync } = require('fs');
       const items = readdirSync(dir, { withFileTypes: true });
       for (const item of items) {
         const lower = item.name.toLowerCase();

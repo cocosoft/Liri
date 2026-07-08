@@ -160,7 +160,7 @@ class ConversationStore {
   async init(): Promise<void> {
     if (this.initialized) return;
     try {
-      const fs = await import('node:fs');
+      const fs = await import('fs');
       const path = await import('path');
       const storePath = this.getStorePath();
       if (fs.existsSync(storePath)) {
@@ -185,7 +185,7 @@ class ConversationStore {
 
   private async persist(): Promise<void> {
     try {
-      const fs = await import('node:fs');
+      const fs = await import('fs');
       const path = await import('path');
       const storePath = this.getStorePath();
       const dir = path.dirname(storePath);
@@ -408,7 +408,7 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
     filePath: string
   ): Promise<SendResult> {
     try {
-      const fs = await import('node:fs');
+      const fs = await import('fs');
       const path = await import('path');
       const buffer = fs.readFileSync(filePath);
       const fileName = path.basename(filePath);

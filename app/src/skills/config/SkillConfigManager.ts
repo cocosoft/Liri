@@ -2,7 +2,7 @@
  * SkillConfigManager 技能源配置管理
  * 管理技能源（本地、插件、MCP、项目）的配置
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';

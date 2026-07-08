@@ -47,7 +47,7 @@ class FileChannel implements NotifyChannel {
   }
 
   async send(context: FailureContext): Promise<void> {
-    const fs = await import('node:fs');
+    const fs = await import('fs');
     const path = await import('path');
 
     if (!fs.existsSync(this.outputDir)) {

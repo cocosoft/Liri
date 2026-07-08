@@ -3,7 +3,7 @@
  * 从 docs/ 文件夹加载 Markdown 文档内容，供帮助系统和文档搜索使用
  */
 
-import { readFile, readdir, stat } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'fs/promises';
 import { join, relative, basename, dirname } from 'path';
 import { resolvePyappHome } from '@modules/core';
 

@@ -5,7 +5,7 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 import { imageFormatDetector } from './ImageFormatDetector';

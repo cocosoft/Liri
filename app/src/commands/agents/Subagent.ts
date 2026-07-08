@@ -2,8 +2,8 @@
  * Subagent 命令实现
  * 管理多个 Agent 定义，支持从不同源加载 .md 配置文件
  */
-import { readdir, readFile, writeFile, unlink, mkdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { readdir, readFile, writeFile, unlink, mkdir } from 'fs/promises';
+import { existsSync } from 'fs';
 import { join, basename } from 'path';
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';

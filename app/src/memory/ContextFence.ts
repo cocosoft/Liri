@@ -3,7 +3,7 @@
  * 对标 Hermes <memory-context> 篱笆标签
  * 确保记忆内容被正确包裹在安全的上下文标签中
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 
 /**

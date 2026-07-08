@@ -2,7 +2,7 @@
  * BundledPluginManager 内置插件管理器
  * 对标 CC 的 bundled 插件管理
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import { handleError } from '@modules/error';
 

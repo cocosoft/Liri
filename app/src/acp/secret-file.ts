@@ -1,5 +1,5 @@
-import { readFile } from 'node:fs/promises';
-import { access } from 'node:fs/promises';
+import { readFile } from 'fs/promises';
+import { access } from 'fs/promises';
 
 export async function readSecretFromFile(filePath: string): Promise<string> {
   try {

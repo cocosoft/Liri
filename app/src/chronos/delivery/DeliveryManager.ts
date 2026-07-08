@@ -1,4 +1,4 @@
-﻿/**
+/**
  * DeliveryManager 投递管理
  * 对标 OpenClaw 的投递系统
  */
@@ -111,7 +111,7 @@ export class DeliveryManager {
 
       case 'file':
         try {
-          const fs = await import('node:fs');
+          const fs = await import('fs');
           fs.writeFileSync(plan.target, content, 'utf-8');
           return {
             success: true,

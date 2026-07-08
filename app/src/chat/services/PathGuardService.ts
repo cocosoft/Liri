@@ -17,7 +17,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { homedir } from 'os';
-import { Logger } from '@modules/monitoring';
+import { Logger, getOTelTracing } from '@modules/monitoring';
 import type { SessionConfirmedPaths } from './SessionConfirmedPaths';
 import { defaultWhitelist } from './PathWhitelist';
 
@@ -268,6 +268,11 @@ async function checkPathExistsWithCache(p: string): Promise<boolean> {
   }
 
   recordCacheMiss();
+  const otel = getOTelTracing();
+  const span = otel.startSpan('PathGuard.fsAccess', {
+    path: p,
+    'path.cached': false,
+  });
   try {
     await fs.access(p, fs.constants.F_OK);
     addToCache(p, true);
@@ -275,6 +280,8 @@ async function checkPathExistsWithCache(p: string): Promise<boolean> {
   } catch {
     addToCache(p, false);
     return false;
+  } finally {
+    otel.endSpan(span);
   }
 }
 
@@ -531,6 +538,8 @@ export async function validatePathsInOutput(
     return { text, corrections: [] };
   }
 
+  const otel = getOTelTracing();
+
   const candidates: Candidate[] = [
     ...[...text.matchAll(PATH_PATTERNS.winAbs)].map((m) =>
       toCandidate(m, 'win')
@@ -548,30 +557,39 @@ export async function validatePathsInOutput(
     return { text, corrections: [] };
   }
 
-  const mergedOptions: ValidateOptions = {
-    ...options,
-    confirmedPaths: confirmedPaths?.getConfirmedPaths(),
-  };
+  const span = otel.startSpan('PathGuard.validate', {
+    'path.count': candidates.length,
+    'path.textLength': text.length,
+  });
 
-  // dry-run：执行校验但不修改文本
-  if (_guardBypass === 'dry-run') {
-    const result =
-      candidates.length <= 10
-        ? await processCandidates(candidates, text, mergedOptions)
-        : await processCandidatesBatched(candidates, text, mergedOptions, 10);
-    return { text, corrections: result.corrections };
-  }
+  try {
+    const mergedOptions: ValidateOptions = {
+      ...options,
+      confirmedPaths: confirmedPaths?.getConfirmedPaths(),
+    };
 
-  const MAX_CONCURRENT = 10;
-  if (candidates.length <= MAX_CONCURRENT) {
-    return await processCandidates(candidates, text, mergedOptions);
+    // dry-run：执行校验但不修改文本
+    if (_guardBypass === 'dry-run') {
+      const result =
+        candidates.length <= 10
+          ? await processCandidates(candidates, text, mergedOptions)
+          : await processCandidatesBatched(candidates, text, mergedOptions, 10);
+      return { text, corrections: result.corrections };
+    }
+
+    const MAX_CONCURRENT = 10;
+    if (candidates.length <= MAX_CONCURRENT) {
+      return await processCandidates(candidates, text, mergedOptions);
+    }
+    return await processCandidatesBatched(
+      candidates,
+      text,
+      mergedOptions,
+      MAX_CONCURRENT
+    );
+  } finally {
+    otel.endSpan(span);
   }
-  return await processCandidatesBatched(
-    candidates,
-    text,
-    mergedOptions,
-    MAX_CONCURRENT
-  );
 }
 
 /**

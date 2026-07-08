@@ -5,7 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
-import { existsSync, unlinkSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, unlinkSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
 const logger = new Logger({ module: 'session:pruning', level: LogLevel.INFO });

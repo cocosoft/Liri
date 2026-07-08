@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+import fs from 'fs';
 import tls from 'tls';
 import { Logger, LogLevel } from '@modules/monitoring';
 

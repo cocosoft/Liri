@@ -30,7 +30,7 @@
  */
 
 import { createHash } from 'crypto';
-import { readFile } from 'node:fs/promises';
+import { readFile } from 'fs/promises';
 
 /**
  * 计算文件内容的 xxHash 值（64位）

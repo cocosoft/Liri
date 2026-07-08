@@ -2,7 +2,7 @@
  * VideoProcessor 视频处理
  * 对标 OpenClaw 的视频处理能力
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 

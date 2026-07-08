@@ -13,7 +13,7 @@ import {
   readdirSync,
   statSync,
   writeFileSync,
-} from 'node:fs';
+} from 'fs';
 import { join, basename } from 'path';
 import { resolveProjectRoot, resolveDataDir } from '@modules/core';
 

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * BlueBubbles 通道插件
  * 厂商: BlueBubbles (开源 iMessage 桥接)
  * 协议: BlueBubbles Server REST API
@@ -256,7 +256,7 @@ export class BlueBubblesChannel
     filePath: string
   ): Promise<SendResult> {
     try {
-      const fs = await import('node:fs/promises');
+      const fs = await import('fs/promises');
       const fileBuffer = await fs.readFile(filePath);
       const base64Data = fileBuffer.toString('base64');
       const fileName = filePath.split(/[/\\]/).pop() || 'file';

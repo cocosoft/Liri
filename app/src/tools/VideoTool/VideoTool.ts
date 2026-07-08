@@ -5,7 +5,7 @@
  * 复用现有 media/video/VideoProcessor.ts 和 media/ffmpeg/FFmpegWrapper.ts
  */
 
-import * as fs from 'node:fs';
+import * as fs from 'fs';
 import * as path from 'path';
 
 import { BaseTool } from '../BaseTool';

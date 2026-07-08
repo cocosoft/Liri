@@ -2,7 +2,7 @@
  * 安全审计报告生成器
  * 对标平安科技：生成包含所有模块状态的最终交付审计报告
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 
 /**

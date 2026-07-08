@@ -8,7 +8,7 @@
  *   - 支持手动续期（touch）和显式清理
  */
 
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveOutputDir } from '@modules/core/paths';

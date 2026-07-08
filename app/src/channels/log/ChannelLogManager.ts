@@ -2,7 +2,7 @@
  * ChannelLogManager 通道日志管理器
  * 对标 OpenClaw channels/logging/，管理通道消息日志和 typing 状态
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import { resolvePyappHome } from '@modules/core';
 

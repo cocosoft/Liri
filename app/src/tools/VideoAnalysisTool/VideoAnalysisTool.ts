@@ -34,7 +34,7 @@ import type { ToolUseContext, ToolResult, ToolParam } from '../types';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { execSync } from 'child_process';
 import * as path from 'path';
-import * as fs from 'node:fs';
+import * as fs from 'fs';
 import { randomUUID } from 'crypto';
 import { resolveTempDir } from '@modules/core/paths';
 

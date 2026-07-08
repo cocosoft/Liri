@@ -1,4 +1,4 @@
-import { appendFile } from 'node:fs/promises';
+import { appendFile } from 'fs/promises';
 import { logRedact } from './redact/LogRedact.js';
 import { appendLogEntry } from './LogMemory.js';
 import { LogLevel, type StructuredLogEntry, type LogSource } from './types.js';

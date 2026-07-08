@@ -261,7 +261,7 @@ export class StartupReportGenerator {
     dir: string,
     format: 'json' | 'text' | 'markdown' = 'json'
   ): string {
-    const fs = require('node:fs');
+    const fs = require('fs');
     const path = require('path');
 
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');

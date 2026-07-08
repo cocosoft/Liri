@@ -555,7 +555,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
         !fileUrlOrPath.startsWith('http://') &&
         !fileUrlOrPath.startsWith('https://')
       ) {
-        const fs = await import('node:fs');
+        const fs = await import('fs');
         const path = await import('path');
         const buf = fs.readFileSync(fileUrlOrPath);
         const ext = path.extname(fileUrlOrPath).slice(1) || 'bin';

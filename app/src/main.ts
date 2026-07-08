@@ -49,7 +49,7 @@ import {
   readFileSync,
   rmSync,
   unlinkSync,
-} from 'node:fs';
+} from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
 import {

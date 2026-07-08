@@ -233,7 +233,7 @@ export function migrateSessionsToWorktree(
     mkdirSync,
     writeFileSync,
     readdirSync,
-  } = require('node:fs');
+  } = require('fs');
   const { join } = require('path');
   const legacyDir = resolveLegacySessionsDir(env);
   const newDir = resolveSessionsDir(env);

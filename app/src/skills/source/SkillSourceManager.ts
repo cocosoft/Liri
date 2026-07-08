@@ -2,7 +2,7 @@
  * SkillSourceManager 多技能源管理器
  * 管理来自不同源的技能集合，支持动态加载和源切换
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 
 import { SkillLoader } from '../loaders/SkillLoader.js';

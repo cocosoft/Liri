@@ -16,7 +16,7 @@
  * └─ custom/          ← 用户自定义规则
  */
 
-import * as fs from 'node:fs';
+import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 

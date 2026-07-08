@@ -2,7 +2,7 @@
  * MediaStore 媒体存储管理
  * 对标 CC 的媒体存储管理能力
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import { resolveMediaDir } from '@modules/core';
 import { handleError } from '@modules/error';

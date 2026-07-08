@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Telegram 通道插件
  * 厂商: Telegram, 协议: Bot API HTTP + Webhook
  * 特色: 原生 MarkdownV2 + Inline Keyboard + 文件发送
@@ -504,7 +504,7 @@ class TelegramChannel extends BaseChannelPlugin {
     target: string,
     filePath: string
   ): Promise<SendResult> {
-    const file = require('node:fs').createReadStream(filePath);
+    const file = require('fs').createReadStream(filePath);
     const formData = new FormData();
     formData.append('chat_id', target);
     formData.append('document', file as unknown as Blob);

@@ -4,7 +4,7 @@
  */
 import { spawn } from 'child_process';
 import path from 'path';
-import fs from 'node:fs';
+import fs from 'fs';
 import os from 'os';
 import { handleError } from '@modules/error';
 

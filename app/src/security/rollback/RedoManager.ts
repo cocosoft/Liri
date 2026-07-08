@@ -39,8 +39,8 @@ import {
   writeFile,
   readFile,
   readdir,
-} from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+} from 'fs/promises';
+import { existsSync } from 'fs';
 import { join } from 'path';
 import { createHash } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -73,7 +73,7 @@ function getWalDir(): string {
  */
 async function writeWal(entry: WalEntry): Promise<void> {
   const walDir = getWalDir();
-  await import('node:fs/promises').then((fs) =>
+  await import('fs/promises').then((fs) =>
     fs.mkdir(walDir, { recursive: true })
   );
 

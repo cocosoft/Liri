@@ -2,7 +2,7 @@
  * CredentialManager 凭据管理系统 (Crestodian)
  * P1 优先级 — 对标 OpenClaw 的凭据助手
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { resolvePyappHome } from '@modules/core';

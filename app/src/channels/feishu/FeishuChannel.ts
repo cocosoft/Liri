@@ -469,7 +469,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
         blob = await resp.blob();
         fileName = filePathOrUrl.split('/').pop() || fileName;
       } else {
-        const fs = await import('node:fs');
+        const fs = await import('fs');
         const path = await import('path');
         const buf = fs.readFileSync(filePathOrUrl);
         blob = new Blob([buf]);

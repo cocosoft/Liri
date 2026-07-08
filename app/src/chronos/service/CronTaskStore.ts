@@ -2,7 +2,7 @@
  * CronTaskStore 持久化任务存储
  * 对标 OpenClaw 的 task store 机制
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import { resolvePyappHome } from '@modules/core';
 import { handleError } from '@modules/error';

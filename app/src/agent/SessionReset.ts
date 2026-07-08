@@ -5,7 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
-import { existsSync, unlinkSync, renameSync } from 'node:fs';
+import { existsSync, unlinkSync, renameSync } from 'fs';
 import { join } from 'path';
 
 const logger = new Logger({

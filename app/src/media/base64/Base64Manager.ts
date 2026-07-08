@@ -2,7 +2,7 @@
  * Base64Manager Base64 编解码管理
  * 对标 CC 的媒体 Base64 处理能力
  */
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 
 export interface Base64EncodeOptions {

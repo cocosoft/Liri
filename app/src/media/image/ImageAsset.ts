@@ -5,7 +5,7 @@
  * 避免跨工具重复 fs.stat / getDimensions。
  */
 
-import fs from 'node:fs';
+import fs from 'fs';
 import path from 'path';
 import { imageFormatDetector } from './ImageFormatDetector';
 

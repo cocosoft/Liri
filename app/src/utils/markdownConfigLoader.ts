@@ -5,9 +5,9 @@
 /**
  * 从frontmatter解析Agent工具
  */
-import { readdir } from 'node:fs/promises';
+import { readdir } from 'fs/promises';
 import { join } from 'path';
-import { existsSync } from 'node:fs';
+import { existsSync } from 'fs';
 
 export async function loadMarkdownFilesForSubdir(
   subdir: string,

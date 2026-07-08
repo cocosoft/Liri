@@ -15,7 +15,7 @@ import { EventEmitter } from 'events';
 import { spawn, type ChildProcess } from 'child_process';
 import { createHash } from 'crypto';
 import path from 'path';
-import fs from 'node:fs';
+import fs from 'fs';
 
 // ─── 日志工具（独立轻量，不依赖外部 logger） ─────────────
 

@@ -20,7 +20,7 @@ import {
   readFileSync,
   writeFileSync,
   unlinkSync,
-} from 'node:fs';
+} from 'fs';
 import { taskRegistry } from './TaskRegistry';
 import { resolveDataSubDir } from '@modules/core';
 import { NoteTask } from './NoteTask';
@@ -94,7 +94,7 @@ export class TaskOrchestrator {
       return;
     }
 
-    const { readdir } = await import('node:fs/promises');
+    const { readdir } = await import('fs/promises');
     let files: string[];
     try {
       files = await readdir(PLANS_DIR);

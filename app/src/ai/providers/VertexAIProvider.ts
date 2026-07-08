@@ -6,7 +6,7 @@
  * 通过 OAuth2 JWT 断言获取访问令牌。
  */
 import { createSign } from 'crypto';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync } from 'fs';
 import { configManager } from '@modules/config';
 import type {
   ChatMessage,

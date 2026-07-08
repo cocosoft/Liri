@@ -103,7 +103,7 @@ export function detectImageFormat(buffer: Buffer): ImageFormat | null {
 export function getImageSize(
   filePath: string
 ): Promise<{ width: number; height: number } | null> {
-  const { readFileSync } = require('node:fs');
+  const { readFileSync } = require('fs');
   const { Buffer } = require('node:buffer');
 
   try {
@@ -178,7 +178,7 @@ export function validateImageFile(filePath: string): {
   valid: boolean;
   error?: string;
 } {
-  const { statSync } = require('node:fs');
+  const { statSync } = require('fs');
 
   try {
     const stats = statSync(filePath);

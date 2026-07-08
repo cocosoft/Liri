@@ -32,7 +32,7 @@ import {
   writeFileSync,
   readdirSync,
   statSync,
-} from 'node:fs';
+} from 'fs';
 import { join, relative, resolve, basename } from 'path';
 
 export interface WorkspaceConfig {

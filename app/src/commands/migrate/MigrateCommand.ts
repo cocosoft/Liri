@@ -11,7 +11,7 @@ import {
   writeFileSync,
   renameSync,
   copyFileSync,
-} from 'node:fs';
+} from 'fs';
 import { join, dirname } from 'path';
 import { resolveProjectRoot } from '@modules/core';
 

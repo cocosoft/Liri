@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 企业微信通道插件
  * 厂商: 腾讯, 协议: 企业微信服务端 API
  * 特色: access_token 自动管理、消息推送(应用消息)、Markdown 支持
@@ -244,7 +244,7 @@ class WecomChannelPlugin extends BaseChannelPlugin {
         if (!resp.ok) return { error: `下载失败: ${resp.status}` };
         blob = await resp.blob();
       } else {
-        const fs = await import('node:fs');
+        const fs = await import('fs');
         const buf = fs.readFileSync(filePathOrUrl);
         blob = new Blob([buf]);
       }

@@ -17,7 +17,7 @@
  * 设计原则：独立模块，不侵入现有 SessionStore。
  */
 
-import { writeFileSync, readFileSync, unlinkSync, existsSync } from 'node:fs';
+import { writeFileSync, readFileSync, unlinkSync, existsSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@modules/core/paths';
 

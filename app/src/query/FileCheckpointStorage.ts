@@ -3,7 +3,7 @@
  * 将检查点持久化到磁盘文件，支持 TAORLoop 的中断恢复
  * 存储路径遵循文件存储规范第二层：app/data/checkpoints/
  */
-import * as fs from 'node:fs';
+import * as fs from 'fs';
 import * as path from 'path';
 import { resolveDataDir } from '@modules/core';
 import type { TAORCheckpoint, CheckpointStorage } from './types.js';

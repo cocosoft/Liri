@@ -60,7 +60,7 @@ export class FileAdapter implements DeliveryAdapter {
 
   async deliver(message: DeliveryMessage): Promise<DeliveryResult> {
     try {
-      const fs = await import('node:fs');
+      const fs = await import('fs');
       const path = await import('path');
 
       if (!fs.existsSync(this.outputDir)) {

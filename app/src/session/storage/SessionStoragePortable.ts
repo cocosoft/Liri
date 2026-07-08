@@ -15,7 +15,7 @@ import {
   writeFileSync,
   unlinkSync,
   readdirSync,
-} from 'node:fs';
+} from 'fs';
 import { join } from 'path';
 
 /** 便携存储配置 */

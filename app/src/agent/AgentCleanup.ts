@@ -5,7 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
-import { existsSync, unlinkSync } from 'node:fs';
+import { existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 
 const logger = new Logger({
@@ -96,7 +96,7 @@ export class AgentCleanup {
     const tempDir = join(this.stateDir, 'tmp');
     if (existsSync(tempDir)) {
       try {
-        const { readdirSync } = require('node:fs');
+        const { readdirSync } = require('fs');
         const files = readdirSync(tempDir);
         for (const file of files) {
           if (file.startsWith('agent-')) {

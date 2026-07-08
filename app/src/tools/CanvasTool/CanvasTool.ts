@@ -55,6 +55,8 @@ export interface CanvasOperation {
   elements?: CanvasElement[];
   format?: 'png' | 'jpeg' | 'webp' | 'svg';
   quality?: number;
+  /** 导出文件路径（可选），不指定则自动生成到 ~/.pyapp/output/images/ */
+  outputPath?: string;
 }
 
 /** 画布操作结果 */
@@ -129,7 +131,19 @@ export class CanvasTool extends BaseTool {
     'Create and manipulate visual canvases. Supports drawing shapes (rect, circle, line, path), ' +
     'text, image import, and exporting to PNG/JPEG/WebP/SVG. Use when the user asks to create ' +
     'a diagram, draw on an image, add text annotations, or build a visual composition. ' +
-    'Use create to start, then chain draw/text, and export to produce the final image.';
+    'Use create to start, then chain draw/text, and export to produce the final image.\n\n' +
+    'Elements structure (each element in the "elements" array):\n' +
+    '  - type: "rect"|"circle"|"line"|"text"|"image"|"path" (required)\n' +
+    '  - x, y: position coordinates (required, number)\n' +
+    '  - width, height: for rect/image (optional, number)\n' +
+    '  - radius: for circle (optional, number)\n' +
+    '  - fillColor, strokeColor: CSS color values (optional)\n' +
+    '  - strokeWidth: line width (optional, number)\n' +
+    '  - text: text content for text elements (optional)\n' +
+    '  - fontSize: font size for text (optional, number, default 16)\n' +
+    '  - opacity: 0.0-1.0 (optional)\n' +
+    '  - points: array of {x,y} for line/path elements (optional)\n' +
+    'Example: { type: "rect", x: 10, y: 20, width: 100, height: 50, fillColor: "#4A90D9" }';
 
   params: ToolParam[] = [
     {
@@ -167,7 +181,10 @@ export class CanvasTool extends BaseTool {
     {
       name: 'elements',
       type: 'array',
-      description: 'Array of canvas elements to draw',
+      description:
+        'Array of canvas elements to draw. Each element must have type (rect|circle|line|text|image|path) and x,y coordinates. ' +
+        'Optional per type: rect needs width/height; circle needs radius; text needs text content; line/path needs points array [{x,y},...]. ' +
+        'Example: [{type:"rect",x:10,y:20,width:100,height:50,fillColor:"#4A90D9"}]',
       required: false,
     },
     {
@@ -184,6 +201,13 @@ export class CanvasTool extends BaseTool {
       description: 'Output quality (1-100)',
       required: false,
       default: 90,
+    },
+    {
+      name: 'outputPath',
+      type: 'string',
+      description:
+        'Custom output file path (optional). If not specified, auto-generates to ~/.pyapp/output/images/',
+      required: false,
     },
   ];
 
@@ -262,7 +286,23 @@ export class CanvasTool extends BaseTool {
     if (!instance) return this.noInstanceError(input.canvasId);
 
     const elements = input.elements ?? [];
-    instance.addElements(elements);
+    const validElements = elements.filter(
+      (e) =>
+        e.type &&
+        typeof e.x === 'number' &&
+        !isNaN(e.x) &&
+        typeof e.y === 'number' &&
+        !isNaN(e.y)
+    );
+    const skipped = elements.length - validElements.length;
+    if (skipped > 0) {
+      logger.warn('CanvasTool · 过滤无效元素', {
+        canvasId: input.canvasId,
+        skipped,
+        total: elements.length,
+      });
+    }
+    instance.addElements(validElements);
 
     const result: CanvasResult = {
       canvasId: instance.canvasId,
@@ -274,7 +314,7 @@ export class CanvasTool extends BaseTool {
     return {
       success: true,
       data: result,
-      output: `Drew ${elements.length} element(s) on canvas ${instance.canvasId} (total: ${instance.elementCount})`,
+      output: `Drew ${validElements.length} element(s) on canvas ${instance.canvasId} (total: ${instance.elementCount})${skipped > 0 ? `, skipped ${skipped} invalid` : ''}`,
     };
   }
 
@@ -351,7 +391,15 @@ export class CanvasTool extends BaseTool {
         format,
         quality,
       } as ExportOptions);
-      const outputPath = resolveOutputPath(instance.canvasId, format);
+      const outputPath = input.outputPath
+        ? path.resolve(input.outputPath)
+        : resolveOutputPath(instance.canvasId, format);
+
+      // 确保输出目录存在
+      const dir = path.dirname(outputPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
       fs.writeFileSync(outputPath, buffer);
 
       const result: CanvasResult = {

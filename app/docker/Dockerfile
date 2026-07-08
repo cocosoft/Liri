@@ -1,7 +1,8 @@
 # =============================================================================
 #  Liri — Docker 多阶段构建
 #  官网：https://openliri.com
-#  参考 Windows 版打包方式（bun build --compile），生成独立可执行文件
+#  策略：bun build (tauri 编译) → JS bundle → bun 直接运行
+#  不用 bun build --compile（不支持 tsconfig paths 别名）
 # =============================================================================
 #  构建阶段 1：Rust 原生插件编译
 # =============================================================================
@@ -21,7 +22,7 @@ RUN cargo build --release && \
     cp target/release/libpy_app_native.so /libpy_app_native.so
 
 # =============================================================================
-#  构建阶段 2：Bun 编译独立二进制
+#  构建阶段 2：Bun 打包 JS bundle
 # =============================================================================
 FROM oven/bun:latest AS app-builder
 
@@ -47,27 +48,23 @@ COPY --from=native-builder /libpy_app_native.so native/target/release/libpy_app_
 # 生成版本 Feature Flags
 RUN bun run scripts/build-variant.ts --variant=coding
 
-# 将 tsconfig paths 别名 (@modules/xxx) 展开为相对路径
-# bun build --compile 不支持 tsconfig paths，因此需要预处理
-RUN bun run scripts/resolve-module-aliases.ts
-
-# 编译为独立二进制（与 package.json build:linux 保持一致）
-RUN bun build --compile \
-    --target=bun-linux-x64-modern \
+# 打包为主 JS bundle（bun build 支持 tsconfig paths，--compile 不支持）
+RUN bun build \
+    --target=bun \
     --external pdfjs-dist \
     --external sharp \
-    --outfile=/app/dist/liri_coding \
+    --outfile=/app/dist/bundle.js \
     src/pyapp.ts
 
 # 复制外部运行时依赖（sharp 等原生模块）
 RUN bun run scripts/copy-external-deps.ts
 
 # =============================================================================
-#  运行阶段：最小化 Debian 镜像
+#  运行阶段：Bun 运行时
 # =============================================================================
-FROM debian:bookworm-slim AS runtime
+FROM oven/bun:latest AS runtime
 
-# 安装运行时依赖
+# 安装运行时系统依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     tzdata \
@@ -79,8 +76,8 @@ RUN useradd -r -s /bin/false -m pyapp
 WORKDIR /app
 
 # ── 复制编译产物 ──
-# 独立二进制（等同 Windows 版的 liri_coding.exe）
-COPY --from=app-builder /app/dist/liri_coding /app/liri_coding
+# JS bundle（主程序）
+COPY --from=app-builder /app/dist/bundle.js /app/bundle.js
 
 # 外部依赖（sharp, pdfjs-dist 等原生模块）
 COPY --from=app-builder /app/dist/deps /app/deps
@@ -97,7 +94,6 @@ COPY --from=app-builder /app/configs /app/configs
 COPY --from=app-builder /app/.env.example /app/.env.example
 
 # ── 预创建数据目录（同 pyapp.ts 中的 ROOT_LEVEL_DIRS） ──
-# 避免运行时 mkdir {recursive: true} 触发 EPERM/ENOENT
 RUN mkdir -p \
     app/data \
     app/data/governance \
@@ -126,6 +122,4 @@ ENV LIRI_PROJECT_DIR=/app \
 
 EXPOSE 3000
 
-# 运行独立二进制（等同 Windows 版双击 liri_coding.exe）
-# 可通过 docker run -e LAUNCH_MODE=mcp 切换为 MCP 服务模式
-CMD ["/app/liri_coding"]
+CMD ["bun", "/app/bundle.js"]

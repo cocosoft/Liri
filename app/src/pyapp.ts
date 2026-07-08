@@ -344,8 +344,11 @@ try {
     'pdfjs-dist',
   ];
 
-  // 在 exe 同级 deps/ 目录搜索（统一存放 sharp, pdfjs-dist 等原生模块）
-  const SEARCH_DIRS = [path.join(exeDir, 'deps')];
+  // 在多个位置搜索 deps/（编译二进制 vs bun bundle 模式）
+  const SEARCH_DIRS = [
+    path.join(exeDir, 'deps'), // --compile 二进制
+    path.join(process.env.LIRI_PROJECT_DIR ?? '', 'dist', 'deps'), // Docker/开发 bundle
+  ].filter((d) => d.split(path.sep).length > 1); // 过滤无效路径
 
   function resolveExternalModule(request: string): string {
     for (const dir of SEARCH_DIRS) {

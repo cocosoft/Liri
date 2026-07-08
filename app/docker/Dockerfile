@@ -48,16 +48,16 @@ COPY --from=native-builder /libpy_app_native.so native/target/release/libpy_app_
 # 生成版本 Feature Flags
 RUN bun run scripts/build-variant.ts --variant=coding
 
-# 打包为主 JS bundle（bun build 支持 tsconfig paths，--compile 不支持）
+# 打包（bun build 原生支持 tsconfig paths，--target=bun 需要 --outdir）
 RUN bun build \
     --target=bun \
     --external pdfjs-dist \
     --external sharp \
-    --outfile=/app/dist/bundle.js \
+    --outdir=/app/dist \
     src/pyapp.ts
 
-# 复制外部运行时依赖（sharp 等原生模块）
-RUN bun run scripts/copy-external-deps.ts
+# 复制外部运行时依赖（sharp 等原生模块 → dist/deps/）
+RUN bun run scripts/copy-external-deps.ts --target=/app/dist
 
 # =============================================================================
 #  运行阶段：Bun 运行时
@@ -76,11 +76,8 @@ RUN useradd -r -s /bin/false -m pyapp
 WORKDIR /app
 
 # ── 复制编译产物 ──
-# JS bundle（主程序）
-COPY --from=app-builder /app/dist/bundle.js /app/bundle.js
-
-# 外部依赖（sharp, pdfjs-dist 等原生模块）
-COPY --from=app-builder /app/dist/deps /app/deps
+# dist/ 目录（pyapp.js + 原生资源 + deps/）
+COPY --from=app-builder /app/dist /app/dist
 
 # 原生插件（运行时按需加载，不存在时优雅降级）
 COPY --from=app-builder /app/native/target/release/libpy_app_native.so \
@@ -122,4 +119,4 @@ ENV LIRI_PROJECT_DIR=/app \
 
 EXPOSE 3000
 
-CMD ["bun", "/app/bundle.js"]
+CMD ["bun", "/app/dist/pyapp.js"]

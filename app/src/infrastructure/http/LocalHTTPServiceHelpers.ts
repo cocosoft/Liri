@@ -191,7 +191,7 @@ export function verifyRequestAuth(
  */
 export async function seedKnowledgeBaseIfEmpty(): Promise<void> {
   const fs = await import('node:fs/promises');
-  const path = await import('node:path');
+  const path = await import('path');
   const { resolvePyappHome } = await import('@modules/core/paths');
 
   const userKnowledgeDir = path.join(resolvePyappHome(), 'knowledge');
@@ -238,7 +238,7 @@ export async function seedKnowledgeBaseIfEmpty(): Promise<void> {
 async function writeDefaultKnowledgeDocs(
   dir: string,
   fs: typeof import('node:fs/promises'),
-  path: typeof import('node:path')
+  path: typeof import('path')
 ): Promise<void> {
   const docs: Array<{ fileName: string; content: string }> = [
     {

@@ -1,5 +1,5 @@
 import { watch, type FSWatcher } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({

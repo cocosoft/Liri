@@ -6,8 +6,8 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { watch, type FSWatcher } from 'node:fs';
-import { join } from 'node:path';
-import { EventEmitter } from 'node:events';
+import { join } from 'path';
+import { EventEmitter } from 'events';
 
 const logger = new Logger({
   module: 'config:configReloader',

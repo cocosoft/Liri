@@ -9,7 +9,7 @@
  */
 
 import fs from 'node:fs';
-import path from 'node:path';
+import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveOutputDir } from '@modules/core/paths';
 

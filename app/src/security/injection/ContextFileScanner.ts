@@ -4,7 +4,7 @@
  * 扫描并提取项目中的上下文文件内容
  */
 import fs from 'node:fs';
-import path from 'node:path';
+import path from 'path';
 
 /**
  * 上下文文件类型

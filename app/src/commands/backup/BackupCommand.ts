@@ -14,7 +14,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join, basename } from 'path';
 import { resolveProjectRoot, resolveDataDir } from '@modules/core';
 
 const logger = getLogger('BackupCommand');

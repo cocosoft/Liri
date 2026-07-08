@@ -1,4 +1,4 @@
-﻿/**
+/**
  * QQ Bot 通道插件
  * 厂商: 腾讯, 协议: QQ 开放平台 WebSocket 长连接
  * 特色: 支持出站 HTTP API 消息发送 + 入站 WebSocket 消息接收
@@ -556,7 +556,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
         !fileUrlOrPath.startsWith('https://')
       ) {
         const fs = await import('node:fs');
-        const path = await import('node:path');
+        const path = await import('path');
         const buf = fs.readFileSync(fileUrlOrPath);
         const ext = path.extname(fileUrlOrPath).slice(1) || 'bin';
         const base64 = buf.toString('base64');

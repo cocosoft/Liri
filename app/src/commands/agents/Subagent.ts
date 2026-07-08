@@ -4,7 +4,7 @@
  */
 import { readdir, readFile, writeFile, unlink, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join, basename } from 'path';
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core';

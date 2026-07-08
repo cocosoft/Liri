@@ -21,7 +21,7 @@
 
 import crypto from 'node:crypto';
 import fs from 'node:fs';
-import path from 'node:path';
+import path from 'path';
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { repairModelJson } from '@modules/utils/json';

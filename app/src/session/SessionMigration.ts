@@ -8,7 +8,7 @@ import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join } from 'path';
 import { resolveDataDir, resolveSessionsDir } from '@modules/core';
 
 const logger = new Logger({

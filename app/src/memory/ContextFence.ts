@@ -4,7 +4,7 @@
  * 确保记忆内容被正确包裹在安全的上下文标签中
  */
 import fs from 'node:fs';
-import path from 'node:path';
+import path from 'path';
 
 /**
  * 上下文篱笆标签

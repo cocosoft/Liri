@@ -1250,7 +1250,7 @@ async function handleSystemSkillFileContent(
     const { existsSync } = await import('fs');
     const { resolveProjectRoot, resolvePyappHome } =
       await import('@modules/core/paths');
-    const pathMod = await import('node:path');
+    const pathMod = await import('path');
 
     const candidateDirs = [
       pathMod.join(

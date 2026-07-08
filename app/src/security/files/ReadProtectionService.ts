@@ -1,8 +1,8 @@
-﻿/**
+/**
  * 读取保护服务
  * 对标 Hermes get_read_block_error()，防止 Agent 读取内部缓存文件和敏感配置
  */
-import path from 'node:path';
+import path from 'path';
 import os from 'node:os';
 import { resolveProjectRoot } from '@modules/core';
 

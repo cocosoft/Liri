@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 配对白名单存储
  * 持久化已批准的用户配对关系
  * 对齐 OpenClaw device-auth store
@@ -6,7 +6,7 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join } from 'path';
 import { randomBytes } from 'node:crypto';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'channels:pairing' });

@@ -12,7 +12,7 @@
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
 import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join } from 'path';
 import { resolveProjectRoot } from '@modules/core';
 import { createInterface } from 'readline';
 import { setConfigValue, getConfig } from '@modules/config';

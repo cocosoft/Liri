@@ -262,7 +262,7 @@ export class StartupReportGenerator {
     format: 'json' | 'text' | 'markdown' = 'json'
   ): string {
     const fs = require('node:fs');
-    const path = require('node:path');
+    const path = require('path');
 
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const extMap = { json: 'json', text: 'txt', markdown: 'md' };

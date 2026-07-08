@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23,7 +23,7 @@
  * EventBusCompat — 适配层
  *
  * 包装 EventBusImpl，提供兼容 EventEmitter 模式的 API，
- * 实现从遗留 EventEmitter（node:events）到 EventBusImpl 的渐进迁移。
+ * 实现从遗留 EventEmitter（node:events → events）到 EventBusImpl 的渐进迁移。
  *
  * 用法：
  * ```typescript

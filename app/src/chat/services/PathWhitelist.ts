@@ -11,7 +11,7 @@
  *   {projectRoot} → resolveProjectRoot()
  *   {pyappHome}  → resolvePyappHome()
  */
-import * as path from 'node:path';
+import * as path from 'path';
 import { resolveProjectRoot, resolvePyappHome } from '@modules/core/paths';
 
 export interface WhitelistConfig {

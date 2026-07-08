@@ -1,12 +1,12 @@
-﻿/**
+/**
  * 安全配置外部化管理
  * 对标平安科技：将安全验证规则外部化到配置文件，支持热更新
  * 可在不重启应用的情况下更新安全策略
  */
 import fs from 'node:fs';
-import path from 'node:path';
+import path from 'path';
 import { resolveSecurityDir } from '@modules/core';
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 
 /**
  * 安全验证规则定义

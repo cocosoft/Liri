@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MediaCache 媒体文件缓存
  * 为各通道提供图片/音频/视频/文件的本地缓存服务
  * 支持 LRU 淘汰、TTL 过期、磁盘持久化和下载即缓存
@@ -13,7 +13,7 @@ import {
   readdir,
   stat,
 } from 'node:fs/promises';
-import { join, extname } from 'node:path';
+import { join, extname } from 'path';
 import { createHash } from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 

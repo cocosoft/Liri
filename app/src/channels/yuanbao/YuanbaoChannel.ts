@@ -2,7 +2,7 @@
  * YuanbaoChannel 元宝通道（Tencent 元宝/AI 平台）
  * 对标 Tencent 元宝开放平台接口
  */
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 import type {
   IChannelPlugin,
   ChannelMeta,

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Discord 通道插件
  * 厂商: Discord Inc., 协议: Gateway WebSocket + HTTP REST API
  * 特色: Slash Command / Embed / Webhook
@@ -397,7 +397,7 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
     if (!this.st.botToken) return { success: false, error: '未连接' };
     try {
       const fs = require('node:fs');
-      const path = require('node:path');
+      const path = require('path');
       const fileContent = fs.readFileSync(filePath);
       const fileName = path.basename(filePath);
 

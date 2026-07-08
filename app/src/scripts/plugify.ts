@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bun
+#!/usr/bin/env bun
 /**
  * plugify 脚手架
  * 自动将模块包装为标准插件，生成 Plugin 包装器和契约测试
@@ -7,7 +7,7 @@
  * 示例: bun run src/scripts/plugify.ts canvas "画布工具模块插件"
  */
 import fs from 'node:fs';
-import path from 'node:path';
+import path from 'path';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('plugify');

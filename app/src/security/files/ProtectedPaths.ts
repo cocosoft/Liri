@@ -2,7 +2,7 @@
  * 受保护文件路径定义
  */
 import os from 'node:os';
-import path from 'node:path';
+import path from 'path';
 import { configManager } from '@modules/config';
 
 /**

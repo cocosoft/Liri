@@ -4,7 +4,7 @@
  * 支持多版本、本地缓存、远程同步和更新检查
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname } from 'path';
 import { resolvePyappHome } from '@modules/core';
 
 /**

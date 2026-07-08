@@ -4,8 +4,8 @@
  * 让定时任务运行在子进程中增强隔离性
  */
 import { spawn, ChildProcess } from 'node:child_process';
-import { EventEmitter } from 'node:events';
-import path from 'node:path';
+import { EventEmitter } from 'events';
+import path from 'path';
 
 /**
  * 子进程任务配置

@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,7 +21,7 @@
 
 import type http from 'node:http';
 import type { Dirent } from 'node:fs';
-import path from 'node:path';
+import path from 'path';
 import type { HandlerCtx } from './handler-utils';
 import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
@@ -34,7 +34,7 @@ import { handleError } from '@modules/error';
 
 // 已注册的存储分区别名 → 绝对路径解析函数（延迟动态 import）
 function resolveStorePath(rawPath: string): string {
-  const { isAbsolute, resolve, join } = require('node:path');
+  const { isAbsolute, resolve, join } = require('path');
 
   // 空路径或 "." 表示 LIRI_HOME（~/.pyapp/），展示全目录
   if (!rawPath || rawPath === '.') {
@@ -97,7 +97,7 @@ export async function handleFileList(
 
     const names = readdirSync(absPath, { withFileTypes: true });
     const entries = names.map((dirent: Dirent) => {
-      const fullPath = require('node:path').join(absPath, dirent.name);
+      const fullPath = require('path').join(absPath, dirent.name);
       let size: number | undefined;
       let modifiedAt: number | undefined;
       try {
@@ -435,7 +435,7 @@ export async function handleSendFileToAI(
 
     const { readFile } = await import('node:fs/promises');
     const { existsSync } = await import('node:fs');
-    const { basename } = await import('node:path');
+    const { basename } = await import('path');
 
     if (!existsSync(filePath)) {
       res.writeHead(404, { 'Content-Type': 'application/json' });

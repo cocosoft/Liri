@@ -15,7 +15,6 @@ import {
   unlinkSync,
 } from 'fs';
 import { join, basename, extname, dirname } from 'path';
-import { fileURLToPath } from 'node:url';
 import { Logger, LogLevel } from '@modules/monitoring';
 import {
   ThemeDefinition,
@@ -30,7 +29,7 @@ const logger = new Logger({ module: 'ui:themeLoader', level: LogLevel.INFO });
  * 内置主题目录（基于当前文件位置解析，独立于 CWD）
  */
 const BUILTIN_THEMES_DIR = join(
-  dirname(fileURLToPath(import.meta.url)),
+  dirname(new URL(import.meta.url).pathname),
   'builtin'
 );
 

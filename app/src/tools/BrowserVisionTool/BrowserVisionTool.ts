@@ -30,7 +30,7 @@ import { BaseTool } from '../BaseTool';
 import type { ToolUseContext, ToolResult, ToolParam } from '../types';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveTempDir } from '@modules/core/paths';
-import * as path from 'node:path';
+import * as path from 'path';
 import * as fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
 

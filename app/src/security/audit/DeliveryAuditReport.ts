@@ -3,7 +3,7 @@
  * 对标平安科技：生成包含所有模块状态的最终交付审计报告
  */
 import fs from 'node:fs';
-import path from 'node:path';
+import path from 'path';
 
 /**
  * 审计维度

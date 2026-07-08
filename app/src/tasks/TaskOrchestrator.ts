@@ -13,7 +13,7 @@
  * 两者通过 taskId ↔ stepId 的映射关联。
  */
 
-import { join } from 'node:path';
+import { join } from 'path';
 import {
   existsSync,
   mkdirSync,

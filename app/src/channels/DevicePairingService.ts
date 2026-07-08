@@ -12,7 +12,7 @@
  *   - 不依赖 routing/、registry/（仅依赖 events/ChannelEventBus）
  *   - 被 channels/ 体系内其他模块通过事件总线消费配对结果
  */
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 import crypto from 'node:crypto';
 
 /**

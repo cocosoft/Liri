@@ -1,4 +1,4 @@
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({

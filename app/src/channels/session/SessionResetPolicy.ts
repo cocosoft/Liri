@@ -4,7 +4,7 @@
  * 按时间（N 分钟无活动）、按轮次（N 轮对话）、手动
  */
 
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 import type {
   ChannelSession,
   ChannelSessionStatus,

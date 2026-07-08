@@ -12,7 +12,7 @@ import {
   renameSync,
   copyFileSync,
 } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname } from 'path';
 import { resolveProjectRoot } from '@modules/core';
 
 const logger = getLogger('MigrateCommand');

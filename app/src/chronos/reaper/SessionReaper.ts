@@ -2,7 +2,7 @@
  * SessionReaper 会话收割器
  * 对标 OpenClaw chronos/reaper/，清理过期和闲置的会话
  */
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 
 /**
  * 收割策略

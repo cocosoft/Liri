@@ -3,7 +3,7 @@
  * 对标 Hermes HERMES_WRITE_SAFE_ROOT 环境变量
  * 限制 Agent 写入路径在指定安全根目录下
  */
-import path from 'node:path';
+import path from 'path';
 
 /**
  * 环境变量名：安全写入根目录

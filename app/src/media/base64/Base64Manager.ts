@@ -3,7 +3,7 @@
  * 对标 CC 的媒体 Base64 处理能力
  */
 import fs from 'node:fs';
-import path from 'node:path';
+import path from 'path';
 
 export interface Base64EncodeOptions {
   includeDataUri: boolean;

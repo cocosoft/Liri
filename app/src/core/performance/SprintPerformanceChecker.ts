@@ -1,9 +1,9 @@
-﻿/**
+/**
  * Sprint 性能红线检查
  * 对标平安科技：每次 release 前跑性能回归，设定各阶段耗时红线
  */
 import fs from 'node:fs';
-import path from 'node:path';
+import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 
 const perfLogger = new Logger({ level: LogLevel.INFO });

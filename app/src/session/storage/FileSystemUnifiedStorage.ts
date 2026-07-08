@@ -1,6 +1,6 @@
-﻿import fs from 'node:fs/promises';
+import fs from 'node:fs/promises';
 import { Dirent } from 'node:fs';
-import path from 'node:path';
+import path from 'path';
 
 import { registerStorage } from './StorageFactory.js';
 import { StorageType } from './UnifiedStorage.js';

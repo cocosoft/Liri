@@ -14,7 +14,7 @@
  * - Worktree 感知（切换时清理旧路径）
  * - glob/ls 目录批量注册（addDirectoryListing）
  */
-import * as path from 'node:path';
+import * as path from 'path';
 import * as fs from 'fs/promises';
 
 // ============================================================

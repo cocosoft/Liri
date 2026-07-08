@@ -1,10 +1,10 @@
-﻿/**
+/**
  * 优雅重启服务
  * 对标 Hermes gateway/restart.py
  * 在收到重启信号时优雅关闭所有通道和连接，无损重启
  */
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 
 /**
  * 重启阶段

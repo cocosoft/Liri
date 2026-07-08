@@ -1,7 +1,7 @@
 /**
  * ChannelSessionManager 通道会话管理器
  */
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 
 import type { ChannelId, MessageContext } from '../types/IChannel.js';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus.js';

@@ -29,7 +29,7 @@
  */
 
 import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
+import * as path from 'path';
 import type { CodeChunk } from './chunker';
 
 /** 索引条目 */

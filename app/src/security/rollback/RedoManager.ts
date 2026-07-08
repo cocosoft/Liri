@@ -41,7 +41,7 @@ import {
   readdir,
 } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join } from 'path';
 import { createHash } from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';

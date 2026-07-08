@@ -1,6 +1,6 @@
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { promisify } from 'util';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,

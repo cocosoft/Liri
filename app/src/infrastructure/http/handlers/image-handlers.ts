@@ -11,8 +11,7 @@
 
 import type http from 'node:http';
 import fs from 'node:fs';
-import path from 'node:path';
-import { URL } from 'node:url';
+import path from 'path';
 import { randomUUID } from 'node:crypto';
 import type { HandlerCtx } from './handler-utils';
 import { readRawBody, parseMultipartBody } from './handler-utils';

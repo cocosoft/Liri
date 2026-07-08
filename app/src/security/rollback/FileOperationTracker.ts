@@ -36,7 +36,7 @@
  */
 
 import { stat, readdir, readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join, resolve } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { xxHash, encodeFilePath } from './xxHash';
 import type { FileChange, FileChangeType, FileStat, ScanStatus } from './types';

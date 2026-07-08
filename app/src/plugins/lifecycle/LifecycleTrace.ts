@@ -2,7 +2,7 @@
  * LifecycleTrace 生命周期追踪器
  * 对标 OpenClaw 的 trace/，记录和追踪插件的生命周期变化
  */
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 
 /**
  * 追踪事件级别

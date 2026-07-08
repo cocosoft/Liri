@@ -61,7 +61,7 @@ export class FileAdapter implements DeliveryAdapter {
   async deliver(message: DeliveryMessage): Promise<DeliveryResult> {
     try {
       const fs = await import('node:fs');
-      const path = await import('node:path');
+      const path = await import('path');
 
       if (!fs.existsSync(this.outputDir)) {
         fs.mkdirSync(this.outputDir, { recursive: true });

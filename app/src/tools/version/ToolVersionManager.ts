@@ -2,7 +2,7 @@
  * 工具注册表版本管理 + 灰度发布策略
  * 为工具注册表增加版本号和灰度发布能力
  */
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 
 /**
  * 工具版本信息

@@ -4,7 +4,7 @@
 
 import type http from 'node:http';
 import fs from 'node:fs';
-import path from 'node:path';
+import path from 'path';
 import {
   sendError,
   readRequestBody,
@@ -163,7 +163,7 @@ export async function handleCreateMemoryFromFile(
 
     const { readFile } = await import('node:fs/promises');
     const { existsSync } = await import('node:fs');
-    const { basename } = await import('node:path');
+    const { basename } = await import('path');
 
     if (!existsSync(filePath)) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -376,7 +376,7 @@ export async function handleFileOpen(
     }
 
     const { exec } = await import('node:child_process');
-    const { promisify } = await import('node:util');
+    const { promisify } = await import('util');
     const execAsync = promisify(exec);
 
     if (process.platform === 'win32') {

@@ -2,7 +2,7 @@
  * GlobalRunner 全局钩子运行器
  * 对标 OpenClaw 的 global-runner/，在所有操作前/后执行全局注册的钩子
  */
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 import {
   pluginHooks,
   type HookType,

@@ -2,7 +2,7 @@
  * StaggerScheduler 交错调度器
  * 对标 OpenClaw chronos/stagger/，避免任务同时执行导致资源争抢
  */
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 
 /**
  * 交错策略

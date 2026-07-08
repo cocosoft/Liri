@@ -8,7 +8,7 @@ import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveProjectRoot } from '@modules/core';
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join } from 'path';
 
 const logger = new Logger({
   module: 'security:auditModelHygiene',

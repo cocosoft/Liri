@@ -2,7 +2,7 @@
  * TurnManager 通道轮转管理器
  * 对标 OpenClaw channels/turn/，管理消息轮转和发送队列
  */
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 
 /**
  * 轮转策略

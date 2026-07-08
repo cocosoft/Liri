@@ -2,7 +2,7 @@
  * ZaloChannel Zalo 通道
  * 对标 Hermes 的 Zalo 平台支持
  */
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 import type {
   IChannelPlugin,
   ChannelMeta,

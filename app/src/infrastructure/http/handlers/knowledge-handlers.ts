@@ -23,7 +23,7 @@ export async function handleListKnowledge(
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { stat } = await import('node:fs/promises');
-    const { join } = await import('node:path');
+    const { join } = await import('path');
 
     const parsedUrl = new URL(req.url || '', 'http://localhost');
     const baseFilter = parsedUrl.searchParams.get('base');
@@ -146,7 +146,7 @@ export async function handleCreateKnowledge(
     }
     const { resolvePyappHome } = await import('@modules/core/paths');
     const { writeFile, mkdir } = await import('node:fs/promises');
-    const { join } = await import('node:path');
+    const { join } = await import('path');
     const userKnowledgeDir = join(resolvePyappHome(), 'knowledge');
     const targetDir = category
       ? join(userKnowledgeDir, category)
@@ -192,7 +192,7 @@ export async function handleUpdateKnowledge(
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { writeFile } = await import('node:fs/promises');
-    const { join } = await import('node:path');
+    const { join } = await import('path');
     const { knowledgeDocsProvider } =
       await import('@modules/docs/FileDocsProvider');
 
@@ -239,7 +239,7 @@ export async function handleDeleteKnowledge(
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { unlink } = await import('node:fs/promises');
-    const { join } = await import('node:path');
+    const { join } = await import('path');
     const { existsSync } = await import('node:fs');
     const { knowledgeDocsProvider } =
       await import('@modules/docs/FileDocsProvider');
@@ -401,7 +401,7 @@ export async function handleSaveFromChat(
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { writeFile, mkdir } = await import('node:fs/promises');
-    const { join } = await import('node:path');
+    const { join } = await import('path');
     const { knowledgeDocsProvider } =
       await import('@modules/docs/FileDocsProvider');
 
@@ -477,7 +477,7 @@ export async function handleKnowledgeUpload(
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { writeFile, mkdir } = await import('node:fs/promises');
-    const { join, extname, basename } = await import('node:path');
+    const { join, extname, basename } = await import('path');
     const { knowledgeDocsProvider } =
       await import('@modules/docs/FileDocsProvider');
 
@@ -706,7 +706,7 @@ export async function handleGetRawFiles(
 ): Promise<void> {
   try {
     const { readdir, stat } = await import('node:fs/promises');
-    const { join, extname } = await import('node:path');
+    const { join, extname } = await import('path');
     const { readFileSync, existsSync } = await import('node:fs');
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
@@ -788,7 +788,7 @@ export async function handleExportToNotebook(
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { readFile, writeFile, mkdir } = await import('node:fs/promises');
-    const { join } = await import('node:path');
+    const { join } = await import('path');
     const { resolveOutputDir } = await import('@modules/core/paths');
 
     const registry = getDefaultKnowledgeBaseRegistry();
@@ -854,7 +854,7 @@ export async function handleImportFromFile(
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { readFile, writeFile, mkdir } = await import('node:fs/promises');
-    const { join, basename, extname } = await import('node:path');
+    const { join, basename, extname } = await import('path');
     const { existsSync } = await import('node:fs');
     const { knowledgeDocsProvider } =
       await import('@modules/docs/FileDocsProvider');
@@ -981,7 +981,7 @@ export async function handleUpdateKnowledgeDoc(
     const { getDefaultDigestService } =
       await import('@modules/knowledge/KnowledgeDigestService');
     const { readFile, writeFile } = await import('node:fs/promises');
-    const { join } = await import('node:path');
+    const { join } = await import('path');
     const { existsSync } = await import('node:fs');
     const { knowledgeDocsProvider } =
       await import('@modules/docs/FileDocsProvider');
@@ -1114,7 +1114,7 @@ export async function handleBatchDeleteKnowledge(
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { unlink } = await import('node:fs/promises');
-    const { join } = await import('node:path');
+    const { join } = await import('path');
     const { existsSync } = await import('node:fs');
     const { knowledgeDocsProvider } =
       await import('@modules/docs/FileDocsProvider');
@@ -1169,7 +1169,7 @@ export async function handleBatchTagKnowledge(
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { readFile, writeFile } = await import('node:fs/promises');
-    const { join } = await import('node:path');
+    const { join } = await import('path');
     const { existsSync } = await import('node:fs');
     const { knowledgeDocsProvider } =
       await import('@modules/docs/FileDocsProvider');

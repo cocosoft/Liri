@@ -1,7 +1,7 @@
 /**
  * MCP 协议兼容性回归测试器
  */
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 
 /**
  * 测试用例

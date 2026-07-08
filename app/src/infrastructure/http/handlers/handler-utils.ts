@@ -27,7 +27,7 @@
  */
 
 import http from 'node:http';
-import path from 'node:path';
+import path from 'path';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import {

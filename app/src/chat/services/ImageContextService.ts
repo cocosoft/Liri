@@ -5,7 +5,7 @@
  * 会话级图片上下文管理服务
  * 从 ChatManager 拆分出的独立模块，负责图片路径注册、路径匹配、上下文跟踪
  */
-import path from 'node:path';
+import path from 'path';
 import { SessionConfirmedPaths } from './SessionConfirmedPaths';
 
 export interface ImageContext {

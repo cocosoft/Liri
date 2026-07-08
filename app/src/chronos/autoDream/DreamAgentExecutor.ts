@@ -1,6 +1,6 @@
 import { fork, ChildProcess } from 'node:child_process';
-import path from 'node:path';
-import { EventEmitter } from 'node:events';
+import path from 'path';
+import { EventEmitter } from 'events';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveProjectRoot } from '@modules/core';
 import type { ManagedProcess } from '@modules/daemon';

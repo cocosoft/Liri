@@ -4,7 +4,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import path from 'node:path';
+import path from 'path';
 
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
@@ -595,7 +595,7 @@ export class SessionGateway {
     Array<{ id: string; title?: string; status?: string; updatedAt?: string }>
   > {
     const { readdirSync } = require('node:fs');
-    const { join } = require('node:path');
+    const { join } = require('path');
     const { readLiteSessionMeta } =
       await import('./storage/LiteSessionReader.js');
     const sessionsDir = resolveSessionsDir();

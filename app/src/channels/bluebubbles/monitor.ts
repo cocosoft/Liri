@@ -3,7 +3,7 @@
  * 使用 BlueBubbles REST API 轮询接收 iMessage
  */
 
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 import type { MessageContext } from '@modules/channels/types';
 
 export declare interface BlueBubblesMonitor {

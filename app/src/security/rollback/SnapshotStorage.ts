@@ -43,7 +43,7 @@ import {
   copyFile,
 } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
+import { join, dirname, resolve } from 'path';
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import { Logger, LogLevel } from '@modules/monitoring';

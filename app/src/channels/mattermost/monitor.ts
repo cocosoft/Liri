@@ -3,7 +3,7 @@
  * 使用 Mattermost WebSocket API 接收实时消息
  */
 
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 import type { MessageContext } from '@modules/channels/types';
 
 export interface MattermostMonitorEvent {

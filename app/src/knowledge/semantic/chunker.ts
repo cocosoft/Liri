@@ -27,7 +27,7 @@
  */
 
 import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
+import * as path from 'path';
 import type { Dirent, Stats } from 'node:fs';
 
 /** 代码分块 */

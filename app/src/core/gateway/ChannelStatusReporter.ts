@@ -1,4 +1,4 @@
-﻿import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { GatewayChannel, ChannelStats } from './types';
 import { ChannelStatus, ChannelType } from './types';

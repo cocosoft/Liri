@@ -11,10 +11,10 @@
  *   // status.qrCodeUrl / status.qrBase64 / status.state
  */
 
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import path from 'node:path';
+import path from 'path';
 import fs from 'node:fs';
 
 // ─── 日志工具（独立轻量，不依赖外部 logger） ─────────────

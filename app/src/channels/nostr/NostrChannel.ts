@@ -2,7 +2,7 @@
  * NostrChannel Nostr 通道
  * 对标 OpenClaw 的 Nostr 支持
  */
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 import crypto from 'node:crypto';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {

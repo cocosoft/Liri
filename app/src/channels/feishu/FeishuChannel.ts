@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 飞书通道插件
  * 厂商: 字节跳动, SDK: @larksuiteoapi/node-sdk
  *
@@ -470,7 +470,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
         fileName = filePathOrUrl.split('/').pop() || fileName;
       } else {
         const fs = await import('node:fs');
-        const path = await import('node:path');
+        const path = await import('path');
         const buf = fs.readFileSync(filePathOrUrl);
         blob = new Blob([buf]);
         fileName = path.basename(filePathOrUrl);

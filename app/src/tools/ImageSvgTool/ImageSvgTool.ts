@@ -13,7 +13,7 @@ import aiService from '../../ai/index';
 import type { AIMessage } from '../../ai/models/types';
 import { AIMessageRole } from '../../ai/models/types';
 import fs from 'node:fs';
-import path from 'node:path';
+import path from 'path';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'tools:imageSvg' });
 

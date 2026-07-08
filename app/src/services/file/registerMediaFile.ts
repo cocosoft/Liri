@@ -8,7 +8,7 @@
  * 将远程 URL 内容下载到本地 media/generated/ 目录并注册到 FileRegistry。
  */
 
-import path from 'node:path';
+import path from 'path';
 import { FileRegistry } from './FileRegistry';
 import { FileSource } from './types';
 import type { MediaType } from './types';

@@ -11,7 +11,7 @@
 
 import http from 'node:http';
 import fs from 'node:fs';
-import path from 'node:path';
+import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
@@ -2556,7 +2556,7 @@ export class LocalHTTPService {
         await import('@modules/skills/utils/skillParser');
       const { readdir, readFile, stat } = await import('fs/promises');
       const { existsSync } = await import('fs');
-      const { join } = await import('node:path');
+      const { join } = await import('path');
 
       const skills: Record<string, any>[] = [];
       const seen = new Set<string>();
@@ -2694,7 +2694,7 @@ export class LocalHTTPService {
       const { existsSync } = await import('fs');
       const { resolveProjectRoot, resolvePyappHome } =
         await import('@modules/core/paths');
-      const pathMod = await import('node:path');
+      const pathMod = await import('path');
 
       const candidateDirs = [
         pathMod.join(
@@ -5194,7 +5194,7 @@ export class LocalHTTPService {
 
       const { readFile } = await import('node:fs/promises');
       const { existsSync } = await import('node:fs');
-      const { basename } = await import('node:path');
+      const { basename } = await import('path');
 
       if (!existsSync(filePath)) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -5409,7 +5409,7 @@ export class LocalHTTPService {
       }
 
       const { exec } = await import('node:child_process');
-      const { promisify } = await import('node:util');
+      const { promisify } = await import('util');
       const execAsync = promisify(exec);
 
       if (process.platform === 'win32') {

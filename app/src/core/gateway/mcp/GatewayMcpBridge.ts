@@ -2,7 +2,7 @@
  * GatewayMcpBridge 网关 MCP 桥接器
  * 将已有 MCP 服务集成到网关，使 WebSocket 客户端可通过网关访问 MCP 工具
  */
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 
 /**
  * MCP 工具定义

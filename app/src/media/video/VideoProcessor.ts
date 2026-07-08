@@ -3,7 +3,7 @@
  * 对标 OpenClaw 的视频处理能力
  */
 import fs from 'node:fs';
-import path from 'node:path';
+import path from 'path';
 import { spawn } from 'node:child_process';
 
 /**

@@ -30,7 +30,7 @@ import { ToolResult, ToolExecutionStatus } from '../../tools/types/ToolResult';
 import { ToolUseContext } from '../../tools/types/ToolUseContext';
 import { knowledgeDocsProvider } from '../../docs/FileDocsProvider';
 import { unlink } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 

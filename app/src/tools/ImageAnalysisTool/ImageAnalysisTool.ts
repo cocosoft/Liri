@@ -13,7 +13,7 @@ import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
+import * as path from 'path';
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';

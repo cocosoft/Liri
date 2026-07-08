@@ -2,7 +2,7 @@
  * SmsChannel SMS 短信通道
  * 对标 Hermes 的 SMS 通道实现
  */
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,

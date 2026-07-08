@@ -41,7 +41,7 @@ import {
   rm,
 } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join } from 'path';
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import { Logger, LogLevel } from '@modules/monitoring';

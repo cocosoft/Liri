@@ -1,6 +1,6 @@
-﻿import { fork, ChildProcess } from 'node:child_process';
-import path from 'node:path';
-import { EventEmitter } from 'node:events';
+import { fork, ChildProcess } from 'node:child_process';
+import path from 'path';
+import { EventEmitter } from 'events';
 import { resolveProjectRoot } from '@modules/core';
 
 export interface ForkedDreamConfig {

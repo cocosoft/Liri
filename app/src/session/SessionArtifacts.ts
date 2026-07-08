@@ -13,7 +13,7 @@ import {
   mkdirSync,
   unlinkSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { join } from 'path';
 import { randomUUID } from 'node:crypto';
 
 const logger = new Logger({

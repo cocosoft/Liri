@@ -386,7 +386,7 @@ export async function handleListSystemSkills(
       await import('@modules/skills/utils/skillParser');
     const { readdir, readFile, stat } = await import('fs/promises');
     const { existsSync } = await import('fs');
-    const { join } = await import('node:path');
+    const { join } = await import('path');
 
     const skills: Record<string, any>[] = [];
     const seen = new Set<string>();
@@ -472,7 +472,7 @@ export async function handleSystemSkillContent(
     const { existsSync } = await import('fs');
     const { resolveProjectRoot, resolvePyappHome } =
       await import('@modules/core/paths');
-    const pathMod = await import('node:path');
+    const pathMod = await import('path');
 
     const candidateDirs = [
       pathMod.join(

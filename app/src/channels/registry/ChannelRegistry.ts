@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ChannelRegistry 通道注册中心
  *
  * 统一通道注册代理，以 ChannelPluginRegistry（core/gateway/）为唯一单源，
@@ -13,7 +13,7 @@
  * 重启后自动恢复。
  */
 
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
 import { ChannelPluginRegistry } from '../../core/gateway/ChannelPluginRegistry';

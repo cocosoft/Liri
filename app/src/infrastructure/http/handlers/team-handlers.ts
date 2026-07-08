@@ -13,7 +13,7 @@
  */
 
 import type http from 'node:http';
-import * as path from 'node:path';
+import * as path from 'path';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { createTeamStore } from '@modules/workspace/TeamStore';

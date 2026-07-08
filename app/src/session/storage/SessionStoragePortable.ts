@@ -16,7 +16,7 @@ import {
   unlinkSync,
   readdirSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { join } from 'path';
 
 /** 便携存储配置 */
 export interface PortableStorageConfig {

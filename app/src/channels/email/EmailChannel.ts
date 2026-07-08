@@ -1,15 +1,15 @@
-﻿/**
+/**
  * EmailChannel 电子邮件通道
  * 对标 Hermes 的 Email 通道实现
  *
  * 使用 Node.js 内置 net/tls 模块实现 SMTP 协议，无需第三方库。
  * 支持：EHLO、AUTH LOGIN、STARTTLS、MIME 附件（base64）、HTML 邮件。
  */
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 import { Socket } from 'node:net';
 import { connect as tlsConnect, TLSSocket } from 'node:tls';
 import { readFileSync } from 'node:fs';
-import { basename } from 'node:path';
+import { basename } from 'path';
 import { randomUUID } from 'node:crypto';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {

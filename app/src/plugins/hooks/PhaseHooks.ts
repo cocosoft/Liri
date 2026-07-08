@@ -2,7 +2,7 @@
  * PhaseHooks 阶段钩子管理器
  * 对标 OpenClaw 的 phase-hooks/，在特定执行阶段插入钩子
  */
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 
 /**
  * 阶段名称

@@ -1,9 +1,9 @@
-﻿/**
+/**
  * WizardEngine 向导系统引擎
  * 对标 OpenClaw 的 wizard 系统，提供交互式配置引导
  */
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 import readline from 'node:readline';
 
 /**

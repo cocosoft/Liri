@@ -1,4 +1,4 @@
-﻿import crypto from 'node:crypto';
+import crypto from 'node:crypto';
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { BaseChannelPlugin } from '@modules/channels/base';
@@ -16,7 +16,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 import { Logger, LogLevel } from '@modules/monitoring';
-import path from 'node:path';
+import path from 'path';
 import { resolveDataDir } from '@modules/core';
 
 const MICROSOFT_LOGIN_BASE = 'https://login.microsoftonline.com';
@@ -161,7 +161,7 @@ class ConversationStore {
     if (this.initialized) return;
     try {
       const fs = await import('node:fs');
-      const path = await import('node:path');
+      const path = await import('path');
       const storePath = this.getStorePath();
       if (fs.existsSync(storePath)) {
         const data = JSON.parse(fs.readFileSync(storePath, 'utf8')) as Record<
@@ -179,14 +179,14 @@ class ConversationStore {
   }
 
   private getStorePath(): string {
-    const path = require('node:path') as typeof import('node:path');
+    const path = require('path') as typeof import('path');
     return path.join(resolveDataDir(), 'msteams-conversations.json');
   }
 
   private async persist(): Promise<void> {
     try {
       const fs = await import('node:fs');
-      const path = await import('node:path');
+      const path = await import('path');
       const storePath = this.getStorePath();
       const dir = path.dirname(storePath);
       fs.mkdirSync(dir, { recursive: true });
@@ -409,7 +409,7 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
   ): Promise<SendResult> {
     try {
       const fs = await import('node:fs');
-      const path = await import('node:path');
+      const path = await import('path');
       const buffer = fs.readFileSync(filePath);
       const fileName = path.basename(filePath);
       const base64 = buffer.toString('base64');

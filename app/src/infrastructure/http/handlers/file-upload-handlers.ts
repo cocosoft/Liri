@@ -20,7 +20,7 @@
 // SOFTWARE.
 
 import type http from 'node:http';
-import path from 'node:path';
+import path from 'path';
 import type { HandlerCtx } from './handler-utils';
 import {
   attachmentManager,
@@ -153,7 +153,7 @@ export async function handleSendFileToAI(
 
     const { readFile } = await import('node:fs/promises');
     const { existsSync } = await import('node:fs');
-    const { basename } = await import('node:path');
+    const { basename } = await import('path');
 
     if (!existsSync(filePath)) {
       res.writeHead(404, { 'Content-Type': 'application/json' });

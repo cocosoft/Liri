@@ -31,7 +31,7 @@
 
 import { readdir, unlink, stat, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, resolve } from 'path';
 import { homedir } from 'node:os';
 import { Logger, LogLevel } from '@modules/monitoring';
 import {

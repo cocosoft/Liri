@@ -13,7 +13,7 @@
  * - 并发限制：超过 10 个候选路径时分批执行
  * - 异常降级：单个路径校验失败不影响其他路径
  */
-import * as path from 'node:path';
+import * as path from 'path';
 import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { homedir } from 'os';

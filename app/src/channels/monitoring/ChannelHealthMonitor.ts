@@ -2,7 +2,7 @@
  * ChannelHealthMonitor 通道健康监控
  * 基于 HealthChecker 实现通道级健康检查与告警
  */
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 import { HealthChecker } from '../../monitoring/health/HealthChecker';
 import type {
   HealthCheckResult,

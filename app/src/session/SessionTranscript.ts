@@ -12,7 +12,7 @@ import {
   readFileSync,
   mkdirSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { join } from 'path';
 import { resolveTranscriptsDir } from '@modules/core';
 
 const logger = new Logger({

@@ -1,11 +1,11 @@
-﻿/**
+/**
  * AtomicWriter — 原子文件写入器
  * 对标 OpenClaw writeTextAtomic
  * 使用 tmp + rename 模式保证写入原子性
  */
 
 import fs from 'node:fs/promises';
-import path from 'node:path';
+import path from 'path';
 import crypto from 'node:crypto';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 

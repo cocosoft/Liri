@@ -4,7 +4,7 @@
  */
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
-import path from 'node:path';
+import path from 'path';
 import os from 'node:os';
 import type { CronScheduler } from '@modules/chronos/types';
 import { globalEventBus, SystemEvents } from '@modules/core';

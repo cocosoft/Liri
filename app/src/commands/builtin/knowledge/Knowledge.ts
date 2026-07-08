@@ -7,7 +7,7 @@ import { knowledgeDocsProvider } from '@modules/docs/FileDocsProvider.js';
 import { getDefaultDocumentVersionService } from '@modules/docs/DocumentVersionService.js';
 import { getDefaultTemplateService } from '@modules/docs/TemplateService.js';
 import { writeFile, unlink, mkdir, readFile } from 'node:fs/promises';
-import { join, basename, dirname, extname } from 'node:path';
+import { join, basename, dirname, extname } from 'path';
 import { existsSync } from 'node:fs';
 
 const knowledgeCommand = {

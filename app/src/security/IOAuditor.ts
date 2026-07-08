@@ -4,7 +4,7 @@
  * 对标 Hermes security/middlewares/io-auditor.ts
  */
 
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 
 /**
  * IO 操作类型

@@ -6,7 +6,7 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { existsSync, unlinkSync } from 'node:fs';
-import { join } from 'node:path';
+import { join } from 'path';
 
 const logger = new Logger({
   module: 'agent:agentCleanup',

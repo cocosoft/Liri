@@ -5,8 +5,7 @@
  */
 import http from 'node:http';
 import https from 'node:https';
-import url from 'node:url';
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 
 /**
  * Webhook 配置
@@ -144,7 +143,7 @@ export class WebhookManager extends EventEmitter {
     config: WebhookConfig
   ): Promise<{ statusCode: number; body: string }> {
     return new Promise((resolve, reject) => {
-      const parsedUrl = url.parse(config.url);
+      const parsedUrl = new URL(config.url);
       const isHttps = parsedUrl.protocol === 'https:';
       const httpModule = isHttps ? https : http;
 
@@ -157,7 +156,7 @@ export class WebhookManager extends EventEmitter {
           : isHttps
             ? 443
             : 80,
-        path: parsedUrl.path || '/',
+        path: parsedUrl.pathname + parsedUrl.search || '/',
         method: config.method,
         timeout: config.timeoutMs,
         headers: {

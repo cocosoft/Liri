@@ -2,7 +2,7 @@
  * HostHooks 主机级钩子管理器
  * 对标 OpenClaw 的 host-hooks/，管理宿主环境级别的钩子
  */
-import { EventEmitter } from 'node:events';
+import { EventEmitter } from 'events';
 
 /**
  * 主机钩子类型

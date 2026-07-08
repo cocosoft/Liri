@@ -18,7 +18,7 @@
  */
 
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { EmbeddingManager } from '../../ai/embedding/EmbeddingManager';
 

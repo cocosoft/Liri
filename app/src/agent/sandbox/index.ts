@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,7 +33,7 @@ import {
   readdirSync,
   statSync,
 } from 'node:fs';
-import { join, relative, resolve, basename } from 'node:path';
+import { join, relative, resolve, basename } from 'path';
 
 export interface WorkspaceConfig {
   rootDir: string;

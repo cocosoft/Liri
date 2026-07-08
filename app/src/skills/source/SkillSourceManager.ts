@@ -3,7 +3,7 @@
  * 管理来自不同源的技能集合，支持动态加载和源切换
  */
 import fs from 'node:fs';
-import path from 'node:path';
+import path from 'path';
 
 import { SkillLoader } from '../loaders/SkillLoader.js';
 import type { Skill } from '../types/index.js';

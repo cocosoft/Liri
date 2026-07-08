@@ -182,7 +182,7 @@ export class AuditEngine {
 
     try {
       const { readFileSync, readdirSync } = require('node:fs');
-      const { join } = require('node:path');
+      const { join } = require('path');
       const srcDir = join(this.ctx.workspaceDir, 'src');
 
       if (existsSync(srcDir)) {
@@ -226,7 +226,7 @@ export class AuditEngine {
     // 检查 Dockerfile 和 docker-compose 安全性
     try {
       const { existsSync, readFileSync } = require('node:fs');
-      const { join } = require('node:path');
+      const { join } = require('path');
       const dockerfile = join(this.ctx.workspaceDir, 'Dockerfile');
 
       if (existsSync(dockerfile)) {
@@ -268,7 +268,7 @@ export class AuditEngine {
     const results: string[] = [];
     try {
       const { readdirSync, statSync } = require('node:fs');
-      const { join } = require('node:path');
+      const { join } = require('path');
       const entries = readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
         const fullPath = join(dir, entry.name);

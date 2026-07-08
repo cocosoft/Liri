@@ -5,7 +5,7 @@
 import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join } from 'path';
 import { configManager } from '@modules/config';
 import type { CommandContext, CommandResult } from '@modules/commands';
 

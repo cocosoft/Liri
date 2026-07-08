@@ -1,4 +1,4 @@
-﻿import crypto from 'node:crypto';
+import crypto from 'node:crypto';
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { BaseChannelPlugin } from '@modules/channels/base';
@@ -285,7 +285,7 @@ class GoogleChatChannelPlugin extends BaseChannelPlugin {
   ): Promise<SendResult> {
     try {
       const fs = await import('node:fs');
-      const path = await import('node:path');
+      const path = await import('path');
       const buffer = fs.readFileSync(filePath);
       const fileName = path.basename(filePath);
 

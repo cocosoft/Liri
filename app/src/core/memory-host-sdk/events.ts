@@ -1,4 +1,4 @@
-import path from 'node:path';
+import path from 'path';
 import fs from 'node:fs/promises';
 
 export const MEMORY_HOST_EVENT_LOG_RELATIVE_PATH = path.join(

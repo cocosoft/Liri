@@ -1,8 +1,8 @@
-﻿/**
+/**
  * PluginInstallManager 插件安装管理器
  * 处理插件的安装、更新、卸载流程，支持多源安装和依赖处理
  */
-import path from 'node:path';
+import path from 'path';
 import fs from 'node:fs';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolveProjectRoot } from '@modules/core';

@@ -3,7 +3,7 @@
  * 对标 Hermes curator 的 preprocessing 能力
  * 支持模板变量替换（如 ${SKILL_DIR}）和内联 Shell 执行（如 !`command`）
  */
-import path from 'node:path';
+import path from 'path';
 import { execSync } from 'node:child_process';
 import { configManager } from '@modules/config';
 

@@ -23,7 +23,7 @@ RUN cargo build --release && \
 # =============================================================================
 #  构建阶段 2：Bun 编译独立二进制
 # =============================================================================
-FROM oven/bun:1.2 AS app-builder
+FROM oven/bun:latest AS app-builder
 
 # 安装编译原生模块所需的系统依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -44,11 +44,19 @@ COPY . .
 # 复制编译好的原生插件
 COPY --from=native-builder /libpy_app_native.so native/target/release/libpy_app_native.so
 
-# 编译为独立二进制（等同 Windows 版 bun build --compile --target=bun-windows-x64-modern）
+# 生成版本 Feature Flags
+RUN bun run scripts/build-variant.ts --variant=coding
+
+# 编译为独立二进制（与 package.json build:linux 保持一致）
 RUN bun build --compile \
     --target=bun-linux-x64-modern \
+    --external pdfjs-dist \
+    --external sharp \
     --outfile=/app/dist/liri_coding \
     src/pyapp.ts
+
+# 复制外部运行时依赖（sharp 等原生模块）
+RUN bun run scripts/copy-external-deps.ts
 
 # =============================================================================
 #  运行阶段：最小化 Debian 镜像

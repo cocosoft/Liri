@@ -458,7 +458,7 @@ export class OpenAIProvider extends BaseAIProvider {
     const dataUrl = `data:${params.mimeType};base64,${base64}`;
 
     const requestBody = {
-      model: '',
+      model: params.model,
       messages: [
         {
           role: 'user',

@@ -122,50 +122,15 @@ export async function initializeChatManager(): Promise<ChatManager> {
 
   // Step 2: 从 ModelRouter 获取当前全局模型，按模型匹配 Provider
   const currentModel = await resolveModelRoute(RouteKey.CHAT);
-  let provider = currentModel
+  const provider = currentModel
     ? providerRegistry.getByModel(currentModel)
     : undefined;
 
-  // Step 3: 模型未匹配时回退到 deepseek 类型
   if (!provider) {
-    provider = providerRegistry.getByType('deepseek');
-  }
-
-  // Step 4: DB 中无 Provider 时，从环境变量检测创建
-  if (!provider) {
-    const { detectUnifiedProviders } =
-      await import('../ai/providers/detectUnifiedProviders.js');
-    const envProviders = detectUnifiedProviders();
-    const envProvider = envProviders[0];
-
-    if (envProvider) {
-      provider = providerRegistry.getOrCreate(envProvider.providerType as any, {
-        apiKey: envProvider.apiKey || '',
-        baseUrl: envProvider.baseUrl,
-        model: envProvider.model || currentModel,
-      });
-
-      if (envProvider.apiKey) {
-        provider.setApiKey?.(envProvider.apiKey);
-      }
-    } else {
-      // 最后回退：从配置文件读取 deepseek 密钥
-      const config = getConfig();
-      const configApiKey =
-        config['ai.deepseek.apiKey'] || config.ai?.deepseek?.apiKey || '';
-
-      if (configApiKey) {
-        provider = providerRegistry.getOrCreate('deepseek', {
-          apiKey: configApiKey,
-          model: currentModel,
-        });
-        provider.setApiKey?.(configApiKey);
-      }
-    }
-  }
-
-  if (!provider) {
-    throw new Error('未找到可用的 API Provider，无法初始化聊天管理器');
+    throw new Error(
+      `REPL 初始化失败：任务分工中"对话"模型（${currentModel || '未配置'}）无法匹配到已注册的供应商。` +
+        '请在「模型管理→任务分工」中配置对话模型，并确保对应供应商已启用。'
+    );
   }
 
   const llmClient = new ToolAwareClient(

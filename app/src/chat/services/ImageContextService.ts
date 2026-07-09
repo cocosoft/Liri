@@ -169,21 +169,26 @@ export class ImageContextService {
    */
   buildImageContextPrompt(sessionId: string): string {
     const ctx = this.sessionImageContext.get(sessionId);
-    if (!ctx) return '';
+    const knownPaths = this.getKnownImagePaths(sessionId);
 
     const parts: string[] = [];
 
-    if (ctx.lastGeneratedImage) {
+    // 用户上传的图片/附件路径（供 AI 在 image_analysis 等工具中引用）
+    if (knownPaths.length > 0) {
+      parts.push(`- 用户上传的图片/附件路径: ${knownPaths.join(', ')}`);
+    }
+
+    if (ctx?.lastGeneratedImage) {
       parts.push(
         `- 最近生成的图片: ${ctx.lastGeneratedImage.filePath} (提示词: ${ctx.lastGeneratedImage.prompt.slice(0, 100)})`
       );
     }
-    if (ctx.lastEditedImage) {
+    if (ctx?.lastEditedImage) {
       parts.push(
         `- 最近编辑的图片: ${ctx.lastEditedImage.filePath} (操作: ${ctx.lastEditedImage.action})`
       );
     }
-    if (ctx.lastAnalyzedImage) {
+    if (ctx?.lastAnalyzedImage) {
       parts.push(
         `- 最近分析的图片: ${ctx.lastAnalyzedImage.filePath} (操作: ${ctx.lastAnalyzedImage.action})`
       );

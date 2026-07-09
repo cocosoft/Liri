@@ -252,7 +252,7 @@ export class ProviderRegistry {
             displayName: 'DeepSeek',
             defaultBaseUrl: 'https://api.deepseek.com',
             envApiKey: 'DEEPSEEK_API_KEY',
-            defaultModel: (cfg?.model as string) || 'deepseek-v4-flash',
+            defaultModel: (cfg?.model as string) || '',
           });
         };
       case 'bedrock':

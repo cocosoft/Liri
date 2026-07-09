@@ -144,15 +144,32 @@ function Step-PreparePackage {
         exit 1
     }
 
-    # 3. Copy external dependencies (node_modules)
-    $distNodeModules = Join-Path $DistDir 'node_modules'
-    if (Test-Path $distNodeModules) {
-        $targetNodeModules = Join-Path $OutDir 'node_modules'
-        Copy-Item -Path $distNodeModules -Destination $targetNodeModules -Recurse -Force
-        Write-OK "Copied external deps: $targetNodeModules"
+    # 3. Copy external dependencies（copy-external-deps 输出到 dist/deps/）
+    $distDeps = Join-Path $DistDir 'deps'
+    if (Test-Path $distDeps) {
+        $targetDeps = Join-Path $OutDir 'deps'
+        Copy-Item -Path $distDeps -Destination $targetDeps -Recurse -Force
+        Write-OK "Copied external deps: $targetDeps"
+    } else {
+        Write-ErrorMsg "External deps not found: $distDeps (run copy-external-deps.ts first)"
     }
 
-    # 4. Copy .env.example
+    # 4. Copy config and docs
+    $appConfig = Join-Path $AppDir 'config'
+    if (Test-Path $appConfig) {
+        $targetConfig = Join-Path $OutDir 'config'
+        Copy-Item -Path $appConfig -Destination $targetConfig -Recurse -Force
+        Write-OK "Copied config: $targetConfig"
+    }
+
+    $appDocs = Join-Path $AppDir 'docs'
+    if (Test-Path $appDocs) {
+        $targetDocs = Join-Path $OutDir 'docs'
+        Copy-Item -Path $appDocs -Destination $targetDocs -Recurse -Force
+        Write-OK "Copied docs: $targetDocs"
+    }
+
+    # 5. Copy .env.example
     $envExample = Join-Path $AppDir '.env.example'
     if (Test-Path $envExample) {
         Copy-Item -Path $envExample -Destination (Join-Path $OutDir '.env.example') -Force

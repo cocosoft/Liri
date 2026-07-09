@@ -8,6 +8,8 @@ import type {
   ProviderValidationResult,
   ChatOptions,
   ThinkingProviderChunk,
+  VisionAnalysisParams,
+  VisionAnalysisResult,
 } from './AIProvider';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
@@ -221,6 +223,91 @@ export class AnthropicProvider extends BaseAIProvider {
       };
     } finally {
       reader.releaseLock();
+    }
+  }
+
+  /**
+   * 视觉分析（Anthropic Messages API）
+   */
+  async analyzeImage(
+    params: VisionAnalysisParams
+  ): Promise<VisionAnalysisResult> {
+    const startTime = Date.now();
+    const model = params.model;
+
+    const base64 = params.imageBuffer.toString('base64');
+    const baseUrl = (
+      this.resolveBaseUrl() || 'https://api.anthropic.com'
+    ).replace(/\/+$/, '');
+    const apiKey = this.resolveApiKey() || this.config.apiKey || '';
+
+    const requestBody = {
+      model,
+      max_tokens: params.maxTokens ?? 4096,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: params.mimeType,
+                data: base64,
+              },
+            },
+            {
+              type: 'text',
+              text: params.prompt || '请详细描述这张图片的内容。',
+            },
+          ],
+        },
+      ],
+    };
+
+    try {
+      const response = await fetch(`${baseUrl}/v1/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(120000),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        return {
+          success: false,
+          description: '',
+          error: `Anthropic Vision error (${response.status}): ${errorBody}`,
+          durationMs: Date.now() - startTime,
+        };
+      }
+
+      const data = (await response.json()) as Record<string, unknown>;
+      const content = (data.content as Array<Record<string, unknown>>) || [];
+      const textBlocks = content.filter((c) => c.type === 'text');
+      const description = textBlocks
+        .map((c) => (c.text as string) || '')
+        .join('\n');
+
+      return {
+        success: true,
+        description,
+        model,
+        durationMs: Date.now() - startTime,
+      };
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      return {
+        success: false,
+        description: '',
+        error: `Anthropic Vision request failed: ${errMsg}`,
+        durationMs: Date.now() - startTime,
+      };
     }
   }
 

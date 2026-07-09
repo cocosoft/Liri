@@ -19,6 +19,7 @@ import {
   resolveModelRoute,
   RouteKey,
 } from '@modules/ai/router/resolveModelRoute.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { globalEventBus } from '../../core/events/EventBus.js';
 import { AgentEventType } from '../../agent/events/types.js';
@@ -174,11 +175,16 @@ export class SubAgentEngine {
 
     try {
       const agentModel = await resolveModelRoute(RouteKey.AGENT);
-      let llmClient = agentModel
+      const llmClient = agentModel
         ? providerRegistry.getByModel(agentModel)
         : undefined;
       if (!llmClient) {
-        llmClient = providerRegistry.getOrCreate('deepseek');
+        throw new AppError(
+          `SubAgentEngine: 任务分工中"代理"模型未配置或对应供应商未注册。请在「模型管理→任务分工」中配置。`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
 
       const messages: ChatMessage[] = [

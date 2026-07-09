@@ -76,6 +76,8 @@ export interface ImageGenerationResult {
 export interface VisionAnalysisParams {
   imageBuffer: Buffer;
   mimeType: string;
+  /** 模型 ID（必传！由 modelRouter 根据任务分工解析，严禁硬编码） */
+  model: string;
   prompt?: string;
   maxTokens?: number;
   detail?: 'auto' | 'low' | 'high';

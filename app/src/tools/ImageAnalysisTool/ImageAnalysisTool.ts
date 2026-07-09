@@ -18,14 +18,13 @@ import * as path from 'path';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { ImageProcessor } from '../../media/image/ImageProcessor';
+import { imageFormatDetector } from '../../media/image/ImageFormatDetector';
 import { providerRegistry } from '../../ai/providers/ProviderRegistry';
-import {
-  resolveModelRoute,
-  RouteKey,
-} from '../../ai/router/resolveModelRoute.js';
+import { RouteKey } from '../../ai/router/routes.js';
 import { imageSanitizationPolicy } from '../../security/policy/ImageSanitizationPolicy';
 import { KnowledgeBaseWriter } from '../../knowledge/KnowledgeBaseWriter';
 import { WorkerGuard } from '../../ai/python/WorkerGuard';
+import { imageDownloader } from '../../chat/services/ImageDownloader';
 
 /**
  * 分析操作类型
@@ -269,6 +268,38 @@ export class ImageAnalysisTool extends BaseTool {
         return { success: false, error: 'inputPath is required' };
       }
 
+      // URL 下载：如果 inputPath 是 URL，先下载到本地缓存
+      if (/^https?:\/\//i.test(params.inputPath)) {
+        logger.info('ImageAnalysisTool · 检测到 URL 输入，开始下载', {
+          url: params.inputPath,
+        });
+        try {
+          const downloadResult = await imageDownloader.download(
+            params.inputPath
+          );
+          params.inputPath = downloadResult.localPath;
+          logger.info('ImageAnalysisTool · URL 下载完成', {
+            url: params.inputPath,
+            localPath: downloadResult.localPath,
+            mimeType: downloadResult.mimeType,
+            fromCache: downloadResult.fromCache,
+          });
+        } catch (downloadError) {
+          const errMsg =
+            downloadError instanceof Error
+              ? downloadError.message
+              : String(downloadError);
+          logger.warn('ImageAnalysisTool · URL 下载失败', {
+            url: params.inputPath,
+            error: errMsg,
+          });
+          return {
+            success: false,
+            error: `图片下载失败：${errMsg}`,
+          };
+        }
+      }
+
       if (!fs.existsSync(params.inputPath)) {
         logger.warn('ImageAnalysisTool · 输入文件不存在', {
           inputPath: params.inputPath,
@@ -290,15 +321,8 @@ export class ImageAnalysisTool extends BaseTool {
       // 安全检查
       const checkBuffer = fs.readFileSync(params.inputPath);
       const ext = path.extname(params.inputPath).slice(1).toLowerCase();
-      const mimeMap: Record<string, string> = {
-        png: 'image/png',
-        jpg: 'image/jpeg',
-        jpeg: 'image/jpeg',
-        webp: 'image/webp',
-        gif: 'image/gif',
-        bmp: 'image/bmp',
-      };
-      const checkMime = mimeMap[ext] || `image/${ext}`;
+      const formatResult = imageFormatDetector.detectFormat(checkBuffer);
+      const checkMime = formatResult?.mimeType || `image/${ext}`;
       const sanitizeResult = imageSanitizationPolicy.sanitize(
         checkBuffer,
         checkMime
@@ -453,12 +477,24 @@ export class ImageAnalysisTool extends BaseTool {
         action: 'analyze.l2.ocr',
       });
 
-      // 降级到 L3 云端分析
+      // 降级到 L3 云端分析（使用 OCR 独立任务路由）
       logger.warn('ImageAnalysisTool · L2 OCR 失败，降级到 L3');
-      return this.handleVision({
-        ...params,
-        prompt: '请识别并提取这张图片中的所有文字。',
-      });
+      const visionResult = await this.doVisionAnalysis(
+        params.inputPath,
+        '请识别并提取这张图片中的所有文字。',
+        RouteKey.IMAGE_OCR
+      );
+      if (!visionResult.success) {
+        return { success: false, error: visionResult.error };
+      }
+      return {
+        success: true,
+        data: {
+          description: visionResult.description,
+          durationMs: visionResult.durationMs,
+        },
+        output: visionResult.description,
+      };
     }
   }
 
@@ -800,42 +836,117 @@ export class ImageAnalysisTool extends BaseTool {
 
   private async doVisionAnalysis(
     filePath: string,
-    prompt: string
+    prompt: string,
+    route:
+      | typeof RouteKey.IMAGE_ANALYZE
+      | typeof RouteKey.IMAGE_OCR = RouteKey.IMAGE_ANALYZE
   ): Promise<{
     success: boolean;
     description: string;
     error?: string;
     durationMs?: number;
   }> {
-    // 通过统一模型路由获取视觉识别模型，优先匹配 support analyzeImage 的 Provider
-    const visionModel = await resolveModelRoute(RouteKey.IMAGE_ANALYZE);
-    let provider = providerRegistry.getByModel(visionModel);
-    // 如果路由到的 Provider 不支持图片分析，回退到已知的视觉 Provider
-    if (!provider?.analyzeImage) {
-      provider = providerRegistry.get('google');
+    // 任务分工 → 模型唯一标识 → DB查模型记录 → 供应商ID → 供应商实例
+    // 全程通过 UUID 查找，避免模型名/供应商名重复歧义
+    // route 参数区分 vision 和 ocr 的任务路由
+    let modelIdForError = '';
+    const taskType = route === RouteKey.IMAGE_OCR ? 'ocr' : 'vision';
+    // OCR 降级时 actualTaskType 会变为 'vision'，影响后续路由解析
+    let actualTaskType: string = taskType;
+    let provider: Awaited<ReturnType<typeof providerRegistry.getByModel>> =
+      undefined;
+
+    try {
+      const { ModelRouter } = await import('../../ai/modelRouter.js');
+      const tasks = ModelRouter.getInstance().getTasks();
+
+      // OCR 降级策略：OCR 未配置时回退到识图(vision)模型
+      let modelUuid: string | undefined;
+      if (taskType === 'ocr') {
+        modelUuid = tasks['ocr'] || tasks['vision'];
+        if (modelUuid && !tasks['ocr']) {
+          actualTaskType = 'vision';
+          logger.info('ImageAnalysisTool · OCR 任务未配置，降级使用识图模型');
+        }
+      } else {
+        modelUuid = tasks['vision'];
+      }
+
+      if (!modelUuid) {
+        const taskLabel = taskType === 'ocr' ? 'OCR/识图' : '视觉识别';
+        return {
+          success: false,
+          description: '',
+          error: `任务分工中未配置"${taskLabel}"模型。请在「模型管理→任务分工」中为"${taskLabel}"任务指定一个支持图片分析的模型。`,
+        };
+      }
+      modelIdForError = modelUuid;
+
+      // 通过模型 UUID 从 DB 获取完整记录（含 providerId）
+      const { modelPricingService } =
+        await import('../../ai/models/ModelPricingService.js');
+      const record = await modelPricingService.getPricingById(modelUuid);
+      if (!record) {
+        return {
+          success: false,
+          description: '',
+          error: `任务分工中指定的模型「${modelUuid}」在数据库中不存在。请检查模型是否已被删除，或重新配置「模型管理→任务分工」。`,
+        };
+      }
+
+      // 通过 providerId（供应商 UUID）从 ProviderRegistry 获取供应商实例
+      // DB 中的 providerId 是原始 UUID，Registry 中的 key 是 "db:${uuid}" 格式
+      const providerId = record.providerId;
+      if (!providerId) {
+        return {
+          success: false,
+          description: '',
+          error: `模型「${modelUuid}」未关联供应商。请在「模型管理」中为该模型设置正确的供应商。`,
+        };
+      }
+
+      try {
+        const { getRegistryId } =
+          await import('../../ai/providers/ProviderSyncService.js');
+        const registryId = getRegistryId(providerId) || `db:${providerId}`;
+        provider = providerRegistry.get(registryId);
+      } catch {
+        return {
+          success: false,
+          description: '',
+          error: `模型「${modelUuid}」关联的供应商「${providerId}」未注册到运行时。请检查该供应商是否已正确配置 API Key 并启用。`,
+        };
+      }
+    } catch (err) {
+      // UUID 链路失败，记录详细错误后直接返回，不绕行其他供应商
+      logger.error('ImageAnalysisTool · UUID链路查找失败', {
+        error: String(err),
+        route: taskType,
+      });
+      return {
+        success: false,
+        description: '',
+        error:
+          `任务分工查询失败：${err instanceof Error ? err.message : String(err)}。` +
+          '请检查「模型管理→任务分工」中的配置是否正确，并确保对应的供应商已启用。',
+      };
     }
-    if (!provider?.analyzeImage) {
-      provider = providerRegistry.get('openai');
-    }
+
     if (!provider?.analyzeImage) {
       return {
         success: false,
         description: '',
         error:
-          'No provider with vision capability available (try google or openai)',
+          `任务分工中"视觉识别"指定的模型「${modelIdForError}」对应的供应商不支持图片分析。` +
+          '请在「模型管理→任务分工」中将"视觉识别"任务重新配置为支持视觉能力的模型（如 OpenAI GPT-4V 或 Google Gemini），' +
+          '并确保该供应商已正确配置 API Key 且已启用。',
       };
     }
+
     const imageBuffer = fs.readFileSync(filePath);
     const ext = path.extname(filePath).slice(1).toLowerCase();
-    const mimeMap: Record<string, string> = {
-      png: 'image/png',
-      jpg: 'image/jpeg',
-      jpeg: 'image/jpeg',
-      webp: 'image/webp',
-      gif: 'image/gif',
-      bmp: 'image/bmp',
-    };
-    const mimeType = mimeMap[ext] || 'image/png';
+    const formatResult = imageFormatDetector.detectFormat(imageBuffer);
+    const mimeType = formatResult?.mimeType || `image/${ext}` || 'image/png';
 
     // P1-5: 响应式缩放（Vision API 图片过大时自动逐级缩小后重试）
     const MAX_VISION_BYTES = 20 * 1024 * 1024;
@@ -848,10 +959,32 @@ export class ImageAnalysisTool extends BaseTool {
       finalBuffer = Buffer.from(shrunk.buffer);
     }
 
+    // 通过 record.providerMappings 获取供应商专用的 API 模型名
+    // OCR 降级到 vision 时，使用 vision 路由而非 ocr 路由
+    let apiModel = modelIdForError;
+    {
+      const providerType = provider.id.startsWith('db:')
+        ? provider.id.slice(3)
+        : provider.id;
+      const { ModelRouter } = await import('../../ai/modelRouter.js');
+      const mr = ModelRouter.getInstance();
+      const resolveRoute =
+        actualTaskType === 'vision' && route === RouteKey.IMAGE_OCR
+          ? ('vision' as const)
+          : (taskType as 'vision' | 'ocr');
+      try {
+        const mapped = mr.resolveMapped(resolveRoute, providerType);
+        if (mapped) apiModel = mapped;
+      } catch {
+        // 映射失败，使用 modelIdForError 兜底
+      }
+    }
+
     return provider.analyzeImage({
       imageBuffer: finalBuffer,
       mimeType,
       prompt,
+      model: apiModel,
     });
   }
 

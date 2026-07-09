@@ -67,6 +67,7 @@ export type TaskType =
   | 'embedding' // 文本向量化（知识库）
   | 'image' // 图片生成（DALL-E / Stable Diffusion 等）
   | 'vision' // 图片识别/分析（GPT-4o / Gemini Vision 等）
+  | 'ocr' // 文字识别/提取（EasyOCR / PaddleOCR / GPT-4o Vision 等）
   | 'video' // 视频生成（Sora / Kling 等）
   | 'tts' // 语音合成（ElevenLabs / OpenAI TTS 等）
   | 'stt' // 语音识别（Whisper / Deepgram 等）
@@ -85,6 +86,7 @@ export const ALL_TASK_TYPES: TaskType[] = [
   'embedding',
   'image',
   'vision',
+  'ocr',
   'video',
   'tts',
   'stt',
@@ -108,6 +110,7 @@ export interface TaskModelConfig {
   embedding?: string;
   image?: string;
   vision?: string;
+  ocr?: string;
   video?: string;
   tts?: string;
   stt?: string;
@@ -190,6 +193,12 @@ export const TASK_DEFINITIONS: TaskDefinition[] = [
     label: '识图',
     description: '图片识别/分析（GPT-4o / Gemini Vision 等）',
     icon: '👁️',
+  },
+  {
+    type: 'ocr',
+    label: 'OCR',
+    description: '文字识别/提取（EasyOCR / PaddleOCR / GPT-4o Vision 等）',
+    icon: '🔤',
   },
   {
     type: 'video',

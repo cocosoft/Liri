@@ -81,7 +81,8 @@ function main(): void {
     process.exit(1);
   }
 
-  const depsDir = path.join(targetDir, 'deps');
+  // 放入 node_modules 子目录，使 createRequire 能从 deps/ 正确解析
+  const depsDir = path.join(targetDir, 'deps', 'node_modules');
   let copiedCount = 0;
 
   for (const dep of EXTERNAL_DEPS) {

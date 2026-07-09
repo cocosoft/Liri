@@ -311,7 +311,7 @@ export class GoogleProvider extends BaseAIProvider {
       ],
     };
 
-    const model = '';
+    const model = params.model;
     const url = `${this.baseUrl}/models/${model}:generateContent?key=${this.apiKey}`;
 
     try {

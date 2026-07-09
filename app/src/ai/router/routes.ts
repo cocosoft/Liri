@@ -31,6 +31,7 @@ export const RouteKey = {
   EMBEDDING: 'embedding',
   IMAGE_GENERATE: 'image',
   IMAGE_ANALYZE: 'vision',
+  IMAGE_OCR: 'ocr',
   VIDEO_GENERATE: 'video',
   TTS: 'tts',
   STT: 'stt',
@@ -51,6 +52,7 @@ export const ROUTE_TO_TASK: Record<RouteKey, TaskType> = {
   [RouteKey.EMBEDDING]: 'embedding',
   [RouteKey.IMAGE_GENERATE]: 'image',
   [RouteKey.IMAGE_ANALYZE]: 'vision',
+  [RouteKey.IMAGE_OCR]: 'ocr',
   [RouteKey.VIDEO_GENERATE]: 'video',
   [RouteKey.TTS]: 'tts',
   [RouteKey.STT]: 'stt',
@@ -74,6 +76,7 @@ export const JUDGE_ROUTES: RouteKey[] = [
 export const CAPABILITY_ROUTES: RouteKey[] = [
   RouteKey.IMAGE_GENERATE,
   RouteKey.IMAGE_ANALYZE,
+  RouteKey.IMAGE_OCR,
   RouteKey.VIDEO_GENERATE,
   RouteKey.TTS,
   RouteKey.STT,

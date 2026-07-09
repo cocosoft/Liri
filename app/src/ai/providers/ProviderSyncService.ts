@@ -77,7 +77,7 @@ function createProviderByType(
         displayName: 'DeepSeek',
         defaultBaseUrl: 'https://api.deepseek.com',
         envApiKey: 'DEEPSEEK_API_KEY',
-        defaultModel: (config?.model as string) || 'deepseek-v4-flash',
+        defaultModel: (config?.model as string) || '',
       });
     case 'google':
       return new GoogleProvider({

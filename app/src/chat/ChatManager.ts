@@ -132,7 +132,11 @@ import type {
   MessageMetadata,
 } from '@modules/session/types/Message';
 import { MessageRole as SessionMessageRole } from '@modules/session/types/Message';
-import { resolveProjectRoot } from '@modules/core';
+import {
+  resolveProjectRoot,
+  resolveOutputDir,
+  resolvePyappHome,
+} from '@modules/core/paths';
 import {
   AppError,
   ErrorCategory,
@@ -593,6 +597,42 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * 从用户消息文本中提取绝对文件路径
+   * 支持 Markdown 链接格式 [文件名](绝对路径) 和行内绝对路径
+   * 仅返回存在于磁盘上且属于用户数据目录（attachments/output/downloads）的路径
+   */
+  private extractFilePathsFromText(text: string): string[] {
+    const paths: string[] = [];
+    if (!text || typeof text !== 'string') return paths;
+
+    // 匹配 Markdown 链接: [name](path)
+    const mdLinkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
+    let match: RegExpExecArray | null;
+    while ((match = mdLinkRegex.exec(text)) !== null) {
+      const rawPath = match[2];
+      if (path.isAbsolute(rawPath) && fs.existsSync(rawPath)) {
+        paths.push(rawPath);
+      }
+    }
+
+    // 匹配行内的绝对 Windows 路径（E:\... 或 C:\...）
+    const absPathRegex = /([A-Za-z]:\\[^\s)\]]+)/g;
+    while ((match = absPathRegex.exec(text)) !== null) {
+      const rawPath = match[1];
+      if (fs.existsSync(rawPath) && !paths.includes(rawPath)) {
+        paths.push(rawPath);
+      }
+    }
+
+    // 仅保留用户数据目录下的路径，避免注册系统路径
+    const pyappHome = resolvePyappHome();
+    const projectRoot = resolveProjectRoot();
+    return paths.filter(
+      (p) => p.startsWith(pyappHome) || p.startsWith(projectRoot)
+    );
+  }
+
+  /**
    * 清理 API 消息列表中的孤立 tool_calls 和 tool 消息。
    *
    * DeepSeek API 要求：每个 assistant 含 tool_calls 之后，
@@ -861,41 +901,68 @@ export class ChatManagerImpl implements ChatManager {
       return chatMessage;
     });
 
-    // 将附带的图片转换为多模态 content 数组
+    // 将附带的图片路径以文本形式追加到用户消息中
+    // 不嵌入 image_url 块（DeepSeek 等 Provider 不支持多模态），
+    // 改为路径文本引用，由 AI 通过 image_analysis 工具分析
     if (options?.images && options.images.length > 0) {
+      const imagesRoot = path.join(resolveOutputDir(), 'images');
       const lastUserMsg = [...apiMessages]
         .reverse()
         .find((m: Record<string, unknown>) => m.role === 'user');
       if (lastUserMsg && typeof lastUserMsg.content === 'string') {
-        const contentBlocks: Array<Record<string, unknown>> = [
-          { type: 'text', text: lastUserMsg.content },
-        ];
-        for (const img of options.images) {
-          try {
-            const imageData = fs.readFileSync(img.path);
-            const base64 = imageData.toString('base64');
-            const ext =
-              path.extname(img.filename).slice(1).toLowerCase() || 'png';
-            const mimeType = ext === 'jpg' ? 'jpeg' : ext;
-            contentBlocks.push({
-              type: 'image_url',
-              image_url: { url: `data:image/${mimeType};base64,${base64}` },
-            });
-          } catch (err) {
-            logger.warn('图片文件读取失败，跳过该图片', {
-              path: img.path,
-              error: String(err),
-            });
-          }
+        const imagePaths = options.images
+          .map((img) => {
+            const absolutePath = path.isAbsolute(img.path)
+              ? img.path
+              : path.resolve(imagesRoot, img.path);
+            if (fs.existsSync(absolutePath)) return absolutePath;
+            return null;
+          })
+          .filter(Boolean) as string[];
+
+        if (imagePaths.length > 0) {
+          lastUserMsg.content =
+            lastUserMsg.content +
+            '\n\n[附带的图片路径]\n' +
+            imagePaths.map((p) => `- ${p}`).join('\n');
         }
-        lastUserMsg.content = contentBlocks;
       }
 
-      // 注册图片路径到会话已知路径集合
+      // 注册图片路径到会话已知路径集合（使用绝对路径以匹配工具校验）
+      const absoluteImagePaths = options.images.map((img) =>
+        path.isAbsolute(img.path)
+          ? img.path
+          : path.resolve(imagesRoot, img.path)
+      );
       this.imageContextService.registerImagePaths(
         options.sessionId || '',
-        options.images.map((img) => img.path)
+        absoluteImagePaths
       );
+    }
+
+    // 从用户消息文本中提取文件路径并注册到已知路径集合
+    // 文件上传（非图片按钮）的路径以 Markdown 链接形式嵌入到消息文本中
+    {
+      const lastUserMsgForPath = [...apiMessages]
+        .reverse()
+        .find(
+          (m: Record<string, unknown>) =>
+            m.role === 'user' && typeof m.content === 'string'
+        );
+      if (lastUserMsgForPath && options?.sessionId) {
+        const textContent = lastUserMsgForPath.content as string;
+        const extractedPaths = this.extractFilePathsFromText(textContent);
+        if (extractedPaths.length > 0) {
+          this.imageContextService.registerImagePaths(
+            options!.sessionId,
+            extractedPaths
+          );
+          logger.info('从用户消息文本中提取并注册文件路径', {
+            sessionId: options!.sessionId,
+            pathCount: extractedPaths.length,
+          });
+        }
+      }
     }
 
     // 过滤孤立的 tool 消息（没有前置 tool_calls 的 assistant 消息）
@@ -2253,41 +2320,69 @@ export class ChatManagerImpl implements ChatManager {
       return chatMessage;
     });
 
-    // 将附带的图片转换为多模态 content 数组
+    // 将附带的图片路径以文本形式追加到用户消息中
+    // 不嵌入 image_url 块（DeepSeek 等 Provider 不支持多模态），
+    // 改为路径文本引用，由 AI 通过 image_analysis 工具分析
     if (options?.images && options.images.length > 0) {
+      const imagesRoot = path.join(resolveOutputDir(), 'images');
       const lastUserMsg = [...apiMessages]
         .reverse()
         .find((m: Record<string, unknown>) => m.role === 'user');
       if (lastUserMsg && typeof lastUserMsg.content === 'string') {
-        const contentBlocks: Array<Record<string, unknown>> = [
-          { type: 'text', text: lastUserMsg.content },
-        ];
-        for (const img of options.images) {
-          try {
-            const imageData = fs.readFileSync(img.path);
-            const base64 = imageData.toString('base64');
-            const ext =
-              path.extname(img.filename).slice(1).toLowerCase() || 'png';
-            const mimeType = ext === 'jpg' ? 'jpeg' : ext;
-            contentBlocks.push({
-              type: 'image_url',
-              image_url: { url: `data:image/${mimeType};base64,${base64}` },
-            });
-          } catch (err) {
-            logger.warn('图片文件读取失败，跳过该图片', {
-              path: img.path,
-              error: String(err),
-            });
-          }
+        const imagePaths = options.images
+          .map((img) => {
+            const absolutePath = path.isAbsolute(img.path)
+              ? img.path
+              : path.resolve(imagesRoot, img.path);
+            if (fs.existsSync(absolutePath)) return absolutePath;
+            return null;
+          })
+          .filter(Boolean) as string[];
+
+        if (imagePaths.length > 0) {
+          lastUserMsg.content =
+            lastUserMsg.content +
+            '\n\n[附带的图片路径]\n' +
+            imagePaths.map((p) => `- ${p}`).join('\n');
         }
-        lastUserMsg.content = contentBlocks;
       }
 
-      // 注册图片路径到会话已知路径集合
+      // 注册图片路径到会话已知路径集合（使用绝对路径以匹配工具校验）
+      const absoluteImagePaths = options.images.map((img) =>
+        path.isAbsolute(img.path)
+          ? img.path
+          : path.resolve(imagesRoot, img.path)
+      );
       this.imageContextService.registerImagePaths(
         options.sessionId || '',
-        options.images.map((img) => img.path)
+        absoluteImagePaths
       );
+    }
+
+    // 从用户消息文本中提取文件路径并注册到已知路径集合
+    // 文件上传（非图片按钮）的路径以 Markdown 链接形式嵌入到消息文本中，
+    // 但未通过 options.images 传递，需要在此处补充注册
+    {
+      const lastUserMsgForPath = [...apiMessages]
+        .reverse()
+        .find(
+          (m: Record<string, unknown>) =>
+            m.role === 'user' && typeof m.content === 'string'
+        );
+      if (lastUserMsgForPath && options?.sessionId) {
+        const textContent = lastUserMsgForPath.content as string;
+        const extractedPaths = this.extractFilePathsFromText(textContent);
+        if (extractedPaths.length > 0) {
+          this.imageContextService.registerImagePaths(
+            options!.sessionId,
+            extractedPaths
+          );
+          logger.info('从用户消息文本中提取并注册文件路径', {
+            sessionId: options!.sessionId,
+            pathCount: extractedPaths.length,
+          });
+        }
+      }
     }
 
     this._sanitizeApiMessages(apiMessages);

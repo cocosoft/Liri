@@ -43,6 +43,7 @@ import {
   resolveModelRoute,
   RouteKey,
 } from '@modules/ai/router/resolveModelRoute.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { BackgroundAgentTask } from '@modules/tasks/BackgroundAgentTask';
 import type { BackgroundTaskInfo } from '@modules/tasks/types';
 import { Logger } from '@modules/monitoring';
@@ -482,11 +483,16 @@ export class AgentTool implements Tool {
     const { providerRegistry } =
       await import('../../ai/providers/ProviderRegistry');
     const agentModel = await resolveModelRoute(RouteKey.CHAT);
-    let llmClient = agentModel
+    const llmClient = agentModel
       ? providerRegistry.getByModel(agentModel)
       : undefined;
     if (!llmClient) {
-      llmClient = providerRegistry.getOrCreate('deepseek');
+      throw new AppError(
+        `AgentTool: 任务分工中"对话"模型未配置或对应供应商未注册。请在「模型管理→任务分工」中配置。`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const toolDefinitions = this.buildToolDefinitions().map((t) => ({

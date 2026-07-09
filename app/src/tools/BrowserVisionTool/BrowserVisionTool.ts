@@ -28,6 +28,11 @@
 
 import { BaseTool } from '../BaseTool';
 import type { ToolUseContext, ToolResult, ToolParam } from '../types';
+import {
+  resolveModelRoute,
+  RouteKey,
+} from '../../ai/router/resolveModelRoute.js';
+import { providerRegistry } from '../../ai/providers/ProviderRegistry';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveTempDir } from '@modules/core/paths';
 import * as path from 'path';
@@ -108,20 +113,17 @@ export class BrowserVisionTool extends BaseTool {
       // 通过 ImageAnalysisTool 的 L3 vision 路径进行分析
       let analysis = '';
       try {
-        // 尝试直接使用 AI Provider 的分析能力
-        const { providerRegistry } =
-          await import('../../ai/providers/ProviderRegistry');
-        const providers = providerRegistry.list();
-        const visionProvider = providers.find(
-          (p) => typeof (p as any).analyzeImage === 'function'
-        );
+        // 通过统一模型路由获取视觉识别模型
+        const visionModel = await resolveModelRoute(RouteKey.IMAGE_ANALYZE);
+        const visionProvider = providerRegistry.getByModel(visionModel);
 
-        if (visionProvider && (visionProvider as any).analyzeImage) {
-          const result = await (visionProvider as any).analyzeImage({
+        if (visionProvider?.analyzeImage) {
+          const result = await visionProvider.analyzeImage({
             imageBuffer: buffer,
             mimeType: 'image/jpeg',
             prompt,
             maxTokens: 1024,
+            model: visionModel,
           });
 
           if (result.success) {

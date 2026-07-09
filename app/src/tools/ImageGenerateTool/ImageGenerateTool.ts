@@ -564,7 +564,15 @@ export class ImageGenerateTool extends BaseTool {
   private async executeWithSpecificProvider(
     params: ImageGenerateParams
   ): Promise<ToolResult> {
-    const provider = providerRegistry.get(params.provider ?? 'openai');
+    if (!params.provider) {
+      throw new AppError(
+        'ImageGenerateTool: 未指定供应商，请在参数中传入 provider 或通过任务分工配置。',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+    const provider = providerRegistry.get(params.provider);
 
     if (!provider.generateImage) {
       logger.warn('ImageGenerateTool · 提供商不支持图片生成', {

@@ -16,7 +16,11 @@ import { randomUUID } from 'crypto';
 import type { HandlerCtx } from './handler-utils';
 import { readRawBody, parseMultipartBody } from './handler-utils';
 import { handleError } from '@modules/error';
-import { resolveOutputDir, resolveMediaDir } from '@modules/core/paths';
+import {
+  resolveOutputDir,
+  resolveMediaDir,
+  resolveAttachmentsDir,
+} from '@modules/core/paths';
 
 /** 图片输出根目录（上传） */
 const IMAGES_ROOT = path.join(resolveOutputDir(), 'images');
@@ -24,8 +28,11 @@ const IMAGES_ROOT = path.join(resolveOutputDir(), 'images');
 /** 图片媒体根目录（AI 生成持久化） */
 const MEDIA_IMAGES_ROOT = path.join(resolveMediaDir(), 'images');
 
+/** 附件根目录（文件上传保存位置） */
+const ATTACHMENTS_ROOT = resolveAttachmentsDir();
+
 /** 所有需要扫描的图片目录 */
-const IMAGE_ROOTS = [IMAGES_ROOT, MEDIA_IMAGES_ROOT];
+const IMAGE_ROOTS = [IMAGES_ROOT, MEDIA_IMAGES_ROOT, ATTACHMENTS_ROOT];
 
 /** MIME 类型映射 */
 const MIME_MAP: Record<string, string> = {
@@ -97,15 +104,36 @@ function getMimeType(filePath: string): string {
 }
 
 /**
+ * 检查指定路径是否在任意安全根目录内
+ */
+function isInAnySafeRoot(absolutePath: string): boolean {
+  for (const root of IMAGE_ROOTS) {
+    if (absolutePath.startsWith(root)) return true;
+  }
+  return false;
+}
+
+/**
  * 路径遍历安全检查 — 检查请求路径是否在任意根目录内
+ * 支持两种格式：相对路径（含 media/attachments/ 前缀）和绝对路径
  */
 function isAnyRootSafe(requestedPath: string): boolean {
-  // 去前缀后检查
+  // 绝对路径：直接检查是否在安全根目录内
+  if (path.isAbsolute(requestedPath)) {
+    return isInAnySafeRoot(path.resolve(requestedPath));
+  }
+
+  // 相对路径：去前缀后检查
   let resolvedPath: string;
   if (requestedPath.startsWith('media/')) {
     const subPath = requestedPath.slice('media/'.length);
     resolvedPath = path.resolve(MEDIA_IMAGES_ROOT, subPath);
     return resolvedPath.startsWith(MEDIA_IMAGES_ROOT);
+  }
+  if (requestedPath.startsWith('attachments/')) {
+    const subPath = requestedPath.slice('attachments/'.length);
+    resolvedPath = path.resolve(ATTACHMENTS_ROOT, subPath);
+    return resolvedPath.startsWith(ATTACHMENTS_ROOT);
   }
   resolvedPath = path.resolve(IMAGES_ROOT, requestedPath);
   return resolvedPath.startsWith(IMAGES_ROOT);
@@ -113,12 +141,27 @@ function isAnyRootSafe(requestedPath: string): boolean {
 
 /**
  * 解析请求路径到完整文件路径
+ * 支持两种格式：相对路径（含 media/attachments/ 前缀）和绝对路径
  */
 function resolveFullPath(requestedPath: string): string | null {
+  // 绝对路径：直接返回（经安全检查后）
+  if (path.isAbsolute(requestedPath)) {
+    const resolved = path.resolve(requestedPath);
+    if (isInAnySafeRoot(resolved)) return resolved;
+    return null;
+  }
+
+  // 相对路径：拼接对应根目录
   if (requestedPath.startsWith('media/')) {
     const subPath = requestedPath.slice('media/'.length);
     const p = path.resolve(MEDIA_IMAGES_ROOT, subPath);
     if (!p.startsWith(MEDIA_IMAGES_ROOT)) return null;
+    return p;
+  }
+  if (requestedPath.startsWith('attachments/')) {
+    const subPath = requestedPath.slice('attachments/'.length);
+    const p = path.resolve(ATTACHMENTS_ROOT, subPath);
+    if (!p.startsWith(ATTACHMENTS_ROOT)) return null;
     return p;
   }
   const p = path.resolve(IMAGES_ROOT, requestedPath);
@@ -159,7 +202,8 @@ function collectImageFiles(
  * 提供图片静态文件服务
  *
  * URL 格式：/v1/images/static/YYYY-MM-DD/img_xxx.png
- * 安全：仅允许 ~/.pyapp/output/images/ 下的路径，拒绝路径遍历
+ * 或带前缀：/v1/images/static/media/xxx 或 /v1/images/static/attachments/xxx
+ * 安全：仅允许 IMAGE_ROOTS 内的路径，拒绝路径遍历
  */
 export async function handleImageStatic(
   ctx: HandlerCtx,
@@ -297,15 +341,16 @@ export async function handleImageUpload(
     const outputPath = path.join(targetDir, safeName);
     fs.writeFileSync(outputPath, filePart.data);
 
-    // 构建相对于 IMAGES_ROOT 的路径
+    // 构建相对于 IMAGES_ROOT 的路径（用于 HTTP URL）
     const relativePath = path
       .relative(IMAGES_ROOT, outputPath)
       .replace(/\\/g, '/');
 
+    // 返回绝对路径，确保 ChatManager / image_analysis 等下游能正确读取文件
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
-        path: relativePath,
+        path: outputPath,
         url: `/v1/images/static/${relativePath}`,
       })
     );
@@ -321,7 +366,7 @@ export async function handleImageUpload(
 /**
  * GET /v1/images/list?page=1&pageSize=50
  * 列出已生成的图片文件（支持分页）
- * 同时扫描 output/images/（上传）和 media/images/（AI 生成持久化）
+ * 同时扫描 output/images/（上传）、media/images/（AI 生成持久化）和 attachments/（文件上传）
  */
 export async function handleImageList(
   ctx: HandlerCtx,
@@ -340,24 +385,34 @@ export async function handleImageList(
       Math.max(1, parseInt(urlObj.searchParams.get('pageSize') || '50', 10))
     );
 
-    // 收集所有图片根目录下的文件
-    const files: Array<{ relativePath: string; urlPrefix: string }> = [];
+    // 收集所有图片根目录下的文件（记录绝对路径用于工具调用，相对路径用于 URL 构造）
+    const files: Array<{
+      relativePath: string;
+      absolutePath: string;
+      urlPrefix: string;
+    }> = [];
 
     for (const root of IMAGE_ROOTS) {
       if (!fs.existsSync(root)) continue;
 
-      // 为 media 目录下的文件添加 media/ 前缀
-      const isMediaRoot = root === MEDIA_IMAGES_ROOT;
+      let urlPrefix = '';
+      if (root === MEDIA_IMAGES_ROOT) {
+        urlPrefix = 'media/';
+      } else if (root === ATTACHMENTS_ROOT) {
+        urlPrefix = 'attachments/';
+      }
+
       const localFiles: string[] = [];
       collectImageFiles(root, root, localFiles);
 
       for (const f of localFiles) {
-        const displayPath = isMediaRoot
-          ? `media/${f.replace(/\\/g, '/')}`
+        const displayPath = urlPrefix
+          ? `${urlPrefix}${f.replace(/\\/g, '/')}`
           : f.replace(/\\/g, '/');
         files.push({
           relativePath: displayPath,
-          urlPrefix: isMediaRoot ? 'media/' : '',
+          absolutePath: path.join(root, f),
+          urlPrefix,
         });
       }
     }
@@ -370,7 +425,7 @@ export async function handleImageList(
     const paged = files.slice(startIdx, startIdx + pageSize);
 
     const images = paged.map((f) => ({
-      path: f.relativePath,
+      path: f.absolutePath,
       url: `/v1/images/static/${f.relativePath}`,
     }));
 

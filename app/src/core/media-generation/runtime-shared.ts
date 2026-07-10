@@ -96,3 +96,18 @@ export function resolveCapabilityModelCandidates(params: {
 
   return candidates;
 }
+
+/**
+ * 参数归一化：从允许值列表中取最接近的有效值
+ *
+ * 与供应商无关 — 任何 Provider 的 generateVideo/generateImage 均可使用。
+ * 如果用户传入的值在 allowed 列表中则直接使用，否则返回 defaultVal。
+ */
+export function normalizeByCaps<T>(
+  value: T | undefined,
+  allowed: readonly T[],
+  defaultVal: T
+): T {
+  if (value !== undefined && allowed.includes(value)) return value;
+  return defaultVal;
+}

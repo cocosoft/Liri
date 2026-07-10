@@ -820,8 +820,42 @@ export class ImageAnalysisTool extends BaseTool {
   }
 
   private async handleVision(params: ImageAnalysisInput): Promise<ToolResult> {
+    let actualPath = params.inputPath;
+
+    // SVG 文件自动转为 PNG 以便 Vision API 识别
+    if (actualPath.toLowerCase().endsWith('.svg')) {
+      try {
+        const pngPath = actualPath.replace(/\.svg$/i, '.png');
+        const { ImageProcessor } =
+          await import('../../media/image/ImageProcessor.js');
+        const processor = new ImageProcessor();
+        const convertResult = await processor.convert(
+          actualPath,
+          pngPath,
+          'png'
+        );
+        if (convertResult.success) {
+          logger.info('SVG → PNG 转换成功，使用 PNG 进行视觉分析', {
+            svg: actualPath,
+            png: pngPath,
+          });
+          actualPath = pngPath;
+        } else {
+          logger.warn('SVG → PNG 转换失败，尝试提取 SVG 文本信息', {
+            svg: actualPath,
+            error: convertResult.error,
+          });
+        }
+      } catch (err) {
+        logger.warn('SVG → PNG 转换异常，尝试提取 SVG 文本信息', {
+          svg: actualPath,
+          error: String(err),
+        });
+      }
+    }
+
     const result = await this.doVisionAnalysis(
-      params.inputPath,
+      actualPath,
       params.prompt || '请详细描述这张图片的内容。'
     );
     if (!result.success) {
@@ -993,7 +1027,7 @@ export class ImageAnalysisTool extends BaseTool {
   private extractMetadata(filePath: string): ImageMetadata {
     const stat = fs.statSync(filePath);
     const ext = path.extname(filePath).slice(1).toLowerCase();
-    const dims = processor.getDimensions(filePath);
+    let dims = processor.getDimensions(filePath);
     const formatMap: Record<string, string> = {
       png: 'png',
       jpg: 'jpeg',
@@ -1009,6 +1043,44 @@ export class ImageAnalysisTool extends BaseTool {
     };
     const format = formatMap[ext] || ext;
     const mimeType = `image/${format === 'jpeg' ? 'jpeg' : format}`;
+
+    // SVG 文件：由 Sharp 无法读取尺寸，需要从 XML 中提取 viewBox/width/height
+    if (!dims && ext === 'svg') {
+      try {
+        const svgContent = fs
+          .readFileSync(filePath, 'utf-8')
+          .substring(0, 4096);
+        const viewBoxMatch = svgContent.match(/viewBox=["']([^"']+)["']/i);
+        if (viewBoxMatch) {
+          const parts = viewBoxMatch[1].split(/[\s,]+/);
+          if (parts.length >= 4) {
+            const vbW = parseFloat(parts[2]);
+            const vbH = parseFloat(parts[3]);
+            if (vbW > 0 && vbH > 0) {
+              dims = { width: vbW, height: vbH, aspectRatio: vbW / vbH };
+            }
+          }
+        }
+        if (!dims) {
+          const wMatch = svgContent.match(
+            /width=["'](\d+(?:\.\d+)?)(?:px|em|%)?["']/i
+          );
+          const hMatch = svgContent.match(
+            /height=["'](\d+(?:\.\d+)?)(?:px|em|%)?["']/i
+          );
+          if (wMatch && hMatch) {
+            const w = parseFloat(wMatch[1]);
+            const h = parseFloat(hMatch[1]);
+            if (w > 0 && h > 0) {
+              dims = { width: w, height: h, aspectRatio: w / h };
+            }
+          }
+        }
+      } catch {
+        // 解析失败，使用 undefined dims
+      }
+    }
+
     const bytesPerPixel =
       dims?.width && dims?.height && dims.width > 0 && dims.height > 0
         ? stat.size / (dims.width * dims.height)

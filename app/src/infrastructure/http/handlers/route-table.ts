@@ -415,6 +415,21 @@ export async function dispatchRoute(
     return true;
   }
 
+  // ---- Videos ----
+  if (method === 'GET' && url === '/v1/videos/list') {
+    await self['handleVideoList'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.startsWith('/v1/videos/static/')) {
+    const filePath = url.slice('/v1/videos/static/'.length);
+    await self['handleVideoStatic'](req, res, decodeURIComponent(filePath));
+    return true;
+  }
+  if (method === 'DELETE' && url.startsWith('/v1/videos/delete')) {
+    await self['handleVideoDelete'](req, res);
+    return true;
+  }
+
   // ---- Agent ----
   if (method === 'GET' && url === '/v1/agents/tasks') {
     await self['handleListAgentTasks'](req, res);

@@ -1,5 +1,7 @@
 import type { Tool } from "../types";
-import { httpLegacy as http } from "./httpClient";
+import { httpLegacy as http, setHttpTimeout } from "./httpClient";
+
+const DEFAULT_TIMEOUT = 30_000;
 
 const isTauri = typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
 
@@ -25,16 +27,9 @@ async function tryTauri<T>(
   }
 }
 
-function createMemoryToolService() {
-  return {
-    list: async (): Promise<Tool[]> => [],
-    execute: async (
-      toolName: string,
-      _args: Record<string, unknown>,
-    ): Promise<unknown> => {
-      return { success: false, error: `后端不可达：工具 "${toolName}" 无法执行，请确认服务已启动（HTTP 或 Tauri 模式）` };
-    },
-  };
+export interface ToolExecuteOptions {
+  /** HTTP 超时时间（毫秒），默认 30s。视频生成建议 600000 */
+  timeout?: number;
 }
 
 export const toolService = {
@@ -44,25 +39,40 @@ export const toolService = {
     } catch {
       const result = await tryTauri<Tool[]>("list_tools");
       if (result) return result;
-      return createMemoryToolService().list();
+      return [];
     }
   },
 
   execute: async (
     toolName: string,
     args: Record<string, unknown>,
+    opts?: ToolExecuteOptions,
   ): Promise<unknown> => {
+    const timeout = opts?.timeout ?? DEFAULT_TIMEOUT;
+    const prevTimeout = setHttpTimeout(timeout);
+
     try {
       return await http.post<unknown>(`/v1/tools/${toolName}/execute`, {
         arguments: args,
       });
-    } catch {
+    } catch (err) {
+      // 提取真实错误信息，避免吞没后端返回的异常
+      const errorMsg =
+        err instanceof Error ? err.message : String(err);
+
       const result = await tryTauri<unknown>("execute_tool", {
         toolName,
         args,
       });
       if (result !== null) return result;
-      return createMemoryToolService().execute(toolName, args);
+
+      return {
+        success: false,
+        error: `后端请求失败: ${errorMsg}`,
+      };
+    } finally {
+      // 恢复原超时时间
+      setHttpTimeout(prevTimeout);
     }
   },
 };

@@ -30,4 +30,5 @@ export {
   resolveCapabilityModelCandidates,
   buildNoCapabilityModelConfiguredMessage,
   throwCapabilityGenerationFailure,
+  normalizeByCaps,
 } from './runtime-shared.js';

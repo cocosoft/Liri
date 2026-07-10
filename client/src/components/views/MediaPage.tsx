@@ -15,56 +15,7 @@ function MediaPage() {
   const { t } = useTranslation();
   const { config, loadConfig } = useConfigStore();
   const isDark = config.theme === "dark";
-  const [files, setFiles] = useState<MediaFile[]>([
-    {
-      id: "1",
-      name: "avatar.png",
-      type: "image",
-      size: 102400,
-      uploadedAt: "2026-05-28 10:00",
-      tags: ["profile", "avatar"],
-    },
-    {
-      id: "2",
-      name: "demo-video.mp4",
-      type: "video",
-      size: 5242880,
-      uploadedAt: "2026-05-27 15:30",
-      tags: ["demo", "tutorial"],
-    },
-    {
-      id: "3",
-      name: "audio-note.mp3",
-      type: "audio",
-      size: 204800,
-      uploadedAt: "2026-05-27 14:00",
-      tags: ["voice", "note"],
-    },
-    {
-      id: "4",
-      name: "report.pdf",
-      type: "document",
-      size: 1048576,
-      uploadedAt: "2026-05-26 09:00",
-      tags: ["report", "business"],
-    },
-    {
-      id: "5",
-      name: "banner.jpg",
-      type: "image",
-      size: 307200,
-      uploadedAt: "2026-05-25 11:00",
-      tags: ["banner", "marketing"],
-    },
-    {
-      id: "6",
-      name: "presentation.pptx",
-      type: "document",
-      size: 2097152,
-      uploadedAt: "2026-05-24 16:00",
-      tags: ["presentation", "meeting"],
-    },
-  ]);
+  const [files, setFiles] = useState<MediaFile[]>([]);
   const [filter, setFilter] = useState<
     "all" | "image" | "video" | "audio" | "document"
   >("all");

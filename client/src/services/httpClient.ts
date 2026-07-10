@@ -32,9 +32,16 @@ export function setHttpBaseUrl(url: string): void {
   globalConfig.baseUrl = url;
 }
 
-/** 设置全局超时 */
-export function setHttpTimeout(ms: number): void {
+/** 设置全局超时，返回旧值 */
+export function setHttpTimeout(ms: number): number {
+  const prev = globalConfig.timeout ?? DEFAULT_TIMEOUT;
   globalConfig.timeout = ms;
+  return prev;
+}
+
+/** 获取当前全局超时 */
+export function getHttpTimeout(): number {
+  return globalConfig.timeout ?? DEFAULT_TIMEOUT;
 }
 
 /** 设置全局 header */

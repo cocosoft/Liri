@@ -35,6 +35,8 @@ import type {
   ProviderConfig,
   ProviderValidationResult,
   ThinkingProviderChunk,
+  VideoGenerationParams,
+  VideoGenerationResult,
 } from './AIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -43,6 +45,7 @@ import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
+import { randomUUID } from 'crypto';
 
 const logger = new Logger({ module: 'ai:openai', level: LogLevel.INFO });
 
@@ -521,4 +524,343 @@ export class OpenAIProvider extends BaseAIProvider {
       };
     }
   }
+
+  /**
+   * 视频生成（异步提交 + 轮询）
+   *
+   * 双路径支持：
+   *   - SiliconFlow：POST /v1/video/submit → POST /v1/video/status
+   *   - OpenAI 兼容：POST /video/generations → GET /video/generations/{taskId}
+   */
+  async generateVideo(
+    params: VideoGenerationParams
+  ): Promise<VideoGenerationResult> {
+    const startTime = Date.now();
+    const model = params.model || this.options.defaultModel || '';
+
+    if (!model) {
+      return {
+        success: false,
+        data: [],
+        error: '未配置视频生成模型',
+        durationMs: 0,
+      };
+    }
+
+    if (!this.apiKey) {
+      return {
+        success: false,
+        data: [],
+        error: 'API Key 未配置',
+        durationMs: 0,
+      };
+    }
+
+    const isSiliconFlow = this.baseUrl.includes('api.siliconflow.cn');
+
+    logger.info('OpenAIProvider.generateVideo()', {
+      providerId: this.id,
+      model,
+      baseUrl: this.baseUrl,
+      isSiliconFlow,
+      prompt: params.prompt.slice(0, 80),
+    });
+
+    if (isSiliconFlow) {
+      return this.generateVideoSiliconFlow(params, model, startTime);
+    }
+
+    return this.generateVideoOpenAI(params, model, startTime);
+  }
+
+  /** SiliconFlow 视频生成：POST /v1/video/submit → POST /v1/video/status */
+  private async generateVideoSiliconFlow(
+    params: VideoGenerationParams,
+    model: string,
+    startTime: number
+  ): Promise<VideoGenerationResult> {
+    const body: Record<string, unknown> = {
+      model,
+      prompt: params.prompt,
+    };
+    if (params.imageUrl) body.image = params.imageUrl;
+    if (params.seed !== undefined) body.seed = params.seed;
+
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${this.apiKey}`,
+    };
+
+    try {
+      // 1. 提交任务
+      const submitRes = await fetch(`${this.baseUrl}/video/submit`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!submitRes.ok) {
+        const errorBody = await submitRes.text();
+        return {
+          success: false,
+          data: [],
+          error: `SiliconFlow 视频提交失败 (${submitRes.status}): ${errorBody}`,
+          durationMs: Date.now() - startTime,
+        };
+      }
+
+      const submitData = (await submitRes.json()) as Record<string, unknown>;
+      const requestId = submitData.requestId as string | undefined;
+
+      if (!requestId) {
+        return {
+          success: false,
+          data: [],
+          error: `SiliconFlow 视频提交: 未返回 requestId, 响应: ${JSON.stringify(submitData)}`,
+          durationMs: Date.now() - startTime,
+        };
+      }
+
+      logger.info('SiliconFlow 视频任务已提交', { requestId, model });
+
+      // 2. 轮询状态
+      const MAX_POLL_TIME = 10 * 60 * 1000;
+      let pollInterval = 3000;
+      let videoUrl = '';
+
+      while (Date.now() - startTime < MAX_POLL_TIME) {
+        await new Promise((r) => setTimeout(r, pollInterval));
+        pollInterval = Math.min(pollInterval * 1.3, 15000);
+
+        const statusRes = await fetch(`${this.baseUrl}/video/status`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ requestId }),
+          signal: AbortSignal.timeout(15000),
+        });
+
+        if (!statusRes.ok) {
+          if (statusRes.status === 429) {
+            await new Promise((r) => setTimeout(r, 10000));
+            continue;
+          }
+          logger.warn('SiliconFlow 视频状态查询失败', {
+            status: statusRes.status,
+            requestId,
+          });
+          continue;
+        }
+
+        const statusData = (await statusRes.json()) as Record<string, unknown>;
+        const state = statusData.status as string;
+
+        if (state === 'Succeed') {
+          const results = statusData.results as
+            | Record<string, unknown>
+            | undefined;
+          const videos = results?.videos as
+            | Array<Record<string, unknown>>
+            | undefined;
+          if (videos?.[0]?.url) {
+            videoUrl = videos[0].url as string;
+          }
+          break;
+        }
+
+        if (state === 'Failed' || state === 'Error') {
+          return {
+            success: false,
+            data: [],
+            error: `SiliconFlow 视频生成失败: ${JSON.stringify(statusData.reason || statusData)}`,
+            durationMs: Date.now() - startTime,
+          };
+        }
+
+        // InProgress — 继续轮询
+      }
+
+      if (!videoUrl) {
+        return {
+          success: false,
+          data: [],
+          error: 'SiliconFlow 视频生成超时（超过 10 分钟）',
+          durationMs: Date.now() - startTime,
+        };
+      }
+
+      return {
+        success: true,
+        data: [{ url: videoUrl }],
+        durationMs: Date.now() - startTime,
+        model,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: [],
+        error: `SiliconFlow 视频生成异常: ${(error as Error).message}`,
+        durationMs: Date.now() - startTime,
+      };
+    }
+  }
+
+  /** OpenAI 兼容视频生成：POST /video/generations → GET /video/generations/{taskId} */
+  private async generateVideoOpenAI(
+    params: VideoGenerationParams,
+    model: string,
+    startTime: number
+  ): Promise<VideoGenerationResult> {
+    const body: Record<string, unknown> = {
+      model,
+      prompt: params.prompt,
+    };
+    if (params.imageUrl) body.image_url = params.imageUrl;
+    if (params.duration) body.duration = params.duration;
+    if (params.aspectRatio) body.aspect_ratio = params.aspectRatio;
+    if (params.negativePrompt) body.negative_prompt = params.negativePrompt;
+    if (params.seed !== undefined) body.seed = params.seed;
+    if (params.n) body.n = params.n;
+
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${this.apiKey}`,
+    };
+
+    try {
+      const submitRes = await fetch(`${this.baseUrl}/video/generations`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!submitRes.ok) {
+        const errorBody = await submitRes.text();
+        return {
+          success: false,
+          data: [],
+          error: `视频生成 API 错误 (${submitRes.status}): ${errorBody}`,
+          durationMs: Date.now() - startTime,
+        };
+      }
+
+      const submitData = (await submitRes.json()) as Record<string, unknown>;
+      const taskId = (submitData.id ||
+        submitData.task_id ||
+        submitData.request_id) as string | undefined;
+
+      if (!taskId) {
+        const videoUrl = extractVideoUrl(submitData);
+        if (videoUrl) {
+          return {
+            success: true,
+            data: [{ url: videoUrl }],
+            durationMs: Date.now() - startTime,
+            model,
+          };
+        }
+        return {
+          success: false,
+          data: [],
+          error: '视频生成: 未返回任务 ID',
+          durationMs: Date.now() - startTime,
+        };
+      }
+
+      const statusUrl = `${this.baseUrl}/video/generations/${taskId}`;
+      const MAX_POLL_TIME = 5 * 60 * 1000;
+      let pollInterval = 2000;
+      let videoUrl = '';
+
+      while (Date.now() - startTime < MAX_POLL_TIME) {
+        await new Promise((r) => setTimeout(r, pollInterval));
+        pollInterval = Math.min(pollInterval * 1.5, 10000);
+
+        const statusRes = await fetch(statusUrl, {
+          headers,
+          signal: AbortSignal.timeout(15000),
+        });
+
+        if (!statusRes.ok) {
+          if (statusRes.status === 429) {
+            await new Promise((r) => setTimeout(r, 10000));
+            continue;
+          }
+          continue;
+        }
+
+        const status = (await statusRes.json()) as Record<string, unknown>;
+        const state = (status.status || status.state) as string;
+
+        if (
+          state === 'completed' ||
+          state === 'succeeded' ||
+          state === 'COMPLETED'
+        ) {
+          videoUrl = extractVideoUrl(status);
+          break;
+        }
+        if (state === 'failed' || state === 'FAILED' || state === 'error') {
+          return {
+            success: false,
+            data: [],
+            error: `视频生成失败: ${JSON.stringify(status.error || status.message || status)}`,
+            durationMs: Date.now() - startTime,
+          };
+        }
+      }
+
+      if (!videoUrl) {
+        return {
+          success: false,
+          data: [],
+          error: '视频生成超时（超过 5 分钟）',
+          durationMs: Date.now() - startTime,
+        };
+      }
+
+      return {
+        success: true,
+        data: [{ url: videoUrl }],
+        durationMs: Date.now() - startTime,
+        model,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: [],
+        error: `视频生成失败: ${(error as Error).message}`,
+        durationMs: Date.now() - startTime,
+      };
+    }
+  }
+}
+
+/** 从多种响应格式中提取视频 URL */
+function extractVideoUrl(data: Record<string, unknown>): string {
+  // 常见格式: { video: { url: "..." } }
+  const video = data.video as Record<string, unknown> | undefined;
+  if (video?.url) return video.url as string;
+
+  // { output: { video: "..." } }
+  const output = data.output as Record<string, unknown> | undefined;
+  if (output?.video) return output.video as string;
+  if (output?.url) return output.url as string;
+
+  // { data: [{ url: "..." }] }
+  const dataArr = data.data as Array<Record<string, unknown>> | undefined;
+  if (dataArr?.[0]?.url) return dataArr[0].url as string;
+
+  // { result: { video: { url: "..." } } }
+  const result = data.result as Record<string, unknown> | undefined;
+  if (result?.video) {
+    const rv = result.video as Record<string, unknown>;
+    if (rv.url) return rv.url as string;
+  }
+
+  // { url: "..." }
+  if (data.url) return data.url as string;
+
+  return '';
 }

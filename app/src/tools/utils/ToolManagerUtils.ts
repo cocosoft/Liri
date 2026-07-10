@@ -101,6 +101,7 @@ export function getBuiltinToolLoaders(): ToolLoader[] {
     createToolLoader(ToolFactory.prototype.createImageSvgTool),
     createToolLoader(ToolFactory.prototype.createCanvasTool),
     createToolLoader(ToolFactory.prototype.createVideoTool),
+    createToolLoader(ToolFactory.prototype.createVideoGenerateTool),
     createToolLoader(ToolFactory.prototype.createMusicTool),
 
     // Notebook 编辑工具

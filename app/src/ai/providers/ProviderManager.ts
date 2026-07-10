@@ -51,7 +51,7 @@ export type ProviderType =
   | 'custom'
   | 'openrouter'
   | 'siliconflow'
-  // 图像生成专用类型
+  // 媒体生成供应商（图像/视频等）
   | 'fal'
   | 'stability'
   | 'replicate'

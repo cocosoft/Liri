@@ -40,6 +40,7 @@ import type {
 import type {
   AIProvider,
   ChatOptions,
+  ProviderCapabilities,
   ProviderConfig,
   ProviderValidationResult,
   ThinkingProviderChunk,
@@ -163,6 +164,9 @@ export abstract class BaseAIProvider implements AIProvider {
 
   /** 工具执行器 */
   protected toolExecutor: IToolExecutor | null = null;
+
+  /** Provider 能力声明（子类在构造函数中设置） */
+  public capabilities: ProviderCapabilities = {};
 
   /** 连续 529 错误计数（用于指数退避） */
   protected consecutive529Errors: number = 0;

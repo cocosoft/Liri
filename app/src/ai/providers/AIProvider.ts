@@ -68,6 +68,70 @@ export interface ImageGenerationResult {
   durationMs: number;
 }
 
+// === 视频生成类型 ===
+
+/**
+ * 视频生成参数
+ */
+export interface VideoGenerationParams {
+  /** 模型 ID */
+  model: string;
+
+  /** 文本提示词 */
+  prompt: string;
+
+  /** 图生视频：输入图片 URL */
+  imageUrl?: string;
+
+  /** 图生视频：本地图片路径 */
+  imagePath?: string;
+
+  /** 反向提示词 */
+  negativePrompt?: string;
+
+  /** 视频时长（秒） */
+  duration?: number;
+
+  /** 宽高比，如 "16:9"、"9:16"、"1:1" */
+  aspectRatio?: string;
+
+  /** 分辨率，如 "720p"、"1080p" */
+  resolution?: string;
+
+  /** 随机种子 */
+  seed?: number;
+
+  /** 生成数量 */
+  n?: number;
+
+  /** 风格 */
+  style?: string;
+}
+
+/**
+ * 视频生成结果
+ */
+export interface VideoGenerationResult {
+  success: boolean;
+
+  data: Array<{
+    url: string;
+    width?: number;
+    height?: number;
+    duration?: number;
+    format?: string;
+  }>;
+
+  error?: string;
+
+  durationMs: number;
+
+  model?: string;
+
+  /** 异步任务 ID */
+  taskId?: string;
+}
+
 // === Phase 3: 视觉分析类型 ===
 
 /**
@@ -100,6 +164,7 @@ export interface VisionAnalysisResult {
 export interface ProviderCapabilities {
   imageGeneration?: boolean;
   visionAnalysis?: boolean;
+  videoGeneration?: boolean;
 }
 
 export interface ThinkingProviderChunk {
@@ -110,6 +175,9 @@ export interface ThinkingProviderChunk {
 export interface AIProvider {
   readonly id: string;
   readonly displayName: string;
+
+  /** Provider 能力声明（图像/视频/视觉等） */
+  readonly capabilities?: ProviderCapabilities;
 
   chat(messages: ChatMessage[], options?: ChatOptions): Promise<ChatResponse>;
 
@@ -132,6 +200,9 @@ export interface AIProvider {
 
   /** 图像生成（可选实现） */
   generateImage?(params: ImageGenerationParams): Promise<ImageGenerationResult>;
+
+  /** 视频生成（可选实现） */
+  generateVideo?(params: VideoGenerationParams): Promise<VideoGenerationResult>;
 
   /** 视觉分析（可选实现） */
   analyzeImage?(params: VisionAnalysisParams): Promise<VisionAnalysisResult>;

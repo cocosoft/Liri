@@ -42,6 +42,7 @@ const MIME_MAP: Record<string, string> = {
   '.webp': 'image/webp',
   '.gif': 'image/gif',
   '.bmp': 'image/bmp',
+  '.svg': 'image/svg+xml',
 };
 
 /** 文件签名（magic bytes）映射：扩展名 → 签名字节数组 */
@@ -60,6 +61,7 @@ const MAGIC_BYTES: Record<
     { offset: 8, bytes: [0x57, 0x45, 0x42, 0x50] },
   ],
   '.bmp': [{ offset: 0, bytes: [0x42, 0x4d] }],
+  '.svg': [{ offset: 0, bytes: [0x3c] }],
 };
 
 /** 上传速率限制：每分钟最大上传次数 */
@@ -308,7 +310,15 @@ export async function handleImageUpload(
 
     // 安全校验：仅允许图片类型
     const ext = path.extname(filePart.filename || '.png').toLowerCase();
-    const allowedExts = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'];
+    const allowedExts = [
+      '.png',
+      '.jpg',
+      '.jpeg',
+      '.webp',
+      '.gif',
+      '.bmp',
+      '.svg',
+    ];
     if (!allowedExts.includes(ext)) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: `Unsupported file type: ${ext}` }));

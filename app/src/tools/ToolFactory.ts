@@ -948,6 +948,13 @@ export class ToolFactory {
   }
 
   /**
+   * 创建视频生成工具
+   */
+  createVideoGenerateTool(): Tool {
+    return new VideoGenerateTool();
+  }
+
+  /**
    * 创建浏览器截图视觉分析工具
    */
   createBrowserVisionTool(): Tool {

@@ -98,6 +98,9 @@ export interface TaskModelConfig {
   embedding?: string;
   image?: string;
   vision?: string;
+  ocr?: string;
+  text_to_video?: string;
+  image_to_video?: string;
   video?: string;
   tts?: string;
   stt?: string;

@@ -68,7 +68,9 @@ export type TaskType =
   | 'image' // 图片生成（DALL-E / Stable Diffusion 等）
   | 'vision' // 图片识别/分析（GPT-4o / Gemini Vision 等）
   | 'ocr' // 文字识别/提取（EasyOCR / PaddleOCR / GPT-4o Vision 等）
-  | 'video' // 视频生成（Sora / Kling 等）
+  | 'text_to_video' // 文生视频（Sora / Kling T2V 等）
+  | 'image_to_video' // 图生视频（Kling I2V / Runway 等）
+  | 'video' // 视频生成（兼容旧配置，优先用 text_to_video / image_to_video）
   | 'tts' // 语音合成（ElevenLabs / OpenAI TTS 等）
   | 'stt' // 语音识别（Whisper / Deepgram 等）
   | 'reranking'; // 重排序（Cohere Rerank / BGE 等）
@@ -87,6 +89,8 @@ export const ALL_TASK_TYPES: TaskType[] = [
   'image',
   'vision',
   'ocr',
+  'text_to_video',
+  'image_to_video',
   'video',
   'tts',
   'stt',
@@ -111,6 +115,8 @@ export interface TaskModelConfig {
   image?: string;
   vision?: string;
   ocr?: string;
+  text_to_video?: string;
+  image_to_video?: string;
   video?: string;
   tts?: string;
   stt?: string;
@@ -201,9 +207,21 @@ export const TASK_DEFINITIONS: TaskDefinition[] = [
     icon: '🔤',
   },
   {
+    type: 'text_to_video',
+    label: '文生视频',
+    description: '文字生成视频（Sora / Kling / Wan T2V 等）',
+    icon: '📝→🎬',
+  },
+  {
+    type: 'image_to_video',
+    label: '图生视频',
+    description: '图片生成视频（Kling I2V / Runway / Wan I2V 等）',
+    icon: '🖼️→🎬',
+  },
+  {
     type: 'video',
     label: '生视频',
-    description: '视频生成（Sora / Kling 等）',
+    description: '视频生成（兼容旧配置，建议改用文生视频/图生视频）',
     icon: '🎬',
   },
   {
@@ -240,6 +258,8 @@ const TASK_CAPABILITY: Partial<Record<TaskType, string>> = {
   embedding: 'embedding',
   image: 'image_generation',
   vision: 'vision',
+  text_to_video: 'text_to_video',
+  image_to_video: 'image_to_video',
   video: 'video_generation',
   tts: 'text_to_speech',
   stt: 'speech_recognition',

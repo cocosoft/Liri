@@ -371,15 +371,17 @@ export class VideoGenerateTool extends BaseTool {
     }
 
     // 图生视频：将本地/内网 imageUrl 下载到临时文件（供 Provider 上传用）
+    // 注意：同时保留 imageUrl 和 imagePath，各 Provider 按能力选用
     if (resolvedParams.imageUrl && !resolvedParams.imagePath) {
       const localFile = await this.normalizeImageUrlToPath(
         resolvedParams.imageUrl
       );
       if (localFile) {
         resolvedParams.imagePath = localFile;
-        resolvedParams.imageUrl = undefined; // 清空 URL，走 imagePath → upload 流程
+        // 不清空 imageUrl！保留原始 URL 供能够直接访问的 Provider 使用
         logger.info('VideoGenerateTool . imageUrl 转本地临时文件', {
           imagePath: localFile,
+          imageUrl: resolvedParams.imageUrl?.slice(0, 80),
         });
       }
     }
@@ -414,9 +416,47 @@ export class VideoGenerateTool extends BaseTool {
       prompt: resolvedParams.prompt?.slice(0, 60),
     });
     try {
-      const router = await this.getRouter();
-      const model =
-        resolvedParams.model || VideoGenerateTool.resolvedModelName || '';
+      // 按生成模式选择任务分工：文生视频 / 图生视频
+      const isImageToVideo = !!(
+        resolvedParams.imageUrl || resolvedParams.imagePath
+      );
+
+      // 每次都重新解析模型名（不依赖静态缓存 resolvedModelName）
+      let model = resolvedParams.model || '';
+      if (!model) {
+        const routeKey = isImageToVideo
+          ? RouteKey.IMAGE_TO_VIDEO
+          : RouteKey.TEXT_TO_VIDEO;
+
+        model = await resolveModelRoute(routeKey);
+
+        if (!model) {
+          // 回退：尝试旧版统一 VIDEO_GENERATE
+          model = await resolveModelRoute(RouteKey.VIDEO_GENERATE);
+        }
+
+        logger.info(
+          'VideoGenerateTool . 路由解析模型（任务分工）',
+          {
+            mode: isImageToVideo ? 'image-to-video' : 'text-to-video',
+            routeKey,
+            resolved: model,
+          }
+        );
+      }
+
+      const router = await this.getRouter(model);
+
+      if (!model) {
+        logger.error('VideoGenerateTool . 未解析到生视频模型');
+        return {
+          success: false,
+          data: [],
+          error:
+            '未配置生视频模型。请在 模型管理 → 任务分工 中为"生视频"任务指定一个支持视频生成的模型。',
+          durationMs: 0,
+        };
+      }
 
       logger.info('VideoGenerateTool . Router 已就绪', {
         model,
@@ -534,8 +574,11 @@ export class VideoGenerateTool extends BaseTool {
   //  Router 创建（照搬 ImageGenerateTool.getRouter()）
   // ================================================================
 
-  /** 获取 Router 实例（模型驱动 + TTL 刷新） */
-  private async getRouter(): Promise<VideoGenerationRouter> {
+  /** 获取 Router 实例（模型驱动 + TTL 刷新）
+   *
+   * @param model — 可选：显式传入要使用的模型名，跳过 modelRouter 解析
+   */
+  private async getRouter(model?: string): Promise<VideoGenerationRouter> {
     // TTL 过期时自动重建
     if (
       VideoGenerateTool.router &&
@@ -560,8 +603,12 @@ export class VideoGenerateTool extends BaseTool {
       VideoGenerateTool.routerCreatedAt = Date.now();
 
       try {
-        // 1. 从模型管理/任务分工解析视频模型
-        const resolvedModel = await resolveModelRoute(RouteKey.VIDEO_GENERATE);
+        // 1. 解析模型名：优先使用显式传入的模型，否则从任务分工解析（兼容旧路径）
+        let resolvedModel = model || '';
+        if (!resolvedModel) {
+          resolvedModel = await resolveModelRoute(RouteKey.VIDEO_GENERATE);
+        }
+
         if (!resolvedModel) {
           throw new AppError(
             '未配置生视频模型，请在模型管理 → 任务分工中设置生视频模型',
@@ -572,6 +619,7 @@ export class VideoGenerateTool extends BaseTool {
         }
 
         // 2. 从 DB 匹配模型记录
+        // model 可能是 UUID 或 modelId，需要同时按 id 和 modelId 匹配
         const { modelPricingService } =
           await import('../../ai/models/ModelPricingService.js');
         await modelPricingService.initialize();

@@ -145,7 +145,6 @@ export const videoService = {
         `/v1/videos/delete?path=${encodeURIComponent(path)}`,
       );
       if (res.ok) {
-        // 清除缓存
         listCache.clear();
         return true;
       }
@@ -153,6 +152,92 @@ export const videoService = {
     } catch {
       return false;
     }
+  },
+
+  // ============================================================
+  // Phase 1: 异步任务 API
+  // ============================================================
+
+  /**
+   * 创建异步视频生成任务
+   */
+  async createVideoTask(params: {
+    mode?: "text-to-video" | "image-to-video";
+    prompt: string;
+    imageUrl?: string;
+    duration?: number;
+    aspectRatio?: string;
+    modelId?: string;
+  }): Promise<{ taskId: string; status: string }> {
+    const res = await http.post<{ taskId: string; status: string }>(
+      "/v1/video/tasks",
+      params,
+    );
+    if (!res.ok) {
+      throw new Error(String(res.error || "创建任务失败"));
+    }
+    return res.data as { taskId: string; status: string };
+  },
+
+  /**
+   * 查询单个任务状态
+   */
+  async getVideoTask(taskId: string): Promise<{
+    taskId: string;
+    status: "pending" | "queued" | "running" | "completed" | "failed";
+    mode?: string;
+    progress?: number;
+    sourceImageUrl?: string | null;
+    resultVideoUrl?: string | null;
+    prompt?: string;
+    error?: string | null;
+    createdAt?: string;
+    completedAt?: string | null;
+  }> {
+    const res = await http.get<any>(
+      `/v1/video/tasks/${encodeURIComponent(taskId)}`,
+    );
+    if (!res.ok) {
+      throw new Error(String(res.error || "查询任务失败"));
+    }
+    return res.data as any;
+  },
+
+  /**
+   * 查询任务列表
+   */
+  async listVideoTasks(params?: {
+    status?: "active" | "all";
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    tasks: Array<{
+      taskId: string;
+      status: string;
+      mode?: string;
+      progress?: number;
+      sourceImageUrl?: string | null;
+      resultVideoUrl?: string | null;
+      prompt?: string;
+      error?: string | null;
+      createdAt?: string;
+      completedAt?: string | null;
+    }>;
+    total: number;
+    hasMore: boolean;
+  }> {
+    const query = new URLSearchParams();
+    if (params?.status) query.set("status", params.status);
+    if (params?.limit) query.set("limit", String(params.limit));
+    if (params?.offset) query.set("offset", String(params.offset));
+
+    const res = await http.get<any>(
+      `/v1/video/tasks?${query.toString()}`,
+    );
+    if (!res.ok) {
+      throw new Error(String(res.error || "查询任务列表失败"));
+    }
+    return res.data as any;
   },
 
   /**

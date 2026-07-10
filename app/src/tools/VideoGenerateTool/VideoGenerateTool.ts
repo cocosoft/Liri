@@ -239,12 +239,21 @@ export class VideoGenerateTool extends BaseTool {
     const taskId = randomUUID();
     const persistence = VideoGenerateTool.getPersistence();
 
+    // 判断生成模式
+    const isImageToVideo = !!(params.imageUrl || params.imagePath);
+    const mode: 'text-to-video' | 'image-to-video' = isImageToVideo
+      ? 'image-to-video'
+      : 'text-to-video';
+
     // 持久化任务记录（重启后不丢失）
     persistence.create({
       id: taskId,
       status: 'pending',
+      mode,
       prompt: params.prompt,
       model: params.model,
+      sourceImageUrl: params.imageUrl || params.imagePath || undefined,
+      progress: 0,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
@@ -252,10 +261,17 @@ export class VideoGenerateTool extends BaseTool {
     this.runVideoGeneration(params)
       .then(async (result) => {
         if (result.success) {
-          await this.buildToolResult(result);
+          const toolResult = await this.buildToolResult(result);
+          const videoData = toolResult.data as any;
+          const resultVideoUrl =
+            videoData?.video?.url || videoData?.videos?.[0]?.url || undefined;
+
           persistence.update(taskId, {
             status: 'completed',
+            progress: 100,
             resultJson: JSON.stringify(result.data),
+            resultVideoUrl,
+            completedAt: Date.now(),
           });
           globalEventBus.publish(SystemEvents.TASK_COMPLETED, {
             taskId,
@@ -264,10 +280,16 @@ export class VideoGenerateTool extends BaseTool {
               model: result.model,
               videos: result.data,
               durationMs: result.durationMs,
+              resultVideoUrl,
             },
           });
         } else {
-          persistence.update(taskId, { status: 'failed', error: result.error });
+          persistence.update(taskId, {
+            status: 'failed',
+            progress: 0,
+            error: result.error,
+            completedAt: Date.now(),
+          });
           globalEventBus.publish(SystemEvents.TASK_FAILED, {
             taskId,
             taskType: 'video_generation',
@@ -278,7 +300,9 @@ export class VideoGenerateTool extends BaseTool {
       .catch((error) => {
         persistence.update(taskId, {
           status: 'failed',
+          progress: 0,
           error: error instanceof Error ? error.message : String(error),
+          completedAt: Date.now(),
         });
         globalEventBus.publish(SystemEvents.TASK_FAILED, {
           taskId,
@@ -287,7 +311,7 @@ export class VideoGenerateTool extends BaseTool {
         });
       });
 
-    logger.info('VideoGenerateTool . 异步任务已提交', { taskId });
+    logger.info('VideoGenerateTool 异步任务已提交', { taskId, mode });
     return {
       success: true,
       data: { taskId, status: 'pending' },

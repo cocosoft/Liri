@@ -1,298 +1,311 @@
-import { useState, useEffect } from "react";
-import { useTranslation } from "react-i18next";
-import { useConfigStore } from "../../stores/configStore";
+/**
+ * MediaPage — Phase 1 MVP
+ * 左侧图库（选图） + 右侧图生视频表单 + 异步任务进度
+ *
+ * Phase 2 将在此基础上升级为完整媒体工作台（Masonry + 底部输入栏 + 模板）
+ */
 
-interface MediaFile {
-  id: string;
-  name: string;
-  type: "image" | "video" | "audio" | "document";
-  size: number;
-  uploadedAt: string;
-  tags: string[];
-}
+import { useEffect, useCallback } from "react";
+import { useConfigStore } from "../../stores/configStore";
+import { useMediaStore, type GalleryItem } from "../../stores/mediaStore";
+import { useVideoTaskPolling } from "../../hooks/useVideoTaskPolling";
+import { GallerySearchBar } from "./media/GallerySearchBar";
+import { TaskList } from "./media/TaskCard";
+import { videoService } from "../../services/videoService";
+import { http } from "../../services/httpClient";
+import { createLogger } from "../../utils/logger";
+
+const logger = createLogger("MediaPage");
+
+// 图库分页大小
+const PAGE_SIZE = 30;
 
 function MediaPage() {
-  const { t } = useTranslation();
-  const { config, loadConfig } = useConfigStore();
+  const { config } = useConfigStore();
   const isDark = config.theme === "dark";
-  const [files, setFiles] = useState<MediaFile[]>([]);
-  const [filter, setFilter] = useState<
-    "all" | "image" | "video" | "audio" | "document"
-  >("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+
+  // ──── Store ────
+  const galleryItems = useMediaStore((s) => s.galleryItems);
+  const galleryLoading = useMediaStore((s) => s.galleryLoading);
+  const galleryHasMore = useMediaStore((s) => s.galleryHasMore);
+  const selectedId = useMediaStore((s) => s.selectedId);
+  const selectedImageUrl = useMediaStore((s) => s.selectedImageUrl);
+  const prompt = useMediaStore((s) => s.prompt);
+  const duration = useMediaStore((s) => s.duration);
+  const aspectRatio = useMediaStore((s) => s.aspectRatio);
+  const searchParams = useMediaStore((s) => s.searchParams);
+
+  const selectMedia = useMediaStore((s) => s.selectMedia);
+  const setPrompt = useMediaStore((s) => s.setPrompt);
+  const setDuration = useMediaStore((s) => s.setDuration);
+  const setAspectRatio = useMediaStore((s) => s.setAspectRatio);
+  const setSearchParams = useMediaStore((s) => s.setSearchParams);
+  const setGalleryItems = useMediaStore((s) => s.setGalleryItems);
+
+  // ──── 轮询 ────
+  const { activeTasks, submitTask } = useVideoTaskPolling();
+
+  const generating = activeTasks.some((t) =>
+    ["pending", "queued", "running"].includes(t.status)
+  );
+
+  // ──── 加载图库 ────
+  const loadGallery = useCallback(async () => {
+    useMediaStore.setState({ galleryLoading: true });
+
+    try {
+      const query = new URLSearchParams();
+      query.set("page", "1");
+      query.set("pageSize", String(PAGE_SIZE));
+      if (searchParams.keyword) query.set("search", searchParams.keyword);
+
+      const res = await http.get<any>(
+        `/v1/images/list?${query.toString()}`,
+      );
+
+      if (res.ok && res.data?.images) {
+        const items: GalleryItem[] = res.data.images.map(
+          (img: any) => ({
+            id: img.path || img.url,
+            type: "image" as const,
+            url: img.url,
+            thumbnailUrl: img.url,
+            width: img.width,
+            height: img.height,
+            alt: img.alt || "",
+          })
+        );
+        setGalleryItems(items, (res.data?.total || items.length) >= PAGE_SIZE);
+      } else {
+        setGalleryItems([], false);
+      }
+    } catch (e) {
+      logger.warn("加载图库失败", { error: String(e) });
+      setGalleryItems([], false);
+    }
+  }, [searchParams, setGalleryItems]);
 
   useEffect(() => {
-    loadConfig();
-  }, [loadConfig]);
+    loadGallery();
+  }, [loadGallery]);
 
-  const filteredFiles = files.filter((file) => {
-    const matchesFilter = filter === "all" || file.type === filter;
-    const matchesSearch =
-      searchQuery === "" ||
-      file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      file.tags.some((tag) =>
-        tag.toLowerCase().includes(searchQuery.toLowerCase()),
-      );
-    return matchesFilter && matchesSearch;
-  });
+  // ──── 生成视频 ────
+  const handleGenerate = useCallback(async () => {
+    if (!selectedImageUrl || !prompt.trim()) return;
 
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
+    try {
+      const result = await videoService.createVideoTask({
+        mode: "image-to-video",
+        prompt: prompt.trim(),
+        imageUrl: selectedImageUrl,
+        duration,
+        aspectRatio,
+      });
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "image":
-        return "🖼️";
-      case "video":
-        return "🎬";
-      case "audio":
-        return "🎵";
-      case "document":
-        return "📄";
-      default:
-        return "📁";
+      if (result.taskId) {
+        submitTask(result.taskId);
+        setPrompt("");
+        logger.info("视频生成任务已提交", { taskId: result.taskId });
+      }
+    } catch (e) {
+      logger.error("创建视频任务失败", { error: String(e) });
     }
-  };
+  }, [selectedImageUrl, prompt, duration, aspectRatio, submitTask, setPrompt]);
 
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case "image":
-        return t("media.image");
-      case "video":
-        return t("media.video");
-      case "audio":
-        return t("media.audio");
-      case "document":
-        return t("media.document");
-      default:
-        return t("media.other");
-    }
-  };
+  // ──── 渲染 ────
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case "image":
-        return isDark
-          ? "bg-green-900/30 text-green-400"
-          : "bg-green-100 text-green-700";
-      case "video":
-        return isDark
-          ? "bg-red-900/30 text-red-400"
-          : "bg-red-100 text-red-700";
-      case "audio":
-        return isDark
-          ? "bg-purple-900/30 text-purple-400"
-          : "bg-purple-100 text-purple-700";
-      case "document":
-        return isDark
-          ? "bg-blue-900/30 text-blue-400"
-          : "bg-blue-100 text-blue-700";
-      default:
-        return isDark
-          ? "bg-gray-700 text-gray-400"
-          : "bg-gray-100 text-gray-600";
-    }
-  };
-
-  const toggleSelect = (fileId: string) => {
-    setSelectedFiles((prev) =>
-      prev.includes(fileId)
-        ? prev.filter((id) => id !== fileId)
-        : [...prev, fileId],
-    );
-  };
-
-  const deleteSelected = () => {
-    setFiles((prev) => prev.filter((file) => !selectedFiles.includes(file.id)));
-    setSelectedFiles([]);
-  };
+  const selectedItem = galleryItems.find((i) => i.id === selectedId);
 
   return (
-    <div
-      className={`flex-1 overflow-y-auto ${isDark ? "bg-gray-900" : "bg-gray-50"}`}
-    >
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1
-              className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}
-            >
-              {t("media.title")}
-            </h1>
-            <p
-              className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
-            >
-              {t("media.manageDesc")}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {selectedFiles.length > 0 && (
-              <>
-                <span
-                  className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                >
-                  {t("media.selectedCount", { count: selectedFiles.length })}
-                </span>
-                <button
-                  onClick={deleteSelected}
-                  className={`px-3 py-1.5 text-sm rounded-lg ${isDark ? "bg-red-900/30 hover:bg-red-900/50 text-red-400" : "bg-red-50 hover:bg-red-100 text-red-600"}`}
-                >
-                  {t("media.deleteSelected")}
-                </button>
-              </>
-            )}
-            <button
-              className={`px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg`}
-            >
-              {t("chat.uploadFile")}
-            </button>
-          </div>
+    <div className={`flex h-full ${isDark ? "bg-gray-900" : "bg-gray-50"}`}>
+      {/* ==================== 左侧：图库 ==================== */}
+      <div className="flex w-80 flex-shrink-0 flex-col border-r border-gray-200 dark:border-gray-700">
+        {/* 搜索栏 */}
+        <div className="p-3">
+          <GallerySearchBar
+            params={searchParams}
+            onChange={setSearchParams}
+            onRefresh={loadGallery}
+          />
         </div>
 
-        <div className="flex items-center gap-4 mb-6">
-          <div
-            className={`flex-1 relative ${isDark ? "bg-gray-800" : "bg-white"} rounded-lg border ${isDark ? "border-gray-700" : "border-gray-200"} px-3 py-2`}
-          >
-            <svg
-              className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-            <input
-              type="text"
-              placeholder={t("media.searchPlaceholder")}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full pl-9 text-sm ${isDark ? "bg-transparent text-gray-100 placeholder-gray-500" : "bg-transparent text-gray-900 placeholder-gray-500"}`}
-            />
-          </div>
-          <div className="flex gap-2">
-            {(["all", "image", "video", "audio", "document"] as const).map(
-              (f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                    filter === f
-                      ? "bg-blue-600 text-white"
-                      : isDark
-                        ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
-                        : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                  }`}
-                >
-                  {f === "all" ? t("common.all") : getTypeLabel(f)}
-                </button>
-              ),
-            )}
-          </div>
-        </div>
-
-        <div
-          className={`rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} p-6`}
-        >
-          {filteredFiles.length === 0 ? (
-            <div className="text-center py-12">
-              <p className={`${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                {t("media.noMedia")}
+        {/* 图库网格 */}
+        <div className="flex-1 overflow-y-auto p-3">
+          {galleryLoading && galleryItems.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <span className="text-sm text-gray-400">加载中…</span>
+            </div>
+          ) : galleryItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <span className="text-2xl">🖼️</span>
+              <p className="mt-2 text-sm text-gray-400">
+                图库为空，先去「图像」页面生成图片
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-4">
-              {filteredFiles.map((file) => (
+            <div className="grid grid-cols-2 gap-2">
+              {galleryItems.map((item) => (
                 <div
-                  key={file.id}
-                  onClick={() => toggleSelect(file.id)}
-                  className={`relative p-4 rounded-lg border cursor-pointer transition-colors ${
-                    selectedFiles.includes(file.id)
-                      ? isDark
-                        ? "border-blue-500 bg-blue-900/20"
-                        : "border-blue-500 bg-blue-50"
-                      : isDark
-                        ? "border-gray-700 bg-gray-700/50 hover:bg-gray-700"
-                        : "border-gray-200 bg-gray-50 hover:bg-gray-100"
+                  key={item.id}
+                  onClick={() => selectMedia(item.id)}
+                  className={`cursor-pointer overflow-hidden rounded-lg border-2 transition-all ${
+                    selectedId === item.id
+                      ? "border-blue-500 shadow-md"
+                      : "border-transparent hover:border-blue-300"
                   }`}
                 >
-                  <div
-                    className={`absolute top-2 right-2 w-5 h-5 rounded border-2 flex items-center justify-center ${
-                      selectedFiles.includes(file.id)
-                        ? "bg-blue-600 border-blue-600"
-                        : isDark
-                          ? "border-gray-500"
-                          : "border-gray-300"
-                    }`}
-                  >
-                    {selectedFiles.includes(file.id) && (
-                      <svg
-                        className="w-3 h-3 text-white"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={3}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col items-center text-center">
-                    <div
-                      className={`w-16 h-16 rounded-lg flex items-center justify-center text-3xl mb-3 ${isDark ? "bg-gray-700" : "bg-gray-100"}`}
-                    >
-                      {getTypeIcon(file.type)}
-                    </div>
-                    <p
-                      className={`text-sm font-medium truncate w-full ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                    >
-                      {file.name}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span
-                        className={`text-xs px-1.5 py-0.5 rounded ${getTypeColor(file.type)}`}
-                      >
-                        {getTypeLabel(file.type)}
-                      </span>
-                      <span
-                        className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                      >
-                        {formatSize(file.size)}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-1 mt-2 justify-center">
-                      {file.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className={`text-xs px-1.5 py-0.5 rounded ${isDark ? "bg-gray-600 text-gray-300" : "bg-gray-200 text-gray-600"}`}
-                        >
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-                    <p
-                      className={`text-xs mt-2 ${isDark ? "text-gray-500" : "text-gray-400"}`}
-                    >
-                      {file.uploadedAt}
-                    </p>
-                  </div>
+                  <img
+                    src={item.thumbnailUrl || item.url}
+                    alt={item.alt || ""}
+                    loading="lazy"
+                    className="aspect-square w-full object-cover"
+                  />
                 </div>
               ))}
             </div>
           )}
+
+          {/* 加载更多 */}
+          {galleryHasMore && galleryItems.length > 0 && (
+            <div className="mt-3 flex justify-center">
+              <button
+                onClick={loadGallery}
+                disabled={galleryLoading}
+                className="rounded-md bg-blue-500 px-4 py-1.5 text-xs text-white hover:bg-blue-600 disabled:opacity-50"
+              >
+                {galleryLoading ? "加载中…" : "加载更多"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ==================== 右侧：表单 + 任务进度 ==================== */}
+      <div className="flex flex-1 flex-col overflow-y-auto p-6">
+        {/* 标题 */}
+        <div className="mb-6">
+          <h1 className={`text-xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}>
+            媒体工作台
+          </h1>
+          <p className={`mt-1 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+            从图库选择图片 → 输入描述 → 生成视频
+          </p>
+        </div>
+
+        <div className="flex-1 space-y-6">
+          {/* 选中图片预览 */}
+          {selectedItem ? (
+            <div className="flex items-start gap-4 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+              <img
+                src={selectedItem.thumbnailUrl || selectedItem.url}
+                alt="选中图片"
+                className="h-24 w-24 rounded-lg object-cover"
+              />
+              <div className="min-w-0 flex-1">
+                <p className={`text-sm font-medium ${isDark ? "text-gray-200" : "text-gray-700"}`}>
+                  已选图片
+                </p>
+                <p className="mt-0.5 truncate text-xs text-gray-400">
+                  {selectedItem.url}
+                </p>
+                {selectedItem.width && selectedItem.height && (
+                  <p className="mt-1 text-xs text-gray-400">
+                    {selectedItem.width} × {selectedItem.height}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => selectMedia("")}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                title="取消选择"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 py-12 dark:border-gray-600">
+              <span className="text-3xl">👈</span>
+              <p className={`mt-2 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                从左侧图库选择一张图片
+              </p>
+            </div>
+          )}
+
+          {/* 提示词输入 */}
+          <div>
+            <label className={`mb-1.5 block text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+              视频描述
+            </label>
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="描述你想要的视频内容（可选，AI 会根据图片自动生成）"
+              rows={3}
+              disabled={!selectedItem}
+              className={`w-full resize-none rounded-lg border px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50 ${
+                isDark
+                  ? "border-gray-600 bg-gray-800 text-gray-200 placeholder-gray-500"
+                  : "border-gray-300 bg-white text-gray-700 placeholder-gray-400"
+              }`}
+            />
+          </div>
+
+          {/* 参数 */}
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className={`mb-1 block text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                时长
+              </label>
+              <select
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value))}
+                disabled={!selectedItem}
+                className={`w-full rounded-md border px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none disabled:opacity-50 ${
+                  isDark
+                    ? "border-gray-600 bg-gray-800 text-gray-200"
+                    : "border-gray-300 bg-white text-gray-700"
+                }`}
+              >
+                <option value={5}>5 秒</option>
+                <option value={8}>8 秒</option>
+                <option value={10}>10 秒</option>
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className={`mb-1 block text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                宽高比
+              </label>
+              <select
+                value={aspectRatio}
+                onChange={(e) => setAspectRatio(e.target.value)}
+                disabled={!selectedItem}
+                className={`w-full rounded-md border px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none disabled:opacity-50 ${
+                  isDark
+                    ? "border-gray-600 bg-gray-800 text-gray-200"
+                    : "border-gray-300 bg-white text-gray-700"
+                }`}
+              >
+                <option value="16:9">16:9</option>
+                <option value="9:16">9:16</option>
+                <option value="1:1">1:1</option>
+              </select>
+            </div>
+          </div>
+
+          {/* 生成按钮 */}
+          <button
+            onClick={handleGenerate}
+            disabled={!selectedItem || !prompt.trim() || generating}
+            className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+          >
+            {generating ? "生成中…" : "生成视频"}
+          </button>
+
+          {/* 任务进度 */}
+          <TaskList
+            tasks={activeTasks}
+            onDelete={(taskId) => useMediaStore.getState().removeTask(taskId)}
+          />
         </div>
       </div>
     </div>

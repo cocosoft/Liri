@@ -95,6 +95,7 @@ import {
   handleVideoList,
   handleVideoDelete,
 } from './handlers/video-handlers';
+import { handleVideoTasks } from './handlers/video-task-handlers';
 import {
   handleListAgentTasks,
   handleExecuteAgentTask,
@@ -834,6 +835,13 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     return handleVideoDelete(this._handlerCtx, req, res);
+  }
+
+  private async handleVideoTasks(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleVideoTasks(this._handlerCtx, req, res);
   }
 
   // ========== Agent Handlers (extracted to handlers/agent1-handlers.ts) ==========

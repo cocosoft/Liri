@@ -430,6 +430,12 @@ export async function dispatchRoute(
     return true;
   }
 
+  // ---- Media ----
+  if (url.startsWith('/v1/media')) {
+    await self['handleMedia'](req, res);
+    return true;
+  }
+
   // ---- Video Tasks (async) ----
   if (url.startsWith('/v1/video/tasks')) {
     await self['handleVideoTasks'](req, res);

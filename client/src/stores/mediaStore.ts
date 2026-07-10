@@ -1,21 +1,17 @@
 /**
  * mediaStore
- * 媒体页统一状态管理（Phase 1 MVP）
+ * 媒体页统一状态管理（Phase 2 完整版）
  *
- * 管理：画廊数据、图生视频表单、异步任务队列、搜索筛选
- * Phase 2 将扩展：mode 切换、模板、Masonry 布局
+ * 管理：画廊数据、选中媒体、操作模式、模板选择、跨组件信令
  */
 
 import { create } from "zustand";
-import { createLogger } from "../utils/logger";
-
-const logger = createLogger("mediaStore");
 
 // ============================================================
 // 类型
 // ============================================================
 
-/** 画廊媒体项（Phase 1：仅图片；Phase 2：image + video） */
+/** 画廊媒体项 */
 export interface GalleryItem {
   id: string;
   type: "image" | "video";
@@ -24,7 +20,6 @@ export interface GalleryItem {
   width?: number;
   height?: number;
   alt?: string;
-  /** 视频专属 */
   duration?: number;
   sourceImageUrl?: string;
 }
@@ -49,6 +44,14 @@ export interface GallerySearchParams {
   dateRange: "all" | "today" | "7days" | "30days";
 }
 
+/** 跨组件操作意图（带序列号防竞态） */
+export interface IntendedAction {
+  seq: number;
+  type: "generate-video" | "edit-image" | null;
+  sourceImage: { id: string; url: string } | null;
+  autoSubmit: boolean;
+}
+
 // ============================================================
 // Store
 // ============================================================
@@ -64,10 +67,15 @@ interface MediaStore {
   selectedId: string | null;
   selectedImageUrl: string | null;
 
-  // ──── 表单 ────
+  // ──── 输入面板 ────
+  mode: "image" | "video";
   prompt: string;
-  duration: number;
-  aspectRatio: string;
+  params: {
+    count?: number;
+    duration?: number;
+    aspectRatio: string;
+    style?: string;
+  };
 
   // ──── 搜索 ────
   searchParams: GallerySearchParams;
@@ -75,12 +83,21 @@ interface MediaStore {
   // ──── 任务 ────
   activeTasks: VideoTaskItem[];
 
+  // ──── 模板 ────
+  activeTemplateId: string | null;
+
+  // ──── 跨组件信令（带序列号防竞态）───
+  intendedAction: IntendedAction | null;
+  lastConsumedSeq: number;
+
   // ──── Actions ────
   selectMedia: (id: string) => void;
 
+  setMode: (mode: "image" | "video") => void;
   setPrompt: (prompt: string) => void;
-  setDuration: (duration: number) => void;
-  setAspectRatio: (ratio: string) => void;
+  setSelectedImage: (url: string, id: string) => void;
+  clearSelectedImage: () => void;
+  setParams: (params: Partial<MediaStore["params"]>) => void;
 
   setSearchParams: (params: Partial<GallerySearchParams>) => void;
 
@@ -92,7 +109,11 @@ interface MediaStore {
   removeTask: (taskId: string) => void;
   setActiveTasks: (tasks: VideoTaskItem[]) => void;
 
-  /** 获取选中的 GalleryItem */
+  selectTemplate: (templateId: string | null) => void;
+
+  setIntendedAction: (action: Omit<IntendedAction, "seq">) => void;
+  clearIntendedAction: () => void;
+
   getSelectedItem: () => GalleryItem | null;
 }
 
@@ -107,19 +128,27 @@ export const useMediaStore = create<MediaStore>()((set, get) => ({
   selectedId: null,
   selectedImageUrl: null,
 
-  // ──── 表单 ────
+  // ──── 输入面板 ────
+  mode: "video" as const,
   prompt: "",
-  duration: 5,
-  aspectRatio: "16:9",
+  params: {
+    count: 1,
+    duration: 5,
+    aspectRatio: "16:9",
+  },
 
   // ──── 搜索 ────
-  searchParams: {
-    keyword: "",
-    dateRange: "all",
-  },
+  searchParams: { keyword: "", dateRange: "all" },
 
   // ──── 任务 ────
   activeTasks: [],
+
+  // ──── 模板 ────
+  activeTemplateId: null,
+
+  // ──── 信令 ────
+  intendedAction: null,
+  lastConsumedSeq: 0,
 
   // ──── Actions ────
 
@@ -129,15 +158,16 @@ export const useMediaStore = create<MediaStore>()((set, get) => ({
       selectedId: id,
       selectedImageUrl: item?.url || null,
     });
-    logger.debug("selectMedia", { id, url: item?.url });
   },
 
-  setPrompt: (prompt: string) => set({ prompt }),
-  setDuration: (duration: number) => set({ duration }),
-  setAspectRatio: (aspectRatio: string) => set({ aspectRatio }),
+  setMode: (mode) => set({ mode }),
+  setPrompt: (prompt) => set({ prompt }),
+  setSelectedImage: (url, id) => set({ selectedImageUrl: url, selectedId: id }),
+  clearSelectedImage: () => set({ selectedImageUrl: null, selectedId: null }),
+  setParams: (partial) => set((s) => ({ params: { ...s.params, ...partial } })),
 
-  setSearchParams: (params: Partial<GallerySearchParams>) =>
-    set((s) => ({ searchParams: { ...s.searchParams, ...params } })),
+  setSearchParams: (partial) =>
+    set((s) => ({ searchParams: { ...s.searchParams, ...partial } })),
 
   setGalleryItems: (items, hasMore) =>
     set({
@@ -155,24 +185,31 @@ export const useMediaStore = create<MediaStore>()((set, get) => ({
       galleryOffset: s.galleryOffset + items.length,
     })),
 
-  addTask: (task: VideoTaskItem) =>
-    set((s) => ({
-      activeTasks: [task, ...s.activeTasks],
-    })),
+  addTask: (task) =>
+    set((s) => ({ activeTasks: [task, ...s.activeTasks] })),
 
-  updateTask: (taskId: string, update: Partial<VideoTaskItem>) =>
+  updateTask: (taskId, update) =>
     set((s) => ({
       activeTasks: s.activeTasks.map((t) =>
-        t.taskId === taskId ? { ...t, ...update } : t
+        t.taskId === taskId ? { ...t, ...update } : t,
       ),
     })),
 
-  removeTask: (taskId: string) =>
+  removeTask: (taskId) =>
     set((s) => ({
       activeTasks: s.activeTasks.filter((t) => t.taskId !== taskId),
     })),
 
-  setActiveTasks: (tasks: VideoTaskItem[]) => set({ activeTasks: tasks }),
+  setActiveTasks: (tasks) => set({ activeTasks: tasks }),
+
+  selectTemplate: (templateId) => set({ activeTemplateId: templateId }),
+
+  setIntendedAction: (action) => {
+    const seq = get().lastConsumedSeq + 1;
+    set({ intendedAction: { ...action, seq } });
+  },
+
+  clearIntendedAction: () => set({ intendedAction: null }),
 
   getSelectedItem: () => {
     const { selectedId, galleryItems } = get();

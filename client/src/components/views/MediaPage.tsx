@@ -1,8 +1,11 @@
 /**
- * MediaPage — Phase 1 MVP
- * 左侧图库（选图） + 右侧图生视频表单 + 异步任务进度
+ * MediaPage — Phase 2 统一媒体工作台（对标 Grok + Copilot）
  *
- * Phase 2 将在此基础上升级为完整媒体工作台（Masonry + 底部输入栏 + 模板）
+ * 布局（紧凑模式 / 完整模式自适应）:
+ *   顶部: TemplateCarousel — I2I/I2I2V 模板轮播
+ *   左侧: 画廊（grid，Phase 2 升级为 Masonry）
+ *   右侧: 预览区 + 任务进度
+ *   底部: BottomInputBar — 图片|视频 切换 + 提示词 + 动态参数 + 生成按钮
  */
 
 import { useEffect, useCallback } from "react";
@@ -11,13 +14,14 @@ import { useMediaStore, type GalleryItem } from "../../stores/mediaStore";
 import { useVideoTaskPolling } from "../../hooks/useVideoTaskPolling";
 import { GallerySearchBar } from "./media/GallerySearchBar";
 import { TaskList } from "./media/TaskCard";
+import { TemplateCarousel } from "./media/TemplateCarousel";
+import { ActionMenu } from "./media/ActionMenu";
+import { BottomInputBar } from "./media/BottomInputBar";
 import { videoService } from "../../services/videoService";
 import { http } from "../../services/httpClient";
 import { createLogger } from "../../utils/logger";
 
 const logger = createLogger("MediaPage");
-
-// 图库分页大小
 const PAGE_SIZE = 30;
 
 function MediaPage() {
@@ -27,63 +31,75 @@ function MediaPage() {
   // ──── Store ────
   const galleryItems = useMediaStore((s) => s.galleryItems);
   const galleryLoading = useMediaStore((s) => s.galleryLoading);
-  const galleryHasMore = useMediaStore((s) => s.galleryHasMore);
   const selectedId = useMediaStore((s) => s.selectedId);
   const selectedImageUrl = useMediaStore((s) => s.selectedImageUrl);
   const prompt = useMediaStore((s) => s.prompt);
-  const duration = useMediaStore((s) => s.duration);
-  const aspectRatio = useMediaStore((s) => s.aspectRatio);
+  const mode = useMediaStore((s) => s.mode);
+  const params = useMediaStore((s) => s.params);
   const searchParams = useMediaStore((s) => s.searchParams);
 
   const selectMedia = useMediaStore((s) => s.selectMedia);
-  const setPrompt = useMediaStore((s) => s.setPrompt);
-  const setDuration = useMediaStore((s) => s.setDuration);
-  const setAspectRatio = useMediaStore((s) => s.setAspectRatio);
   const setSearchParams = useMediaStore((s) => s.setSearchParams);
   const setGalleryItems = useMediaStore((s) => s.setGalleryItems);
 
   // ──── 轮询 ────
   const { activeTasks, submitTask } = useVideoTaskPolling();
-
   const generating = activeTasks.some((t) =>
     ["pending", "queued", "running"].includes(t.status)
   );
 
-  // ──── 加载图库 ────
+  // ──── 紧凑/完整模式 ────
+  const isCompact = selectedId === null;
+
+  // ──── 加载图库（合并图片 + 视频） ────
   const loadGallery = useCallback(async () => {
     useMediaStore.setState({ galleryLoading: true });
 
     try {
-      const query = new URLSearchParams();
-      query.set("page", "1");
-      query.set("pageSize", String(PAGE_SIZE));
-      if (searchParams.keyword) query.set("search", searchParams.keyword);
+      const q = new URLSearchParams();
+      q.set("pageSize", String(PAGE_SIZE));
 
-      const res = await http.get<any>(
-        `/v1/images/list?${query.toString()}`,
-      );
+      // 并行加载图片和视频
+      const [imgRes, vidRes] = await Promise.all([
+        http.get<any>(`/v1/images/list?${q.toString()}`),
+        http.get<any>(`/v1/videos/list?${q.toString()}`),
+      ]);
 
-      if (res.ok && res.data?.images) {
-        const items: GalleryItem[] = res.data.images.map(
-          (img: any) => ({
-            id: img.path || img.url,
-            type: "image" as const,
-            url: img.url,
-            thumbnailUrl: img.url,
-            width: img.width,
-            height: img.height,
-            alt: img.alt || "",
-          })
-        );
-        setGalleryItems(items, (res.data?.total || items.length) >= PAGE_SIZE);
-      } else {
-        setGalleryItems([], false);
-      }
+      const images: GalleryItem[] = (imgRes.ok && imgRes.data?.images
+        ? imgRes.data.images
+        : []
+      ).map((img: any) => ({
+        id: img.path || img.url,
+        type: "image" as const,
+        url: img.url,
+        thumbnailUrl: img.url,
+        width: img.width,
+        height: img.height,
+        alt: img.alt || "",
+      }));
+
+      const videos: GalleryItem[] = (vidRes.ok && vidRes.data?.videos
+        ? vidRes.data.videos
+        : []
+      ).map((vid: any) => ({
+        id: vid.path || vid.url,
+        type: "video" as const,
+        url: vid.url,
+        thumbnailUrl: vid.url,
+        duration: vid.duration,
+      }));
+
+      // 合并并按时间倒序
+      const allItems = [...images, ...videos]
+        .sort(() => Math.random() - 0.5) // 暂时随机混合
+        .slice(0, PAGE_SIZE);
+
+      setGalleryItems(allItems, allItems.length >= PAGE_SIZE);
     } catch (e) {
       logger.warn("加载图库失败", { error: String(e) });
       setGalleryItems([], false);
     }
-  }, [searchParams, setGalleryItems]);
+  }, [setGalleryItems]);
 
   useEffect(() => {
     loadGallery();
@@ -91,223 +107,181 @@ function MediaPage() {
 
   // ──── 生成视频 ────
   const handleGenerate = useCallback(async () => {
-    if (!selectedImageUrl || !prompt.trim()) return;
+    if (!prompt.trim()) return;
 
     try {
       const result = await videoService.createVideoTask({
-        mode: "image-to-video",
+        mode: mode === "video" && selectedImageUrl
+          ? "image-to-video"
+          : "text-to-video",
         prompt: prompt.trim(),
-        imageUrl: selectedImageUrl,
-        duration,
-        aspectRatio,
+        imageUrl: selectedImageUrl || undefined,
+        duration: params.duration || 5,
+        aspectRatio: params.aspectRatio || "16:9",
       });
 
       if (result.taskId) {
         submitTask(result.taskId);
-        setPrompt("");
-        logger.info("视频生成任务已提交", { taskId: result.taskId });
+        useMediaStore.getState().setPrompt("");
+        logger.info("任务已提交", { taskId: result.taskId });
       }
     } catch (e) {
-      logger.error("创建视频任务失败", { error: String(e) });
+      logger.error("创建任务失败", { error: String(e) });
     }
-  }, [selectedImageUrl, prompt, duration, aspectRatio, submitTask, setPrompt]);
-
-  // ──── 渲染 ────
+  }, [prompt, mode, selectedImageUrl, params, submitTask]);
 
   const selectedItem = galleryItems.find((i) => i.id === selectedId);
 
   return (
-    <div className={`flex h-full ${isDark ? "bg-gray-900" : "bg-gray-50"}`}>
-      {/* ==================== 左侧：图库 ==================== */}
-      <div className="flex w-80 flex-shrink-0 flex-col border-r border-gray-200 dark:border-gray-700">
-        {/* 搜索栏 */}
-        <div className="p-3">
-          <GallerySearchBar
-            params={searchParams}
-            onChange={setSearchParams}
-            onRefresh={loadGallery}
-          />
-        </div>
+    <div className={`flex h-full flex-col ${isDark ? "bg-gray-900" : "bg-gray-50"}`}>
+      {/* ========== 顶部：模板轮播 ========== */}
+      <TemplateCarousel isDark={isDark} />
 
-        {/* 图库网格 */}
-        <div className="flex-1 overflow-y-auto p-3">
-          {galleryLoading && galleryItems.length === 0 ? (
-            <div className="flex items-center justify-center py-12">
-              <span className="text-sm text-gray-400">加载中…</span>
-            </div>
-          ) : galleryItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <span className="text-2xl">🖼️</span>
-              <p className="mt-2 text-sm text-gray-400">
-                图库为空，先去「图像」页面生成图片
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
-              {galleryItems.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => selectMedia(item.id)}
-                  className={`cursor-pointer overflow-hidden rounded-lg border-2 transition-all ${
-                    selectedId === item.id
-                      ? "border-blue-500 shadow-md"
-                      : "border-transparent hover:border-blue-300"
-                  }`}
-                >
-                  <img
-                    src={item.thumbnailUrl || item.url}
-                    alt={item.alt || ""}
-                    loading="lazy"
-                    className="aspect-square w-full object-cover"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* 加载更多 */}
-          {galleryHasMore && galleryItems.length > 0 && (
-            <div className="mt-3 flex justify-center">
-              <button
-                onClick={loadGallery}
-                disabled={galleryLoading}
-                className="rounded-md bg-blue-500 px-4 py-1.5 text-xs text-white hover:bg-blue-600 disabled:opacity-50"
-              >
-                {galleryLoading ? "加载中…" : "加载更多"}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ==================== 右侧：表单 + 任务进度 ==================== */}
-      <div className="flex flex-1 flex-col overflow-y-auto p-6">
-        {/* 标题 */}
-        <div className="mb-6">
-          <h1 className={`text-xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}>
-            媒体工作台
-          </h1>
-          <p className={`mt-1 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-            从图库选择图片 → 输入描述 → 生成视频
-          </p>
-        </div>
-
-        <div className="flex-1 space-y-6">
-          {/* 选中图片预览 */}
-          {selectedItem ? (
-            <div className="flex items-start gap-4 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-              <img
-                src={selectedItem.thumbnailUrl || selectedItem.url}
-                alt="选中图片"
-                className="h-24 w-24 rounded-lg object-cover"
-              />
-              <div className="min-w-0 flex-1">
-                <p className={`text-sm font-medium ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                  已选图片
-                </p>
-                <p className="mt-0.5 truncate text-xs text-gray-400">
-                  {selectedItem.url}
-                </p>
-                {selectedItem.width && selectedItem.height && (
-                  <p className="mt-1 text-xs text-gray-400">
-                    {selectedItem.width} × {selectedItem.height}
-                  </p>
-                )}
-              </div>
-              <button
-                onClick={() => selectMedia("")}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                title="取消选择"
-              >
-                ✕
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 py-12 dark:border-gray-600">
-              <span className="text-3xl">👈</span>
-              <p className={`mt-2 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                从左侧图库选择一张图片
-              </p>
-            </div>
-          )}
-
-          {/* 提示词输入 */}
-          <div>
-            <label className={`mb-1.5 block text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-600"}`}>
-              视频描述
-            </label>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="描述你想要的视频内容（可选，AI 会根据图片自动生成）"
-              rows={3}
-              disabled={!selectedItem}
-              className={`w-full resize-none rounded-lg border px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50 ${
-                isDark
-                  ? "border-gray-600 bg-gray-800 text-gray-200 placeholder-gray-500"
-                  : "border-gray-300 bg-white text-gray-700 placeholder-gray-400"
-              }`}
+      {/* ========== 主体：画廊 + 预览区 ========== */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* ========== 左侧：画廊 ========== */}
+        <div
+          className={`flex flex-shrink-0 flex-col border-r border-gray-200 dark:border-gray-700 ${
+            isCompact ? "flex-1" : "w-80"
+          }`}
+        >
+          {/* 搜索栏 */}
+          <div className="p-3">
+            <GallerySearchBar
+              params={searchParams}
+              onChange={setSearchParams}
+              onRefresh={loadGallery}
             />
           </div>
 
-          {/* 参数 */}
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className={`mb-1 block text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                时长
-              </label>
-              <select
-                value={duration}
-                onChange={(e) => setDuration(Number(e.target.value))}
-                disabled={!selectedItem}
-                className={`w-full rounded-md border px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none disabled:opacity-50 ${
-                  isDark
-                    ? "border-gray-600 bg-gray-800 text-gray-200"
-                    : "border-gray-300 bg-white text-gray-700"
-                }`}
-              >
-                <option value={5}>5 秒</option>
-                <option value={8}>8 秒</option>
-                <option value={10}>10 秒</option>
-              </select>
-            </div>
-            <div className="flex-1">
-              <label className={`mb-1 block text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                宽高比
-              </label>
-              <select
-                value={aspectRatio}
-                onChange={(e) => setAspectRatio(e.target.value)}
-                disabled={!selectedItem}
-                className={`w-full rounded-md border px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none disabled:opacity-50 ${
-                  isDark
-                    ? "border-gray-600 bg-gray-800 text-gray-200"
-                    : "border-gray-300 bg-white text-gray-700"
-                }`}
-              >
-                <option value="16:9">16:9</option>
-                <option value="9:16">9:16</option>
-                <option value="1:1">1:1</option>
-              </select>
+          {/* 图库网格 */}
+          <div className="flex-1 overflow-y-auto p-3">
+            {galleryLoading && galleryItems.length === 0 ? (
+              <div className="flex items-center justify-center py-12">
+                <span className="text-sm text-gray-400">加载中…</span>
+              </div>
+            ) : galleryItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <span className="text-2xl">🖼️</span>
+                <p className="mt-2 text-sm text-gray-400">
+                  图库为空，先去「图像」页面生成图片
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {galleryItems.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => selectMedia(item.id)}
+                    className={`group relative cursor-pointer overflow-hidden rounded-lg border-2 transition-all ${
+                      selectedId === item.id
+                        ? "border-blue-500 shadow-md"
+                        : "border-transparent hover:border-blue-300"
+                    }`}
+                  >
+                    {item.type === "video" ? (
+                      <video
+                        src={item.url}
+                        muted
+                        loop
+                        playsInline
+                        className="aspect-square w-full object-cover"
+                        onMouseEnter={(e) => e.currentTarget.play()}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.pause();
+                          e.currentTarget.currentTime = 0;
+                        }}
+                      />
+                    ) : (
+                      <img
+                        src={item.thumbnailUrl || item.url}
+                        alt={item.alt || ""}
+                        loading="lazy"
+                        className="aspect-square w-full object-cover"
+                      />
+                    )}
+
+                    {/* 视频标识 */}
+                    {item.type === "video" && (
+                      <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1 text-xs text-white">
+                        ▶ {item.duration ? `${item.duration}s` : ""}
+                      </span>
+                    )}
+
+                    {/* 操作菜单（图片卡片右上角） */}
+                    {item.type === "image" && (
+                      <div className="group-hover:opacity-100">
+                        <ActionMenu
+                          itemId={item.id}
+                          itemUrl={item.url}
+                          itemType={item.type}
+                          isDark={isDark}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ========== 右侧：预览区（完整模式时显示） ========== */}
+        {!isCompact && (
+          <div className="flex flex-1 flex-col overflow-y-auto border-l border-gray-200 p-4 dark:border-gray-700">
+            {selectedItem ? (
+              <>
+                {/* 预览 */}
+                <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+                  {selectedItem.type === "video" ? (
+                    <video
+                      src={selectedItem.url}
+                      controls
+                      className="w-full rounded-lg"
+                    />
+                  ) : (
+                    <img
+                      src={selectedItem.url}
+                      alt="预览"
+                      className="w-full rounded-lg object-contain"
+                    />
+                  )}
+                </div>
+
+                {/* 信息 */}
+                <div className="mt-3 space-y-1 text-xs text-gray-500 dark:text-gray-400">
+                  <p>类型: {selectedItem.type === "video" ? "视频" : "图片"}</p>
+                  {selectedItem.width && selectedItem.height && (
+                    <p>尺寸: {selectedItem.width} × {selectedItem.height}</p>
+                  )}
+                  {selectedItem.duration && <p>时长: {selectedItem.duration}s</p>}
+                  <button
+                    onClick={() => selectMedia("")}
+                    className="text-blue-500 hover:underline"
+                  >
+                    取消选择
+                  </button>
+                </div>
+              </>
+            ) : null}
+
+            {/* 任务进度 */}
+            <div className="mt-4">
+              <TaskList
+                tasks={activeTasks}
+                onDelete={(taskId) => useMediaStore.getState().removeTask(taskId)}
+              />
             </div>
           </div>
-
-          {/* 生成按钮 */}
-          <button
-            onClick={handleGenerate}
-            disabled={!selectedItem || !prompt.trim() || generating}
-            className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
-          >
-            {generating ? "生成中…" : "生成视频"}
-          </button>
-
-          {/* 任务进度 */}
-          <TaskList
-            tasks={activeTasks}
-            onDelete={(taskId) => useMediaStore.getState().removeTask(taskId)}
-          />
-        </div>
+        )}
       </div>
+
+      {/* ========== 底部：统一输入栏 ========== */}
+      <BottomInputBar
+        isDark={isDark}
+        generating={generating}
+        onGenerate={handleGenerate}
+      />
     </div>
   );
 }

@@ -478,7 +478,15 @@ export class FALProvider extends BaseAIProvider {
     const body: Record<string, unknown> = { prompt: params.prompt };
 
     // 图生视频：本地图片 → FAL 上传 → URL
+    // 如果 imageUrl 是 localhost（内网不可达），回退到 imagePath 文件上传
     let imageUrl = params.imageUrl;
+    if (imageUrl && (imageUrl.includes('localhost') || imageUrl.includes('127.0.0.1'))) {
+      logger.info('FALProvider . 检测到 localhost URL，改用 imagePath 上传', {
+        url: imageUrl.slice(0, 80),
+        hasImagePath: !!params.imagePath,
+      });
+      imageUrl = undefined;
+    }
     if (!imageUrl && params.imagePath) {
       const uploadedUrl = await uploadImageToFAL(params.imagePath, apiKey);
       if (uploadedUrl) imageUrl = uploadedUrl;

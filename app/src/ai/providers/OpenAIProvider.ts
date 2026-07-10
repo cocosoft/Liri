@@ -583,7 +583,29 @@ export class OpenAIProvider extends BaseAIProvider {
       model,
       prompt: params.prompt,
     };
-    if (params.imageUrl) body.image = params.imageUrl;
+    // 图生视频：优先用外部 URL；如果 imageUrl 是 localhost 且 imagePath 存在，转 base64
+    if (params.imageUrl) {
+      if (
+        params.imageUrl.includes('localhost') ||
+        params.imageUrl.includes('127.0.0.1')
+      ) {
+        if (params.imagePath) {
+          const file = Bun.file(params.imagePath);
+          const buffer = Buffer.from(await file.arrayBuffer());
+          const ext = params.imagePath.split('.').pop()?.toLowerCase() || 'png';
+          const mimeType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+          body.image = `data:${mimeType};base64,${buffer.toString('base64')}`;
+          logger.info('OpenAIProvider . localhost URL → base64', {
+            path: params.imagePath,
+            mimeType,
+            sizeKb: Math.round(buffer.length / 1024),
+          });
+        }
+        // 无 imagePath 则跳过图片（降级为文生视频）
+      } else {
+        body.image = params.imageUrl;
+      }
+    }
     if (params.seed !== undefined) body.seed = params.seed;
 
     const headers = {
@@ -715,7 +737,22 @@ export class OpenAIProvider extends BaseAIProvider {
       model,
       prompt: params.prompt,
     };
-    if (params.imageUrl) body.image_url = params.imageUrl;
+    if (params.imageUrl) {
+      if (
+        params.imageUrl.includes('localhost') ||
+        params.imageUrl.includes('127.0.0.1')
+      ) {
+        if (params.imagePath) {
+          const file = Bun.file(params.imagePath);
+          const buffer = Buffer.from(await file.arrayBuffer());
+          const ext = params.imagePath.split('.').pop()?.toLowerCase() || 'png';
+          const mimeType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+          body.image_url = `data:${mimeType};base64,${buffer.toString('base64')}`;
+        }
+      } else {
+        body.image_url = params.imageUrl;
+      }
+    }
     if (params.duration) body.duration = params.duration;
     if (params.aspectRatio) body.aspect_ratio = params.aspectRatio;
     if (params.negativePrompt) body.negative_prompt = params.negativePrompt;

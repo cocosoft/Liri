@@ -15,7 +15,7 @@ import { useVideoTaskPolling } from "../../hooks/useVideoTaskPolling";
 import { GallerySearchBar } from "./media/GallerySearchBar";
 import { TaskList } from "./media/TaskCard";
 import { TemplateCarousel } from "./media/TemplateCarousel";
-import { ActionMenu } from "./media/ActionMenu";
+import { MasonryGallery } from "./media/MasonryGallery";
 import { BottomInputBar } from "./media/BottomInputBar";
 import { videoService } from "../../services/videoService";
 import { http } from "../../services/httpClient";
@@ -31,6 +31,7 @@ function MediaPage() {
   // ──── Store ────
   const galleryItems = useMediaStore((s) => s.galleryItems);
   const galleryLoading = useMediaStore((s) => s.galleryLoading);
+  const galleryHasMore = useMediaStore((s) => s.galleryHasMore);
   const selectedId = useMediaStore((s) => s.selectedId);
   const selectedImageUrl = useMediaStore((s) => s.selectedImageUrl);
   const prompt = useMediaStore((s) => s.prompt);
@@ -158,76 +159,18 @@ function MediaPage() {
             />
           </div>
 
-          {/* 图库网格 */}
-          <div className="flex-1 overflow-y-auto p-3">
-            {galleryLoading && galleryItems.length === 0 ? (
-              <div className="flex items-center justify-center py-12">
-                <span className="text-sm text-gray-400">加载中…</span>
-              </div>
-            ) : galleryItems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <span className="text-2xl">🖼️</span>
-                <p className="mt-2 text-sm text-gray-400">
-                  图库为空，先去「图像」页面生成图片
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {galleryItems.map((item) => (
-                  <div
-                    key={item.id}
-                    onClick={() => selectMedia(item.id)}
-                    className={`group relative cursor-pointer overflow-hidden rounded-lg border-2 transition-all ${
-                      selectedId === item.id
-                        ? "border-blue-500 shadow-md"
-                        : "border-transparent hover:border-blue-300"
-                    }`}
-                  >
-                    {item.type === "video" ? (
-                      <video
-                        src={item.url}
-                        muted
-                        loop
-                        playsInline
-                        className="aspect-square w-full object-cover"
-                        onMouseEnter={(e) => e.currentTarget.play()}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.pause();
-                          e.currentTarget.currentTime = 0;
-                        }}
-                      />
-                    ) : (
-                      <img
-                        src={item.thumbnailUrl || item.url}
-                        alt={item.alt || ""}
-                        loading="lazy"
-                        className="aspect-square w-full object-cover"
-                      />
-                    )}
-
-                    {/* 视频标识 */}
-                    {item.type === "video" && (
-                      <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1 text-xs text-white">
-                        ▶ {item.duration ? `${item.duration}s` : ""}
-                      </span>
-                    )}
-
-                    {/* 操作菜单（图片卡片右上角） */}
-                    {item.type === "image" && (
-                      <div className="group-hover:opacity-100">
-                        <ActionMenu
-                          itemId={item.id}
-                          itemUrl={item.url}
-                          itemType={item.type}
-                          isDark={isDark}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          {/* 瀑布流画廊 */}
+          <MasonryGallery
+            items={galleryItems}
+            selectedId={selectedId}
+            hasMore={galleryHasMore}
+            loading={galleryLoading}
+            isDark={isDark}
+            onSelect={selectMedia}
+            onLoadMore={() => {
+              // TODO: 分页加载
+            }}
+          />
         </div>
 
         {/* ========== 右侧：预览区（完整模式时显示） ========== */}

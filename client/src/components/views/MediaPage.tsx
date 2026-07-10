@@ -42,12 +42,6 @@ function MediaPage() {
   const setSearchParams = useMediaStore((s) => s.setSearchParams);
   const setGalleryItems = useMediaStore((s) => s.setGalleryItems);
 
-  // ──── 轮询 ────
-  const { activeTasks, submitTask } = useVideoTaskPolling();
-  const generating = activeTasks.some((t) =>
-    ["pending", "queued", "running"].includes(t.status)
-  );
-
   // ──── 紧凑/完整模式 ────
   const isCompact = selectedId === null;
 
@@ -104,6 +98,16 @@ function MediaPage() {
   useEffect(() => {
     loadGallery();
   }, [loadGallery]);
+
+  // ──── 轮询（任务完成时自动刷新画廊） ────
+  const handleTaskCompleted = useCallback(() => {
+    loadGallery();
+  }, [loadGallery]);
+
+  const { activeTasks, submitTask } = useVideoTaskPolling(handleTaskCompleted);
+  const generating = activeTasks.some((t) =>
+    ["pending", "queued", "running"].includes(t.status)
+  );
 
   // ──── 生成视频 ────
   const handleGenerate = useCallback(async () => {

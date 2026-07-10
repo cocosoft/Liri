@@ -29,8 +29,10 @@ const ACTIVE_STATUSES: VideoTaskItem["status"][] = [
 /**
  * 轮询 hook
  * 返回 addTask 用于提交新任务后开始轮询
+ *
+ * @param onTaskCompleted — 可选回调，单个任务完成时触发（用于刷新画廊等）
  */
-export function useVideoTaskPolling() {
+export function useVideoTaskPolling(onTaskCompleted?: (taskId: string) => void) {
   const activeTasks = useMediaStore((s) => s.activeTasks);
   const updateTask = useMediaStore((s) => s.updateTask);
   const addTask = useMediaStore((s) => s.addTask);
@@ -69,6 +71,15 @@ export function useVideoTaskPolling() {
     }
   }, [setActiveTasks]);
 
+  /** 停止轮询单个任务 */
+  const stopPolling = useCallback((taskId: string) => {
+    const timer = timers.current.get(taskId);
+    if (timer) {
+      clearInterval(timer);
+      timers.current.delete(taskId);
+    }
+  }, []);
+
   /** 轮询单个任务 */
   const pollTask = useCallback(
     async (taskId: string) => {
@@ -87,13 +98,17 @@ export function useVideoTaskPolling() {
           // 完成或失败时停止轮询
           if (response.status === "completed" || response.status === "failed") {
             stopPolling(taskId);
+            // 通知外部（如刷新画廊）
+            if (response.status === "completed" && onTaskCompleted) {
+              onTaskCompleted(taskId);
+            }
           }
         }
       } catch (e) {
         logger.warn("轮询任务失败", { taskId, error: String(e) });
       }
     },
-    [updateTask]
+    [updateTask, stopPolling, onTaskCompleted]
   );
 
   /** 开始轮询单个任务 */
@@ -109,15 +124,6 @@ export function useVideoTaskPolling() {
     },
     [pollTask]
   );
-
-  /** 停止轮询单个任务 */
-  const stopPolling = useCallback((taskId: string) => {
-    const timer = timers.current.get(taskId);
-    if (timer) {
-      clearInterval(timer);
-      timers.current.delete(taskId);
-    }
-  }, []);
 
   /** 添加新任务并开始轮询 */
   const submitTask = useCallback(

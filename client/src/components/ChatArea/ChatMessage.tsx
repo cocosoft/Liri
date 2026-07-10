@@ -88,9 +88,10 @@ const ChatMessageMemo = memo(function ChatMessage({
   const createSession = useSessionStore((s) => s.createSession);
   const switchSession = useSessionStore((s) => s.switchSession);
   const currentSession = useSessionStore((s) => s.currentSession);
-  const [showActions, setShowActions] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [branching, setBranching] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [copyToast, setCopyToast] = useState<"copied" | "failed" | null>(null);
   const configTheme = useConfigStore((s) => s.config.theme);
   const isDark = configTheme === "dark";
   const isUser = message.role === "user";
@@ -119,18 +120,23 @@ const ChatMessageMemo = memo(function ChatMessage({
   };
 
   const handleCopy = async () => {
-    const textToCopy = getFullContent(message, {
-      thoughtProcess: t('chat.thoughtProcess'),
-      toolCall: t('chat.toolCall'),
-      parameters: t('chat.parameters'),
-      result: t('chat.result'),
-    });
-    await navigator.clipboard.writeText(textToCopy);
-    setShowActions(false);
+    try {
+      const textToCopy = getFullContent(message, {
+        thoughtProcess: t('chat.thoughtProcess'),
+        toolCall: t('chat.toolCall'),
+        parameters: t('chat.parameters'),
+        result: t('chat.result'),
+      });
+      await navigator.clipboard.writeText(textToCopy);
+      setCopyToast("copied");
+      setTimeout(() => setCopyToast(null), 2000);
+    } catch {
+      setCopyToast("failed");
+      setTimeout(() => setCopyToast(null), 2000);
+    }
   };
 
   const handleRegenerate = () => {
-    setShowActions(false);
     regenerateMessage(message.session_id);
   };
 
@@ -147,7 +153,6 @@ const ChatMessageMemo = memo(function ChatMessage({
   const handleBranch = async () => {
     if (branching) return;
     setBranching(true);
-    setShowActions(false);
     try {
       const branchTitle = currentSession
         ? `${t('chat.branchPrefix')}${currentSession.title}`
@@ -168,37 +173,41 @@ const ChatMessageMemo = memo(function ChatMessage({
 
   const openSaveModal = () => {
     setShowSaveModal(true);
-    setShowActions(false);
   };
 
   return (
     <div
-      className={`flex gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors rounded-lg mx-2 -mx-2`}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
+      className={`flex w-full items-start gap-3 px-3 py-2 ${isUser ? "justify-end" : "justify-start"}`}
     >
-      {/* 头像 */}
-      <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium overflow-hidden">
-        {isUser ? (
-          <div className="bg-blue-500 text-white">👤</div>
-        ) : (
+      {/* AI 头像（左侧，38px） */}
+      {!isUser && !isTool && (
+        <div className="flex-shrink-0" aria-hidden="true">
           <img
             src="/liri_logo.png"
             alt="Liri"
-            className="w-8 h-8 object-contain"
+            className="w-9 h-9 rounded-full object-contain"
+            onError={(e) => {
+              // 头像加载失败：用首字母 fallback（L）
+              const el = e.target as HTMLImageElement;
+              el.style.display = "none";
+              const fallback = document.createElement("div");
+              fallback.className = "w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold";
+              fallback.textContent = "L";
+              el.parentElement!.appendChild(fallback);
+            }}
           />
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* 消息内容区域 */}
-      <div className="flex-1 min-w-0">
-        {/* 头部：名称 */}
+      {/* 消息气泡 */}
+      <div className="flex-1 min-w-0 max-w-[80%]">
+        {/* 头部：角色名称 + agent 标签 + 时间戳（气泡右上角） */}
         <div className="flex items-center gap-2 mb-1">
           <span
-            className={`text-sm font-medium ${
+            className={`text-xs font-medium ${
               isUser
-                ? "text-gray-700 dark:text-gray-300"
-                : "text-gray-600 dark:text-gray-400"
+                ? "text-gray-500 dark:text-gray-400"
+                : "text-gray-500 dark:text-gray-400"
             }`}
           >
             {isUser ? t('chat.user') : t('chat.assistant')}
@@ -215,14 +224,22 @@ const ChatMessageMemo = memo(function ChatMessage({
               {t('chat.hasReplies')}
             </span>
           )}
+          {/* 时间戳（右上角，灰色小字） */}
+          {message.timestamp && (
+            <span className={`text-[10px] ml-auto ${isUser ? "text-blue-200" : "text-gray-400 dark:text-gray-500"}`}>
+              {formatTime(message.timestamp)}
+            </span>
+          )}
         </div>
 
-        {/* 消息气泡 */}
+        {/* 气泡主体 */}
         <div
-          className={`max-w-3xl px-4 py-3 rounded-xl ${
+          className={`rounded-2xl px-4 py-2 ${
             isUser
-              ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white ml-auto"
-              : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+              ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm"
+              : isTool
+              ? "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+              : "bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
           }`}
         >
           {/* 被回复的引用 */}
@@ -253,8 +270,16 @@ const ChatMessageMemo = memo(function ChatMessage({
 
           {/* 消息内容 */}
           {isUser ? (
-            <div className="text-sm whitespace-pre-wrap break-words leading-relaxed">
-              {message.content}
+            <div className="text-sm break-words leading-relaxed">
+              <BlockRenderer
+                block={{
+                  id: `${message.id}_content`,
+                  type: "text",
+                  content: typeof message.content === "string" ? message.content : "",
+                  isStreaming: false,
+                }}
+                sessionId={message.session_id}
+              />
             </div>
           ) : isTool ? (
             <ToolResultMessage message={message} />
@@ -262,64 +287,10 @@ const ChatMessageMemo = memo(function ChatMessage({
             <AssistantMessage message={message} isStreaming={isStreaming} />
           )}
 
-          {/* 消息底部：时间、Token 用量和预估成本 */}
-          <div
-            className={`flex items-center justify-end gap-3 mt-2 pt-2 border-t ${
-              isUser
-                ? "border-blue-400/30"
-                : "border-gray-200 dark:border-gray-700"
-            }`}
-          >
-            {/* 时间 */}
-            <span
-              className={`text-xs ${
-                isUser ? "text-blue-200" : "text-gray-400"
-              }`}
-            >
-              {message.timestamp ? formatTime(message.timestamp) : ""}
-            </span>
-
-            {/* 会话累计 Token 和成本 */}
-            {sessionUsage && sessionUsage.totalTokens > 0 && (
-              <div
-                className={`flex items-center gap-2 text-xs ${
-                  isUser ? "text-blue-200" : "text-gray-400"
-                }`}
-              >
-                <span className="flex items-center gap-1">
-                  <span>💬</span>
-                  <span>
-                    {sessionUsage.totalTokens.toLocaleString()} tokens
-                  </span>
-                </span>
-                {sessionUsage.cacheReadTokens != null &&
-                  sessionUsage.cacheReadTokens > 0 && (
-                    <span className="text-cyan-500">
-                      📖CR {sessionUsage.cacheReadTokens.toLocaleString()}
-                    </span>
-                  )}
-                {sessionUsage.cacheCreationTokens != null &&
-                  sessionUsage.cacheCreationTokens > 0 && (
-                    <span className="text-yellow-500">
-                      ✏️CW {sessionUsage.cacheCreationTokens.toLocaleString()}
-                    </span>
-                  )}
-                {sessionUsage.estimatedCostUsd != null &&
-                  sessionUsage.estimatedCostUsd > 0 && (
-                    <span
-                      className={`flex items-center gap-1 ${
-                        isUser
-                          ? "text-green-300"
-                          : "text-emerald-500 dark:text-emerald-400"
-                      }`}
-                    >
-                      <span>💰</span>
-                      <span>{formatCost(sessionUsage.estimatedCostUsd)}</span>
-                    </span>
-                  )}
-              </div>
-            )}
-          </div>
+          {/* Token/成本信息（默认隐藏，点 📊 图标展开） */}
+          {sessionUsage && sessionUsage.totalTokens > 0 && (
+            <TokenInfoSection sessionUsage={sessionUsage} isUser={isUser} formatCost={formatCost} />
+          )}
         </div>
 
         {/* 错误状态操作按钮 */}
@@ -340,69 +311,98 @@ const ChatMessageMemo = memo(function ChatMessage({
           </div>
         )}
 
-        {/* 操作按钮 */}
-        {showActions && isUser && !message.error && (
-          <div className="flex items-center gap-2 mt-2 opacity-70">
-            <button
-              onClick={() => {
-                setEditTarget(message);
-                setShowActions(false);
-              }}
-              className="px-3 py-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
-            >
-              {t('chat.editMessage')}
-            </button>
-            <button
-              onClick={handleBranch}
-              disabled={branching}
-              className="px-3 py-1 text-xs text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded transition-colors disabled:opacity-50"
-            >
-              {branching ? t('chat.branching') : t('chat.branch')}
-            </button>
-          </div>
-        )}
-        {showActions && !isUser && !message.error && (
-          <div className="flex items-center gap-2 mt-2 opacity-70">
-            <button
-              onClick={() => {
-                setReplyMessage(message);
-                setShowActions(false);
-              }}
-              className="px-3 py-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
-            >
-              {t('chat.reply')}
-            </button>
-            <button
-              onClick={handleCopy}
-              className="px-3 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-            >
-              {t('chat.copyMessage')}
-            </button>
-            <button
-              onClick={openSaveModal}
-              className="px-3 py-1 text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded transition-colors"
-            >
-              {t('chat.saveToKnowledge')}
-            </button>
-            <button
-              onClick={handleContinue}
-              className="px-3 py-1 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded transition-colors"
-            >
-              {t('chat.continueGenerate')}
-            </button>
-            <button
-              onClick={handleRegenerate}
-              className="px-3 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-            >
-              {t('chat.regenerate')}
-            </button>
-            <button
-              onClick={handleBranch}
-              disabled={branching}
-              className="px-3 py-1 text-xs text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded transition-colors disabled:opacity-50"
-            >
-              {branching ? t('chat.branching') : t('chat.branch')}
-            </button>
+        {/* 常驻操作按钮 */}
+        {!message.error && (
+          <div className="flex items-center gap-2 mt-1 text-xs text-gray-400 dark:text-gray-500">
+            {/* 用户消息：编辑常驻 */}
+            {isUser && (
+              <button
+                onClick={() => setEditTarget(message)}
+                className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                aria-label={t('chat.editMessage')}
+              >
+                ✏️ {t('chat.editMessage')}
+              </button>
+            )}
+
+            {/* AI 消息：复制常驻 */}
+            {!isUser && !isTool && (
+              <button
+                onClick={handleCopy}
+                className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                aria-label={t('chat.copyMessage')}
+              >
+                📋 {t('chat.copyMessage')}
+              </button>
+            )}
+
+            {/* AI 消息：重新生成常驻（流式中 disabled） */}
+            {!isUser && !isTool && (
+              <button
+                onClick={handleRegenerate}
+                disabled={isStreaming}
+                className={`${isStreaming ? "cursor-not-allowed text-gray-300 dark:text-gray-600" : "hover:text-gray-600 dark:hover:text-gray-300"} transition-colors`}
+                aria-label={t('chat.regenerate')}
+              >
+                {isStreaming ? "⏳" : "🔄"} {t('chat.regenerate')}
+              </button>
+            )}
+
+            {/* AI 消息：续写常驻 */}
+            {!isUser && !isTool && (
+              <button
+                onClick={handleContinue}
+                className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                aria-label={t('chat.continueGenerate')}
+              >
+                ✏️ {t('chat.continueGenerate')}
+              </button>
+            )}
+
+            {/* ⋯ 更多菜单 */}
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
+                className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                aria-haspopup="true"
+                aria-expanded={menuOpen}
+                aria-label={t('chat.actionsMore')}
+              >
+                ⋯
+              </button>
+              {menuOpen && (
+                <div className="absolute bottom-full left-0 mb-1 w-32 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-30">
+                  {isUser ? (
+                    <>
+                      <button
+                        onClick={handleBranch}
+                        disabled={branching}
+                        className="w-full px-3 py-1.5 text-left text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+                      >
+                        🌿 {branching ? t('chat.branching') : t('chat.branch')}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={openSaveModal}
+                        className="w-full px-3 py-1.5 text-left text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        💾 {t('chat.saveToKnowledge')}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 复制 toast */}
+            {copyToast && (
+              <span className={`${copyToast === "copied" ? "text-emerald-500" : "text-red-400"} animate-pulse`}>
+                {copyToast === "copied" ? t("chat.toastCopied") : t("chat.toastCopyFailed")}
+              </span>
+            )}
           </div>
         )}
 
@@ -425,6 +425,17 @@ const ChatMessageMemo = memo(function ChatMessage({
           </Suspense>
         )}
       </div>
+
+      {/* 用户头像（右侧，32px） */}
+      {isUser && (
+        <div
+          className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white"
+          style={{ background: `hsl(${(message.id.length * 7) % 360}, 70%, 60%)` }}
+          aria-hidden="true"
+        >
+          {"U"}
+        </div>
+      )}
     </div>
   );
 }, (prevProps, nextProps) => {
@@ -443,6 +454,60 @@ const ChatMessageMemo = memo(function ChatMessage({
   return true;
 });
 
+/**
+ * Token/成本信息折叠组件
+ * 默认隐藏，点击 📊 图标展开；Cache 信息仅 VITE_SHOW_DEBUG 时显示
+ */
+function TokenInfoSection({
+  sessionUsage,
+  isUser,
+  formatCost,
+}: {
+  sessionUsage: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    estimatedCostUsd?: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
+  };
+  isUser: boolean;
+  formatCost: (costUsd?: number) => string | null;
+}) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const showDebug = import.meta.env.VITE_SHOW_DEBUG === "true";
+
+  return (
+    <div className="mt-1">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className={`text-xs ${isUser ? "text-blue-200" : "text-gray-400"} hover:opacity-80`}
+        aria-expanded={expanded}
+        aria-label={t("chat.tokenInfo")}
+      >
+        📊 {expanded ? "" : sessionUsage.totalTokens.toLocaleString() + " tokens"}
+      </button>
+      {expanded && (
+        <div className={`mt-1 text-xs space-y-0.5 ${isUser ? "text-blue-200" : "text-gray-400 dark:text-gray-500"}`}>
+          <div>💬 {sessionUsage.totalTokens.toLocaleString()} tokens</div>
+          <div>📥 输入: {sessionUsage.inputTokens.toLocaleString()}</div>
+          <div>📤 输出: {sessionUsage.outputTokens.toLocaleString()}</div>
+          {sessionUsage.estimatedCostUsd != null && sessionUsage.estimatedCostUsd > 0 && (
+            <div>💰 {formatCost(sessionUsage.estimatedCostUsd)}</div>
+          )}
+          {showDebug && sessionUsage.cacheReadTokens != null && sessionUsage.cacheReadTokens > 0 && (
+            <div>📖 CR: {sessionUsage.cacheReadTokens.toLocaleString()}</div>
+          )}
+          {showDebug && sessionUsage.cacheCreationTokens != null && sessionUsage.cacheCreationTokens > 0 && (
+            <div>✏️ CW: {sessionUsage.cacheCreationTokens.toLocaleString()}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AssistantMessage({
   message,
   isStreaming,
@@ -450,6 +515,7 @@ function AssistantMessage({
   message: Message;
   isStreaming?: boolean;
 }) {
+  const { t } = useTranslation();
   const sessionFiles = useChatStore((s) => s.sessionFiles);
   const knownPaths = useMemo(() => sessionFiles.map((f) => f.path), [sessionFiles]);
 
@@ -476,14 +542,14 @@ function AssistantMessage({
 
   return (
     <div className="text-sm break-words max-w-none space-y-1">
-      {/* DEBUG: blocks 调试信息 */}
-      {process.env.NODE_ENV === "development" && (
+      {/* DEBUG: blocks 调试信息（仅 dev 模式或 VITE_SHOW_DEBUG=true 时显示） */}
+      {(process.env.NODE_ENV === "development" || import.meta.env.VITE_SHOW_DEBUG === "true") && (
         <DebugBlockInfo blocks={blocks} messageId={message.id} />
       )}
       {renderedContent}
-      {/* 流式光标：消息仍在生成中时，末尾显示闪烁指示器 */}
+      {/* 流式脉冲光标：消息仍在生成中时，显示 3 个脉冲圆点 */}
       {isStreaming && (
-        <span className="streaming-cursor" aria-hidden="true" />
+        <span className="streaming-cursor" aria-live="polite" aria-label={t("chat.streamingLabel")} />
       )}
     </div>
   );

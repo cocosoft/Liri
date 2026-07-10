@@ -1,8 +1,11 @@
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 
 /**
  * 聊天区域自动滚动 Hook
  * 仅在用户处于底部附近时自动跟随新消息，避免干扰用户阅读历史消息
+ *
+ * 统一管理滚动状态：isUserScrolledUp、distanceFromBottom、scrollToBottom
+ * ChatArea 不再需要独立的 handleScroll 和 showScrollToBottom 状态
  */
 export function useAutoScroll(deps: {
   messageCount: number;
@@ -12,38 +15,44 @@ export function useAutoScroll(deps: {
   const prevMessageCountRef = useRef(0);
   const isNearBottomRef = useRef(true);
 
-  /** 检测容器是否在底部附近（阈值 100px） */
-  const checkNearBottom = useCallback(() => {
-    const container = containerRef.current;
-    if (!container) return true;
-    return (
-      container.scrollHeight - container.scrollTop - container.clientHeight < 100
-    );
-  }, []);
+  /** 用户是否上滑离开底部（控制"回到底部"按钮显隐） */
+  const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
+
+  /** 当前距离底部的像素距离（用于按钮显示阈值判断） */
+  const [distanceFromBottom, setDistanceFromBottom] = useState(0);
 
   /** 滚动到底部 */
   const scrollToBottom = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
-    container.scrollTop = container.scrollHeight;
+    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
   }, []);
 
-  // 监听滚动事件，记录用户位置
+  // 监听滚动事件，统一跟踪用户位置
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const handleScroll = () => {
-      isNearBottomRef.current = checkNearBottom();
+      const el = container;
+      const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+      const nearBottom = distance < 100;
+      isNearBottomRef.current = nearBottom;
+      setIsUserScrolledUp(!nearBottom);
+      setDistanceFromBottom(distance);
     };
 
     container.addEventListener("scroll", handleScroll, { passive: true });
+
+    // 初始化时检测一次
+    handleScroll();
+
     return () => {
       container.removeEventListener("scroll", handleScroll);
     };
-  }, [checkNearBottom]);
+  }, []);
 
-  // 消息数量变化时自动滚动
+  // 消息数量变化时自动滚动（仅在用户处于底部附近时）
   useEffect(() => {
     const prevCount = prevMessageCountRef.current;
     prevMessageCountRef.current = deps.messageCount;
@@ -53,7 +62,7 @@ export function useAutoScroll(deps: {
     }
   }, [deps.messageCount, scrollToBottom]);
 
-  // 流式输出期间：ResizeObserver 监听尺寸变化，仅在内容增长时滚动
+  // 流式输出期间：ResizeObserver 监听尺寸变化，仅在内容增长且用户在底部时滚动
   useEffect(() => {
     if (!deps.isStreaming) return;
 
@@ -78,5 +87,5 @@ export function useAutoScroll(deps: {
     };
   }, [deps.isStreaming, scrollToBottom]);
 
-  return { containerRef, scrollToBottom };
+  return { containerRef, isUserScrolledUp, scrollToBottom, distanceFromBottom };
 }

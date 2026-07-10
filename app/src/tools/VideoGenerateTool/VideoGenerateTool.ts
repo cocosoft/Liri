@@ -32,6 +32,9 @@ import { randomUUID } from 'crypto';
 import { globalEventBus, SystemEvents } from '../../core/events/EventBus';
 import { getVideoTaskPersistence } from './VideoTaskPersistence';
 import { getImageSafetyFilter } from '../ImageGenerateTool/ImageSafetyFilter';
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { resolveTempDir } from '@modules/core/paths';
 
 const logger = new Logger({
   level: LogLevel.INFO,
@@ -341,6 +344,20 @@ export class VideoGenerateTool extends BaseTool {
       // 本地路径后续可扩展为 upload → URL 流程
     }
 
+    // 图生视频：将本地/内网 imageUrl 下载到临时文件（供 Provider 上传用）
+    if (resolvedParams.imageUrl && !resolvedParams.imagePath) {
+      const localFile = await this.normalizeImageUrlToPath(
+        resolvedParams.imageUrl
+      );
+      if (localFile) {
+        resolvedParams.imagePath = localFile;
+        resolvedParams.imageUrl = undefined; // 清空 URL，走 imagePath → upload 流程
+        logger.info('VideoGenerateTool . imageUrl 转本地临时文件', {
+          imagePath: localFile,
+        });
+      }
+    }
+
     // 兼容模式：指定 provider 时直调 providerRegistry
     if (resolvedParams.provider) {
       logger.info('VideoGenerateTool . 走兼容模式', {
@@ -368,6 +385,68 @@ export class VideoGenerateTool extends BaseTool {
     const model =
       resolvedParams.model || VideoGenerateTool.resolvedModelName || '';
     return router.generate({ ...resolvedParams, model });
+  }
+
+  // ================================================================
+  //  Router 创建（照搬 ImageGenerateTool.getRouter()）
+  // ================================================================
+
+  /**
+   * 将 imageUrl（可能是 localhost 或 /v1 路径）下载到本地临时文件
+   *
+   * 外部 Provider 无法访问本地 URL，需要先下载到文件，再由 Provider 上传。
+   */
+  private async normalizeImageUrlToPath(
+    imageUrl: string
+  ): Promise<string | null> {
+    // 如果是外部可访问的 URL（非 localhost/127.0.0.1），不需要下载
+    if (
+      imageUrl.startsWith('https://') &&
+      !imageUrl.includes('localhost') &&
+      !imageUrl.includes('127.0.0.1')
+    ) {
+      return null; // 外部可访问，Provider 可直接用
+    }
+
+    logger.info('VideoGenerateTool . 下载本地 imageUrl', {
+      url: imageUrl.slice(0, 120),
+    });
+
+    try {
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        logger.warn('VideoGenerateTool . 下载 imageUrl 失败', {
+          status: response.status,
+          url: imageUrl.slice(0, 120),
+        });
+        return null;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      const tempDir = resolveTempDir();
+      mkdirSync(tempDir, { recursive: true });
+
+      const ext =
+        response.headers.get('content-type')?.includes('png') ? '.png'
+        : response.headers.get('content-type')?.includes('jpeg') ? '.jpg'
+        : response.headers.get('content-type')?.includes('webp') ? '.webp'
+        : '.png';
+
+      const tempPath = join(tempDir, `video-src-${randomUUID()}${ext}`);
+      writeFileSync(tempPath, buffer);
+
+      logger.info('VideoGenerateTool . imageUrl 下载完成', {
+        path: tempPath,
+        size: buffer.length,
+      });
+
+      return tempPath;
+    } catch (e) {
+      logger.warn('VideoGenerateTool . imageUrl 下载异常', {
+        error: String(e),
+      });
+      return null;
+    }
   }
 
   // ================================================================

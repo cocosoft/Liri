@@ -25,9 +25,28 @@ export class VideoGenerationRouter {
   }
 
   setProviders(providers: RegistryVideoProvider[]): void {
-    this.providers = providers.filter((p) => p.isAvailable());
+    const available: RegistryVideoProvider[] = [];
+    const filtered: RegistryVideoProvider[] = [];
+
+    for (const p of providers) {
+      if (p.isAvailable()) {
+        available.push(p);
+      } else {
+        filtered.push(p);
+      }
+    }
+
+    if (filtered.length > 0) {
+      logger.warn('VideoGenerationRouter . setProviders 过滤掉不可用 Provider', {
+        filtered: filtered.map((p) => p.type),
+        reason: 'generateVideo is not a function',
+      });
+    }
+
+    this.providers = available;
     logger.info('VideoGenerationRouter . 设置 Provider', {
       count: this.providers.length,
+      filtered: filtered.length,
       types: this.providers.map((p) => p.type),
     });
   }
@@ -39,6 +58,16 @@ export class VideoGenerationRouter {
   async generate(
     params: VideoGenerationParams
   ): Promise<VideoGenerationResult> {
+    if (this.providers.length === 0) {
+      return {
+        success: false,
+        data: [],
+        error:
+          '未配置可用的视频生成 Provider。请在 模型管理 → 任务分工 中为"生视频"任务分配一个支持 video_generation 能力的模型。',
+        durationMs: 0,
+      };
+    }
+
     for (const provider of this.providers) {
       const result = await provider.generate(params);
       if (result.success) return result;

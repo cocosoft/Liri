@@ -33,6 +33,7 @@ const ModelPage = lazy(() => import("../components/views/ModelPage"));
 const TTSPage = lazy(() => import("../components/views/TTSPage"));
 const ImagePage = lazy(() => import("../components/views/ImagePage"));
 const VideoPage = lazy(() => import("../components/views/VideoPage"));
+const MediaPage = lazy(() => import("../components/views/MediaPage"));
 const TranslatePage = lazy(() => import("../components/views/TranslatePage"));
 // routes/index.tsx 原有保留路由
 const ApiKeyPage = lazy(() => import("../components/views/ApiKeyPage"));
@@ -139,7 +140,7 @@ export const routes: RouteObject[] = [
   { path: "/voice-stt", element: <Navigate to="/dev/stt-test" replace /> },
   { path: "/terminal", element: <Navigate to="/dev/terminal" replace /> },
   { path: "/sandbox", element: <Navigate to="/dev/sandbox" replace /> },
-  { path: "/media", element: <Navigate to="/dev/media" replace /> },
+  { path: "/media", element: <AuthGuard><MediaPage /></AuthGuard> },
   { path: "/autoreply", element: <Navigate to="/dev/autoreply" replace /> },
 
   // routes/index.tsx 原有保留路由（未在 App.tsx 中出现）

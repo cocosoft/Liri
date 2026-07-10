@@ -287,6 +287,21 @@ export class VideoGenerateTool extends BaseTool {
             },
           });
         } else {
+          logger.error('VideoGenerateTool 异步任务失败', {
+            taskId,
+            mode,
+            error: result.error,
+            prompt: params.prompt?.slice(0, 80),
+          });
+          await handleError(
+            new AppError(
+              result.error || '未知错误',
+              ErrorCategory.API,
+              ErrorSeverity.HIGH,
+              'VIDEO_GEN_FAILED'
+            ),
+            { module: 'tools:videoGenerate', action: 'executeAsync' }
+          );
           persistence.update(taskId, {
             status: 'failed',
             progress: 0,
@@ -300,17 +315,28 @@ export class VideoGenerateTool extends BaseTool {
           });
         }
       })
-      .catch((error) => {
+      .catch(async (error) => {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        logger.error('VideoGenerateTool 异步任务异常崩溃', {
+          taskId,
+          mode,
+          error: errorMsg,
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        await handleError(error, {
+          module: 'tools:videoGenerate',
+          action: 'executeAsync',
+        });
         persistence.update(taskId, {
           status: 'failed',
           progress: 0,
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMsg,
           completedAt: Date.now(),
         });
         globalEventBus.publish(SystemEvents.TASK_FAILED, {
           taskId,
           taskType: 'video_generation',
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMsg,
         });
       });
 
@@ -380,11 +406,59 @@ export class VideoGenerateTool extends BaseTool {
     }
 
     // Router 模式：从模型管理解析 Provider（推荐路径）
-    logger.info('VideoGenerateTool . 走 Router 模式');
-    const router = await this.getRouter();
-    const model =
-      resolvedParams.model || VideoGenerateTool.resolvedModelName || '';
-    return router.generate({ ...resolvedParams, model });
+    logger.info('VideoGenerateTool . 走 Router 模式', {
+      mode:
+        resolvedParams.imageUrl || resolvedParams.imagePath
+          ? 'image-to-video'
+          : 'text-to-video',
+      prompt: resolvedParams.prompt?.slice(0, 60),
+    });
+    try {
+      const router = await this.getRouter();
+      const model =
+        resolvedParams.model || VideoGenerateTool.resolvedModelName || '';
+
+      logger.info('VideoGenerateTool . Router 已就绪', {
+        model,
+        providers: router.getProviders().map((p) => p.type),
+      });
+
+      const result = await router.generate({ ...resolvedParams, model });
+
+      if (!result.success) {
+        logger.error('VideoGenerateTool . Router 生成失败', {
+          model,
+          error: result.error,
+          providerCount: router.getProviders().length,
+        });
+        await handleError(
+          new AppError(
+            result.error || '所有 Provider 均失败',
+            ErrorCategory.API,
+            ErrorSeverity.HIGH,
+            'VIDEO_ROUTER_ALL_FAILED'
+          ),
+          { module: 'tools:videoGenerate', action: 'generate' }
+        );
+      }
+
+      return result;
+    } catch (e) {
+      logger.error('VideoGenerateTool . Router 模式异常', {
+        error: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined,
+      });
+      await handleError(e, {
+        module: 'tools:videoGenerate',
+        action: 'generate',
+      });
+      return {
+        success: false,
+        data: [],
+        error: `视频生成路由异常: ${e instanceof Error ? e.message : String(e)}`,
+        durationMs: 0,
+      };
+    }
   }
 
   // ================================================================
@@ -426,11 +500,13 @@ export class VideoGenerateTool extends BaseTool {
       const tempDir = resolveTempDir();
       mkdirSync(tempDir, { recursive: true });
 
-      const ext =
-        response.headers.get('content-type')?.includes('png') ? '.png'
-        : response.headers.get('content-type')?.includes('jpeg') ? '.jpg'
-        : response.headers.get('content-type')?.includes('webp') ? '.webp'
-        : '.png';
+      const ext = response.headers.get('content-type')?.includes('png')
+        ? '.png'
+        : response.headers.get('content-type')?.includes('jpeg')
+          ? '.jpg'
+          : response.headers.get('content-type')?.includes('webp')
+            ? '.webp'
+            : '.png';
 
       const tempPath = join(tempDir, `video-src-${randomUUID()}${ext}`);
       writeFileSync(tempPath, buffer);
@@ -444,6 +520,11 @@ export class VideoGenerateTool extends BaseTool {
     } catch (e) {
       logger.warn('VideoGenerateTool . imageUrl 下载异常', {
         error: String(e),
+        url: imageUrl.slice(0, 120),
+      });
+      await handleError(e, {
+        module: 'tools:videoGenerate',
+        action: 'normalizeImageUrlToPath',
       });
       return null;
     }

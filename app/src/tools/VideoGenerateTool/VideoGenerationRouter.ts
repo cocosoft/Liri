@@ -11,6 +11,8 @@ import type {
   VideoGenerationResult,
 } from '../../ai/providers/AIProvider';
 import { RegistryVideoProvider } from './providers/RegistryVideoProvider';
+import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = new Logger({
   level: LogLevel.INFO,
@@ -37,10 +39,13 @@ export class VideoGenerationRouter {
     }
 
     if (filtered.length > 0) {
-      logger.warn('VideoGenerationRouter . setProviders 过滤掉不可用 Provider', {
-        filtered: filtered.map((p) => p.type),
-        reason: 'generateVideo is not a function',
-      });
+      logger.warn(
+        'VideoGenerationRouter . setProviders 过滤掉不可用 Provider',
+        {
+          filtered: filtered.map((p) => p.type),
+          reason: 'generateVideo is not a function',
+        }
+      );
     }
 
     this.providers = available;
@@ -68,20 +73,43 @@ export class VideoGenerationRouter {
       };
     }
 
+    const errors: string[] = [];
+
     for (const provider of this.providers) {
       const result = await provider.generate(params);
       if (result.success) return result;
 
+      const errDetail = `[${provider.type}] ${result.error || '未知错误'}`;
+      errors.push(errDetail);
+
       logger.warn('VideoGenerationRouter . Provider 生成失败，尝试下一个', {
         provider: provider.type,
         error: result.error,
+        model: params.model,
       });
     }
+
+    const allErrors = `所有视频生成 Provider 均失败 (${errors.length} 个已尝试): ${errors.join('; ')}`;
+
+    logger.error('VideoGenerationRouter . 全部 Provider 失败', {
+      providerCount: this.providers.length,
+      errors,
+      prompt: (params as any).prompt?.slice(0, 80),
+    });
+    await handleError(
+      new AppError(
+        allErrors,
+        ErrorCategory.API,
+        ErrorSeverity.HIGH,
+        'VIDEO_ALL_PROVIDERS_FAILED'
+      ),
+      { module: 'tools:videoGenerate', action: 'routerGenerate' }
+    );
 
     return {
       success: false,
       data: [],
-      error: '所有视频生成 Provider 均失败',
+      error: allErrors,
       durationMs: 0,
     };
   }

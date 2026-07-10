@@ -87,9 +87,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         )}
 
         {isFailed && task.error && (
-          <p className="mt-0.5 truncate text-xs text-red-400">
-            {task.error.slice(0, 60)}
-          </p>
+          <details className="mt-0.5">
+            <summary className="cursor-pointer text-xs text-red-400 hover:text-red-500">
+              {task.error.slice(0, 80)}
+              {task.error.length > 80 ? "…" : ""}
+            </summary>
+            <pre className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap rounded bg-red-50 p-2 text-xs text-red-700 dark:bg-red-900/20 dark:text-red-300">
+              {task.error}
+            </pre>
+          </details>
         )}
       </div>
 

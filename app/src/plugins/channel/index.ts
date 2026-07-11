@@ -36,10 +36,7 @@ export {
   ChannelPluginValidator,
   channelPluginValidator,
 } from './ChannelPluginValidator.js';
-export type {
-  ValidationResult,
-  ValidationRule,
-} from './ChannelPluginValidator.js';
+export type { ValidationRule } from './ChannelPluginValidator.js';
 
 export {
   ChannelPluginPresence,

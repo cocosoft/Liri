@@ -95,7 +95,6 @@ export type {
   EdgeSchema,
   XrefRule,
   SchemaContainer,
-  ValidationResult,
 } from './schema';
 
 export { WikiRenderer } from './wiki';

@@ -137,7 +137,7 @@ export {
 // withRetry 标准实现在 query/withRetry.ts
 
 export { LLMInputValidator } from './utils/LLMInputValidator';
-export type { ValidationResult as LLMValidationResult } from './utils/LLMInputValidator';
+export type { ValidationResult as LLMValidationResult } from '@modules/common/types';
 export { LLMOutputValidator } from './utils/LLMOutputValidator';
 export type { OutputValidationResult } from './utils/LLMOutputValidator';
 export { LLMPerformanceMonitor } from './utils/LLMPerformanceMonitor';

@@ -4,15 +4,7 @@
  */
 
 import type { ChannelPlugin } from './ChannelPluginCatalog.js';
-
-/**
- * 验证结果
- */
-export interface ValidationResult {
-  valid: boolean;
-  errors: string[];
-  warnings: string[];
-}
+import type { ValidationResult } from '@modules/common/types';
 
 /**
  * 验证规则

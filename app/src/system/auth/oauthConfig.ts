@@ -5,6 +5,7 @@
  */
 
 import type { OAuthConfig } from './oauth-types.js';
+import type { ValidationResult } from '@modules/common/types';
 import { configManager } from '@modules/config';
 
 const Liri_INFERENCE_SCOPE = 'user:inference';
@@ -66,14 +67,6 @@ function getDefaultClientId(): string {
     loadClientIdFromKeychain() ||
     '00000000-0000-0000-0000-000000000000'
   );
-}
-
-/**
- * OAuth配置验证结果
- */
-export interface ValidationResult {
-  valid: boolean;
-  errors: string[];
 }
 
 /**

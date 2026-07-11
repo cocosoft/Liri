@@ -30,5 +30,4 @@ export type {
   EdgeSchema,
   XrefRule,
   SchemaContainer,
-  ValidationResult,
 } from './SchemaLoader';

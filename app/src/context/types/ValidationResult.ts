@@ -1,8 +1,6 @@
-export interface ValidationResult {
-  valid: boolean;
-  errors: string[];
-  warnings: string[];
-}
+import type { ValidationResult } from '@modules/common/types';
+
+export type { ValidationResult };
 
 export function createValidResult(): ValidationResult {
   return { valid: true, errors: [], warnings: [] };

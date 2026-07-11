@@ -40,6 +40,7 @@ import { load } from 'js-yaml';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveKnowledgeDir, resolveDomainSchemaDir } from '@modules/core';
+import type { ValidationResult } from '@modules/common/types';
 
 const logger = new Logger({
   module: 'knowledge:schema:schemaLoader',
@@ -124,16 +125,6 @@ export interface SchemaContainer {
   edges: Map<string, EdgeSchema>;
   /** 链接契约列表 */
   xref: XrefRule[];
-}
-
-/**
- * 校验结果
- */
-export interface ValidationResult {
-  /** 是否通过 */
-  valid: boolean;
-  /** 错误信息列表 */
-  errors: string[];
 }
 
 /**

@@ -16,8 +16,6 @@ interface MenuItem {
 const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
   { id: "home", label: "首页", icon: HomeIcon, path: "/" },
   { id: "chat", label: "聊天", icon: ChatIcon, path: "/chat" },
-  { id: "image", label: "图像", icon: ImageIcon, path: "/image" },
-  { id: "video", label: "视频", icon: VideoIcon, path: "/video" },
   { id: "media", label: "媒体", icon: ImageIcon, path: "/media" },
   { id: "translate", label: "翻译", icon: TranslateIcon, path: "/translate" },
   { id: "knowledge", label: "知识库", icon: KnowledgeIcon, path: "/knowledge" },
@@ -27,8 +25,6 @@ const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
 const MENU_LABEL_KEYS: Record<string, string> = {
   home: "nav.home",
   chat: "nav.chat",
-  image: "image.title",
-  video: "video.title",
   translate: "translate.title",
   knowledge: "knowledge.title",
   models: "model.title",

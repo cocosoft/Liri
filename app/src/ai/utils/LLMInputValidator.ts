@@ -4,11 +4,7 @@
  */
 
 import type { ChatMessage, ToolDefinition } from '../models/types';
-
-export interface ValidationResult {
-  valid: boolean;
-  errors: string[];
-}
+import type { ValidationResult } from '@modules/common/types';
 
 /**
  * LLM输入验证器

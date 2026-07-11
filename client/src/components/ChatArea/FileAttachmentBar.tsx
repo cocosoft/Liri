@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState, forwardRef, useImperativeHandle } from "react";
 import { readFileAsBase64 } from "../../utils/fileUtils";
 
 interface FileAttachment {
@@ -16,21 +16,34 @@ interface FileAttachmentBarProps {
   disabled?: boolean;
 }
 
+/** 暴露给父组件的方法 */
+export interface FileAttachmentBarHandle {
+  triggerFileInput: () => void;
+}
+
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
 /**
  * FileAttachmentBar — 聊天输入框的附件管理栏
  *
- * 负责文件选择、拖拽上传、附件列表展示和移除。
- * 不包含发送逻辑，仅管理附件状态。
+ * 负责文件拖拽上传、附件列表展示和移除。
+ * 上传按钮已移至父组件（ChatInput）的统一「+」菜单中，
+ * 通过 ref.triggerFileInput() 触发文件选择。
  */
-export default function FileAttachmentBar({
+const FileAttachmentBar = forwardRef<FileAttachmentBarHandle, FileAttachmentBarProps>(function FileAttachmentBar({
   attachments,
   onAttachmentsChange,
-  disabled,
-}: FileAttachmentBarProps) {
+  disabled: _disabled,
+}, ref) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+
+  /** 暴露 triggerFileInput 给父组件的统一「+」菜单调用 */
+  useImperativeHandle(ref, () => ({
+    triggerFileInput: () => {
+      fileInputRef.current?.click();
+    },
+  }));
 
   /**
    * 格式化文件大小为人类可读格式
@@ -125,33 +138,14 @@ export default function FileAttachmentBar({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
-      {/* 工具栏按钮 */}
-      <div className="flex items-center gap-1 mb-2">
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={disabled}
-          className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:text-gray-300 dark:disabled:text-gray-600 rounded-lg transition-colors"
-          title="上传文件"
-          aria-label="上传文件"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-            />
-          </svg>
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={handleFileSelect}
-        />
-        <div className="flex-1" />
-      </div>
+      {/* 隐藏的文件选择输入（由父组件统一「+」菜单触发） */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={handleFileSelect}
+      />
 
       {/* 附件列表 */}
       {attachments.length > 0 && (
@@ -190,4 +184,6 @@ export default function FileAttachmentBar({
       )}
     </div>
   );
-}
+});
+
+export default FileAttachmentBar;

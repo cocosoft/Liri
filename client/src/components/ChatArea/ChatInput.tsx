@@ -9,8 +9,11 @@ import { fileService } from "../../services/fileService";
 import { imageService } from "../../services/imageService";
 import VoiceInputButton, { type VoiceInputHandle } from "../VoiceInputButton";
 import FileAttachmentBar from "./FileAttachmentBar";
+import type { FileAttachmentBarHandle } from "./FileAttachmentBar";
 import SlashCommandMenu, { SLASH_COMMANDS } from "./SlashCommandMenu";
+import MentionMenu, { type MentionItem } from "./MentionMenu";
 import { useChatDraft } from "./useChatDraft";
+import { readFileAsBase64 } from "../../utils/fileUtils";
 import type { Message, AttachedImage } from "../../types";
 
 const EmojiPicker = React.lazy(() => import("./EmojiPicker"));
@@ -45,6 +48,16 @@ function isImageFile(file: File): boolean {
   return file.type.startsWith("image/");
 }
 
+/** 聊天模式选项 */
+const CHAT_MODES = [
+  { key: "auto", icon: "🤖", labelKey: "chat.modeAuto" },
+  { key: "deep", icon: "🧠", labelKey: "chat.modeDeep" },
+  { key: "code", icon: "💻", labelKey: "chat.modeCode" },
+  { key: "creative", icon: "🎨", labelKey: "chat.modeCreative" },
+] as const;
+
+type ChatMode = (typeof CHAT_MODES)[number]["key"];
+
 function ChatInput() {
   const { t } = useTranslation();
   const [showCommands, setShowCommands] = useState(false);
@@ -52,13 +65,24 @@ function ChatInput() {
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [imageItems, setImageItems] = useState<ImageItem[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showUploadMenu, setShowUploadMenu] = useState(false);
+  const [showModeMenu, setShowModeMenu] = useState(false);
+  const [chatMode, setChatMode] = useState<ChatMode>("auto");
+  /** @ 引用自动补全状态 */
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [mentionStartPos, setMentionStartPos] = useState(0);
   const [isImageDragOver, setIsImageDragOver] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileBarRef = useRef<FileAttachmentBarHandle>(null);
+  const uploadMenuRef = useRef<HTMLDivElement>(null);
   const wasShowingCommandsRef = useRef(false);
   const voiceBtnRef = useRef<VoiceInputHandle>(null);
 
   const { streamMessage, isSending, isStreaming, isUploading, clearMessages, messageQueue, stopMessage } = useChatStore();
+  const sessionFiles = useChatStore((s) => s.sessionFiles);
   const { currentSession, createSession } = useSessionStore();
   const { config } = useConfigStore();
   const setActivePage = useAppStore((s) => s.setActivePage);
@@ -71,6 +95,27 @@ function ChatInput() {
   // 回复/编辑状态同步
   const [replyMessage, setReplyMessage] = useState<Message | null>(null);
   const [editTarget, setEditTarget] = useState<Message | null>(null);
+  /** 编辑模式下是否"另存为分支"发送 */
+  const [branchOnEdit, setBranchOnEdit] = useState(false);
+
+  // 每次进入编辑模式时重置 branchOnEdit
+  useEffect(() => {
+    if (editTarget?.id) {
+      setBranchOnEdit(false);
+    }
+  }, [editTarget?.id]);
+
+  /** 点击外部区域关闭上传菜单 */
+  useEffect(() => {
+    if (!showUploadMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (uploadMenuRef.current && !uploadMenuRef.current.contains(e.target as Node)) {
+        setShowUploadMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showUploadMenu]);
 
   useEffect(() => {
     const unsub = useChatStore.subscribe((state) => {
@@ -155,33 +200,71 @@ function ChatInput() {
     });
   }, []);
 
-  /** 粘贴图片处理 */
+  /**
+   * 处理非图片文件：读取为 base64 后加入附件列表
+   */
+  const handleFileAttachments = useCallback(async (files: File[]) => {
+    const MAX_FILE_SIZE = 20 * 1024 * 1024;
+    const newAttachments: FileAttachment[] = [];
+
+    for (const file of files) {
+      if (file.size > MAX_FILE_SIZE) {
+        alert(t('chat.fileTooLarge', { name: file.name, max: '20MB' }));
+        continue;
+      }
+      try {
+        const data = await readFileAsBase64(file);
+        newAttachments.push({ name: file.name, size: file.size, data });
+      } catch {
+        alert(t('chat.fileReadFailed', { name: file.name }));
+      }
+    }
+
+    if (newAttachments.length > 0) {
+      setAttachments((prev) => [...prev, ...newAttachments]);
+    }
+  }, [t]);
+
+  /** 粘贴图片+文件处理 */
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
     if (!items) return;
 
-    const files: File[] = [];
+    const imageFiles: File[] = [];
+    const otherFiles: File[] = [];
+
     for (let i = 0; i < items.length; i++) {
-      if (items[i].type.startsWith("image/")) {
-        try {
-          const file = items[i].getAsFile();
-          if (file) files.push(file);
-        } catch {
-          // NotAllowedError: 非 HTTPS 环境剪贴板权限不足
-          // 自动弹出文件选择对话框作为回退
-          e.preventDefault();
-          imageInputRef.current?.click();
-          return;
+      const item = items[i];
+      if (item.kind !== "file") continue;
+
+      try {
+        const file = item.getAsFile();
+        if (!file) continue;
+
+        if (isImageFile(file)) {
+          imageFiles.push(file);
+        } else {
+          otherFiles.push(file);
         }
+      } catch {
+        // NotAllowedError: 非 HTTPS 环境剪贴板权限不足，弹出文件选择作为回退
+        e.preventDefault();
+        fileBarRef.current?.triggerFileInput();
+        return;
       }
     }
-    if (files.length > 0) {
-      e.preventDefault();
-      handleImageFiles(files);
-    }
-  }, [handleImageFiles]);
 
-  /** 拖入图片处理 */
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      handleImageFiles(imageFiles);
+    }
+    if (otherFiles.length > 0) {
+      e.preventDefault();
+      handleFileAttachments(otherFiles);
+    }
+  }, [handleImageFiles, handleFileAttachments]);
+
+  /** 拖入文件（图片+文件）统一处理 */
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -199,9 +282,14 @@ function ChatInput() {
     e.stopPropagation();
     setIsImageDragOver(false);
     if (e.dataTransfer?.files) {
-      handleImageFiles(e.dataTransfer.files);
+      const allFiles = Array.from(e.dataTransfer.files);
+      const imgFiles = allFiles.filter(isImageFile);
+      const otherFiles = allFiles.filter((f) => !isImageFile(f));
+
+      if (imgFiles.length > 0) handleImageFiles(imgFiles);
+      if (otherFiles.length > 0) handleFileAttachments(otherFiles);
     }
-  }, [handleImageFiles]);
+  }, [handleImageFiles, handleFileAttachments]);
 
   /** 并发上传所有待上传图片，返回 AttachedImage[] */
   const uploadImages = useCallback(async (): Promise<AttachedImage[]> => {
@@ -262,6 +350,14 @@ function ChatInput() {
     // 流式传输中：消息排队模式下不阻塞，旧模式下阻止
     if (isStreaming && !messageQueueEnabled) return;
 
+    // 编辑重发：内容未变守卫
+    if (editTarget && typeof editTarget.content === "string") {
+      if (trimmed === editTarget.content.trim()) {
+        alert(t('chat.contentUnchanged'));
+        return;
+      }
+    }
+
     const matched = SLASH_COMMANDS.find((cmd) => cmd.key === trimmed);
     if (matched) {
       // 命令由 ChatInput 执行（因为涉及 createSession、setActivePage 等 store 调用）
@@ -290,6 +386,16 @@ function ChatInput() {
 
     try {
       let sessionId = currentSession?.id;
+
+      // 编辑重发 + 另存为分支：创建新分支会话
+      if (editTarget && branchOnEdit) {
+        const branchTitle = currentSession
+          ? `${t('chat.branchPrefix')}${currentSession.title}`
+          : t('chat.newBranchSession');
+        const branchSession = await createSession(branchTitle);
+        await useSessionStore.getState().switchSession(branchSession.id);
+        sessionId = branchSession.id;
+      }
 
       if (!sessionId) {
         const newSession = await createSession(t('chat.newSession'));
@@ -404,6 +510,42 @@ function ChatInput() {
    * 键盘事件处理
    */
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    /** @ 引用菜单键盘导航 */
+    if (showMentions) {
+      // 计算过滤后的条目数（与 MentionMenu 内逻辑一致）
+      const q = mentionQuery.toLowerCase();
+      const filtered = sessionFiles.filter((f) => f.name.toLowerCase().includes(q));
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMentionIndex((i) => (i + 1) % (filtered.length || 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMentionIndex((i) => (i - 1 + (filtered.length || 1)) % (filtered.length || 1));
+        return;
+      }
+      if (e.key === "Tab" || e.key === "Enter") {
+        e.preventDefault();
+        if (filtered.length > 0) {
+          const item: MentionItem = {
+            id: filtered[mentionIndex].path,
+            label: filtered[mentionIndex].name,
+            type: "file",
+            path: filtered[mentionIndex].path,
+          };
+          handleMentionSelect(item);
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowMentions(false);
+        return;
+      }
+    }
+
     if (showCommands) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -460,6 +602,7 @@ function ChatInput() {
 
   /**
    * 输入框内容变化处理
+   * 同时检测 / 命令和 @ 引用触发
    */
   const handleInputChange = (value: string) => {
     const willShowCommands = value.startsWith("/") && value.indexOf(" ") === -1;
@@ -470,7 +613,51 @@ function ChatInput() {
       setCommandIndex(0);
     }
     wasShowingCommandsRef.current = willShowCommands;
+
+    /** 检测 @ 引用触发：找到光标前最近的合法 @ 位置 */
+    const textarea = textareaRef.current;
+    const cursorPos = textarea?.selectionStart ?? value.length;
+
+    let atPos = -1;
+    for (let i = cursorPos - 1; i >= 0; i--) {
+      if (value[i] === "@" && (i === 0 || /\s/.test(value[i - 1]))) {
+        atPos = i;
+        break;
+      }
+      if (/\s/.test(value[i])) break;
+    }
+
+    if (atPos >= 0 && sessionFiles.length > 0) {
+      const query = value.slice(atPos + 1, cursorPos);
+      if (!query.includes(" ")) {
+        setShowMentions(true);
+        setMentionQuery(query);
+        setMentionStartPos(atPos);
+        setMentionIndex(0);
+        return;
+      }
+    }
+    setShowMentions(false);
   };
+
+  /** @ 引用选中回调：替换 @query 为 Markdown 链接 */
+  const handleMentionSelect = useCallback((item: MentionItem) => {
+    const before = input.slice(0, mentionStartPos);
+    const after = input.slice(mentionStartPos + 1 + mentionQuery.length);
+    const reference = `[${item.label}](file://${item.path})`;
+    const newValue = before + reference + after;
+    setInput(newValue);
+    setShowMentions(false);
+    // 将光标移到插入文本之后
+    setTimeout(() => {
+      const textarea = textareaRef.current;
+      if (textarea) {
+        const newPos = mentionStartPos + reference.length;
+        textarea.focus();
+        textarea.setSelectionRange(newPos, newPos);
+      }
+    }, 0);
+  }, [input, mentionStartPos, mentionQuery, setInput]);
 
   return (
     <div
@@ -526,6 +713,7 @@ function ChatInput() {
 
         {/* 文件附件栏 */}
         <FileAttachmentBar
+          ref={fileBarRef}
           attachments={attachments}
           onAttachmentsChange={setAttachments}
           disabled={!currentSession || (!messageQueueEnabled && isSending) || isUploading}
@@ -543,6 +731,16 @@ function ChatInput() {
               setShowCommands(false);
             }}
             onHover={setCommandIndex}
+          />
+
+          {/* @ 引用自动补全菜单 */}
+          <MentionMenu
+            query={mentionQuery}
+            show={showMentions}
+            selectedIndex={mentionIndex}
+            sessionFiles={sessionFiles}
+            onSelect={handleMentionSelect}
+            onHover={setMentionIndex}
           />
 
           {/* Emoji 选择器 */}
@@ -582,32 +780,86 @@ function ChatInput() {
           )}
           {/* 编辑消息预览 */}
           {editTarget && (
-            <div className="mb-2 flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-              <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                {t('chat.editMessage')}:
-              </span>
-              <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-xs">
-                {typeof editTarget.content === "string"
-                  ? editTarget.content.length > 50
-                    ? editTarget.content.slice(0, 50) + "..."
-                    : editTarget.content
-                  : t('chat.complexContent')}
-              </span>
-              <button
-                onClick={() => {
-                  setEditTarget(null);
-                  useChatStore.getState().setEditTarget(null);
-                  setInput("");
-                }}
-                className="ml-auto p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded transition-colors"
-                title={t('chat.cancelEdit')}
-              >
-                ✕
-              </button>
+            <div className="mb-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                  {t('chat.editMessage')}:
+                </span>
+                <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-xs">
+                  {typeof editTarget.content === "string"
+                    ? editTarget.content.length > 50
+                      ? editTarget.content.slice(0, 50) + "..."
+                      : editTarget.content
+                    : t('chat.complexContent')}
+                </span>
+                <button
+                  onClick={() => {
+                    setEditTarget(null);
+                    useChatStore.getState().setEditTarget(null);
+                    setInput("");
+                  }}
+                  className="ml-auto p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded transition-colors"
+                  title={t('chat.cancelEdit')}
+                >
+                  ✕
+                </button>
+              </div>
+              {/* 另存为分支勾选框 */}
+              <label className="flex items-center gap-2 mt-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={branchOnEdit}
+                  onChange={(e) => setBranchOnEdit(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600 text-amber-500 focus:ring-amber-500"
+                />
+                {"另存为分支"}
+              </label>
             </div>
           )}
           {/* 输入框 + 发送按钮 */}
-          <div className="flex items-end gap-3 bg-gray-100 dark:bg-gray-700 rounded-xl p-1.5">
+          <div className="flex items-end gap-3 bg-gray-100 dark:bg-gray-700 rounded-2xl p-1.5 ring-1 ring-transparent focus-within:ring-blue-500/40 dark:focus-within:ring-blue-400/30 focus-within:shadow-md transition-all duration-200">
+            {/* 模式选择器 */}
+            <div className="relative shrink-0 self-center ml-1">
+              <button
+                onClick={() => setShowModeMenu(!showModeMenu)}
+                disabled={!currentSession}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl hover:border-blue-300 dark:hover:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={t('chat.selectMode')}
+              >
+                <span>{CHAT_MODES.find((m) => m.key === chatMode)?.icon}</span>
+                <span className="text-gray-700 dark:text-gray-300 text-xs font-medium hidden sm:inline">
+                  {t(CHAT_MODES.find((m) => m.key === chatMode)!.labelKey)}
+                </span>
+                <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showModeMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowModeMenu(false)} />
+                  <div className="absolute bottom-full left-0 mb-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-20">
+                    {CHAT_MODES.map((mode) => (
+                      <button
+                        key={mode.key}
+                        onClick={() => {
+                          setChatMode(mode.key);
+                          setShowModeMenu(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors ${
+                          chatMode === mode.key
+                            ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        <span>{mode.icon}</span>
+                        <span>{t(mode.labelKey)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
             {/* 文本输入 */}
             <div className="flex-1 relative">
               <textarea
@@ -646,16 +898,58 @@ function ChatInput() {
                   e.target.value = "";
                 }}
               />
-              {/* 图片上传按钮 */}
+              {/* 统一上传「+」按钮 — 点击展开菜单选择上传图片或文件 */}
+              <div className="relative" ref={uploadMenuRef}>
+                <button
+                  onClick={() => setShowUploadMenu(!showUploadMenu)}
+                  aria-label={t('chat.uploadFile')}
+                  disabled={!currentSession || isUploading}
+                  className="p-2.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={t('chat.uploadFile')}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+                {showUploadMenu && (
+                  <div className="absolute bottom-full left-0 mb-1 w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-20">
+                    <button
+                      onClick={() => {
+                        imageInputRef.current?.click();
+                        setShowUploadMenu(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {t('chat.uploadImage')}
+                    </button>
+                    <button
+                      onClick={() => {
+                        fileBarRef.current?.triggerFileInput();
+                        setShowUploadMenu(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                      </svg>
+                      {t('chat.uploadFile')}
+                    </button>
+                  </div>
+                )}
+              </div>
+              {/* Emoji 选择器按钮 */}
               <button
-                onClick={() => imageInputRef.current?.click()}
-                aria-label={t('chat.uploadImage')}
-                disabled={!currentSession || isUploading}
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                aria-label={t('chat.emoji')}
+                disabled={!currentSession}
                 className="p-2.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title={t('chat.uploadImage')}
+                title={t('chat.emoji')}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </button>
               <VoiceInputButton

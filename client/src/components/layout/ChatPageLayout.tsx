@@ -5,7 +5,9 @@ import SessionHeader from "../ChatArea/SessionHeader";
 import ChatArea from "../ChatArea/ChatArea";
 import StatusFloatBar from "../ChatArea/StatusFloatBar";
 import ChatInput from "../ChatArea/ChatInput";
+import GlobalSearchModal from "../ChatArea/GlobalSearchModal";
 import VoiceSubtitleOverlay from "../VoiceSubtitleOverlay";
+import { useState, useCallback, useEffect } from "react";
 
 /** 聊天页面布局：从 App.tsx 内联 JSX 提取 */
 export default function ChatPageLayout() {
@@ -15,12 +17,28 @@ export default function ChatPageLayout() {
   const finalText = useAppStore((s) => s.finalText);
   const audioLevel = useAppStore((s) => s.audioLevel);
   const subtitleStatus = useAppStore((s) => s.subtitleStatus);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  /** Ctrl+K / Cmd+K 唤起全局搜索 */
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const handleOpenSearch = useCallback(() => setSearchOpen(true), []);
+  const handleCloseSearch = useCallback(() => setSearchOpen(false), []);
 
   return (
     <div className="flex flex-1 page-transition-enter overflow-hidden">
       <SessionHistorySidebar />
       <main className="flex-1 flex flex-col min-w-0">
-        <SessionHeader />
+        <SessionHeader onSearchOpen={handleOpenSearch} />
         <ChatArea />
         <StatusFloatBar />
         <div className="relative">
@@ -35,6 +53,9 @@ export default function ChatPageLayout() {
           <ChatInput />
         </div>
       </main>
+
+      {/* 全局搜索弹窗 */}
+      <GlobalSearchModal isOpen={searchOpen} onClose={handleCloseSearch} isDark={isDark} />
     </div>
   );
 }

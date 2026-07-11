@@ -5,6 +5,22 @@ import type { Message } from "../../types";
 import { SkeletonMessageList } from "../common/Skeleton";
 import { useSessionStore } from "../../stores/sessionStore";
 import { ErrorBoundary } from "../common/ErrorBoundary";
+import { shouldShowDateSeparator, formatDateLabel } from "./dateUtils";
+
+/** 入门提示卡片数据 */
+interface StarterPrompt {
+  icon: string;
+  labelKey: string;
+  promptTextKey: string;
+}
+
+/** 默认入门提示卡片列表（图标 + 标签 key + 提示文本 key） */
+const STARTER_PROMPTS: StarterPrompt[] = [
+  { icon: "💡", labelKey: "chat.starterExplain", promptTextKey: "chat.starterExplainText" },
+  { icon: "📝", labelKey: "chat.starterWrite", promptTextKey: "chat.starterWriteText" },
+  { icon: "🔍", labelKey: "chat.starterResearch", promptTextKey: "chat.starterResearchText" },
+  { icon: "🎨", labelKey: "chat.starterCreate", promptTextKey: "chat.starterCreateText" },
+];
 
 /** 消息级别的轻量级错误降级 UI */
 function MessageErrorFallback({ error }: { error: Error | null }) {
@@ -22,22 +38,20 @@ function MessageErrorFallback({ error }: { error: Error | null }) {
   );
 }
 
-/** 从消息中提取所有可搜索文本 */
+/** 从消息中提取所有可搜索文本（含 block 内容） */
 function getMessageSearchText(message: Message): string {
   const parts: string[] = [];
 
   if (message.content) {
-    parts.push(message.content);
+    parts.push(typeof message.content === "string" ? message.content : "");
   }
 
   if (message.blocks && message.blocks.length > 0) {
     for (const block of message.blocks) {
-      if (block.type === "text" && block.content) {
-        if (!message.content || !message.content.includes(block.content)) {
+      if (block.content) {
+        if (!message.content || (typeof message.content === "string" && !message.content.includes(block.content))) {
           parts.push(block.content);
         }
-      } else if (block.type === "thinking" && block.content) {
-        parts.push(block.content);
       }
     }
   }
@@ -128,36 +142,9 @@ function SearchBar({
 }
 
 /**
- * 将消息列表导出为 Markdown 格式
+ * 搜索栏组件
+ * 在消息列表顶部叠加显示搜索输入框和结果导航
  */
-function exportAsMarkdown(messages: Message[], roleLabels: Record<string, string>): string {
-  return messages
-    .map((msg) => {
-      const roleLabel =
-        msg.role === "user" ? `👤 ${roleLabels.user}` :
-        msg.role === "assistant" ? `🤖 ${roleLabels.assistant}` :
-        msg.role === "system" ? `⚙️ ${roleLabels.system}` : `🛠 ${roleLabels.tool}`;
-      const date = new Date(msg.timestamp).toLocaleString();
-      const text = getMessageSearchText(msg);
-      return `### ${roleLabel}  (${date})\n\n${text}\n`;
-    })
-    .join("\n---\n");
-}
-
-/**
- * 将消息列表导出为 JSON 格式
- */
-function exportAsJson(messages: Message[]): string {
-  const cleaned = messages.map(({ id, role, content, timestamp, error, tool_calls }) => ({
-    id,
-    role,
-    content: getMessageSearchText({ content, blocks: undefined } as Message) || content,
-    timestamp,
-    error,
-    toolCalls: tool_calls,
-  }));
-  return JSON.stringify(cleaned, null, 2);
-}
 
 interface ChatMessageListProps {
   messages: Message[];
@@ -176,6 +163,8 @@ interface ChatMessageListProps {
   sessionTitle?: string;
   /** 创建新会话回调（欢迎页按钮） */
   onCreateSession?: () => void;
+  /** 发送入门提示消息回调 */
+  onSendMessage?: (text: string) => void;
 }
 
 /** 聊天消息列表：消息渲染 + 空状态展示 + 搜索 + 导出 */
@@ -186,6 +175,7 @@ export default function ChatMessageList({
   hasSession,
   sessionTitle,
   onCreateSession,
+  onSendMessage,
 }: ChatMessageListProps) {
   const { t } = useTranslation();
   const listRef = useRef<HTMLDivElement>(null);
@@ -195,10 +185,6 @@ export default function ChatMessageList({
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
-
-  // 导出菜单状态
-  const [exportOpen, setExportOpen] = useState(false);
-  const exportRef = useRef<HTMLDivElement>(null);
 
   /** 计算搜索匹配的消息 ID 列表 */
   const matchedIds = useMemo(() => {
@@ -273,51 +259,8 @@ export default function ChatMessageList({
     setCurrentMatchIndex(0);
   }, [searchQuery]);
 
-  /** 导出菜单点击外部关闭 */
-  useEffect(() => {
-    if (!exportOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
-        setExportOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [exportOpen]);
-
   /** 匹配集用于高亮标记 */
   const matchedSet = useMemo(() => new Set(matchedIds), [matchedIds]);
-
-  /** 导出 Markdown */
-  const handleExportMarkdown = useCallback(() => {
-    const md = exportAsMarkdown(messages, {
-      user: t('chat.user'),
-      assistant: t('chat.assistant'),
-      system: t('chat.system'),
-      tool: t('chat.tool'),
-    });
-    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `chat-export-${Date.now()}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setExportOpen(false);
-  }, [messages, t]);
-
-  /** 导出 JSON */
-  const handleExportJson = useCallback(() => {
-    const json = exportAsJson(messages);
-    const blob = new Blob([json], { type: "application/json;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `chat-export-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setExportOpen(false);
-  }, [messages]);
 
   // 重置导出菜单标识
   if (!hasSession) {
@@ -329,6 +272,11 @@ export default function ChatMessageList({
               src="/liri_logo.png"
               alt="Liri Logo"
               className="w-20 h-20 object-contain"
+              onError={(e) => {
+                // 头像加载失败时显示首字母 fallback
+                (e.target as HTMLImageElement).style.display = "none";
+                (e.target as HTMLImageElement).parentElement!.innerHTML = "<div class='w-20 h-20 rounded-full bg-blue-500 flex items-center justify-center text-white text-3xl font-bold'>L</div>";
+              }}
             />
           </div>
           <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
@@ -354,7 +302,7 @@ export default function ChatMessageList({
     );
   }
 
-  // 空消息状态
+  // "有 session 无消息"状态：灰色圆角容器 + 提示
   if (messages.length === 0) {
     if (isStreaming || switching) {
       return <SkeletonMessageList count={2} />;
@@ -369,9 +317,28 @@ export default function ChatMessageList({
           <h2 className="text-lg font-medium text-gray-800 dark:text-gray-200 mb-2">
             {sessionTitle}
           </h2>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">
-            {t('chat.noMessages')}
-          </p>
+          <div className="rounded-2xl bg-gray-50 dark:bg-gray-800 px-6 py-3 mt-3">
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
+              {t('chat.noMessages')}
+            </p>
+          </div>
+
+          {/* 入门提示卡片：点击直接发送预设消息 */}
+          <div className="mt-5 grid grid-cols-2 gap-2 max-w-sm mx-auto">
+            {STARTER_PROMPTS.map((prompt) => (
+              <button
+                key={prompt.labelKey}
+                onClick={() => onSendMessage?.(t(prompt.promptTextKey))}
+                className="flex items-center gap-2 px-3 py-2.5 text-left text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all active:scale-[0.98]"
+              >
+                <span className="text-base shrink-0">{prompt.icon}</span>
+                <span className="text-gray-700 dark:text-gray-300 font-medium truncate">
+                  {t(prompt.labelKey)}
+                </span>
+              </button>
+            ))}
+          </div>
+
           <div className="mt-4 flex items-center justify-center gap-2">
             <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-xs text-gray-500">
               {t('chat.markdownSupport')}
@@ -400,7 +367,7 @@ export default function ChatMessageList({
         />
       )}
 
-      {/* 搜索按钮 + 导出按钮（固定在右上角，搜索栏打开时隐藏） */}
+      {/* 搜索按钮（固定在右上角，搜索栏打开时隐藏） */}
       {!searchOpen && (
         <div className="sticky top-0 z-10 flex items-center justify-end gap-1 px-4 py-1.5 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
           <button
@@ -412,65 +379,53 @@ export default function ChatMessageList({
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </button>
-
-          {/* 导出按钮 + 下拉菜单 */}
-          <div ref={exportRef} className="relative">
-            <button
-              onClick={() => setExportOpen((prev) => !prev)}
-              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              title={t('chat.exportSession')}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </button>
-
-            {exportOpen && (
-              <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-30">
-                <button
-                  onClick={handleExportMarkdown}
-                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                >
-                  导出为 Markdown
-                </button>
-                <button
-                  onClick={handleExportJson}
-                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                >
-                  {t('chat.exportAsJson')}
-                </button>
-              </div>
-            )}
-          </div>
         </div>
       )}
 
       {/* 消息列表（原生滚动，content-visibility 优化离屏渲染） */}
       <div className="py-4">
-        {messages.map((message) => {
+        {messages.map((message, i) => {
           const isMatched = matchedSet.has(message.id);
           const isCurrentMatch = matchedIds.length > 0 && matchedIds[currentMatchIndex] === message.id;
           const hasReplies = messages.some((m) => m.replyToId === message.id);
 
           return (
-            <div
-              key={message.id}
-              data-msg-id={message.id}
-              className={`transition-colors animate-message-enter ${
-                isMatched
-                  ? "bg-yellow-50/40 dark:bg-yellow-900/10 border-l-2 border-yellow-400 dark:border-yellow-500"
-                  : "border-l-2 border-transparent"
-              } ${isCurrentMatch ? "bg-yellow-100/60 dark:bg-yellow-900/20 ring-1 ring-yellow-400/30" : ""}`}
-              style={{ contentVisibility: "auto", containIntrinsicSize: "auto 200px" } as React.CSSProperties}
-            >
-              <ErrorBoundary fallback={<MessageErrorFallback error={null} />}>
-                <ChatMessage
-                  message={message}
-                  isStreaming={isStreaming && message.role === "assistant"}
-                  hasReplies={hasReplies}
-                  sessionUsage={sessionUsage}
-                />
-              </ErrorBoundary>
+            <div key={message.id}>
+              {/* 日期分隔线：跨天时插入 */}
+              {shouldShowDateSeparator(i, messages) && (
+                <div
+                  className="flex items-center justify-center py-2"
+                  role="separator"
+                  aria-label={formatDateLabel(message.timestamp!)}
+                >
+                  <span className="rounded-full bg-gray-200 dark:bg-gray-700 px-3 py-0.5 text-xs text-gray-500 dark:text-gray-400">
+                    {formatDateLabel(message.timestamp!)}
+                  </span>
+                </div>
+              )}
+
+              <div
+                data-msg-id={message.id}
+                className={`transition-colors ${
+                  message.role === "user"
+                    ? "animate-message-enter-right"
+                    : "animate-message-enter-left"
+                } ${
+                  isMatched
+                    ? "bg-yellow-50/40 dark:bg-yellow-900/10 border-l-2 border-yellow-400 dark:border-yellow-500"
+                    : "border-l-2 border-transparent"
+                } ${isCurrentMatch ? "bg-yellow-100/60 dark:bg-yellow-900/20 ring-1 ring-yellow-400/30" : ""}`}
+                style={{ contentVisibility: "auto", containIntrinsicSize: "auto 200px" } as React.CSSProperties}
+              >
+                <ErrorBoundary fallback={<MessageErrorFallback error={null} />}>
+                  <ChatMessage
+                    message={message}
+                    isStreaming={isStreaming && message.role === "assistant"}
+                    hasReplies={hasReplies}
+                    sessionUsage={sessionUsage}
+                  />
+                </ErrorBoundary>
+              </div>
             </div>
           );
         })}

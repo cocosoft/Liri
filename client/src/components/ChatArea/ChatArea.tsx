@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { useMemo, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useChatStore } from "../../stores/chatStore";
 import { useSessionStore } from "../../stores/sessionStore";
@@ -9,6 +9,7 @@ import { voiceService } from "../../services/voiceService";
 import { ErrorBoundary } from "../common/ErrorBoundary";
 import ChatMessageList from "./ChatMessageList";
 import RoundNavigator from "./RoundNavigator";
+import ContextPanel from "./ContextPanel";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("components:chatArea");
@@ -16,38 +17,17 @@ const logger = createLogger("components:chatArea");
 function ChatArea() {
   const { t } = useTranslation();
   const { messages, error, isStreaming } = useChatStore();
+  const sessionFiles = useChatStore((s) => s.sessionFiles);
   const { currentSession, createSession } = useSessionStore();
   const backendRunning = useBackendStore((s) => s.status.running);
+  const [panelOpen, setPanelOpen] = useState(false);
 
-  const { containerRef } = useAutoScroll({
+  /** 统一滚动状态：isUserScrolledUp 和 scrollToBottom 均由 useAutoScroll 管理 */
+  const { containerRef, isUserScrolledUp, scrollToBottom, distanceFromBottom } = useAutoScroll({
     messageCount: messages.length,
     isStreaming,
+    sessionId: currentSession?.id,
   });
-
-  /** 是否显示"滚动到底"按钮 */
-  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
-
-  /** 检测容器是否远离底部，显示滚动按钮 */
-  const handleScroll = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    setShowScrollToBottom(distanceFromBottom > 200);
-  }, [containerRef]);
-
-  /** 滚动到底部 */
-  const scrollToBottom = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [containerRef]);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    el.addEventListener("scroll", handleScroll, { passive: true });
-    return () => el.removeEventListener("scroll", handleScroll);
-  }, [containerRef, handleScroll]);
 
   const handleDismissError = () => {
     useChatStore.setState({ error: null });
@@ -55,6 +35,17 @@ function ChatArea() {
 
   const handleCreateSession = () => {
     createSession(t('chat.newSession'));
+  };
+
+  /** 点击入门提示卡片时发送预设消息 */
+  const handleSendMessage = async (text: string) => {
+    let sessionId = currentSession?.id;
+    if (!sessionId) {
+      const newSession = await createSession(t('chat.newSession'));
+      sessionId = newSession.id;
+    }
+    const { streamMessage } = useChatStore.getState();
+    await streamMessage(text, sessionId);
   };
 
   // ---- 自动 TTS 播放 ----
@@ -187,16 +178,18 @@ function ChatArea() {
               hasSession={!!currentSession}
               sessionTitle={currentSession?.title}
               onCreateSession={handleCreateSession}
+              onSendMessage={handleSendMessage}
             />
           </ErrorBoundary>
         </div>
 
-        {/* 滚动到底部按钮 */}
-        {showScrollToBottom && (
+        {/* 回到底部按钮：复用已有样式，检测 isUserScrolledUp 后渐显，移动端避开 MobileBottomNav */}
+        {isUserScrolledUp && distanceFromBottom > 200 && (
           <button
             onClick={scrollToBottom}
             aria-label={t('chat.scrollToBottom')}
-            className="absolute bottom-16 right-6 z-10 w-10 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+            role="button"
+            className="absolute bottom-16 right-6 z-10 w-10 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-all max-md:bottom-20 opacity-80 hover:opacity-100"
             title={t('chat.scrollToBottom')}
           >
             <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -212,6 +205,14 @@ function ChatArea() {
           containerRef={containerRef}
         />
       </div>
+
+      {/* 右侧上下文面板 */}
+      <ContextPanel
+        isOpen={panelOpen}
+        onToggle={() => setPanelOpen(!panelOpen)}
+        sessionFiles={sessionFiles}
+        sessionUsage={sessionUsage}
+      />
     </div>
   );
 }

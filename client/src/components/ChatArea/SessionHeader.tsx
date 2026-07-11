@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useSessionStore } from "../../stores/sessionStore";
+import { useChatStore } from "../../stores/chatStore";
+import type { Message } from "../../types";
 
 /** 格式化日期为 yyyy-MM-dd HH:mm */
 function formatDateTime(dateStr: string): string {
@@ -13,12 +16,55 @@ function formatDateTime(dateStr: string): string {
   }
 }
 
-function SessionHeader() {
+/** 从消息中提取可搜索文本 */
+function getMessageSearchText(message: Message): string {
+  const parts: string[] = [];
+  if (message.content) parts.push(typeof message.content === "string" ? message.content : "");
+  if (message.blocks) {
+    for (const block of message.blocks) {
+      if (block.content) parts.push(block.content);
+    }
+  }
+  if (message.error) parts.push(message.error);
+  return parts.join("\n");
+}
+
+/** 导出为 Markdown */
+function exportAsMarkdown(messages: Message[], labels: Record<string, string>): string {
+  return messages
+    .map((msg) => {
+      const roleLabel =
+        msg.role === "user" ? `👤 ${labels.user}` :
+        msg.role === "assistant" ? `🤖 ${labels.assistant}` :
+        msg.role === "system" ? `⚙️ ${labels.system}` : `🛠 ${labels.tool}`;
+      const date = new Date(msg.timestamp).toLocaleString();
+      const text = getMessageSearchText(msg);
+      return `### ${roleLabel}  (${date})\n\n${text}\n`;
+    })
+    .join("\n---\n");
+}
+
+/** 导出为 JSON */
+function exportAsJson(messages: Message[]): string {
+  const cleaned = messages.map(({ id, role, content, timestamp, error, tool_calls }) => ({
+    id, role,
+    content: typeof content === "string" ? content : "",
+    timestamp, error, toolCalls: tool_calls,
+  }));
+  return JSON.stringify(cleaned, null, 2);
+}
+
+function SessionHeader({ onSearchOpen }: { onSearchOpen?: () => void }) {
   const { currentSession, renameSession } = useSessionStore();
+  const messages = useChatStore((s) => s.messages);
+  const { t } = useTranslation();
+
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [showInfo, setShowInfo] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
 
   const handleDoubleClick = () => {
     if (currentSession) {
@@ -52,6 +98,49 @@ function SessionHeader() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  // 导出按钮点击外部关闭
+  useEffect(() => {
+    if (!exportOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setExportOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [exportOpen]);
+
+  /** 导出 Markdown */
+  const handleExportMarkdown = () => {
+    const md = exportAsMarkdown(messages, {
+      user: t('chat.user'),
+      assistant: t('chat.assistant'),
+      system: t('chat.system'),
+      tool: t('chat.tool'),
+    });
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `chat-export-${Date.now()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setExportOpen(false);
+  };
+
+  /** 导出 JSON */
+  const handleExportJson = () => {
+    const json = exportAsJson(messages);
+    const blob = new Blob([json], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `chat-export-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setExportOpen(false);
   };
 
   return (
@@ -143,6 +232,53 @@ function SessionHeader() {
             选择会话或创建新会话
           </span>
         )}
+      </div>
+
+      {/* 右侧：搜索 + 导出按钮 */}
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {/* 全局搜索按钮 */}
+        <button
+          onClick={onSearchOpen}
+          className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+          title={`${t('common.search')} (Ctrl+K)`}
+          aria-label={t('common.search')}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </button>
+
+        {/* 导出按钮 */}
+        {currentSession && messages.length > 0 && (
+        <div ref={exportRef} className="relative flex-shrink-0">
+          <button
+            onClick={() => setExportOpen((prev) => !prev)}
+            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            title={t('chat.exportSession')}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </button>
+
+          {exportOpen && (
+            <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-30">
+              <button
+                onClick={handleExportMarkdown}
+                className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                导出为 Markdown
+              </button>
+              <button
+                onClick={handleExportJson}
+                className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                {t('chat.exportAsJson')}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       </div>
     </header>
   );

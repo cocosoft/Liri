@@ -20,7 +20,7 @@ import {
   RouteKey,
 } from '@modules/ai/router/resolveModelRoute.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-
+import { withRetry } from '@modules/utils/withRetry';
 import { globalEventBus } from '../../core/events/EventBus.js';
 import { AgentEventType } from '../../agent/events/types.js';
 
@@ -504,7 +504,7 @@ export class SubAgentEngine {
   }
 
   /**
-   * 调用 LLM（带重试机制）
+   * 调用 LLM（使用 withRetry 标准重试）
    */
   private async callLLM(
     client: AIProvider,
@@ -516,35 +516,14 @@ export class SubAgentEngine {
       model ||
       this.config.defaultModel ||
       (await resolveModelRoute(RouteKey.AGENT));
-    const maxRetries = 2;
 
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        return await client.chat(messages, {
-          tools: tools.length > 0 ? tools : undefined,
-          model: resolvedModel,
-        });
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        if (attempt < maxRetries) {
-          // 如果是 API 超时或速率限制，等待后重试
-          const isRetryable =
-            errorMsg.includes('timeout') ||
-            errorMsg.includes('rate') ||
-            errorMsg.includes('429') ||
-            errorMsg.includes('503') ||
-            errorMsg.includes('ETIMEDOUT') ||
-            errorMsg.includes('ECONNRESET');
-          if (isRetryable) {
-            await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
-            continue;
-          }
-        }
-        throw error;
-      }
-    }
-    // 理论上不会到这里，但 TypeScript 要求返回值
-    throw new Error('LLM 调用失败，已达最大重试次数');
+    return withRetry(
+      () => client.chat(messages, {
+        tools: tools.length > 0 ? tools : undefined,
+        model: resolvedModel,
+      }),
+      { maxRetries: 2 }
+    );
   }
 
   /**

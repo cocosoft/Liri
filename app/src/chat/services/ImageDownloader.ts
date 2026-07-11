@@ -8,6 +8,7 @@
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { resolveCacheDir } from '@modules/core/paths';
+import { withRetry } from '@modules/utils/withRetry';
 import { checkSsrf } from '../../tools/WebFetchTool/ssrf';
 import { imageFormatDetector } from '../../media/image/ImageFormatDetector';
 import * as crypto from 'crypto';
@@ -224,29 +225,14 @@ export class ImageDownloader {
       return cached;
     }
 
-    // 4. 下载（带重试）
-    let lastError: Error | null = null;
-    for (let attempt = 0; attempt < this.config.maxRetries!; attempt++) {
-      try {
-        const result = await this.downloadOnce(url, traceId, preResolve);
-        return result;
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        logger.warn('下载失败，准备重试', {
-          traceId,
-          attempt: attempt + 1,
-          maxRetries: this.config.maxRetries,
-          error: lastError.message,
-        });
-
-        if (attempt < this.config.maxRetries! - 1) {
-          const delay = this.config.retryDelayMs! * Math.pow(2, attempt);
-          await this.sleep(delay);
-        }
+    // 4. 下载（使用 withRetry 标准重试）
+    return withRetry(
+      () => this.downloadOnce(url, traceId, preResolve),
+      {
+        maxRetries: this.config.maxRetries! - 1,
+        initialDelayMs: this.config.retryDelayMs,
       }
-    }
-
-    throw lastError ?? new Error('下载失败，已达最大重试次数');
+    );
   }
 
   /**
@@ -425,12 +411,6 @@ export class ImageDownloader {
     }
   }
 
-  /**
-   * 延迟
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
 }
 
 /** 全局单例 */

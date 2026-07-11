@@ -216,6 +216,8 @@ export interface ValidationResult {
   valid: boolean;
   errors: string[];
   warnings?: string[];
+  /** 缺失的必填字段列表 */
+  missing?: string[];
 }
 
 /**

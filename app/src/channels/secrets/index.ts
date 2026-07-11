@@ -3,5 +3,6 @@
  */
 
 export { SecretContract } from './SecretContract.js';
-export type { SecretSpec, ValidationResult } from './SecretContract.js';
+export type { SecretSpec } from './SecretContract.js';
+export type { ValidationResult } from '@modules/common/types';
 export { ChannelSecretStore } from './ChannelSecretStore.js';

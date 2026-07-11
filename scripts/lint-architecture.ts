@@ -446,6 +446,15 @@ class ArchitectureLinter {
             'DEFAULT_RETRY_CONFIG',
             // G1 分析确认无法统一的类型 — 同名但不同结构，各模块独立定义
             'AuthConfig', 'SessionMessage',
+            // ValidationResult — 已统一到 common/types.ts，其余模块结构各异无法统一
+            'ValidationResult',
+            // G1 session 模块双轨制 — TranscriptEntry/TranscriptConfig 定义在活跃和孤儿文件中
+            'TranscriptEntry', 'TranscriptConfig',
+            // G1 TaskState — 三种不同概念：状态枚举(types/task.ts)、任务对象(tasks/types.ts)、系统状态(system/state/types.ts)
+            'TaskState',
+            // G1 SessionId — branded type 模式，acp/types.ts 是规范定义，另外两个是纯 string 别名
+            // R02-003 独立规则仍会追踪此违规
+            'SessionId',
         ]);
 
         for (const file of this.allFiles) {

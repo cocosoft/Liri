@@ -4,6 +4,8 @@
  * 统一管理通道所需的 API 密钥、Token、密码等敏感信息
  */
 
+import type { ValidationResult } from '@modules/common/types';
+
 /** 密钥规格定义 */
 export interface SecretSpec {
   /** 配置键名 */
@@ -24,17 +26,7 @@ export interface SecretSpec {
   type?: 'string' | 'number' | 'boolean';
 }
 
-/** 验证结果 */
-export interface ValidationResult {
-  valid: boolean;
-  /** 缺失的必填字段列表 */
-  missing: string[];
-  /** 其他错误 */
-  errors: string[];
-}
-
-/**
- * SecretContract — 通道密钥契约
+/** SecretContract — 通道密钥契约
  *
  * 标准化管理通道所需的各类密钥和凭据，提供声明式定义、
  * 自动环境变量解析和敏感数据脱敏能力。

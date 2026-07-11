@@ -30,7 +30,6 @@ export * from './CacheAwareBudget';
 export * from './ContextStatsCollector';
 export {
   TokenBudgetController,
-  type TokenUsage,
   type CacheAwareTokenUsage,
 } from './TokenBudgetController';
 export {

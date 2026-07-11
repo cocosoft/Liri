@@ -22,4 +22,5 @@
  * WebSearch 工具导出
  */
 
-export { WebSearchTool, WebSearchResult, SearchResult } from './WebSearchTool';
+export { WebSearchTool, WebSearchResult } from './WebSearchTool';
+export type { SearchResult } from './providers';

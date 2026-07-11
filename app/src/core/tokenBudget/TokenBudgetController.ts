@@ -18,7 +18,12 @@ import {
   createContextStatsCollector,
   type ContextStatsCollector,
 } from './ContextStatsCollector';
-import type { APIProviderType, TokenUsageDetail, ContextStats } from './types';
+import type {
+  APIProviderType,
+  TokenUsageDetail,
+  ContextStats,
+  TokenUsage,
+} from './types';
 
 let nativeEstimateTokens: ((text: string, model?: string) => number) | null =
   null;
@@ -46,14 +51,6 @@ export interface TokenBudgetParams {
   used?: number;
   maxInputTokens?: number;
   maxOutputTokens?: number;
-}
-
-export interface TokenUsage {
-  inputTokens: number;
-  outputTokens: number;
-  totalTokens: number;
-  budgetRemaining: number;
-  budgetPercentage: number;
 }
 
 export interface CacheAwareTokenUsage extends TokenUsage {

@@ -18,6 +18,7 @@ import type {
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
 import { Logger, LogLevel } from '@modules/monitoring';
+import type { SearchResult } from './providers';
 
 const logger = new Logger({ module: 'tools:webSearch', level: LogLevel.INFO });
 
@@ -545,13 +546,6 @@ export class WebSearchTool extends BaseTool {
   } {
     return { isSearch: true, isRead: true };
   }
-}
-
-export interface SearchResult {
-  title: string;
-  url: string;
-  snippet: string;
-  source: string;
 }
 
 export interface WebSearchResult {

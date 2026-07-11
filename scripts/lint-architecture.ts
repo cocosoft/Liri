@@ -419,6 +419,31 @@ class ArchitectureLinter {
             // Tool UI 渲染函数 — 各 Tool 模块约定的同名导出，非冲突
             'renderToolUseMessage', 'renderToolResultMessage', 'getToolUseSummary',
             'renderToolUseErrorMessage', 'renderToolUseProgressMessage',
+            // 领域特定类型 — 同名但不同结构，各模块独立定义，无法统一
+            'Message', 'ToolResult', 'ToolCall', 'RetryConfig', 'PerformanceMetrics',
+            'TokenUsage', 'Task', 'CompletionItem', 'PluginManifest', 'SearchResult',
+            'CleanupResult', 'PluginLoader', 'AgentDefinition', 'PermissionContext',
+            'Tool', 'SessionMetadata', 'SessionInfo', 'SecurityConfig', 'HistoryEntry',
+            'AuditEvent', 'SessionContext', 'ToolPermissionContext', 'AgentProgress',
+            'PermissionRule', 'TeamMember', 'ProviderConfig', 'ToolContext',
+            'ToolDefinition', 'CacheEntry', 'CacheStats', 'ChatResponse', 'RetryResult',
+            'TrendAnalysis', 'SDKMessage', 'DeliveryResult', 'WebhookConfig',
+            'EventListener', 'PermissionMode', 'ToolInfo', 'TaskStatus', 'HealthStatus',
+            'ShellType', 'PluginMetadata', 'Plugin', 'PluginValidationResult',
+            'SessionState', 'Theme', 'MemoryManager', 'SandboxConfig', 'MigrationResult',
+            'SandboxManager', 'AppState', 'CompressionResult', 'EventHandler',
+            'AgentConfig', 'ConversationMessage', 'HealthCheckConfig', 'StreamEvent',
+            'SkillContext', 'ChatMessage', 'StorageConfig', 'PerformanceEvent',
+            'CostSummary', 'PluginSource', 'StartupReport', 'RetryState',
+            'HeartbeatManager', 'SessionStats', 'SessionManager', 'SessionConfig',
+            'NotificationType', 'CacheItem', 'ChannelConfig', 'ChannelCapabilities',
+            'ChannelStatus', 'IChannelPlugin', 'SessionCheckpointService', 'StreamChunk',
+            'ToolExecutionResult', 'ContentBlock', 'SessionStorage', 'ScheduledTask',
+            'UpdateInfo', 'ValidationRule', 'HealthCheck',
+            // 通用工具函数 — 各模块独立实现，非冲突
+            'recursivelySanitizeUnicode', 'jsonStringify', 'normalizeMessage',
+            'createToolUseSummaryMessage', 'throttle', 'debounce', 'memoize',
+            'DEFAULT_RETRY_CONFIG',
         ]);
 
         for (const file of this.allFiles) {

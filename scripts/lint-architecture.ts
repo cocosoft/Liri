@@ -467,6 +467,12 @@ class ArchitectureLinter {
             'PerformanceReport', 'PerformanceAnalyzer', 'MemorySnapshot',
             'PermissionDecision', 'createAllowDecision', 'PermissionUpdate',
             'PluginContext', 'OAuthTokens',
+            // G2 遗漏 + G3 领域特定类型 — 同名但不同模块中结构各异
+            'CompactConfig', 'TokenBudgetConfig', 'SecurityCheckResult',
+            'AgentMemoryScope', 'AgentColorName', 'AuditQuery', 'SkillDefinition',
+            'PluginSkillManifest', 'PluginSkillParameter', 'PluginHookManifest',
+            'PlanStep', 'ConfigValidationError', 'RiskLevel', 'SimpleCommand',
+            'PermissionBehavior', 'ToolSchema',
         ]);
 
         for (const file of this.allFiles) {

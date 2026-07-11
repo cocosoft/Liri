@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * 认证管理器
  * 负责管理各种认证方式（API Key、OAuth、AWS、GCP等）
@@ -7,6 +7,7 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 import { oauthService } from '@modules/oauth';
+import type { OAuthTokenData } from '@modules/oauth';
 import type {
   OAuthTokens as OAuthTokensType,
   OAuthServiceOptions,
@@ -17,13 +18,7 @@ import {
   type CachedToken,
 } from '@modules/oauth/services/TokenManager.js';
 
-export interface OAuthTokens {
-  accessToken: string;
-  refreshToken: string;
-  expiresAt: number;
-  tokenType?: string;
-  scopes?: string[];
-}
+export type OAuthTokens = OAuthTokenData;
 
 export interface CloudCredentials {
   accessKey: string;

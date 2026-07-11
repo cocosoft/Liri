@@ -444,6 +444,8 @@ class ArchitectureLinter {
             'recursivelySanitizeUnicode', 'jsonStringify', 'normalizeMessage',
             'createToolUseSummaryMessage', 'throttle', 'debounce', 'memoize',
             'DEFAULT_RETRY_CONFIG',
+            // G1 分析确认无法统一的类型 — 同名但不同结构，各模块独立定义
+            'AuthConfig', 'SessionMessage',
         ]);
 
         for (const file of this.allFiles) {

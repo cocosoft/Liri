@@ -14,6 +14,7 @@ import { randomUUID } from 'crypto';
 import { unlink } from 'fs/promises';
 import { Logger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import {
   RECORDING_SAMPLE_RATE,
   RECORDING_CHANNELS,
@@ -31,7 +32,7 @@ export type RecordingMethod = 'ffmpeg' | 'sox' | 'arecord' | 'powershell';
  * 录音设备错误
  * 用于区分"设备不可用"和"录音意外中断"两种场景
  */
-export class DeviceError extends Error {
+export class DeviceError extends AppError {
   /** 录音工具名称 */
   readonly tool: string;
   /** 进程退出码 */
@@ -40,7 +41,7 @@ export class DeviceError extends Error {
   readonly stderr: string;
 
   constructor(message: string, tool: string, exitCode: number, stderr: string) {
-    super(message);
+    super(message, ErrorCategory.RESOURCE, ErrorSeverity.HIGH, 'DEVICE_ERROR');
     this.name = 'DeviceError';
     this.tool = tool;
     this.exitCode = exitCode;

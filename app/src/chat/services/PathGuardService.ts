@@ -18,6 +18,7 @@ import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { homedir } from 'os';
 import { Logger, getOTelTracing } from '@modules/monitoring';
+import { PROJECT_ROOT, LIRI_HOME } from '@modules/core/paths';
 import type { SessionConfirmedPaths } from './SessionConfirmedPaths';
 import { defaultWhitelist } from './PathWhitelist';
 
@@ -200,8 +201,8 @@ export function getGuardBypass(): boolean | 'dry-run' {
 // ============================================================
 
 function getPathAliasMap(): Record<string, string> {
-  const projectRoot = process.env.LIRI_PROJECT_DIR || process.cwd();
-  const pyappHome = process.env.LIRI_HOME || path.join(homedir(), '.pyapp');
+  const projectRoot = PROJECT_ROOT;
+  const pyappHome = LIRI_HOME;
   return {
     '@modules/': path.join(projectRoot, 'app', 'src'),
     '@/': path.join(projectRoot, 'app', 'src'),

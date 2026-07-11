@@ -3,10 +3,12 @@
  *
  * 集中管理所有 TTS 相关错误，提供：
  * - 错误码枚举（TTS_ERR_CODE）
- * - 结构化错误类（TTSApiError）
+ * - 结构化错误类（TTSApiError，继承自 AppError）
  * - 用户消息映射（含操作引导）
  * - TTSApiError 轻量化（code + provider + userMessage + actionHint + cause）
  */
+
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /** TTS 错误码枚举 */
 export enum TTS_ERR_CODE {
@@ -20,6 +22,49 @@ export enum TTS_ERR_CODE {
   CACHE_UNAVAILABLE = 'TTS_CACHE_UNAVAILABLE',
   UNKNOWN = 'TTS_UNKNOWN',
 }
+
+/** TTS 错误码 → (ErrorCategory, ErrorSeverity) 映射 */
+const TTS_ERROR_SEVERITY_MAP: Record<
+  TTS_ERR_CODE,
+  { category: ErrorCategory; severity: ErrorSeverity }
+> = {
+  [TTS_ERR_CODE.NETWORK_TIMEOUT]: {
+    category: ErrorCategory.NETWORK,
+    severity: ErrorSeverity.MEDIUM,
+  },
+  [TTS_ERR_CODE.AUTH_FAILED]: {
+    category: ErrorCategory.PERMISSION,
+    severity: ErrorSeverity.HIGH,
+  },
+  [TTS_ERR_CODE.PROVIDER_UNAVAILABLE]: {
+    category: ErrorCategory.API,
+    severity: ErrorSeverity.HIGH,
+  },
+  [TTS_ERR_CODE.MODEL_NOT_FOUND]: {
+    category: ErrorCategory.RESOURCE,
+    severity: ErrorSeverity.HIGH,
+  },
+  [TTS_ERR_CODE.TEXT_TOO_LONG]: {
+    category: ErrorCategory.VALIDATION,
+    severity: ErrorSeverity.LOW,
+  },
+  [TTS_ERR_CODE.QUEUE_FAILURE]: {
+    category: ErrorCategory.OPERATION,
+    severity: ErrorSeverity.MEDIUM,
+  },
+  [TTS_ERR_CODE.CIRCUIT_OPEN]: {
+    category: ErrorCategory.API,
+    severity: ErrorSeverity.HIGH,
+  },
+  [TTS_ERR_CODE.CACHE_UNAVAILABLE]: {
+    category: ErrorCategory.RESOURCE,
+    severity: ErrorSeverity.MEDIUM,
+  },
+  [TTS_ERR_CODE.UNKNOWN]: {
+    category: ErrorCategory.UNKNOWN,
+    severity: ErrorSeverity.MEDIUM,
+  },
+};
 
 /** 已本地化的用户可见错误消息 */
 export interface TTSUserMessage {
@@ -82,7 +127,7 @@ const TTS_ERROR_MAP: Record<TTS_ERR_CODE, TTSUserMessage> = {
  *     originalError
  *   );
  */
-export class TTSApiError extends Error {
+export class TTSApiError extends AppError {
   /**
    * @param code    错误码枚举
    * @param provider  Provider 名称
@@ -91,18 +136,22 @@ export class TTSApiError extends Error {
    * @param cause   原始错误（可选）
    */
   constructor(
-    public readonly code: TTS_ERR_CODE,
+    public override readonly code: TTS_ERR_CODE,
     public readonly provider: string,
     public readonly userMessage: string,
     public readonly actionHint?: string,
     public override readonly cause?: Error
   ) {
-    super(`[${code}] ${userMessage}`);
+    const sev = TTS_ERROR_SEVERITY_MAP[code] ?? {
+      category: ErrorCategory.UNKNOWN,
+      severity: ErrorSeverity.MEDIUM,
+    };
+    super(`[${code}] ${userMessage}`, sev.category, sev.severity, code);
     this.name = 'TTSApiError';
   }
 
   /** 从错误码获取预设用户消息并构造错误 */
-  static fromCode(
+  static fromTTSCode(
     code: TTS_ERR_CODE,
     provider: string,
     cause?: Error

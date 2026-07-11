@@ -416,6 +416,9 @@ class ArchitectureLinter {
             'Data', 'Info', 'Stats', 'Summary', 'Payload', 'Response', 'Request',
             'Status', 'Mode', 'Role', 'Event', 'Meta', 'Metadata', 'Header',
             'Item', 'Row', 'Record',
+            // Tool UI 渲染函数 — 各 Tool 模块约定的同名导出，非冲突
+            'renderToolUseMessage', 'renderToolResultMessage', 'getToolUseSummary',
+            'renderToolUseErrorMessage', 'renderToolUseProgressMessage',
         ]);
 
         for (const file of this.allFiles) {

@@ -3,6 +3,8 @@
  * 对标 CC 的测试基础设施
  */
 
+import { sleep } from '@modules/utils/common';
+
 /**
  * 断言结果
  */
@@ -214,6 +216,4 @@ export function mockObject<T extends object>(
 /**
  * 延迟等待
  */
-export function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+export { sleep };

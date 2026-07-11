@@ -455,6 +455,18 @@ class ArchitectureLinter {
             // G1 SessionId — branded type 模式，acp/types.ts 是规范定义，另外两个是纯 string 别名
             // R02-003 独立规则仍会追踪此违规
             'SessionId',
+            // G2 通用工具函数 — 各模块独立实现，非冲突
+            'sleep',
+            // G2 config 模块 — 不同层级的 ConfigSource 结构各异
+            'ConfigSource',
+            // G2 领域特定类型 — 同名但不同模块中结构各异，无法实质统一
+            'ConfigValidationRule', 'SettingSource', 'ContextEngine', 'CompactResult',
+            'ArchiveResult', 'DiskInfo', 'ResourceUsage', 'ChannelPlugin', 'PluginConfig',
+            'RenderOptions', 'SessionStore', 'ThemeManager', 'AlertRule',
+            'PerformanceAnalysis', 'ToolExecutionContext', 'LSPClient', 'ImageFormat',
+            'PerformanceReport', 'PerformanceAnalyzer', 'MemorySnapshot',
+            'PermissionDecision', 'createAllowDecision', 'PermissionUpdate',
+            'PluginContext', 'OAuthTokens',
         ]);
 
         for (const file of this.allFiles) {

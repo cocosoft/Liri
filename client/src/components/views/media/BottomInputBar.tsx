@@ -181,7 +181,7 @@ export const BottomInputBar: React.FC<{
 
         <button
           onClick={onGenerate}
-          disabled={!prompt.trim() || generating}
+          disabled={(!prompt.trim() && !selectedImageUrl) || generating}
           className="ml-auto rounded-lg bg-blue-600 px-6 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
         >
           {generating ? "生成中…" : "生成"}

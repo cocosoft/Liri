@@ -193,10 +193,13 @@ export class VideoGenerateTool extends BaseTool {
   ): Promise<ToolResult> {
     const params = input as unknown as VideoGenerateParams;
 
-    if (!params.prompt || typeof params.prompt !== 'string') {
+    // 图生视频：有图片时 prompt 可选；文生视频：必须输入 prompt
+    const hasImage = !!(params.imagePath || params.imageUrl);
+    if (!hasImage && (!params.prompt || typeof params.prompt !== 'string')) {
       return {
         success: false,
-        error: 'prompt is required and must be a string',
+        error:
+          'prompt is required and must be a string (optional when image is provided)',
       };
     }
 
@@ -241,12 +244,16 @@ export class VideoGenerateTool extends BaseTool {
   private executeAsync(params: VideoGenerateParams): ToolResult {
     const taskId = randomUUID();
     const persistence = VideoGenerateTool.getPersistence();
+    const startedAt = Date.now();
 
     // 判断生成模式
     const isImageToVideo = !!(params.imageUrl || params.imagePath);
     const mode: 'text-to-video' | 'image-to-video' = isImageToVideo
       ? 'image-to-video'
       : 'text-to-video';
+
+    // 大模型预估耗时（Wan2.2-I2V-A14B 约 20 分钟，T2V 约 10 分钟）
+    const estimatedMs = isImageToVideo ? 20 * 60 * 1000 : 10 * 60 * 1000;
 
     // 持久化任务记录（重启后不丢失）
     persistence.create({
@@ -261,16 +268,46 @@ export class VideoGenerateTool extends BaseTool {
       updatedAt: Date.now(),
     });
 
+    // 定时更新进度：基于已用时间 + 对数曲线模拟（上限 90%，完成时跳到 100%）
+    const progressInterval = setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      // 对数曲线：前期快、后期慢，更接近真实生成感知
+      const raw = Math.log(1 + (elapsed / estimatedMs) * 9) / Math.log(10);
+      const progress = Math.min(Math.round(raw * 90), 90);
+      persistence.update(taskId, { progress });
+    }, 5000);
+
+    // 确保 interval 不会无限运行（安全上限）
+    const maxTimer = setTimeout(() => {
+      clearInterval(progressInterval);
+    }, estimatedMs * 2);
+
     this.runVideoGeneration(params)
       .then(async (result) => {
+        clearInterval(progressInterval);
+        clearTimeout(maxTimer);
+
         if (result.success) {
+          // 先跳到 95% 让用户感知即将完成
+          persistence.update(taskId, { progress: 95 });
           const toolResult = await this.buildToolResult(result);
           const videoData = toolResult.data as any;
           const resultVideoUrl =
             videoData?.video?.url || videoData?.videos?.[0]?.url || undefined;
 
+          // 检测下载是否成功：本地 URL 以 /v1/videos/static/ 开头
+          const isLocalUrl =
+            resultVideoUrl && resultVideoUrl.startsWith('/v1/videos/static/');
+
+          if (!isLocalUrl && resultVideoUrl) {
+            logger.error(
+              'VideoGenerateTool . 视频生成成功但下载到本地失败（URL非本地）',
+              { taskId, resultVideoUrl: resultVideoUrl.slice(0, 120) }
+            );
+          }
+
           persistence.update(taskId, {
-            status: 'completed',
+            status: isLocalUrl || !resultVideoUrl ? 'completed' : 'completed',
             progress: 100,
             resultJson: JSON.stringify(result.data),
             resultVideoUrl,
@@ -316,6 +353,9 @@ export class VideoGenerateTool extends BaseTool {
         }
       })
       .catch(async (error) => {
+        clearInterval(progressInterval);
+        clearTimeout(maxTimer);
+
         const errorMsg = error instanceof Error ? error.message : String(error);
         logger.error('VideoGenerateTool 异步任务异常崩溃', {
           taskId,
@@ -428,21 +468,49 @@ export class VideoGenerateTool extends BaseTool {
           ? RouteKey.IMAGE_TO_VIDEO
           : RouteKey.TEXT_TO_VIDEO;
 
+        // 图生视频回退链：IMAGE_TO_VIDEO → TEXT_TO_VIDEO → VIDEO_GENERATE
+        // resolveModelRoute() 对未配置任务类型会回退到 default（对话模型）
+        // 因此每一步都必须校验视频能力，不通过则继续尝试下一个 fallback
         model = await resolveModelRoute(routeKey);
 
-        if (!model) {
-          // 回退：尝试旧版统一 VIDEO_GENERATE
-          model = await resolveModelRoute(RouteKey.VIDEO_GENERATE);
+        if (model && !(await this.checkModelVideoCapability(model))) {
+          logger.warning('VideoGenerateTool . 路由解析到非视频模型，继续回退', {
+            model,
+            routeKey,
+            mode: isImageToVideo ? 'image-to-video' : 'text-to-video',
+          });
+          model = '';
         }
 
-        logger.info(
-          'VideoGenerateTool . 路由解析模型（任务分工）',
-          {
-            mode: isImageToVideo ? 'image-to-video' : 'text-to-video',
-            routeKey,
-            resolved: model,
+        if (!model && isImageToVideo) {
+          model = await resolveModelRoute(RouteKey.TEXT_TO_VIDEO);
+
+          if (model && !(await this.checkModelVideoCapability(model))) {
+            logger.warning(
+              'VideoGenerateTool . TEXT_TO_VIDEO 回退解析到非视频模型，继续回退',
+              { model }
+            );
+            model = '';
           }
-        );
+        }
+
+        if (!model) {
+          model = await resolveModelRoute(RouteKey.VIDEO_GENERATE);
+
+          if (model && !(await this.checkModelVideoCapability(model))) {
+            logger.warning(
+              'VideoGenerateTool . VIDEO_GENERATE 回退解析到非视频模型',
+              { model }
+            );
+            model = '';
+          }
+        }
+
+        logger.info('VideoGenerateTool . 路由解析模型（任务分工）', {
+          mode: isImageToVideo ? 'image-to-video' : 'text-to-video',
+          routeKey,
+          resolved: model || '(空)',
+        });
       }
 
       const router = await this.getRouter(model);
@@ -498,6 +566,35 @@ export class VideoGenerateTool extends BaseTool {
         error: `视频生成路由异常: ${e instanceof Error ? e.message : String(e)}`,
         durationMs: 0,
       };
+    }
+  }
+
+  // ================================================================
+  //  Router 创建（照搬 ImageGenerateTool.getRouter()）
+  // ================================================================
+
+  /**
+   * 检查模型是否具备视频生成能力
+   *
+   * 通过 DB model_registry.capabilities 字段校验，
+   * 防止 modelRouter.resolve() 回退链将对话模型泄漏到视频 API。
+   */
+  private async checkModelVideoCapability(modelId: string): Promise<boolean> {
+    try {
+      const { modelPricingService } =
+        await import('../../ai/models/ModelPricingService.js');
+      await modelPricingService.initialize();
+      const allModels = await modelPricingService.getAllPricing();
+      const modelRecord = allModels.find(
+        (m) => m.modelId === modelId || m.id === modelId
+      );
+      if (!modelRecord) return false;
+      const caps = modelRecord.capabilities || [];
+      return caps.some((c) =>
+        ['video_generation', 'text_to_video', 'image_to_video'].includes(c)
+      );
+    } catch {
+      return false;
     }
   }
 
@@ -640,7 +737,22 @@ export class VideoGenerateTool extends BaseTool {
           );
         }
 
-        // 3. 通过 ProviderSyncService 解析 registry ID
+        // 3. 验证模型能力：防止回退链将对话模型泄漏到视频 API
+        const caps = modelRecord.capabilities || [];
+        if (
+          !caps.some((c) =>
+            ['video_generation', 'text_to_video', 'image_to_video'].includes(c)
+          )
+        ) {
+          throw new AppError(
+            `模型 "${resolvedModel}" 不具备视频生成能力（当前 capabilities: [${caps.join(', ')}]）。请在模型管理中将该模型的 capabilities 添加 video_generation / text_to_video / image_to_video，或在任务分工中指定支持视频的模型。`,
+            ErrorCategory.CONFIGURATION,
+            ErrorSeverity.HIGH,
+            'MODEL_NOT_VIDEO_CAPABLE'
+          );
+        }
+
+        // 4. 通过 ProviderSyncService 解析 registry ID
         let providerRegistryId = modelRecord.providerId;
         try {
           const { getRegistryId } =
@@ -651,7 +763,7 @@ export class VideoGenerateTool extends BaseTool {
           /* 不可用时用原始值 */
         }
 
-        // 4. 从 ProviderRegistry 获取 AIProvider 实例
+        // 5. 从 ProviderRegistry 获取 AIProvider 实例
         let aiProvider: AIProvider;
         try {
           aiProvider = providerRegistry.get(providerRegistryId);
@@ -664,7 +776,7 @@ export class VideoGenerateTool extends BaseTool {
           );
         }
 
-        // 5. 鸭子类型检查
+        // 6. 鸭子类型检查
         if (!aiProvider.generateVideo) {
           throw new AppError(
             `Provider "${aiProvider.displayName}" 不支持视频生成`,
@@ -674,7 +786,7 @@ export class VideoGenerateTool extends BaseTool {
           );
         }
 
-        // 6. 归一化 Provider 类型
+        // 7. 归一化 Provider 类型
         const realType = providerRegistry.getProviderTypeById(aiProvider.id);
         const normalized = (realType ?? '').toLowerCase();
         let mappedType: 'fal' | 'openai' | null = null;
@@ -731,36 +843,53 @@ export class VideoGenerateTool extends BaseTool {
 
     const videos = result.data || [];
 
-    // 异步注册生成的视频到 FileRegistry
-    for (const video of videos) {
-      if (!video.url) continue;
-      const ext = video.format || 'mp4';
-      Promise.resolve().then(async () => {
+    // 同步下载视频到本地并注册到 FileRegistry（对照 ImageGenerateTool）
+    // 优先使用 Provider 层已下载的 Buffer（带鉴权），避免 FileRegistry 单独 fetch
+    const persistedVideos = await Promise.all(
+      videos.map(async (video) => {
+        if (!video.url) return video;
+        const ext = video.format || 'mp4';
         try {
-          await registerGeneratedMedia(video.url, `AI 生成视频`, 'video', ext);
+          const regResult = await registerGeneratedMedia(
+            video.url,
+            `AI 生成视频`,
+            'video',
+            ext,
+            result.videoBuffer
+          );
+          if (regResult?.savedPath) {
+            return {
+              ...video,
+              localUrl: `/v1/videos/static/${regResult.savedPath}`,
+              filePath: regResult.savedFullPath,
+            };
+          }
         } catch (e) {
           logger.warn('VideoGenerateTool . registerMediaFile 失败', {
             url: video.url,
             error: String(e),
           });
         }
-      });
-    }
+        return video;
+      })
+    );
 
-    const firstVideo = videos[0];
+    const firstVideo = persistedVideos[0];
+    const localUrl = (firstVideo as any)?.localUrl || firstVideo?.url;
+
     return {
       success: true,
       data: {
         video: firstVideo
           ? {
-              url: firstVideo.url,
-              prompt: `AI 生成视频 - ${videoUrlsToText(videos)}`,
+              url: localUrl,
+              prompt: `AI 生成视频`,
               duration: firstVideo.duration ?? 0,
               format: firstVideo.format || 'mp4',
             }
           : null,
-        videos: videos.map((v) => ({
-          url: v.url,
+        videos: persistedVideos.map((v) => ({
+          url: (v as any).localUrl || v.url,
           width: v.width,
           height: v.height,
           duration: v.duration,
@@ -775,16 +904,9 @@ export class VideoGenerateTool extends BaseTool {
           model: result.model,
         },
       },
-      output: `视频生成完成: ${videos.length} 个视频，耗时 ${(result.durationMs / 1000).toFixed(1)}s，模型 ${result.model || 'unknown'}`,
+      output: `视频生成完成: ${persistedVideos.length} 个视频，耗时 ${(result.durationMs / 1000).toFixed(1)}s，模型 ${result.model || 'unknown'}`,
     };
   }
-}
-
-/** 将视频 URL 列表转为简要文本 */
-function videoUrlsToText(videos: Array<{ url: string }>): string {
-  if (videos.length === 0) return '';
-  if (videos.length === 1) return videos[0].url;
-  return `${videos[0].url} (共 ${videos.length} 个)`;
 }
 
 export function createVideoGenerateTool(): VideoGenerateTool {

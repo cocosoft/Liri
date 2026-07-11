@@ -99,7 +99,12 @@ export const MasonryGallery: React.FC<Props> = ({
                       e.currentTarget.pause();
                       e.currentTarget.currentTime = 0;
                     }}
-                    preload="metadata"
+                    preload="auto"
+                    onLoadedData={(e) => {
+                      // 加载完成后 seek 到第 0.1 秒抓取缩略图帧
+                      const video = e.currentTarget as HTMLVideoElement;
+                      video.currentTime = 0.1;
+                    }}
                   />
                 ) : (
                   <img

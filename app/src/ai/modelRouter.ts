@@ -41,12 +41,11 @@
  *   仅由 ModelManagementAPI 使用，不参与运行时 chat 请求。
  */
 
-import { configManager } from '@modules/config/ConfigManager';
-import type { ModelConfig } from '@modules/config/types';
 import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { ModelRegistry } from '@modules/ai';
 import type { APIProvider } from '@modules/ai';
+import type { AppModelConfigService } from './models/AppModelConfigService';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'ai:model-router' });
 
@@ -267,13 +266,6 @@ const TASK_CAPABILITY: Partial<Record<TaskType, string>> = {
 };
 
 // ============================================================
-// ConfigManager 存取 Key
-// ============================================================
-
-/** 结构化 models 配置键（GlobalConfig.models） */
-const CONFIG_KEY = 'models';
-
-// ============================================================
 // ModelRouter
 // ============================================================
 
@@ -283,8 +275,12 @@ const CONFIG_KEY = 'models';
  * 用法：
  * ```ts
  * const router = ModelRouter.getInstance();
+ * await router.initFromDb();  // 启动时调用一次
  * const modelName = router.resolve('chat');
  * ```
+ *
+ * 数据源：DB ai_app_model_configs 表（数出同源）
+ * resolve() 依赖内存缓存，initFromDb() 后可用。
  */
 export class ModelRouter {
   private static instance: ModelRouter;
@@ -292,6 +288,15 @@ export class ModelRouter {
 
   /** UUID → 模型名 缓存（启动时预加载） */
   private uuidToModelName: Map<string, string> = new Map();
+
+  /** 任务类型 → 模型 ID（DB 内存缓存，resolve() 同步读取） */
+  private _taskCache: Map<string, string> = new Map();
+
+  /** 当前模型 ID（DB 内存缓存） */
+  private _currentModel: string = '';
+
+  /** DB 是否已加载 */
+  private _dbReady = false;
 
   /** 缓存自引导 Promise，避免重复触发 */
   private _autoDiscoverPromise: Promise<void> | null = null;
@@ -353,7 +358,171 @@ export class ModelRouter {
   }
 
   // ============================================================
-  // 公共 API
+  // DB 初始化 + 内存缓存
+  // ============================================================
+
+  /**
+   * 从 DB 加载任务分工到内存缓存（启动时调用一次）
+   *
+   * 加载顺序：
+   * 1. 从 DB ai_app_model_configs 读取所有任务配置
+   * 2. 若 DB 为空，尝试从 config.json 迁移（一次性）
+   * 3. 填充 _taskCache 和 _currentModel
+   *
+   * 必须在使用 resolve() 之前调用。
+   */
+  async initFromDb(): Promise<void> {
+    if (this._dbReady) return;
+
+    try {
+      const { appModelConfigService } =
+        await import('./models/AppModelConfigService.js');
+      await appModelConfigService.initialize();
+
+      await this._loadTaskCacheFromDb(appModelConfigService);
+
+      if (this._taskCache.size === 0) {
+        await this._migrateFromConfigJson(appModelConfigService);
+      }
+
+      await this.preloadUuidCache();
+
+      this.triggerAutoDiscover();
+
+      this._dbReady = true;
+      logger.info('ModelRouter: DB 初始化完成', {
+        taskCount: this._taskCache.size,
+        currentModel: this._currentModel || '(未设置)',
+      });
+    } catch (err) {
+      await handleError(err, {
+        module: 'ai:modelRouter',
+        action: 'initFromDb',
+      });
+      this._dbReady = true;
+    }
+  }
+
+  /**
+   * 从 DB 重新加载任务缓存（模型删除 / 外部变更后调用）
+   */
+  async refreshTaskCache(): Promise<void> {
+    try {
+      const { appModelConfigService } =
+        await import('./models/AppModelConfigService.js');
+      await appModelConfigService.initialize();
+      await this._loadTaskCacheFromDb(appModelConfigService);
+      logger.debug('ModelRouter: 任务缓存已刷新');
+    } catch (err) {
+      logger.warning('ModelRouter: 刷新任务缓存失败', {
+        error: (err as Error).message,
+      });
+    }
+  }
+
+  /**
+   * 清理指定模型的任务分工引用（模型删除时级联清理）
+   */
+  async cleanupTaskRef(modelId: string): Promise<void> {
+    try {
+      const { appModelConfigService } =
+        await import('./models/AppModelConfigService.js');
+      await appModelConfigService.initialize();
+
+      for (const taskType of ALL_TASK_TYPES) {
+        const config = await appModelConfigService.getConfig(taskType);
+        if (config && config.model === modelId) {
+          await appModelConfigService.deleteConfig(taskType);
+          this._taskCache.delete(taskType);
+          logger.info('ModelRouter: 级联清理任务引用', {
+            taskType,
+            modelId,
+          });
+        }
+      }
+
+      const currentConfig = await appModelConfigService.getConfig('current');
+      if (currentConfig && currentConfig.model === modelId) {
+        await appModelConfigService.deleteConfig('current');
+        this._currentModel = '';
+      }
+    } catch (err) {
+      logger.warning('ModelRouter: 级联清理任务引用失败', {
+        modelId,
+        error: (err as Error).message,
+      });
+    }
+  }
+
+  /** 从 DB 加载任务配置到内存缓存 */
+  private async _loadTaskCacheFromDb(
+    svc: AppModelConfigService
+  ): Promise<void> {
+    this._taskCache.clear();
+
+    for (const taskType of ALL_TASK_TYPES) {
+      const config = await svc.getConfig(taskType);
+      if (config?.model) {
+        this._taskCache.set(taskType, config.model);
+      }
+    }
+
+    const currentConfig = await svc.getConfig('current');
+    if (currentConfig?.model) {
+      this._currentModel = currentConfig.model;
+    }
+  }
+
+  /**
+   * 从 config.json 迁移到 DB（一次性）
+   */
+  private async _migrateFromConfigJson(
+    svc: AppModelConfigService
+  ): Promise<void> {
+    try {
+      const { configManager } =
+        await import('@modules/config/ConfigManager.js');
+
+      const models = configManager.getConfigValue<{
+        current?: string;
+        tasks?: Record<string, string>;
+      }>('models');
+
+      if (!models) return;
+
+      let migrated = 0;
+
+      if (models.tasks && Object.keys(models.tasks).length > 0) {
+        for (const [taskType, modelId] of Object.entries(models.tasks)) {
+          if (modelId) {
+            await svc.setConfig(taskType, { model: modelId });
+            this._taskCache.set(taskType, modelId);
+            migrated++;
+          }
+        }
+      }
+
+      if (models.current) {
+        await svc.setConfig('current', { model: models.current });
+        this._currentModel = models.current;
+        migrated++;
+      }
+
+      if (migrated > 0) {
+        logger.info('ModelRouter: 已从 config.json 迁移到 DB', {
+          taskCount: Object.keys(models.tasks || {}).length,
+          hasCurrent: !!models.current,
+        });
+      }
+    } catch (err) {
+      logger.warning('ModelRouter: config.json 迁移失败，将从空 DB 启动', {
+        error: (err as Error).message,
+      });
+    }
+  }
+
+  // ============================================================
+  // 公共 API — 模型解析
   // ============================================================
 
   /**
@@ -364,12 +533,9 @@ export class ModelRouter {
   resolve(taskType: TaskType): string {
     const tasks = this.readTasks();
 
-    // 1. 显式任务分配
     if (tasks[taskType]) {
       const value = tasks[taskType]!;
-      // UUID 格式检测：如果是 UUID，解析为模型名
       if (this.isUUID(value)) {
-        // 一级：缓存命中
         const modelName = this.uuidToModelName.get(value);
         if (modelName) {
           logger.debug(
@@ -377,7 +543,6 @@ export class ModelRouter {
           );
           return modelName;
         }
-        // 二级：缓存未命中，异步预加载，同时返回原值兜底（不断服）
         this.preloadUuidCache();
         logger.warning(
           `ModelRouter: 任务 ${taskType} UUID ${value} 缓存未命中，返回原值兜底`
@@ -388,7 +553,16 @@ export class ModelRouter {
       return value;
     }
 
-    // 2. 非 default 任务回退到 default 兜底
+    // 能力路由（视频/图片/嵌入等）不 fallback 到对话模型
+    // 对话模型如 deepseek-chat 不具备生图/生视频能力，fallback 会导致调用失败
+    const isCapabilityTask = taskType in TASK_CAPABILITY;
+    if (isCapabilityTask) {
+      logger.debug(
+        `ModelRouter: 能力路由 ${taskType} 未配置且不 fallback 到对话模型`
+      );
+      return '';
+    }
+
     if (taskType !== 'default' && tasks.default) {
       const defaultVal = tasks.default;
       if (this.isUUID(defaultVal)) {
@@ -401,14 +575,12 @@ export class ModelRouter {
       return defaultVal;
     }
 
-    // 3. 回退到当前模型（旧格式兼容）
     const current = this.readCurrentModel();
     if (current) {
       logger.debug(`ModelRouter: 任务 ${taskType} 回退当前模型 → ${current}`);
       return current;
     }
 
-    // 4. 最后回退到硬编码默认值
     logger.debug(
       `ModelRouter: 任务 ${taskType} 使用硬编码默认 → ${this.defaultModel || '(空)'}`
     );
@@ -417,14 +589,6 @@ export class ModelRouter {
 
   /**
    * 根据任务类型解析模型名，并映射为指定提供商的 API 模型名
-   *
-   * 内部调用 resolve() 获取 internal key，再通过 ModelRegistry
-   * getModelNameForProvider() 映射为 provider 专用的 API 模型名。
-   * 若映射失败（无记录），fallback 为 internal key 原值。
-   *
-   * @param taskType - 任务类型
-   * @param providerId - 供应商 ID（如 'deepseek'、'ollama'）
-   * @returns API 模型名
    */
   resolveMapped(taskType: TaskType, providerId: string): string {
     const modelKey = this.resolve(taskType);
@@ -443,7 +607,6 @@ export class ModelRouter {
         return mapped;
       }
     } catch (err) {
-      // registry 不可用时，返回 modelKey 原值
       handleError(err, { module: 'ai:modelRouter', action: 'resolveMapped' });
       logger.warning('ModelRouter: resolveMapped 失败，回退到原始模型名', {
         error: (err as Error).message,
@@ -460,119 +623,77 @@ export class ModelRouter {
   }
 
   /**
-   * 设置当前模型 ID（持久化到 GlobalConfig.models.current + tasks.default）
-   * 双写确保 resolve() 无论走显式任务匹配还是 default 兜底都能命中
+   * 设置当前模型 ID（持久化到 DB ai_app_model_configs 的 current + default）
    */
-  setCurrentModel(modelId: string): void {
-    const current = this.readModelConfig();
-    this.writeModelConfig({
-      ...current,
-      current: modelId,
-      tasks: {
-        ...(current.tasks || {}),
-        default: modelId,
-      },
-    });
+  async setCurrentModel(modelId: string): Promise<void> {
+    const { appModelConfigService } =
+      await import('./models/AppModelConfigService.js');
+    await appModelConfigService.initialize();
+
+    await appModelConfigService.setConfig('current', { model: modelId });
+    this._currentModel = modelId;
+
+    await appModelConfigService.setConfig('default', { model: modelId });
+    this._taskCache.set('default', modelId);
+
     logger.info(
       `ModelRouter: 当前模型已设置为 ${modelId}（同步写入 tasks.default）`
     );
   }
 
   /**
-   * 获取所有任务分工配置
+   * 获取所有任务分工配置（从内存缓存读取）
    */
   getTasks(): TaskModelConfig {
-    return this.readTasks();
+    const tasks: Record<string, string> = {};
+    for (const [k, v] of this._taskCache) {
+      tasks[k] = v;
+    }
+    return tasks as TaskModelConfig;
   }
 
   /**
-   * 保存任务分工配置（持久化到 GlobalConfig.models.tasks）
+   * 保存任务分工配置（持久化到 DB + 更新内存缓存）
    */
-  setTasks(tasks: TaskModelConfig): void {
-    const current = this.readModelConfig();
-    this.writeModelConfig({
-      ...current,
-      tasks: tasks as Record<string, string>,
-    });
-    logger.info('ModelRouter: 任务分工已保存', { tasks });
+  async setTasks(tasks: TaskModelConfig): Promise<void> {
+    const { appModelConfigService } =
+      await import('./models/AppModelConfigService.js');
+    await appModelConfigService.initialize();
+
+    const entries = Object.entries(tasks) as [string, string][];
+
+    for (const [taskType, modelId] of entries) {
+      if (modelId) {
+        await appModelConfigService.setConfig(taskType, { model: modelId });
+        this._taskCache.set(taskType, modelId);
+      }
+    }
+
+    logger.info('ModelRouter: 任务分工已保存', { taskCount: entries.length });
   }
 
   // ============================================================
-  // 内部读取（结构化 models + 向前兼容 flat keys + process.env）
+  // 内部读取（内存缓存）
   // ============================================================
 
-  /** 读取 GlobalConfig.models 结构化对象 */
-  private readModelConfig(): ModelConfig {
-    return configManager.getConfigValue<ModelConfig>(CONFIG_KEY) || {};
-  }
-
-  /** 写入 GlobalConfig.models 结构化对象 */
-  private writeModelConfig(models: ModelConfig): void {
-    configManager.setConfigValue(CONFIG_KEY, models);
-  }
-
-  private readCurrentModel(): string {
-    // 优先从结构化 models.current 读取
-    const models = this.readModelConfig();
-    if (models.current) return models.current;
-
-    // 向前兼容：读取旧 flat key models.current
-    const flatCurrent = configManager.getConfigValue<string>('models.current');
-    if (flatCurrent) return flatCurrent;
-
-    // 向前兼容：读取旧 process.env
-    const envModel =
-      configManager.env('Liri_MODEL') ||
-      configManager.env('DEEPSEEK_MODEL') ||
-      configManager.env('AI_MODEL');
-    if (envModel) return envModel;
-
-    logger.warn(
-      'ModelRouter: 当前模型未配置（models.current / flat key / env 均为空）'
-    );
-    return '';
-  }
-
+  /** 任务配置（内存缓存读取） */
   private readTasks(): TaskModelConfig {
-    // 优先从结构化 models.tasks 读取
-    const models = this.readModelConfig();
-    if (models.tasks && Object.keys(models.tasks).length > 0) {
-      return models.tasks as TaskModelConfig;
-    }
+    return this.getTasks();
+  }
 
-    // 向前兼容：读取旧 flat key models.tasks
-    const flatTasks =
-      configManager.getConfigValue<TaskModelConfig>('models.tasks');
-    if (flatTasks && Object.keys(flatTasks).length > 0) return flatTasks;
+  /** 当前模型（内存缓存读取） */
+  private readCurrentModel(): string {
+    if (this._currentModel) return this._currentModel;
 
-    // 向前兼容：读取旧 process.env
-    const envTasks: TaskModelConfig = {};
-    const envMap: Record<string, string | undefined> = {
-      chat: configManager.env('Liri_TASK_CHAT'),
-      coding: configManager.env('Liri_TASK_CODING'),
-      translation: configManager.env('Liri_TASK_TRANSLATION'),
-      quick: configManager.env('Liri_TASK_QUICK'),
-      embedding: configManager.env('Liri_TASK_EMBEDDING'),
-    };
-    for (const [key, val] of Object.entries(envMap)) {
-      if (val) (envTasks as Record<string, string>)[key] = val;
-    }
-    if (Object.keys(envTasks).length > 0) return envTasks;
+    const defaultTask = this._taskCache.get('default');
+    if (defaultTask) return defaultTask;
 
-    // 启动自引导：从 DB 中按能力自动匹配模型填充任务分工
-    // 异步触发，首次调用返回空，自引导完成后通过 setTasks 写入
-    this.triggerAutoDiscover();
-    // 旧配置迁移：模型名 → UUID（异步触发）
-    this.triggerLegacyMigration();
-
-    // 无任何配置时返回空，由 resolve() 返回明确提示
-    logger.warn('ModelRouter: 无任务分工配置，将触发自动发现');
-    return {};
+    return '';
   }
 
   /**
    * 异步触发启动自引导：从 model_registry 扫描模型能力，
-   * 自动填充 taskType → modelId 映射并持久化到 config.json
+   * 自动填充 taskType → modelId 映射并持久化到 DB
    */
   private triggerAutoDiscover(): void {
     if (this._autoDiscoverPromise) return;
@@ -631,7 +752,7 @@ export class ModelRouter {
         for (const [key, val] of Object.entries(existing)) {
           if (val) merged[key] = val;
         }
-        this.setTasks(merged as TaskModelConfig);
+        await this.setTasks(merged as TaskModelConfig);
         logger.info('ModelRouter: 自动发现完成，已合并任务分工', {
           discovered: Object.keys(tasks),
           existing: Object.keys(existing).filter(
@@ -696,7 +817,7 @@ export class ModelRouter {
       }
 
       if (migrated) {
-        this.setTasks(newTasks as TaskModelConfig);
+        await this.setTasks(newTasks as TaskModelConfig);
         logger.info('ModelRouter: 已完成旧任务配置的 UUID 迁移');
       }
     } catch (err) {

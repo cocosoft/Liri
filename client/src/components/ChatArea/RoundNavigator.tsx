@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useEffect, useState } from "react";
+import { useMemo, useCallback, useEffect, useState, useRef } from "react";
 import type { Message } from "../../types";
 
 interface RoundNavigatorProps {
@@ -12,6 +12,8 @@ interface Round {
   userMsgId: string;
   userContent: string;
   isCurrentStreaming: boolean;
+  /** 此轮次跨越午夜（用户消息和 AI 回复在不同日期） */
+  crossesMidnight: boolean;
 }
 
 // ── 折叠模式常量 ──────────────────────────────────────────────────
@@ -107,29 +109,67 @@ function computeRenderItems(
 function RoundNavigator({ messages, isStreaming, containerRef }: RoundNavigatorProps) {
   const [activeRound, setActiveRound] = useState<number>(0);
   const [hoveredRound, setHoveredRound] = useState<number>(-1);
+  /** 是否展开为完整轮次列表（默认折叠为小圆点） */
+  const [expanded, setExpanded] = useState(false);
+  const navRef = useRef<HTMLDivElement>(null);
+
+  // 点击外部自动折叠
+  useEffect(() => {
+    if (!expanded) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
+        setExpanded(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [expanded]);
 
   // 计算轮次
   const rounds = useMemo<Round[]>(() => {
     const result: Round[] = [];
-    let lastUserIdx = -1;
     const lastMsg = messages[messages.length - 1];
     const isLastStreaming = isStreaming && lastMsg?.role === "assistant";
 
-    messages.forEach((msg) => {
+    // 辅助函数：比较两个时间戳是否跨天
+    const isCrossDay = (ts1: number, ts2: number): boolean => {
+      try {
+        const d1 = new Date(ts1);
+        const d2 = new Date(ts2);
+        return d1.getDate() !== d2.getDate() ||
+               d1.getMonth() !== d2.getMonth() ||
+               d1.getFullYear() !== d2.getFullYear();
+      } catch {
+        return false;
+      }
+    };
+
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
       if (msg.role === "user") {
+        let crossesMidnight = false;
+
+        // 查找下一个 assistant 消息，检查是否跨午夜
+        for (let j = i + 1; j < messages.length; j++) {
+          if (messages[j].role === "assistant" && messages[j].timestamp && msg.timestamp) {
+            crossesMidnight = isCrossDay(msg.timestamp, messages[j].timestamp!);
+            break;
+          }
+        }
+
         result.push({
           index: result.length + 1,
           userMsgId: msg.id,
-          userContent: msg.content,
+          userContent: typeof msg.content === "string" ? msg.content : "",
           isCurrentStreaming: false,
+          crossesMidnight,
         });
-        lastUserIdx = result.length - 1;
       }
-    });
+    }
 
     // 标记当前正在进行中的轮次
-    if (lastUserIdx >= 0 && isLastStreaming) {
-      result[lastUserIdx].isCurrentStreaming = true;
+    if (result.length > 0 && isLastStreaming) {
+      result[result.length - 1].isCurrentStreaming = true;
     }
 
     return result;
@@ -192,65 +232,105 @@ function RoundNavigator({ messages, isStreaming, containerRef }: RoundNavigatorP
   }
 
   return (
-    <div className="absolute right-0 top-0 bottom-0 flex flex-col items-center justify-center gap-1.5 pr-1.5 pointer-events-none z-10">
-      {renderItems.map((item) => {
-        if (item.type === "ellipsis") {
-          return (
-            <div
-              key={item.key}
-              className="w-4 h-3 flex items-center justify-center pointer-events-auto"
-            >
-              <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 leading-none">
-                ⋯
-              </span>
-            </div>
-          );
-        }
+    <div ref={navRef} className="absolute left-0 top-0 bottom-0 z-10 pointer-events-none">
+      {/* 折叠模式：左侧边缘小圆点 */}
+      {!expanded && (
+        <button
+          onClick={() => setExpanded(true)}
+          onMouseEnter={() => setExpanded(true)}
+          className="absolute left-1 top-1/2 -translate-y-1/2 w-3 h-12 rounded-full bg-gray-300/60 dark:bg-gray-600/60 hover:bg-gray-400/80 dark:hover:bg-gray-500/80 transition-all duration-200 cursor-pointer pointer-events-auto flex items-center justify-center group"
+          title={`${rounds.length} 轮对话 · 点击展开导航`}
+          aria-label={`${rounds.length} 轮对话，点击展开轮次导航`}
+        >
+          <span className="text-[8px] text-gray-500 dark:text-gray-400 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+            {rounds.length}
+          </span>
+        </button>
+      )}
 
-        const round = item.round;
-        const idx = round.index - 1; // rounds 数组索引
-        const isActive = idx === activeRound;
-        const isHovered = hoveredRound === idx;
+      {/* 展开模式：完整轮次列表 */}
+      {expanded && (
+        <div className="absolute left-1 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1.5 bg-white/95 dark:bg-gray-800/95 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg px-1 py-2 pointer-events-auto max-h-[80vh] overflow-y-auto">
+          {/* 折叠按钮 */}
+          <button
+            onClick={() => setExpanded(false)}
+            className="w-4 h-4 flex items-center justify-center text-[8px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors mb-0.5"
+            title="折叠导航"
+          >
+            ◀
+          </button>
 
-        return (
-          <div key={round.index} className="relative pointer-events-auto">
-            <button
-              onClick={() => handleRoundClick(round)}
-              onMouseEnter={() => setHoveredRound(idx)}
-              onMouseLeave={() => setHoveredRound(-1)}
-              className={`
-                w-4 h-4 rounded-full text-[9px] font-medium
-                flex items-center justify-center
-                transition-all duration-200 cursor-pointer border-0
-                ${
-                  round.isCurrentStreaming
-                    ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 ring-1 ring-blue-300 dark:ring-blue-700"
-                    : isActive
-                      ? "bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 scale-110"
-                      : "bg-gray-200 dark:bg-gray-700/60 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600"
-                }
-                ${round.isCurrentStreaming ? "animate-pulse" : ""}
-              `}
-              title={round.userContent.slice(0, 20) + (round.userContent.length > 20 ? "..." : "")}
-            >
-              {round.isCurrentStreaming ? (
-                <span className="text-[7px]">⏳</span>
-              ) : (
-                round.index
-              )}
-            </button>
+          {renderItems.map((item) => {
+            if (item.type === "ellipsis") {
+              return (
+                <div
+                  key={item.key}
+                  className="w-4 h-3 flex items-center justify-center"
+                >
+                  <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 leading-none">
+                    ⋯
+                  </span>
+                </div>
+              );
+            }
 
-            {/* 悬停提示弹窗 */}
-            {isHovered && (
-              <div className="absolute right-5 top-1/2 -translate-y-1/2 px-2 py-1 bg-gray-800 dark:bg-gray-700 text-white text-[10px] rounded shadow-lg whitespace-nowrap pointer-events-none">
-                {round.userContent.slice(0, 18)}
-                {round.userContent.length > 18 ? "..." : ""}
-                <div className="absolute right-[-3px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-gray-800 dark:bg-gray-700 rotate-45" />
+            const round = item.round;
+            const idx = round.index - 1;
+            const isActive = idx === activeRound;
+            const isHovered = hoveredRound === idx;
+
+            return (
+              <div key={round.index} className="relative">
+                <button
+                  onClick={() => handleRoundClick(round)}
+                  onMouseEnter={() => setHoveredRound(idx)}
+                  onMouseLeave={() => setHoveredRound(-1)}
+                  className={`
+                    w-4 h-4 rounded-full text-[9px] font-medium
+                    flex items-center justify-center
+                    transition-all duration-200 cursor-pointer border-0
+                    ${
+                      round.isCurrentStreaming
+                        ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 ring-1 ring-blue-300 dark:ring-blue-700"
+                        : round.crossesMidnight
+                          ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-500 dark:text-indigo-400"
+                          : isActive
+                            ? "bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 scale-110"
+                            : "bg-gray-200 dark:bg-gray-700/60 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600"
+                    }
+                    ${round.isCurrentStreaming ? "animate-pulse" : ""}
+                  `}
+                  title={
+                    (round.crossesMidnight ? "🌙 " : "") +
+                    round.userContent.slice(0, 20) +
+                    (round.userContent.length > 20 ? "..." : "")
+                  }
+                >
+                  {round.isCurrentStreaming ? (
+                    <span className="text-[7px]">⏳</span>
+                  ) : (
+                    <span className="relative">
+                      {round.index}
+                      {round.crossesMidnight && (
+                        <span className="absolute -top-1 -right-1 text-[7px] leading-none">🌙</span>
+                      )}
+                    </span>
+                  )}
+                </button>
+
+                {/* 悬停提示弹窗 */}
+                {isHovered && (
+                  <div className="absolute left-6 top-1/2 -translate-y-1/2 px-2 py-1 bg-gray-800 dark:bg-gray-700 text-white text-[10px] rounded shadow-lg whitespace-nowrap pointer-events-none z-20">
+                    {round.userContent.slice(0, 18)}
+                    {round.userContent.length > 18 ? "..." : ""}
+                    <div className="absolute left-[-3px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-gray-800 dark:bg-gray-700 rotate-45" />
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        );
-      })}
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

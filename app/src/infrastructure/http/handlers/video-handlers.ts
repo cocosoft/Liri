@@ -31,7 +31,7 @@ const VIDEO_MIME_MAP: Record<string, string> = {
 };
 
 /** 支持的视频扩展名 */
-const VIDEO_EXTENSIONS = Object.keys(VIDEO_MIME_MAP);
+const _VIDEO_EXTENSIONS = Object.keys(VIDEO_MIME_MAP);
 
 /**
  * 获取视频文件的 MIME 类型
@@ -155,21 +155,30 @@ export async function handleVideoStatic(
   try {
     // 安全检查
     if (!isVideoRootSafe(filePath)) {
-      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.writeHead(403, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      });
       res.end(JSON.stringify({ error: 'Access denied' }));
       return;
     }
 
     const fullPath = resolveVideoPath(filePath);
     if (!fullPath) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.writeHead(404, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      });
       res.end(JSON.stringify({ error: 'Video not found' }));
       return;
     }
 
     // 文件存在性检查
     if (!fs.existsSync(fullPath) || !fs.statSync(fullPath).isFile()) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.writeHead(404, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      });
       res.end(JSON.stringify({ error: 'Video not found' }));
       return;
     }
@@ -292,7 +301,10 @@ export async function handleVideoList(
       url: `/v1/videos/static/${f.relativePath.replace(/\\/g, '/')}`,
     }));
 
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    });
     res.end(
       JSON.stringify({
         videos,

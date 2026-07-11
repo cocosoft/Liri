@@ -14,6 +14,7 @@ import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { getVideoTaskPersistence } from '@modules/tools/VideoGenerateTool/VideoTaskPersistence';
+import type { ToolUseContext } from '@modules/tools/types/Tool';
 
 /** 从 URL 路径中提取 taskId（/v1/video/tasks/{id}） */
 function extractTaskId(url: string): string | null {
@@ -22,7 +23,9 @@ function extractTaskId(url: string): string | null {
 }
 
 /** 解析 JSON body */
-async function parseBody(req: http.IncomingMessage): Promise<any> {
+async function parseBody(
+  req: http.IncomingMessage
+): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     let body = '';
     req.on('data', (chunk) => {
@@ -65,8 +68,12 @@ async function handleCreateTask(
     const { prompt, imageUrl, imagePath, duration, aspectRatio, modelId } =
       body;
 
-    if (!prompt) {
-      json(res, 400, { error: 'prompt is required' });
+    // 图生视频：有图片时 prompt 可选；文生视频：必须输入 prompt
+    if (!prompt && !imageUrl && !imagePath) {
+      json(res, 400, {
+        error:
+          'prompt is required (or provide imageUrl/imagePath for image-to-video)',
+      });
       return;
     }
 
@@ -85,19 +92,19 @@ async function handleCreateTask(
         model: modelId || undefined,
         async: true,
       },
-      {} as any
+      {} as unknown as ToolUseContext
     );
 
     // taskId 在 result.data 中
-    const taskData = (result.data as any) || {};
+    const taskData = (result.data ?? {}) as Record<string, unknown>;
     const taskId = taskData.taskId as string;
 
     // 补充写入 mode / sourceImageUrl
     if (taskId) {
       const persistence = getVideoTaskPersistence();
       persistence.update(taskId, {
-        mode: imageUrl || imagePath ? 'image-to-video' : 'text-to-video',
-        sourceImageUrl: imageUrl || undefined,
+        mode: !!imageUrl || !!imagePath ? 'image-to-video' : 'text-to-video',
+        sourceImageUrl: typeof imageUrl === 'string' ? imageUrl : undefined,
       });
     }
 

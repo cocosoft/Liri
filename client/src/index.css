@@ -215,6 +215,30 @@ pre code.hljs {
   }
 }
 
+/* 用户消息从右侧滑入（新布局适配） */
+@keyframes message-enter-right {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* AI 消息从左侧滑入（新布局适配） */
+@keyframes message-enter-left {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @keyframes pulse {
   0%,
   100% {
@@ -237,6 +261,14 @@ pre code.hljs {
 
 .animate-message-enter {
   animation: message-enter 0.25s ease-out;
+}
+
+.animate-message-enter-left {
+  animation: message-enter-left 0.25s ease-out;
+}
+
+.animate-message-enter-right {
+  animation: message-enter-right 0.25s ease-out;
 }
 
 .page-transition-enter {

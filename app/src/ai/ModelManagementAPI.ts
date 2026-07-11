@@ -987,6 +987,13 @@ async function handleDeleteModel(
         error: (er as Error).message,
       });
     });
+    // 级联清理任务分工中对被删模型的引用
+    modelRouter.cleanupTaskRef(id).catch((er: unknown) => {
+      // @ignore-catch: 非关键清理
+      logger.warning('cleanupTaskRef 失败', {
+        error: (er as Error).message,
+      });
+    });
     sendJson(res, { success: true });
   } catch (err) {
     await handleError(err, {
@@ -1448,8 +1455,8 @@ async function handleSwitchModel(
       providerRegistry.setDefaultProvider(modelName);
     }
 
-    // 持久化到 ConfigManager（models.current + tasks.default）
-    modelRouter.setCurrentModel(modelId); // 存 UUID
+    // 持久化到 DB（current + default）
+    await modelRouter.setCurrentModel(modelId); // 存 UUID
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true }));
@@ -1525,7 +1532,7 @@ async function handleSaveTasks(
   try {
     const body = (await parseBody(req)) as Record<string, unknown>;
     const { modelRouter } = await import('./modelRouter.js');
-    modelRouter.setTasks(body);
+    await modelRouter.setTasks(body);
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {

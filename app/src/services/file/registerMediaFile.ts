@@ -23,31 +23,58 @@ const logger = new Logger({ module: 'services:file', level: LogLevel.INFO });
  * @param prompt    生成提示词（用于描述字段）
  * @param mediaType 媒体子类型（'image' | 'video' | 'music'）
  * @param format    文件扩展名（'png' | 'jpeg' | 'mp4' | 'mp3' 等）
+ * @param buffer    可选：若已下载内容，直接传 Buffer 跳过 fetch
  * @returns 注册结果，包含 fileId 和本地保存路径
  */
 export async function registerGeneratedMedia(
   url: string,
   prompt: string,
   mediaType: MediaType,
-  format: string
+  format: string,
+  buffer?: Buffer
 ): Promise<{
   fileId: string;
   savedPath: string;
   savedFullPath: string;
 } | null> {
   try {
-    // Step 1: 下载远程文件
-    const response = await fetch(url);
-    if (!response.ok) {
-      logger.warn('下载远程媒体文件失败', {
-        status: response.status,
-        statusText: response.statusText,
-        url: url.slice(0, 200),
+    let content: Buffer;
+
+    if (buffer) {
+      // 已有 Buffer，跳过网络下载
+      content = buffer;
+      logger.info('使用已下载的 Buffer 注册媒体', {
+        mediaType,
+        format,
+        sizeKb: Math.round(buffer.length / 1024),
       });
-      return null;
+    } else {
+      // Step 1: 下载远程文件
+      const response = await fetch(url);
+      if (!response.ok) {
+        logger.warn('下载远程媒体文件失败', {
+          status: response.status,
+          statusText: response.statusText,
+          contentType: response.headers.get('content-type') || 'unknown',
+          url: url.slice(0, 200),
+          mediaType,
+        });
+        return null;
+      }
+
+      const contentLength = response.headers.get('content-length');
+      logger.info('开始下载远程媒体文件', {
+        url: url.slice(0, 200),
+        mediaType,
+        format,
+        contentLength: contentLength
+          ? `${(Number(contentLength) / 1024 / 1024).toFixed(1)} MB`
+          : 'unknown',
+      });
+
+      const arrayBuffer = await response.arrayBuffer();
+      content = Buffer.from(arrayBuffer);
     }
-    const arrayBuffer = await response.arrayBuffer();
-    const content = Buffer.from(arrayBuffer);
 
     // Step 2: 注册到 FileRegistry（路径由 FileRegistry.resolveSavedPath 决定）
     const registry = FileRegistry.getInstance();

@@ -92,6 +92,8 @@ const ChatMessageMemo = memo(function ChatMessage({
   const [branching, setBranching] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [copyToast, setCopyToast] = useState<"copied" | "failed" | null>(null);
+  /** 移动端长按/右键菜单 */
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const configTheme = useConfigStore((s) => s.config.theme);
   const isDark = configTheme === "dark";
   const isUser = message.role === "user";
@@ -119,14 +121,20 @@ const ChatMessageMemo = memo(function ChatMessage({
     return `$${costUsd.toFixed(4)}`;
   };
 
-  const handleCopy = async () => {
+  /**
+   * 复制消息内容
+   * @param asMarkdown true=复制 Markdown 源码；false/Shift+Click=复制纯文本
+   */
+  const handleCopy = async (asMarkdown: boolean = true) => {
     try {
-      const textToCopy = getFullContent(message, {
-        thoughtProcess: t('chat.thoughtProcess'),
-        toolCall: t('chat.toolCall'),
-        parameters: t('chat.parameters'),
-        result: t('chat.result'),
-      });
+      const textToCopy = asMarkdown
+        ? (typeof message.content === "string" ? message.content : "")
+        : getFullContent(message, {
+            thoughtProcess: t('chat.thoughtProcess'),
+            toolCall: t('chat.toolCall'),
+            parameters: t('chat.parameters'),
+            result: t('chat.result'),
+          });
       await navigator.clipboard.writeText(textToCopy);
       setCopyToast("copied");
       setTimeout(() => setCopyToast(null), 2000);
@@ -175,9 +183,19 @@ const ChatMessageMemo = memo(function ChatMessage({
     setShowSaveModal(true);
   };
 
+  /** 移动端长按 / 右键菜单 */
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  };
+
+  /** 关闭菜单 */
+  const closeContextMenu = () => setContextMenu(null);
+
   return (
     <div
       className={`flex w-full items-start gap-3 px-3 py-2 ${isUser ? "justify-end" : "justify-start"}`}
+      onContextMenu={handleContextMenu}
     >
       {/* AI 头像（左侧，38px） */}
       {!isUser && !isTool && (
@@ -325,12 +343,13 @@ const ChatMessageMemo = memo(function ChatMessage({
               </button>
             )}
 
-            {/* AI 消息：复制常驻 */}
+            {/* AI 消息：复制常驻（Shift+Click 复制纯文本） */}
             {!isUser && !isTool && (
               <button
-                onClick={handleCopy}
+                onClick={(e) => handleCopy(!e.shiftKey)}
                 className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                 aria-label={t('chat.copyMessage')}
+                title={t('chat.copyMessage') + " (Shift+Click: " + t('chat.copyMessage') + ")"}
               >
                 📋 {t('chat.copyMessage')}
               </button>
@@ -435,6 +454,72 @@ const ChatMessageMemo = memo(function ChatMessage({
         >
           {"U"}
         </div>
+      )}
+
+      {/* 移动端长按/右键操作菜单 */}
+      {contextMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={closeContextMenu} onTouchEnd={closeContextMenu} />
+          <div
+            className="fixed z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl py-1 min-w-[140px]"
+            style={{
+              left: Math.min(contextMenu.x, window.innerWidth - 150),
+              top: Math.min(contextMenu.y, window.innerHeight - 200),
+            }}
+          >
+            {/* 复制（所有消息） */}
+            <button
+              onClick={() => { handleCopy(true); closeContextMenu(); }}
+              className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+            >
+              📋 {t('chat.copyMessage')}
+            </button>
+
+            {/* AI 消息操作 */}
+            {!isUser && !isTool && (
+              <>
+                <button
+                  onClick={() => { handleRegenerate(); closeContextMenu(); }}
+                  disabled={isStreaming}
+                  className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 flex items-center gap-2"
+                >
+                  🔄 {t('chat.regenerate')}
+                </button>
+                <button
+                  onClick={() => { handleContinue(); closeContextMenu(); }}
+                  className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                >
+                  ✏️ {t('chat.continueGenerate')}
+                </button>
+                <button
+                  onClick={() => { openSaveModal(); closeContextMenu(); }}
+                  className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                >
+                  💾 {t('chat.saveToKnowledge')}
+                </button>
+              </>
+            )}
+
+            {/* 用户消息操作 */}
+            {isUser && (
+              <>
+                <button
+                  onClick={() => { setEditTarget(message); closeContextMenu(); }}
+                  className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                >
+                  ✏️ {t('chat.editMessage')}
+                </button>
+                <button
+                  onClick={() => { handleBranch(); closeContextMenu(); }}
+                  disabled={branching}
+                  className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 flex items-center gap-2"
+                >
+                  🌿 {branching ? t('chat.branching') : t('chat.branch')}
+                </button>
+              </>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

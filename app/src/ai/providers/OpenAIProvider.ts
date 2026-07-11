@@ -594,7 +594,7 @@ export class OpenAIProvider extends BaseAIProvider {
           const buffer = Buffer.from(await file.arrayBuffer());
           const ext = params.imagePath.split('.').pop()?.toLowerCase() || 'png';
           const mimeType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
-          body.image = `data:${mimeType};base64,${buffer.toString('base64')}`;
+          body.image_url = `data:${mimeType};base64,${buffer.toString('base64')}`;
           logger.info('OpenAIProvider . localhost URL → base64', {
             path: params.imagePath,
             mimeType,
@@ -603,7 +603,7 @@ export class OpenAIProvider extends BaseAIProvider {
         }
         // 无 imagePath 则跳过图片（降级为文生视频）
       } else {
-        body.image = params.imageUrl;
+        body.image_url = params.imageUrl;
       }
     }
     if (params.seed !== undefined) body.seed = params.seed;
@@ -615,12 +615,22 @@ export class OpenAIProvider extends BaseAIProvider {
 
     try {
       // 1. 提交任务
-      const submitRes = await fetch(`${this.baseUrl}/video/submit`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(30000),
-      });
+      let submitRes: Response;
+      try {
+        submitRes = await fetch(`${this.baseUrl}/video/submit`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(60000),
+        });
+      } catch (submitErr) {
+        return {
+          success: false,
+          data: [],
+          error: `SiliconFlow 视频提交网络异常: ${(submitErr as Error).message}`,
+          durationMs: Date.now() - startTime,
+        };
+      }
 
       if (!submitRes.ok) {
         const errorBody = await submitRes.text();
@@ -647,20 +657,42 @@ export class OpenAIProvider extends BaseAIProvider {
       logger.info('SiliconFlow 视频任务已提交', { requestId, model });
 
       // 2. 轮询状态
-      const MAX_POLL_TIME = 10 * 60 * 1000;
+      // Wan2.2-I2V-A14B 等大模型需 15-25 分钟，设置 30 分钟超时
+      const MAX_POLL_TIME = 30 * 60 * 1000;
       let pollInterval = 3000;
+      let lastLogTime = startTime;
       let videoUrl = '';
 
       while (Date.now() - startTime < MAX_POLL_TIME) {
         await new Promise((r) => setTimeout(r, pollInterval));
         pollInterval = Math.min(pollInterval * 1.3, 15000);
 
-        const statusRes = await fetch(`${this.baseUrl}/video/status`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ requestId }),
-          signal: AbortSignal.timeout(15000),
-        });
+        // 每 2 分钟输出一次轮询进度日志
+        const elapsed = Date.now() - startTime;
+        if (elapsed - lastLogTime >= 2 * 60 * 1000) {
+          lastLogTime = elapsed;
+          logger.info('SiliconFlow 视频生成轮询中...', {
+            requestId,
+            elapsedMinutes: Math.round(elapsed / 60000),
+          });
+        }
+
+        // 单次状态查询（超时或网络异常不崩溃，继续重试）
+        let statusRes: Response;
+        try {
+          statusRes = await fetch(`${this.baseUrl}/video/status`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ requestId }),
+            signal: AbortSignal.timeout(15000),
+          });
+        } catch {
+          logger.warn('SiliconFlow 视频状态查询网络异常，继续重试', {
+            requestId,
+            elapsedMinutes: Math.round((Date.now() - startTime) / 60000),
+          });
+          continue;
+        }
 
         if (!statusRes.ok) {
           if (statusRes.status === 429) {
@@ -690,7 +722,7 @@ export class OpenAIProvider extends BaseAIProvider {
           break;
         }
 
-        if (state === 'Failed' || state === 'Error') {
+        if (state === 'Failed') {
           return {
             success: false,
             data: [],
@@ -699,21 +731,53 @@ export class OpenAIProvider extends BaseAIProvider {
           };
         }
 
-        // InProgress — 继续轮询
+        // InQueue / InProgress — 继续轮询
       }
 
       if (!videoUrl) {
         return {
           success: false,
           data: [],
-          error: 'SiliconFlow 视频生成超时（超过 10 分钟）',
+          error: `SiliconFlow 视频生成超时（超过 ${MAX_POLL_TIME / 60000} 分钟）`,
           durationMs: Date.now() - startTime,
         };
+      }
+
+      // 3. 下载视频内容（带鉴权 header）
+      let videoBuffer: Buffer | undefined;
+      try {
+        const downloadRes = await fetch(videoUrl, {
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          signal: AbortSignal.timeout(300000),
+        });
+        if (downloadRes.ok) {
+          const arrayBuf = await downloadRes.arrayBuffer();
+          videoBuffer = Buffer.from(arrayBuf);
+          logger.info('SiliconFlow 视频已下载', {
+            requestId,
+            sizeKb: Math.round(videoBuffer.length / 1024),
+          });
+        } else {
+          logger.warn('SiliconFlow 视频下载失败', {
+            requestId,
+            status: downloadRes.status,
+            statusText: downloadRes.statusText,
+          });
+        }
+      } catch (downloadErr) {
+        logger.warn('SiliconFlow 视频下载异常', {
+          requestId,
+          error: String(downloadErr),
+        });
+        // 下载失败不阻塞，仍返回 URL（buildToolResult 会回退到 fetch URL）
       }
 
       return {
         success: true,
         data: [{ url: videoUrl }],
+        videoBuffer,
         durationMs: Date.now() - startTime,
         model,
       };
@@ -857,9 +921,25 @@ export class OpenAIProvider extends BaseAIProvider {
         };
       }
 
+      // 下载视频内容（带鉴权 header）
+      let videoBuffer: Buffer | undefined;
+      try {
+        const downloadRes = await fetch(videoUrl, {
+          headers: { Authorization: `Bearer ${this.apiKey}` },
+          signal: AbortSignal.timeout(300000),
+        });
+        if (downloadRes.ok) {
+          const arrayBuf = await downloadRes.arrayBuffer();
+          videoBuffer = Buffer.from(arrayBuf);
+        }
+      } catch {
+        // 下载失败不阻塞
+      }
+
       return {
         success: true,
         data: [{ url: videoUrl }],
+        videoBuffer,
         durationMs: Date.now() - startTime,
         model,
       };

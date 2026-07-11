@@ -84,10 +84,14 @@ function MediaPage() {
         duration: vid.duration,
       }));
 
-      // 合并并按时间倒序
-      const allItems = [...images, ...videos]
-        .sort(() => Math.random() - 0.5) // 暂时随机混合
-        .slice(0, PAGE_SIZE);
+      logger.info("图库加载完成", {
+        imageCount: images.length,
+        videoCount: videos.length,
+        videoOk: vidRes.ok,
+      });
+
+      // 合并：图片和视频各自保持 API 返回的时间倒序（新的在前）
+      const allItems = [...images, ...videos].slice(0, PAGE_SIZE);
 
       setGalleryItems(allItems, allItems.length >= PAGE_SIZE);
     } catch (e) {
@@ -112,7 +116,8 @@ function MediaPage() {
 
   // ──── 生成视频 ────
   const handleGenerate = useCallback(async () => {
-    if (!prompt.trim()) return;
+    // 图生视频：有图片时 prompt 可选；文生视频：必须输入 prompt
+    if (!prompt.trim() && !selectedImageUrl) return;
 
     try {
       const result = await videoService.createVideoTask({

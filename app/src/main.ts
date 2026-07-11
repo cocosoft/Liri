@@ -506,22 +506,25 @@ async function launchCLI(_options: LaunchOptions): Promise<void> {
  * init() 由 bootstrap() 内部调用，此函数仅保留模式分发逻辑。
  */
 async function launchREPL(options: LaunchOptions): Promise<void> {
+  // 初始化 ModelRouter 从 DB 加载任务分工
+  await modelRouter.initFromDb();
+
   // 解析 --model 参数并设为全局模型
   const modelArg = parseModelFromArgs(options.args);
   if (modelArg) {
-    // 将模型名转换为 UUID 存储，保持 config.json 一致性
+    // 将模型名转换为 UUID 存储，保持 DB 一致性
     try {
       const { modelPricingService } =
         await import('./ai/models/ModelPricingService');
       await modelPricingService.initialize();
       const record = await modelPricingService.getPricing(modelArg);
       const modelId = record?.id || modelArg;
-      modelRouter.setCurrentModel(modelId);
+      await modelRouter.setCurrentModel(modelId);
       if (record?.id) {
         logger.info(`CLI --model ${modelArg} → UUID ${record.id}`);
       }
     } catch {
-      modelRouter.setCurrentModel(modelArg);
+      await modelRouter.setCurrentModel(modelArg);
     }
   }
 

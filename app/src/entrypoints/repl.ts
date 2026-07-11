@@ -642,17 +642,17 @@ export async function launchRepl(
             `当前模型: ${modelRouter.getCurrentModel() || '(未设置)'}`
           );
         } else {
-          // 将模型名转换为 UUID 存储，保持 config.json 一致性
+          // 将模型名转换为 UUID 存储，保持 DB 一致性
           try {
             const { modelPricingService } =
               await import('../ai/models/ModelPricingService');
             await modelPricingService.initialize();
             const record = await modelPricingService.getPricing(modelName);
             const modelId = record?.id || modelName;
-            modelRouter.setCurrentModel(modelId);
+            await modelRouter.setCurrentModel(modelId);
           } catch {
             // @ignore-catch: 模型查找失败，使用原始模型名
-            modelRouter.setCurrentModel(modelName);
+            await modelRouter.setCurrentModel(modelName);
           }
           ui.showSuccess(`模型已切换至: ${modelName}，重启对话后生效`);
         }

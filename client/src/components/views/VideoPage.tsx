@@ -157,7 +157,8 @@ function VideoPage() {
   // ================================================================
 
   const handleGenerate = useCallback(async () => {
-    if (!prompt.trim()) {
+    // 图生视频：有图片时 prompt 可选；文生视频：必须输入 prompt
+    if (!prompt.trim() && !imagePath.trim()) {
       setError(t("video.promptRequired"));
       return;
     }
@@ -361,7 +362,7 @@ function VideoPage() {
 
           <button
             onClick={handleGenerate}
-            disabled={generating || !prompt.trim()}
+            disabled={generating || (!prompt.trim() && !imagePath.trim())}
             className={`${btnPrimary} w-full`}
           >
             {generating ? t("video.generating") : t("video.generate")}

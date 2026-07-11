@@ -122,6 +122,9 @@ export interface VideoGenerationResult {
     format?: string;
   }>;
 
+  /** 视频内容 Buffer（Provider 层下载后传入，避免 FileRegistry 单独 fetch 时缺鉴权） */
+  videoBuffer?: Buffer;
+
   error?: string;
 
   durationMs: number;

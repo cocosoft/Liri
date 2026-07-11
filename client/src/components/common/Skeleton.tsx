@@ -69,13 +69,14 @@ function SkeletonTable({ rows = 5 }: { rows?: number }) {
 }
 
 /**
- * 消息气泡骨架屏：模拟聊天消息的加载状态
+ * 消息气泡骨架屏：模拟新版左右交替聊天消息的加载状态
+ * 左侧圆形（头像占位）+ 右侧矩形长条（气泡占位），max-w-[80%]
  */
 function SkeletonMessageList({ count = 3 }: SkeletonProps) {
   const layouts = [
-    { align: "justify-start", bg: "bg-gray-100 dark:bg-gray-800", width: "w-3/4" },
-    { align: "justify-end", bg: "bg-blue-100 dark:bg-blue-900/30", width: "w-2/3" },
-    { align: "justify-start", bg: "bg-gray-100 dark:bg-gray-800", width: "w-4/5" },
+    { align: "justify-start", bg: "bg-gray-100 dark:bg-gray-800", width: "w-3/4", showAvatar: true },
+    { align: "justify-end", bg: "bg-blue-100 dark:bg-blue-900/30", width: "w-2/3", showAvatar: false },
+    { align: "justify-start", bg: "bg-gray-100 dark:bg-gray-800", width: "w-4/5", showAvatar: true },
   ];
 
   return (
@@ -83,13 +84,28 @@ function SkeletonMessageList({ count = 3 }: SkeletonProps) {
       {Array.from({ length: count }).map((_, i) => {
         const layout = layouts[i % layouts.length];
         return (
-          <div key={i} className={`flex ${layout.align}`}>
-            <div className={`${layout.width} p-3 rounded-lg space-y-2 ${layout.bg}`}>
+          <div key={i} className={`flex items-start gap-3 ${layout.align}`}>
+            {/* 头像占位（带圆形骨架） */}
+            {i % 2 === 0 && (
+              <div className="flex-shrink-0">
+                <SkeletonPulse className="w-9 h-9 rounded-full" />
+              </div>
+            )}
+
+            {/* 气泡占位 */}
+            <div className={`${layout.width} p-3 rounded-2xl space-y-2 ${layout.bg}`}>
               <SkeletonPulse className={`h-3 ${i % 2 === 0 ? "w-1/3" : "w-1/4"}`} />
               <SkeletonPulse className="h-3 w-full" />
               {i % 2 === 0 && <SkeletonPulse className="h-3 w-2/3" />}
               <SkeletonPulse className="h-2 w-12 ml-auto" />
             </div>
+
+            {/* 用户侧头像占位 */}
+            {i % 2 === 1 && (
+              <div className="flex-shrink-0">
+                <SkeletonPulse className="w-8 h-8 rounded-full" />
+              </div>
+            )}
           </div>
         );
       })}

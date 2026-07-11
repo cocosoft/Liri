@@ -226,13 +226,10 @@ export class ImageDownloader {
     }
 
     // 4. 下载（使用 withRetry 标准重试）
-    return withRetry(
-      () => this.downloadOnce(url, traceId, preResolve),
-      {
-        maxRetries: this.config.maxRetries! - 1,
-        initialDelayMs: this.config.retryDelayMs,
-      }
-    );
+    return withRetry(() => this.downloadOnce(url, traceId, preResolve), {
+      maxRetries: this.config.maxRetries! - 1,
+      initialDelayMs: this.config.retryDelayMs,
+    });
   }
 
   /**
@@ -410,7 +407,6 @@ export class ImageDownloader {
       return [];
     }
   }
-
 }
 
 /** 全局单例 */

@@ -518,10 +518,11 @@ export class SubAgentEngine {
       (await resolveModelRoute(RouteKey.AGENT));
 
     return withRetry(
-      () => client.chat(messages, {
-        tools: tools.length > 0 ? tools : undefined,
-        model: resolvedModel,
-      }),
+      () =>
+        client.chat(messages, {
+          tools: tools.length > 0 ? tools : undefined,
+          model: resolvedModel,
+        }),
       { maxRetries: 2 }
     );
   }

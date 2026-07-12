@@ -170,11 +170,14 @@ export const knowledgeService = {
   hybridSearch: async (
     query: string,
     base?: string,
+    domain?: string,
   ): Promise<KnowledgeSearchResult[]> => {
     try {
-      const url = base
-        ? `/v1/knowledge/search?base=${encodeURIComponent(base)}`
-        : "/v1/knowledge/search";
+      const params = new URLSearchParams();
+      if (base) params.set("base", base);
+      if (domain) params.set("domain", domain);
+      const qs = params.toString();
+      const url = qs ? `/v1/knowledge/search?${qs}` : "/v1/knowledge/search";
       return await http.post<KnowledgeSearchResult[]>(url, { query });
     } catch {
       const result = await tryTauri<KnowledgeSearchResult[]>(

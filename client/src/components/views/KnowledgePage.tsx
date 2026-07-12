@@ -28,6 +28,7 @@ function KnowledgePage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("knowledge");
   const [selectedBase, setSelectedBase] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<KnowledgeFile | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
@@ -190,7 +191,7 @@ function KnowledgePage() {
     }
   }
 
-  const handleDemoSearch = useCallback(async () => {
+  const handleDemoSearch = useCallback(async (domain?: string) => {
     if (!demoQuery.trim()) return;
     setIsDemoSearching(true);
     setDemoSearchDone(false);
@@ -198,6 +199,7 @@ function KnowledgePage() {
       const results = await knowledgeService.hybridSearch(
         demoQuery.trim(),
         selectedBase || undefined,
+        domain,
       );
       setDemoResults(results);
     } catch {
@@ -252,6 +254,7 @@ function KnowledgePage() {
                   onSelectBase={handleSelectBase}
                   onSelectFile={handleSelectFile}
                   selectedFileId={selectedFile?.id || null}
+                  externalSearchQuery={searchQuery}
                 />
               </div>
               <PendingCompilePanel
@@ -474,16 +477,22 @@ function KnowledgePage() {
                         <div className="flex flex-wrap gap-1.5">
                           {selectedFile.tags && selectedFile.tags.length > 0 ? (
                             selectedFile.tags.map((tag, idx) => (
-                              <span
+                              <button
                                 key={idx}
-                                className={`px-2 py-0.5 text-[10px] rounded-full ${
+                                onClick={() => {
+                                  setActiveTab("knowledge");
+                                  // 通过 searchQuery 传递标签筛选
+                                  setSearchQuery(tag);
+                                }}
+                                title={`点击筛选标签: ${tag}`}
+                                className={`px-2 py-0.5 text-[10px] rounded-full cursor-pointer transition-colors ${
                                   isDark
-                                    ? "bg-gray-700 text-gray-300"
-                                    : "bg-gray-100 text-gray-600"
+                                    ? "bg-blue-900/30 text-blue-400 hover:bg-blue-800/40"
+                                    : "bg-blue-100 text-blue-600 hover:bg-blue-200"
                                 }`}
                               >
                                 {tag}
-                              </span>
+                              </button>
                             ))
                           ) : (
                             <button

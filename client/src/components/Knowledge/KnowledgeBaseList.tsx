@@ -15,6 +15,7 @@ interface KnowledgeBaseListProps {
   onSelectFile: (file: KnowledgeFile) => void;
   selectedFileId: string | null;
   onRefreshBases?: () => void;
+  externalSearchQuery?: string;
 }
 
 // ── useReducer state & actions ──────────────────────────────────────────
@@ -132,6 +133,7 @@ function KnowledgeBaseList({
   onSelectFile,
   selectedFileId,
   onRefreshBases,
+  externalSearchQuery,
 }: KnowledgeBaseListProps) {
   const [state, dispatch] = useReducer(listReducer, {
     bases: [],
@@ -183,6 +185,13 @@ function KnowledgeBaseList({
       loadFiles();
     }
   }, [selectedBase]);
+
+  // 同步外部传入的搜索关键词
+  useEffect(() => {
+    if (externalSearchQuery !== undefined) {
+      dispatch({ type: "SET_SEARCH_QUERY", query: externalSearchQuery });
+    }
+  }, [externalSearchQuery]);
 
   async function loadBases() {
     dispatch({ type: "SET_LOADING", loading: true });

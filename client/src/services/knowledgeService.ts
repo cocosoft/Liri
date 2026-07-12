@@ -192,19 +192,28 @@ export const knowledgeService = {
   /**
    * 获取增强知识列表（支持按知识库过滤，返回完整文件元数据）
    */
-  listFiles: async (base?: string): Promise<KnowledgeFile[]> => {
+  listFiles: async (
+    base?: string,
+    offset?: number,
+    limit?: number
+  ): Promise<{ items: KnowledgeFile[]; total: number }> => {
     try {
-      const url = base
-        ? `/v1/knowledge?base=${encodeURIComponent(base)}`
-        : "/v1/knowledge";
-      return await http.get<KnowledgeFile[]>(url);
+      const params = new URLSearchParams();
+      if (base) params.set("base", base);
+      if (offset !== undefined) params.set("offset", String(offset));
+      if (limit !== undefined) params.set("limit", String(limit));
+      const qs = params.toString();
+      const url = qs ? `/v1/knowledge?${qs}` : "/v1/knowledge";
+      const data = await http.get<{ items: KnowledgeFile[]; total: number }>(url);
+      return data;
     } catch {
       const result = await tryTauri<KnowledgeFile[]>(
         "list_knowledge",
         base ? { base } : {},
       );
-      if (result) return result;
-      return createMemoryKnowledgeService().list() as unknown as KnowledgeFile[];
+      if (result) return { items: result, total: result.length };
+      const mem = createMemoryKnowledgeService().list() as unknown as KnowledgeFile[];
+      return { items: mem, total: mem.length };
     }
   },
 

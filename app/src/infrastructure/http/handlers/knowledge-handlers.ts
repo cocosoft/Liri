@@ -27,6 +27,8 @@ export async function handleListKnowledge(
 
     const parsedUrl = new URL(req.url || '', 'http://localhost');
     const baseFilter = parsedUrl.searchParams.get('base');
+    const offset = Math.max(0, parseInt(parsedUrl.searchParams.get('offset') || '0', 10) || 0);
+    const limit = Math.min(100, Math.max(1, parseInt(parsedUrl.searchParams.get('limit') || '50', 10) || 50));
 
     const registry = getDefaultKnowledgeBaseRegistry();
     const knowledgeRoot = registry.getKnowledgeRoot();
@@ -82,8 +84,16 @@ export async function handleListKnowledge(
       });
     }
 
+    const total = result.length;
+    const paged = result.slice(offset, offset + limit);
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(result));
+    res.end(JSON.stringify({
+      items: paged,
+      total,
+      offset,
+      limit,
+    }));
   } catch (err) {
     sendError(res, err);
   }

@@ -40,6 +40,10 @@ interface ListState {
   showBatchTagModal: boolean;
   batchTagInput: string;
   batchTagStatus: "idle" | "saving" | "error";
+  // pagination
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 type ListAction =
@@ -65,7 +69,8 @@ type ListAction =
   | { type: "OPEN_BATCH_TAG_MODAL" }
   | { type: "CLOSE_BATCH_TAG_MODAL" }
   | { type: "SET_BATCH_TAG_INPUT"; input: string }
-  | { type: "SET_BATCH_TAG_STATUS"; status: "idle" | "saving" | "error" };
+  | { type: "SET_BATCH_TAG_STATUS"; status: "idle" | "saving" | "error" }
+  | { type: "SET_PAGE"; page: number; total: number };
 
 function listReducer(state: ListState, action: ListAction): ListState {
   switch (action.type) {
@@ -121,6 +126,8 @@ function listReducer(state: ListState, action: ListAction): ListState {
       return { ...state, batchTagInput: action.input };
     case "SET_BATCH_TAG_STATUS":
       return { ...state, batchTagStatus: action.status };
+    case "SET_PAGE":
+      return { ...state, page: action.page, total: action.total };
     default:
       return state;
   }
@@ -156,6 +163,9 @@ function KnowledgeBaseList({
     showBatchTagModal: false,
     batchTagInput: "",
     batchTagStatus: "idle" as const,
+    total: 0,
+    page: 0,
+    pageSize: 50,
   });
 
   const {
@@ -164,6 +174,7 @@ function KnowledgeBaseList({
     editingBase, editLabel, compileStatus, compileMessage,
     sortBy, selectedCategory, selectedSource, selectedFileIds,
     showBatchTagModal, batchTagInput, batchTagStatus,
+    total, page, pageSize,
   } = state;
 
   const bgClass = isDark ? "bg-gray-800" : "bg-gray-50";
@@ -210,8 +221,9 @@ function KnowledgeBaseList({
 
   async function loadFiles() {
     try {
-      const data = await knowledgeService.listFiles(selectedBase || undefined);
-      dispatch({ type: "SET_FILES", files: data });
+      const data = await knowledgeService.listFiles(selectedBase || undefined, page * pageSize, pageSize);
+      dispatch({ type: "SET_FILES", files: data.items });
+      dispatch({ type: "SET_PAGE", page, total: data.total });
     } catch (err) {
       logger.error("加载知识文件失败", err);
       dispatch({ type: "SET_FILES", files: [] });
@@ -594,6 +606,48 @@ function KnowledgeBaseList({
                 {cat}
               </button>
             ))}
+          </div>
+        )}
+        {/* 分页控制 */}
+        {total > pageSize && (
+          <div className="flex items-center justify-between px-2 py-1.5 border-t border-gray-200 dark:border-gray-700">
+            <span className="text-[10px] text-gray-400">
+              {page * pageSize + 1}-{Math.min((page + 1) * pageSize, total)} / {total}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  dispatch({ type: "SET_PAGE", page: 0, total });
+                  loadFiles();
+                }}
+                disabled={page === 0}
+                className="text-[10px] px-1.5 py-0.5 rounded border disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                首页
+              </button>
+              <button
+                onClick={() => {
+                  const p = Math.max(0, page - 1);
+                  dispatch({ type: "SET_PAGE", page: p, total });
+                  loadFiles();
+                }}
+                disabled={page === 0}
+                className="text-[10px] px-1.5 py-0.5 rounded border disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                上一页
+              </button>
+              <button
+                onClick={() => {
+                  const p = Math.min(Math.ceil(total / pageSize) - 1, page + 1);
+                  dispatch({ type: "SET_PAGE", page: p, total });
+                  loadFiles();
+                }}
+                disabled={(page + 1) * pageSize >= total}
+                className="text-[10px] px-1.5 py-0.5 rounded border disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                下一页
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -23,6 +23,8 @@ import { resolveMemoryDir } from '@modules/core';
 import { createKnowledgeSearchTool } from '../knowledge/tools/KnowledgeSearchTool';
 import { createKnowledgeWriteTool } from '../knowledge/tools/KnowledgeWriteTool';
 import { createKnowledgeDeleteTool } from '../knowledge/tools/KnowledgeDeleteTool';
+import { createKnowledgeImportTool } from '../knowledge/tools/KnowledgeImportTool';
+import { createKnowledgeExportTool } from '../knowledge/tools/KnowledgeExportTool';
 import { createUnifiedSearchTool } from '../memory/tools/UnifiedSearchTool';
 import { createMemoryTool } from '../memory/tools/MemoryTool';
 import { createMemoryGetTool } from '../memory/tools/MemoryGetTool';
@@ -1050,6 +1052,14 @@ export function getAllBaseTools(): Tool[] {
   const knowledgeDeleteTool = createKnowledgeDeleteTool();
   if (knowledgeDeleteTool) {
     tools.push(knowledgeDeleteTool);
+  }
+  const knowledgeImportTool = createKnowledgeImportTool();
+  if (knowledgeImportTool) {
+    tools.push(knowledgeImportTool);
+  }
+  const knowledgeExportTool = createKnowledgeExportTool();
+  if (knowledgeExportTool) {
+    tools.push(knowledgeExportTool);
   }
 
   const memoryManager = new MemoryManagerImpl(resolveMemoryDir());

@@ -10,3 +10,11 @@ export {
   KnowledgeDeleteTool,
   createKnowledgeDeleteTool,
 } from './KnowledgeDeleteTool';
+export {
+  KnowledgeImportTool,
+  createKnowledgeImportTool,
+} from './KnowledgeImportTool';
+export {
+  KnowledgeExportTool,
+  createKnowledgeExportTool,
+} from './KnowledgeExportTool';

@@ -1197,6 +1197,14 @@ export async function dispatchRoute(
     await self['handleKnowledgeHealth'](req, res);
     return true;
   }
+  if (method === 'GET' && url.startsWith('/v1/knowledge/snapshots')) {
+    await self['handleListSnapshots'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/knowledge/restore') {
+    await self['handleRestoreSnapshot'](req, res);
+    return true;
+  }
   if (method === 'PUT' && url === '/v1/knowledge/docs') {
     await self['handleUpdateKnowledgeDoc'](req, res);
     return true;

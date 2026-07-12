@@ -14,6 +14,7 @@ import { formatFileSize, formatDateTime } from "../Knowledge/shared/utils";
 import { sourceLabels } from "../Knowledge/shared/constants";
 import SearchPanel from "../Knowledge/SearchPanel";
 import StatsPanel from "../Knowledge/StatsPanel";
+import VersionHistory from "../Knowledge/VersionHistory";
 import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
 
 type ActiveTab = "knowledge" | "search-demo" | "stats" | "semantic";
@@ -380,6 +381,19 @@ function KnowledgePage() {
                       <span className="text-gray-400">（无内容）</span>
                     )}
                   </div>
+
+                  {selectedFile.title && (
+                    <VersionHistory
+                      isDark={isDark}
+                      title={selectedFile.title}
+                      currentContent={selectedFile.content}
+                      onRestored={() => {
+                        // 恢复后重新加载选中文档
+                        setEditTitle(selectedFile.title);
+                        setEditContent(selectedFile.content);
+                      }}
+                    />
+                  )}
 
                   <div className={`mt-8 pt-4 border-t ${borderColor}`}>
                     <h4 className={`text-sm font-medium ${textPrimary} mb-2`}>

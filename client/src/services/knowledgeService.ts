@@ -462,4 +462,53 @@ export const knowledgeService = {
       throw new Error("batchTag failed");
     }
   },
+
+  /**
+   * 列出文档的快照版本
+   */
+  listSnapshots: async (title: string): Promise<string[]> => {
+    try {
+      const data = await http.get<{ snapshots: string[] }>(
+        `/v1/knowledge/snapshots?title=${encodeURIComponent(title)}`
+      );
+      return data.snapshots;
+    } catch (err) {
+      if (err instanceof HTTPClientError && err.status === 400) return [];
+      throw err;
+    }
+  },
+
+  /**
+   * 从快照恢复文档
+   */
+  restoreSnapshot: async (
+    title: string,
+    snapshot: string
+  ): Promise<boolean> => {
+    try {
+      const data = await http.post<{ restored: boolean }>(
+        "/v1/knowledge/restore",
+        { title, snapshot }
+      );
+      return data.restored;
+    } catch {
+      return false;
+    }
+  },
+
+  /**
+   * 获取知识库健康指标
+   */
+  health: async (): Promise<{
+    totalDocs: number;
+    totalIssues: number;
+    brokenLinks: number;
+    expiredDocs: number;
+    orphanDocs: number;
+    structureErrors: number;
+    consistencyWarnings: number;
+    qualityIssues: number;
+  }> => {
+    return http.get("/v1/knowledge/health");
+  },
 };

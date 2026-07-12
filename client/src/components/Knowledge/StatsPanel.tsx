@@ -3,7 +3,20 @@
  *
  * 从 KnowledgePage.tsx 中抽取独立组件 (CS09)。
  */
+import { useState, useEffect } from "react";
 import type { KnowledgeItem } from "../../types";
+import { knowledgeService } from "../../services/knowledgeService";
+
+interface HealthMetrics {
+  totalDocs: number;
+  totalIssues: number;
+  brokenLinks: number;
+  expiredDocs: number;
+  orphanDocs: number;
+  structureErrors: number;
+  consistencyWarnings: number;
+  qualityIssues: number;
+}
 
 interface StatsPanelProps {
   isDark: boolean;
@@ -13,11 +26,16 @@ interface StatsPanelProps {
 }
 
 function StatsPanel({ isDark, items, demoSearchDone, demoResultCount }: StatsPanelProps) {
+  const [health, setHealth] = useState<HealthMetrics | null>(null);
   const textPrimary = isDark ? "text-gray-100" : "text-gray-900";
   const textSecondary = isDark ? "text-gray-400" : "text-gray-500";
   const borderColor = isDark ? "border-gray-700" : "border-gray-200";
   const dividerColor = isDark ? "divide-gray-700" : "divide-gray-100";
   const cardBg = isDark ? "bg-gray-800" : "bg-white";
+
+  useEffect(() => {
+    knowledgeService.health().then(setHealth).catch(() => setHealth(null));
+  }, []);
 
   const totalItems = items.length;
   const totalCategories = new Set(items.flatMap((i) => i.tags || [])).size;
@@ -58,6 +76,33 @@ function StatsPanel({ isDark, items, demoSearchDone, demoResultCount }: StatsPan
             </div>
           </div>
         </div>
+
+        {/* 健康仪表盘 */}
+        {health && (
+          <div className={`${cardBg} rounded-lg p-4`}>
+            <h3 className={`text-sm font-semibold ${textPrimary} mb-3`}>
+              知识健康度
+              <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
+                health.brokenLinks === 0 && health.orphanDocs === 0
+                  ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+                  : health.brokenLinks + health.orphanDocs < 5
+                    ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400"
+                    : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+              }`}>
+                {health.brokenLinks === 0 && health.orphanDocs === 0 ? "🟢 健康" :
+                 health.brokenLinks + health.orphanDocs < 5 ? "🟡 警告" : "🔴 危险"}
+              </span>
+            </h3>
+            <div className="grid grid-cols-3 gap-3">
+              <MetricBadge label="断裂链接" value={health.brokenLinks} color={health.brokenLinks > 0 ? "red" : "green"} />
+              <MetricBadge label="过期文档" value={health.expiredDocs} color={health.expiredDocs > 0 ? "yellow" : "green"} />
+              <MetricBadge label="孤立文档" value={health.orphanDocs} color={health.orphanDocs > 0 ? "yellow" : "green"} />
+              <MetricBadge label="结构错误" value={health.structureErrors} color={health.structureErrors > 0 ? "red" : "green"} />
+              <MetricBadge label="一致性问题" value={health.consistencyWarnings} color={health.consistencyWarnings > 0 ? "yellow" : "green"} />
+              <MetricBadge label="质量问题" value={health.qualityIssues} color={health.qualityIssues > 0 ? "yellow" : "green"} />
+            </div>
+          </div>
+        )}
 
         {/* 最近更新 */}
         <div className={`${cardBg} rounded-lg`}>
@@ -105,6 +150,29 @@ function StatsPanel({ isDark, items, demoSearchDone, demoResultCount }: StatsPan
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function MetricBadge({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: number;
+  color: "red" | "yellow" | "green";
+}) {
+  const bg =
+    color === "red"
+      ? "bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400"
+      : color === "yellow"
+        ? "bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400"
+        : "bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400";
+  return (
+    <div className={`flex flex-col items-center py-2 px-2 rounded-lg text-center ${bg}`}>
+      <span className="text-lg font-bold">{value}</span>
+      <span className="text-[10px] mt-0.5">{label}</span>
     </div>
   );
 }

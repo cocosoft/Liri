@@ -211,6 +211,8 @@ import {
   handleUpdateKnowledgeDoc,
   handleBatchDeleteKnowledge,
   handleBatchTagKnowledge,
+  handleListSnapshots,
+  handleRestoreSnapshot,
 } from './handlers/knowledge-handlers';
 import {
   handleFileUpload,
@@ -1958,6 +1960,26 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     return handleBatchTagKnowledge(req, res);
+  }
+
+  /**
+   * 处理列出快照请求（委派到 knowledge-handlers）
+   */
+  private async handleListSnapshots(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleListSnapshots(req, res);
+  }
+
+  /**
+   * 处理快照恢复请求（委派到 knowledge-handlers）
+   */
+  private async handleRestoreSnapshot(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleRestoreSnapshot(req, res);
   }
 
   // ========== Buddy Handlers ==========

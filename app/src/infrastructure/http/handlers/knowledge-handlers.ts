@@ -1265,4 +1265,54 @@ export async function handleKnowledgeHealth(
   }
 }
 
+// ========== 快照 & 恢复 ==========
+
+export async function handleListSnapshots(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const url = new URL(req.url || '/', `http://${req.headers.host}`);
+    const title = url.searchParams.get('title');
+    if (!title) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'title query param required' }));
+      return;
+    }
+
+    const { KnowledgeBaseWriter } =
+      await import('@modules/knowledge/KnowledgeBaseWriter.js');
+    const writer = new KnowledgeBaseWriter();
+    const snapshots = await writer.listSnapshots(title);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ title, snapshots }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+export async function handleRestoreSnapshot(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const { title, snapshot } = JSON.parse(body);
+    if (!title || !snapshot) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'title and snapshot required' }));
+      return;
+    }
+
+    const { KnowledgeBaseWriter } =
+      await import('@modules/knowledge/KnowledgeBaseWriter.js');
+    const writer = new KnowledgeBaseWriter();
+    const restored = await writer.restoreSnapshot(title, snapshot);
+    res.writeHead(restored ? 200 : 404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ restored }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
 // ========== Buddy Handlers ==========

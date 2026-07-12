@@ -43,6 +43,17 @@ function StatsPanel({ isDark, items, demoSearchDone, demoResultCount }: StatsPan
     .sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0))
     .slice(0, 10);
 
+  // 来源分布统计
+  const sourceDistribution = (() => {
+    const dist: Record<string, number> = {};
+    for (const item of items) {
+      const s = (item as any)["source"] || "unknown";
+      dist[s] = (dist[s] || 0) + 1;
+    }
+    return Object.entries(dist).sort(([, a], [, b]) => b - a);
+  })();
+  const maxSourceCount = Math.max(1, ...sourceDistribution.map(([, c]) => c));
+
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <div className="max-w-3xl mx-auto space-y-4">
@@ -100,6 +111,29 @@ function StatsPanel({ isDark, items, demoSearchDone, demoResultCount }: StatsPan
               <MetricBadge label="结构错误" value={health.structureErrors} color={health.structureErrors > 0 ? "red" : "green"} />
               <MetricBadge label="一致性问题" value={health.consistencyWarnings} color={health.consistencyWarnings > 0 ? "yellow" : "green"} />
               <MetricBadge label="质量问题" value={health.qualityIssues} color={health.qualityIssues > 0 ? "yellow" : "green"} />
+            </div>
+          </div>
+        )}
+
+        {/* 来源分布 */}
+        {sourceDistribution.length > 0 && (
+          <div className={`${cardBg} rounded-lg p-4`}>
+            <h3 className={`text-sm font-semibold ${textPrimary} mb-3`}>来源分布</h3>
+            <div className="space-y-2">
+              {sourceDistribution.map(([source, count]) => (
+                <div key={source} className="flex items-center gap-2">
+                  <span className="text-[10px] text-gray-500 dark:text-gray-400 w-16 truncate">
+                    {source === "manual" ? "手动" : source === "upload" ? "上传" : source === "chat-save" ? "聊天" : source === "compiled" ? "编译" : source}
+                  </span>
+                  <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-indigo-400 dark:bg-indigo-500 rounded-full transition-all"
+                      style={{ width: `${Math.round((count / maxSourceCount) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-gray-400 w-6 text-right">{count}</span>
+                </div>
+              ))}
             </div>
           </div>
         )}

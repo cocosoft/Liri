@@ -24,9 +24,11 @@ function PendingCompilePanel({
   const [rawFiles, setRawFiles] = useState<RawFileInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [compiling, setCompiling] = useState(false);
+  const [compileProgress, setCompileProgress] = useState(0);
   const [compileResult, setCompileResult] = useState<{
     message: string;
     hasError: boolean;
+    failedDocs?: string[];
   } | null>(null);
   const [expanded, setExpanded] = useState(false);
 
@@ -56,12 +58,23 @@ function PendingCompilePanel({
 
   async function handleCompileAll() {
     setCompiling(true);
+    setCompileProgress(0);
     setCompileResult(null);
+    // 模拟进度更新（编译期间每 300ms 增加进度直到 90%）
+    const progressTimer = setInterval(() => {
+      setCompileProgress((prev) => Math.min(prev + Math.random() * 30, 90));
+    }, 300);
     try {
       const result = await knowledgeService.triggerCompile(false);
+      clearInterval(progressTimer);
+      setCompileProgress(100);
       const hasError = (result.errors?.length ?? 0) > 0;
       const msg = `编译完成: ${result.compiled} 个成功, ${result.skipped} 个跳过${hasError ? `, ${result.errors?.length} 个错误` : ""}`;
-      setCompileResult({ message: msg, hasError });
+      setCompileResult({
+        message: msg,
+        hasError,
+        failedDocs: (result as any).failedDocs || [],
+      });
       await loadRawFiles();
       onCompileComplete?.();
     } catch (err) {
@@ -207,6 +220,22 @@ function PendingCompilePanel({
             </div>
           )}
 
+          {/* 编译进度条 */}
+          {compiling && (
+            <div className="mt-2">
+              <div className="flex justify-between text-[10px] text-gray-400 mb-0.5">
+                <span>编译中...</span>
+                <span>{Math.round(compileProgress)}%</span>
+              </div>
+              <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                  style={{ width: `${compileProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           {compileResult && (
             <div
               className={`mt-2 text-xs px-2 py-1 rounded ${
@@ -216,6 +245,11 @@ function PendingCompilePanel({
               }`}
             >
               {compileResult.message}
+            </div>
+          )}
+          {compileResult?.failedDocs && compileResult.failedDocs.length > 0 && (
+            <div className="mt-1 text-xs text-red-500 dark:text-red-400">
+              失败的文件: {compileResult.failedDocs.join(", ")}
             </div>
           )}
         </div>

@@ -80,35 +80,49 @@ function FileUploadZone({
     let errorCount = 0;
     let lastErrorMessage = "";
 
-    for (let i = 0; i < fileArray.length; i++) {
-      const file = fileArray[i];
+    // 过滤出可接受的文件并开始读取
+    const validFiles = fileArray.filter((file) => {
       const ext = "." + file.name.split(".").pop()?.toLowerCase();
-
       if (!ACCEPTED_TYPES.includes(ext)) {
         errorCount++;
-        continue;
+        return false;
       }
+      return true;
+    });
 
-      try {
-        const data = await readFileAsBase64(file);
-        await knowledgeService.uploadToBase(baseName, {
-          name: file.name,
-          data,
-        });
-        successCount++;
-      } catch (err) {
-        errorCount++;
-        if (err instanceof HTTPClientError) {
-          lastErrorMessage = err.message;
-        } else if (err instanceof Error) {
-          lastErrorMessage = err.message;
+    // 并发上传（最多 5 个并发）
+    const CONCURRENCY = 5;
+    for (let i = 0; i < validFiles.length; i += CONCURRENCY) {
+      const batch = validFiles.slice(i, i + CONCURRENCY);
+      const promises = batch.map(async (file) => {
+        try {
+          const data = await readFileAsBase64(file);
+          await knowledgeService.uploadToBase(baseName, {
+            name: file.name,
+            data,
+          });
+          return { success: true } as const;
+        } catch (err) {
+          if (err instanceof HTTPClientError) {
+            lastErrorMessage = err.message;
+          } else if (err instanceof Error) {
+            lastErrorMessage = err.message;
+          }
+          return { success: false } as const;
         }
+      });
+
+      const results = await Promise.allSettled(promises);
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value.success) successCount++;
+        else errorCount++;
       }
 
+      const done = Math.min(i + CONCURRENCY, validFiles.length);
       setUploadState({
         status: "uploading",
-        message: `上传中... (${i + 1}/${fileArray.length})`,
-        progress: Math.round(((i + 1) / fileArray.length) * 100),
+        message: `上传中... (${done}/${validFiles.length})`,
+        progress: Math.round((done / validFiles.length) * 100),
       });
     }
 

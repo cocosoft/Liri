@@ -54,11 +54,18 @@ export class KnowledgeBaseWriter {
   private baseDir: string;
   private logger: Logger;
   private eventBus?: EventBus;
+  /** 每个文档保留的最大快照数 */
+  private maxSnapshots: number;
 
-  constructor(baseDir?: string, eventBus?: EventBus) {
+  constructor(
+    baseDir?: string,
+    eventBus?: EventBus,
+    maxSnapshots: number = 10
+  ) {
     this.baseDir = baseDir || join(resolvePyappHome(), 'knowledge');
     this.logger = new Logger({ level: LogLevel.INFO });
     this.eventBus = eventBus;
+    this.maxSnapshots = maxSnapshots;
   }
 
   async writeEntry(entry: KnowledgeBaseEntry): Promise<WriteResult> {
@@ -90,6 +97,9 @@ export class KnowledgeBaseWriter {
           return { success: true, filePath, action: 'skipped' };
         }
 
+        // 更新前创建快照
+        await this.createSnapshot(fileName, existing);
+
         await writeFile(filePath, fullContent, 'utf-8');
         action = 'updated';
       } else {
@@ -117,6 +127,102 @@ export class KnowledgeBaseWriter {
         action: 'skipped',
         error: errMsg,
       };
+    }
+  }
+
+  /**
+   * 获取文档的快照目录路径
+   */
+  getSnapshotDir(title: string): string {
+    const fileName = this.sanitizeFileName(title);
+    return join(this.baseDir, '.knowledge-snapshots', fileName);
+  }
+
+  /**
+   * 列出文档的所有快照文件
+   */
+  async listSnapshots(title: string): Promise<string[]> {
+    const snapDir = this.getSnapshotDir(title);
+    if (!existsSync(snapDir)) return [];
+    try {
+      const { readdir } = await import('fs/promises');
+      const entries = await readdir(snapDir);
+      return entries
+        .filter((e) => e.startsWith('snapshot_') && e.endsWith('.md'))
+        .sort()
+        .reverse(); // 最新在前
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * 从快照恢复文档
+   */
+  async restoreSnapshot(
+    title: string,
+    snapshotFileName: string
+  ): Promise<boolean> {
+    const snapDir = this.getSnapshotDir(title);
+    const snapPath = join(snapDir, snapshotFileName);
+    if (!existsSync(snapPath)) return false;
+
+    try {
+      const content = await readFile(snapPath, 'utf-8');
+      const fileName = this.sanitizeFileName(title) + '.md';
+      const filePath = join(this.baseDir, fileName);
+
+      // 恢复前也创建当前版本的快照
+      if (existsSync(filePath)) {
+        const current = await readFile(filePath, 'utf-8');
+        await this.createSnapshot(fileName, current);
+      }
+
+      await writeFile(filePath, content, 'utf-8');
+
+      this.eventBus?.publish('knowledge:changed', {
+        action: 'created',
+        filePath,
+      });
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 创建文档快照
+   */
+  private async createSnapshot(
+    fileName: string,
+    content: string
+  ): Promise<void> {
+    const docName = fileName.replace(/\.md$/i, '');
+    const snapDir = join(this.baseDir, '.knowledge-snapshots', docName);
+
+    if (!existsSync(snapDir)) {
+      await mkdir(snapDir, { recursive: true });
+    }
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const snapFile = join(snapDir, `snapshot_${timestamp}.md`);
+    await writeFile(snapFile, content, 'utf-8');
+
+    // 清理超出上限的旧快照
+    try {
+      const { readdir, unlink } = await import('fs/promises');
+      const entries = (await readdir(snapDir))
+        .filter((e) => e.startsWith('snapshot_') && e.endsWith('.md'))
+        .sort(); // 最旧的在前
+      while (entries.length > this.maxSnapshots) {
+        const oldest = entries.shift();
+        if (oldest) {
+          await unlink(join(snapDir, oldest));
+        }
+      }
+    } catch {
+      // 清理失败不影响主流程
     }
   }
 

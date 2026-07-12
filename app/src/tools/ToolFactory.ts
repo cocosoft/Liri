@@ -25,6 +25,8 @@ import { createKnowledgeWriteTool } from '../knowledge/tools/KnowledgeWriteTool'
 import { createKnowledgeDeleteTool } from '../knowledge/tools/KnowledgeDeleteTool';
 import { createKnowledgeImportTool } from '../knowledge/tools/KnowledgeImportTool';
 import { createKnowledgeExportTool } from '../knowledge/tools/KnowledgeExportTool';
+import { createKnowledgeSnapshotsTool } from '../knowledge/tools/KnowledgeSnapshotsTool';
+import { createKnowledgeRestoreTool } from '../knowledge/tools/KnowledgeRestoreTool';
 import { createUnifiedSearchTool } from '../memory/tools/UnifiedSearchTool';
 import { createMemoryTool } from '../memory/tools/MemoryTool';
 import { createMemoryGetTool } from '../memory/tools/MemoryGetTool';
@@ -1060,6 +1062,14 @@ export function getAllBaseTools(): Tool[] {
   const knowledgeExportTool = createKnowledgeExportTool();
   if (knowledgeExportTool) {
     tools.push(knowledgeExportTool);
+  }
+  const knowledgeSnapshotsTool = createKnowledgeSnapshotsTool();
+  if (knowledgeSnapshotsTool) {
+    tools.push(knowledgeSnapshotsTool);
+  }
+  const knowledgeRestoreTool = createKnowledgeRestoreTool();
+  if (knowledgeRestoreTool) {
+    tools.push(knowledgeRestoreTool);
   }
 
   const memoryManager = new MemoryManagerImpl(resolveMemoryDir());

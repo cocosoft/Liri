@@ -18,3 +18,11 @@ export {
   KnowledgeExportTool,
   createKnowledgeExportTool,
 } from './KnowledgeExportTool';
+export {
+  KnowledgeSnapshotsTool,
+  createKnowledgeSnapshotsTool,
+} from './KnowledgeSnapshotsTool';
+export {
+  KnowledgeRestoreTool,
+  createKnowledgeRestoreTool,
+} from './KnowledgeRestoreTool';

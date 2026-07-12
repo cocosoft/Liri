@@ -379,6 +379,20 @@ function KnowledgePage() {
                     </div>
                     <div className="flex items-center gap-2 ml-4 flex-shrink-0">
                       <button
+                        onClick={() => {
+                          if (!selectedFile) return;
+                          // 将选中文档内容作为系统消息发送到当前对话
+                          const event = new CustomEvent("liri:append-knowledge", {
+                            detail: { title: selectedFile.title, content: selectedFile.content },
+                          });
+                          window.dispatchEvent(event);
+                        }}
+                        title="将文档内容发送到当前对话"
+                        className="px-3 py-1.5 text-sm text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                      >
+                        发送到对话
+                      </button>
+                      <button
                         onClick={handleExportToNotebook}
                         title="导出为 Notebook 兼容的 Markdown 文件"
                         className="px-3 py-1.5 text-sm text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-md hover:bg-green-50 dark:hover:bg-green-900/30"

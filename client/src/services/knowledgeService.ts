@@ -329,12 +329,13 @@ export const knowledgeService = {
     docPath: string,
     content: string,
     title?: string,
-    extra?: { tags?: string[]; category?: string },
+    extra?: { tags?: string[]; category?: string; base?: string },
   ): Promise<{ docPath: string; updatedAt: string }> => {
     const body: any = { docPath, content };
     if (title !== undefined) body.title = title;
     if (extra?.tags !== undefined) body.tags = extra.tags;
     if (extra?.category !== undefined) body.category = extra.category;
+    if (extra?.base !== undefined) body.base = extra.base;
     try {
       return await http.put("/v1/knowledge/docs", body);
     } catch {

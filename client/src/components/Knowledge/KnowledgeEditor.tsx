@@ -108,6 +108,25 @@ function KnowledgeEditor({
     { mode: "split", icon: "↔", label: "分屏" },
   ];
 
+  const templates: { name: string; content: string }[] = [
+    {
+      name: "会议纪要",
+      content: `# 会议纪要\n\n**日期**: ${new Date().toISOString().slice(0,10)}\n**参与者**: \n**主题**: \n\n## 议程\n\n1. \n\n## 决议\n\n- \n\n## 待办\n\n- [ ] \n`,
+    },
+    {
+      name: "技术笔记",
+      content: `# 技术笔记\n\n## 背景\n\n\n## 方案\n\n\`\`\`\n\n\`\`\`\n\n## 结论\n\n`,
+    },
+    {
+      name: "FAQ",
+      content: `# FAQ\n\n## Q: \n\nA: \n\n## Q: \n\nA: \n`,
+    },
+    {
+      name: "周报",
+      content: `# 周报 (${new Date().toISOString().slice(0,10)})\n\n## 本周完成\n\n- \n\n## 遇到的问题\n\n- \n\n## 下周计划\n\n- \n`,
+    },
+  ];
+
   const editorSection = (
     <div className="flex-1 flex flex-col min-h-0">
       <EditorToolbar
@@ -174,6 +193,22 @@ function KnowledgeEditor({
               </button>
             ))}
           </div>
+          {/* 模板选择 */}
+          <select
+            value=""
+            onChange={(e) => {
+              const tpl = templates.find((t) => t.name === e.target.value);
+              if (tpl) setContent(tpl.content);
+              // 重置select
+              (e.target as HTMLSelectElement).value = "";
+            }}
+            className={`text-xs px-2 py-1 rounded border ${isDark ? "bg-gray-700 border-gray-600 text-gray-300" : "bg-white border-gray-300 text-gray-600"} focus:outline-none`}
+          >
+            <option value="">模板</option>
+            {templates.map((t) => (
+              <option key={t.name} value={t.name}>{t.name}</option>
+            ))}
+          </select>
           <button
             onClick={handleSave}
             disabled={saving || !title.trim() || !content.trim()}

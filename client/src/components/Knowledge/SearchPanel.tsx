@@ -4,7 +4,7 @@
  * 从 KnowledgePage.tsx 中抽取独立组件 (CS09)。
  * P0-3: 搜索历史(localStorage 10条) + 关键词/语义得分对比 + domain筛选
  */
-import { useState } from "react";
+import React, { useState } from "react";
 import { SkeletonCard } from "../common/Skeleton";
 
 interface KnowledgeSearchResult {
@@ -43,6 +43,20 @@ function saveHistory(entries: string[]) {
   try {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.slice(0, MAX_HISTORY)));
   } catch { /* ignore */ }
+}
+
+function highlightMatches(text: string, query: string): React.ReactNode {
+  if (!query.trim() || !text) return text;
+  const words = query.split(/\s+/).filter(Boolean);
+  const regex = new RegExp(`(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "gi");
+  const parts = text.split(regex);
+  return parts.map((part, i) =>
+    regex.test(` ${part} `) ? (
+      <mark key={i} className="bg-yellow-200 dark:bg-yellow-700/40 rounded px-0.5">{part}</mark>
+    ) : (
+      part
+    )
+  );
 }
 
 function SearchPanel({
@@ -222,8 +236,24 @@ function SearchPanel({
                         </span>
                       </div>
                     </div>
-                    <p className={`text-xs ${textSecondary} line-clamp-2 mt-1`}>
-                      {result.content}
+                    <p className={`text-xs ${textSecondary} mt-1`}>
+                      <span className={result.content.length > 100 ? "line-clamp-2" : ""}>
+                        {highlightMatches(result.content, demoQuery)}
+                      </span>
+                      {result.content.length > 100 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const el = (e.target as HTMLElement).previousElementSibling;
+                            if (el) el.classList.toggle("line-clamp-2");
+                            (e.target as HTMLElement).textContent =
+                              el?.classList.contains("line-clamp-2") ? "展开" : "收起";
+                          }}
+                          className="text-[10px] text-blue-500 hover:text-blue-600 dark:text-blue-400 ml-1"
+                        >
+                          展开
+                        </button>
+                      )}
                     </p>
                     <div className={`text-xs ${textSecondary} mt-1`}>
                       分类: {result.category || "根目录"}

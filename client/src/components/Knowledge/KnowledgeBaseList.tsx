@@ -706,6 +706,30 @@ function KnowledgeBaseList({
               >
                 批量加标签
               </button>
+              <select
+                value=""
+                onChange={async (e) => {
+                  const target = e.target.value;
+                  if (!target || selectedFileIds.size === 0) return;
+                  (e.target as HTMLSelectElement).value = "";
+                  // 移动文档到目标知识库
+                  for (const id of selectedFileIds) {
+                    await knowledgeService.updateDoc(id, "", undefined, { base: target });
+                  }
+                  clearSelection();
+                  loadFiles();
+                }}
+                className={`text-[10px] px-1.5 py-0.5 rounded ${
+                  isDark
+                    ? "bg-gray-700 border-gray-600 text-gray-300"
+                    : "bg-gray-100 border-gray-300 text-gray-600"
+                } border focus:outline-none cursor-pointer`}
+              >
+                <option value="">移至...</option>
+                {bases.filter((b) => b.name !== selectedBase).map((b) => (
+                  <option key={b.name} value={b.name}>{b.name}</option>
+                ))}
+              </select>
               <button
                 onClick={handleBatchDelete}
                 className={`px-2 py-0.5 text-[10px] rounded ${

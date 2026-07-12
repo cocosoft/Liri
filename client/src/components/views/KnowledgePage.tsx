@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useKnowledgeStore } from "../../stores/knowledgeStore";
+import { useAppStore } from "../../stores/appStore";
 import { useConfigStore } from "../../stores/configStore";
 import { knowledgeService } from "../../services/knowledgeService";
 import type { KnowledgeFile, KnowledgeSearchResult } from "../../types";
@@ -20,8 +20,8 @@ import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
 type ActiveTab = "knowledge" | "search-demo" | "stats" | "semantic";
 
 function KnowledgePage() {
-  const store = useKnowledgeStore();
-  const { items, loadItems } = store;
+  const items = useAppStore((s) => s.knowledgeItems);
+  const loadItems = useAppStore((s) => s.loadKnowledge);
   const { config } = useConfigStore();
   const isDark = config.theme === "dark";
 

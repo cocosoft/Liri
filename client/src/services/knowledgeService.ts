@@ -93,7 +93,8 @@ function createMemoryKnowledgeService() {
 export const knowledgeService = {
   list: async (): Promise<KnowledgeItem[]> => {
     try {
-      return await http.get<KnowledgeItem[]>("/v1/knowledge");
+      const data = await http.get<{ items: KnowledgeItem[]; total: number }>("/v1/knowledge");
+      return Array.isArray(data) ? data : (data.items || []);
     } catch {
       const result = await tryTauri<KnowledgeItem[]>("list_knowledge");
       if (result) return result;

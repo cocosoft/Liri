@@ -22,6 +22,7 @@
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { resolvePyappHome } from '@modules/core';
 
 const logger = new Logger({
   module: 'http:semanticIndex',
@@ -44,7 +45,7 @@ export async function handleBuildSemanticIndex(
       await import('@modules/knowledge/semantic/builder');
     const builder = new IndexBuilder();
     const result = await builder.build({
-      rootDir,
+      rootDir: rootDir || resolvePyappHome(),
       incremental,
       embedProvider: 'local',
       onProgress: (phase, done, total) => {
@@ -124,9 +125,12 @@ export async function handleGetSemanticIndexStatus(
 
     const meta = await readIndexMeta(resolveDataSubDir('semantic-index'));
     const status = {
-      entryCount: store.size,
-      indexExists: meta !== null,
-      meta,
+      exists: meta !== null,
+      docCount: store.size,
+      chunkCount: store.size,
+      lastIndexedAt: meta?.updatedAt
+        ? new Date(meta.updatedAt).getTime()
+        : undefined,
     };
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

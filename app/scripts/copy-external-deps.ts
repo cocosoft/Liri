@@ -62,6 +62,38 @@ function resolvePackagePath(packageName: string): string | null {
   return null;
 }
 
+/**
+ * 裁剪 pdfjs-dist：删除未使用的 modern build/ 目录
+ * 项目统一使用 pdfjs-dist/legacy/build/pdf，modern 构建无需携带
+ */
+function trimPdfjsDist(depsDir: string): void {
+  const pdfjsDir = path.join(depsDir, 'pdfjs-dist');
+  if (!fs.existsSync(pdfjsDir)) return;
+
+  const modernBuildDir = path.join(pdfjsDir, 'build');
+  if (fs.existsSync(modernBuildDir)) {
+    const sizeBefore = getDirSize(pdfjsDir);
+    fs.rmSync(modernBuildDir, { recursive: true, force: true });
+    const sizeAfter = getDirSize(pdfjsDir);
+    const savedMB = ((sizeBefore - sizeAfter) / 1024 / 1024).toFixed(1);
+    console.log(`[裁剪] pdfjs-dist: 删除 modern build/ 目录，节省 ${savedMB} MB`);
+  }
+}
+
+/**
+ * 递归计算目录大小（字节）
+ */
+function getDirSize(dirPath: string): number {
+  let size = 0;
+  if (!fs.existsSync(dirPath)) return size;
+  const stat = fs.statSync(dirPath);
+  if (stat.isFile()) return stat.size;
+  for (const entry of fs.readdirSync(dirPath)) {
+    size += getDirSize(path.join(dirPath, entry));
+  }
+  return size;
+}
+
 function main(): void {
   const args = process.argv.slice(2);
   let targetDir = path.resolve(__dirname, '..', '..', 'dist');
@@ -103,6 +135,10 @@ function main(): void {
   }
 
   console.log(`\n完成: 已复制 ${copiedCount}/${EXTERNAL_DEPS.length} 个外部依赖`);
+
+  // 裁剪 pdfjs-dist：仅保留 legacy/ 构建，删除 modern build/ 目录
+  // 项目统一使用 pdfjs-dist/legacy/build/pdf，modern build/ 约 150MB 无需携带
+  trimPdfjsDist(depsDir);
 
   // 复制编译运行时 README
   const readmeSrc = path.resolve(__dirname, '..', 'docs', 'README-compiled.md');

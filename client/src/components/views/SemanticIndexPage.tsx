@@ -31,7 +31,11 @@ export default function SemanticIndexPage() {
     setBuildMsg("正在构建语义索引...");
     const result = await semanticService.buildIndex();
     if (result) {
-      setBuildMsg(result.status === "completed" ? "✅ 构建完成" : `❌ ${result.error || "构建失败"}`);
+      if (result.ok) {
+        setBuildMsg(`✅ 构建完成 — ${result.chunkCount} 个分块, ${result.embeddedCount} 个嵌入, 耗时 ${(result.durationMs / 1000).toFixed(1)}s`);
+      } else {
+        setBuildMsg(`❌ ${result.error || "构建失败"}`);
+      }
     } else {
       setBuildMsg("❌ 构建请求失败");
     }

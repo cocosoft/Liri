@@ -12,7 +12,14 @@ import type { FileDocEntry } from '@modules/docs/FileDocsProvider';
 class MockDocsProvider implements FileDocsProvider {
   private entries: FileDocEntry[];
 
-  constructor(docs: Array<{ title: string; content: string; category?: string; path?: string }>) {
+  constructor(
+    docs: Array<{
+      title: string;
+      content: string;
+      category?: string;
+      path?: string;
+    }>
+  ) {
     this.entries = docs.map((d, i) => ({
       relativePath: d.path || `docs/${d.title.replace(/\s+/g, '_')}.md`,
       title: d.title,
@@ -49,11 +56,36 @@ describe('KnowledgeRouter', () => {
   let router: KnowledgeRouter;
 
   const docs = [
-    { title: 'Python基础教程', content: 'Python是一种解释型、面向对象的高级编程语言。语法简洁。', category: '编程', path: 'domains/coding/wiki/python-basics.md' },
-    { title: 'TypeScript类型系统', content: 'TypeScript是JavaScript的超集，提供静态类型检查。', category: '编程', path: 'domains/coding/wiki/typescript-types.md' },
-    { title: '植物学入门', content: '植物学是研究植物生命、结构、生长和分类的科学。', category: '科学', path: 'domains/botany/wiki/intro.md' },
-    { title: '捕蝇草', content: '捕蝇草（Dionaea muscipula）是一种食虫植物，原产于北美洲。', category: '科学', path: 'domains/botany/wiki/venus_flytrap.md' },
-    { title: '知识库优化方案', content: '本方案涵盖语义搜索、倒排索引、增量编译等优化。', category: '项目', path: 'wiki/optimization.md' },
+    {
+      title: 'Python基础教程',
+      content: 'Python是一种解释型、面向对象的高级编程语言。语法简洁。',
+      category: '编程',
+      path: 'domains/coding/wiki/python-basics.md',
+    },
+    {
+      title: 'TypeScript类型系统',
+      content: 'TypeScript是JavaScript的超集，提供静态类型检查。',
+      category: '编程',
+      path: 'domains/coding/wiki/typescript-types.md',
+    },
+    {
+      title: '植物学入门',
+      content: '植物学是研究植物生命、结构、生长和分类的科学。',
+      category: '科学',
+      path: 'domains/botany/wiki/intro.md',
+    },
+    {
+      title: '捕蝇草',
+      content: '捕蝇草（Dionaea muscipula）是一种食虫植物，原产于北美洲。',
+      category: '科学',
+      path: 'domains/botany/wiki/venus_flytrap.md',
+    },
+    {
+      title: '知识库优化方案',
+      content: '本方案涵盖语义搜索、倒排索引、增量编译等优化。',
+      category: '项目',
+      path: 'wiki/optimization.md',
+    },
   ];
 
   beforeAll(async () => {
@@ -92,7 +124,9 @@ describe('KnowledgeRouter', () => {
     });
 
     it('should return empty for non-matching query', async () => {
-      const results = await router.search('xyzzy123不是一个真实词', { maxResults: 5 });
+      const results = await router.search('xyzzy123不是一个真实词', {
+        maxResults: 5,
+      });
       expect(results.length).toBe(0);
     });
 
@@ -117,7 +151,10 @@ describe('KnowledgeRouter', () => {
     });
 
     it('should handle offset beyond result count gracefully', async () => {
-      const results = await router.search('捕蝇草', { maxResults: 5, offset: 100 });
+      const results = await router.search('捕蝇草', {
+        maxResults: 5,
+        offset: 100,
+      });
       expect(results.length).toBe(0);
     });
 
@@ -130,7 +167,10 @@ describe('KnowledgeRouter', () => {
 
   describe('domain filtering', () => {
     it('should filter by domain=coding', async () => {
-      const results = await router.search('教程 类型', { maxResults: 10, domain: 'coding' });
+      const results = await router.search('教程 类型', {
+        maxResults: 10,
+        domain: 'coding',
+      });
       expect(results.length).toBeGreaterThan(0);
       for (const r of results) {
         expect(r.docPath).toMatch(/domains\/coding\//);
@@ -138,7 +178,10 @@ describe('KnowledgeRouter', () => {
     });
 
     it('should filter by domain=botany', async () => {
-      const results = await router.search('植物', { maxResults: 10, domain: 'botany' });
+      const results = await router.search('植物', {
+        maxResults: 10,
+        domain: 'botany',
+      });
       expect(results.length).toBeGreaterThan(0);
       for (const r of results) {
         expect(r.docPath).toMatch(/domains\/botany\//);
@@ -158,7 +201,10 @@ describe('KnowledgeRouter', () => {
     });
 
     it('should return empty for non-existent domain', async () => {
-      const results = await router.search('植物学', { maxResults: 10, domain: 'nonexistent' });
+      const results = await router.search('植物学', {
+        maxResults: 10,
+        domain: 'nonexistent',
+      });
       expect(results.length).toBe(0);
     });
   });
@@ -167,7 +213,11 @@ describe('KnowledgeRouter', () => {
     it('should remove doc and make it unfindable', async () => {
       // 先加一个临时文档
       const tmpProvider = new MockDocsProvider([
-        { title: '临时文档删除测试', content: '这是用于测试删除的临时内容。', category: '测试' },
+        {
+          title: '临时文档删除测试',
+          content: '这是用于测试删除的临时内容。',
+          category: '测试',
+        },
       ]);
       const tmpRouter = new KnowledgeRouter(tmpProvider);
       await tmpRouter.buildIndex();

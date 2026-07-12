@@ -14,6 +14,8 @@ import { TooltipProvider } from "./components/ui/tooltip";
 import routes from "./routes";
 import { useAppStore } from "./stores/appStore";
 import { useConfigStore } from "./stores/configStore";
+import { useChatStore } from "./stores/chatStore";
+import { useSessionStore } from "./stores/sessionStore";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { useBuddyNotification } from "./hooks/useBuddyNotification";
 import { useInitApp } from "./hooks/useInitApp";
@@ -54,6 +56,38 @@ function App() {
     const page = path === "" ? "home" : path;
     setActivePage(page as any);
   }, [location.pathname, setActivePage]);
+
+  // 知识库"发送到对话"事件监听
+  useEffect(() => {
+    function handleAppendKnowledge(e: Event) {
+      const detail = (e as CustomEvent).detail as { title: string; content: string } | undefined;
+      if (!detail?.content) return;
+
+      const sessionState = useSessionStore.getState();
+      const sessionId = sessionState.currentSession?.id;
+      if (!sessionId) {
+        // 无当前会话时，先导航到聊天页让系统自动创建会话
+        navigate("/");
+        return;
+      }
+
+      const chatState = useChatStore.getState();
+      const systemMsg = {
+        id: crypto.randomUUID(),
+        role: "system" as const,
+        content: `[知识库文档: ${detail.title}]\n\n${detail.content}`,
+        timestamp: Date.now(),
+        session_id: sessionId,
+      };
+      chatState.addMessage(systemMsg);
+
+      // 导航到聊天页
+      navigate("/");
+    }
+
+    window.addEventListener("liri:append-knowledge", handleAppendKnowledge);
+    return () => window.removeEventListener("liri:append-knowledge", handleAppendKnowledge);
+  }, [navigate]);
 
   // 初始化未完成 / 加载失败时显示过渡态
   if (initState.phase !== "ready" && initState.phase !== "first_run_wizard") {

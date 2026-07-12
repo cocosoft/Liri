@@ -100,6 +100,7 @@ import { SessionsHistoryTool } from './SessionsHistoryTool/SessionsHistoryTool';
 import { ChannelTool } from './ChannelTool/ChannelTool';
 import { ImageGenerateTool } from './ImageGenerateTool/ImageGenerateTool';
 import { ImageSvgTool } from './ImageSvgTool/ImageSvgTool';
+import { ImageDisplayTool } from './ImageDisplayTool/ImageDisplayTool';
 import { VideoAnalysisTool } from './VideoAnalysisTool/VideoAnalysisTool';
 import { BrowserVisionTool } from './BrowserVisionTool/BrowserVisionTool';
 import { MusicGenerateTool } from './MusicGenerateTool/MusicGenerateTool';
@@ -973,6 +974,13 @@ export class ToolFactory {
   }
 
   /**
+   * 创建图片预览工具
+   */
+  createImageDisplayTool(): Tool {
+    return new ImageDisplayTool();
+  }
+
+  /**
    * 创建网关管理工具
    */
   createGatewayTool(): Tool {
@@ -1343,6 +1351,11 @@ export function getAllBaseTools(): Tool[] {
   const imageSvgTool = new ImageSvgTool();
   if (imageSvgTool) {
     tools.push(imageSvgTool);
+  }
+
+  const imageDisplayTool = new ImageDisplayTool();
+  if (imageDisplayTool) {
+    tools.push(imageDisplayTool);
   }
 
   const musicGenerateTool = new MusicGenerateTool();

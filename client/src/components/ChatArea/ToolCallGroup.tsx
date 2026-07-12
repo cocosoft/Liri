@@ -21,6 +21,7 @@ const IMAGE_TOOL_NAMES = [
   "image_generate",
   "image_svg_generate",
   "image_analysis",
+  "image_display",
   "canvas",
   "image",
 ];

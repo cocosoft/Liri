@@ -118,11 +118,7 @@ export class KnowledgeExportTool implements Tool {
           category: d.category,
         }));
         const jsonPath = join(targetDir, 'knowledge-export.json');
-        await writeFile(
-          jsonPath,
-          JSON.stringify(exportData, null, 2),
-          'utf-8'
-        );
+        await writeFile(jsonPath, JSON.stringify(exportData, null, 2), 'utf-8');
         logger.info('知识库已导出为 JSON', {
           path: jsonPath,
           count: docs.length,

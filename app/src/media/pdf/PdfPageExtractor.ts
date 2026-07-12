@@ -173,10 +173,10 @@ async function extractWithPdfJs(
   format: string,
   options: PdfExtractOptions
 ): Promise<ExtractedPage[]> {
-  // 动态导入 pdf.js（避免强制依赖）
+  // 动态导入 pdf.js（使用 legacy 构建，与 PdfConverter 保持一致）
   let pdfjsLib: any;
   try {
-    pdfjsLib = await import('pdfjs-dist');
+    pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
   } catch {
     throw new Error('pdf.js 未安装。运行: bun add pdfjs-dist');
   }

@@ -8,6 +8,7 @@ import ImageGenerateResult from "./ImageGenerateResult";
 import SvgPreviewResult from "./SvgPreviewResult";
 import CanvasResultView from "./CanvasResult";
 import ImageEditResultView from "./ImageEditResult";
+import ImageDisplayResult from "./ImageDisplayResult";
 import AnalysisResultCard from "./analysis/AnalysisResultCard";
 
 interface Props {
@@ -90,6 +91,8 @@ export default function ImageToolResult({ toolCall }: Props) {
       return <ImageGenerateResult data={data as Record<string, unknown>} />;
     case "image_svg_generate":
       return <SvgPreviewResult data={data as Record<string, unknown>} />;
+    case "image_display":
+      return <ImageDisplayResult data={data as Record<string, unknown>} />;
     case "image_analysis":
       return <AnalysisResultCard data={data as Record<string, unknown>} />;
     case "canvas":

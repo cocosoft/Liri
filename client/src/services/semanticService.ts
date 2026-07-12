@@ -20,11 +20,13 @@ export interface SemanticSearchResult {
   score: number;
 }
 
-export interface IndexBuildProgress {
-  phase: string;
-  done: number;
-  total: number;
-  status: "building" | "completed" | "error";
+export interface IndexBuildResult {
+  ok: boolean;
+  chunkCount: number;
+  embeddedCount: number;
+  skippedCount: number;
+  durationMs: number;
+  indexDir: string;
   error?: string;
 }
 
@@ -40,10 +42,13 @@ export const semanticService = {
   },
 
   /** 构建语义索引 */
-  buildIndex: async (): Promise<IndexBuildProgress | null> => {
+  buildIndex: async (rootDir?: string): Promise<IndexBuildResult | null> => {
     try {
-      const res = await http.post<IndexBuildProgress>("/v1/semantic/index", {});
-      return (res ?? null) as IndexBuildProgress | null;
+      const res = await http.post<IndexBuildResult>("/v1/semantic/index", {
+        rootDir: rootDir || "",
+        incremental: true,
+      });
+      return (res ?? null) as IndexBuildResult | null;
     } catch {
       return null;
     }

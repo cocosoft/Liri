@@ -224,6 +224,78 @@ function reloadEnvFromFile(envPath: string): number {
 }
 
 /**
+ * 启动时关键依赖完整性校验
+ *
+ * 扫描关键依赖（sharp, pdfjs-dist, sqlite3），缺失时给出明确指引。
+ * 非阻塞：校验失败不阻止启动，但会输出清晰的修复指引到 stderr。
+ *
+ * @returns 校验结果，包含是否全部通过和问题列表
+ */
+async function checkCriticalDependencies(): Promise<{
+  ok: boolean;
+  issues: string[];
+}> {
+  const issues: string[] = [];
+
+  // 1. 检查 .env 配置文件
+  const envFile = getEnvFilePath();
+  if (!existsSync(envFile)) {
+    issues.push(
+      `缺少 .env 配置文件: ${envFile}\n` +
+        '  修复: 复制 app/.env.example 为 app/.env，并填写必填的 API 密钥。'
+    );
+  }
+
+  // 2. 检查 bun:sqlite（数据库核心依赖）
+  try {
+    require.resolve('bun:sqlite');
+  } catch {
+    issues.push(
+      '缺少 bun:sqlite 模块（数据库核心依赖）。请确保使用 Bun 运行时启动应用。'
+    );
+  }
+
+  // 3. 检查 sharp（图片处理，原生 C++ 模块，ABI 敏感）
+  try {
+    require.resolve('sharp');
+  } catch {
+    issues.push(
+      '缺少 sharp 模块（图片处理依赖）。请确保 node_modules/sharp 已正确安装。\n' +
+        '  修复: 在应用目录执行 bun install，确保 sharp 的原生二进制与当前系统兼容。'
+    );
+  }
+
+  // 4. 检查 pdfjs-dist（PDF 解析依赖）
+  try {
+    require.resolve('pdfjs-dist/legacy/build/pdf');
+  } catch {
+    // 尝试不带 legacy 路径的解析
+    try {
+      require.resolve('pdfjs-dist');
+    } catch {
+      issues.push(
+        '缺少 pdfjs-dist 模块（PDF 解析依赖）。请确保 node_modules/pdfjs-dist 已正确安装。\n' +
+          '  修复: 在应用目录执行 bun install。'
+      );
+    }
+  }
+
+  if (issues.length > 0) {
+    const header = '\n' + '='.repeat(60) + '\n';
+    const footer = '='.repeat(60) + '\n';
+    console.error(
+      header +
+        '  [启动检查] 发现以下关键依赖问题:\n' +
+        issues.map((i, idx) => `  ${idx + 1}. ${i}`).join('\n') +
+        '\n' +
+        footer
+    );
+  }
+
+  return { ok: issues.length === 0, issues };
+}
+
+/**
  * 检查是否为首次运行（无配置的初始化）
  *
  * 通过检查 app/data/.onboarded 标记文件来判断。
@@ -535,10 +607,6 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   // 解析 --trust-level 参数（场景选择联动）
   const trustLevelArg = parseTrustLevelFromArgs(options.args);
 
-  // 首次启动：确保 .env 文件存在（必须在 HTTP 服务启动前完成）
-  // 原因：pyapp.ts 启动时已尝试加载 .env，此时不存在；需要先创建再启动 HTTP 服务
-  ensureEnvFileExists();
-
   // 启动 HTTP 服务先于首次运行引导，使前端在终端阻塞时也能连接
   // 从独立 http-server 模块导入，避免与 repl.ts 的静态 import 链形成循环依赖
   const { startHTTPServer } = await import('./entrypoints/http-server');
@@ -737,6 +805,10 @@ export async function launch(options: LaunchOptions): Promise<void> {
   validatePathConsistency({ warn: (msg) => logger.warning(msg) });
   setupWindowsSecurity();
 
+  // 确保 .env 文件存在（所有模式通用，不限于 REPL）
+  // 从 .env.example 自动创建，避免新环境部署时因缺少 .env 而启动失败
+  ensureEnvFileExists();
+
   // 单实例锁检查（PID 文件锁），防止多实例启动导致通道双回复
   checkSingletonInstance();
 
@@ -829,6 +901,9 @@ export async function launch(options: LaunchOptions): Promise<void> {
     }
     profilePhaseEnd('T0_preroll');
     profileCheckpoint('T0_preroll_end');
+
+    // 启动时关键依赖完整性校验（非阻塞，缺失时输出修复指引）
+    checkCriticalDependencies();
 
     // T1: 模块系统初始化
     profileCheckpoint('module_init_start');

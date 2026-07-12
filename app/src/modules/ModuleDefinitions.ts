@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 模块定义文件
  * 统一定义所有模块的基本信息、依赖关系和生命周期
  */
@@ -826,6 +826,7 @@ export const MODULE_INITIALIZATION_ORDER: string[] = [
   'infrastructure',
 
   // 第二阶段：基础功能模块
+  'logger',
   'ai',
   'bootstrap',
   'config',
@@ -833,6 +834,8 @@ export const MODULE_INITIALIZATION_ORDER: string[] = [
   'error',
   'performance',
   'hooks',
+  'ecosystem',
+  'sdk',
 
   // 第三阶段：数据存储模块（CRITICAL 部分）
   'modules',
@@ -866,6 +869,7 @@ export const MODULE_INITIALIZATION_ORDER: string[] = [
   'knowledge',
 
   // 第六阶段：界面模块
+  'terminal',
   'ink',
   'ui',
   'cli',

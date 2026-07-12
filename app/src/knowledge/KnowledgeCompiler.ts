@@ -20,7 +20,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome, resolveDataSubDir } from '@modules/core';
 import { FileRegistry } from '@modules/services/file/FileRegistry';
 import { FileSource } from '@modules/services/file/types';
 import { IndexManager } from './IndexManager';
@@ -31,6 +31,18 @@ const logger = new Logger({
   module: 'knowledge:knowledgeCompiler',
   level: LogLevel.INFO,
 });
+
+/** 编译状态记录文件路径 */
+const COMPILE_STATE_PATH = join(
+  resolveDataSubDir(''),
+  'knowledge-compile-state.json'
+);
+
+/** 编译状态快照 */
+interface CompileState {
+  lastCompileAt: number;
+  docs: Record<string, { mtime: number; compiledAt: number }>;
+}
 
 /** 可编译的文件扩展名（不含 .meta.json 伴侣文件） */
 const COMPILABLE_EXTENSIONS = new Set([
@@ -113,8 +125,11 @@ export class KnowledgeCompiler {
 
     if (rawFiles.length === 0) return result;
 
+    // 加载编译状态快照，用于跳过无变更文件
+    const compileState = await this.loadCompileState();
+    const newState: CompileState = { lastCompileAt: Date.now(), docs: {} };
+
     // 检查是否有可用 Provider：options.model 显式指定时不检查
-    // 无 model 时，getClientForModel('') 会回退到 ProviderRegistry 的默认 Provider
     if (!model && providerRegistry.size === 0) {
       const errMsg =
         '未找到可用供应商，跳过编译。请通过 /provider 命令配置供应商（如 deepseek/openai）。';
@@ -125,8 +140,34 @@ export class KnowledgeCompiler {
 
     for (const rawFile of rawFiles) {
       try {
-        const needsCompile = force || (await this.needsRecompile(rawFile));
+        let needsCompile = force || (await this.needsRecompile(rawFile));
+
+        // 增量优化：通过编译状态快照跳过 mtime 未变更的文件
+        if (!force && !needsCompile) {
+          const rawStat = await stat(rawFile);
+          const prevState = compileState?.docs[rawFile];
+          if (prevState && prevState.mtime === rawStat.mtimeMs) {
+            // mtime 完全一致，且已有编译产物，可以安全跳过
+            result.skipped++;
+            newState.docs[rawFile] = prevState;
+            continue;
+          }
+          // mtime 变更了但 needsRecompile 返回 false（可能编译产物仍更新）
+          // 保守策略：仍需检查，但不需要强制重编译
+          needsCompile = false;
+        }
+
         if (!needsCompile) {
+          // 记录当前 mtime 到新快照（即使跳过也要记录，避免下次重复判断）
+          try {
+            const rawStat = await stat(rawFile);
+            newState.docs[rawFile] = {
+              mtime: rawStat.mtimeMs,
+              compiledAt: compileState?.docs[rawFile]?.compiledAt ?? Date.now(),
+            };
+          } catch {
+            // stat 失败忽略
+          }
           result.skipped++;
           continue;
         }
@@ -134,6 +175,18 @@ export class KnowledgeCompiler {
         const pages = await this.compileFile(rawFile, model);
         result.compiled++;
         result.pagesCreated += pages.length;
+
+        // 编译成功，记录到快照
+        try {
+          const rawStat = await stat(rawFile);
+          newState.docs[rawFile] = {
+            mtime: rawStat.mtimeMs,
+            compiledAt: Date.now(),
+          };
+        } catch {
+          // stat 失败忽略
+        }
+
         logger.info('文件编译完成', { file: rawFile, pages: pages.length });
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : String(error);
@@ -141,6 +194,9 @@ export class KnowledgeCompiler {
         logger.error('文件编译失败', { file: rawFile, error: errMsg });
       }
     }
+
+    // 持久化编译状态快照
+    await this.saveCompileState(newState);
 
     // many-to-many: 全部编译完成后更新索引
     if (result.pagesCreated > 0) {
@@ -515,6 +571,38 @@ summary: 概念简介
     const fm = match[1];
     const lineMatch = fm.match(new RegExp(`^${field}:\\s*(.+)`, 'm'));
     return lineMatch ? lineMatch[1].trim().replace(/^"(.*)"$/, '$1') : null;
+  }
+
+  /**
+   * 加载编译状态快照
+   */
+  private async loadCompileState(): Promise<CompileState | null> {
+    try {
+      if (!existsSync(COMPILE_STATE_PATH)) return null;
+      const raw = await readFile(COMPILE_STATE_PATH, 'utf-8');
+      return JSON.parse(raw) as CompileState;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 持久化编译状态快照
+   */
+  private async saveCompileState(state: CompileState): Promise<void> {
+    try {
+      const dir = dirname(COMPILE_STATE_PATH);
+      if (!existsSync(dir)) {
+        await mkdir(dir, { recursive: true });
+      }
+      await writeFile(
+        COMPILE_STATE_PATH,
+        JSON.stringify(state, null, 2),
+        'utf-8'
+      );
+    } catch (error) {
+      logger.warning('编译状态快照保存失败', { error: String(error) });
+    }
   }
 }
 

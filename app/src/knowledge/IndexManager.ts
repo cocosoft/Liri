@@ -31,7 +31,7 @@
  */
 
 import { readdir, readFile, writeFile, mkdir } from 'fs/promises';
-import { join, dirname } from 'path';
+import { join, dirname, relative } from 'path';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveKnowledgeDir, resolveDomainDir } from '@modules/core';
@@ -343,21 +343,41 @@ export class IndexManager {
 
   /**
    * 列出已有 wiki 页面（不含 index.md 和 log.md）
+   * 递归扫描子目录，支持 KnowledgeCompiler 生成的 kind 分类目录（summary/entity/concept/）
    */
   async listPages(): Promise<string[]> {
+    const files: string[] = [];
+    await this.walkDir(this.knowledgeRoot, files);
+    return files
+      .map((f) => relative(this.knowledgeRoot, f).replace(/\\/g, '/'))
+      .filter(
+        (f) =>
+          f.endsWith('.md') &&
+          !f.endsWith('index.md') &&
+          !f.endsWith('log.md') &&
+          !f.includes('DIARY')
+      )
+      .sort();
+  }
+
+  /**
+   * 递归遍历目录，收集所有 .md 文件
+   */
+  private async walkDir(dir: string, files: string[]): Promise<void> {
+    let entries;
     try {
-      const entries = await readdir(this.knowledgeRoot);
-      return entries
-        .filter(
-          (e) =>
-            e.endsWith('.md') &&
-            e !== 'index.md' &&
-            e !== 'log.md' &&
-            !e.includes('DIARY')
-        )
-        .sort();
+      entries = await readdir(dir, { withFileTypes: true });
     } catch {
-      return [];
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await this.walkDir(full, files);
+      } else if (entry.isFile()) {
+        files.push(full);
+      }
     }
   }
 }

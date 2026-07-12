@@ -1558,4 +1558,4 @@ export const BUILTIN_TRANSLATIONS = [
     ja: 'ヒント: /help <コマンド> で特定のコマンドのヘルプを表示',
     ko: '팁: /help <명령>을 입력하여 특정 명령에 대한 도움말 보기',
   },
-] as const;
+] as const satisfies readonly TranslationEntry[];

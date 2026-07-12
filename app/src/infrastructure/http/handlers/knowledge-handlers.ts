@@ -1415,14 +1415,17 @@ export async function handleExportKnowledge(
 
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
-    const { readFile, readdir, stat } = await import('fs/promises');
-    const { join, relative } = await import('path');
+    const { readFile, readdir } = await import('fs/promises');
+    const { join } = await import('path');
 
     const registry = getDefaultKnowledgeBaseRegistry();
     const root = registry.getKnowledgeRoot();
 
     // 递归收集知识库文件
-    async function collectFiles(dir: string, prefix = ''): Promise<{ path: string; content: string }[]> {
+    async function collectFiles(
+      dir: string,
+      prefix = ''
+    ): Promise<{ path: string; content: string }[]> {
       const entries = await readdir(dir, { withFileTypes: true });
       const result: { path: string; content: string }[] = [];
       for (const entry of entries) {
@@ -1430,7 +1433,8 @@ export async function handleExportKnowledge(
         const fullPath = join(dir, entry.name);
         const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
         if (entry.isDirectory()) {
-          if (baseFilter && prefix === '' && entry.name !== baseFilter) continue;
+          if (baseFilter && prefix === '' && entry.name !== baseFilter)
+            continue;
           result.push(...(await collectFiles(fullPath, relPath)));
         } else if (entry.isFile() && entry.name.endsWith('.md')) {
           const content = await readFile(fullPath, 'utf-8');

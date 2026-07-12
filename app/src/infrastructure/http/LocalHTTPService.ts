@@ -213,6 +213,9 @@ import {
   handleBatchTagKnowledge,
   handleListSnapshots,
   handleRestoreSnapshot,
+  handleTrashKnowledge,
+  handleRestoreTrash,
+  handleExportKnowledge,
 } from './handlers/knowledge-handlers';
 import {
   handleFileUpload,
@@ -1980,6 +1983,36 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     return handleRestoreSnapshot(req, res);
+  }
+
+  /**
+   * 处理移至回收站请求
+   */
+  private async handleTrashKnowledge(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleTrashKnowledge(req, res);
+  }
+
+  /**
+   * 处理从回收站恢复请求
+   */
+  private async handleRestoreTrash(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleRestoreTrash(req, res);
+  }
+
+  /**
+   * 处理知识库ZIP导出请求
+   */
+  private async handleExportKnowledge(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleExportKnowledge(req, res);
   }
 
   // ========== Buddy Handlers ==========

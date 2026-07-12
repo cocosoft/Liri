@@ -1205,6 +1205,18 @@ export async function dispatchRoute(
     await self['handleRestoreSnapshot'](req, res);
     return true;
   }
+  if (method === 'POST' && url === '/v1/knowledge/trash') {
+    await self['handleTrashKnowledge'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/knowledge/restore-trash') {
+    await self['handleRestoreTrash'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.startsWith('/v1/knowledge/export')) {
+    await self['handleExportKnowledge'](req, res);
+    return true;
+  }
   if (method === 'PUT' && url === '/v1/knowledge/docs') {
     await self['handleUpdateKnowledgeDoc'](req, res);
     return true;

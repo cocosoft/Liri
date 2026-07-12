@@ -523,4 +523,28 @@ export const knowledgeService = {
   }> => {
     return http.get("/v1/knowledge/health");
   },
+
+  /**
+   * 软删除文档（移至回收站）
+   */
+  trash: async (docPath: string): Promise<boolean> => {
+    try {
+      await http.post("/v1/knowledge/trash", { docPath });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  /**
+   * 从回收站恢复文档
+   */
+  restoreTrash: async (docPath: string): Promise<boolean> => {
+    try {
+      await http.post("/v1/knowledge/restore-trash", { docPath });
+      return true;
+    } catch {
+      return false;
+    }
+  },
 };

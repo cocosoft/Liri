@@ -27,8 +27,17 @@ export async function handleListKnowledge(
 
     const parsedUrl = new URL(req.url || '', 'http://localhost');
     const baseFilter = parsedUrl.searchParams.get('base');
-    const offset = Math.max(0, parseInt(parsedUrl.searchParams.get('offset') || '0', 10) || 0);
-    const limit = Math.min(100, Math.max(1, parseInt(parsedUrl.searchParams.get('limit') || '50', 10) || 50));
+    const offset = Math.max(
+      0,
+      parseInt(parsedUrl.searchParams.get('offset') || '0', 10) || 0
+    );
+    const limit = Math.min(
+      100,
+      Math.max(
+        1,
+        parseInt(parsedUrl.searchParams.get('limit') || '50', 10) || 50
+      )
+    );
 
     const registry = getDefaultKnowledgeBaseRegistry();
     const knowledgeRoot = registry.getKnowledgeRoot();
@@ -88,12 +97,14 @@ export async function handleListKnowledge(
     const paged = result.slice(offset, offset + limit);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      items: paged,
-      total,
-      offset,
-      limit,
-    }));
+    res.end(
+      JSON.stringify({
+        items: paged,
+        total,
+        offset,
+        limit,
+      })
+    );
   } catch (err) {
     sendError(res, err);
   }
@@ -1320,6 +1331,128 @@ export async function handleRestoreSnapshot(
     const restored = await writer.restoreSnapshot(title, snapshot);
     res.writeHead(restored ? 200 : 404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ restored }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+// ========== 回收站 ==========
+
+export async function handleTrashKnowledge(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const { docPath } = JSON.parse(body);
+    if (!docPath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'docPath required' }));
+      return;
+    }
+
+    const { getDefaultKnowledgeBaseRegistry } =
+      await import('@modules/knowledge/KnowledgeBaseRegistry');
+    const { rename, mkdir } = await import('fs/promises');
+    const { join } = await import('path');
+
+    const registry = getDefaultKnowledgeBaseRegistry();
+    const root = registry.getKnowledgeRoot();
+    const src = join(root, docPath);
+    const trashDir = join(root, '.knowledge-trash');
+    await mkdir(trashDir, { recursive: true });
+
+    const dest = join(trashDir, docPath.replace(/[/\\]/g, '_'));
+    await rename(src, dest);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ trashed: true }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+export async function handleRestoreTrash(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const { docPath } = JSON.parse(body);
+    if (!docPath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'docPath required' }));
+      return;
+    }
+
+    const { getDefaultKnowledgeBaseRegistry } =
+      await import('@modules/knowledge/KnowledgeBaseRegistry');
+    const { rename } = await import('fs/promises');
+    const { join } = await import('path');
+
+    const registry = getDefaultKnowledgeBaseRegistry();
+    const root = registry.getKnowledgeRoot();
+    const src = join(root, '.knowledge-trash', docPath.replace(/[/\\]/g, '_'));
+    const dest = join(root, docPath);
+    await rename(src, dest);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ restored: true }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+// ========== ZIP 导出 ==========
+
+export async function handleExportKnowledge(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const parsedUrl = new URL(req.url || '', 'http://localhost');
+    const baseFilter = parsedUrl.searchParams.get('base');
+
+    const { getDefaultKnowledgeBaseRegistry } =
+      await import('@modules/knowledge/KnowledgeBaseRegistry');
+    const { readFile, readdir, stat } = await import('fs/promises');
+    const { join, relative } = await import('path');
+
+    const registry = getDefaultKnowledgeBaseRegistry();
+    const root = registry.getKnowledgeRoot();
+
+    // 递归收集知识库文件
+    async function collectFiles(dir: string, prefix = ''): Promise<{ path: string; content: string }[]> {
+      const entries = await readdir(dir, { withFileTypes: true });
+      const result: { path: string; content: string }[] = [];
+      for (const entry of entries) {
+        if (entry.name.startsWith('.')) continue;
+        const fullPath = join(dir, entry.name);
+        const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) {
+          if (baseFilter && prefix === '' && entry.name !== baseFilter) continue;
+          result.push(...(await collectFiles(fullPath, relPath)));
+        } else if (entry.isFile() && entry.name.endsWith('.md')) {
+          const content = await readFile(fullPath, 'utf-8');
+          result.push({ path: relPath, content });
+        }
+      }
+      return result;
+    }
+
+    const files = await collectFiles(root);
+    const manifest = {
+      exportedAt: new Date().toISOString(),
+      base: baseFilter || 'all',
+      total: files.length,
+      files,
+    };
+
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Content-Disposition': `attachment; filename="knowledge-export-${Date.now()}.json"`,
+    });
+    res.end(JSON.stringify(manifest, null, 2));
   } catch (err) {
     sendError(res, err);
   }

@@ -386,10 +386,33 @@ function KnowledgePage() {
                         导出到 Notebook
                       </button>
                       <button
+                        onClick={() => {
+                          const base = selectedBase || "all";
+                          window.open(`/v1/knowledge/export?base=${encodeURIComponent(base)}`, "_blank");
+                        }}
+                        title="ZIP 打包导出知识库"
+                        className="px-3 py-1.5 text-sm text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-md hover:bg-purple-50 dark:hover:bg-purple-900/30"
+                      >
+                        ZIP导出
+                      </button>
+                      <button
                         onClick={startEditing}
                         className="px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/30"
                       >
                         编辑
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!selectedFile) return;
+                          const ok = await knowledgeService.trash(selectedFile.id);
+                          if (ok) {
+                            setSelectedFile(null);
+                            setIsEditing(false);
+                          }
+                        }}
+                        className="px-3 py-1.5 text-sm text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800 rounded-md hover:bg-orange-50 dark:hover:bg-orange-900/30"
+                      >
+                        回收
                       </button>
                       <button
                         onClick={handleDeleteFile}

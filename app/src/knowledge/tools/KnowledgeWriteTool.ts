@@ -32,6 +32,7 @@ import { KnowledgeBaseWriter } from '../KnowledgeBaseWriter';
 import { knowledgeDocsProvider } from '../../docs/FileDocsProvider';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { globalEventBus } from '@modules/core';
 
 const logger = new Logger({
   module: 'knowledge:tools:knowledgeWriteTool',
@@ -78,7 +79,7 @@ export class KnowledgeWriteTool implements Tool {
   private writer: KnowledgeBaseWriter;
 
   constructor() {
-    this.writer = new KnowledgeBaseWriter();
+    this.writer = new KnowledgeBaseWriter(undefined, globalEventBus);
   }
 
   async execute(

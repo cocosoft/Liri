@@ -37,7 +37,11 @@ const { gracefulShutdown, setupGracefulShutdown, registerShutdownHandler } =
   gracefulShutdownModule as any;
 import { getMonitoringService } from '@modules/monitoring/index.js';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { resolvePyappHome, ensureDataDirectories } from '@modules/core';
+import {
+  resolvePyappHome,
+  ensureDataDirectories,
+  globalEventBus,
+} from '@modules/core';
 import { getStartupChainProfiler } from '@modules/bootstrap/StartupChainProfiler.js';
 import {
   loadStartupConfig,
@@ -663,18 +667,57 @@ async function startDeferredPrefetches(): Promise<void> {
         try {
           const { knowledgeDocsProvider, fileDocsProvider } =
             await import('../docs/FileDocsProvider.js');
-          const { KnowledgeRouter } =
-            await import('@modules/knowledge/KnowledgeRouter.js');
           const { KnowledgeSummarizer } =
             await import('../knowledge/KnowledgeSummarizer.js');
           const { setKnowledgeQueryProvider } =
             await import('../services/prompt/KnowledgePromptProvider.js');
-          const router = new KnowledgeRouter([
+          const { SemanticStore } =
+            await import('@modules/knowledge/semantic/store.js');
+          const { SemanticIndexUpdater } =
+            await import('@modules/knowledge/SemanticIndexUpdater.js');
+          const { globalEmbeddingManager } =
+            await import('@modules/ai/embedding/EmbeddingManager.js');
+          const { resolveDataSubDir } = await import('@modules/core/paths.js');
+
+          // 创建共享 SemanticStore（路径与 SemanticIndexUpdater 保持一致）
+          const indexDir = resolveDataSubDir('semantic-index');
+          const semanticStore = new SemanticStore(indexDir, {
+            provider: 'local',
+            model: 'nomic-embed-text',
+          });
+          await semanticStore.load();
+
+          // 初始化语义索引增量更新器（监听 knowledge:changed 事件）
+          const semanticIndexUpdater = new SemanticIndexUpdater(
+            globalEmbeddingManager,
+            { indexDir },
+            globalEventBus
+          );
+          await semanticIndexUpdater.initialize();
+
+          // 创建 KnowledgeRouter 并注入 SemanticStore
+          // 使用共享单例 knowledgeRouter，确保 KnowledgeDeleteTool 等模块可共享索引
+          const { knowledgeRouter } =
+            await import('@modules/knowledge/KnowledgeRouter.js');
+          knowledgeRouter['providers'] = [
             fileDocsProvider,
             knowledgeDocsProvider,
-          ]);
-          const summarizer = new KnowledgeSummarizer(router);
+          ];
+          knowledgeRouter['semanticStore'] = semanticStore;
+          // 注入 EventBus 实现增量索引更新
+          globalEventBus.subscribe('knowledge:changed', (event: unknown) => {
+            const evt = event as { action: string; filePath: string };
+            if (evt.action === 'deleted') {
+              (knowledgeRouter['removeFromIndex'] as (fp: string) => void)?.(
+                evt.filePath
+              );
+            }
+          });
+          await knowledgeRouter.buildIndex();
+          const summarizer = new KnowledgeSummarizer(knowledgeRouter);
           setKnowledgeQueryProvider(summarizer);
+
+          logger.info('语义索引更新器已启动', { indexDir });
         } catch (error) {
           logger.warning('知识库查询提供者注册失败', { error });
         }

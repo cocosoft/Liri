@@ -41,6 +41,8 @@ import type {
 } from '@modules/docs/knowledge-types';
 import type { FileDocsProvider } from '@modules/docs/FileDocsProvider';
 import { Logger, LogLevel } from '@modules/monitoring';
+import type { SemanticStore } from '@modules/knowledge/semantic/store';
+import type { EventBus } from '@modules/core';
 
 const logger = new Logger({
   module: 'knowledge:knowledgeRouter',
@@ -198,17 +200,37 @@ export class KnowledgeRouter implements IKnowledgeSearch {
   private initialized: boolean = false;
   private embeddingManager: EmbeddingManager;
   private hybridConfig: Required<HybridConfig>;
+  private semanticStore?: SemanticStore;
+
+  /** 标题倒排索引：lowerTitle → 文档，O(1) 精确查找 */
+  private titleIndex: Map<string, WeightedDoc> = new Map();
+
+  /** Token 倒排索引：token → 文档索引集合，O(k) 关键词查找 */
+  private tokenIndex: Map<string, Set<number>> = new Map();
 
   constructor(
     providers: FileDocsProvider | FileDocsProvider[],
     embeddingManager?: EmbeddingManager,
     knownUsernames: string[] = [],
-    hybridConfig?: HybridConfig
+    hybridConfig?: HybridConfig,
+    semanticStore?: SemanticStore,
+    eventBus?: EventBus
   ) {
     this.providers = Array.isArray(providers) ? providers : [providers];
     this.knownUsernames = knownUsernames;
     this.embeddingManager = embeddingManager ?? globalEmbeddingManager;
     this.hybridConfig = { ...DEFAULT_HYBRID_CONFIG, ...hybridConfig };
+    this.semanticStore = semanticStore;
+
+    // 监听知识变更事件，实现增量索引更新
+    eventBus?.subscribe('knowledge:changed', (event: unknown) => {
+      const evt = event as { action: string; filePath: string };
+      if (evt.action === 'deleted') {
+        // 从索引中移除（通过 docPath 匹配）
+        this.removeFromIndex(evt.filePath);
+      }
+      // created/updated 通过 buildIndex 全量刷新（保守方案确保一致性）
+    });
   }
 
   /** 更新已知用户名 */
@@ -216,24 +238,78 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     this.knownUsernames = usernames;
   }
 
-  /** 构建关键字索引 */
+  /** 构建关键字索引和倒排索引 */
   async buildIndex(): Promise<void> {
     this.docs = [];
+    this.titleIndex.clear();
+    this.tokenIndex.clear();
+
     for (const provider of this.providers) {
       const entries = await provider.buildIndex();
       for (const e of entries) {
         const isKnowledgeDoc = e.source?.includes('.pyapp') ?? false;
-        this.docs.push({
+        const doc: WeightedDoc = {
           docPath: e.relativePath,
           title: e.title,
           category: e.category,
           content: e.content,
           isKnowledgeDoc,
           source: e.source,
-        });
+        };
+        this.docs.push(doc);
       }
     }
+
+    // 构建标题倒排索引和 token 倒排索引
+    for (let i = 0; i < this.docs.length; i++) {
+      const doc = this.docs[i]!;
+      // 标题索引：lowerTitle → doc
+      this.titleIndex.set(doc.title.toLowerCase(), doc);
+      // Token 索引：每个 token → 文档索引集合
+      const tokens = this.tokenize(doc.title + ' ' + doc.content);
+      for (const token of tokens) {
+        const set = this.tokenIndex.get(token);
+        if (set) {
+          set.add(i);
+        } else {
+          this.tokenIndex.set(token, new Set([i]));
+        }
+      }
+    }
+
     this.initialized = true;
+  }
+
+  /**
+   * 按标题精确查找文档 — O(1)
+   */
+  findByTitle(title: string): WeightedDoc | undefined {
+    return this.titleIndex.get(title.toLowerCase().trim());
+  }
+
+  /**
+   * 从索引中增量移除文档 — O(k)，k=文档的 token 数
+   */
+  removeFromIndex(filePath: string): void {
+    // 从 docs 和 titleIndex 中移除
+    const docIdx = this.docs.findIndex(
+      (d) => d.docPath === filePath || filePath.endsWith(d.docPath)
+    );
+    if (docIdx === -1) return;
+
+    const doc = this.docs[docIdx]!;
+    this.titleIndex.delete(doc.title.toLowerCase());
+
+    // 从 tokenIndex 中清理该文档的 token 引用
+    for (const [token, docSet] of this.tokenIndex) {
+      docSet.delete(docIdx);
+      if (docSet.size === 0) {
+        this.tokenIndex.delete(token);
+      }
+    }
+
+    this.docs.splice(docIdx, 1);
+    logger.info('已从索引中移除文档', { filePath, title: doc.title });
   }
 
   /** 分词 */
@@ -269,7 +345,8 @@ export class KnowledgeRouter implements IKnowledgeSearch {
   /**
    * 关键字搜索通道
    *
-   * 使用倒排索引 + 分层权重：知识库文档(+0.5) > 用户名匹配(+0.4) > 标题匹配(+0.3) > 内容关键词匹配(+0.2) > 目录名匹配(+0.1)
+   * 使用倒排索引 tokenIndex 先做候选集交集，再在候选集上计算分层权重。
+   * 权重：知识库文档(+0.5) > 用户名匹配(+0.4) > 标题匹配(+0.3) > 内容关键词匹配(+0.2) > 目录名匹配(+0.1)
    */
   private keywordSearch(
     query: string,
@@ -283,9 +360,26 @@ export class KnowledgeRouter implements IKnowledgeSearch {
       return [];
     }
 
+    // 用倒排索引快速定位候选文档（取所有 token 命中文档的并集）
+    const candidateIdxSet = new Set<number>();
+    for (const token of queryTokens) {
+      const docSet = this.tokenIndex.get(token);
+      if (docSet) {
+        for (const idx of docSet) {
+          candidateIdxSet.add(idx);
+        }
+      }
+    }
+
+    // 如果没有 token 级命中，回退到全量扫描（处理生僻查询）
+    const candidateDocs =
+      candidateIdxSet.size > 0
+        ? Array.from(candidateIdxSet).map((i) => this.docs[i]!)
+        : this.docs;
+
     const results: KnowledgeRoute[] = [];
 
-    for (const doc of this.docs) {
+    for (const doc of candidateDocs) {
       const lowerTitle = doc.title.toLowerCase();
       const lowerCategory = doc.category.toLowerCase();
       const lowerContent = doc.content.toLowerCase();
@@ -407,48 +501,45 @@ export class KnowledgeRouter implements IKnowledgeSearch {
   /**
    * 语义搜索通道
    *
-   * 使用 EmbeddingManager 生成查询向量，与文档逐条计算余弦相似度。
-   * 文档文本从 provider 加载（维持与关键词通道一致的文档集）。
+   * 优先使用 SemanticStore 持久化向量做快速检索。
+   * 当 SemanticStore 不可用时（未初始化或为空），
+   * 降级返回空结果——search() 中的 catch 兜底确保纯关键词搜索仍可用。
    */
   private async semanticSearch(
     query: string,
     maxResults: number
   ): Promise<KnowledgeRoute[]> {
-    if (this.docs.length === 0) return [];
+    // 没有可用的持久化语义存储，降级到纯关键词搜索
+    if (!this.semanticStore || this.semanticStore.empty) {
+      return [];
+    }
 
     this.embeddingManager.initialize();
     const queryVec = await this.embeddingManager.embedOne(query);
     if (queryVec.length === 0) return [];
 
     const threshold = this.hybridConfig.semanticThreshold;
-    const results: KnowledgeRoute[] = [];
+    const hits = this.semanticStore.search(
+      new Float32Array(queryVec),
+      maxResults,
+      threshold
+    );
 
-    for (const doc of this.docs) {
-      // 对文档内容生成嵌入向量
-      const text = `${doc.title}\n${doc.content}`.substring(0, 8000);
-      const docVec = await this.embeddingManager.embedOne(text);
-      if (docVec.length === 0) continue;
+    // 需要从 this.docs 中查找文档的 title/category 元数据
+    const docMap = new Map(this.docs.map((d) => [d.docPath, d]));
 
-      const similarity = this.cosineSimilarity(queryVec, docVec);
-      if (similarity >= threshold) {
-        const firstLine = doc.content
-          .split('\n')
-          .find((l) => l.trim().length > 0);
-
-        results.push({
-          docPath: doc.docPath,
-          title: doc.title,
-          score: Math.round(similarity * 100) / 100,
-          category: doc.category,
-          snippet: firstLine ? firstLine.trim().slice(0, 120) : '',
-          matchType: 'semantic',
-          isKnowledgeDoc: doc.isKnowledgeDoc,
-        });
-      }
-    }
-
-    results.sort((a, b) => b.score - a.score);
-    return results.slice(0, maxResults);
+    return hits.map((hit) => {
+      const doc = docMap.get(hit.entry.path);
+      return {
+        docPath: hit.entry.path,
+        title: doc?.title ?? hit.entry.path.replace(/\.md$/i, ''),
+        score: Math.round(hit.score * 100) / 100,
+        category: doc?.category ?? '',
+        snippet: hit.entry.text.slice(0, 120),
+        matchType: 'semantic' as const,
+        isKnowledgeDoc: doc?.isKnowledgeDoc ?? true,
+      };
+    });
   }
 
   /** 归一化关键词得分 */

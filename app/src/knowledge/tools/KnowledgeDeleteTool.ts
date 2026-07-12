@@ -29,10 +29,12 @@ import { Tool, ToolParam, ToolInfo } from '../../tools/types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../../tools/types/ToolResult';
 import { ToolUseContext } from '../../tools/types/ToolUseContext';
 import { knowledgeDocsProvider } from '../../docs/FileDocsProvider';
+import { knowledgeRouter } from '../KnowledgeRouter';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { globalEventBus } from '@modules/core';
 
 const logger = new Logger({
   module: 'knowledge:tools:knowledgeDeleteTool',
@@ -105,37 +107,76 @@ export class KnowledgeDeleteTool implements Tool {
     }
 
     try {
-      const docs = await knowledgeDocsProvider.buildIndex();
+      // 使用共享 KnowledgeRouter 的 O(1) 标题索引查找
       const lowerTitle = title.toLowerCase();
-
-      const doc = docs.find(
-        (d) =>
-          d.title.toLowerCase() === lowerTitle ||
-          d.fileName.toLowerCase().replace(/\.md$/i, '') === lowerTitle
-      );
+      const doc = knowledgeRouter.findByTitle(title);
 
       if (!doc) {
+        // 回退：通过文件系统查找（兼容 Router 索引未构建的场景）
+        const docs = await knowledgeDocsProvider.buildIndex();
+        const fallback = docs.find(
+          (d) =>
+            d.title.toLowerCase() === lowerTitle ||
+            d.fileName.toLowerCase().replace(/\.md$/i, '') === lowerTitle
+        );
+
+        if (!fallback) {
+          return {
+            status: ToolExecutionStatus.FAILURE,
+            error: `Document "${title}" not found in knowledge base.`,
+            executionTime: Date.now() - startTime,
+            output: '',
+            errorOutput: '',
+            progress: [],
+            metadata: {},
+            executionId: `knowledge_delete_${Date.now()}`,
+            toolName: this.name,
+            timestamp: Date.now(),
+          };
+        }
+
+        const filePath = join(
+          fallback.source || knowledgeDocsProvider.getDocsRoots()[0],
+          fallback.relativePath
+        );
+        await unlink(filePath);
+        knowledgeDocsProvider.clearCache();
+
+        globalEventBus.publish('knowledge:changed', {
+          action: 'deleted',
+          filePath,
+        });
+
+        logger.info('知识文档已删除', { title: fallback.title, filePath });
+
         return {
-          status: ToolExecutionStatus.FAILURE,
-          error: `Document "${title}" not found in knowledge base.`,
+          status: ToolExecutionStatus.SUCCESS,
+          output: `Document "${fallback.title}" deleted successfully.`,
           executionTime: Date.now() - startTime,
-          output: '',
+          error: '',
           errorOutput: '',
           progress: [],
-          metadata: {},
+          metadata: { title: fallback.title, filePath },
           executionId: `knowledge_delete_${Date.now()}`,
           toolName: this.name,
           timestamp: Date.now(),
+          content: `知识文档已删除：${fallback.title}`,
         };
       }
 
       const filePath = join(
         doc.source || knowledgeDocsProvider.getDocsRoots()[0],
-        doc.relativePath
+        doc.docPath
       );
 
       await unlink(filePath);
       knowledgeDocsProvider.clearCache();
+
+      // 广播知识变更事件，触发下游索引联动
+      globalEventBus.publish('knowledge:changed', {
+        action: 'deleted',
+        filePath,
+      });
 
       logger.info('知识文档已删除', { title: doc.title, filePath });
 

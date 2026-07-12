@@ -704,6 +704,23 @@ async function startDeferredPrefetches(): Promise<void> {
             knowledgeDocsProvider,
           ];
           knowledgeRouter['semanticStore'] = semanticStore;
+
+          // 注入 KnowledgeGraph 用于 GraphRAG 增强
+          try {
+            const { KnowledgeGraph } =
+              await import('@modules/knowledge/graph/KnowledgeGraph.js');
+            const { resolveDbPath } = await import('@modules/core/paths.js');
+            const graph = new KnowledgeGraph(resolveDbPath());
+            await graph.init();
+            knowledgeRouter['knowledgeGraph'] = graph;
+            logger.info('KnowledgeGraph 已注入 KnowledgeRouter');
+          } catch (graphErr) {
+            // GraphRAG 初始化失败不阻塞搜索
+            logger.warning('KnowledgeGraph 注入失败，GraphRAG 暂不可用', {
+              error: String(graphErr),
+            });
+          }
+
           // 注入 EventBus 实现增量索引更新
           globalEventBus.subscribe('knowledge:changed', (event: unknown) => {
             const evt = event as { action: string; filePath: string };
@@ -726,12 +743,17 @@ async function startDeferredPrefetches(): Promise<void> {
       // 初始化知识图谱孤儿边自动清理
       (async () => {
         try {
-          const { KnowledgeGraph } =
-            await import('@modules/knowledge/graph/KnowledgeGraph.js');
-          const { resolveDbPath } = await import('@modules/core/paths.js');
+          // 延迟获取 KnowledgeRouter 中的 KnowledgeGraph（异步初始化可能尚未完成）
+          const { knowledgeRouter: kr } =
+            await import('@modules/knowledge/KnowledgeRouter.js');
+          const graph = kr['knowledgeGraph'] as
+            | import('@modules/knowledge/graph/KnowledgeGraph').KnowledgeGraph
+            | undefined;
 
-          const graph = new KnowledgeGraph(resolveDbPath());
-          await graph.init();
+          if (!graph) {
+            logger.info('KnowledgeGraph 未可用，跳过孤儿边清理注册');
+            return;
+          }
 
           // 监听删除事件，自动清理悬挂边
           globalEventBus.subscribe('knowledge:changed', (event: unknown) => {

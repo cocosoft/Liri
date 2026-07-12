@@ -44,6 +44,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import type { SemanticStore } from '@modules/knowledge/semantic/store';
 import { COMMON_STOP_WORDS } from '@modules/knowledge/stopwords';
 import type { EventBus } from '@modules/core';
+import type { KnowledgeGraph } from '@modules/knowledge/graph/KnowledgeGraph';
 
 const logger = new Logger({
   module: 'knowledge:knowledgeRouter',
@@ -88,6 +89,8 @@ export class KnowledgeRouter implements IKnowledgeSearch {
   private embeddingManager: EmbeddingManager;
   private hybridConfig: Required<HybridConfig>;
   private semanticStore?: SemanticStore;
+  /** 知识图谱实例（可选，用于 GraphRAG 增强） */
+  private knowledgeGraph?: KnowledgeGraph;
 
   /** 标题倒排索引：lowerTitle → 文档，O(1) 精确查找 */
   private titleIndex: Map<string, WeightedDoc> = new Map();
@@ -101,13 +104,15 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     knownUsernames: string[] = [],
     hybridConfig?: HybridConfig,
     semanticStore?: SemanticStore,
-    eventBus?: EventBus
+    eventBus?: EventBus,
+    knowledgeGraph?: KnowledgeGraph
   ) {
     this.providers = Array.isArray(providers) ? providers : [providers];
     this.knownUsernames = knownUsernames;
     this.embeddingManager = embeddingManager ?? globalEmbeddingManager;
     this.hybridConfig = { ...DEFAULT_HYBRID_CONFIG, ...hybridConfig };
     this.semanticStore = semanticStore;
+    this.knowledgeGraph = knowledgeGraph;
 
     // 监听知识变更事件，实现增量索引更新
     eventBus?.subscribe('knowledge:changed', (event: unknown) => {
@@ -534,7 +539,99 @@ export class KnowledgeRouter implements IKnowledgeSearch {
       semanticResults,
       fetchCount
     );
+
+    // GraphRAG: 图感知扩展 — 通过知识图谱追加关联实体文档
+    if (this.knowledgeGraph) {
+      const graphResults = await this.graphExpand(query, maxResults);
+      if (graphResults.length > 0) {
+        // 将图扩展结果追加到末尾（不覆盖已有结果）
+        const existingPaths = new Set(merged.map((r) => r.docPath));
+        for (const gr of graphResults) {
+          if (!existingPaths.has(gr.docPath)) {
+            merged.push(gr);
+          }
+        }
+      }
+    }
+
     return merged.slice(offset, offset + maxResults);
+  }
+
+  /**
+   * GraphRAG 图感知扩展
+   * 从查询中提取潜在实体，在 KnowledgeGraph 中查找关联边，
+   * 返回包含关联实体的文档
+   */
+  private async graphExpand(
+    query: string,
+    maxResults: number
+  ): Promise<KnowledgeRoute[]> {
+    if (!this.knowledgeGraph) return [];
+
+    try {
+      // 提取查询中可能为实体的关键词（非停用词、2字以上）
+      const entityCandidates = this.tokenize(query)
+        .filter((t) => t.length >= 2 && !COMMON_STOP_WORDS.has(t))
+        .slice(0, 5);
+
+      if (entityCandidates.length === 0) return [];
+
+      // 查询每个候选实体的关联边
+      const relatedEntities = new Set<string>();
+      for (const entity of entityCandidates) {
+        // 尝试多种实体 ID 格式匹配
+        for (const domain of ['', 'botany', 'default']) {
+          const entityId = domain
+            ? `${domain}:concept:${entity}`
+            : `default:concept:${entity}`;
+          try {
+            const edges = await this.knowledgeGraph.queryEdges({
+              entityId,
+              limit: 10,
+            });
+            for (const e of edges) {
+              relatedEntities.add(e.from);
+              relatedEntities.add(e.to);
+            }
+          } catch {
+            // 单个查询失败不影响整体
+          }
+        }
+      }
+
+      if (relatedEntities.size === 0) return [];
+
+      // 在文档索引中查找包含这些实体的文档
+      const results: KnowledgeRoute[] = [];
+
+      for (const entity of relatedEntities) {
+        const entityLower = entity.toLowerCase();
+        for (const doc of this.docs) {
+          if (results.length >= maxResults) break;
+          if (
+            doc.content.toLowerCase().includes(entityLower) ||
+            doc.title.toLowerCase().includes(entityLower)
+          ) {
+            results.push({
+              docPath: doc.docPath,
+              title: doc.title,
+              score: 0.3, // 图扩展结果基础分较低
+              category: doc.category,
+              snippet: this.extractSnippet(doc.content, [entityLower]),
+              matchType: 'semantic', // 标记为 semantic 但有 graph 特性
+              isKnowledgeDoc: doc.isKnowledgeDoc,
+            });
+          }
+        }
+      }
+
+      return results.slice(0, maxResults);
+    } catch (err) {
+      logger.warn('GraphRAG 扩展失败，降级为无图搜索结果', {
+        error: String(err),
+      });
+      return [];
+    }
   }
 
   /** 获取文档内容 */

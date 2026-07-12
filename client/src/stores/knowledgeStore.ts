@@ -34,23 +34,25 @@ function knowledgeSlice(state: { knowledgeItems: KnowledgeItem[]; knowledgeLoadi
 
 export function useKnowledgeStore(): KnowledgeSlice;
 export function useKnowledgeStore<T>(selector: (slice: KnowledgeSlice) => T): T;
-export function useKnowledgeStore(selector?: any): any {
-  const items = useAppStore((s) => s.knowledgeItems);
-  const isLoading = useAppStore((s) => s.knowledgeLoading);
-  const error = useAppStore((s) => s.knowledgeError);
-  const loadItems = useAppStore((s) => s.loadKnowledge);
-  const createItem = useAppStore((s) => s.createKnowledge);
-  const updateItem = useAppStore((s) => s.updateKnowledge);
-  const deleteItem = useAppStore((s) => s.deleteKnowledge);
-  const slice = { items, isLoading, error, loadItems, createItem, updateItem, deleteItem };
+export function useKnowledgeStore<T>(selector?: (slice: KnowledgeSlice) => T): KnowledgeSlice | T {
+  const slice = useAppStore((s) => ({
+    items: s.knowledgeItems,
+    isLoading: s.knowledgeLoading,
+    error: s.knowledgeError,
+    loadItems: s.loadKnowledge,
+    createItem: s.createKnowledge,
+    updateItem: s.updateKnowledge,
+    deleteItem: s.deleteKnowledge,
+  }));
   return selector ? selector(slice) : slice;
 }
 
-useKnowledgeStore.getState = () => knowledgeSlice(useAppStore.getState());
+useKnowledgeStore.getState = () =>
+  knowledgeSlice(useAppStore.getState() as Parameters<typeof knowledgeSlice>[0]);
 useKnowledgeStore.setState = (partial: Partial<KnowledgeSlice>) => {
   useAppStore.setState({
     ...(partial.items !== undefined && { knowledgeItems: partial.items }),
     ...(partial.isLoading !== undefined && { knowledgeLoading: partial.isLoading }),
     ...(partial.error !== undefined && { knowledgeError: partial.error }),
-  } as any);
+  });
 };

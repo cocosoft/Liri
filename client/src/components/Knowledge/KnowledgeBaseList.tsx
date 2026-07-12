@@ -3,6 +3,8 @@ import type { KnowledgeBase, KnowledgeFile } from "../../types";
 import { knowledgeService } from "../../services/knowledgeService";
 import FileUploadZone from "./FileUploadZone";
 import { createLogger } from "@/utils/logger";
+import { formatFileSize, formatDate } from "./shared/utils";
+import { sourceLabels } from "./shared/constants";
 
 const logger = createLogger("components:knowledgeBaseList");
 
@@ -269,32 +271,6 @@ function KnowledgeBaseList({
       setBatchTagStatus("error");
     }
   }
-
-  function formatFileSize(bytes: number): string {
-    if (bytes === 0) return "0B";
-    if (bytes < 1024) return `${bytes}B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-  }
-
-  function formatDate(ts: number): string {
-    if (!ts) return "";
-    return new Date(ts).toLocaleString("zh-CN", {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
-  const sourceLabels: Record<string, string> = {
-    manual: "手动",
-    "auto-memory": "自动记忆",
-    upload: "上传",
-    "chat-save": "聊天保存",
-    dream: "梦境",
-    compiled: "编译",
-  };
 
   return (
     <div className={`flex flex-col h-full ${bgClass}`}>

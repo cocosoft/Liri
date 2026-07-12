@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { knowledgeService } from "../../services/knowledgeService";
+import { formatFileSize, formatDate } from "./shared/utils";
 
 interface RawFileInfo {
   fileName: string;
@@ -23,7 +24,10 @@ function PendingCompilePanel({
   const [rawFiles, setRawFiles] = useState<RawFileInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [compiling, setCompiling] = useState(false);
-  const [compileResult, setCompileResult] = useState<string | null>(null);
+  const [compileResult, setCompileResult] = useState<{
+    message: string;
+    hasError: boolean;
+  } | null>(null);
   const [expanded, setExpanded] = useState(false);
 
   const bgClass = isDark ? "bg-gray-800" : "bg-gray-50";
@@ -55,36 +59,19 @@ function PendingCompilePanel({
     setCompileResult(null);
     try {
       const result = await knowledgeService.triggerCompile(false);
-      const msg = `编译完成: ${result.compiled} 个成功, ${result.skipped} 个跳过`;
-      setCompileResult(
-        result.errors?.length ? `${msg}, ${result.errors.length} 个错误` : msg,
-      );
+      const hasError = (result.errors?.length ?? 0) > 0;
+      const msg = `编译完成: ${result.compiled} 个成功, ${result.skipped} 个跳过${hasError ? `, ${result.errors?.length} 个错误` : ""}`;
+      setCompileResult({ message: msg, hasError });
       await loadRawFiles();
       onCompileComplete?.();
     } catch (err) {
-      setCompileResult(
-        "编译失败: " + (err instanceof Error ? err.message : "未知错误"),
-      );
+      setCompileResult({
+        message: "编译失败: " + (err instanceof Error ? err.message : "未知错误"),
+        hasError: true,
+      });
     } finally {
       setCompiling(false);
     }
-  }
-
-  function formatSize(bytes: number): string {
-    if (bytes === 0) return "0B";
-    if (bytes < 1024) return `${bytes}B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-  }
-
-  function formatDate(ms: number): string {
-    if (!ms) return "";
-    return new Date(ms).toLocaleString("zh-CN", {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   }
 
   if (!expanded && rawFiles.length === 0) return null;
@@ -169,7 +156,7 @@ function PendingCompilePanel({
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-2">
-                    <span className={textMuted}>{formatSize(file.size)}</span>
+                    <span className={textMuted}>{formatFileSize(file.size)}</span>
                     <span className={textMuted}>
                       {formatDate(file.modifiedAt)}
                     </span>
@@ -223,12 +210,12 @@ function PendingCompilePanel({
           {compileResult && (
             <div
               className={`mt-2 text-xs px-2 py-1 rounded ${
-                compileResult.includes("失败")
+                compileResult.hasError
                   ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
                   : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
               }`}
             >
-              {compileResult}
+              {compileResult.message}
             </div>
           )}
         </div>

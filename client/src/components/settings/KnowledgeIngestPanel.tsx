@@ -2,6 +2,9 @@ import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { httpLegacy as http } from "../../services/httpClient";
 import { ConfigSection, ConfigItem } from "./ConfigComponents";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("settings:knowledgeIngest");
 
 interface KnowledgeIngestPanelProps {
   isDark: boolean;
@@ -37,8 +40,8 @@ function KnowledgeIngestPanel({ isDark }: KnowledgeIngestPanelProps) {
       if (excludeRes?.value && Array.isArray(excludeRes.value)) {
         setExcludeTags(excludeRes.value);
       }
-    } catch {
-      // 配置不存在时使用空列表
+    } catch (err) {
+      logger.warn("知识库摄入配置加载失败", { error: String(err) });
     }
   }, []);
 

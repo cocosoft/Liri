@@ -11,6 +11,8 @@ import KnowledgeEditor from "../Knowledge/KnowledgeEditor";
 import PendingCompilePanel from "../Knowledge/PendingCompilePanel";
 import SemanticIndexPage from "./SemanticIndexPage";
 import { SkeletonCard } from "../common/Skeleton";
+import { formatFileSize, formatDateTime } from "../Knowledge/shared/utils";
+import { sourceLabels } from "../Knowledge/shared/constants";
 
 type ActiveTab = "knowledge" | "search-demo" | "stats" | "semantic";
 
@@ -190,26 +192,7 @@ function KnowledgePage() {
     { key: "stats", label: "知识统计" },
   ];
 
-  function formatFileSize(bytes: number): string {
-    if (bytes === 0) return "0B";
-    if (bytes < 1024) return `${bytes}B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-  }
 
-  function formatDateTime(ts: number): string {
-    if (!ts) return "未知";
-    return new Date(ts).toLocaleString("zh-CN");
-  }
-
-  const sourceLabels: Record<string, string> = {
-    manual: "手动创建",
-    "auto-memory": "自动记忆",
-    upload: "文件上传",
-    "chat-save": "聊天保存",
-    dream: "梦境生成",
-    compiled: "LLM编译",
-  };
 
   return (
     <div className={`flex-1 overflow-y-auto ${bgClass}`}>

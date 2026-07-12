@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import EditorToolbar from "./EditorToolbar";
 import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
 
@@ -24,6 +24,12 @@ function KnowledgeEditor({
   const [viewMode, setViewMode] = useState<ViewMode>("split");
   const [saving, setSaving] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // 同步外部 prop 变化（切换文档时更新编辑器内容）
+  useEffect(() => {
+    setTitle(initialTitle);
+    setContent(initialContent);
+  }, [initialTitle, initialContent]);
 
   const inputBg = isDark
     ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"

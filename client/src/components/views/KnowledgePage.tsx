@@ -289,6 +289,31 @@ function KnowledgePage() {
                     <p className="text-xs mt-1 opacity-60">
                       左侧列表列出了当前知识库下的所有文档
                     </p>
+                    <div className="flex items-center justify-center gap-3 mt-4">
+                      <button
+                        onClick={() => setActiveTab("search-demo")}
+                        className="px-3 py-1.5 text-xs border rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        检索知识
+                      </button>
+                      <button
+                        onClick={() => {
+                          const el = document.querySelector<HTMLButtonElement>(
+                            '[data-testid="file-upload-trigger"]'
+                          );
+                          el?.click();
+                        }}
+                        className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                      >
+                        上传文档
+                      </button>
+                      <button
+                        onClick={() => setActiveTab("stats")}
+                        className="px-3 py-1.5 text-xs border rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        查看统计
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : isEditing ? (

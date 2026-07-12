@@ -12,6 +12,27 @@ interface KnowledgeEditorProps {
   onCancel: () => void;
 }
 
+const DRAFT_KEY = "liri-editor-draft";
+
+function loadDraft(): { title: string; content: string } | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(title: string, content: string) {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, content }));
+  } catch { /* ignore */ }
+}
+
+function clearDraft() {
+  try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+}
+
 function KnowledgeEditor({
   title: initialTitle,
   content: initialContent,
@@ -23,13 +44,46 @@ function KnowledgeEditor({
   const [content, setContent] = useState(initialContent);
   const [viewMode, setViewMode] = useState<ViewMode>("split");
   const [saving, setSaving] = useState(false);
+  const [autoSaved, setAutoSaved] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 同步外部 prop 变化（切换文档时更新编辑器内容）
+  // 同步外部 prop 变化
   useEffect(() => {
     setTitle(initialTitle);
     setContent(initialContent);
+    // 清除草稿（如果有外部传入的初始内容）
+    if (initialContent) clearDraft();
   }, [initialTitle, initialContent]);
+
+  // P1-7: 草稿恢复提示
+  useEffect(() => {
+    if (!initialTitle && !initialContent) {
+      const draft = loadDraft();
+      if (draft && draft.content) {
+        if (confirm("检测到未保存的编辑器草稿，是否恢复？")) {
+          setTitle(draft.title);
+          setContent(draft.content);
+        } else {
+          clearDraft();
+        }
+      }
+    }
+  }, []);
+
+  // P1-7: 500ms debounce 自动保存
+  useEffect(() => {
+    if (!content.trim()) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      saveDraft(title, content);
+      setAutoSaved(true);
+      setTimeout(() => setAutoSaved(false), 2000);
+    }, 500);
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [title, content]);
 
   const inputBg = isDark
     ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
@@ -127,6 +181,11 @@ function KnowledgeEditor({
           >
             {saving ? "保存中..." : "保存"}
           </button>
+          {autoSaved && (
+            <span className="text-[10px] text-green-500 dark:text-green-400 ml-1 transition-opacity">
+              已保存
+            </span>
+          )}
           <button
             onClick={onCancel}
             className={`px-3 py-1.5 text-sm border ${borderColor} rounded-md ${textSecondary} hover:bg-gray-100 dark:hover:bg-gray-700`}

@@ -34,6 +34,7 @@ interface ListState {
   compileMessage: string;
   sortBy: "updated" | "title" | "created";
   selectedCategory: string | null;
+  selectedSource: string | null;
   selectedFileIds: Set<string>;
   showBatchTagModal: boolean;
   batchTagInput: string;
@@ -57,6 +58,7 @@ type ListAction =
   | { type: "CLEAR_COMPILE" }
   | { type: "SET_SORT_BY"; sortBy: "updated" | "title" | "created" }
   | { type: "SET_CATEGORY"; category: string | null }
+  | { type: "SET_SOURCE"; source: string | null }
   | { type: "TOGGLE_FILE_SELECTION"; id: string }
   | { type: "CLEAR_SELECTION" }
   | { type: "OPEN_BATCH_TAG_MODAL" }
@@ -100,6 +102,8 @@ function listReducer(state: ListState, action: ListAction): ListState {
       return { ...state, sortBy: action.sortBy };
     case "SET_CATEGORY":
       return { ...state, selectedCategory: action.category };
+    case "SET_SOURCE":
+      return { ...state, selectedSource: action.source };
     case "TOGGLE_FILE_SELECTION": {
       const next = new Set(state.selectedFileIds);
       if (next.has(action.id)) next.delete(action.id);
@@ -145,6 +149,7 @@ function KnowledgeBaseList({
     compileMessage: "",
     sortBy: "updated" as const,
     selectedCategory: null,
+    selectedSource: null,
     selectedFileIds: new Set<string>(),
     showBatchTagModal: false,
     batchTagInput: "",
@@ -155,7 +160,7 @@ function KnowledgeBaseList({
     bases, files, loading, searchQuery, showCreateModal,
     newBaseName, newBaseLabel, newBaseIcon, createStatus,
     editingBase, editLabel, compileStatus, compileMessage,
-    sortBy, selectedCategory, selectedFileIds,
+    sortBy, selectedCategory, selectedSource, selectedFileIds,
     showBatchTagModal, batchTagInput, batchTagStatus,
   } = state;
 
@@ -300,9 +305,13 @@ function KnowledgeBaseList({
     ? files.filter((f) => f.category === selectedCategory)
     : files;
 
+  const filteredBySource = selectedSource
+    ? filteredByCategory.filter((f) => f.source === selectedSource)
+    : filteredByCategory;
+
   const filteredFiles = (
     searchQuery
-      ? filteredByCategory.filter(
+      ? filteredBySource.filter(
           (f) =>
             f.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
             f.content.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -527,7 +536,22 @@ function KnowledgeBaseList({
           >
             <option value="updated">最近更新</option>
             <option value="title">按名称</option>
-            <option value="created">创建时间</option>
+            <option value="created">按创建</option>
+          </select>
+          <select
+            value={selectedSource || "all"}
+            onChange={(e) => {
+              const val = e.target.value;
+              dispatch({ type: "SET_SOURCE", source: val === "all" ? null : val });
+            }}
+            className={`text-[10px] px-1.5 py-0.5 rounded border ${inputBg} focus:outline-none cursor-pointer`}
+          >
+            <option value="all">全部来源</option>
+            <option value="manual">手动创建</option>
+            <option value="upload">文件上传</option>
+            <option value="chat-save">聊天保存</option>
+            <option value="dream">梦境生成</option>
+            <option value="compiled">LLM编译</option>
           </select>
         </div>
         {categories.length > 0 && (

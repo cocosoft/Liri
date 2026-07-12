@@ -14,6 +14,7 @@ import { formatFileSize, formatDateTime } from "../Knowledge/shared/utils";
 import { sourceLabels } from "../Knowledge/shared/constants";
 import SearchPanel from "../Knowledge/SearchPanel";
 import StatsPanel from "../Knowledge/StatsPanel";
+import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
 
 type ActiveTab = "knowledge" | "search-demo" | "stats" | "semantic";
 
@@ -68,6 +69,32 @@ function KnowledgePage() {
     setIsEditing(false);
     setEditTitle(file.title);
     setEditContent(file.content);
+  }
+
+  function handleSearchResultClick(result: { id: string; title: string; content: string; category?: string }) {
+    const file: KnowledgeFile = {
+      id: result.id,
+      title: result.title,
+      content: result.content,
+      category: result.category || "知识库",
+      tags: [],
+      docPath: "",
+      base: "",
+      size: 0,
+      source: "manual" as const,
+      created_at: Date.now(),
+      updated_at: Date.now(),
+    };
+    setActiveTab("knowledge");
+    setSelectedFile(file);
+    setIsEditing(false);
+    setEditTitle(result.title);
+    setEditContent(result.content);
+    // 延迟滚动到编辑器（等 DOM 渲染）
+    setTimeout(() => {
+      const el = document.querySelector('[data-editor-textarea]');
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
   }
 
   function startEditing() {
@@ -345,9 +372,13 @@ function KnowledgePage() {
                   </div>
 
                   <div
-                    className={`prose prose-sm max-w-none dark:prose-invert ${isDark ? "text-gray-300" : "text-gray-700"} whitespace-pre-wrap break-words leading-relaxed`}
+                    className="prose prose-sm max-w-none dark:prose-invert"
                   >
-                    {selectedFile.content || "（无内容）"}
+                    {selectedFile.content ? (
+                      <MarkdownRenderer content={selectedFile.content} />
+                    ) : (
+                      <span className="text-gray-400">（无内容）</span>
+                    )}
                   </div>
 
                   <div className={`mt-8 pt-4 border-t ${borderColor}`}>
@@ -468,6 +499,7 @@ function KnowledgePage() {
             isSearching={isDemoSearching}
             results={demoResults}
             searchDone={demoSearchDone}
+            onResultClick={handleSearchResultClick}
           />
         )}
 

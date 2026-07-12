@@ -22,6 +22,7 @@ interface SearchPanelProps {
   isSearching: boolean;
   results: KnowledgeSearchResult[];
   searchDone: boolean;
+  onResultClick?: (result: KnowledgeSearchResult) => void;
 }
 
 function SearchPanel({
@@ -32,6 +33,7 @@ function SearchPanel({
   isSearching,
   results,
   searchDone,
+  onResultClick,
 }: SearchPanelProps) {
   const textPrimary = isDark ? "text-gray-100" : "text-gray-900";
   const textSecondary = isDark ? "text-gray-400" : "text-gray-500";
@@ -96,7 +98,7 @@ function SearchPanel({
             </div>
             <div className={`divide-y ${dividerColor}`}>
               {results.map((result, idx) => (
-                <div key={result.id} className="px-4 py-3">
+                <div key={result.id} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer" onClick={() => onResultClick?.(result)}>
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <span className={`text-xs font-mono ${textSecondary} w-5`}>

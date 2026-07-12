@@ -67,6 +67,7 @@ function KnowledgeEditor({
         onChange={(e) => setContent(e.target.value)}
         placeholder="文档内容（支持 Markdown 格式）"
         className={`w-full flex-1 px-4 py-3 text-sm font-mono ${inputBg} focus:outline-none resize-none border-0`}
+        data-editor-textarea
         spellCheck={false}
       />
     </div>

@@ -52,9 +52,12 @@ function KnowledgePage() {
   const borderColor = isDark ? "border-gray-700" : "border-gray-200";
   const dividerColor = isDark ? "divide-gray-700" : "divide-gray-100";
 
+  // 仅在 stats Tab 激活时加载统计所需数据
   useEffect(() => {
-    loadItems();
-  }, [loadItems]);
+    if (activeTab === "stats") {
+      loadItems();
+    }
+  }, [activeTab, loadItems]);
 
   function handleSelectBase(baseName: string | null) {
     setSelectedBase(baseName);

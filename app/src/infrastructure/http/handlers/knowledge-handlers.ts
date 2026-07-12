@@ -1232,4 +1232,37 @@ export async function handleBatchTagKnowledge(
   }
 }
 
+/**
+ * GET /v1/knowledge/health
+ * 返回知识库健康指标（基于 KnowledgeLinter）
+ */
+export async function handleKnowledgeHealth(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { runKnowledgeLint } =
+      await import('@modules/knowledge/KnowledgeLinter.js');
+    const lintResult = await runKnowledgeLint();
+    const { summary } = lintResult;
+
+    const metrics = {
+      totalDocs: lintResult.totalDocs,
+      totalIssues: summary.totalIssues,
+      brokenLinks: summary.byCategory['broken_link'] ?? 0,
+      expiredDocs: summary.byCategory['freshness'] ?? 0,
+      orphanDocs: summary.byCategory['isolation'] ?? 0,
+      structureErrors: summary.byCategory['structure'] ?? 0,
+      consistencyWarnings: summary.byCategory['consistency'] ?? 0,
+      qualityIssues: summary.byCategory['quality'] ?? 0,
+      lastLintAt: new Date().toISOString(),
+    };
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(metrics));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
 // ========== Buddy Handlers ==========

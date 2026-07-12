@@ -35,6 +35,7 @@ import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { globalEventBus } from '@modules/core';
+import { writeAuditLog } from '../KnowledgeAuditLogger';
 
 const logger = new Logger({
   module: 'knowledge:tools:knowledgeDeleteTool',
@@ -44,13 +45,21 @@ const logger = new Logger({
 export class KnowledgeDeleteTool implements Tool {
   public name: string = 'knowledge_delete';
   public description: string =
-    'Delete a knowledge base document by title. Use this to remove outdated or incorrect knowledge. Requires explicit confirmation.';
+    'Delete a knowledge base document by title or path. If multiple documents match the title, a candidate list is returned — pick the exact one and call again with the specific docPath. Requires explicit confirmation.';
   public params: ToolParam[] = [
     {
       name: 'title',
       type: 'string',
-      description: 'Title of the document to delete',
-      required: true,
+      description:
+        'Title of the document to delete. If multiple matches, candidates are returned.',
+      required: false,
+    },
+    {
+      name: 'docPath',
+      type: 'string',
+      description:
+        'Exact relative path of the document to delete. Use this when candidates are returned from a previous title-based lookup.',
+      required: false,
     },
     {
       name: 'confirm',
@@ -73,12 +82,14 @@ export class KnowledgeDeleteTool implements Tool {
   ): Promise<ToolResult> {
     const startTime = Date.now();
     const title = ((input.title as string) || '').trim();
+    const docPath = ((input.docPath as string) || '').trim();
     const confirm = input.confirm === true;
 
-    if (!title) {
+    if (!title && !docPath) {
       return {
         status: ToolExecutionStatus.FAILURE,
-        error: 'title is required and must be a non-empty string',
+        error:
+          'Either title or docPath is required. Use title for lookup, docPath for exact deletion.',
         executionTime: Date.now() - startTime,
         output: '',
         errorOutput: '',
@@ -107,99 +118,74 @@ export class KnowledgeDeleteTool implements Tool {
     }
 
     try {
-      // 使用共享 KnowledgeRouter 的 O(1) 标题索引查找
+      // 优先使用 docPath 精确删除
+      if (docPath) {
+        return await this.deleteByPath(docPath, startTime);
+      }
+
+      // 使用标题查找
       const lowerTitle = title.toLowerCase();
       const doc = knowledgeRouter.findByTitle(title);
 
-      if (!doc) {
-        // 回退：通过文件系统查找（兼容 Router 索引未构建的场景）
-        const docs = await knowledgeDocsProvider.buildIndex();
-        const fallback = docs.find(
-          (d) =>
-            d.title.toLowerCase() === lowerTitle ||
-            d.fileName.toLowerCase().replace(/\.md$/i, '') === lowerTitle
-        );
+      if (doc) {
+        return await this.deleteByDoc(doc, startTime);
+      }
 
-        if (!fallback) {
-          return {
-            status: ToolExecutionStatus.FAILURE,
-            error: `Document "${title}" not found in knowledge base.`,
-            executionTime: Date.now() - startTime,
-            output: '',
-            errorOutput: '',
-            progress: [],
-            metadata: {},
-            executionId: `knowledge_delete_${Date.now()}`,
-            toolName: this.name,
-            timestamp: Date.now(),
-          };
-        }
+      // 无精确匹配 → 模糊搜索返回候选列表
+      const docs = await knowledgeDocsProvider.buildIndex();
+      const candidates = docs.filter(
+        (d) =>
+          d.title.toLowerCase().includes(lowerTitle) ||
+          d.fileName.toLowerCase().includes(lowerTitle)
+      );
 
-        const filePath = join(
-          fallback.source || knowledgeDocsProvider.getDocsRoots()[0],
-          fallback.relativePath
-        );
-        await unlink(filePath);
-        knowledgeDocsProvider.clearCache();
-
-        globalEventBus.publish('knowledge:changed', {
-          action: 'deleted',
-          filePath,
+      if (candidates.length === 0) {
+        await writeAuditLog({
+          timestamp: Date.now(),
+          action: 'delete',
+          target: { title, filePath: '' },
+          result: 'failure',
+          reason: 'not found',
         });
-
-        logger.info('知识文档已删除', { title: fallback.title, filePath });
-
         return {
-          status: ToolExecutionStatus.SUCCESS,
-          output: `Document "${fallback.title}" deleted successfully.`,
+          status: ToolExecutionStatus.FAILURE,
+          error: `Document "${title}" not found in knowledge base.`,
           executionTime: Date.now() - startTime,
-          error: '',
+          output: '',
           errorOutput: '',
           progress: [],
-          metadata: { title: fallback.title, filePath },
+          metadata: {},
           executionId: `knowledge_delete_${Date.now()}`,
           toolName: this.name,
           timestamp: Date.now(),
-          content: `知识文档已删除：${fallback.title}`,
         };
       }
 
-      const filePath = join(
-        doc.source || knowledgeDocsProvider.getDocsRoots()[0],
-        doc.docPath
-      );
-
-      await unlink(filePath);
-      knowledgeDocsProvider.clearCache();
-
-      // 广播知识变更事件，触发下游索引联动
-      globalEventBus.publish('knowledge:changed', {
-        action: 'deleted',
-        filePath,
-      });
-
-      logger.info('知识文档已删除', { title: doc.title, filePath });
+      // 返回候选列表，要求 AI 精确指定
+      const candidateList = candidates.map((c) => ({
+        title: c.title,
+        docPath: c.relativePath,
+      }));
 
       return {
         status: ToolExecutionStatus.SUCCESS,
-        executionTime: Date.now() - startTime,
-        output: `Document "${doc.title}" deleted successfully.`,
+        result: candidateList,
+        output: JSON.stringify(candidateList),
+        error: '',
         errorOutput: '',
         progress: [],
-        metadata: {
-          title: doc.title,
-          filePath,
-        },
+        metadata: { candidates: candidateList.length },
+        executionTime: Date.now() - startTime,
         executionId: `knowledge_delete_${Date.now()}`,
         toolName: this.name,
         timestamp: Date.now(),
-        content: `知识文档已删除：${doc.title}`,
+        content: `找到 ${candidates.length} 个匹配文档，请指定精确的 docPath 后重新调用:\n${candidateList.map((c) => `  - "${c.title}" → docPath: "${c.docPath}"`).join('\n')}`,
       };
     } catch (error) {
       await handleError(error, {
         module: 'knowledge:tool',
         action: 'delete',
-        context: { title },
+        context: { title, docPath },
       });
       return {
         status: ToolExecutionStatus.FAILURE,
@@ -214,6 +200,115 @@ export class KnowledgeDeleteTool implements Tool {
         timestamp: Date.now(),
       };
     }
+  }
+
+  /**
+   * 通过 docPath 精确删除文档
+   */
+  private async deleteByPath(
+    docPath: string,
+    startTime: number
+  ): Promise<ToolResult> {
+    const docs = await knowledgeDocsProvider.buildIndex();
+    const doc = docs.find((d) => d.relativePath === docPath);
+
+    if (!doc) {
+      await writeAuditLog({
+        timestamp: Date.now(),
+        action: 'delete',
+        target: { title: docPath, filePath: docPath },
+        result: 'failure',
+        reason: 'path not found',
+      });
+      return {
+        status: ToolExecutionStatus.FAILURE,
+        error: `Document at path "${docPath}" not found.`,
+        executionTime: Date.now() - startTime,
+        output: '',
+        errorOutput: '',
+        progress: [],
+        metadata: {},
+        executionId: `knowledge_delete_${Date.now()}`,
+        toolName: this.name,
+        timestamp: Date.now(),
+      };
+    }
+
+    const filePath = join(
+      doc.source || knowledgeDocsProvider.getDocsRoots()[0],
+      doc.relativePath
+    );
+    await unlink(filePath);
+    knowledgeDocsProvider.clearCache();
+
+    globalEventBus.publish('knowledge:changed', {
+      action: 'deleted',
+      filePath,
+    });
+    await writeAuditLog({
+      timestamp: Date.now(),
+      action: 'delete',
+      target: { title: doc.title, filePath },
+      result: 'success',
+    });
+
+    logger.info('知识文档已删除', { title: doc.title, filePath });
+
+    return {
+      status: ToolExecutionStatus.SUCCESS,
+      output: `Document "${doc.title}" deleted successfully.`,
+      executionTime: Date.now() - startTime,
+      error: '',
+      errorOutput: '',
+      progress: [],
+      metadata: { title: doc.title, filePath },
+      executionId: `knowledge_delete_${Date.now()}`,
+      toolName: this.name,
+      timestamp: Date.now(),
+      content: `知识文档已删除：${doc.title}`,
+    };
+  }
+
+  /**
+   * 通过 WeightedDoc 精确删除文档
+   */
+  private async deleteByDoc(
+    doc: { title: string; docPath: string; source?: string },
+    startTime: number
+  ): Promise<ToolResult> {
+    const filePath = join(
+      doc.source || knowledgeDocsProvider.getDocsRoots()[0],
+      doc.docPath
+    );
+
+    await unlink(filePath);
+    knowledgeDocsProvider.clearCache();
+
+    globalEventBus.publish('knowledge:changed', {
+      action: 'deleted',
+      filePath,
+    });
+    await writeAuditLog({
+      timestamp: Date.now(),
+      action: 'delete',
+      target: { title: doc.title, filePath },
+      result: 'success',
+    });
+
+    logger.info('知识文档已删除', { title: doc.title, filePath });
+
+    return {
+      status: ToolExecutionStatus.SUCCESS,
+      executionTime: Date.now() - startTime,
+      output: `Document "${doc.title}" deleted successfully.`,
+      errorOutput: '',
+      progress: [],
+      metadata: { title: doc.title, filePath },
+      executionId: `knowledge_delete_${Date.now()}`,
+      toolName: this.name,
+      timestamp: Date.now(),
+      content: `知识文档已删除：${doc.title}`,
+    };
   }
 
   getInfo(): ToolInfo {

@@ -33,6 +33,7 @@ import { knowledgeDocsProvider } from '../../docs/FileDocsProvider';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { globalEventBus } from '@modules/core';
+import { writeAuditLog } from '../KnowledgeAuditLogger';
 
 const logger = new Logger({
   module: 'knowledge:tools:knowledgeWriteTool',
@@ -146,6 +147,14 @@ export class KnowledgeWriteTool implements Tool {
         title,
         action: result.action,
         path: result.filePath,
+      });
+
+      // 记录审计日志
+      await writeAuditLog({
+        timestamp: Date.now(),
+        action: result.action === 'created' ? 'create' : 'update',
+        target: { title: title.trim(), filePath: result.filePath },
+        result: 'success',
       });
 
       const actionLabel =

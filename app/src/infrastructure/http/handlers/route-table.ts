@@ -1193,6 +1193,10 @@ export async function dispatchRoute(
     await self['handleGetRawFiles'](req, res);
     return true;
   }
+  if (method === 'GET' && url === '/v1/knowledge/health') {
+    await self['handleKnowledgeHealth'](req, res);
+    return true;
+  }
   if (method === 'PUT' && url === '/v1/knowledge/docs') {
     await self['handleUpdateKnowledgeDoc'](req, res);
     return true;

@@ -205,6 +205,7 @@ import {
   handleKnowledgeUpload,
   handleKnowledgeCompile,
   handleGetRawFiles,
+  handleKnowledgeHealth,
   handleExportToNotebook,
   handleImportFromFile,
   handleUpdateKnowledgeDoc,
@@ -1897,6 +1898,16 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     return handleGetRawFiles(req, res);
+  }
+
+  /**
+   * 处理知识库健康检查（委派到 knowledge-handlers）
+   */
+  private async handleKnowledgeHealth(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleKnowledgeHealth(req, res);
   }
 
   /**

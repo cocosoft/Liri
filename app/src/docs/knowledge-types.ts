@@ -47,6 +47,8 @@ export interface KnowledgeRoute {
 export interface KnowledgeRouterOptions {
   maxResults?: number;
   minScore?: number;
+  /** 分页偏移量，默认 0 */
+  offset?: number;
 }
 
 /** 知识搜索通用接口 — 所有搜索路由均实现此接口 */

@@ -621,12 +621,14 @@ export class KnowledgeRouter implements IKnowledgeSearch {
 
     const maxResults = options?.maxResults ?? 10;
     const minScore = options?.minScore ?? 0;
+    const offset = options?.offset ?? 0;
     const multiplier = this.hybridConfig.keywordFetchMultiplier;
-    const keywordFetchCount = maxResults * multiplier;
+    // 拉取更多结果以便 offset 切片（offset + maxResults 保证分页正确）
+    const fetchCount = (offset + maxResults) * multiplier;
 
     const [keywordResults, semanticResults] = await Promise.all([
-      this.keywordSearch(query, keywordFetchCount, minScore),
-      this.semanticSearch(query, maxResults).catch((err) => {
+      this.keywordSearch(query, fetchCount, minScore),
+      this.semanticSearch(query, fetchCount).catch((err) => {
         logger.warn('语义搜索不可用，降级为纯关键词搜索', {
           error: (err as Error).message,
         });
@@ -634,7 +636,12 @@ export class KnowledgeRouter implements IKnowledgeSearch {
       }),
     ]);
 
-    return this.mergeResults(keywordResults, semanticResults, maxResults);
+    const merged = this.mergeResults(
+      keywordResults,
+      semanticResults,
+      fetchCount
+    );
+    return merged.slice(offset, offset + maxResults);
   }
 
   /** 获取文档内容 */

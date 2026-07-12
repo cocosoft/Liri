@@ -70,6 +70,14 @@ export class KnowledgeSearchTool implements Tool {
       default: 0.1,
     },
     {
+      name: 'offset',
+      type: 'number',
+      description:
+        'Pagination offset — skip the first N results. Use with limit for paginated browsing of search results.',
+      required: false,
+      default: 0,
+    },
+    {
       name: 'autoWrite',
       type: 'boolean',
       description:
@@ -130,11 +138,13 @@ export class KnowledgeSearchTool implements Tool {
     try {
       const limit = (input.limit as number) ?? 5;
       const minScore = (input.minScore as number) ?? 0.1;
+      const offset = (input.offset as number) ?? 0;
       const autoWrite = (input.autoWrite as boolean) ?? false;
 
       const results = await this.router.search(query.trim(), {
         maxResults: limit,
         minScore,
+        offset,
       });
 
       const metadata: Record<string, unknown> = {

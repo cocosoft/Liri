@@ -64,14 +64,16 @@ export class UnifiedSearchService {
    */
   async search(
     query: string,
-    options?: { limit?: number }
+    options?: { limit?: number; offset?: number }
   ): Promise<UnifiedSearchResult[]> {
     const limit = options?.limit ?? 10;
+    const offset = options?.offset ?? 0;
 
     try {
       const results = await this.router.search(query, {
         maxResults: limit,
         minScore: 0.05,
+        offset,
       });
 
       return results.map((route: KnowledgeRoute) => ({

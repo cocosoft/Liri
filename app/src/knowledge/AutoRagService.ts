@@ -39,6 +39,8 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveKnowledgeDir, resolveDomainDir } from '@modules/core';
 import { EmbeddingManager, globalEmbeddingManager } from '@modules/ai';
 import { IndexManager } from './IndexManager';
+import { cosineSimilarity } from '@modules/knowledge/semantic/store';
+import { COMMON_STOP_WORDS } from '@modules/knowledge/stopwords';
 
 const logger = new Logger({
   module: 'knowledge:autoRagService',
@@ -221,7 +223,10 @@ export class AutoRagService {
       const pageVec = await this.embeddingManager.embedOne(body);
       if (!pageVec || pageVec.length === 0) continue;
 
-      const score = this.cosineSimilarity(queryVec, pageVec);
+      const score = cosineSimilarity(
+        new Float32Array(queryVec),
+        new Float32Array(pageVec)
+      );
       if (score <= 0.3) continue;
 
       const { title, kind } = this.parseFrontmatter(content);
@@ -245,26 +250,6 @@ export class AutoRagService {
       source: 'L3-semantic' as const,
       score: hit.score,
     }));
-  }
-
-  /**
-   * 计算两个向量之间的余弦相似度
-   */
-  private cosineSimilarity(a: number[], b: number[]): number {
-    if (a.length !== b.length) return 0;
-
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-
-    for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-
-    const denominator = Math.sqrt(normA) * Math.sqrt(normB);
-    return denominator === 0 ? 0 : dotProduct / denominator;
   }
 
   // -----------------------------------------------------------------------
@@ -352,65 +337,9 @@ export class AutoRagService {
    * 从查询文本中提取关键词
    */
   private extractKeywords(query: string): string[] {
-    // 移除常见停用词后，提取 2-4 字以上的词
-    const stopWords = new Set([
-      '的',
-      '了',
-      '是',
-      '在',
-      '我',
-      '有',
-      '和',
-      '就',
-      '不',
-      '人',
-      '都',
-      '一',
-      '一个',
-      '上',
-      '也',
-      '很',
-      '到',
-      '说',
-      '要',
-      '去',
-      '你',
-      '会',
-      '着',
-      '没有',
-      '看',
-      '好',
-      '自己',
-      '这',
-      '他',
-      '她',
-      '它',
-      '们',
-      '什么',
-      '怎么',
-      '如何',
-      '为什么',
-      '哪个',
-      '哪些',
-      'the',
-      'a',
-      'an',
-      'is',
-      'are',
-      'was',
-      'were',
-      'in',
-      'on',
-      'at',
-      'to',
-      'for',
-      'of',
-      'with',
-    ]);
-
     return query
       .split(/[\s,，。；;：:、？！!?()（）"'"「」【】]/)
-      .filter((w) => w.length >= 2 && !stopWords.has(w.toLowerCase()))
+      .filter((w) => w.length >= 2 && !COMMON_STOP_WORDS.has(w.toLowerCase()))
       .slice(0, 5);
   }
 }

@@ -78,6 +78,13 @@ export class KnowledgeSearchTool implements Tool {
       default: 0,
     },
     {
+      name: 'domain',
+      type: 'string',
+      description:
+        'Limit search to a specific knowledge domain. Leave empty to search all domains.',
+      required: false,
+    },
+    {
       name: 'autoWrite',
       type: 'boolean',
       description:
@@ -139,12 +146,14 @@ export class KnowledgeSearchTool implements Tool {
       const limit = (input.limit as number) ?? 5;
       const minScore = (input.minScore as number) ?? 0.1;
       const offset = (input.offset as number) ?? 0;
+      const domain = (input.domain as string) || undefined;
       const autoWrite = (input.autoWrite as boolean) ?? false;
 
       const results = await this.router.search(query.trim(), {
         maxResults: limit,
         minScore,
         offset,
+        domain,
       });
 
       const metadata: Record<string, unknown> = {

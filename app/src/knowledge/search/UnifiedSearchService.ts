@@ -64,7 +64,7 @@ export class UnifiedSearchService {
    */
   async search(
     query: string,
-    options?: { limit?: number; offset?: number }
+    options?: { limit?: number; offset?: number; domain?: string }
   ): Promise<UnifiedSearchResult[]> {
     const limit = options?.limit ?? 10;
     const offset = options?.offset ?? 0;
@@ -74,6 +74,7 @@ export class UnifiedSearchService {
         maxResults: limit,
         minScore: 0.05,
         offset,
+        domain: options?.domain,
       });
 
       return results.map((route: KnowledgeRoute) => ({

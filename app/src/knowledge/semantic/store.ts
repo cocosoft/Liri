@@ -246,7 +246,7 @@ function deserializeEntry(line: string): IndexEntry {
 
 // ─── 余弦相似度 ──────────────────────────────────────────────────────────────
 
-function cosineSimilarity(a: Float32Array, b: Float32Array): number {
+export function cosineSimilarity(a: Float32Array, b: Float32Array): number {
   let dotProduct = 0;
   let normA = 0;
   let normB = 0;

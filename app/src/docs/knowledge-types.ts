@@ -49,6 +49,10 @@ export interface KnowledgeRouterOptions {
   minScore?: number;
   /** 分页偏移量，默认 0 */
   offset?: number;
+  /** 限定域搜索（按域名称过滤） */
+  domain?: string;
+  /** 跨多域搜索 */
+  domains?: string[];
 }
 
 /** 知识搜索通用接口 — 所有搜索路由均实现此接口 */

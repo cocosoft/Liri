@@ -42,128 +42,13 @@ import type {
 import type { FileDocsProvider } from '@modules/docs/FileDocsProvider';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { SemanticStore } from '@modules/knowledge/semantic/store';
+import { COMMON_STOP_WORDS } from '@modules/knowledge/stopwords';
 import type { EventBus } from '@modules/core';
 
 const logger = new Logger({
   module: 'knowledge:knowledgeRouter',
   level: LogLevel.INFO,
 });
-
-/** 停用词集合 */
-const COMMON_STOP_WORDS = new Set([
-  'the',
-  'a',
-  'an',
-  'is',
-  'are',
-  'was',
-  'were',
-  'be',
-  'been',
-  'being',
-  'have',
-  'has',
-  'had',
-  'do',
-  'does',
-  'did',
-  'will',
-  'would',
-  'could',
-  'should',
-  'may',
-  'might',
-  'can',
-  'shall',
-  'to',
-  'of',
-  'in',
-  'for',
-  'on',
-  'with',
-  'at',
-  'by',
-  'from',
-  'as',
-  'into',
-  'through',
-  'during',
-  'and',
-  'but',
-  'or',
-  'nor',
-  'not',
-  'so',
-  'yet',
-  'both',
-  'either',
-  'neither',
-  'each',
-  'every',
-  'all',
-  'any',
-  'few',
-  'more',
-  'most',
-  'other',
-  'some',
-  'such',
-  'no',
-  'only',
-  'own',
-  'same',
-  'than',
-  'too',
-  'very',
-  'just',
-  'because',
-  'about',
-  'this',
-  'that',
-  'these',
-  'those',
-  'it',
-  'its',
-  'also',
-  'how',
-  'what',
-  'why',
-  'when',
-  'where',
-  'which',
-  'who',
-  'whom',
-  '的',
-  '了',
-  '在',
-  '是',
-  '我',
-  '有',
-  '和',
-  '就',
-  '不',
-  '人',
-  '都',
-  '一',
-  '一个',
-  '上',
-  '也',
-  '很',
-  '到',
-  '说',
-  '要',
-  '去',
-  '你',
-  '会',
-  '着',
-  '没有',
-  '看',
-  '好',
-  '自己',
-  '这',
-  '他',
-  '她',
-]);
 
 /** 带权重的文档条目 */
 interface WeightedDoc {
@@ -173,6 +58,8 @@ interface WeightedDoc {
   content: string;
   isKnowledgeDoc: boolean;
   source?: string;
+  /** 域名称（从路径中解析，如 "domains/botany/wiki/doc.md" → "botany"） */
+  domain?: string;
 }
 
 /** 混合搜索配置 */
@@ -248,6 +135,8 @@ export class KnowledgeRouter implements IKnowledgeSearch {
       const entries = await provider.buildIndex();
       for (const e of entries) {
         const isKnowledgeDoc = e.source?.includes('.pyapp') ?? false;
+        // 从路径中提取域名：domains/{name}/... → {name}
+        const domainMatch = e.relativePath.match(/(?:^|\/)domains\/([^/]+)/);
         const doc: WeightedDoc = {
           docPath: e.relativePath,
           title: e.title,
@@ -255,6 +144,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
           content: e.content,
           isKnowledgeDoc,
           source: e.source,
+          domain: domainMatch ? domainMatch[1] : undefined,
         };
         this.docs.push(doc);
       }
@@ -343,6 +233,20 @@ export class KnowledgeRouter implements IKnowledgeSearch {
   }
 
   /**
+   * 按域名过滤文档列表
+   */
+  private filterByDomain(
+    docs: WeightedDoc[],
+    options?: KnowledgeRouterOptions
+  ): WeightedDoc[] {
+    const domains =
+      options?.domains ?? (options?.domain ? [options.domain] : undefined);
+    if (!domains || domains.length === 0) return docs;
+
+    return docs.filter((d) => d.domain && domains.includes(d.domain));
+  }
+
+  /**
    * 关键字搜索通道
    *
    * 使用倒排索引 tokenIndex 先做候选集交集，再在候选集上计算分层权重。
@@ -351,7 +255,8 @@ export class KnowledgeRouter implements IKnowledgeSearch {
   private keywordSearch(
     query: string,
     maxResults: number,
-    minScore: number
+    minScore: number,
+    options?: KnowledgeRouterOptions
   ): KnowledgeRoute[] {
     const queryTokens = this.tokenize(query);
     const lowerQuery = query.toLowerCase();
@@ -372,10 +277,13 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     }
 
     // 如果没有 token 级命中，回退到全量扫描（处理生僻查询）
-    const candidateDocs =
+    let candidateDocs =
       candidateIdxSet.size > 0
         ? Array.from(candidateIdxSet).map((i) => this.docs[i]!)
         : this.docs;
+
+    // 按域名过滤
+    candidateDocs = this.filterByDomain(candidateDocs, options);
 
     const results: KnowledgeRoute[] = [];
 
@@ -481,21 +389,6 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     });
 
     return results.slice(0, maxResults);
-  }
-
-  /** 余弦相似度 */
-  private cosineSimilarity(a: number[], b: number[]): number {
-    if (a.length !== b.length) return 0;
-    let dot = 0;
-    let normA = 0;
-    let normB = 0;
-    for (let i = 0; i < a.length; i++) {
-      dot += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-    if (normA === 0 || normB === 0) return 0;
-    return dot / (Math.sqrt(normA) * Math.sqrt(normB));
   }
 
   /**
@@ -627,7 +520,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     const fetchCount = (offset + maxResults) * multiplier;
 
     const [keywordResults, semanticResults] = await Promise.all([
-      this.keywordSearch(query, fetchCount, minScore),
+      this.keywordSearch(query, fetchCount, minScore, options),
       this.semanticSearch(query, fetchCount).catch((err) => {
         logger.warn('语义搜索不可用，降级为纯关键词搜索', {
           error: (err as Error).message,

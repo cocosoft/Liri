@@ -17,9 +17,10 @@ export function jsonParse<T = unknown>(text: string): T | null {
  *（如 "E:\PY\CODES\file.txt" 而非 "E:\\PY\\CODES\\file.txt"），
  * 导致 JSON.parse 因 \P、\C 等无效转义序列而失败。
  *
- * 修复策略：
+ * 修复策略（三遍）：
  * 1. 先尝试直接 JSON.parse
- * 2. 若失败，将字符串值中非法的反斜杠转义序列修复后重试
+ * 2. 若失败，修复非标准 JSON 转义的 \ 序列
+ * 3. 若仍失败，扫描 Windows 盘符路径（如 C:\...）并将路径中的 \ 双写
  *
  * @param raw AI 模型输出的原始 JSON 字符串
  * @returns 修复后的 JSON 字符串（若无法修复则返回原字符串）
@@ -30,18 +31,32 @@ export function repairModelJson(raw: string): string {
     JSON.parse(raw);
     return raw;
   } catch {
-    // 解析失败：将 \ 后跟非 JSON 有效转义字符的替换为 \\
-    // 有效 JSON 转义: \" \\ \/ \b \f \n \r \t \uXXXX
-    const repaired = raw.replace(
-      /\\(?![\\"\/bfnrtu]|u[0-9a-fA-F]{4})/g,
-      '\\\\'
-    );
-    try {
-      JSON.parse(repaired);
-      return repaired;
-    } catch {
-      // 修复后仍失败，返回原字符串（由调用方处理）
-      return raw;
-    }
+    // pass to first repair
+  }
+
+  // 第一遍：修复非 JSON 标准转义的 \ 序列
+  // 有效 JSON 转义: \" \\ \/ \b \f \n \r \t \uXXXX
+  let repaired = raw.replace(/\\(?![\\"\/bfnrtu]|u[0-9a-fA-F]{4})/g, '\\\\');
+
+  try {
+    JSON.parse(repaired);
+    return repaired;
+  } catch {
+    // pass to second repair
+  }
+
+  // 第二遍：扫描 Windows 盘符路径模式 [A-Z]:\ 并将路径中的 \ 双写
+  // 匹配 "盘符:\路径" 模式，将路径分隔符 \ 替换为 \\
+  repaired = repaired.replace(
+    /([A-Za-z]):\\([^"\\]*\\)/g,
+    (_match, drive, rest) => `${drive}:\\\\${rest.replace(/\\/g, '\\\\')}`
+  );
+
+  try {
+    JSON.parse(repaired);
+    return repaired;
+  } catch {
+    // 修复后仍失败，返回原字符串（由调用方处理）
+    return raw;
   }
 }

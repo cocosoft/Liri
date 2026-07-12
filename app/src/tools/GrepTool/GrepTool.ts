@@ -19,6 +19,7 @@ import {
   createSuccessResult,
   createFailureResult,
   checkPathAccessibility,
+  normalizeToolPath,
 } from '../utils/ToolUtils';
 import { grep } from './grep';
 import type { GrepInputType, GrepOutputType } from './schemas';
@@ -124,8 +125,9 @@ export class GrepTool extends BaseTool {
     try {
       // 验证输入
       const validated: GrepInputType = validateGrepInput(input);
-      const searchPath =
-        validated.searchPath || context.options.cwd || process.cwd();
+      const searchPath = normalizeToolPath(
+        validated.searchPath || context.options.cwd || process.cwd()
+      );
 
       // 检查搜索目录可访问性
       const pathCheck = checkPathAccessibility(searchPath, '搜索目录');

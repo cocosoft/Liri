@@ -28,10 +28,17 @@ export function glob(
 
   // 将模式中的反斜杠统一为斜杠，确保跨平台路径匹配一致性
   const normalizedPattern = pattern.replace(/\\/g, '/');
+  const normalizedSearchPath = searchPath.replace(/\\/g, '/');
 
   // 执行目录遍历并收集匹配文件，若发生错误（如权限拒绝）则静默处理
   try {
-    walkDir(searchPath, normalizedPattern, results, MAX_FILES, searchPath);
+    walkDir(
+      normalizedSearchPath,
+      normalizedPattern,
+      results,
+      MAX_FILES,
+      normalizedSearchPath
+    );
   } catch {
     // 权限拒绝时返回空
   }

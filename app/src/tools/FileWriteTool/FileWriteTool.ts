@@ -7,13 +7,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveOutputDir, resolveInboundDir } from '@modules/core';
+import { resolveFilePath } from '../utils/ToolUtils';
 import type { FileOperationResult } from '../types/ToolResult';
-
-function resolveFilePath(filePath: string): string {
-  return path.isAbsolute(filePath)
-    ? path.resolve(filePath)
-    : path.resolve(resolveOutputDir(), filePath);
-}
 
 // 懒初始化 Rust 原生模块，用于自动检测文件编码
 let nativeReadFile: ((filePath: string) => string) | null | undefined =

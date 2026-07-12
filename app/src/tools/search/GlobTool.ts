@@ -15,6 +15,7 @@ import {
   createSuccessResult,
   createFailureResult,
   checkPathAccessibility,
+  normalizeToolPath,
 } from '../utils/ToolUtils';
 import { glob } from '../GlobTool/GlobTool';
 
@@ -52,8 +53,9 @@ export class GlobTool extends BaseTool {
     const startTime = Date.now();
     try {
       const pattern = input.pattern as string;
-      const searchPath =
-        (input.path as string) || context.options.cwd || process.cwd();
+      const searchPath = normalizeToolPath(
+        (input.path as string) || context.options.cwd || process.cwd()
+      );
 
       const pathCheck = checkPathAccessibility(searchPath, '搜索目录');
       if (!pathCheck.accessible) {

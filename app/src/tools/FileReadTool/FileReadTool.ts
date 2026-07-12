@@ -5,14 +5,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { getReadProtectionService } from '../../security/files/ReadProtectionService';
-import { resolveOutputDir } from '@modules/core';
+import { resolveFilePath } from '../utils/ToolUtils';
 import type { FileOperationResult } from '../types/ToolResult';
-
-function resolveFilePath(filePath: string): string {
-  return path.isAbsolute(filePath)
-    ? path.resolve(filePath)
-    : path.resolve(resolveOutputDir(), filePath);
-}
 
 export interface FileReadInput {
   filePath: string;

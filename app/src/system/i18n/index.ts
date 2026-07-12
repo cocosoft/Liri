@@ -27,4 +27,9 @@ export {
   t,
   initializeBuiltinTranslations,
 } from './extended';
-export type { TranslationEntry, SupportedLocale } from './extended';
+export type {
+  TranslationEntry,
+  SupportedLocale,
+  TranslationKey,
+  AITranslator,
+} from './extended';

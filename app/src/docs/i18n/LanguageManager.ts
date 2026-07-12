@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 多语言管理
  *
  * 支持多语言的语言包管理和切换
@@ -210,7 +210,7 @@ export class LanguageManager {
 
     // 替换变量
     for (const [varName, value] of Object.entries(variables)) {
-      message = message.replace(`{${varName}}`, value);
+      message = message.replace(new RegExp(`\\{${varName}\\}`, 'g'), value);
     }
 
     return message;

@@ -10,6 +10,36 @@ import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { configManager } from '@modules/config';
+import { resolveOutputDir } from '@modules/core';
+
+/**
+ * 归一化工具路径，确保跨平台兼容
+ *
+ * 将路径中的反斜杠统一转换为正斜杠，然后调用 path.resolve 归一化。
+ * 正斜杠在 Windows 内核 API 中完全兼容，且不会与 JSON 转义冲突。
+ *
+ * @param inputPath 原始路径（可能含 \ 或 /）
+ * @returns 归一化后的绝对路径
+ */
+export function normalizeToolPath(inputPath: string): string {
+  return path.resolve(inputPath.replace(/\\/g, '/'));
+}
+
+/**
+ * 解析文件工具路径
+ *
+ * 将反斜杠归一化后，若为绝对路径则直接 resolve，否则相对 outputDir 解析。
+ * 所有文件操作工具（FileReadTool、FileWriteTool、FileEditTool）统一使用此函数。
+ *
+ * @param filePath 用户传入的原始文件路径
+ * @returns 归一化后的绝对路径
+ */
+export function resolveFilePath(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, '/');
+  return path.isAbsolute(normalized)
+    ? path.resolve(normalized)
+    : path.resolve(resolveOutputDir(), normalized);
+}
 
 /**
  * 工具工具类
@@ -319,13 +349,22 @@ export function checkPathAccessibility(
   targetPath: string,
   label: string = '路径'
 ): PathAccessResult {
-  const resolved = path.resolve(targetPath);
+  // 先归一化路径（反斜杠 → 正斜杠），修复可能的 JSON 转义损坏
+  const normalized = targetPath.replace(/\\/g, '/');
+  const resolved = path.resolve(normalized);
 
   if (fs.existsSync(resolved)) {
     return { accessible: true, resolvedPath: resolved };
   }
 
   const suggestions: string[] = [];
+
+  // 检测路径是否被 JSON 反斜杠转义损坏（如 E:\PY\CODESPY_APP 缺少分隔符）
+  if (targetPath !== normalized) {
+    suggestions.push(
+      '路径中包含反斜杠，可能被 JSON 转义损坏。已自动归一化为正斜杠格式'
+    );
+  }
 
   const projectDir = configManager.env('LIRI_PROJECT_DIR') || process.cwd();
   const resolvedProject = path.resolve(projectDir);
@@ -349,10 +388,31 @@ export function checkPathAccessibility(
 
   const parentDir = path.dirname(resolved);
   if (!fs.existsSync(parentDir)) {
+    // 尝试诊断：检查父目录的父目录是否存在
+    const grandParent = path.dirname(parentDir);
+    if (fs.existsSync(grandParent)) {
+      // 祖父目录存在但父目录不存在 → 可能是路径中缺少了一层分隔符
+      const siblings = fs.readdirSync(grandParent).filter((name) => {
+        const parentBase = path.basename(parentDir).toLowerCase();
+        return (
+          name.toLowerCase().includes(parentBase) ||
+          parentBase.includes(name.toLowerCase())
+        );
+      });
+      if (siblings.length > 0) {
+        suggestions.push(
+          `上级目录 "${parentDir}" 不存在，但 "${grandParent}" 中存在相似目录: ${siblings.join(', ')}`
+        );
+        suggestions.push('路径可能被 JSON 转义损坏，请检查反斜杠是否正确转义');
+      }
+    }
     suggestions.push(`上级目录不存在: ${parentDir}`);
     suggestions.push('请确认项目源码已同步到当前磁盘');
   } else {
     suggestions.push('请确认路径拼写正确');
+    suggestions.push(
+      '如果路径来自 AI 模型输出，请检查反斜杠是否被 JSON 转义（应使用 \\\\ 或 /）'
+    );
   }
 
   return {

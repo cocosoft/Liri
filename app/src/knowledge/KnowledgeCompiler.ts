@@ -129,6 +129,15 @@ export class KnowledgeCompiler {
     const compileState = await this.loadCompileState();
     const newState: CompileState = { lastCompileAt: Date.now(), docs: {} };
 
+    // 清理已删除 raw 文件的编译产物
+    const cleanedCount = await this.cleanupDeletedRawFiles(
+      new Set(rawFiles),
+      compileState
+    );
+    if (cleanedCount > 0) {
+      logger.info('已清理已删除 raw 文件的编译产物', { cleanedCount });
+    }
+
     // 检查是否有可用 Provider：options.model 显式指定时不检查
     if (!model && providerRegistry.size === 0) {
       const errMsg =
@@ -571,6 +580,52 @@ summary: 概念简介
     const fm = match[1];
     const lineMatch = fm.match(new RegExp(`^${field}:\\s*(.+)`, 'm'));
     return lineMatch ? lineMatch[1].trim().replace(/^"(.*)"$/, '$1') : null;
+  }
+
+  /**
+   * 清理已删除 raw 文件的编译产物
+   * 对比当前 raw 文件集合与编译状态快照，删除孤儿 .meta.json 和对应的编译页面
+   */
+  private async cleanupDeletedRawFiles(
+    currentRawFiles: Set<string>,
+    compileState: CompileState | null
+  ): Promise<number> {
+    if (!compileState || Object.keys(compileState.docs).length === 0) return 0;
+
+    const { unlink } = await import('fs/promises');
+    const { existsSync } = await import('fs');
+    let cleaned = 0;
+
+    for (const [rawFilePath] of Object.entries(compileState.docs)) {
+      // raw 文件已不存在 → 清理编译产物
+      if (currentRawFiles.has(rawFilePath)) continue;
+      if (!existsSync(rawFilePath)) {
+        // 删除 .meta.json
+        const metaFile = `${rawFilePath}.meta.json`;
+        try {
+          if (existsSync(metaFile)) {
+            const metaContent = await readFile(metaFile, 'utf-8');
+            const meta = JSON.parse(metaContent);
+            const pages: string[] = meta.pages || [];
+            // 删除所有编译页面
+            for (const pagePath of pages) {
+              if (existsSync(pagePath)) {
+                await unlink(pagePath);
+              }
+            }
+            await unlink(metaFile);
+            cleaned += pages.length + 1; // pages + meta file
+            logger.info('已清理删除文件的编译产物', {
+              rawFile: rawFilePath,
+              pagesRemoved: pages.length,
+            });
+          }
+        } catch {
+          // 清理失败不阻塞编译
+        }
+      }
+    }
+    return cleaned;
   }
 
   /**

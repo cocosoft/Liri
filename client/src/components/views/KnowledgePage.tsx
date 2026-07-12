@@ -10,9 +10,10 @@ import KnowledgeBaseList from "../Knowledge/KnowledgeBaseList";
 import KnowledgeEditor from "../Knowledge/KnowledgeEditor";
 import PendingCompilePanel from "../Knowledge/PendingCompilePanel";
 import SemanticIndexPage from "./SemanticIndexPage";
-import { SkeletonCard } from "../common/Skeleton";
 import { formatFileSize, formatDateTime } from "../Knowledge/shared/utils";
 import { sourceLabels } from "../Knowledge/shared/constants";
+import SearchPanel from "../Knowledge/SearchPanel";
+import StatsPanel from "../Knowledge/StatsPanel";
 
 type ActiveTab = "knowledge" | "search-demo" | "stats" | "semantic";
 
@@ -41,16 +42,12 @@ function KnowledgePage() {
   } | null>(null);
 
   const bgClass = isDark ? "bg-gray-900" : "bg-gray-50";
-  const cardBg = isDark
-    ? "bg-gray-800 border-gray-700"
-    : "bg-white border-gray-200";
   const textPrimary = isDark ? "text-gray-100" : "text-gray-900";
   const textSecondary = isDark ? "text-gray-400" : "text-gray-500";
   const inputBg = isDark
     ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
     : "bg-white border-gray-300 text-gray-900 placeholder-gray-400";
   const borderColor = isDark ? "border-gray-700" : "border-gray-200";
-  const dividerColor = isDark ? "divide-gray-700" : "divide-gray-100";
 
   // 仅在 stats Tab 激活时加载统计所需数据
   useEffect(() => {
@@ -181,12 +178,6 @@ function KnowledgePage() {
     setIsDemoSearching(false);
     setDemoSearchDone(true);
   }, [demoQuery, selectedBase]);
-
-  const totalItems = items.length;
-  const totalCategories = new Set(items.flatMap((i) => i.tags || [])).size;
-  const recentItems = [...items]
-    .sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0))
-    .slice(0, 5);
 
   const tabs: { key: ActiveTab; label: string }[] = [
     { key: "knowledge", label: "知识库" },
@@ -469,140 +460,15 @@ function KnowledgePage() {
 
         {/* ========== 标签2: 检索演示 ========== */}
         {activeTab === "search-demo" && (
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="max-w-3xl mx-auto space-y-4">
-              <div className={`${cardBg} rounded-lg p-4`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={demoQuery}
-                    onChange={(e) => setDemoQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleDemoSearch()}
-                    placeholder="输入检索内容，查看混合搜索效果..."
-                    className={`flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${inputBg}`}
-                  />
-                  <button
-                    onClick={handleDemoSearch}
-                    disabled={isDemoSearching || !demoQuery.trim()}
-                    className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg"
-                  >
-                    {isDemoSearching ? "检索中..." : "检索"}
-                  </button>
-                </div>
-                <p className={`text-xs ${textSecondary}`}>
-                  使用 HybridKnowledgeRouter 进行混合检索（关键词匹配 +
-                  语义相似度），结果按相关性评分排序
-                </p>
-              </div>
-
-              {isDemoSearching && (
-                <div className={`${cardBg} rounded-lg p-6`}>
-                  <div className="space-y-3">
-                    <SkeletonCard count={3} />
-                  </div>
-                </div>
-              )}
-
-              {!isDemoSearching &&
-                demoResults.length === 0 &&
-                demoSearchDone && (
-                  <div
-                    className={`${cardBg} rounded-lg p-6 text-center ${textSecondary}`}
-                  >
-                    未找到匹配的知识条目
-                  </div>
-                )}
-
-              {!isDemoSearching && demoResults.length > 0 && (
-                <div className={`${cardBg} rounded-lg`}>
-                  <div className="px-4 py-3 border-b ${borderColor} flex items-center justify-between">
-                    <h3 className={`text-sm font-semibold ${textPrimary}`}>
-                      检索结果
-                    </h3>
-                    <span className={`text-xs ${textSecondary}`}>
-                      共 {demoResults.length} 条结果
-                    </span>
-                  </div>
-                  <div className={`divide-y ${dividerColor}`}>
-                    {demoResults.map((result, idx) => (
-                      <div key={result.id} className="px-4 py-3">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <span
-                              className={`text-xs font-mono ${textSecondary} w-5`}
-                            >
-                              #{idx + 1}
-                            </span>
-                            <h4
-                              className={`text-sm font-medium ${textPrimary} truncate`}
-                            >
-                              {result.title}
-                            </h4>
-                          </div>
-                          <div className="flex items-center gap-2 ml-2 shrink-0">
-                            <span
-                              className={`text-xs px-1.5 py-0.5 rounded ${
-                                result.matchType === "semantic"
-                                  ? "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400"
-                                  : result.matchType === "keyword"
-                                    ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
-                                    : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
-                              }`}
-                            >
-                              {result.matchType === "semantic"
-                                ? "语义"
-                                : result.matchType === "keyword"
-                                  ? "关键词"
-                                  : result.matchType}
-                            </span>
-                            <span
-                              className={`text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-mono`}
-                            >
-                              {(result.score * 100).toFixed(1)}%
-                            </span>
-                          </div>
-                        </div>
-                        <p
-                          className={`text-xs ${textSecondary} line-clamp-2 mt-1`}
-                        >
-                          {result.content}
-                        </p>
-                        <div className={`text-xs ${textSecondary} mt-1`}>
-                          分类: {result.category || "根目录"}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {!isDemoSearching && !demoSearchDone && (
-                <div
-                  className={`${cardBg} rounded-lg p-8 text-center ${textSecondary}`}
-                >
-                  <svg
-                    className="w-12 h-12 mx-auto mb-3 opacity-40"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                  <p className="text-sm">
-                    在上方输入关键词后点击「检索」，查看知识库的混合搜索效果
-                  </p>
-                  <p className="text-xs mt-2">
-                    系统会同时使用关键词匹配和语义相似度双通道检索，并显示每条结果的匹配类型和相关性评分
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
+          <SearchPanel
+            isDark={isDark}
+            demoQuery={demoQuery}
+            onQueryChange={setDemoQuery}
+            onSearch={handleDemoSearch}
+            isSearching={isDemoSearching}
+            results={demoResults}
+            searchDone={demoSearchDone}
+          />
         )}
 
         {/* ========== 语义索引 ========== */}
@@ -614,126 +480,12 @@ function KnowledgePage() {
 
         {/* ========== 标签3: 知识统计 ========== */}
         {activeTab === "stats" && (
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="max-w-3xl mx-auto space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className={`${cardBg} rounded-lg p-4`}>
-                  <h3 className={`text-sm font-semibold ${textPrimary} mb-3`}>
-                    知识库概览
-                  </h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className={`text-sm ${textSecondary}`}>
-                        总条目数
-                      </span>
-                      <span className={`text-sm font-medium ${textPrimary}`}>
-                        {totalItems}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className={`text-sm ${textSecondary}`}>
-                        标签分类数
-                      </span>
-                      <span className={`text-sm font-medium ${textPrimary}`}>
-                        {totalCategories}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className={`text-sm ${textSecondary}`}>
-                        检索匹配数
-                      </span>
-                      <span className={`text-sm font-medium ${textPrimary}`}>
-                        {demoSearchDone ? demoResults.length : "-"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className={`${cardBg} rounded-lg p-4`}>
-                  <h3 className={`text-sm font-semibold ${textPrimary} mb-3`}>
-                    关于知识库
-                  </h3>
-                  <div className="space-y-2 text-sm ${textSecondary}">
-                    <p className={textSecondary}>
-                      知识库是 AI
-                      助手的「外部记忆」，您添加的知识会在对话中被自动检索和引用。
-                    </p>
-                    <p className={textSecondary}>
-                      系统使用混合检索策略（关键词 +
-                      语义），确保最相关的内容被优先匹配。
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className={`${cardBg} rounded-lg`}>
-                <div className="px-4 py-3 border-b ${borderColor}">
-                  <h3 className={`text-sm font-semibold ${textPrimary}`}>
-                    最近更新
-                  </h3>
-                </div>
-                {recentItems.length === 0 ? (
-                  <div
-                    className={`px-4 py-6 text-center ${textSecondary} text-sm`}
-                  >
-                    暂无知识条目
-                  </div>
-                ) : (
-                  <div className={`divide-y ${dividerColor}`}>
-                    {recentItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="px-4 py-2.5 flex items-center justify-between"
-                      >
-                        <span className={`text-sm ${textPrimary} truncate`}>
-                          {item.title}
-                        </span>
-                        <span
-                          className={`text-xs ${textSecondary} ml-2 shrink-0`}
-                        >
-                          {item.updated_at
-                            ? new Date(item.updated_at).toLocaleDateString(
-                                "zh-CN",
-                              )
-                            : "-"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className={`${cardBg} rounded-lg p-4`}>
-                <h3 className={`text-sm font-semibold ${textPrimary} mb-3`}>
-                  标签分布
-                </h3>
-                {totalCategories === 0 ? (
-                  <p className={`text-sm ${textSecondary}`}>暂无标签</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {Array.from(
-                      new Set(items.flatMap((i) => i.tags || [])),
-                    ).map((tag) => {
-                      const count = items.filter((i) =>
-                        (i.tags || []).includes(tag),
-                      ).length;
-                      return (
-                        <span
-                          key={tag}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full"
-                        >
-                          {tag}
-                          <span className="text-blue-400 dark:text-blue-500">
-                            ({count})
-                          </span>
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          <StatsPanel
+            isDark={isDark}
+            items={items}
+            demoSearchDone={demoSearchDone}
+            demoResultCount={demoResults.length}
+          />
         )}
       </div>
     </div>

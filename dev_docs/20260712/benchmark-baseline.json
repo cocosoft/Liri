@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-07-12T05:58:50.670Z",
+  "version": "v2.1-post-optimization",
+  "results": [
+    {
+      "docCount": 50,
+      "buildIndexMs": {
+        "median": 10.53,
+        "min": 6.54,
+        "max": 12.31
+      },
+      "keywordSearchMs": {
+        "median": 0.57,
+        "avg": 0.6
+      },
+      "findByTitleMs": {
+        "median": 0,
+        "max": 0.02
+      },
+      "removeFromIndexMs": {
+        "median": 0.61,
+        "avg": 1.24
+      }
+    },
+    {
+      "docCount": 100,
+      "buildIndexMs": {
+        "median": 13.17,
+        "min": 10.34,
+        "max": 17.68
+      },
+      "keywordSearchMs": {
+        "median": 0.97,
+        "avg": 1.19
+      },
+      "findByTitleMs": {
+        "median": 0,
+        "max": 0.01
+      },
+      "removeFromIndexMs": {
+        "median": 0.66,
+        "avg": 0.73
+      }
+    },
+    {
+      "docCount": 500,
+      "buildIndexMs": {
+        "median": 54.41,
+        "min": 43.59,
+        "max": 65.26
+      },
+      "keywordSearchMs": {
+        "median": 4.34,
+        "avg": 4.25
+      },
+      "findByTitleMs": {
+        "median": 0,
+        "max": 0.01
+      },
+      "removeFromIndexMs": {
+        "median": 0.56,
+        "avg": 0.64
+      }
+    }
+  ]
+}

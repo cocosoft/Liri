@@ -723,6 +723,47 @@ async function startDeferredPrefetches(): Promise<void> {
         }
       })(),
 
+      // 初始化知识图谱孤儿边自动清理
+      (async () => {
+        try {
+          const { KnowledgeGraph } =
+            await import('@modules/knowledge/graph/KnowledgeGraph.js');
+          const { resolveDbPath } = await import('@modules/core/paths.js');
+
+          const graph = new KnowledgeGraph(resolveDbPath());
+          await graph.init();
+
+          // 监听删除事件，自动清理悬挂边
+          globalEventBus.subscribe('knowledge:changed', (event: unknown) => {
+            const evt = event as { action: string };
+            if (evt.action === 'deleted') {
+              // 延迟异步清理，不阻塞删除主流程
+              setTimeout(async () => {
+                try {
+                  // 获取所有当前有效的实体 ID（基于知识库文档标题）
+                  const { knowledgeDocsProvider } =
+                    await import('../docs/FileDocsProvider.js');
+                  const docs = await knowledgeDocsProvider.buildIndex();
+                  const validIds = new Set(
+                    docs.map((d) => d.title.toLowerCase().replace(/\s+/g, '_'))
+                  );
+                  const cleaned = await graph.cleanupOrphans(validIds);
+                  if (cleaned > 0) {
+                    logger.info('已清理知识图谱孤儿边', { cleaned });
+                  }
+                } catch (cleanErr) {
+                  // 清理失败不报错，下次操作时再清理
+                }
+              }, 5000);
+            }
+          });
+
+          logger.info('知识图谱孤儿边清理监听已注册');
+        } catch (error) {
+          logger.warning('知识图谱初始化失败', { error: String(error) });
+        }
+      })(),
+
       // 初始化用户知识库目录 + 旧路径数据迁移
       (async () => {
         try {

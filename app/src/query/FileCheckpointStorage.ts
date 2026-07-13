@@ -60,7 +60,9 @@ export class FileCheckpointStorage implements CheckpointStorage {
   }
 
   /** 按 ID 加载单个检查点 */
-  async loadCheckpoint(checkpointId: string): Promise<SessionCheckpoint | null> {
+  async loadCheckpoint(
+    checkpointId: string
+  ): Promise<SessionCheckpoint | null> {
     try {
       const files = await fs.promises.readdir(this.storageDir);
       const pattern = new RegExp(
@@ -80,9 +82,7 @@ export class FileCheckpointStorage implements CheckpointStorage {
   }
 
   /** 按 sessionId 加载所有检查点（按创建时间倒序） */
-  async loadCheckpoints(
-    sessionId: string
-  ): Promise<SessionCheckpoint[]> {
+  async loadCheckpoints(sessionId: string): Promise<SessionCheckpoint[]> {
     try {
       const files = await fs.promises.readdir(this.storageDir);
       const pattern = new RegExp(

@@ -311,7 +311,12 @@ async function handleStreamingChat(
       toolCallId?: string;
       resultData?: unknown;
     };
-    if (d.toolName === 'image_generate' || d.toolName === 'image_display' || d.toolName === 'video_display' || d.toolName === 'audio_play') {
+    if (
+      d.toolName === 'image_generate' ||
+      d.toolName === 'image_display' ||
+      d.toolName === 'video_display' ||
+      d.toolName === 'audio_play'
+    ) {
       res.write(
         `data: ${JSON.stringify({
           id: responseId,

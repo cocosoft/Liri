@@ -416,7 +416,9 @@ export function ensureThinkResponseTags(content: string): string {
     /^(用户想要|用户想让|用户要求|The user (want|ask|need))/,
   ];
 
-  const hasPlanningPrefix = planningPatterns.some((p) => p.test(content.trim()));
+  const hasPlanningPrefix = planningPatterns.some((p) =>
+    p.test(content.trim())
+  );
 
   if (!hasPlanningPrefix) {
     // 无规划特征 → 直接包裹为 <response>
@@ -426,16 +428,17 @@ export function ensureThinkResponseTags(content: string): string {
   // 有规划前缀 → 尝试找到响应正文的起点
   // 常用分隔标记：markdown 标题、水平线、明确的"结论"段落
   const responseMarkers = [
-    /\n(#{1,3}\s)/,         // markdown heading: ## 标题
-    /\n(---)/,               // 水平线
-    /\n(一句话结论|核心发现|总结|建议如下|报告|结果)\n/,  // 中文结论标记
-    /\n\*\*(结论|发现|建议|总结)\*\*/,  // 粗体标记
+    /\n(#{1,3}\s)/, // markdown heading: ## 标题
+    /\n(---)/, // 水平线
+    /\n(一句话结论|核心发现|总结|建议如下|报告|结果)\n/, // 中文结论标记
+    /\n\*\*(结论|发现|建议|总结)\*\*/, // 粗体标记
   ];
 
   let splitIdx = -1;
   for (const marker of responseMarkers) {
     const m = content.match(marker);
-    if (m?.index && m.index > 20) {  // 至少有一些内容在前
+    if (m?.index && m.index > 20) {
+      // 至少有一些内容在前
       splitIdx = m.index;
       break;
     }

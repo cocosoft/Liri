@@ -8,7 +8,9 @@
 const AUDIO_EXT_PATTERN = /\.(?:mp3|wav|ogg|flac|aac|m4a|wma|opus)$/i;
 
 function extractFilename(input: string): string | null {
-  const match = input.match(/[^\/\\]+\.(?:mp3|wav|ogg|flac|aac|m4a|wma|opus)$/i);
+  const match = input.match(
+    /[^\/\\]+\.(?:mp3|wav|ogg|flac|aac|m4a|wma|opus)$/i
+  );
   return match ? match[0] : null;
 }
 

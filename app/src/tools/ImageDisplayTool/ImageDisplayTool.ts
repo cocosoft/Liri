@@ -7,7 +7,7 @@
  */
 import { Logger, LogLevel } from '@modules/monitoring';
 import { BaseTool } from '../BaseTool';
-import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
+import { ToolResult, ToolUseContext, ToolParam, ToolTag } from '../types/index';
 import { ImageUrlHelper } from '../ImageUrlHelper';
 import { existsSync, statSync } from 'fs';
 import { resolve } from 'path';
@@ -36,10 +36,12 @@ export interface ImageDisplayOutput {
 export class ImageDisplayTool extends BaseTool {
   name = 'image_display';
 
+  override tags = [ToolTag.READ];
+
   description =
-    'Display/preview images in the chat. Use this to show one or more image files ' +
-    'to the user. Accepts local file paths or URLs. Supports multiple images at once ' +
-    'with thumbnail grid, click-to-enlarge, and citation support.';
+    'Display/preview images directly in the chat conversation. MUST call this after generating images with image_generate to show results to the user. ' +
+    'Users cannot open file paths themselves — images are only visible when you use this tool. ' +
+    'Accepts local file paths or URLs. Supports thumbnail grid, click-to-enlarge, and citation.';
 
   params: ToolParam[] = [
     {

@@ -57,6 +57,18 @@ export interface TranslateHistoryPage {
   pageSize: number;
 }
 
+/** 备选翻译条目 */
+export interface AlternativeTranslation {
+  translation: string;
+  pos?: string;
+  score: number;
+}
+
+/** 备选翻译结果 */
+export interface AlternativesResult {
+  alternatives: AlternativeTranslation[];
+}
+
 export const translateService = {
   /** 执行翻译 */
   async translate(params: TranslateParams): Promise<TranslateResult> {
@@ -199,6 +211,20 @@ export const translateService = {
       { ids }
     );
     return response.data.deleted;
+  },
+
+  /** 获取备选翻译 */
+  async getAlternatives(params: {
+    word: string;
+    sourceLang: string;
+    targetLang: string;
+    context?: string;
+  }): Promise<AlternativesResult> {
+    const response = await http.post<{ data: AlternativesResult }>(
+      '/v1/translate/alternatives',
+      params
+    );
+    return response.data;
   },
 
   /** 导出历史为 JSON */

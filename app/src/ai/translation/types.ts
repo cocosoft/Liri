@@ -90,3 +90,23 @@ export type TranslateStreamChunk =
   | { type: 'token'; token: string }
   | { type: 'done'; result: TranslateResult }
   | { type: 'error'; message: string };
+
+/** 备选翻译条目 */
+export interface AlternativeTranslation {
+  translation: string;
+  pos?: string;
+  score: number;
+}
+
+/** 备选翻译请求 */
+export interface AlternativesRequest {
+  word: string;
+  sourceLang: LanguageCode;
+  targetLang: LanguageCode;
+  context?: string;
+}
+
+/** 备选翻译结果 */
+export interface AlternativesResult {
+  alternatives: AlternativeTranslation[];
+}

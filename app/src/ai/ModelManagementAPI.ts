@@ -1704,6 +1704,56 @@ interface RouteEntry {
 }
 
 /**
+ * POST /v1/translate/alternatives — 获取备选翻译
+ */
+async function handleTranslateAlternatives(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null
+): Promise<void> {
+  try {
+    const body = (await parseBody(req)) as {
+      word?: string;
+      sourceLang?: string;
+      targetLang?: string;
+      context?: string;
+    };
+
+    if (!body.word || typeof body.word !== 'string' || !body.word.trim()) {
+      sendError(res, 'word 不能为空', 400);
+      return;
+    }
+    if (!body.targetLang || typeof body.targetLang !== 'string') {
+      sendError(res, 'targetLang 不能为空', 400);
+      return;
+    }
+
+    const { translationService } =
+      await import('./translation/TranslationService.js');
+    await translationService.initialize();
+
+    const result = await translationService.getAlternatives({
+      word: body.word.trim(),
+      sourceLang: body.sourceLang || 'auto',
+      targetLang: body.targetLang,
+      context: body.context,
+    });
+
+    sendJson(res, { data: result });
+  } catch (err) {
+    await handleError(err, {
+      module: 'ai:translation',
+      action: 'alternatives',
+    });
+    const message =
+      err instanceof AppError
+        ? (err as AppError).message
+        : `备选翻译查询失败: ${(err as Error).message}`;
+    sendError(res, message, 500);
+  }
+}
+
+/**
  * POST /v1/translate — 翻译文本（非流式）
  */
 async function handleTranslate(
@@ -2132,6 +2182,11 @@ const ROUTES: RouteEntry[] = [
     method: 'POST',
     pattern: /^\/v1\/translate\/history\/([^/]+)\/star$/,
     handler: handleTranslateStar,
+  },
+  {
+    method: 'POST',
+    pattern: /^\/v1\/translate\/alternatives$/,
+    handler: handleTranslateAlternatives,
   },
   { method: 'POST', pattern: /^\/v1\/translate$/, handler: handleTranslate },
   {

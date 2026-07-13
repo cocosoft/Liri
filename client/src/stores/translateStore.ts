@@ -13,6 +13,8 @@ interface TranslateStore {
   translatedText: string;
   isTranslating: boolean;
   isStreaming: boolean;
+  autoTranslateMode: boolean;
+  compareMode: boolean;
   error: string | null;
   canFallback: boolean;
   lastResult: TranslateResult | null;
@@ -37,6 +39,8 @@ interface TranslateStore {
   setSearchQuery: (query: string) => void;
   toggleStar: (id: string) => Promise<void>;
   deleteHistory: (ids: string[]) => Promise<void>;
+  toggleAutoTranslate: () => void;
+  toggleCompareMode: () => void;
 }
 
 export const useTranslateStore = create<TranslateStore>()((set, get) => ({
@@ -46,6 +50,8 @@ export const useTranslateStore = create<TranslateStore>()((set, get) => ({
   translatedText: '',
   isTranslating: false,
   isStreaming: false,
+  autoTranslateMode: true,
+  compareMode: false,
   error: null,
   canFallback: false,
   lastResult: null,
@@ -209,5 +215,13 @@ export const useTranslateStore = create<TranslateStore>()((set, get) => ({
     } catch {
       // 非关键操作，静默失败
     }
+  },
+
+  toggleAutoTranslate: () => {
+    set((state) => ({ autoTranslateMode: !state.autoTranslateMode }));
+  },
+
+  toggleCompareMode: () => {
+    set((state) => ({ compareMode: !state.compareMode }));
   },
 }));

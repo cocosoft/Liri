@@ -25,6 +25,8 @@ import type {
   TranslateStreamChunk,
   TranslateHistoryRecord,
   LanguageDetectionResult,
+  AlternativesRequest,
+  AlternativesResult,
 } from './types';
 import type { ChatMessage, ChatResponse } from '../models/types';
 
@@ -382,6 +384,99 @@ export class TranslationService {
     yield { type: 'done', result };
 
     return result;
+  }
+
+  /**
+   * 获取备选翻译
+   *
+   * 对单个词汇调用 LLM 返回多个候选翻译及词性标注。
+   * 使用低 temperature 确保翻译质量，超时 5 秒防止阻塞。
+   */
+  async getAlternatives(
+    request: AlternativesRequest
+  ): Promise<AlternativesResult> {
+    const modelName = modelRouter.resolve('translation');
+    if (!modelName) {
+      throw new AppError(
+        '未配置翻译模型',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'TRANSLATION_NO_MODEL'
+      );
+    }
+
+    const provider = providerRegistry.getByModel(modelName);
+    if (!provider) {
+      throw new AppError(
+        `翻译模型 ${modelName} 对应的 Provider 未找到`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'TRANSLATION_NO_PROVIDER'
+      );
+    }
+
+    const contextHint = request.context ? `Context: "${request.context}"` : '';
+
+    const systemPrompt = [
+      `You are a professional translator. For the given word, provide 5 alternative translations in ${request.targetLang}.`,
+      contextHint,
+      'Return ONLY a JSON array of objects: [{"translation": "...", "pos": "noun/verb/adj/adv", "score": 0.0-1.0}]',
+      'Score indicates how well the translation fits the context (1.0 = best).',
+      'Sort by score descending. Do not include the original word.',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const messages: ChatMessage[] = [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: `Word: "${request.word}"\nSource language: ${request.sourceLang}`,
+      },
+    ];
+
+    try {
+      const response = await provider.chat(messages, {
+        model: modelName,
+        temperature: 0.1,
+        maxTokens: 512,
+      });
+
+      const rawOutput = (response.content || '').trim();
+
+      // 尝试提取 JSON 数组
+      const jsonMatch = rawOutput.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        logger.warning('备选翻译响应格式异常', {
+          rawOutput: rawOutput.slice(0, 200),
+        });
+        return { alternatives: [] };
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]) as Array<{
+        translation: string;
+        pos?: string;
+        score: number;
+      }>;
+
+      const alternatives = parsed
+        .filter((a) => a.translation && typeof a.translation === 'string')
+        .map((a) => ({
+          translation: a.translation,
+          pos: a.pos,
+          score: typeof a.score === 'number' ? a.score : 0.5,
+        }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5);
+
+      return { alternatives };
+    } catch (err) {
+      await handleError(err, {
+        module: 'ai:translation',
+        action: 'getAlternatives',
+      });
+      return { alternatives: [] };
+    }
   }
 }
 

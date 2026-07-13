@@ -54,7 +54,7 @@ function exportAsJson(messages: Message[]): string {
   return JSON.stringify(cleaned, null, 2);
 }
 
-function SessionHeader({ onSearchOpen }: { onSearchOpen?: () => void }) {
+function SessionHeader() {
   const { currentSession, renameSession } = useSessionStore();
   const messages = useChatStore((s) => s.messages);
   const { t } = useTranslation();
@@ -234,20 +234,8 @@ function SessionHeader({ onSearchOpen }: { onSearchOpen?: () => void }) {
         )}
       </div>
 
-      {/* 右侧：搜索 + 导出按钮 */}
+      {/* 右侧：导出按钮 */}
       <div className="flex items-center gap-1 flex-shrink-0">
-        {/* 全局搜索按钮 */}
-        <button
-          onClick={onSearchOpen}
-          className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-          title={`${t('common.search')} (Ctrl+K)`}
-          aria-label={t('common.search')}
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </button>
-
         {/* 导出按钮 */}
         {currentSession && messages.length > 0 && (
         <div ref={exportRef} className="relative flex-shrink-0">

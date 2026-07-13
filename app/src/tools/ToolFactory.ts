@@ -101,6 +101,8 @@ import { ChannelTool } from './ChannelTool/ChannelTool';
 import { ImageGenerateTool } from './ImageGenerateTool/ImageGenerateTool';
 import { ImageSvgTool } from './ImageSvgTool/ImageSvgTool';
 import { ImageDisplayTool } from './ImageDisplayTool/ImageDisplayTool';
+import { VideoDisplayTool } from './VideoDisplayTool/VideoDisplayTool';
+import { AudioPlayTool } from './AudioPlayTool/AudioPlayTool';
 import { VideoAnalysisTool } from './VideoAnalysisTool/VideoAnalysisTool';
 import { BrowserVisionTool } from './BrowserVisionTool/BrowserVisionTool';
 import { MusicGenerateTool } from './MusicGenerateTool/MusicGenerateTool';
@@ -981,6 +983,20 @@ export class ToolFactory {
   }
 
   /**
+   * 创建视频预览工具
+   */
+  createVideoDisplayTool(): Tool {
+    return new VideoDisplayTool();
+  }
+
+  /**
+   * 创建音频播放工具
+   */
+  createAudioPlayTool(): Tool {
+    return new AudioPlayTool();
+  }
+
+  /**
    * 创建网关管理工具
    */
   createGatewayTool(): Tool {
@@ -1356,6 +1372,16 @@ export function getAllBaseTools(): Tool[] {
   const imageDisplayTool = new ImageDisplayTool();
   if (imageDisplayTool) {
     tools.push(imageDisplayTool);
+  }
+
+  const videoDisplayTool = new VideoDisplayTool();
+  if (videoDisplayTool) {
+    tools.push(videoDisplayTool);
+  }
+
+  const audioPlayTool = new AudioPlayTool();
+  if (audioPlayTool) {
+    tools.push(audioPlayTool);
   }
 
   const musicGenerateTool = new MusicGenerateTool();

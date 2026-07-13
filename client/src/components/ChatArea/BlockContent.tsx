@@ -8,6 +8,7 @@
 import React from "react";
 import katex from "katex";
 import type { RenderedBlock } from "../../utils/markdownParser";
+import CodeBlock from "./CodeBlock";
 
 interface BlockContentProps {
   block: RenderedBlock;
@@ -22,11 +23,7 @@ const BlockContent = React.memo(
   function BlockContent({ block, isStreaming, renderText, renderHeading, renderList, renderTable }: BlockContentProps) {
     switch (block.type) {
       case 'code':
-        return (
-          <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm my-2">
-            <code>{block.content}</code>
-          </pre>
-        );
+        return <CodeBlock code={block.content} language={block.language} />;
       case 'math': {
         let renderedFormula: string;
         try {

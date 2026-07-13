@@ -1,71 +1,145 @@
-import { useState, useCallback } from "react";
+import { useMemo, useState } from "react";
+import hljs from "highlight.js/lib/core";
+import "highlight.js/styles/github-dark.css";
+import bash from "highlight.js/lib/languages/bash";
+import c from "highlight.js/lib/languages/c";
+import cpp from "highlight.js/lib/languages/cpp";
+import css from "highlight.js/lib/languages/css";
+import go from "highlight.js/lib/languages/go";
+import java from "highlight.js/lib/languages/java";
+import javascript from "highlight.js/lib/languages/javascript";
+import json from "highlight.js/lib/languages/json";
+import python from "highlight.js/lib/languages/python";
+import rust from "highlight.js/lib/languages/rust";
+import sql from "highlight.js/lib/languages/sql";
+import typescript from "highlight.js/lib/languages/typescript";
+import xml from "highlight.js/lib/languages/xml";
+import yaml from "highlight.js/lib/languages/yaml";
+
+// 注册常用语言（按需加载，减少体积）
+hljs.registerLanguage("bash", bash);
+hljs.registerLanguage("shell", bash);
+hljs.registerLanguage("sh", bash);
+hljs.registerLanguage("c", c);
+hljs.registerLanguage("cpp", cpp);
+hljs.registerLanguage("css", css);
+hljs.registerLanguage("go", go);
+hljs.registerLanguage("java", java);
+hljs.registerLanguage("javascript", javascript);
+hljs.registerLanguage("js", javascript);
+hljs.registerLanguage("json", json);
+hljs.registerLanguage("python", python);
+hljs.registerLanguage("py", python);
+hljs.registerLanguage("rust", rust);
+hljs.registerLanguage("rs", rust);
+hljs.registerLanguage("sql", sql);
+hljs.registerLanguage("typescript", typescript);
+hljs.registerLanguage("ts", typescript);
+hljs.registerLanguage("tsx", typescript);
+hljs.registerLanguage("xml", xml);
+hljs.registerLanguage("html", xml);
+hljs.registerLanguage("yaml", yaml);
+hljs.registerLanguage("yml", yaml);
+
+/** 语言别名映射，用于显示友好名称 */
+const LANG_DISPLAY: Record<string, string> = {
+  bash: "Bash",
+  shell: "Shell",
+  sh: "Shell",
+  c: "C",
+  cpp: "C++",
+  css: "CSS",
+  go: "Go",
+  java: "Java",
+  javascript: "JavaScript",
+  js: "JavaScript",
+  json: "JSON",
+  python: "Python",
+  py: "Python",
+  rust: "Rust",
+  rs: "Rust",
+  sql: "SQL",
+  typescript: "TypeScript",
+  ts: "TypeScript",
+  tsx: "TSX",
+  xml: "XML",
+  html: "HTML",
+  yaml: "YAML",
+  yml: "YAML",
+};
 
 interface CodeBlockProps {
-  language: string;
   code: string;
-  maxLines?: number;
-  className?: string;
+  language?: string;
 }
 
-const LINES_THRESHOLD = 20;
-
-function CodeBlock({
-  language,
-  code,
-  maxLines = LINES_THRESHOLD,
-  className = "",
-}: CodeBlockProps) {
+/** 代码块组件：语法高亮 + 复制按钮 + 语言标签 */
+function CodeBlock({ code, language }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
-  const [expanded, setExpanded] = useState(false);
 
-  const lines = code.split("\n");
-  const isLong = lines.length > maxLines;
-  const displayCode =
-    isLong && !expanded ? lines.slice(0, maxLines).join("\n") + "\n..." : code;
+  const highlighted = useMemo(() => {
+    if (!code) return "";
 
-  const handleCopy = useCallback(async () => {
+    const lang = language?.toLowerCase() || "";
+    if (lang && hljs.getLanguage(lang)) {
+      try {
+        return hljs.highlight(code, { language: lang }).value;
+      } catch {
+        // 高亮失败时降级为自动检测
+      }
+    }
+
+    // 自动检测语言
+    try {
+      return hljs.highlightAuto(code).value;
+    } catch {
+      return escapeHtml(code);
+    }
+  }, [code, language]);
+
+  const displayLang = language ? LANG_DISPLAY[language.toLowerCase()] || language : "";
+
+  const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      const textarea = document.createElement("textarea");
-      textarea.value = code;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      // 忽略复制失败
     }
-  }, [code]);
+  };
 
   return (
-    <div className="relative my-3 rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-600">
-        <span className="text-xs font-mono text-gray-500 dark:text-gray-400 uppercase">
-          {language}
-        </span>
+    <div className="relative group my-2 rounded-lg overflow-hidden border border-gray-700">
+      {/* 顶部栏：语言名称 + 复制按钮 */}
+      <div className="flex items-center justify-between px-4 py-1.5 bg-gray-800 text-gray-400 text-xs">
+        <span>{displayLang || "code"}</span>
         <button
           onClick={handleCopy}
-          className="text-xs px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors"
+          className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-gray-200"
         >
           {copied ? "已复制" : "复制"}
         </button>
       </div>
-      <pre className="p-4 overflow-x-auto bg-white dark:bg-gray-900 text-sm leading-relaxed">
-        <code className={`language-${language} ${className}`}>{displayCode}</code>
+
+      {/* 代码内容 */}
+      <pre className="bg-gray-900 text-gray-100 p-4 overflow-x-auto text-sm leading-relaxed">
+        <code
+          className={`hljs${language ? ` language-${language}` : ""}`}
+          dangerouslySetInnerHTML={{ __html: highlighted }}
+        />
       </pre>
-      {isLong && (
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="w-full py-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-850 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors border-t border-gray-300 dark:border-gray-600"
-        >
-          {expanded ? "收起" : `展开全部 (共 ${lines.length} 行)`}
-        </button>
-      )}
     </div>
   );
+}
+
+/** HTML 转义 */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 export default CodeBlock;

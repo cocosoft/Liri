@@ -75,9 +75,9 @@ function TaskMiniPanel({
   onClose: () => void;
 }) {
   return (
-    <div className="px-4 pb-2" onClick={(e) => e.stopPropagation()}>
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-3 space-y-1.5">
+    <div className="absolute bottom-[132px] left-0 right-0 px-3 z-10" onClick={(e) => e.stopPropagation()}>
+      <div className="max-w-3xl mx-auto">
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-md p-3 space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
               {data.title}
@@ -190,11 +190,11 @@ export default function StatusFloatBar() {
   return (
     <>
       <div
-        className={`px-4 pb-0 transition-opacity duration-1000 ease-in-out ${fadingOut ? 'opacity-0' : 'opacity-100'}`}
+        className={`absolute bottom-[88px] left-0 right-0 px-3 transition-opacity duration-1000 ease-in-out z-10 ${fadingOut ? 'opacity-0' : 'opacity-100'}`}
         onClick={() => setShowTaskPanel(!showTaskPanel)}
       >
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-2.5 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+        <div className="max-w-3xl mx-auto">
+          <div className="flex items-center gap-2.5 px-4 py-2.5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-md cursor-pointer hover:bg-white/90 dark:hover:bg-gray-800/90 transition-colors">
             {/* 状态指示点：绿色脉冲 = 运行中 */}
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />

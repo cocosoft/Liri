@@ -33,6 +33,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dagre": "^0.8.5",
+    "highlight.js": "^11.11.1",
     "i18next": "^26.3.0",
     "katex": "^0.17.0",
     "lucide-react": "^1.17.0",

@@ -9,6 +9,8 @@ import SvgPreviewResult from "./SvgPreviewResult";
 import CanvasResultView from "./CanvasResult";
 import ImageEditResultView from "./ImageEditResult";
 import ImageDisplayResult from "./ImageDisplayResult";
+import VideoDisplayResult from "./VideoDisplayResult";
+import AudioPlayResult from "./AudioPlayResult";
 import AnalysisResultCard from "./analysis/AnalysisResultCard";
 
 interface Props {
@@ -93,6 +95,10 @@ export default function ImageToolResult({ toolCall }: Props) {
       return <SvgPreviewResult data={data as Record<string, unknown>} />;
     case "image_display":
       return <ImageDisplayResult data={data as Record<string, unknown>} />;
+    case "video_display":
+      return <VideoDisplayResult data={data as Record<string, unknown>} />;
+    case "audio_play":
+      return <AudioPlayResult data={data as Record<string, unknown>} />;
     case "image_analysis":
       return <AnalysisResultCard data={data as Record<string, unknown>} />;
     case "canvas":

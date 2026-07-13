@@ -1,3 +1,7 @@
+/**
+ * @owner chat/ChatManager（自 2026-07-13，原属于 query/TAORLoop）
+ */
+
 export interface CompressionRecord {
   timestamp: number;
   turnCount: number;

@@ -1,4 +1,7 @@
-﻿/**
+/**
+ * @deprecated 自 2026-07-13 起废弃。
+ * 简单原型，已被 query/TAORLoop 子模块（TokenBudget / StopHooks / ContextTracker）直接集成到 ChatManager 取代。
+ *
  * TAOR (Think-Act-Observe-Repeat) 循环核心
  */
 

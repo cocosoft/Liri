@@ -1,4 +1,6 @@
 /**
+ * @owner chat/ChatManager（自 2026-07-13，原属于 query/TAORLoop）
+ *
  * Token预算管理（参考CC源码 cc_code/query/tokenBudget.ts）
  * 管理会话Token使用，实现预算控制和警告机制
  *

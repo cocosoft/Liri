@@ -50,7 +50,7 @@ import {
   extractCurrentGoal,
   truncateApiMessages,
   assembleContextualSystemPrompt,
-  recordChatResponseUsage,
+  ensureThinkResponseTags,
 } from './services/MessageContextPipeline';
 import { SessionAccessFacade } from './services/SessionAccessFacade';
 import { TaskFacade } from './facades/TaskFacade';
@@ -88,7 +88,7 @@ import { messageProcessingService } from './services/MessageProcessingService.js
 import { permissionModeIntegrationService } from './services/PermissionModeIntegrationService.js';
 import { performanceOptimizationService } from './services/PerformanceOptimizationService.js';
 import { securityService } from './services/SecurityService.js';
-import { getCheckpointService } from './services/SessionCheckpointService.js';
+import { createCheckpointService } from './services/SessionCheckpointService.js';
 import { HookChainManager } from '@modules/hooks/core/HookChainManager.js';
 import {
   recursivelySanitizeUnicode,
@@ -115,13 +115,23 @@ import {
   createQueryEngine,
   type QueryEngineConfig,
 } from '../query/QueryEngine.js';
+import type { TokenBudgetManager } from '../query/TokenBudget.js';
+import { createTokenBudgetManager, TokenBudgetStatus } from '../query/TokenBudget.js';
+import { ContextTracker } from '../query/context/ContextTracker.js';
+import { FileCheckpointStorage } from '../query/FileCheckpointStorage.js';
+import { StopHookManager, createStopHookManager, DEFAULT_STOP_HOOK_PRIORITIES } from '../query/StopHooks.js';
+import type { StopHookReason } from '../query/StopHooks.js';
+import { agentTelemetry } from '../agent/AgentTelemetry.js';
+import { trajectoryRecorder } from '../agent/trajectory/TrajectoryRecorder.js';
+import { trajectoryRuntime } from '../core/trajectory/TrajectoryRuntime.js';
+import { ErrorHandler } from '../core/utils/ErrorHandler.js';
+import { convergenceDetector } from './services/ConvergenceDetector.js';
 import {
   CompactServiceImpl,
   type CompactBoundary,
   type CompactArtifact,
 } from '../services/compact/CompactService.js';
 import type { SessionMessage } from '@modules/session/models/SessionMessage';
-import { SessionTokenTracker } from '@modules/session/TokenTracker';
 import {
   SessionGateway,
   createSessionGateway,
@@ -197,7 +207,7 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * 检查点服务
    */
-  private _checkpointService: ReturnType<typeof getCheckpointService>;
+  private _checkpointService: ReturnType<typeof createCheckpointService>;
 
   /**
    * LLM客户端
@@ -269,6 +279,34 @@ export class ChatManagerImpl implements ChatManager {
   private queryEngineConfig: QueryEngineConfig | undefined;
 
   /**
+   * Token 预算管理器（仅累计，不做循环控制——循环控制由 Phase 2 的 StopHookManager 负责）
+   */
+  private tokenBudget: TokenBudgetManager;
+
+  /**
+   * 上下文压缩追踪器（记录压缩前后 token 数、压缩比等指标）
+   */
+  private contextTracker: ContextTracker = new ContextTracker(100);
+
+  /**
+   * 工具循环轮次计数器（每轮工具调用递增）
+   */
+  private _toolRoundCount: number = 0;
+
+  /**
+   * 停止钩子管理器（Phase 2：预算检查统一入口）
+   */
+  private stopHookManager: StopHookManager;
+
+  /**
+   * Tracker feature flags（默认 false，灰度控制）
+   */
+  private readonly ENABLE_TELEMETRY = process.env.ENABLE_AGENT_TELEMETRY === 'true';
+  private readonly ENABLE_TRAJECTORY = process.env.ENABLE_TRAJECTORY === 'true';
+  private readonly ENABLE_ERROR_HANDLER = process.env.ENABLE_ERROR_HANDLER === 'true';
+  private readonly ENABLE_STOP_HOOKS = process.env.ENABLE_STOP_HOOKS === 'true';
+
+  /**
    * 回滚集成（按会话 ID 索引）
    */
   private rollbackIntegrations: Map<string, RollbackIntegration> = new Map();
@@ -293,11 +331,6 @@ export class ChatManagerImpl implements ChatManager {
    * 压缩服务
    */
   private compactService: CompactServiceImpl;
-
-  /**
-   * 令牌追踪器
-   */
-  private tokenTracker: SessionTokenTracker | null = null;
 
   /**
    * 会话状态机映射
@@ -329,7 +362,16 @@ export class ChatManagerImpl implements ChatManager {
     this.sessionGateway = createSessionGateway();
     this.compactService = new CompactServiceImpl();
     this.hookChainManager = HookChainManager.getInstance();
-    this._checkpointService = getCheckpointService();
+    this._checkpointService = createCheckpointService(
+      new FileCheckpointStorage()
+    );
+    this.tokenBudget = createTokenBudgetManager({
+      maxTokens: 200_000,
+      warningThreshold: 0.7,
+      criticalThreshold: 0.85,
+    });
+    this.stopHookManager = createStopHookManager();
+    this._registerStopHooks();
   }
 
   /**
@@ -677,12 +719,107 @@ export class ChatManagerImpl implements ChatManager {
     assistantMsg: Record<string, unknown>,
     toolResults: Record<string, unknown>[]
   ): Record<string, unknown>[] {
-    return compressToolHistory(
+    const beforeTokens = this._estimateArrayTokens(currentRoundMessages);
+
+    const result = compressToolHistory(
       currentRoundMessages,
       sessionId,
       assistantMsg,
       toolResults
     );
+
+    const afterTokens = this._estimateArrayTokens(result);
+
+    this.contextTracker.record({
+      timestamp: Date.now(),
+      turnCount: this._toolRoundCount,
+      engineName: 'default',
+      beforeTokens,
+      afterTokens,
+      compressionRatio: beforeTokens > 0 ? afterTokens / beforeTokens : 1,
+      messageCountBefore: currentRoundMessages.length,
+      messageCountAfter: result.length,
+      hasFocusTopic: false,
+    });
+
+    return result;
+  }
+
+  /**
+   * 估算消息数组的 token 数（简化为 JSON 长度 / 4）
+   */
+  private _estimateArrayTokens(messages: Record<string, unknown>[]): number {
+    return Math.ceil(JSON.stringify(messages).length / 4);
+  }
+
+  /**
+   * 注册停止钩子（预算告警 → 压缩/停止）
+   */
+  private _registerStopHooks(): void {
+    this.stopHookManager.registerHook({
+      name: 'token_budget_guard',
+      priority: DEFAULT_STOP_HOOK_PRIORITIES.HIGH,
+      hook: async (ctx) => {
+        const status = this.tokenBudget.checkBudget();
+        if (status === TokenBudgetStatus.EXCEEDED) {
+          ctx.reason = 'aborted';
+        }
+      },
+    });
+    this.stopHookManager.registerHook({
+      name: 'needs_follow_up',
+      priority: DEFAULT_STOP_HOOK_PRIORITIES.MEDIUM,
+      hook: async (ctx) => {
+        // Phase 2: 追问检测 — 当用户连续追问同一问题时，标记 needsFollowUp
+        // 后续由工具循环外层的 sendMessage/streamMessage 消费，不直接中断循环
+        ctx._needsFollowUp = this._detectStuckLoop();
+      },
+    });
+  }
+
+  /** 检测用户是否连续追问同一问题（重复模式检测） */
+  private _detectStuckLoop(): boolean {
+    const recent = this._recentUserMessages;
+    if (recent.length < 2) return false;
+
+    // 追问关键词模式
+    const followUpPatterns = [
+      /还是不行/,
+      /还是没有/,
+      /还是没/,
+      /没看到/,
+      /看不到/,
+      /没有显示/,
+      /不显示/,
+      /没有出来/,
+      /没出来/,
+      /没有效果/,
+      /又.*生成.*还是/,
+      /排查.*没有/,
+    ];
+
+    const lastTwo = recent.slice(-2);
+    const matchCount = followUpPatterns.filter((p) =>
+      lastTwo.some((msg) => p.test(msg))
+    ).length;
+
+    if (matchCount >= 1) {
+      // 同步通知收敛检测器
+      try { convergenceDetector.markComplaint(this._currentSessionId ?? ''); } catch {}
+      return true;
+    }
+    return false;
+  }
+
+  /** 最近用户消息缓存（用于追问检测，保留最近 5 条） */
+  private _recentUserMessages: string[] = [];
+
+  /** 记录用户消息（在 sendMessage/streamMessage 入口处调用） */
+  private _trackUserMessage(content: string): void {
+    this._recentUserMessages.push(content);
+    if (this._recentUserMessages.length > 5) {
+      this._recentUserMessages.shift();
+    }
   }
 
   /**
@@ -730,6 +867,9 @@ export class ChatManagerImpl implements ChatManager {
         message: '用户输入包含敏感数据，已自动脱敏处理',
       });
     }
+
+    // Phase 2: 追问检测 — 记录用户消息
+    this._trackUserMessage(content);
 
     // 检查是否是命令
     if (content.startsWith('/')) {
@@ -826,6 +966,12 @@ export class ChatManagerImpl implements ChatManager {
     // 通知会话状态变化为运行状态
     this.getSessionMachine(session.id).start('sendMessage');
 
+    // Phase 2: Trajectory 会话初始化
+    if (this.ENABLE_TRAJECTORY) {
+      try { trajectoryRecorder.startSession(session.id, options?.model); } catch {}
+      try { trajectoryRuntime.startSession(session.id, options?.model); } catch {}
+    }
+
     // 准备消息列表
     const messages = session.messages;
 
@@ -900,6 +1046,28 @@ export class ChatManagerImpl implements ChatManager {
 
       return chatMessage;
     });
+
+    // 防止跨轮 tool_calls 污染：旧轮次的 tool_calls 会误导模型继续执行已完成的任务
+    // 找到最后一条 user 消息之前的 assistant 消息，清除其 tool_calls
+    // 后续 sanitizeApiMessages 会自动清理对应的孤立 tool 结果消息
+    let lastUserMsgIdx = -1;
+    for (let i = apiMessages.length - 1; i >= 0; i--) {
+      if (apiMessages[i].role === 'user') {
+        lastUserMsgIdx = i;
+        break;
+      }
+    }
+    // 清除最后一条 user 消息之前的所有 assistant 消息的 tool_calls
+    for (let i = 0; i < lastUserMsgIdx; i++) {
+      const msg = apiMessages[i];
+      if (msg.role === 'assistant' && msg.tool_calls) {
+        logger.info('清除旧轮次 assistant tool_calls，防止跨轮污染', {
+          index: i,
+          toolCallCount: (msg.tool_calls as unknown[]).length,
+        });
+        delete msg.tool_calls;
+      }
+    }
 
     // 将附带的图片路径以文本形式追加到用户消息中
     // 不嵌入 image_url 块（DeepSeek 等 Provider 不支持多模态），
@@ -1072,6 +1240,21 @@ export class ChatManagerImpl implements ChatManager {
     // 通知进度：开始 LLM 分析
     options?.onProgress?.({ stage: 'analyzing', message: '正在分析问题...' });
 
+    // Phase 2: Telemetry + Trajectory THINK 开始
+    const llmStartTime = Date.now();
+    if (this.ENABLE_TELEMETRY) {
+      try { agentTelemetry.startTurn(session.id, options?.model ?? '', this._toolRoundCount + 1); } catch {}
+    }
+    if (this.ENABLE_TRAJECTORY) {
+      try {
+        trajectoryRecorder.recordStep(session.id, {
+          phase: 'thinking',
+          input: content.slice(0, 500),
+          modelName: options?.model,
+        });
+      } catch {}
+    }
+
     logger.debug('准备调用 activeClient.sendMessage', {
       constructor: (activeClient as any)?.constructor?.name,
       providerId: activeClient?.getProviderId(),
@@ -1102,6 +1285,28 @@ export class ChatManagerImpl implements ChatManager {
         error: err instanceof Error ? err.message : String(err),
       });
     });
+
+    // Phase 2: Telemetry + Trajectory THINK 完成
+    const llmDuration = Date.now() - llmStartTime;
+    if (this.ENABLE_TELEMETRY) {
+      try {
+        agentTelemetry.recordTokens(
+          session.id,
+          response.usage?.prompt_tokens ?? 0,
+          response.usage?.completion_tokens ?? 0
+        );
+      } catch {}
+    }
+    if (this.ENABLE_TRAJECTORY) {
+      try {
+        trajectoryRecorder.recordStep(session.id, {
+          phase: 'response',
+          output: typeof response.content === 'string' ? response.content.slice(0, 500) : '',
+          tokensUsed: (response.usage?.prompt_tokens ?? 0) + (response.usage?.completion_tokens ?? 0),
+          durationMs: llmDuration,
+        });
+      } catch {}
+    }
 
     // 通知外部：本次 LLM 响应的词元用量
     if (options?.onUsage && response.usage) {
@@ -1197,7 +1402,9 @@ export class ChatManagerImpl implements ChatManager {
         }
       );
 
+      this._toolRoundCount = 0;
       while (currentToolCalls.length > 0) {
+        this._toolRoundCount++;
         const processedResults: Array<{
           normalizedToolCall: ToolCall;
           result: ToolResult;
@@ -1364,12 +1571,40 @@ export class ChatManagerImpl implements ChatManager {
             toolName: normalizedToolCall.name,
           });
 
-          const toolResult = await this.executeTool({
-            id: normalizedToolCall.id,
-            name: normalizedToolCall.name,
-            arguments: parsedArguments,
-            sessionId: session.id,
-          });
+          // Phase 2: Trajectory tool_call 开始
+          if (this.ENABLE_TRAJECTORY) {
+            try {
+              trajectoryRecorder.recordStep(session.id, {
+                phase: 'tool_call',
+                toolName: normalizedToolCall.name,
+                toolArgs: { id: normalizedToolCall.id, argKeys: Object.keys(parsedArguments || {}) },
+              });
+            } catch {}
+          }
+
+          const toolResult = await this.executeTool(
+            {
+              id: normalizedToolCall.id,
+              name: normalizedToolCall.name,
+              arguments: parsedArguments,
+              sessionId: session.id,
+            },
+            { useErrorHandler: true }
+          );
+
+          // Phase 2: Trajectory 工具调用记录
+          if (this.ENABLE_TELEMETRY) {
+            try { agentTelemetry.recordToolCall(session.id, normalizedToolCall.name); } catch {}
+          }
+          if (this.ENABLE_TRAJECTORY) {
+            try {
+              trajectoryRecorder.recordStep(session.id, {
+                phase: 'tool_result',
+                toolName: normalizedToolCall.name,
+                toolResult: toolResult?.error ? 'error' : 'ok',
+              });
+            } catch {}
+          }
 
           logger.debug('Tool execution result', { result: toolResult });
 
@@ -1547,6 +1782,36 @@ export class ChatManagerImpl implements ChatManager {
         }
         this._addAndPersistMessage(session.id, toolResultAssistantMessage);
 
+        // Phase 2: 预算检查（StopHook 内联，feature flag 控制）
+        if (this.ENABLE_STOP_HOOKS) {
+          try {
+            const budgetStatus = this.tokenBudget.checkBudget();
+            if (budgetStatus === TokenBudgetStatus.EXCEEDED) {
+              logger.warn('Token budget exceeded, stopping tool loop', {
+                sessionId: session.id,
+                budgetState: this.tokenBudget.getCurrentBudgetState(),
+              });
+              currentToolCalls = [];
+              continue;
+            }
+          } catch { /* best-effort, 不透传 */ }
+        }
+
+        // Phase 2: 收敛熔断 — 检测重复工具调用
+        if (this.ENABLE_STOP_HOOKS) {
+          try {
+            const meltdown = convergenceDetector.checkMeltdown(session.id);
+            if (meltdown.shouldMelt) {
+              logger.warn('[ConvergenceDetector] Meltdown triggered', {
+                sessionId: session.id,
+                reason: meltdown.reason,
+              });
+              currentToolCalls = [];
+              continue;
+            }
+          } catch { /* best-effort */ }
+        }
+
         // 检查是否有新的工具调用，有则继续下一轮
         if (
           toolResultResponse.tool_calls &&
@@ -1639,6 +1904,21 @@ export class ChatManagerImpl implements ChatManager {
       assistantMessage.content += `\n\n> 🏛️ 理事会正在讨论此议题，请切换到"理事会"标签页查看辩论过程。`;
     }
 
+    // Phase 2: Telemetry + Trajectory 完成
+    if (this.ENABLE_TELEMETRY) {
+      try { agentTelemetry.endTurn(session.id, 'completed'); } catch {}
+    }
+    if (this.ENABLE_TRAJECTORY) {
+      try {
+        trajectoryRecorder.recordStep(session.id, {
+          phase: 'response',
+          output: typeof assistantMessage.content === 'string' ? assistantMessage.content.slice(0, 500) : '',
+        });
+        trajectoryRecorder.completeSession(session.id);
+        trajectoryRuntime.completeSession(session.id);
+      } catch {}
+    }
+
     return assistantMessage;
   }
 
@@ -1692,13 +1972,19 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 记录 LLM 响应的令牌用量到 TokenTracker（委托给 MessageContextPipeline）
+   * 记录 LLM 响应的令牌用量
    */
   private recordChatResponseUsage(
-    sessionId: string,
+    _sessionId: string,
     usage: Record<string, number> | null | undefined
   ): void {
-    recordChatResponseUsage(sessionId, usage, this.tokenTracker);
+    if (!usage) return;
+    const inputTokens = usage.prompt_tokens ?? usage.inputTokens ?? 0;
+    const outputTokens = usage.completion_tokens ?? usage.outputTokens ?? 0;
+    if (inputTokens === 0 && outputTokens === 0) return;
+
+    const totalTokens = inputTokens + outputTokens;
+    this.tokenBudget.consumeTokens(totalTokens);
   }
 
   /**
@@ -1737,6 +2023,18 @@ export class ChatManagerImpl implements ChatManager {
       }
       return chatMessage;
     });
+
+    // 防止跨轮 tool_calls 污染：清除当前 prompt 之前旧轮次 assistant 的 tool_calls
+    let lastUserIdx = -1;
+    for (let i = apiMessages.length - 1; i >= 0; i--) {
+      if (apiMessages[i].role === 'user') { lastUserIdx = i; break; }
+    }
+    for (let i = 0; i < lastUserIdx; i++) {
+      if (apiMessages[i].role === 'assistant' && apiMessages[i].tool_calls) {
+        delete apiMessages[i].tool_calls;
+      }
+    }
+
     apiMessages.push({ role: 'user', content: prompt });
     this._sanitizeApiMessages(apiMessages);
 
@@ -1902,12 +2200,15 @@ export class ChatManagerImpl implements ChatManager {
           toolName,
         });
 
-        const toolResult = await this.executeTool({
-          id: toolCallId,
-          name: toolName,
-          arguments: toolCall.arguments || {},
-          sessionId: session.id,
-        });
+        const toolResult = await this.executeTool(
+          {
+            id: toolCallId,
+            name: toolName,
+            arguments: toolCall.arguments || {},
+            sessionId: session.id,
+          },
+          { useErrorHandler: true }
+        );
 
         const toolResultMessage = this.messageService.createToolResultMessage(
           toolResult,
@@ -2259,6 +2560,12 @@ export class ChatManagerImpl implements ChatManager {
     // 通知会话状态变化为运行状态
     this.getSessionMachine(session.id).start('processUserInput');
 
+    // Phase 2: Trajectory 会话初始化
+    if (this.ENABLE_TRAJECTORY) {
+      try { trajectoryRecorder.startSession(session.id, options?.model); } catch {}
+      try { trajectoryRuntime.startSession(session.id, options?.model); } catch {}
+    }
+
     // 准备消息列表（用于API调用）
     const messages = session.messages;
     let apiMessages = messages.map((msg) => {
@@ -2319,6 +2626,28 @@ export class ChatManagerImpl implements ChatManager {
 
       return chatMessage;
     });
+
+    // 防止跨轮 tool_calls 污染：旧轮次的 tool_calls 会误导模型继续执行已完成的任务
+    // 找到最后一条 user 消息之前的 assistant 消息，清除其 tool_calls
+    // 后续 sanitizeApiMessages 会自动清理对应的孤立 tool 结果消息
+    let lastUserMsgIdx_2 = -1;
+    for (let i = apiMessages.length - 1; i >= 0; i--) {
+      if (apiMessages[i].role === 'user') {
+        lastUserMsgIdx_2 = i;
+        break;
+      }
+    }
+    // 清除最后一条 user 消息之前的所有 assistant 消息的 tool_calls
+    for (let i = 0; i < lastUserMsgIdx_2; i++) {
+      const msg = apiMessages[i];
+      if (msg.role === 'assistant' && msg.tool_calls) {
+        logger.info('清除旧轮次 assistant tool_calls，防止跨轮污染', {
+          index: i,
+          toolCallCount: (msg.tool_calls as unknown[]).length,
+        });
+        delete msg.tool_calls;
+      }
+    }
 
     // 将附带的图片路径以文本形式追加到用户消息中
     // 不嵌入 image_url 块（DeepSeek 等 Provider 不支持多模态），
@@ -2464,6 +2793,21 @@ export class ChatManagerImpl implements ChatManager {
     const maxCtx = resolveMaxContextTokens(options?.model);
     await this._truncateApiMessages(apiMessages, maxCtx, session.id);
 
+    // Phase 2: Telemetry + Trajectory THINK 开始
+    const streamLlmStartTime = Date.now();
+    if (this.ENABLE_TELEMETRY) {
+      try { agentTelemetry.startTurn(session.id, options?.model ?? '', this._toolRoundCount + 1); } catch {}
+    }
+    if (this.ENABLE_TRAJECTORY) {
+      try {
+        trajectoryRecorder.recordStep(session.id, {
+          phase: 'thinking',
+          input: content.slice(0, 500),
+          modelName: options?.model,
+        });
+      } catch {}
+    }
+
     const gen = activeClient.streamMessage(
       apiMessages as unknown as ChatMessage[],
       {
@@ -2493,7 +2837,9 @@ export class ChatManagerImpl implements ChatManager {
     finalResponse = result.value as unknown as ChatResponse;
 
     // 攒够完整响应后统一修复图片 URL，再一次性发出，避免 AI 拼错 URL
-    const repairedContent = repairImageUrls(accumulatedContent);
+    const repairedContent = ensureThinkResponseTags(
+      repairImageUrls(accumulatedContent)
+    );
     options?.onStream?.(repairedContent);
     yield repairedContent;
 
@@ -2512,6 +2858,28 @@ export class ChatManagerImpl implements ChatManager {
         error: err instanceof Error ? err.message : String(err),
       });
     });
+
+    // Phase 2: Telemetry + Trajectory THINK 完成
+    const streamLlmDuration = Date.now() - streamLlmStartTime;
+    if (this.ENABLE_TELEMETRY) {
+      try {
+        agentTelemetry.recordTokens(
+          session.id,
+          finalResponse?.usage?.inputTokens ?? 0,
+          finalResponse?.usage?.outputTokens ?? 0
+        );
+      } catch {}
+    }
+    if (this.ENABLE_TRAJECTORY) {
+      try {
+        trajectoryRecorder.recordStep(session.id, {
+          phase: 'response',
+          output: typeof accumulatedContent === 'string' ? accumulatedContent.slice(0, 500) : '',
+          tokensUsed: (finalResponse?.usage?.inputTokens ?? 0) + (finalResponse?.usage?.outputTokens ?? 0),
+          durationMs: streamLlmDuration,
+        });
+      } catch {}
+    }
 
     // 通知外部：本次 LLM 响应的词元用量
     if (options?.onUsage && finalResponse?.usage) {
@@ -2625,7 +2993,9 @@ export class ChatManagerImpl implements ChatManager {
         }
       );
 
+      this._toolRoundCount = 0;
       while (currentToolCalls.length > 0) {
+        this._toolRoundCount++;
         const processedResults: Array<{
           normalizedToolCall: ToolCall;
           result: ToolResult;
@@ -2765,12 +3135,40 @@ export class ChatManagerImpl implements ChatManager {
           }
           // ---- 结束用户交互检查 ----
 
-          const toolResult = await this.executeTool({
-            id: toolCall.id,
-            name: toolName,
-            arguments: toolCall.arguments,
-            sessionId: session.id,
-          });
+          // Phase 2: Trajectory tool_call 开始
+          if (this.ENABLE_TRAJECTORY) {
+            try {
+              trajectoryRecorder.recordStep(session.id, {
+                phase: 'tool_call',
+                toolName: toolName,
+                toolArgs: { id: toolCall.id, argKeys: Object.keys(toolCall.arguments || {}) },
+              });
+            } catch {}
+          }
+
+          const toolResult = await this.executeTool(
+            {
+              id: toolCall.id,
+              name: toolName,
+              arguments: toolCall.arguments,
+              sessionId: session.id,
+            },
+            { useErrorHandler: true }
+          );
+
+          // Phase 2: Trajectory 工具调用记录
+          if (this.ENABLE_TELEMETRY) {
+            try { agentTelemetry.recordToolCall(session.id, toolName); } catch {}
+          }
+          if (this.ENABLE_TRAJECTORY) {
+            try {
+              trajectoryRecorder.recordStep(session.id, {
+                phase: 'tool_result',
+                toolName: toolName,
+                toolResult: toolResult?.error ? 'error' : 'ok',
+              });
+            } catch {}
+          }
 
           const resultDetail = toolResult.error
             ? `失败: ${toolResult.error.slice(0, 200)}`
@@ -2908,8 +3306,8 @@ export class ChatManagerImpl implements ChatManager {
           toolResultIter.value as unknown as ChatResponse;
 
         // 攒够完整工具响应后统一修复图片 URL，再一次性发出
-        const repairedToolContent = repairImageUrls(
-          toolResultAccumulatedContent
+        const repairedToolContent = ensureThinkResponseTags(
+          repairImageUrls(toolResultAccumulatedContent)
         );
         options?.onStream?.(repairedToolContent);
         yield repairedToolContent;
@@ -2989,6 +3387,36 @@ export class ChatManagerImpl implements ChatManager {
         }
         this._addAndPersistMessage(session.id, toolResultAssistantMessage);
 
+        // Phase 2: 预算检查（StopHook 内联，feature flag 控制）
+        if (this.ENABLE_STOP_HOOKS) {
+          try {
+            const budgetStatus = this.tokenBudget.checkBudget();
+            if (budgetStatus === TokenBudgetStatus.EXCEEDED) {
+              logger.warn('[stream] Token budget exceeded, stopping tool loop', {
+                sessionId: session.id,
+                budgetState: this.tokenBudget.getCurrentBudgetState(),
+              });
+              currentToolCalls = [];
+              continue;
+            }
+          } catch { /* best-effort, 不透传 */ }
+        }
+
+        // Phase 2: 收敛熔断 — 检测重复工具调用
+        if (this.ENABLE_STOP_HOOKS) {
+          try {
+            const meltdown = convergenceDetector.checkMeltdown(session.id);
+            if (meltdown.shouldMelt) {
+              logger.warn('[stream][ConvergenceDetector] Meltdown triggered', {
+                sessionId: session.id,
+                reason: meltdown.reason,
+              });
+              currentToolCalls = [];
+              continue;
+            }
+          } catch { /* best-effort */ }
+        }
+
         // 检查是否有新的工具调用，有则继续下一轮
         if (
           toolResultResponse?.tool_calls &&
@@ -3043,6 +3471,22 @@ export class ChatManagerImpl implements ChatManager {
     );
 
     options?.onComplete?.(assistantMessage);
+
+    // Phase 2: Telemetry + Trajectory 完成
+    if (this.ENABLE_TELEMETRY) {
+      try { agentTelemetry.endTurn(session.id, 'completed'); } catch {}
+    }
+    if (this.ENABLE_TRAJECTORY) {
+      try {
+        trajectoryRecorder.recordStep(session.id, {
+          phase: 'response',
+          output: typeof assistantMessage.content === 'string' ? assistantMessage.content.slice(0, 500) : '',
+        });
+        trajectoryRecorder.completeSession(session.id);
+        trajectoryRuntime.completeSession(session.id);
+      } catch {}
+    }
+
     return assistantMessage;
   }
 
@@ -3166,12 +3610,15 @@ export class ChatManagerImpl implements ChatManager {
       }
 
       // 执行工具
-      const toolResult = await this.executeTool({
-        id: normalizedToolCall.id,
-        name: normalizedToolCall.name,
-        arguments: parsedArguments,
-        sessionId: session.id,
-      });
+      const toolResult = await this.executeTool(
+        {
+          id: normalizedToolCall.id,
+          name: normalizedToolCall.name,
+          arguments: parsedArguments,
+          sessionId: session.id,
+        },
+        { useErrorHandler: true }
+      );
 
       // 注册表：存储工具执行结果
       toolResultRegistry.storeResult(
@@ -3398,7 +3845,43 @@ export class ChatManagerImpl implements ChatManager {
    * @param toolCall 工具调用
    * @returns 工具结果
    */
-  async executeTool(toolCall: ToolCall): Promise<ToolResult> {
+  async executeTool(toolCall: ToolCall, opts?: { useErrorHandler?: boolean }): Promise<ToolResult> {
+    // Phase 2: ErrorHandler 双路径
+    if (opts?.useErrorHandler && this.ENABLE_ERROR_HANDLER) {
+      try {
+        const handled = await ErrorHandler.handleAsync(
+          () => this._executeToolInternal(toolCall),
+          { recoveryStrategy: 'retry', maxRetries: 2 }
+        );
+        return handled.success && handled.result
+          ? handled.result
+          : {
+              toolCallId: toolCall.id ?? '',
+              toolName: toolCall.name,
+              error: handled.error ? String(handled.error) : 'Tool execution failed',
+            };
+      } catch {
+        // ErrorHandler 自身异常 → 降级为原逻辑
+        return this._executeToolInternal(toolCall);
+      }
+    }
+    const result = await this._executeToolInternal(toolCall);
+    // Phase 2: 收敛检测 — 记录工具调用
+    try {
+      convergenceDetector.recordToolCall(
+        toolCall.sessionId ?? '',
+        toolCall.name,
+        !result.error,
+        toolCall.arguments as Record<string, unknown> | undefined
+      );
+    } catch { /* best-effort */ }
+    return result;
+  }
+
+  /**
+   * 工具执行内部实现（原 executeTool 逻辑）
+   */
+  private async _executeToolInternal(toolCall: ToolCall): Promise<ToolResult> {
     // 工具参数由 LLM 生成，不需要 Unicode 清理（用户输入在进入 LLM 前已清理）
     // 注意: 对工具参数做 NFKC 归一化会破坏文件路径中的全角字符（如 （）→()），导致文件找不到
     const normalizedToolCall = {
@@ -3433,15 +3916,59 @@ export class ChatManagerImpl implements ChatManager {
     }
 
     if (normalizedToolCall.name === 'list_tool_calls') {
-      // 没有 sessionId 上下文，无法列出
-      // 调用方通过存档消息传递 sessionId，此处返回空列表
-      logger.info('LLM 查询工具列表（无 sessionId 上下文，返回空列表）', {
-        toolCallId: toolCall.id,
-      });
+      const targetRound = normalizedToolCall.arguments.round as number | undefined;
+      const sessionId =
+        (normalizedToolCall.arguments.sessionId as string) ||
+        this._currentSessionId ||
+        '';
+      let calls: Array<{
+        toolCallId: string;
+        toolName: string;
+        round: number;
+        hasError: boolean;
+        timestamp: number;
+      }>;
+      if (targetRound && sessionId) {
+        calls = toolResultRegistry
+          .listByRound(sessionId, targetRound)
+          .map((c) => ({
+            toolCallId: c.toolCallId,
+            toolName: c.toolName,
+            round: c.round,
+            hasError: !!c.result.error,
+            timestamp: c.timestamp,
+          }));
+      } else if (sessionId) {
+        calls = toolResultRegistry
+          .listBySession(sessionId)
+          .map((c) => ({
+            toolCallId: c.toolCallId,
+            toolName: c.toolName,
+            round: c.round,
+            hasError: !!c.result.error,
+            timestamp: c.timestamp,
+          }));
+      } else {
+        // 无 sessionId → 尝试跨所有 session 查找
+        calls = toolResultRegistry
+          .listAll()
+          .map((c) => ({
+            toolCallId: c.toolCallId,
+            toolName: c.toolName,
+            round: c.round,
+            hasError: !!c.result.error,
+            timestamp: c.timestamp,
+          }))
+          .slice(0, 50);
+      }
       return {
         toolCallId: toolCall.id,
         toolName: normalizedToolCall.name,
-        result: { toolCalls: [] },
+        result: {
+          toolCalls: calls,
+          total: calls.length,
+          sessionId: sessionId || undefined,
+        },
         error: undefined,
       };
     }
@@ -3684,10 +4211,15 @@ export class ChatManagerImpl implements ChatManager {
             );
           }
 
-          // 生图完成后通知前端刷新图库
-          if (normalizedToolCall.name === 'image_generate') {
+          // 多媒体展示/生成完成后通知前端刷新
+          if (
+            normalizedToolCall.name === 'image_generate' ||
+            normalizedToolCall.name === 'image_display' ||
+            normalizedToolCall.name === 'video_display' ||
+            normalizedToolCall.name === 'audio_play'
+          ) {
             eventNotificationService.emitCustomEvent('tool:completed', {
-              toolName: 'image_generate',
+              toolName: normalizedToolCall.name,
               sessionId: toolCall.sessionId,
               toolCallId: toolCall.id,
               images: (resultData as Record<string, unknown>).images,
@@ -3772,8 +4304,6 @@ export class ChatManagerImpl implements ChatManager {
 
     this._chatSessions.set(session.id, session);
     this._currentSessionId = session.id;
-
-    this.tokenTracker?.clearSession(session.id);
 
     // 持久化会话到 FileSystemUnifiedStorage
     this.sessionGateway
@@ -4308,20 +4838,6 @@ export class ChatManagerImpl implements ChatManager {
    */
   getToolRegistry(): ToolRegistry | null {
     return this.toolRegistry;
-  }
-
-  /**
-   * 设置令牌追踪器
-   */
-  setTokenTracker(tracker: SessionTokenTracker | null): void {
-    this.tokenTracker = tracker;
-  }
-
-  /**
-   * 获取令牌追踪器
-   */
-  getTokenTracker(): SessionTokenTracker | null {
-    return this.tokenTracker;
   }
 
   /**

@@ -8,25 +8,6 @@ import SessionContextMenu from "./SessionContextMenu";
 import SessionListItem from "./SessionListItem";
 
 /**
- * 判断时间戳是否为今天
- */
-function isToday(timestamp: number | string): boolean {
-  const date = new Date(timestamp);
-  const now = new Date();
-  return date.toDateString() === now.toDateString();
-}
-
-/**
- * 判断时间戳是否在最近 N 天内
- */
-function isWithinDays(timestamp: number | string, days: number): boolean {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const msPerDay = 86400000;
-  return (now.getTime() - date.getTime()) <= days * msPerDay;
-}
-
-/**
  * 会话来源渠道 → 显示名称映射
  * 根据会话的 source 字段显示来源标签，如【QQ】【WeChat】
  */
@@ -95,7 +76,7 @@ function SessionHistorySidebar() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterTab, setFilterTab] = useState<"all" | "today" | "week" | "pinned" | "agent">("all");
+  const [filterTab, setFilterTab] = useState<"all" | "pinned">("all");
 
   // 窄屏（< 1024px）自动折叠侧栏（不覆盖用户手动设置）
   useEffect(() => {
@@ -215,16 +196,10 @@ function SessionHistorySidebar() {
   const filteredSessions = useMemo(() => {
     let result = sessions;
 
-    // 1. 过滤 tab：日期范围 / 固定
-    if (filterTab === "today") {
-      result = result.filter((s) => isToday(s.updatedAt));
-    } else if (filterTab === "week") {
-      result = result.filter((s) => isWithinDays(s.updatedAt, 7));
-    } else if (filterTab === "pinned") {
+    // 1. 过滤 tab：仅保留"已固定"筛选
+    if (filterTab === "pinned") {
       const pinnedSet = new Set(pinnedSessionIds);
       result = result.filter((s) => pinnedSet.has(s.id));
-    } else if (filterTab === "agent") {
-      result = result.filter((s) => s.agentName && s.agentName.length > 0);
     }
 
     // 2. 搜索过滤
@@ -456,7 +431,7 @@ function SessionHistorySidebar() {
 
       {/* 过滤 tabs */}
       <div className="flex gap-0.5 px-3 py-1.5 border-b border-gray-200 dark:border-gray-700">
-        {(["all", "today", "week", "pinned", "agent"] as const).map((tab) => (
+        {(["all", "pinned"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setFilterTab(tab)}
@@ -466,7 +441,7 @@ function SessionHistorySidebar() {
                 : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
             }`}
           >
-            {tab === "all" ? t('chat.filterAll') : tab === "today" ? t('chat.filterToday') : tab === "week" ? t('chat.filterWeek') : tab === "agent" ? t('chat.agentFilter', 'Agent') : t('chat.filterPinned')}
+            {tab === "all" ? t('chat.filterHistory', '历史记录') : t('chat.filterPinned')}
           </button>
         ))}
       </div>

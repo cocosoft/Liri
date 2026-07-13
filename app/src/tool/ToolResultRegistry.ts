@@ -119,6 +119,17 @@ export class ToolResultRegistry {
   }
 
   /**
+   * 列出所有会话的工具调用记录（跨 session 汇总，用于 LLM 无 session 上下文时查询）
+   */
+  listAll(): StoredToolCall[] {
+    const all: StoredToolCall[] = [];
+    for (const sessionStore of this.store.values()) {
+      all.push(...sessionStore.values());
+    }
+    return all.sort((a, b) => a.timestamp - b.timestamp);
+  }
+
+  /**
    * 生成压缩的历史摘要，用于替代完整消息传递给 LLM
    *
    * 输出格式示例：

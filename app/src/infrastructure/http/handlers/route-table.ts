@@ -430,6 +430,13 @@ export async function dispatchRoute(
     return true;
   }
 
+  // ---- Audio ----
+  if (method === 'GET' && url.startsWith('/v1/audio/static/')) {
+    const filePath = url.slice('/v1/audio/static/'.length);
+    await self['handleAudioStatic'](req, res, decodeURIComponent(filePath));
+    return true;
+  }
+
   // ---- Media ----
   if (url.startsWith('/v1/media')) {
     await self['handleMedia'](req, res);

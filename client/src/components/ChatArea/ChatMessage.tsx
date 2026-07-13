@@ -218,46 +218,33 @@ const ChatMessageMemo = memo(function ChatMessage({
       )}
 
       {/* 消息气泡 */}
-      <div className="flex-1 min-w-0 max-w-[80%]">
-        {/* 头部：角色名称 + agent 标签 + 时间戳（气泡右上角） */}
-        <div className="flex items-center gap-2 mb-1">
-          <span
-            className={`text-xs font-medium ${
-              isUser
-                ? "text-gray-500 dark:text-gray-400"
-                : "text-gray-500 dark:text-gray-400"
-            }`}
-          >
-            {isUser ? t('chat.user') : t('chat.assistant')}
-          </span>
-          {/* Agent 名称标签 */}
-          {!isUser && message.agentName && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 font-medium">
-              {message.agentName}
-            </span>
-          )}
-          {/* 被回复标记 */}
-          {hasReplies && (
-            <span className="text-[10px] text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">
-              {t('chat.hasReplies')}
-            </span>
-          )}
-          {/* 时间戳（右上角，灰色小字） */}
-          {message.timestamp && (
-            <span className={`text-[10px] ml-auto ${isUser ? "text-blue-200" : "text-gray-400 dark:text-gray-500"}`}>
-              {formatTime(message.timestamp)}
-            </span>
-          )}
-        </div>
+      <div className="flex-1 min-w-0 max-w-[70%]">
+        {/* 头部：AI 才显示 agent 标签和被回复标记 */}
+        {!isUser && (message.agentName || hasReplies) && (
+          <div className="flex items-center gap-2 mb-1">
+            {/* Agent 名称标签 */}
+            {message.agentName && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 font-medium">
+                {message.agentName}
+              </span>
+            )}
+            {/* 被回复标记 */}
+            {hasReplies && (
+              <span className="text-[10px] text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">
+                {t('chat.hasReplies')}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* 气泡主体 */}
         <div
-          className={`rounded-2xl px-4 py-2 ${
+          className={`px-4 py-2.5 ${
             isUser
-              ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm"
+              ? "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm rounded-2xl rounded-br-md"
               : isTool
-              ? "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
-              : "bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              ? "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl"
+              : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-2xl rounded-bl-md"
           }`}
         >
           {/* 被回复的引用 */}
@@ -265,7 +252,7 @@ const ChatMessageMemo = memo(function ChatMessage({
             <div
               className={`mb-2 p-2 rounded-lg text-xs border-l-2 cursor-pointer ${
                 isUser
-                  ? "bg-blue-400/20 border-blue-300 text-blue-100"
+                  ? "bg-white/50 dark:bg-gray-600/50 border-gray-300 dark:border-gray-500 text-gray-600 dark:text-gray-300"
                   : "bg-gray-50 dark:bg-gray-700/50 border-gray-300 dark:border-gray-500 text-gray-500 dark:text-gray-400"
               }`}
               onClick={() => {
@@ -311,27 +298,14 @@ const ChatMessageMemo = memo(function ChatMessage({
           )}
         </div>
 
-        {/* 错误状态操作按钮 */}
-        {message.error && !isStreaming && (
-          <div className="flex items-center gap-2 mt-2">
-            <button
-              onClick={handleRetry}
-              className="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
-            >
-              🔄 {t('common.retry')}
-            </button>
-            <button
-              onClick={handleContinue}
-              className="px-4 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-md transition-colors"
-            >
-              {t('chat.continueGenerate')}
-            </button>
-          </div>
-        )}
-
-        {/* 常驻操作按钮 */}
+        {/* 底部：时间戳 + 操作按钮（同一行） */}
         {!message.error && (
-          <div className="flex items-center gap-2 mt-1 text-xs text-gray-400 dark:text-gray-500">
+          <div className={`flex items-center gap-2 mt-1 text-[10px] text-gray-400 dark:text-gray-500 ${isUser ? "justify-end flex-row-reverse" : "justify-start"}`}>
+            {/* 时间戳 */}
+            {message.timestamp && (
+              <span>{formatTime(message.timestamp)}</span>
+            )}
+
             {/* 用户消息：编辑常驻 */}
             {isUser && (
               <button
@@ -422,6 +396,24 @@ const ChatMessageMemo = memo(function ChatMessage({
                 {copyToast === "copied" ? t("chat.toastCopied") : t("chat.toastCopyFailed")}
               </span>
             )}
+          </div>
+        )}
+
+        {/* 错误状态操作按钮 */}
+        {message.error && !isStreaming && (
+          <div className="flex items-center gap-2 mt-2">
+            <button
+              onClick={handleRetry}
+              className="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+            >
+              🔄 {t('common.retry')}
+            </button>
+            <button
+              onClick={handleContinue}
+              className="px-4 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-md transition-colors"
+            >
+              {t('chat.continueGenerate')}
+            </button>
           </div>
         )}
 
@@ -771,6 +763,48 @@ function renderBlocksWithGroups(
 
     // key 优先用第一个 block 的唯一 id，避免无 groupId 时多个 group 因相同 toolCallId 产生 key 冲突
     const firstBlockId = toolBlocks[0]?.id;
+    const hasToolCall = toolBlocks.some((b) => b.type === "tool_call");
+
+    // 纯 status 块（无 tool_call）直接渲染，不包装为 "工具执行" 组
+    if (!hasToolCall) {
+      for (const tb of toolBlocks) {
+        result.push(
+          <BlockRenderer
+            key={tb.id}
+            block={tb}
+            sessionId={sessionId}
+            knownFilePaths={knownFilePaths}
+            onQuestionResponse={onQuestionResponse}
+          />,
+        );
+      }
+      continue;
+    }
+
+    // 多媒体展示类工具（图片/视频/音频）直接渲染，不包装为 "工具执行" 组
+    // 用户需要直接看到内容，不应要求展开两层折叠
+    const isMediaDisplay = toolBlocks.some(
+      (b) => b.type === "tool_call" && (
+        b.toolCall?.name === "image_display" ||
+        b.toolCall?.name === "video_display" ||
+        b.toolCall?.name === "audio_play"
+      ),
+    );
+    if (isMediaDisplay) {
+      for (const tb of toolBlocks) {
+        result.push(
+          <BlockRenderer
+            key={tb.id}
+            block={tb}
+            sessionId={sessionId}
+            knownFilePaths={knownFilePaths}
+            onQuestionResponse={onQuestionResponse}
+          />,
+        );
+      }
+      continue;
+    }
+
     result.push(
       <ToolExecutionGroup
         key={`tool-group-${firstBlockId || groupKey || i}`}

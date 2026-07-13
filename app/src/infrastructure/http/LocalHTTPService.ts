@@ -96,6 +96,7 @@ import {
   handleVideoDelete,
 } from './handlers/video-handlers';
 import { handleVideoTasks } from './handlers/video-task-handlers';
+import { handleAudioStatic } from './handlers/audio-handlers';
 import { handleMedia } from './handlers/media-template-handlers';
 import {
   handleListAgentTasks,
@@ -842,6 +843,14 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     return handleVideoDelete(this._handlerCtx, req, res);
+  }
+
+  private async handleAudioStatic(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    filePath: string
+  ): Promise<void> {
+    return handleAudioStatic(this._handlerCtx, req, res, filePath);
   }
 
   private async handleVideoTasks(

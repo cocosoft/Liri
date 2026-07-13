@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useChatStore } from "../../stores/chatStore";
 import { useAppStore } from "../../stores/appStore";
 import FilePreviewContent from "./FilePreviewContent";
@@ -12,16 +12,16 @@ const MIN_PANEL_WIDTH = 200;
 const MAX_PANEL_WIDTH = 600;
 const DEFAULT_PANEL_WIDTH = 320;
 
-type PanelTab = 'session' | 'manage';
+type PanelTab = 'session' | 'manage' | 'usage';
 
 /**
  * 文件预览面板组件
  * 位于聊天界面右侧，用于预览会话中生成/修改的文件内容。
  * 支持拖拽调整宽度、默认收起、点击文件自动展开。
- * 支持会话文件 / 文件管理两个标签页。
+ * 支持会话文件 / 文件管理 / 用量统计三个标签页。
  */
 function FilePreviewPanel() {
-  const { previewFile, sessionFiles, setPreviewFile, clearSessionFiles } =
+  const { previewFile, sessionFiles, setPreviewFile, clearSessionFiles, messages } =
     useChatStore();
   const setActivePage = useAppStore((s) => s.setActivePage);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -31,6 +31,25 @@ function FilePreviewPanel() {
   const [recentFiles, setRecentFiles] = useState<FileRegistryRecord[]>([]);
   const [statsLoading, setStatsLoading] = useState(false);
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  /** 从 messages 中聚合 Token 用量统计 */
+  const sessionUsage = useMemo(() => {
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let totalTokens = 0;
+    let estimatedCostUsd = 0;
+    for (const m of messages) {
+      if (m.usage) {
+        inputTokens += m.usage.inputTokens || 0;
+        outputTokens += m.usage.outputTokens || 0;
+        totalTokens += m.usage.totalTokens || 0;
+        estimatedCostUsd += m.usage.estimatedCostUsd || 0;
+      }
+    }
+    return totalTokens > 0
+      ? { inputTokens, outputTokens, totalTokens, estimatedCostUsd }
+      : undefined;
+  }, [messages]);
 
   /** 点击文件链接时自动展开面板 */
   useEffect(() => {
@@ -203,6 +222,16 @@ function FilePreviewPanel() {
           >
             文件管理
           </button>
+          <button
+            onClick={() => setActiveTab('usage')}
+            className={`text-xs font-medium px-2 py-0.5 rounded transition-colors ${
+              activeTab === 'usage'
+                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            用量
+          </button>
         </div>
         <div className="flex items-center gap-1">
           {((activeTab === 'session' && hasFiles) || activeTab === 'manage') && (
@@ -322,6 +351,39 @@ function FilePreviewPanel() {
                 打开完整文件管理器
               </button>
             </>
+          )}
+        </div>
+      )}
+
+      {/* 用量统计视图 */}
+      {activeTab === 'usage' && (
+        <div className="flex-1 overflow-y-auto p-3">
+          {sessionUsage ? (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500 dark:text-gray-400">输入词元</span>
+                <span className="font-mono text-gray-700 dark:text-gray-300">{sessionUsage.inputTokens.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500 dark:text-gray-400">输出词元</span>
+                <span className="font-mono text-gray-700 dark:text-gray-300">{sessionUsage.outputTokens.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm font-medium border-t border-gray-100 dark:border-gray-800 pt-2 mt-1">
+                <span className="text-gray-700 dark:text-gray-300">总计词元</span>
+                <span className="font-mono text-gray-900 dark:text-gray-100">{sessionUsage.totalTokens.toLocaleString()}</span>
+              </div>
+              {sessionUsage.estimatedCostUsd != null && sessionUsage.estimatedCostUsd > 0 && (
+                <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400">
+                  <span>费用</span>
+                  <span className="font-mono">${sessionUsage.estimatedCostUsd.toFixed(4)}</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <p className="text-sm text-gray-400 dark:text-gray-500">暂无用量数据</p>
+              <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">发送消息后将在此显示 Token 用量</p>
+            </div>
           )}
         </div>
       )}

@@ -1,4 +1,6 @@
 /**
+ * @owner chat/ChatManager（自 2026-07-13，原属于 query/TAORLoop）
+ *
  * 停止钩子系统（参考CC源码 query/stopHooks.ts）
  * 在查询停止时执行自定义钩子函数
  * 支持同步和异步钩子，支持优先级排序
@@ -26,6 +28,8 @@ export interface StopHookContext {
     outputTokens: number;
     totalTokens: number;
   };
+  /** Phase 2: 追问检测标记（由 needs_follow_up 钩子设置） */
+  _needsFollowUp?: boolean;
 }
 
 export interface StopHook {

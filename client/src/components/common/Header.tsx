@@ -1,9 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAutoUpdate } from "../../hooks/useAutoUpdate";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
-import { DashboardIcon, BellIcon, UserIcon, HelpIcon } from "../../assets/icons";
+import { useConfigStore } from "../../stores/configStore";
+import { DashboardIcon, BellIcon, UserIcon, HelpIcon, SearchIcon } from "../../assets/icons";
+import GlobalSearchModal from "../ChatArea/GlobalSearchModal";
 
 /**
  * 页面顶部 Header
@@ -13,7 +15,9 @@ function Header() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const workspacePath = useWorkspaceStore((s) => s.currentWorkspace?.path);
+  const isDark = useConfigStore((s) => s.config.theme === "dark");
   const [showUpdateMenu, setShowUpdateMenu] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const {
     checking,
@@ -24,6 +28,21 @@ function Header() {
     startPeriodicCheck,
     stopPeriodicCheck,
   } = useAutoUpdate();
+
+  /** Ctrl+K / Cmd+K 唤起全局搜索 */
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const handleOpenSearch = useCallback(() => setSearchOpen(true), []);
+  const handleCloseSearch = useCallback(() => setSearchOpen(false), []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -80,6 +99,20 @@ function Header() {
 
         {/* 分隔线 */}
         <span className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-1" />
+
+        {/* 全局搜索（Ctrl+K / ⌘K） */}
+        <button
+          onClick={handleOpenSearch}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
+          title={`${t("common.search")} (Ctrl+K)`}
+          aria-label={t("common.search")}
+        >
+          <SearchIcon size={16} />
+          <span className="text-xs hidden md:inline">{t("common.search")}</span>
+          <kbd className="hidden md:inline text-[10px] px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-600">
+            ⌘K
+          </kbd>
+        </button>
 
         {/* 用户中心 */}
         <button
@@ -163,6 +196,9 @@ function Header() {
           )}
         </div>
       </div>
+
+      {/* 全局搜索弹窗（应用级，所有页面可用） */}
+      <GlobalSearchModal isOpen={searchOpen} onClose={handleCloseSearch} isDark={isDark} />
     </header>
   );
 }

@@ -1,4 +1,8 @@
 /**
+ * @deprecated 自 2026-07-13 起废弃。
+ * TAORLoop 的 run() 方法为空壳（不调用 QueryEngine），从未接入生产管线。
+ * 子模块（TokenBudget / StopHooks / ContextTracker / FileCheckpointStorage）已直接集成到 ChatManager。
+ *
  * TAOR (Think-Act-Observe-Repeat) 循环编排器
  * 在 QueryEngine 基础上提供完整的 TAOR 生命周期管理
  * 整合 TokenBudget、StopHooks、ToolCallPartitioner
@@ -21,7 +25,6 @@ import type {
   ContextEngineRegistry,
   CompressionFeature,
 } from './context/ContextEngineRegistry.js';
-import { FileCheckpointStorage } from './FileCheckpointStorage.js';
 import { TAORPhase } from './types.js';
 import type { TAORCheckpoint, CheckpointStorage } from './types.js';
 
@@ -144,7 +147,7 @@ export class TAORLoop {
       enableCheckpoint: config.enableCheckpoint !== false,
       checkpointInterval: config.checkpointInterval || 5,
       checkpointStorage:
-        config.checkpointStorage || new FileCheckpointStorage(),
+        config.checkpointStorage || new MemoryCheckpointStorage(),
     };
     this.contextEngineRegistry = config.contextEngineRegistry;
     this.tokenBudget = new TokenBudgetManagerImpl(this.config.budgetConfig);

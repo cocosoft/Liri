@@ -16,12 +16,14 @@ import { getToolDisplayName, getToolHumanSummary } from "../../utils/toolHumanSu
 import { formatKey } from "../../utils/formatKey";
 import { formatValue } from "../../utils/formatValue";
 
-/** 图片相关工具名列表 */
-const IMAGE_TOOL_NAMES = [
+/** 图片/视频/音频等多媒体工具名列表 */
+const MEDIA_TOOL_NAMES = [
   "image_generate",
   "image_svg_generate",
   "image_analysis",
   "image_display",
+  "video_display",
+  "audio_play",
   "canvas",
   "image",
 ];
@@ -73,17 +75,24 @@ function formatArgumentsNatural(
 
 function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: ToolCallGroupProps) {
   const { t } = useTranslation();
-  const [expanded, setExpanded] = useState(false);
+  const isMediaTool = MEDIA_TOOL_NAMES.includes(toolCall.name);
+  // 多媒体展示工具（预览图片/视频/音频）默认展开，用户明确要求查看
+  const [expanded, setExpanded] = useState(
+    toolCall.name === "image_display" ||
+    toolCall.name === "video_display" ||
+    toolCall.name === "audio_play"
+  );
   const prevStreaming = useRef(isStreaming);
   const { readFileToPreview } = useChatStore();
 
   useEffect(() => {
     const wasStreaming = prevStreaming.current;
     prevStreaming.current = isStreaming;
-    if (wasStreaming && !isStreaming && variant === "card") {
+    // 多媒体展示工具不自动折叠 — 图片/视频/音频结果是用户要看的，不应隐藏
+    if (wasStreaming && !isStreaming && variant === "card" && toolCall.name !== "image_display" && toolCall.name !== "video_display" && toolCall.name !== "audio_play") {
       setExpanded(false);
     }
-  }, [isStreaming, variant]);
+  }, [isStreaming, variant, toolCall.name]);
 
   const statusIcon = isStreaming
     ? "\u23F3"
@@ -95,7 +104,6 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
 
   const humanSummary = getToolHumanSummary(toolCall);
   const displayName = getToolDisplayName(toolCall.name);
-  const isImageTool = IMAGE_TOOL_NAMES.includes(toolCall.name);
 
   const handleToggle = () => {
     setExpanded(!expanded);
@@ -121,7 +129,7 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
       {toolCall.result !== undefined && (
         <div>
           <div className="text-[10px] font-semibold text-[#565f89] uppercase tracking-wider mb-0.5">{t("chat.result")}</div>
-          {isImageTool ? (
+          {isMediaTool ? (
             <ImageToolResult toolCall={toolCall} />
           ) : typeof toolCall.result === "string" ? (
             <MarkdownRenderer content={toolCall.result} onPreviewFile={readFileToPreview} />

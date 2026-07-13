@@ -100,6 +100,8 @@ export function getBuiltinToolLoaders(): ToolLoader[] {
     createToolLoader(ToolFactory.prototype.createBrowserVisionTool),
     createToolLoader(ToolFactory.prototype.createImageSvgTool),
     createToolLoader(ToolFactory.prototype.createImageDisplayTool),
+    createToolLoader(ToolFactory.prototype.createVideoDisplayTool),
+    createToolLoader(ToolFactory.prototype.createAudioPlayTool),
     createToolLoader(ToolFactory.prototype.createCanvasTool),
     createToolLoader(ToolFactory.prototype.createVideoTool),
     createToolLoader(ToolFactory.prototype.createVideoGenerateTool),

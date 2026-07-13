@@ -1,15 +1,18 @@
-import { useMemo, useEffect, useRef, useState } from "react";
+import { useMemo, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useChatStore } from "../../stores/chatStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useBackendStore } from "../../stores/backendStore";
 import { useAppStore } from "../../stores/appStore";
+import { useConfigStore } from "../../stores/configStore";
 import { useAutoScroll } from "../../hooks/useAutoScroll";
 import { voiceService } from "../../services/voiceService";
 import { ErrorBoundary } from "../common/ErrorBoundary";
 import ChatMessageList from "./ChatMessageList";
 import RoundNavigator from "./RoundNavigator";
-import ContextPanel from "./ContextPanel";
+import StatusFloatBar from "./StatusFloatBar";
+import ChatInput from "./ChatInput";
+import VoiceSubtitleOverlay from "../VoiceSubtitleOverlay";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("components:chatArea");
@@ -17,10 +20,11 @@ const logger = createLogger("components:chatArea");
 function ChatArea() {
   const { t } = useTranslation();
   const { messages, error, isStreaming } = useChatStore();
-  const sessionFiles = useChatStore((s) => s.sessionFiles);
   const { currentSession, createSession } = useSessionStore();
   const backendRunning = useBackendStore((s) => s.status.running);
-  const [panelOpen, setPanelOpen] = useState(false);
+  const config = useConfigStore((s) => s.config);
+  const isDark = config.theme === "dark";
+  const { interimText, finalText, audioLevel, subtitleStatus } = useAppStore();
 
   /** 统一滚动状态：isUserScrolledUp 和 scrollToBottom 均由 useAutoScroll 管理 */
   const { containerRef, isUserScrolledUp, scrollToBottom, distanceFromBottom } = useAutoScroll({
@@ -119,7 +123,7 @@ function ChatArea() {
       <div className="flex-1 relative min-w-0">
         <div
           ref={containerRef}
-          className="absolute inset-0 overflow-y-auto"
+          className="absolute inset-0 overflow-y-auto pb-28"
         >
           {/* 错误提示 */}
           {displayError && (
@@ -189,7 +193,7 @@ function ChatArea() {
             onClick={scrollToBottom}
             aria-label={t('chat.scrollToBottom')}
             role="button"
-            className="absolute bottom-16 right-6 z-10 w-10 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-all max-md:bottom-20 opacity-80 hover:opacity-100"
+            className="absolute bottom-28 right-6 z-10 w-10 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-all max-md:bottom-32 opacity-80 hover:opacity-100"
             title={t('chat.scrollToBottom')}
           >
             <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -204,15 +208,60 @@ function ChatArea() {
           isStreaming={isStreaming}
           containerRef={containerRef}
         />
-      </div>
 
-      {/* 右侧上下文面板 */}
-      <ContextPanel
-        isOpen={panelOpen}
-        onToggle={() => setPanelOpen(!panelOpen)}
-        sessionFiles={sessionFiles}
-        sessionUsage={sessionUsage}
-      />
+        {/* 错误提示 */}
+        {displayError && (
+          <div className="absolute bottom-[140px] left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 z-20 pointer-events-none">
+            <div className="p-4 bg-red-50 dark:bg-red-900/50 backdrop-blur-xl border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3 shadow-lg pointer-events-auto">
+              <span className="text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5">
+                ⚠
+              </span>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm text-red-700 dark:text-red-300 block">
+                  {displayError}
+                </span>
+                <div className="flex items-center gap-2 mt-2">
+                  <button
+                    onClick={() => useBackendStore.getState().checkStatus()}
+                    className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
+                  >
+                    🔄 {t('common.retry')}
+                  </button>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(displayError)}
+                    className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
+                  >
+                    📋 {t('chat.copyMessage')}
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={handleDismissError}
+                className="text-red-400 hover:text-red-600 dark:hover:text-red-200 flex-shrink-0"
+                title={t('common.close')}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* AI 运行状态栏 */}
+        <StatusFloatBar />
+
+        {/* 语音字幕覆盖层 */}
+        <VoiceSubtitleOverlay
+          interimText={interimText}
+          finalText={finalText}
+          audioLevel={audioLevel}
+          status={subtitleStatus}
+          isDark={isDark}
+          position="bottom"
+        />
+
+        {/* 输入区域 */}
+        <ChatInput />
+      </div>
     </div>
   );
 }

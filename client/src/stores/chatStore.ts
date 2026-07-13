@@ -384,9 +384,9 @@ class ChronologicalBlockBuilder {
   }
 
   /** 添加状态块，自动过滤冗余/瞬态状态：
-   *  1. "🔧 Running tool: xxx" 中间态 → 直接丢弃，不产生 block
-   *  2. "📦 ✅ Tool xxx completed" 冗余完成态 → 丢弃（与 "✅ xxx completed" 重复）
-   *  3. "AI is thinking..." / "AI is analyzing your request..." 瞬态加载态 → 丢弃
+   *  1. "🔧 Running tool: xxx" 中间态 → 丢弃
+   *  2. "✅ Tool xxx completed" / "❌ Tool xxx failed" 冗余完成/失败态 → 丢弃（tool_call 块已展示状态）
+   *  3. "AI is thinking..." / "🎨 AI is generating..." 等瞬态加载态 → 丢弃
    *  4. 连续重复内容跳过
    */
   addStatus(status: string): void {
@@ -395,8 +395,21 @@ class ChronologicalBlockBuilder {
       return;
     }
 
-    // 丢弃冗余完成态 "📦 ✅ Tool xxx completed"
-    if (status.includes("📦") && status.includes("✅ Tool")) {
+    // 丢弃冗余完成/失败态 — tool_call 块头部已展示工具名和状态图标
+    if (status.startsWith("✅ Tool") || status.startsWith("❌ Tool")) {
+      return;
+    }
+
+    // 丢弃后端内部处理状态 — 这些是 SSE 协议消息，不是用户可见内容
+    const internalPatterns = [
+      "AI is thinking",
+      "AI is analyzing",
+      "AI is preparing",
+      "AI is waiting",
+      "🔍 AI is analyzing the image",
+      "🎨 AI is generating",
+    ];
+    if (internalPatterns.some((p) => status.startsWith(p))) {
       return;
     }
 
@@ -685,13 +698,21 @@ async function flushSaveBlocks(): Promise<void> {
 }
 
 /**
- * think 标签提取器：从 text 块中解析  thinking... response 标签内容并转换为 thinking 块。
+ * think 标签提取器：从 text 块中解析 <think>...</think> <response>...</response> 标签内容
  * 当后端未通过 __pyapp_type: 'thinking' 发送推理内容时作兜底。
- * 支持跨多个文本块的 think 标签（流式传输场景）。
+ * 支持跨多个文本块的 think/response 标签（流式传输场景）。
+ * 
+ * 标签规范：
+ *   <think>...</think>         → 内部推理，转为 thinking 块（用户可见但折叠）
+ *   <thinking>...</thinking>   → <think> 的别名变体
+ *   <response>...</response>   → 用户可见的最终回复内容，转为 text 块
+ *   标签外内容                  → 作为普通 text 块
  */
 function createThinkExtractor() {
   let thinkBuffer = "";
+  let responseBuffer = "";
   let inThink = false;
+  let inResponse = false;
 
   return {
     extract: function* (
@@ -707,39 +728,72 @@ function createThinkExtractor() {
       let output = "";
 
       while (remaining.length > 0) {
-        if (!inThink) {
-          const thinkStart = remaining.indexOf("<think>");
+        if (!inThink && !inResponse) {
+          // 检测 <think> 或 <thinking> 开始标签
+          const thinkMatch = remaining.match(/<(think|thinking)>/i);
+          // 检测 <response> 开始标签
+          const responseMatch = remaining.match(/<response>/i);
 
-          if (thinkStart === -1) {
+          const thinkStart = thinkMatch?.index ?? -1;
+          const responseStart = responseMatch?.index ?? -1;
+
+          // 两者都没找到 → 全部作为普通文本
+          if (thinkStart === -1 && responseStart === -1) {
             output += remaining;
             break;
           }
 
-          // 输出 think 前的文本
-          output += remaining.slice(0, thinkStart);
-          remaining = remaining.slice(thinkStart + 7);
-          inThink = true;
-          thinkBuffer = "";
+          // 找到更靠前的标签
+          if (thinkStart !== -1 && (thinkStart < responseStart || responseStart === -1)) {
+            output += remaining.slice(0, thinkStart);
+            // 跳过 <think> 或 <thinking>（7 或 9 字符）
+            const tagLen = remaining.slice(thinkStart, thinkStart + 9).toLowerCase().startsWith("<thinking") ? 10 : 7;
+            remaining = remaining.slice(thinkStart + tagLen);
+            inThink = true;
+            thinkBuffer = "";
+          } else {
+            output += remaining.slice(0, responseStart);
+            remaining = remaining.slice(responseStart + 10); // "<response>" = 10 chars
+            inResponse = true;
+            responseBuffer = "";
+          }
+          continue;
         }
 
         if (inThink) {
-          const thinkEnd = remaining.indexOf("</think>");
-          if (thinkEnd === -1) {
-            // think 标签未闭合，缓冲剩余内容
+          // 查找 </think> 或 </thinking> 结束标签
+          const endMatch = remaining.match(/<\/(think|thinking)>/i);
+          if (!endMatch) {
+            // 标签未闭合，缓冲剩余内容
             thinkBuffer += remaining;
             break;
           }
-
-          // think 标签闭合，输出缓冲内容
-          thinkBuffer += remaining.slice(0, thinkEnd);
+          thinkBuffer += remaining.slice(0, endMatch.index!);
           if (thinkBuffer) {
             yield { type: "thinking" as const, content: thinkBuffer };
           }
           thinkBuffer = "";
           inThink = false;
-          remaining = remaining.slice(thinkEnd + 8);
+          const tagLen = remaining.slice(endMatch.index!, endMatch.index! + 12).toLowerCase().startsWith("</thinking") ? 12 : 8;
+          remaining = remaining.slice(endMatch.index! + tagLen);
+          continue;
+        }
 
-          // 继续检查闭合后是否还有更多 think 标签
+        if (inResponse) {
+          // 查找 </response> 结束标签
+          const endIdx = remaining.indexOf("</response>");
+          if (endIdx === -1) {
+            // 标签未闭合，缓冲剩余内容
+            responseBuffer += remaining;
+            break;
+          }
+          responseBuffer += remaining.slice(0, endIdx);
+          if (responseBuffer) {
+            yield { type: "text" as const, content: responseBuffer };
+          }
+          responseBuffer = "";
+          inResponse = false;
+          remaining = remaining.slice(endIdx + 11); // "</response>" = 11 chars
           continue;
         }
       }
@@ -753,10 +807,17 @@ function createThinkExtractor() {
       void,
       unknown
     > {
+      // 未闭合的 think 标签 → 作为 thinking 输出
       if (inThink && thinkBuffer) {
         yield { type: "thinking" as const, content: thinkBuffer };
         inThink = false;
         thinkBuffer = "";
+      }
+      // 未闭合的 response 标签 → 作为 text 输出
+      if (inResponse && responseBuffer) {
+        yield { type: "text" as const, content: responseBuffer };
+        inResponse = false;
+        responseBuffer = "";
       }
     },
   };

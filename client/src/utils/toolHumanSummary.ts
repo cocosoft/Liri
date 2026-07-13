@@ -59,6 +59,8 @@ const TOOL_NAME_MAP: Record<string, string> = {
   image_analysis: "分析图片",
   image_svg_generate: "生成 SVG 图片",
   image_display: "预览图片",
+  video_display: "预览视频",
+  audio_play: "播放音频",
   music_generate: "生成音乐",
   video_generate: "生成视频",
   tts: "文字转语音",
@@ -173,6 +175,10 @@ export function getToolHumanSummary(toolCall: ToolCall): string {
       return formatSummary("正在生成 SVG", getArgStr(args, "prompt"));
     case "image_display":
       return formatSummary("正在预览图片", getArgStr(args, "images"));
+    case "video_display":
+      return formatSummary("正在预览视频", getArgStr(args, "videos"));
+    case "audio_play":
+      return formatSummary("正在播放音频", getArgStr(args, "audios"));
     case "music_generate":
       return formatSummary("正在生成音乐", getArgStr(args, "prompt"));
     case "video_generate":

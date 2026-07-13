@@ -33,11 +33,26 @@ const MEMORY_CONTEXT_RULES = `## 上下文保持规则
 
 ## 输出行为约束
 1. **语言统一**：始终使用与用户上一条消息相同的语言回答。
-2. **思考过程分离**：所有内部推理、计划、工具调用前的思考必须放在 \\\`\\\` 标签内（例如 \\\`让我分析一下...\\\`）。标签内的内容不会展示给用户。不要在最终回答中泄漏内部思考。
+2. **思考过程分离（强制标签格式）**：你的每次回复必须按以下格式组织：
+   \`\`\`
+   <think>
+   内部推理过程 - 工具调用计划、代码分析、文件查找。用户不可见。
+   </think>
+   <response>
+   给用户看的最终回答。禁止重复 think 中的规划步骤。
+   </response>
+   \`\`\`
+   **严格规则**：
+   - <think> 标签内：放所有推理、规划、文件查找过程、代码分析、步骤描述
+   - <response> 标签内：放最终用户可见的回答，简明扼要，禁止重复 think 中的规划描述
+   - **禁止**在 <response> 标签外输出任何内容
+   - **禁止**在 <response> 中泄漏"我先看看结构""让我分析一下"等内部规划语言
+   - 如果本轮不需要推理（如简单问候），可省略 <think> 直接输出 <response> 内容
 3. **承诺-落地**：当你向用户承诺"我会出报告/做分析/调用工具"时，必须在同一回复中真正完成该动作。仅描述"准备做"而未实际输出结果，视为违反此约束。
 4. **先分析再提问，区分开放式/封闭式问题**：使用 ask_user_question 工具前，必须先输出实质性分析/方案/计划让用户了解当前进展。禁止在未输出任何实质性内容的情况下直接调用 ask_user_question 向用户提问。选项中不应包含"继续"等暗示已有方案的模糊标签。**开放性问题（无法穷举选项的，如"你想做什么？""目标是什么？"）不要用 ask_user_question 工具，直接在正文中以自然语言提问即可。
 5. **失败透明**：当工具调用失败时，明确告诉用户失败原因和影响，不要默默切换方案继续。
-6. **直接行动，禁止反复确认**：用户给出任务后直接执行或回答，禁止问"要不要我继续？""你确认要执行吗？""需要我进一步分析吗？"等确认性问题，也禁止用 ask_user_question 工具以"是否继续推进"等形式变相确认。做完后直接输出结果即可。`;
+6. **直接行动，禁止反复确认**：用户给出任务后直接执行或回答，禁止问"要不要我继续？""你确认要执行吗？""需要我进一步分析吗？"等确认性问题，也禁止用 ask_user_question 工具以"是否继续推进"等形式变相确认。做完后直接输出结果即可。
+7. **任务隔离**：仅响应最新一条用户消息提出的任务。对话历史中较早的用户请求和工具调用已全部完成，**禁止**重新执行、延续或引用历史请求中的工具调用（如图片生成、文件分析等），除非最新用户消息明确要求。`;
 
 /** 图像工具链式操作指南 */
 const IMAGE_CHAIN_RULES = `## 图像工具链式操作
@@ -362,32 +377,76 @@ export async function assembleContextualSystemPrompt(
 }
 
 /**
- * 记录 LLM 响应的令牌用量到 TokenTracker
- * @param sessionId 会话 ID
- * @param usage LLM 响应中的 usage 对象
- * @param tokenTracker 令牌追踪器实例
+ * @deprecated 自 2026-07-13。ChatManager 已内联输入校验 + TokenBudget，此函数无调用方。
  */
 export function recordChatResponseUsage(
   sessionId: string,
-  usage: Record<string, number> | null | undefined,
-  tokenTracker: { recordUsage(...args: any[]): void } | null
+  usage: Record<string, number> | null | undefined
 ): void {
-  if (!tokenTracker || !usage) return;
+  if (!usage) return;
   const inputTokens = usage.prompt_tokens ?? usage.inputTokens ?? 0;
   const outputTokens = usage.completion_tokens ?? usage.outputTokens ?? 0;
   if (inputTokens === 0 && outputTokens === 0) return;
-  tokenTracker.recordUsage(sessionId, {
-    inputTokens,
-    outputTokens,
-    cacheReadInputTokens:
-      usage.prompt_cache_hit_tokens ??
-      usage.cache_read_input_tokens ??
-      usage.cacheReadInputTokens ??
-      0,
-    cacheCreationInputTokens:
-      usage.prompt_cache_miss_tokens ??
-      usage.cache_creation_input_tokens ??
-      usage.cacheCreationInputTokens ??
-      0,
-  });
+  // 仅做输入校验，实际追踪由 trackUsage() 完成（ChatManager.recordChatResponseUsage 中调用）
+}
+
+/**
+ * 内容标签兜底处理：当模型未按要求使用 <think>/<response> 标签时，
+ * 检测并补全标签结构，防止推理内容泄漏到用户可见回复中。
+ *
+ * 检测策略：
+ * 1. 已有 <think> 或 <response> 标签 → 不作处理
+ * 2. 无标签且内容以"规划语言"开头 → 尝试找到响应起点并分别包裹
+ * 3. 无标签且无规划特征 → 包裹在 <response> 中
+ *
+ * @param content 原始累积内容
+ * @returns 处理后的内容（可能被包裹在标签中）
+ */
+export function ensureThinkResponseTags(content: string): string {
+  if (!content?.trim()) return content;
+
+  // 已有标签 → 不处理
+  if (/<think>/i.test(content) || /<response>/i.test(content)) {
+    return content;
+  }
+
+  // 规划语言特征词（中英文混合）
+  const planningPatterns = [
+    /^(好的|OK|让我|我先|先看看|现在让我|我需要|我需要先|我来|I('ll| will)|Let me|First|Now let me)/,
+    /^(用户想要|用户想让|用户要求|The user (want|ask|need))/,
+  ];
+
+  const hasPlanningPrefix = planningPatterns.some((p) => p.test(content.trim()));
+
+  if (!hasPlanningPrefix) {
+    // 无规划特征 → 直接包裹为 <response>
+    return `<response>${content}</response>`;
+  }
+
+  // 有规划前缀 → 尝试找到响应正文的起点
+  // 常用分隔标记：markdown 标题、水平线、明确的"结论"段落
+  const responseMarkers = [
+    /\n(#{1,3}\s)/,         // markdown heading: ## 标题
+    /\n(---)/,               // 水平线
+    /\n(一句话结论|核心发现|总结|建议如下|报告|结果)\n/,  // 中文结论标记
+    /\n\*\*(结论|发现|建议|总结)\*\*/,  // 粗体标记
+  ];
+
+  let splitIdx = -1;
+  for (const marker of responseMarkers) {
+    const m = content.match(marker);
+    if (m?.index && m.index > 20) {  // 至少有一些内容在前
+      splitIdx = m.index;
+      break;
+    }
+  }
+
+  if (splitIdx > 0) {
+    const thinking = content.slice(0, splitIdx).trim();
+    const response = content.slice(splitIdx).trim();
+    return `<think>${thinking}</think>\n<response>${response}</response>`;
+  }
+
+  // 无法找到分隔点 → 整体包裹为 <response>（宁可漏过不可错杀）
+  return `<response>${content}</response>`;
 }

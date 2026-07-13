@@ -81,6 +81,14 @@ function ChatInput() {
   const wasShowingCommandsRef = useRef(false);
   const voiceBtnRef = useRef<VoiceInputHandle>(null);
 
+  /** textarea 自动扩展高度 */
+  const autoGrow = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "44px";
+    el.style.height = Math.min(el.scrollHeight, 200) + "px";
+  }, []);
+
   const { streamMessage, isSending, isStreaming, isUploading, clearMessages, messageQueue, stopMessage } = useChatStore();
   const sessionFiles = useChatStore((s) => s.sessionFiles);
   const { currentSession, createSession } = useSessionStore();
@@ -91,6 +99,10 @@ function ChatInput() {
 
   // 草稿持久化
   const { input, setInput, setInputWithDraft, clearDraft } = useChatDraft(currentSession?.id);
+
+  useEffect(() => {
+    autoGrow();
+  }, [input, autoGrow]);
 
   // 回复/编辑状态同步
   const [replyMessage, setReplyMessage] = useState<Message | null>(null);
@@ -661,12 +673,13 @@ function ChatInput() {
 
   return (
     <div
-      className={`p-4 border-t bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 transition-colors flex-shrink-0`}
+      className={`absolute bottom-0 left-0 right-0 px-3 py-3 bg-transparent transition-colors`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-3xl mx-auto">
+        <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg p-3">
         {/* 图片缩略图预览条 */}
         {imageItems.length > 0 && (
           <div className="mb-2 flex items-center gap-2 flex-wrap">
@@ -816,18 +829,17 @@ function ChatInput() {
               </label>
             </div>
           )}
-          {/* 输入框 + 发送按钮 */}
-          <div className="flex items-end gap-3 bg-gray-100 dark:bg-gray-700 rounded-2xl p-1.5 ring-1 ring-transparent focus-within:ring-blue-500/40 dark:focus-within:ring-blue-400/30 focus-within:shadow-md transition-all duration-200">
-            {/* 模式选择器 */}
-            <div className="relative shrink-0 self-center ml-1">
+          {/* 模式选择器 — 输入框上方小标签 */}
+          <div className="flex items-center mb-1">
+            <div className="relative">
               <button
                 onClick={() => setShowModeMenu(!showModeMenu)}
                 disabled={!currentSession}
-                className="flex items-center gap-1 px-2.5 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl hover:border-blue-300 dark:hover:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1 px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full hover:border-blue-300 dark:hover:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title={t('chat.selectMode')}
               >
                 <span>{CHAT_MODES.find((m) => m.key === chatMode)?.icon}</span>
-                <span className="text-gray-700 dark:text-gray-300 text-xs font-medium hidden sm:inline">
+                <span className="text-gray-500 dark:text-gray-400">
                   {t(CHAT_MODES.find((m) => m.key === chatMode)!.labelKey)}
                 </span>
                 <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -837,7 +849,7 @@ function ChatInput() {
               {showModeMenu && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowModeMenu(false)} />
-                  <div className="absolute bottom-full left-0 mb-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-20">
+                  <div className="absolute top-full left-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-20">
                     {CHAT_MODES.map((mode) => (
                       <button
                         key={mode.key}
@@ -859,7 +871,9 @@ function ChatInput() {
                 </>
               )}
             </div>
-
+          </div>
+          {/* 输入框 + 按钮 */}
+          <div className="flex items-end gap-2 bg-gray-100 dark:bg-gray-700 rounded-2xl p-1.5 ring-1 ring-transparent focus-within:ring-blue-500/40 dark:focus-within:ring-blue-400/30 focus-within:shadow-md transition-all duration-200">
             {/* 文本输入 */}
             <div className="flex-1 relative">
               <textarea
@@ -879,8 +893,8 @@ function ChatInput() {
                 }
                 disabled={!currentSession}
                 className="w-full px-3 py-2.5 bg-transparent resize-none focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:cursor-not-allowed"
-                rows={3}
-                style={{ minHeight: "80px", maxHeight: "200px" }}
+                rows={1}
+                style={{ minHeight: "44px", maxHeight: "200px" }}
               />
             </div>
 
@@ -904,7 +918,7 @@ function ChatInput() {
                   onClick={() => setShowUploadMenu(!showUploadMenu)}
                   aria-label={t('chat.uploadFile')}
                   disabled={!currentSession || isUploading}
-                  className="p-2.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title={t('chat.uploadFile')}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -945,7 +959,7 @@ function ChatInput() {
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                 aria-label={t('chat.emoji')}
                 disabled={!currentSession}
-                className="p-2.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title={t('chat.emoji')}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -967,7 +981,7 @@ function ChatInput() {
                 <button
                   onClick={() => stopMessage()}
                   aria-label={t('chat.stopGeneration')}
-                  className="px-5 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all font-medium shadow-md hover:shadow-lg flex items-center gap-2"
+                  className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all font-medium shadow-md hover:shadow-lg flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                     <rect x="4" y="4" width="16" height="16" rx="2" />
@@ -984,7 +998,7 @@ function ChatInput() {
                     isUploading ||
                     (!input.trim() && attachments.length === 0)
                   }
-                  className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-md hover:shadow-lg flex items-center gap-2"
+                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-md hover:shadow-lg flex items-center gap-2"
                 >
                   {isUploading ? (
                     <>
@@ -1022,6 +1036,7 @@ function ChatInput() {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

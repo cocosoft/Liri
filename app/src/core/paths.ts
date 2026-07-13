@@ -13,7 +13,15 @@
  * 不应在 config/ 或其他地方自行定义路径常量。
  */
 
-import { basename, join, resolve } from 'path';
+import {
+  basename,
+  join,
+  resolve,
+  normalize,
+  sep,
+  posix,
+  isAbsolute,
+} from 'path';
 import { existsSync, mkdirSync, readFileSync } from 'fs';
 import * as os from 'os';
 import { Logger } from '@modules/monitoring';
@@ -590,6 +598,171 @@ export function ensureDir(dirPath: string): void {
   if (!existsSync(dirPath)) {
     mkdirSync(dirPath, { recursive: true });
   }
+}
+
+// ─── 路径工具函数（对标 cc_code/cline-main）───────────
+
+/**
+ * 路径遍历检测 — 禁止 ../ 或 ..\ 模式
+ * 对标 BA_REF/cc_code backend/utils/path.ts:133-135
+ */
+export function containsPathTraversal(inputPath: string): boolean {
+  return /\.\.(?:\/|\\)/.test(inputPath);
+}
+
+/**
+ * null byte 安全检查 — 路径中不得含空字节
+ * 对标 BA_REF/cc_code backend/utils/path.ts:48
+ */
+export function containsNullByte(inputPath: string): boolean {
+  return inputPath.includes('\0');
+}
+
+/**
+ * 路径安全验证 — 拒绝危险路径（相对/根/Windows驱动器根/UNC/null byte/traversal）
+ * 对标 BA_REF/cc_code backend/memdir/paths.ts:109-150
+ */
+export function validatePathSafe(
+  inputPath: string,
+  options?: {
+    allowRelative?: boolean;
+    allowRoot?: boolean;
+  }
+): { valid: true; normalized: string } | { valid: false; reason: string } {
+  if (!inputPath || typeof inputPath !== 'string') {
+    return { valid: false, reason: '路径不能为空' };
+  }
+
+  if (containsNullByte(inputPath)) {
+    return { valid: false, reason: '路径包含非法空字节' };
+  }
+
+  if (containsPathTraversal(inputPath)) {
+    return { valid: false, reason: '路径包含非法遍历 (../)' };
+  }
+
+  const normalized = normalize(inputPath);
+
+  if (!options?.allowRelative && !isAbsolute(normalized)) {
+    return { valid: false, reason: '路径必须是绝对路径' };
+  }
+
+  if (!options?.allowRoot) {
+    // Windows 驱动器根（如 C:\）
+    if (/^[a-zA-Z]:\\$/.test(normalized)) {
+      return { valid: false, reason: '不允许使用驱动器根目录' };
+    }
+    // Unix 根
+    if (normalized === '/' || normalized === sep) {
+      return { valid: false, reason: '不允许使用系统根目录' };
+    }
+    // UNC 路径
+    if (normalized.startsWith('\\\\')) {
+      return { valid: false, reason: '不允许使用 UNC 路径' };
+    }
+  }
+
+  return { valid: true, normalized };
+}
+
+/**
+ * 展开 tilde 路径（~ 或 ~/path）
+ * 对标 BA_REF/cc_code backend/utils/path.ts:59-73
+ */
+export function expandTilde(inputPath: string): string {
+  if (!inputPath.startsWith('~')) return inputPath;
+
+  const homedir = os.homedir();
+  if (inputPath === '~') return homedir;
+
+  if (inputPath.startsWith('~' + sep) || inputPath.startsWith('~/')) {
+    return join(homedir, inputPath.slice(2));
+  }
+
+  // ~user 格式不支持，回退原值
+  return inputPath;
+}
+
+/**
+ * 跨平台路径比较 — Windows 大小写不敏感
+ * 对标 BA_REF/cc_code backend/utils/file.ts:560-583
+ * 对标 CJL_REF/cline-main src/utils/path.ts:55-80
+ */
+export function arePathsEqual(path1: string, path2: string): boolean {
+  if (!path1 || !path2) return path1 === path2;
+
+  const n1 = normalize(path1).replace(/[/\\]$/, '');
+  const n2 = normalize(path2).replace(/[/\\]$/, '');
+
+  if (process.platform === 'win32') {
+    return n1.toLowerCase() === n2.toLowerCase();
+  }
+
+  return n1 === n2;
+}
+
+/**
+ * 路径规范化（用于比较）— Windows 大小写不敏感 + 移除拖尾斜杠
+ * 对标 BA_REF/cc_code backend/utils/file.ts:560-568
+ */
+export function normalizePathForComparison(filePath: string): string {
+  let normalized = normalize(filePath);
+  if (process.platform === 'win32') {
+    normalized = normalized.toLowerCase();
+  }
+  // 移除拖尾斜杠
+  return normalized.replace(/[/\\]$/, '');
+}
+
+/**
+ * 转为 POSIX 风格路径（正斜杠），保留 Windows 长路径前缀
+ * 对标 CJL_REF/cline-main src/utils/path.ts:31-40
+ */
+export function toPosixPath(inputPath: string): string {
+  const prefix = inputPath.startsWith('\\\\?\\') ? '\\\\?\\' : '';
+  const clean = prefix ? inputPath.slice(4) : inputPath;
+  return prefix + clean.replace(/\\/g, '/');
+}
+
+/**
+ * 获取人类可读的显示路径
+ * 优先级：相对路径 > tilde 路径 > 绝对路径
+ * 对标 BA_REF/cc_code backend/utils/file.ts:155-166
+ */
+export function getDisplayPath(filePath: string, cwd?: string): string {
+  const absPath = resolve(filePath);
+  const currentDir = cwd ?? process.cwd();
+
+  // 在工作目录内 → 相对路径
+  const rel = posix.relative(posix.resolve(currentDir), toPosixPath(absPath));
+  if (rel && !rel.startsWith('..') && !isAbsolute(rel)) {
+    return rel;
+  }
+
+  // 在 home 目录内 → tilde 路径
+  const home = os.homedir();
+  const posixAbs = toPosixPath(absPath);
+  const posixHome = toPosixPath(home);
+  if (posixAbs.startsWith(posixHome + '/')) {
+    return '~' + posixAbs.slice(posixHome.length);
+  }
+  if (posixAbs === posixHome) return '~';
+
+  // fallback：绝对路径
+  return posixAbs;
+}
+
+/**
+ * 路径清洗 — 仅保留安全字符，用于缓存/项目目录名
+ * 对标 BA_REF/cc_code backend/utils/cachePaths.ts 的 sanitizePath
+ * 对标 BA_REF/agentscope-main _local_workspace.py:61-76 的 _sanitize_dir_name
+ */
+export function sanitizePath(input: string): string {
+  return input
+    .replace(/[/\\:*?"<>|]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 128);
 }
 
 /**

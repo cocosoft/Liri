@@ -27,6 +27,7 @@ vi.mock("../services/httpClient", () => ({
     delete: vi.fn().mockRejectedValue(new Error("Mocked: no backend")),
     patch: vi.fn().mockRejectedValue(new Error("Mocked: no backend")),
   },
+  setHttpTimeout: vi.fn((_ms: number) => 30000),
 }));
 
 // Mock fetch 确保 health check 不访问真实后端

@@ -1,0 +1,32 @@
+$repo = "E:\PYCODES\PY_APP"
+Set-Location $
+$weekAgo (Get-Date).Days(-7).ToString("yyyy-MM-ddTHH:ss")
+$now =Get-Date).ToString("yyyy-MM-ddTH:mm:ss")
+
+Write-H "=== WEEKLY COMMITS ==="
+commits = git --oneline --sinceweekAgo --until=$now --date=iso 2>$null
+Write-Host $commitsWrite-Host ""
+Writeost "=== TOTAL THIS WEEK ==="
+$ = git rev-list -- --since=$weekAgo --until=$now HEAD 2>$null
+-Host $count
+
+-Host ""
+Write-Host "=== TOTAL ALL TIME="
+$total = rev-list --count HEAD2>$null
+Write-Host $total
+
+Writeost ""
+Write-Host=== DIFF STATS (last 7 days)="
+$lastWeek = git log --=$weekAgooneline -1format="%H"2>$null
+if ($lastWeekSha) {
+    git diff --shortstat $lastWeekSha..HEAD2>$null
+ else {
+    Write-H "No commits before this"
+}
+
+Write-HostWrite-Host "===ED LOG (last 7 days) ==="
+ log --since=$weekAgountil=$now --format="%h|%ai|%an|%s" 2>$
+
+Write-Host ""
+-Host "=== AUTHOR STATS (last 7) ==="
+git --since=$weekAgo --until=$nowformat="%an"2>$null | Group-Object | Select-Object Count, | Sort-Object Count -Descending

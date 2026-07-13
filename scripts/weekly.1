@@ -1,0 +1,42 @@
+# Weekly Git Activity Report
+$repo = "E:\\CODES\PY_APP"
+Set-Locationrepo
+
+$until = (Get-Date).ToString("yyyy-MM")
+$since = (Get-Date).AddDays(-7ToString("yyyy-MM-ddWrite-Host "=== LIRI 周报 ==="
+Write-H "统计周期: $since ~ $until"
+Writeost ""
+
+# 总提交数
+$totalits = git rev-list --count HEAD2>$null
+Write-Host "总提交数 (历史累计): $totalCommits"
+
+# 本周提交
+$weekLog = git log --since=$since --until=$ --oneline 2>$null
+$Count = ($weekLog Measure-Object -).Lines
+Write-Host "本周提交数:weekCount"
+Write-H ""
+
+# 本周明细
+Write-Host "=== 本周提交 ==="
+git log --since=$since --until=$ --format="%h | %ai | %s" 2>$null
+-Host ""
+
+#变更统计
+Write-Host "=== 变更统计 ==="
+git diff --shortstat HEAD~$weekCount..HEAD 2>$nullWrite-Host ""
+
+ 贡献者
+Write-Host "=== 贡献者 ==="
+git shortlog -sn --since=$sinceuntil=$until 2null
+Write-Host ""
+
+# 源码统计
+Write-Host "=== 统计 ==="
+$Count = (Get-ChildItem -Path $repo -Recurse -File - "*.ts" -ErrorAction SilentlyContinueCount
+$tsxCount = (Get-ChildItem -Pathrepo -Recurse - -Filter "*.tsx" -ErrorAction SilContinue).Count
+$rsCount = (Get-ChildItem -Path $repoRecurse -File - "*.rs" -ErrorAction SilentlyContinue).Count
+$jsonCount =Get-ChildItem - $repo -Recurse -File -Filter "*." -ErrorAction SilContinue).Count
+$mdCount = (Get-Item -Path $repoRecurse -File - "*.md" -ErrorAction SilentlyContinue).
+$pyCount = (Get-ChildItem - $repo -RecurseFile -Filter "*." -ErrorAction SilContinue).Count
+Writeost "TS: $tsCount |X: $tsxCount | RS: $rs | JSON: $json | MD: $md | PY: $py"

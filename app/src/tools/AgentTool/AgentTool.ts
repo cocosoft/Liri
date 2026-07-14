@@ -115,6 +115,20 @@ const AGENT_PARAMS = [
     description: 'Absolute path to run the agent in',
     required: false,
   },
+  {
+    name: 'allowedTools',
+    type: 'string' as const,
+    description:
+      'Comma-separated tool names the sub-agent is allowed to use. If empty, all tools are available.',
+    required: false,
+  },
+  {
+    name: 'deniedTools',
+    type: 'string' as const,
+    description:
+      'Comma-separated tool names the sub-agent is denied from using.',
+    required: false,
+  },
 ];
 
 /**
@@ -369,14 +383,29 @@ export class AgentTool implements Tool {
   }
 
   /**
-   * 构建工具定义列表
+   * 构建工具定义列表（支持 allowedTools/deniedTools 过滤）
    */
-  private buildToolDefinitions(): Array<{
+  private buildToolDefinitions(
+    allowedTools?: string[],
+    deniedTools?: string[]
+  ): Array<{
     name: string;
     description: string;
     parameters: Record<string, unknown>;
   }> {
-    const tools = getAllTools();
+    let tools = getAllTools();
+
+    // 白名单过滤：只保留名称在列表中的工具
+    if (allowedTools && allowedTools.length > 0) {
+      const allowedSet = new Set(allowedTools.map((t) => t.toLowerCase()));
+      tools = tools.filter((t) => allowedSet.has(t.name.toLowerCase()));
+    }
+
+    // 黑名单过滤：排除名称在列表中的工具
+    if (deniedTools && deniedTools.length > 0) {
+      const deniedSet = new Set(deniedTools.map((t) => t.toLowerCase()));
+      tools = tools.filter((t) => !deniedSet.has(t.name.toLowerCase()));
+    }
 
     return tools.map((tool) => {
       const info = tool.getInfo();
@@ -423,7 +452,10 @@ export class AgentTool implements Tool {
       totalTokens: number;
     };
   }> {
-    const toolDefinitions = this.buildToolDefinitions();
+    const toolDefinitions = this.buildToolDefinitions(
+      input.allowedTools,
+      input.deniedTools
+    );
 
     const engineInput = {
       agentId,
@@ -495,7 +527,10 @@ export class AgentTool implements Tool {
       );
     }
 
-    const toolDefinitions = this.buildToolDefinitions().map((t) => ({
+    const toolDefinitions = this.buildToolDefinitions(
+      input.allowedTools,
+      input.deniedTools
+    ).map((t) => ({
       type: 'function' as const,
       function: {
         name: t.name,
@@ -573,6 +608,20 @@ export class AgentTool implements Tool {
       ? (FORK_SUBAGENT_TYPE as AgentType)
       : agentType;
     const isBackground = agentInput.run_in_background === true;
+
+    // Phase 3: 解析工具过滤（LLM 传递逗号分隔字符串，转为数组）
+    if (typeof agentInput.allowedTools === 'string') {
+      agentInput.allowedTools = (agentInput.allowedTools as string)
+        .split(',')
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+    }
+    if (typeof agentInput.deniedTools === 'string') {
+      agentInput.deniedTools = (agentInput.deniedTools as string)
+        .split(',')
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+    }
 
     if (!this.checkConcurrencyLimit()) {
       logger.warning('Agent execution rejected: concurrent limit reached');

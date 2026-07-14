@@ -122,6 +122,8 @@ export {
   createTAORLoop,
   MemoryCheckpointStorage,
 } from './TAORLoop.js';
+export { createChatManagerTAORDeps } from './ChatManagerTAORAdapter.js';
+export type { ChatManagerTAORContext } from './ChatManagerTAORAdapter.js';
 export { TAORPhase } from './types.js';
 export { FileCheckpointStorage } from './FileCheckpointStorage.js';
 export {

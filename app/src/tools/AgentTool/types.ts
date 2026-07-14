@@ -79,6 +79,10 @@ export interface AgentInput {
   isolation?: 'worktree';
   /** 并行子任务列表（非空时触发方案7并行执行） */
   tasks?: SubTask[];
+  /** Phase 3: 允许的工具名称列表（白名单）。为空或未设置时允许全部工具。 */
+  allowedTools?: string[];
+  /** Phase 3: 禁用的工具名称列表（黑名单）。优先级低于 allowedTools。 */
+  deniedTools?: string[];
 }
 
 /**

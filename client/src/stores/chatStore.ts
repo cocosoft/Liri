@@ -151,6 +151,8 @@ function addFilePathsFromBlocks(
   blocks: MessageBlock[],
   addFile: (file: FilePreview) => void,
 ): void {
+  const pendingResolves: Array<{ filePath: string }> = [];
+
   for (const block of blocks) {
     if (block.type === "tool_call" && block.toolCall) {
       const filePath = resolveFilePathFromResult(block.toolCall);
@@ -161,28 +163,49 @@ function addFilePathsFromBlocks(
           content: "",
           type: inferFileType(filePath),
         });
+        pendingResolves.push({ filePath });
+      }
+    }
+  }
 
-        // 异步解析为规范路径,避免 LLM 路径偏差
-        resolveFilePath(filePath).then((resolvedPath) => {
+  // 批量异步解析，一次性更新 store——避免每个文件的 resolve 回调各触发一次 setState 导致 N 次重渲染
+  if (pendingResolves.length > 0) {
+    Promise.all(
+      pendingResolves.map(({ filePath }) =>
+        resolveFilePath(filePath).then((resolvedPath) => ({ filePath, resolvedPath })),
+      ),
+    )
+      .then((results) => {
+        const store = useChatStore.getState();
+        const currentFiles = store.sessionFiles;
+        let changed = false;
+        const updated = [...currentFiles];
+
+        for (const { filePath, resolvedPath } of results) {
           if (resolvedPath && resolvedPath !== filePath) {
-            const store = useChatStore.getState();
-            const currentFiles = store.sessionFiles;
-            const idx = currentFiles.findIndex((f) => f.path === filePath);
+            const idx = updated.findIndex((f) => f.path === filePath);
             if (idx !== -1) {
-              const updated = [...currentFiles];
               updated[idx] = {
                 ...updated[idx],
                 path: resolvedPath,
                 name: extractFileName(resolvedPath),
               };
-              useChatStore.setState({ sessionFiles: updated });
+              changed = true;
             }
           }
-        }).catch((e) => {
-          handleClientError(e, { module: 'stores:chatStore', action: 'addFilePaths:resolvePath' }, 'warn');
-        });
-      }
-    }
+        }
+
+        if (changed) {
+          useChatStore.setState({ sessionFiles: updated });
+        }
+      })
+      .catch((e) => {
+        handleClientError(
+          e,
+          { module: "stores:chatStore", action: "addFilePaths:batchResolve" },
+          "warn",
+        );
+      });
   }
 }
 

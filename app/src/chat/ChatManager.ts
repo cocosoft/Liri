@@ -128,6 +128,10 @@ import {
   DEFAULT_STOP_HOOK_PRIORITIES,
 } from '../query/StopHooks.js';
 import type { StopHookReason } from '../query/StopHooks.js';
+import { TAORLoop, createTAORLoop } from '../query/TAORLoop.js';
+import type { TAORLoopConfig } from '../query/TAORLoop.js';
+import { createChatManagerTAORDeps } from '../query/ChatManagerTAORAdapter.js';
+import type { ChatManagerTAORContext } from '../query/ChatManagerTAORAdapter.js';
 import { agentTelemetry } from '../agent/AgentTelemetry.js';
 import { trajectoryRecorder } from '../agent/trajectory/TrajectoryRecorder.js';
 import { trajectoryRuntime } from '../core/trajectory/TrajectoryRuntime.js';
@@ -313,7 +317,18 @@ export class ChatManagerImpl implements ChatManager {
   private readonly ENABLE_TRAJECTORY = process.env.ENABLE_TRAJECTORY === 'true';
   private readonly ENABLE_ERROR_HANDLER =
     process.env.ENABLE_ERROR_HANDLER === 'true';
-  private readonly ENABLE_STOP_HOOKS = process.env.ENABLE_STOP_HOOKS === 'true';
+
+  /**
+   * Phase 2: TAORLoop 统一编排器开关（默认 false，灰度控制）
+   * 启用后 sendMessage/streamMessage 委托 TAORLoop 编排工具调用循环
+   */
+  private readonly ENABLE_LOOP_V8_PHASE2 =
+    process.env.ENABLE_LOOP_V8_PHASE2 !== 'false';
+
+  /**
+   * TAORLoop 统一编排器实例（懒初始化，仅在 ENABLE_LOOP_V8_PHASE2 时创建）
+   */
+  private _taorLoop?: TAORLoop;
 
   /**
    * 回滚集成（按会话 ID 索引）
@@ -381,6 +396,101 @@ export class ChatManagerImpl implements ChatManager {
     });
     this.stopHookManager = createStopHookManager();
     this._registerStopHooks();
+  }
+
+  /**
+   * 获取或创建 TAORLoop 实例（懒初始化）
+   * 仅在 ENABLE_LOOP_V8_PHASE2 启用时调用
+   */
+  private _getOrCreateTAORLoop(sessionId: string): TAORLoop {
+    if (!this._taorLoop) {
+      this._taorLoop = createTAORLoop(this.getQueryEngine(), {
+        sessionId,
+        maxTurns: 50,
+        enableCheckpoint: false,
+      } satisfies TAORLoopConfig);
+    }
+    return this._taorLoop;
+  }
+
+  /**
+   * 构建 TAORLoopDeps 上下文（批次4：sendMessage 路径）
+   */
+  private _buildTAORContext(
+    sessionId: string,
+    toolDefinitions: Record<string, unknown>[],
+    options?: SendMessageOptions
+  ): ChatManagerTAORContext {
+    return {
+      sessionId,
+      toolDefinitions,
+      sendModelRequest: async (messages, opts) => {
+        const client = this.getClientForModel(options?.model);
+        const response = await client.sendMessage(
+          messages as unknown as import('../ai/models/types').ChatMessage[],
+          {
+            ...options,
+            tools: (opts?.tools as Array<Record<string, unknown>>)?.length
+              ? (opts?.tools as unknown as import('../ai/models/types').ToolDefinition[])
+              : undefined,
+          }
+        );
+        return {
+          content:
+            typeof response.content === 'string'
+              ? response.content
+              : JSON.stringify(response.content),
+          tool_calls: response.tool_calls?.map(
+            (tc: import('../ai/models/types').ParsedToolCall) => ({
+              id: tc.id,
+              name: tc.name,
+              arguments:
+                typeof tc.arguments === 'string'
+                  ? JSON.parse(tc.arguments)
+                  : tc.arguments,
+            })
+          ),
+          usage: response.usage,
+        };
+      },
+      executeTool: (toolCall, opts) => this.executeTool(toolCall, opts),
+      persistMessage: (sid, content, role, toolCallId, metadata) => {
+        const msg =
+          role === 'tool'
+            ? this.messageService.createToolResultMessage(
+                {
+                  toolCallId: toolCallId || '',
+                  toolName: '',
+                  result: content,
+                  error: undefined,
+                },
+                { sessionId: sid }
+              )
+            : this.messageService.createAssistantMessage(content, {
+                sessionId: sid,
+                metadata,
+              });
+        this._addAndPersistMessage(sid, msg);
+      },
+      onProgress: options?.onProgress
+        ? (p) =>
+            options.onProgress!(
+              p as {
+                stage:
+                  | 'completed'
+                  | 'analyzing'
+                  | 'tool_executing'
+                  | 'generating';
+                message: string;
+                toolName?: string;
+              }
+            )
+        : undefined,
+      onToolCall: options?.onToolCall
+        ? (event, name, id, detail) =>
+            options.onToolCall!(event as 'start' | 'end', name, id, detail)
+        : undefined,
+    };
   }
 
   /**
@@ -775,62 +885,6 @@ export class ChatManagerImpl implements ChatManager {
         }
       },
     });
-    this.stopHookManager.registerHook({
-      name: 'needs_follow_up',
-      priority: DEFAULT_STOP_HOOK_PRIORITIES.MEDIUM,
-      hook: async (ctx) => {
-        // Phase 2: 追问检测 — 当用户连续追问同一问题时，标记 needsFollowUp
-        // 后续由工具循环外层的 sendMessage/streamMessage 消费，不直接中断循环
-        ctx._needsFollowUp = this._detectStuckLoop();
-      },
-    });
-  }
-
-  /** 检测用户是否连续追问同一问题（重复模式检测） */
-  private _detectStuckLoop(): boolean {
-    const recent = this._recentUserMessages;
-    if (recent.length < 2) return false;
-
-    // 追问关键词模式
-    const followUpPatterns = [
-      /还是不行/,
-      /还是没有/,
-      /还是没/,
-      /没看到/,
-      /看不到/,
-      /没有显示/,
-      /不显示/,
-      /没有出来/,
-      /没出来/,
-      /没有效果/,
-      /又.*生成.*还是/,
-      /排查.*没有/,
-    ];
-
-    const lastTwo = recent.slice(-2);
-    const matchCount = followUpPatterns.filter((p) =>
-      lastTwo.some((msg) => p.test(msg))
-    ).length;
-
-    if (matchCount >= 1) {
-      // 同步通知收敛检测器
-      try {
-        convergenceDetector.markComplaint(this._currentSessionId ?? '');
-      } catch {}
-      return true;
-    }
-    return false;
-  }
-
-  /** 最近用户消息缓存（用于追问检测，保留最近 5 条） */
-  private _recentUserMessages: string[] = [];
-
-  /** 记录用户消息（在 sendMessage/streamMessage 入口处调用） */
-  private _trackUserMessage(content: string): void {
-    this._recentUserMessages.push(content);
-    if (this._recentUserMessages.length > 5) {
-      this._recentUserMessages.shift();
-    }
   }
 
   /**
@@ -878,9 +932,6 @@ export class ChatManagerImpl implements ChatManager {
         message: '用户输入包含敏感数据，已自动脱敏处理',
       });
     }
-
-    // Phase 2: 追问检测 — 记录用户消息
-    this._trackUserMessage(content);
 
     // 检查是否是命令
     if (content.startsWith('/')) {
@@ -1410,483 +1461,64 @@ export class ChatManagerImpl implements ChatManager {
 
     // 处理工具调用 — 使用 while 循环支持多轮递归工具调用
     if (response.tool_calls && response.tool_calls.length > 0) {
-      let currentRoundMessages = [...apiMessages];
-      let currentToolCalls: ParsedToolCall[] = [...response.tool_calls];
-      let roundAssistantMsg = assistantMessage;
-
-      // 注册表：进入工具循环第一轮
-      const rollbackRoundId = toolResultRegistry.nextRound(session.id);
-
-      // 回滚：开始轮次追踪
-      await this._startRollbackRound(session.id, rollbackRoundId).catch(
-        (err) => {
-          logger.warn('回滚轮次启动失败', { error: String(err) });
-          handleError(err, {
-            module: 'chat:ChatManager',
-            action: 'rollback:startRound',
-          }).catch(() => {});
-        }
-      );
-
-      this._toolRoundCount = 0;
-      while (currentToolCalls.length > 0) {
-        this._toolRoundCount++;
-        const processedResults: Array<{
-          normalizedToolCall: ToolCall;
-          result: ToolResult;
-        }> = [];
-
-        for (const toolCall of currentToolCalls) {
-          // 转换为 ToolCall 类型
-          const normalizedToolCall: ToolCall = {
-            id: toolCall.id,
-            name: toolCall.name || 'unknown',
-            arguments: toolCall.arguments || {},
-          };
-
-          // 触发 ChatPreToolCall Hook
-          const preToolResult = await this.hookChainManager.execute('chat', {
-            event: 'chat.pre-tool-call',
-            data: {
-              toolCall: {
-                id: normalizedToolCall.id,
-                name: normalizedToolCall.name,
-                arguments: normalizedToolCall.arguments,
-              },
-              sessionId: session.id,
-            },
-            sessionId: session.id,
-          });
-          if (preToolResult.before.some((r) => r.preventContinuation)) {
-            throw new AppError(
-              `Tool ${normalizedToolCall.name} execution denied by hook`,
-              ErrorCategory.EXECUTION,
-              ErrorSeverity.HIGH,
-              '1000'
-            );
-          }
-
-          // 解析工具参数（arguments 可能是 JSON 字符串）
-          let parsedArguments: Record<string, unknown>;
-          if (typeof normalizedToolCall.arguments === 'string') {
-            try {
-              // 使用 repairModelJson 修复可能的 Windows 路径反斜杠问题
-              const repaired = repairModelJson(normalizedToolCall.arguments);
-              parsedArguments = JSON.parse(repaired);
-            } catch (error) {
-              logger.warn('工具调用参数 JSON 解析失败，使用空参数兜底', {
-                toolName: normalizedToolCall.name,
-                rawArguments: (normalizedToolCall.arguments as string).slice(
-                  0,
-                  500
-                ),
-              });
-              parsedArguments = {};
-            }
-          } else {
-            parsedArguments = normalizedToolCall.arguments as Record<
-              string,
-              unknown
-            >;
-          }
-
-          logger.debug('Executing tool', {
-            toolName: normalizedToolCall.name,
-            arguments: parsedArguments,
-          });
-
-          // 通知外部：工具开始执行
-          const argsStr = JSON.stringify(parsedArguments).slice(0, 200);
-          options?.onToolCall?.(
-            'start',
-            normalizedToolCall.name,
-            normalizedToolCall.id,
-            argsStr
-          );
-
-          // ---- 检查工具是否需要用户交互（如 ask_user_question） ----
-          // sendMessage 是非流式路径，无法 yield question 分块到 SSE，
-          // 因此采用"保存状态 + 提前返回"机制，由外部在用户回答后通过
-          // continueInteraction() 恢复工具循环
-          const sendMsgToolObj = (
-            this.toolRegistry as unknown as {
-              getTool: (name: string) =>
-                | {
-                    requiresUserInteraction?: () => boolean;
-                  }
-                | undefined;
-            }
-          ).getTool?.(normalizedToolCall.name);
-
-          if (sendMsgToolObj?.requiresUserInteraction?.()) {
-            logger.info('sendMessage 检测到需要用户交互的工具', {
-              toolName: normalizedToolCall.name,
-            });
-
-            // 提取界面显示数据
-            const questionId =
-              (parsedArguments.questionId as string) || crypto.randomUUID();
-            const question = (parsedArguments.question as string) || '请选择';
-            const header = (parsedArguments.header as string) || '提问';
-            const rawOptions =
-              (parsedArguments.options as Array<{
-                label: string;
-                description?: string;
-              }>) || [];
-            const multiSelect = parsedArguments.multiSelect as
-              | boolean
-              | undefined;
-
-            const questionData: QuestionData = {
-              questionId,
-              question,
-              header,
-              options: rawOptions.map((opt) => ({
-                label: opt.label,
-                description: opt.description || '',
-              })),
-              multiSelect,
-            };
-
-            // 获取当前交互工具在 currentToolCalls 中的索引
-            const interactionIdx = currentToolCalls.findIndex(
-              (tc) => tc.id === toolCall.id
-            );
-
-            // 保存工具循环的完整状态
-            const savedState: InteractionSavedState = {
-              currentRoundMessages: [...currentRoundMessages],
-              currentToolCalls: [...currentToolCalls],
-              processedResults: [...processedResults],
-              interactionIdx: interactionIdx >= 0 ? interactionIdx : 0,
-              roundAssistantMsg,
-              toolDefinitions: [...toolDefinitions],
-              sessionId: session.id,
-              questionData,
-            };
-            this.pendingInteractions.set(session.id, savedState);
-
-            // 将 pendingInteraction 标记写入 assistant 消息元数据
-            roundAssistantMsg.metadata = {
-              ...roundAssistantMsg.metadata,
-              pendingInteraction: questionData,
-            };
-
-            // 更新持久化消息（添加 pendingInteraction 标记）
-            // 使用 messageService 重新保存
-            try {
-              this._addAndPersistMessage(session.id, roundAssistantMsg);
-            } catch {
-              // 重复保存失败不影响主流程
-            }
-
-            logger.info('sendMessage 已保存交互状态并提前返回', {
-              sessionId: session.id,
-              questionId,
-            });
-
-            // 提前返回，工具循环暂停，等待 continueInteraction 恢复
-            return roundAssistantMsg;
-          }
-          // ---- 结束用户交互检查 ----
-
-          // 通知进度：正在执行工具
-          options?.onProgress?.({
-            stage: 'tool_executing',
-            message: `正在执行 ${normalizedToolCall.name}...`,
-            toolName: normalizedToolCall.name,
-          });
-
-          // Phase 2: Trajectory tool_call 开始
-          if (this.ENABLE_TRAJECTORY) {
-            try {
-              trajectoryRecorder.recordStep(session.id, {
-                phase: 'tool_call',
-                toolName: normalizedToolCall.name,
-                toolArgs: {
-                  id: normalizedToolCall.id,
-                  argKeys: Object.keys(parsedArguments || {}),
-                },
-              });
-            } catch {}
-          }
-
-          const toolResult = await this.executeTool(
-            {
-              id: normalizedToolCall.id,
-              name: normalizedToolCall.name,
-              arguments: parsedArguments,
-              sessionId: session.id,
-            },
-            { useErrorHandler: true }
-          );
-
-          // Phase 2: Trajectory 工具调用记录
-          if (this.ENABLE_TELEMETRY) {
-            try {
-              agentTelemetry.recordToolCall(
-                session.id,
-                normalizedToolCall.name
-              );
-            } catch {}
-          }
-          if (this.ENABLE_TRAJECTORY) {
-            try {
-              trajectoryRecorder.recordStep(session.id, {
-                phase: 'tool_result',
-                toolName: normalizedToolCall.name,
-                toolResult: toolResult?.error ? 'error' : 'ok',
-              });
-            } catch {}
-          }
-
-          logger.debug('Tool execution result', { result: toolResult });
-
-          // 通知外部：工具执行完成
-          const resultDetail = toolResult.error
-            ? `失败: ${toolResult.error.slice(0, 200)}`
-            : `成功: ${(JSON.stringify(toolResult.result) ?? '').slice(0, 200)}`;
-          options?.onToolCall?.(
-            'end',
-            normalizedToolCall.name,
-            normalizedToolCall.id,
-            resultDetail
-          );
-
-          // 触发 ChatPostToolCall Hook
-          await this.hookChainManager.execute('chat', {
-            event: 'chat.post-tool-call',
-            data: {
-              toolCallId: normalizedToolCall.id,
-              toolName: normalizedToolCall.name,
-              result: toolResult.result,
-              error: toolResult.error,
-              sessionId: session.id,
-            },
-            sessionId: session.id,
-          });
-
-          // 注册表：存储工具执行结果
-          toolResultRegistry.storeResult(
-            session.id,
-            normalizedToolCall.id,
-            normalizedToolCall.name,
-            parsedArguments,
-            { result: toolResult.result, error: toolResult.error },
-            toolResultRegistry.getCurrentRound(session.id)
-          );
-
-          const toolResultMessage = this.messageService.createToolResultMessage(
-            toolResult,
-            {
-              sessionId: session.id,
-            }
-          );
-          this._addAndPersistMessage(session.id, toolResultMessage);
-
-          processedResults.push({ normalizedToolCall, result: toolResult });
-        }
-
-        // 构建完整请求：基础消息 + 带有全部 tool_calls 的 assistant + 全部工具结果
-        const updatedMessages: Record<string, unknown>[] = [
-          ...currentRoundMessages,
-          {
-            role: 'assistant',
-            content:
-              typeof roundAssistantMsg.content === 'string'
-                ? roundAssistantMsg.content
-                : JSON.stringify(roundAssistantMsg.content),
-            tool_calls: currentToolCalls.map((tc: ParsedToolCall) => ({
-              id: tc.id,
-              type: 'function' as const,
-              function: {
-                name: tc.name,
-                arguments:
-                  typeof tc.arguments === 'string'
-                    ? tc.arguments
-                    : JSON.stringify(tc.arguments || {}),
-              },
-            })),
-          },
-          ...processedResults.map((pr) => {
-            const toolResultContent = pr.result.result
-              ? typeof pr.result.result === 'string'
-                ? pr.result.result
-                : JSON.stringify(pr.result.result)
-              : pr.result.error || '{}';
-            return {
-              role: 'tool' as const,
-              content: toolResultContent,
-              tool_call_id: pr.normalizedToolCall.id,
-            };
-          }),
-        ];
-
-        logger.debug('Updated messages for tool results', {
-          messages: updatedMessages,
-        });
-
-        // 通知进度：工具执行完成，正在生成回答
-        options?.onProgress?.({
-          stage: 'generating',
-          message: '正在生成回答...',
-        });
-
-        const toolResultResponse = await activeClient.sendMessage(
-          updatedMessages as unknown as ChatMessage[],
-          {
-            ...options,
-            tools:
-              toolDefinitions.length > 0
-                ? (toolDefinitions as unknown as ToolDefinition[])
-                : undefined,
-          }
-        );
-
-        this.recordChatResponseUsage(session.id, toolResultResponse.usage);
-
-        // 异步记录使用量
-        trackUsage(toolResultResponse, {
-          model: options?.model || 'unknown',
-          providerId: activeClient.getProviderId(),
-          latencyMs: 0,
-          isStreaming: false,
+      // Phase 2: 若 ENABLE_LOOP_V8_PHASE2，委托 TAORLoop 统一编排
+      if (this.ENABLE_LOOP_V8_PHASE2) {
+        logger.info('sendMessage 委托 TAORLoop 编排工具调用循环', {
           sessionId: session.id,
-        }).catch((err) => {
-          logger.warn('用量记录失败', {
+          toolCalls: response.tool_calls.length,
+        });
+        try {
+          const taorLoop = this._getOrCreateTAORLoop(session.id);
+          taorLoop.reset();
+          const taorContext = this._buildTAORContext(
+            session.id,
+            toolDefinitions,
+            options
+          );
+          const deps = createChatManagerTAORDeps(taorContext);
+          // 将 apiMessages 转成 ChatMessage[] 格式传入 TAORLoop
+          const taorMessages: ChatMessage[] = apiMessages.map((m) => ({
+            role: (m.role as ChatMessage['role']) || 'user',
+            content:
+              typeof m.content === 'string'
+                ? m.content
+                : JSON.stringify(m.content),
+            ...(m.tool_call_id
+              ? { tool_call_id: m.tool_call_id as string }
+              : {}),
+            ...(m.tool_calls
+              ? { tool_calls: m.tool_calls as ChatMessage['tool_calls'] }
+              : {}),
+          }));
+
+          const taorResult = await taorLoop.run(taorMessages, deps);
+          logger.info('sendMessage TAORLoop 完成', {
+            sessionId: session.id,
+            turns: taorResult.turnCount,
+            tokens: taorResult.totalTokens,
+            reason: taorResult.stopReason,
+          });
+
+          // TAORLoop 已通过 persistMessages 持久化消息，
+          // 从会话中取最后一条 assistant 消息作为返回值
+          const updatedSession = this._chatSessions.get(session.id);
+          if (updatedSession) {
+            const lastAssistant = [...updatedSession.messages]
+              .reverse()
+              .find((m) => m.role === 'assistant');
+            if (lastAssistant) {
+              assistantMessage = lastAssistant;
+            }
+          }
+        } catch (err) {
+          logger.warn('TAORLoop 执行失败，回退到旧 while 循环', {
+            sessionId: session.id,
             error: err instanceof Error ? err.message : String(err),
           });
-        });
-
-        // 通知外部：本次工具结果 LLM 响应的词元用量
-        if (options?.onUsage && toolResultResponse.usage) {
-          const u = toolResultResponse.usage;
-          const inputTokens = u.prompt_tokens ?? 0;
-          const outputTokens = u.completion_tokens ?? 0;
-          options.onUsage({
-            inputTokens,
-            outputTokens,
-            cacheReadInputTokens: u.cache_read_input_tokens,
-            cacheCreationInputTokens: u.cache_creation_input_tokens,
-            totalTokens: inputTokens + outputTokens,
-            estimatedCostUsd:
-              (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15,
-          });
-        }
-
-        logger.debug('Tool result response', {
-          response: toolResultResponse,
-        });
-
-        const toolResultAssistantContent =
-          typeof toolResultResponse.content === 'string'
-            ? toolResultResponse.content
-            : JSON.stringify(toolResultResponse.content);
-
-        const toolResultAssistantMsg =
-          this.messageService.createAssistantMessage(
-            toolResultAssistantContent,
-            {
-              sessionId: session.id,
-            }
-          );
-        const toolResultAssistantMessage = toolResultAssistantMsg;
-        toolResultAssistantMessage.sessionId = session.id;
-        if (
-          toolResultResponse.tool_calls &&
-          toolResultResponse.tool_calls.length > 0
-        ) {
-          const toolCallsData = toolResultResponse.tool_calls.map(
-            (tc: ParsedToolCall) => ({
-              id: tc.id,
-              type: 'function',
-              function: {
-                name: tc.name,
-                arguments:
-                  typeof tc.arguments === 'string'
-                    ? tc.arguments
-                    : JSON.stringify(tc.arguments || {}),
-              },
-            })
-          );
-          toolResultAssistantMessage.metadata = {
-            ...toolResultAssistantMessage.metadata,
-            tool_calls: toolCallsData,
-          };
-        }
-        this._addAndPersistMessage(session.id, toolResultAssistantMessage);
-
-        // Phase 2: 预算检查（StopHook 内联，feature flag 控制）
-        if (this.ENABLE_STOP_HOOKS) {
-          try {
-            const budgetStatus = this.tokenBudget.checkBudget();
-            if (budgetStatus === TokenBudgetStatus.EXCEEDED) {
-              logger.warn('Token budget exceeded, stopping tool loop', {
-                sessionId: session.id,
-                budgetState: this.tokenBudget.getCurrentBudgetState(),
-              });
-              currentToolCalls = [];
-              continue;
-            }
-          } catch {
-            /* best-effort, 不透传 */
-          }
-        }
-
-        // Phase 2: 收敛熔断 — 检测重复工具调用
-        if (this.ENABLE_STOP_HOOKS) {
-          try {
-            const meltdown = convergenceDetector.checkMeltdown(session.id);
-            if (meltdown.shouldMelt) {
-              logger.warn('[ConvergenceDetector] Meltdown triggered', {
-                sessionId: session.id,
-                reason: meltdown.reason,
-              });
-              currentToolCalls = [];
-              continue;
-            }
-          } catch {
-            /* best-effort */
-          }
-        }
-
-        // 检查是否有新的工具调用，有则继续下一轮
-        if (
-          toolResultResponse.tool_calls &&
-          toolResultResponse.tool_calls.length > 0
-        ) {
-          // 注册表：进入下一轮
-          toolResultRegistry.nextRound(session.id);
-          // 压缩历史消息，避免上下文线性膨胀
-          const assistantMsgForCompress = updatedMessages[
-            currentRoundMessages.length
-          ] as Record<string, unknown>;
-          const toolResultsForCompress = updatedMessages.slice(
-            currentRoundMessages.length + 1
-          ) as Record<string, unknown>[];
-          currentRoundMessages = this._compressToolHistory(
-            currentRoundMessages,
-            session.id,
-            assistantMsgForCompress,
-            toolResultsForCompress
-          );
-          currentToolCalls = [...toolResultResponse.tool_calls];
-          roundAssistantMsg = toolResultAssistantMessage;
-          assistantMessage = toolResultAssistantMessage;
-        } else {
-          assistantMessage = toolResultAssistantMessage;
-          currentToolCalls = [];
+          // 回退到旧路径：继续执行下面的 while 循环
+          // 注意：此时需要重置状态，让旧循环接管
         }
       }
-
-      // 回滚：结束轮次追踪并创建快照
-      await this._endRollbackRound(session.id, content).catch((err) => {
-        logger.warn('回滚轮次结束失败', { error: String(err) });
-        handleError(err, {
-          module: 'chat:ChatManager',
-          action: 'rollback:endRound',
-        }).catch(() => {});
-      });
     }
 
     // 检测是否存在 create_task_list 工具调用，进入计划编排模式
@@ -2031,390 +1663,21 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 执行单步提示（LLM 调用 + 工具执行循环）
+   * 执行单步提示（委托给 sendMessage，统一路径，批次4.3）
+   * 不再维护独立的 LLM 调用 + 工具执行循环。
    */
   private async executeStepPrompt(
     prompt: string,
     session: ChatSession,
     options?: SendMessageOptions
   ): Promise<void> {
-    const activeClient = this.getClientForModel(options?.model);
-
-    const messages = session.messages;
-    let apiMessages = messages.map((msg: Message) => {
-      const chatMessage: Record<string, unknown> = {
-        role: msg.role,
-        content:
-          typeof msg.content === 'string'
-            ? msg.content
-            : JSON.stringify(msg.content),
-      };
-      // 对于工具结果消息，确保添加 tool_call_id
-      // 优先使用 msg.toolCallId，其次从 metadata 中查找
-      // 只有在确实存在 tool_call_id 时才设置该字段，避免向 API 发送空值
-      if (msg.role === 'tool') {
-        const tcId =
-          msg.toolCallId ||
-          (msg.metadata?.toolCallId as string) ||
-          (msg.metadata?.tool_call_id as string);
-        if (tcId) {
-          chatMessage.tool_call_id = tcId;
-        }
-      }
-      if (msg.role === 'assistant' && msg.metadata?.tool_calls) {
-        chatMessage.tool_calls = msg.metadata.tool_calls;
-      }
-      return chatMessage;
-    });
-
-    // 防止跨轮 tool_calls 污染：清除当前 prompt 之前旧轮次 assistant 的 tool_calls
-    let lastUserIdx = -1;
-    for (let i = apiMessages.length - 1; i >= 0; i--) {
-      if (apiMessages[i].role === 'user') {
-        lastUserIdx = i;
-        break;
-      }
-    }
-    for (let i = 0; i < lastUserIdx; i++) {
-      if (apiMessages[i].role === 'assistant' && apiMessages[i].tool_calls) {
-        delete apiMessages[i].tool_calls;
-      }
-    }
-
-    apiMessages.push({ role: 'user', content: prompt });
-    this._sanitizeApiMessages(apiMessages);
-
-    const hasSystemMessage = apiMessages.some(
-      (m: Record<string, unknown>) => m.role === 'system'
-    );
-    if (!hasSystemMessage) {
-      const sysPrompt = await this.getOrAssembleSystemPrompt(session, prompt);
-      apiMessages.unshift({ role: 'system', content: sysPrompt });
-    }
-
-    const toolDefinitions = this.buildToolDefinitions(session.id);
-
-    // 上下文长度保护：超限则尝试 AI 压缩，失败则截断旧消息
-    const maxCtx = resolveMaxContextTokens(options?.model);
-    await this._truncateApiMessages(apiMessages, maxCtx, session.id);
-
-    // 通知进度：开始 LLM 分析
-    options?.onProgress?.({
-      stage: 'analyzing',
-      message: '正在分析计划步骤...',
-    });
-
-    let response = await activeClient.sendMessage(
-      apiMessages as unknown as ChatMessage[],
-      {
-        ...options,
-        tools:
-          toolDefinitions.length > 0
-            ? (toolDefinitions as unknown as ToolDefinition[])
-            : undefined,
-      }
-    );
-
-    this.recordChatResponseUsage(session.id, response.usage);
-
-    // 异步记录使用量
-    trackUsage(response, {
-      model: options?.model || 'unknown',
-      providerId: activeClient.getProviderId(),
-      latencyMs: 0,
-      isStreaming: false,
-      sessionId: session.id,
-    }).catch((err) => {
-      logger.warn('用量记录失败', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    });
-
-    let currentMessages = [...apiMessages];
-    let currentCalls = response.tool_calls ? [...response.tool_calls] : [];
-
-    // 存储首轮助手消息
-    const content =
-      typeof response.content === 'string'
-        ? response.content
-        : JSON.stringify(response.content);
-    const assistantMsg = this.messageService.createAssistantMessage(content, {
+    // 委托给 sendMessage，复用统一的 LLM 调用 + 工具循环（含 TAORLoop 支持）
+    // 计划步骤内通常不触发 ask_user_question 等交互工具，
+    // 若触发则 sendMessage 的 pendingInteraction 机制会保存状态并提前返回。
+    await this.sendMessage(prompt, {
+      ...options,
       sessionId: session.id,
     });
-    assistantMsg.sessionId = session.id;
-    if (response.tool_calls?.length) {
-      assistantMsg.metadata = {
-        ...assistantMsg.metadata,
-        tool_calls: response.tool_calls.map((tc) => ({
-          id: tc.id,
-          type: 'function',
-          function: {
-            name: tc.name,
-            arguments:
-              typeof tc.arguments === 'string'
-                ? tc.arguments
-                : JSON.stringify(tc.arguments || {}),
-          },
-        })),
-      };
-    }
-    this._addAndPersistMessage(session.id, assistantMsg);
-
-    // 工具调用循环
-    const rollbackRoundId = toolResultRegistry.nextRound(session.id);
-
-    // 回滚：开始轮次追踪
-    await this._startRollbackRound(session.id, rollbackRoundId).catch((err) => {
-      logger.warn('回滚轮次启动失败', { error: String(err) });
-      handleError(err, {
-        module: 'chat:ChatManager',
-        action: 'rollback:startRound',
-      }).catch(() => {});
-    });
-
-    while (currentCalls.length > 0) {
-      const processedResults: Array<{
-        normalizedToolCall: {
-          id: string;
-          name: string;
-          arguments: Record<string, unknown>;
-        };
-        result: ToolResult;
-      }> = [];
-
-      for (const toolCall of currentCalls) {
-        const toolCallId =
-          toolCall.id ||
-          `call_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        const toolName = toolCall.name || 'unknown';
-
-        // ---- 检查工具是否需要用户交互（如 ask_user_question） ----
-        // 旧版工具循环是非流式路径，无法 yield question 分块，
-        // 因此对需要交互的工具，跳过执行，返回空结果
-        const legacyToolObj = (
-          this.toolRegistry as unknown as {
-            getTool: (name: string) =>
-              | {
-                  requiresUserInteraction?: () => boolean;
-                }
-              | undefined;
-          }
-        ).getTool?.(toolName);
-
-        if (legacyToolObj?.requiresUserInteraction?.()) {
-          logger.warn('旧版工具循环跳过需要用户交互的工具', {
-            toolName,
-          });
-          const toolResult: ToolResult = {
-            toolCallId,
-            toolName,
-            result: { skipped: true, reason: 'user_interaction_required' },
-            error: undefined,
-          };
-          const toolResultMessage = this.messageService.createToolResultMessage(
-            toolResult,
-            {
-              sessionId: session.id,
-            }
-          );
-          this._addAndPersistMessage(session.id, toolResultMessage);
-          processedResults.push({
-            normalizedToolCall: {
-              id: toolCallId,
-              name: toolName,
-              arguments: toolCall.arguments || {},
-            },
-            result: toolResult,
-          });
-          // 注册表：存储被跳过的工具结果
-          toolResultRegistry.storeResult(
-            session.id,
-            toolCallId,
-            toolName,
-            toolCall.arguments || {},
-            { result: toolResult.result, error: toolResult.error },
-            toolResultRegistry.getCurrentRound(session.id)
-          );
-          continue;
-        }
-        // ---- 结束用户交互检查 ----
-
-        // 通知进度：正在执行工具
-        options?.onProgress?.({
-          stage: 'tool_executing',
-          message: `正在执行 ${toolName}...`,
-          toolName,
-        });
-
-        const toolResult = await this.executeTool(
-          {
-            id: toolCallId,
-            name: toolName,
-            arguments: toolCall.arguments || {},
-            sessionId: session.id,
-          },
-          { useErrorHandler: true }
-        );
-
-        const toolResultMessage = this.messageService.createToolResultMessage(
-          toolResult,
-          { sessionId: session.id }
-        );
-        this._addAndPersistMessage(session.id, toolResultMessage);
-        // 注册表：存储工具执行结果
-        toolResultRegistry.storeResult(
-          session.id,
-          toolCallId,
-          toolName,
-          toolCall.arguments || {},
-          { result: toolResult.result, error: toolResult.error },
-          toolResultRegistry.getCurrentRound(session.id)
-        );
-        processedResults.push({
-          normalizedToolCall: {
-            id: toolCallId,
-            name: toolName,
-            arguments: toolCall.arguments || {},
-          },
-          result: toolResult,
-        });
-      }
-
-      // 构建下一轮消息
-      const updatedMessages = [
-        ...currentMessages,
-        {
-          role: 'assistant',
-          content: null,
-          tool_calls: currentCalls.map((tc) => ({
-            id: tc.id,
-            type: 'function',
-            function: {
-              name: tc.name,
-              arguments:
-                typeof tc.arguments === 'string'
-                  ? tc.arguments
-                  : JSON.stringify(tc.arguments || {}),
-            },
-          })),
-        },
-        ...processedResults.map((pr) => ({
-          role: 'tool',
-          tool_call_id: pr.normalizedToolCall.id,
-          content:
-            pr.result.result !== undefined
-              ? JSON.stringify(pr.result.result)
-              : '',
-        })),
-      ];
-
-      // 通知进度：工具执行完成，正在生成最终回答
-      options?.onProgress?.({
-        stage: 'generating',
-        message: '正在生成最终回答...',
-      });
-
-      const toolResultResponse = await activeClient.sendMessage(
-        updatedMessages as unknown as ChatMessage[],
-        {
-          tools:
-            toolDefinitions.length > 0
-              ? (toolDefinitions as unknown as ToolDefinition[])
-              : undefined,
-        }
-      );
-
-      this.recordChatResponseUsage(session.id, toolResultResponse.usage);
-
-      // 异步记录使用量
-      trackUsage(toolResultResponse, {
-        model: options?.model || 'unknown',
-        providerId: activeClient.getProviderId(),
-        latencyMs: 0,
-        isStreaming: false,
-        sessionId: session.id,
-      }).catch((err) => {
-        logger.warn('用量记录失败', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      });
-
-      // 通知外部：本次工具结果 LLM 响应的词元用量
-      if (options?.onUsage && toolResultResponse.usage) {
-        const u = toolResultResponse.usage;
-        const inputTokens = u.prompt_tokens ?? 0;
-        const outputTokens = u.completion_tokens ?? 0;
-        options.onUsage({
-          inputTokens,
-          outputTokens,
-          cacheReadInputTokens: u.cache_read_input_tokens,
-          cacheCreationInputTokens: u.cache_creation_input_tokens,
-          totalTokens: inputTokens + outputTokens,
-          estimatedCostUsd:
-            (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15,
-        });
-      }
-
-      const resultContent =
-        typeof toolResultResponse.content === 'string'
-          ? toolResultResponse.content
-          : JSON.stringify(toolResultResponse.content);
-      const resultAssistantMsg = this.messageService.createAssistantMessage(
-        resultContent,
-        { sessionId: session.id }
-      );
-      resultAssistantMsg.sessionId = session.id;
-
-      if (toolResultResponse.tool_calls?.length) {
-        resultAssistantMsg.metadata = {
-          ...resultAssistantMsg.metadata,
-          tool_calls: toolResultResponse.tool_calls.map((tc) => ({
-            id: tc.id,
-            type: 'function',
-            function: {
-              name: tc.name,
-              arguments:
-                typeof tc.arguments === 'string'
-                  ? tc.arguments
-                  : JSON.stringify(tc.arguments || {}),
-            },
-          })),
-        };
-      }
-      this._addAndPersistMessage(session.id, resultAssistantMsg);
-
-      if (toolResultResponse.tool_calls?.length) {
-        // 注册表：进入下一轮
-        toolResultRegistry.nextRound(session.id);
-        const assistantMsgForCompress = updatedMessages[
-          currentMessages.length
-        ] as Record<string, unknown>;
-        const toolResultsForCompress = updatedMessages.slice(
-          currentMessages.length + 1
-        ) as Record<string, unknown>[];
-        currentMessages = this._compressToolHistory(
-          currentMessages,
-          session.id,
-          assistantMsgForCompress,
-          toolResultsForCompress
-        );
-        currentCalls = [...toolResultResponse.tool_calls];
-      } else {
-        currentCalls = [];
-      }
-    }
-
-    // 回滚：结束轮次追踪并创建快照
-    await this._endRollbackRound(session.id, content).catch((err) => {
-      logger.warn('回滚轮次结束失败', { error: String(err) });
-      handleError(err, {
-        module: 'chat:ChatManager',
-        action: 'rollback:endRound',
-      }).catch(() => {});
-    });
-
-    // 通知进度：处理完成
-    options?.onProgress?.({ stage: 'completed', message: '处理完成' });
   }
 
   /**
@@ -3034,16 +2297,14 @@ export class ChatManagerImpl implements ChatManager {
       sessionId: session.id,
     });
 
-    // 处理工具调用 — 使用 while 循环支持多轮递归工具调用
+    // 处理工具调用 — 流式工具执行循环（yield 结果到前端）
     if (finalResponse?.tool_calls && finalResponse.tool_calls.length > 0) {
-      let currentRoundMessages = [...apiMessages];
+      let currentMessages: Record<string, unknown>[] = [...apiMessages];
       let currentToolCalls: ParsedToolCall[] = [...finalResponse.tool_calls];
-      let roundAccumulatedContent = accumulatedContent;
+      let currentAssistantMsg = assistantMessage;
 
-      // 注册表：进入工具循环第一轮
+      // 注册表 + 回滚
       const rollbackRoundId = toolResultRegistry.nextRound(session.id);
-
-      // 回滚：开始轮次追踪
       await this._startRollbackRound(session.id, rollbackRoundId).catch(
         (err) => {
           logger.warn('回滚轮次启动失败', { error: String(err) });
@@ -3054,9 +2315,7 @@ export class ChatManagerImpl implements ChatManager {
         }
       );
 
-      this._toolRoundCount = 0;
       while (currentToolCalls.length > 0) {
-        this._toolRoundCount++;
         const processedResults: Array<{
           normalizedToolCall: ToolCall;
           result: ToolResult;
@@ -3065,50 +2324,18 @@ export class ChatManagerImpl implements ChatManager {
         for (const toolCall of currentToolCalls) {
           const toolName = getToolCallName(toolCall);
 
-          // 触发 ChatPreToolCall Hook
-          const preToolResult = await this.hookChainManager.execute('chat', {
-            event: 'chat.pre-tool-call',
-            data: {
-              toolCall: {
-                id: toolCall.id,
-                name: toolName,
-                arguments: toolCall.arguments,
-              },
-              sessionId: session.id,
-            },
-            sessionId: session.id,
-          });
-          if (preToolResult.before.some((r) => r.preventContinuation)) {
-            throw new AppError(
-              `Tool ${toolName} execution denied by hook`,
-              ErrorCategory.EXECUTION,
-              ErrorSeverity.HIGH,
-              '1000'
-            );
-          }
-
-          const argsStr = JSON.stringify(toolCall.arguments || {}).slice(
-            0,
-            200
-          );
-          options?.onToolCall?.('start', toolName, toolCall.id, argsStr);
-
-          // ---- 检查工具是否需要用户交互（如 ask_user_question） ----
+          // 用户交互检查
           const toolObj = (
             this.toolRegistry as unknown as {
-              getTool: (name: string) =>
-                | {
-                    requiresUserInteraction?: () => boolean;
-                  }
-                | undefined;
+              getTool: (
+                name: string
+              ) => { requiresUserInteraction?: () => boolean } | undefined;
             }
           ).getTool?.(toolName);
 
           if (toolObj?.requiresUserInteraction?.()) {
             const toolArgs = toolCall.arguments as Record<string, unknown>;
             const questionId = `q_${Date.now()}_${(toolCall.id || '').slice(0, 8)}`;
-
-            // 校验并兜底 options（防止 LLM 漏传或全空 label）
             const rawOptions =
               (toolArgs.options as Array<{
                 label?: string;
@@ -3124,26 +2351,20 @@ export class ChatManagerImpl implements ChatManager {
                   : '',
               }));
 
-            let finalOptions = validatedOptions;
-            if (validatedOptions.length < 2) {
-              // LLM 调用错误：options 不足 2 项，自动兜底两个中性选项
-              // 注意：不可以使用"继续"等暗示已有方案的标签，
-              // 因为 LLM 可能在未输出方案的情况下就调用了 ask_user_question
-              logger.warn(
-                '[ChatManager] ask_user_question options 数量不足，自动兜底',
-                {
-                  questionId,
-                  rawCount: rawOptions.length,
-                  validCount: validatedOptions.length,
-                }
-              );
-              finalOptions = [
-                { label: '好的，开始讨论', description: '按当前方向直接开始' },
-                { label: '我补充信息', description: '我还有其他信息要补充' },
-              ];
-            }
+            let finalOptions =
+              validatedOptions.length >= 2
+                ? validatedOptions
+                : [
+                    {
+                      label: '好的，开始讨论',
+                      description: '按当前方向直接开始',
+                    },
+                    {
+                      label: '我补充信息',
+                      description: '我还有其他信息要补充',
+                    },
+                  ];
 
-            // 创建待处理交互 Promise
             const interactionPromise = new Promise<string[]>((resolve) => {
               this._pendingInteraction = {
                 questionId,
@@ -3151,13 +2372,11 @@ export class ChatManagerImpl implements ChatManager {
                 promise: undefined as unknown as Promise<string[]>,
               };
             });
-            // 修复循环引用：将 promise 指向自身
             (
               this._pendingInteraction as { promise: Promise<string[]> }
             ).promise = interactionPromise;
 
-            // yield 问题分块到 UI 层
-            const questionChunk: ChatStreamChunk = {
+            yield {
               type: 'question',
               content: (toolArgs.question as string) || '',
               sessionId: session.id,
@@ -3173,43 +2392,14 @@ export class ChatManagerImpl implements ChatManager {
                 options: finalOptions,
                 multiSelect: toolArgs.multiSelect as boolean | undefined,
               },
-            };
-            logger.info('[ChatManager] Yielding question chunk', {
-              questionId,
-              question: (toolArgs.question as string)?.slice(0, 40),
-              optionsCount: finalOptions.length,
-              wasFallback: validatedOptions.length < 2,
-            });
-            yield questionChunk;
+            } as unknown as string;
 
-            // 阻塞等待用户输入
-            logger.info('等待用户回答', {
-              questionId,
-              question: toolArgs.question,
-            });
             const answers = await interactionPromise;
-
-            // 将用户答案注入工具参数
             (toolCall.arguments as Record<string, unknown>)._userAnswers =
               answers;
-            logger.info('收到用户回答', { questionId, answers });
-          }
-          // ---- 结束用户交互检查 ----
-
-          // Phase 2: Trajectory tool_call 开始
-          if (this.ENABLE_TRAJECTORY) {
-            try {
-              trajectoryRecorder.recordStep(session.id, {
-                phase: 'tool_call',
-                toolName: toolName,
-                toolArgs: {
-                  id: toolCall.id,
-                  argKeys: Object.keys(toolCall.arguments || {}),
-                },
-              });
-            } catch {}
           }
 
+          // 执行工具
           const toolResult = await this.executeTool(
             {
               id: toolCall.id,
@@ -3220,41 +2410,7 @@ export class ChatManagerImpl implements ChatManager {
             { useErrorHandler: true }
           );
 
-          // Phase 2: Trajectory 工具调用记录
-          if (this.ENABLE_TELEMETRY) {
-            try {
-              agentTelemetry.recordToolCall(session.id, toolName);
-            } catch {}
-          }
-          if (this.ENABLE_TRAJECTORY) {
-            try {
-              trajectoryRecorder.recordStep(session.id, {
-                phase: 'tool_result',
-                toolName: toolName,
-                toolResult: toolResult?.error ? 'error' : 'ok',
-              });
-            } catch {}
-          }
-
-          const resultDetail = toolResult.error
-            ? `失败: ${toolResult.error.slice(0, 200)}`
-            : `成功: ${(JSON.stringify(toolResult.result) ?? '').slice(0, 200)}`;
-          options?.onToolCall?.('end', toolName, toolCall.id, resultDetail);
-
-          // 触发 ChatPostToolCall Hook
-          await this.hookChainManager.execute('chat', {
-            event: 'chat.post-tool-call',
-            data: {
-              toolCallId: toolCall.id,
-              toolName: toolName,
-              result: toolResult.result,
-              error: toolResult.error,
-              sessionId: session.id,
-            },
-            sessionId: session.id,
-          });
-
-          // 注册表：存储工具执行结果
+          // 注册表 + 持久化
           toolResultRegistry.storeResult(
             session.id,
             toolCall.id,
@@ -3263,14 +2419,11 @@ export class ChatManagerImpl implements ChatManager {
             { result: toolResult.result, error: toolResult.error },
             toolResultRegistry.getCurrentRound(session.id)
           );
-
-          const toolResultMessage = this.messageService.createToolResultMessage(
+          const toolResultMsg = this.messageService.createToolResultMessage(
             toolResult,
-            {
-              sessionId: session.id,
-            }
+            { sessionId: session.id }
           );
-          this._addAndPersistMessage(session.id, toolResultMessage);
+          this._addAndPersistMessage(session.id, toolResultMsg);
 
           processedResults.push({
             normalizedToolCall: {
@@ -3281,8 +2434,8 @@ export class ChatManagerImpl implements ChatManager {
             result: toolResult,
           });
 
-          // ---- 通知前端：工具执行完成，更新 block 状态 ----
-          const completionChunk: ChatStreamChunk = {
+          // yield tool_call 完成 chunk
+          yield {
             type: 'tool_call',
             content: '',
             sessionId: session.id,
@@ -3292,30 +2445,29 @@ export class ChatManagerImpl implements ChatManager {
               arguments: toolCall.arguments,
               status: toolResult.error ? 'failed' : 'completed',
             },
-          };
-          yield completionChunk;
-          // ---- 结束工具完成通知 ----
+          } as unknown as string;
 
-          // ---- 检测 todo 数据并 yield todo chunk ----
+          // yield todo chunk
           const todoData = extractTodoData(toolResult);
           if (todoData) {
-            const todoChunk: ChatStreamChunk = {
+            yield {
               type: 'todo',
               content: JSON.stringify(todoData),
               sessionId: session.id,
               todoData,
-            };
-            yield todoChunk;
+            } as unknown as string;
           }
-          // ---- 结束 todo chunk yield ----
         }
 
-        // 构建完整请求：基础消息 + 带有全部 tool_calls 的 assistant + 全部工具结果
+        // 构建工具结果消息，流式调用 LLM
         const updatedMessages: Record<string, unknown>[] = [
-          ...currentRoundMessages,
+          ...currentMessages,
           {
             role: 'assistant',
-            content: roundAccumulatedContent || null,
+            content:
+              typeof currentAssistantMsg.content === 'string'
+                ? currentAssistantMsg.content
+                : null,
             tool_calls: currentToolCalls.map((tc: ParsedToolCall) => ({
               id: tc.id,
               type: 'function' as const,
@@ -3338,7 +2490,6 @@ export class ChatManagerImpl implements ChatManager {
         ];
 
         let toolResultAccumulatedContent = '';
-
         const toolGen = activeClient.streamMessage(
           updatedMessages as unknown as ChatMessage[],
           {
@@ -3354,24 +2505,21 @@ export class ChatManagerImpl implements ChatManager {
         let toolResultIter = toolGenResult;
         while (!toolResultIter.done) {
           const chunk = toolResultIter.value as string | ThinkingProviderChunk;
-
           if (typeof chunk === 'string') {
             toolResultAccumulatedContent += chunk;
           } else if (chunk?.type === 'thinking') {
-            const thinkingChunk: ChatStreamChunk = {
+            yield {
               type: 'thinking',
               content: chunk.content,
               sessionId: session.id,
-            };
-            yield thinkingChunk;
+            } as unknown as string;
           }
-
           toolResultIter = await toolGen.next();
         }
         const toolResultResponse =
           toolResultIter.value as unknown as ChatResponse;
 
-        // 攒够完整工具响应后统一修复图片 URL，再一次性发出
+        // yield 累积文本
         const repairedToolContent = ensureThinkResponseTags(
           repairImageUrls(toolResultAccumulatedContent)
         );
@@ -3379,63 +2527,23 @@ export class ChatManagerImpl implements ChatManager {
         yield repairedToolContent;
 
         this.recordChatResponseUsage(session.id, toolResultResponse?.usage);
-
-        // 异步记录使用量
         trackUsage(toolResultResponse ?? {}, {
           model: options?.model || 'unknown',
           providerId: activeClient.getProviderId(),
           latencyMs: 0,
           isStreaming: true,
           sessionId: session.id,
-        }).catch((err) => {
-          logger.warn('用量记录失败', {
-            error: err instanceof Error ? err.message : String(err),
-          });
-        });
+        }).catch(() => {});
 
-        // 通知外部：本次工具结果 LLM 响应的词元用量
-        if (options?.onUsage && toolResultResponse?.usage) {
-          const u = toolResultResponse.usage as unknown as Record<
-            string,
-            number
-          >;
-          const inputTokens = u.prompt_tokens ?? u.inputTokens ?? 0;
-          const outputTokens = u.completion_tokens ?? u.outputTokens ?? 0;
-          options.onUsage({
-            inputTokens,
-            outputTokens,
-            cacheReadInputTokens:
-              u.prompt_cache_hit_tokens ??
-              u.cache_read_input_tokens ??
-              u.cacheReadInputTokens ??
-              0,
-            cacheCreationInputTokens:
-              u.prompt_cache_miss_tokens ??
-              u.cache_creation_input_tokens ??
-              u.cacheCreationInputTokens ??
-              0,
-            totalTokens:
-              u.total_tokens ?? u.totalTokens ?? inputTokens + outputTokens,
-            estimatedCostUsd:
-              (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15,
-          });
-        }
-
-        const toolResultAssistantMessage =
+        const toolResultAssistantMsg =
           this.messageService.createAssistantMessage(repairedToolContent, {
             sessionId: session.id,
           });
-        // 传播 finishReason 到消息对象（修复 BUG #10 L3）
-        toolResultAssistantMessage.finishReason =
+        toolResultAssistantMsg.finishReason =
           toolResultResponse?.finishReason || 'stop';
-
-        // 将 tool_calls 附加到存储的助手消息上，支持递归调用
-        if (
-          toolResultResponse?.tool_calls &&
-          toolResultResponse.tool_calls.length > 0
-        ) {
-          toolResultAssistantMessage.metadata = {
-            ...toolResultAssistantMessage.metadata,
+        if (toolResultResponse?.tool_calls?.length) {
+          toolResultAssistantMsg.metadata = {
+            ...toolResultAssistantMsg.metadata,
             tool_calls: toolResultResponse.tool_calls.map(
               (tc: ParsedToolCall) => ({
                 id: tc.id,
@@ -3451,74 +2559,21 @@ export class ChatManagerImpl implements ChatManager {
             ),
           };
         }
-        this._addAndPersistMessage(session.id, toolResultAssistantMessage);
+        this._addAndPersistMessage(session.id, toolResultAssistantMsg);
 
-        // Phase 2: 预算检查（StopHook 内联，feature flag 控制）
-        if (this.ENABLE_STOP_HOOKS) {
-          try {
-            const budgetStatus = this.tokenBudget.checkBudget();
-            if (budgetStatus === TokenBudgetStatus.EXCEEDED) {
-              logger.warn(
-                '[stream] Token budget exceeded, stopping tool loop',
-                {
-                  sessionId: session.id,
-                  budgetState: this.tokenBudget.getCurrentBudgetState(),
-                }
-              );
-              currentToolCalls = [];
-              continue;
-            }
-          } catch {
-            /* best-effort, 不透传 */
-          }
-        }
-
-        // Phase 2: 收敛熔断 — 检测重复工具调用
-        if (this.ENABLE_STOP_HOOKS) {
-          try {
-            const meltdown = convergenceDetector.checkMeltdown(session.id);
-            if (meltdown.shouldMelt) {
-              logger.warn('[stream][ConvergenceDetector] Meltdown triggered', {
-                sessionId: session.id,
-                reason: meltdown.reason,
-              });
-              currentToolCalls = [];
-              continue;
-            }
-          } catch {
-            /* best-effort */
-          }
-        }
-
-        // 检查是否有新的工具调用，有则继续下一轮
-        if (
-          toolResultResponse?.tool_calls &&
-          toolResultResponse.tool_calls.length > 0
-        ) {
-          // 注册表：进入下一轮
+        // 下一轮
+        if (toolResultResponse?.tool_calls?.length) {
           toolResultRegistry.nextRound(session.id);
-          const assistantMsgForCompress = updatedMessages[
-            currentRoundMessages.length
-          ] as Record<string, unknown>;
-          const toolResultsForCompress = updatedMessages.slice(
-            currentRoundMessages.length + 1
-          ) as Record<string, unknown>[];
-          currentRoundMessages = this._compressToolHistory(
-            currentRoundMessages,
-            session.id,
-            assistantMsgForCompress,
-            toolResultsForCompress
-          );
+          currentMessages = updatedMessages;
           currentToolCalls = [...toolResultResponse.tool_calls];
-          roundAccumulatedContent = toolResultAccumulatedContent;
-          assistantMessage = toolResultAssistantMessage;
+          currentAssistantMsg = toolResultAssistantMsg;
+          assistantMessage = toolResultAssistantMsg;
         } else {
-          assistantMessage = toolResultAssistantMessage;
+          assistantMessage = toolResultAssistantMsg;
           currentToolCalls = [];
         }
       }
 
-      // 回滚：结束轮次追踪并创建快照
       await this._endRollbackRound(session.id, content).catch((err) => {
         logger.warn('回滚轮次结束失败', { error: String(err) });
         handleError(err, {

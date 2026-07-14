@@ -83,7 +83,7 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
     toolCall.name === "audio_play"
   );
   const prevStreaming = useRef(isStreaming);
-  const { readFileToPreview } = useChatStore();
+  const readFileToPreview = useChatStore((s) => s.readFileToPreview);
 
   useEffect(() => {
     const wasStreaming = prevStreaming.current;

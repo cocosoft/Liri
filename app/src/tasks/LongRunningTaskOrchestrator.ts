@@ -29,6 +29,8 @@ import {
   formatReviewSummary,
 } from './PlanReview';
 import type { PlanReview, ReviewDecision } from './PlanReview';
+import { TAORLoop } from '../query/TAORLoop.js';
+import type { TAORLoopDeps } from '../query/TAORLoop.js';
 
 const logger = new Logger({ module: 'tasks:longRunning' });
 
@@ -108,6 +110,10 @@ export class LongRunningTaskOrchestrator {
   private auditReport: AuditReport | null = null;
   private stepDurations: Map<string, { startMs: number; endMs?: number }> =
     new Map();
+  /**
+   * Phase 2: TAORLoop 统一编排器（ENABLE_LOOP_V8_PHASE2 时注入）
+   */
+  private taorLoop?: TAORLoop;
 
   constructor(taskId: string, executor?: ExecutorFn) {
     this.taskId = taskId;
@@ -146,6 +152,13 @@ export class LongRunningTaskOrchestrator {
 
   getIsolation() {
     return this.isolation;
+  }
+
+  /**
+   * Phase 2: 注入 TAORLoop 实例（启用统一编排）
+   */
+  setTAORLoop(loop: TAORLoop): void {
+    this.taorLoop = loop;
   }
 
   // ─── Phase 1: PLAN ──────────────────────────────────
@@ -259,6 +272,56 @@ export class LongRunningTaskOrchestrator {
       .filter(Boolean)
       .join('\n\n');
 
+    // Phase 2: 委托 TAORLoop 编排（如果已注入且 ENABLE_LOOP_V8_PHASE2 启用）
+    if (this.taorLoop && process.env.ENABLE_LOOP_V8_PHASE2 === 'true') {
+      try {
+        const isolation = this.isolation;
+        const executor = this.executor;
+        (this.taorLoop as any).config.sessionId = this.taskId;
+
+        const deps = {
+          callModel: async function* (msgs: any[], signal: AbortSignal) {
+            const lastMsg = (msgs[msgs.length - 1]?.content as string) ?? '';
+            const result = await executor({
+              systemPrompt: EXECUTOR_ROLE.systemPrompt,
+              userPrompt: execPrompt + '\n\n' + lastMsg,
+              tools: computeToolNames(EXECUTOR_ROLE.toolsets),
+              isolation,
+            });
+            yield { type: 'text', content: result };
+            yield { type: 'done' };
+          },
+          executeTools: async () => [] as any[],
+          persistMessages: async () => {},
+        } as unknown as TAORLoopDeps;
+
+        const messages: any[] = [{ role: 'user', content: execPrompt }];
+        const result = await this.taorLoop.run(messages, deps);
+
+        taskOrchestrator.markStepCompleted(
+          step.id,
+          `[TAORLoop] turns=${result.turnCount} tokens=${result.totalTokens}`
+        );
+        const log = (this.taorLoop as any).getLastRunLog?.();
+        logger.info('PDCA step completed via TAORLoop', {
+          stepId: step.id,
+          taorResult: log,
+        });
+        const dur = this.stepDurations.get(step.id);
+        if (dur) dur.endMs = Date.now();
+        return;
+      } catch (e) {
+        logger.warn(
+          'TAORLoop delegation failed for step, falling back to direct executor',
+          {
+            stepId: step.id,
+            error: String(e),
+          }
+        );
+      }
+    }
+
+    // 默认路径：直接调用 executor
     try {
       const result = await this.executor({
         systemPrompt: EXECUTOR_ROLE.systemPrompt,

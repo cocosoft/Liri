@@ -19,154 +19,175 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import type http from 'http';
-import type { HandlerCtx } from './handler-utils';
-import { createChatManager } from '@modules/chat/ChatManager';
-import { handleError } from '@modules/error';
+/**
+ * Checkpoint HTTP handlers — Phase 4
+ *
+ * 暴露 Checkpoint 查询和恢复的 HTTP 端点。
+ * 由 TAORLoop 的 FileCheckpointStorage 提供底层支持。
+ */
 
-// ========== Checkpoint Handlers ==========
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { TAORLoop } from '../../../query/TAORLoop.js';
 
-export async function handleCreateCheckpoint(
-  ctx: HandlerCtx,
-  req: http.IncomingMessage,
-  res: http.ServerResponse
-): Promise<void> {
-  try {
-    const body = await ctx.readRequestBody(req);
-    const { sessionId, label } = JSON.parse(body);
-    const chatManager = createChatManager();
-    const cpId = await chatManager.createCheckpoint(sessionId, label);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ id: cpId, sessionId, label }));
-  } catch (err) {
-    await handleError(err, { module: 'infra:http', action: 'handler_error' });
-    if (!res.headersSent) {
-      try {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: { message: 'Internal server error' } })
-        );
-      } catch {} /* res可能已结束, 忽略 */
-    }
-  }
+/** 活跃的 TAORLoop 实例注册表（由 ChatManager 和 PDCA 注册） */
+const activeLoops = new Map<string, TAORLoop>();
+
+/**
+ * 注册 TAORLoop 实例
+ */
+export function registerTAORLoop(sessionId: string, loop: TAORLoop): void {
+  activeLoops.set(sessionId, loop);
 }
 
 /**
- * 列出检查点 GET /v1/checkpoints?sessionId=...
+ * 注销 TAORLoop 实例
+ */
+export function unregisterTAORLoop(sessionId: string): void {
+  activeLoops.delete(sessionId);
+}
+
+/** JSON 响应辅助 */
+function sendJson(res: ServerResponse, data: unknown, status = 200): void {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(data));
+}
+
+/** 解析 URL 路径参数 */
+function parsePathParams(
+  url: string,
+  pattern: string
+): Record<string, string> | null {
+  const urlParts = url.split('/').filter(Boolean);
+  const patternParts = pattern.split('/').filter(Boolean);
+  if (urlParts.length !== patternParts.length) return null;
+
+  const params: Record<string, string> = {};
+  for (let i = 0; i < patternParts.length; i++) {
+    if (patternParts[i].startsWith(':')) {
+      params[patternParts[i].slice(1)] = urlParts[i];
+    } else if (urlParts[i] !== patternParts[i]) {
+      return null;
+    }
+  }
+  return params;
+}
+
+/**
+ * GET /v1/sessions/:id/checkpoints
+ * 获取会话的所有检查点
  */
 export async function handleListCheckpoints(
-  ctx: HandlerCtx,
-  req: http.IncomingMessage,
-  res: http.ServerResponse
+  req: IncomingMessage,
+  res: ServerResponse
 ): Promise<void> {
-  try {
-    const urlObj = new URL(req.url!, `http://${req.headers.host}`);
-    const sessionId = urlObj.searchParams.get('sessionId') || '';
-    const chatManager = createChatManager();
-    const checkpoints = await chatManager.listCheckpoints(sessionId);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(checkpoints));
-  } catch (err) {
-    await handleError(err, { module: 'infra:http', action: 'handler_error' });
-    if (!res.headersSent) {
-      try {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: { message: 'Internal server error' } })
-        );
-      } catch {} /* res可能已结束, 忽略 */
-    }
+  const params = parsePathParams(req.url ?? '', 'v1/sessions/:id/checkpoints');
+  if (!params) {
+    sendJson(res, { error: 'Invalid path' }, 400);
+    return;
   }
-}
 
-/**
- * 获取检查点详情 GET /v1/checkpoints/:id
- */
-export async function handleGetCheckpoint(
-  ctx: HandlerCtx,
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
-  cpId: string
-): Promise<void> {
   try {
-    const chatManager = createChatManager();
-    const allCheckpoints = await chatManager.listCheckpoints('');
-    let checkpoint = allCheckpoints.find((cp) => cp.id === cpId);
-    if (!checkpoint) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cp = await (chatManager as any).getCheckpoint?.(cpId);
-      if (cp) checkpoint = cp;
-    }
-    if (!checkpoint) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Checkpoint not found' } }));
+    const loop = activeLoops.get(params.id);
+    if (!loop) {
+      sendJson(res, { checkpoints: [] });
       return;
     }
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(checkpoint));
-  } catch (err) {
-    await handleError(err, { module: 'infra:http', action: 'handler_error' });
-    if (!res.headersSent) {
-      try {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: { message: 'Internal server error' } })
-        );
-      } catch {} /* res可能已结束, 忽略 */
-    }
+
+    const checkpoints = await loop.getCheckpointsForSession();
+    sendJson(res, { checkpoints: checkpoints ?? [] });
+  } catch (e) {
+    sendJson(res, { error: String(e) }, 500);
   }
 }
 
 /**
- * 回滚到检查点 POST /v1/checkpoints/:id/rollback
+ * POST /v1/sessions/:id/checkpoints/:checkpointId/resume
+ * 从检查点恢复
  */
-export async function handleRollbackCheckpoint(
-  ctx: HandlerCtx,
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
-  cpId: string
+export async function handleResumeCheckpoint(
+  req: IncomingMessage,
+  res: ServerResponse
 ): Promise<void> {
+  const params = parsePathParams(
+    req.url ?? '',
+    'v1/sessions/:id/checkpoints/:checkpointId/resume'
+  );
+  if (!params) {
+    sendJson(res, { error: 'Invalid path' }, 400);
+    return;
+  }
+
   try {
-    const chatManager = createChatManager();
-    await chatManager.rollbackToCheckpoint(cpId);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, checkpointId: cpId }));
-  } catch (err) {
-    await handleError(err, { module: 'infra:http', action: 'handler_error' });
-    if (!res.headersSent) {
-      try {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: { message: 'Internal server error' } })
-        );
-      } catch {} /* res可能已结束, 忽略 */
+    const loop = activeLoops.get(params.id);
+    if (!loop) {
+      sendJson(res, { error: 'Session not found' }, 404);
+      return;
     }
+
+    const success = await loop.resumeFromCheckpoint(params.checkpointId);
+    sendJson(res, { resumed: success, checkpointId: params.checkpointId });
+  } catch (e) {
+    sendJson(res, { error: String(e) }, 500);
+  }
+}
+
+// ─── PDCA Checkpoint 端点（Phase 4）────────────────────
+
+/**
+ * GET /v1/pdca/:taskId/checkpoints
+ * 获取 PDCA 任务的所有检查点
+ */
+export async function handlePdcaListCheckpoints(
+  req: IncomingMessage,
+  res: ServerResponse
+): Promise<void> {
+  const params = parsePathParams(req.url ?? '', 'v1/pdca/:taskId/checkpoints');
+  if (!params) {
+    sendJson(res, { error: 'Invalid path' }, 400);
+    return;
+  }
+
+  try {
+    const loop = activeLoops.get(params.taskId);
+    if (!loop) {
+      sendJson(res, { checkpoints: [] });
+      return;
+    }
+
+    const checkpoints = await loop.getCheckpointsForSession();
+    sendJson(res, { checkpoints: checkpoints ?? [] });
+  } catch (e) {
+    sendJson(res, { error: String(e) }, 500);
   }
 }
 
 /**
- * 删除检查点 DELETE /v1/checkpoints/:id
+ * POST /v1/pdca/:taskId/checkpoints/:checkpointId/resume
+ * 从检查点恢复 PDCA 任务
  */
-export async function handleDeleteCheckpoint(
-  ctx: HandlerCtx,
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
-  cpId: string
+export async function handlePdcaResumeCheckpoint(
+  req: IncomingMessage,
+  res: ServerResponse
 ): Promise<void> {
+  const params = parsePathParams(
+    req.url ?? '',
+    'v1/pdca/:taskId/checkpoints/:checkpointId/resume'
+  );
+  if (!params) {
+    sendJson(res, { error: 'Invalid path' }, 400);
+    return;
+  }
+
   try {
-    const chatManager = createChatManager();
-    await chatManager.deleteCheckpoint(cpId);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, checkpointId: cpId }));
-  } catch (err) {
-    await handleError(err, { module: 'infra:http', action: 'handler_error' });
-    if (!res.headersSent) {
-      try {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ error: { message: 'Internal server error' } })
-        );
-      } catch {} /* res可能已结束, 忽略 */
+    const loop = activeLoops.get(params.taskId);
+    if (!loop) {
+      sendJson(res, { error: 'PDCA task not found' }, 404);
+      return;
     }
+
+    const success = await loop.resumeFromCheckpoint(params.checkpointId);
+    sendJson(res, { resumed: success, checkpointId: params.checkpointId });
+  } catch (e) {
+    sendJson(res, { error: String(e) }, 500);
   }
 }

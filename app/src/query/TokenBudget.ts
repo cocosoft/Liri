@@ -82,6 +82,12 @@ export interface TokenBudgetManager {
   getCompressionLevel(): 0 | 1 | 2 | 3;
   setModel(modelName: string): void;
   getModelName(): string;
+  /** Phase 3: 递减回报检测 */
+  checkDecliningReturn(): { isDeclining: boolean; consecutiveLowTurns: number };
+  /** Phase 3: 是否允许 grace call */
+  canUseGraceCall(): boolean;
+  /** Phase 3: 使用 grace call */
+  useGraceCall(): void;
 }
 
 const MODEL_FAMILY_HEURISTICS: Record<string, number> = {
@@ -100,6 +106,12 @@ export class TokenBudgetManagerImpl implements TokenBudgetManager {
   private totalOutputTokensUsed: number;
   private messagesProcessed: number;
   private resetAt: number;
+  // Phase 3: 递减回报检测
+  private recentTurnTokenUsage: number[] = [];
+  private readonly DECLINING_RETURN_WINDOW = 3;
+  private readonly DECLINING_RETURN_THRESHOLD = 500;
+  // Phase 3: grace call
+  private _graceCallUsed: boolean = false;
 
   constructor(config: Partial<TokenBudgetConfig> = {}) {
     this.config = {
@@ -215,7 +227,11 @@ export class TokenBudgetManagerImpl implements TokenBudgetManager {
     this.currentUsage += tokens;
     this.totalTokensUsed += tokens;
     this.messagesProcessed++;
-
+    // Phase 3: 记录每轮 token 增量
+    this.recentTurnTokenUsage.push(tokens);
+    if (this.recentTurnTokenUsage.length > 10) {
+      this.recentTurnTokenUsage.shift();
+    }
     if (this.config.enableCompression) {
       this.maybeTriggerCompression();
     }
@@ -309,6 +325,47 @@ export class TokenBudgetManagerImpl implements TokenBudgetManager {
 
   private maybeTriggerCompression(): void {
     // 压缩逻辑由QueryEngine调用
+  }
+
+  /**
+   * Phase 3: 递减回报检测
+   * 连续 N 轮 token 增量低于阈值 → 可能陷入无意义循环
+   */
+  checkDecliningReturn(): {
+    isDeclining: boolean;
+    consecutiveLowTurns: number;
+  } {
+    const recent = this.recentTurnTokenUsage.slice(
+      -this.DECLINING_RETURN_WINDOW
+    );
+    let consecutiveLow = 0;
+    for (let i = recent.length - 1; i >= 0; i--) {
+      if (recent[i] < this.DECLINING_RETURN_THRESHOLD) consecutiveLow++;
+      else break;
+    }
+    return {
+      isDeclining: consecutiveLow >= this.DECLINING_RETURN_WINDOW,
+      consecutiveLowTurns: consecutiveLow,
+    };
+  }
+
+  /**
+   * Phase 3: 检查是否允许 grace call（预算耗尽前最后一次调用）
+   */
+  canUseGraceCall(): boolean {
+    const state = this.getCurrentBudgetState();
+    return (
+      !this._graceCallUsed &&
+      state.status === TokenBudgetStatus.CRITICAL &&
+      state.remainingTokens > 0
+    );
+  }
+
+  /**
+   * Phase 3: 使用 grace call
+   */
+  useGraceCall(): void {
+    this._graceCallUsed = true;
   }
 }
 

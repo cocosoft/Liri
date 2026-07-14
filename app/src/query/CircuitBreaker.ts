@@ -32,6 +32,14 @@
  *   HALF_OPEN → 试探调用失败 → OPEN（重新计时）
  */
 
+import { Logger } from '@modules/monitoring';
+import {
+  LOOP_OBSERVE_ONLY,
+  LOOP_GLOBAL_BREAKER_THRESHOLD,
+} from './loop-config.js';
+
+const logger = new Logger({ module: 'query:circuitBreaker' });
+
 /** 断路器状态 */
 type BreakerState = 'closed' | 'open' | 'half_open';
 
@@ -49,6 +57,10 @@ interface CircuitBreakerConfig {
   maxTurnsHardCap: number;
   /** 恢复等待窗口（毫秒），默认 30000 */
   resetTimeoutMs: number;
+  /** 同调用同结果触发熔断的阈值，默认 30 */
+  sameCallSameResultThreshold: number;
+  /** 全局断路器提示消息 */
+  globalBreakerMessage?: string;
 }
 
 /** 运行记录 */
@@ -74,6 +86,9 @@ const DEFAULT_CONFIG: CircuitBreakerConfig = {
   tokenBudgetPercentCeiling: 1.0,
   maxTurnsHardCap: 50,
   resetTimeoutMs: 30_000,
+  sameCallSameResultThreshold: LOOP_GLOBAL_BREAKER_THRESHOLD,
+  globalBreakerMessage:
+    '同一工具调用产生完全相同结果超过阈值，已触发全局断路器',
 };
 
 export class CircuitBreaker {
@@ -86,9 +101,38 @@ export class CircuitBreaker {
   private totalSuccesses: number = 0;
   private config: CircuitBreakerConfig;
   private trippedAt: number = 0;
+  /** 同调用同结果追踪（全局断路器） */
+  private sameCallSameResultCount: Map<string, number> = new Map();
 
   constructor(config?: Partial<CircuitBreakerConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+  }
+
+  /**
+   * 记录单次失败（便捷方法，供测试和外部使用）
+   * @returns 是否触发断路
+   */
+  recordFailure(error: string): BreakerCheckResult {
+    this.recordTurn({
+      success: false,
+      error,
+      turnCount: 0,
+      tokenUsage: 0,
+      maxTokens: 0,
+    });
+    return this.shouldBreak();
+  }
+
+  /**
+   * 记录单次成功（便捷方法，供测试和外部使用）
+   */
+  recordSuccess(): void {
+    this.recordTurn({
+      success: true,
+      turnCount: 0,
+      tokenUsage: 0,
+      maxTokens: 0,
+    });
   }
 
   /**
@@ -154,7 +198,10 @@ export class CircuitBreaker {
         this.state = 'half_open';
         return { break: false, reason: '进入 HALF_OPEN 试探阶段' };
       }
-      return { break: true, reason: '断路器 OPEN 状态，等待恢复窗口' };
+      return {
+        break: true,
+        reason: '断路器 OPEN — 连续违规次数已达上限，等待恢复窗口',
+      };
     }
 
     return { break: false };
@@ -199,6 +246,47 @@ export class CircuitBreaker {
   }
 
   /**
+   * 记录工具调用结果（用于全局断路器判断）
+   * @returns 是否触发全局断路器
+   */
+  recordSameCallResult(
+    toolName: string,
+    argsHash: string,
+    resultHash: string
+  ): BreakerCheckResult {
+    if (!this.config.enabled) return { break: false };
+
+    const key = `${toolName}:${argsHash}:${resultHash}`;
+    const count = (this.sameCallSameResultCount.get(key) ?? 0) + 1;
+    this.sameCallSameResultCount.set(key, count);
+
+    if (count >= this.config.sameCallSameResultThreshold) {
+      if (LOOP_OBSERVE_ONLY) {
+        logger.warn(
+          `[OBSERVE] CircuitBreaker 本应全局熔断: ${toolName} x${count}`
+        );
+        return { break: false };
+      }
+      this._transitionToOpen(
+        `${this.config.globalBreakerMessage} (${toolName}, 同一调用+同一结果 ${count} 次)`
+      );
+      return {
+        break: true,
+        reason: `全局断路器触发: ${toolName} 同一调用+同一结果 ${count} 次`,
+      };
+    }
+
+    return { break: false };
+  }
+
+  /**
+   * 重置全局断路器计数
+   */
+  resetSameCallCounts(): void {
+    this.sameCallSameResultCount.clear();
+  }
+
+  /**
    * 重置断路器（手动恢复）
    */
   reset(): void {
@@ -210,6 +298,7 @@ export class CircuitBreaker {
     this.totalFailures = 0;
     this.totalSuccesses = 0;
     this.trippedAt = 0;
+    this.sameCallSameResultCount.clear();
   }
 
   /**

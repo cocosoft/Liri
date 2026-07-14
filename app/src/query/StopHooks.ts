@@ -15,7 +15,10 @@ export type StopHookReason =
   | 'aborted'
   | 'error'
   | 'timeout'
-  | 'max_turns';
+  | 'max_turns'
+  | 'diminishing_returns'
+  | 'budget_exhausted'
+  | 'verifier_escalate';
 
 export interface StopHookContext {
   sessionId: string;

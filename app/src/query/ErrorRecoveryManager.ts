@@ -57,6 +57,8 @@ interface RecoveryContext {
 /** 可序列化的恢复状态（用于 Checkpoint 持久化） */
 interface RecoveryState {
   attempts: Array<[string, { type: RecoveryType; retryCount: number }]>;
+  /** 压缩是否已尝试过（防止压缩-重试死循环） */
+  compactAttempted?: boolean;
 }
 
 /** 默认最大重试次数 */
@@ -95,6 +97,8 @@ function getRecoveryMessage(type: RecoveryType): string {
 
 export class ErrorRecoveryManager {
   private attempts: Map<RecoveryType, RecoveryAttempt> = new Map();
+  /** 单次尝试守卫：压缩是否已尝试过（防止压缩-重试死循环） */
+  private _compactAttempted: boolean = false;
 
   constructor() {
     // 初始化各类型的最大重试次数
@@ -123,6 +127,15 @@ export class ErrorRecoveryManager {
       return { recovered: false, action: 'abort' };
     }
 
+    // 单次尝试守卫：压缩只能尝试一次
+    if (type === 'context_overflow' && this._compactAttempted) {
+      return {
+        recovered: false,
+        action: 'abort',
+        message: '上下文压缩已尝试过，放弃重试（防止压缩-重试死循环）',
+      };
+    }
+
     attempt.lastError = error;
     attempt.retryCount++;
 
@@ -136,6 +149,7 @@ export class ErrorRecoveryManager {
 
     switch (type) {
       case 'context_overflow':
+        this._compactAttempted = true; // 标记压缩已尝试
         return {
           recovered: true,
           action: 'compact_and_retry',
@@ -196,6 +210,7 @@ export class ErrorRecoveryManager {
       attempt.retryCount = 0;
       attempt.lastError = undefined;
     }
+    this._compactAttempted = false;
   }
 
   /**
@@ -210,7 +225,7 @@ export class ErrorRecoveryManager {
         { type: attempt.type, retryCount: attempt.retryCount },
       ]);
     }
-    return { attempts: entries };
+    return { attempts: entries, compactAttempted: this._compactAttempted };
   }
 
   /**
@@ -225,6 +240,7 @@ export class ErrorRecoveryManager {
         retryCount: data.retryCount,
       });
     }
+    this._compactAttempted = state.compactAttempted ?? false;
   }
 }
 

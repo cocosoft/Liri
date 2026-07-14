@@ -343,7 +343,8 @@ export async function assembleContextualSystemPrompt(
   session: ChatSession,
   currentMessage: string | undefined,
   llmClient: { getProviderId(): string } | undefined,
-  imageContextService: ImageContextService
+  imageContextService: ImageContextService,
+  getMemoryContext?: (sessionId: string) => string
 ): Promise<string> {
   const providerId = llmClient?.getProviderId() || 'deepseek';
   const sessionContext: SessionContext = {
@@ -364,13 +365,37 @@ export async function assembleContextualSystemPrompt(
     mode: 'conversation',
   });
 
+  // 分层记忆注入（Phase 3.5）：将 memory.md 内容注入系统提示词
+  let memorySection = '';
+  if (getMemoryContext) {
+    const memoryContent = getMemoryContext(session.id);
+    if (memoryContent && memoryContent.length > 0) {
+      memorySection = [
+        '',
+        '## 会话记忆（自动维护）',
+        '以下是从本会话中自动提取的关键信息，用于保持长对话上下文连续性：',
+        '',
+        memoryContent,
+        '',
+        '**使用规则**：',
+        '- 优先信任此记忆中的"决策记录"和"文件变更"，它们是已确认的事实',
+        '- "关键讨论"部分是摘要，如需精确引用请使用 recall_memory 工具搜索原文',
+        '- 不要重复记忆中已有的信息，除非用户明确要求',
+        '',
+        '**注意**：以下信息来自 memory.md，**无需使用 recall_memory 工具查询**——这些信息已经自动注入到此提示词中。',
+      ].join('\n');
+    }
+  }
+
   const currentGoal = extractCurrentGoal(session, currentMessage);
   const imageContext = imageContextService.buildImageContextPrompt(session.id);
   const basePrompt = currentGoal
     ? prompt +
       `\n\n## 当前会话目标\n你正在协助用户完成以下任务。对话中可能包含较早的无关话题，请以当前目标为准：\n\n${currentGoal}` +
+      memorySection +
       `\n\n${MEMORY_CONTEXT_RULES}${imageContext}\n\n${IMAGE_CHAIN_RULES}`
     : prompt +
+      memorySection +
       `\n\n${MEMORY_CONTEXT_RULES}${imageContext}\n\n${IMAGE_CHAIN_RULES}`;
 
   return basePrompt;

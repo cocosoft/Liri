@@ -407,7 +407,9 @@ export class ChatManagerImpl implements ChatManager {
       this._taorLoop = createTAORLoop(this.getQueryEngine(), {
         sessionId,
         maxTurns: 50,
-        enableCheckpoint: false,
+        /** 启用检查点，每 3 轮自动保存（原值：关闭 + 5 轮） */
+        enableCheckpoint: true,
+        checkpointInterval: 3,
       } satisfies TAORLoopConfig);
     }
     return this._taorLoop;
@@ -602,7 +604,8 @@ export class ChatManagerImpl implements ChatManager {
       session,
       currentMessage,
       this.llmClient,
-      this.imageContextService
+      this.imageContextService,
+      (sessionId: string) => this.sessionAccess.getMemoryManager().getMemoryContext(sessionId)
     );
   }
 

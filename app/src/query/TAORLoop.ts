@@ -34,6 +34,16 @@ import { createCircuitBreaker } from './CircuitBreaker.js';
 import type { CircuitBreaker } from './CircuitBreaker.js';
 import { createRunLogger } from './RunLogger.js';
 import type { RunLogger } from './RunLogger.js';
+import { createPathGuard } from './PathGuard.js';
+import type { PathGuard } from './PathGuard.js';
+import { createFileIOLoopDetector } from './FileIOLoopDetector.js';
+import type { FileIOLoopDetector } from './FileIOLoopDetector.js';
+import {
+  DailyBudgetManager,
+  createDailyBudgetManager,
+} from './DailyBudgetManager.js';
+import { VerifierAgent, createVerifierAgent } from './VerifierAgent.js';
+import type { VerifierAgentConfig } from './VerifierAgent.js';
 import type { ChatMessage } from '../ai/models/types';
 
 const logger = new Logger({ module: 'query:taorLoop' });
@@ -93,6 +103,27 @@ export interface TAORLoopDeps {
   ) => Promise<TAORLoopResult>;
 }
 
+/**
+ * 品牌类型模拟值，用于工厂函数构造 TAORLoopDeps
+ * 替代 as unknown as TAORLoopDeps 绕过，提供类型安全的构造方式
+ */
+const TAOR_LOOP_DEPS_BRAND_VALUE = Symbol(
+  'TAORLoopDeps'
+) as unknown as typeof TAOR_LOOP_DEPS_BRAND;
+
+/**
+ * 工厂函数：创建 TAORLoopDeps
+ * 替代 as unknown as TAORLoopDeps 绕过，提供类型安全的构造方式
+ */
+export function createTAORLoopDeps(
+  impl: Omit<TAORLoopDeps, typeof TAOR_LOOP_DEPS_BRAND>
+): TAORLoopDeps {
+  return {
+    ...impl,
+    [TAOR_LOOP_DEPS_BRAND_VALUE]: TAOR_LOOP_DEPS_BRAND_VALUE,
+  } as TAORLoopDeps;
+}
+
 // ─── 类型定义 ──────────────────────────────────────────
 
 export interface TAORPhaseInfo {
@@ -113,6 +144,10 @@ export interface TAORLoopConfig {
   checkpointStorage?: CheckpointStorage;
   /** 上下文引擎注册中心（启用可插拔引擎选择与追踪） */
   contextEngineRegistry?: ContextEngineRegistry;
+  /** 是否启用验证器代理（Phase 4），默认 false */
+  enableVerifier?: boolean;
+  /** 验证器配置 */
+  verifierConfig?: Partial<VerifierAgentConfig>;
 }
 
 export interface TAORLoopResult {
@@ -204,6 +239,14 @@ export class TAORLoop {
   private circuitBreaker: CircuitBreaker;
   private runLogger?: RunLogger;
   private lastRunLog?: Record<string, unknown>;
+  // Phase 1: 路径安全守卫
+  private pathGuard: PathGuard;
+  // Phase 2: 文件IO循环检测
+  private fileIOLoopDetector: FileIOLoopDetector;
+  // Phase 3: 日预算管理（收益递减 + 优雅最后一调）
+  private dailyBudget: DailyBudgetManager;
+  // Phase 4: 验证器代理（制造者/检查者分离）
+  private verifier: VerifierAgent;
 
   constructor(
     queryEngine: QueryEngine,
@@ -219,6 +262,8 @@ export class TAORLoop {
       checkpointInterval: config.checkpointInterval || 5,
       checkpointStorage:
         config.checkpointStorage || new MemoryCheckpointStorage(),
+      enableVerifier: config.enableVerifier ?? false,
+      verifierConfig: config.verifierConfig ?? {},
     };
     this.contextEngineRegistry = config.contextEngineRegistry;
     this.tokenBudget = new TokenBudgetManagerImpl(this.config.budgetConfig);
@@ -233,6 +278,20 @@ export class TAORLoop {
     this.loopDetector = createLoopDetector();
     this.errorRecovery = createErrorRecoveryManager();
     this.circuitBreaker = createCircuitBreaker();
+    // Phase 1: 路径安全守卫
+    this.pathGuard = createPathGuard();
+    // Phase 2: 文件IO循环检测
+    this.fileIOLoopDetector = createFileIOLoopDetector();
+    // Phase 3: 日预算管理
+    this.dailyBudget = createDailyBudgetManager();
+    // Phase 4: 验证器代理（默认关闭，通过 enableVerifier 启用）
+    this.verifier = createVerifierAgent(config.verifierConfig);
+    if (!config.enableVerifier) {
+      this.verifier = createVerifierAgent({
+        ...config.verifierConfig,
+        enabled: false,
+      });
+    }
 
     this.registerDefaultStopHooks();
   }
@@ -374,14 +433,13 @@ export class TAORLoop {
     if (typeof arg1 === 'string') {
       const messages: ChatMessage[] = [{ role: 'user', content: arg1 }];
       // 旧路径：构造默认 deps（使用 queryEngine 兜底）
-      const deps: TAORLoopDeps = {
-        [TAOR_LOOP_DEPS_BRAND]: TAOR_LOOP_DEPS_BRAND,
+      const deps = createTAORLoopDeps({
         callModel: async function* () {
           /* queryEngine 兜底 */
         },
         executeTools: async () => [],
         persistMessages: async () => {},
-      };
+      });
       return this._runModern(messages, deps);
     }
     return this._runModern(arg1, arg2!);
@@ -399,6 +457,17 @@ export class TAORLoop {
     this.turnCount = 0;
     this.stopped = false;
     this.stopReason = 'completed';
+
+    // Phase 4: 注入 callModel 到验证器
+    if (this.verifier && deps.callModel) {
+      this.verifier.setCallModel(
+        deps.callModel as (
+          messages: Array<{ role: string; content: string }>,
+          signal: AbortSignal
+        ) => AsyncGenerator<{ content?: string }>
+      );
+    }
+    this.verifier.reset();
 
     logger.info('TAOR loop started', { sessionId: this.config.sessionId });
     this.emitPhase(TAORPhase.THINK, 0, 'Initial message received');
@@ -425,6 +494,17 @@ export class TAORLoop {
           reason: breakerLimit.reason,
         });
         break;
+      }
+
+      // 预算耗尽检查（Phase 3）：优雅最后一调
+      if (!this.dailyBudget.canExecute()) {
+        if (this.dailyBudget.needsGraceCall()) {
+          logger.warn('预算已耗尽，但允许完成当前工具调用（优雅最后一调）');
+        } else {
+          this.stopReason = 'budget_exhausted';
+          this.stopped = true;
+          break;
+        }
       }
 
       // —— THINK ——
@@ -506,6 +586,54 @@ export class TAORLoop {
         }
         if (this.stopped) break;
 
+        // PathGuard 路径安全守卫（Phase 1）
+        for (const tc of toolCalls) {
+          const pathCheck = this.pathGuard.checkToolCall(tc.name, tc.arguments);
+          if (!pathCheck.allowed) {
+            logger.warn('PathGuard 拦截工具调用', {
+              tool: tc.name,
+              path: tc.arguments,
+              reason: pathCheck.reason,
+            });
+            this.stopReason = 'aborted';
+            this.stopped = true;
+            break;
+          }
+        }
+        if (this.stopped) break;
+
+        // FileIOLoopDetector 文件读写循环检测（Phase 2）
+        for (const tc of toolCalls) {
+          const args = tc.arguments as Record<string, unknown>;
+          const filePath = (args.path ?? args.filePath ?? args.directory) as
+            | string
+            | undefined;
+
+          if (filePath) {
+            const ioCheck = this.fileIOLoopDetector.checkBeforeAccess(
+              tc.name,
+              filePath,
+              args.offset as number | undefined,
+              args.limit as number | undefined
+            );
+
+            if (ioCheck.blocked) {
+              logger.warn('文件IO循环已被阻止', {
+                tool: tc.name,
+                path: filePath,
+              });
+              this.stopReason = 'aborted';
+              this.stopped = true;
+              break;
+            }
+
+            if (ioCheck.warning) {
+              logger.warn('文件IO循环警告', { tool: tc.name, path: filePath });
+            }
+          }
+        }
+        if (this.stopped) break;
+
         // 委托 deps 执行工具
         const rawResults = await deps.executeTools(
           toolCalls.map((tc) => ({
@@ -540,6 +668,97 @@ export class TAORLoop {
             tool_call_id: tc.id,
           } as ChatMessage);
         }
+
+        // 全局断路器记录（Phase 2）：同调用+同结果追踪
+        for (let i = 0; i < toolCalls.length; i++) {
+          const tc = toolCalls[i];
+          const r = rawResults[i];
+          if (r && !r.error) {
+            const argsHash =
+              String(tc.name) +
+              ':' +
+              JSON.stringify(tc.arguments).slice(0, 500);
+            const resultHash = JSON.stringify(r.result ?? r).slice(0, 500);
+            const breakerResult = this.circuitBreaker.recordSameCallResult(
+              tc.name,
+              argsHash,
+              resultHash
+            );
+            if (breakerResult.break) {
+              logger.warn('全局断路器触发', {
+                tool: tc.name,
+                reason: breakerResult.reason,
+              });
+              this.stopReason = 'aborted';
+              this.stopped = true;
+              break;
+            }
+          }
+        }
+        if (this.stopped) break;
+
+        // Phase 4: 验证器代理（制造者/检查者分离）
+        if (this.verifier) {
+          const verificationInput = {
+            messages: messages.map((m) => ({
+              role: m.role,
+              content:
+                typeof m.content === 'string'
+                  ? m.content
+                  : JSON.stringify(m.content),
+              tool_calls: m.tool_calls,
+              tool_call_id: m.tool_call_id,
+            })),
+            toolResults: toolCalls.map((tc, i) => ({
+              toolName: tc.name,
+              toolCallId: tc.id,
+              result: rawResults[i]?.result,
+              error: rawResults[i]?.error,
+            })),
+            turnCount: this.turnCount,
+            sessionId: this.config.sessionId,
+          };
+
+          const verification = await this.verifier.verify(
+            verificationInput,
+            this.abortController.signal
+          );
+
+          if (!verification.passed) {
+            if (verification.verdict === 'ESCALATE') {
+              logger.warn('验证器升级：无法确定修改正确性', {
+                sessionId: this.config.sessionId,
+                feedback: verification.feedback,
+                cycleCount: this.verifier.getCycleCount(),
+              });
+              this.stopReason = 'verifier_escalate';
+              this.stopped = true;
+              break;
+            }
+
+            if (verification.verdict === 'REJECT') {
+              logger.warn('验证器拒绝：修改未通过审查', {
+                sessionId: this.config.sessionId,
+                feedback: verification.feedback,
+                cycleCount: this.verifier.getCycleCount(),
+              });
+
+              if (verification.feedback) {
+                messages.push({
+                  role: 'user',
+                  content: `[验证器反馈] ${verification.feedback}\n\n请根据以上反馈修复问题，然后重新执行验证。`,
+                } as ChatMessage);
+              }
+              // 不 break，让循环继续（制造者修复后重新验证）
+              continue;
+            }
+          }
+
+          logger.debug('验证器通过', {
+            sessionId: this.config.sessionId,
+            confidence: verification.confidence,
+          });
+        }
       } else {
         // 无 tool_use → 正常结束
         this.stopped = true;
@@ -550,19 +769,57 @@ export class TAORLoop {
       this.currentPhase = TAORPhase.OBSERVE;
       this.emitPhase(TAORPhase.OBSERVE, this.turnCount, 'Processing results');
 
+      // no_tool_call 纯文本死循环检测（Phase 2）
+      this.loopDetector.recordTurn((toolCalls?.length ?? 0) > 0);
+      const noToolCallResult = this.loopDetector.detectNoToolCallLoop();
+      if (noToolCallResult.stuck && noToolCallResult.level === 'critical') {
+        logger.warn('no_tool_call 死循环检测触发', {
+          message: noToolCallResult.message,
+        });
+        this.stopReason = 'aborted';
+        this.stopped = true;
+        break;
+      }
+
       // Token 消耗记录
       this.tokenBudget.consumeTokens(this._estimateTokens(messages));
+
+      // 检查 Token 预算状态，触发 WARNING/CRITICAL 回调
+      const currentBudgetState = this.tokenBudget.getCurrentBudgetState();
+      if (
+        currentBudgetState.status === TokenBudgetStatus.WARNING ||
+        currentBudgetState.status === TokenBudgetStatus.CRITICAL
+      ) {
+        const percentUsed = currentBudgetState.percentUsed || 0;
+        this.phaseCallbacks.onBudgetWarning?.(percentUsed);
+
+        // 触发上下文压缩
+        if (this.config.sessionId) {
+          await this.queryEngine.compactIfNeeded(this.config.sessionId);
+        }
+      }
 
       // 断路器记录
       this.circuitBreaker.recordTurn({
         success: this.stopped === false || this.stopReason === 'completed',
         turnCount: this.turnCount,
-        tokenUsage: this.tokenBudget.getCurrentBudgetState().currentTokens,
-        maxTokens: this.tokenBudget.getCurrentBudgetState().maxTokens,
+        tokenUsage: currentBudgetState.currentTokens,
+        maxTokens: currentBudgetState.maxTokens,
       });
 
       if (this.circuitBreaker.shouldBreak().break) {
         this.stopReason = 'aborted';
+        this.stopped = true;
+        break;
+      }
+
+      // 收益递减检测（Phase 3）
+      const totalTokens = currentBudgetState.currentTokens;
+      const diminishingCheck =
+        this.dailyBudget.checkDiminishingReturns(totalTokens);
+      if (diminishingCheck.diminishing) {
+        logger.warn('收益递减，终止循环', { reason: diminishingCheck.reason });
+        this.stopReason = 'diminishing_returns';
         this.stopped = true;
         break;
       }

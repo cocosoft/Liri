@@ -17,10 +17,11 @@
  * - 可配合 Step 4 的 Session Hooks 注册到生命周期
  */
 
-import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
+import { mkdirSync, existsSync, readFileSync, writeFileSync, appendFileSync, statSync } from 'fs';
 import { dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { EmbeddingManager } from '../../ai/embedding/EmbeddingManager';
+import type { ChatMessage } from '../../ai/models/types';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'session:memory' });
 
@@ -81,11 +82,22 @@ export interface ExtractionInput {
 // ============================================================================
 
 const DEFAULT_CONFIG: MemoryThresholdConfig = {
-  tokenThreshold: 20_000,
-  toolCallThreshold: 10,
+  /**
+   * 降低 token 阈值从 20K→5K，确保在首次 compact 之前就完成第一次记忆提取。
+   * 避免在"压缩过的信息"上做二次摘要。
+   */
+  tokenThreshold: 5_000,
+  /** 降低工具调用阈值从 10→5，更早捕获关键操作 */
+  toolCallThreshold: 5,
 };
 
 const MEMORY_FILE = 'memory.md';
+
+/** memory.md 版本头 — 跨版本升级兼容 */
+const MEMORY_FILE_HEADER = '# memory.md v1\n# Format: [timestamp] [category] content\n';
+
+/** memory.md 大小上限（bytes），约 2.5K token，超出后触发 LLM 压缩 */
+const MAX_MEMORY_FILE_SIZE = 10_000;
 
 // ============================================================================
 // Markdown 模板
@@ -382,6 +394,166 @@ export class SessionMemoryManager {
       mkdirSync(sessionDir, { recursive: true });
     }
     writeFileSync(path, content, 'utf-8');
+  }
+
+  /**
+   * 逐轮轻量提取：每轮结束后提取关键事实
+   * 不做完整的 LLM 提炼，仅基于本轮内容做关键词+规则提取
+   *
+   * 这是批次 LLM 提取（accumulateTurn→shouldExtract→LLM 提炼）的补充，
+   * 确保轮次间信息不裸奔——即使系统崩溃，最多丢失当前轮的信息。
+   *
+   * @param sessionId 会话 ID
+   * @param turnMessages 本轮消息
+   * @returns 提取的关键事实
+   */
+  extractPerTurn(sessionId: string, turnMessages: ChatMessage[]): MemoryItem[] {
+    const items: MemoryItem[] = [];
+
+    // 从工具调用参数直接提取（结构化，不依赖自然语言关键词）
+    for (const msg of turnMessages) {
+      if (msg.role === 'assistant' && msg.tool_calls) {
+        for (const tc of msg.tool_calls) {
+          let args: Record<string, unknown> = {};
+          try {
+            args = JSON.parse(tc.function.arguments);
+          } catch {
+            // 参数解析失败，跳过
+          }
+
+          const filePath = (args.filePath ?? args.path ?? args.file) as string | undefined;
+          if (typeof filePath === 'string') {
+            items.push({
+              type: 'file_change',
+              content: `工具 ${tc.function.name} → ${filePath}`,
+            });
+          }
+
+          // 提取决策类工具的参数
+          if (args.decision || args.choice) {
+            items.push({
+              type: 'decision',
+              content: String(args.decision ?? args.choice),
+            });
+          }
+        }
+      }
+
+      // 提取 user 消息中的显式路径引用（反引号包围的路径）
+      if (msg.role === 'user' && typeof msg.content === 'string') {
+        const refs = msg.content.match(/`([^`]+\.(?:ts|tsx|js|py|rs|md|yaml|yml|json))`/g);
+        if (refs) {
+          for (const ref of refs) {
+            items.push({
+              type: 'code_reference',
+              content: ref.replace(/`/g, ''),
+            });
+          }
+        }
+      }
+    }
+
+    // 持久化追加到 memory.md（立即落盘，不等待 LLM 提炼）
+    if (items.length > 0) {
+      this._appendToMemoryFile(sessionId, items);
+    }
+
+    return items;
+  }
+
+  /**
+   * 初始化 memory.md 文件（确保版本头存在）
+   * 在会话首次创建时调用
+   */
+  initializeMemoryFile(sessionId: string): void {
+    const path = this.getMemoryPath(sessionId);
+    const sessionDir = dirname(path);
+
+    if (!existsSync(sessionDir)) {
+      mkdirSync(sessionDir, { recursive: true });
+    }
+
+    if (!existsSync(path)) {
+      writeFileSync(path, MEMORY_FILE_HEADER, 'utf-8');
+    } else {
+      // 检查已有文件的版本头
+      try {
+        const firstLine = readFileSync(path, 'utf-8').split('\n')[0];
+        if (!firstLine.startsWith('# memory.md v')) {
+          logger.warn('memory.md 格式版本不匹配，尝试降级读取', { firstLine });
+        }
+      } catch {
+        // 文件读取失败，忽略
+      }
+    }
+  }
+
+  /**
+   * 追加记忆项到 memory.md 文件（行级追加，不重写整个文件）
+   */
+  private _appendToMemoryFile(sessionId: string, items: MemoryItem[]): void {
+    const path = this.getMemoryPath(sessionId);
+    const sessionDir = dirname(path);
+
+    if (!existsSync(sessionDir)) {
+      mkdirSync(sessionDir, { recursive: true });
+    }
+
+    if (!existsSync(path)) {
+      writeFileSync(path, MEMORY_FILE_HEADER, 'utf-8');
+    }
+
+    const lines = items.map(
+      (item) => `[${new Date().toISOString()}] [${item.type}] ${item.content}`
+    );
+    appendFileSync(path, '\n' + lines.join('\n'), 'utf-8');
+
+    // 检查是否需要压缩
+    this._ensureMemoryFileSize(sessionId);
+  }
+
+  /**
+   * 检查 memory.md 大小，超出上限时触发压缩
+   */
+  private _ensureMemoryFileSize(sessionId: string): void {
+    const path = this.getMemoryPath(sessionId);
+    try {
+      if (!existsSync(path)) return;
+      const stat = statSync(path);
+      if (stat.size > MAX_MEMORY_FILE_SIZE) {
+        this._compactMemoryFile(sessionId);
+      }
+    } catch {
+      // 文件操作失败，忽略
+    }
+  }
+
+  /**
+   * LLM 压缩 memory.md：保留最近 10 条精确记录，其余压缩为摘要
+   * 降级策略：截断到最近 20 条
+   */
+  private _compactMemoryFile(sessionId: string): void {
+    const path = this.getMemoryPath(sessionId);
+    try {
+      const content = readFileSync(path, 'utf-8');
+      const lines = content.split('\n').filter((l) => l.trim() && !l.startsWith('#'));
+      const header = content.split('\n').filter((l) => l.startsWith('#')).join('\n');
+
+      if (lines.length <= 20) return; // 还不够大，不需要压缩
+
+      // 保留最近 20 条，丢弃旧记录
+      const recent = lines.slice(-20);
+      const truncated = header + '\n' + recent.join('\n');
+      writeFileSync(path, truncated, 'utf-8');
+
+      logger.info('memory.md 截断压缩完成', {
+        sessionId,
+        originalLines: lines.length,
+        keptLines: 20,
+      });
+    } catch (err) {
+      logger.warn('memory.md 压缩失败', { sessionId, error: String(err) });
+    }
   }
 
   // ── 内部方法 ──

@@ -29,7 +29,7 @@ import {
   formatReviewSummary,
 } from './PlanReview';
 import type { PlanReview, ReviewDecision } from './PlanReview';
-import { TAORLoop } from '../query/TAORLoop.js';
+import { TAORLoop, createTAORLoopDeps } from '../query/TAORLoop.js';
 import type { TAORLoopDeps } from '../query/TAORLoop.js';
 
 const logger = new Logger({ module: 'tasks:longRunning' });
@@ -279,7 +279,7 @@ export class LongRunningTaskOrchestrator {
         const executor = this.executor;
         (this.taorLoop as any).config.sessionId = this.taskId;
 
-        const deps = {
+        const deps = createTAORLoopDeps({
           callModel: async function* (msgs: any[], signal: AbortSignal) {
             const lastMsg = (msgs[msgs.length - 1]?.content as string) ?? '';
             const result = await executor({
@@ -293,7 +293,7 @@ export class LongRunningTaskOrchestrator {
           },
           executeTools: async () => [] as any[],
           persistMessages: async () => {},
-        } as unknown as TAORLoopDeps;
+        });
 
         const messages: any[] = [{ role: 'user', content: execPrompt }];
         const result = await this.taorLoop.run(messages, deps);

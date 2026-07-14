@@ -1269,6 +1269,15 @@ export class QueryEngine {
           `压缩完成，生成了 ${compactResult.artifacts.length} 个压缩产物`
         );
 
+        // 记录压缩事件（在裁剪/注入之前，确保事件不会因后续操作失败而丢失）
+        this.analyticsService.logEvent('compaction_performed', {
+          session_id: sessionId,
+          level: compactLevel,
+          token_percent_used: percentUsed,
+          artifacts_count: compactResult.artifacts.length,
+          timestamp: Date.now(),
+        });
+
         // 重新注入压缩产物
         await this.compactService.reinjectArtifacts(
           sessionId,
@@ -1277,15 +1286,6 @@ export class QueryEngine {
 
         // 裁剪 session.messages — 用 messagesToKeep 落地压缩结果
         this.applyCompactTrim(session, compactResult.messagesToKeep);
-
-        // 记录压缩事件
-        this.analyticsService.logEvent('compaction_performed', {
-          session_id: sessionId,
-          level: compactLevel,
-          token_percent_used: percentUsed,
-          artifacts_count: compactResult.artifacts.length,
-          timestamp: Date.now(),
-        });
 
         // 更新会话状态为运行中
         this.updateSessionState({ queryState: QueryState.RUNNING });

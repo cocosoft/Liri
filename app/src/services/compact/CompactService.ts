@@ -301,7 +301,17 @@ export class CompactServiceImpl implements CompactService {
 
     const summaryMessage = getCompactUserSummaryMessage(summary);
 
-    const roundsToKeep = options?.isAutoCompact ? 2 : 3;
+    /**
+     * 保留轮数从 2→20（对标 cc_code 的压缩策略）。
+     *
+     * 理由：
+     *   原值 2 意味着超过 10 轮后精确消息全部消失，第 50 轮时仅剩最近摘要。
+     *   20 轮保留可确保最近 40 条消息（20 user + 20 assistant）完整保留在上下文中，
+     *   配合 SessionMemoryManager 的逐轮提取，历史信息不再丢失。
+     *
+     *   保留 20 轮约占用 ~30K-40K token（取决于消息长度），在 200K 上下文窗口中占比 ~20%。
+     */
+    const roundsToKeep = options?.isAutoCompact ? 20 : 25;
     const messagesCountToKeep = Math.min(roundsToKeep * 2, messages.length);
     const messagesToKeep = messages
       .slice(-messagesCountToKeep)

@@ -11,6 +11,7 @@ import { Logger } from '@modules/monitoring';
 import type { ToolCall, ToolResult } from '../chat/types/tool.js';
 import type { ChatMessage } from '../ai/models/types';
 import type { TAORLoopDeps, TAORLoopResult } from './TAORLoop.js';
+import { createTAORLoopDeps } from './TAORLoop.js';
 
 const logger = new Logger({ module: 'query:chatManagerTAORAdapter' });
 
@@ -82,14 +83,11 @@ export interface ChatManagerTAORContext {
  *
  * 封装 ChatManager 的 LLM 调用、工具执行、消息持久化能力，
  * 提供给 TAORLoop.run() 使用。
- *
- * 注意：使用 `as unknown as TAORLoopDeps` 绕过品牌类型检查，
- * 与 LongRunningTaskOrchestrator 的用法一致。
  */
 export function createChatManagerTAORDeps(
   ctx: ChatManagerTAORContext
 ): TAORLoopDeps {
-  return {
+  return createTAORLoopDeps({
     // ── callModel：将非流式 LLM 调用包装为 AsyncGenerator ──
     callModel: async function* (messages: ChatMessage[], _signal: AbortSignal) {
       try {
@@ -221,5 +219,5 @@ export function createChatManagerTAORDeps(
       const r = response as { tool_calls?: Array<unknown> } | undefined;
       return !!(r?.tool_calls && r.tool_calls.length > 0);
     },
-  } as unknown as TAORLoopDeps;
+  });
 }

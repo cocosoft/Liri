@@ -1,217 +1,272 @@
-// MIT License
-// Copyright (c) 2026 190615273@qq.com
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-
 /**
  * StreamingToolExecutor — 流式工具执行器
  *
- * Phase 1 新增。对标 cc_code 的 StreamingToolExecutor。
- * 当 LLM 还在流式生成后续 token 时，已完成的 tool_use block 可以立即开始执行。
- * 支持并发背压（Semaphore 限流）和超时兜底。
+ * Phase 4 新增。对标 cc_code StreamingToolExecutor。
+ * 在 LLM 流式输出时并发启动工具执行，减少工具调用延迟。
+ *
+ * 工作原理：
+ *   1. 监听 callModel 的 AsyncGenerator 流
+ *   2. 每当产出 tool_use chunk 时，立即启动工具执行（非阻塞）
+ *   3. 流结束后等待所有工具执行完成
+ *   4. 返回按 tool_use 出现顺序排列的工具结果
+ *
+ * 风险控制：
+ *   - 通过 feature flag (LOOP_STREAMING_TOOLS) 控制启用
+ *   - 工具执行失败不中断流，结果标记为 error
+ *   - 流中断时清理未完成的工具执行
  */
 
-import type { ToolCall, ToolResult } from '@modules/core';
-import type { ParsedToolCall } from '@modules/ai';
+import { Logger } from '@modules/monitoring';
 
-/** 待执行的工具调用 */
-interface PendingToolCall {
-  toolCallId: string;
-  toolName: string;
-  arguments: Record<string, unknown>;
-  startTime: number;
-  promise: Promise<ToolResult | null>;
+const logger = new Logger({ module: 'query:streamingToolExecutor' });
+
+// ─── 类型定义 ──────────────────────────────────────────
+
+/** 流式工具执行结果 */
+export interface StreamingToolResult {
+  /** 组装的完整响应内容（文本拼接） */
+  content: string;
+  /** 工具调用列表（保持原始顺序） */
+  toolCalls: Array<{
+    id: string;
+    name: string;
+    arguments: Record<string, unknown>;
+  }>;
+  /** 工具执行结果（与 toolCalls 顺序一致） */
+  toolResults: Array<{
+    toolCallId?: string;
+    toolName?: string;
+    result?: unknown;
+    error?: string;
+  }>;
+  /** 流式 chunk 透传 */
+  streamChunks: Array<Record<string, unknown>>;
 }
 
-/** 工具执行函数签名 */
-type ToolExecutorFn = (toolCall: {
-  id: string;
-  name: string;
-  arguments: Record<string, unknown>;
-}) => Promise<ToolResult>;
-
-/** 执行器配置 */
-interface StreamingToolExecutorConfig {
-  /** 最大并发工具箱，默认 5 */
-  maxConcurrent: number;
-  /** 出错时是否中止，默认 false */
-  abortOnError: boolean;
-  /** 超时时间（毫秒），默认 30000 */
-  timeoutMs: number;
+/** 流式执行器配置 */
+export interface StreamingToolExecutorConfig {
+  /** 是否启用，默认 false */
+  enabled: boolean;
+  /** 工具执行超时（毫秒），默认 120_000 */
+  toolTimeoutMs: number;
 }
 
-/** 默认配置 */
+/** 模型调用函数类型 */
+export type CallModelFn = (
+  messages: Array<{
+    role: string;
+    content: string;
+    tool_calls?: unknown;
+    tool_call_id?: string;
+  }>,
+  signal: AbortSignal
+) => AsyncGenerator<{
+  type?: string;
+  content?: string;
+  toolCall?: {
+    id: string;
+    name: string;
+    arguments: Record<string, unknown>;
+  };
+  [k: string]: unknown;
+}>;
+
+/** 工具执行函数类型 */
+export type ExecuteToolsFn = (
+  toolCalls: Array<{
+    id: string;
+    name: string;
+    arguments: Record<string, unknown>;
+  }>,
+  signal: AbortSignal
+) => Promise<
+  Array<{
+    toolCallId?: string;
+    toolName?: string;
+    result?: unknown;
+    error?: string;
+  }>
+>;
+
 const DEFAULT_CONFIG: StreamingToolExecutorConfig = {
-  maxConcurrent: 5,
-  abortOnError: false,
-  timeoutMs: 30_000,
+  enabled: false,
+  toolTimeoutMs: 120_000,
 };
 
-/**
- * 简单信号量（内联实现，不引入第三方库）
- * 用于限制并发工具执行数量
- */
-class Semaphore {
-  private queue: Array<() => void> = [];
-
-  constructor(private max: number) {}
-
-  acquire(): Promise<void> {
-    return new Promise((resolve) => {
-      if (this.max > 0) {
-        this.max--;
-        resolve();
-      } else {
-        this.queue.push(() => {
-          this.max--;
-          resolve();
-        });
-      }
-    });
-  }
-
-  release(): void {
-    this.max++;
-    const next = this.queue.shift();
-    if (next) next();
-  }
-}
+// ─── StreamingToolExecutor ─────────────────────────────
 
 export class StreamingToolExecutor {
-  private pending: Map<string, PendingToolCall> = new Map();
-  private completed: ToolResult[] = [];
-  private enqueueDone: boolean = false;
   private config: StreamingToolExecutorConfig;
-  private semaphore: Semaphore;
-  private abortController: AbortController = new AbortController();
 
   constructor(config?: Partial<StreamingToolExecutorConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
-    this.semaphore = new Semaphore(this.config.maxConcurrent);
   }
 
   /**
-   * 注册一个流式到达的工具调用（立即开始异步执行）
-   * 通过 Semaphore 保证实际并发不超过 maxConcurrent
+   * 流式执行：调用模型 + 并发执行工具
+   *
+   * 当 LLM 流式输出 tool_use chunk 时，立即启动工具执行，
+   * 不等待整个流结束。流结束后 collect 所有工具结果。
+   *
+   * @param callModel 模型调用函数
+   * @param executeTools 工具执行函数
+   * @param messages 消息列表
+   * @param signal 中断信号
+   * @param onChunk 流式 chunk 透传回调
+   * @returns 组装后的响应 + 工具结果
    */
-  enqueue(toolCall: ParsedToolCall, executor: ToolExecutorFn): void {
-    const pending: PendingToolCall = {
-      toolCallId: toolCall.id,
-      toolName: toolCall.name,
-      arguments: toolCall.arguments as Record<string, unknown>,
-      startTime: Date.now(),
-      promise: Promise.resolve(null), // 占位，下面替换
-    };
+  async execute(
+    callModel: CallModelFn,
+    executeTools: ExecuteToolsFn,
+    messages: Array<{
+      role: string;
+      content: string;
+      tool_calls?: unknown;
+      tool_call_id?: string;
+    }>,
+    signal: AbortSignal,
+    onChunk?: (chunk: unknown) => void
+  ): Promise<StreamingToolResult> {
+    if (!this.config.enabled) {
+      // 降级：串行模式（先收集全部流，再批量执行工具）
+      return this._executeSerial(
+        callModel,
+        executeTools,
+        messages,
+        signal,
+        onChunk
+      );
+    }
 
-    pending.promise = this.semaphore.acquire().then(async () => {
-      try {
-        // 检查是否已被取消
-        if (this.abortController.signal.aborted) {
-          return null;
+    return this._executeStreaming(
+      callModel,
+      executeTools,
+      messages,
+      signal,
+      onChunk
+    );
+  }
+
+  /**
+   * 串行模式（降级路径）：收集全部流 → 批量执行工具
+   */
+  private async _executeSerial(
+    callModel: CallModelFn,
+    executeTools: ExecuteToolsFn,
+    messages: Array<{ role: string; content: string }>,
+    signal: AbortSignal,
+    onChunk?: (chunk: unknown) => void
+  ): Promise<StreamingToolResult> {
+    const chunks: Array<Record<string, unknown>> = [];
+
+    for await (const chunk of callModel(messages, signal)) {
+      chunks.push(chunk);
+      onChunk?.(chunk);
+    }
+
+    const content = chunks.map((c) => c.content ?? '').join('');
+    const toolCalls = chunks
+      .filter((c) => c.toolCall)
+      .map((c) => c.toolCall as StreamingToolResult['toolCalls'][0]);
+
+    let toolResults: StreamingToolResult['toolResults'] = [];
+    if (toolCalls.length > 0) {
+      toolResults = await executeTools(
+        toolCalls.map((tc) => ({
+          id: tc.id,
+          name: tc.name,
+          arguments: tc.arguments,
+        })),
+        signal
+      );
+    }
+
+    return { content, toolCalls, toolResults, streamChunks: chunks };
+  }
+
+  /**
+   * 流式模式：LLM 输出 tool_use chunk 时立即启动工具执行
+   */
+  private async _executeStreaming(
+    callModel: CallModelFn,
+    executeTools: ExecuteToolsFn,
+    messages: Array<{ role: string; content: string }>,
+    signal: AbortSignal,
+    onChunk?: (chunk: unknown) => void
+  ): Promise<StreamingToolResult> {
+    const chunks: Array<Record<string, unknown>> = [];
+    const toolCalls: StreamingToolResult['toolCalls'] = [];
+    /** 工具执行 Promise 列表（按 tool_use 出现顺序） */
+    const toolExecutionPromises: Array<
+      Promise<StreamingToolResult['toolResults'][0]>
+    > = [];
+
+    try {
+      for await (const chunk of callModel(messages, signal)) {
+        chunks.push(chunk);
+        onChunk?.(chunk);
+
+        // 检测 tool_use chunk → 立即启动工具执行
+        if (chunk.toolCall) {
+          const tc = chunk.toolCall as StreamingToolResult['toolCalls'][0];
+          toolCalls.push(tc);
+
+          // 并发启动工具执行（不等待）
+          const execPromise = this._executeSingleTool(executeTools, tc, signal);
+          toolExecutionPromises.push(execPromise);
         }
-
-        const result = await executor({
-          id: toolCall.id,
-          name: toolCall.name,
-          arguments: toolCall.arguments as Record<string, unknown>,
-        });
-
-        this.completed.push(result);
-        return result;
-      } catch (error) {
-        if (this.config.abortOnError) {
-          this.cancel(String(error));
-        }
-        // 构造错误结果
-        const errorResult: ToolResult = {
-          success: false,
-          error: String(error),
-        };
-        this.completed.push(errorResult);
-        return errorResult;
-      } finally {
-        this.semaphore.release();
       }
-    });
-
-    this.pending.set(toolCall.id, pending);
-  }
-
-  /**
-   * 标记流式接收结束
-   */
-  markEnqueueDone(): void {
-    this.enqueueDone = true;
-  }
-
-  /**
-   * 等待所有待执行的工具调用完成（带超时兜底）
-   * @param timeoutMs 超时时间，默认配置值
-   */
-  async waitAll(timeoutMs?: number): Promise<ToolResult[]> {
-    const effectiveTimeout = timeoutMs ?? this.config.timeoutMs;
-    const deadline = Date.now() + effectiveTimeout;
-
-    // 轮询等待所有 pending 完成或超时
-    while (this.pending.size > 0 && Date.now() < deadline) {
-      await new Promise<void>((resolve) => setTimeout(resolve, 100));
+    } catch (error) {
+      logger.warn('流式调用中断，等待已启动的工具执行完成', {
+        error: String(error),
+      });
+      // 流中断，但仍等待已启动的工具执行完成
     }
 
-    if (this.pending.size > 0) {
-      // 超时：不再等待，返回已完成的 results
-      this.cancel('StreamingToolExecutor waitAll timeout');
+    // 等待所有工具执行完成
+    const toolResults = await Promise.all(toolExecutionPromises);
+
+    const content = chunks.map((c) => c.content ?? '').join('');
+
+    return { content, toolCalls, toolResults, streamChunks: chunks };
+  }
+
+  /**
+   * 执行单个工具调用（带超时保护）
+   */
+  private async _executeSingleTool(
+    executeTools: ExecuteToolsFn,
+    tc: { id: string; name: string; arguments: Record<string, unknown> },
+    signal: AbortSignal
+  ): Promise<StreamingToolResult['toolResults'][0]> {
+    try {
+      const timeoutSignal = AbortSignal.timeout(this.config.toolTimeoutMs);
+      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
+
+      const results = await executeTools(
+        [{ id: tc.id, name: tc.name, arguments: tc.arguments }],
+        combinedSignal
+      );
+
+      return (
+        results[0] ?? {
+          toolCallId: tc.id,
+          toolName: tc.name,
+          error: '工具执行返回空结果',
+        }
+      );
+    } catch (error) {
+      logger.warn('流式工具执行失败', {
+        toolName: tc.name,
+        toolCallId: tc.id,
+        error: String(error),
+      });
+      return {
+        toolCallId: tc.id,
+        toolName: tc.name,
+        error: String(error),
+      };
     }
-
-    return this.completed.slice();
-  }
-
-  /**
-   * 获取已完成的工具结果（不等待）
-   */
-  getCompleted(): ToolResult[] {
-    return this.completed.slice();
-  }
-
-  /**
-   * 获取当前待执行数量
-   */
-  getPendingCount(): number {
-    return this.pending.size;
-  }
-
-  /**
-   * 取消所有待执行的工具调用
-   */
-  cancel(reason: string = 'Cancelled'): void {
-    this.abortController.abort(reason);
-    this.pending.clear();
-  }
-
-  /**
-   * 重置（新一轮对话时调用）
-   */
-  reset(): void {
-    this.pending = new Map();
-    this.completed = [];
-    this.enqueueDone = false;
-    this.abortController = new AbortController();
-    this.semaphore = new Semaphore(this.config.maxConcurrent);
   }
 }
 

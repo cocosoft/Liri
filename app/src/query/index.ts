@@ -120,12 +120,37 @@ export type { QueryDependencies } from './deps.js';
 export {
   TAORLoop,
   createTAORLoop,
+  createTAORLoopDeps,
   MemoryCheckpointStorage,
 } from './TAORLoop.js';
 export { createChatManagerTAORDeps } from './ChatManagerTAORAdapter.js';
 export type { ChatManagerTAORContext } from './ChatManagerTAORAdapter.js';
 export { TAORPhase } from './types.js';
 export { FileCheckpointStorage } from './FileCheckpointStorage.js';
+export { PathGuard, createPathGuard } from './PathGuard.js';
+export type { PathGuardConfig, PathCheckResult } from './PathGuard.js';
+export {
+  FileIOLoopDetector,
+  createFileIOLoopDetector,
+} from './FileIOLoopDetector.js';
+export type { FileIOConfig, FileIOBlockResult } from './FileIOLoopDetector.js';
+export { VerifierAgent, createVerifierAgent } from './VerifierAgent.js';
+export type {
+  VerifierAgentConfig,
+  VerificationResult,
+  VerificationInput,
+  VerdictType,
+} from './VerifierAgent.js';
+export {
+  StreamingToolExecutor,
+  createStreamingToolExecutor,
+} from './StreamingToolExecutor.js';
+export type {
+  StreamingToolResult,
+  StreamingToolExecutorConfig,
+  CallModelFn,
+  ExecuteToolsFn,
+} from './StreamingToolExecutor.js';
 export {
   ParallelToolExecutor,
   createParallelToolExecutor,
@@ -144,7 +169,25 @@ export type {
   ToolErrorRecord as ToolError,
   ToolErrorSummary,
 } from './ToolErrorCollector.js';
+export {
+  LOOP_OBSERVE_ONLY,
+  LOOP_UNKNOWN_TOOL_WARNING,
+  LOOP_UNKNOWN_TOOL_CRITICAL,
+  LOOP_GLOBAL_BREAKER_THRESHOLD,
+  LOOP_FILE_IO_WARNING,
+  LOOP_FILE_IO_BLOCK,
+  LOOP_MIN_TOKEN_DELTA,
+  LOOP_DIMINISH_TURNS_THRESHOLD,
+  LOOP_COMPACT_ROUNDS_KEEP,
+  LOOP_GENERIC_REPEAT_WARNING,
+  LOOP_GENERIC_REPEAT_CRITICAL,
+  LOOP_PING_PONG_THRESHOLD,
+  LOOP_NO_TOOL_CALL_WARNING,
+  LOOP_NO_TOOL_CALL_CRITICAL,
+  observeOnlyGuard,
+} from './loop-config.js';
 export type {
+  TAORLoopDeps,
   TAORLoopConfig,
   TAORLoopResult,
   TAORPhaseInfo,

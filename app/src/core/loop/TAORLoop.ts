@@ -1,8 +1,10 @@
 /**
- * @deprecated 自 2026-07-13 起废弃。
- * 简单原型，已被 query/TAORLoop 子模块（TokenBudget / StopHooks / ContextTracker）直接集成到 ChatManager 取代。
+ * @deprecated 自 2026-07-13 起废弃，Phase 4（架构演进）完成后删除。
+ * 简单原型，已被 query/TAORLoop 子模块（TokenBudget / StopHooks / ContextTracker、
+ * LoopDetector、CircuitBreaker、PathGuard、FileIOLoopDetector、DailyBudgetManager）
+ * 取代。保留作为 Phase 4 制造者/检查者分离设计的参考。
  *
- * TAOR (Think-Act-Observe-Repeat) 循环核心
+ * TAOR (Think-Act-Observe-Repeat) 循环核心（旧版）
  */
 
 import type { ToolCall, ToolResult } from '@modules/core';

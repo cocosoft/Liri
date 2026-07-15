@@ -1,8 +1,9 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * PowerShellTool 输入模式
+ * 安全审计修复：移除 skipSecurityCheck 参数
  */
 export const PowerShellInputSchema = z.strictObject({
   command: z.string().min(1, '命令不能为空').describe('要执行的PowerShell命令'),
@@ -14,11 +15,6 @@ export const PowerShellInputSchema = z.strictObject({
     .optional()
     .default(60000)
     .describe('超时时间（毫秒）'),
-  skipSecurityCheck: z
-    .boolean()
-    .optional()
-    .default(false)
-    .describe('跳过安全检查（危险）'),
   workingDirectory: z.string().optional().describe('命令工作目录'),
   executionPolicy: z
     .string()

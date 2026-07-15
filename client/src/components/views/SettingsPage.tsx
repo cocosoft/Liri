@@ -17,6 +17,7 @@ import VoiceSettings from "../settings/VoiceSettings";
 import KnowledgeIngestPanel from "../settings/KnowledgeIngestPanel";
 import SoulPanel from "../settings/SoulPanel";
 import UserPanel from "../settings/UserPanel";
+import SecurityDashboard from "../views/SecurityDashboard";
 import {
   ConfigSection,
   ConfigItem,
@@ -77,6 +78,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: "custom-rules", labelKey: "settings.customRules", icon: WrenchIcon, zone: "security" },
       { id: "permissions", labelKey: "settings.permissions", icon: ShieldIcon, zone: "security" },
       { id: "oauth", labelKey: "settings.oauth", icon: LinkIcon, zone: "security" },
+      { id: "security-dashboard", labelKey: "settings.securityLog", icon: ShieldIcon, zone: "security" },
     ],
   },
   {
@@ -586,6 +588,8 @@ function SettingsPage() {
         return <PermissionManagementContent isDark={isDark} />;
       case "oauth":
         return <OAuthManagementContent isDark={isDark} />;
+      case "security-dashboard":
+        return <SecurityDashboard />;
       case "channels":
         return <ChannelsManagementContent isDark={isDark} />;
       case "voice":

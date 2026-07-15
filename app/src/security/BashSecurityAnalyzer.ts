@@ -22,11 +22,23 @@ function lazyInitNative() {
             return null;
           }
         };
+        nativeDegraded = false;
+        nativeDegradeReason = null;
       } else {
         nativeAnalyzeSave = null;
+        nativeDegraded = true;
+        nativeDegradeReason = '原生模块导出缺少 analyzeBashCommand 函数';
+        logger.warn('Rust原生安全分析器不可用，降级为TypeScript分析', {
+          reason: nativeDegradeReason,
+        });
       }
     } catch {
       nativeAnalyzeSave = null;
+      nativeDegraded = true;
+      nativeDegradeReason = '原生模块加载失败';
+      logger.warn('Rust原生安全分析器不可用，降级为TypeScript分析', {
+        reason: nativeDegradeReason,
+      });
     }
   }
   return nativeAnalyzeSave;
@@ -68,6 +80,17 @@ import {
 import { configManager } from '@modules/config';
 import type { PermissionConfig } from '@modules/config/types';
 import { loadRules } from '@modules/config/types';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({
+  module: 'security:bashAnalyzer',
+  level: LogLevel.INFO,
+});
+
+/** 标记原生分析器是否已降级 */
+let nativeDegraded = false;
+/** 标记原生分析器降级原因 */
+let nativeDegradeReason: string | null = null;
 
 const ADDITIONAL_DANGEROUS_COMMANDS = new Set([
   'chgrp',
@@ -153,7 +176,13 @@ export class BashSecurityAnalyzer {
         matchedPatterns: [`未匹配白名单规则: ${command}`],
       };
     } catch {
-      return null;
+      // 安全修复：白名单检查异常时，熔断为拒绝（而非静默跳过）
+      return {
+        safe: false,
+        behavior: 'deny' as SecurityBehavior,
+        riskLevel: 'high' as RiskLevel,
+        matchedPatterns: ['白名单检查异常，已熔断拒绝'],
+      };
     }
   }
 
@@ -840,5 +869,12 @@ export class BashSecurityAnalyzer {
     }
 
     return result;
+  }
+
+  /**
+   * 获取原生分析器降级状态（供 /security status 查询）
+   */
+  getNativeStatus(): { degraded: boolean; reason: string | null } {
+    return { degraded: nativeDegraded, reason: nativeDegradeReason };
   }
 }

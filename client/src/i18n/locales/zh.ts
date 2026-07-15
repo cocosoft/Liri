@@ -327,6 +327,7 @@ const zh = {
     customProvider: "自定义提供商",
     customRules: "自定义规则",
     customRulesDesc: "为 Agent 行为设置自定义规则和约束",
+    securityLog: "安全日志",
     danger: "危险操作",
     dataDir: "数据目录",
     dataPath: "数据路径",

@@ -14,7 +14,6 @@ interface BashParsedArgs {
   timeout?: number;
   cwd?: string;
   env?: Record<string, string>;
-  skipSecurityCheck?: boolean;
 }
 
 /**
@@ -32,7 +31,6 @@ function buildHelpText(): string {
     '  --timeout <ms>               执行超时时间（毫秒，默认60000，最大300000）',
     '  --cwd <path>                 指定工作目录（默认当前目录）',
     '  --env <key=value>            设置环境变量（可重复使用）',
-    '  --skip-security-check        跳过安全检查（危险，不推荐）',
     '',
     '安全检查说明:',
     '  系统会对命令进行多层安全检查，包括：',
@@ -71,7 +69,6 @@ function buildHelpText(): string {
 function parseBashArgs(args: string): BashParsedArgs {
   let timeout: number | undefined;
   let cwd: string | undefined;
-  let skipSecurityCheck: boolean | undefined;
   const env: Record<string, string> = {};
   const tokens: string[] = [];
   let i = 0;
@@ -101,9 +98,6 @@ function parseBashArgs(args: string): BashParsedArgs {
         }
       }
       i += 2;
-    } else if (part === '--skip-security-check') {
-      skipSecurityCheck = true;
-      i += 1;
     } else {
       tokens.push(part);
       i++;
@@ -115,7 +109,6 @@ function parseBashArgs(args: string): BashParsedArgs {
     timeout,
     cwd,
     env: Object.keys(env).length > 0 ? env : undefined,
-    skipSecurityCheck,
   };
 }
 
@@ -163,9 +156,6 @@ const bashImplementation: CommandImplementation = {
       }
       if (parsed.env !== undefined) {
         toolInput.env = parsed.env;
-      }
-      if (parsed.skipSecurityCheck !== undefined) {
-        toolInput.skipSecurityCheck = parsed.skipSecurityCheck;
       }
 
       const result = await toolManager.executeTool('bash', toolInput, {});
@@ -249,7 +239,6 @@ export const bashCommand: Command = {
           '| `--timeout <ms>` | 执行超时时间（默认60000，最大300000） |',
           '| `--cwd <path>` | 指定工作目录 |',
           '| `--env <key=value>` | 设置环境变量（可重复使用） |',
-          '| `--skip-security-check` | 跳过安全检查（危险） |',
           '',
           '示例：',
           '- `/bash ls -la`',

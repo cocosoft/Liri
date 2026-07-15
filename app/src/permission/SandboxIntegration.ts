@@ -90,7 +90,7 @@ export interface ISandboxManager {
  */
 const DEFAULT_CONFIG: SandboxConfig = {
   enabled: true,
-  autoAllowIfSandboxed: true,
+  autoAllowIfSandboxed: false, // 安全修复：沙箱内不再自动放行，走完整权限检查
   allowedCommands: [
     'ls',
     'dir',

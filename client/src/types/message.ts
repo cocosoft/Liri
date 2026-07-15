@@ -25,6 +25,8 @@ export interface Message {
   agentName?: string;
   /** 用户消息附带的图片 */
   attachedImages?: AttachedImage[];
+  /** 元数据（含安全拦截标记等） */
+  metadata?: Record<string, unknown>;
   usage?: {
     inputTokens: number;
     outputTokens: number;

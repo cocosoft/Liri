@@ -324,6 +324,7 @@ const en = {
     customProvider: "Custom Provider",
     customRules: "Custom Rules",
     customRulesDesc: "Set custom rules and constraints for Agent behavior",
+    securityLog: "Security Log",
     danger: "Danger Zone",
     dataDir: "Data Directory",
     dataPath: "Data Path",

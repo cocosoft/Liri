@@ -2425,7 +2425,7 @@ export class ChatManagerImpl implements ChatManager {
           );
           const toolResultMsg = this.messageService.createToolResultMessage(
             toolResult,
-            { sessionId: session.id }
+            { sessionId: session.id, metadata: toolResult.metadata }
           );
           this._addAndPersistMessage(session.id, toolResultMsg);
 
@@ -2770,7 +2770,7 @@ export class ChatManagerImpl implements ChatManager {
       // 保存工具结果消息
       const toolResultMessage = this.messageService.createToolResultMessage(
         toolResult,
-        { sessionId: session.id }
+        { sessionId: session.id, metadata: toolResult.metadata }
       );
       this._addAndPersistMessage(session.id, toolResultMessage);
 
@@ -3377,6 +3377,7 @@ export class ChatManagerImpl implements ChatManager {
           toolName: normalizedToolCall.name,
           result: toolResult.data || toolResult.result,
           error,
+          metadata: toolResult.metadata as Record<string, unknown> | undefined,
         };
       } catch (error) {
         logger.error('工具执行失败', {

@@ -25,6 +25,10 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
 import { DELETION_RULES } from '../../security/patterns/dangerousCommands';
+import { SandboxSecurityChecker } from '@modules/sandbox/SandboxSecurityChecker';
+import { completeSecuritySystem } from '@modules/security';
+import { configManager } from '@modules/config';
+import type { PermissionConfig } from '@modules/config/types';
 
 /** PowerShell 删除命令别名（来源：dangerousCommands.ts DELETION_RULES） */
 const POWERSHELL_DELETION_ALIASES = [
@@ -38,9 +42,101 @@ const POWERSHELL_DELETION_ALIASES = [
 ];
 
 /**
- * PowerShell 输入模式
+ * PowerShell 安全命令白名单（F3 修复）
+ * 仅允许以这些 PowerShell 动词/命令开头的命令执行
  */
-const PowerShellInputSchema = z.object({
+const ALLOWED_POWERSHELL_COMMANDS = new Set([
+  // 查询类（只读）
+  'get-',
+  'test-',
+  'resolve-',
+  'measure-',
+  'compare-',
+  'select-',
+  'where-',
+  'group-',
+  'sort-',
+  'format-',
+  'out-',
+  'export-',
+  'write-',
+  'read-',
+  'convertto-',
+  'convertfrom-',
+  // 诊断类
+  'debug-',
+  'trace-',
+  // 安全辅助
+  'checkpoint-',
+  'diff-',
+  // 允许的文件操作
+  'new-item',
+  'mkdir',
+  'md',
+  'copy-item',
+  'copy',
+  'cpi',
+  'move-item',
+  'move',
+  'mi',
+  'mv',
+  'rename-item',
+  'rename',
+  'ren',
+  'rni',
+  // 环境变量
+  'get-variable',
+  'set-variable',
+  // 进程信息（只读）
+  'get-process',
+  'get-service',
+  // 帮助
+  'get-help',
+  'help',
+  'man',
+  // 构建工具相关
+  'npm',
+  'node',
+  'bun',
+  'yarn',
+  'pnpm',
+  'git',
+  'python',
+  'python3',
+  'pip',
+  'cargo',
+  'rustc',
+  // 基本命令
+  'echo',
+  'write-host',
+  'write-output',
+]);
+
+/** 沙箱安全检查器实例（F2 修复：二次校验） */
+const psSandboxChecker = new SandboxSecurityChecker();
+
+/**
+ * 检查 PowerShell 命令是否在白名单中
+ * @param command PowerShell 命令
+ * @returns 是否允许
+ */
+function isPowerShellCommandAllowed(command: string): boolean {
+  const trimmed = command.trim().toLowerCase();
+  if (!trimmed) return false;
+
+  // 直接匹配完整命令前缀
+  for (const allowed of ALLOWED_POWERSHELL_COMMANDS) {
+    if (trimmed.startsWith(allowed)) return true;
+  }
+
+  return false;
+}
+
+/**
+ * PowerShell 输入模式
+ * 安全审计修复：移除 skipSecurityCheck 参数，安全检查强制运行
+ */
+const PowerShellInputSchema = z.strictObject({
   command: z.string().min(1, '命令不能为空').describe('要执行的PowerShell命令'),
   timeout: z
     .number()
@@ -50,11 +146,6 @@ const PowerShellInputSchema = z.object({
     .optional()
     .default(60000)
     .describe('超时时间（毫秒）'),
-  skipSecurityCheck: z
-    .boolean()
-    .optional()
-    .default(false)
-    .describe('跳过安全检查（危险）'),
   workingDirectory: z.string().optional().describe('命令工作目录'),
   executionPolicy: z
     .string()
@@ -110,13 +201,6 @@ export class PowerShellTool extends BaseTool {
       description: 'Timeout in milliseconds',
       required: false,
       default: 60000,
-    },
-    {
-      name: 'skipSecurityCheck',
-      type: 'boolean',
-      description: 'Skip security validation (dangerous)',
-      required: false,
-      default: false,
     },
     {
       name: 'workingDirectory',
@@ -231,7 +315,6 @@ export class PowerShellTool extends BaseTool {
     try {
       const command = input.command as string;
       const timeout = (input.timeout as number) || 60000;
-      const skipSecurityCheck = (input.skipSecurityCheck as boolean) || false;
       const workingDirectory =
         (input.workingDirectory as string) ||
         context.options.cwd ||
@@ -267,45 +350,93 @@ export class PowerShellTool extends BaseTool {
         });
       }
 
-      if (!skipSecurityCheck) {
-        onProgress?.({
-          toolUseID: toolUseId,
-          data: {
-            percentage: 10,
-            message: '正在执行安全检查...',
-            stage: 'security_check',
-          },
-        });
-        const securityResult = this.securityAnalyzer.analyze(command);
+      // 安全审计修复：安全检查强制运行，不可绕过
+      onProgress?.({
+        toolUseID: toolUseId,
+        data: {
+          percentage: 10,
+          message: '正在执行安全检查...',
+          stage: 'security_check',
+        },
+      });
 
-        if (securityResult.behavior === 'deny') {
-          return createFailureResult(
-            `安全检查失败: ${securityResult.message || '命令被阻止执行'}`,
-            {
-              executionTime: Date.now() - startTime,
-              errorLevel: ErrorLevel.FATAL,
-              metadata: {
-                errorCategory: 'security',
-                errorCode: 'SECURITY_DENIED',
-              },
-            }
-          );
-        }
+      // PowerShell 安全分析器检查
+      const securityResult = this.securityAnalyzer.analyze(command);
 
-        if (securityResult.behavior === 'ask') {
-          return createFailureResult(
-            `需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`,
-            {
-              executionTime: Date.now() - startTime,
-              errorLevel: ErrorLevel.RECOVERABLE,
-              metadata: {
-                errorCategory: 'permission',
-                errorCode: 'USER_CONFIRMATION_REQUIRED',
-              },
-            }
-          );
-        }
+      if (securityResult.behavior === 'deny') {
+        return createFailureResult(
+          `安全检查失败: ${securityResult.message || '命令被阻止执行'}`,
+          {
+            executionTime: Date.now() - startTime,
+            errorLevel: ErrorLevel.FATAL,
+            metadata: {
+              errorCategory: 'security',
+              errorCode: 'SECURITY_DENIED',
+              securityIntercepted: true,
+            },
+          }
+        );
       }
+
+      if (securityResult.behavior === 'ask') {
+        return createFailureResult(
+          `需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`,
+          {
+            executionTime: Date.now() - startTime,
+            errorLevel: ErrorLevel.RECOVERABLE,
+            metadata: {
+              errorCategory: 'permission',
+              errorCode: 'USER_CONFIRMATION_REQUIRED',
+              securityIntercepted: true,
+            },
+          }
+        );
+      }
+
+      // F3 修复：PowerShell 命令白名单检查
+      if (!isPowerShellCommandAllowed(command)) {
+        return createFailureResult(
+          `安全检查: PowerShell 命令 "${command.split(/\s+/)[0]}" 不在允许列表中`,
+          {
+            executionTime: Date.now() - startTime,
+            errorLevel: ErrorLevel.FATAL,
+            metadata: {
+              errorCategory: 'security',
+              errorCode: 'COMMAND_NOT_ALLOWED',
+              securityIntercepted: true,
+            },
+          }
+        );
+      }
+
+      // F2 修复：沙箱安全检查器二次校验
+      const sandboxCheckResult =
+        psSandboxChecker.checkDangerousCommands(command);
+      if (!sandboxCheckResult.allowed) {
+        return createFailureResult(
+          `沙箱安全检查: ${sandboxCheckResult.reason}`,
+          {
+            executionTime: Date.now() - startTime,
+            errorLevel: ErrorLevel.FATAL,
+            metadata: {
+              errorCategory: 'security',
+              errorCode: 'SANDBOX_SECURITY_DENIED',
+              securityIntercepted: true,
+            },
+          }
+        );
+      }
+
+      // F5 修复：操作审计日志
+      completeSecuritySystem.auditAction({
+        sessionId: context.toolUseId || 'unknown',
+        action: 'powershell_execute',
+        actor: 'system',
+        target: command.substring(0, 200),
+        result: 'allowed',
+        level: 1,
+        details: `PowerShellTool execute: ${command.substring(0, 100)}`,
+      });
 
       const depth = input.depth as number | undefined;
       const exclude = input.exclude as string | undefined;
@@ -429,6 +560,9 @@ export class PowerShellSecurityAnalyzer {
   }>;
 
   constructor() {
+    // 从用户配置加载自定义黑名单，合并到危险模式列表
+    const customBlacklistPatterns = this.loadCustomBlacklistPatterns();
+
     this.dangerousPatterns = [
       // P0 紧急新增：Remove-Item 别名全覆盖
       {
@@ -571,7 +705,133 @@ export class PowerShellSecurityAnalyzer {
         behavior: 'ask',
         message: '启动配置修改需要确认',
       },
+      // V7 修复：补充 PowerShell 危险命令（安全审计发现）
+      {
+        name: 'invoke_expression',
+        pattern: /invoke-expression\s+|iex\s+/i,
+        riskLevel: 'critical',
+        behavior: 'deny',
+        message: '禁止 Invoke-Expression（iex），可执行任意代码',
+      },
+      {
+        name: 'invoke_command',
+        pattern: /invoke-command\s+|icm\s+/i,
+        riskLevel: 'critical',
+        behavior: 'deny',
+        message: '禁止 Invoke-Command（icm），可远程执行任意代码',
+      },
+      {
+        name: 'start_process',
+        pattern: /start-process\s+|saps\s+/i,
+        riskLevel: 'high',
+        behavior: 'deny',
+        message: '禁止 Start-Process，可启动任意进程',
+      },
+      {
+        name: 'wmi_manipulation',
+        pattern:
+          /(?:get-wmiobject|set-wmiinstance|invoke-wmimethod|get-ciminstance|set-ciminstance|invoke-cimmethod)\s+/i,
+        riskLevel: 'high',
+        behavior: 'deny',
+        message: '禁止 WMI/CIM 操作，可修改系统配置',
+      },
+      {
+        name: 'add_type',
+        pattern: /add-type\s+/i,
+        riskLevel: 'critical',
+        behavior: 'deny',
+        message: '禁止 Add-Type，可加载任意 .NET 程序集',
+      },
+      {
+        name: 'net_assembly_load',
+        pattern: /\[system\.reflection\.assembly\]::load/i,
+        riskLevel: 'critical',
+        behavior: 'deny',
+        message: '禁止反射加载 .NET 程序集',
+      },
+      // 用户自定义黑名单规则
+      ...customBlacklistPatterns,
     ];
+  }
+
+  /**
+   * 从用户配置加载自定义命令黑名单，转换为危险模式列表
+   * @returns 自定义黑名单模式列表
+   */
+  private loadCustomBlacklistPatterns(): Array<{
+    pattern: RegExp;
+    riskLevel: 'low' | 'medium' | 'high' | 'critical';
+    behavior: 'allow' | 'ask' | 'deny';
+    message: string;
+    name: string;
+  }> {
+    try {
+      const permission =
+        configManager.getConfigValue<PermissionConfig>('permission');
+      const blacklist = permission?.customRules?.commandRules?.blacklist;
+      if (!blacklist || blacklist.length === 0) return [];
+
+      return blacklist.map((rule, idx) => ({
+        name: `custom_blacklist_${idx}`,
+        pattern: new RegExp(
+          rule.pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+          'i'
+        ),
+        riskLevel: 'high' as const,
+        behavior: 'deny' as const,
+        message: `用户自定义黑名单拦截: ${rule.pattern}`,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * 白名单前置检查：当配置了 whitelist 模式时，只放行匹配白名单的指令
+   * @param command 命令字符串
+   * @returns 非 null 表示白名单检查结果（null 表示未启用白名单模式）
+   */
+  private checkWhitelistPreCheck(command: string): {
+    safe: boolean;
+    behavior: 'allow' | 'ask' | 'deny';
+    riskLevel: 'low' | 'medium' | 'high' | 'critical';
+    message?: string;
+    matchedPatterns: string[];
+  } | null {
+    try {
+      const permission =
+        configManager.getConfigValue<PermissionConfig>('permission');
+      const rules = permission?.customRules?.commandRules;
+      if (!rules || rules.mode !== 'whitelist') return null;
+
+      const whitelistPatterns = rules.whitelist || [];
+      const matched = whitelistPatterns.some((r) =>
+        command.toLowerCase().includes(r.pattern.toLowerCase())
+      );
+
+      if (matched) {
+        return {
+          safe: true,
+          behavior: 'allow',
+          riskLevel: 'low',
+          matchedPatterns: [],
+        };
+      }
+
+      return {
+        safe: false,
+        behavior: 'deny',
+        riskLevel: 'high',
+        matchedPatterns: [`未匹配白名单规则: ${command}`],
+      };
+    } catch {
+      return {
+        safe: false,
+        behavior: 'deny',
+        riskLevel: 'high',
+        matchedPatterns: ['白名单检查异常，已熔断拒绝'],
+      };
+    }
   }
 
   /**
@@ -602,6 +862,12 @@ export class PowerShellSecurityAnalyzer {
         riskLevel: 'low',
         matchedPatterns: [],
       };
+    }
+
+    // 前置检查：白名单模式 — 配置了 whitelist 时，只放行匹配的指令
+    {
+      const preCheck = this.checkWhitelistPreCheck(trimmedCommand);
+      if (preCheck) return preCheck;
     }
 
     const matchedPatterns: string[] = [];

@@ -149,4 +149,9 @@ export interface ToolResult {
    * 会话ID
    */
   sessionId?: string;
+
+  /**
+   * 元数据（含安全拦截标记等）
+   */
+  metadata?: Record<string, unknown>;
 }

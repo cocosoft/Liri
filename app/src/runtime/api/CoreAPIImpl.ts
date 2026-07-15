@@ -836,6 +836,7 @@ export class CoreAPIImpl implements CoreAPI {
       tool_calls?: Array<Record<string, unknown>>;
       toolCallId?: string;
       blocks?: Array<Record<string, unknown>>;
+      metadata?: Record<string, unknown>;
     }>
   > {
     // 优先从持久化存储读取，确保 blocks 完整
@@ -854,6 +855,7 @@ export class CoreAPIImpl implements CoreAPI {
               | undefined,
             toolCallId: m.metadata?.toolCallId as string | undefined,
             blocks: m.blocks as Array<Record<string, unknown>> | undefined,
+            metadata: m.metadata as Record<string, unknown> | undefined,
           }));
         }
       }
@@ -909,6 +911,7 @@ export class CoreAPIImpl implements CoreAPI {
         toolCallId:
           msg.toolCallId || (msg.metadata?.toolCallId as string | undefined),
         blocks: msg.blocks,
+        metadata: msg.metadata as Record<string, unknown> | undefined,
       };
     });
   }

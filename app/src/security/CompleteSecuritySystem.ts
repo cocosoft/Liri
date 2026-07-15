@@ -140,6 +140,8 @@ export interface ICompleteSecuritySystem {
     permissionMode: PermissionMode;
     securityAnalyzerReady: boolean;
   };
+  /** 获取原生安全分析器降级状态 */
+  getNativeStatus(): { degraded: boolean; reason: string | null };
   setPermissionMode(mode: PermissionMode): void;
   isSandboxEnabled(): boolean;
   setSandboxEnabled(enabled: boolean): void;
@@ -484,6 +486,14 @@ export class CompleteSecuritySystem implements ICompleteSecuritySystem {
     securityAnalyzerReady: boolean;
   } {
     return securityIntegrationService.getStatus();
+  }
+
+  /**
+   * 获取原生安全分析器降级状态
+   * 供 /security status 命令查询
+   */
+  getNativeStatus(): { degraded: boolean; reason: string | null } {
+    return this.getSecurityAnalyzer().getNativeStatus();
   }
 
   setPermissionMode(mode: PermissionMode): void {

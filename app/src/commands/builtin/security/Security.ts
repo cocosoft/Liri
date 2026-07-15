@@ -394,11 +394,16 @@ const securityCommand = {
    */
   async showStatus(useJson: boolean) {
     const status = completeSecuritySystem.getStatus();
+    const nativeStatus = completeSecuritySystem.getNativeStatus();
 
     if (useJson) {
       return {
         success: true,
-        message: JSON.stringify(status, null, 2),
+        message: JSON.stringify(
+          { ...status, nativeAnalyzer: nativeStatus },
+          null,
+          2
+        ),
       };
     }
 
@@ -407,6 +412,15 @@ const securityCommand = {
     output += `安全分析器: ${status.securityAnalyzerReady ? '✅ 就绪' : '❌ 不可用'}\n`;
     output += `沙箱: ${status.sandboxEnabled ? '✅ 已启用' : '❌ 未启用'}\n`;
     output += `权限模式: ${status.permissionMode}\n`;
+
+    // Rust 原生分析器状态
+    output += `\n原生安全分析器:\n`;
+    if (nativeStatus.degraded) {
+      output += `  状态: ⚠️ 已降级 → TypeScript 分析\n`;
+      output += `  原因: ${nativeStatus.reason || '未知'}\n`;
+    } else {
+      output += `  状态: ✅ Rust 原生分析器运行中\n`;
+    }
 
     // 获取模式列表
     const modeLabels: Record<string, string> = {

@@ -727,8 +727,8 @@ export class ToolExecutor {
     const warnings: string[] = [];
     const errors: string[] = [];
 
-    // 对于Bash工具，执行额外的安全检查
-    if (tool.name === 'Bash') {
+    // 对于Bash/PowerShell工具，执行额外的安全检查
+    if (tool.name === 'bash' || tool.name === 'powershell') {
       const command = (input.command as string) || '';
       const args = (input.args as string[]) || [];
 

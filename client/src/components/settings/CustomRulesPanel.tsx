@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ConfigSection,
@@ -69,7 +69,11 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
       if (res?.value?.customRules) {
         setConfig(res.value.customRules);
       } else {
-        setConfig({});
+        // P1修复：初始化默认空结构，避免页面"全空"
+        setConfig({
+          commandRules: { mode: "blacklist", whitelist: [], blacklist: [] },
+          directoryRules: { whitelist: [], blacklist: [] },
+        });
       }
     } catch {
       setError("加载自定义规则失败");
@@ -197,10 +201,10 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
     return "输入目录路径（如 /etc, C:\\Windows）";
   };
 
-  // 首次渲染时加载
-  useState(() => {
+  // 首次渲染时加载配置
+  useEffect(() => {
     loadConfig();
-  });
+  }, []);
 
   return (
     <ConfigSection
@@ -269,9 +273,21 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
 
       {/* 规则列表 */}
       {getCurrentList().length === 0 ? (
-        <p className={`text-xs py-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-          暂未添加{activeTab.includes("command") ? "命令" : "目录"}规则。
-        </p>
+        <div className={`py-3 px-3 rounded-lg text-xs space-y-1.5 ${isDark ? "bg-gray-800/50 text-gray-400" : "bg-gray-50 text-gray-500"}`}>
+          <p className="font-medium">暂无{activeTab.includes("command") ? "命令" : "目录"}规则</p>
+          {activeTab === "command-blacklist" && (
+            <p>添加命令模式（如 <code className="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700">rm -rf</code>）后，匹配的命令将被拦截。</p>
+          )}
+          {activeTab === "command-whitelist" && (
+            <p>添加命令模式后，仅允许匹配的命令执行，其余全部拦截。</p>
+          )}
+          {activeTab === "dir-blacklist" && (
+            <p>添加目录路径（如 <code className="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700">/etc</code>）后，禁止访问该目录。</p>
+          )}
+          {activeTab === "dir-whitelist" && (
+            <p>添加目录路径后，仅允许访问这些目录，其余全部拦截。</p>
+          )}
+        </div>
       ) : (
         <div className="max-h-48 overflow-y-auto space-y-1">
           {getCurrentList().map((item, i) => (

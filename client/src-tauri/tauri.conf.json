@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Liri",
-  "version": "0.4.30",
+  "version": "0.4.31",
   "identifier": "com.liri.client",
   "build": {
     "frontendDist": "../dist",

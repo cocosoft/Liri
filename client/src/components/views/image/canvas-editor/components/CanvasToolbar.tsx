@@ -38,6 +38,12 @@ interface Props {
   onRedo: () => void;
   onExport: (format: "png" | "jpeg" | "webp") => void;
   onResizeClick?: () => void;
+  /** Modal 模式：是否显示导出按钮（默认 true；onSave 传入时隐藏） */
+  showExport?: boolean;
+  /** Modal 模式：保存回调 */
+  onSave?: () => void;
+  /** Modal 模式：取消回调 */
+  onCancel?: () => void;
 }
 
 /** 渲染单个参数控件 */
@@ -84,6 +90,7 @@ function ParamControl({ schema, value, onChange }: {
 export const CanvasToolbar: React.FC<Props> = ({
   state, canUndo, canRedo, paramsSchema,
   onToolChange, onToolParamChange, onFgColor, onBgColor, onStrokeWidth, onUndo, onRedo, onExport, onResizeClick,
+  showExport = true, onSave, onCancel,
 }) => (
   <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-700/20 bg-gray-900/30" data-canvas-toolbar role="toolbar" aria-label="画布工具">
     {/* 工具按钮 */}
@@ -139,18 +146,38 @@ export const CanvasToolbar: React.FC<Props> = ({
 
     <div className="w-px h-4 bg-gray-600/30" />
 
-    {/* 导出按钮 */}
-    <div className="flex gap-1">
-      <button onClick={() => onExport("png")} className="text-xs px-1.5 py-0.5 rounded bg-gray-800/50 border-0 cursor-pointer text-gray-400 hover:bg-gray-700/50" title="导出 PNG">PNG</button>
-      <button onClick={() => onExport("jpeg")} className="text-xs px-1.5 py-0.5 rounded bg-gray-800/50 border-0 cursor-pointer text-gray-400 hover:bg-gray-700/50" title="导出 JPEG">JPG</button>
-      <button onClick={() => onExport("webp")} className="text-xs px-1.5 py-0.5 rounded bg-gray-800/50 border-0 cursor-pointer text-gray-400 hover:bg-gray-700/50" title="导出 WebP">WEBP</button>
-    </div>
+    {/* 导出按钮（Modal 模式隐藏） */}
+    {showExport && (
+      <div className="flex gap-1">
+        <button onClick={() => onExport("png")} className="text-xs px-1.5 py-0.5 rounded bg-gray-800/50 border-0 cursor-pointer text-gray-400 hover:bg-gray-700/50" title="导出 PNG">PNG</button>
+        <button onClick={() => onExport("jpeg")} className="text-xs px-1.5 py-0.5 rounded bg-gray-800/50 border-0 cursor-pointer text-gray-400 hover:bg-gray-700/50" title="导出 JPEG">JPG</button>
+        <button onClick={() => onExport("webp")} className="text-xs px-1.5 py-0.5 rounded bg-gray-800/50 border-0 cursor-pointer text-gray-400 hover:bg-gray-700/50" title="导出 WebP">WEBP</button>
+      </div>
+    )}
 
     {onResizeClick && (
       <>
         <div className="w-px h-4 bg-gray-600/30" />
         <button onClick={onResizeClick} className="text-xs px-1.5 py-0.5 rounded bg-gray-800/50 border-0 cursor-pointer text-gray-400 hover:bg-gray-700/50" title="调整画布尺寸">↔</button>
       </>
+    )}
+
+    {/* Modal 模式：保存/取消按钮 */}
+    {(onSave || onCancel) && (
+      <div className="ml-auto flex gap-2">
+        {onCancel && (
+          <button onClick={onCancel}
+            className="px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600 border-0 cursor-pointer text-gray-300">
+            取消
+          </button>
+        )}
+        {onSave && (
+          <button onClick={onSave}
+            className="px-3 py-1 text-xs rounded bg-blue-700/40 hover:bg-blue-600/40 border-0 cursor-pointer text-blue-200">
+            保存
+          </button>
+        )}
+      </div>
     )}
   </div>
 );

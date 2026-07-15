@@ -81,14 +81,13 @@ export const BottomInputBar: React.FC<{
         setTimeout(() => onGenerate(), 100);
       }
     } else if (intendedAction.type === "edit-image") {
-      setMode("image");
+      // 编辑图片：设置 editingImage + 提前 return，不切模式
       if (intendedAction.sourceImage) {
-        useMediaStore.getState().setSelectedImage(
-          intendedAction.sourceImage.url,
-          intendedAction.sourceImage.id
-        );
+        useMediaStore.getState().setEditingImage(intendedAction.sourceImage);
       }
       useMediaStore.getState().lastConsumedSeq = intendedAction.seq;
+      clearIntendedAction();
+      return; // 提前 return，不执行下面的 setMode("image")
     }
 
     clearIntendedAction();

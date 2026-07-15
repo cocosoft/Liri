@@ -65,6 +65,12 @@ export interface IntendedAction {
   autoSubmit: boolean;
 }
 
+/** 编辑图片信息（传给 EditLayer） */
+export interface EditingImage {
+  url: string;
+  id: string;
+}
+
 // ============================================================
 // 收藏持久化（localStorage）
 // ============================================================
@@ -130,6 +136,10 @@ interface MediaStore {
   intendedAction: IntendedAction | null;
   lastConsumedSeq: number;
 
+  // ──── 图片编辑 ────
+  editingImage: EditingImage | null;
+  isEditing: boolean;
+
   // ──── 收藏（localStorage 持久化） ────
   favoriteIds: Set<string>;
   toggleFavorite: (id: string) => void;
@@ -163,6 +173,9 @@ interface MediaStore {
 
   setIntendedAction: (action: Omit<IntendedAction, "seq">) => void;
   clearIntendedAction: () => void;
+
+  setEditingImage: (image: EditingImage | null) => void;
+  addGalleryItem: (item: GalleryItem) => void;
 
   getSelectedItem: () => GalleryItem | null;
 }
@@ -200,6 +213,10 @@ export const useMediaStore = create<MediaStore>()((set, get) => ({
   // ──── 信令 ────
   intendedAction: null,
   lastConsumedSeq: 0,
+
+  // ──── 图片编辑 ────
+  editingImage: null,
+  isEditing: false,
 
   // ──── 收藏（localStorage 持久化） ────
   favoriteIds: loadFavorites(),
@@ -295,6 +312,18 @@ export const useMediaStore = create<MediaStore>()((set, get) => ({
   },
 
   clearIntendedAction: () => set({ intendedAction: null }),
+
+  // 设置/清除编辑图片，同时控制 isEditing 锁
+  setEditingImage: (image) => set({ editingImage: image, isEditing: image !== null }),
+
+  // 增量插入画廊项（头部插入 + 去重）
+  addGalleryItem: (item) =>
+    set((s) => ({
+      galleryItems: [
+        item,
+        ...s.galleryItems.filter((existing) => existing.id !== item.id),
+      ],
+    })),
 
   getSelectedItem: () => {
     const { selectedId, galleryItems } = get();

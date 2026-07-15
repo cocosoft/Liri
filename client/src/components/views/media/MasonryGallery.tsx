@@ -21,6 +21,10 @@ interface Props {
   isDark: boolean;
   onSelect: (id: string) => void;
   onLoadMore: () => void;
+  /** 编辑锁：true 时禁用 onClick */
+  disabled?: boolean;
+  /** 滚动容器 ref（供外部保存/恢复滚动位置） */
+  scrollRef?: React.Ref<HTMLDivElement>;
 }
 
 /**
@@ -77,6 +81,8 @@ export const MasonryGallery: React.FC<Props> = ({
   isDark,
   onSelect,
   onLoadMore,
+  disabled = false,
+  scrollRef,
 }) => {
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -110,7 +116,7 @@ export const MasonryGallery: React.FC<Props> = ({
   }, [hasMore, loading, onLoadMore]);
 
   return (
-    <div className="h-full overflow-y-auto p-3">
+    <div className="h-full overflow-y-auto p-3" ref={scrollRef}>
       <div
         className="columns-2 md:columns-3 lg:columns-4"
         style={{ columnGap: 8 }}
@@ -122,7 +128,7 @@ export const MasonryGallery: React.FC<Props> = ({
           return (
             <div
               key={item.id}
-              onClick={() => onSelect(item.id)}
+              onClick={() => !disabled && onSelect(item.id)}
               onMouseEnter={() => setHoveredId(item.id)}
               onMouseLeave={() => setHoveredId(null)}
               className="group relative mb-2 cursor-pointer overflow-hidden rounded-lg border-2 transition-all"

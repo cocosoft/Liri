@@ -142,13 +142,13 @@ export const imageService = {
     const raw = await toolService.execute("image_svg_generate", {
       prompt,
       ...options,
-    }) as { ok: boolean; data: { success: boolean; data: { svg: string; model: string; size: string; filePath?: string }; error?: string }; error?: { message: string } };
+    }) as { success: boolean; data: { svg: string; model: string; size: string; filePath?: string }; error?: string | null };
 
-    if (!raw?.ok || !raw.data?.success || !raw.data?.data) {
-      const detail = raw?.data?.error || raw?.error?.message || JSON.stringify(raw);
-      throw new Error(`SVG generation failed: ${detail}`);
+    if (!raw?.success || !raw?.data) {
+      
+      throw new Error(raw?.error || "SVG generation failed");
     }
-    return raw.data.data;
+    return raw.data;
   },
   async generate(
     prompt: string,
@@ -165,12 +165,12 @@ export const imageService = {
     const raw = await toolService.execute("image_generate", {
       prompt,
       ...options,
-    }) as { ok: boolean; data: { success: boolean; data: GenerateResult; error?: string }; error?: { message: string } };
+    }) as { success: boolean; data: GenerateResult; error?: string | null };
 
-    if (!raw?.ok || !raw.data?.success || !raw.data?.data) {
-      throw new Error(raw.data?.error || raw.error?.message || "Image generation failed");
+    if (!raw?.success || !raw?.data || !raw.data.images?.length) {
+      throw new Error(raw?.error || "Image generation failed");
     }
-    return raw.data.data;
+    return raw.data;
   },
 
   /**
@@ -185,12 +185,12 @@ export const imageService = {
       action,
       inputPath: imagePath,
       ...options,
-    }) as { ok: boolean; data: { success: boolean; data: AnalysisResult; error?: string }; error?: { message: string } };
+    }) as { success: boolean; data: AnalysisResult; error?: string | null };
 
-    if (!raw?.ok || !raw.data?.success || !raw.data?.data) {
-      throw new Error(raw.data?.error || raw.error?.message || "Image analysis failed");
+    if (!raw?.success || !raw?.data) {
+      throw new Error(raw?.error || "Image analysis failed");
     }
-    return raw.data.data;
+    return raw.data;
   },
 
   /**
@@ -205,12 +205,12 @@ export const imageService = {
       action,
       inputPath,
       ...options,
-    }) as { ok: boolean; data: { success: boolean; data: EditResult; error?: string }; error?: { message: string } };
+    }) as { success: boolean; data: EditResult; error?: string | null };
 
-    if (!raw?.ok || !raw.data?.success || !raw.data?.data) {
-      throw new Error(raw.data?.error || raw.error?.message || "Image edit failed");
+    if (!raw?.success || !raw?.data) {
+      throw new Error(raw?.error || "Image edit failed");
     }
-    return raw.data.data;
+    return raw.data;
   },
 
   /**
@@ -273,14 +273,14 @@ export const imageService = {
     options?: Record<string, unknown>
   ): Promise<CanvasResult> {
     const raw = await toolService.execute("canvas", { action, ...options }) as {
-      ok: boolean;
-      data: { success: boolean; data: CanvasResult; error?: string };
-      error?: { message: string };
+      success: boolean;
+      data: CanvasResult;
+      error?: string | null;
     };
-    if (!raw?.ok || !raw.data?.success || !raw.data?.data) {
-      throw new Error(raw.data?.error || raw.error?.message || "Canvas operation failed");
+    if (!raw?.success || !raw?.data) {
+      throw new Error(raw?.error || "Canvas operation failed");
     }
-    return raw.data.data;
+    return raw.data;
   },
 
   /**

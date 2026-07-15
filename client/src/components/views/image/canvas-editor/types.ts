@@ -59,3 +59,23 @@ export interface ClipRegion {
   /** 或矩形选区 */
   rect?: { x: number; y: number; w: number; h: number };
 }
+
+/** CanvasEditor 组件 Props */
+export interface CanvasEditorProps {
+  width?: number;
+  height?: number;
+  /** 初始背景色 */
+  bgColor?: string;
+  /** 初始加载的图片 URL */
+  src?: string;
+  /** 画布唯一 ID（用于多画布草稿箱隔离） */
+  canvasId?: string;
+  /** 容器高度 CSS 类（Modal 模式："h-full max-h-[calc(100vh-4rem)]"；默认兼容 ImagePage） */
+  containerHeight?: string;
+  /** 保存回调（Modal 模式传入，传入后原有导出按钮隐藏） */
+  onSave?: (blob: Blob | null) => Promise<void>;
+  /** 取消回调（Modal 模式传入） */
+  onCancel?: () => void;
+  /** 脏状态变更回调（告知外部是否有未保存更改） */
+  onDirty?: (dirty: boolean) => void;
+}

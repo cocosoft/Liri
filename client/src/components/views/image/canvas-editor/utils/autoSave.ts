@@ -124,3 +124,22 @@ export async function getLatestSnapshot(canvasId: string): Promise<{ dataUrl: st
     return null;
   }
 }
+
+/** 清除指定画布的所有自动保存快照（取消编辑时调用） */
+export async function clearAutoSave(canvasId: string): Promise<void> {
+  try {
+    const db = await openDB();
+    const keys = await getKeys(db, `${canvasId}:`);
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+    for (const key of keys) {
+      store.delete(key);
+    }
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // 静默跳过
+  }
+}

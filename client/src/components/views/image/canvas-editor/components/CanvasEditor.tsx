@@ -1,7 +1,7 @@
 // canvas-editor/components/CanvasEditor.tsx — 画布编辑器容器
 
-import React, { useState, useCallback, useEffect, useRef } from "react";
-import { CanvasState, CanvasTool } from "../types";
+import { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
+import { CanvasState, CanvasTool, CanvasEditorProps } from "../types";
 import { CanvasTransform } from "../core/CanvasTransform";
 import { CommandManager } from "../core/CommandManager";
 import { OffscreenBuffer } from "../core/OffscreenBuffer";
@@ -10,20 +10,18 @@ import { CanvasSurface } from "./CanvasSurface";
 import { CanvasStatusBar } from "./CanvasStatusBar";
 import { getTool } from "../tools/index";
 import { CanvasLogger } from "../utils/logger";
-import { saveSnapshot, getLatestSnapshot, SnapMeta } from "../utils/autoSave";
+import { saveSnapshot, getLatestSnapshot, clearAutoSave, SnapMeta } from "../utils/autoSave";
 
-interface Props {
-  width?: number;
-  height?: number;
-  /** 初始背景色 */
-  bgColor?: string;
-  /** 初始加载的图片 URL */
-  src?: string;
-  /** 画布唯一 ID（用于多画布草稿箱隔离） */
-  canvasId?: string;
+/** 暴露给父组件的方法 */
+export interface CanvasEditorHandle {
+  triggerSave: () => void;
 }
 
-export const CanvasEditor: React.FC<Props> = ({ width = 800, height = 600, bgColor: initBgColor, src, canvasId }) => {
+export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(({
+  width = 800, height = 600, bgColor: initBgColor, src, canvasId,
+  containerHeight = "h-[calc(100vh-12rem)]",
+  onSave, onCancel, onDirty,
+}, ref) => {
   const transformRef = useRef(new CanvasTransform());
   const commandRef = useRef(new CommandManager());
   const bufferRef = useRef(new OffscreenBuffer(width, height));
@@ -438,6 +436,8 @@ export const CanvasEditor: React.FC<Props> = ({ width = 800, height = 600, bgCol
   // 自动保存（IndexedDB + 3版本保留 + 30s/10命令/beforeunload/卸载触发，绘制中跳过）
   const isDrawingRef = useRef(false);
   const cmdCountRef = useRef(0);
+  // 脏状态跟踪（Modal 模式下通知外部）
+  const isDirtyRef = useRef(false);
   useEffect(() => {
     const keyPrefix = canvasId || "default";
     const saveTick = 30_000;
@@ -461,6 +461,11 @@ export const CanvasEditor: React.FC<Props> = ({ width = 800, height = 600, bgCol
     // 每10条命令触发保存
     const checkCmdSave = () => {
       cmdCountRef.current++;
+      // 脏状态跟踪：首次编辑操作通知外部
+      if (!isDirtyRef.current) {
+        isDirtyRef.current = true;
+        onDirty?.(true);
+      }
       if (cmdCountRef.current % cmdTrigger === 0) doSave();
     };
     commandRef.current.onChange(() => {
@@ -498,8 +503,31 @@ export const CanvasEditor: React.FC<Props> = ({ width = 800, height = 600, bgCol
     await handleLoadImage(snap.dataUrl);
   }, [handleLoadImage]);
 
+  // Modal 模式：保存（canvas → toBlob → 传给外部 onSave）
+  const handleModalSave = useCallback(async () => {
+    try {
+      const blob = await bufferRef.current.toBlob("png");
+      await onSave?.(blob);
+    } catch {
+      CanvasLogger.error("Modal 保存失败");
+    }
+  }, [onSave]);
+
+  // Modal 模式：取消（清理自动保存草稿）
+  const handleModalCancel = useCallback(() => {
+    if (canvasId) {
+      clearAutoSave(canvasId);
+    }
+    onCancel?.();
+  }, [canvasId, onCancel]);
+
+  // 暴露 save 方法给父组件（EditLayer 的 Ctrl+S 快捷键调用）
+  useImperativeHandle(ref, () => ({
+    triggerSave: handleModalSave,
+  }), [handleModalSave]);
+
   return (
-    <div className="flex flex-col h-full bg-gray-900">
+    <div className={`flex flex-col bg-gray-900 ${containerHeight}`}>
       {/* 崩溃恢复提示 */}
       {showRecover && (
         <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-900/30 border-b border-amber-700/30 text-amber-300 text-xs">
@@ -564,6 +592,9 @@ export const CanvasEditor: React.FC<Props> = ({ width = 800, height = 600, bgCol
         onRedo={handleRedo}
         onExport={handleExport}
         onResizeClick={() => setShowResize(true)}
+        showExport={!onSave}
+        onSave={onSave ? handleModalSave : undefined}
+        onCancel={onCancel ? handleModalCancel : undefined}
       />
       <CanvasSurface
         state={state}
@@ -594,4 +625,6 @@ export const CanvasEditor: React.FC<Props> = ({ width = 800, height = 600, bgCol
       />
     </div>
   );
-};
+});
+
+CanvasEditor.displayName = "CanvasEditor";

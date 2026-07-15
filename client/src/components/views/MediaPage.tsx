@@ -19,6 +19,7 @@ import { TaskList, GenerationTaskList } from "./media/TaskCard";
 import { TemplateCarousel } from "./media/TemplateCarousel";
 import { MasonryGallery } from "./media/MasonryGallery";
 import { BottomInputBar } from "./media/BottomInputBar";
+import { EditLayer } from "./media/EditLayer";
 import { videoService } from "../../services/videoService";
 import { imageService } from "../../services/imageService";
 import { http } from "../../services/httpClient";
@@ -112,6 +113,9 @@ function MediaPage() {
   const removeGalleryItem = useMediaStore((s) => s.removeGalleryItem);
   const setIntendedAction = useMediaStore((s) => s.setIntendedAction);
   const clearSelectedImage = useMediaStore((s) => s.clearSelectedImage);
+  const editingImage = useMediaStore((s) => s.editingImage);
+  const isEditing = useMediaStore((s) => s.isEditing);
+  const setEditingImage = useMediaStore((s) => s.setEditingImage);
   const generationTasks = useMediaStore((s) => s.generationTasks);
   const addGenerationTask = useMediaStore((s) => s.addGenerationTask);
   const updateGenerationTask = useMediaStore((s) => s.updateGenerationTask);
@@ -137,6 +141,45 @@ function MediaPage() {
 
   // 图片对比
   const [compareIds, setCompareIds] = useState<[string, string] | null>(null);
+
+  // 编辑会话竞态保护：每次打开编辑时 +1
+  const editSessionRef = useRef(0);
+
+  // 画廊滚动位置保存/恢复
+  const galleryScrollRef = useRef<HTMLDivElement | null>(null);
+  const pendingScrollTopRef = useRef<number | null>(null);
+
+  // 滚动位置恢复：loadGallery 完成后还原 scrollTop
+    useEffect(() => {
+      if (pendingScrollTopRef.current !== null && galleryScrollRef.current) {
+        const saved = pendingScrollTopRef.current;
+        pendingScrollTopRef.current = null;
+        // requestAnimationFrame 确保 DOM 已更新
+        requestAnimationFrame(() => {
+          if (galleryScrollRef.current) {
+            galleryScrollRef.current.scrollTop = saved;
+          }
+        });
+      }
+    }, [galleryItems]);
+
+    // 路由守卫：编辑中拦截 React Router 导航跳转
+  useEffect(() => {
+    if (!isEditing) return;
+    // 使用 popstate 事件拦截浏览器回退/前进（history.block 的底层原理也需要配合）
+    const handlePopState = (e: PopStateEvent) => {
+      e.preventDefault();
+      window.history.pushState({ editing: true }, "");
+      if (window.confirm("有未保存更改，确定离开？")) {
+        setEditingImage(null);
+      }
+    };
+    window.history.pushState({ editing: true }, "");
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [isEditing, setEditingImage]);
 
   // ──── 拖拽到聊天区 ────
   const handleDragStart = useCallback((e: React.DragEvent, item: GalleryItem) => {
@@ -652,6 +695,8 @@ function MediaPage() {
               isDark={isDark}
               onSelect={batchMode ? toggleSelect : selectMedia}
               onLoadMore={() => loadGallery(true)}
+              disabled={isEditing}
+              scrollRef={galleryScrollRef}
             />
           ) : (
             <GridView
@@ -775,11 +820,8 @@ function MediaPage() {
                         });
                       }} />
                       <ActionButton label="编辑图片" icon="✏️" isDark={isDark} onClick={() => {
-                        setIntendedAction({
-                          type: "edit-image",
-                          sourceImage: { id: selectedItem.id, url: selectedItem.url },
-                          autoSubmit: false,
-                        });
+                        editSessionRef.current++;
+                        setEditingImage({ id: selectedItem.id, url: selectedItem.url });
                       }} />
                       <ActionButton
                         label={analyzingImage ? "识别中…" : "生成类似"}
@@ -828,6 +870,27 @@ function MediaPage() {
         generating={generating}
         onGenerate={handleGenerate}
       />
+
+      {/* ========== EditLayer 编辑模态层 ========== */}
+      {editingImage && (
+        <EditLayer
+          imageUrl={editingImage.url}
+          imageId={editingImage.id}
+          onSaveSuccess={() => addToast("success", "图片已保存")}
+          onClose={() => {
+            const sessionId = editSessionRef.current;
+            setEditingImage(null);
+            // 竞态保护：只有当前 session 才刷新画廊
+            if (sessionId === editSessionRef.current) {
+              // 保存当前滚动位置，loadGallery 完成后自动恢复
+              if (galleryScrollRef.current) {
+                pendingScrollTopRef.current = galleryScrollRef.current.scrollTop;
+              }
+              loadGallery();
+            }
+          }}
+        />
+      )}
 
       {/* ========== ImageViewer lightbox ========== */}
       {lightboxOpen && selectedItem && (

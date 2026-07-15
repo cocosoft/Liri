@@ -6,7 +6,7 @@
  */
 
 import React from "react";
-import type { VideoTaskItem } from "../../../stores/mediaStore";
+import type { VideoTaskItem, GenerationTask } from "../../../stores/mediaStore";
 
 // ============================================================
 // TaskCard
@@ -164,6 +164,89 @@ export const TaskList: React.FC<TaskListProps> = ({
           onRetry={onRetry}
           onDelete={onDelete}
         />
+      ))}
+    </div>
+  );
+};
+
+// ============================================================
+// GenerationTaskCard（统一图片/视频任务卡片）
+// ============================================================
+
+const GEN_STATUS_CONFIG = {
+  running: { label: "生成中", color: "text-blue-500", icon: "🔄" },
+  completed: { label: "已完成", color: "text-green-500", icon: "✅" },
+  failed: { label: "失败", color: "text-red-500", icon: "❌" },
+};
+
+interface GenTaskCardProps {
+  task: GenerationTask;
+  onDelete?: (id: string) => void;
+}
+
+const GenTaskCard: React.FC<GenTaskCardProps> = ({ task, onDelete }) => {
+  const cfg = GEN_STATUS_CONFIG[task.status];
+  const isRunning = task.status === "running";
+  const isDone = task.status === "completed";
+
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-2 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <span className={`text-lg ${isRunning ? "animate-pulse" : ""}`}>
+        {cfg.icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-gray-400">
+            {task.type === "image" ? "🖼️" : "🎬"}
+          </span>
+          <span className={`text-xs font-medium ${cfg.color}`}>{cfg.label}</span>
+        </div>
+        <p className="truncate text-[10px] text-gray-500 dark:text-gray-400" title={task.prompt}>
+          {task.prompt || "(无提示词)"}
+        </p>
+        {isRunning && (
+          <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-600">
+            <div
+              className="h-full rounded-full bg-blue-500 transition-all duration-300"
+              style={{ width: `${task.progress || 10}%` }}
+            />
+          </div>
+        )}
+        {task.error && (
+          <p className="truncate text-[10px] text-red-400" title={task.error}>
+            {task.error.slice(0, 60)}
+          </p>
+        )}
+      </div>
+      {(isDone || task.status === "failed") && onDelete && (
+        <button
+          onClick={() => onDelete(task.id)}
+          className="text-xs text-gray-400 hover:text-red-500"
+        >✕</button>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// GenerationTaskList
+// ============================================================
+
+interface GenTaskListProps {
+  tasks: GenerationTask[];
+  onDelete?: (id: string) => void;
+}
+
+export const GenerationTaskList: React.FC<GenTaskListProps> = ({ tasks, onDelete }) => {
+  if (tasks.length === 0) return null;
+
+  return (
+    <div className="space-y-1.5">
+      <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400">
+        当前任务
+      </h4>
+      {tasks.map((task) => (
+        <GenTaskCard key={task.id} task={task} onDelete={onDelete} />
       ))}
     </div>
   );

@@ -17,7 +17,8 @@ const RIGHT_PANEL_CONFIG: RightPanelConfig = {
   fullWidthPaths: [
     "/settings", "/help", "/user", "/dashboard", "/login",
     "/buddy", "/dream", "/memory", "/skills", "/permissions",
-    "/market/skills", "/market/mcp"
+    "/market/skills", "/market/mcp",
+    "/media", "/image", "/video",
   ],
   panelMap: {
     '/chat': FilePreviewPanel,

@@ -24,7 +24,7 @@ export interface GalleryItem {
   sourceImageUrl?: string;
 }
 
-/** 视频异步任务 */
+/** 视频异步任务（向后兼容） */
 export interface VideoTaskItem {
   taskId: string;
   status: "pending" | "queued" | "running" | "completed" | "failed";
@@ -36,6 +36,19 @@ export interface VideoTaskItem {
   error: string | null;
   createdAt: string;
   completedAt: string | null;
+}
+
+/** 统一生成任务（Phase 7: 图片 + 视频任务队列） */
+export interface GenerationTask {
+  id: string;
+  type: "image" | "video";
+  status: "running" | "completed" | "failed";
+  progress: number; // 0-100
+  prompt: string;
+  sourceImageUrl: string | null;
+  resultUrl: string | null;
+  error: string | null;
+  createdAt: number;
 }
 
 /** 搜索筛选参数 */
@@ -50,6 +63,32 @@ export interface IntendedAction {
   type: "generate-video" | "edit-image" | null;
   sourceImage: { id: string; url: string } | null;
   autoSubmit: boolean;
+}
+
+// ============================================================
+// 收藏持久化（localStorage）
+// ============================================================
+
+const FAVORITES_KEY = "pyapp_media_favorites";
+
+function loadFavorites(): Set<string> {
+  try {
+    const raw = localStorage.getItem(FAVORITES_KEY);
+    if (raw) {
+      return new Set(JSON.parse(raw));
+    }
+  } catch {
+    // 解析失败则忽略
+  }
+  return new Set();
+}
+
+function saveFavorites(ids: Set<string>): void {
+  try {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify([...ids]));
+  } catch {
+    // 存储满则忽略
+  }
 }
 
 // ============================================================
@@ -82,13 +121,19 @@ interface MediaStore {
 
   // ──── 任务 ────
   activeTasks: VideoTaskItem[];
+  generationTasks: GenerationTask[];
 
   // ──── 模板 ────
   activeTemplateId: string | null;
 
-  // ──── 跨组件信令（带序列号防竞态）───
+  // ──── 信令 ────
   intendedAction: IntendedAction | null;
   lastConsumedSeq: number;
+
+  // ──── 收藏（localStorage 持久化） ────
+  favoriteIds: Set<string>;
+  toggleFavorite: (id: string) => void;
+  isFavorite: (id: string) => boolean;
 
   // ──── Actions ────
   selectMedia: (id: string) => void;
@@ -103,11 +148,16 @@ interface MediaStore {
 
   setGalleryItems: (items: GalleryItem[], hasMore: boolean) => void;
   appendGalleryItems: (items: GalleryItem[], hasMore: boolean) => void;
+  removeGalleryItem: (id: string) => void;
 
   addTask: (task: VideoTaskItem) => void;
   updateTask: (taskId: string, update: Partial<VideoTaskItem>) => void;
   removeTask: (taskId: string) => void;
   setActiveTasks: (tasks: VideoTaskItem[]) => void;
+
+  addGenerationTask: (task: GenerationTask) => void;
+  updateGenerationTask: (id: string, update: Partial<GenerationTask>) => void;
+  removeGenerationTask: (id: string) => void;
 
   selectTemplate: (templateId: string | null) => void;
 
@@ -142,6 +192,7 @@ export const useMediaStore = create<MediaStore>()((set, get) => ({
 
   // ──── 任务 ────
   activeTasks: [],
+  generationTasks: [],
 
   // ──── 模板 ────
   activeTemplateId: null,
@@ -149,6 +200,9 @@ export const useMediaStore = create<MediaStore>()((set, get) => ({
   // ──── 信令 ────
   intendedAction: null,
   lastConsumedSeq: 0,
+
+  // ──── 收藏（localStorage 持久化） ────
+  favoriteIds: loadFavorites(),
 
   // ──── Actions ────
 
@@ -178,11 +232,25 @@ export const useMediaStore = create<MediaStore>()((set, get) => ({
     }),
 
   appendGalleryItems: (items, hasMore) =>
+    set((s) => {
+      const existingIds = new Set(s.galleryItems.map((i) => i.id));
+      const newItems = items.filter((item) => !existingIds.has(item.id));
+      if (newItems.length === 0) {
+        return { galleryLoading: false, galleryHasMore: false };
+      }
+      return {
+        galleryItems: [...s.galleryItems, ...newItems],
+        galleryLoading: false,
+        galleryHasMore: hasMore,
+        galleryOffset: s.galleryOffset + newItems.length,
+      };
+    }),
+
+  removeGalleryItem: (id) =>
     set((s) => ({
-      galleryItems: [...s.galleryItems, ...items],
-      galleryLoading: false,
-      galleryHasMore: hasMore,
-      galleryOffset: s.galleryOffset + items.length,
+      galleryItems: s.galleryItems.filter((item) => item.id !== id),
+      selectedId: s.selectedId === id ? null : s.selectedId,
+      selectedImageUrl: s.selectedId === id ? null : s.selectedImageUrl,
     })),
 
   addTask: (task) =>
@@ -202,6 +270,23 @@ export const useMediaStore = create<MediaStore>()((set, get) => ({
 
   setActiveTasks: (tasks) => set({ activeTasks: tasks }),
 
+  addGenerationTask: (task) =>
+    set((s) => ({
+      generationTasks: [task, ...s.generationTasks].slice(0, 20),
+    })),
+
+  updateGenerationTask: (id, update) =>
+    set((s) => ({
+      generationTasks: s.generationTasks.map((t) =>
+        t.id === id ? { ...t, ...update } : t,
+      ),
+    })),
+
+  removeGenerationTask: (id) =>
+    set((s) => ({
+      generationTasks: s.generationTasks.filter((t) => t.id !== id),
+    })),
+
   selectTemplate: (templateId) => set({ activeTemplateId: templateId }),
 
   setIntendedAction: (action) => {
@@ -214,5 +299,22 @@ export const useMediaStore = create<MediaStore>()((set, get) => ({
   getSelectedItem: () => {
     const { selectedId, galleryItems } = get();
     return galleryItems.find((i) => i.id === selectedId) || null;
+  },
+
+  toggleFavorite: (id: string) => {
+    set((s) => {
+      const next = new Set(s.favoriteIds);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      saveFavorites(next);
+      return { favoriteIds: next };
+    });
+  },
+
+  isFavorite: (id: string) => {
+    return get().favoriteIds.has(id);
   },
 }));

@@ -256,6 +256,121 @@ export async function handleImageStatic(
 }
 
 /**
+ * 读取图片文件的宽高（不依赖第三方库）
+ * 支持 PNG、JPEG、GIF 格式
+ */
+function readImageDimensions(
+  filePath: string
+): { width: number; height: number } | null {
+  try {
+    const buf = fs.readFileSync(filePath);
+    if (buf.length < 24) return null;
+
+    // PNG: 8 字节签名后，第 16-23 字节是 IHDR 中的宽高
+    if (
+      buf[0] === 0x89 &&
+      buf[1] === 0x50 &&
+      buf[2] === 0x4e &&
+      buf[3] === 0x47
+    ) {
+      const width = buf.readUInt32BE(16);
+      const height = buf.readUInt32BE(20);
+      return { width, height };
+    }
+
+    // JPEG: 扫描 SOF0/SOF2 marker (0xFF 0xC0 或 0xFF 0xC2)
+    if (buf[0] === 0xff && buf[1] === 0xd8) {
+      let offset = 2;
+      while (offset < buf.length - 9) {
+        if (buf[offset] !== 0xff) break;
+        const marker = buf[offset + 1];
+        if (marker === 0xc0 || marker === 0xc2) {
+          const height = buf.readUInt16BE(offset + 5);
+          const width = buf.readUInt16BE(offset + 7);
+          return { width, height };
+        }
+        offset += buf.readUInt16BE(offset + 2) + 2;
+      }
+      return null;
+    }
+
+    // GIF: 偏移 6-9 是宽高（little-endian）
+    if (
+      buf[0] === 0x47 &&
+      buf[1] === 0x49 &&
+      buf[2] === 0x46 &&
+      buf[3] === 0x38
+    ) {
+      const width = buf.readUInt16LE(6);
+      const height = buf.readUInt16LE(8);
+      return { width, height };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * GET /v1/images/metadata?path=xxx
+ * 返回图片文件的元数据（Phase 3.4: 信息面板）
+ */
+export async function handleImageMetadata(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const rawUrl = req.url || '/';
+    const urlObj = new URL(rawUrl, `http://${req.headers.host || 'localhost'}`);
+    const filePath = urlObj.searchParams.get('path');
+
+    if (!filePath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing path parameter' }));
+      return;
+    }
+
+    if (!isAnyRootSafe(filePath)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Access denied' }));
+      return;
+    }
+
+    const fullPath = resolveFullPath(filePath);
+    if (!fullPath || !fs.existsSync(fullPath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Image not found' }));
+      return;
+    }
+
+    const stat = fs.statSync(fullPath);
+    const dimensions = readImageDimensions(fullPath);
+    const ext = path.extname(fullPath).toLowerCase().replace('.', '');
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        path: fullPath,
+        size: stat.size,
+        format: ext,
+        width: dimensions?.width || null,
+        height: dimensions?.height || null,
+        createdAt: stat.birthtimeMs,
+        modifiedAt: stat.mtimeMs,
+      })
+    );
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'image_metadata' });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+  }
+}
+
+/**
  * POST /v1/images/upload
  * 上传图片（multipart/form-data，字段名 "file"）
  */

@@ -605,7 +605,8 @@ export class ChatManagerImpl implements ChatManager {
       currentMessage,
       this.llmClient,
       this.imageContextService,
-      (sessionId: string) => this.sessionAccess.getMemoryManager().getMemoryContext(sessionId)
+      (sessionId: string) =>
+        this.sessionAccess.getMemoryManager().getMemoryContext(sessionId)
     );
   }
 

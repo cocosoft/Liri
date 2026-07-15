@@ -142,13 +142,13 @@ export const imageService = {
     const raw = await toolService.execute("image_svg_generate", {
       prompt,
       ...options,
-    }) as { success: boolean; data: { svg: string; model: string; size: string; filePath?: string }; error?: string; result?: string };
+    }) as { ok: boolean; data: { success: boolean; data: { svg: string; model: string; size: string; filePath?: string }; error?: string }; error?: { message: string } };
 
-    if (!raw?.success || !raw.data) {
-      const detail = raw?.error || raw?.result || JSON.stringify(raw);
+    if (!raw?.ok || !raw.data?.success || !raw.data?.data) {
+      const detail = raw?.data?.error || raw?.error?.message || JSON.stringify(raw);
       throw new Error(`SVG generation failed: ${detail}`);
     }
-    return raw.data;
+    return raw.data.data;
   },
   async generate(
     prompt: string,
@@ -158,17 +158,19 @@ export const imageService = {
       style?: string;
       n?: number;
       format?: string;
+      /** 参考图本地路径，用于分辨率推断 */
+      inputImage?: string;
     }
   ): Promise<GenerateResult> {
     const raw = await toolService.execute("image_generate", {
       prompt,
       ...options,
-    }) as { success: boolean; data: GenerateResult; error?: string };
+    }) as { ok: boolean; data: { success: boolean; data: GenerateResult; error?: string }; error?: { message: string } };
 
-    if (!raw?.success || !raw.data) {
-      throw new Error(raw?.error || "Image generation failed");
+    if (!raw?.ok || !raw.data?.success || !raw.data?.data) {
+      throw new Error(raw.data?.error || raw.error?.message || "Image generation failed");
     }
-    return raw.data;
+    return raw.data.data;
   },
 
   /**
@@ -183,12 +185,12 @@ export const imageService = {
       action,
       inputPath: imagePath,
       ...options,
-    }) as { success: boolean; data: AnalysisResult; error?: string };
+    }) as { ok: boolean; data: { success: boolean; data: AnalysisResult; error?: string }; error?: { message: string } };
 
-    if (!raw?.success || !raw.data) {
-      throw new Error(raw?.error || "Image analysis failed");
+    if (!raw?.ok || !raw.data?.success || !raw.data?.data) {
+      throw new Error(raw.data?.error || raw.error?.message || "Image analysis failed");
     }
-    return raw.data;
+    return raw.data.data;
   },
 
   /**
@@ -203,12 +205,12 @@ export const imageService = {
       action,
       inputPath,
       ...options,
-    }) as { success: boolean; data: EditResult; error?: string };
+    }) as { ok: boolean; data: { success: boolean; data: EditResult; error?: string }; error?: { message: string } };
 
-    if (!raw?.success || !raw.data) {
-      throw new Error(raw?.error || "Image edit failed");
+    if (!raw?.ok || !raw.data?.success || !raw.data?.data) {
+      throw new Error(raw.data?.error || raw.error?.message || "Image edit failed");
     }
-    return raw.data;
+    return raw.data.data;
   },
 
   /**
@@ -252,9 +254,15 @@ export const imageService = {
 
   /**
    * 删除图片
+   * 前端 URL (/v1/images/static/media/xxx.png) → 后端路径 (media/xxx.png)
    */
-  async deleteImage(imagePath: string): Promise<{ success: boolean }> {
-    return http.delete(`/v1/images/delete?path=${encodeURIComponent(imagePath)}`);
+  async deleteImage(imagePathOrUrl: string): Promise<{ success: boolean }> {
+    // 将 web URL 转为后端可识别的相对路径格式
+    let backendPath = imagePathOrUrl;
+    if (imagePathOrUrl.startsWith("/v1/images/static/")) {
+      backendPath = imagePathOrUrl.slice("/v1/images/static/".length);
+    }
+    return http.delete(`/v1/images/delete?path=${encodeURIComponent(backendPath)}`);
   },
 
   /**
@@ -265,14 +273,14 @@ export const imageService = {
     options?: Record<string, unknown>
   ): Promise<CanvasResult> {
     const raw = await toolService.execute("canvas", { action, ...options }) as {
-      success: boolean;
-      data: CanvasResult;
-      error?: string;
+      ok: boolean;
+      data: { success: boolean; data: CanvasResult; error?: string };
+      error?: { message: string };
     };
-    if (!raw?.success || !raw.data) {
-      throw new Error(raw?.error || "Canvas operation failed");
+    if (!raw?.ok || !raw.data?.success || !raw.data?.data) {
+      throw new Error(raw.data?.error || raw.error?.message || "Canvas operation failed");
     }
-    return raw.data;
+    return raw.data.data;
   },
 
   /**

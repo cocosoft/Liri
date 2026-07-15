@@ -87,12 +87,15 @@ import { handleListTools, handleExecuteTool } from './handlers/tools-handlers';
 import {
   handleImageStatic,
   handleImageList,
+  handleImageMetadata,
   handleImageUpload,
   handleImageDelete,
 } from './handlers/image-handlers';
 import {
   handleVideoStatic,
   handleVideoList,
+  handleVideoMetadata,
+  handleVideoBySourceImage,
   handleVideoDelete,
 } from './handlers/video-handlers';
 import { handleVideoTasks } from './handlers/video-task-handlers';
@@ -821,6 +824,13 @@ export class LocalHTTPService {
     return handleImageDelete(this._handlerCtx, req, res);
   }
 
+  private async handleImageMetadata(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleImageMetadata(this._handlerCtx, req, res);
+  }
+
   // ========== Video Handlers (extracted to handlers/video-handlers.ts) ==========
 
   private async handleVideoStatic(
@@ -843,6 +853,20 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     return handleVideoDelete(this._handlerCtx, req, res);
+  }
+
+  private async handleVideoMetadata(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleVideoMetadata(this._handlerCtx, req, res);
+  }
+
+  private async handleVideoBySourceImage(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleVideoBySourceImage(this._handlerCtx, req, res);
   }
 
   private async handleAudioStatic(

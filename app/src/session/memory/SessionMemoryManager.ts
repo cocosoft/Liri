@@ -17,7 +17,14 @@
  * - 可配合 Step 4 的 Session Hooks 注册到生命周期
  */
 
-import { mkdirSync, existsSync, readFileSync, writeFileSync, appendFileSync, statSync } from 'fs';
+import {
+  mkdirSync,
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  appendFileSync,
+  statSync,
+} from 'fs';
 import { dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { EmbeddingManager } from '../../ai/embedding/EmbeddingManager';
@@ -94,7 +101,8 @@ const DEFAULT_CONFIG: MemoryThresholdConfig = {
 const MEMORY_FILE = 'memory.md';
 
 /** memory.md 版本头 — 跨版本升级兼容 */
-const MEMORY_FILE_HEADER = '# memory.md v1\n# Format: [timestamp] [category] content\n';
+const MEMORY_FILE_HEADER =
+  '# memory.md v1\n# Format: [timestamp] [category] content\n';
 
 /** memory.md 大小上限（bytes），约 2.5K token，超出后触发 LLM 压缩 */
 const MAX_MEMORY_FILE_SIZE = 10_000;
@@ -421,7 +429,9 @@ export class SessionMemoryManager {
             // 参数解析失败，跳过
           }
 
-          const filePath = (args.filePath ?? args.path ?? args.file) as string | undefined;
+          const filePath = (args.filePath ?? args.path ?? args.file) as
+            | string
+            | undefined;
           if (typeof filePath === 'string') {
             items.push({
               type: 'file_change',
@@ -441,7 +451,9 @@ export class SessionMemoryManager {
 
       // 提取 user 消息中的显式路径引用（反引号包围的路径）
       if (msg.role === 'user' && typeof msg.content === 'string') {
-        const refs = msg.content.match(/`([^`]+\.(?:ts|tsx|js|py|rs|md|yaml|yml|json))`/g);
+        const refs = msg.content.match(
+          /`([^`]+\.(?:ts|tsx|js|py|rs|md|yaml|yml|json))`/g
+        );
         if (refs) {
           for (const ref of refs) {
             items.push({
@@ -536,8 +548,13 @@ export class SessionMemoryManager {
     const path = this.getMemoryPath(sessionId);
     try {
       const content = readFileSync(path, 'utf-8');
-      const lines = content.split('\n').filter((l) => l.trim() && !l.startsWith('#'));
-      const header = content.split('\n').filter((l) => l.startsWith('#')).join('\n');
+      const lines = content
+        .split('\n')
+        .filter((l) => l.trim() && !l.startsWith('#'));
+      const header = content
+        .split('\n')
+        .filter((l) => l.startsWith('#'))
+        .join('\n');
 
       if (lines.length <= 20) return; // 还不够大，不需要压缩
 

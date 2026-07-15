@@ -32,6 +32,8 @@ export interface VideoTaskRecord {
   sourceImageUrl?: string;
   /** 来源图片 DB ID */
   sourceImageId?: string;
+  /** 来源图片本地路径（Phase 6.1: 图生视频溯源） */
+  sourceImagePath?: string;
   /** 模板 ID（从模板预设触发时） */
   templateId?: string;
   /** 生成进度 0-100 */
@@ -126,6 +128,11 @@ export class VideoTaskPersistence {
         col: 'completed_at',
         ddl: 'ALTER TABLE video_tasks ADD COLUMN completed_at INTEGER',
       },
+      // Phase 6.1: 图生视频溯源 — 来源图片本地路径
+      {
+        col: 'source_image_path',
+        ddl: 'ALTER TABLE video_tasks ADD COLUMN source_image_path TEXT',
+      },
     ];
 
     for (const m of migrations) {
@@ -162,8 +169,8 @@ export class VideoTaskPersistence {
     this.db.run(
       `INSERT INTO video_tasks
         (id, status, mode, prompt, model, source_image_url, source_image_id,
-         template_id, progress, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         source_image_path, template_id, progress, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         task.id,
         task.status || 'pending',
@@ -172,6 +179,7 @@ export class VideoTaskPersistence {
         task.model || null,
         task.sourceImageUrl || null,
         task.sourceImageId || null,
+        task.sourceImagePath || null,
         task.templateId || null,
         task.progress || 0,
         now,
@@ -198,6 +206,7 @@ export class VideoTaskPersistence {
         | 'progress'
         | 'sourceImageUrl'
         | 'sourceImageId'
+        | 'sourceImagePath'
         | 'templateId'
         | 'resultVideoUrl'
         | 'resultVideoId'
@@ -221,6 +230,7 @@ export class VideoTaskPersistence {
       progress: 'progress',
       sourceImageUrl: 'source_image_url',
       sourceImageId: 'source_image_id',
+      sourceImagePath: 'source_image_path',
       templateId: 'template_id',
       resultVideoUrl: 'result_video_url',
       resultVideoId: 'result_video_id',
@@ -292,6 +302,31 @@ export class VideoTaskPersistence {
     return rows.map((row: any) => this.mapRow(row));
   }
 
+  /** Phase 6.1: 按来源图片路径查询生成视频（图生视频溯源） */
+  listBySourceImagePath(imagePath: string): VideoTaskRecord[] {
+    // 支持部分匹配：图片路径可能包含文件名片段
+    // @ts-ignore
+    const rows = this.db
+      .query(
+        `SELECT * FROM video_tasks WHERE source_image_path = ? ORDER BY created_at DESC`
+      )
+      .all(imagePath) as any[];
+
+    // 精确匹配未找到，尝试 LIKE 模糊匹配
+    if (rows.length === 0) {
+      const likePath = `%${imagePath.replace(/\\/g, '/').split('/').pop() || imagePath}%`;
+      // @ts-ignore
+      const fuzzyRows = this.db
+        .query(
+          `SELECT * FROM video_tasks WHERE source_image_url LIKE ? ORDER BY created_at DESC`
+        )
+        .all(likePath) as any[];
+      return fuzzyRows.map((row: any) => this.mapRow(row));
+    }
+
+    return rows.map((row: any) => this.mapRow(row));
+  }
+
   /** DB 行 → VideoTaskRecord 映射 */
   private mapRow(row: any): VideoTaskRecord {
     return {
@@ -302,6 +337,7 @@ export class VideoTaskPersistence {
       model: row.model || undefined,
       sourceImageUrl: row.source_image_url || undefined,
       sourceImageId: row.source_image_id || undefined,
+      sourceImagePath: row.source_image_path || undefined,
       templateId: row.template_id || undefined,
       progress: row.progress || 0,
       resultVideoUrl: row.result_video_url || undefined,

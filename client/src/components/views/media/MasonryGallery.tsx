@@ -11,6 +11,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import type { GalleryItem } from "../../../stores/mediaStore";
 import { ActionMenu } from "./ActionMenu";
+import { getCachedThumb, generateAndCacheThumb } from "./thumbCache";
 
 interface Props {
   items: GalleryItem[];
@@ -21,6 +22,47 @@ interface Props {
   onSelect: (id: string) => void;
   onLoadMore: () => void;
 }
+
+/**
+ * 带缩略图缓存的图片组件
+ * 首次加载后缓存为 base64，后续访问直接读缓存
+ */
+const CachedImage: React.FC<{
+  src: string;
+  alt: string;
+  aspectRatio: string;
+  className?: string;
+}> = ({ src, alt, aspectRatio, className }) => {
+  const [imgSrc, setImgSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    // 先查缓存
+    const cached = getCachedThumb(src);
+    if (cached) {
+      setImgSrc(cached);
+      return;
+    }
+
+    // 异步生成并缓存
+    generateAndCacheThumb(src).then((dataUrl) => {
+      if (!cancelled) setImgSrc(dataUrl);
+    });
+
+    return () => { cancelled = true; };
+  }, [src]);
+
+  return (
+    <img
+      src={imgSrc || src}
+      alt={alt}
+      loading={imgSrc ? undefined : "lazy"}
+      className={className || "w-full"}
+      style={{ aspectRatio }}
+    />
+  );
+};
 
 /**
  * 瀑布流画廊
@@ -38,15 +80,25 @@ export const MasonryGallery: React.FC<Props> = ({
 }) => {
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const preventImmediateRef = useRef(false);
 
   // 无限滚动：观察 sentinel 触底
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel || !hasMore) return;
 
+    // loading → false 时短暂冷却，防止 observer 重建后立即触发
+    if (preventImmediateRef.current) {
+      const timer = setTimeout(() => {
+        preventImmediateRef.current = false;
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loading) {
+          preventImmediateRef.current = true;
           onLoadMore();
         }
       },
@@ -76,6 +128,8 @@ export const MasonryGallery: React.FC<Props> = ({
               className="group relative mb-2 cursor-pointer overflow-hidden rounded-lg border-2 transition-all"
               style={{
                  breakInside: "avoid" as any,
+                 contentVisibility: "auto",
+                 containIntrinsicSize: "auto 200px",
                  borderColor: selected
                    ? "#3b82f6"
                    : hovered
@@ -107,17 +161,15 @@ export const MasonryGallery: React.FC<Props> = ({
                     }}
                   />
                 ) : (
-                  <img
-                  src={item.thumbnailUrl || item.url}
-                  alt={item.alt || ""}
-                  loading="lazy"
-                  className="w-full"
-                  style={{
-                    aspectRatio: item.width && item.height
-                      ? `${item.width}/${item.height}`
-                      : "1/1",
-                  }}
-                />
+                  <CachedImage
+                    src={item.thumbnailUrl || item.url}
+                    alt={item.alt || ""}
+                    aspectRatio={
+                      item.width && item.height
+                        ? `${item.width}/${item.height}`
+                        : "1/1"
+                    }
+                  />
                 )}
               </div>
 

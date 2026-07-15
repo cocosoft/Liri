@@ -239,6 +239,155 @@ export async function handleVideoStatic(
 }
 
 /**
+ * GET /v1/videos/metadata?path=xxx
+ * 返回视频文件的元数据（Phase 3.4: 信息面板）
+ * 从 DB video_tasks 表交叉引用 prompt、model、source_image_url
+ */
+export async function handleVideoMetadata(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const rawUrl = req.url || '/';
+    const urlObj = new URL(rawUrl, `http://${req.headers.host || 'localhost'}`);
+    const filePath = urlObj.searchParams.get('path');
+
+    if (!filePath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing path parameter' }));
+      return;
+    }
+
+    const fullPath = resolveVideoPath(filePath);
+    if (!fullPath || !fs.existsSync(fullPath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Video not found' }));
+      return;
+    }
+
+    const stat = fs.statSync(fullPath);
+    const ext = path.extname(fullPath).toLowerCase().replace('.', '');
+    const fileName = path.basename(fullPath);
+
+    // 从 DB 查询视频任务的元数据（prompt、model、source_image_url）
+    let prompt: string | null = null;
+    let model: string | null = null;
+    let sourceImageUrl: string | null = null;
+    let sourceImagePath: string | null = null;
+    let mode: string | null = null;
+
+    try {
+      const { Database } = require('bun:sqlite');
+      const { resolveDbPath } = require('@modules/core/paths');
+      const db = new Database(resolveDbPath(), { readonly: true });
+
+      // 从 video_tasks 表查询（按 result_video_url LIKE 匹配）
+      const likePattern = `%${fileName}%`;
+      const row = db
+        .query(
+          `SELECT prompt, model, source_image_url, source_image_path, mode
+           FROM video_tasks
+           WHERE result_video_url LIKE ?
+           ORDER BY created_at DESC LIMIT 1`
+        )
+        .get(likePattern) as any;
+
+      if (row) {
+        prompt = row.prompt || null;
+        model = row.model || null;
+        sourceImageUrl = row.source_image_url || null;
+        sourceImagePath = row.source_image_path || null;
+        mode = row.mode || null;
+      }
+      db.close();
+    } catch {
+      // DB 不可用，忽略
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        path: fullPath,
+        size: stat.size,
+        format: ext,
+        duration: null, // TODO: 需要 ffprobe 获取视频时长
+        createdAt: stat.birthtimeMs,
+        modifiedAt: stat.mtimeMs,
+        prompt,
+        model,
+        mode,
+        sourceImageUrl,
+        sourceImagePath,
+      })
+    );
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'video_metadata' });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+  }
+}
+
+/**
+ * GET /v1/videos/by-source-image?path=xxx
+ * 查询由指定图片生成的视频列表（Phase 6.1: 图生视频溯源）
+ */
+export async function handleVideoBySourceImage(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const rawUrl = req.url || '/';
+    const urlObj = new URL(rawUrl, `http://${req.headers.host || 'localhost'}`);
+    const imagePath = urlObj.searchParams.get('path');
+
+    if (!imagePath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing path parameter' }));
+      return;
+    }
+
+    // 使用 VideoTaskPersistence 查询
+    const { getVideoTaskPersistence } =
+      await import('@modules/tools/VideoGenerateTool/VideoTaskPersistence');
+    const persistence = getVideoTaskPersistence();
+
+    const tasks = persistence.listBySourceImagePath(imagePath);
+
+    const videos = tasks
+      .filter((t) => t.resultVideoUrl)
+      .map((t) => ({
+        taskId: t.id,
+        status: t.status,
+        mode: t.mode,
+        prompt: t.prompt,
+        model: t.model || null,
+        sourceImageUrl: t.sourceImageUrl || null,
+        sourceImagePath: t.sourceImagePath || null,
+        resultVideoUrl: t.resultVideoUrl || null,
+        progress: t.progress,
+        createdAt: t.createdAt,
+        completedAt: t.completedAt || null,
+      }));
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ videos, count: videos.length }));
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'video_by_source_image',
+    });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+  }
+}
+
+/**
  * GET /v1/videos/list?page=1&pageSize=50
  * 列出已生成的视频文件（支持分页）
  * 从 DB file_files 表读取（已注册的视频），回退到文件系统扫描

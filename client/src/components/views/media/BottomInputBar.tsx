@@ -80,6 +80,15 @@ export const BottomInputBar: React.FC<{
         // 自动触发：填入模板 prompt 后立即生成
         setTimeout(() => onGenerate(), 100);
       }
+    } else if (intendedAction.type === "edit-image") {
+      setMode("image");
+      if (intendedAction.sourceImage) {
+        useMediaStore.getState().setSelectedImage(
+          intendedAction.sourceImage.url,
+          intendedAction.sourceImage.id
+        );
+      }
+      useMediaStore.getState().lastConsumedSeq = intendedAction.seq;
     }
 
     clearIntendedAction();
@@ -93,7 +102,7 @@ export const BottomInputBar: React.FC<{
       <div className="mb-2 flex items-center gap-3">
         <ModeSegmentedControl />
 
-        {isVideoMode && selectedImageUrl && (
+        {selectedImageUrl && (
           <div className="flex items-center gap-1.5 rounded-md bg-blue-50 px-2 py-0.5 dark:bg-blue-900/20">
             <span className="truncate text-xs text-blue-600 dark:text-blue-400 max-w-[150px]">
               🖼️ 已选图片

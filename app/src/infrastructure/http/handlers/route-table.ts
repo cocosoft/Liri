@@ -401,6 +401,10 @@ export async function dispatchRoute(
     await self['handleImageList'](req, res);
     return true;
   }
+  if (method === 'GET' && url.startsWith('/v1/images/metadata')) {
+    await self['handleImageMetadata'](req, res);
+    return true;
+  }
   if (method === 'GET' && url.startsWith('/v1/images/static/')) {
     const filePath = url.slice('/v1/images/static/'.length);
     await self['handleImageStatic'](req, res, decodeURIComponent(filePath));
@@ -418,6 +422,14 @@ export async function dispatchRoute(
   // ---- Videos ----
   if (method === 'GET' && url === '/v1/videos/list') {
     await self['handleVideoList'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.startsWith('/v1/videos/metadata')) {
+    await self['handleVideoMetadata'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.startsWith('/v1/videos/by-source-image')) {
+    await self['handleVideoBySourceImage'](req, res);
     return true;
   }
   if (method === 'GET' && url.startsWith('/v1/videos/static/')) {

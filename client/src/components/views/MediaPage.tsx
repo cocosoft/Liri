@@ -1,28 +1,96 @@
 /**
- * MediaPage — Phase 2 统一媒体工作台（对标 Grok + Copilot）
+ * MediaPage — 统一媒体工作台（对标 Grok + Copilot）
  *
  * 布局（紧凑模式 / 完整模式自适应）:
  *   顶部: TemplateCarousel — I2I/I2I2V 模板轮播
- *   左侧: 画廊（grid，Phase 2 升级为 Masonry）
- *   右侧: 预览区 + 任务进度
+ *   左侧: 画廊（Masonry 瀑布流 / Grid 列表视图）
+ *   右侧: 预览区 + 任务进度 + 操作栏 + 信息面板
  *   底部: BottomInputBar — 图片|视频 切换 + 提示词 + 动态参数 + 生成按钮
+ *
+ * Phase 4-6 完善：类型筛选、排序、上传入口、右键菜单、批量选择
  */
 
-import { useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useConfigStore } from "../../stores/configStore";
 import { useMediaStore, type GalleryItem } from "../../stores/mediaStore";
 import { useVideoTaskPolling } from "../../hooks/useVideoTaskPolling";
 import { GallerySearchBar } from "./media/GallerySearchBar";
-import { TaskList } from "./media/TaskCard";
+import { TaskList, GenerationTaskList } from "./media/TaskCard";
 import { TemplateCarousel } from "./media/TemplateCarousel";
 import { MasonryGallery } from "./media/MasonryGallery";
 import { BottomInputBar } from "./media/BottomInputBar";
 import { videoService } from "../../services/videoService";
+import { imageService } from "../../services/imageService";
 import { http } from "../../services/httpClient";
+import { useToastStore } from "../../stores/toastStore";
 import { createLogger } from "../../utils/logger";
+import ImageViewer from "../ChatArea/ImageViewer/ImageViewer";
+import VideoPlayer from "./media/VideoPlayer";
+import ImageUploadDrop from "./image/ImageUploadDrop";
+import type { VideoMeta } from "./media/VideoPlayer";
 
 const logger = createLogger("MediaPage");
 const PAGE_SIZE = 30;
+
+/** 筛选类型 */
+type FilterType = "all" | "image" | "video" | "favorites";
+/** 排序方式 */
+type SortBy = "date_desc" | "date_asc" | "name";
+
+// TODO: Phase 6.5 — 缩略图本地缓存（30 分钟 TTL），在 gallery 图片加载时使用
+// import { getCachedThumb, setCachedThumb } from "./media/thumbCache";
+
+/** 从 URL 路径提取文件名 */
+function extractFileName(url: string): string {
+  const parts = url.split("/");
+  return parts[parts.length - 1] || url;
+}
+
+/** 从文件名提取格式 */
+function extractFormat(name: string): string {
+  const ext = name.split(".").pop()?.toUpperCase();
+  return ext || "未知";
+}
+
+/** 从 URL 路径提取日期 */
+function extractDate(url: string): string {
+  const match = url.match(/(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : "";
+}
+
+/** 格式化文件大小 */
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** 格式化时间戳为日期字符串 */
+function formatDate(ts: number): string {
+  return new Date(ts).toLocaleDateString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
+/** 右键菜单位置 */
+interface ContextMenuState {
+  x: number;
+  y: number;
+  item: GalleryItem;
+}
+
+/** 元数据响应 */
+interface ImageMetadata {
+  path: string;
+  size: number;
+  format: string;
+  width: number | null;
+  height: number | null;
+  createdAt: number;
+  modifiedAt: number;
+}
 
 function MediaPage() {
   const { config } = useConfigStore();
@@ -41,20 +109,109 @@ function MediaPage() {
 
   const selectMedia = useMediaStore((s) => s.selectMedia);
   const setSearchParams = useMediaStore((s) => s.setSearchParams);
-  const setGalleryItems = useMediaStore((s) => s.setGalleryItems);
+  const removeGalleryItem = useMediaStore((s) => s.removeGalleryItem);
+  const setIntendedAction = useMediaStore((s) => s.setIntendedAction);
+  const clearSelectedImage = useMediaStore((s) => s.clearSelectedImage);
+  const generationTasks = useMediaStore((s) => s.generationTasks);
+  const addGenerationTask = useMediaStore((s) => s.addGenerationTask);
+  const updateGenerationTask = useMediaStore((s) => s.updateGenerationTask);
+  const removeGenerationTask = useMediaStore((s) => s.removeGenerationTask);
+  const addToast = useToastStore((s) => s.addToast);
+
+  // ──── 本地 UI 状态 ────
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [filterType, setFilterType] = useState<FilterType>("all");
+  const [sortBy, setSortBy] = useState<SortBy>("date_desc");
+  const [viewMode, setViewMode] = useState<"masonry" | "grid">("masonry");
+  const [videoMeta, setVideoMeta] = useState<VideoMeta | null>(null);
+  const pageOffsetRef = useRef(0);
+  const initialLoadDone = useRef(false);
+  const [showUpload, setShowUpload] = useState(false);
+  const [imageMeta, setImageMeta] = useState<ImageMetadata | null>(null);
+  const [analyzingImage, setAnalyzingImage] = useState(false);
+
+  // 批量选择
+  const [batchMode, setBatchMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // 图片对比
+  const [compareIds, setCompareIds] = useState<[string, string] | null>(null);
+
+  // ──── 拖拽到聊天区 ────
+  const handleDragStart = useCallback((e: React.DragEvent, item: GalleryItem) => {
+    e.dataTransfer.setData("text/plain", item.url);
+    e.dataTransfer.setData("application/pyapp-media", JSON.stringify({
+      url: item.url,
+      type: item.type,
+      id: item.id,
+    }));
+    e.dataTransfer.effectAllowed = "copy";
+  }, []);
+
+  // ──── 图片对比 ────
+  const handleCompareToggle = useCallback((id: string) => {
+    setCompareIds((prev) => {
+      if (!prev) return [id, ""] as [string, string];
+      if (prev[0] === id) return null;
+      if (!prev[1]) return [prev[0], id] as [string, string];
+      // 已有两张，替换第二张
+      return [prev[0], id] as [string, string];
+    });
+  }, []);
+
+  // 右键菜单
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   // ──── 紧凑/完整模式 ────
   const isCompact = selectedId === null;
 
-  // ──── 加载图库（合并图片 + 视频） ────
-  const loadGallery = useCallback(async () => {
+  // ──── 筛选 + 排序后的画廊项 ────
+  const favoriteIds = useMediaStore((s) => s.favoriteIds);
+  const toggleFavorite = useMediaStore((s) => s.toggleFavorite);
+
+  const filteredItems = useMemo(() => {
+    let items = galleryItems;
+    if (filterType === "favorites") {
+      items = items.filter((item) => favoriteIds.has(item.id));
+    } else if (filterType !== "all") {
+      items = items.filter((item) => item.type === filterType);
+    }
+    return [...items].sort((a, b) => {
+      if (sortBy === "name") {
+        return extractFileName(a.url).localeCompare(extractFileName(b.url));
+      }
+      const dateA = extractDate(a.url);
+      const dateB = extractDate(b.url);
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      return sortBy === "date_desc"
+        ? dateB.localeCompare(dateA)
+        : dateA.localeCompare(dateB);
+    });
+  }, [galleryItems, filterType, sortBy, favoriteIds]);
+
+  // ──── 类型计数 ────
+  const typeCounts = useMemo(() => {
+    const images = galleryItems.filter((i) => i.type === "image").length;
+    const videos = galleryItems.filter((i) => i.type === "video").length;
+    return { all: galleryItems.length, images, videos, favorites: favoriteIds.size };
+  }, [galleryItems, favoriteIds]);
+
+  // ──── 加载图库（首次加载 / 分页追加） ────
+  const loadGallery = useCallback(async (append = false) => {
+    if (append && !galleryHasMore) return; // 无更多数据时跳过
+
+    const offset = append ? pageOffsetRef.current : 0;
+    const page = Math.floor(offset / PAGE_SIZE) + 1;
     useMediaStore.setState({ galleryLoading: true });
 
     try {
       const q = new URLSearchParams();
       q.set("pageSize", String(PAGE_SIZE));
+      q.set("page", String(page));
 
-      // 并行加载图片和视频
       const [imgRes, vidRes] = await Promise.all([
         http.get<any>(`/v1/images/list?${q.toString()}`),
         http.get<any>(`/v1/videos/list?${q.toString()}`),
@@ -64,7 +221,7 @@ function MediaPage() {
         ? imgRes.data.images
         : []
       ).map((img: any) => ({
-        id: img.path || img.url,
+        id: `img:${img.path || img.url}`,
         type: "image" as const,
         url: img.url,
         thumbnailUrl: img.url,
@@ -77,34 +234,40 @@ function MediaPage() {
         ? vidRes.data.videos
         : []
       ).map((vid: any) => ({
-        id: vid.path || vid.url,
+        id: `vid:${vid.path || vid.url}`,
         type: "video" as const,
         url: vid.url,
         thumbnailUrl: vid.url,
         duration: vid.duration,
       }));
 
-      logger.info("图库加载完成", {
-        imageCount: images.length,
-        videoCount: videos.length,
-        videoOk: vidRes.ok,
-      });
+      const newItems = [...images, ...videos];
+      const hasMore = newItems.length >= PAGE_SIZE;
 
-      // 合并：图片和视频各自保持 API 返回的时间倒序（新的在前）
-      const allItems = [...images, ...videos].slice(0, PAGE_SIZE);
+      if (append) {
+        useMediaStore.getState().appendGalleryItems(newItems, hasMore);
+      } else {
+        useMediaStore.setState({ galleryItems: newItems, galleryLoading: false, galleryHasMore: hasMore, galleryOffset: newItems.length });
+      }
 
-      setGalleryItems(allItems, allItems.length >= PAGE_SIZE);
+      pageOffsetRef.current = offset + newItems.length;
+      logger.info("图库加载完成", { append, page, total: pageOffsetRef.current });
     } catch (e) {
       logger.warn("加载图库失败", { error: String(e) });
-      setGalleryItems([], false);
+      if (!append) {
+        useMediaStore.setState({ galleryItems: [], galleryLoading: false, galleryHasMore: false });
+      }
     }
-  }, [setGalleryItems]);
+  }, []);
 
   useEffect(() => {
-    loadGallery();
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true; // 同步设置，防止 StrictMode 双重调用
+      loadGallery();
+    }
   }, [loadGallery]);
 
-  // ──── 轮询（任务完成时自动刷新画廊） ────
+  // ──── 轮询 ────
   const handleTaskCompleted = useCallback(() => {
     loadGallery();
   }, [loadGallery]);
@@ -114,36 +277,240 @@ function MediaPage() {
     ["pending", "queued", "running"].includes(t.status)
   );
 
-  // ──── 生成视频 ────
-  const handleGenerate = useCallback(async () => {
-    // 图生视频：有图片时 prompt 可选；文生视频：必须输入 prompt
-    if (!prompt.trim() && !selectedImageUrl) return;
+  // ──── 选中项切换时重置视频元数据 + 拉取图片元数据 ────
+  useEffect(() => {
+    setVideoMeta(null);
+    setImageMeta(null);
 
+    const selectedItem = galleryItems.find((i) => i.id === selectedId);
+    if (!selectedItem) return;
+
+    const encodedPath = encodeURIComponent(selectedItem.url.replace(/^\/v1\/images\/static\//, ''));
+    http.get<any>(`/v1/images/metadata?path=${encodedPath}`).then((resp) => {
+      if (resp.ok && resp.data) {
+        setImageMeta(resp.data);
+      }
+    }).catch(() => { /* 图片元数据不可用时静默忽略 */ });
+  }, [selectedId]);
+
+  /** "生成类似"：识图 → 生成 prompt → 切换图片模式 */
+  const handleGenerateSimilar = useCallback(async () => {
+    if (analyzingImage) return;
+    const item = galleryItems.find((i) => i.id === selectedId);
+    if (!item || !imageMeta?.path) {
+      addToast("error", "无法获取图片路径");
+      return;
+    }
+
+    setAnalyzingImage(true);
     try {
-      const result = await videoService.createVideoTask({
-        mode: mode === "video" && selectedImageUrl
-          ? "image-to-video"
-          : "text-to-video",
-        prompt: prompt.trim(),
-        imageUrl: selectedImageUrl || undefined,
-        duration: params.duration || 5,
-        aspectRatio: params.aspectRatio || "16:9",
+      const analysis = await imageService.analyze(imageMeta.path, "vision", {
+        prompt: "请详细描述这张图片的视觉内容，包括主题、风格、颜色、构图、光线等，以便用于生成一张类似风格的图片。",
       });
 
-      if (result.taskId) {
-        submitTask(result.taskId);
-        useMediaStore.getState().setPrompt("");
-        logger.info("任务已提交", { taskId: result.taskId });
+      if (analysis.description) {
+        useMediaStore.getState().setMode("image");
+        useMediaStore.getState().setSelectedImage(item.url, item.id);
+        useMediaStore.getState().setPrompt(analysis.description);
+        addToast("success", "已识别图片内容，可直接生成");
+        logger.info("识图成功", { descLen: analysis.description.length });
+      } else {
+        useMediaStore.getState().setMode("image");
+        useMediaStore.getState().setSelectedImage(item.url, item.id);
+        useMediaStore.getState().setPrompt("生成一张类似风格的图片");
+        addToast("info", "识图返回空描述，已填入默认提示词");
       }
-    } catch (e) {
-      logger.error("创建任务失败", { error: String(e) });
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      logger.warn("识图调用失败", { error: errMsg, path: imageMeta?.path });
+      useMediaStore.getState().setMode("image");
+      useMediaStore.getState().setSelectedImage(item.url, item.id);
+      useMediaStore.getState().setPrompt("生成一张类似风格的图片");
+      addToast("info", `识图失败(${errMsg.slice(0, 40)})，已填入默认提示词`);
+    } finally {
+      setAnalyzingImage(false);
     }
-  }, [prompt, mode, selectedImageUrl, params, submitTask]);
+  }, [selectedId, galleryItems, imageMeta, addToast]);
+
+  // ──── 上传完成回调 ────
+  const handleUploaded = useCallback((_result: { path: string; url: string }) => {
+    addToast("success", "上传成功");
+    loadGallery();
+    setShowUpload(false);
+  }, [addToast, loadGallery]);
+
+  // ──── 生成（图片 / 视频） ────
+  const handleGenerate = useCallback(async () => {
+    if (!prompt.trim() && !selectedImageUrl) return;
+
+    if (mode === "image") {
+      // 图片生成（纳入任务队列）
+      const taskId = `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      addGenerationTask({
+        id: taskId,
+        type: "image",
+        status: "running",
+        progress: 30,
+        prompt: prompt.trim() || "生成一张图片",
+        sourceImageUrl: selectedImageUrl || null,
+        resultUrl: null,
+        error: null,
+        createdAt: Date.now(),
+      });
+
+      try {
+        const genOptions: Record<string, unknown> = { n: params.count || 1 };
+        if (selectedImageUrl && imageMeta?.path) {
+          genOptions.inputImage = imageMeta.path;
+        }
+        const result = await imageService.generate(
+          prompt.trim() || "生成一张图片",
+          genOptions as any,
+        );
+        if (result.images?.length > 0) {
+          updateGenerationTask(taskId, {
+            status: "completed",
+            progress: 100,
+            resultUrl: result.images[0].url,
+          });
+          addToast("success", `已生成 ${result.images.length} 张图片`);
+          loadGallery();
+          useMediaStore.getState().setPrompt("");
+        }
+      } catch (e) {
+        const errMsg = e instanceof Error ? e.message : String(e);
+        updateGenerationTask(taskId, {
+          status: "failed",
+          progress: 0,
+          error: errMsg,
+        });
+        addToast("error", `图片生成失败: ${errMsg}`);
+        logger.error("图片生成失败", { error: errMsg });
+      }
+    } else {
+      // 视频生成（纳入任务队列）
+      const taskId = `vid_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      addGenerationTask({
+        id: taskId,
+        type: "video",
+        status: "running",
+        progress: 10,
+        prompt: prompt.trim(),
+        sourceImageUrl: selectedImageUrl || null,
+        resultUrl: null,
+        error: null,
+        createdAt: Date.now(),
+      });
+
+      try {
+        const result = await videoService.createVideoTask({
+          mode: selectedImageUrl ? "image-to-video" : "text-to-video",
+          prompt: prompt.trim(),
+          imageUrl: selectedImageUrl || undefined,
+          duration: params.duration || 5,
+          aspectRatio: params.aspectRatio || "16:9",
+        });
+        if (result.taskId) {
+          updateGenerationTask(taskId, { progress: 30 });
+          submitTask(result.taskId);
+          useMediaStore.getState().setPrompt("");
+        }
+      } catch (e) {
+        const errMsg = e instanceof Error ? e.message : String(e);
+        updateGenerationTask(taskId, {
+          status: "failed",
+          error: errMsg,
+        });
+        addToast("error", `视频生成失败: ${errMsg}`);
+        logger.error("视频生成失败", { error: errMsg });
+      }
+    }
+  }, [prompt, mode, selectedImageUrl, imageMeta, params, submitTask, addToast, loadGallery, addGenerationTask, updateGenerationTask]);
+
+  // ──── 打开 lightbox ────
+  const handleOpenLightbox = useCallback(() => {
+    const selectedItem = galleryItems.find((i) => i.id === selectedId);
+    if (!selectedItem || selectedItem.type !== "image") return;
+    const imageItems = galleryItems.filter((i) => i.type === "image");
+    const imageUrls = imageItems.map((i) => i.url);
+    const idx = imageUrls.indexOf(selectedItem.url);
+    setLightboxIndex(idx >= 0 ? idx : 0);
+    setLightboxOpen(true);
+  }, [selectedId, galleryItems]);
+
+  // ──── lightbox 删除 ────
+  const handleLightboxDelete = useCallback(async () => {
+    const imageItems = galleryItems.filter((i) => i.type === "image");
+    const currentUrl = imageItems[lightboxIndex]?.url;
+    if (!currentUrl) return;
+    const currentItem = galleryItems.find((i) => i.url === currentUrl);
+    if (!currentItem) return;
+    try {
+      await imageService.deleteImage(currentUrl);
+      removeGalleryItem(currentItem.id);
+      addToast("success", "图片已删除");
+      setLightboxOpen(false);
+    } catch {
+      addToast("error", "删除失败，请重试");
+    }
+  }, [lightboxIndex, galleryItems, removeGalleryItem, addToast]);
+
+  // ──── 删除（单个，供右键菜单/面板使用） ────
+  const handleDeleteItem = useCallback(async (item: GalleryItem) => {
+    try {
+      await imageService.deleteImage(item.url);
+      removeGalleryItem(item.id);
+      addToast("success", "已删除");
+    } catch {
+      addToast("error", "删除失败，请重试");
+    }
+  }, [removeGalleryItem, addToast]);
+
+  // ──── 批量删除 ────
+  const handleBatchDelete = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    const items = galleryItems.filter((i) => ids.includes(i.id));
+    let success = 0;
+    for (const item of items) {
+      try {
+        await imageService.deleteImage(item.url);
+        removeGalleryItem(item.id);
+        success++;
+      } catch {
+        // 继续删除其他项
+      }
+    }
+    addToast("success", `已删除 ${success} 项`);
+    setSelectedIds(new Set());
+    setBatchMode(false);
+  }, [selectedIds, galleryItems, removeGalleryItem, addToast]);
+
+  // ──── 批量选择切换 ────
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // 点击外部关闭右键菜单
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handler = () => setContextMenu(null);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [contextMenu]);
 
   const selectedItem = galleryItems.find((i) => i.id === selectedId);
+  const selectedFileName = selectedItem ? extractFileName(selectedItem.url) : "";
+  const selectedFormat = selectedItem ? extractFormat(selectedFileName) : "";
+  const selectedDate = selectedItem ? extractDate(selectedItem.url) : "";
 
   return (
-    <div className={`flex h-full flex-col ${isDark ? "bg-gray-900" : "bg-gray-50"}`}>
+    <div className={`flex h-full w-full flex-col ${isDark ? "bg-gray-900" : "bg-gray-50"}`}>
       {/* ========== 顶部：模板轮播 ========== */}
       <TemplateCarousel isDark={isDark} />
 
@@ -155,78 +522,305 @@ function MediaPage() {
             isCompact ? "flex-1" : "w-80"
           }`}
         >
-          {/* 搜索栏 */}
-          <div className="p-3">
+          {/* 搜索栏 + 筛选 + 排序 + 上传 + 批量操作 */}
+          <div className="space-y-2 p-3">
             <GallerySearchBar
               params={searchParams}
               onChange={setSearchParams}
               onRefresh={loadGallery}
             />
+
+            {/* 类型筛选 + 排序 + 视图切换 */}
+            <div className="flex items-center gap-1 flex-wrap">
+              <FilterTab
+                label="全部"
+                count={typeCounts.all}
+                active={filterType === "all"}
+                onClick={() => { setFilterType("all"); selectMedia(""); }}
+              />
+              <FilterTab
+                label="图片"
+                count={typeCounts.images}
+                active={filterType === "image"}
+                onClick={() => { setFilterType("image"); selectMedia(""); }}
+              />
+              <FilterTab
+                label="视频"
+                count={typeCounts.videos}
+                active={filterType === "video"}
+                onClick={() => { setFilterType("video"); selectMedia(""); }}
+              />
+              <FilterTab
+                label="⭐"
+                count={typeCounts.favorites}
+                active={filterType === "favorites"}
+                onClick={() => { setFilterType("favorites"); selectMedia(""); }}
+              />
+
+              {/* 排序下拉 */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortBy)}
+                className={`ml-1 rounded border px-1.5 py-0.5 text-[10px] ${
+                  isDark
+                    ? "border-gray-600 bg-gray-700 text-gray-300"
+                    : "border-gray-300 bg-white text-gray-600"
+                }`}
+              >
+                <option value="date_desc">时间↓</option>
+                <option value="date_asc">时间↑</option>
+                <option value="name">名称</option>
+              </select>
+
+              {/* 视图切换 */}
+              <div className="ml-auto flex items-center rounded border border-gray-300 dark:border-gray-600">
+                <button
+                  onClick={() => setViewMode("masonry")}
+                  className={`px-1.5 py-0.5 text-xs ${
+                    viewMode === "masonry"
+                      ? "bg-blue-500 text-white"
+                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  }`}
+                  title="瀑布流"
+                >▦</button>
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`px-1.5 py-0.5 text-xs ${
+                    viewMode === "grid"
+                      ? "bg-blue-500 text-white"
+                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  }`}
+                  title="网格列表"
+                >⊞</button>
+              </div>
+            </div>
+
+            {/* 上传 + 批量操作栏 */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowUpload(!showUpload)}
+                className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors ${
+                  showUpload
+                    ? "bg-blue-500 text-white"
+                    : isDark
+                      ? "text-gray-400 hover:bg-gray-700"
+                      : "text-gray-500 hover:bg-gray-100"
+                }`}
+              >
+                ⬆️ 上传
+              </button>
+
+              <button
+                onClick={() => {
+                  setBatchMode(!batchMode);
+                  setSelectedIds(new Set());
+                }}
+                className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors ${
+                  batchMode
+                    ? "bg-blue-500 text-white"
+                    : isDark
+                      ? "text-gray-400 hover:bg-gray-700"
+                      : "text-gray-500 hover:bg-gray-100"
+                }`}
+              >
+                ☑️ 批量{selectedIds.size > 0 && ` (${selectedIds.size})`}
+              </button>
+
+              {batchMode && selectedIds.size > 0 && (
+                <button
+                  onClick={handleBatchDelete}
+                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                >
+                  🗑️ 删除选中
+                </button>
+              )}
+            </div>
+
+            {/* 上传区域 */}
+            {showUpload && (
+              <ImageUploadDrop onUploaded={handleUploaded} />
+            )}
           </div>
 
-          {/* 瀑布流画廊 */}
-          <MasonryGallery
-            items={galleryItems}
-            selectedId={selectedId}
-            hasMore={galleryHasMore}
-            loading={galleryLoading}
-            isDark={isDark}
-            onSelect={selectMedia}
-            onLoadMore={() => {
-              // TODO: 分页加载
-            }}
-          />
+          {/* 画廊 */}
+          {viewMode === "masonry" ? (
+            <MasonryGallery
+              items={filteredItems}
+              selectedId={selectedId}
+              hasMore={galleryHasMore}
+              loading={galleryLoading}
+              isDark={isDark}
+              onSelect={batchMode ? toggleSelect : selectMedia}
+              onLoadMore={() => loadGallery(true)}
+            />
+          ) : (
+            <GridView
+              items={filteredItems}
+              selectedId={selectedId}
+              isDark={isDark}
+              onSelect={batchMode ? toggleSelect : selectMedia}
+              batchMode={batchMode}
+              selectedIds={batchMode ? selectedIds : null}
+              favoriteIds={favoriteIds}
+              onToggleFavorite={toggleFavorite}
+              onDragStart={handleDragStart}
+              onCompareToggle={handleCompareToggle}
+            />
+          )}
         </div>
 
-        {/* ========== 右侧：预览区（完整模式时显示） ========== */}
+        {/* ========== 右侧：预览区 ========== */}
         {!isCompact && (
-          <div className="flex flex-1 flex-col overflow-y-auto border-l border-gray-200 p-4 dark:border-gray-700">
-            {selectedItem ? (
-              <>
+          <div className="flex flex-1 flex-col overflow-y-auto border-l border-gray-200 dark:border-gray-700">
+            {/* 图片对比模式 */}
+            {compareIds && compareIds[0] && (
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                    图片对比
+                    {compareIds[1] && " — 并排模式"}
+                    {!compareIds[1] && " — 已选 1 张，请再选 1 张"}
+                  </h3>
+                  <button
+                    onClick={() => setCompareIds(null)}
+                    className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  >✕ 退出对比</button>
+                </div>
+                {compareIds[1] ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {(() => {
+                      const imgA = galleryItems.find((i) => i.id === compareIds[0]);
+                      const imgB = galleryItems.find((i) => i.id === compareIds[1]);
+                      return (
+                        <>
+                          <CompareImage item={imgA} isDark={isDark} />
+                          <CompareImage item={imgB} isDark={isDark} />
+                        </>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center py-6 text-xs text-gray-400">
+                    点击左侧卡片上的 ◧ 按钮选择第二张图片
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(!compareIds || !compareIds[1]) && selectedItem ? (
+              <div className="flex flex-1 flex-col p-4 min-h-0">
                 {/* 预览 */}
-                <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex-shrink-0 rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
                   {selectedItem.type === "video" ? (
-                    <video
+                    <VideoPlayer
                       src={selectedItem.url}
-                      controls
-                      className="w-full rounded-lg"
+                      onMetaLoaded={(meta) => setVideoMeta(meta)}
                     />
                   ) : (
                     <img
                       src={selectedItem.url}
                       alt="预览"
-                      className="w-full rounded-lg object-contain"
+                      className="w-full max-h-[50vh] cursor-pointer rounded-lg object-contain"
+                      onClick={handleOpenLightbox}
+                      title="点击放大查看"
                     />
                   )}
                 </div>
 
-                {/* 信息 */}
-                <div className="mt-3 space-y-1 text-xs text-gray-500 dark:text-gray-400">
-                  <p>类型: {selectedItem.type === "video" ? "视频" : "图片"}</p>
-                  {selectedItem.width && selectedItem.height && (
-                    <p>尺寸: {selectedItem.width} × {selectedItem.height}</p>
-                  )}
-                  {selectedItem.duration && <p>时长: {selectedItem.duration}s</p>}
-                  <button
-                    onClick={() => selectMedia("")}
-                    className="text-blue-500 hover:underline"
-                  >
-                    取消选择
-                  </button>
+                {/* 信息面板 */}
+                <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+                  <h3 className="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                    文件信息
+                  </h3>
+                  <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
+                    <InfoRow label="文件名" value={selectedFileName} />
+                    <InfoRow label="类型" value={selectedItem.type === "video" ? "视频" : "图片"} />
+                    <InfoRow label="格式" value={imageMeta?.format || selectedFormat} />
+                    {imageMeta?.width && imageMeta?.height && (
+                      <InfoRow label="尺寸" value={`${imageMeta.width} × ${imageMeta.height}`} />
+                    )}
+                    {!imageMeta && selectedItem.width && selectedItem.height && (
+                      <InfoRow label="尺寸" value={`${selectedItem.width} × ${selectedItem.height}`} />
+                    )}
+                    {imageMeta?.size && (
+                      <InfoRow label="大小" value={formatFileSize(imageMeta.size)} />
+                    )}
+                    {selectedItem.duration && (
+                      <InfoRow label="时长" value={`${selectedItem.duration}s`} />
+                    )}
+                    {videoMeta && selectedItem.type === "video" && (
+                      <InfoRow label="分辨率" value={`${videoMeta.width} × ${videoMeta.height}`} />
+                    )}
+                    {imageMeta?.createdAt && (
+                      <InfoRow label="日期" value={formatDate(imageMeta.createdAt)} />
+                    )}
+                    {!imageMeta && selectedDate && (
+                      <InfoRow label="日期" value={selectedDate} />
+                    )}
+                    <InfoRow label="路径" value={selectedItem.url} mono />
+                  </div>
                 </div>
-              </>
-            ) : null}
 
-            {/* 任务进度 */}
-            <div className="mt-4">
-              <TaskList
-                tasks={activeTasks}
-                onDelete={(taskId) => useMediaStore.getState().removeTask(taskId)}
-              />
-            </div>
+                {/* 操作栏 */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {selectedItem.type === "image" && (
+                    <>
+                      <ActionButton label="放大查看" icon="🔍" isDark={isDark} onClick={handleOpenLightbox} />
+                      <ActionButton label="对比" icon="◧" isDark={isDark} onClick={() => handleCompareToggle(selectedItem.id)} />
+                      <ActionButton label="图生视频" icon="🎬" isDark={isDark} onClick={() => {
+                        setIntendedAction({
+                          type: "generate-video",
+                          sourceImage: { id: selectedItem.id, url: selectedItem.url },
+                          autoSubmit: false,
+                        });
+                      }} />
+                      <ActionButton label="编辑图片" icon="✏️" isDark={isDark} onClick={() => {
+                        setIntendedAction({
+                          type: "edit-image",
+                          sourceImage: { id: selectedItem.id, url: selectedItem.url },
+                          autoSubmit: false,
+                        });
+                      }} />
+                      <ActionButton
+                        label={analyzingImage ? "识别中…" : "生成类似"}
+                        icon={analyzingImage ? "⏳" : "✨"}
+                        isDark={isDark}
+                        onClick={handleGenerateSimilar}
+                      />
+                      <ActionButton label="下载" icon="⬇️" isDark={isDark} onClick={() => window.open(selectedItem.url, "_blank")} />
+                      <ActionButton label="删除" icon="🗑️" isDark={isDark} danger onClick={() => handleDeleteItem(selectedItem)} />
+                    </>
+                  )}
+                  {selectedItem.type === "video" && (
+                    <>
+                      <ActionButton label="下载" icon="⬇️" isDark={isDark} onClick={() => window.open(selectedItem.url, "_blank")} />
+                      <ActionButton label="删除" icon="🗑️" isDark={isDark} danger onClick={() => handleDeleteItem(selectedItem)} />
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-1 items-center justify-center text-xs text-gray-400">
+                点击左侧媒体项以查看详情
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* ========== 浮动任务状态栏（始终可见） ========== */}
+      {(generationTasks.length > 0 || activeTasks.length > 0) && (
+        <div className="border-t border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900">
+          <GenerationTaskList
+            tasks={generationTasks}
+            onDelete={(id) => removeGenerationTask(id)}
+          />
+          <TaskList
+            tasks={activeTasks}
+            onDelete={(taskId) => useMediaStore.getState().removeTask(taskId)}
+          />
+        </div>
+      )}
 
       {/* ========== 底部：统一输入栏 ========== */}
       <BottomInputBar
@@ -234,8 +828,302 @@ function MediaPage() {
         generating={generating}
         onGenerate={handleGenerate}
       />
+
+      {/* ========== ImageViewer lightbox ========== */}
+      {lightboxOpen && selectedItem && (
+        <ImageViewer
+          images={galleryItems.filter((i) => i.type === "image").map((i) => i.url)}
+          initialIndex={lightboxIndex}
+          onClose={() => {
+            setLightboxOpen(false);
+            clearSelectedImage();
+          }}
+          onDelete={handleLightboxDelete}
+        />
+      )}
+
+      {/* ========== 右键菜单 ========== */}
+      {contextMenu && (
+        <ContextMenu
+          item={contextMenu.item}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          isDark={isDark}
+          onAction={(action) => {
+            setContextMenu(null);
+            const item = contextMenu.item;
+            if (action === "download") {
+              window.open(item.url, "_blank");
+            } else if (action === "delete") {
+              handleDeleteItem(item);
+            } else if (action === "edit" || action === "generate-video") {
+              setIntendedAction({
+                type: action === "edit" ? "edit-image" : "generate-video",
+                sourceImage: { id: item.id, url: item.url },
+                autoSubmit: false,
+              });
+            } else if (action === "copy-path") {
+              navigator.clipboard.writeText(item.url).then(() => {
+                addToast("success", "路径已复制");
+              }).catch(() => {});
+            } else if (action === "extract-audio") {
+              addToast("info", "音频提取功能开发中");
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
 
+// ──── 子组件 ────────────────────────────────────────────
+
+/** 筛选 Tab */
+const FilterTab: React.FC<{
+  label: string; count: number; active: boolean; onClick: () => void;
+}> = ({ label, count, active, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+      active
+        ? "bg-blue-500 text-white"
+        : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600"
+    }`}
+  >
+    {label}
+    <span className={`ml-1 ${active ? "text-white/70" : "text-gray-400"}`}>{count}</span>
+  </button>
+);
+
+/** 信息行 */
+const InfoRow: React.FC<{ label: string; value: string; mono?: boolean }> = ({ label, value, mono }) => (
+  <div className="flex items-start gap-2">
+    <span className="min-w-[3em] text-gray-400 dark:text-gray-500">{label}</span>
+    <span className={`truncate ${mono ? "font-mono text-[10px]" : ""}`} title={value}>
+      {value}
+    </span>
+  </div>
+);
+
+/** 操作栏按钮 */
+const ActionButton: React.FC<{
+  label: string; icon: string; isDark: boolean; onClick: () => void; danger?: boolean;
+}> = ({ label, icon, isDark, onClick, danger }) => (
+  <button
+    onClick={onClick}
+    className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs transition-colors ${
+      danger
+        ? "text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+        : isDark
+          ? "text-gray-300 hover:bg-gray-700"
+          : "text-gray-600 hover:bg-gray-100"
+    }`}
+  >
+    <span>{icon}</span><span>{label}</span>
+  </button>
+);
+
+/** 右键菜单 */
+const ContextMenu: React.FC<{
+  item: GalleryItem;
+  x: number;
+  y: number;
+  isDark: boolean;
+  onAction: (action: string) => void;
+}> = ({ item, x, y, isDark, onAction }) => {
+  const isImage = item.type === "image";
+
+  return (
+    <div
+      className="fixed z-50 rounded-lg border py-1 shadow-xl"
+      style={{ left: x, top: y }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div
+        className={
+          isDark
+            ? "border-gray-600 bg-gray-700 text-gray-200"
+            : "border-gray-200 bg-white text-gray-700"
+        }
+      >
+        {isImage && (
+          <>
+            <MenuItem label="编辑图像" icon="✏️" onClick={() => onAction("edit")} />
+            <MenuItem label="图生视频" icon="🎬" onClick={() => onAction("generate-video")} />
+          </>
+        )}
+        <MenuItem label="下载" icon="⬇️" onClick={() => onAction("download")} />
+        <MenuItem label="复制路径" icon="📋" onClick={() => onAction("copy-path")} />
+        {!isImage && (
+          <MenuItem label="提取音频" icon="🎵" onClick={() => onAction("extract-audio")} />
+        )}
+        <div className="my-1 border-t border-gray-200 dark:border-gray-600" />
+        <MenuItem label="删除" icon="🗑️" danger onClick={() => onAction("delete")} />
+      </div>
+    </div>
+  );
+};
+
+/** 右键菜单项 */
+const MenuItem: React.FC<{
+  label: string; icon: string; onClick: () => void; danger?: boolean;
+}> = ({ label, icon, onClick, danger }) => (
+  <button
+    onClick={onClick}
+    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20 ${
+      danger ? "text-red-500" : ""
+    }`}
+  >
+    <span>{icon}</span><span>{label}</span>
+  </button>
+);
+
+/** 网格列表视图 */
+const GridView: React.FC<{
+  items: GalleryItem[];
+  selectedId: string | null;
+  isDark: boolean;
+  onSelect: (id: string) => void;
+  batchMode?: boolean;
+  selectedIds?: Set<string> | null;
+  favoriteIds?: Set<string> | null;
+  onToggleFavorite?: (id: string) => void;
+  onDragStart?: (e: React.DragEvent, item: GalleryItem) => void;
+  onCompareToggle?: (id: string) => void;
+}> = ({ items, selectedId, isDark, onSelect, batchMode, selectedIds, favoriteIds, onToggleFavorite, onDragStart, onCompareToggle }) => (
+  <div className="h-full overflow-y-auto p-3">
+    <div className="grid grid-cols-3 gap-2">
+      {items.map((item) => {
+        const selected = batchMode
+          ? selectedIds?.has(item.id)
+          : selectedId === item.id;
+        const isFav = favoriteIds?.has(item.id);
+        const fileName = extractFileName(item.url);
+        const fileDate = extractDate(item.url);
+
+        return (
+          <div
+            key={item.id}
+            onClick={() => onSelect(item.id)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              onSelect(item.id);
+            }}
+            draggable={item.type === "image"}
+            onDragStart={(e) => onDragStart?.(e, item)}
+            className={`relative cursor-pointer rounded-lg border-2 p-1.5 transition-all ${
+              selected
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                : isDark
+                  ? "border-gray-700 bg-gray-800 hover:border-gray-500"
+                  : "border-gray-200 bg-white hover:border-gray-400"
+            }`}
+            style={{ contentVisibility: "auto", containIntrinsicSize: "auto 150px" }}
+          >
+            {/* 批量选择复选框 */}
+            {batchMode && (
+              <div className="absolute left-1.5 top-1.5 z-10">
+                <input
+                  type="checkbox"
+                  checked={selected || false}
+                  onChange={() => onSelect(item.id)}
+                  className="h-3.5 w-3.5 accent-blue-500"
+                />
+              </div>
+            )}
+
+            {/* 收藏星标 + 对比按钮 */}
+            {!batchMode && (
+              <div className="absolute right-1 top-1 z-10 flex gap-0.5">
+                {onToggleFavorite && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onToggleFavorite(item.id); }}
+                    className={`rounded bg-black/30 p-0.5 text-[10px] transition-colors hover:bg-black/50 ${
+                      isFav ? "text-yellow-400" : "text-white/60"
+                    }`}
+                    title={isFav ? "取消收藏" : "收藏"}
+                  >{isFav ? "★" : "☆"}</button>
+                )}
+                {onCompareToggle && item.type === "image" && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onCompareToggle(item.id); }}
+                    className="rounded bg-black/30 p-0.5 text-[10px] text-white/60 transition-colors hover:bg-black/50"
+                    title="加入对比"
+                  >◧</button>
+                )}
+              </div>
+            )}
+
+            {/* 缩略图 */}
+            <div className="mb-1 aspect-square overflow-hidden rounded bg-gray-100 dark:bg-gray-700">
+              {item.type === "video" ? (
+                <video
+                  src={item.url}
+                  muted
+                  className="h-full w-full object-cover"
+                  onMouseEnter={(e) => e.currentTarget.play()}
+                  onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
+                />
+              ) : (
+                <img
+                  src={item.thumbnailUrl || item.url}
+                  alt={item.alt || ""}
+                  loading="lazy"
+                  className="h-full w-full object-cover"
+                />
+              )}
+            </div>
+
+            <div className="overflow-hidden">
+              <p className="truncate text-[10px] font-medium text-gray-700 dark:text-gray-300" title={fileName}>
+                {fileName}
+              </p>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                {item.type === "video" ? "视频" : "图片"} · {fileDate}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+    {items.length === 0 && (
+      <div className="flex items-center justify-center py-12 text-xs text-gray-400">
+        暂无内容
+      </div>
+    )}
+  </div>
+);
+
 export default MediaPage;
+
+/** 对比图片面板 */
+const CompareImage: React.FC<{ item: GalleryItem | undefined; isDark: boolean }> = ({ item, isDark }) => {
+  if (!item) {
+    return (
+      <div className={`flex aspect-square items-center justify-center rounded-lg border ${
+        isDark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-100"
+      }`}>
+        <span className="text-xs text-gray-400">未选择</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+        <img
+          src={item.url}
+          alt={item.alt || ""}
+          className="w-full object-contain"
+          loading="lazy"
+        />
+      </div>
+      <p className="truncate text-[10px] text-gray-500 dark:text-gray-400" title={extractFileName(item.url)}>
+        {extractFileName(item.url)}
+      </p>
+      {item.width && item.height && (
+        <p className="text-[10px] text-gray-400">{item.width}×{item.height}</p>
+      )}
+    </div>
+  );
+};

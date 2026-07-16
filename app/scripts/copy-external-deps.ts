@@ -97,24 +97,76 @@ function getDirSize(dirPath: string): number {
 function main(): void {
   const args = process.argv.slice(2);
   let targetDir = path.resolve(__dirname, '..', '..', 'dist');
+  // 是否为 bundle 模式（dist/pkg/）—— 使用 node_modules/ 而非 deps/node_modules/
+  let bundleMode = false;
 
   for (const arg of args) {
     if (arg.startsWith('--target=')) {
       targetDir = path.resolve(arg.split('=')[1]);
     }
+    if (arg === '--bundle') {
+      bundleMode = true;
+    }
+  }
+
+  // 自动检测：如果目标目录以 pkg 结尾，则为 bundle 模式
+  if (targetDir.endsWith('pkg') || targetDir.endsWith('pkg\\') || targetDir.endsWith('pkg/')) {
+    bundleMode = true;
   }
 
   console.log('\n=== 复制外部依赖到输出目录 ===');
   console.log(`目标目录: ${targetDir}`);
+  console.log(`模式: ${bundleMode ? 'bundle (node_modules/)' : 'compile (deps/node_modules/)'}`);
 
   if (!fs.existsSync(targetDir)) {
     console.error(`[错误] 输出目录不存在: ${targetDir}`);
-    console.error('请先执行 bun build --compile');
+    console.error('请先执行 bun build（build:bundle 或 build:win）');
     process.exit(1);
   }
 
-  // 放入 node_modules 子目录，使 createRequire 能从 deps/ 正确解析
-  const depsDir = path.join(targetDir, 'deps', 'node_modules');
+  // bundle 模式：直接放入 node_modules/，Bun 标准模块解析可直接找到
+  // compile 模式：放入 deps/node_modules/，由 Module._resolveFilename hook 解析
+  const depsDir = bundleMode
+    ? path.join(targetDir, 'node_modules')
+    : path.join(targetDir, 'deps', 'node_modules');
+  /**
+   * 收集包的所有依赖（dependencies + optionalDependencies）中匹配前缀的原生包。
+   * 递归解析：原生包可能也有自己的原生依赖。
+   */
+  function collectNativeDepsRecursive(
+    pkgPath: string,
+    collected: Set<string> = new Set()
+  ): Array<{ name: string; srcPath: string }> {
+    const result: Array<{ name: string; srcPath: string }> = [];
+    try {
+      const pkgJsonPath = path.join(pkgPath, 'package.json');
+      if (!fs.existsSync(pkgJsonPath)) return result;
+      const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'));
+      const allDeps = { ...(pkgJson.dependencies || {}), ...(pkgJson.optionalDependencies || {}) };
+
+      for (const depName of Object.keys(allDeps)) {
+        if (collected.has(depName)) continue;
+        // 只收集原生相关包（@img/*、@emnapi/* 等，规避拷贝整个 npm 生态）
+        if (
+          depName.startsWith('@img/') ||
+          depName.startsWith('@emnapi/')
+        ) {
+          const depPath = resolvePackagePath(depName);
+          if (depPath) {
+            collected.add(depName);
+            result.push({ name: depName, srcPath: depPath });
+            // 递归解析该原生包的原生依赖
+            const nested = collectNativeDepsRecursive(depPath, collected);
+            result.push(...nested);
+          }
+        }
+      }
+    } catch {
+      // package.json 读取失败，跳过
+    }
+    return result;
+  }
+
   let copiedCount = 0;
 
   for (const dep of EXTERNAL_DEPS) {
@@ -132,6 +184,15 @@ function main(): void {
 
     copyRecursive(srcPath, destPath);
     copiedCount++;
+
+    // 复制该包的原生依赖（递归解析）到目标 node_modules
+    const nativeDeps = collectNativeDepsRecursive(srcPath);
+    for (const nd of nativeDeps) {
+      const ndDest = path.join(depsDir, nd.name);
+      if (fs.existsSync(ndDest)) continue; // 已存在，跳过
+      console.log(`[复制]   原生依赖 ${nd.name}: ${nd.srcPath} → ${ndDest}`);
+      copyRecursive(nd.srcPath, ndDest);
+    }
   }
 
   console.log(`\n完成: 已复制 ${copiedCount}/${EXTERNAL_DEPS.length} 个外部依赖`);

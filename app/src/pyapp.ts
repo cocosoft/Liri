@@ -39,6 +39,13 @@ import { getLogger } from './monitoring/logs/Logger';
 const bootLogger = getLogger('pyapp');
 
 /**
+ * 检测是否为 --compile 模式（单文件 exe 二进制）
+ * 在 --compile 模式中，import.meta.url 指向虚拟路径如 B:/~BUN/root/liri_terminal
+ * 在 --target=bun 模式中，import.meta.url 指向实际文件路径
+ */
+const isCompiledBinary = import.meta.url.includes('~BUN');
+
+/**
  * 确定项目根目录
  * 按优先级：
  *   1. --project-dir 命令行参数
@@ -123,8 +130,9 @@ try {
 }
 
 // ── 策略 2: Object.defineProperty override process.cwd ──
+// 仅在 --compile 模式生效：编译 exe 中 cwd 可能返回虚拟路径
 // 相比直接赋值 process.cwd = fn，defineProperty 的拦截更彻底
-{
+if (isCompiledBinary) {
   const origCwd = process.cwd.bind(process);
 
   Object.defineProperty(process, 'cwd', {
@@ -142,9 +150,9 @@ try {
 }
 
 // ── 策略 3: 拦截 fs.mkdirSync/mkdir，检测根路径时重定向 ──
-// 在 Bun 编译 exe 中 require('fs') 可能返回冻结对象，此策略可能无效，
+// 仅在 --compile 模式生效：编译 exe 中根路径 mkdir 会被系统拦截
 // 捕获异常时静默降级
-{
+if (isCompiledBinary) {
   function isRootPath(p: unknown): boolean {
     if (typeof p !== 'string' || !p) return false;
     const norm = p.replace(/['"]/g, '');
@@ -325,71 +333,74 @@ if (process.env['LIRI_DEBUG']) {
 }
 
 // ── 策略 7: 模块解析重定向（bun build --compile 外部依赖兜底） ──
+// 仅在 --compile 模式生效：编译 exe 无法通过系统 require 找到 --external 标记的包
 // Bun 编译的单文件 exe 中，模块根路径为虚拟路径（如 B:/~BUN/root/liri_terminal），
 // 导致 --external 标记的包（如 sharp）无法通过系统 require 找到。
 // 此处 hook Module._resolveFilename，用 process.execPath 定位实际 exe 目录，
 // 并搜索多个可能的 node_modules 位置（同级目录 + binaries/ 子目录）。
-try {
-  const Module = require('module') as any;
-  const { createRequire } = await import('module');
-  const path = require('path') as any;
+if (isCompiledBinary) {
+  try {
+    const Module = require('module') as any;
+    const { createRequire } = await import('module');
+    const path = require('path') as any;
 
-  const exeDir = path.dirname(process.execPath);
+    const exeDir = path.dirname(process.execPath);
 
-  const EXTERNAL_REDIRECTS = [
-    'sqlite3',
-    'bindings',
-    'file-uri-to-path',
-    'sharp',
-    'pdfjs-dist',
-  ];
+    const EXTERNAL_REDIRECTS = [
+      'sqlite3',
+      'bindings',
+      'file-uri-to-path',
+      'sharp',
+      'pdfjs-dist',
+    ];
 
-  // 在多个位置搜索 deps/（编译二进制 vs bun bundle 模式）
-  const SEARCH_DIRS = [
-    path.join(exeDir, 'deps'), // --compile 二进制
-    path.join(process.env.LIRI_PROJECT_DIR ?? '', 'dist', 'deps'), // Docker/开发 bundle
-  ].filter((d) => d.split(path.sep).length > 1); // 过滤无效路径
+    // 在多个位置搜索 deps/（编译二进制 vs bun bundle 模式）
+    const SEARCH_DIRS = [
+      path.join(exeDir, 'deps'), // --compile 二进制
+      path.join(process.env.LIRI_PROJECT_DIR ?? '', 'dist', 'deps'), // Docker/开发 bundle
+    ].filter((d) => d.split(path.sep).length > 1); // 过滤无效路径
 
-  function resolveExternalModule(request: string): string {
-    for (const dir of SEARCH_DIRS) {
-      try {
-        const req = createRequire(path.join(dir, '_placeholder_.js'));
-        return req.resolve(request);
-      } catch {
-        // 当前目录没有 node_modules，继续尝试下一个
+    function resolveExternalModule(request: string): string {
+      for (const dir of SEARCH_DIRS) {
+        try {
+          const req = createRequire(path.join(dir, '_placeholder_.js'));
+          return req.resolve(request);
+        } catch {
+          // 当前目录没有 node_modules，继续尝试下一个
+        }
       }
+      throw new Error(
+        `Cannot find external module '${request}' in any search directory`
+      );
     }
-    throw new Error(
-      `Cannot find external module '${request}' in any search directory`
-    );
-  }
 
-  const origResolveFilename = Module._resolveFilename.bind(Module);
-  Module._resolveFilename = function patchedResolveFilename(
-    request: string,
-    parent: any,
-    isMain: boolean,
-    options: any
-  ): string {
-    // 前缀匹配：支持子路径如 pdfjs-dist/legacy/build/pdf
-    if (
-      EXTERNAL_REDIRECTS.some(
-        (pkg) => request === pkg || request.startsWith(pkg + '/')
-      )
-    ) {
-      try {
-        return resolveExternalModule(request);
-      } catch {
-        // fallback to original
+    const origResolveFilename = Module._resolveFilename.bind(Module);
+    Module._resolveFilename = function patchedResolveFilename(
+      request: string,
+      parent: any,
+      isMain: boolean,
+      options: any
+    ): string {
+      // 前缀匹配：支持子路径如 pdfjs-dist/legacy/build/pdf
+      if (
+        EXTERNAL_REDIRECTS.some(
+          (pkg) => request === pkg || request.startsWith(pkg + '/')
+        )
+      ) {
+        try {
+          return resolveExternalModule(request);
+        } catch {
+          // fallback to original
+        }
       }
+      return origResolveFilename(request, parent, isMain, options);
+    };
+  } catch (e) {
+    if (process.env['LIRI_DEBUG']) {
+      bootLogger.error('Module._resolveFilename hook failed', {
+        error: String(e),
+      });
     }
-    return origResolveFilename(request, parent, isMain, options);
-  };
-} catch (e) {
-  if (process.env['LIRI_DEBUG']) {
-    bootLogger.error('Module._resolveFilename hook failed', {
-      error: String(e),
-    });
   }
 }
 

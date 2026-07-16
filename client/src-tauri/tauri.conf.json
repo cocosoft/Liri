@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Liri",
-  "version": "0.4.32",
+  "version": "0.4.33",
   "identifier": "com.liri.client",
   "build": {
     "frontendDist": "../dist",
@@ -28,7 +28,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "externalBin": ["binaries/liri_terminal"],
+    "externalBin": [
+      "binaries/liri_terminal"
+    ],
     "resources": [
       "../../app/docs",
       "../../app/config"
@@ -49,7 +51,10 @@
       "nsis": {
         "installerIcon": "icons/icon.ico",
         "installMode": "currentUser",
-        "languages": ["SimpChinese", "English"]
+        "languages": [
+          "SimpChinese",
+          "English"
+        ]
       }
     }
   },

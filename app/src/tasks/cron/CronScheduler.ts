@@ -83,6 +83,8 @@ export class CronScheduler {
   private startTime = 0;
   private lock: SchedulerLock | null = null;
   private pendingJobs = new Set<Promise<unknown>>();
+  /** 正在执行中的 job ID 集合（防止 catchUpMissedJobs 与 tick 竞跑） */
+  private inFlightJobs = new Set<string>();
   private deliveryQueue: DeliveryQueue | null = null;
   private runLog: CronRunLog | null = null;
   private alertService: CronAlertService | null = null;
@@ -345,8 +347,12 @@ export class CronScheduler {
       const dueJobs = await this.store.getDueJobs(nowIso);
       if (dueJobs.length === 0) return 0;
 
+      // 过滤已在飞行中的 job（防止 catchUpMissedJobs 与 tick 竞跑导致重复执行）
+      const freshJobs = dueJobs.filter((j) => !this.inFlightJobs.has(j.id));
+      if (freshJobs.length === 0) return 0;
+
       const capacity = this.config.maxParallelJobs - this.activeJobs;
-      const toRun = dueJobs.slice(0, capacity);
+      const toRun = freshJobs.slice(0, capacity);
 
       logger.info('[CronScheduler] tick 到期作业', {
         total: dueJobs.length,
@@ -373,7 +379,18 @@ export class CronScheduler {
    * 对标 hermes-agent cron/scheduler.py:run_job()
    */
   async runJob(job: CronJob): Promise<CronJobResult> {
+    // 飞行中检查：防止 catchUpMissedJobs 与 tick 竞跑导致同一 job 被重复执行
+    if (this.inFlightJobs.has(job.id)) {
+      return {
+        success: true,
+        output: '',
+        finalResponse: '',
+        durationMs: 0,
+      };
+    }
+
     this.activeJobs++;
+    this.inFlightJobs.add(job.id);
 
     // 记录开始运行时间并更新状态
     const runningAtMs = Date.now();
@@ -419,6 +436,7 @@ export class CronScheduler {
       });
     } finally {
       this.activeJobs--;
+      this.inFlightJobs.delete(job.id);
     }
 
     const prevErrorCount = job.consecutiveErrors ?? 0;

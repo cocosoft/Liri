@@ -77,6 +77,11 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(({
     setState(s => ({ ...s, ...partial }));
   }, []);
 
+  // 光标移动回调（稳定引用，避免触发 CanvasSurface effect 重运行）
+  const handleCursorMove = useCallback((x: number, y: number) => {
+    setCursorPos({ x, y });
+  }, []);
+
   // 工具切换时自动重置 toolParams 为默认值
   const handleToolChange = useCallback((tool: CanvasTool) => {
     setState(s => ({ ...s, activeTool: tool, toolParams: buildDefaultParams(tool) }));
@@ -120,7 +125,18 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(({
     } else {
       imgSrc = typeof source === "string" ? source : URL.createObjectURL(source);
     }
-    img.crossOrigin = "anonymous";
+
+    // 仅对跨域 URL 设置 crossOrigin，避免与浏览器同源非 CORS 缓存冲突导致加载失败
+    if (typeof source === "string") {
+      try {
+        const imgUrl = new URL(imgSrc, window.location.origin);
+        if (imgUrl.origin !== window.location.origin) {
+          img.crossOrigin = "anonymous";
+        }
+      } catch {
+        // URL 解析失败（如相对路径无 base）则视为同源，不设 crossOrigin
+      }
+    }
 
     try {
       await new Promise<void>((resolve, reject) => {
@@ -128,8 +144,12 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(({
         img.onerror = () => reject(new Error("图片加载失败"));
         img.src = imgSrc;
       });
-    } catch {
-      // 加载失败时释放 object URL 并退出
+    } catch (err) {
+      // 加载失败时释放 object URL 并记录日志
+      CanvasLogger.error("画布图片加载失败", {
+        source: typeof source === "string" ? source : (source as File).name,
+        error: err instanceof Error ? err.message : String(err),
+      });
       if (typeof source !== "string") URL.revokeObjectURL(imgSrc);
       return;
     }
@@ -602,7 +622,7 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(({
         buffer={bufferRef.current}
         commands={commandRef.current}
         setActiveTool={handleToolChange}
-        onCursorMove={(x, y) => setCursorPos({ x, y })}
+        onCursorMove={handleCursorMove}
         onStateChange={updateState}
         onLoadImage={handleLoadImage}
         onContextExport={handleExport}

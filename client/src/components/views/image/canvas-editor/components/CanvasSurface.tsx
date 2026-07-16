@@ -167,24 +167,27 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
       }
     };
 
+    // 渲染循环：首次渲染后持续轮询，每次 frame 检查 needsRender
+    const scheduleLoop = () => {
+      rafId = requestAnimationFrame(loop);
+    };
+
     const loop = () => {
       if (needsRender && !rafPending.current) {
         rafPending.current = true;
         rafId = requestAnimationFrame(() => {
           rafId = 0;
           render();
-          // 渲染后检查是否有新的 needsRender（可能在 render 过程中被设置）
-          if (needsRender) {
-            rafPending.current = true;
-            rafId = requestAnimationFrame(loop);
-          }
+          // 渲染完成后无条件恢复轮询，确保后续 canvas-render / ResizeObserver 信号能被拾取
+          rafPending.current = needsRender;
+          scheduleLoop();
         });
-      } else if (!needsRender) {
-        // 设置一个定时器来轮询（处理外部 set needsRender 的情况）
-        rafId = requestAnimationFrame(loop);
+      } else {
+        // needsRender 为 false 或已有 render 排队，继续下一帧轮询
+        scheduleLoop();
       }
     };
-    rafId = requestAnimationFrame(loop);
+    scheduleLoop();
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
       rafId = 0;

@@ -11,6 +11,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useConfigStore } from "../../stores/configStore";
 import { useMediaStore, type GalleryItem } from "../../stores/mediaStore";
 import { useVideoTaskPolling } from "../../hooks/useVideoTaskPolling";
@@ -134,6 +135,8 @@ function MediaPage() {
   const [showUpload, setShowUpload] = useState(false);
   const [imageMeta, setImageMeta] = useState<ImageMetadata | null>(null);
   const [analyzingImage, setAnalyzingImage] = useState(false);
+  // 删除确认：暂存待删除项
+  const [deleteConfirming, setDeleteConfirming] = useState<GalleryItem | null>(null);
 
   // 批量选择
   const [batchMode, setBatchMode] = useState(false);
@@ -499,7 +502,15 @@ function MediaPage() {
   }, [lightboxIndex, galleryItems, removeGalleryItem, addToast]);
 
   // ──── 删除（单个，供右键菜单/面板使用） ────
-  const handleDeleteItem = useCallback(async (item: GalleryItem) => {
+  // 先弹确认框，确认后才执行删除
+  const handleDeleteItem = useCallback((item: GalleryItem) => {
+    setDeleteConfirming(item);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    const item = deleteConfirming;
+    if (!item) return;
+    setDeleteConfirming(null);
     try {
       await imageService.deleteImage(item.url);
       removeGalleryItem(item.id);
@@ -507,7 +518,7 @@ function MediaPage() {
     } catch {
       addToast("error", "删除失败，请重试");
     }
-  }, [removeGalleryItem, addToast]);
+  }, [deleteConfirming, removeGalleryItem, addToast]);
 
   // ──── 批量删除 ────
   const handleBatchDelete = useCallback(async () => {
@@ -538,6 +549,18 @@ function MediaPage() {
       return next;
     });
   }, []);
+
+  // ──── 统一选择处理：对比模式中点击图片直接作为第2张 ────
+  const handleGallerySelect = useCallback((id: string) => {
+    if (batchMode) {
+      toggleSelect(id);
+    } else if (compareIds && compareIds[0] && !compareIds[1]) {
+      // 对比模式中（已选第1张），点击任意图片作为第2张
+      handleCompareToggle(id);
+    } else {
+      selectMedia(id);
+    }
+  }, [batchMode, compareIds, toggleSelect, selectMedia, handleCompareToggle]);
 
   // 点击外部关闭右键菜单
   useEffect(() => {
@@ -693,7 +716,7 @@ function MediaPage() {
               hasMore={galleryHasMore}
               loading={galleryLoading}
               isDark={isDark}
-              onSelect={batchMode ? toggleSelect : selectMedia}
+              onSelect={handleGallerySelect}
               onLoadMore={() => loadGallery(true)}
               disabled={isEditing}
               scrollRef={galleryScrollRef}
@@ -703,7 +726,7 @@ function MediaPage() {
               items={filteredItems}
               selectedId={selectedId}
               isDark={isDark}
-              onSelect={batchMode ? toggleSelect : selectMedia}
+              onSelect={handleGallerySelect}
               batchMode={batchMode}
               selectedIds={batchMode ? selectedIds : null}
               favoriteIds={favoriteIds}
@@ -746,7 +769,7 @@ function MediaPage() {
                   </div>
                 ) : (
                   <div className="flex items-center justify-center py-6 text-xs text-gray-400">
-                    点击左侧卡片上的 ◧ 按钮选择第二张图片
+                    点击左侧任意图片选择第二张，或点击卡片 ◧ 按钮
                   </div>
                 )}
               </div>
@@ -769,6 +792,41 @@ function MediaPage() {
                       onClick={handleOpenLightbox}
                       title="点击放大查看"
                     />
+                  )}
+                </div>
+
+                {/* 操作栏 — 常用操作紧跟预览，无需滚动 */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {selectedItem.type === "image" && (
+                    <>
+                      <ActionButton label="放大查看" icon="🔍" isDark={isDark} onClick={handleOpenLightbox} />
+                      <ActionButton label="对比" icon="◧" isDark={isDark} onClick={() => handleCompareToggle(selectedItem.id)} />
+                      <ActionButton label="图生视频" icon="🎬" isDark={isDark} onClick={() => {
+                        setIntendedAction({
+                          type: "generate-video",
+                          sourceImage: { id: selectedItem.id, url: selectedItem.url },
+                          autoSubmit: false,
+                        });
+                      }} />
+                      <ActionButton label="编辑图片" icon="✏️" isDark={isDark} onClick={() => {
+                        editSessionRef.current++;
+                        setEditingImage({ id: selectedItem.id, url: selectedItem.url });
+                      }} />
+                      <ActionButton
+                        label={analyzingImage ? "识别中…" : "生成类似"}
+                        icon={analyzingImage ? "⏳" : "✨"}
+                        isDark={isDark}
+                        onClick={handleGenerateSimilar}
+                      />
+                      <ActionButton label="下载" icon="⬇️" isDark={isDark} onClick={() => window.open(selectedItem.url, "_blank")} />
+                      <ActionButton label="删除" icon="🗑️" isDark={isDark} danger onClick={() => handleDeleteItem(selectedItem)} />
+                    </>
+                  )}
+                  {selectedItem.type === "video" && (
+                    <>
+                      <ActionButton label="下载" icon="⬇️" isDark={isDark} onClick={() => window.open(selectedItem.url, "_blank")} />
+                      <ActionButton label="删除" icon="🗑️" isDark={isDark} danger onClick={() => handleDeleteItem(selectedItem)} />
+                    </>
                   )}
                 </div>
 
@@ -804,41 +862,6 @@ function MediaPage() {
                     )}
                     <InfoRow label="路径" value={selectedItem.url} mono />
                   </div>
-                </div>
-
-                {/* 操作栏 */}
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {selectedItem.type === "image" && (
-                    <>
-                      <ActionButton label="放大查看" icon="🔍" isDark={isDark} onClick={handleOpenLightbox} />
-                      <ActionButton label="对比" icon="◧" isDark={isDark} onClick={() => handleCompareToggle(selectedItem.id)} />
-                      <ActionButton label="图生视频" icon="🎬" isDark={isDark} onClick={() => {
-                        setIntendedAction({
-                          type: "generate-video",
-                          sourceImage: { id: selectedItem.id, url: selectedItem.url },
-                          autoSubmit: false,
-                        });
-                      }} />
-                      <ActionButton label="编辑图片" icon="✏️" isDark={isDark} onClick={() => {
-                        editSessionRef.current++;
-                        setEditingImage({ id: selectedItem.id, url: selectedItem.url });
-                      }} />
-                      <ActionButton
-                        label={analyzingImage ? "识别中…" : "生成类似"}
-                        icon={analyzingImage ? "⏳" : "✨"}
-                        isDark={isDark}
-                        onClick={handleGenerateSimilar}
-                      />
-                      <ActionButton label="下载" icon="⬇️" isDark={isDark} onClick={() => window.open(selectedItem.url, "_blank")} />
-                      <ActionButton label="删除" icon="🗑️" isDark={isDark} danger onClick={() => handleDeleteItem(selectedItem)} />
-                    </>
-                  )}
-                  {selectedItem.type === "video" && (
-                    <>
-                      <ActionButton label="下载" icon="⬇️" isDark={isDark} onClick={() => window.open(selectedItem.url, "_blank")} />
-                      <ActionButton label="删除" icon="🗑️" isDark={isDark} danger onClick={() => handleDeleteItem(selectedItem)} />
-                    </>
-                  )}
                 </div>
               </div>
             ) : (
@@ -935,6 +958,34 @@ function MediaPage() {
           }}
         />
       )}
+
+      {/* 删除确认弹窗 — Portal 到 body 避免被卡片容器裁剪 */}
+      {deleteConfirming &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setDeleteConfirming(null)}>
+            <div
+              className={`rounded-lg p-4 shadow-xl ${isDark ? "bg-gray-700 text-gray-200" : "bg-white text-gray-700"}`}
+              style={{ minWidth: 280 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="mb-3 text-sm">确定要删除此图片吗？此操作不可撤销。</p>
+              <p className="mb-3 text-xs text-gray-400 truncate" title={extractFileName(deleteConfirming.url)}>
+                {extractFileName(deleteConfirming.url)}
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setDeleteConfirming(null)}
+                  className={`rounded px-3 py-1 text-xs ${isDark ? "bg-gray-600 hover:bg-gray-500" : "bg-gray-100 hover:bg-gray-200"}`}
+                >取消</button>
+                <button
+                  onClick={handleConfirmDelete}
+                  className="rounded bg-red-500 px-3 py-1 text-xs text-white hover:bg-red-600"
+                >删除</button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

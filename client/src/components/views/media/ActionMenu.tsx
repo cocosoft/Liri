@@ -194,15 +194,17 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
           document.body
         )}
 
-      {/* 确认对话框 */}
-      {confirming && (
-        <ConfirmDialog
-          message="确定要删除此图片吗？此操作不可撤销。"
-          isDark={isDark}
-          onConfirm={handleDelete}
-          onCancel={() => setConfirming(false)}
-        />
-      )}
+      {/* 确认对话框 — 通过 Portal 渲染到 body，避免被卡片 contentVisibility:auto 的 contain:layout 裁剪 */}
+      {confirming &&
+        createPortal(
+          <ConfirmDialog
+            message="确定要删除此图片吗？此操作不可撤销。"
+            isDark={isDark}
+            onConfirm={handleDelete}
+            onCancel={() => setConfirming(false)}
+          />,
+          document.body
+        )}
     </>
   );
 };

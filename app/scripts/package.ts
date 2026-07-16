@@ -72,13 +72,11 @@ function main(): void {
     process.exit(1);
   }
 
-  // 确保 run.bat 存在（生成启动脚本）
+  // 生成启动脚本（每次打包时重新生成，确保内容与方案一致）
   const runBatPath = path.join(pkgDir, 'run.bat');
-  if (!fs.existsSync(runBatPath)) {
-    const runBatContent = '@echo off\r\nruntime\\bun.exe run liri.js %*';
-    fs.writeFileSync(runBatPath, runBatContent, 'utf-8');
-    console.log(`[生成] run.bat`);
-  }
+  const runBatContent = '@echo off\r\nsetlocal\r\nset "LIRI_PROJECT_DIR=%~dp0"\r\n"%~dp0runtime\\bun.exe" run "%~dp0liri.js" %*';
+  fs.writeFileSync(runBatPath, runBatContent, 'utf-8');
+  console.log(`[生成] run.bat`);
 
   // 完整包
   const fullZipName = `liri-v${version}-${platform}-full.zip`;

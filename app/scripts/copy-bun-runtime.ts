@@ -1,8 +1,10 @@
 /**
  * copy-bun-runtime.ts — 复制便携 Bun 运行时到分发包
  *
- * 用于方案 C（便携 Bun + bundle）打包，将 bun.exe 从系统安装位置
+ * 用于方案 C（便携 Bun + bundle）打包，将 bun 二进制从系统安装位置
  * 复制到 dist/pkg/runtime/ 目录，实现 Bun 运行时与业务代码分离。
+ *
+ * 跨平台支持 Windows / macOS / Linux。
  *
  * 用法:
  *   bun run scripts/copy-bun-runtime.ts [--target=../dist/pkg]
@@ -12,40 +14,95 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
+import * as os from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/** 查找 bun.exe 的多个可能位置 */
-function findBunExe(): string | null {
-  const candidates: string[] = [];
+const IS_WINDOWS = process.platform === 'win32';
+/** 目标运行时文件名（Windows: bun.exe, Unix: bun） */
+const RUNTIME_NAME = IS_WINDOWS ? 'bun.exe' : 'bun';
 
-  // 1. PATH 环境变量（通过 where 命令）
+/**
+ * 在 PATH 中查找 bun 二进制
+ * Windows 用 where，Unix 用 which
+ */
+function findBunInPath(): string | null {
   try {
-    const result = execSync('where bun', { encoding: 'utf-8', timeout: 5000 });
+    const cmd = IS_WINDOWS ? 'where bun' : 'which bun';
+    const result = execSync(cmd, { encoding: 'utf-8', timeout: 5000 });
     const lines = result.trim().split('\n').filter(Boolean);
     for (const line of lines) {
       const trimmed = line.trim();
-      if (trimmed.endsWith('.exe') && fs.existsSync(trimmed)) {
-        candidates.push(trimmed);
+      if (fs.existsSync(trimmed)) {
+        return trimmed;
       }
     }
   } catch {
-    // PATH 中找不到，继续尝试其他位置
+    // PATH 中找不到
+  }
+  return null;
+}
+
+/**
+ * 按平台获取候选安装路径
+ */
+function getPlatformCandidates(): string[] {
+  const home = os.homedir();
+
+  if (IS_WINDOWS) {
+    return [
+      path.join(home, '.bun', 'bin', 'bun.exe'),
+      path.join(home, 'AppData', 'Local', 'bun', 'bun.exe'),
+      'C:\\Program Files\\bun\\bun.exe',
+      'C:\\bun\\bun.exe',
+      // CI: setup-bun action 安装位置
+      path.join(home, '.bun', 'bin', 'bun'),
+    ];
   }
 
-  // 2. 常见安装位置
-  const homeDir = process.env.USERPROFILE || process.env.HOME || 'C:\\Users\\Administrator';
-  candidates.push(
-    path.join(homeDir, '.bun', 'bin', 'bun.exe'),
-    path.join(homeDir, 'AppData', 'Local', 'bun', 'bun.exe'),
-    'C:\\Program Files\\bun\\bun.exe',
-    'C:\\bun\\bun.exe',
-  );
+  // Unix (Linux / macOS)
+  return [
+    path.join(home, '.bun', 'bin', 'bun'),
+    '/usr/local/bin/bun',
+    '/usr/bin/bun',
+    '/opt/bun/bin/bun',
+    // macOS Homebrew
+    '/opt/homebrew/bin/bun',
+    '/usr/local/opt/bun/bin/bun',
+    // CI: setup-bun action 安装位置
+    path.join(home, '.bun', 'bin', 'bun'),
+  ];
+}
 
-  // 3. 从 node_modules 中查找
-  const appNodeModules = path.resolve(__dirname, '..', 'node_modules', 'bun', 'bin', 'bun.exe');
-  candidates.push(appNodeModules);
+/**
+ * 查找 bun 二进制的路径
+ */
+function findBunExe(): string | null {
+  const candidates: string[] = [];
+
+  // 1. 环境变量 BUN_PATH（CI 可通过此变量覆盖）
+  const envBunPath = process.env.BUN_PATH;
+  if (envBunPath && fs.existsSync(envBunPath)) {
+    candidates.push(envBunPath);
+  }
+
+  // 2. PATH 环境变量
+  const fromPath = findBunInPath();
+  if (fromPath) candidates.push(fromPath);
+
+  // 3. 平台常见安装位置
+  candidates.push(...getPlatformCandidates());
+
+  // 4. node_modules 中的 bun
+  const nodeModulesBun = path.resolve(
+    __dirname, '..', 'node_modules', 'bun', 'bin', 'bun'
+  );
+  candidates.push(nodeModulesBun);
+  // Windows 备选
+  if (IS_WINDOWS) {
+    candidates.push(nodeModulesBun + '.exe');
+  }
 
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) {
@@ -67,12 +124,15 @@ function main(): void {
   }
 
   console.log('\n=== 复制便携 Bun 运行时 ===');
+  console.log(`平台: ${process.platform}`);
+  console.log(`运行时文件名: ${RUNTIME_NAME}`);
   console.log(`目标目录: ${targetDir}`);
 
   const bunExePath = findBunExe();
   if (!bunExePath) {
-    console.error('[错误] 未找到 bun.exe');
+    console.error('[错误] 未找到 bun 运行时');
     console.error('请确保 Bun 已安装（https://bun.sh）');
+    console.error('或设置环境变量 BUN_PATH 指向 bun 二进制路径');
     process.exit(1);
   }
 
@@ -85,12 +145,12 @@ function main(): void {
     fs.mkdirSync(runtimeDir, { recursive: true });
   }
 
-  const destPath = path.join(runtimeDir, 'bun.exe');
+  const destPath = path.join(runtimeDir, RUNTIME_NAME);
   fs.copyFileSync(bunExePath, destPath);
 
   const stat = fs.statSync(destPath);
   const sizeMB = (stat.size / 1024 / 1024).toFixed(1);
-  console.log(`[完成] 已复制 bun.exe (${sizeMB} MB) 到 ${destPath}`);
+  console.log(`[完成] 已复制 ${RUNTIME_NAME} (${sizeMB} MB) 到 ${destPath}`);
 }
 
 main();

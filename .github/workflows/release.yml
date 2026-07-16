@@ -380,9 +380,14 @@ jobs:
         run: |
           echo "=== Verifying package structure ==="
           PKG_DIR="../dist/pkg"
-          for f in "liri.js" "run.bat"; do
+          for f in "liri.js"; do
             if [ -f "$PKG_DIR/$f" ]; then echo "  ✅ $f"; else echo "  ❌ $f MISSING"; fi
           done
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            if [ -f "$PKG_DIR/run.bat" ]; then echo "  ✅ run.bat"; else echo "  ❌ run.bat MISSING"; fi
+          else
+            if [ -f "$PKG_DIR/run.sh" ]; then echo "  ✅ run.sh"; else echo "  ❌ run.sh MISSING"; fi
+          fi
           if [ -d "$PKG_DIR/runtime" ]; then echo "  ✅ runtime/"; fi
           if [ -d "$PKG_DIR/node_modules/sharp" ]; then echo "  ✅ deps/sharp"; fi
           if [ -d "$PKG_DIR/app" ]; then echo "  ✅ app/ (seed data)"; fi

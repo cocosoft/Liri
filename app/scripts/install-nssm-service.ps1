@@ -316,7 +316,7 @@ function Main {
             $exe = $BinaryPath
         }
         if (-not $exe -or -not (Test-Path $exe)) {
-            Write-Error '未找到编译后的 py_app.exe。请先运行 "bun run build:exe" 编译。'
+            Write-Error '未找到编译产物。请先运行 "bun run build:bundle" 编译。'
             exit 1
         }
         Write-OK "可执行文件: $exe"

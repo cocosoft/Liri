@@ -95,136 +95,6 @@ jobs:
           path: app/dist/
 
   # ══════════════════════════════════════════════
-  # 独立可执行文件（Standalone exe）
-  # 产物命名规则：liri_terminal-{variant}-{platform}-v{version}.tar.gz
-  # ══════════════════════════════════════════════
-  standalone-exe:
-    name: Standalone (${{ matrix.display }})
-    runs-on: ${{ matrix.os }}
-    if: startsWith(github.ref, 'refs/tags/v')
-
-    defaults:
-      run:
-        working-directory: app
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - display: coding-win-x64
-            variant: coding
-            os: windows-latest
-            bun-target: bun-windows-x64-modern
-            ext: .exe
-            platform: windows-x64
-
-          - display: coding-mac-arm64
-            variant: coding
-            os: macos-latest
-            bun-target: bun-darwin-arm64-modern
-            ext: ""
-            platform: macos-arm64
-
-          - display: coding-linux-x64
-            variant: coding
-            os: ubuntu-latest
-            bun-target: bun-linux-x64-modern
-            ext: ""
-            platform: linux-x64
-
-          - display: personal-win-x64
-            variant: personal
-            os: windows-latest
-            bun-target: bun-windows-x64-modern
-            ext: .exe
-            platform: windows-x64
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: app/node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('app/bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Generate variant feature flags
-        run: bun run scripts/build-variant.ts --variant=${{ matrix.variant }}
-
-      - name: Get version tag
-        id: version
-        shell: bash
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
-      - name: Build standalone executable
-        run: >
-          bun build --compile
-          --target=${{ matrix.bun-target }}
-          --external=pdfjs-dist
-          --external=sharp
-          --outfile=../dist/liri_terminal-${{ matrix.variant }}-${{ matrix.platform }}-v${{ steps.version.outputs.version }}${{ matrix.ext }}
-          src/pyapp.ts
-
-      - name: Copy external dependencies
-        run: bun run scripts/copy-external-deps.ts
-
-      - name: Package release archive
-        shell: bash
-        run: |
-          VER="${{ steps.version.outputs.version }}"
-          BASE="liri_terminal-${{ matrix.variant }}-${{ matrix.platform }}"
-          RELEASE_NAME="${BASE}-v${VER}"
-          RELEASE_DIR="../dist/release/${RELEASE_NAME}"
-
-          mkdir -p "${RELEASE_DIR}"
-
-          cp "../dist/${BASE}-v${VER}${{ matrix.ext }}" "${RELEASE_DIR}/"
-
-          # 复制外部依赖（copy-external-deps 输出到 dist/deps/）
-          if [ -d "../dist/deps" ]; then
-            cp -r "../dist/deps" "${RELEASE_DIR}/deps"
-          else
-            echo "WARNING: dist/deps/ not found, binary may fail to load sharp/pdfjs-dist"
-          fi
-
-          # 复制运行配置（只读资源）
-          if [ -d "config" ]; then
-            cp -r "config" "${RELEASE_DIR}/config"
-          fi
-          cp ".env.example" "${RELEASE_DIR}/" 2>/dev/null || true
-
-          # 复制文档
-          if [ -d "docs" ]; then
-            cp -r "docs" "${RELEASE_DIR}/docs"
-          fi
-          cp "../docs/README-compiled.md" "${RELEASE_DIR}/" 2>/dev/null || true
-
-          cd ../dist/release
-          tar czf "${RELEASE_NAME}.tar.gz" "${RELEASE_NAME}"
-
-          echo "Package contents:"
-          find "${RELEASE_NAME}" -type f | sort
-          echo ""
-          echo "Packaged: ${RELEASE_NAME}.tar.gz"
-
-      - name: Upload standalone artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: standalone-${{ matrix.variant }}-${{ matrix.platform }}
-          path: dist/release/liri_terminal-${{ matrix.variant }}-${{ matrix.platform }}-v${{ steps.version.outputs.version }}.tar.gz
-
-  # ══════════════════════════════════════════════
   # 便携 Bun + Bundle 完整包（方案 C）
   # 产物：liri-v{version}-{platform}-full.zip + update.zip
   # ══════════════════════════════════════════════
@@ -667,7 +537,7 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [bundle, standalone-exe, portable-bundle, tauri-build]
+    needs: [bundle, portable-bundle, tauri-build]
 
     steps:
       - name: Checkout code
@@ -686,13 +556,6 @@ jobs:
           path: installers
           merge-multiple: true
 
-      - name: Download all standalone executables
-        uses: actions/download-artifact@v4
-        with:
-          pattern: standalone-*
-          path: standalone
-          merge-multiple: true
-
       - name: Download all portable bundles
         uses: actions/download-artifact@v4
         with:
@@ -707,9 +570,6 @@ jobs:
           echo ""
           echo "=== Tauri installers ==="
           find installers/ -type f | sort || true
-          echo ""
-          echo "=== Standalone executables ==="
-          find standalone/ -type f | sort || true
           echo ""
           echo "=== Portable bundles ==="
           find portable/ -type f | sort || true
@@ -727,7 +587,6 @@ jobs:
             installers/**/*.dmg
             installers/**/*.deb
             installers/**/*.AppImage
-            standalone/**/*.tar.gz
             portable/**/*.zip
             portable/**/checksums.txt
         env:

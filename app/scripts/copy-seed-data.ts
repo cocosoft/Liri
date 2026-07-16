@@ -126,15 +126,8 @@ function main(): void {
     console.warn(`[跳过] .env.example 不存在: ${envExampleSrc}`);
   }
 
-  // docs/
-  const docsSrc = path.join(appRoot, 'docs');
-  const docsDest = path.join(targetAppDir, 'docs');
-  if (fs.existsSync(docsSrc)) {
-    copyRecursive(docsSrc, docsDest);
-    console.log(`[复制] docs/`);
-  } else {
-    console.warn(`[跳过] docs/ 不存在: ${docsSrc}`);
-  }
+  // docs/ — 不放入发布包，文档在 openliri.com 独立分发
+  console.log(`[跳过] docs/ — 文档独立分发，不打包`);
 
   // config/startup.yaml 和 permissions.yaml
   const configSrc = path.join(appRoot, 'config');

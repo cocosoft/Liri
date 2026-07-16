@@ -346,6 +346,9 @@ export class CronJobStore {
       throw new Error(`作业不存在: ${jobId}`);
     }
 
+    // 相同状态无需转移，直接返回（处理 catchUpMissedJobs 与 tick 竞跑场景）
+    if (job.state === newState) return;
+
     validateCronTransition(job.state, newState);
 
     const db = this.ensureDb();

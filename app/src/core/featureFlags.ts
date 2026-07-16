@@ -117,6 +117,18 @@ export const FEATURE_FLAGS = {
   TODO: true,
   /** 简报工具 */
   BRIEF: true,
+
+  // ───── 办公模块（Office） ─────
+  /** 文档模块（OfficeCLI MCP 集成） */
+  DOC_MODULE: false,
+  /** 文档模板引擎 */
+  DOC_TEMPLATE: false,
+  /** 邮件模块 */
+  MAIL_MODULE: false,
+  /** 邮件 IMAP 收件箱 */
+  MAIL_IMAP: false,
+  /** 日历模块 */
+  CALENDAR_MODULE: false,
   /** 计划工具 */
   PLAN: true,
   /** 配置工具 */

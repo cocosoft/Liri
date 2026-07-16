@@ -35,6 +35,7 @@ const ImagePage = lazy(() => import("../components/views/ImagePage"));
 const VideoPage = lazy(() => import("../components/views/VideoPage"));
 const MediaPage = lazy(() => import("../components/views/MediaPage"));
 const TranslatePage = lazy(() => import("../components/views/TranslatePage"));
+const OfficePage = lazy(() => import("../components/views/office/OfficePage"));
 // routes/index.tsx 原有保留路由
 const ApiKeyPage = lazy(() => import("../components/views/ApiKeyPage"));
 const OAuthPage = lazy(() => import("../components/views/OAuthPage"));
@@ -70,6 +71,10 @@ export const routes: RouteObject[] = [
 
   // 翻译
   { path: "/translate", element: <AuthGuard><TranslatePage /></AuthGuard> },
+
+  // 办公模块
+  { path: "/office", element: <AuthGuard><OfficePage /></AuthGuard> },
+  { path: "/office/:subPage", element: <AuthGuard><OfficePage /></AuthGuard> },
 
   // 开发者工具
   { path: "/dev", element: <Navigate to="/dev/terminal" replace /> },

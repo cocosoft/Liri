@@ -409,7 +409,7 @@ export class DeliveryQueue {
       db.run(
         `DELETE FROM ${TABLE_DELIVERY_QUEUE}
           WHERE (status = 'completed' OR status = 'failed')
-          AND updated_at < ?`,
+          AND updated_at <= ?`,
         [cutoff],
         function (this: any, err) {
           if (err) reject(err);

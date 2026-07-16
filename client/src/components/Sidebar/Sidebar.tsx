@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../stores/appStore";
 import { useConfigStore } from "../../stores/configStore";
-import { HomeIcon, ChatIcon, KnowledgeIcon, ImageIcon, TranslateIcon, ModelIcon, SkillIcon, FileIcon, McpIcon, ChannelIcon, ThemeIcon, SettingsIcon, CouncilIcon } from "../../assets/icons";
+import { HomeIcon, ChatIcon, KnowledgeIcon, ImageIcon, TranslateIcon, ModelIcon, SkillIcon, FileIcon, McpIcon, ChannelIcon, ThemeIcon, SettingsIcon, CouncilIcon, OfficeIcon } from "../../assets/icons";
 
 interface MenuItem {
   id: string;
@@ -16,6 +16,7 @@ interface MenuItem {
 const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
   { id: "home", label: "首页", icon: HomeIcon, path: "/" },
   { id: "chat", label: "聊天", icon: ChatIcon, path: "/chat" },
+  { id: "office", label: "办公", icon: OfficeIcon, path: "/office" },
   { id: "media", label: "媒体", icon: ImageIcon, path: "/media" },
   { id: "translate", label: "翻译", icon: TranslateIcon, path: "/translate" },
   { id: "knowledge", label: "知识库", icon: KnowledgeIcon, path: "/knowledge" },
@@ -25,6 +26,7 @@ const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
 const MENU_LABEL_KEYS: Record<string, string> = {
   home: "nav.home",
   chat: "nav.chat",
+  office: "office.title",
   translate: "translate.title",
   knowledge: "knowledge.title",
   models: "model.title",

@@ -799,6 +799,46 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     dependencies: ['core', 'ecosystem'],
     optionalDependencies: [],
   },
+
+  // ==================== 办公模块（Office） ====================
+
+  doc: {
+    id: 'doc',
+    name: 'doc',
+    displayName: '文档模块',
+    version: '1.0.0',
+    category: ModuleCategory.OFFICE,
+    tier: 'enterprise',
+    description:
+      '文档模块，基于 OfficeCLI MCP 提供 Word/Excel/PPT 的创建、读取、修改、渲染和模板化生成',
+    dependencies: ['core', 'infrastructure', 'mcp', 'tools'],
+    optionalDependencies: ['monitoring'],
+  },
+
+  mail: {
+    id: 'mail',
+    name: 'mail',
+    displayName: '邮件模块',
+    version: '1.0.0',
+    category: ModuleCategory.OFFICE,
+    tier: 'enterprise',
+    description:
+      '邮件模块，提供 SMTP/IMAP 收发、OAuth2 认证、附件管理和加密凭据存储',
+    dependencies: ['core', 'infrastructure', 'tools'],
+    optionalDependencies: ['monitoring', 'mcp', 'doc'],
+  },
+
+  calendar: {
+    id: 'calendar',
+    name: 'calendar',
+    displayName: '日历模块',
+    version: '1.0.0',
+    category: ModuleCategory.OFFICE,
+    tier: 'enterprise',
+    description: '日历模块，提供日程管理、.ics 文件操作和事件提醒',
+    dependencies: ['core', 'infrastructure', 'chronos'],
+    optionalDependencies: ['monitoring', 'doc', 'mail'],
+  },
 };
 
 /**
@@ -903,6 +943,10 @@ export const MODULE_INITIALIZATION_ORDER: string[] = [
   'extensions',
   'insights',
   'wizard',
+  // 办公模块（enterprise tier，延迟加载）
+  'doc',
+  'mail',
+  'calendar',
 ];
 
 /**

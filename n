@@ -1,1 +1,2 @@
-The system cannot find the path specified.
+'echoLIRI_PROJECT%' is not recognized as an internal or external command,
+operable program or batch file.

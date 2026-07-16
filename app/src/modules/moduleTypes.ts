@@ -22,6 +22,7 @@ export enum ModuleCategory {
   PERFORMANCE = 'performance',
   MONITORING = 'monitoring',
   OTHER = 'other',
+  OFFICE = 'office',
 }
 
 /**

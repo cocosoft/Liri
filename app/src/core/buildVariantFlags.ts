@@ -1,14 +1,13 @@
 // 自动生成的分版 Feature Flags
-// 变体: coding — 编码版 — Personal + LSP + Notebook + 代码分析
-// 生成时间: 2026-06-19T21:05:59.008Z
+// 变体: enterprise — 企业版 — Coding + Slack/Discord + Auth + Audit + Sandbox + Office
+// 生成时间: 2026-07-16T04:57:35.995Z
 
 export const BUILD_VARIANT_FLAGS = {
-  AGENT_SWARMS: true,
-  LSP: true,
-  NOTEBOOK: true,
-  CODE_ANALYSIS: true,
-  BROWSER: true,
-  TEAM_CREATE: true,
-  TEAM_DELETE: true,
-  AGENT_TRIGGERS: false,
+  AGENT_TRIGGERS: true,
+  SEND_MESSAGE: true,
+  COORDINATOR_MODE: true,
+  DOC_MODULE: true,
+  DOC_TEMPLATE: true,
+  MAIL_MODULE: true,
+  CALENDAR_MODULE: true,
 } as const;

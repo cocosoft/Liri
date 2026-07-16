@@ -2192,5 +2192,46 @@ export async function dispatchRoute(
   const handled = await tryHandleRoute(req, res);
   if (handled) return true;
 
+  // ---- Office / doc 模块 API ----
+  if (method === 'GET' && url === '/v1/doc/status') {
+    const { handleDocStatus } = await import('@modules/doc');
+    await handleDocStatus(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/doc/capabilities') {
+    const { handleDocCapabilities } = await import('@modules/doc');
+    await handleDocCapabilities(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/doc/detect') {
+    const { handleDocDetect } = await import('@modules/doc');
+    await handleDocDetect(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/doc/undo') {
+    const { handleDocUndo } = await import('@modules/doc');
+    await handleDocUndo(req, res);
+    return true;
+  }
+  if (method === 'GET' && url.startsWith('/v1/doc/graph')) {
+    const { handleDocGraph } = await import('@modules/doc');
+    await handleDocGraph(req, res);
+    return true;
+  }
+
+  // ---- Office / mail 模块 API ----
+  if (method === 'GET' && url === '/v1/mail/status') {
+    const { handleMailStatus } = await import('@modules/doc');
+    await handleMailStatus(req, res);
+    return true;
+  }
+
+  // ---- Office / calendar 模块 API ----
+  if (method === 'GET' && url === '/v1/calendar/status') {
+    const { handleCalendarStatus } = await import('@modules/doc');
+    await handleCalendarStatus(req, res);
+    return true;
+  }
+
   return false;
 }

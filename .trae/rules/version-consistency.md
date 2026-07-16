@@ -1,3 +1,7 @@
+---
+alwaysApply: false
+description: 
+---
 # 版本号一致性规则
 
 ## 规则

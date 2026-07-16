@@ -1,0 +1,45 @@
+{{> _common/_zh-fonts}}
+
+# 会议纪要 — {{subject}}
+
+**日期**: {{date}}
+**地点**: {{location}}
+**主持人**: {{host}}
+**参会人员**: {{#each attendees}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+
+---
+
+## 议题
+
+{{#each agenda}}
+### {{this.title}}
+- 讨论: {{this.discussion}}
+- 结论: {{this.conclusion}}
+{{/each}}
+
+---
+
+## 决策
+
+{{#each decisions}}
+- ✅ {{this}}
+{{/each}}
+
+---
+
+## 行动项
+
+{{#each actionItems}}
+- [ ] **{{this.owner}}**: {{this.task}}（截止: {{this.deadline}}）
+{{/each}}
+
+---
+
+## 下次会议
+
+**日期**: {{nextMeeting.date}}
+**议题**: {{nextMeeting.topics}}
+
+---
+
+*由 Liri doc 模块自动生成*

@@ -1,0 +1,12 @@
+{
+  "name": "@pyapp/office",
+  "version": "1.0.0",
+  "description": "办公模块共享工具包——邮件/日历/模板引擎",
+  "main": "index.ts",
+  "private": true,
+  "dependencies": {
+    "nodemailer": "^6.9.0",
+    "imapflow": "^1.0.0",
+    "ical.js": "^2.0.0"
+  }
+}

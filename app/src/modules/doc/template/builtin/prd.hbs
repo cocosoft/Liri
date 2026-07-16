@@ -1,0 +1,56 @@
+{{> _common/_zh-fonts}}
+
+# PRD — {{product}}
+
+**版本**: {{version}}
+**日期**: {{date}}
+**产品经理**: {{pm}}
+**状态**: {{status}}
+
+---
+
+## 产品概述
+
+{{summary}}
+
+## 用户故事
+
+{{#each userStories}}
+### {{this.id}} — {{this.title}}
+
+- **作为** {{this.asA}}
+- **我想要** {{this.iWant}}
+- **以便** {{this.soThat}}
+- **验收标准**: {{this.acceptanceCriteria}}
+{{/each}}
+
+---
+
+## 功能需求
+
+{{#each features}}
+### {{this.name}}
+- **优先级**: {{this.priority}}
+- **描述**: {{this.description}}
+- **依赖**: {{this.dependencies}}
+{{/each}}
+
+---
+
+## 里程碑
+
+{{#each milestones}}
+- 🗓 {{this.date}} — {{this.title}} ({{this.deliverables}})
+{{/each}}
+
+---
+
+## 非功能需求
+
+{{#each nonFunctional}}
+- **{{this.category}}**: {{this.requirement}}
+{{/each}}
+
+---
+
+*由 Liri doc 模块自动生成*

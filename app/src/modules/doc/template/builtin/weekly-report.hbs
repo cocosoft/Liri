@@ -1,0 +1,40 @@
+{{> _common/_zh-fonts}}
+
+# 周报 — {{projectName}}
+
+**日期**: {{date}}
+**提交人**: {{author}}
+**部门**: {{department}}
+
+---
+
+## 本周工作总结
+
+{{#each tasks}}
+### {{this.title}}
+- 进度: {{this.progress}}
+- 产出: {{this.output}}
+{{#if this.blockers}}
+- ⚠️ 阻塞: {{this.blockers}}
+{{/if}}
+{{/each}}
+
+---
+
+## 下周计划
+
+{{#each nextWeek}}
+- [ ] {{this}}
+{{/each}}
+
+---
+
+## 风险与问题
+
+{{#each risks}}
+- 🔴 **{{this.severity}}**: {{this.description}}
+{{/each}}
+
+---
+
+*由 Liri doc 模块自动生成*

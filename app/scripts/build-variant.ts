@@ -62,9 +62,12 @@ const VARIANT_CONFIGS: Record<BuildVariant, {
     ],
   },
   enterprise: {
-    description: '企业版 — Coding + Slack/Discord + Auth + Audit + Sandbox',
+    description: '企业版 — Coding + Slack/Discord + Auth + Audit + Sandbox + Office',
     features: [
       'AGENT_TRIGGERS', 'SEND_MESSAGE', 'COORDINATOR_MODE',
+      'DOC_MODULE', 'DOC_TEMPLATE',
+      'MAIL_MODULE',
+      'CALENDAR_MODULE',
     ],
     excludeFeatures: [],
   },

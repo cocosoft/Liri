@@ -1,0 +1,60 @@
+{{> _common/_zh-fonts}}
+
+# 技术设计文档 — {{title}}
+
+**作者**: {{author}}
+**版本**: {{version}}
+**日期**: {{date}}
+**状态**: {{status}}
+
+---
+
+## 背景
+
+{{background}}
+
+## 目标
+
+{{#each goals}}
+- {{this}}
+{{/each}}
+
+---
+
+{{#each sections}}
+## {{this.heading}}
+
+{{this.body}}
+
+{{/each}}
+
+---
+
+## 接口设计
+
+{{#each apis}}
+### {{this.method}} {{this.path}}
+
+- 描述: {{this.description}}
+- 请求体: {{this.requestBody}}
+- 响应: {{this.response}}
+{{/each}}
+
+---
+
+## 数据模型
+
+{{#each models}}
+### {{this.name}}
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+{{#each this.fields}}
+| {{this.name}} | {{this.type}} | {{this.description}} |
+{{/each}}
+
+{{/each}}
+
+---
+
+*由 Liri doc 模块自动生成*

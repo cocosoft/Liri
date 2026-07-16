@@ -332,6 +332,9 @@ const DYNAMIC_IMPORT_PATHS: Record<string, string> = {
   sandbox: '../sandbox/index.js',
   remote: '../remote/index.js',
   voice: '../voice/index.js',
+  doc: '../doc/index.js',
+  mail: '../mail/index.js',
+  calendar: '../calendar/index.js',
 };
 
 /**

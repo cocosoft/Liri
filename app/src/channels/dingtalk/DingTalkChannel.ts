@@ -18,6 +18,9 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'channels\dingtalk\DingTalkChannel', level: LogLevel.INFO });
+
 const DINGTALK_META: ChannelMeta = {
   id: 'dingtalk',
   displayName: '钉钉',

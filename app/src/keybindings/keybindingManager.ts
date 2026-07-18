@@ -7,6 +7,9 @@
 import { renderTemplate, KeybindingTemplate } from './template';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'keybindings\keybindingManager', level: LogLevel.INFO });
+
 export interface KeybindingAction {
   id: string;
   name: string;

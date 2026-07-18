@@ -16,7 +16,9 @@ import type {
   OAuthTokens as OAuthTokensType,
   OAuthServiceOptions,
 } from './oauth-types.js';
-import { logger } from '@modules/infrastructure';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'system:auth:AuthManager', level: LogLevel.INFO });
 
 export type OAuthTokens = OAuthTokenData;
 

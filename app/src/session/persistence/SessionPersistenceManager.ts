@@ -7,6 +7,9 @@ import path from 'path';
 import { resolvePyappHome } from '@modules/core';
 import { handleError } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'session\persistence\SessionPersistenceManager', level: LogLevel.INFO });
+
 /**
  * 序列化格式
  */

@@ -14,6 +14,9 @@ import { WebSocketProtocol, HttpProtocol } from './RemoteAgentProtocol';
 import { RemoteAgentProtocol, ProtocolType } from './types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'agent\remote\RemoteAgentExecutor', level: LogLevel.INFO });
+
 export class RemoteAgentExecutorImpl implements RemoteAgentExecutor {
   private protocol: RemoteAgentProtocol;
   private config: RemoteAgentConfig;

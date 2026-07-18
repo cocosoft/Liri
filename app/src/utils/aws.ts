@@ -11,6 +11,9 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'utils\aws', level: LogLevel.INFO });
+
 const execAsync = promisify(exec);
 
 /**

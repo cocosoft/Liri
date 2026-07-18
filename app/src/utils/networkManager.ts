@@ -4,8 +4,10 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { logger } from './log.js';
 import { CacheFactory } from '@modules/cache/CacheFactory';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'utils:networkManager', level: LogLevel.INFO });
 
 /**
  * HTTP方法

@@ -13,6 +13,9 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { TraceRecord, ExportFormat } from '../types';
 import { ViewerService } from '../viewer/ViewerService';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'trace-recording\export\ExportService', level: LogLevel.INFO });
+
 /**
  * 导出服务
  */

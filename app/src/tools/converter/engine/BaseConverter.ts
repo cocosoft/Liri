@@ -8,6 +8,9 @@ import type {
 } from './types';
 import { PRIORITY_SPECIFIC_FILE_FORMAT } from './types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools\converter\engine\BaseConverter', level: LogLevel.INFO });
+
 export abstract class BaseConverter implements ConverterRegistration {
   abstract readonly name: string;
   readonly priority: number = PRIORITY_SPECIFIC_FILE_FORMAT;

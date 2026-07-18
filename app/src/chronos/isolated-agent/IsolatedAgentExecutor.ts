@@ -8,6 +8,9 @@ import fs from 'fs';
 import os from 'os';
 import { handleError } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'chronos\isolated-agent\IsolatedAgentExecutor', level: LogLevel.INFO });
+
 /**
  * 执行配置
  */

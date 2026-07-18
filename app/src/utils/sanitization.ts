@@ -1,5 +1,8 @@
 ﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'utils\sanitization', level: LogLevel.INFO });
+
 /**
  * Unicode Sanitization for Hidden Character Attack Mitigation
  *

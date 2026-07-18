@@ -11,6 +11,9 @@ import {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { McpTlsManager, type McpTlsConfig } from './McpTlsManager';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'services\mcp\transports\MCPTransport', level: LogLevel.INFO });
+
 /**
  * MCP传输层基础类
  * 具体传输实现（Stdio, HTTP, WebSocket等）在增强层中

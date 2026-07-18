@@ -1,5 +1,8 @@
 ﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'auto-reply\AutoReplyEngine', level: LogLevel.INFO });
+
 /**
  * AutoReplyEngine 自动回复引擎
  * P2 — 对标 OpenClaw 的自动回复系统

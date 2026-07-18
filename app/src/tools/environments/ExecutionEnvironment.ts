@@ -1,5 +1,8 @@
 ﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools\environments\ExecutionEnvironment', level: LogLevel.INFO });
+
 export interface ToolExecutionEnvironment {
   readonly id: string;
   readonly name: string;

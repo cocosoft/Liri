@@ -13,6 +13,9 @@ import type { CompactArtifact } from '@modules/services/compact/CompactService';
 import { DefaultContextEngine } from '@modules/query/context/DefaultContextEngine';
 import { handleError } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands\builtin\compact\Compact', level: LogLevel.INFO });
+
 const contextEngine = new DefaultContextEngine();
 
 export interface CompactCommandOptions {

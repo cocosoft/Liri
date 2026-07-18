@@ -7,8 +7,10 @@ import { createHash, randomBytes } from 'crypto';
 import { MCPOAuthConfig, MCPOAuthToken, MCPOAuthState } from './types.js';
 import { feature } from '@modules/featureflags';
 import { OAuthDiscovery, createOAuthStorage } from '@modules/oauth';
-import { logger } from '@modules/infrastructure';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'services:mcp:auth:MCPAuth', level: LogLevel.INFO });
 
 export class MCPAuthManager {
   private tokens: Map<string, MCPOAuthToken> = new Map();

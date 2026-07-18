@@ -535,3 +535,6 @@ export type {
   BackoffConfig,
 } from '../types/BridgeApiTypes';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'bridge\api\BridgeApiClient', level: LogLevel.INFO });

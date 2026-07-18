@@ -6,6 +6,9 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { EventEmitter } from 'events';
 import readline from 'readline';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'wizard\WizardEngine', level: LogLevel.INFO });
+
 /**
  * 向导步骤类型
  */

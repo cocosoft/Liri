@@ -6,6 +6,9 @@ import { APIError as BaseAPIError, ErrorSeverity } from '../types';
  *
  * @deprecated 保留用于 API 场景分类（含 headers 字段）。
  *   新代码直接使用 @modules/error/types 中的 APIError。
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'error\api\ApiError', level: LogLevel.INFO });
  */
 
 /**

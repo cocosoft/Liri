@@ -5,6 +5,9 @@
 import fs from 'fs';
 import { handleError } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'monitoring\logs\diagnostic\LogDiagnostic', level: LogLevel.INFO });
+
 /**
  * 诊断配置
  */

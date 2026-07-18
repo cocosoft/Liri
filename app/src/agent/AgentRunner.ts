@@ -8,6 +8,9 @@ import { feature } from '../core/featureFlags';
 import { configManager } from '@modules/config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'agent\AgentRunner', level: LogLevel.INFO });
+
 export type SubagentType =
   | 'general-purpose'
   | 'code-review'

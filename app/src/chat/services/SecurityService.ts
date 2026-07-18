@@ -8,6 +8,9 @@ import {
 import type { SensitiveDataConfig } from '@modules/security';
 import { SecurityError } from '@modules/error/types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'chat\services\SecurityService', level: LogLevel.INFO });
+
 export const SecurityErrorType = SensitiveErrorType;
 export type SecurityErrorAlias = SecurityError;
 export type SecurityConfig = SensitiveDataConfig;

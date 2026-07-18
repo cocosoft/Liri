@@ -8,6 +8,9 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { handleError } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'context\GitDetector', level: LogLevel.INFO });
+
 const MAX_STATUS_CHARS = 2000;
 
 let gitAvailable: boolean | null = null;

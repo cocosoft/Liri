@@ -13,6 +13,9 @@ import {
 } from '@modules/ai';
 import { handleError } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands\model\model', level: LogLevel.INFO });
+
 /**
  * 解析命令参数
  */

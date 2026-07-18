@@ -3,6 +3,9 @@ import { ErrorCodes } from '@modules/error';
 import type { DOMElement } from './dom-types.js';
 import { FocusEvent } from './events/focus-event.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'ink\ink\focus', level: LogLevel.INFO });
+
 const MAX_FOCUS_STACK = 32;
 
 /**

@@ -7,6 +7,9 @@ import path from 'path';
 import os from 'os';
 import { handleError } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'media\temp\TempMediaManager', level: LogLevel.INFO });
+
 export interface TempFileConfig {
   baseDir: string;
   maxAge: number;

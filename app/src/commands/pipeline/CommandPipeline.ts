@@ -1,5 +1,8 @@
 ﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands\pipeline\CommandPipeline', level: LogLevel.INFO });
+
 export enum PipelineStage {
   PRE_VALIDATE = 'pre_validate',
   PRE_AUTHORIZE = 'pre_authorize',

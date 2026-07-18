@@ -7,6 +7,9 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'state\errors', level: LogLevel.INFO });
+
 /**
  * 非法状态转换错误
  *

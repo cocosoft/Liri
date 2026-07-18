@@ -13,6 +13,9 @@ import type {
 } from '../types/index.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'bridge\api\SimulatedBridgeApi', level: LogLevel.INFO });
+
 /**
  * 模拟 API 客户端选项
  */

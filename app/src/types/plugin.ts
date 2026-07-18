@@ -7,6 +7,9 @@ import type { LoadedPlugin } from '@modules/plugins/types/PluginTypes.js';
 export type { LoadedPlugin };
 
 import { PluginError } from '@modules/error';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'types\plugin', level: LogLevel.INFO });
 export { PluginError };
 
 // ====================================

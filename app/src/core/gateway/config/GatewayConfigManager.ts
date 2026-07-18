@@ -1,4 +1,7 @@
 ﻿import { handleError } from '@modules/error';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'core\gateway\config\GatewayConfigManager', level: LogLevel.INFO });
 /**
  * GatewayConfigManager 网关配置管理
  * 对标 CC 的网关配置管理能力

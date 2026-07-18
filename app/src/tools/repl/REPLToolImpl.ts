@@ -14,6 +14,9 @@ import {
 import { replSessionManager } from './REPLSessionManager';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools\repl\REPLToolImpl', level: LogLevel.INFO });
+
 /**
  * REPL工具实现
  */

@@ -5,6 +5,9 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'core:utils:LazyModuleLoader', level: LogLevel.INFO });
+
 /**
  * 懒加载模块加载器
  * 确保模块仅在首次访问时初始化，且并发请求只触发一次初始化

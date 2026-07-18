@@ -1,10 +1,13 @@
-﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type {
   MediaGenerationNormalizationMetadataInput,
   MediaNormalizationEntry,
   MediaNormalizationValue,
   ParsedProviderModelRef,
 } from './types.js';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'core:media-generation:runtime-shared', level: LogLevel.INFO });
 
 export type {
   MediaGenerationNormalizationMetadataInput,

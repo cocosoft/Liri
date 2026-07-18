@@ -7,6 +7,9 @@ import { EventEmitter } from 'events';
 import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'monitoring\alerts\AlertManager', level: LogLevel.INFO });
+
 /**
  * 告警级别
  */

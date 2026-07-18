@@ -11,6 +11,9 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools\ClipboardTool\ClipboardTool', level: LogLevel.INFO });
+
 /**
  * 剪贴板操作参数
  */

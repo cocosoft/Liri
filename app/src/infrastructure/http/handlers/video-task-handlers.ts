@@ -16,6 +16,9 @@ import { handleError } from '@modules/error';
 import { getVideoTaskPersistence } from '@modules/tools/VideoGenerateTool/VideoTaskPersistence';
 import type { ToolUseContext } from '@modules/tools/types/Tool';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'infrastructure\http\handlers\video-task-handlers', level: LogLevel.INFO });
+
 /** 从 URL 路径中提取 taskId（/v1/video/tasks/{id}） */
 function extractTaskId(url: string): string | null {
   const match = url.match(/^\/v1\/video\/tasks\/([^/?]+)/);

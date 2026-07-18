@@ -6,6 +6,9 @@
 import type { ToolCall, ToolResult, ToolContext } from '@modules/tools/types';
 import { ModuleError } from '@modules/errors';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'ai\interfaces\ToolExecutor', level: LogLevel.INFO });
+
 /**
  * 工具执行器接口
  */

@@ -13,6 +13,9 @@ import { AsyncLocalStorage } from 'async_hooks';
 import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'monitoring\tracing\SessionTracing', level: LogLevel.INFO });
+
 /**
  * Span类型
  */

@@ -8,6 +8,9 @@ import crypto from 'crypto';
 import { resolvePyappHome } from '@modules/core';
 import { handleError } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'security\services\CredentialManager', level: LogLevel.INFO });
+
 /**
  * 凭据类型
  */

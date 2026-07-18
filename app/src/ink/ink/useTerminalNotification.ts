@@ -1,4 +1,4 @@
-﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import { createContext, useCallback, useContext, useMemo } from 'react';
 import { isProgressReportingAvailable, type Progress } from './terminal.js';
@@ -10,6 +10,9 @@ import {
   PROGRESS,
   wrapForMultiplexer,
 } from './termio/osc.js';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'ink:ink:useTerminalNotification', level: LogLevel.INFO });
 
 type WriteRaw = (data: string) => void;
 

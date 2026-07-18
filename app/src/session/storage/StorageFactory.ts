@@ -8,6 +8,9 @@ import { StorageConfig, StorageType } from './UnifiedStorage.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'session\storage\StorageFactory', level: LogLevel.INFO });
+
 /**
  * 存储实例注册表
  */

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OAuth统一服务
  * 作为OAuth模块的统一入口，协调所有OAuth操作
  *
@@ -9,7 +9,6 @@
  *
  * Token 管理已统一到 TokenManager（单轨），本服务通过 TokenManager.getInstance() 调用。
  */
-import { logger } from '@modules/infrastructure';
 import { TokenManager } from './TokenManager';
 import { OAuthDiscovery } from './OAuthDiscovery';
 import type {
@@ -19,6 +18,9 @@ import type {
   AuthorizeOptions,
 } from '../types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'oauth\services\OAuthService', level: LogLevel.INFO });
 
 export class OAuthService {
   private tokenManager: TokenManager;

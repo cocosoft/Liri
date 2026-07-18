@@ -1,6 +1,9 @@
 ﻿import type { Context } from './types/Context';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'context\LifecycleManager', level: LogLevel.INFO });
+
 export enum LifecycleState {
   PENDING = 'pending',
   INITIALIZED = 'initialized',

@@ -19,7 +19,7 @@ import {
 } from '../SkillConditionMatcher';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({ module: 'skills:injection', level: LogLevel.INFO });
+const logger = new Logger({ module: 'skills:services:SkillInjectionService', level: LogLevel.INFO });
 
 /**
  * 技能注入配置

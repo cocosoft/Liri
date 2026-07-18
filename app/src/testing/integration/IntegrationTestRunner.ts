@@ -1,4 +1,7 @@
 ﻿import { handleError } from '@modules/error';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'testing\integration\IntegrationTestRunner', level: LogLevel.INFO });
 /**
  * IntegrationTestRunner 集成测试运行器
  * 对标 CC 的集成测试框架

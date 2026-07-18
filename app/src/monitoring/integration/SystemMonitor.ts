@@ -9,6 +9,9 @@ import type { NetworkInterfaceInfo } from 'os';
 import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'monitoring\integration\SystemMonitor', level: LogLevel.INFO });
+
 /**
  * 系统信息
  */

@@ -28,7 +28,6 @@ import {
   getPhaseSummary,
 } from './performance/StartupProfiler.js';
 import {
-  getLogger,
   flush,
   setGlobalConfigProvider,
   setGlobalBufferConfig,
@@ -66,7 +65,8 @@ import { modelRouter } from '@modules/ai';
 import { configManager } from './config/index.js';
 import { isOfflineMode, setOfflineMode } from './entrypoints/shared-state.js';
 
-const logger = getLogger('main');
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'main', level: LogLevel.INFO });
 
 /** 最大首次引导重试次数 */
 const MAX_ONBOARD_RETRIES = 3;

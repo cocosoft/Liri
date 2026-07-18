@@ -11,6 +11,9 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolveDbPath } from '@modules/core';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'session\storage\DatabaseStorage', level: LogLevel.INFO });
+
 /**
  * 数据库存储实现
  * 用于大型会话存储，将会话数据存储到SQLite数据库

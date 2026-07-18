@@ -10,6 +10,9 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolveDbPath } from '@modules/core';
 import { SimpleMutex } from '@modules/core';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'chronos\ChronosDatabase', level: LogLevel.INFO });
+
 /**
  * Chronos数据库存储实现
  * 用于存储定时任务、执行历史和系统配置

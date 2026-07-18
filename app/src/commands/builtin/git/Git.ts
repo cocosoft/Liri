@@ -15,6 +15,9 @@ import { join, resolve, dirname } from 'path';
 import type { CommandContext } from '@modules/commands';
 import { handleError } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:builtin:git:Git', level: LogLevel.INFO });
+
 const execAsync = promisify(exec);
 
 interface GitResult {

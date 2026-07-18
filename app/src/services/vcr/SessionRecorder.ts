@@ -5,6 +5,9 @@ import { resolveDataSubDir } from '@modules/core';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'services\vcr\SessionRecorder', level: LogLevel.INFO });
+
 export interface RecordedMessage {
   id: string;
   type: 'user' | 'assistant' | 'tool_use' | 'tool_result' | 'system';

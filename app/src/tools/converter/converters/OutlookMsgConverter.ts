@@ -5,6 +5,9 @@ import { AppError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import { htmlToMarkdown } from '../utils/HtmlMarkdownify';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools\converter\converters\OutlookMsgConverter', level: LogLevel.INFO });
+
 let _depError: Error | null = null;
 let _parseMsgBuffer: any = null;
 try {

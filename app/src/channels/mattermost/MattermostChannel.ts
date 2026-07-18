@@ -27,6 +27,9 @@ import { MattermostMonitor } from './monitor';
 import type { MattermostProbe } from './probe';
 import { MATTERMOST_TOOL_HINTS } from './channel.runtime';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'channels\mattermost\MattermostChannel', level: LogLevel.INFO });
+
 const MATTERMOST_META: ChannelMeta = {
   id: 'mattermost',
   displayName: 'Mattermost',

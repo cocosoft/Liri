@@ -6,6 +6,9 @@
 import type { Message } from '@modules/types/message.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'bridge\messaging\BridgeMessaging', level: LogLevel.INFO });
+
 /**
  * 消息类型
  */

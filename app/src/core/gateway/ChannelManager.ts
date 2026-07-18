@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ChannelManager — 统一通道生命周期管理（遗留版）
  * 管理所有 GatewayChannel 的注册、启停、消息路由和健康监控
  *
@@ -32,7 +32,6 @@ import type {
   ChannelManagerConfig,
   ChannelManagerStatus,
 } from './ChannelManagerTypes';
-import { logger } from './ChannelManagerTypes'; // RedactedLogger 实例
 import {
   adaptToChannelInterface,
   createChannelCallbacks,
@@ -42,6 +41,9 @@ import {
   routeMessage,
   sendErrorResponse,
 } from './ChannelManagerInternals';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'core:gateway:ChannelManager', level: LogLevel.INFO });
 
 /** 废弃告警是否已输出（全局仅输出一次） */
 let _channelManagerDeprecationWarned = false;

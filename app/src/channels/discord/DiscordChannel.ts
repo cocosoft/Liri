@@ -19,6 +19,9 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'channels\discord\DiscordChannel', level: LogLevel.INFO });
+
 interface DirectoryEntry {
   id: string;
   name: string;

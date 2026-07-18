@@ -6,6 +6,9 @@
  */
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'core\di\AutoWiringEngine', level: LogLevel.INFO });
+
 /**
  * 容器最小接口，供 AutoWiringEngine 安全使用
  */

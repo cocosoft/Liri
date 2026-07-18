@@ -44,7 +44,6 @@ import { getPerformanceAnalyzer } from '../monitoring/performance';
 import { flush, getLogger } from '../monitoring/logs/Logger';
 import { handleError } from '@modules/error';
 
-const logger = getLogger('cli');
 import { getThemeManager } from '@modules/system/theme';
 import { createCLIHandler } from './handlers/cliHandler';
 import { createRemoteIO } from './remoteIO';
@@ -55,6 +54,9 @@ import { registerSkillsCommands } from '../skills/cli/skills';
 import { UpdateHandler } from './update';
 import * as print from './print';
 import type { CommandImplementation, CommandContext } from '@modules/commands';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'cli\index', level: LogLevel.INFO });
 
 // 初始化退出处理器和自动更新器
 const exitHandler = createExitHandler({ verbose: true });

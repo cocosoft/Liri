@@ -1,6 +1,9 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'constants\oauth', level: LogLevel.INFO });
+
 /**
  * OAuth 配置常量
  * Liri 自有 OAuth 端点，不包含任何第三方品牌引用

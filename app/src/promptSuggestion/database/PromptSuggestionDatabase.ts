@@ -12,6 +12,9 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolveDbPath } from '@modules/core';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'promptSuggestion\database\PromptSuggestionDatabase', level: LogLevel.INFO });
+
 /**
  * PromptSuggestion数据库存储实现
  */

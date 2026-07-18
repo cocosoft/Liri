@@ -15,6 +15,9 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'channels\googlechat\GoogleChatChannel', level: LogLevel.INFO });
+
 const GOOGLE_CHAT_API_BASE = 'https://chat.googleapis.com/v1';
 const GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_CHAT_SCOPE = 'https://www.googleapis.com/auth/chat.bot';

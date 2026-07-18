@@ -7,6 +7,9 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import { ModuleCategory, type ModuleDefinition } from './moduleTypes';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'modules\ModuleDefinitions', level: LogLevel.INFO });
+
 /**
  * 所有模块的定义
  */

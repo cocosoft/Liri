@@ -9,6 +9,9 @@ import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/error';
 import { configManager } from '@modules/config';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'monitoring\otel\OTelLogger', level: LogLevel.INFO });
+
 /**
  * OpenTelemetry诊断日志记录器
  * 实现DiagLogger接口，用于OTel内部日志

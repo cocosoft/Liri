@@ -7,6 +7,9 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:SessionsYieldTool:SessionsYieldTool', level: LogLevel.INFO });
+
 export interface YieldConfig {
   targetSessionId?: string;
   reason?: string;

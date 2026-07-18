@@ -14,6 +14,9 @@ import {
 } from '../utils/pluginSettings';
 import { LoadedPlugin } from '../types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'plugins:cli:plugins', level: LogLevel.INFO });
+
 /**
  * 初始化Plugin CLI命令
  * @param program Commander程序实例

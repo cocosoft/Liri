@@ -9,6 +9,9 @@ import { watch, type FSWatcher } from 'fs';
 import { join } from 'path';
 import { logEvent } from '@modules/analytics';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'services:teamMemorySync:Watcher', level: LogLevel.INFO });
+
 const DEBOUNCE_MS = 2000;
 
 let watcher: FSWatcher | null = null;

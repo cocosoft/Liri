@@ -16,6 +16,9 @@ import {
 import type { SessionGatewayConfig } from '../../session/SessionGateway';
 import { SessionType, SessionStatus } from '../../session/types/Session';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:SessionsTool:SessionsTool', level: LogLevel.INFO });
+
 /**
  * 会话信息接口
  */

@@ -2,6 +2,9 @@ import { SessionRecorder } from './SessionRecorder';
 import { SessionPlayer } from './SessionPlayer';
 import { VCRStorage } from './VCRStorage';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'services:vcr:VCRCommand', level: LogLevel.INFO });
+
 export interface VCRCommandParams {
   action: 'start' | 'stop' | 'play' | 'list' | 'delete' | 'status';
   sessionId?: string;

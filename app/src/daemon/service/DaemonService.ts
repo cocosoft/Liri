@@ -9,6 +9,9 @@ import os from 'os';
 import type { CronScheduler } from '@modules/chronos/types';
 import { globalEventBus, SystemEvents } from '@modules/core';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'daemon:service:DaemonService', level: LogLevel.INFO });
+
 /**
  * 平台类型
  */

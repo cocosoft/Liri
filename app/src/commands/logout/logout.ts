@@ -7,6 +7,9 @@
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { configManager } from '@modules/config';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:logout:logout', level: LogLevel.INFO });
+
 /**
  * 执行登出
  */

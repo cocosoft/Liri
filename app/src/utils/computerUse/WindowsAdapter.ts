@@ -19,6 +19,9 @@ import type {
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'utils:computerUse:WindowsAdapter', level: LogLevel.INFO });
+
 const execAsync = promisify(execFile);
 
 /** PowerShell 脚本执行默认超时时间（毫秒） */

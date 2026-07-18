@@ -6,6 +6,9 @@
  */
 
 import { ApiError } from '../services/api';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'streaming:retry', level: LogLevel.INFO });
 export { StreamingCircuitBreaker } from '../utils/withRetry';
 
 /**

@@ -5,6 +5,9 @@ import type {
 } from './types.js';
 import { HealthChecker } from '../../monitoring/health/HealthChecker.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'core:flows:doctor-health', level: LogLevel.INFO });
+
 /**
  * @deprecated 请使用 monitoring/health/HealthChecker 注册新的健康检查。
  * doctor-health 是 flows 模块的适配层，新健康检查应直接注册到 HealthChecker。

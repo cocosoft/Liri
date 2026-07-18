@@ -24,6 +24,9 @@
  * 故障转移策略管理
  */
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'ai:policy:index', level: LogLevel.INFO });
+
 export type FailoverReason =
   | 'rate_limited'
   | 'server_overloaded'

@@ -21,6 +21,9 @@
 import type { Command } from '@modules/commands';
 import { createChatManager } from '@modules/chat/ChatManager.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:builtin:checkpoint:index', level: LogLevel.INFO });
+
 function getChatManager(context: any) {
   if (context.chatManager) {
     return context.chatManager;

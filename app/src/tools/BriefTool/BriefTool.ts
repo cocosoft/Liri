@@ -10,6 +10,9 @@ import type { ToolUseContext, ToolResult } from '../types';
 import { ToolParam, ToolTag } from '../types/Tool';
 import type { SessionMessage } from '@modules/session/models/SessionMessage';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:BriefTool:BriefTool', level: LogLevel.INFO });
+
 export interface BriefToolInput {
   sessionId?: string;
   maxLength?: number;

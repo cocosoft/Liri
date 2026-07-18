@@ -1,5 +1,8 @@
 import type { HealthStatus } from '@modules/core/health/types.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'monitoring:health:HealthChecker', level: LogLevel.INFO });
+
 export type { HealthStatus };
 
 export interface HealthCheck {

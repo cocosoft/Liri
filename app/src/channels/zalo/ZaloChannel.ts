@@ -13,6 +13,9 @@ import type {
 } from '@modules/channels/types';
 import { BaseChannelPlugin } from '@modules/channels/base/BaseChannelPlugin';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'channels:zalo:ZaloChannel', level: LogLevel.INFO });
+
 /**
  * Zalo 配置
  */

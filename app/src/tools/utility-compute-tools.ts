@@ -9,6 +9,9 @@ import {
 import type { Tool } from './types/Tool';
 import { ToolTag as TT } from './types/Tool';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:utility-compute-tools', level: LogLevel.INFO });
+
 export function collectComputeTools(tools: Tool[]): void {
   // ========== 数学工具 (6) ==========
 

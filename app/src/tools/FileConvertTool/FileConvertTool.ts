@@ -14,6 +14,9 @@ import { createToolResult } from '../types/ToolResult';
 import { getConverterEngine } from '../../tools/converter/engine/ConverterEngine';
 import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:FileConvertTool:FileConvertTool', level: LogLevel.INFO });
+
 export class FileConvertTool extends BaseTool {
   override readonly name = 'file_convert';
   override readonly description = 'Convert file to Markdown format';

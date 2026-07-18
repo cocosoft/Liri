@@ -4,6 +4,9 @@
  */
 import { EventEmitter } from 'events';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'chronos:stagger:StaggerScheduler', level: LogLevel.INFO });
+
 /**
  * 交错策略
  */

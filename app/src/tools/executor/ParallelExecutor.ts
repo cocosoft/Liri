@@ -6,6 +6,9 @@
 /**
  * 并行任务选项
  */
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:executor:ParallelExecutor', level: LogLevel.INFO });
+
 export interface ParallelTask<T> {
   execute: () => Promise<T>;
   timeout?: number;

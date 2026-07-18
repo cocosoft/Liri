@@ -7,6 +7,9 @@ import { profileReport } from '../performance/StartupProfiler.js';
 import { SkillRegistry } from '../skills/SkillRegistry';
 import { BundledSkillLoader } from '../skills/loaders/sources/BundledSkillLoader';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'cli:cli', level: LogLevel.INFO });
+
 const ui = getUIEnhancer();
 
 /**

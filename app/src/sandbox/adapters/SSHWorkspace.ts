@@ -18,6 +18,9 @@ import {
 } from '../SandboxTypes';
 import type { SSHSandboxConfig } from '../SSHSandbox';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'sandbox:adapters:SSHWorkspace', level: LogLevel.INFO });
+
 const execAsync = promisify(exec);
 
 /**

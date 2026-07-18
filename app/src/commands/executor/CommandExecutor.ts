@@ -9,6 +9,9 @@ import type {
 } from '@modules/commands';
 import { getCommandManager } from '@modules/commands';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:executor:CommandExecutor', level: LogLevel.INFO });
+
 /**
  * 命令中间件类型
  */

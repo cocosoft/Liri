@@ -13,6 +13,9 @@ import type {
   HookExecutionResult,
 } from '../types/index.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'hooks:executors:StopHookExecutor', level: LogLevel.INFO });
+
 /**
  * StopHook信息
  */

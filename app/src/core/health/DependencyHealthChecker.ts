@@ -17,6 +17,9 @@ export type DependencyType =
   | 'process';
 
 import type { HealthStatus } from './types.js';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'core:health:DependencyHealthChecker', level: LogLevel.INFO });
 export type { HealthStatus };
 
 /**

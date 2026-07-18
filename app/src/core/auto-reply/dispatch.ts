@@ -1,5 +1,8 @@
 import type { ReplyEnvelope, DispatchTarget, DispatchResult } from './types.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'core:auto-reply:dispatch', level: LogLevel.INFO });
+
 export type DispatchHandler = (
   envelope: ReplyEnvelope,
   target: DispatchTarget

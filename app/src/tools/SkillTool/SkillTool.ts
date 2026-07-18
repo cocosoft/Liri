@@ -21,6 +21,9 @@ import type {
   SkillSource,
 } from './types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:SkillTool:SkillTool', level: LogLevel.INFO });
+
 /**
  * SkillTool参数定义
  */

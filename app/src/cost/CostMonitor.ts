@@ -7,6 +7,9 @@
 import { logForDebugging } from '../utils/debug.js';
 import { formatCost } from './ModelPricing.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'cost:CostMonitor', level: LogLevel.INFO });
+
 /**
  * 告警级别
  */

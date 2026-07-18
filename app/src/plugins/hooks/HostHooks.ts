@@ -4,6 +4,9 @@
  */
 import { EventEmitter } from 'events';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'plugins:hooks:HostHooks', level: LogLevel.INFO });
+
 /**
  * 主机钩子类型
  */

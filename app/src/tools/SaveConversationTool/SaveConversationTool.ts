@@ -14,6 +14,9 @@ import chatService from '@modules/chat';
 import type { SessionMessage } from '@modules/session/models/SessionMessage';
 import { resolveDataDir } from '@modules/core';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:SaveConversationTool:SaveConversationTool', level: LogLevel.INFO });
+
 export interface SaveConversationInput {
   sessionId?: string;
   summaryType?: 'concise' | 'detailed' | 'actionable';

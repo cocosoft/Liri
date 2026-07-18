@@ -8,6 +8,9 @@ import { memoryManager, MemorySnapshot } from './MemoryManager';
 import { logForDebugging } from '../utils/debug.js';
 import { getPerformanceConfig } from './PerformanceConfig.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'performance:MemoryOptimizer', level: LogLevel.INFO });
+
 /**
  * 内存优化配置
  */

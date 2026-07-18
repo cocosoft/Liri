@@ -5,6 +5,9 @@
 import type { CommandContext } from '@modules/commands';
 import { commandCompletionManager } from '@modules/commands';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:builtin:complete:Complete', level: LogLevel.INFO });
+
 interface CompleteOptions {
   limit?: number;
   all?: boolean;

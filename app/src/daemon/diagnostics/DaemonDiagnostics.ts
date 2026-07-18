@@ -10,6 +10,9 @@ import { DiskSpaceMonitor } from '../../core/delivery/monitor/DiskSpaceMonitor';
 import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'daemon:diagnostics:DaemonDiagnostics', level: LogLevel.INFO });
+
 /**
  * 诊断级别
  */

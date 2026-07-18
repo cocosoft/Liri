@@ -6,6 +6,9 @@ import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { channelRegistry } from '../../channels/registry/ChannelRegistry';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:BroadcastTool:BroadcastTool', level: LogLevel.INFO });
+
 export interface BroadcastOperation {
   action: 'send' | 'broadcast' | 'home' | 'thread';
   message: string;

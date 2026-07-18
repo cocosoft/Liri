@@ -7,6 +7,9 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:SessionStatusTool:SessionStatusTool', level: LogLevel.INFO });
+
 export interface SessionStatusInfo {
   sessionId: string;
   status: 'running' | 'paused' | 'completed' | 'failed' | 'killed';

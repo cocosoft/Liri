@@ -10,6 +10,9 @@ import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolParam } from '../types/Tool';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:TungstenTool:TungstenTool', level: LogLevel.INFO });
+
 /**
  * Tungsten 会话状态
  */

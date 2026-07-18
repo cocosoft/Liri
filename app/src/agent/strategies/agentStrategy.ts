@@ -14,6 +14,9 @@ import aiService from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'agent:strategies:agentStrategy', level: LogLevel.INFO });
+
 /**
  * 基础代理策略
  */

@@ -6,6 +6,9 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { taskRegistry } from '@modules/tasks';
 import { TaskStatus } from '@modules/tasks/types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:builtin:tasks:Tasks', level: LogLevel.INFO });
+
 interface TaskItem {
   id: string;
   title: string;

@@ -10,6 +10,9 @@ import { writeFile, unlink, mkdir, readFile } from 'fs/promises';
 import { join, basename, dirname, extname } from 'path';
 import { existsSync } from 'fs';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:builtin:knowledge:Knowledge', level: LogLevel.INFO });
+
 const knowledgeCommand = {
   /**
    * 执行 knowledge 命令

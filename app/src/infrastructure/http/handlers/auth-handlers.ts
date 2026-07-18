@@ -22,6 +22,9 @@
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'infrastructure:http:handlers:auth-handlers', level: LogLevel.INFO });
+
 const users = new Map<string, { username: string; password: string }>();
 const tokens = new Map<string, { username: string; permissions: string[] }>();
 

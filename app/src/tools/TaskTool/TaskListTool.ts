@@ -11,6 +11,9 @@ import { TASK_LIST_TOOL_NAME, TASK_LIST_DESCRIPTION } from './constants';
 import type { TaskListOutput, TaskStorage } from './types';
 import { defaultTaskStorage } from './TaskStorage';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:TaskTool:TaskListTool', level: LogLevel.INFO });
+
 /**
  * TaskListTool实现
  */

@@ -5,6 +5,9 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:PDFTool:PDFTool', level: LogLevel.INFO });
+
 interface PDFInput {
   action: 'generate' | 'extract' | 'info';
   title?: string;

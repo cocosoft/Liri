@@ -7,6 +7,9 @@ import { DeliveryTarget } from './DeliveryTarget';
 import { ChannelRegistry, channelRegistry } from './registry/ChannelRegistry';
 import type { ChannelId } from './types/IChannel';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'channels:DeliveryRouter', level: LogLevel.INFO });
+
 /**
  * 投递模式
  */

@@ -3,6 +3,9 @@
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:builtin:context:Context', level: LogLevel.INFO });
+
 interface ChatManagerLike {
   clearContext(): Promise<void>;
   getContextInfo(): Promise<Record<string, unknown>>;

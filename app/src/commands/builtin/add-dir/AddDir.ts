@@ -3,6 +3,9 @@
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:builtin:add-dir:AddDir', level: LogLevel.INFO });
+
 export default {
   /**
    * 执行添加目录命令

@@ -4,6 +4,9 @@
  */
 import { buildAggregatorPrompt } from './AggregatorPrompt';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'agent:moa:MoARouter', level: LogLevel.INFO });
+
 export interface MoARequest {
   query: string;
   models: string[];

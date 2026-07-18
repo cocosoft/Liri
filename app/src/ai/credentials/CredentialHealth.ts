@@ -7,6 +7,9 @@
 /**
  * 健康检查结果
  */
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'ai:credentials:CredentialHealth', level: LogLevel.INFO });
+
 export interface CredentialHealthResult {
   healthy: boolean;
   statusCode?: number;

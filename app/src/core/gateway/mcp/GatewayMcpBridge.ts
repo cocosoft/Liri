@@ -4,6 +4,9 @@
  */
 import { EventEmitter } from 'events';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'core:gateway:mcp:GatewayMcpBridge', level: LogLevel.INFO });
+
 /**
  * MCP 工具定义
  */

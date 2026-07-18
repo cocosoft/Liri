@@ -8,6 +8,9 @@ import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:TimeTool:TimeTool', level: LogLevel.INFO });
+
 /**
  * 时间工具类
  */

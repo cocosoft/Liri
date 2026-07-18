@@ -7,6 +7,9 @@ import type {
   SendResult,
 } from '@modules/channels/types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'channels:twitter:TwitterChannel', level: LogLevel.INFO });
+
 export interface TwitterConfig {
   enabled: boolean;
   apiKey?: string;

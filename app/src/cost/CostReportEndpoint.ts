@@ -10,6 +10,9 @@ import {
   getDepartmentCostReporter,
 } from './DepartmentCostReporter';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'cost:CostReportEndpoint', level: LogLevel.INFO });
+
 /**
  * 成本报告请求
  */

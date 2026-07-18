@@ -7,6 +7,9 @@
 /**
  * Web 工具类型
  */
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:web:WebToolProvider', level: LogLevel.INFO });
+
 export type WebToolType = 'fetch' | 'search' | 'browser' | 'screenshot';
 
 /**

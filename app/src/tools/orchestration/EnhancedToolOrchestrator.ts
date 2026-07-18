@@ -12,6 +12,9 @@ import { ToolExecutor, createToolExecutor } from '../ToolExecutor';
 import { Tool } from '../types/Tool';
 import { createFailureResult } from '../utils/ToolUtils';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:orchestration:EnhancedToolOrchestrator', level: LogLevel.INFO });
+
 /**
  * 工具使用函数类型
  */

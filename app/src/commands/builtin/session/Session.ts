@@ -1,5 +1,8 @@
 import { createChatManager } from '@modules/chat/ChatManager.js';
 import type { CommandContext } from '@modules/commands';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:builtin:session:Session', level: LogLevel.INFO });
 const call = async (
   args: string,
   _context?: CommandContext

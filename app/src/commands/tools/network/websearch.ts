@@ -19,6 +19,9 @@
 import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:tools:network:websearch', level: LogLevel.INFO });
+
 /** 搜索结果项 */
 interface SearchResultItem {
   title: string;

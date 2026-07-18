@@ -7,6 +7,9 @@ import type {
   SendResult,
 } from '@modules/channels/types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'channels:claude:ClaudeChannel', level: LogLevel.INFO });
+
 export interface ClaudeConfig {
   enabled: boolean;
   apiKey?: string;

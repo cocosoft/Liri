@@ -12,6 +12,9 @@ import type {
   MousePosition,
 } from '../../utils/computerUse/types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:ComputerUseTool:ComputerUseTool', level: LogLevel.INFO });
+
 /**
  * ComputerUse 操作参数
  */

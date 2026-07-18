@@ -19,6 +19,9 @@ import {
 import { resolveDbPath } from '@modules/core';
 import { configManager } from '@modules/config';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:cron:Cron', level: LogLevel.INFO });
+
 const CRON_DATA_DIR = configManager.env('CRON_DATA_DIR') || '';
 
 function getStorePath(): string {

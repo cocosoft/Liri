@@ -10,6 +10,9 @@ import {
   type HookResult,
 } from './PluginHooks.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'plugins:hooks:GlobalRunner', level: LogLevel.INFO });
+
 /**
  * 全局运行策略
  */

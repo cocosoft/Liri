@@ -20,6 +20,9 @@ import type { SubTask } from './types';
 import type { Tool } from '../types/Tool';
 import type { ToolDefinition } from '@modules/ai';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:AgentTool:ParallelOrchestrator', level: LogLevel.INFO });
+
 /** 子任务执行结果 */
 export interface SubTaskResult {
   /** 子任务 ID */

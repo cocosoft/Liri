@@ -18,6 +18,9 @@ import {
 import type { BaseTask } from '@modules/tasks/BaseTask.js';
 import { getSubAgentEngine } from '@modules/tools/AgentTool/SubAgentEngine.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:tools:ai:agent', level: LogLevel.INFO });
+
 /** 可用的 Agent 类型列表 */
 const AGENT_TYPES = [
   'general',

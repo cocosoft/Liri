@@ -5,6 +5,9 @@
 import { taskRegistry } from './TaskRegistry';
 import { TaskStatus } from './types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tasks:stopTask', level: LogLevel.INFO });
+
 /**
  * 停止任务选项
  */

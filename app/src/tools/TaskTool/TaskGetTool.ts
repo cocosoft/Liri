@@ -10,6 +10,9 @@ import { TASK_GET_TOOL_NAME, TASK_GET_DESCRIPTION } from './constants';
 import type { TaskOutput, TaskStorage } from './types';
 import { defaultTaskStorage } from './TaskStorage';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:TaskTool:TaskGetTool', level: LogLevel.INFO });
+
 /**
  * TaskGetTool参数定义
  */

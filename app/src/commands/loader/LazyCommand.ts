@@ -1,6 +1,9 @@
 //
 import type { Command, CommandImplementation } from '@modules/commands';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:loader:LazyCommand', level: LogLevel.INFO });
+
 /**
  * 懒加载命令包装器
  * 将命令的模块导入延迟到首次调用 load() 时

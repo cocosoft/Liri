@@ -21,6 +21,9 @@ import { glob } from '../GlobTool/GlobTool';
 import type { FileSearchInputType } from './schemas';
 import { validateFileSearchInput } from './schemas';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:FileSearchTool:FileSearchTool', level: LogLevel.INFO });
+
 /** 搜索结果条目，含 canonicalPath 便于前端定位 */
 export interface FileSearchItem extends FileOperationResult {
   /** 匹配到的文件路径（相对于搜索目录） */

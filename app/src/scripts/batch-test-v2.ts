@@ -8,6 +8,9 @@ import { commandExecutor } from '../commands/executor/index.js';
 import { initializeChatManager } from '../entrypoints/repl.js';
 import type { CommandContext } from '../commands/types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'scripts:batch-test-v2', level: LogLevel.INFO });
+
 const TEST_COMMANDS = [
   // A组: 基础命令
   { cmd: 'help args=help', label: 'help' },

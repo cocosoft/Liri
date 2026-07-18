@@ -7,6 +7,9 @@
  * 获取系统上下文
  * @returns {Promise<Object>} 系统上下文信息
  */
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'context:context', level: LogLevel.INFO });
+
 export async function getSystemContext() {
   try {
     // 系统信息

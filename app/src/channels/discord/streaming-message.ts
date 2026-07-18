@@ -9,6 +9,9 @@
  */
 
 /** 默认节流间隔（毫秒） */
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'channels:discord:streaming-message', level: LogLevel.INFO });
+
 const DEFAULT_THROTTLE_MS = 800;
 
 /** 启动流式消息前的最小字符数 */

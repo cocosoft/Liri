@@ -2,6 +2,9 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { configManager } from '@modules/config';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'chronos:ChronosRemoteTrigger', level: LogLevel.INFO });
+
 const execAsync = promisify(exec);
 
 export interface RemoteTriggerConfig {

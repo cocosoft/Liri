@@ -12,6 +12,9 @@ import { channelRegistry } from '../../channels/registry/ChannelRegistry';
 import { ChannelHealthMonitor } from '../../channels/monitoring/ChannelHealthMonitor';
 import { ChannelLogManager } from '../../channels/log/ChannelLogManager';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:ChannelManagerTool:ChannelManagerTool', level: LogLevel.INFO });
+
 const healthMonitor = new ChannelHealthMonitor(channelRegistry, {
   autoStart: false,
 });

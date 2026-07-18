@@ -27,6 +27,9 @@
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { usageStatsService } from '@modules/ai';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:usagestats:usagestats', level: LogLevel.INFO });
+
 /** 格式化货币显示 */
 function fmtUSD(amount: number): string {
   return `$${amount.toFixed(4)}`;

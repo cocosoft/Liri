@@ -17,6 +17,9 @@ import type {
   PluginValidationWarning,
 } from './types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'plugin-sdk:ManifestLoader', level: LogLevel.INFO });
+
 /** 支持的清单文件名（按优先级排序） */
 const MANIFEST_FILENAMES = [
   'plugin.yaml',

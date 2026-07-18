@@ -8,6 +8,9 @@ import type { AgentDefinition } from './types';
 import { BaseTask } from './BaseTask';
 import { TaskType, TaskStatus } from './types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tasks:LocalAgentTask', level: LogLevel.INFO });
+
 export class LocalAgentTask extends BaseTask {
   readonly type = TaskType.LOCAL_AGENT;
   private agentDefinition: AgentDefinition;

@@ -10,6 +10,9 @@ import { ToolResult, ToolExecutionStatus } from '../../tools/types/ToolResult';
 import { ToolUseContext } from '../../tools/types/ToolUseContext';
 import { KnowledgeBaseWriter } from '../KnowledgeBaseWriter';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'knowledge:tools:KnowledgeSnapshotsTool', level: LogLevel.INFO });
+
 export class KnowledgeSnapshotsTool implements Tool {
   public name: string = 'knowledge_snapshots';
   public description: string =

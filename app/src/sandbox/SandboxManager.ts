@@ -26,6 +26,9 @@ import {
   DEFAULT_TIMEOUT_MS,
 } from './utils/TimeoutController';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'sandbox:SandboxManager', level: LogLevel.INFO });
+
 /**
  * 沙箱管理器
  */

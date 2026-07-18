@@ -10,6 +10,9 @@ import { createToolResult } from '../types/ToolResult';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:RecallMemoryTool:RecallMemoryTool', level: LogLevel.INFO });
+
 export class RecallMemoryTool {
   static create(): Tool {
     return {

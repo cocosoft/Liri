@@ -21,6 +21,9 @@ import type {
   ToolExecutionResult,
 } from '../types/ToolTypes';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:utils:ToolDefinitionAdapter', level: LogLevel.INFO });
+
 function mapToolParam(p: ToolParameter): ToolParam {
   return {
     name: p.name,

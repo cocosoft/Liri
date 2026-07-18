@@ -4,6 +4,9 @@ import type { ToolUseContext } from '../../tools/types/ToolUseContext';
 import { MemoryManagerImpl } from '../MemoryManager';
 import { Memory } from '../types/Memory';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'memory:tools:MemoryGetTool', level: LogLevel.INFO });
+
 export class MemoryGetTool implements Tool {
   public name: string = 'memory_get';
   public description: string = 'Read stored memory entries';

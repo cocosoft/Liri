@@ -5,6 +5,9 @@
 
 import { logForDebugging } from '../utils/debug.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'performance:ExtensibilityManager', level: LogLevel.INFO });
+
 /**
  * 扩展点类型
  */

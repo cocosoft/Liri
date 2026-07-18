@@ -4,9 +4,12 @@
  * 实现启动时OAuth Token并行预加载策略
  */
 
-import { logger } from '@modules/infrastructure';
+
 import { createOAuthStorage } from '@modules/oauth';
 import { configManager } from '@modules/config';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'oauth:services:OAuthStartup', level: LogLevel.INFO });
 
 /**
  * OAuth启动预加载配置

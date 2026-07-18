@@ -10,6 +10,9 @@ import {
   HookExecutionContext,
 } from '../types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'hooks:executors:AgentHookExecutor', level: LogLevel.INFO });
+
 /**
  * 代理Hook执行器
  */

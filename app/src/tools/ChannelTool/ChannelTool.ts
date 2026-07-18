@@ -34,6 +34,9 @@ import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { channelRegistry } from '../../channels/registry/ChannelRegistry';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:ChannelTool:ChannelTool', level: LogLevel.INFO });
+
 export interface ChannelToolOperation {
   action: 'list' | 'status' | 'connect' | 'disconnect' | 'health' | 'logs';
   channel?: string;

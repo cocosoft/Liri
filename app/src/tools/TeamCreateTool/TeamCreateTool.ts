@@ -14,6 +14,9 @@ import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolveDataSubDir } from '@modules/core';
 import { configManager } from '@modules/config';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:TeamCreateTool:TeamCreateTool', level: LogLevel.INFO });
+
 /**
  * 团队成员
  */

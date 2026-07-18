@@ -24,6 +24,9 @@
  * v2 循环/注册表/生命周期/hooks 子系统
  */
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'agent:harness:index', level: LogLevel.INFO });
+
 export type HookName =
   | 'beforeInit'
   | 'afterInit'

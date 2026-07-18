@@ -13,6 +13,9 @@ import {
 import type { UnifiedMessage } from '../../session/types/Message';
 import { MessageType } from '../../session/types/Message';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:SessionsHistoryTool:SessionsHistoryTool', level: LogLevel.INFO });
+
 export interface HistoryFilter {
   sessionId?: string;
   type?: 'text' | 'command' | 'result' | 'error' | 'system';

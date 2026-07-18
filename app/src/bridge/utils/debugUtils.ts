@@ -6,6 +6,9 @@
 
 import { BridgeConfig, PollConfig, BackoffConfig } from '../types';
 
+import { Logger, LogLevel as MonitoringLogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'bridge:utils:debugUtils', level: MonitoringLogLevel.INFO });
+
 /**
  * 日志级别
  */

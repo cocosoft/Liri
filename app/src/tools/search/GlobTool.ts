@@ -19,6 +19,9 @@ import {
 } from '../utils/ToolUtils';
 import { glob } from '../GlobTool/GlobTool';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:search:GlobTool', level: LogLevel.INFO });
+
 export class GlobTool extends BaseTool {
   name = 'glob';
   description = 'Find files matching a pattern';

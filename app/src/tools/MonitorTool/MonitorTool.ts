@@ -5,6 +5,9 @@
 import { BaseTool } from '../BaseTool.js';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:MonitorTool:MonitorTool', level: LogLevel.INFO });
+
 /**
  * Monitor工具类
  */

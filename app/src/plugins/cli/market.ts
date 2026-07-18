@@ -13,6 +13,9 @@ import type {
   MarketPluginVersion,
 } from '../marketplace/PluginMarketplace.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'plugins:cli:market', level: LogLevel.INFO });
+
 /**
  * 格式化时间戳为可读日期
  */

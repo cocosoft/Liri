@@ -14,6 +14,9 @@ import type { McpOAuthConfig } from '@modules/services/mcp/types';
 import { readMcpConfig } from '@modules/mcp';
 import { configManager } from '@modules/config';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'infrastructure:http:handlers:mcp-oauth-handler', level: LogLevel.INFO });
+
 /**
  * 通过 OAuth Discovery 将 McpOAuthConfig 解析为 MCPOAuthConfig
  */

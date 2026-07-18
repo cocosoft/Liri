@@ -8,6 +8,9 @@ import { ToolResult } from '../types/ToolResult.js';
 import { ToolUseContext } from '../types/ToolUseContext.js';
 import { createCachedToolExecutor } from '../cache/CachedToolExecutor.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:scheduler:ToolScheduler', level: LogLevel.INFO });
+
 /**
  * 工具执行任务
  */

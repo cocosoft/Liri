@@ -5,6 +5,9 @@
 
 import { execSync as cpExecSync } from 'child_process';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'utils:exec', level: LogLevel.INFO });
+
 /**
  * 执行命令并返回输出
  * @param command 命令

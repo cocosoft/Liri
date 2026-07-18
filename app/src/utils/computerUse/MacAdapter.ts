@@ -20,6 +20,9 @@ import type {
 import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'utils:computerUse:MacAdapter', level: LogLevel.INFO });
+
 const execAsync = promisify(execFile);
 
 /** osascript 执行默认超时时间（毫秒） */

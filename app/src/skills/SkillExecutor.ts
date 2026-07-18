@@ -7,6 +7,9 @@ import type { Skill, SkillContext, SkillResult } from './types';
 import { SkillRegistry } from './SkillRegistry';
 import { ParallelExecutor } from '../tools/executor/ParallelExecutor';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'skills:SkillExecutor', level: LogLevel.INFO });
+
 export class SkillExecutor {
   private registry: SkillRegistry;
   private parallelExecutor: ParallelExecutor;

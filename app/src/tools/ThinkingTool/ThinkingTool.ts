@@ -5,6 +5,9 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:ThinkingTool:ThinkingTool', level: LogLevel.INFO });
+
 interface ThinkingInput {
   action: 'think' | 'reflect' | 'summarize' | 'revise';
   thought: string;

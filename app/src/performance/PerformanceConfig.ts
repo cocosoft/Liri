@@ -7,6 +7,9 @@ import { isEnvTruthy } from '../utils/envUtils.js';
 import { logForDebugging } from '../utils/debug.js';
 import { configManager } from '@modules/config';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'performance:PerformanceConfig', level: LogLevel.INFO });
+
 /**
  * 从环境变量获取数字值
  */

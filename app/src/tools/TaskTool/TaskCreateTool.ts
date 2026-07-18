@@ -11,6 +11,9 @@ import { TASK_CREATE_TOOL_NAME, TASK_CREATE_DESCRIPTION } from './constants';
 import type { TaskCreateInput, TaskCreateOutput, TaskStorage } from './types';
 import { defaultTaskStorage } from './TaskStorage';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:TaskTool:TaskCreateTool', level: LogLevel.INFO });
+
 /**
  * TaskCreateTool参数定义
  */

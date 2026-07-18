@@ -7,6 +7,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { getDiff } from '../commands/builtin/diff/Diff.js';
 import type { DiffResult } from '../commands/builtin/diff/Diff.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'hooks:useDiffData', level: LogLevel.INFO });
+
 /**
  * useDiffData Hook配置
  */

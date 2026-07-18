@@ -5,6 +5,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'hooks:useMemoryUsage', level: LogLevel.INFO });
+
 /**
  * 内存使用数据
  */

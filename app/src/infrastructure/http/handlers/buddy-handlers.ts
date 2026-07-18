@@ -22,6 +22,9 @@
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'infrastructure:http:handlers:buddy-handlers', level: LogLevel.INFO });
+
 // ========== Buddy Handlers ==========
 
 /**

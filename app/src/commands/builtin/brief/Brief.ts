@@ -5,6 +5,9 @@
 import type { CommandContext } from '@modules/commands';
 import type { SessionMessage } from '@modules/session/models/SessionMessage';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:builtin:brief:Brief', level: LogLevel.INFO });
+
 interface AnalysisResult {
   type: 'text';
   value: string;

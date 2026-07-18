@@ -4,12 +4,15 @@
  * 交互式权限处理器，向用户发起交互式确认请求
  */
 
-import { logger } from '../../../utils/log.js';
+
 import type {
   PermissionContext,
   PermissionDecision,
 } from '../PermissionContext.js';
 import { globalAuditLogger } from '../logging/PermissionAuditLogger.js';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'security:permission:handler:InteractiveHandler', level: LogLevel.INFO });
 
 export type InteractiveResponse = 'allow' | 'deny' | 'allow_once' | 'deny_once';
 

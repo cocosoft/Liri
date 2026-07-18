@@ -16,6 +16,9 @@ export class MCPAuthManager {
   private discovery: OAuthDiscovery;
   private storage: ReturnType<typeof createOAuthStorage>;
 
+  /** 401 去重：同一 serverKey 多次 401 只触发一次 OAuth 刷新（对标 hermes handle_401） */
+  private pending401s = new Map<string, Promise<boolean>>();
+
   constructor() {
     this.discovery = new OAuthDiscovery();
     this.storage = createOAuthStorage();
@@ -364,6 +367,71 @@ export class MCPAuthManager {
     this.storage.deleteToken(serverKey).catch((err) => {
       logger.warn(`Failed to delete persisted token for ${serverKey}:`, err);
     });
+  }
+
+  /**
+   * 401 HTTP 错误去重处理
+   * 对标 hermes: mcp_oauth_manager.py handle_401
+   *
+   * 同一 serverKey 的多次 401 只触发一次 OAuth 刷新流程，
+   * 后续请求等待第一次处理的结果，避免并发刷新竞态。
+   *
+   * @param serverKey 服务器标识
+   * @param failedAccessToken 触发 401 的 access token（用于验证是否需要刷新）
+   * @param config OAuth 配置
+   * @returns 是否成功处理（刷新成功或已由其他请求处理）
+   */
+  async handle401(
+    serverKey: string,
+    failedAccessToken: string,
+    config: MCPOAuthConfig
+  ): Promise<boolean> {
+    // 如果已有相同 serverKey 的 401 在处理中，共享结果
+    const existing = this.pending401s.get(serverKey);
+    if (existing) {
+      logger.debug(`401 dedup: sharing pending refresh for ${serverKey}`);
+      return existing;
+    }
+
+    const promise = this.doHandle401(serverKey, failedAccessToken, config);
+    this.pending401s.set(serverKey, promise);
+
+    try {
+      return await promise;
+    } finally {
+      this.pending401s.delete(serverKey);
+    }
+  }
+
+  private async doHandle401(
+    serverKey: string,
+    failedAccessToken: string,
+    config: MCPOAuthConfig
+  ): Promise<boolean> {
+    const token = this.tokens.get(serverKey);
+    if (!token) return false;
+
+    // 如果失败 token 与当前缓存已不同，说明已被其他请求刷新过
+    if (token.accessToken !== failedAccessToken) {
+      return true;
+    }
+
+    if (!token.refreshToken) {
+      // 无 refresh token，只能重新授权
+      return false;
+    }
+
+    try {
+      await this.refreshToken(serverKey, token.refreshToken, config);
+      logger.info(`401 handled: token refreshed for ${serverKey}`);
+      return true;
+    } catch (err) {
+      logger.warn(
+        `401 handle failed for ${serverKey}: ${err instanceof Error ? err.message : String(err)}`
+      );
+      this.tokens.delete(serverKey);
+      return false;
+    }
   }
 
   hasToken(serverKey: string): boolean {

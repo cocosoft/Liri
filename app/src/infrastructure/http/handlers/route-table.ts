@@ -2063,6 +2063,13 @@ export async function dispatchRoute(
     return true;
   }
 
+  // ---- MCP OAuth Callback ----
+  if (method === 'GET' && url.startsWith('/v1/mcp/oauth/callback')) {
+    const { handleMCPOAuthCallback } = await import('./mcp-oauth-handler');
+    await handleMCPOAuthCallback(req, res);
+    return true;
+  }
+
   // ---- MCP Tools ----
   if (method === 'GET' && url === '/v1/mcp/tools') {
     await self['handleMCPListTools'](req, res);

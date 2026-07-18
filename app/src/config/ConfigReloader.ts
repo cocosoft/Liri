@@ -4,7 +4,7 @@
  * 对齐 OpenClaw config/config-reload.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '../monitoring/logs/Logger.js';
 import { watch, type FSWatcher } from 'fs';
 import { join } from 'path';
 import { EventEmitter } from 'events';

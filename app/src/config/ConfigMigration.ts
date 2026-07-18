@@ -4,7 +4,7 @@
  */
 
 import { GlobalConfig, createDefaultGlobalConfig } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '../monitoring/logs/Logger.js';
 const logger = new Logger({ module: 'config:ConfigMigration', level: LogLevel.INFO });
 
 /**

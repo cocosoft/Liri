@@ -54,7 +54,7 @@ import {
   registerRuntimeConfigWriteListener,
 } from './RuntimeConfigSnapshot.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '../monitoring/logs/Logger.js';
 const logger = new Logger({ module: 'config:ConfigManager', level: LogLevel.INFO });
 
 /**

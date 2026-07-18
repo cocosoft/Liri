@@ -5,7 +5,7 @@
  * 每条策略包含多个规则，规则按优先级排序。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '../../../monitoring/logs/Logger.js';
 
 const logger = new Logger({
   module: 'config:enterprise:sandbox:sandboxPolicy',

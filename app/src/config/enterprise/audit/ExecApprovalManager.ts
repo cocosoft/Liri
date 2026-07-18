@@ -20,7 +20,7 @@ import { randomUUID } from 'crypto';
 import { EventEmitter } from 'events';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '../../../monitoring/logs/Logger.js';
 
 const logger = new Logger({
   module: 'config:enterprise:audit:execApprovalManager',

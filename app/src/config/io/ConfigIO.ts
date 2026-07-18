@@ -4,7 +4,7 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '../../monitoring/logs/Logger.js';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
 import { handleError } from '@modules/error';
 

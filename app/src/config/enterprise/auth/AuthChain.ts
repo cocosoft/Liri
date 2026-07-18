@@ -13,7 +13,7 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '../../../monitoring/logs/Logger.js';
 import { configManager } from '../../ConfigManager.js';
 
 const logger = new Logger({ module: 'config:authChain', level: LogLevel.INFO });

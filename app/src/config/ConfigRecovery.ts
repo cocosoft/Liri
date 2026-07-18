@@ -1,6 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { Logger } from '@modules/monitoring';
+import { Logger } from '../monitoring/logs/Logger.js';
 import { ConfigSnapshot } from './ConfigSnapshot';
 
 const logger = new Logger({ module: 'config:recovery' });

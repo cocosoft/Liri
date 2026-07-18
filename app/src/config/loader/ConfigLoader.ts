@@ -3,7 +3,7 @@ import { join, extname } from 'path';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolvePyappHome } from '@modules/core';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '../../monitoring/logs/Logger.js';
 const logger = new Logger({ module: 'config:loader:ConfigLoader', level: LogLevel.INFO });
 
 export type ConfigFormat = 'json' | 'yaml' | 'env';

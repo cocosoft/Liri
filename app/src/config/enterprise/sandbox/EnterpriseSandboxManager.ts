@@ -11,7 +11,7 @@
 
 import { randomUUID } from 'crypto';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '../../../monitoring/logs/Logger.js';
 import { ErrorCodes } from '@modules/error';
 import {
   EnterpriseAuditService,

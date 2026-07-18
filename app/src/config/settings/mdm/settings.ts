@@ -6,7 +6,7 @@
 import { join } from 'path';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { resolvePyappHome } from '@modules/core';
-import { Logger } from '@modules/monitoring';
+import { Logger } from '../../../monitoring/logs/Logger.js';
 
 const logger = new Logger({ module: 'MDMSettings' });
 import {

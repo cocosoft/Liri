@@ -7,7 +7,7 @@ import {
   readdirSync,
 } from 'fs';
 import { join } from 'path';
-import { Logger } from '@modules/monitoring';
+import { Logger } from '../monitoring/logs/Logger.js';
 import { redactConfig } from './ConfigRedactor';
 
 const logger = new Logger({ module: 'config:snapshot' });

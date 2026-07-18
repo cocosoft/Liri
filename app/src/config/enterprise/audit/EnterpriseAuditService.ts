@@ -8,7 +8,7 @@
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '../../../monitoring/logs/Logger.js';
 import { resolveLogsDir } from '@modules/core';
 
 const logger = new Logger({

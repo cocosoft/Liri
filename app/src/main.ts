@@ -601,6 +601,7 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   }
 
   const httpPort = parseHttpPortFromArgs(options.args) || 7890;
+  process.env.LIRI_HTTP_PORT = String(httpPort);
   const useLegacyRepl = options.args?.includes('--legacy-repl') || false;
   const httpOnly = options.args?.includes('--http-only') || false;
 

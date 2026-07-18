@@ -1,6 +1,6 @@
-﻿/**
- * 项目文件读取器（参考CC源码 context.ts getClaudeMds）
- * 读取 Liri.md（对应CC的CLAUDE.md，遵循规则K品牌约束）
+/**
+ * 项目文件读取器
+ * 读取 Liri.md（项目规则文件）和 MEMORY.md（记忆文件）
  */
 import * as fs from 'fs';
 import * as path from 'path';

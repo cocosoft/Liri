@@ -83,7 +83,7 @@ export class DynamicClientReg {
       software_version: metadata.softwareVersion,
     };
 
-    const response = await (this.client as any)['httpPostJson'](
+    const response = await this.client.httpPostJson(
       registrationEndpoint,
       requestBody
     );

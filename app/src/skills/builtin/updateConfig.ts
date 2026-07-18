@@ -54,7 +54,7 @@ const updateConfigSkill: Skill = {
   editor.minimap: false
 
 AI 配置:
-  ai.model: claude-3-opus
+  ai.model: gpt-4o
   ai.temperature: 0.7
   ai.maxTokens: 4096
 
@@ -87,7 +87,7 @@ AI 配置:
 
 示例:
   updateConfig set theme light
-  updateConfig set ai.model claude-3-haiku
+  updateConfig set ai.model gpt-4o
   updateConfig list`;
       }
     },

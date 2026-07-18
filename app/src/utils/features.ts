@@ -19,5 +19,5 @@ export function isAntUser(): boolean {
  * 检查是否为简单模式
  */
 export function isSimpleMode(): boolean {
-  return isEnvTruthy(configManager.env('CLAUDE_CODE_SIMPLE'));
+  return isEnvTruthy(configManager.env('PYAPP_SIMPLE_MODE'));
 }

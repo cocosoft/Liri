@@ -254,10 +254,10 @@ function handleHelp(): CommandResult {
 
 示例:
   /pricing
-  /pricing list --model claude-sonnet-4-6
-  /pricing set claude-sonnet-4-6 inputPer1M=3.5 outputPer1M=17.5
+  /pricing list --model <model-id>
+  /pricing set <model-id> inputPer1M=3.5 outputPer1M=17.5
   /pricing sync
-  /pricing reset --model claude-sonnet-4-6`,
+  /pricing reset --model <model-id>`,
   };
 }
 

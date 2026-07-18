@@ -5,6 +5,9 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { readFileSync, existsSync } from 'fs';
+import { resolve, dirname } from 'path';
+import Handlebars from 'handlebars';
 
 const logger = new Logger({
   module: 'doc:template',
@@ -78,15 +81,17 @@ export const BUILTIN_TEMPLATES: TemplateMeta[] = [
 ];
 
 /**
- * 轻量级模板引擎
- * 基于 Handlebars（Liri 已有依赖）
- * 当前使用简单的字符串替换实现，后续可升级为 Handlebars.compile()
+ * 模板引擎
+ * 基于 Handlebars 渲染 .hbs 模板文件
+ * 内置模板从 builtin/ 目录加载，支持部分模板（partials）
  */
 export class TemplateEngine {
   private templates: Map<string, TemplateMeta> = new Map();
 
+  /** Handlebars partials 是否已注册 */
+  private partialsRegistered = false;
+
   constructor() {
-    // 注册内置模板
     for (const tmpl of BUILTIN_TEMPLATES) {
       this.registerTemplate(tmpl);
     }
@@ -122,8 +127,34 @@ export class TemplateEngine {
   }
 
   /**
+   * 注册 Handlebars partials（_zh-fonts 等）
+   */
+  private registerPartials(templateDir: string): void {
+    if (this.partialsRegistered) return;
+    this.partialsRegistered = true;
+
+    try {
+      const zhFontsPath = resolve(
+        templateDir,
+        'builtin',
+        '_common',
+        '_zh-fonts.hbs'
+      );
+      if (existsSync(zhFontsPath)) {
+        const content = readFileSync(zhFontsPath, 'utf-8');
+        Handlebars.registerPartial('_common/_zh-fonts', content);
+        logger.debug('中文排版 partial 已注册');
+      }
+    } catch (err) {
+      logger.warn('中文排版 partial 注册失败', { error: String(err) });
+    }
+  }
+
+  /**
    * 渲染模板
-   * 将变量替换到模板中，生成 Markdown
+   *
+   * 优先使用 Handlebars 编译 .hbs 文件；
+   * 文件不存在时回退到简单的变量替换生成 Markdown。
    */
   render(templateName: string, variables: Record<string, unknown>): string {
     const meta = this.templates.get(templateName);
@@ -131,20 +162,65 @@ export class TemplateEngine {
       throw new Error(`模板 "${templateName}" 未找到`);
     }
 
-    // TODO: 实际读取 .hbs 文件并使用 Handlebars.compile() 渲染
-    // 当前返回占位输出
     logger.info('模板渲染', {
       template: templateName,
       variables: Object.keys(variables),
     });
 
+    // 尝试 Handlebars 渲染
+    const templateDir = this.resolveTemplateDir();
+    const templatePath = resolve(templateDir, meta.path);
+
+    if (existsSync(templatePath)) {
+      try {
+        this.registerPartials(templateDir);
+        const raw = readFileSync(templatePath, 'utf-8');
+        const compiled = Handlebars.compile(raw);
+        return compiled(variables);
+      } catch (err) {
+        logger.warn('Handlebars 渲染失败，回退到占位输出', {
+          template: templateName,
+          error: String(err),
+        });
+      }
+    } else {
+      logger.warn('.hbs 文件未找到，回退到占位输出', { path: templatePath });
+    }
+
+    // 回退：简单 Markdown 生成
+    return this.renderFallback(meta, variables, templateName);
+  }
+
+  /**
+   * 解析模板文件所在目录的绝对路径
+   * 优先 import.meta.dir（Bun ESM），回退到 __dirname（CJS 兼容）
+   */
+  private resolveTemplateDir(): string {
+    // Bun ESM 环境
+    if (typeof (import.meta as any).dir === 'string') {
+      return (import.meta as any).dir as string;
+    }
+    // Node.js CJS 回退
+    if (typeof __dirname === 'string') {
+      return __dirname;
+    }
+    // 最后的回退
+    return process.cwd();
+  }
+
+  /**
+   * 回退渲染：不使用 .hbs 文件，直接根据变量生成 Markdown
+   */
+  private renderFallback(
+    meta: TemplateMeta,
+    variables: Record<string, unknown>,
+    templateName: string
+  ): string {
     const lines: string[] = [];
 
-    // 标题
     lines.push(`# ${meta.displayName}`);
     lines.push('');
 
-    // 变量替换
     for (const [key, value] of Object.entries(variables)) {
       if (typeof value === 'string') {
         lines.push(`**${key}**: ${value}`);

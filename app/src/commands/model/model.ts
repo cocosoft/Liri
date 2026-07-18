@@ -51,15 +51,13 @@ function showHelp(): CommandResult {
   /model --json                以 JSON 格式输出模型列表
   /model help                  显示此帮助
 
-常用别名:
-  sonnet, sonnet[1m]        - Claude Sonnet 4.6
-  opus, opus[1m], best      - Claude Opus 4.6
-  haiku                     - Claude 3.5 Haiku
+常用别名（由当前配置的模型决定）:
+  使用 /model 查看可用模型及别名
 
 示例:
   /model
-  /model sonnet
-  /model info claude-sonnet-4-6
+  /model default
+  /model info <model-id>
   /model all
   /model --json
 
@@ -118,7 +116,7 @@ function handleInfo(modelArg: string): CommandResult {
   if (!modelArg) {
     return {
       success: false,
-      message: `用法: /model info <model-id>\n示例: /model info claude-sonnet-4-6`,
+      message: `用法: /model info <model-id>\n示例: /model info default`,
     };
   }
 

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OAuth Token管理器
  * 参考CC源码的Token管理实现，提供完整的Token生命周期管理
  * 包括：Token缓存、自动刷新、过期缓冲、重试机制
@@ -17,10 +17,22 @@ export interface CachedToken {
   accessToken: string;
   refreshToken: string;
   expiresAt: number;
-  scopes: string[];
+  tokenType?: string;
+  scopes?: string[];
   subscriptionType?: string | null;
   rateLimitTier?: string | null;
   profile?: Record<string, unknown>;
+}
+
+/**
+ * Token 状态
+ */
+export interface TokenStatus {
+  exists: boolean;
+  expired: boolean;
+  expiresIn?: number;
+  expiresAt?: number;
+  refreshInProgress: boolean;
 }
 
 /**
@@ -54,6 +66,14 @@ export class TokenManager {
   private config: TokenRefreshConfig;
   private isRefreshing: boolean = false;
   private refreshRetryCount: number = 0;
+
+  /** Provider 级刷新回调（按 serverKey 注册） */
+  private refreshCallbacks: Map<string, TokenRefreshFn> = new Map();
+  /** Provider 级撤销回调（按 serverKey 注册） */
+  private revokeCallbacks: Map<string, () => Promise<void>> = new Map();
+
+  /** 401 去重：防止同一 serverKey 多次 401 触发重复 OAuth 流程 */
+  private pending401s = new Map<string, Promise<boolean>>();
 
   private constructor(config?: Partial<TokenRefreshConfig>) {
     this.tokenCache = new Map();
@@ -165,14 +185,21 @@ export class TokenManager {
    */
   async loadTokensFromStorage(): Promise<void> {
     try {
-      const tokens = await this.storage.loadAllTokens();
-      for (const [key, token] of Object.entries(tokens)) {
-        this.tokenCache.set(key, {
-          ...token,
-          scopes: token.scopes || [],
-        });
+      const keys = await this.storage.listKeys();
+      for (const key of keys) {
+        const token = await this.storage.loadToken(key);
+        if (token) {
+          this.tokenCache.set(key, {
+            accessToken: token.accessToken,
+            refreshToken: token.refreshToken,
+            expiresAt: token.expiresAt,
+            scopes: token.scopes || [],
+            subscriptionType: token.subscriptionType,
+            rateLimitTier: token.rateLimitTier,
+          });
+        }
       }
-      logger.info(`Loaded ${Object.keys(tokens).length} tokens from storage`);
+      logger.info(`Loaded ${keys.length} tokens from storage`);
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
       logger.error('Failed to load tokens from storage:', e);
@@ -195,6 +222,149 @@ export class TokenManager {
     this.tokenCache.clear();
     this.refreshScheduler.clearAll();
     logger.info('All token caches cleared');
+  }
+
+  // ─── 补充接口（合并自 OAuthTokenManager） ──────────────────
+
+  /**
+   * 设置 Provider 刷新回调（按 serverKey）
+   * @deprecated 请优先使用 cacheToken + scheduleAutoRefresh，此接口为 OAuthTokenManager 兼容保留
+   */
+  setProviderRefreshCallback(
+    serverKey: string,
+    callback: TokenRefreshFn
+  ): void {
+    this.refreshCallbacks.set(serverKey, callback);
+  }
+
+  /**
+   * 设置通配刷新回调（用于未注册 serverKey 的默认刷新）
+   */
+  setWildcardRefreshCallback(callback: TokenRefreshFn): void {
+    this.refreshCallbacks.set('*', callback);
+  }
+
+  /**
+   * 设置 Token 撤销回调
+   */
+  setRevokeCallback(serverKey: string, callback: () => Promise<void>): void {
+    this.revokeCallbacks.set(serverKey, callback);
+  }
+
+  /**
+   * 撤销指定服务器的 Token
+   */
+  async revokeToken(serverKey: string): Promise<void> {
+    const revokeCb = this.revokeCallbacks.get(serverKey);
+    if (revokeCb) {
+      try {
+        await revokeCb();
+        logger.info(`Token revoked remotely for ${serverKey}`);
+      } catch (error) {
+        logger.warn(
+          `Remote token revocation failed for ${serverKey}: ${error instanceof Error ? error.message : 'Unknown'}`
+        );
+      }
+    }
+
+    // 从磁盘和缓存中删除
+    try {
+      await this.storage.deleteToken(serverKey);
+    } catch {
+      // 磁盘删除失败不阻塞缓存清理
+    }
+    this.tokenCache.delete(serverKey);
+    this.refreshScheduler.clear(serverKey);
+  }
+
+  /**
+   * 撤销所有 Token
+   */
+  async revokeAll(): Promise<void> {
+    const keys = Array.from(this.tokenCache.keys());
+    for (const key of keys) {
+      await this.revokeToken(key);
+    }
+    this.tokenCache.clear();
+    this.refreshScheduler.clearAll();
+    logger.info('All tokens revoked');
+  }
+
+  /**
+   * 列出所有缓存的 serverKey
+   */
+  listServerKeys(): string[] {
+    return Array.from(this.tokenCache.keys());
+  }
+
+  /**
+   * 获取指定 serverKey 的 Token 状态
+   */
+  getTokenStatus(serverKey: string): TokenStatus {
+    const token = this.tokenCache.get(serverKey);
+    if (!token) {
+      return { exists: false, expired: false, refreshInProgress: false };
+    }
+    return {
+      exists: true,
+      expired: this.isTokenExpired(token),
+      expiresIn: Math.max(0, token.expiresAt - Date.now()),
+      expiresAt: token.expiresAt,
+      refreshInProgress: this.isRefreshing,
+    };
+  }
+
+  /**
+   * 401 HTTP 错误去重处理
+   * 对标: hermes mcp_oauth_manager.py handle_401
+   *
+   * 同一 serverKey 的多次 401 只触发一次 OAuth 刷新流程，
+   * 后续请求等待第一次处理的结果。
+   */
+  async handle401(
+    serverKey: string,
+    failedAccessToken?: string
+  ): Promise<boolean> {
+    const existing = this.pending401s.get(serverKey);
+    if (existing) {
+      logger.debug(`401 dedup: sharing pending refresh for ${serverKey}`);
+      return existing;
+    }
+
+    const promise = this.doHandle401(serverKey, failedAccessToken);
+    this.pending401s.set(serverKey, promise);
+
+    try {
+      return await promise;
+    } finally {
+      this.pending401s.delete(serverKey);
+    }
+  }
+
+  private async doHandle401(
+    serverKey: string,
+    failedAccessToken?: string
+  ): Promise<boolean> {
+    const token = this.getCachedToken(serverKey);
+    if (!token) return false;
+
+    // 如果失败 token 与当前缓存的不同，说明已被其他请求刷新过
+    if (failedAccessToken && token.accessToken !== failedAccessToken) {
+      return true;
+    }
+
+    const refreshCb = this.refreshCallbacks.get(serverKey);
+    if (!refreshCb) return false;
+
+    try {
+      const newToken = await refreshCb(token.refreshToken);
+      await this.cacheToken(serverKey, newToken);
+      logger.info(`401 handled: token refreshed for ${serverKey}`);
+      return true;
+    } catch {
+      logger.warn(`401 handle failed for ${serverKey}`);
+      return false;
+    }
   }
 
   /**

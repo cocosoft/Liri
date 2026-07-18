@@ -77,7 +77,8 @@ export const useTranslateStore = create<TranslateStore>()((set, get) => ({
    * 执行流式翻译
    *
    * 调用 translateService.streamTranslate() 逐 token 接收结果，
-   * 实时更新 translatedText，完成后设置 lastResult。
+   * 使用 requestAnimationFrame 批量合并 token 更新，避免频繁
+   * React 重渲染导致输入卡顿。
    */
   translate: () => {
     const { sourceText, sourceLang, targetLang } = get();
@@ -90,12 +91,34 @@ export const useTranslateStore = create<TranslateStore>()((set, get) => ({
 
     set({ isTranslating: true, isStreaming: true, error: null, canFallback: false, translatedText: '' });
 
+    // requestAnimationFrame 批量合并：积累 token 到 pending，每帧 flush 一次
+    let pendingTokens = '';
+    let rafId: number | null = null;
+
+    const flushTokens = () => {
+      if (pendingTokens) {
+        const batch = pendingTokens;
+        pendingTokens = '';
+        set((state) => ({ translatedText: state.translatedText + batch }));
+      }
+      rafId = null;
+    };
+
     abortController = translateService.streamTranslate(
       { text: sourceText, sourceLang, targetLang },
       (token) => {
-        set((state) => ({ translatedText: state.translatedText + token }));
+        pendingTokens += token;
+        if (rafId === null) {
+          rafId = requestAnimationFrame(flushTokens);
+        }
       },
       (result) => {
+        // 确保所有未 flush 的 token 都写入
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        flushTokens();
         set({
           translatedText: result.translatedText,
           lastResult: result,
@@ -106,6 +129,10 @@ export const useTranslateStore = create<TranslateStore>()((set, get) => ({
         abortController = null;
       },
       (error, canFallback) => {
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
         set({
           error,
           canFallback,

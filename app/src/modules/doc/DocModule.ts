@@ -4,8 +4,10 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
-import { feature } from '@modules/core';
+import { feature, resolveOutputDir } from '@modules/core';
 import { isBuildVariant } from '@modules/core/featureFlags';
+import { join } from 'path';
+import { readdirSync, statSync } from 'fs';
 
 import type {
   OfficeCLIInfo,
@@ -46,6 +48,8 @@ let docModuleInstance: DocModule | null = null;
 export class DocModule {
   private status: DocModuleStatus = Status.UNINITIALIZED;
   private healthCheckTimer: ReturnType<typeof setInterval> | null = null;
+  /** 检测到的 OfficeCLI 版本号（initFullMode 时记录） */
+  private officeCLIVersion?: string;
 
   /** 核心组件 */
   readonly executionGuardian = new ExecutionGuardian();
@@ -110,7 +114,19 @@ export class DocModule {
 
       await this.initFullMode(info);
     } else {
-      await this.initDegradedMode();
+      // 回退检查：detectOfficeCLI 未找到，但可能已通过 MCP 配置连接了 officecli
+      // （例如用户通过 MCP 设置 UI 手动配置，或 Tauri 侧预先注册）
+      const existingMcp = await this.findExistingOfficeCLIMcp();
+      if (existingMcp) {
+        logger.info(
+          'detectOfficeCLI 未找到但 MCP 中已有 officecli 服务器，进入完整模式'
+        );
+        this.status = Status.FULL;
+        this.officeCLIVersion = existingMcp.version;
+        // 不重复注册 MCP server（已在 MCP 层注册）
+      } else {
+        await this.initDegradedMode();
+      }
     }
 
     // 注册渠道感知工具
@@ -146,19 +162,48 @@ export class DocModule {
   }
 
   /**
-   * 获取能力报告
+   * 获取能力报告（前端 /v1/doc/status 的数据来源）
    */
   getCapabilities(): DocCapabilityReport {
+    const templateMetas = this.templateEngine.getTemplates();
+    const templateNames = templateMetas.map((t) => t.name);
+
     return {
       status: this.status,
       officeCliInfo: {
         installed: this.status === Status.FULL,
-        version: undefined,
+        version: this.officeCLIVersion,
       },
       connectedCount: this.status === Status.FULL ? 1 : 0,
       toolCount: this.templateEngine.templateCount,
       templateCount: this.templateEngine.templateCount,
+      templates: templateNames,
+      documents: this.scanOutputDirectory(),
     };
+  }
+
+  /**
+   * 扫描输出目录中的文档文件列表
+   */
+  private scanOutputDirectory(): {
+    name: string;
+    size: number;
+    mtime: number;
+  }[] {
+    try {
+      const outputDir = resolveOutputDir();
+      const entries = readdirSync(outputDir);
+      return entries
+        .filter((e: string) => /\.(docx|xlsx|pptx|pdf|html)$/i.test(e))
+        .map((e: string) => {
+          const s = statSync(join(outputDir, e));
+          return { name: e, size: s.size, mtime: s.mtimeMs };
+        })
+        .sort((a, b) => b.mtime - a.mtime)
+        .slice(0, 20);
+    } catch {
+      return [];
+    }
   }
 
   /**
@@ -174,10 +219,34 @@ export class DocModule {
   }
 
   /**
+   * 检查 MCP Server Manager 中是否已有 officecli 服务器注册
+   * 用于 detectOfficeCLI() 失败时的回退检查
+   */
+  private async findExistingOfficeCLIMcp(): Promise<{
+    version?: string;
+  } | null> {
+    try {
+      const { getMCPServerManager } =
+        await import('@modules/services/mcp/MCPServerManager');
+      const manager = getMCPServerManager();
+      const server = manager.getServer('officecli');
+
+      if (server) {
+        logger.info('MCP 中检测到已有 officecli 服务器连接');
+        return { version: undefined };
+      }
+    } catch (error) {
+      logger.debug('检查 MCP officecli 服务器失败', { error: String(error) });
+    }
+    return null;
+  }
+
+  /**
    * 完整模式初始化：OfficeCLI 已安装
    */
   private async initFullMode(info: OfficeCLIInfo): Promise<void> {
     this.status = Status.FULL;
+    this.officeCLIVersion = info.version;
     logger.info('OfficeCLI 已安装，进入完整模式', { version: info.version });
 
     // 生成 MCP 配置并注册服务器

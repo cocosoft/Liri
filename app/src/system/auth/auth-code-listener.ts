@@ -1,10 +1,24 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+
 /**
- * OAuth授权码回调监听器
- * 启动本地HTTP服务器，捕获OAuth提供商的授权码重定向
+ * OAuth 授权码回调监听器
+ * 启动本地 HTTP 服务器，捕获 OAuth 提供商的授权码重定向。
+ *
+ * Phase 4 增强（对标 cline-main AuthHandler）:
+ *   - 端口范围扫描（避免冲突）
+ *   - 端口保持（重启时复用上次端口）
+ *   - 10 分钟空闲超时自动关闭
  */
 
 import { createServer, type Server } from 'http';
 import type { AddressInfo } from 'net';
+
+/** 默认端口范围（对标 cline-main 48801-48811） */
+const DEFAULT_PORT_RANGE = { start: 48801, end: 48811 };
+
+/** 空闲超时（对标 cline-main 10 分钟） */
+const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
 
 export class AuthCodeListener {
   private localServer: Server;
@@ -14,26 +28,76 @@ export class AuthCodeListener {
   private expectedState: string | null = null;
   private pendingResponse: import('http').ServerResponse | null = null;
   private callbackPath: string;
+  private preferredPort?: number;
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(callbackPath: string = '/callback') {
+  constructor(callbackPath: string = '/callback', preferredPort?: number) {
     this.localServer = createServer();
     this.callbackPath = callbackPath;
+    this.preferredPort = preferredPort;
   }
 
+  /**
+   * 启动回调服务器。
+   * 优先使用 preferredPort，被占用则扫描 DEFAULT_PORT_RANGE。
+   */
   async start(port?: number): Promise<number> {
-    return new Promise((resolve, reject) => {
-      this.localServer.once('error', (err) => {
-        reject(
-          new Error(`Failed to start OAuth callback server: ${err.message}`)
-        );
-      });
+    // 先尝试 preferredPort
+    if (this.preferredPort && !port) {
+      try {
+        const bound = await this.tryBind(this.preferredPort);
+        this.startIdleTimer();
+        return bound;
+      } catch {
+        // 端口被占用，回退到范围扫描
+      }
+    }
 
-      this.localServer.listen(port ?? 0, 'localhost', () => {
+    // 指定了固定端口，直接绑定
+    if (port) {
+      return this.tryBind(port);
+    }
+
+    // 端口范围扫描
+    for (let p = DEFAULT_PORT_RANGE.start; p <= DEFAULT_PORT_RANGE.end; p++) {
+      try {
+        const bound = await this.tryBind(p);
+        this.preferredPort = p;
+        this.startIdleTimer();
+        return bound;
+      } catch {
+        continue;
+      }
+    }
+
+    throw new Error(
+      `OAuth 回调服务器无法绑定端口，范围 ${DEFAULT_PORT_RANGE.start}-${DEFAULT_PORT_RANGE.end}`
+    );
+  }
+
+  private tryBind(port: number): Promise<number> {
+    return new Promise((resolve, reject) => {
+      this.localServer.once('error', (err) => reject(err));
+      this.localServer.listen(port, '127.0.0.1', () => {
         const address = this.localServer.address() as AddressInfo;
         this.port = address.port;
         resolve(this.port);
       });
     });
+  }
+
+  /** 每次请求重置空闲计时器 */
+  private resetIdleTimer(): void {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => {
+      this.close();
+    }, IDLE_TIMEOUT_MS);
+  }
+
+  private startIdleTimer(): void {
+    this.idleTimer = setTimeout(() => {
+      this.close();
+    }, IDLE_TIMEOUT_MS);
   }
 
   getPort(): number {
@@ -80,6 +144,8 @@ export class AuthCodeListener {
     req: import('http').IncomingMessage,
     res: import('http').ServerResponse
   ): void {
+    this.resetIdleTimer();
+
     const parsedUrl = new URL(
       req.url || '',
       `http://${req.headers.host || 'localhost'}`
@@ -141,6 +207,8 @@ export class AuthCodeListener {
   }
 
   close(): void {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    if (!this.localServer.listening) return;
     this.reject(new Error('Auth code listener closed'));
     if (this.localServer) {
       this.localServer.removeAllListeners();

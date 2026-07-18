@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 归档定时任务调度
  * 将 DataArchivalStrategy 集成到调度系统中
  * 支持两种方式：
@@ -57,6 +57,8 @@ export interface ArchivalSchedulerConfig {
 export interface ArchivalSchedulerHandle {
   stop(): void;
   removeTask(id: string): void;
+  getTasks(): Array<{ id: string; cron: string }>;
+  executeTaskManually(taskId: string): Promise<boolean>;
 }
 
 /** 调度检查间隔 */
@@ -129,6 +131,8 @@ export function setupArchivalScheduler(
 
   logger.info('归档调度器已启动', { cron });
 
+  const taskEntry = { id: ARCHIVAL_TASK_ID, cron };
+
   return {
     stop(): void {
       if (timerId !== null) {
@@ -140,6 +144,23 @@ export function setupArchivalScheduler(
     removeTask(_id: string): void {
       // 定时器调度器只有一个内置任务，stop 即可停止所有
       this.stop();
+    },
+    getTasks(): Array<{ id: string; cron: string }> {
+      if (timerId === null) {
+        return [];
+      }
+      return [taskEntry];
+    },
+    async executeTaskManually(taskId: string): Promise<boolean> {
+      if (taskId !== ARCHIVAL_TASK_ID) {
+        return false;
+      }
+      const result = await executeArchivalMaintenance(
+        options?.archivalConfig,
+        options?.incidentManager
+      );
+      options?.onTaskComplete?.(result);
+      return result.success;
     },
   };
 }

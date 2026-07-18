@@ -162,7 +162,7 @@ function registerAiSettings(): void {
     description: 'Anthropic 使用的模型',
     type: 'string',
     defaultValue: '',
-    example: 'claude-opus-4-20250514',
+    example: '',
   });
 
   configSchema.registerItem('AI 设置', {

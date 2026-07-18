@@ -37,5 +37,6 @@ export interface CalendarAddArgs {
 export enum CalendarModuleStatus {
   UNINITIALIZED = 'uninitialized',
   READY = 'ready',
+  DEGRADED = 'degraded',
   SHUTDOWN = 'shutdown',
 }

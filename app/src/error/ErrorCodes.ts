@@ -144,6 +144,22 @@ export const ErrorCodes = {
     message: '权限不足',
     level: 'WARN' as const,
   },
+  // OAuth 加密存储错误
+  OAUTH_ENCRYPTION_KEY_MISSING: {
+    code: 310,
+    message: 'OAUTH_ENCRYPTION_KEY 环境变量未配置',
+    level: 'CRITICAL' as const,
+  },
+  OAUTH_ENCRYPTION_KEY_TOO_SHORT: {
+    code: 311,
+    message: 'OAUTH_ENCRYPTION_KEY 长度不足 32 字符',
+    level: 'CRITICAL' as const,
+  },
+  OAUTH_CALLBACK_PORT_EXHAUSTED: {
+    code: 312,
+    message: 'OAuth 回调服务器端口耗尽',
+    level: 'ERROR' as const,
+  },
   PERMISSION_DENIED: {
     code: 4000,
     message: '权限不足',

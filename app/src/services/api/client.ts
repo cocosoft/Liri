@@ -27,11 +27,8 @@ export class ApiClient {
 
   constructor(config: Partial<ApiClientConfig> = {}) {
     this.config = {
-      baseUrl:
-        config.baseUrl ||
-        configManager.env('API_BASE_URL') ||
-        'https://api.anthropic.com',
-      apiKey: config.apiKey || configManager.env('ANTHROPIC_API_KEY'),
+      baseUrl: config.baseUrl || configManager.env('API_BASE_URL') || '',
+      apiKey: config.apiKey || configManager.env('API_KEY') || '',
       oauthToken: config.oauthToken || configManager.env('OAUTH_TOKEN'),
       maxRetries: config.maxRetries ?? 3,
       timeoutMs: config.timeoutMs ?? 600000,

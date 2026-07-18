@@ -320,7 +320,7 @@ export class IntelligentMCPAnalyzer {
       stabilityScore,
       healthTrend,
       recentIncidents,
-      recoveryTime: 5000 + Math.random() * 15000, // 模拟恢复时间
+      recoveryTime: 0, // 无真实数据时不编造
     };
   }
 
@@ -360,8 +360,8 @@ export class IntelligentMCPAnalyzer {
       averageConnectionTime: analytics.averageConnectionTime,
       reconnectionRate: Math.round(reconnectionRate),
       connectionStability: Math.round(connectionStability),
-      protocolEfficiency: Math.round(80 + Math.random() * 20),
-      connectionPoolUtilization: Math.round(50 + Math.random() * 40),
+      protocolEfficiency: 0,
+      connectionPoolUtilization: 0,
     };
   }
 
@@ -437,7 +437,7 @@ export class IntelligentMCPAnalyzer {
 
     return {
       totalResources: analytics.totalResources,
-      resourceUtilization: Math.round(50 + Math.random() * 40),
+      resourceUtilization: 0,
       cacheEfficiency: Math.round(analytics.cacheHitRate),
       readWriteRatio:
         analytics.averageWriteTime > 0
@@ -451,27 +451,87 @@ export class IntelligentMCPAnalyzer {
   private analyzeTrends(serverName: string): MCPTrendAnalysis {
     const history = this.analysisHistory.get(serverName) || [];
 
+    if (history.length < 3) {
+      return {
+        performanceTrend: {
+          direction: 'stable',
+          confidence: 0.3,
+          projection: 0,
+        },
+        healthTrend: { direction: 'stable', confidence: 0.3, projection: 0 },
+        usageTrend: { direction: 'stable', confidence: 0.3, projection: 0 },
+        errorTrend: { direction: 'stable', confidence: 0.3, projection: 0 },
+      };
+    }
+
+    const recent = history.slice(-10);
+    const scores = recent.map((r) => r.overallScore);
+    const stabilityScores = recent.map((r) => r.analysis.health.stabilityScore);
+    const responseTimes = recent.map(
+      (r) => r.analysis.performance.averageResponseTime
+    );
+    const activeToolCounts = recent.map((r) => r.analysis.tools.activeTools);
+
+    const calcTrend = (values: number[], inverse: boolean = false) => {
+      const n = values.length;
+      let sumX = 0,
+        sumY = 0,
+        sumXY = 0,
+        sumX2 = 0;
+      for (let i = 0; i < n; i++) {
+        sumX += i;
+        sumY += values[i];
+        sumXY += i * values[i];
+        sumX2 += i * i;
+      }
+      const slope =
+        n > 1 ? (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX) : 0;
+      const effectiveSlope = inverse ? -slope : slope;
+      const mean = sumY / n;
+      const threshold = mean > 0 ? mean * 0.02 : 0.1;
+      const direction =
+        Math.abs(effectiveSlope) < threshold
+          ? ('stable' as const)
+          : effectiveSlope > 0
+            ? ('improving' as const)
+            : ('degrading' as const);
+      const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / n;
+      const confidence = Math.min(
+        0.95,
+        Math.max(0.3, 1 - Math.sqrt(variance) / (mean || 1))
+      );
+      const projection = values[n - 1] + effectiveSlope * 3;
+      return { direction, confidence, projection };
+    };
+
+    const n = recent.length;
+    const last = n - 1;
     return {
-      performanceTrend: {
-        direction: 'stable',
-        confidence: 0.7,
-        projection: 75,
-      },
+      performanceTrend: calcTrend(
+        responseTimes,
+        true
+      ) as MCPTrendAnalysis['performanceTrend'],
       healthTrend: {
-        direction: 'stable',
-        confidence: 0.8,
-        projection: 80,
-      },
+        ...calcTrend(stabilityScores),
+        direction:
+          stabilityScores[last] > stabilityScores[0]
+            ? ('improving' as const)
+            : ('declining' as const),
+      } as MCPTrendAnalysis['healthTrend'],
       usageTrend: {
-        direction: 'increasing',
-        confidence: 0.65,
-        projection: 120,
-      },
+        ...calcTrend(activeToolCounts),
+        direction:
+          activeToolCounts[last] > activeToolCounts[0]
+            ? ('increasing' as const)
+            : ('decreasing' as const),
+      } as MCPTrendAnalysis['usageTrend'],
       errorTrend: {
-        direction: 'decreasing',
-        confidence: 0.6,
-        projection: 2,
-      },
+        ...calcTrend(scores, false),
+        direction:
+          scores[last] < scores[0]
+            ? ('decreasing' as const)
+            : ('increasing' as const),
+      } as MCPTrendAnalysis['errorTrend'],
     };
   }
 

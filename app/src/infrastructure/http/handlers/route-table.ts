@@ -873,6 +873,19 @@ export async function dispatchRoute(
     return true;
   }
 
+  // ---- Files: FileLinker (路径解析 & 系统打开)
+  // ---- Files: FileLinker (路径解析 & 系统打开) ----
+  if (method === 'GET' && url === '/api/file/resolve-path') {
+    const { handleResolveFilePath } = await import('./file-linker-handlers');
+    await handleResolveFilePath(handlerCtx, req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/api/file/open') {
+    const { handleOpenFile } = await import('./file-linker-handlers');
+    await handleOpenFile(handlerCtx, req, res);
+    return true;
+  }
+
   // ---- Files: Registry API ----
   if (method === 'GET' && url === '/v1/files/health') {
     await self['handleFileHealth'](req, res);

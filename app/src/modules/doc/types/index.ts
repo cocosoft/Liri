@@ -36,6 +36,10 @@ export interface DocCapabilityReport {
   connectedCount: number;
   toolCount: number;
   templateCount: number;
+  /** 已注册的模板名称列表（用于前端展示） */
+  templates: string[];
+  /** 输出目录中的文档文件列表 */
+  documents: { name: string; size: number; mtime: number }[];
 }
 
 /** MCP 请求类型 */

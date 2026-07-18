@@ -35,14 +35,14 @@ export {
   type SystemPromptParts,
 } from './PromptTemplates';
 export {
-  ClaudeMdIntegrationImpl,
-  createClaudeMdIntegration,
+  ProjectRulesLoaderImpl,
+  createProjectRulesLoader,
   filterInjectedMemoryFiles,
-  type ClaudeMdConfig,
-  type ClaudeMdRules,
+  type RulesConfig,
+  type ProjectRules,
   type MemoryFileInfo,
   type MemoryType,
-} from './ClaudeMdIntegration';
+} from './ProjectRulesLoader';
 
 // React上下文
 export {

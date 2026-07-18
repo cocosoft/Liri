@@ -324,23 +324,13 @@ export async function handleGetAgentModelBindings(
     const bindings = config.agentModelBindings || [
       {
         agentRole: 'default',
-        model: config.defaultModel || 'claude-sonnet-4-20250514',
+        model: config.defaultModel || '',
         maxTokens: 4096,
         temperature: 0.7,
       },
     ];
 
     const availableModels = config.availableModels || [
-      {
-        id: 'claude-sonnet-4-20250514',
-        name: 'Claude Sonnet 4',
-        provider: 'anthropic',
-      },
-      {
-        id: 'claude-opus-4-20250514',
-        name: 'Claude Opus 4',
-        provider: 'anthropic',
-      },
       { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai' },
     ];
 

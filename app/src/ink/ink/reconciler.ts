@@ -188,9 +188,7 @@ export function getOwnerChain(fiber: unknown): string[] {
 let debugRepaints: boolean | undefined;
 export function isDebugRepaintsEnabled(): boolean {
   if (debugRepaints === undefined) {
-    debugRepaints = isEnvTruthy(
-      configManager.env('CLAUDE_CODE_DEBUG_REPAINTS')
-    );
+    debugRepaints = isEnvTruthy(configManager.env('PYAPP_DEBUG_REPAINTS'));
   }
   return debugRepaints;
 }
@@ -198,7 +196,7 @@ export function isDebugRepaintsEnabled(): boolean {
 export const dispatcher = new Dispatcher();
 
 // --- COMMIT INSTRUMENTATION (temp debugging) ---
-const COMMIT_LOG = configManager.env('CLAUDE_CODE_COMMIT_LOG');
+const COMMIT_LOG = configManager.env('PYAPP_COMMIT_LOG');
 let _commits = 0;
 let _lastLog = 0;
 let _lastCommitAt = 0;

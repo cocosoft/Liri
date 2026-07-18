@@ -386,7 +386,7 @@ ${modelList}
   /chat 你好
   /chat --show-cost 帮我写一段Python代码
   /chat --stream --model=deepseek-reasoner 请给我写一个算法
-  /chat --provider=anthropic --model=claude-3-5-sonnet-20241022 你好
+  /chat --provider=deepseek --model=deepseek-chat 你好
 
 注意: 需要配置相应的API密钥才能使用此命令。
 使用 /cost 查看总花费

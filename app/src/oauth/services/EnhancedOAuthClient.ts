@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 增强版OAuth客户端
  * 集成OAuthDiscovery实现自动元数据发现
  * 参考CC源码的多环境配置模式
@@ -7,10 +7,8 @@
 import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'EnhancedOAuthClient' });
-import {
-  OAuthDiscovery,
-  type OAuthMetadata,
-} from '../services/OAuthDiscovery.js';
+import { OAuthDiscovery } from '../services/OAuthDiscovery.js';
+import type { OAuthServerMetadata } from '../types/OAuthDiscoveryTypes';
 import { TokenManager, type CachedToken } from '../services/TokenManager.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
@@ -23,7 +21,7 @@ export interface EnhancedOAuthConfig {
   clientSecret?: string;
   redirectUri: string;
   scopes?: string[];
-  metadata?: OAuthMetadata;
+  metadata?: OAuthServerMetadata;
 }
 
 /**
@@ -34,7 +32,7 @@ export class EnhancedOAuthClient {
   private config: EnhancedOAuthConfig;
   private discovery: OAuthDiscovery;
   private tokenManager: TokenManager;
-  private metadata: OAuthMetadata | null = null;
+  private metadata: OAuthServerMetadata | null = null;
 
   constructor(config: EnhancedOAuthConfig) {
     this.config = config;
@@ -76,7 +74,7 @@ export class EnhancedOAuthClient {
       );
     }
 
-    const url = new URL(this.metadata.authorization_endpoint);
+    const url = new URL(this.metadata.authorizationEndpoint);
     url.searchParams.append('response_type', 'code');
     url.searchParams.append('client_id', this.config.clientId);
     url.searchParams.append('redirect_uri', this.config.redirectUri);
@@ -122,11 +120,11 @@ export class EnhancedOAuthClient {
     }
 
     logger.info(
-      `Exchanging authorization code for token at ${this.metadata.token_endpoint}`
+      `Exchanging authorization code for token at ${this.metadata.tokenEndpoint}`
     );
 
     try {
-      const response = await fetch(this.metadata.token_endpoint, {
+      const response = await fetch(this.metadata.tokenEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -186,10 +184,10 @@ export class EnhancedOAuthClient {
       requestBody['client_secret'] = this.config.clientSecret;
     }
 
-    logger.info(`Refreshing token at ${this.metadata.token_endpoint}`);
+    logger.info(`Refreshing token at ${this.metadata.tokenEndpoint}`);
 
     try {
-      const response = await fetch(this.metadata.token_endpoint, {
+      const response = await fetch(this.metadata.tokenEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -244,7 +242,7 @@ export class EnhancedOAuthClient {
   /**
    * 获取OAuth元数据
    */
-  getMetadata(): OAuthMetadata | null {
+  getMetadata(): OAuthServerMetadata | null {
     return this.metadata;
   }
 

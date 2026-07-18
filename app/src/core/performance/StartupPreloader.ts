@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * 启动预加载服务
  * 参考CC源码的并行预加载机制，在应用启动时并行执行所有预加载任务
@@ -177,8 +177,8 @@ export function createDefaultPreloadTasks(): PreloadTask[] {
           const { createOAuthStorage } =
             await import('../../oauth/services/OAuthStorage.js');
           const storage = createOAuthStorage();
-          await storage.loadAllTokens();
-          logger.debug('OAuth tokens preloaded');
+          const keys = await storage.listKeys();
+          logger.debug(`OAuth tokens preloaded: ${keys.length} keys`);
         } catch (error) {
           logger.warn('Failed to preload OAuth tokens:', {
             error: String(error),

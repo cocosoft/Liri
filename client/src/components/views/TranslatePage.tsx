@@ -7,7 +7,7 @@
  * 词汇备选翻译、对照模式、分享、识图翻译。
  */
 
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { useTranslateStore } from "../../stores/translateStore";
@@ -122,14 +122,311 @@ function splitByParagraph(text: string): string[] {
     .filter(Boolean);
 }
 
+/** 语速选项 */
+const SPEED_OPTIONS = [
+  { rate: 1.0, labelKey: "translate.speechNormal" },
+  { rate: 0.75, labelKey: "translate.speechSlow" },
+  { rate: 0.5, labelKey: "translate.speechSlower" },
+];
+
+/** 译文输出面板属性 */
+interface TranslateOutputPanelProps {
+  theme: { isDark: boolean };
+  onClear: () => void;
+}
+
+/**
+ * 译文输出面板
+ *
+ * 从 TranslatePage 独立出来，通过 React.memo 隔离 translatedText 订阅，
+ * 确保流式翻译时仅此组件重渲染，不影响输入区。
+ */
+const TranslateOutputPanel = React.memo(function TranslateOutputPanel({
+  theme,
+  onClear,
+}: TranslateOutputPanelProps) {
+  const { t } = useTranslation();
+  const isDark = theme.isDark;
+
+  const {
+    sourceText, translatedText, isTranslating, isStreaming,
+    compareMode, lastResult,
+  } = useTranslateStore();
+
+  const [copied, setCopied] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speechRate, setSpeechRate] = useState(1.0);
+  const [speedMenuOpen, setSpeedMenuOpen] = useState(false);
+  const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const [alternatives, setAlternatives] = useState<AlternativeTranslation[]>([]);
+  const [altsLoading, setAltsLoading] = useState(false);
+  const [popoverPos, setPopoverPos] = useState<{ x: number; y: number } | null>(null);
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
+
+  const targetOutputRef = useRef<HTMLDivElement>(null);
+
+  // ── 主题色 ──
+  const textColor = isDark ? "text-gray-300" : "text-gray-700";
+  const mutedColor = isDark ? "text-gray-500" : "text-gray-400";
+  const inputBg = isDark ? "bg-gray-800" : "bg-gray-50";
+  const inputBorder = isDark ? "border-gray-700" : "border-gray-200";
+  const selectBg = isDark ? "bg-gray-800" : "bg-white";
+  const btnSecondary = isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-300" : "bg-gray-200 hover:bg-gray-300 text-gray-700";
+  const btnGhost = "bg-transparent hover:bg-gray-200/50 dark:hover:bg-gray-700/50";
+  const successBg = isDark ? "bg-green-900/30" : "bg-green-50";
+  const successText = isDark ? "text-green-400" : "text-green-600";
+  const borderColor = isDark ? "#374151" : "#e5e7eb";
+  const compareHover = isDark ? "hover:bg-gray-700/50" : "hover:bg-gray-100";
+
+  // ── 派生状态 ──
+  const hasResult = translatedText.length > 0;
+  const showTranslating = isTranslating && !hasResult;
+
+  // ── 对照模式段落数据 ──
+  const compareParagraphs = useMemo(() => {
+    if (!sourceText || !translatedText) return [];
+    const srcPars = splitByParagraph(sourceText);
+    const tgtPars = splitByParagraph(translatedText);
+    const maxLen = Math.max(srcPars.length, tgtPars.length);
+    const result: Array<{ source: string; target: string }> = [];
+    for (let i = 0; i < maxLen; i++) {
+      result.push({ source: srcPars[i] || "", target: tgtPars[i] || "" });
+    }
+    return result;
+  }, [sourceText, translatedText]);
+
+  // ── 复制 ──
+  const handleCopy = useCallback(async () => {
+    if (!translatedText) return;
+    try {
+      await navigator.clipboard.writeText(translatedText);
+      setCopied(true); setTimeout(() => setCopied(false), 2000);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = translatedText; document.body.appendChild(ta);
+      ta.select(); document.execCommand("copy");
+      document.body.removeChild(ta);
+      setCopied(true); setTimeout(() => setCopied(false), 2000);
+    }
+  }, [translatedText]);
+
+  // ── TTS 朗读 ──
+  const handleSpeak = useCallback(() => {
+    if (!translatedText || !lastResult) return;
+    const u = new SpeechSynthesisUtterance(translatedText);
+    u.lang = TTS_LANG_MAP[lastResult.targetLang] || lastResult.targetLang;
+    u.rate = speechRate;
+    u.onstart = () => setIsSpeaking(true);
+    u.onend = () => setIsSpeaking(false);
+    u.onerror = () => setIsSpeaking(false);
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  }, [translatedText, lastResult, speechRate]);
+
+  // ── 备选翻译：点击词 ──
+  const handleWordClick = useCallback(async (word: string, event: React.MouseEvent) => {
+    if (!lastResult) return;
+    if (selectedWord === word) {
+      setSelectedWord(null); setAlternatives([]); setPopoverPos(null);
+      return;
+    }
+    setSelectedWord(word);
+    setAlternatives([]);
+    setAltsLoading(true);
+    setPopoverPos({ x: event.clientX, y: event.clientY });
+    try {
+      const result = await translateService.getAlternatives({
+        word, sourceLang: lastResult.sourceLang,
+        targetLang: lastResult.targetLang, context: lastResult.sourceText,
+      });
+      setAlternatives(result.alternatives);
+    } catch {
+      setAlternatives([]);
+    } finally {
+      setAltsLoading(false);
+    }
+  }, [lastResult, selectedWord]);
+
+  // ── 备选翻译：选中替换 ──
+  const handleSelectAlternative = useCallback((translation: string) => {
+    if (!selectedWord) return;
+    const escaped = selectedWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const current = useTranslateStore.getState().translatedText;
+    const replaced = current.replace(new RegExp(`\\b${escaped}\\b`, 'u'), translation);
+    if (replaced !== current) {
+      useTranslateStore.setState({ translatedText: replaced });
+    }
+    setSelectedWord(null); setAlternatives([]); setPopoverPos(null);
+  }, [selectedWord]);
+
+  const handleCloseAlternatives = useCallback(() => {
+    setSelectedWord(null); setAlternatives([]); setPopoverPos(null);
+  }, []);
+
+  // ── 分享 ──
+  const handleShareCopyText = useCallback(async () => {
+    if (!lastResult) return;
+    const sourceLabel = LANG_NAME_MAP[lastResult.sourceLang]
+      ? t(LANG_NAME_MAP[lastResult.sourceLang]) : lastResult.sourceLang;
+    const targetLabel = LANG_NAME_MAP[lastResult.targetLang]
+      ? t(LANG_NAME_MAP[lastResult.targetLang]) : lastResult.targetLang;
+    const text = t("translate.shareResult", {
+      source: sourceLabel,
+      target: targetLabel,
+      sourceText: lastResult.sourceText,
+      translatedText: lastResult.translatedText,
+    }).replace(/\\n/g, "\n");
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = text; document.body.appendChild(ta);
+      ta.select(); document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setShareMenuOpen(false);
+  }, [lastResult, t]);
+
+  const handleShareCopyLink = useCallback(async () => {
+    if (!lastResult) return;
+    const params = new URLSearchParams({
+      text: lastResult.sourceText,
+      from: lastResult.sourceLang,
+      to: lastResult.targetLang,
+    });
+    const url = `${window.location.origin}/translate?${params.toString()}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = url; document.body.appendChild(ta);
+      ta.select(); document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setShareMenuOpen(false);
+  }, [lastResult]);
+
+  return (
+    <div className="flex-1 flex flex-col min-w-0 p-5">
+      {/* 头部 */}
+      <div className="flex items-center justify-between mb-2">
+        <label className={`text-xs font-medium ${mutedColor}`}>{t("translate.targetText")}</label>
+        {hasResult && !isTranslating && (
+          <div className="flex items-center gap-1">
+            <div className="relative">
+              <button onClick={() => setShareMenuOpen(!shareMenuOpen)}
+                className={`w-7 h-7 rounded-lg border-0 cursor-pointer transition-colors flex items-center justify-center text-xs ${btnGhost} ${mutedColor}`}
+                title={t("translate.share")}>↗</button>
+              {shareMenuOpen && (
+                <div className={`absolute right-0 top-full mt-1 rounded-xl border shadow-xl py-1.5 z-10 min-w-[130px] ${selectBg} ${inputBorder}`}>
+                  <button onClick={handleShareCopyText}
+                    className={`block w-full px-4 py-1.5 text-left text-xs border-0 cursor-pointer whitespace-nowrap ${btnGhost} ${textColor}`}>
+                    {t("translate.shareCopyText")}
+                  </button>
+                  <button onClick={handleShareCopyLink}
+                    className={`block w-full px-4 py-1.5 text-left text-xs border-0 cursor-pointer whitespace-nowrap ${btnGhost} ${textColor}`}>
+                    {t("translate.shareCopyLink")}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 输出内容 */}
+      {compareMode && hasResult && !isTranslating ? (
+        <div className={`w-full rounded-xl border overflow-y-auto ${inputBg} ${inputBorder} ${textColor}`}
+          style={{ minHeight: "120px", maxHeight: "400px" }}>
+          {compareParagraphs.map((para, idx) => (
+            <div key={idx} className={`px-5 py-3 transition-colors ${compareHover}`}
+              style={{ borderBottom: idx < compareParagraphs.length - 1 ? `1px solid ${borderColor}` : "none" }}>
+              <div className={`text-sm leading-relaxed mb-1.5 ${mutedColor}`}>
+                {para.source || <span className="italic opacity-50">—</span>}
+              </div>
+              <div className="text-sm leading-relaxed">
+                {para.target || <span className="italic opacity-50">—</span>}
+              </div>
+            </div>
+          ))}
+          {compareParagraphs.length === 0 && (
+            <div className={`px-5 py-4 text-sm ${mutedColor}`}>{t("translate.resultPlaceholder")}</div>
+          )}
+        </div>
+      ) : (
+        <div ref={targetOutputRef}
+          className={`w-full rounded-xl border p-5 text-base leading-relaxed overflow-y-auto whitespace-pre-wrap ${inputBg} ${inputBorder} ${textColor}`}
+          style={{ minHeight: "120px", maxHeight: "400px" }}>
+          {showTranslating && isStreaming ? (
+            <span>{translatedText}<span className="inline-block w-2 h-4 bg-blue-400 animate-pulse ml-0.5 align-middle" /></span>
+          ) : showTranslating ? (
+            <span className={mutedColor}>{t("translate.translating")}</span>
+          ) : hasResult ? (
+            <SplitText text={translatedText} isDark={isDark} onWordClick={handleWordClick} />
+          ) : (
+            <span className={mutedColor}>{t("translate.resultPlaceholder")}</span>
+          )}
+        </div>
+      )}
+
+      {/* 底部操作栏 */}
+      {hasResult && !isTranslating && (
+        <div className="flex justify-end items-center gap-2 mt-3">
+          <div className="relative">
+            <button onClick={handleSpeak}
+              disabled={isSpeaking || !("speechSynthesis" in window)}
+              className={`w-9 h-9 rounded-xl text-sm border-0 cursor-pointer transition-colors flex items-center justify-center ${isSpeaking ? successBg + " " + successText : btnSecondary} disabled:opacity-50 disabled:cursor-not-allowed`}
+              title={t("translate.speak")}>{isSpeaking ? "🔊" : "🔈"}</button>
+            <button onClick={() => setSpeedMenuOpen(!speedMenuOpen)}
+              className={`ml-1 px-1.5 py-1 rounded-lg text-xs border-0 cursor-pointer ${btnSecondary}`}
+              title={t("translate.speechRate")}>
+              {speechRate === 1.0 ? "1x" : speechRate === 0.75 ? "0.75x" : "0.5x"}
+            </button>
+            {speedMenuOpen && (
+              <div className={`absolute bottom-full right-0 mb-1 rounded-xl border shadow-lg py-1 z-10 ${selectBg} ${inputBorder}`}>
+                {SPEED_OPTIONS.map((opt) => (
+                  <button key={opt.rate}
+                    onClick={() => { setSpeechRate(opt.rate); setSpeedMenuOpen(false); }}
+                    className={`block w-full px-4 py-1.5 text-left text-xs border-0 cursor-pointer whitespace-nowrap ${speechRate === opt.rate ? "bg-blue-600 text-white" : `${btnGhost} ${textColor}`}`}>
+                    {t(opt.labelKey)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button onClick={handleCopy}
+            className={`w-9 h-9 rounded-xl text-sm border-0 cursor-pointer transition-colors flex items-center justify-center ${copied ? successBg + " " + successText : btnSecondary}`}
+            title={t("translate.copy")}>
+            {copied ? "✓" : "📋"}
+          </button>
+          <button onClick={onClear}
+            className={`w-9 h-9 rounded-xl text-sm border-0 cursor-pointer transition-colors flex items-center justify-center ${btnSecondary}`}
+            title={t("translate.clear")}>✕</button>
+        </div>
+      )}
+
+      {/* 备选翻译弹窗 */}
+      <AlternativesPopover
+        word={selectedWord || ""}
+        alternatives={alternatives}
+        loading={altsLoading}
+        position={popoverPos}
+        isDark={isDark}
+        onSelect={handleSelectAlternative}
+        onClose={handleCloseAlternatives}
+      />
+    </div>
+  );
+});
+
 function TranslatePage() {
   const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
 
   const {
-    sourceText, sourceLang, targetLang, translatedText,
-    isTranslating, isStreaming, autoTranslateMode, compareMode, error, canFallback, lastResult,
+    sourceText, sourceLang, targetLang,
+    isTranslating, autoTranslateMode, compareMode, error, canFallback, lastResult,
     history, historyTotal, historyPage, isLoadingHistory, searchQuery,
     setSourceText, setSourceLang, setTargetLang,
     swapLanguages, translate, abortTranslation, fallbackToNonStream,
@@ -137,30 +434,18 @@ function TranslatePage() {
     toggleAutoTranslate, toggleCompareMode,
   } = useTranslateStore();
 
-  const [copied, setCopied] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const [historyCollapsed, setHistoryCollapsed] = useState(false);
 
   // 语音输入
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
-  // 语速控制
-  const [speechRate, setSpeechRate] = useState(1.0);
-  const [speedMenuOpen, setSpeedMenuOpen] = useState(false);
-
-  // 备选翻译
-  const [selectedWord, setSelectedWord] = useState<string | null>(null);
-  const [alternatives, setAlternatives] = useState<AlternativeTranslation[]>([]);
-  const [altsLoading, setAltsLoading] = useState(false);
-  const [popoverPos, setPopoverPos] = useState<{ x: number; y: number } | null>(null);
-
-  // 分享菜单
-  const [shareMenuOpen, setShareMenuOpen] = useState(false);
-
   // 识图翻译
   const [ocrProcessing, setOcrProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 文本框自适应高度
+  const sourceTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // 实时翻译防抖计时器
   const autoTranslateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -168,6 +453,23 @@ function TranslatePage() {
 
   useEffect(() => { loadHistory(1); }, []);
   useEffect(() => { if (lastResult) loadHistory(1); }, [lastResult]);
+
+  // ── 文本框自适应高度 ──
+  const resizeTextarea = useCallback(() => {
+    const ta = sourceTextareaRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = `${Math.max(120, ta.scrollHeight)}px`;
+  }, []);
+
+  useEffect(() => {
+    resizeTextarea();
+  }, [sourceText, resizeTextarea]);
+
+  /** 输入变化：更新状态 + 自适应高度 */
+  const handleSourceChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setSourceText(e.target.value);
+  }, [setSourceText]);
 
   // ── 实时翻译：监听 sourceText 变化，500ms 防抖触发 ──
   useEffect(() => {
@@ -230,33 +532,6 @@ function TranslatePage() {
     return () => { recognitionRef.current?.abort(); };
   }, []);
 
-  // ── handlers ──
-  const handleCopy = useCallback(async () => {
-    if (!translatedText) return;
-    try {
-      await navigator.clipboard.writeText(translatedText);
-      setCopied(true); setTimeout(() => setCopied(false), 2000);
-    } catch {
-      const ta = document.createElement("textarea");
-      ta.value = translatedText; document.body.appendChild(ta);
-      ta.select(); document.execCommand("copy");
-      document.body.removeChild(ta);
-      setCopied(true); setTimeout(() => setCopied(false), 2000);
-    }
-  }, [translatedText]);
-
-  const handleSpeak = useCallback(() => {
-    if (!translatedText || !lastResult) return;
-    const u = new SpeechSynthesisUtterance(translatedText);
-    u.lang = TTS_LANG_MAP[lastResult.targetLang] || lastResult.targetLang;
-    u.rate = speechRate;
-    u.onstart = () => setIsSpeaking(true);
-    u.onend = () => setIsSpeaking(false);
-    u.onerror = () => setIsSpeaking(false);
-    speechSynthesis.cancel();
-    speechSynthesis.speak(u);
-  }, [translatedText, lastResult, speechRate]);
-
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.ctrlKey && e.key === "Enter") { e.preventDefault(); translate(); }
   }, [translate]);
@@ -292,99 +567,6 @@ function TranslatePage() {
     }
   }, [setSourceText]);
 
-  // ── 备选翻译：点击词 → 弹出 popover ──
-  const handleWordClick = useCallback(async (word: string, event: React.MouseEvent) => {
-    if (!lastResult) return;
-
-    if (selectedWord === word) {
-      setSelectedWord(null);
-      setAlternatives([]);
-      setPopoverPos(null);
-      return;
-    }
-
-    setSelectedWord(word);
-    setAlternatives([]);
-    setAltsLoading(true);
-    setPopoverPos({ x: event.clientX, y: event.clientY });
-
-    try {
-      const result = await translateService.getAlternatives({
-        word,
-        sourceLang: lastResult.sourceLang,
-        targetLang: lastResult.targetLang,
-        context: lastResult.sourceText,
-      });
-      setAlternatives(result.alternatives);
-    } catch {
-      setAlternatives([]);
-    } finally {
-      setAltsLoading(false);
-    }
-  }, [lastResult, selectedWord]);
-
-  // ── 备选翻译：选中替换 ──
-  const handleSelectAlternative = useCallback((translation: string) => {
-    if (!selectedWord) return;
-    const escaped = selectedWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const replaced = translatedText.replace(new RegExp(`\\b${escaped}\\b`, 'u'), translation);
-    if (replaced !== translatedText) {
-      useTranslateStore.setState({ translatedText: replaced });
-    }
-    setSelectedWord(null);
-    setAlternatives([]);
-    setPopoverPos(null);
-  }, [selectedWord, translatedText]);
-
-  const handleCloseAlternatives = useCallback(() => {
-    setSelectedWord(null);
-    setAlternatives([]);
-    setPopoverPos(null);
-  }, []);
-
-  // ── 分享 ──
-  const handleShareCopyText = useCallback(async () => {
-    if (!lastResult) return;
-    const sourceLabel = getLangName(lastResult.sourceLang);
-    const targetLabel = getLangName(lastResult.targetLang);
-    const text = t("translate.shareResult", {
-      source: sourceLabel,
-      target: targetLabel,
-      sourceText: lastResult.sourceText,
-      translatedText: lastResult.translatedText,
-    }).replace(/\\n/g, "\n");
-
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      const ta = document.createElement("textarea");
-      ta.value = text; document.body.appendChild(ta);
-      ta.select(); document.execCommand("copy");
-      document.body.removeChild(ta);
-    }
-    setShareMenuOpen(false);
-  }, [lastResult, t]);
-
-  const handleShareCopyLink = useCallback(async () => {
-    if (!lastResult) return;
-    const params = new URLSearchParams({
-      text: lastResult.sourceText,
-      from: lastResult.sourceLang,
-      to: lastResult.targetLang,
-    });
-    const url = `${window.location.origin}/translate?${params.toString()}`;
-
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      const ta = document.createElement("textarea");
-      ta.value = url; document.body.appendChild(ta);
-      ta.select(); document.execCommand("copy");
-      document.body.removeChild(ta);
-    }
-    setShareMenuOpen(false);
-  }, [lastResult]);
-
   const getLangName = useCallback((code: string) => {
     const key = LANG_NAME_MAP[code]; return key ? t(key) : code;
   }, [t]);
@@ -401,23 +583,8 @@ function TranslatePage() {
     return Math.round(lastResult.confidence * 100);
   }, [lastResult, sourceLang]);
 
-  // ── 对照模式段落数据 ──
-  const compareParagraphs = useMemo(() => {
-    if (!sourceText || !translatedText) return [];
-    const srcPars = splitByParagraph(sourceText);
-    const tgtPars = splitByParagraph(translatedText);
-    const maxLen = Math.max(srcPars.length, tgtPars.length);
-    const result: Array<{ source: string; target: string }> = [];
-    for (let i = 0; i < maxLen; i++) {
-      result.push({
-        source: srcPars[i] || "",
-        target: tgtPars[i] || "",
-      });
-    }
-    return result;
-  }, [sourceText, translatedText]);
-
-  // ── 主题 ──
+  const charCount = sourceText.length;
+  const hasSource = sourceText.trim().length > 0;
   const bgColor = isDark ? "bg-gray-900" : "bg-white";
   const textColor = isDark ? "text-gray-300" : "text-gray-700";
   const mutedColor = isDark ? "text-gray-500" : "text-gray-400";
@@ -431,23 +598,8 @@ function TranslatePage() {
   const btnGhost = "bg-transparent hover:bg-gray-200/50 dark:hover:bg-gray-700/50";
   const errorBg = isDark ? "bg-red-900/30" : "bg-red-50";
   const errorText = isDark ? "text-red-400" : "text-red-600";
-  const successBg = isDark ? "bg-green-900/30" : "bg-green-50";
-  const successText = isDark ? "text-green-400" : "text-green-600";
   const borderColor = isDark ? "#374151" : "#e5e7eb";
   const micActiveBg = "bg-red-500 hover:bg-red-600 text-white";
-  const compareHover = isDark ? "hover:bg-gray-700/50" : "hover:bg-gray-100";
-
-  const charCount = sourceText.length;
-  const hasSource = sourceText.trim().length > 0;
-  const hasResult = translatedText.length > 0;
-  const showTranslating = isTranslating && !hasResult;
-
-  /** 语速选项 */
-  const SPEED_OPTIONS = [
-    { rate: 1.0, label: t("translate.speechNormal") },
-    { rate: 0.75, label: t("translate.speechSlow") },
-    { rate: 0.5, label: t("translate.speechSlower") },
-  ];
 
   return (
     <div className={`flex flex-col flex-1 min-h-0 ${bgColor} ${textColor}`}>
@@ -622,10 +774,12 @@ function TranslatePage() {
             <span className={`text-xs ${mutedColor}`}>{t("translate.charCount", { count: charCount })}</span>
           </div>
           {/* OCR 处理中蒙层 */}
-          <div className="relative flex-1">
-            <textarea value={sourceText} onChange={(e) => setSourceText(e.target.value)}
+          <div className="relative">
+            <textarea ref={sourceTextareaRef} value={sourceText} onChange={handleSourceChange}
               onKeyDown={handleKeyDown} placeholder={t("translate.placeholder")} disabled={isTranslating || ocrProcessing}
-              className={`w-full h-full resize-none rounded-xl border p-5 text-base leading-relaxed outline-none focus:ring-2 focus:ring-blue-500/50 ${inputBg} ${inputBorder} ${textColor} placeholder:${mutedColor} disabled:opacity-50`} />
+              rows={5}
+              className={`w-full resize-none rounded-xl border p-5 text-base leading-relaxed outline-none focus:ring-2 focus:ring-blue-500/50 overflow-y-auto ${inputBg} ${inputBorder} ${textColor} placeholder:${mutedColor} disabled:opacity-50`}
+              style={{ minHeight: "120px", maxHeight: "400px" }} />
             {ocrProcessing && (
               <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/20">
                 <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-900/80 text-white text-sm">
@@ -663,118 +817,8 @@ function TranslatePage() {
         </div>
 
         {/* ── 右侧：输出区 ── */}
-        <div className="flex-1 flex flex-col min-w-0 p-5">
-          {/* 输出区头部：模式切换 + 操作 */}
-          <div className="flex items-center justify-between mb-2">
-            <label className={`text-xs font-medium ${mutedColor}`}>{t("translate.targetText")}</label>
-            {hasResult && !isTranslating && (
-              <div className="flex items-center gap-1">
-                {/* 分享 */}
-                <div className="relative">
-                  <button onClick={() => setShareMenuOpen(!shareMenuOpen)}
-                    className={`w-7 h-7 rounded-lg border-0 cursor-pointer transition-colors flex items-center justify-center text-xs ${btnGhost} ${mutedColor}`}
-                    title={t("translate.share")}>↗</button>
-                  {shareMenuOpen && (
-                    <div className={`absolute right-0 top-full mt-1 rounded-xl border shadow-xl py-1.5 z-10 min-w-[130px] ${selectBg} ${inputBorder}`}>
-                      <button onClick={handleShareCopyText}
-                        className={`block w-full px-4 py-1.5 text-left text-xs border-0 cursor-pointer whitespace-nowrap ${btnGhost} ${textColor}`}>
-                        {t("translate.shareCopyText")}
-                      </button>
-                      <button onClick={handleShareCopyLink}
-                        className={`block w-full px-4 py-1.5 text-left text-xs border-0 cursor-pointer whitespace-nowrap ${btnGhost} ${textColor}`}>
-                        {t("translate.shareCopyLink")}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 输出内容 */}
-          {compareMode && hasResult && !isTranslating ? (
-            /* ════ 对照模式 ════ */
-            <div className={`flex-1 w-full rounded-xl border overflow-auto ${inputBg} ${inputBorder} ${textColor}`}>
-              {compareParagraphs.map((para, idx) => (
-                <div key={idx}
-                  className={`px-5 py-3 transition-colors ${compareHover}`}
-                  style={{ borderBottom: idx < compareParagraphs.length - 1 ? `1px solid ${borderColor}` : "none" }}>
-                  <div className={`text-sm leading-relaxed mb-1.5 ${mutedColor}`}>
-                    {para.source || <span className="italic opacity-50">—</span>}
-                  </div>
-                  <div className="text-sm leading-relaxed">
-                    {para.target || <span className="italic opacity-50">—</span>}
-                  </div>
-                </div>
-              ))}
-              {compareParagraphs.length === 0 && (
-                <div className={`px-5 py-4 text-sm ${mutedColor}`}>{t("translate.resultPlaceholder")}</div>
-              )}
-            </div>
-          ) : (
-            /* ════ 仅译文模式 ════ */
-            <div className={`flex-1 w-full rounded-xl border p-5 text-base leading-relaxed overflow-auto whitespace-pre-wrap ${inputBg} ${inputBorder} ${textColor}`}>
-              {showTranslating && isStreaming ? (
-                <span>{translatedText}<span className="inline-block w-2 h-4 bg-blue-400 animate-pulse ml-0.5 align-middle" /></span>
-              ) : showTranslating ? (
-                <span className={mutedColor}>{t("translate.translating")}</span>
-              ) : hasResult ? (
-                <SplitText text={translatedText} isDark={isDark} onWordClick={handleWordClick} />
-              ) : (
-                <span className={mutedColor}>{t("translate.resultPlaceholder")}</span>
-              )}
-            </div>
-          )}
-
-          {/* 底部操作栏 */}
-          {hasResult && !isTranslating && (
-            <div className="flex justify-end items-center gap-2 mt-3">
-              {/* 语速选择 */}
-              <div className="relative">
-                <button onClick={handleSpeak}
-                  disabled={isSpeaking || !("speechSynthesis" in window)}
-                  className={`w-9 h-9 rounded-xl text-sm border-0 cursor-pointer transition-colors flex items-center justify-center ${isSpeaking ? successBg + " " + successText : btnSecondary} disabled:opacity-50 disabled:cursor-not-allowed`}
-                  title={t("translate.speak")}>{isSpeaking ? "🔊" : "🔈"}</button>
-                <button onClick={() => setSpeedMenuOpen(!speedMenuOpen)}
-                  className={`ml-1 px-1.5 py-1 rounded-lg text-xs border-0 cursor-pointer ${btnSecondary}`}
-                  title={t("translate.speechRate")}>
-                  {speechRate === 1.0 ? "1x" : speechRate === 0.75 ? "0.75x" : "0.5x"}
-                </button>
-                {speedMenuOpen && (
-                  <div className={`absolute bottom-full right-0 mb-1 rounded-xl border shadow-lg py-1 z-10 ${selectBg} ${inputBorder}`}>
-                    {SPEED_OPTIONS.map((opt) => (
-                      <button key={opt.rate}
-                        onClick={() => { setSpeechRate(opt.rate); setSpeedMenuOpen(false); }}
-                        className={`block w-full px-4 py-1.5 text-left text-xs border-0 cursor-pointer whitespace-nowrap ${speechRate === opt.rate ? "bg-blue-600 text-white" : `${btnGhost} ${textColor}`}`}>
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <button onClick={handleCopy}
-                className={`w-9 h-9 rounded-xl text-sm border-0 cursor-pointer transition-colors flex items-center justify-center ${copied ? successBg + " " + successText : btnSecondary}`}
-                title={t("translate.copy")}>
-                {copied ? "✓" : "📋"}
-              </button>
-              <button onClick={clearResult}
-                className={`w-9 h-9 rounded-xl text-sm border-0 cursor-pointer transition-colors flex items-center justify-center ${btnSecondary}`}
-                title={t("translate.clear")}>✕</button>
-            </div>
-          )}
-        </div>
+        <TranslateOutputPanel theme={{ isDark }} onClear={clearResult} />
       </div>
-
-      {/* ── 备选翻译弹窗 ── */}
-      <AlternativesPopover
-        word={selectedWord || ""}
-        alternatives={alternatives}
-        loading={altsLoading}
-        position={popoverPos}
-        isDark={isDark}
-        onSelect={handleSelectAlternative}
-        onClose={handleCloseAlternatives}
-      />
     </div>
   );
 }

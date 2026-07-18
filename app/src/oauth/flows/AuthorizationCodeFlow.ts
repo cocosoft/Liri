@@ -4,6 +4,7 @@
  */
 
 import { OAuthClient } from '../services/OAuthClient';
+import type { TokenResponse } from '../services/OAuthClient';
 import {
   generateState,
   generateCodeVerifier,
@@ -131,47 +132,10 @@ export class AuthorizationCodeFlow {
   }
 
   /**
-   * 完整的一次性授权流程
-   */
-  async authorize(
-    options?: AuthorizationCodeFlowOptions
-  ): Promise<OAuthAuthResult> {
-    const { authorizeUrl, state, codeVerifier } =
-      this.getAuthorizationUrl(options);
-
-    console.log(`请访问以下 URL 进行授权:\n${authorizeUrl}\n`);
-    console.log('授权完成后，将回调 URL 粘贴到此处:');
-
-    const callbackUrl = await this.readCallbackFromStdin();
-
-    const parsed = this.parseCallback(callbackUrl);
-    this.verifyState(state, parsed.state);
-
-    return await this.exchangeCode(
-      parsed.code,
-      codeVerifier,
-      options?.redirectUri
-    );
-  }
-
-  /**
-   * 从标准输入读取回调 URL
-   */
-  private async readCallbackFromStdin(): Promise<string> {
-    return new Promise((resolve) => {
-      process.stdin.resume();
-      process.stdin.once('data', (data: Buffer) => {
-        process.stdin.pause();
-        resolve(data.toString().trim());
-      });
-    });
-  }
-
-  /**
    * 解析 Token 响应
    */
-  private parseTokenResponse(raw: Record<string, unknown>): OAuthAuthResult {
-    const accessToken = raw.access_token as string;
+  private parseTokenResponse(raw: TokenResponse): OAuthAuthResult {
+    const accessToken = raw.access_token;
     if (!accessToken) {
       throw new OAuthError(
         'Token 响应缺少 access_token',
@@ -179,15 +143,15 @@ export class AuthorizationCodeFlow {
       );
     }
 
-    const expiresIn = (raw.expires_in as number) || 3600;
-    const refreshToken = (raw.refresh_token as string) || '';
+    const expiresIn = raw.expires_in || 3600;
+    const refreshToken = raw.refresh_token || '';
 
     return {
       accessToken,
       refreshToken,
       expiresAt: Date.now() + expiresIn * 1000,
-      tokenType: (raw.token_type as string) || 'Bearer',
-      scopes: ((raw.scope as string) || '').split(' ').filter(Boolean),
+      tokenType: raw.token_type || 'Bearer',
+      scopes: (raw.scope || '').split(' ').filter(Boolean),
     };
   }
 }

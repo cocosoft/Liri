@@ -1,13 +1,12 @@
 //
 /**
- * Claude AI集成
- * 负责与Claude AI MCP服务器的集成
+ * MCP Proxy 集成
+ * 负责与外部 MCP 服务器的集成
  */
-
 import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({
-  module: 'services:mcp:claudeAI',
+  module: 'services:mcp:proxy',
   level: LogLevel.INFO,
 });
 import { mcpConnectionManager } from './MCPConnectionManager';
@@ -22,22 +21,22 @@ import { mcpCacheManager } from './MCPCacheManager';
 import type { ConnectedMCPServer } from './types';
 
 /**
- * Claude AI集成
+ * Proxy集成
  */
-export class ClaudeAIIntegration {
+export class MCPProxyIntegration {
   private channelPermissionCallbacks = createChannelPermissionCallbacks();
   private connectedServers: Set<string> = new Set();
 
   /**
-   * 初始化Claude AI集成
+   * 初始化Proxy集成
    */
   async initialize(): Promise<void> {
     try {
-      logger.info('Initializing Claude AI integration');
+      logger.info('Initializing Proxy integration');
       // 这里可以添加初始化逻辑
     } catch (error) {
       logger.error(
-        'Failed to initialize Claude AI integration:',
+        'Failed to initialize Proxy integration:',
         error instanceof Error ? error : new Error(String(error))
       );
     }
@@ -48,7 +47,7 @@ export class ClaudeAIIntegration {
    */
   handleServerConnect(server: ConnectedMCPServer): void {
     if (server.config.type === 'claudeai-proxy') {
-      this.setupClaudeAIServer(server);
+      this.setupProxyServer(server);
     }
   }
 
@@ -57,14 +56,14 @@ export class ClaudeAIIntegration {
    */
   handleServerDisconnect(serverName: string): void {
     if (this.connectedServers.has(serverName)) {
-      this.cleanupClaudeAIServer(serverName);
+      this.cleanupProxyServer(serverName);
     }
   }
 
   /**
-   * 设置Claude AI服务器
+   * 设置Proxy服务器
    */
-  private setupClaudeAIServer(server: ConnectedMCPServer): void {
+  private setupProxyServer(server: ConnectedMCPServer): void {
     try {
       // 注册通道通知处理器
       registerChannelNotificationHandler(server, (content, meta) => {
@@ -72,25 +71,25 @@ export class ClaudeAIIntegration {
       });
 
       // 加载命令
-      this.loadClaudeAICommands(server);
+      this.loadProxyCommands(server);
 
       // 加载资源
-      this.loadClaudeAIResources(server);
+      this.loadProxyResources(server);
 
       this.connectedServers.add(server.name);
-      logger.info(`Claude AI server ${server.name} connected and configured`);
+      logger.info(`Proxy server ${server.name} connected and configured`);
     } catch (error) {
       logger.error(
-        `Failed to setup Claude AI server ${server.name}:`,
+        `Failed to setup Proxy server ${server.name}:`,
         error instanceof Error ? error : new Error(String(error))
       );
     }
   }
 
   /**
-   * 清理Claude AI服务器
+   * 清理Proxy服务器
    */
-  private cleanupClaudeAIServer(serverName: string): void {
+  private cleanupProxyServer(serverName: string): void {
     try {
       const server = mcpConnectionManager.getServer(serverName);
       if (server && server.type === 'connected') {
@@ -103,10 +102,10 @@ export class ClaudeAIIntegration {
       mcpCacheManager.clearServerCache(serverName);
 
       this.connectedServers.delete(serverName);
-      logger.info(`Claude AI server ${serverName} disconnected and cleaned up`);
+      logger.info(`Proxy server ${serverName} disconnected and cleaned up`);
     } catch (error) {
       logger.error(
-        `Failed to cleanup Claude AI server ${serverName}:`,
+        `Failed to cleanup Proxy server ${serverName}:`,
         error instanceof Error ? error : new Error(String(error))
       );
     }
@@ -122,7 +121,7 @@ export class ClaudeAIIntegration {
   ): void {
     try {
       logger.info(
-        `Received Claude AI channel message from ${serverName}: ${content.slice(0, 80)}`
+        `Received Proxy channel message from ${serverName}: ${content.slice(0, 80)}`
       );
       // 这里可以添加消息处理逻辑
     } catch (error) {
@@ -134,11 +133,9 @@ export class ClaudeAIIntegration {
   }
 
   /**
-   * 加载Claude AI命令
+   * 加载Proxy命令
    */
-  private async loadClaudeAICommands(
-    server: ConnectedMCPServer
-  ): Promise<void> {
+  private async loadProxyCommands(server: ConnectedMCPServer): Promise<void> {
     try {
       const commands = await getCommandManager().loadCommandsFromServer(
         server.client,
@@ -146,22 +143,20 @@ export class ClaudeAIIntegration {
       );
       mcpCacheManager.setCommandCache(server.name, commands as any);
       logger.info(
-        `Loaded ${commands.length} Claude AI commands from server ${server.name}`
+        `Loaded ${commands.length} Proxy commands from server ${server.name}`
       );
     } catch (error) {
       logger.error(
-        `Failed to load Claude AI commands:`,
+        `Failed to load Proxy commands:`,
         error instanceof Error ? error : new Error(String(error))
       );
     }
   }
 
   /**
-   * 加载Claude AI资源
+   * 加载Proxy资源
    */
-  private async loadClaudeAIResources(
-    server: ConnectedMCPServer
-  ): Promise<void> {
+  private async loadProxyResources(server: ConnectedMCPServer): Promise<void> {
     try {
       const resources = await resourceManager.loadResourcesFromServer(
         server.client,
@@ -169,20 +164,20 @@ export class ClaudeAIIntegration {
       );
       mcpCacheManager.setResourceCache(server.name, resources);
       logger.info(
-        `Loaded ${resources.length} Claude AI resources from server ${server.name}`
+        `Loaded ${resources.length} Proxy resources from server ${server.name}`
       );
     } catch (error) {
       logger.error(
-        `Failed to load Claude AI resources:`,
+        `Failed to load Proxy resources:`,
         error instanceof Error ? error : new Error(String(error))
       );
     }
   }
 
   /**
-   * 执行Claude AI命令
+   * 执行Proxy命令
    */
-  async executeClaudeAICommand(
+  async executeProxyCommand(
     serverName: string,
     commandName: string,
     args: any
@@ -192,7 +187,7 @@ export class ClaudeAIIntegration {
       return await getCommandManager().executeCommand(fullCommandName, args);
     } catch (error) {
       logger.error(
-        `Failed to execute Claude AI command:`,
+        `Failed to execute Proxy command:`,
         error instanceof Error ? error : new Error(String(error))
       );
       return {
@@ -203,9 +198,9 @@ export class ClaudeAIIntegration {
   }
 
   /**
-   * 获取Claude AI服务器状态
+   * 获取Proxy服务器状态
    */
-  getClaudeAIServerStatus(): Array<{
+  getProxyServerStatus(): Array<{
     name: string;
     connected: boolean;
     capabilities: any;
@@ -235,12 +230,12 @@ export class ClaudeAIIntegration {
    */
   cleanup(): void {
     for (const serverName of this.connectedServers) {
-      this.cleanupClaudeAIServer(serverName);
+      this.cleanupProxyServer(serverName);
     }
     this.connectedServers.clear();
-    logger.info('Claude AI integration cleaned up');
+    logger.info('Proxy integration cleaned up');
   }
 }
 
 // 导出单例
-export const claudeAIIntegration = new ClaudeAIIntegration();
+export const mcpProxyIntegration = new MCPProxyIntegration();

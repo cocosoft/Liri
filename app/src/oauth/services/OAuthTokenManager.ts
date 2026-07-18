@@ -1,6 +1,18 @@
 /**
- * OAuth Token管理服务
- * 提供Token的获取、刷新、验证、撤销等功能
+ * OAuth Token管理服务（已废弃）
+ *
+ * @deprecated 使用 TokenManager 代替。TokenManager 是唯一的 Token 管理实现，
+ *             提供磁盘持久化 + AES-256-GCM 加密 + 自动刷新调度。
+ *             本类保留仅用于兼容过渡期，请勿新增引用。
+ *
+ * 迁移指南:
+ *   OAuthTokenManager.saveToken(k, t)  → TokenManager.getInstance().cacheToken(k, {accessToken, refreshToken, expiresAt, scopes})
+ *   OAuthTokenManager.getToken(k)      → TokenManager.getInstance().getCachedToken(k)
+ *   OAuthTokenManager.deleteToken(k)   → TokenManager.getInstance().clearToken(k)
+ *   OAuthTokenManager.revokeToken(k)   → TokenManager.getInstance().revokeToken(k)
+ *   OAuthTokenManager.revokeAll()      → TokenManager.getInstance().revokeAll()
+ *   OAuthTokenManager.listServerKeys() → TokenManager.getInstance().listServerKeys()
+ *   OAuthTokenManager.getTokenStatus(k)→ TokenManager.getInstance().getTokenStatus(k)
  */
 
 import { logger } from '@modules/infrastructure';

@@ -147,8 +147,49 @@ function main(): void {
 
   process.env['LIRI_BUILD_VARIANT'] = variant;
 
+  // 企业版：复制模板文件到 dist/
+  if (variant === 'enterprise') {
+    copyTemplateFiles();
+  }
+
   console.log('\n构建完成！');
   console.log(`输出目录: dist/`);
+}
+
+/**
+ * 复制 .hbs 模板文件到 dist/ 目录
+ * 确保 TemplateEngine 在运行时能读取模板
+ */
+function copyTemplateFiles(): void {
+  const srcDir = path.resolve(__dirname, '..', 'src', 'modules', 'doc', 'template', 'builtin');
+  const distDir = path.resolve(__dirname, '..', 'dist', 'modules', 'doc', 'template', 'builtin');
+
+  if (!fs.existsSync(srcDir)) {
+    console.log('模板源目录不存在，跳过复制');
+    return;
+  }
+
+  fs.mkdirSync(distDir, { recursive: true });
+
+  copyDirSync(srcDir, distDir);
+  console.log(`模板文件已复制: ${srcDir} → ${distDir}`);
+}
+
+/**
+ * 递归复制目录内容
+ */
+function copyDirSync(src: string, dest: string): void {
+  const entries = fs.readdirSync(src, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      fs.mkdirSync(destPath, { recursive: true });
+      copyDirSync(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
 }
 
 main();

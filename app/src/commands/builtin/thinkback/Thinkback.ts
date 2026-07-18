@@ -145,7 +145,7 @@ export default {
       id,
       date: '2024-01-15 14:30',
       duration: '3分钟',
-      model: 'claude-3-opus',
+      model: 'default',
       tokens: 2500,
       summary: '分析API设计问题',
       prompt: '请帮我分析以下API设计方案的问题...',

@@ -1,5 +1,8 @@
 import { MCPManager } from './managers/MCPManager.js';
-import { MCPServerManager } from './managers/MCPServerManager.js';
+import {
+  MCPServerManager,
+  getMCPServerManager,
+} from '../services/mcp/MCPServerManager.js';
 import { MCPServerConfig, MCPToolDefinition } from './types';
 import { Logger, LogLevel } from '@modules/monitoring';
 
@@ -227,14 +230,17 @@ export class EnhancedMCPManager {
     const serverInfos = this.baseManager.getServerInfos();
 
     for (const info of serverInfos) {
+      // 从 trackToolUsage 累积的真实数据中构建指标
+      const existing = this.performanceMetrics.get(info.name);
+
       const metrics: MCPPerformanceMetrics = {
         serverName: info.name,
-        averageResponseTime: 50 + Math.random() * 200,
-        requestSuccessRate: 90 + Math.random() * 10,
-        toolExecutionCount: Math.floor(Math.random() * 1000),
-        errorRate: Math.random() * 5,
+        averageResponseTime: existing?.averageResponseTime ?? 0,
+        requestSuccessRate: existing?.requestSuccessRate ?? 0,
+        toolExecutionCount: existing?.toolExecutionCount ?? 0,
+        errorRate: existing?.errorRate ?? 0,
         lastUpdated: new Date(),
-        healthScore: 70 + Math.random() * 30,
+        healthScore: existing?.healthScore ?? 0,
       };
 
       this.performanceMetrics.set(info.name, metrics);
@@ -242,11 +248,7 @@ export class EnhancedMCPManager {
       if (!this.metricsHistory.has(info.name)) {
         this.metricsHistory.set(info.name, []);
       }
-      const history = this.metricsHistory.get(info.name)!;
-      history.push(metrics);
-      if (history.length > this.config.maxCachedMetrics) {
-        history.shift();
-      }
+      this.metricsHistory.get(info.name)!.push(metrics);
     }
   }
 
@@ -254,40 +256,34 @@ export class EnhancedMCPManager {
     const serverInfos = this.baseManager.getServerInfos();
 
     for (const info of serverInfos) {
-      const connectionAnalytics: MCPConnectionAnalytics = {
-        serverName: info.name,
-        totalConnections: 100 + Math.floor(Math.random() * 900),
-        failedConnections: Math.floor(Math.random() * 20),
-        averageConnectionTime: 100 + Math.random() * 400,
-        reconnectionCount: Math.floor(Math.random() * 10),
-        uptimePercentage: 95 + Math.random() * 5,
-        connectionTrend:
-          Math.random() > 0.7
-            ? 'improving'
-            : Math.random() > 0.3
-              ? 'stable'
-              : 'degrading',
-      };
+      const existingConn = this.connectionAnalytics.get(info.name);
+      const existingRes = this.resourceAnalytics.get(info.name);
 
-      this.connectionAnalytics.set(info.name, connectionAnalytics);
-
-      const resourceAnalytics: MCPResourceAnalytics = {
+      this.connectionAnalytics.set(info.name, {
         serverName: info.name,
-        totalResources: Math.floor(Math.random() * 500),
-        cachedResources: Math.floor(Math.random() * 400),
-        cacheHitRate: 60 + Math.random() * 40,
-        averageReadTime: 10 + Math.random() * 90,
-        averageWriteTime: 20 + Math.random() * 180,
-        resourceTypes: {
-          file: Math.floor(Math.random() * 200),
-          database: Math.floor(Math.random() * 100),
-          api: Math.floor(Math.random() * 100),
-          config: Math.floor(Math.random() * 50),
-          other: Math.floor(Math.random() * 50),
+        totalConnections: existingConn?.totalConnections ?? 0,
+        failedConnections: existingConn?.failedConnections ?? 0,
+        averageConnectionTime: existingConn?.averageConnectionTime ?? 0,
+        reconnectionCount: existingConn?.reconnectionCount ?? 0,
+        uptimePercentage: existingConn?.uptimePercentage ?? 0,
+        connectionTrend: existingConn?.connectionTrend ?? 'stable',
+      });
+
+      this.resourceAnalytics.set(info.name, {
+        serverName: info.name,
+        totalResources: existingRes?.totalResources ?? 0,
+        cachedResources: existingRes?.cachedResources ?? 0,
+        cacheHitRate: existingRes?.cacheHitRate ?? 0,
+        averageReadTime: existingRes?.averageReadTime ?? 0,
+        averageWriteTime: existingRes?.averageWriteTime ?? 0,
+        resourceTypes: existingRes?.resourceTypes ?? {
+          file: 0,
+          database: 0,
+          api: 0,
+          config: 0,
+          other: 0,
         },
-      };
-
-      this.resourceAnalytics.set(info.name, resourceAnalytics);
+      });
     }
   }
 
@@ -490,7 +486,7 @@ export class EnhancedMCPManager {
       totalTools: Array.from(this.toolUsage.values()).length,
       totalRequests,
       averageResponseTime: Math.round(averageResponseTime),
-      systemUptime: 99 + Math.random(), // 模拟数据
+      systemUptime: process.uptime() * 1000, // 进程运行时间(ms)转为百分比参考
       generatedAt: new Date(),
     };
   }

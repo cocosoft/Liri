@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Prompt Suggestion配置和启用检查模块
  */
 
@@ -129,7 +129,7 @@ function getSessionChecker(): SessionChecker {
   if (!sessionChecker) {
     sessionChecker = {
       getIsNonInteractiveSession: () => {
-        return process.env.CLAUDE_CODE_NON_INTERACTIVE === 'true';
+        return process.env.PYAPP_NON_INTERACTIVE === 'true';
       },
     };
   }
@@ -163,7 +163,7 @@ function getSwarmChecker(): SwarmChecker {
  */
 export function shouldEnablePromptSuggestion(): boolean {
   const log = getAnalytics().logEvent;
-  const envOverride = configManager.env('CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION');
+  const envOverride = configManager.env('PYAPP_ENABLE_PROMPT_SUGGESTION');
 
   if (envUtils.isEnvDefinedFalsy(envOverride)) {
     log('tengu_prompt_suggestion_init', {
@@ -304,7 +304,7 @@ export async function getPromptSuggestionConfig(): Promise<{
   enabled: boolean;
   source: string;
 }> {
-  const envOverride = configManager.env('CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION');
+  const envOverride = configManager.env('PYAPP_ENABLE_PROMPT_SUGGESTION');
 
   if (envUtils.isEnvDefinedFalsy(envOverride)) {
     return { enabled: false, source: 'env' };

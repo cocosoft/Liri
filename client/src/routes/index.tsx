@@ -36,6 +36,9 @@ const VideoPage = lazy(() => import("../components/views/VideoPage"));
 const MediaPage = lazy(() => import("../components/views/MediaPage"));
 const TranslatePage = lazy(() => import("../components/views/TranslatePage"));
 const OfficePage = lazy(() => import("../components/views/office/OfficePage"));
+const OfficeDocPage = lazy(() => import("../components/views/office/OfficeDocPage"));
+const OfficeMailPage = lazy(() => import("../components/views/office/OfficeMailPage"));
+const OfficeCalendarPage = lazy(() => import("../components/views/office/OfficeCalendarPage"));
 // routes/index.tsx 原有保留路由
 const ApiKeyPage = lazy(() => import("../components/views/ApiKeyPage"));
 const OAuthPage = lazy(() => import("../components/views/OAuthPage"));
@@ -74,7 +77,9 @@ export const routes: RouteObject[] = [
 
   // 办公模块
   { path: "/office", element: <AuthGuard><OfficePage /></AuthGuard> },
-  { path: "/office/:subPage", element: <AuthGuard><OfficePage /></AuthGuard> },
+  { path: "/office/doc", element: <AuthGuard><OfficeDocPage /></AuthGuard> },
+  { path: "/office/mail", element: <AuthGuard><OfficeMailPage /></AuthGuard> },
+  { path: "/office/calendar", element: <AuthGuard><OfficeCalendarPage /></AuthGuard> },
 
   // 开发者工具
   { path: "/dev", element: <Navigate to="/dev/terminal" replace /> },

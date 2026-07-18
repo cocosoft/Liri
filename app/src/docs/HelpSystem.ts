@@ -599,7 +599,7 @@ ${this.getReleaseNotesContent()}
 ## 查看完整释放说明
 
 你可以在 GitHub 上查看完整的释放说明：
-[查看完整释放说明](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md)
+[查看完整释放说明](https://github.com/cocosoft/Liri/releases)
 `,
       relatedTopics: ['quickstart'],
       keywords: ['释放说明', '版本更新', 'changelog', 'release notes'],

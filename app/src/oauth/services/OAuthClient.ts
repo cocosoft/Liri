@@ -1,7 +1,7 @@
 //
 /**
- * OAuth HTTP客户端
- * 提供OAuth协议通信功能
+ * OAuth HTTP 客户端
+ * 提供 OAuth 协议通信功能
  */
 
 import { request as httpsRequest } from 'https';
@@ -9,6 +9,30 @@ import { request as httpRequest } from 'http';
 import { logger } from '@modules/infrastructure';
 import type { OAuthConfig } from '../types/OAuthTypes';
 import { OAuthError } from '../types/OAuthTypes';
+
+/** Token 端点响应（RFC 6749 + Provider 扩展字段） */
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  expires_in?: number;
+  refresh_token?: string;
+  scope?: string;
+  [key: string]: unknown;
+}
+
+/** UserInfo 端点响应 */
+export interface UserInfoResponse {
+  sub: string;
+  name?: string;
+  email?: string;
+  picture?: string;
+  [key: string]: unknown;
+}
+
+/** Token Revoke 响应 */
+export interface RevokeResponse {
+  success: boolean;
+}
 
 /**
  * 授权码交换参数
@@ -91,7 +115,7 @@ export class OAuthClient {
    */
   async exchangeCodeForToken(
     params: ExchangeCodeParams
-  ): Promise<Record<string, unknown>> {
+  ): Promise<TokenResponse> {
     if (!this.config) {
       throw new OAuthError('OAuthClient not configured', 'NO_CONFIG');
     }
@@ -112,8 +136,8 @@ export class OAuthClient {
     authorizationCode: string,
     codeVerifier: string,
     redirectUri: string
-  ): Promise<Record<string, unknown>> {
-    const requestBody = {
+  ): Promise<TokenResponse> {
+    const requestBody: Record<string, unknown> = {
       grant_type: 'authorization_code',
       code: authorizationCode,
       redirect_uri: redirectUri,
@@ -122,14 +146,16 @@ export class OAuthClient {
     };
 
     if (config.clientSecret) {
-      (requestBody as Record<string, unknown>).client_secret =
-        config.clientSecret;
+      requestBody.client_secret = config.clientSecret;
     }
 
     logger.debug(
       `Exchanging authorization code for tokens at ${config.tokenUrl}`
     );
-    return await this.httpPostJson(config.tokenUrl, requestBody);
+    return (await this.httpPostJson(
+      config.tokenUrl,
+      requestBody
+    )) as unknown as TokenResponse;
   }
 
   /**
@@ -139,7 +165,7 @@ export class OAuthClient {
     configOrParams: OAuthConfig | RefreshTokenParams,
     refreshToken?: string,
     scopes?: string[]
-  ): Promise<Record<string, unknown>> {
+  ): Promise<TokenResponse> {
     // 新API方式
     if ('refreshToken' in configOrParams) {
       if (!this.config) {
@@ -162,7 +188,10 @@ export class OAuthClient {
       }
 
       logger.debug(`Refreshing token at ${config.tokenUrl}`);
-      return await this.httpPostJson(config.tokenUrl, requestBody);
+      return (await this.httpPostJson(
+        config.tokenUrl,
+        requestBody
+      )) as unknown as TokenResponse;
     }
 
     // 旧API方式
@@ -182,7 +211,10 @@ export class OAuthClient {
     }
 
     logger.debug(`Refreshing token at ${config.tokenUrl}`);
-    return await this.httpPostJson(config.tokenUrl, requestBody);
+    return (await this.httpPostJson(
+      config.tokenUrl,
+      requestBody
+    )) as unknown as TokenResponse;
   }
 
   /**
@@ -191,20 +223,20 @@ export class OAuthClient {
   async getUserInfo(
     userinfoUrlOrAccessToken: string,
     accessToken?: string
-  ): Promise<Record<string, unknown>> {
+  ): Promise<UserInfoResponse> {
     if (accessToken) {
       logger.debug(`Fetching user info from ${userinfoUrlOrAccessToken}`);
-      return await this.httpGetJson(userinfoUrlOrAccessToken, {
+      return (await this.httpGetJson(userinfoUrlOrAccessToken, {
         Authorization: `Bearer ${accessToken}`,
-      });
+      })) as unknown as UserInfoResponse;
     }
     if (!this.config?.profileUrl) {
       throw new OAuthError('Profile URL not configured', 'NO_PROFILE_URL');
     }
     logger.debug(`Fetching user info from ${this.config.profileUrl}`);
-    return await this.httpGetJson(this.config.profileUrl, {
+    return (await this.httpGetJson(this.config.profileUrl, {
       Authorization: `Bearer ${userinfoUrlOrAccessToken}`,
-    });
+    })) as unknown as UserInfoResponse;
   }
 
   /**
@@ -215,7 +247,6 @@ export class OAuthClient {
     token?: string,
     tokenTypeHint?: string
   ): Promise<void> {
-    // 新API方式
     if (typeof revocationUrlOrParams !== 'string') {
       if (!this.config?.tokenUrl) {
         throw new OAuthError('Token URL not configured', 'NO_TOKEN_URL');
@@ -227,7 +258,6 @@ export class OAuthClient {
       );
     }
 
-    // 旧API方式
     const revocationUrl = revocationUrlOrParams;
     const requestBody: Record<string, unknown> = {
       token: token!,
@@ -242,9 +272,9 @@ export class OAuthClient {
   }
 
   /**
-   * HTTP POST请求
+   * HTTP POST请求（公共方法，供 DynamicClientReg 等使用）
    */
-  private async httpPostJson(
+  public async httpPostJson(
     url: string,
     body: Record<string, unknown>,
     headers: Record<string, string> = {}

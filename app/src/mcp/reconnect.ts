@@ -73,11 +73,81 @@ export type ReconnectResult =
     }
   | {
       ok: false;
-      reason: 'handshake' | 'drift_rejected' | 'max_retries' | 'timeout';
+      reason:
+        | 'handshake'
+        | 'drift_rejected'
+        | 'max_retries'
+        | 'timeout'
+        | 'circuit_open';
       message: string;
       attemptCount: number;
       totalMs: number;
     };
+
+// ─── 熔断器（对标 hermes mcp_tool.py 3次失败→60s冷却） ─────────────────────
+
+/** 熔断器状态 */
+type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+
+/** 熔断器配置 */
+export interface CircuitBreakerConfig {
+  failureThreshold?: number;
+  cooldownMs?: number;
+}
+
+/**
+ * 熔断器 —— 防止对已故障的 MCP 服务器无限重试。
+ * 对标: hermes mcp_tool.py#L1480-L1483
+ */
+export class CircuitBreaker {
+  private state: CircuitState = 'CLOSED';
+  private failureCount = 0;
+  private lastFailureTime = 0;
+  private readonly failureThreshold: number;
+  private readonly cooldownMs: number;
+
+  constructor(config: CircuitBreakerConfig = {}) {
+    this.failureThreshold = config.failureThreshold ?? 3;
+    this.cooldownMs = config.cooldownMs ?? 60_000;
+  }
+
+  allowRequest(): boolean {
+    if (this.state === 'CLOSED') return true;
+
+    if (this.state === 'OPEN') {
+      if (Date.now() - this.lastFailureTime >= this.cooldownMs) {
+        this.state = 'HALF_OPEN';
+        return true;
+      }
+      return false;
+    }
+
+    return this.state === 'HALF_OPEN';
+  }
+
+  recordSuccess(): void {
+    if (this.state === 'HALF_OPEN') {
+      this.state = 'CLOSED';
+    }
+    this.failureCount = 0;
+  }
+
+  recordFailure(): void {
+    this.failureCount++;
+    this.lastFailureTime = Date.now();
+    if (this.failureCount >= this.failureThreshold) {
+      this.state = 'OPEN';
+    }
+  }
+
+  getState(): CircuitState {
+    return this.state;
+  }
+  reset(): void {
+    this.state = 'CLOSED';
+    this.failureCount = 0;
+  }
+}
 
 /** 默认重连配置 */
 const DEFAULT_RECONNECT_CONFIG: Required<ReconnectConfig> = {
@@ -96,9 +166,14 @@ const DEFAULT_RECONNECT_CONFIG: Required<ReconnectConfig> = {
  */
 export class McpReconnectManager {
   private config: Required<ReconnectConfig>;
+  private breaker: CircuitBreaker;
 
-  constructor(config: ReconnectConfig = {}) {
+  constructor(
+    config: ReconnectConfig = {},
+    circuitBreakerConfig?: CircuitBreakerConfig
+  ) {
     this.config = { ...DEFAULT_RECONNECT_CONFIG, ...config };
+    this.breaker = new CircuitBreaker(circuitBreakerConfig);
   }
 
   /**
@@ -119,6 +194,17 @@ export class McpReconnectManager {
 
     while (attemptCount < this.config.maxRetries) {
       attemptCount++;
+
+      // 熔断器检查
+      if (!this.breaker.allowRequest()) {
+        return {
+          ok: false,
+          reason: 'circuit_open',
+          message: `Circuit breaker open, cooldown ${this.breaker['cooldownMs']}ms`,
+          attemptCount,
+          totalMs: Date.now() - t0,
+        };
+      }
 
       // 检查总超时
       if (Date.now() - t0 > this.config.timeoutMs) {
@@ -156,6 +242,7 @@ export class McpReconnectManager {
 
         await onSwap(client);
 
+        this.breaker.recordSuccess();
         logger.info('MCP reconnect succeeded', {
           kind: drift.kind,
           attemptCount,
@@ -175,6 +262,8 @@ export class McpReconnectManager {
           attempt: attemptCount,
           error: (err as Error).message,
         });
+
+        this.breaker.recordFailure();
 
         if (attemptCount >= this.config.maxRetries) {
           return {

@@ -5,8 +5,37 @@
 
 import type { Tool, ToolUseContext, ToolResult } from '../tools/types';
 import { createToolResult } from '../tools/types/ToolResult';
-import { MCPServerConfig } from './types';
-import { getMCPServerManager } from './managers/MCPServerManager';
+import { MCPServerConfig, MCPToolDefinition } from './types';
+import { getMCPServerManager } from '../services/mcp/MCPServerManager.js';
+import { configManager } from '@modules/config';
+
+/** 自动审批白名单缓存 */
+let _autoApproveCache: Map<string, string[]> | null = null;
+
+/**
+ * 获取自动审批白名单
+ * 从配置 mcp_auto_approve 中读取，格式: { "server_name": ["tool1", "tool2"] }
+ */
+function getAutoApproveList(serverName: string): string[] {
+  if (!_autoApproveCache) {
+    try {
+      const raw = configManager.env('MCP_AUTO_APPROVE');
+      _autoApproveCache = new Map();
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, string[]>;
+        for (const [key, tools] of Object.entries(parsed)) {
+          _autoApproveCache.set(
+            key,
+            tools.map((t) => t.toLowerCase())
+          );
+        }
+      }
+    } catch {
+      _autoApproveCache = new Map();
+    }
+  }
+  return _autoApproveCache.get(serverName) || [];
+}
 
 /**
  * MCPTool参数
@@ -228,14 +257,14 @@ export const MCPTool: Tool = {
 
           return createToolResult(
             {
-              tools: tools.map((t) => ({
+              tools: tools.map((t: MCPToolDefinition) => ({
                 name: t.name,
                 description: t.description,
               })),
             },
             {
               success: true,
-              output: `Available tools from ${server_name}:\n${tools.map((t) => `- ${t.name}: ${t.description}`).join('\n')}`,
+              output: `Available tools from ${server_name}:\n${tools.map((t: MCPToolDefinition) => `- ${t.name}: ${t.description}`).join('\n')}`,
             }
           );
 

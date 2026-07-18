@@ -61,6 +61,8 @@ export class RegistrationStub {
       repository: options.repository || '',
       enabled: options.enabled !== false,
       isBuiltin: options.source === 'bundled',
+      dependencies: [],
+      dependents: [],
     };
 
     if (options.moduleExports) {
@@ -134,6 +136,8 @@ export class RegistrationStub {
         repository: '',
         enabled: match.enabled,
         isBuiltin: true,
+        dependencies: [],
+        dependents: [],
       };
     };
   }

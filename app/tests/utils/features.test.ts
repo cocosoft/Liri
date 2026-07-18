@@ -25,24 +25,24 @@ describe('isAntUser', () => {
 describe('isSimpleMode', () => {
 
   it('should return false when env not set', () => {
-    const orig = process.env.CLAUDE_CODE_SIMPLE;
-    delete process.env.CLAUDE_CODE_SIMPLE;
+    const orig = process.env.PYAPP_SIMPLE_MODE;
+    delete process.env.PYAPP_SIMPLE_MODE;
     expect(isSimpleMode()).toBe(false);
-    process.env.CLAUDE_CODE_SIMPLE = orig;
+    process.env.PYAPP_SIMPLE_MODE = orig;
   });
 
-  it('should return true when CLAUDE_CODE_SIMPLE is true', () => {
-    const orig = process.env.CLAUDE_CODE_SIMPLE;
-    process.env.CLAUDE_CODE_SIMPLE = 'true';
+  it('should return true when PYAPP_SIMPLE_MODE is true', () => {
+    const orig = process.env.PYAPP_SIMPLE_MODE;
+    process.env.PYAPP_SIMPLE_MODE = 'true';
     expect(isSimpleMode()).toBe(true);
-    process.env.CLAUDE_CODE_SIMPLE = orig;
+    process.env.PYAPP_SIMPLE_MODE = orig;
   });
 
-  it('should return false when CLAUDE_CODE_SIMPLE is false', () => {
-    const orig = process.env.CLAUDE_CODE_SIMPLE;
-    process.env.CLAUDE_CODE_SIMPLE = 'false';
+  it('should return false when PYAPP_SIMPLE_MODE is false', () => {
+    const orig = process.env.PYAPP_SIMPLE_MODE;
+    process.env.PYAPP_SIMPLE_MODE = 'false';
     expect(isSimpleMode()).toBe(false);
-    process.env.CLAUDE_CODE_SIMPLE = orig;
+    process.env.PYAPP_SIMPLE_MODE = orig;
   });
 
 });

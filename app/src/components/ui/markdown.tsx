@@ -1,6 +1,7 @@
 //
 import React from 'react';
 import { Text, Box } from '../ink.js';
+import InlineCodeLink from './InlineCodeLink.js';
 
 interface MarkdownBlockProps {
   content: string;
@@ -160,20 +161,82 @@ export function StatsBar({
   );
 }
 
+/**
+ * 将行内文本按反引号分割，识别文件路径并用 InlineCodeLink 渲染
+ */
+function renderInlineContent(
+  text: string,
+  knownFilePaths: string[] | undefined,
+  onPreviewFile: ((path: string) => void) | undefined,
+  keyPrefix: string,
+  keyIdx: { current: number }
+): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  const regex = /`([^`]+)`/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(
+        React.createElement(Text, {
+          key: `${keyPrefix}_t_${keyIdx.current++}`,
+          children: text.slice(lastIndex, match.index),
+        })
+      );
+    }
+
+    parts.push(
+      React.createElement(InlineCodeLink, {
+        key: `${keyPrefix}_ic_${keyIdx.current++}`,
+        codeContent: match[1],
+        knownFilePaths,
+        onPreviewFile,
+      })
+    );
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(
+      React.createElement(Text, {
+        key: `${keyPrefix}_t_${keyIdx.current++}`,
+        children: text.slice(lastIndex),
+      })
+    );
+  }
+
+  return parts.length > 0
+    ? parts
+    : [
+        React.createElement(
+          Text,
+          { key: `${keyPrefix}_t_${keyIdx.current++}` },
+          text
+        ),
+      ];
+}
+
 interface MarkdownRendererProps {
   content: string;
   searchQuery?: string;
+  knownFilePaths?: string[];
+  onPreviewFile?: (path: string) => void;
 }
 
 export function MarkdownRenderer({
   content,
   searchQuery,
+  knownFilePaths,
+  onPreviewFile,
 }: MarkdownRendererProps): React.ReactNode {
   const blocks: React.ReactNode[] = [];
   const lines = content.split('\n');
 
   let i = 0;
   let keyIdx = 0;
+  const inlineKey = { current: 0 };
 
   while (i < lines.length) {
     const line = lines[i];
@@ -266,10 +329,17 @@ export function MarkdownRenderer({
           { key: `ul_${keyIdx++}`, flexDirection: 'column', marginLeft: 2 },
           ...bulletLines.map((bl, bi) => {
             const trimmed = bl.startsWith('  ') ? '  ' + bl.slice(2) : bl;
+            const inlineParts = renderInlineContent(
+              trimmed,
+              knownFilePaths,
+              onPreviewFile,
+              `li_${bi}`,
+              inlineKey
+            );
             return React.createElement(
-              Text,
-              { key: `li_${bi}`, color: 'gray' },
-              trimmed
+              Box,
+              { key: `li_${bi}`, flexDirection: 'row' as const },
+              ...inlineParts
             );
           })
         )
@@ -285,7 +355,28 @@ export function MarkdownRenderer({
       continue;
     }
 
-    blocks.push(React.createElement(Text, { key: `p_${keyIdx++}` }, line));
+    // 普通段落：解析其中的反引号内容
+    const inlineParts = renderInlineContent(
+      line,
+      knownFilePaths,
+      onPreviewFile,
+      `p_${keyIdx}`,
+      inlineKey
+    );
+    if (
+      inlineParts.length === 1 &&
+      (inlineParts[0] as React.ReactElement)?.type === Text
+    ) {
+      blocks.push(React.createElement(Text, { key: `p_${keyIdx++}` }, line));
+    } else {
+      blocks.push(
+        React.createElement(
+          Box,
+          { key: `p_${keyIdx++}`, flexDirection: 'row' as const },
+          ...inlineParts
+        )
+      );
+    }
     i++;
   }
 

@@ -20,11 +20,24 @@
 // SOFTWARE.
 
 /**
- * MCP工具注册表重导出
- * 标准层 services/mcp/MCPToolRegistry 的重导出
+ * MCP Server 入口 —— 通过 stdio 运行。
+ * 委托到 entrypoints/mcp.ts 的生产级实现。
+ *
+ * 用法（在 .mcp.json 中配置）:
+ *   {
+ *     "mcpServers": {
+ *       "pyapp": {
+ *         "command": "bun",
+ *         "args": ["run", "app/src/mcp/server/entrypoint.ts"]
+ *       }
+ *     }
+ *   }
  */
-export {
-  MCPToolRegistry,
-  mcpToolRegistry,
-} from '../services/mcp/MCPToolRegistry.js';
-export type { MCPToolInfo } from '../services/mcp/MCPToolRegistry.js';
+import { startMCPServer } from '../../entrypoints/mcp.js';
+
+const cwd = process.cwd();
+
+startMCPServer(cwd).catch((error: unknown) => {
+  console.error('MCP Server failed to start:', error);
+  process.exit(1);
+});

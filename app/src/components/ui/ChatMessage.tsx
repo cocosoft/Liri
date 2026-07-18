@@ -26,6 +26,8 @@ export interface ChatMessageProps {
   toolCall?: ToolCallInfo;
   toolResult?: ToolResultInfo;
   verbose?: boolean;
+  knownFilePaths?: string[];
+  onPreviewFile?: (path: string) => void;
 }
 
 const SENDER_LABELS: Record<MessageSender, string> = {
@@ -112,6 +114,8 @@ export function ChatMessage({
   toolCall,
   toolResult,
   verbose = false,
+  knownFilePaths,
+  onPreviewFile,
 }: ChatMessageProps): React.ReactNode {
   const senderColor = SENDER_COLORS[sender];
   const borderStyle = getSenderBorderStyle(sender);
@@ -135,7 +139,11 @@ export function ChatMessage({
         {isLoading ? (
           <LoadingDots />
         ) : type === 'markdown' && sender === 'assistant' ? (
-          <MarkdownRenderer content={content} />
+          <MarkdownRenderer
+            content={content}
+            knownFilePaths={knownFilePaths}
+            onPreviewFile={onPreviewFile}
+          />
         ) : (
           <Text wrap="wrap">{content}</Text>
         )}

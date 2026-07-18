@@ -1,5 +1,5 @@
 /**
- * Claude.md 深度集成服务（参考CC源码 claudemd.ts）
+ * 项目规则文件加载器（解析 .md 指令文件）
  * 支持多目录发现、@include 指令、Frontmatter 解析、HTML注释剥离
  * 文件加载顺序（优先级从低到高）：
  *   1. Managed（系统级全局指令）
@@ -70,7 +70,7 @@ const TEXT_FILE_EXTENSIONS = new Set([
 ]);
 
 /**
- * 记忆类型（继承自CC memoryTypes.ts）
+ * 记忆类型
  */
 export type MemoryType =
   | 'Managed'
@@ -81,7 +81,7 @@ export type MemoryType =
   | 'TeamMem';
 
 /**
- * 记忆文件信息（参考CC claudemd.ts MemoryFileInfo）
+ * 记忆文件信息
  */
 export interface MemoryFileInfo {
   path: string;
@@ -94,9 +94,9 @@ export interface MemoryFileInfo {
 }
 
 /**
- * Claude.md 规则接口（后向兼容）
+ * 项目规则接口（从 Markdown 文件解析的行为准则、编码标准等）
  */
-export interface ClaudeMdRules {
+export interface ProjectRules {
   behavioralGuidelines: string[];
   codingStandards: string[];
   reviewChecklist: string[];
@@ -104,46 +104,46 @@ export interface ClaudeMdRules {
 }
 
 /**
- * Claude.md 配置接口（后向兼容）
+ * 规则文件配置
  */
-export interface ClaudeMdConfig {
+export interface RulesConfig {
   enabled: boolean;
   path: string;
-  rules: ClaudeMdRules;
+  rules: ProjectRules;
 }
 
 /**
- * Claude.md 集成接口
+ * 项目规则加载器接口
  */
-export interface ClaudeMdIntegration {
-  loadClaudeMd(cwd: string): Promise<ClaudeMdConfig | null>;
-  parseClaudeMd(content: string): ClaudeMdRules;
+export interface ProjectRulesLoader {
+  loadProjectRules(cwd: string): Promise<RulesConfig | null>;
+  parseProjectRules(content: string): ProjectRules;
   extractRulesBySection(content: string, section: string): string[];
   getMemoryFiles(cwd: string): Promise<MemoryFileInfo[]>;
-  getClaudeMds(
+  getProjectRulesContent(
     files: MemoryFileInfo[],
     filter?: (type: MemoryType) => boolean
   ): string;
 }
 
-export class ClaudeMdIntegrationImpl implements ClaudeMdIntegration {
-  private readonly CLAUDE_MD_FILENAME = 'Claude.md';
-  private readonly CLAUDE_MD_DIRNAME = '.claude';
+export class ProjectRulesLoaderImpl implements ProjectRulesLoader {
+  private readonly DEFAULT_RULES_FILENAME = 'ProjectRules.md';
+  private readonly DEFAULT_RULES_DIRNAME = '.project-rules';
   private readonly RULES_DIRNAME = 'rules';
 
-  async loadClaudeMd(cwd: string): Promise<ClaudeMdConfig | null> {
-    const filePath = join(cwd, this.CLAUDE_MD_FILENAME);
+  async loadProjectRules(cwd: string): Promise<RulesConfig | null> {
+    const filePath = join(cwd, this.DEFAULT_RULES_FILENAME);
     if (!existsSync(filePath)) return null;
     try {
       const content = readFileSync(filePath, 'utf-8');
-      const rules = this.parseClaudeMd(content);
+      const rules = this.parseProjectRules(content);
       return { enabled: true, path: filePath, rules };
     } catch {
       return null;
     }
   }
 
-  parseClaudeMd(content: string): ClaudeMdRules {
+  parseProjectRules(content: string): ProjectRules {
     return {
       behavioralGuidelines: this.extractRulesBySection(
         content,
@@ -168,15 +168,15 @@ export class ClaudeMdIntegrationImpl implements ClaudeMdIntegration {
   }
 
   /**
-   * 获取所有记忆文件（参考CC claudemd.ts getMemoryFiles）
+   * 获取所有记忆文件
    * 从多个目录发现记忆文件，按优先级排序
    */
   async getMemoryFiles(cwd: string): Promise<MemoryFileInfo[]> {
     const files: MemoryFileInfo[] = [];
     const processedPaths = new Set<string>();
 
-    const managedDir = this.getManagedClaudeRulesDir();
-    const userDir = join(homedir(), '.claude');
+    const managedDir = this.getManagedRulesDir();
+    const userDir = join(homedir(), '.project-rules');
     const projectDirs = this.discoverProjectDirs(cwd);
 
     const discovered: Array<{
@@ -187,7 +187,7 @@ export class ClaudeMdIntegrationImpl implements ClaudeMdIntegration {
 
     if (managedDir) {
       discovered.push({
-        dir: join(managedDir, this.CLAUDE_MD_FILENAME),
+        dir: join(managedDir, this.DEFAULT_RULES_FILENAME),
         type: 'Managed',
         isFile: true,
       });
@@ -200,7 +200,7 @@ export class ClaudeMdIntegrationImpl implements ClaudeMdIntegration {
     }
 
     discovered.push({
-      dir: join(userDir, this.CLAUDE_MD_FILENAME),
+      dir: join(userDir, this.DEFAULT_RULES_FILENAME),
       type: 'User',
       isFile: true,
     });
@@ -213,18 +213,18 @@ export class ClaudeMdIntegrationImpl implements ClaudeMdIntegration {
 
     for (const projectDir of projectDirs) {
       discovered.push({
-        dir: join(projectDir, this.CLAUDE_MD_FILENAME),
+        dir: join(projectDir, this.DEFAULT_RULES_FILENAME),
         type: 'Project',
         isFile: true,
       });
-      const claudeDir = join(projectDir, this.CLAUDE_MD_DIRNAME);
-      if (existsSync(claudeDir)) {
+      const rulesRootDir = join(projectDir, this.DEFAULT_RULES_DIRNAME);
+      if (existsSync(rulesRootDir)) {
         discovered.push({
-          dir: join(claudeDir, this.CLAUDE_MD_FILENAME),
+          dir: join(rulesRootDir, this.DEFAULT_RULES_FILENAME),
           type: 'Project',
           isFile: true,
         });
-        const rulesDir = join(claudeDir, this.RULES_DIRNAME);
+        const rulesDir = join(rulesRootDir, this.RULES_DIRNAME);
         if (existsSync(rulesDir)) {
           for (const f of this.getMdFiles(rulesDir)) {
             discovered.push({ dir: f, type: 'Project' });
@@ -233,7 +233,7 @@ export class ClaudeMdIntegrationImpl implements ClaudeMdIntegration {
       }
       const localMd = join(
         projectDir,
-        `${this.CLAUDE_MD_FILENAME.replace('.md', '')}.local.md`
+        `${this.DEFAULT_RULES_FILENAME.replace('.md', '')}.local.md`
       );
       discovered.push({ dir: localMd, type: 'Local', isFile: true });
     }
@@ -258,9 +258,9 @@ export class ClaudeMdIntegrationImpl implements ClaudeMdIntegration {
   }
 
   /**
-   * 格式化记忆文件为提示文本（参考CC claudemd.ts getClaudeMds）
+   * 格式化记忆文件为提示文本
    */
-  getClaudeMds(
+  getProjectRulesContent(
     files: MemoryFileInfo[],
     filter?: (type: MemoryType) => boolean
   ): string {
@@ -282,16 +282,16 @@ export class ClaudeMdIntegrationImpl implements ClaudeMdIntegration {
   }
 
   /**
-   * 获取 Managed Claude 规则目录
+   * 获取 Managed 项目规则目录
    */
-  private getManagedClaudeRulesDir(): string | null {
+  private getManagedRulesDir(): string | null {
     if (process.platform === 'win32') {
       const programData =
         configManager.env('PROGRAMDATA') ||
         join(configManager.env('SYSTEMDRIVE') || 'C:', 'ProgramData');
-      return join(programData, 'Claude');
+      return join(programData, 'ProjectRules');
     }
-    return '/etc/claude-code';
+    return '/etc/project-rules';
   }
 
   /**
@@ -383,7 +383,7 @@ export class ClaudeMdIntegrationImpl implements ClaudeMdIntegration {
   }
 
   /**
-   * 展开 @include 指令（参考CC claudemd.ts processMemoryFile）
+   * 展开 @include 指令
    */
   private async expandIncludes(
     files: MemoryFileInfo[],
@@ -441,7 +441,7 @@ export class ClaudeMdIntegrationImpl implements ClaudeMdIntegration {
   }
 
   /**
-   * 从内容中提取 @include 路径（参考CC claudemd.ts extractIncludePathsFromTokens）
+   * 从内容中提取 @include 路径
    */
   private extractIncludePaths(content: string, baseDir: string): string[] {
     const paths: string[] = [];
@@ -468,7 +468,7 @@ export class ClaudeMdIntegrationImpl implements ClaudeMdIntegration {
   }
 
   /**
-   * 解析 Frontmatter paths 字段（参考CC claudemd.ts parseFrontmatterPaths）
+   * 解析 Frontmatter paths 字段
    */
   private parseFrontmatterPaths(pathsRaw: unknown): {
     paths?: string[];
@@ -502,7 +502,7 @@ export class ClaudeMdIntegrationImpl implements ClaudeMdIntegration {
   }
 
   /**
-   * 剥离 HTML 注释（参考CC claudemd.ts stripHtmlComments）
+   * 剥离 HTML 注释
    * 块级HTML注释剥离，保留代码块和行内注释
    */
   private stripHtmlComments(content: string): {
@@ -526,7 +526,7 @@ export class ClaudeMdIntegrationImpl implements ClaudeMdIntegration {
   }
 
   /**
-   * 获取记忆类型的描述文本（参考CC claudemd.ts getClaudeMds）
+   * 获取记忆类型的描述文本
    */
   private getTypeDescription(type: MemoryType): string {
     switch (type) {
@@ -549,7 +549,7 @@ export class ClaudeMdIntegrationImpl implements ClaudeMdIntegration {
 }
 
 /**
- * 过滤已注入的记忆文件（参考CC claudemd.ts filterInjectedMemoryFiles）
+ * 过滤已注入的记忆文件
  * 当 memory attachment 功能启用时，过滤掉已通过附件方式注入的记忆文件
  * 避免在系统提示中重复注入
  */
@@ -563,6 +563,6 @@ export function filterInjectedMemoryFiles(
   return files.filter((f) => !skipTypes.includes(f.type));
 }
 
-export function createClaudeMdIntegration(): ClaudeMdIntegration {
-  return new ClaudeMdIntegrationImpl();
+export function createProjectRulesLoader(): ProjectRulesLoader {
+  return new ProjectRulesLoaderImpl();
 }

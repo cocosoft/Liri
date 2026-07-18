@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * 支持完整的Frontmatter解析、参数替换、Shell执行等功能
  */
@@ -323,15 +323,15 @@ export class SkillParser {
     // 替换 $ARGUMENTS
     result = result.replace(/\$ARGUMENTS/g, args);
 
-    // 替换 ${CLAUDE_SKILL_DIR}
+    // 替换 ${SKILL_DIR}
     if (baseDir) {
       const skillDir =
         process.platform === 'win32' ? baseDir.replace(/\\/g, '/') : baseDir;
-      result = result.replace(/\$\{CLAUDE_SKILL_DIR\}/g, skillDir);
+      result = result.replace(/\$\{SKILL_DIR\}/g, skillDir);
     }
 
-    // 替换 ${CLAUDE_SESSION_ID}
-    result = result.replace(/\$\{CLAUDE_SESSION_ID\}/g, this.getSessionId());
+    // 替换 ${SESSION_ID}
+    result = result.replace(/\$\{SESSION_ID\}/g, this.getSessionId());
 
     // 替换命名参数 {{argName}}
     if (argumentNames && args) {

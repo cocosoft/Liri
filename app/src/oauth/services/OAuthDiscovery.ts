@@ -1,47 +1,23 @@
-﻿/**
- * OAuth Discovery服务
- * 实现RFC 8414 OAuth 2.0授权服务器元数据发现
- * 参考CC源码的多环境配置模式
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+
+/**
+ * OAuth Discovery 服务
+ * 实现 RFC 8414 OAuth 2.0 授权服务器元数据发现
+ *
+ * 类型统一: 使用 types/OAuthDiscoveryTypes.ts 中的 OAuthServerMetadata（唯一来源）
  */
 
 import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'OAuthDiscovery' });
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
+import type { OAuthServerMetadata } from '../types/OAuthDiscoveryTypes';
+
+const logger = new Logger({ module: 'OAuthDiscovery' });
 
 /**
- * OAuth授权服务器元数据
- * 符合RFC 8414规范
- */
-export interface OAuthMetadata {
-  issuer: string;
-  authorization_endpoint: string;
-  token_endpoint: string;
-  jwks_uri?: string;
-  registration_endpoint?: string;
-  scopes_supported?: string[];
-  response_types_supported: string[];
-  response_modes_supported?: string[];
-  grant_types_supported?: string[];
-  token_endpoint_auth_methods_supported?: string[];
-  token_endpoint_auth_signing_alg_values_supported?: string[];
-  service_documentation?: string;
-  ui_locales_supported?: string[];
-  op_policy_uri?: string;
-  op_tos_uri?: string;
-  revocation_endpoint?: string;
-  revocation_endpoint_auth_methods_supported?: string[];
-  revocation_endpoint_auth_signing_alg_values_supported?: string[];
-  introspection_endpoint?: string;
-  introspection_endpoint_auth_methods_supported?: string[];
-  introspection_endpoint_auth_signing_alg_values_supported?: string[];
-  code_challenge_methods_supported?: string[];
-}
-
-/**
- * OAuth Discovery服务
- * 自动发现OAuth授权服务器元数据
+ * OAuth Discovery 服务
+ * 自动发现 OAuth 授权服务器元数据
  */
 export class OAuthDiscovery {
   private metadataCache: MetadataCache;
@@ -51,46 +27,36 @@ export class OAuthDiscovery {
   }
 
   /**
-   * 发现OAuth授权服务器元数据
-   * 参考RFC 8414规范，从.well-known/oauth-authorization-server获取元数据
-   * @param issuer OAuth发行者URL
+   * 发现 OAuth 授权服务器元数据
+   * 参考 RFC 8414 规范，从 .well-known/oauth-authorization-server 获取
    */
-  async discoverMetadata(issuer: string): Promise<OAuthMetadata> {
-    // 尝试从缓存获取
+  async discoverMetadata(issuer: string): Promise<OAuthServerMetadata> {
     const cached = await this.metadataCache.get(issuer);
     if (cached) {
       logger.debug(`Using cached OAuth metadata for ${issuer}`);
       return cached;
     }
 
-    // 缓存未命中，执行Discovery
     logger.info(`Discovering OAuth metadata for ${issuer}`);
-    const metadata = await this.fetchMetadata(issuer);
-
-    // 验证元数据
+    const raw = await this.fetchRawMetadata(issuer);
+    const metadata = this.normalizeMetadata(raw);
     this.validateMetadata(metadata);
-
-    // 缓存元数据
     await this.metadataCache.set(issuer, metadata);
-
     return metadata;
   }
 
-  /**
-   * 从.well-known端点获取元数据
-   */
-  private async fetchMetadata(issuer: string): Promise<OAuthMetadata> {
-    // 构建.well-known URL
+  /** 从 .well-known 端点获取原始响应（server 返回 snake_case） */
+  private async fetchRawMetadata(
+    issuer: string
+  ): Promise<Record<string, unknown>> {
     const wellKnownUrl = this.buildWellKnownUrl(issuer);
     logger.debug(`Fetching metadata from: ${wellKnownUrl}`);
 
     try {
       const response = await fetch(wellKnownUrl, {
         method: 'GET',
-        headers: {
-          Accept: 'application/json',
-        },
-        signal: AbortSignal.timeout(10000), // 10秒超时
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(10000),
       });
 
       if (!response.ok) {
@@ -102,14 +68,12 @@ export class OAuthDiscovery {
         );
       }
 
-      const metadata = await response.json();
-      logger.info(`Successfully discovered OAuth metadata for ${issuer}`);
-      return metadata;
+      return await response.json();
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
       logger.error(`OAuth Discovery failed for ${issuer}:`, e);
       throw new AppError(
-        `Failed to discover OAuth metadata: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to discover OAuth metadata: ${e.message}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
         '1000'
@@ -117,30 +81,53 @@ export class OAuthDiscovery {
     }
   }
 
-  /**
-   * 构建.well-known URL
-   * 参考RFC 8414规范
-   */
-  private buildWellKnownUrl(issuer: string): string {
-    // 确保issuer URL没有尾部斜杠
-    const normalizedIssuer = issuer.replace(/\/$/, '');
-    return `${normalizedIssuer}/.well-known/oauth-authorization-server`;
+  /** snake_case → camelCase 映射（RFC 8414 服务器响应 → ESNext 命名规范） */
+  private normalizeMetadata(raw: Record<string, unknown>): OAuthServerMetadata {
+    return {
+      issuer: raw.issuer as string,
+      authorizationEndpoint: raw.authorization_endpoint as string,
+      tokenEndpoint: raw.token_endpoint as string,
+      userinfoEndpoint: raw.userinfo_endpoint as string | undefined,
+      jwksUri: raw.jwks_uri as string | undefined,
+      registrationEndpoint: raw.registration_endpoint as string | undefined,
+      scopesSupported: raw.scopes_supported as string[] | undefined,
+      responseTypesSupported: raw.response_types_supported as string[],
+      responseModesSupported: raw.response_modes_supported as
+        | string[]
+        | undefined,
+      grantTypesSupported: raw.grant_types_supported as string[] | undefined,
+      tokenEndpointAuthMethodsSupported:
+        raw.token_endpoint_auth_methods_supported as string[] | undefined,
+      tokenEndpointAuthSigningAlgValuesSupported:
+        raw.token_endpoint_auth_signing_alg_values_supported as
+          | string[]
+          | undefined,
+      codeChallengeMethodsSupported: raw.code_challenge_methods_supported as
+        | string[]
+        | undefined,
+      revocationEndpoint: raw.revocation_endpoint as string | undefined,
+      introspectionEndpoint: raw.introspection_endpoint as string | undefined,
+      serviceDocumentation: raw.service_documentation as string | undefined,
+      opPolicyUri: raw.op_policy_uri as string | undefined,
+      opTosUri: raw.op_tos_uri as string | undefined,
+    };
   }
 
-  /**
-   * 验证OAuth元数据
-   * 确保必要的字段存在
-   */
-  private validateMetadata(metadata: OAuthMetadata): void {
-    const requiredFields = [
+  private buildWellKnownUrl(issuer: string): string {
+    const normalized = issuer.replace(/\/$/, '');
+    return `${normalized}/.well-known/oauth-authorization-server`;
+  }
+
+  private validateMetadata(metadata: OAuthServerMetadata): void {
+    const required: (keyof OAuthServerMetadata)[] = [
       'issuer',
-      'authorization_endpoint',
-      'token_endpoint',
-      'response_types_supported',
+      'authorizationEndpoint',
+      'tokenEndpoint',
+      'responseTypesSupported',
     ];
 
-    for (const field of requiredFields) {
-      if (!metadata[field as keyof OAuthMetadata]) {
+    for (const field of required) {
+      if (!metadata[field]) {
         throw new AppError(
           `Missing required OAuth metadata field: ${field}`,
           ErrorCategory.EXECUTION,
@@ -150,7 +137,6 @@ export class OAuthDiscovery {
       }
     }
 
-    // 验证issuer URL格式
     try {
       new URL(metadata.issuer);
     } catch {
@@ -162,106 +148,65 @@ export class OAuthDiscovery {
       );
     }
 
-    // 验证端点URL格式
-    const endpoints = [
-      metadata.authorization_endpoint,
-      metadata.token_endpoint,
-    ];
-
-    for (const endpoint of endpoints) {
+    for (const ep of [metadata.authorizationEndpoint, metadata.tokenEndpoint]) {
       try {
-        new URL(endpoint);
+        new URL(ep);
       } catch {
         throw new AppError(
-          `Invalid endpoint URL: ${endpoint}`,
+          `Invalid endpoint URL: ${ep}`,
           ErrorCategory.EXECUTION,
           ErrorSeverity.HIGH,
           '1000'
         );
       }
     }
-
-    logger.debug('OAuth metadata validation passed');
   }
 
-  /**
-   * 清除指定发行者的缓存
-   */
   async clearCache(issuer: string): Promise<void> {
     await this.metadataCache.delete(issuer);
     logger.info(`OAuth metadata cache cleared for ${issuer}`);
   }
 
-  /**
-   * 清除所有缓存
-   */
   async clearAllCache(): Promise<void> {
     await this.metadataCache.clear();
     logger.info('All OAuth metadata cache cleared');
   }
 
-  /**
-   * 获取缓存状态
-   */
   getCacheStatus(): { size: number; entries: string[] } {
     return this.metadataCache.getStatus();
   }
 }
 
-/**
- * OAuth元数据缓存
- * 缓存Discovery结果，避免重复网络请求
- */
+/** OAuth 元数据缓存（TTL 24小时） */
 export class MetadataCache {
-  private cache: TTLCache<OAuthMetadata>;
+  private cache: TTLCache<OAuthServerMetadata>;
 
   constructor() {
-    this.cache = new TTLCache<OAuthMetadata>(100, 24 * 60 * 60 * 1000);
+    this.cache = new TTLCache<OAuthServerMetadata>(100, 24 * 60 * 60 * 1000);
   }
 
-  /**
-   * 获取缓存的元数据
-   */
-  async get(issuer: string): Promise<OAuthMetadata | null> {
+  async get(issuer: string): Promise<OAuthServerMetadata | null> {
     return this.cache.get(issuer);
   }
 
-  /**
-   * 缓存元数据
-   */
-  async set(issuer: string, metadata: OAuthMetadata): Promise<void> {
+  async set(issuer: string, metadata: OAuthServerMetadata): Promise<void> {
     this.cache.set(issuer, metadata);
     logger.debug(`OAuth metadata cached for ${issuer}`);
   }
 
-  /**
-   * 删除缓存
-   */
   async delete(issuer: string): Promise<void> {
     this.cache.delete(issuer);
   }
 
-  /**
-   * 清除所有缓存
-   */
   async clear(): Promise<void> {
     this.cache.clear();
   }
 
-  /**
-   * 获取缓存状态
-   */
   getStatus(): { size: number; entries: string[] } {
-    return {
-      size: this.cache.size(),
-      entries: [],
-    };
+    return { size: this.cache.size(), entries: [] };
   }
 }
 
-/**
- * 创建OAuth Discovery服务实例
- */
 export function createOAuthDiscovery(): OAuthDiscovery {
   return new OAuthDiscovery();
 }

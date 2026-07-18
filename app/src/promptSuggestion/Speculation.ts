@@ -171,7 +171,7 @@ export function shouldEnableSpeculation(): boolean {
     return false;
   }
 
-  const envOverride = configManager.env('CLAUDE_CODE_ENABLE_SPECULATION');
+  const envOverride = configManager.env('PYAPP_ENABLE_SPECULATION');
   if (envOverride === 'false' || envOverride === '0') {
     return false;
   }

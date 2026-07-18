@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MCP OAuth认证管理器
  * 集成OAuth Discovery和Token持久化功能
  */
@@ -24,20 +24,23 @@ export class MCPAuthManager {
 
   private async loadPersistedTokens(): Promise<void> {
     try {
-      const allTokens = await this.storage.loadAllTokens();
-      for (const [serverKey, tokenData] of Object.entries(allTokens)) {
+      const keys = await this.storage.listKeys();
+      for (const serverKey of keys) {
+        const tokenData = await this.storage.loadToken(serverKey);
         if (tokenData && tokenData.expiresAt > Date.now()) {
           this.tokens.set(serverKey, {
             accessToken: tokenData.accessToken,
             refreshToken: tokenData.refreshToken,
             expiresAt: tokenData.expiresAt,
-            scopes: tokenData.scopes,
+            scopes: tokenData.scopes ?? [],
           });
           logger.debug(`Loaded persisted token for server: ${serverKey}`);
         }
       }
     } catch (error) {
-      logger.warn('Failed to load persisted OAuth tokens', { error });
+      logger.warn('Failed to load persisted OAuth tokens', {
+        error: String(error),
+      });
     }
   }
 
@@ -189,9 +192,7 @@ export class MCPAuthManager {
       expiresAt: token.expiresAt,
       tokenType: token.tokenType || 'Bearer',
       scopes: token.scopes,
-      serverKey,
-      savedAt: Date.now(),
-    } as any);
+    });
 
     return token;
   }
@@ -249,9 +250,7 @@ export class MCPAuthManager {
       refreshToken: token.refreshToken || '',
       expiresAt: token.expiresAt,
       tokenType: token.tokenType || 'Bearer',
-      serverKey,
-      savedAt: Date.now(),
-    } as any);
+    });
 
     return token.accessToken;
   }
@@ -302,9 +301,7 @@ export class MCPAuthManager {
       refreshToken: token.refreshToken || '',
       expiresAt: token.expiresAt,
       tokenType: token.tokenType || 'Bearer',
-      serverKey,
-      savedAt: Date.now(),
-    } as any);
+    });
 
     return token.accessToken;
   }

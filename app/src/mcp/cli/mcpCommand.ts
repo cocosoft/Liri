@@ -13,6 +13,36 @@ import { handleError } from '@modules/error';
 
 const logger = getLogger('mcpCommand');
 
+import type { MCPOAuthConfig } from '@modules/services/mcp/auth/types.js';
+
+/** 探测模式超时（毫秒） */
+const PROBE_TIMEOUT_MS = 30_000;
+
+/**
+ * 从 MCPServerConfig 派生 MCPOAuthConfig。
+ * 如果服务器配置中缺少 OAuth 信息则返回 null。
+ */
+function deriveOAuthConfig(config: MCPServerConfig): MCPOAuthConfig | null {
+  if (!config.oauth?.clientId) return null;
+
+  const metadataUrl = config.oauth.authServerMetadataUrl || config.url;
+  if (!metadataUrl) return null;
+
+  try {
+    const baseUrl = new URL(metadataUrl);
+    const origin = baseUrl.origin;
+
+    return {
+      clientId: config.oauth.clientId,
+      authUrl: `${origin}/authorize`,
+      tokenUrl: `${origin}/token`,
+      redirectUri: `http://localhost:${config.oauth.callbackPort || 8205}/callback`,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * 创建MCP CLI命令
  */
@@ -200,6 +230,139 @@ export function createMcpCommand(): Command {
         for (const server of allServers) {
           console.log(`- ${server}`);
         }
+      }
+    });
+
+  // 探测命令（对标 hermes mcp test）
+  mcpCommand
+    .command('test <name>')
+    .description(
+      'Temporarily connect to an MCP server and list available tools (probe mode)'
+    )
+    .option('-t, --timeout <seconds>', 'Connection timeout in seconds', '30')
+    .action(async (name, options) => {
+      const servers = readMcpConfig(configPath);
+      const config = servers[name];
+
+      if (!config) {
+        console.error(`Error: MCP server '${name}' not found in config.`);
+        return;
+      }
+
+      const timeoutMs = parseInt(options.timeout) * 1000;
+      console.log(
+        `Probing MCP server '${name}' (timeout: ${options.timeout}s)...`
+      );
+
+      try {
+        // 临时添加并连接
+        const probeName = `_probe_${name}_${Date.now()}`;
+        serverManager.addServer(probeName, config);
+
+        const probePromise = serverManager.connectAll();
+        const result = await Promise.race([
+          probePromise.then(() => 'connected' as const),
+          new Promise<'timeout'>((resolve) =>
+            setTimeout(() => resolve('timeout'), timeoutMs)
+          ),
+        ]);
+
+        if (result === 'timeout') {
+          console.error(`Probe timed out after ${options.timeout}s.`);
+          serverManager.removeServer(probeName);
+          return;
+        }
+
+        const serverInfos = serverManager.getServerInfos();
+        const serverInfo = serverInfos.find((s) => s.name === probeName);
+        const tools = serverInfo?.tools || [];
+
+        if (tools.length === 0) {
+          console.log('No tools found on this server.');
+        } else {
+          console.log(`\nFound ${tools.length} tool(s):`);
+          for (const tool of tools) {
+            console.log(
+              `  - ${tool.name}: ${tool.description || '(no description)'}`
+            );
+          }
+        }
+
+        // 清理探测连接
+        await serverManager.removeServer(probeName);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error(`Probe failed: ${msg}`);
+        await handleError(error, { module: 'mcp:cli', action: 'probe' });
+      }
+    });
+
+  // OAuth 登录命令（对标 hermes mcp login）
+  mcpCommand
+    .command('login <name>')
+    .description('Force re-authenticate with an MCP server via OAuth')
+    .action(async (name) => {
+      const servers = readMcpConfig(configPath);
+      const config = servers[name];
+
+      if (!config) {
+        console.error(`Error: MCP server '${name}' not found in config.`);
+        return;
+      }
+
+      console.log(`Starting OAuth authentication for '${name}'...`);
+
+      try {
+        const oauthConfig = deriveOAuthConfig(config);
+        if (!oauthConfig) {
+          console.error(
+            `Error: Server '${name}' does not have OAuth configuration. ` +
+              'Add "oauth" section to the server config with at least clientId and authServerMetadataUrl.'
+          );
+          return;
+        }
+
+        // 使用 MCPAuthManager 发起 OAuth 流程（基于已归一的 OAuth 体系）
+        const { mcpAuthManager } =
+          await import('@modules/services/mcp/auth/MCPAuth.js');
+        const result = await mcpAuthManager.initiateAuth(oauthConfig);
+        console.log(
+          `Please open the following URL in your browser:\n${result.authUrl}\n`
+        );
+
+        // 等待用户输入回调 URL
+        const readline = await import('readline');
+        const rl = readline.createInterface({
+          input: process.stdin,
+          output: process.stdout,
+        });
+        const callbackUrl = await new Promise<string>((resolve) => {
+          rl.question('Paste the callback URL here: ', (answer) => {
+            rl.close();
+            resolve(answer.trim());
+          });
+        });
+
+        const parsedUrl = new URL(callbackUrl);
+        const code = parsedUrl.searchParams.get('code');
+        const state = parsedUrl.searchParams.get('state');
+
+        if (!code) {
+          console.error('Error: No authorization code found in callback URL.');
+          return;
+        }
+
+        await mcpAuthManager.handleCallback(
+          name,
+          code,
+          state || '',
+          oauthConfig
+        );
+        console.log(`OAuth authentication completed for '${name}'.`);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error(`OAuth login failed: ${msg}`);
+        await handleError(error, { module: 'mcp:cli', action: 'oauthLogin' });
       }
     });
 

@@ -799,6 +799,58 @@ export class ConfigManager {
   }
 
   /**
+   * 通过点号路径获取配置值（支持嵌套存取）
+   * @param key 点号路径，如 'models.current'
+   * @param defaultValue 默认值
+   */
+  getValue<T = any>(key: string, defaultValue?: T): T | undefined {
+    const parts = key.split('.');
+    let current: unknown = this.getGlobalConfig();
+
+    for (const part of parts) {
+      if (
+        current === null ||
+        current === undefined ||
+        typeof current !== 'object'
+      ) {
+        return defaultValue;
+      }
+      current = (current as Record<string, unknown>)[part];
+    }
+
+    if (current === undefined) {
+      return defaultValue;
+    }
+    return current as T;
+  }
+
+  /**
+   * 通过点号路径设置配置值（支持嵌套存取）
+   * @param key 点号路径，如 'models.current'
+   * @param value 要设置的值
+   */
+  setValue(key: string, value: unknown): void {
+    const parts = key.split('.');
+    this.saveGlobalConfig((config) => {
+      let current: Record<string, unknown> = config as unknown as Record<
+        string,
+        unknown
+      >;
+
+      for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i];
+        if (!(part in current) || typeof current[part] !== 'object') {
+          current[part] = {};
+        }
+        current = current[part] as Record<string, unknown>;
+      }
+
+      current[parts[parts.length - 1]] = value;
+      return config;
+    });
+  }
+
+  /**
    * 获取配置值
    * @param key 配置键
    * @returns 配置值

@@ -25,13 +25,13 @@
  */
 
 // ── 认证 ──
-export { MCPAuthManager, mcpAuthManager } from './auth/index.js';
+export { MCPAuthManager, mcpAuthManager } from '../services/mcp/auth/index.js';
 export type {
   MCPOAuthConfig,
   MCPOAuthToken,
   MCPOAuthState,
   MCPOAuthDiscoveryState,
-} from './auth/index.js';
+} from '../services/mcp/auth/index.js';
 
 // ── 类型 ──
 export { MCP_PROTOCOL_VERSION, MCPServerStatus } from './types/index.js';
@@ -63,17 +63,17 @@ export type {
   MCPTransportType,
 } from './types/index.js';
 
-// ── 传输层 ──
-export { MCPTransport as MCPTransportBase } from './transports/MCPTransport.js';
-export { TransportFactory } from './transports/TransportFactory.js';
-export { SSETransport } from './transports/SSETransport.js';
-export { WebSocketTransport } from './transports/WebSocketTransport.js';
-export { HTTPTransport } from './transports/HTTPTransport.js';
-export { StdioTransport } from './transports/StdioTransport.js';
+// ── 传输层（直接引用 services/mcp/transports/）──
+export { MCPTransport as MCPTransportBase } from '../services/mcp/transports/MCPTransport.js';
+export { TransportFactory } from '../services/mcp/TransportFactory.js';
+export { SSETransport } from '../services/mcp/transports/SSETransport.js';
+export { WebSocketTransport } from '../services/mcp/transports/WebSocketTransport.js';
+export { HTTPTransport } from '../services/mcp/transports/HTTPTransport.js';
+export { StdioTransport } from '../services/mcp/transports/StdioTransport.js';
 export {
   createLinkedTransportPair,
   InProcessTransportFactory,
-} from './transports/InProcessTransport.js';
+} from '../services/mcp/transports/InProcessTransport.js';
 
 // ── 客户端 ──
 export { MCPClientImpl } from './client/MCPClient.js';
@@ -86,15 +86,19 @@ export {
 
 // ── 管理 ──
 export { MCPManager } from './managers/MCPManager.js';
+export type {
+  MCPServerChangeType,
+  MCPServerChangeEvent,
+} from './managers/MCPManager.js';
 export {
   MCPServerManager,
   getMCPServerManager,
-} from './managers/MCPServerManager.js';
-export { MCPServerConnection } from './managers/MCPServerConnection.js';
+} from '../services/mcp/MCPServerManager.js';
+export { MCPConnection as MCPServerConnection } from '../services/mcp/MCPConnection.js';
 
 // ── 工具注册表 ──
-export { MCPToolRegistry } from './MCPToolRegistry.js';
-export type { MCPToolInfo } from './MCPToolRegistry.js';
+export { MCPToolRegistry } from '../services/mcp/MCPToolRegistry.js';
+export type { MCPToolInfo } from '../services/mcp/MCPToolRegistry.js';
 
 // ── 工具 ──
 export { MCPTool } from './MCPTool.js';
@@ -152,12 +156,12 @@ export {
   getOfficialServersByCategory,
   getOfficialServer,
   getCategories,
-} from './utils/MCPOfficialRegistry.js';
+} from '../services/mcp/MCPOfficialRegistry.js';
 
 export {
   MCPResourceManager,
   mcpResourceManager,
-} from './utils/MCPResourceManager.js';
+} from '../services/mcp/resourceManager.js';
 export type {
   MCPResourceType,
   MCPResource,
@@ -165,17 +169,17 @@ export type {
   MCPImageResource,
   MCPBinaryResource,
   ResourceProcessingConfig,
-} from './utils/MCPResourceManager.js';
+} from '../services/mcp/resourceManager.js';
 
 export {
   ChannelPermissionRelay,
   getChannelPermissionRelay,
   clearChannelPermissionRelay,
-} from './utils/ChannelPermissions.js';
+} from '../services/mcp/channelPermissions.js';
 export type {
   ChannelPermissionResponse,
   ChannelPermissionCallbacks,
-} from './utils/ChannelPermissions.js';
+} from '../services/mcp/channelPermissions.js';
 
 export {
   normalizeNameForMCP,
@@ -187,7 +191,7 @@ export {
   needsNormalization,
   denormalizeMcpName,
   isValidMcpName,
-} from './utils/MCPNormalization.js';
+} from '../services/mcp/normalization.js';
 
 export {
   mcpElicitationQueue,
@@ -196,7 +200,7 @@ export {
   buildElicitResponse,
   getElicitInputType,
   validateElicitParams,
-} from './utils/MCPElicitationHandler.js';
+} from '../services/mcp/elicitationHandler.js';
 export type {
   ElicitationRequestEvent,
   ElicitResponseType,
@@ -206,7 +210,38 @@ export type {
   ElicitationWaitingState,
   MCPElicitHandler,
   ElicitToolParams,
-} from './utils/MCPElicitationHandler.js';
+} from '../services/mcp/elicitationHandler.js';
 
 // ── CLI ──
 export { createMcpCommand } from './cli/mcpCommand.js';
+
+// ── MCP Server ──
+export { startMCPServer } from '../entrypoints/mcp.js';
+
+// ── Loopback 服务器 ──
+export {
+  MCPLoopbackServer,
+  getMCPLoopbackServer,
+} from '../services/mcp/MCPLoopbackServer.js';
+export type { MCPLoopbackOptions } from '../services/mcp/MCPLoopbackServer.js';
+
+// ── 漂移分析 ──
+export {
+  classifyToolListDrift,
+  isDriftAcceptable,
+  calcDriftSeverity,
+  suggestDriftAction,
+} from './drift.js';
+export type {
+  DriftKind,
+  DriftAction,
+  DriftReport,
+  McpToolSpec,
+} from './drift.js';
+
+// ── 插件 MCP 工具暴露 ──
+export {
+  createPluginMCPTools,
+  getPluginSummary,
+} from '../services/mcp/PluginMCPToolServer.js';
+export type { PluginMCPToolOptions } from '../services/mcp/PluginMCPToolServer.js';

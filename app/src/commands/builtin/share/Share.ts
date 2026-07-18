@@ -203,7 +203,7 @@ async function handleHelp() {
       '  Markdown 格式：',
       '  - # Liri 对话分享（一级标题）',
       '  - > 分享时间（引用块）',
-      '  - ## 用户 / ## Claude（二级标题）',
+      '  - ## 用户 / ## AI Chat（二级标题）',
       '  - 支持 text / tool_use / tool_result / thinking 内容块',
       '',
       '  JSON 格式（--json）：',

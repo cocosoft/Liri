@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 认证工具
  *
  * 提供 API Key 和 OAuth Token 的管理能力。
@@ -32,9 +32,7 @@ const SESSION_FILE = join(CONFIG_DIR, 'session.json');
 
 function resolveApiKeyFromEnv(): string | undefined {
   return (
-    configManager.env('ANTHROPIC_API_KEY') ||
-    configManager.env('CLAUDE_API_KEY') ||
-    configManager.env('Liri_API_KEY')
+    configManager.env('LIRI_AI_API_KEY') || configManager.env('Liri_API_KEY')
   );
 }
 
@@ -125,7 +123,7 @@ export function createSession(
 
 export async function refreshOAuthToken(
   refreshToken: string,
-  baseUrl: string = 'https://api.anthropic.com'
+  baseUrl: string = 'https://auth.openliri.com'
 ): Promise<AuthSession | null> {
   try {
     const response = await fetch(`${baseUrl}/oauth/token`, {
@@ -163,7 +161,7 @@ export async function refreshOAuthToken(
 }
 
 export function clearAuthConfig(): void {
-  const envVars = ['ANTHROPIC_API_KEY', 'CLAUDE_API_KEY', 'Liri_API_KEY'];
+  const envVars = ['LIRI_AI_API_KEY', 'Liri_API_KEY'];
   for (const envVar of envVars) {
     delete process.env[envVar];
   }

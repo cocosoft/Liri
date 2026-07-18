@@ -35,7 +35,7 @@ export interface HealthCheckConfig {
 }
 
 const DEFAULT_CONFIG: HealthCheckConfig = {
-  providers: ['anthropic', 'deepseek', 'openai'],
+  providers: [], // 从 ProviderRegistry 动态获取
   checkIntervalMs: 60000,
   failureThreshold: 3,
   timeoutMs: 10000,

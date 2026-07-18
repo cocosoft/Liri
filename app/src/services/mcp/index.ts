@@ -34,7 +34,7 @@ const logger = new Logger({
 import { enhancedMcpConfigManager } from './EnhancedMCPConfigManager';
 import { mcpConnectionManager } from './MCPConnectionManager';
 import { mcpToolBridge } from './MCPToolBridge';
-import { claudeAIIntegration } from './ClaudeAIIntegration';
+import { mcpProxyIntegration } from './MCPProxyIntegration';
 import { getCommandManager } from './commandManager';
 import { resourceManager } from './resourceManager';
 import { mcpCacheManager } from './MCPCacheManager';
@@ -100,7 +100,7 @@ export class MCPSystem {
       await mcpToolBridge.initialize();
 
       // 初始化Claude AI集成
-      await claudeAIIntegration.initialize();
+      await mcpProxyIntegration.initialize();
 
       // 预取官方MCP注册表
       prefetchOfficialMcpUrls().catch((err) =>
@@ -204,19 +204,19 @@ export class MCPSystem {
   /**
    * 获取Claude AI服务器状态
    */
-  getClaudeAIServerStatus() {
-    return claudeAIIntegration.getClaudeAIServerStatus();
+  getProxyServerStatus() {
+    return mcpProxyIntegration.getProxyServerStatus();
   }
 
   /**
    * 执行Claude AI命令
    */
-  async executeClaudeAICommand(
+  async executeProxyCommand(
     serverName: string,
     commandName: string,
     args: any
   ) {
-    return await claudeAIIntegration.executeClaudeAICommand(
+    return await mcpProxyIntegration.executeProxyCommand(
       serverName,
       commandName,
       args
@@ -383,7 +383,7 @@ export class MCPSystem {
       logger.info('Cleaning up MCP system');
 
       // 清理Claude AI集成
-      claudeAIIntegration.cleanup();
+      mcpProxyIntegration.cleanup();
 
       // 清理MCP工具桥接器
       await mcpToolBridge.cleanup();

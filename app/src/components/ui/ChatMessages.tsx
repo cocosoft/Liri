@@ -19,6 +19,8 @@ export interface ChatMessageData {
   isLoading?: boolean;
   toolCall?: ToolCallInfo;
   toolResult?: ToolResultInfo;
+  knownFilePaths?: string[];
+  onPreviewFile?: (path: string) => void;
 }
 
 export interface ChatMessagesProps {
@@ -28,6 +30,8 @@ export interface ChatMessagesProps {
   maxVisible?: number;
   verbose?: boolean;
   showTimestamps?: boolean;
+  knownFilePaths?: string[];
+  onPreviewFile?: (path: string) => void;
 }
 
 export function ChatMessages({
@@ -37,6 +41,8 @@ export function ChatMessages({
   maxVisible,
   verbose = false,
   showTimestamps = true,
+  knownFilePaths,
+  onPreviewFile,
 }: ChatMessagesProps): React.ReactNode {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -78,6 +84,8 @@ export function ChatMessages({
               toolCall: msg.toolCall,
               toolResult: msg.toolResult,
               verbose,
+              knownFilePaths: msg.knownFilePaths || knownFilePaths,
+              onPreviewFile: msg.onPreviewFile || onPreviewFile,
             })}
           </Box>
         );

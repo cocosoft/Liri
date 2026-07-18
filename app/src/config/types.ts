@@ -585,7 +585,7 @@ export function createDefaultGlobalConfig(): GlobalConfig {
       },
       anthropic: {
         apiKey: process.env['ANTHROPIC_API_KEY'] || '',
-        baseUrl: 'https://api.anthropic.com',
+        baseUrl: process.env['ANTHROPIC_BASE_URL'] || '',
         model: '',
       },
       openai: {

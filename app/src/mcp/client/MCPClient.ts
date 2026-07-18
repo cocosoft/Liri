@@ -431,14 +431,17 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
     await this.sendRequest(request);
   }
 
+  private _heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
   /**
    * 开始心跳检测
    */
   private startHeartbeat(): void {
-    // 心跳检测逻辑
-    const heartbeatInterval = setInterval(async () => {
+    if (this._heartbeatTimer) return;
+
+    this._heartbeatTimer = setInterval(async () => {
       if (this._state !== 'connected') {
-        clearInterval(heartbeatInterval);
+        this.stopHeartbeat();
         return;
       }
 
@@ -447,14 +450,17 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
       } catch (error) {
         logger.warning('Heartbeat failed:', { error });
       }
-    }, 30000); // 30秒心跳
+    }, 30000);
   }
 
   /**
    * 停止心跳检测
    */
   private stopHeartbeat(): void {
-    // 清理心跳定时器
+    if (this._heartbeatTimer) {
+      clearInterval(this._heartbeatTimer);
+      this._heartbeatTimer = null;
+    }
   }
 
   /**

@@ -7,6 +7,7 @@ import { MCPServerConfig, MCPToolDefinition } from '../types';
 import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager';
 import type { MCPServerManager } from '@modules/services/mcp/MCPServerManager';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { globalEventBus } from '@modules/core/events/EventBus';
 
 const logger = new Logger({
   module: 'mcp:managers:mCPManager',
@@ -39,6 +40,24 @@ interface ResourceInfo {
 }
 
 /**
+ * MCP服务器状态变更事件类型
+ */
+export type MCPServerChangeType =
+  | 'connected'
+  | 'disconnected'
+  | 'tools_changed'
+  | 'error'
+  | 'added'
+  | 'removed';
+
+export interface MCPServerChangeEvent {
+  type: MCPServerChangeType;
+  serverName: string;
+  timestamp: number;
+  data?: unknown;
+}
+
+/**
  * MCP管理器
  */
 export class MCPManager {
@@ -68,9 +87,22 @@ export class MCPManager {
   }
 
   /**
-   * 关闭MCP管理器
+   * 关闭MCP管理器（含孤儿 stdio 子进程清理）
+   * 对标: hermes _kill_orphaned_mcp_children
    */
   async shutdown(): Promise<void> {
+    // 先清理所有 stdio 子进程
+    const servers = this.serverManager.listServers();
+    for (const serverName of servers) {
+      try {
+        const conn = this.serverManager.getServer(serverName);
+        // 通过 MCPServerConnection 断开连接时会终止子进程
+        await conn?.disconnect?.();
+      } catch {
+        // 断开连接失败不阻塞 shutdown
+      }
+    }
+
     await this.serverManager.shutdown();
     this.notificationListeners.clear();
     this.commandHistory = [];
@@ -91,6 +123,13 @@ export class MCPManager {
   addServer(name: string, config: MCPServerConfig): void {
     this.serverManager.addServer(name, config);
     logger.info(`Added MCP server: ${name}`);
+
+    globalEventBus.publish('mcp:server:added', {
+      type: 'added',
+      serverName: name,
+      timestamp: Date.now(),
+      data: config,
+    } satisfies MCPServerChangeEvent);
   }
 
   /**
@@ -101,13 +140,34 @@ export class MCPManager {
     this.notificationListeners.delete(name);
     this.resourceCache.delete(name);
     logger.info(`Removed MCP server: ${name}`);
+
+    globalEventBus.publish('mcp:server:removed', {
+      type: 'removed',
+      serverName: name,
+      timestamp: Date.now(),
+    } satisfies MCPServerChangeEvent);
   }
 
   /**
    * 连接到所有服务器
    */
   async connectAll(): Promise<void> {
+    const beforeServers = this.serverManager.listServers();
+
     await this.serverManager.connectAll();
+
+    // 发布连接状态变更事件
+    const afterServers = this.serverManager.listServers();
+    for (const name of afterServers) {
+      const conn = this.serverManager.getServer(name);
+      if (conn?.getStatus() === 'connected') {
+        globalEventBus.publish('mcp:server:state_changed', {
+          type: 'connected',
+          serverName: name,
+          timestamp: Date.now(),
+        } satisfies MCPServerChangeEvent);
+      }
+    }
   }
 
   /**
@@ -268,7 +328,7 @@ export class MCPManager {
   // ==================== 资源管理功能 ====================
 
   /**
-   * 列出服务器资源
+   * 列出服务器资源（MCP 标准 resources/list 协议）
    */
   async listResources(
     serverName: string,
@@ -277,28 +337,26 @@ export class MCPManager {
     try {
       const result = await this.serverManager.callTool(
         serverName,
-        'list_resources',
+        'resources/list',
         { path }
       );
 
-      // 缓存资源信息
       if (!this.resourceCache.has(serverName)) {
         this.resourceCache.set(serverName, new Map());
       }
-
       const serverCache = this.resourceCache.get(serverName)!;
       if (Array.isArray(result)) {
-        result.forEach((resource: unknown) => {
+        for (const resource of result) {
           const res = resource as Record<string, unknown>;
-          serverCache.set(res.path as string, {
+          serverCache.set((res.uri as string) || (res.path as string), {
             name: res.name as string,
-            type: res.type as string,
+            type: (res.type as string) || 'unknown',
             size: (res.size as number) || 0,
-            path: res.path as string,
+            path: (res.uri as string) || (res.path as string),
             lastModified:
               (res.lastModified as string) || new Date().toISOString(),
           });
-        });
+        }
       }
 
       return result as ResourceInfo[];
@@ -312,83 +370,23 @@ export class MCPManager {
   }
 
   /**
-   * 读取服务器资源
+   * 读取服务器资源（MCP 标准 resources/read 协议）
    */
-  async readResource(serverName: string, path: string): Promise<unknown> {
+  async readResource(serverName: string, uri: string): Promise<unknown> {
     try {
       const result = await this.serverManager.callTool(
         serverName,
-        'read_resource',
-        { path }
+        'resources/read',
+        { uri }
       );
-      logger.info(`Resource read successfully: ${path} on ${serverName}`);
+      logger.info(`Resource read: ${uri} on ${serverName}`);
       return result;
     } catch (error) {
       logger.error(
-        `Failed to read resource ${path} on ${serverName}:`,
+        `Failed to read resource ${uri} on ${serverName}:`,
         error as Error
       );
       throw error;
-    }
-  }
-
-  /**
-   * 写入服务器资源
-   */
-  async writeResource(
-    serverName: string,
-    path: string,
-    content: unknown
-  ): Promise<boolean> {
-    try {
-      await this.serverManager.callTool(serverName, 'write_resource', {
-        path,
-        content,
-      });
-
-      // 更新缓存
-      if (this.resourceCache.has(serverName)) {
-        const serverCache = this.resourceCache.get(serverName)!;
-        const resourceInfo = serverCache.get(path);
-        if (resourceInfo) {
-          resourceInfo.lastModified = new Date().toISOString();
-        }
-      }
-
-      logger.info(`Resource written successfully: ${path} on ${serverName}`);
-      return true;
-    } catch (error) {
-      logger.error(
-        `Failed to write resource ${path} on ${serverName}:`,
-        error as Error
-      );
-      return false;
-    }
-  }
-
-  /**
-   * 删除服务器资源
-   */
-  async deleteResource(serverName: string, path: string): Promise<boolean> {
-    try {
-      await this.serverManager.callTool(serverName, 'delete_resource', {
-        path,
-      });
-
-      // 更新缓存
-      if (this.resourceCache.has(serverName)) {
-        const serverCache = this.resourceCache.get(serverName)!;
-        serverCache.delete(path);
-      }
-
-      logger.info(`Resource deleted successfully: ${path} on ${serverName}`);
-      return true;
-    } catch (error) {
-      logger.error(
-        `Failed to delete resource ${path} on ${serverName}:`,
-        error as Error
-      );
-      return false;
     }
   }
 

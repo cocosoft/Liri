@@ -116,8 +116,7 @@ export class DefaultAuthManager implements AuthManager {
 
   private loadApiKeyFromEnv(): string {
     return (
-      configManager.env('Liri_API_KEY') ||
-      configManager.env('ANTHROPIC_API_KEY') ||
+      configManager.env('LIRI_AI_API_KEY') ||
       configManager.env('DEEPSEEK_API_KEY') ||
       configManager.env('OPENAI_API_KEY') ||
       ''

@@ -43,9 +43,7 @@ export async function executeLogin(
   try {
     const params = parseLoginArgs(args);
 
-    const existingToken =
-      configManager.env('Liri_API_KEY') ||
-      configManager.env('ANTHROPIC_API_KEY');
+    const existingToken = configManager.env('Liri_API_KEY');
 
     if (existingToken && !params.force) {
       return {
@@ -89,9 +87,7 @@ async function executeOAuthLogin(
         (context as any).output.write(`  ${urls.manualUrl}\n`);
         (context as any).output.write(`\n登录后请在终端中输入授权码: `);
       },
-      {
-        loginWithClaudeAi: params.provider === 'claudeai',
-      }
+      {}
     );
 
     await executePostLogin(tokens, {
@@ -202,6 +198,6 @@ async function performLogin(params: LoginParams): Promise<LoginResult> {
   return {
     success: false,
     message:
-      '请提供API Key或使用OAuth登录。\n\n用法:\n  /login <API_KEY>\n  /login --oauth\n  /login --provider claudeai --oauth',
+      '请提供API Key或使用OAuth登录。\n\n用法:\n  /login <API_KEY>\n  /login --oauth',
   };
 }

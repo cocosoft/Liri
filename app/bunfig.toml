@@ -1,5 +1,6 @@
 [test]
 pathIgnorePatterns = [
   "data/testing/**",
+  "data/pyapp/knowledge/**",
   "src/oauth/tests/**"
 ]

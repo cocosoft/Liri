@@ -1,39 +1,23 @@
-﻿/**
- * OAuth核心类型定义
+/**
+ * OAuth 核心类型定义
+ *
+ * 类型统一原则:
+ *   OAuthServerMetadata → OAuthDiscoveryTypes.ts（RFC 8414 完整版，唯一来源）
+ *   OAuthTokenData     → services/OAuthStorage.ts（唯一来源）
+ *   OAuthConfig        → 本文件（唯一来源）
  */
 
-/**
- * OAuth Token数据结构
- */
-export interface OAuthTokenData {
-  accessToken: string;
-  refreshToken: string;
-  expiresAt: number;
-  tokenType?: string;
-  scopes?: string[];
-}
+import type { OAuthServerMetadata } from './OAuthDiscoveryTypes';
+import type { OAuthTokenData } from '../services/OAuthStorage.js';
+
+// Re-export canonical types
+export type { OAuthServerMetadata };
+export type { OAuthTokenData };
 
 export type OAuthTokens = OAuthTokenData;
 
 /**
- * OAuth服务器元数据
- */
-export interface OAuthServerMetadata {
-  issuer: string;
-  authorizationEndpoint: string;
-  tokenEndpoint: string;
-  userinfoEndpoint?: string;
-  jwksUri?: string;
-  registrationEndpoint?: string;
-  scopesSupported?: string[];
-  responseTypesSupported?: string[];
-  grantTypesSupported?: string[];
-  tokenEndpointAuthMethodsSupported?: string[];
-  codeChallengeMethodsSupported?: string[];
-}
-
-/**
- * OAuth配置
+ * OAuth 配置
  */
 export interface OAuthConfig {
   authorizeUrl: string;
@@ -48,7 +32,7 @@ export interface OAuthConfig {
 }
 
 /**
- * OAuth认证结果
+ * OAuth 认证结果
  */
 export interface OAuthAuthResult {
   accessToken: string;
@@ -61,7 +45,7 @@ export interface OAuthAuthResult {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
- * OAuth错误类型
+ * OAuth 错误类型
  */
 export class OAuthError extends AppError {
   constructor(

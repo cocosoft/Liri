@@ -12,6 +12,9 @@ import {
 } from '../utils/OAuthCrypto';
 import type { OAuthConfig, OAuthAuthResult } from '../types/OAuthTypes';
 import { OAuthError } from '../types/OAuthTypes';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({ module: 'oauth:flows:authCode', level: LogLevel.INFO });
 
 export interface AuthorizationCodeFlowOptions {
   state?: string;
@@ -88,6 +91,7 @@ export class AuthorizationCodeFlow {
       url.searchParams.get('error_description') || undefined;
 
     if (error) {
+      logger.warn('OAuth callback returned error', { error, errorDescription });
       throw new OAuthError(
         `OAuth 授权错误: ${errorDescription || error}`,
         `OAUTH_${error.toUpperCase().replace(/\s+/g, '_')}`
@@ -95,6 +99,7 @@ export class AuthorizationCodeFlow {
     }
 
     if (!code) {
+      logger.warn('OAuth callback missing authorization code');
       throw new OAuthError('回调 URL 缺少授权码', 'OAUTH_NO_CODE');
     }
 
@@ -106,6 +111,10 @@ export class AuthorizationCodeFlow {
    */
   verifyState(expectedState: string, actualState: string): void {
     if (expectedState !== actualState) {
+      logger.warn('OAuth state mismatch — possible CSRF', {
+        expectedState: expectedState.slice(0, 8) + '...',
+        actualState: actualState.slice(0, 8) + '...',
+      });
       throw new OAuthError(
         'State 参数不匹配，可能存在 CSRF 攻击',
         'OAUTH_STATE_MISMATCH'
@@ -137,6 +146,7 @@ export class AuthorizationCodeFlow {
   private parseTokenResponse(raw: TokenResponse): OAuthAuthResult {
     const accessToken = raw.access_token;
     if (!accessToken) {
+      logger.error('Token response missing access_token');
       throw new OAuthError(
         'Token 响应缺少 access_token',
         'OAUTH_NO_ACCESS_TOKEN'

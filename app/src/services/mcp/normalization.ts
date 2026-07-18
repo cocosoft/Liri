@@ -3,6 +3,10 @@
  * 负责MCP工具/服务器名称的标准化处理
  * */
 
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({ module: 'mcp:normalization', level: LogLevel.INFO });
+
 const CLAUDEAI_SERVER_PREFIX = 'claude.ai ';
 const NON_ALPHANUMERIC = /[^a-zA-Z0-9_-]/g;
 const CONSECUTIVE_UNDERSCORES = /_+/g;
@@ -67,6 +71,7 @@ export function normalizeResourceUri(serverName: string, uri: string): string {
     const parsed = new URL(uri);
     return `${parsed.protocol}//${normalizeNameForMCP(serverName)}${parsed.pathname}${parsed.search}`;
   } catch {
+    logger.debug('MCP resource URI normalization fallback', { uri });
     return uri;
   }
 }

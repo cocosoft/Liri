@@ -8,6 +8,10 @@ import { request as httpRequest } from 'http';
 import { OAuthClient } from '../services/OAuthClient';
 import type { OAuthConfig, OAuthAuthResult } from '../types/OAuthTypes';
 import { OAuthError } from '../types/OAuthTypes';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
+
+const logger = new Logger({ module: 'oauth:flows:deviceAuth', level: LogLevel.INFO });
 
 export interface DeviceAuthorizationResponse {
   deviceCode: string;
@@ -61,6 +65,11 @@ export class DeviceAuthorizationFlow {
     const verificationUri = raw.verification_uri as string;
 
     if (!deviceCode || !userCode || !verificationUri) {
+      logger.error('Device authorization response missing required fields', {
+        hasDeviceCode: !!deviceCode,
+        hasUserCode: !!userCode,
+        hasVerificationUri: !!verificationUri,
+      });
       throw new OAuthError(
         '设备授权响应缺少必要字段',
         'OAUTH_DEVICE_AUTH_INVALID_RESPONSE'
@@ -128,15 +137,21 @@ export class DeviceAuthorizationFlow {
             continue;
           }
           if (error.code === 'OAUTH_ACCESS_DENIED') {
+            logger.warn('User denied device authorization');
             throw new OAuthError('用户拒绝了授权请求', 'OAUTH_ACCESS_DENIED');
           }
           if (error.code === 'OAUTH_EXPIRED_TOKEN') {
+            logger.warn('Device authorization code expired');
             throw new OAuthError(
               '设备授权码已过期，请重新开始',
               'OAUTH_EXPIRED_TOKEN'
             );
           }
         }
+        await handleError(error, {
+          module: 'oauth:flows:deviceAuth',
+          action: 'pollForToken',
+        });
         throw error;
       }
     }
@@ -250,7 +265,11 @@ export class DeviceAuthorizationFlow {
         });
       });
 
-      req.on('error', (error) => {
+      req.on('error', async (error) => {
+        await handleError(error, {
+          module: 'oauth:flows:deviceAuth',
+          action: 'httpPostForm',
+        });
         reject(
           new OAuthError(
             `设备授权请求失败: ${error.message}`,
@@ -260,6 +279,7 @@ export class DeviceAuthorizationFlow {
       });
 
       req.on('timeout', () => {
+        logger.warn('Device authorization request timed out');
         req.destroy();
         reject(new OAuthError('设备授权请求超时', 'OAUTH_DEVICE_TIMEOUT'));
       });

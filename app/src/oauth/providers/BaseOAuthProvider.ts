@@ -18,6 +18,9 @@ import type { OAuthProviderConfig } from '../types/OAuthProvider';
 import { OAuthClient } from '../services/OAuthClient';
 import { AuthorizationCodeFlow } from '../flows/AuthorizationCodeFlow';
 import { OAuthError } from '../types/OAuthTypes';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({ module: 'oauth:providers:base', level: LogLevel.INFO });
 
 export abstract class BaseOAuthProvider implements OAuthProvider {
   abstract id: string;
@@ -87,6 +90,7 @@ export abstract class BaseOAuthProvider implements OAuthProvider {
 
   async refreshToken(refreshToken: string): Promise<OAuthToken> {
     if (!refreshToken) {
+      logger.error('refreshToken called with empty token');
       throw new OAuthError('缺少 refresh_token', 'OAUTH_NO_REFRESH_TOKEN');
     }
 
@@ -117,8 +121,10 @@ export abstract class BaseOAuthProvider implements OAuthProvider {
         token: '',
         tokenTypeHint: 'access_token',
       });
-    } catch {
-      // 撤销端点可能返回错误，忽略
+    } catch (err) {
+      logger.warn('Token revocation failed (non-critical)', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

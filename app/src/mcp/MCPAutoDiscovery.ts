@@ -7,6 +7,9 @@ import { configManager } from '@modules/config';
 import fs from 'fs';
 import path from 'path';
 import { enhancedMcpConfigManager } from '@modules/services/mcp/EnhancedMCPConfigManager';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({ module: 'mcp:autoDiscovery', level: LogLevel.INFO });
 
 /**
  * 发现的 MCP Server 条目
@@ -106,6 +109,7 @@ export class MCPAutoDiscovery {
     try {
       items = fs.readdirSync(dir, { withFileTypes: true });
     } catch {
+      logger.debug('Cannot read directory during discovery', { dir });
       return;
     }
 
@@ -156,7 +160,7 @@ export class MCPAutoDiscovery {
         }
       }
     } catch {
-      // 文件解析失败，跳过
+      logger.debug('Failed to parse config file during discovery', { filePath });
     }
   }
 
@@ -186,7 +190,7 @@ export class MCPAutoDiscovery {
         });
       }
     } catch {
-      // JSON 解析失败，跳过
+      logger.debug('Failed to parse NPM package.json during discovery', { pkgPath });
     }
   }
 

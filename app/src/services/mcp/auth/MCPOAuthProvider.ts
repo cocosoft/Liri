@@ -11,6 +11,9 @@ import {
   UserInfo,
 } from '@modules/oauth';
 import { OAuthClient } from '@modules/oauth';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({ module: 'mcp:auth:oauthProvider', level: LogLevel.INFO });
 
 export class MCPOAuthProvider implements OAuthProvider {
   id: string;
@@ -78,8 +81,10 @@ export class MCPOAuthProvider implements OAuthProvider {
   async revokeToken(): Promise<void> {
     try {
       await this.client.revokeToken({ token: '' });
-    } catch {
-      // 忽略撤销失败
+    } catch (err) {
+      logger.warn('MCP OAuth token revocation failed (non-critical)', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

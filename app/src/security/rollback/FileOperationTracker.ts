@@ -93,7 +93,7 @@ export class FileOperationTracker {
     const checkPath = oldPath || operation.path;
     try {
       hash = await xxHash(checkPath);
-    } catch {
+    } catch (err) {
       // 文件可能不存在（如 deleted 操作的目标已不存在），忽略 hash 计算
     }
 
@@ -187,12 +187,12 @@ export class FileOperationTracker {
               size: fileStat.size,
               mtime: fileStat.mtime.toISOString(),
             });
-          } catch {
+          } catch (err) {
             // 文件可能在 stat 前被删除，忽略
           }
         }
       }
-    } catch {
+    } catch (err) {
       // 目录可能不可读，忽略
     }
   }
@@ -213,7 +213,7 @@ export class FileOperationTracker {
           size: fileStat.size,
           mtime: fileStat.mtime.toISOString(),
         });
-      } catch {
+      } catch (err) {
         // 文件已被删除
       }
     }

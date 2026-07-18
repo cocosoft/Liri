@@ -2106,7 +2106,7 @@ export class LocalHTTPService {
       const globalConfig = configManager.getGlobalConfig();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(globalConfig || {}));
-    } catch {
+    } catch (err) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({}));
     }
@@ -2125,7 +2125,7 @@ export class LocalHTTPService {
       const value = configManager.getConfigValue(key);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ key, value }));
-    } catch {
+    } catch (err) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ key, value: null }));
     }
@@ -2370,7 +2370,7 @@ export class LocalHTTPService {
       let parsedBody;
       try {
         parsedBody = JSON.parse(body);
-      } catch {
+      } catch (err) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(
           JSON.stringify({ error: { message: 'invalid JSON in request body' } })
@@ -2541,7 +2541,7 @@ export class LocalHTTPService {
             Date.now().toString(),
             'utf-8'
           );
-        } catch {
+        } catch (err) {
           // 非致命：令牌写入失败不影响迁移
         }
 
@@ -2575,7 +2575,7 @@ export class LocalHTTPService {
             Date.now().toString(),
             'utf-8'
           );
-        } catch {
+        } catch (err) {
           // 非致命：标记写入失败不影响目录切换
         }
       }
@@ -2630,12 +2630,12 @@ export class LocalHTTPService {
             } else {
               fs.unlinkSync(entryPath);
             }
-          } catch {
+          } catch (err) {
             // 静默忽略清理中的个别错误
           }
         }
       }
-    } catch {
+    } catch (err) {
       // 回滚清理失败不影响主流程，数据保留在原目录
     }
   }
@@ -2657,7 +2657,7 @@ export class LocalHTTPService {
       if (registered) {
         return registered;
       }
-    } catch {
+    } catch (err) {
       // 注册表不可用时 fallback
     }
 
@@ -2741,7 +2741,7 @@ export class LocalHTTPService {
                 const st = await stat(skillMdPath);
                 createdAt = st.birthtimeMs;
                 updatedAt = st.mtimeMs;
-              } catch {
+              } catch (err) {
                 /* use defaults */
               }
 
@@ -2761,7 +2761,7 @@ export class LocalHTTPService {
                 filePath: skillMdPath,
                 frontmatter: { author, version, category },
               });
-            } catch {
+            } catch (err) {
               // 没有 SKILL.md 的子目录跳过
               continue;
             }
@@ -2790,7 +2790,7 @@ export class LocalHTTPService {
               const st = await stat(filePath);
               createdAt = st.birthtimeMs;
               updatedAt = st.mtimeMs;
-            } catch {
+            } catch (err) {
               /* use defaults */
             }
 
@@ -2810,7 +2810,7 @@ export class LocalHTTPService {
               filePath,
               frontmatter: { author, version, category },
             });
-          } catch {
+          } catch (err) {
             /* skip malformed files */
           }
         }
@@ -2903,7 +2903,7 @@ export class LocalHTTPService {
             linkedFiles.push(entry.name);
           }
         }
-      } catch {
+      } catch (err) {
         /* ignore */
       }
 
@@ -3995,7 +3995,7 @@ export class LocalHTTPService {
         const coreAPI = getCoreAPI();
         reply =
           (await (coreAPI as any).sendTaskMessage?.(taskId, message)) || '';
-      } catch {
+      } catch (err) {
         // 降级：通过 executor 直接执行
         const { coordinator } = await import('@modules/core/Coordinator');
         const task = (coordinator as any).getTask(taskId);
@@ -4048,7 +4048,7 @@ export class LocalHTTPService {
       try {
         const mod = await import('@modules/tasks/LongRunningTaskOrchestrator');
         orchestrator = mod.getOrchestrator(taskId);
-      } catch {
+      } catch (err) {
         // 模块加载失败或无 orchestrator
       }
       if (!orchestrator) {
@@ -4075,7 +4075,11 @@ export class LocalHTTPService {
       try {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
         orchestrator = m.getOrchestrator(taskId);
-      } catch {} /* 可选模块, 加载失败时降级 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* 可选模块, 加载失败时降级 */
       if (!orchestrator) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ taskId, error: 'Not available' }));
@@ -4100,7 +4104,11 @@ export class LocalHTTPService {
       try {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
         orchestrator = m.getOrchestrator(taskId);
-      } catch {} /* 可选模块, 加载失败时降级 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* 可选模块, 加载失败时降级 */
       if (!orchestrator) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Not available' }));
@@ -4128,7 +4136,11 @@ export class LocalHTTPService {
       try {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
         orchestrator = m.getOrchestrator(taskId);
-      } catch {} /* 可选模块, 加载失败时降级 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* 可选模块, 加载失败时降级 */
       if (!orchestrator) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Not available' }));
@@ -4152,7 +4164,11 @@ export class LocalHTTPService {
       try {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
         list = m.getAllOrchestrators().map((o: any) => o.getStatus());
-      } catch {} /* 可选模块, 加载失败时降级 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* 可选模块, 加载失败时降级 */
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(list));
     } catch (err) {
@@ -4170,7 +4186,11 @@ export class LocalHTTPService {
       try {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
         orchestrator = m.getOrchestrator(taskId);
-      } catch {} /* 可选模块, 加载失败时降级 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* 可选模块, 加载失败时降级 */
       if (!orchestrator) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));

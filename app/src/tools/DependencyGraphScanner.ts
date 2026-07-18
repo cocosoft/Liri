@@ -194,7 +194,7 @@ function* walkTsFiles(dir: string): Generator<string> {
         yield fullPath;
       }
     }
-  } catch {
+  } catch (err) {
     // 跳过无法读取的目录
   }
 }
@@ -244,7 +244,7 @@ function resolveImportToModuleId(
         return mapped || null;
       }
     }
-  } catch {
+  } catch (err) {
     // 解析失败
   }
 
@@ -278,7 +278,7 @@ function extractImports(filePath: string): string[] {
     }
 
     return imports;
-  } catch {
+  } catch (err) {
     return [];
   }
 }

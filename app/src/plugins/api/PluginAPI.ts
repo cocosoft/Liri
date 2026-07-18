@@ -367,7 +367,7 @@ export class PluginAPIImpl implements IPluginAPI {
         ) {
           return await sessionManager.createSession(options);
         }
-      } catch {
+      } catch (err) {
         // 优雅降级：会话服务不可用时使用存根
       }
       return `session-${Date.now()}`;
@@ -382,7 +382,7 @@ export class PluginAPIImpl implements IPluginAPI {
         if (sessionManager && typeof sessionManager.getSession === 'function') {
           return await sessionManager.getSession(id);
         }
-      } catch {
+      } catch (err) {
         // 优雅降级
       }
       return { id, title: 'Plugin Session' };
@@ -404,7 +404,7 @@ export class PluginAPIImpl implements IPluginAPI {
           await sessionManager.sendMessage(sessionId, message);
           return;
         }
-      } catch {
+      } catch (err) {
         // 优雅降级
       }
       logger.debug(`Message sent to session ${sessionId}:`, { message });

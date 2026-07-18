@@ -69,7 +69,7 @@ export class CommandManager {
           this.registry.register(command);
           try {
             this.parser.registerCommand(command);
-          } catch {
+          } catch (err) {
             // Commander.js 可能因重复注册抛出异常，不影响其他命令注册
           }
           registeredCount++;

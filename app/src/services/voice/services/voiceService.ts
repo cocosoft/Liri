@@ -139,7 +139,7 @@ function readWavDuration(filePath: string): number {
     }
 
     return Math.round((dataChunkSize / bytesPerSecond) * 1000);
-  } catch {
+  } catch (err) {
     return 0;
   }
 }
@@ -896,7 +896,7 @@ export class VoiceService {
   async cleanupRecording(filePath: string): Promise<void> {
     try {
       await unlink(filePath);
-    } catch {
+    } catch (err) {
       // 文件不存在时忽略
     }
   }
@@ -1050,12 +1050,12 @@ export class VoiceService {
         } finally {
           try {
             await unlink(tmpInput);
-          } catch {
+          } catch (err) {
             /* ignore */
           }
           try {
             await unlink(tmpOutput);
-          } catch {
+          } catch (err) {
             /* ignore */
           }
         }
@@ -1267,7 +1267,7 @@ export class VoiceService {
           });
           return this.executeWithProvider(task, fallbackProvider);
         }
-      } catch {
+      } catch (err) {
         // selectProviderWithFallback 已抛出明确错误
       }
       throw new Error(

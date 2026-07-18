@@ -118,7 +118,7 @@ export class AcpWsClient {
 
     try {
       this.socket.write(frame);
-    } catch {
+    } catch (err) {
       this.socket.destroy();
     }
   }
@@ -139,7 +139,7 @@ export class AcpWsClient {
 
     try {
       this.socket.write(encodeWebSocketFrame(OpCode.CLOSE, closePayload));
-    } catch {
+    } catch (err) {
       // 忽略关闭时的写入错误
     }
 

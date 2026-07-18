@@ -245,7 +245,7 @@ export class CouncilOrchestrator {
         })),
         timestamp: Date.now(),
       });
-    } catch {
+    } catch (err) {
       // EventBus 发射失败不应阻塞主流程
     }
 
@@ -264,7 +264,7 @@ export class CouncilOrchestrator {
         finalProposal: result.finalProposal,
         timestamp: Date.now(),
       });
-    } catch {
+    } catch (err) {
       // EventBus 发射失败不应阻塞主流程
     }
 
@@ -295,7 +295,7 @@ export class CouncilOrchestrator {
           systemPrompt: row.systemPrompt,
         }));
       }
-    } catch {
+    } catch (err) {
       logger.warn('从数据库加载 Agent 角色失败');
     }
 
@@ -553,7 +553,7 @@ export class CouncilOrchestrator {
       if (parsed.content && Array.isArray(parsed.keyPoints)) {
         return { content: parsed.content, keyPoints: parsed.keyPoints };
       }
-    } catch {
+    } catch (err) {
       // 不是 JSON，使用全文作为 content
     }
 
@@ -587,7 +587,7 @@ export class CouncilOrchestrator {
         finalProposal: parsed.finalProposal ?? '无法达成共识',
         minorityOpinion: parsed.minorityOpinion ?? null,
       };
-    } catch {
+    } catch (err) {
       // JSON 解析失败，回退：从文本中推断
       logger.warn('Consensus JSON 解析失败，使用文本回退');
     }

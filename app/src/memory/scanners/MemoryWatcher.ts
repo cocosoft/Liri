@@ -137,7 +137,7 @@ export class MemoryWatcher {
         try {
           const { mtimeMs } = await stat(filePath);
           this.knownFiles.set(relativePath, mtimeMs);
-        } catch {
+        } catch (err) {
           // ignore
         }
       }
@@ -221,7 +221,7 @@ export class MemoryWatcher {
               timestamp: mtimeMs,
             });
           }
-        } catch {
+        } catch (err) {
           // ignore
         }
       }
@@ -284,7 +284,7 @@ export class MemoryWatcher {
         }
 
         this.knownFiles.set(filename, mtimeMs);
-      } catch {
+      } catch (err) {
         const oldMtime = this.knownFiles.get(filename);
         if (oldMtime) {
           this.emitEvent({
@@ -311,7 +311,7 @@ export class MemoryWatcher {
         }
 
         this.knownFiles.set(filename, mtimeMs);
-      } catch {
+      } catch (err) {
         if (this.knownFiles.has(filename)) {
           this.emitEvent({
             type: 'deleted',

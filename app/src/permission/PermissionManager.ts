@@ -314,7 +314,7 @@ export class PermissionManager {
           decision.type === PermissionDecisionType.DENY ? 'high' : 'medium',
       };
       logSecurityAuditEvent(event);
-    } catch {
+    } catch (err) {
       // 审计日志异常不应影响主流程
     }
   }

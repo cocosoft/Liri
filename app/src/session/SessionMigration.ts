@@ -150,7 +150,7 @@ export class SessionMigration {
             results.push(join(dir, entry.name));
           }
         }
-      } catch {
+      } catch (err) {
         // 目录读取失败
       }
     }

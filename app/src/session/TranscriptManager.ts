@@ -244,7 +244,7 @@ export class TranscriptManager {
     try {
       const stats = await stat(transcriptPath);
       fileSize = stats.size;
-    } catch {
+    } catch (err) {
       fileSize = 0;
     }
 
@@ -369,7 +369,7 @@ export class TranscriptManager {
           `Transcript file ${transcriptPath} exceeded max size, truncating`
         );
       }
-    } catch {
+    } catch (err) {
       // File doesn't exist yet
     }
 

@@ -220,7 +220,7 @@ export class CoreAPIImpl implements CoreAPI {
       this.chatManager.getLLMClient();
       this._llmReady = true;
       return;
-    } catch {
+    } catch (err) {
       // LLM 客户端未初始化，继续执行初始化
     }
 
@@ -507,7 +507,7 @@ export class CoreAPIImpl implements CoreAPI {
             let toolArgs: Record<string, unknown> = {};
             try {
               toolArgs = JSON.parse(detail || '{}');
-            } catch {
+            } catch (err) {
               // detail might not be valid JSON, use empty object
             }
 
@@ -859,7 +859,7 @@ export class CoreAPIImpl implements CoreAPI {
           }));
         }
       }
-    } catch {
+    } catch (err) {
       // 持久化读取失败，降级到内存缓存
     }
 
@@ -990,7 +990,7 @@ export class CoreAPIImpl implements CoreAPI {
           }
         ).listLiteSessions();
       }
-    } catch {
+    } catch (err) {
       // 降级到内存列表
     }
     // 降级：内存列表
@@ -1163,7 +1163,7 @@ export class CoreAPIImpl implements CoreAPI {
           userMessage.slice(0, 30) + (userMessage.length > 30 ? '…' : '');
         try {
           await this.renameSession(sessionId, fallback);
-        } catch {
+        } catch (err) {
           // 降级也失败，放弃
         }
       }
@@ -1273,7 +1273,7 @@ export class CoreAPIImpl implements CoreAPI {
     try {
       const stat = fs.statSync(filePath);
       size = stat.size;
-    } catch {
+    } catch (err) {
       size = 0;
     }
 

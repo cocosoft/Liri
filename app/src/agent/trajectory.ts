@@ -72,7 +72,7 @@ function getTrajectoryDir(): string {
     try {
       const { mkdirSync } = require('fs');
       mkdirSync(dir, { recursive: true });
-    } catch {
+    } catch (err) {
       // 目录创建失败时使用临时目录
       return join(resolvePyappHome());
     }

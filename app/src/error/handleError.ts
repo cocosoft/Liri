@@ -201,7 +201,7 @@ export async function handleError(
         });
       }
     }
-  } catch {
+  } catch (err) {
     // OTel 不可用时不中断主流程
   }
 

@@ -314,7 +314,7 @@ export class PluginSDK {
     // 从 PluginSystem 注册表中移除
     try {
       pluginSystem.getRegistry().unregisterPlugin(pluginId);
-    } catch {
+    } catch (err) {
       // 如果注册表中不存在，忽略
     }
 

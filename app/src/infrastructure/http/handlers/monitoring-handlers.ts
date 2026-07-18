@@ -154,7 +154,7 @@ export async function handleMonitorSummary(
         avgResponseTime: 0,
       })
     );
-  } catch {
+  } catch (err) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
@@ -216,7 +216,7 @@ export async function handleMonitorMetrics(
         appMemory: filterMetric(appMemoryHistory, range), // 应用内存
       })
     );
-  } catch {
+  } catch (err) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
@@ -251,7 +251,7 @@ export async function handleMonitorAlerts(
     }));
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(alerts));
-  } catch {
+  } catch (err) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify([]));
   }
@@ -333,7 +333,7 @@ export async function handleMonitorLogs(
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ logs, total }));
-  } catch {
+  } catch (err) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ logs: [], total: 0 }));
   }
@@ -598,7 +598,7 @@ export async function handleInfrastructureStatus(
       const { systemHealthChecker } =
         await import('@modules/diagnostics/SystemHealthChecker');
       sysHealth = await systemHealthChecker.performFullCheck();
-    } catch {
+    } catch (err) {
       sysHealth = null;
     }
 
@@ -607,7 +607,7 @@ export async function handleInfrastructureStatus(
     try {
       const healthMonitor = getHealthMonitor();
       channelStatuses = healthMonitor.getAllHealthStatuses();
-    } catch {
+    } catch (err) {
       channelStatuses = [];
     }
 
@@ -615,7 +615,7 @@ export async function handleInfrastructureStatus(
     let otelEnabled = false;
     try {
       otelEnabled = (getOTelMetrics() as any)?.enabled ?? false;
-    } catch {
+    } catch (err) {
       // 默认 false
     }
 

@@ -593,7 +593,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
               relatedEntities.add(e.from);
               relatedEntities.add(e.to);
             }
-          } catch {
+          } catch (err) {
             // 单个查询失败不影响整体
           }
         }

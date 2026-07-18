@@ -119,7 +119,7 @@ export class CronBridge implements ManagedProcess {
         await this.sqliteCronStore.listTasks();
       }
       return true;
-    } catch {
+    } catch (err) {
       return false;
     }
   }
@@ -163,7 +163,7 @@ export class CronBridge implements ManagedProcess {
         'daemon.cronbridge.running',
         running ? 1 : 0
       );
-    } catch {
+    } catch (err) {
       // MonitoringService not available, skip metric reporting
     }
   }

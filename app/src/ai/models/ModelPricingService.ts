@@ -105,7 +105,7 @@ function rowToRecord(row: Record<string, unknown>): ModelPricingRecord {
   try {
     const raw = row.capabilities as string;
     if (raw) capabilities = JSON.parse(raw);
-  } catch {
+  } catch (err) {
     /* 静默忽略 */
   }
 
@@ -113,7 +113,7 @@ function rowToRecord(row: Record<string, unknown>): ModelPricingRecord {
   try {
     const raw = row.provider_mappings as string;
     if (raw) providerMappings = JSON.parse(raw);
-  } catch {
+  } catch (err) {
     /* 静默忽略 */
   }
 
@@ -413,7 +413,7 @@ export class ModelPricingService {
           );
         });
         migrated++;
-      } catch {
+      } catch (err) {
         // 单行迁移失败继续下一行
       }
     }

@@ -98,7 +98,7 @@ export async function cleanupInterruptedRounds(): Promise<void> {
         if (remaining.length === 0) {
           await rm(sessionTempPath, { recursive: true, force: true });
         }
-      } catch {
+      } catch (err) {
         // 跳过无法读取的会话目录
       }
     }

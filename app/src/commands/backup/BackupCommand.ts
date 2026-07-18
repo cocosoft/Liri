@@ -137,7 +137,7 @@ async function createBackup(
     );
     // 清理临时目录
     execSync(`rmdir /s /q "${backupDir}"`, { stdio: 'pipe', shell: 'cmd.exe' });
-  } catch {
+  } catch (err) {
     // 压缩/清理失败，保留未压缩的目录
   }
 

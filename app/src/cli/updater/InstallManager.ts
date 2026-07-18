@@ -89,7 +89,7 @@ export class InstallManager {
 
     try {
       accessSync(appDir, constants.R_OK);
-    } catch {
+    } catch (err) {
       logger.warning('应用目录不可读，跳过备份');
       return '';
     }
@@ -142,7 +142,7 @@ export class InstallManager {
         const destPath = join(appDir, file);
         try {
           await rename(srcPath, destPath);
-        } catch {
+        } catch (err) {
           logger.warning(`移动文件失败: ${file}，尝试复制`);
           const { cp } = await import('fs/promises');
           await cp(srcPath, destPath, { recursive: true, force: true });
@@ -177,7 +177,7 @@ export class InstallManager {
     try {
       const { rm } = await import('fs/promises');
       await rm(extractDir, { recursive: true, force: true });
-    } catch {
+    } catch (err) {
       // 忽略清理错误
     }
   }

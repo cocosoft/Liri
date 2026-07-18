@@ -382,7 +382,7 @@ async function testApiConnection(
       return response.ok || response.status === 400;
     }
     return true;
-  } catch {
+  } catch (err) {
     return false;
   }
 }
@@ -436,7 +436,7 @@ function detectExistingConfig(): {
         }
       }
     }
-  } catch {
+  } catch (err) {
     // 忽略
   }
 
@@ -457,7 +457,7 @@ function detectExistingConfig(): {
     if (soulContent && soulContent.length > defaultSoulText.length + 100) {
       soulCustomized = true;
     }
-  } catch {
+  } catch (err) {
     // 忽略
   }
   try {
@@ -466,7 +466,7 @@ function detectExistingConfig(): {
     if (userContent && userContent.length > defaultUserText.length + 50) {
       userCustomized = true;
     }
-  } catch {
+  } catch (err) {
     // 忽略
   }
 
@@ -584,7 +584,7 @@ async function runModelSection(
       console.log('     API Key 已保存，稍后可能生效。');
     }
     console.log('');
-  } catch {
+  } catch (err) {
     console.log('  ⚠️ 无法验证连接（网络错误）。');
     console.log('     API Key 已保存，稍后可能生效。');
     console.log('');
@@ -721,7 +721,7 @@ async function runChannelSection(
               console.log('  💡 输入 /channel list 查看通道状态');
             }
           }
-        } catch {
+        } catch (err) {
           console.log(
             '  ⚠️ 重启后自动连接（或运行 /channel connect 手动连接）'
           );
@@ -881,7 +881,7 @@ const onboardCommand = {
         aiProvider = `${envProviders[0].name}（来自 .env）`;
         aiKeyStatus = '✅ 已配置';
       }
-    } catch {
+    } catch (err) {
       aiKeyStatus = '未知';
     }
 
@@ -894,7 +894,7 @@ const onboardCommand = {
       if (soulContent && soulContent.length > defaultSoulText.length + 100) {
         soulStatus = '✅ 已自定义';
       }
-    } catch {
+    } catch (err) {
       // 忽略
     }
     try {
@@ -903,7 +903,7 @@ const onboardCommand = {
       if (userContent && userContent.length > defaultUserText.length + 50) {
         userStatus = '✅ 已自定义';
       }
-    } catch {
+    } catch (err) {
       // 忽略
     }
 
@@ -1409,7 +1409,7 @@ export async function runOnboard(
                   console.log('  💡 输入 /channel list 查看通道状态');
                 }
               }
-            } catch {
+            } catch (err) {
               console.log(
                 '  ⚠️ 重启后自动连接（或运行 /channel connect 手动连接）'
               );

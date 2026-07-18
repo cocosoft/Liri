@@ -156,14 +156,14 @@ export function adaptPluginToChannelInterface(
       try {
         await plugin.connect();
         return isPluginConnected(plugin);
-      } catch {
+      } catch (err) {
         return false;
       }
     },
     disconnect: async () => {
       try {
         await plugin.disconnect();
-      } catch {
+      } catch (err) {
         // 忽略断开失败
       }
     },
@@ -342,7 +342,7 @@ export class ChannelRegistry extends EventEmitter {
             let options: Record<string, unknown> = {};
             try {
               options = JSON.parse(row.options || '{}');
-            } catch {
+            } catch (err) {
               /* ignore */
             }
 
@@ -631,7 +631,7 @@ export class ChannelRegistry extends EventEmitter {
       try {
         const success = await channel.sendMessage('', text);
         results.push({ channel: channel.name, success });
-      } catch {
+      } catch (err) {
         results.push({ channel: channel.name, success: false });
       }
     }

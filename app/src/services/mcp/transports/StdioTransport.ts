@@ -143,11 +143,11 @@ export class StdioTransport extends MCPTransport {
     // 先尝试 SIGTERM
     try {
       proc.kill('SIGTERM');
-    } catch {
+    } catch (err) {
       // SIGTERM 不可用（Windows），直接强制终止
       try {
         proc.kill();
-      } catch {
+      } catch (err) {
         // 已退出
       }
       untrackProcess(proc);
@@ -161,10 +161,10 @@ export class StdioTransport extends MCPTransport {
         // 仍存活 → 强制终止
         try {
           proc.kill('SIGKILL');
-        } catch {
+        } catch (err) {
           proc.kill();
         }
-      } catch {
+      } catch (err) {
         // 已退出
       }
       untrackProcess(proc);

@@ -1780,7 +1780,7 @@ export function createQueryEngine(
       createPostCallSummaryHook(),
       { priority: 100 }
     );
-  } catch {
+  } catch (err) {
     // Hook 注册失败不阻塞引擎创建
   }
 

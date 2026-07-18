@@ -113,7 +113,7 @@ function getAuditLogPath(): string {
     }
     auditLogPath = primaryPath;
     return primaryPath;
-  } catch {
+  } catch (err) {
     logger.warn('主日志路径不可写，使用系统临时目录', { primaryPath });
     const fallbackDir = join(tmpdir(), '.trae');
     if (!existsSync(fallbackDir)) {
@@ -167,7 +167,7 @@ function rotateLogIfNeeded(
         .filter((f) => f.startsWith(backupPrefix))
         .sort()
         .reverse(); // 最新的在前
-    } catch {
+    } catch (err) {
       // 目录读取失败，跳过清理
     }
 
@@ -176,7 +176,7 @@ function rotateLogIfNeeded(
       const oldBackup = existingBackups.pop()!;
       try {
         unlinkSync(join(dir, oldBackup));
-      } catch {
+      } catch (err) {
         // 删除失败忽略
       }
     }
@@ -185,7 +185,7 @@ function rotateLogIfNeeded(
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupPath = join(dir, `${baseName}.${timestamp}`);
     renameSync(filePath, backupPath);
-  } catch {
+  } catch (err) {
     // 轮转失败不影响主流程
   }
 }
@@ -278,7 +278,7 @@ export function queryAuditLogs(
         events.push(parsed);
 
         if (filter.limit && events.length >= filter.limit) break;
-      } catch {
+      } catch (err) {
         // 单行解析失败跳过
       }
     }

@@ -108,7 +108,7 @@ export class ImageDisplayTool extends BaseTool {
       let size: number | undefined;
       try {
         size = statSync(resolvedPath).size;
-      } catch {
+      } catch (err) {
         // 忽略 stat 错误
       }
 

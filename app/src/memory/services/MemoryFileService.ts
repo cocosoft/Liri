@@ -75,7 +75,7 @@ export function readMemoryEntrypoint(memoryDir: string): {
   let entrypointContent = '';
   try {
     entrypointContent = fs.readFileSync(entrypoint, { encoding: 'utf-8' });
-  } catch {
+  } catch (err) {
     // No memory file yet
     return {
       content: `Your ${ENTRYPOINT_NAME} is currently empty. When you save new memories, they will appear here.`,
@@ -143,7 +143,7 @@ export async function updateMemoryIndex(
   let existingContent = '';
   try {
     existingContent = fs.readFileSync(entrypoint, { encoding: 'utf-8' });
-  } catch {
+  } catch (err) {
     // No memory file yet
   }
 
@@ -181,7 +181,7 @@ export async function deleteMemoryFile(
   // Delete the file
   try {
     await fs.unlink(filePath);
-  } catch {
+  } catch (err) {
     // File doesn't exist
   }
 
@@ -193,7 +193,7 @@ export async function deleteMemoryFile(
       .filter((line) => !line.includes(`(${filename})`))
       .join('\n');
     await fs.writeFile(entrypoint, updatedContent, { encoding: 'utf-8' });
-  } catch {
+  } catch (err) {
     // Index file doesn't exist
   }
 }
@@ -247,7 +247,7 @@ export async function listMemoryFiles(memoryDir: string): Promise<
         }
       }
     }
-  } catch {
+  } catch (err) {
     // Directory doesn't exist or is unreadable
   }
 

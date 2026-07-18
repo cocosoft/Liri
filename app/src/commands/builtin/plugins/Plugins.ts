@@ -166,7 +166,7 @@ const pluginsCommand = {
         enabled: data.enabledCount,
         failed: data.errorCount,
       });
-    } catch {
+    } catch (err) {
       // analytics 非关键
     }
 
@@ -222,7 +222,7 @@ const pluginsCommand = {
     try {
       const { logEvent } = await import('@modules/services/analytics/index.js');
       logEvent('tengu_plugins_list', { total: data.total });
-    } catch {
+    } catch (err) {
       // analytics 非关键
     }
 
@@ -265,7 +265,7 @@ const pluginsCommand = {
     try {
       const { logEvent } = await import('@modules/services/analytics/index.js');
       logEvent('tengu_plugins_test', { total: data.total });
-    } catch {
+    } catch (err) {
       // analytics 非关键
     }
 
@@ -335,7 +335,7 @@ const pluginsCommand = {
           });
         }
       }
-    } catch {
+    } catch (err) {
       // 插件系统未初始化，返回空数据
     }
 

@@ -103,7 +103,7 @@ export function createMemoryExtractionHook(
             extractedCount++;
           }
         }
-      } catch {
+      } catch (err) {
         // Deep extraction failure is non-fatal
       }
     }

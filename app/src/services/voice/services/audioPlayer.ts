@@ -328,7 +328,7 @@ export class PCMAudioPlayer {
             '/T',
           ]);
         }
-      } catch {
+      } catch (err) {
         // 忽略终止错误
       }
       this.activeProcess = null;
@@ -362,7 +362,7 @@ export class PCMAudioPlayer {
       this._state = state;
       try {
         this.callbacks.onStateChange?.(state);
-      } catch {
+      } catch (err) {
         // 忽略回调错误
       }
     }
@@ -385,7 +385,7 @@ export class PCMAudioPlayer {
           this.callbacks.onError?.(
             error instanceof Error ? error : new Error(String(error))
           );
-        } catch {
+        } catch (err) {
           // 忽略回调错误
         }
       });
@@ -417,7 +417,7 @@ export class PCMAudioPlayer {
       this.setState('idle');
       try {
         this.callbacks.onComplete?.();
-      } catch {
+      } catch (err) {
         // 忽略回调错误
       }
     }
@@ -436,7 +436,7 @@ export class PCMAudioPlayer {
     } finally {
       try {
         unlinkSync(tempFile);
-      } catch {
+      } catch (err) {
         // 忽略清理错误
       }
     }
@@ -474,7 +474,7 @@ export class PCMAudioPlayer {
     if (this.tempDir) {
       try {
         rmSync(this.tempDir, { recursive: true, force: true });
-      } catch {
+      } catch (err) {
         // 忽略清理错误
       }
       this.tempDir = null;
@@ -523,7 +523,7 @@ export class PCMAudioPlayer {
         if (this.activeProcess === proc) {
           try {
             proc.kill();
-          } catch {
+          } catch (err) {
             /* 忽略 */
           }
           this.activeProcess = null;

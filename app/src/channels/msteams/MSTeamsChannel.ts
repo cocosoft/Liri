@@ -128,7 +128,7 @@ async function verifyBotFrameworkJwt(
       issuer: payload['iss'] as string,
       audience: payload['aud'] as string,
     };
-  } catch {
+  } catch (err) {
     return { verified: false };
   }
 }
@@ -172,7 +172,7 @@ class ConversationStore {
           this.refs.set(key, val as Record<string, unknown>);
         }
       }
-    } catch {
+    } catch (err) {
       // 首次启动无文件是正常的
     }
     this.initialized = true;
@@ -195,7 +195,7 @@ class ConversationStore {
         JSON.stringify(Object.fromEntries(this.refs), null, 2),
         'utf8'
       );
-    } catch {
+    } catch (err) {
       // 文件持久化失败不应阻塞
     }
   }
@@ -500,7 +500,7 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
     try {
       await getMsTeamsAccessToken(this.tenantId, this.appId, this.appPassword);
       return { healthy: true, latencyMs: Date.now() - start };
-    } catch {
+    } catch (err) {
       return { healthy: false, latencyMs: Date.now() - start };
     }
   }

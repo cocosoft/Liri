@@ -97,7 +97,7 @@ export class MCPManager {
       try {
         const conn = this.serverManager.getServer(serverName);
         await conn?.disconnect?.();
-      } catch {
+      } catch (err) {
         // 断开连接失败不阻塞 shutdown
       }
     }

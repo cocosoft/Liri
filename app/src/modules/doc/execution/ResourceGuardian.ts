@@ -47,7 +47,7 @@ export class ResourceGuardian {
     // 检查 OfficeCLI 进程内存（仅在进程存在时检查）
     try {
       await this.checkMemoryUsage();
-    } catch {
+    } catch (err) {
       // 内存检查失败不阻塞（进程可能尚未启动）
       logger.debug('内存检查跳过（进程可能未启动）');
     }
@@ -100,7 +100,7 @@ export class ResourceGuardian {
           limitMB: this.limits.maxMemoryMB,
         });
       }
-    } catch {
+    } catch (err) {
       // 非关键检查，静默跳过
     }
   }

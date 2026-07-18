@@ -227,7 +227,7 @@ export class VertexAIProvider extends BaseAIProvider {
             if (text) {
               yield text;
             }
-          } catch {
+          } catch (err) {
             // skip malformed SSE lines
           }
         }
@@ -274,7 +274,7 @@ export class VertexAIProvider extends BaseAIProvider {
           ?.map((m) => m.name.split('/').pop() || '')
           .filter((name) => name.includes('gemini')) ?? supportedModels
       );
-    } catch {
+    } catch (err) {
       return supportedModels;
     }
   }

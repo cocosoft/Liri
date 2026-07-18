@@ -166,7 +166,7 @@ export class KnowledgeLinter {
       let entries;
       try {
         entries = await readdir(dir, { withFileTypes: true });
-      } catch {
+      } catch (err) {
         return;
       }
       for (const entry of entries) {
@@ -259,7 +259,7 @@ export class KnowledgeLinter {
             detail: `最后修改: ${stats.mtime.toISOString()}`,
           });
         }
-      } catch {
+      } catch (err) {
         // 忽略无法 stat 的文件
       }
     }
@@ -292,7 +292,7 @@ export class KnowledgeLinter {
             });
           }
         }
-      } catch {
+      } catch (err) {
         // 忽略无法读取的文件
       }
     }
@@ -314,7 +314,7 @@ export class KnowledgeLinter {
       try {
         const content = await readFile(filePath, 'utf-8');
         contentMap.set(relPath, content);
-      } catch {
+      } catch (err) {
         // 忽略无法读取的文件
       }
     }
@@ -416,7 +416,7 @@ export class KnowledgeLinter {
             });
           }
         }
-      } catch {
+      } catch (err) {
         // 忽略 LLM 调用失败
       }
     }
@@ -445,7 +445,7 @@ export class KnowledgeLinter {
               : `${link}.md`.toLowerCase()
           );
         }
-      } catch {
+      } catch (err) {
         // 忽略无法读取的文件
       }
     }

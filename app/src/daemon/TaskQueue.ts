@@ -183,7 +183,7 @@ export class TaskQueue {
   private reportTaskMetric(name: string, value: number): void {
     try {
       getMonitoringService().addMetric(name, value);
-    } catch {
+    } catch (err) {
       // MonitoringService not available, skip metric reporting
     }
   }
@@ -193,7 +193,7 @@ export class TaskQueue {
       const monitoring = getMonitoringService();
       monitoring.addMetric('daemon.tasks.pending', this.pendingCount());
       monitoring.addMetric('daemon.tasks.running', this.running.size);
-    } catch {
+    } catch (err) {
       // MonitoringService not available, skip metric reporting
     }
   }

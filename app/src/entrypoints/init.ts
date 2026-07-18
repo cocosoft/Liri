@@ -302,7 +302,7 @@ export async function init(): Promise<void> {
               gatewayConfig.websocket.enabled =
                 (channelsConfig.qq?.enabled ?? false) ||
                 (channelsConfig.discord?.enabled ?? false);
-            } catch {
+            } catch (err) {
               // 忽略
             }
           } else {
@@ -312,7 +312,7 @@ export async function init(): Promise<void> {
               const gatewayConfig = cliConfigManager.getGatewayConfig();
               gatewayConfig.enabled = false;
               gatewayConfig.websocket.enabled = false;
-            } catch {
+            } catch (err) {
               // 忽略
             }
           }
@@ -654,7 +654,7 @@ async function startDeferredPrefetches(): Promise<void> {
                 logger.info(`已将旧目录残留文件归档至 ${archiveDir}`);
               }
             }
-          } catch {
+          } catch (err) {
             // 旧目录检查失败不阻塞启动
           }
         } catch (error) {
@@ -826,7 +826,7 @@ async function startDeferredPrefetches(): Promise<void> {
         try {
           const { autoUpdater } = await import('../cli/autoUpdater.js');
           await autoUpdater.checkAndNotify();
-        } catch {
+        } catch (err) {
           // 更新检查失败不影响启动
         }
       })(),

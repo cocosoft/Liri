@@ -208,7 +208,7 @@ export class AuditEngine {
                 });
               }
             }
-          } catch {
+          } catch (err) {
             // 文件读取失败
           }
         }
@@ -253,11 +253,11 @@ export class AuditEngine {
               remediation: '将 FROM 镜像替换为 alpine 或 slim 变体',
             });
           }
-        } catch {
+        } catch (err) {
           // 读取失败
         }
       }
-    } catch {
+    } catch (err) {
       // 审计失败
     }
 
@@ -285,7 +285,7 @@ export class AuditEngine {
           results.push(fullPath);
         }
       }
-    } catch {
+    } catch (err) {
       // readdir 失败
     }
     return results;
@@ -296,7 +296,7 @@ function existsSync(p: string): boolean {
   try {
     const { existsSync: fsExists } = require('fs');
     return fsExists(p);
-  } catch {
+  } catch (err) {
     return false;
   }
 }

@@ -142,7 +142,7 @@ export class BrowserVisionTool extends BaseTool {
       if (!input.returnScreenshot) {
         try {
           fs.unlinkSync(screenshotPath);
-        } catch {
+        } catch (err) {
           /* ignore */
         }
       }
@@ -229,7 +229,7 @@ export class BrowserVisionTool extends BaseTool {
               ws.close();
               resolve(msg.result.data);
             }
-          } catch {
+          } catch (err) {
             /* ignore */
           }
         };
@@ -250,7 +250,7 @@ export class BrowserVisionTool extends BaseTool {
       // 清理空文件
       try {
         fs.unlinkSync(outputPath);
-      } catch {
+      } catch (err) {
         /* ignore */
       }
       return null;

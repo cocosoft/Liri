@@ -104,7 +104,7 @@ export function registerStandardHandlers(): void {
           setUserDataDirOverride(dataDirectory.trim());
           logger.info(`用户数据目录已从设置加载: ${dataDirectory}`);
         }
-      } catch {
+      } catch (err) {
         logger.debug('加载用户数据目录配置失败（使用默认值）');
       }
 
@@ -150,7 +150,7 @@ export function registerStandardHandlers(): void {
         if (configManager) {
           logger.debug('[Phase 3] ConfigManager 就绪');
         }
-      } catch {
+      } catch (err) {
         // config 可能尚未完全就绪，跳过
       }
 
@@ -219,7 +219,7 @@ export function registerStandardHandlers(): void {
             });
           }
         }
-      } catch {
+      } catch (err) {
         // 非致命：env 读取失败时静默跳过
       }
 
@@ -402,7 +402,7 @@ export function registerStandardHandlers(): void {
                 gatewayConfig.websocket.enabled =
                   (channelsConfig.qq?.enabled ?? false) ||
                   (channelsConfig.discord?.enabled ?? false);
-              } catch {
+              } catch (err) {
                 // 忽略
               }
             } else {
@@ -412,7 +412,7 @@ export function registerStandardHandlers(): void {
                 const gatewayConfig = cliConfigManager.getGatewayConfig();
                 gatewayConfig.enabled = false;
                 gatewayConfig.websocket.enabled = false;
-              } catch {
+              } catch (err) {
                 // 忽略
               }
             }
@@ -511,7 +511,7 @@ export function registerStandardHandlers(): void {
             failures: getStartupChainProfiler().getFailures().length,
           });
         }
-      } catch {
+      } catch (err) {
         // profiler 可能未启用，跳过
       }
 
@@ -519,7 +519,7 @@ export function registerStandardHandlers(): void {
         const { profileReport } =
           await import('@modules/performance/StartupProfiler.js');
         profileReport();
-      } catch {
+      } catch (err) {
         // profiler 可能未启用，跳过
       }
 

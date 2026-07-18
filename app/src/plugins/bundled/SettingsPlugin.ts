@@ -131,7 +131,7 @@ export class SettingsPlugin implements Plugin {
         const parsed = JSON.parse(saved);
         this.settings = { ...this.settings, ...parsed };
       }
-    } catch {
+    } catch (err) {
       // 使用默认设置
     }
   }
@@ -147,7 +147,7 @@ export class SettingsPlugin implements Plugin {
         JSON.stringify(this.settings, null, 2),
         'utf-8'
       );
-    } catch {
+    } catch (err) {
       // 保存失败，忽略
     }
   }

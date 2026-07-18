@@ -157,7 +157,7 @@ export class AttachmentManager {
     if (this.db) {
       try {
         this.db.close();
-      } catch {
+      } catch (err) {
         /* 忽略关闭错误 */
       }
       this.db = null;
@@ -207,7 +207,7 @@ export class AttachmentManager {
           updatedAt: new Date(a.updatedAt),
         }));
       }
-    } catch {
+    } catch (err) {
       // 索引文件损坏时重建
     }
     return [];
@@ -540,7 +540,7 @@ export class AttachmentManager {
           path: attachment.path,
           type: attachment.type,
         });
-      } catch {
+      } catch (err) {
         // 静默失败，不干扰主流程
       }
 
@@ -585,7 +585,7 @@ export class AttachmentManager {
           source: metadata?.source,
           sourceId: metadata?.sourceId,
         });
-      } catch {
+      } catch (err) {
         // 静默失败，不干扰主流程
       }
     });
@@ -629,7 +629,7 @@ export class AttachmentManager {
           source,
           fileId: attachment.id,
         });
-      } catch {
+      } catch (err) {
         // 静默失败，不干扰主流程
       }
     });

@@ -196,7 +196,7 @@ export class LongRunningTaskOrchestrator {
       const parsed = JSON.parse(planText);
       steps = parsed.steps || [description];
       acceptance = parsed.acceptanceCriteria || [];
-    } catch {
+    } catch (err) {
       // 非 JSON 输出，按行分割
       const lines = planText.split('\n').filter((l) => l.trim());
       if (lines.length > 1) {

@@ -32,7 +32,7 @@ export function isHintSeen(key: OnboardHintKey): boolean {
   try {
     const value = getConfigValue<boolean>(hintPath(key));
     return value === true;
-  } catch {
+  } catch (err) {
     return false;
   }
 }
@@ -57,7 +57,7 @@ export function resetAllHints(): void {
   for (const key of Object.values(OnboardHintKey)) {
     try {
       setConfigValue(hintPath(key), false);
-    } catch {
+    } catch (err) {
       // 忽略
     }
   }

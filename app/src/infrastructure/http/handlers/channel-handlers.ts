@@ -761,7 +761,7 @@ function bindChannelMessageHandler(channelType: string, plugin: any): void {
             message.conversationId ?? message.senderId,
             '⏱️ 请求处理超时（120秒），请稍后重试或简化您的问题。'
           );
-        } catch {
+        } catch (err) {
           // 超时通知发送失败不处理
         }
       }

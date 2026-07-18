@@ -169,7 +169,7 @@ export class QueryFeedbackPipeline {
           direction: 'directed',
           domain: this.domainName || '',
         });
-      } catch {
+      } catch (err) {
         // 图谱注册失败是非致命的
       }
 
@@ -316,7 +316,7 @@ summary: 简要摘要，不超过 100 字
               domain: this.domainName || '',
             });
           }
-        } catch {
+        } catch (err) {
           // 图谱注册失败是非致命的
         }
       }

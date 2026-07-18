@@ -1107,7 +1107,7 @@ function searchInDirectory(
           });
         }
       });
-    } catch {
+    } catch (err) {
       /* @ignore-catch: 跳过不可读文件 */
     }
   }
@@ -1128,7 +1128,7 @@ function searchInDirectory(
           searchFile(fullPath);
         }
       }
-    } catch {
+    } catch (err) {
       /* @ignore-catch: 跳过不可访问目录 */
     }
   }
@@ -1177,7 +1177,7 @@ function findFilesByPattern(pattern: string): string[] {
           }
         }
       }
-    } catch {
+    } catch (err) {
       /* @ignore-catch: 跳过不可访问目录 */
     }
   }

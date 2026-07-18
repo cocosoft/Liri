@@ -236,7 +236,7 @@ export class ProviderManager {
       await this.runAsync(
         `ALTER TABLE ${PROVIDERS_TABLE} ADD COLUMN category TEXT`
       );
-    } catch {
+    } catch (err) {
       // 列已存在，忽略
     }
 
@@ -245,7 +245,7 @@ export class ProviderManager {
       await this.runAsync(
         `ALTER TABLE ${PROVIDERS_TABLE} ADD COLUMN requires_auth INTEGER NOT NULL DEFAULT 1`
       );
-    } catch {
+    } catch (err) {
       // 列已存在，忽略
     }
 
@@ -305,7 +305,7 @@ export class ProviderManager {
         try {
           const raw = row.headers as string;
           return raw ? JSON.parse(raw) : undefined;
-        } catch {
+        } catch (err) {
           return undefined;
         }
       })(),

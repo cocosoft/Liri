@@ -136,7 +136,7 @@ export class SessionArtifacts {
           description: `会话制品: ${type} - ${sessionId}`,
           storeZone: 'artifact',
         });
-      } catch {
+      } catch (err) {
         // 注册失败不影响主流程
       }
     });
@@ -200,7 +200,7 @@ export class SessionArtifacts {
           unlinkSync(filePath);
           deleted++;
         }
-      } catch {
+      } catch (err) {
         // 忽略删除错误
       }
     }

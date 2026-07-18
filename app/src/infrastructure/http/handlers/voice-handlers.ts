@@ -84,7 +84,7 @@ export async function handleSTTTranscribe(
       if (keytermsField && typeof keytermsField.data === 'string') {
         try {
           keyterms = JSON.parse(keytermsField.data);
-        } catch {
+        } catch (err) {
           keyterms = [keytermsField.data];
         }
       }
@@ -519,7 +519,7 @@ export async function handleListVoiceProviders(
         if (svProvider.isAvailable()) {
           STTRegistry.register(svProvider);
         }
-      } catch {
+      } catch (err) {
         // sherpa-onnx 未安装时静默跳过
       }
 

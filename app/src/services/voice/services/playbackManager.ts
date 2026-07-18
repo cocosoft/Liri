@@ -193,12 +193,12 @@ export class PlaybackManager {
     } finally {
       try {
         unlinkSync(tmpInput);
-      } catch {
+      } catch (err) {
         /* ignore */
       }
       try {
         unlinkSync(tmpOutput);
-      } catch {
+      } catch (err) {
         /* ignore */
       }
     }

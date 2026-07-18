@@ -35,7 +35,7 @@ export async function readLastConsolidatedAt(): Promise<number> {
   try {
     const s = await stat(lockPath());
     return s.mtimeMs;
-  } catch {
+  } catch (err) {
     return 0;
   }
 }
@@ -44,7 +44,7 @@ function isProcessRunning(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
-  } catch {
+  } catch (err) {
     return false;
   }
 }
@@ -60,7 +60,7 @@ export async function tryAcquireConsolidationLock(): Promise<number | null> {
     mtimeMs = s.mtimeMs;
     const parsed = parseInt(raw.trim(), 10);
     holderPid = Number.isFinite(parsed) ? parsed : undefined;
-  } catch {
+  } catch (err) {
     // ENOENT - no prior lock
   }
 
@@ -80,7 +80,7 @@ export async function tryAcquireConsolidationLock(): Promise<number | null> {
   let verify: string;
   try {
     verify = await readFile(path, 'utf8');
-  } catch {
+  } catch (err) {
     return null;
   }
   if (parseInt(verify.trim(), 10) !== process.pid) return null;
@@ -125,11 +125,11 @@ export async function listSessionsTouchedSince(
           const sessionId = sessionFile.replace('.json', '');
           candidates.push(sessionId);
         }
-      } catch {
+      } catch (err) {
         // Skip non-existent files
       }
     }
-  } catch {
+  } catch (err) {
     // Sessions directory doesn't exist
   }
 

@@ -77,7 +77,7 @@ function readCached(filePath: string): WorkspaceFile | null {
       mtimeMs: stat.mtimeMs,
       truncated,
     };
-  } catch {
+  } catch (err) {
     return null;
   }
 }
@@ -112,7 +112,7 @@ function readAgentsDir(dir: string): WorkspaceFile[] {
       const file = readCached(fp);
       if (file) files.push(file);
     }
-  } catch {
+  } catch (err) {
     // directory not accessible
   }
   return files;

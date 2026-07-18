@@ -173,7 +173,7 @@ export class TeammateMailbox {
         try {
           const content = readFileSync(mailboxPath, 'utf-8');
           messages = JSON.parse(content);
-        } catch {
+        } catch (err) {
           messages = [];
         }
       }
@@ -209,7 +209,7 @@ export class TeammateMailbox {
       return messages.filter(
         (m: MailboxMessage) => now - m.timestamp < this.messageTtlMs
       );
-    } catch {
+    } catch (err) {
       return [];
     }
   }
@@ -485,11 +485,11 @@ export class TeammateMailbox {
               `Cleaned up ${originalCount - messages.length} expired messages from ${file}`
             );
           }
-        } catch {
+        } catch (err) {
           // 忽略无法处理的文件
         }
       }
-    } catch {
+    } catch (err) {
       // 忽略目录读取错误
     }
   }
@@ -521,7 +521,7 @@ export class TeammateMailbox {
           const content = readFileSync(join(this.mailboxDir, file), 'utf-8');
           const messages = JSON.parse(content);
           totalMessages += Array.isArray(messages) ? messages.length : 0;
-        } catch {
+        } catch (err) {
           // 忽略无法读取的文件
         }
       }
@@ -530,7 +530,7 @@ export class TeammateMailbox {
         mailboxCount: files.filter((f: string) => f.endsWith('.json')).length,
         totalMessages,
       };
-    } catch {
+    } catch (err) {
       return { mailboxCount: 0, totalMessages: 0 };
     }
   }

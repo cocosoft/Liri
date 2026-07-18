@@ -214,7 +214,7 @@ export class GoogleProvider extends BaseAIProvider {
             if (text) {
               yield text;
             }
-          } catch {
+          } catch (err) {
             // skip malformed SSE lines
           }
         }
@@ -256,7 +256,7 @@ export class GoogleProvider extends BaseAIProvider {
           ?.map((m) => m.name.replace('models/', ''))
           .filter((name) => name.includes('gemini')) ?? supportedModels
       );
-    } catch {
+    } catch (err) {
       return supportedModels;
     }
   }

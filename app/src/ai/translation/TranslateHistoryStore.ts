@@ -113,7 +113,7 @@ export class TranslateHistoryStore {
           () => resolve()
         );
       });
-    } catch {
+    } catch (err) {
       // 列已存在时忽略错误
     }
   }

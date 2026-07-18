@@ -72,7 +72,7 @@ function discoverPlugins(scanDir: string): PluginMeta[] {
           const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
           permissions = pkg['Liri']?.permissions || [];
           version = pkg.version;
-        } catch {
+        } catch (err) {
           // 忽略解析错误
         }
       }
@@ -86,7 +86,7 @@ function discoverPlugins(scanDir: string): PluginMeta[] {
         version,
       });
     }
-  } catch {
+  } catch (err) {
     // 目录读取失败
   }
   return metas;
@@ -175,7 +175,7 @@ function auditPluginSource(
         remediation: '审查所有外部 URL，确保不包含恶意地址或数据外泄',
       });
     }
-  } catch {
+  } catch (err) {
     // 文件读取失败，跳过
   }
 }

@@ -65,7 +65,11 @@ export async function handleListWorkspaces(
         res.end(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
-      } catch {} /* res可能已结束, 忽略 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* res可能已结束, 忽略 */
     }
   }
 }
@@ -338,7 +342,7 @@ export async function resolveWorkspacePath(
     const entries = await buildEntries();
     const entry = entries.find((e) => e.meta.id === workspaceId);
     return entry ? entry.path : null;
-  } catch {
+  } catch (err) {
     return null;
   }
 }

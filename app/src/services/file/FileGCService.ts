@@ -149,7 +149,7 @@ export class FileGCService {
           files.push(fullPath);
         }
       }
-    } catch {
+    } catch (err) {
       // 跳过无法读取的目录
     }
 
@@ -177,7 +177,7 @@ export class FileGCService {
         for (const row of rows) {
           existing.add(row.saved_path);
         }
-      } catch {
+      } catch (err) {
         // 跳过查询失败的批次
       }
     }

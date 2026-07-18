@@ -174,7 +174,7 @@ export class TaskDecomposer {
       try {
         const result = await this.classifyFn(message);
         tier = result.tier;
-      } catch {
+      } catch (err) {
         // 使用默认 tier
       }
     }

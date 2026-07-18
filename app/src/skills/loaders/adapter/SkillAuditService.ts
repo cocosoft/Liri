@@ -214,11 +214,11 @@ export class SkillAuditService {
           try {
             const entry = JSON.parse(line) as SkillAuditEntry;
             entries.push(entry);
-          } catch {
+          } catch (err) {
             // 跳过损坏的行
           }
         }
-      } catch {
+      } catch (err) {
         // 跳过无法读取的文件
       }
     }

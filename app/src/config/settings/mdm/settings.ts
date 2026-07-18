@@ -216,7 +216,7 @@ function hasManagedSettingsFile(): boolean {
         return true;
       }
     }
-  } catch {
+  } catch (err) {
     // fall through
   }
 
@@ -233,11 +233,11 @@ function hasManagedSettingsFile(): boolean {
         if (data && typeof data === 'object' && Object.keys(data).length > 0) {
           return true;
         }
-      } catch {
+      } catch (err) {
         // skip
       }
     }
-  } catch {
+  } catch (err) {
     // drop-in dir doesn't exist
   }
 

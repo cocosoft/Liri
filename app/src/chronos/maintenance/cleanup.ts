@@ -23,7 +23,7 @@ async function isLockStale(lockPath: string): Promise<boolean> {
     const s = await stat(lockPath);
     const age = Date.now() - s.mtimeMs;
     return age > CLEANUP_INTERVAL_MS;
-  } catch {
+  } catch (err) {
     return true;
   }
 }
@@ -79,7 +79,7 @@ export async function cleanupOldMessageFilesInBackground(): Promise<void> {
           await rm(filePath, { force: true });
           cleaned++;
         }
-      } catch {
+      } catch (err) {
         // Skip problematic files
       }
     }
@@ -121,7 +121,7 @@ export async function cleanupStaleLocks(): Promise<void> {
         logger.info('已移除过期的清理锁');
       }
     }
-  } catch {
+  } catch (err) {
     // Ignore errors
   }
 }

@@ -373,7 +373,7 @@ export class SenseVoiceSTTProvider implements STTProvider {
       this._cachedAvailable = true;
       this._lastProbeAt = Date.now();
       return true;
-    } catch {
+    } catch (err) {
       this._cachedAvailable = false;
       this._lastProbeAt = Date.now();
       return false;
@@ -444,7 +444,7 @@ export class SenseVoiceSTTProvider implements STTProvider {
         } finally {
           try {
             unlinkSync(audioPath);
-          } catch {
+          } catch (err) {
             // 临时文件清理失败不影响主流程
           }
         }
@@ -614,14 +614,14 @@ export class SenseVoiceSTTProvider implements STTProvider {
 
     try {
       proc.stdin!.write(JSON.stringify({ command: 'shutdown' }) + '\n');
-    } catch {
+    } catch (err) {
       // 写入失败，直接 kill
     }
 
     const killTimeout = setTimeout(() => {
       try {
         proc.kill('SIGKILL');
-      } catch {
+      } catch (err) {
         // 进程可能已自然退出
       }
     }, 3000);
@@ -792,7 +792,7 @@ export class SenseVoiceSTTProvider implements STTProvider {
     if (this._workerScriptPath) {
       try {
         unlinkSync(this._workerScriptPath);
-      } catch {
+      } catch (err) {
         // 清理失败不影响主流程
       }
       this._workerScriptPath = null;

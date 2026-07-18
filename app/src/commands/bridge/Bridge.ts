@@ -531,7 +531,7 @@ const bridgeCommand = {
       try {
         const { logEvent } = await import('@modules/analytics/index.js');
         logEvent('tengu_bridge_view', { subcommand, showJson });
-      } catch {
+      } catch (err) {
         // analytics 非关键
       }
 

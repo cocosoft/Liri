@@ -151,7 +151,7 @@ export class KnowledgeBaseWriter {
         .filter((e) => e.startsWith('snapshot_') && e.endsWith('.md'))
         .sort()
         .reverse(); // 最新在前
-    } catch {
+    } catch (err) {
       return [];
     }
   }
@@ -186,7 +186,7 @@ export class KnowledgeBaseWriter {
       });
 
       return true;
-    } catch {
+    } catch (err) {
       return false;
     }
   }
@@ -221,7 +221,7 @@ export class KnowledgeBaseWriter {
           await unlink(join(snapDir, oldest));
         }
       }
-    } catch {
+    } catch (err) {
       // 清理失败不影响主流程
     }
   }

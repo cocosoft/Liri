@@ -147,7 +147,7 @@ async function isAIConfigured(): Promise<boolean> {
       ] as string) ||
       '';
     return isValidApiKey(apiKey);
-  } catch {
+  } catch (err) {
     return false;
   }
 }
@@ -249,7 +249,7 @@ async function checkCriticalDependencies(): Promise<{
   // 2. 检查 bun:sqlite（数据库核心依赖）
   try {
     require.resolve('bun:sqlite');
-  } catch {
+  } catch (err) {
     issues.push(
       '缺少 bun:sqlite 模块（数据库核心依赖）。请确保使用 Bun 运行时启动应用。'
     );
@@ -258,7 +258,7 @@ async function checkCriticalDependencies(): Promise<{
   // 3. 检查 sharp（图片处理，原生 C++ 模块，ABI 敏感）
   try {
     require.resolve('sharp');
-  } catch {
+  } catch (err) {
     issues.push(
       '缺少 sharp 模块（图片处理依赖）。请确保 node_modules/sharp 已正确安装。\n' +
         '  修复: 在应用目录执行 bun install，确保 sharp 的原生二进制与当前系统兼容。'
@@ -268,11 +268,11 @@ async function checkCriticalDependencies(): Promise<{
   // 4. 检查 pdfjs-dist（PDF 解析依赖）
   try {
     require.resolve('pdfjs-dist/legacy/build/pdf');
-  } catch {
+  } catch (err) {
     // 尝试不带 legacy 路径的解析
     try {
       require.resolve('pdfjs-dist');
-    } catch {
+    } catch (err) {
       issues.push(
         '缺少 pdfjs-dist 模块（PDF 解析依赖）。请确保 node_modules/pdfjs-dist 已正确安装。\n' +
           '  修复: 在应用目录执行 bun install。'
@@ -322,7 +322,7 @@ async function checkFirstRunAndOnboard(): Promise<void> {
   if (existsSync(onboardRetryFlag)) {
     try {
       retryCount = parseInt(readFileSync(onboardRetryFlag, 'utf-8').trim(), 10);
-    } catch {
+    } catch (err) {
       retryCount = 0;
     }
   }
@@ -348,7 +348,11 @@ async function checkFirstRunAndOnboard(): Promise<void> {
     if (existsSync(onboardRetryFlag)) {
       try {
         rmSync(onboardRetryFlag, { force: true });
-      } catch {} // @ignore-catch: 清理重试标志文件，失败不影响流程
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } // @ignore-catch: 清理重试标志文件，失败不影响流程
     }
     return;
   }
@@ -374,7 +378,11 @@ async function checkFirstRunAndOnboard(): Promise<void> {
     if (existsSync(onboardRetryFlag)) {
       try {
         rmSync(onboardRetryFlag, { force: true });
-      } catch {} // @ignore-catch: 清理重试标志文件，失败不影响流程
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } // @ignore-catch: 清理重试标志文件，失败不影响流程
     }
 
     if (await isAIConfigured()) {
@@ -394,7 +402,11 @@ async function checkFirstRunAndOnboard(): Promise<void> {
         mkdirSync(dataDir, { recursive: true });
       }
       writeFileSync(onboardRetryFlag, String(retryCount), 'utf-8');
-    } catch {} // @ignore-catch: 重试计数写入失败不影响主流程
+    } catch (err) {
+
+      logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+    } // @ignore-catch: 重试计数写入失败不影响主流程
 
     const errorMsg = error instanceof Error ? error.message : String(error);
     logger.warning('初始化引导失败，可使用 /onboard 命令手动启动', {
@@ -453,12 +465,12 @@ function setupWindowsSecurity(): void {
         stdio: 'inherit',
         shell: 'cmd.exe',
       });
-    } catch {
+    } catch (err) {
       // 非致命，部分终端可能不支持
     }
     try {
       process.stdout.write('\x1b]0;Liri\x07');
-    } catch {
+    } catch (err) {
       // 非致命
     }
   }
@@ -495,12 +507,12 @@ function checkSingletonInstance(): void {
           process.kill(pid, 0);
           logger.warning(`检测到已有实例在运行 (PID: ${pid})，当前实例将退出`);
           process.exit(1);
-        } catch {
+        } catch (err) {
           // 进程不存在，锁文件过期，继续启动
           logger.info(`检测到过期锁文件 (PID: ${pid}，进程已不存在)，将覆盖`);
         }
       }
-    } catch {
+    } catch (err) {
       // 锁文件内容异常，忽略并覆盖
       logger.warning('锁文件内容异常，将覆盖');
     }
@@ -518,7 +530,7 @@ function checkSingletonInstance(): void {
           unlinkSync(lockFile);
         }
       }
-    } catch {
+    } catch (err) {
       // 清理失败不阻塞退出
     }
   };
@@ -548,7 +560,7 @@ async function displayStartupHealthReport(): Promise<void> {
       await import('./diagnostics/SystemHealthChecker');
     const report = await systemHealthChecker.performFullCheck();
     console.log(formatHealthReport(report));
-  } catch {
+  } catch (err) {
     // 健康报告展示失败不影响主流程
   }
 }
@@ -595,7 +607,7 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
       if (record?.id) {
         logger.info(`CLI --model ${modelArg} → UUID ${record.id}`);
       }
-    } catch {
+    } catch (err) {
       await modelRouter.setCurrentModel(modelArg);
     }
   }
@@ -981,7 +993,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
           });
         }
       }
-    } catch {
+    } catch (err) {
       // 非致命：env 读取失败时静默跳过
     }
 
@@ -1153,7 +1165,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
         logPath,
         `${new Date().toISOString()} 启动失败\n${String(error)}\n`
       );
-    } catch {
+    } catch (err) {
       /* 静默 */
     }
 

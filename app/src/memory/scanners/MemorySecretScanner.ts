@@ -235,7 +235,7 @@ export function scanForSecrets(content: string): SecretMatch[] {
         });
         foundRules.add(rule.id);
       }
-    } catch {
+    } catch (err) {
       // 忽略正则错误
     }
   }
@@ -270,7 +270,7 @@ export function sanitizeSecrets(
           match.substring(match.length - 4)
         );
       });
-    } catch {
+    } catch (err) {
       // 忽略正则错误
     }
   }
@@ -346,7 +346,7 @@ export class MemorySecretScanner {
           });
           foundRules.add(rule.id);
         }
-      } catch {
+      } catch (err) {
         // 忽略
       }
     }
@@ -374,7 +374,7 @@ export class MemorySecretScanner {
             match.substring(match.length - 4)
           );
         });
-      } catch {
+      } catch (err) {
         // 忽略
       }
     }

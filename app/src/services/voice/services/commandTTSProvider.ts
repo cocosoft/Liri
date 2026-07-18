@@ -79,12 +79,12 @@ function detectCommandBackend(): CommandBackend {
       execSync('which espeak', { stdio: 'ignore' });
       detectedBackend = 'espeak';
       return 'espeak';
-    } catch {
+    } catch (err) {
       try {
         execSync('which festival', { stdio: 'ignore' });
         detectedBackend = 'festival';
         return 'festival';
-      } catch {
+      } catch (err) {
         detectedBackend = 'none';
         return 'none';
       }
@@ -425,7 +425,7 @@ if ($targetVoice) { $speaker.Voice = $targetVoice; }
           proc.on('close', (code) => {
             try {
               unlinkSync(tmpFile);
-            } catch {
+            } catch (err) {
               /* 忽略清理错误 */
             }
             if (code === 0) resolve();
@@ -434,7 +434,7 @@ if ($targetVoice) { $speaker.Voice = $targetVoice; }
           proc.on('error', (err) => {
             try {
               unlinkSync(tmpFile);
-            } catch {
+            } catch (err) {
               /* 忽略清理错误 */
             }
             reject(err);

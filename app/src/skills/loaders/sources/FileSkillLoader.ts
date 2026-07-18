@@ -84,7 +84,7 @@ export class FileSkillLoader extends SkillLoader {
       let entries: string[] = [];
       try {
         entries = await fs.readdir(directory);
-      } catch {
+      } catch (err) {
         // 目录不存在，跳过
         return;
       }
@@ -139,7 +139,7 @@ export class FileSkillLoader extends SkillLoader {
       }
 
       return null;
-    } catch {
+    } catch (err) {
       return null;
     }
   }
@@ -154,7 +154,7 @@ export class FileSkillLoader extends SkillLoader {
   ): Promise<Skill | null> {
     try {
       await fs.access(filePath);
-    } catch {
+    } catch (err) {
       return null;
     }
 

@@ -112,7 +112,7 @@ export async function runKnowledgeMaintenance(): Promise<KnowledgeMaintenanceRes
       const digestService = getDefaultDigestService();
       await digestService.buildDigest();
       result.digestUpdated = true;
-    } catch {
+    } catch (err) {
       logger.warning('摘要缓存更新失败，跳过');
     }
 
@@ -126,7 +126,7 @@ export async function runKnowledgeMaintenance(): Promise<KnowledgeMaintenanceRes
           issues: lintResult.issues.slice(0, 5).map((i) => i.message),
         });
       }
-    } catch {
+    } catch (err) {
       // 健康检查失败不阻止主流程
     }
 

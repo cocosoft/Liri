@@ -171,7 +171,7 @@ export class MemorySnapshotService {
           totalMemory: os.totalmem(),
           freeMemory: os.freemem(),
         };
-      } catch {
+      } catch (err) {
         // 忽略错误
       }
     }

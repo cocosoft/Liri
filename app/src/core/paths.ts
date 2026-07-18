@@ -263,7 +263,7 @@ export function migrateSessionsToWorktree(
       const to = join(newDir, entry);
       try {
         renameSync(from, to);
-      } catch {
+      } catch (err) {
         // 单项移动失败，跳过
       }
     }
@@ -272,7 +272,7 @@ export function migrateSessionsToWorktree(
       join(newDir, '.worktree_migrated_at'),
       new Date().toISOString()
     );
-  } catch {
+  } catch (err) {
     // 迁移失败，静默降级
   }
 }

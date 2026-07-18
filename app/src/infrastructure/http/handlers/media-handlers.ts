@@ -259,7 +259,7 @@ export async function handleMediaSubtitleGenerate(
         // 清理视频临时文件
         try {
           unlinkSync(inputPath);
-        } catch {
+        } catch (err) {
           /* 清理失败不影响主流程 */
         }
       } else {
@@ -305,7 +305,7 @@ export async function handleMediaSubtitleGenerate(
       // 清理音频临时文件
       try {
         unlinkSync(audioPath);
-      } catch {
+      } catch (err) {
         /* 清理失败不影响主流程 */
       }
 
@@ -326,7 +326,7 @@ export async function handleMediaSubtitleGenerate(
       // 清理临时文件
       try {
         unlinkSync(inputPath);
-      } catch {
+      } catch (err) {
         /* ignore */
       }
       throw err;

@@ -184,7 +184,7 @@ export class OrchestrationHistoryAdapter {
           if (since !== undefined && record.timestamp <= since) continue;
           records.unshift(record);
           if (records.length >= limit) break;
-        } catch {
+        } catch (err) {
           // 跳过损坏的行
         }
       }
@@ -197,7 +197,7 @@ export class OrchestrationHistoryAdapter {
         hasMore: records.length >= limit,
         latestTimestamp,
       };
-    } catch {
+    } catch (err) {
       return { events: [], hasMore: false, latestTimestamp: 0 };
     }
   }

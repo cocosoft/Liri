@@ -189,7 +189,7 @@ export class WebChannel implements ChannelPlugin {
       try {
         this.sendCloseFrame(client.socket);
         client.socket.end();
-      } catch {
+      } catch (err) {
         // 忽略断开时的错误
       }
     });
@@ -346,7 +346,7 @@ export class WebChannel implements ChannelPlugin {
       try {
         this.sendCloseFrame(client.socket);
         client.socket.end();
-      } catch {
+      } catch (err) {
         // 忽略
       }
       this.clients.delete(clientId);
@@ -491,7 +491,7 @@ export class WebChannel implements ChannelPlugin {
       };
 
       await this.handleInbound(inboundMessage);
-    } catch {
+    } catch (err) {
       const inboundMessage: InboundMessage = {
         id: `ws_${clientId}_${Date.now()}`,
         content: text,
@@ -594,7 +594,7 @@ export class WebChannel implements ChannelPlugin {
         false
       );
       socket.write(frame);
-    } catch {
+    } catch (err) {
       // 忽略关闭帧发送错误
     }
   }

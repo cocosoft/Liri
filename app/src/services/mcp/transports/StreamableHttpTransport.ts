@@ -261,7 +261,7 @@ export class StreamableHttpTransport {
 
     try {
       this.controller.abort();
-    } catch {
+    } catch (err) {
       /* 已中止 */
     }
 
@@ -319,7 +319,7 @@ export class StreamableHttpTransport {
             try {
               const parsed = JSON.parse(ev.data) as JsonRpcMessage;
               this.pushMessage(parsed);
-            } catch {
+            } catch (err) {
               /* 格式错误的 JSON — 丢弃 */
               logger.warn('Streamable HTTP: dropped malformed SSE event', {
                 data: ev.data,

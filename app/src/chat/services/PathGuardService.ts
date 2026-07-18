@@ -278,7 +278,7 @@ async function checkPathExistsWithCache(p: string): Promise<boolean> {
     await fs.access(p, fs.constants.F_OK);
     addToCache(p, true);
     return true;
-  } catch {
+  } catch (err) {
     addToCache(p, false);
     return false;
   } finally {
@@ -357,7 +357,7 @@ async function validateOneCandidate(
         if (!defaultWhitelist.isAllowed(resolvedPath)) {
           return { rawPath, resolvedPath, status: 'restricted' };
         }
-      } catch {
+      } catch (err) {
         // 白名单模块加载失败时静默跳过
       }
       return { rawPath, resolvedPath, status: 'exists' };
@@ -372,7 +372,7 @@ async function validateOneCandidate(
     }
 
     return { rawPath, resolvedPath, status: 'hallucinated' };
-  } catch {
+  } catch (err) {
     guardLogger.warn('路径校验异常，降级为 unknown', { path: rawPath });
     return { rawPath, resolvedPath: rawPath, status: 'unknown' };
   }

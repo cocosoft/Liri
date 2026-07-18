@@ -123,7 +123,7 @@ export class ChannelPluginPresence {
           try {
             const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'));
             version = pkg.version;
-          } catch {
+          } catch (err) {
             // 忽略版本解析失败
           }
         }

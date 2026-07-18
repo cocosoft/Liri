@@ -246,7 +246,7 @@ export class SessionsWebSocket {
       this.reconnectAttempts++;
       try {
         await this.establishConnection();
-      } catch {
+      } catch (err) {
         this.scheduleReconnect();
       }
     }, this.reconnectDelay);
@@ -257,7 +257,7 @@ export class SessionsWebSocket {
       if (this.ws && this.state === 'connected') {
         try {
           (this.ws as any).ping?.();
-        } catch {
+        } catch (err) {
           // Ping not supported
         }
       }

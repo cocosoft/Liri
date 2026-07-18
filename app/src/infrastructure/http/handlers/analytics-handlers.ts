@@ -210,7 +210,7 @@ export async function handleHealthReport(
         timestamp: Date.now(),
       })
     );
-  } catch {
+  } catch (err) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
@@ -396,7 +396,7 @@ export async function handleAnalyticsDashboard(
         generatedAt: Date.now(),
       })
     );
-  } catch {
+  } catch (err) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
@@ -494,7 +494,7 @@ export async function handleCostSummary(
       dailyBreakdown.push({ date, cost: data.cost, tokens: data.tokens });
     }
     dailyBreakdown.sort((a, b) => a.date.localeCompare(b.date));
-  } catch {
+  } catch (err) {
     /* 每日明细不可用时不返回 */
   }
 
@@ -601,7 +601,7 @@ export async function handleCostRecords(
         total: totalResult.totalRequests,
       })
     );
-  } catch {
+  } catch (err) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ records: [], total: 0 }));
   }
@@ -648,7 +648,7 @@ export async function handleCostRange(
         }))
       )
     );
-  } catch {
+  } catch (err) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify([]));
   }

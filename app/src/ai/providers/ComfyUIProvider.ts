@@ -188,7 +188,7 @@ export class ComfyUIProvider extends BaseAIProvider {
         signal: AbortSignal.timeout(5000),
       });
       return response.ok;
-    } catch {
+    } catch (err) {
       return false;
     }
   }
@@ -338,7 +338,7 @@ export class ComfyUIProvider extends BaseAIProvider {
         }
 
         return urls;
-      } catch {
+      } catch (err) {
         // 轮询失败继续
       }
 

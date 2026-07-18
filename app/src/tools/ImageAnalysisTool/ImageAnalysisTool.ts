@@ -944,7 +944,7 @@ export class ImageAnalysisTool extends BaseTool {
           await import('../../ai/providers/ProviderSyncService.js');
         const registryId = getRegistryId(providerId) || `db:${providerId}`;
         provider = providerRegistry.get(registryId);
-      } catch {
+      } catch (err) {
         return {
           success: false,
           description: '',
@@ -1009,7 +1009,7 @@ export class ImageAnalysisTool extends BaseTool {
       try {
         const mapped = mr.resolveMapped(resolveRoute, providerType);
         if (mapped) apiModel = mapped;
-      } catch {
+      } catch (err) {
         // 映射失败，使用 modelIdForError 兜底
       }
     }
@@ -1076,7 +1076,7 @@ export class ImageAnalysisTool extends BaseTool {
             }
           }
         }
-      } catch {
+      } catch (err) {
         // 解析失败，使用 undefined dims
       }
     }

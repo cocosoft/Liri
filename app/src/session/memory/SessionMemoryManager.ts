@@ -386,7 +386,7 @@ export class SessionMemoryManager {
     const path = this.getMemoryPath(sessionId);
     try {
       return existsSync(path) ? readFileSync(path, 'utf-8') : null;
-    } catch {
+    } catch (err) {
       return null;
     }
   }
@@ -425,7 +425,7 @@ export class SessionMemoryManager {
           let args: Record<string, unknown> = {};
           try {
             args = JSON.parse(tc.function.arguments);
-          } catch {
+          } catch (err) {
             // 参数解析失败，跳过
           }
 
@@ -494,7 +494,7 @@ export class SessionMemoryManager {
         if (!firstLine.startsWith('# memory.md v')) {
           logger.warn('memory.md 格式版本不匹配，尝试降级读取', { firstLine });
         }
-      } catch {
+      } catch (err) {
         // 文件读取失败，忽略
       }
     }
@@ -535,7 +535,7 @@ export class SessionMemoryManager {
       if (stat.size > MAX_MEMORY_FILE_SIZE) {
         this._compactMemoryFile(sessionId);
       }
-    } catch {
+    } catch (err) {
       // 文件操作失败，忽略
     }
   }

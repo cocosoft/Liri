@@ -72,7 +72,7 @@ export class SessionLock {
             await this.sleep(this.retryInterval);
             continue;
           }
-        } catch {
+        } catch (err) {
           // Lock file doesn't exist or can't be read, proceed to acquire
         }
 
@@ -146,7 +146,7 @@ export class SessionLock {
       const lockFile = this.getLockFilePath(sessionId);
       try {
         await fs.unlink(lockFile);
-      } catch {
+      } catch (err) {
         // Lock file may already be deleted
       }
 
@@ -176,7 +176,7 @@ export class SessionLock {
         return false;
       }
       return true;
-    } catch {
+    } catch (err) {
       return false;
     }
   }
@@ -191,7 +191,7 @@ export class SessionLock {
         return null;
       }
       return data.holder;
-    } catch {
+    } catch (err) {
       return null;
     }
   }
@@ -208,7 +208,7 @@ export class SessionLock {
   private async ensureLockDir(): Promise<void> {
     try {
       await fs.mkdir(this.lockDir, { recursive: true });
-    } catch {
+    } catch (err) {
       // Directory already exists
     }
   }
@@ -219,7 +219,7 @@ export class SessionLock {
     try {
       const content = await fs.readFile(lockFile, 'utf-8');
       return JSON.parse(content);
-    } catch {
+    } catch (err) {
       return null;
     }
   }
@@ -235,7 +235,7 @@ export class SessionLock {
       logger.warning(
         `Released stale lock for session ${sessionId} held by ${holder}`
       );
-    } catch {
+    } catch (err) {
       // Another process may have already released it
     }
 

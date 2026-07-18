@@ -593,7 +593,7 @@ export class VideoGenerateTool extends BaseTool {
       return caps.some((c) =>
         ['video_generation', 'text_to_video', 'image_to_video'].includes(c)
       );
-    } catch {
+    } catch (err) {
       return false;
     }
   }
@@ -759,7 +759,7 @@ export class VideoGenerateTool extends BaseTool {
             await import('../../ai/providers/ProviderSyncService.js');
           const mapped = getRegistryId(modelRecord.providerId);
           if (mapped) providerRegistryId = mapped;
-        } catch {
+        } catch (err) {
           /* 不可用时用原始值 */
         }
 
@@ -767,7 +767,7 @@ export class VideoGenerateTool extends BaseTool {
         let aiProvider: AIProvider;
         try {
           aiProvider = providerRegistry.get(providerRegistryId);
-        } catch {
+        } catch (err) {
           throw new AppError(
             `Provider "${modelRecord.providerId}" 未注册`,
             ErrorCategory.CONFIGURATION,

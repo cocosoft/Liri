@@ -65,7 +65,7 @@ export class CodexAuthProvider {
         };
         return this.currentToken;
       }
-    } catch {
+    } catch (err) {
       // 无有效存储
     }
 

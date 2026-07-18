@@ -298,7 +298,7 @@ export async function handleSubmitStatement(
           statement,
           timestamp: Date.now(),
         });
-      } catch {
+      } catch (err) {
         // emit 失败不阻塞请求
       }
     }

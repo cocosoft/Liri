@@ -298,7 +298,7 @@ export class DeepSeekProvider extends BaseAIProvider {
                 }
               }
             }
-          } catch {
+          } catch (err) {
             // 跳过解析失败的行
           }
         }
@@ -315,7 +315,7 @@ export class DeepSeekProvider extends BaseAIProvider {
           let parsedArgs: Record<string, unknown> = {};
           try {
             parsedArgs = JSON.parse(tc.arguments) as Record<string, unknown>;
-          } catch {
+          } catch (err) {
             parsedArgs = { _raw: tc.arguments };
           }
           return {

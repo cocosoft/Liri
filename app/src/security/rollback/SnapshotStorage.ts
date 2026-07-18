@@ -203,7 +203,7 @@ async function saveFileBackup(
 async function loadFileBackup(backupPath: string): Promise<Buffer | null> {
   try {
     return await readFile(backupPath);
-  } catch {
+  } catch (err) {
     return null;
   }
 }
@@ -242,7 +242,7 @@ export async function createRoundSnapshot(
       try {
         const fileStat = await stat(change.backupPath);
         totalSize += fileStat.size;
-      } catch {
+      } catch (err) {
         // 备份文件可能不存在
       }
     }
@@ -250,7 +250,7 @@ export async function createRoundSnapshot(
       try {
         const fileStat = await stat(change.afterBackupPath);
         totalSize += fileStat.size;
-      } catch {
+      } catch (err) {
         // 后备份文件可能不存在
       }
     }
@@ -303,7 +303,7 @@ export async function deleteRoundSnapshot(
         if (parentFiles.length === 0) {
           await unlink(dirname(roundDir));
         }
-      } catch {
+      } catch (err) {
         // 目录非空或不存在，忽略
       }
     }
@@ -338,7 +338,7 @@ export async function listSessionSnapshots(
     // 按轮次降序排列（最新的在前）
     snapshots.sort((a, b) => b.roundId - a.roundId);
     return snapshots;
-  } catch {
+  } catch (err) {
     return [];
   }
 }
@@ -359,7 +359,7 @@ export async function updateSessionIndex(
   try {
     const content = await readFile(indexPath, 'utf-8');
     index = JSON.parse(content);
-  } catch {
+  } catch (err) {
     // 索引文件还不存在
   }
 
@@ -387,13 +387,13 @@ export async function getTotalSnapshotSize(): Promise<number> {
             totalSize += manifest.totalSize;
           }
         }
-      } catch {
+      } catch (err) {
         // 跳过无法读取的会话目录
       }
     }
 
     return totalSize;
-  } catch {
+  } catch (err) {
     return 0;
   }
 }

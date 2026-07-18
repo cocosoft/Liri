@@ -77,7 +77,7 @@ class FileSink implements AnalyticsSink {
       const fs = await import('fs/promises');
       const lines = batch.map((e) => JSON.stringify(e)).join('\n') + '\n';
       await fs.appendFile(this.flushPath, lines, 'utf-8');
-    } catch {
+    } catch (err) {
       // 写入失败时静默处理
     }
   }

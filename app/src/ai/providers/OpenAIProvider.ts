@@ -243,7 +243,7 @@ export class OpenAIProvider extends BaseAIProvider {
               fullContent += content;
               yield content;
             }
-          } catch {
+          } catch (err) {
             // skip malformed SSE lines
           }
         }
@@ -285,7 +285,7 @@ export class OpenAIProvider extends BaseAIProvider {
         data.data?.map((m) => m.id).filter((id) => id.includes('gpt')) ??
         supportedModels
       );
-    } catch {
+    } catch (err) {
       return supportedModels;
     }
   }
@@ -686,7 +686,7 @@ export class OpenAIProvider extends BaseAIProvider {
             body: JSON.stringify({ requestId }),
             signal: AbortSignal.timeout(15000),
           });
-        } catch {
+        } catch (err) {
           logger.warn('SiliconFlow 视频状态查询网络异常，继续重试', {
             requestId,
             elapsedMinutes: Math.round((Date.now() - startTime) / 60000),
@@ -932,7 +932,7 @@ export class OpenAIProvider extends BaseAIProvider {
           const arrayBuf = await downloadRes.arrayBuffer();
           videoBuffer = Buffer.from(arrayBuf);
         }
-      } catch {
+      } catch (err) {
         // 下载失败不阻塞
       }
 

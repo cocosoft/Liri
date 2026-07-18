@@ -77,7 +77,7 @@ export async function testEndpoints(
     let parsedUrl: URL;
     try {
       parsedUrl = new URL(trimmed);
-    } catch {
+    } catch (err) {
       return {
         url: trimmed,
         latency: undefined,
@@ -96,7 +96,7 @@ export async function testEndpoints(
           method: 'GET',
           signal: AbortSignal.timeout(timeout),
         });
-      } catch {
+      } catch (err) {
         // 热身请求失败忽略
       }
 

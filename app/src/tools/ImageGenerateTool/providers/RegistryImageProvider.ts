@@ -74,7 +74,7 @@ export class RegistryImageProvider implements ImageGenerationProvider {
           };
         }
       }
-    } catch {
+    } catch (err) {
       // ModelRegistry 不可用时使用通用估算
     }
     return {

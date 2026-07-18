@@ -252,7 +252,7 @@ export class MediaCache {
 
         return { meta: diskMeta, data, fromDisk: true };
       }
-    } catch {
+    } catch (err) {
       // 磁盘缓存不可用，忽略
     }
 
@@ -306,7 +306,7 @@ export class MediaCache {
       const diskMeta = await this.readDiskMeta(key);
       if (diskMeta && Date.now() - diskMeta.cachedAt < effectiveTTL)
         return true;
-    } catch {
+    } catch (err) {
       return false;
     }
 
@@ -332,7 +332,7 @@ export class MediaCache {
     try {
       await unlink(this.diskPath(key));
       removed = true;
-    } catch {
+    } catch (err) {
       // 磁盘文件不存在
     }
 
@@ -357,7 +357,7 @@ export class MediaCache {
       await Promise.all(
         files.map((f) => unlink(join(this.config.cacheDir, f)).catch(() => {}))
       );
-    } catch {
+    } catch (err) {
       // 目录可能不存在
     }
 
@@ -435,7 +435,7 @@ export class MediaCache {
             try {
               const s = await stat(p);
               return { name: f, path: p, mtimeMs: s.mtimeMs, size: s.size };
-            } catch {
+            } catch (err) {
               return null;
             }
           })
@@ -453,12 +453,12 @@ export class MediaCache {
             freedBytes += file.size;
             removed++;
             excess -= file.size;
-          } catch {
+          } catch (err) {
             // 文件可能已被删除
           }
         }
       }
-    } catch {
+    } catch (err) {
       // 磁盘不可用
     }
 
@@ -506,7 +506,7 @@ export class MediaCache {
     try {
       const content = await readFile(this.metaPath(key), 'utf-8');
       return JSON.parse(content) as MediaMeta;
-    } catch {
+    } catch (err) {
       return null;
     }
   }
@@ -633,11 +633,11 @@ export class MediaCache {
         try {
           const s = await stat(join(this.config.cacheDir, file));
           total += s.size;
-        } catch {
+        } catch (err) {
           // 跳过无法访问的文件
         }
       }
-    } catch {
+    } catch (err) {
       return 0;
     }
     return total;

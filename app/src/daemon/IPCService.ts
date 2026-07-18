@@ -166,7 +166,7 @@ export class IPCService {
   private reportRunning(running: boolean): void {
     try {
       getMonitoringService().addMetric('daemon.ipc.running', running ? 1 : 0);
-    } catch {
+    } catch (err) {
       // MonitoringService not available, skip metric reporting
     }
   }

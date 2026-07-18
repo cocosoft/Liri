@@ -361,7 +361,7 @@ export class ProcessManager {
       monitoring.addMetric('daemon.processes.running', running);
       monitoring.addMetric('daemon.processes.stopped', stopped);
       monitoring.addMetric('daemon.processes.total', total);
-    } catch {
+    } catch (err) {
       // MonitoringService not available, skip metric reporting
     }
   }
@@ -370,7 +370,7 @@ export class ProcessManager {
     try {
       const monitoring = getMonitoringService();
       monitoring.addMetric(`daemon.healthcheck.${name}`, alive ? 1 : 0);
-    } catch {
+    } catch (err) {
       // MonitoringService not available, skip metric reporting
     }
   }

@@ -260,7 +260,7 @@ export function resetOTelBridge(): void {
   for (const { span } of activeSpanMap.values()) {
     try {
       span.end();
-    } catch {
+    } catch (err) {
       /* ignore */
     }
   }

@@ -203,7 +203,7 @@ export class MemoryStoreImpl implements MemoryStore {
     // 清理前次残留的 .tmp 文件
     try {
       await fs.unlink(tmpPath);
-    } catch {
+    } catch (err) {
       // 不存在则忽略
     }
 
@@ -552,7 +552,7 @@ export class MemoryStoreImpl implements MemoryStore {
       try {
         await fs.access(cached, constants.F_OK);
         return cached;
-      } catch {
+      } catch (err) {
         this.filePathCache.delete(id);
       }
     }
@@ -563,7 +563,7 @@ export class MemoryStoreImpl implements MemoryStore {
       await fs.access(globalPath, constants.F_OK);
       this.filePathCache.set(id, globalPath);
       return globalPath;
-    } catch {
+    } catch (err) {
       // 不存在则继续搜索
     }
 
@@ -577,11 +577,11 @@ export class MemoryStoreImpl implements MemoryStore {
           await fs.access(path, constants.F_OK);
           this.filePathCache.set(id, path);
           return path;
-        } catch {
+        } catch (err) {
           // 该子目录下不存在，继续搜索
         }
       }
-    } catch {
+    } catch (err) {
       // sessions/ 目录不存在
     }
 
@@ -618,7 +618,7 @@ export class MemoryStoreImpl implements MemoryStore {
           storeLogger.error('迁移记忆文件失败', { file, error });
         }
       }
-    } catch {
+    } catch (err) {
       // 目录为空或不存在，无需迁移
     }
   }
@@ -794,7 +794,7 @@ export class MemoryStoreImpl implements MemoryStore {
           memoryIds.push(file.replace('.md', ''));
         }
       }
-    } catch {
+    } catch (err) {
       // global/ 目录为空，忽略
     }
 
@@ -814,11 +814,11 @@ export class MemoryStoreImpl implements MemoryStore {
               }
             }
           }
-        } catch {
+        } catch (err) {
           // 子目录读取失败，跳过
         }
       }
-    } catch {
+    } catch (err) {
       // sessions/ 目录为空，忽略
     }
 

@@ -649,7 +649,7 @@ export class PluginSystem {
 
     try {
       this.registry.unregisterPlugin(pluginId);
-    } catch {
+    } catch (err) {
       // 注册表中不存在则忽略
     }
 

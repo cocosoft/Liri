@@ -168,7 +168,7 @@ function isPiperAvailable(binaryPath?: string): boolean {
     });
     piperAvailableCache = true;
     return true;
-  } catch {
+  } catch (err) {
     piperAvailableCache = false;
     return false;
   }
@@ -411,7 +411,7 @@ export class PiperTTSProvider implements TTSProvider {
         } finally {
           try {
             if (existsSync(tempFile)) unlinkSync(tempFile);
-          } catch {
+          } catch (err) {
             // 忽略临时文件清理错误
           }
         }
@@ -463,7 +463,7 @@ export class PiperTTSProvider implements TTSProvider {
     } finally {
       try {
         if (existsSync(tempFile)) unlinkSync(tempFile);
-      } catch {
+      } catch (err) {
         // 忽略
       }
     }

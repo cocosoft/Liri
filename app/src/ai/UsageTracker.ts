@@ -106,7 +106,7 @@ export async function trackUsage(
             (inputTokens / 1_000_000) * dbPricing.inputCostPerMillion +
             (outputTokens / 1_000_000) * dbPricing.outputCostPerMillion;
         }
-      } catch {
+      } catch (err) {
         // DB 不可用，回退到 registry
       }
 
@@ -121,7 +121,7 @@ export async function trackUsage(
             (outputTokens / 1_000_000) * pricing.outputPer1M;
         }
       }
-    } catch {
+    } catch (err) {
       // 定价查询失败，成本记 0
     }
 

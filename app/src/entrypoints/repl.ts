@@ -362,7 +362,7 @@ export async function launchRepl(
       ui.showInfo(`消息通道: ${connectedCount} 已连接 / ${factoryCount} 可用`);
       console.log();
     }
-  } catch {
+  } catch (err) {
     // @ignore-catch: 通道检测失败不影响 REPL 启动
   }
 
@@ -397,7 +397,7 @@ export async function launchRepl(
       ui.showInfo(
         `场景模式: ${finalConfig.trustLevel === 'chat' ? '聊天' : finalConfig.trustLevel === 'work' ? '工作' : '开发'}`
       );
-    } catch {
+    } catch (err) {
       // @ignore-catch: 信任级别设置失败不阻塞 REPL 启动
     }
   }
@@ -447,7 +447,7 @@ export async function launchRepl(
         await import('../tasks/cron/GlobalCronScheduler');
       await ensureGlobalCronSchedulerStarted();
       ui.showInfo('Cron 调度器已启动（默认执行模式）');
-    } catch {
+    } catch (err) {
       // @ignore-catch: 彻底启动失败，不阻塞 REPL
     }
     ui.showWarning(
@@ -472,7 +472,7 @@ export async function launchRepl(
     if (localHTTPService && localHTTPService.isStarted()) {
       try {
         await localHTTPService.stop();
-      } catch {
+      } catch (err) {
         // @ignore-catch: HTTP 服务关闭失败不影响退出流程
       }
     }
@@ -650,7 +650,7 @@ export async function launchRepl(
             const record = await modelPricingService.getPricing(modelName);
             const modelId = record?.id || modelName;
             await modelRouter.setCurrentModel(modelId);
-          } catch {
+          } catch (err) {
             // @ignore-catch: 模型查找失败，使用原始模型名
             await modelRouter.setCurrentModel(modelName);
           }
@@ -731,7 +731,7 @@ export async function launchRepl(
                 });
               }
             }
-          } catch {
+          } catch (err) {
             // @ignore-catch: 共享写入失败不影响主流程
           }
 
@@ -961,7 +961,11 @@ export async function executeOnce(
         if (sessions.length > 0) {
           sessionId = sessions[0].id;
         }
-      } catch {} // @ignore-catch: 会话查询失败，后续 sendMessage 会重试
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } // @ignore-catch: 会话查询失败，后续 sendMessage 会重试
 
       profileCheckpoint('execute_once_send_message_start');
       const response = await chatManager.sendMessage(command + ' ' + args, {

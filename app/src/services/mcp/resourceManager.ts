@@ -96,7 +96,7 @@ export class MCPResourceManager {
       try {
         JSON.parse(trimmed);
         return { type: 'json', mimeType: 'application/json' };
-      } catch {
+      } catch (err) {
         // 不是有效的JSON
       }
     }
@@ -225,7 +225,7 @@ export class MCPResourceManager {
     try {
       const decoded = atob(data.substring(0, 100));
       return /^[\x20-\x7E\n\r\t]*$/.test(decoded);
-    } catch {
+    } catch (err) {
       return /^[\x20-\x7E\n\r\t]*$/.test(data);
     }
   }

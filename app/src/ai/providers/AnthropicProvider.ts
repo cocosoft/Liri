@@ -203,7 +203,7 @@ export class AnthropicProvider extends BaseAIProvider {
                   yield { type: 'thinking', content: delta.thinking as string };
                 }
               }
-            } catch {
+            } catch (err) {
               // JSON 解析失败，跳过该行
             }
           }

@@ -165,7 +165,7 @@ export class CombinedSessionGateway {
         try {
           const session = await gateway.getSession(sessionId);
           return session ? { session, agentId: aid } : null;
-        } catch {
+        } catch (err) {
           return null;
         }
       })
@@ -362,7 +362,7 @@ export class CombinedSessionGateway {
       try {
         await gateway.sendMessage(sessionId, message);
         return;
-      } catch {
+      } catch (err) {
         // Try next gateway
       }
     }
@@ -385,7 +385,7 @@ export class CombinedSessionGateway {
       try {
         const messages = await gateway.getMessages(sessionId, options);
         if (messages.length > 0) return messages;
-      } catch {
+      } catch (err) {
         // Try next gateway
       }
     }
@@ -407,7 +407,7 @@ export class CombinedSessionGateway {
       try {
         const transcript = await gateway.loadTranscript(sessionId);
         if (transcript) return transcript;
-      } catch {
+      } catch (err) {
         // Try next gateway
       }
     }

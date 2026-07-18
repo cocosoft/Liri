@@ -285,7 +285,7 @@ export class PersistedCacheService<T extends Record<string, unknown>> {
         if (nodeError.code === 'EEXIST') {
           try {
             fs.unlinkSync(this.lockPath);
-          } catch {
+          } catch (err) {
             // 忽略删除错误
           }
           continue;
@@ -314,7 +314,7 @@ export class PersistedCacheService<T extends Record<string, unknown>> {
     if (lock) {
       try {
         fs.closeSync(lock.fd);
-      } catch {
+      } catch (err) {
         // 忽略关闭错误
       }
       this.locks.delete(this.lockPath);
@@ -323,7 +323,7 @@ export class PersistedCacheService<T extends Record<string, unknown>> {
         if (fs.existsSync(this.lockPath)) {
           fs.unlinkSync(this.lockPath);
         }
-      } catch {
+      } catch (err) {
         // 忽略删除错误
       }
     }

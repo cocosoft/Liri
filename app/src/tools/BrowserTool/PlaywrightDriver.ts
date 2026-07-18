@@ -156,7 +156,7 @@ export class PlaywrightBrowserDriver {
         'return import(specifier)'
       ) as (s: string) => Promise<Record<string, unknown>>;
       return await importFn('playwright');
-    } catch {
+    } catch (err) {
       throw new AppError(
         'playwright 未安装。运行: bun add playwright && npx playwright install chromium',
         ErrorCategory.EXECUTION,
@@ -194,7 +194,7 @@ export class PlaywrightBrowserDriver {
             'PERMISSION_DENIED',
             { hostname }
           );
-      } catch {
+      } catch (err) {
         // 相对路径，忽略
       }
     }
@@ -392,7 +392,7 @@ export class PlaywrightBrowserDriver {
         if (b && typeof b['close'] === 'function') {
           await (b['close'] as () => Promise<void>)();
         }
-      } catch {
+      } catch (err) {
         /* ignore */
       }
       this.browser = null;

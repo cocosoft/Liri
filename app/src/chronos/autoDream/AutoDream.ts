@@ -369,7 +369,7 @@ ${sessionIds.map((id) => `- ${id}`).join('\n')}`;
 
       try {
         await recordConsolidation();
-      } catch {
+      } catch (err) {
         // non-fatal: lock timestamp update failure
       }
 

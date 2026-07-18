@@ -176,7 +176,7 @@ export async function initializeModelManagementServices(): Promise<void> {
       name: 'ProviderManager',
       init: () => providerManager.initialize(),
     });
-  } catch {
+  } catch (err) {
     // 模块不存在时静默跳过
   }
 

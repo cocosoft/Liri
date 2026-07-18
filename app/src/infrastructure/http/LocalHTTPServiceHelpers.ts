@@ -202,7 +202,7 @@ export async function seedKnowledgeBaseIfEmpty(): Promise<void> {
     if (userFiles.some((f: string) => f.endsWith('.md'))) {
       return;
     }
-  } catch {
+  } catch (err) {
     // 目录不存在，继续初始化
   }
 
@@ -224,7 +224,7 @@ export async function seedKnowledgeBaseIfEmpty(): Promise<void> {
       );
       return;
     }
-  } catch {
+  } catch (err) {
     // 源码目录不可用，继续兜底
   }
 

@@ -262,7 +262,7 @@ export class ToolExecutor {
             error instanceof Error ? error : new Error(errorMessage)
           );
           tracing.endSpan(tracingSpan, SpanStatusCode.ERROR, errorMessage);
-        } catch {
+        } catch (err) {
           // OTel span 错误不影响主流程
         }
       }

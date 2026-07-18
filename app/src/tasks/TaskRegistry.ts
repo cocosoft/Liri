@@ -197,7 +197,7 @@ export class TaskRegistry {
       const tasksData: TaskState[] = JSON.parse(content);
       this.stateHistory = tasksData;
       return tasksData;
-    } catch {
+    } catch (err) {
       return [];
     }
   }
@@ -521,7 +521,7 @@ export class TaskRegistry {
       try {
         const auditPath = join(this.persistDir, 'audit.jsonl');
         await fs.appendFile(auditPath, JSON.stringify(entry) + '\n', 'utf-8');
-      } catch {
+      } catch (err) {
         // 降级路径也失败，不阻塞主流程
       }
     }

@@ -261,7 +261,7 @@ export abstract class BaseAIProvider implements AIProvider {
       const registry = ModelRegistry.getInstance();
       const providerConfig = registry.getProviderConfig(this.id as APIProvider);
       if (providerConfig?.apiKey) return providerConfig.apiKey;
-    } catch {
+    } catch (err) {
       // 忽略异常，回退到环境变量
     }
 
@@ -290,7 +290,7 @@ export abstract class BaseAIProvider implements AIProvider {
       const registry = ModelRegistry.getInstance();
       const providerConfig = registry.getProviderConfig(this.id as APIProvider);
       if (providerConfig?.baseUrl) return providerConfig.baseUrl;
-    } catch {
+    } catch (err) {
       // 忽略异常
     }
 
@@ -406,7 +406,7 @@ export abstract class BaseAIProvider implements AIProvider {
 
         return BaseAIProvider._caDispatcher;
       }
-    } catch {
+    } catch (err) {
       // undici 不可用或 CA 加载失败，回退到默认证书行为（不注入 dispatcher）
     }
 
@@ -501,7 +501,7 @@ export abstract class BaseAIProvider implements AIProvider {
         method: 'HEAD',
         signal: AbortSignal.timeout(5000),
       });
-    } catch {
+    } catch (err) {
       // 预连接失败不抛出
     }
   }
@@ -626,7 +626,7 @@ export abstract class BaseAIProvider implements AIProvider {
                   this.parseGoogleSSELine(json, onEvent);
                   break;
               }
-            } catch {
+            } catch (err) {
               // JSON 解析失败，跳过该行
             }
           }
@@ -736,7 +736,7 @@ export abstract class BaseAIProvider implements AIProvider {
               name: tc.name,
               arguments: JSON.parse(repaired) as Record<string, unknown>,
             };
-          } catch {
+          } catch (err) {
             return {
               id: tc.id,
               name: tc.name,
@@ -879,7 +879,7 @@ export abstract class BaseAIProvider implements AIProvider {
                     unknown
                   >,
                 };
-              } catch {
+              } catch (err) {
                 return {
                   id: tc.id,
                   name: tc.name,

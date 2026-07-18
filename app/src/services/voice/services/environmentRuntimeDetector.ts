@@ -69,7 +69,7 @@ export function isDockerContainer(): boolean {
         return true;
       }
     }
-  } catch {
+  } catch (err) {
     // 忽略读取错误
   }
 
@@ -84,7 +84,7 @@ export function isWSL(): boolean {
     if (!existsSync('/proc/version')) return false;
     const version = readFileSync('/proc/version', 'utf8');
     return version.includes('microsoft') || version.includes('WSL');
-  } catch {
+  } catch (err) {
     return false;
   }
 }
@@ -142,7 +142,7 @@ function hasAudioDevice(): boolean {
       if (isEnvVarTruthy('PULSE_SERVER') || isEnvVarTruthy('PULSE_COOKIE')) {
         return true;
       }
-    } catch {
+    } catch (err) {
       return false;
     }
     return false;

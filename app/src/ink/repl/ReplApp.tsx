@@ -106,7 +106,7 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
         if (lastDecision?.tier) {
           setRouterTier(lastDecision.tier);
         }
-      } catch {
+      } catch (err) {
         // 非阻塞：模型信息不可用时不中断启动
       }
     })();
@@ -245,7 +245,7 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
               timestamp: Date.now(),
             },
           ]);
-        } catch {
+        } catch (err) {
           setMessages((prev) => [
             ...prev,
             {
@@ -309,7 +309,7 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
               },
             ]);
           }
-        } catch {
+        } catch (err) {
           setMessages((prev) => [
             ...prev,
             {
@@ -384,7 +384,7 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
               timestamp: Date.now(),
             },
           ]);
-        } catch {
+        } catch (err) {
           setMessages((prev) => [
             ...prev,
             {
@@ -597,7 +597,7 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
           if (sr?.isEnabled()) mode = 'dynamic';
           else if (sr && !sr.isEnabled()) mode = 'off';
           setRoutingMode(mode);
-        } catch {
+        } catch (err) {
           // 非阻塞
         }
 

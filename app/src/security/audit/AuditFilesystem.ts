@@ -112,7 +112,7 @@ function checkPathPermissions(
         remediation: `运行 chmod 600 ${relPath} 限制只有文件所有者可读写`,
       });
     }
-  } catch {
+  } catch (err) {
     // stat 失败
   }
 }
@@ -142,7 +142,7 @@ function auditWorldWritableFiles(
           remediation: `运行 chmod 755 ${dir} 限制写入权限`,
         });
       }
-    } catch {
+    } catch (err) {
       // stat 失败
     }
   }
@@ -173,7 +173,7 @@ function auditSymlinkSafety(
           });
         }
       }
-    } catch {
+    } catch (err) {
       // readdir 失败
     }
   }

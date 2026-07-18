@@ -70,7 +70,7 @@ export function untrackProcess(process: ChildProcess): void {
     process.kill(0); // signal 0 仅探测
     orphanProcesses.add(pid);
     logger.warn(`MCP child process PID ${pid} still alive after kill, marked orphan`);
-  } catch {
+  } catch (err) {
     // 已退出，正常
   }
 }
@@ -111,7 +111,7 @@ function twoPhaseKill(
     // Phase 1: SIGTERM
     try {
       proc.kill('SIGTERM');
-    } catch {
+    } catch (err) {
       finish(false);
       return;
     }
@@ -126,7 +126,7 @@ function twoPhaseKill(
         // 还活着 → SIGKILL
         try {
           proc.kill('SIGKILL');
-        } catch {
+        } catch (err) {
           // Windows 上 kill('SIGKILL') 不可用，用 kill()
           proc.kill();
         }
@@ -134,7 +134,7 @@ function twoPhaseKill(
 
         // 最终超时
         setTimeout(() => finish(false), 1000);
-      } catch {
+      } catch (err) {
         finish(true); // signal 0 抛出 = 进程已死
       }
     }, gracePeriodMs);

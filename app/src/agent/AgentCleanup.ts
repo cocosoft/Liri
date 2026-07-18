@@ -102,7 +102,7 @@ export class AgentCleanup {
           if (file.startsWith('agent-')) {
             try {
               unlinkSync(join(tempDir, file));
-            } catch {
+            } catch (err) {
               // 忽略单文件删除错误
             }
           }

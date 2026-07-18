@@ -276,7 +276,7 @@ export class SkillInjectionService {
 
       logger.debug(`Snapshot cache loaded: ${snapshot.skills.length} skills`);
       return true;
-    } catch {
+    } catch (err) {
       return false;
     }
   }
@@ -360,7 +360,7 @@ export class SkillInjectionService {
     for (const listener of this.listeners) {
       try {
         listener();
-      } catch {
+      } catch (err) {
         /* ignore */
       }
     }

@@ -349,7 +349,7 @@ export function startHeartbeat(
       } else {
         clearInterval(interval);
       }
-    } catch {
+    } catch (err) {
       clearInterval(interval);
     }
   }, 15_000);
@@ -365,12 +365,12 @@ export function startHeartbeat(
 export function closeConnection(conn: WsConnection): void {
   try {
     sendWsFrame(conn, WsOpcode.CLOSE, Buffer.alloc(0));
-  } catch {
+  } catch (err) {
     // 关闭帧发送失败，直接销毁
   }
   try {
     conn.socket.destroy();
-  } catch {
+  } catch (err) {
     // socket 可能已经被销毁
   }
 }

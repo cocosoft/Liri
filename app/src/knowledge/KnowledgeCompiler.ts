@@ -174,7 +174,7 @@ export class KnowledgeCompiler {
               mtime: rawStat.mtimeMs,
               compiledAt: compileState?.docs[rawFile]?.compiledAt ?? Date.now(),
             };
-          } catch {
+          } catch (err) {
             // stat 失败忽略
           }
           result.skipped++;
@@ -192,7 +192,7 @@ export class KnowledgeCompiler {
             mtime: rawStat.mtimeMs,
             compiledAt: Date.now(),
           };
-        } catch {
+        } catch (err) {
           // stat 失败忽略
         }
 
@@ -299,7 +299,7 @@ export class KnowledgeCompiler {
         if (rawStat.mtimeMs > pageStat.mtimeMs) return true;
       }
       return false;
-    } catch {
+    } catch (err) {
       return true;
     }
   }
@@ -375,7 +375,7 @@ export class KnowledgeCompiler {
           storeZone: 'inbound',
         });
       }
-    } catch {
+    } catch (err) {
       // 注册失败不影响编译主流程
     }
 
@@ -428,7 +428,7 @@ export class KnowledgeCompiler {
           );
         }
       }
-    } catch {
+    } catch (err) {
       // 元数据文件损坏或缺失，忽略
     }
 
@@ -620,7 +620,7 @@ summary: 概念简介
               pagesRemoved: pages.length,
             });
           }
-        } catch {
+        } catch (err) {
           // 清理失败不阻塞编译
         }
       }
@@ -636,7 +636,7 @@ summary: 概念简介
       if (!existsSync(COMPILE_STATE_PATH)) return null;
       const raw = await readFile(COMPILE_STATE_PATH, 'utf-8');
       return JSON.parse(raw) as CompileState;
-    } catch {
+    } catch (err) {
       return null;
     }
   }

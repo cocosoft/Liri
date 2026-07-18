@@ -270,7 +270,7 @@ export class TokenManager {
     // 从磁盘和缓存中删除
     try {
       await this.storage.deleteToken(serverKey);
-    } catch {
+    } catch (err) {
       // 磁盘删除失败不阻塞缓存清理
     }
     this.tokenCache.delete(serverKey);
@@ -361,7 +361,7 @@ export class TokenManager {
       await this.cacheToken(serverKey, newToken);
       logger.info(`401 handled: token refreshed for ${serverKey}`);
       return true;
-    } catch {
+    } catch (err) {
       logger.warn(`401 handle failed for ${serverKey}`);
       return false;
     }

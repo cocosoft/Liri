@@ -150,7 +150,7 @@ function createWebSocket(url: string, options?: WebSocketOptions): WebSocket {
       url: string,
       options?: WebSocketOptions
     ) => WebSocket)(url, options);
-  } catch {
+  } catch (err) {
     return new WebSocket(url);
   }
 }
@@ -193,7 +193,7 @@ export class AnthropicStreamMessageParser implements StreamMessageParser {
     let msg: Record<string, unknown>;
     try {
       msg = JSON.parse(raw) as Record<string, unknown>;
-    } catch {
+    } catch (err) {
       return null;
     }
 
@@ -368,7 +368,7 @@ export class StreamSTTProvider implements STTProvider {
           clearTimeout(timeout);
           resolve(false);
         };
-      } catch {
+      } catch (err) {
         clearTimeout(timeout);
         resolve(false);
       }
@@ -800,7 +800,7 @@ class StreamSTTConnectionImpl implements STTStreamConnection {
     for (const cb of this.transcriptCallbacks) {
       try {
         cb(text, isFinal);
-      } catch {
+      } catch (err) {
         // 回调异常不影响其他回调
       }
     }
@@ -813,7 +813,7 @@ class StreamSTTConnectionImpl implements STTStreamConnection {
     for (const cb of this.errorCallbacks) {
       try {
         cb(error);
-      } catch {
+      } catch (err) {
         // 回调异常不影响其他回调
       }
     }
@@ -826,7 +826,7 @@ class StreamSTTConnectionImpl implements STTStreamConnection {
     for (const cb of this.endCallbacks) {
       try {
         cb();
-      } catch {
+      } catch (err) {
         // 回调异常不影响其他回调
       }
     }

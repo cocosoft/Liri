@@ -100,7 +100,7 @@ function auditApiKeyExposure(
           });
         }
       }
-    } catch {
+    } catch (err) {
       // 文件读取失败
     }
   }
@@ -138,7 +138,7 @@ function auditModelPermissions(
         remediation: '根据使用场景设置合理的 Token 上限',
       });
     }
-  } catch {
+  } catch (err) {
     // 配置解析失败
   }
 }
@@ -172,7 +172,7 @@ function auditProviderConfig(
           remediation: '移除已禁用 Provider 的 API Key 配置',
         });
       }
-    } catch {
+    } catch (err) {
       // 读取失败
     }
   }

@@ -180,7 +180,7 @@ export class OllamaProvider extends BaseAIProvider {
               yield content;
             }
             if (parsed.done) break;
-          } catch {
+          } catch (err) {
             // skip malformed lines
           }
         }
@@ -216,7 +216,7 @@ export class OllamaProvider extends BaseAIProvider {
       const data = (await response.json()) as { models?: { name: string }[] };
       this.cachedModels = (data.models || []).map((m) => m.name);
       return this.cachedModels;
-    } catch {
+    } catch (err) {
       return [];
     }
   }
@@ -228,7 +228,7 @@ export class OllamaProvider extends BaseAIProvider {
         signal: AbortSignal.timeout(3000),
       });
       return response.ok;
-    } catch {
+    } catch (err) {
       return false;
     }
   }

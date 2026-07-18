@@ -155,7 +155,7 @@ export class CuratorReviewScope {
             });
           }
         }
-      } catch {
+      } catch (err) {
         // 权限问题，跳过
       }
     }
@@ -202,7 +202,7 @@ export class CuratorReviewScope {
             });
           }
         }
-      } catch {
+      } catch (err) {
         // 跳过
       }
     }

@@ -178,7 +178,7 @@ export class VideoAnalysisTool extends BaseTool {
         try {
           // 尝试通过 ImageAnalysisTool 进行 AI 视觉分析
           l3Result = l1Info;
-        } catch {
+        } catch (err) {
           l3Result = l1Info;
         }
 
@@ -215,7 +215,7 @@ export class VideoAnalysisTool extends BaseTool {
     if (frameDir) {
       try {
         fs.rmSync(frameDir, { recursive: true, force: true });
-      } catch {
+      } catch (err) {
         /* ignore */
       }
     }
@@ -255,7 +255,7 @@ export class VideoAnalysisTool extends BaseTool {
     // 检查 ffmpeg 可用性
     try {
       execSync('ffmpeg -version', { stdio: 'pipe', timeout: 5000 });
-    } catch {
+    } catch (err) {
       throw new Error(
         'ffmpeg 不可用。请安装 ffmpeg: https://ffmpeg.org/download.html'
       );
@@ -273,7 +273,7 @@ export class VideoAnalysisTool extends BaseTool {
         `ffmpeg -i "${videoPath}" -vf "select='gt(scene,0.3)',scale=1024:-1" -vsync vfr -frames:v ${maxFrames} "${outputPattern}"`,
         { timeout: DEFAULT_TIMEOUT_S * 1000, stdio: 'pipe' }
       );
-    } catch {
+    } catch (err) {
       // 回退：均匀间隔抽取
       const videoInfo = this.getVideoInfo(videoPath);
       const duration = videoInfo?.duration || 60;
@@ -322,7 +322,7 @@ export class VideoAnalysisTool extends BaseTool {
         width: videoStream?.width || 0,
         height: videoStream?.height || 0,
       };
-    } catch {
+    } catch (err) {
       return null;
     }
   }

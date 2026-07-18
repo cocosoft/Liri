@@ -209,14 +209,14 @@ export class ImageGenerateTool extends BaseTool {
             await import('../../ai/providers/ProviderSyncService.js');
           const mapped = getRegistryId(modelRecord.providerId);
           if (mapped) providerRegistryId = mapped;
-        } catch {
+        } catch (err) {
           /* 不可用时用原始值 */
         }
 
         let aiProvider: AIProvider;
         try {
           aiProvider = providerRegistry.get(providerRegistryId);
-        } catch {
+        } catch (err) {
           throw new AppError(
             `Provider "${modelRecord.providerId}" 未注册`,
             ErrorCategory.CONFIGURATION,
@@ -335,7 +335,7 @@ export class ImageGenerateTool extends BaseTool {
               });
             }
           }
-        } catch {
+        } catch (err) {
           // 推断失败不影响主流程
         }
       }

@@ -214,7 +214,7 @@ export class DagTaskExecutor {
         layers,
         totalTasks: this.tasks.size,
       });
-    } catch {
+    } catch (err) {
       // EventBus 发射失败不阻塞主流程
     }
 
@@ -231,7 +231,7 @@ export class DagTaskExecutor {
             layer: layerIdx,
             parallelCount: layer.length,
           });
-        } catch {
+        } catch (err) {
           // EventBus 发射失败不阻塞
         }
 
@@ -252,7 +252,7 @@ export class DagTaskExecutor {
             error: result.error,
             durationMs: result.durationMs,
           });
-        } catch {
+        } catch (err) {
           // EventBus 发射失败不阻塞
         }
       }
@@ -270,7 +270,7 @@ export class DagTaskExecutor {
         failureCount: this.tasks.size - successCount,
         totalDurationMs: Date.now() - overallStart,
       });
-    } catch {
+    } catch (err) {
       // EventBus 发射失败不阻塞
     }
 
@@ -404,7 +404,7 @@ export class DagTaskExecutor {
         OrchestrationEventType.ORCH_STEP_START,
         stepStartData
       );
-    } catch {
+    } catch (err) {
       // EventBus 发射失败不阻塞
     }
 
@@ -442,7 +442,7 @@ export class DagTaskExecutor {
           OrchestrationEventType.ORCH_STEP_DELTA,
           deltaData
         );
-      } catch {
+      } catch (err) {
         // EventBus 发射失败不阻塞
       }
 
@@ -458,7 +458,7 @@ export class DagTaskExecutor {
           OrchestrationEventType.ORCH_STEP_COMPLETED,
           stepCompletedData
         );
-      } catch {
+      } catch (err) {
         // EventBus 发射失败不阻塞
       }
 
@@ -491,7 +491,7 @@ export class DagTaskExecutor {
           OrchestrationEventType.ORCH_STEP_COMPLETED,
           stepCompletedData
         );
-      } catch {
+      } catch (err) {
         // EventBus 发射失败不阻塞
       }
 

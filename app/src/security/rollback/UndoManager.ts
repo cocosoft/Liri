@@ -101,7 +101,7 @@ const WalStore = {
       const entry: WalEntry = JSON.parse(content);
       Object.assign(entry, updates);
       await writeFile(walPath, JSON.stringify(entry, null, 2), 'utf-8');
-    } catch {
+    } catch (err) {
       logger.warn('更新 WAL 记录失败', { id });
     }
   },
@@ -124,7 +124,7 @@ const WalStore = {
         if (entry.status === 'in_progress') {
           pending.push(entry);
         }
-      } catch {
+      } catch (err) {
         // 跳过损坏的 WAL 文件
       }
     }
@@ -246,7 +246,7 @@ async function loadUndoGuard(roundId: number): Promise<UndoGuardState | null> {
       preState,
       hasBeenRolledBack: false,
     };
-  } catch {
+  } catch (err) {
     return null;
   }
 }
@@ -397,7 +397,7 @@ export async function cleanupOrphanFiles(
         try {
           await unlink(change.backupPath);
           cleaned++;
-        } catch {
+        } catch (err) {
           // 文件可能已被其他操作清理
         }
       }
@@ -407,7 +407,7 @@ export async function cleanupOrphanFiles(
         try {
           await unlink(change.afterBackupPath);
           cleaned++;
-        } catch {
+        } catch (err) {
           // 文件可能已被其他操作清理
         }
       }
@@ -421,7 +421,7 @@ export async function cleanupOrphanFiles(
         try {
           await unlink(change.newPath);
           cleaned++;
-        } catch {
+        } catch (err) {
           // 文件可能已被其他操作清理
         }
       }

@@ -64,7 +64,7 @@ export class ExecutionGuardian {
       // 失败回滚
       try {
         fs.unlinkSync(tmpPath);
-      } catch {
+      } catch (err) {
         /* ignore */
       }
       if (existed && fs.existsSync(backupPath)) {

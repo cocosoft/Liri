@@ -136,11 +136,11 @@ async function refreshBalancesInBackground(): Promise<void> {
             );
           }
         }
-      } catch {
+      } catch (err) {
         // 单个查询失败不影响其他
       }
     }
-  } catch {
+  } catch (err) {
     // 静默失败
   }
 }

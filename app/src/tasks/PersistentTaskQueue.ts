@@ -153,7 +153,7 @@ export class PersistentTaskQueue {
   ): Promise<void> {
     try {
       await this.store.appendAuditLog(taskId, `queue_${eventType}`, detail);
-    } catch {
+    } catch (err) {
       // 审计日志写入失败不中断主流程
     }
   }

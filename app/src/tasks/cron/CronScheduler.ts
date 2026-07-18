@@ -327,7 +327,7 @@ export class CronScheduler {
       }
 
       return earliest;
-    } catch {
+    } catch (err) {
       return undefined;
     }
   }
@@ -400,7 +400,7 @@ export class CronScheduler {
     job.runningAtMs = runningAtMs;
     try {
       await this.store.upsertJob(job);
-    } catch {
+    } catch (err) {
       // 更新元数据失败不阻塞执行
     }
 

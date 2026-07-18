@@ -286,7 +286,7 @@ export class MemoryManagerImpl {
           summaries,
           totalCount: allMemories.length,
         };
-      } catch {
+      } catch (err) {
         // 预热失败不阻塞主流程，下次读取时自动回退全量扫描
         this.recentSummaryCache = null;
       } finally {
@@ -347,7 +347,7 @@ export class MemoryManagerImpl {
         }
         await this.retriever.saveIndex();
       }
-    } catch {
+    } catch (err) {
       // 去重失败不阻塞主流程
     }
 
@@ -862,7 +862,7 @@ export class MemoryManagerImpl {
       );
       const relations = JSON.parse(content);
       memoryRelationGraph.deserialize(relations);
-    } catch {
+    } catch (err) {
       // 文件不存在或解析失败时使用空关联图
     }
   }

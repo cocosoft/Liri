@@ -18,7 +18,7 @@ function lazyInitNative() {
         nativeAnalyzeSave = (command) => {
           try {
             return native.analyzeBashCommand(command);
-          } catch {
+          } catch (err) {
             return null;
           }
         };
@@ -32,7 +32,7 @@ function lazyInitNative() {
           reason: nativeDegradeReason,
         });
       }
-    } catch {
+    } catch (err) {
       nativeAnalyzeSave = null;
       nativeDegraded = true;
       nativeDegradeReason = '原生模块加载失败';
@@ -175,7 +175,7 @@ export class BashSecurityAnalyzer {
         riskLevel: 'high' as RiskLevel,
         matchedPatterns: [`未匹配白名单规则: ${command}`],
       };
-    } catch {
+    } catch (err) {
       // 安全修复：白名单检查异常时，熔断为拒绝（而非静默跳过）
       return {
         safe: false,
@@ -203,7 +203,7 @@ export class BashSecurityAnalyzer {
           userDirs.length > 0 ? userDirs : undefined
         );
       }
-    } catch {
+    } catch (err) {
       // config 系统未初始化时静默降级
     }
     return [...DEFAULT_SENSITIVE_DIRECTORIES];
@@ -228,7 +228,7 @@ export class BashSecurityAnalyzer {
           merged.add(rule.pattern.toLowerCase());
         }
       }
-    } catch {
+    } catch (err) {
       // config 系统未初始化时静默降级
     }
 
@@ -325,7 +325,7 @@ export class BashSecurityAnalyzer {
           );
           return this.applyTrustLevelBehavior(augmentedResult, trustLevel);
         }
-      } catch {
+      } catch (err) {
         // 降级到TypeScript完整分析
       }
     }

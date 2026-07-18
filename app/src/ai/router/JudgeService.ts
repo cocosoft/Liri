@@ -167,7 +167,7 @@ export class JudgeService {
           typeof parsed.confidence === 'number' ? parsed.confidence : 0.7,
         reason: `LLM Judge 分类: ${tier}`,
       };
-    } catch {
+    } catch (err) {
       // JSON 解析失败：按关键词启发式兜底
       return {
         tier: this.heuristicClassify(content),

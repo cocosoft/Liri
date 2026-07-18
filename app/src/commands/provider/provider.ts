@@ -233,7 +233,7 @@ async function handleAdd(rawArgs: string): Promise<CommandResult> {
     if (createdId) {
       try {
         await registerProviderFromDB(createdId);
-      } catch {
+      } catch (err) {
         // 静默忽略
       }
     }
@@ -310,7 +310,7 @@ async function handleEdit(args: string): Promise<CommandResult> {
       if (updated.isActive) {
         await registerProviderFromDB(id);
       }
-    } catch {
+    } catch (err) {
       logger.warning('更新供应商后注册表同步失败', { id, name: updated.name });
     }
 
@@ -341,7 +341,7 @@ async function handleDelete(id: string): Promise<CommandResult> {
   // 从 ProviderRegistry 移除
   try {
     unregisterProviderFromRegistry(id);
-  } catch {
+  } catch (err) {
     logger.warning('删除供应商后注册表清理失败', { id, name: provider.name });
   }
 
@@ -371,7 +371,7 @@ async function handleToggle(id: string): Promise<CommandResult> {
     } else {
       unregisterProviderFromRegistry(id);
     }
-  } catch {
+  } catch (err) {
     logger.warning('切换供应商状态后注册表同步失败', {
       id,
       name: provider.name,
@@ -541,7 +541,7 @@ async function handleImport(filePath: string): Promise<CommandResult> {
   let data: { providers?: Array<Record<string, unknown>>; version?: number };
   try {
     data = JSON.parse(readFileSync(filePath, 'utf-8'));
-  } catch {
+  } catch (err) {
     return { success: false, message: `文件不是有效的 JSON: ${filePath}` };
   }
 
@@ -583,7 +583,7 @@ async function handleImport(filePath: string): Promise<CommandResult> {
       });
       existingBaseUrls.add(`${created.name}:${created.baseUrl}`);
       imported++;
-    } catch {
+    } catch (err) {
       skipped++;
     }
   }
@@ -684,7 +684,7 @@ async function handleSeed(): Promise<CommandResult> {
       // 注册到 ProviderRegistry
       try {
         await registerProviderFromDB(created.id);
-      } catch {
+      } catch (err) {
         logger.warning('添加供应商后注册表同步失败', {
           id: created.id,
           name: created.name,

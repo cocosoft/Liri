@@ -181,7 +181,7 @@ export async function routeChannelMessage(
       const tracer = new GatewaySessionTracer({ enabled: true });
       const result = tracer.traceInbound(message, message.content?.length || 0);
       traceSpanContext = result.spanContext;
-    } catch {
+    } catch (err) {
       // 追踪不可用时静默降级
     }
   }
@@ -324,7 +324,7 @@ export async function routeChannelMessage(
           message.channelId || channelName,
           response.content?.length || 0
         );
-      } catch {
+      } catch (err) {
         // 追踪不可用时静默降级
       }
     }

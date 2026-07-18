@@ -109,7 +109,7 @@ export class StdioBridge {
             this.pending.delete(msg.id);
             pending.resolve(msg as JsonRpcResponse);
           }
-        } catch {
+        } catch (err) {
           // 非 JSON 行（如 Python 打印的调试输出），忽略
         }
       });
@@ -184,7 +184,7 @@ export class StdioBridge {
     if (this.process) {
       try {
         this.process.stdin?.write('__SHUTDOWN__\n');
-      } catch {
+      } catch (err) {
         // stdin 可能已关闭
       }
       setTimeout(() => {
@@ -210,7 +210,7 @@ export async function checkPythonAvailable(
       proc.on('close', (code) => resolve(code === 0));
       proc.on('error', () => resolve(false));
     });
-  } catch {
+  } catch (err) {
     return false;
   }
 }

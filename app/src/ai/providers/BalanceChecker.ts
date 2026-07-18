@@ -115,7 +115,7 @@ async function httpGet(
 
     try {
       body = JSON.parse(text);
-    } catch {
+    } catch (err) {
       // 保持原始文本
     }
 

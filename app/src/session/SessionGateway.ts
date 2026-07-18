@@ -617,7 +617,7 @@ export class SessionGateway {
         const isDir = (() => {
           try {
             return statSync(fullPath).isDirectory();
-          } catch {
+          } catch (err) {
             return false;
           }
         })();
@@ -632,7 +632,7 @@ export class SessionGateway {
       }
 
       return results;
-    } catch {
+    } catch (err) {
       return [];
     }
   }
@@ -693,7 +693,7 @@ export class SessionGateway {
         },
       };
       getFTS5SearchEngine().index(doc);
-    } catch {
+    } catch (err) {
       // FTS5 索引失败不应影响消息写入主流程
     }
   }
@@ -740,7 +740,7 @@ export class SessionGateway {
     this.ftsSaveInterval = setInterval(() => {
       try {
         getFTS5SearchEngine().saveToDisk(savePath);
-      } catch {
+      } catch (err) {
         // 持久化失败不影响主流程
       }
     }, SessionGateway.FTS_SAVE_INTERVAL_MS);
@@ -1302,7 +1302,7 @@ export class SessionGateway {
 
     try {
       getFTS5SearchEngine().saveToDisk(this.getFTSIndexPath());
-    } catch {
+    } catch (err) {
       // 关闭时持久化失败不影响后续关闭流程
     }
 

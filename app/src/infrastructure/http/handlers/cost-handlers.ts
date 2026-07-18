@@ -60,7 +60,7 @@ export async function handleWorkspaceCostReport(
           requestCount: 0,
         };
       }
-    } catch {
+    } catch (err) {
       logger.warn('costTracker 不可用，返回空报告');
     }
 
@@ -85,7 +85,7 @@ export async function handleWorkspaceCostReport(
         }
         budgetUtilization = primary.percentageUsed / 100;
       }
-    } catch {
+    } catch (err) {
       // budgetManager 可能未配置
     }
 
@@ -170,7 +170,7 @@ export async function handleWorkspaceBudgetStatus(
           percentageUsed: primary.percentageUsed,
         };
       }
-    } catch {
+    } catch (err) {
       logger.warn('costBudgetManager 不可用');
     }
 

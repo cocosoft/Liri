@@ -357,7 +357,7 @@ export class MCPAuthManager {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: params.toString(),
       });
-    } catch {
+    } catch (err) {
       // Revocation is best-effort
     }
   }

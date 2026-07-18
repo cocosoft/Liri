@@ -208,11 +208,11 @@ export class NpmDistributor {
             source: 'npm',
             installedAt: installMeta.installedAt || 0,
           });
-        } catch {
+        } catch (err) {
           /* skip invalid */
         }
       }
-    } catch {
+    } catch (err) {
       // 目录读取失败
     }
 

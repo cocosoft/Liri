@@ -91,7 +91,7 @@ export class ConfigIO {
               fs.unlinkSync(lockPath);
               continue;
             }
-          } catch {
+          } catch (err) {
             // 锁文件已被删除
           }
           // 短暂等待后重试
@@ -165,7 +165,7 @@ export class ConfigIO {
         if (fs.existsSync(tempPath)) {
           fs.unlinkSync(tempPath);
         }
-      } catch {
+      } catch (err) {
         // 忽略清理错误
       }
       logger.error('原子写入失败', { filePath, error: String(error) });
@@ -248,7 +248,7 @@ export class ConfigIO {
 
     try {
       return this.readFile(source.path, source.format);
-    } catch {
+    } catch (err) {
       return {};
     }
   }

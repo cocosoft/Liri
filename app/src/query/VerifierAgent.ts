@@ -298,7 +298,7 @@ export class VerifierAgent {
             ? (parsed.feedback as string) || '未提供具体反馈'
             : undefined,
       };
-    } catch {
+    } catch (err) {
       // JSON 解析失败 → 降级为 APPROVE
       logger.warn('验证响应 JSON 解析失败，降级通过', {
         responsePreview: text.slice(0, 200),

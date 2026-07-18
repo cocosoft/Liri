@@ -141,7 +141,7 @@ export function resolveMaxContextTokens(model?: string): number {
     try {
       const ctx = getAIModelManager().getContextWindow(model);
       if (ctx > 0) return ctx;
-    } catch {
+    } catch (err) {
       // 模型未注册等情况，使用默认值
     }
   }
@@ -262,7 +262,7 @@ export async function persistChatMessage(
   };
   try {
     await gateway.sendMessage(sessionId, unifiedMessage);
-  } catch {
+  } catch (err) {
     // 持久化失败不应影响主消息流，已由 Proxy 的 .catch 记录日志
   }
 }

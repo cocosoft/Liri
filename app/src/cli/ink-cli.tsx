@@ -312,7 +312,7 @@ const TasksView = ({
 
         setTaskGroups(groups);
         setTaskCount(allTasks.length);
-      } catch {
+      } catch (err) {
         // 任务注册表可能未初始化
       } finally {
         setLoading(false);

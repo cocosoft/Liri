@@ -80,7 +80,7 @@ function detectHomebrew(): boolean {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     return result.includes('brew');
-  } catch {
+  } catch (err) {
     return false;
   }
 }
@@ -98,7 +98,7 @@ function detectWinget(): boolean {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     return result.includes('winget');
-  } catch {
+  } catch (err) {
     return false;
   }
 }
@@ -113,7 +113,7 @@ function detectMise(): boolean {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     return result.includes('mise');
-  } catch {
+  } catch (err) {
     return false;
   }
 }
@@ -128,7 +128,7 @@ function detectAsdf(): boolean {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     return result.includes('asdf');
-  } catch {
+  } catch (err) {
     return false;
   }
 }
@@ -146,7 +146,7 @@ async function detectPacman(): Promise<boolean> {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     return result.includes('pacman');
-  } catch {
+  } catch (err) {
     return false;
   }
 }
@@ -164,7 +164,7 @@ async function detectDeb(): Promise<boolean> {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     return result.includes('dpkg');
-  } catch {
+  } catch (err) {
     return false;
   }
 }
@@ -182,7 +182,7 @@ async function detectRpm(): Promise<boolean> {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     return result.includes('rpm');
-  } catch {
+  } catch (err) {
     return false;
   }
 }
@@ -200,7 +200,7 @@ async function detectApk(): Promise<boolean> {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     return result.includes('apk');
-  } catch {
+  } catch (err) {
     return false;
   }
 }
@@ -242,7 +242,7 @@ export async function getCurrentInstallationType(): Promise<InstallationType> {
   try {
     await fs.promises.access(localPath);
     return 'npm-local';
-  } catch {
+  } catch (err) {
     // 不存在
   }
 
@@ -277,7 +277,7 @@ export async function getCurrentInstallationType(): Promise<InstallationType> {
     if (invokedPath.startsWith(npmPrefix)) {
       return 'npm-global';
     }
-  } catch {
+  } catch (err) {
     // npm命令失败
   }
 
@@ -295,7 +295,7 @@ export async function getInstallationPath(): Promise<string> {
   try {
     const realPath = await realpath(process.execPath);
     return realPath;
-  } catch {
+  } catch (err) {
     // 返回未知
   }
 
@@ -308,7 +308,7 @@ export async function getInstallationPath(): Promise<string> {
 export function getInvokedBinary(): string {
   try {
     return process.execPath || process.argv[0] || 'unknown';
-  } catch {
+  } catch (err) {
     return 'unknown';
   }
 }
@@ -326,7 +326,7 @@ export async function detectMultipleInstallations(): Promise<
   try {
     await fs.promises.access(localPath);
     installations.push({ type: 'npm-local', path: localPath });
-  } catch {
+  } catch (err) {
     // 不存在
   }
 
@@ -345,10 +345,10 @@ export async function detectMultipleInstallations(): Promise<
     try {
       await fs.promises.access(globalBinPath);
       installations.push({ type: 'npm-global', path: globalBinPath });
-    } catch {
+    } catch (err) {
       // 不存在
     }
-  } catch {
+  } catch (err) {
     // npm命令失败
   }
 
@@ -357,7 +357,7 @@ export async function detectMultipleInstallations(): Promise<
   try {
     await fs.promises.access(nativeBinPath);
     installations.push({ type: 'native', path: nativeBinPath });
-  } catch {
+  } catch (err) {
     // 不存在
   }
 
@@ -406,7 +406,7 @@ export async function detectConfigurationIssues(
         issue: '同时存在本地安装',
         fix: '考虑使用原生安装: claude install',
       });
-    } catch {
+    } catch (err) {
       // 不存在
     }
   }
@@ -424,7 +424,7 @@ export async function detectConfigurationIssues(
           fix: '创建别名: alias claude="~/.claude/local/claude"',
         });
       }
-    } catch {
+    } catch (err) {
       warnings.push({
         issue: '本地安装不可访问',
         fix: '创建别名: alias claude="~/.claude/local/claude"',

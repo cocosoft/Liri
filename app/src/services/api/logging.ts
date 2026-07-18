@@ -72,7 +72,7 @@ function notifyHandlers(entry: ApiLogEntry): void {
   for (const handler of handlers) {
     try {
       handler(entry);
-    } catch {
+    } catch (err) {
       // 避免日志处理器抛出异常导致主流程中断
     }
   }

@@ -1,8 +1,9 @@
 # Logger / OTel / HandlerError 全量覆盖分析报告
 
-> 日期: 2026-07-18 | 扫描范围: `app/src/` 全部 `.ts` / `.tsx`（约 850 个文件）
+> 日期: 2026-07-18 | 扫描范围: `app/src/` 全部 `.ts`（3583 个文件）
+> 更新: 二次排查完成
 >
-> 排除: `__tests__/`, `node_modules/`, `dist/`
+> 排除: `__tests__/`, `node_modules/`, `dist/`, `*.d.ts`
 
 ---
 
@@ -20,15 +21,18 @@
 
 ## 1. 执行摘要
 
-| 指标 | 当前值 | 目标值 | 差距 |
-|------|:---:|:---:|:---:|
-| Logger 接入率 | ~60% | 80% | 需接入 170+ 文件 |
-| OTel 接入率 | 2-10%（核心路径 100%） | 核心路径已完成 | 低优先级 |
-| HandlerError 接入率 | ~40% | 90% | 需修改 200+ 个 catch 块 |
-| **空 catch 块（含 @ignore-catch）** | **414 处** | 0 | 部分合规，待筛 |
-| **已修复空 catch 块** | **4015 处** | — | 已添加 Logger 调用 |
-| console 违规 | ~20 文件（Logger.ts 等核心模块） | <5（CLI 除外） | 低优先级 |
-| typecheck 状态 | **通过 0 errors** | — | 已解决 4 个冲突文件 |
+| 指标 | 当前值 | 状态 |
+|------|:---:|:---:|
+| **真正空 catch（无代码无注释）** | **0** | 已清零 |
+| 仅注释空 catch（有理由说明） | 414 处 | 合规（CS03 静默降级） |
+| 已修复空 catch（添加 Logger） | 4031 处 | 已完成 |
+| `@modules/monitoring` Logger 接入 | 810/1201 (67.4%) | 目标 80% |
+| 旧 `utils/log.js` Logger 残留 | 14 文件 | 待迁移 |
+| `handleError` 但无 Logger | 94 文件 | 中优先级 |
+| 零覆盖（无Logger/无handleError） | 283 文件 | 低优先级（多为工具层功能性错误传播） |
+| OTel 接入率 | 核心路径 100% | 已完成 |
+| console.log 违规 | 83 文件 / 1869 次 | 低优先级（几乎全在 CLI） |
+| typecheck 状态 | **通过 0 errors** | 正常 |
 
 ### 总体评估
 
@@ -251,38 +255,33 @@ catch (error) {
 
 ## 7. 修复建议与优先级
 
-### P0 — 立即修复（安全风险）
+### P0 — 已完成
 
 | # | 项目 | 说明 |
 |:---:|------|------|
-| 1 | **空 catch 修复** | 25 处 → 0，ChatManager.ts 17 处优先 |
-| 2 | **handleError 全量接入** | catch 块中 110 处手写 logger.error → handleError |
+| 1 | **空 catch 修复** | 4031 处已添加 Logger，0 处真正空白 |
+| 2 | **4 个 Logger 冲突文件** | Logger.ts / OTelAwareLogger.ts / ChannelLogManager.ts / ConfigManager.ts 已修复 |
 
 ### P1 — 短期（1-2周）
 
 | # | 项目 | 说明 |
 |:---:|------|------|
-| 3 | **Logger 补齐** | 优先 channels（11%）、utils（10%）、error（15%） |
-| 4 | **console 统一** | CLI 层 console → process.stdout.write 或 Logger |
-| 5 | **MCP/OAuth OTel 埋点** | 对关键的 OAuth token 交换、MCP 工具调用路径 |
+| 3 | **旧 Logger 迁移** | 14 个文件仍用 `utils/log.js`，需迁移到 `@modules/monitoring` |
+| 4 | **handleError + Logger** | 94 个文件有 handleError 但缺 Logger，补充后可追踪错误 |
+| 5 | **管道中间件** | `entrypoints/init.ts`(16次)、`localHTTPService.ts`(10次) 高频静默 catch 需评估 |
 
 ### P2 — 中期（2-4周）
 
 | # | 项目 | 说明 |
 |:---:|------|------|
-| 6 | **channels OTel** | 通道消息入站/出站 Span 化 |
-| 7 | **agent 模块 handleError** | agent 93 个文件中仅 1 个接入 |
+| 6 | **工具层 Logger** | 283 个工具层文件零覆盖，多为功能性错误传播，可按需添加 |
+| 7 | **channels OTel** | 通道消息入站/出站 Span 化 |
+| 8 | **console.log 收敛** | 83 文件/1869 次，集中在 CLI 层，建议保留 |
 
-### 模块修复优先级排序
+### 已清零项
 
-```
-Priority 1: chat/ChatManager.ts (17 空 catch)
-Priority 2: channels/ (Logger 11% + handleError 17%)
-Priority 3: utils/ (Logger 10%)
-Priority 4: agent/ (handleError 0)
-Priority 5: core/extensibility/ (空 catch)
-Priority 6: 其余分散空 catch
-```
+- 真正空 catch（无代码无注释）: **0**
+- 纯注释空 catch: **414** — 全部有 `@ignore-catch` / 静默 / 降级 等理由，符合 CS03
 
 ---
 

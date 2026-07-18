@@ -11,7 +11,8 @@ import {
   writeFileSync,
   appendFileSync,
 } from 'fs';
-import { logger } from '../utils/log.js';
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'utils:feedbackManager', level: LogLevel.INFO });
 import { sanitizeInput } from '@modules/security';
 import { resolveDataDir } from '@modules/core';
 

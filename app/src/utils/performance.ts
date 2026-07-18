@@ -3,7 +3,8 @@
  * 提供性能监控、分析和优化工具
  */
 
-import { logger } from './log';
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'utils:performance', level: LogLevel.INFO });
 
 /**
  * 性能指标

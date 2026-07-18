@@ -3,7 +3,8 @@
  * 监控内存使用情况，及时清理资源
  */
 
-import { logger } from './log';
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'utils:memoryMonitor', level: LogLevel.INFO });
 import { MultiLevelCache } from './cache';
 
 /**

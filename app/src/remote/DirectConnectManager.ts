@@ -3,7 +3,8 @@
  * 负责处理cc://协议直接连接
  */
 
-import { logger } from '../utils/log.js';
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'remote:DirectConnectManager', level: LogLevel.INFO });
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 

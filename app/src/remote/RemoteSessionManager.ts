@@ -3,7 +3,8 @@
  * 负责管理远程会话的连接、消息发送和接收
  */
 
-import { logger } from '../utils/log.js';
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'remote:RemoteSessionManager', level: LogLevel.INFO });
 import { SSHConnection, SSHConfig } from './SSHConnection.js';
 import {
   DirectConnectManager,

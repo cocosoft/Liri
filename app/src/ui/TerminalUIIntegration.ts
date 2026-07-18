@@ -6,7 +6,8 @@
 
 import chalk from 'chalk';
 import { TerminalComponents } from '../ui/TerminalComponents.js';
-import { logger } from '../utils/log.js';
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'ui:TerminalUIIntegration', level: LogLevel.INFO });
 import { StartupProfiler } from '../utils/startupProfiler.js';
 
 /**

@@ -9,7 +9,8 @@
  * @see ConfigManager.loadSyncSources / getMergedConfig / getSettingWithSource
  */
 
-import { logger } from '../utils/log.js';
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'config:UnifiedConfigManager', level: LogLevel.INFO });
 import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus.js';
 import {
   ConfigLoader,

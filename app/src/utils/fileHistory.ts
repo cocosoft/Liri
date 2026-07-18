@@ -10,6 +10,9 @@ import { join, dirname, relative, isAbsolute, resolve } from 'path';
 import { createHash, randomUUID } from 'crypto';
 import { resolvePyappHome } from '@modules/core';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'utils:fileHistory', level: LogLevel.INFO });
+
 /**
  * 文件历史备份信息
  */
@@ -200,8 +203,12 @@ export async function fileHistoryMakeSnapshot(
   for (const filePath of trackedFiles) {
     try {
       backups[filePath] = await createBackup(filePath, 1);
-    } catch {
+    } catch (err) {
+
       // 跳过无法备份的文件
+
+      logger.debug("Operation skipped", { context: "跳过无法备份的文件", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 

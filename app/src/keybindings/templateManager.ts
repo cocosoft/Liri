@@ -8,6 +8,9 @@ import type { Keybindings, KeybindingTemplate, Keybinding } from './validation';
 import { validateTemplate } from './validation';
 import { templates, getTemplate, getTemplateObject } from './templates';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'keybindings:templateManager', level: LogLevel.INFO });
+
 export interface TemplateManagerOptions {
   defaultMode?: 'vi' | 'emacs' | 'default';
   autoLoad?: boolean;
@@ -151,8 +154,12 @@ export class TemplateManager {
         this.customBindings = config.customBindings || [];
         this.disabledBindings = config.disabledBindings || [];
       }
-    } catch {
+    } catch (err) {
+
       // 忽略加载错误
+
+      logger.debug("Operation skipped", { context: "忽略加载错误", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 
@@ -169,8 +176,12 @@ export class TemplateManager {
           disabledBindings: this.disabledBindings,
         })
       );
-    } catch {
+    } catch (err) {
+
       // 忽略保存错误
+
+      logger.debug("Operation skipped", { context: "忽略保存错误", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 }

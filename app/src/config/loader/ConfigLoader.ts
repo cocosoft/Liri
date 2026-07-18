@@ -3,6 +3,9 @@ import { join, extname } from 'path';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolvePyappHome } from '@modules/core';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'config:loader:ConfigLoader', level: LogLevel.INFO });
+
 export type ConfigFormat = 'json' | 'yaml' | 'env';
 
 export interface ConfigSource {
@@ -293,8 +296,12 @@ export class ConfigLoader implements IConfigLoader {
           const format = source.format || this.detectFormat(source.path!);
           const config = this.parse(content, format);
           callback(config);
-        } catch {
+        } catch (err) {
+
           // ignore read errors during watch
+
+          logger.debug("Operation skipped", { context: "ignore read errors during watch", error: err instanceof Error ? err.message : String(err) });
+
         }
       }, 2000);
 

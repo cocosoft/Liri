@@ -3,6 +3,9 @@ import { PermissionBehavior } from './types/PermissionRule';
 import type { PermissionDecision, PermissionResult } from './PermissionResult';
 import { configManager } from '@modules/config';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'permission:filesystem', level: LogLevel.INFO });
+
 export const DANGEROUS_FILES = [
   '.gitconfig',
   '.gitmodules',
@@ -95,8 +98,12 @@ export function isWithinWorkingDirectory(
         }
       }
     }
-  } catch {
+  } catch (err) {
+
     // config 不可用时静默降级，仅使用 cwd 检查
+
+    logger.debug("Operation skipped", { context: "config 不可用时静默降级，仅使用 cwd 检查", error: err instanceof Error ? err.message : String(err) });
+
   }
 
   return false;

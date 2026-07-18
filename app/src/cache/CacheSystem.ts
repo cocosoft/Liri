@@ -27,6 +27,9 @@ import {
   type CacheVersion,
 } from './types.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'cache:CacheSystem', level: LogLevel.INFO });
+
 /**
  * 缓存版本常量
  */
@@ -191,8 +194,12 @@ export class DiskStorage implements PersistentCacheStorage {
       // 清理临时文件
       try {
         await unlink(tempPath);
-      } catch {
+      } catch (err) {
+
         // 忽略清理错误
+
+        logger.debug("Operation skipped", { context: "忽略清理错误", error: err instanceof Error ? err.message : String(err) });
+
       }
       throw error;
     }

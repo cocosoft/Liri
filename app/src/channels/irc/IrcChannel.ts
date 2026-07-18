@@ -15,6 +15,9 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'channels:irc:IrcChannel', level: LogLevel.INFO });
+
 const IRC_LINE_MAX = 480;
 const IRC_MSG_CHUNK_MAX = 350;
 const IRC_CONNECT_TIMEOUT_MS = 15000;
@@ -313,8 +316,12 @@ class IrcChannelPlugin extends BaseChannelPlugin {
     if (this.socket) {
       try {
         this.sendRaw('QUIT :bye');
-      } catch {
+      } catch (err) {
+
         // 忽略 QUIT 发送失败
+
+        logger.warn("Operation skipped", { context: "忽略 QUIT 发送失败", error: err instanceof Error ? err.message : String(err) });
+
       }
       this.socket.destroy();
       this.socket = null;
@@ -497,8 +504,12 @@ class IrcChannelPlugin extends BaseChannelPlugin {
         this.sendRaw(`NICK ${this.desiredNick}`);
         this.logger.info('IRC 尝试 NickServ GHOST 恢复昵称');
         return;
-      } catch {
+      } catch (err) {
+
         // GHOST 失败，回退
+
+        logger.warn("Operation skipped", { context: "GHOST 失败，回退", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
 
@@ -641,8 +652,12 @@ class IrcChannelPlugin extends BaseChannelPlugin {
         if (self.socket) {
           try {
             self.sendRaw('QUIT :bye');
-          } catch {
+          } catch (err) {
+
             // ignore
+
+            logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
+
           }
           self.socket.destroy();
           self.socket = null;

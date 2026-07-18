@@ -4,6 +4,9 @@
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:builtin:tokens:Tokens', level: LogLevel.INFO });
+
 /**
  * 构建 Token 明细展示内容
  */
@@ -313,8 +316,12 @@ const tokensCommand = {
       try {
         const { logEvent } = await import('@modules/analytics/index.js');
         logEvent('tengu_tokens_view');
-      } catch {
+      } catch (err) {
+
         // analytics 非关键
+
+        logger.debug("Operation skipped", { context: "analytics 非关键", error: err instanceof Error ? err.message : String(err) });
+
       }
 
       return await handleOverview();

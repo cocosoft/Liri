@@ -9,6 +9,9 @@ import {
 } from './ProviderCatalog.js';
 import { configManager } from '@modules/config';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'plugins:provider:ProviderDiscovery', level: LogLevel.INFO });
+
 /**
  * 发现策略
  */
@@ -194,8 +197,12 @@ export class ProviderDiscovery {
           }
         }
       }
-    } catch {
+    } catch (err) {
+
       // 忽略配置读取错误
+
+      logger.debug("Operation skipped", { context: "忽略配置读取错误", error: err instanceof Error ? err.message : String(err) });
+
     }
 
     return results;

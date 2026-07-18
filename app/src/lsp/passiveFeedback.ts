@@ -9,6 +9,9 @@ import type {
 import { registerPendingLSPDiagnostic } from './LSPDiagnosticRegistry.js';
 import type { LSPServerManager } from './LSPServerManager.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'lsp:passiveFeedback', level: LogLevel.INFO });
+
 function mapLSPSeverity(lspSeverity: number | undefined): string {
   switch (lspSeverity) {
     case 1:
@@ -163,8 +166,12 @@ export function registerLSPNotificationHandlers(
               failures.lastError = err.message;
               diagnosticFailures.set(serverName, failures);
             }
-          } catch {
+          } catch (err) {
+
             // Handler errors are isolated
+
+            logger.debug("Operation skipped", { context: "Handler errors are isolated", error: err instanceof Error ? err.message : String(err) });
+
           }
         }
       );

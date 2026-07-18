@@ -11,6 +11,9 @@ import { existsSync } from 'fs';
 import { resolveGitDir } from './GitFilesystem';
 import { configManager } from '@modules/config';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'utils:git:GitignoreParser', level: LogLevel.INFO });
+
 export interface IgnoreRule {
   pattern: string;
   negation: boolean;
@@ -75,8 +78,12 @@ export async function parseGitignoreFile(
         source: filePath,
       });
     }
-  } catch {
+  } catch (err) {
+
     // file doesn't exist, return empty rules
+
+    logger.debug("Operation skipped", { context: "file doesn't exist, return empty rules", error: err instanceof Error ? err.message : String(err) });
+
   }
 
   return { rules, source: filePath };
@@ -208,8 +215,12 @@ export async function addToGlobalGitignore(pattern: string): Promise<boolean> {
 
   try {
     await mkdir(dirname(globalPath), { recursive: true });
-  } catch {
+  } catch (err) {
+
     // directory already exists or cannot create
+
+    logger.debug("Operation skipped", { context: "directory already exists or cannot create", error: err instanceof Error ? err.message : String(err) });
+
   }
 
   try {

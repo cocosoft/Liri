@@ -32,6 +32,9 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { CodeChunk } from './chunker';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'knowledge:semantic:store', level: LogLevel.INFO });
+
 /** 索引条目 */
 export interface IndexEntry extends CodeChunk {
   /** 嵌入向量 */
@@ -201,8 +204,12 @@ export class SemanticStore {
           const entry = deserializeEntry(line);
           this.entries.push(entry);
           if (this.dim === 0) this.dim = entry.embedding.length;
-        } catch {
+        } catch (err) {
+
           // 跳过损坏的行
+
+          logger.debug("Operation skipped", { context: "跳过损坏的行", error: err instanceof Error ? err.message : String(err) });
+
         }
       }
     } catch {

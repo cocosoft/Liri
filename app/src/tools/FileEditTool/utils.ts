@@ -19,6 +19,9 @@ import {
   validateEditCommand,
 } from './types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:FileEditTool:utils', level: LogLevel.INFO });
+
 const DEFAULT_OPTIONS: Required<EditOptions> = {
   dryRun: false,
   createBackup: false,
@@ -193,8 +196,12 @@ export async function applyBatchEdits(
     if (!snapshots.has(edit.path)) {
       try {
         snapshots.set(edit.path, takeSnapshot(edit.path));
-      } catch {
+      } catch (err) {
+
         // File may not exist yet
+
+        logger.debug("Operation skipped", { context: "File may not exist yet", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
   }
@@ -212,8 +219,12 @@ export async function applyBatchEdits(
           for (const [path, snapshot] of snapshots) {
             try {
               writeFileContent(path, snapshot.content);
-            } catch {
+            } catch (err) {
+
               // Rollback silently
+
+              logger.debug("Operation skipped", { context: "Rollback silently", error: err instanceof Error ? err.message : String(err) });
+
             }
           }
 

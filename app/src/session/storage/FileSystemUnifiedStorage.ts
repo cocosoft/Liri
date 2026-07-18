@@ -19,6 +19,9 @@ import type {
 import type { UnifiedMessage } from '../types/Message.js';
 import { AtomicWriter } from '../persistence/AtomicWriter.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'session:storage:FileSystemUnifiedStorage', level: LogLevel.INFO });
+
 function matchesFilter(
   session: UnifiedSession,
   filter: SessionFilter
@@ -166,8 +169,12 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     const dir = sessionDir(this.basePath, sessionId);
     try {
       await fs.rm(dir, { recursive: true, force: true });
-    } catch {
+    } catch (err) {
+
       // ignore cleanup errors
+
+      logger.debug("Operation skipped", { context: "ignore cleanup errors", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 

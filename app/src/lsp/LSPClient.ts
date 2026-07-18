@@ -20,6 +20,9 @@ import type {
 } from './types.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'lsp:LSPClient', level: LogLevel.INFO });
+
 interface PendingRequest {
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
@@ -215,8 +218,12 @@ export function createLSPClient(
             for (const handler of handlers) {
               try {
                 handler(message.params);
-              } catch {
+              } catch (err) {
+
                 // Handler errors are isolated per handler
+
+                logger.debug("Operation skipped", { context: "Handler errors are isolated per handler", error: err instanceof Error ? err.message : String(err) });
+
               }
             }
           }
@@ -226,8 +233,12 @@ export function createLSPClient(
             Promise.resolve(requestHandler(message.params)).catch(() => {});
           }
         }
-      } catch {
+      } catch (err) {
+
         // JSON parse errors are silently ignored
+
+        logger.debug("Operation skipped", { context: "JSON parse errors are silently ignored", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
   }
@@ -694,8 +705,12 @@ export function createLSPClient(
           await sendRequest('shutdown', {});
           sendNotification('exit', {});
         }
-      } catch {
+      } catch (err) {
+
         // Errors during shutdown are ignored
+
+        logger.debug("Operation skipped", { context: "Errors during shutdown are ignored", error: err instanceof Error ? err.message : String(err) });
+
       }
       if (childProcess && !childProcess.killed) {
         childProcess.kill();

@@ -16,6 +16,9 @@ import { randomUUID, randomBytes, createHash } from 'crypto';
 import { writeFileSync, appendFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'services:voice:services:edgeTTSDebugDump', level: LogLevel.INFO });
+
 // ============ Constants ============
 const TRUSTED_CLIENT_TOKEN = '6A5AA1D4EAFF4E9FB37E23D68491D6F4';
 const WSS_HOST = 'speech.platform.bing.com';
@@ -429,8 +432,12 @@ function extractAudio(data: Buffer): Buffer | null {
       if (headerText.includes('Path:audio')) {
         return data.slice(headerLength + 2);
       }
-    } catch {
-      /* not utf8, try next */
+    } catch (err) {
+
+      // not utf8, try next
+
+      logger.debug("Operation skipped", { context: "not utf8, try next", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 
@@ -441,8 +448,12 @@ function extractAudio(data: Buffer): Buffer | null {
       if (headerText.includes('Path:audio')) {
         return data.slice(2 + headerLength + 2);
       }
-    } catch {
-      /* not utf8 */
+    } catch (err) {
+
+      // not utf8
+
+      logger.debug("Operation skipped", { context: "not utf8", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 

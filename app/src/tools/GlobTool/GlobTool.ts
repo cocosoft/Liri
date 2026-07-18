@@ -4,6 +4,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:GlobTool:GlobTool', level: LogLevel.INFO });
+
 export interface GlobResult {
   durationMs: number;
   numFiles: number;
@@ -39,8 +42,12 @@ export function glob(
       MAX_FILES,
       normalizedSearchPath
     );
-  } catch {
+  } catch (err) {
+
     // 权限拒绝时返回空
+
+    logger.debug("Operation skipped", { context: "权限拒绝时返回空", error: err instanceof Error ? err.message : String(err) });
+
   }
 
   const durationMs = Date.now() - startTime;

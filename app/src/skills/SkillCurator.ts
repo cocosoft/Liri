@@ -8,6 +8,9 @@
 
 import type { SkillDB } from './persistence/SkillDB';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'skills:SkillCurator', level: LogLevel.INFO });
+
 /**
  * 策展操作类型
  */
@@ -83,8 +86,12 @@ export class SkillCurator {
       const loaded = await this.skillDB.loadAllCuration();
       this.states = loaded;
       this.dbInitialized = true;
-    } catch {
+    } catch (err) {
+
       // DB 不可用时继续使用纯内存模式
+
+      logger.debug("Operation skipped", { context: "DB 不可用时继续使用纯内存模式", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 
@@ -114,8 +121,12 @@ export class SkillCurator {
       if (state) {
         await this.skillDB.saveCuration(state);
       }
-    } catch {
+    } catch (err) {
+
       // 静默处理 DB 错误
+
+      logger.debug("Operation skipped", { context: "静默处理 DB 错误", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 

@@ -21,6 +21,9 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'channels:qq:QQChannel', level: LogLevel.INFO });
+
 const QQ_META: ChannelMeta = {
   id: 'qq',
   displayName: 'QQ Bot',
@@ -1644,8 +1647,12 @@ class QQChannelPlugin extends BaseChannelPlugin {
         this.ws.onmessage = null;
         this.ws.onopen = null;
         this.ws.close(1000, '主动断开');
-      } catch {
+      } catch (err) {
+
         // 清理阶段关闭 WebSocket 出错是正常的（可能已经关闭），无需记录
+
+        logger.debug("Operation skipped", { context: "清理阶段关闭 WebSocket 出错是正常的（可能已经关闭），无需记录", error: err instanceof Error ? err.message : String(err) });
+
       }
       this.ws = null;
     }

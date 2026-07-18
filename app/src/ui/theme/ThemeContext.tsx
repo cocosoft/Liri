@@ -28,6 +28,9 @@ import React, {
 import { ThemeManager } from '../ThemeManager';
 import type { ThemeUIColorPalette } from './ThemeSchema';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'ui:theme:ThemeContext', level: LogLevel.INFO });
+
 export interface ThemeContextValue {
   /** UI 组件配色 */
   uiColors: ThemeUIColorPalette;
@@ -128,8 +131,12 @@ function loadUiColors(
     }
     const def = loader.getTheme(themeName);
     if (def?.ui) return { ...def.ui };
-  } catch {
+  } catch (err) {
+
     // 忽略加载异常，使用后备配色
+
+    logger.debug("Operation skipped", { context: "忽略加载异常，使用后备配色", error: err instanceof Error ? err.message : String(err) });
+
   }
   return isDarkName(themeName) ? FALLBACK_DARK : FALLBACK_LIGHT;
 }

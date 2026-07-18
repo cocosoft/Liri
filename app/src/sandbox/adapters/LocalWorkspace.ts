@@ -19,6 +19,9 @@ import {
   SandboxExecuteResult,
 } from '../SandboxTypes';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'sandbox:adapters:LocalWorkspace', level: LogLevel.INFO });
+
 const execAsync = promisify(exec);
 
 /**
@@ -78,8 +81,12 @@ export class LocalWorkspace extends WorkspaceBase {
           modifiedAt: stat.mtime,
           permissions: this.modeToPermissions(stat.mode),
         });
-      } catch {
+      } catch (err) {
+
         // 跳过无权限访问的文件
+
+        logger.debug("Operation skipped", { context: "跳过无权限访问的文件", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
 

@@ -6,6 +6,9 @@
 import { priceManager } from './PriceManager';
 import type { ContextCategory, ContextStats, APIProviderType } from './types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'core:tokenBudget:ContextStatsCollector', level: LogLevel.INFO });
+
 const CONTEXT_COLORS = {
   systemPrompt: '#4A90D9',
   tools: '#50C878',
@@ -61,8 +64,12 @@ export class ContextStatsCollector {
     try {
       const priceResult = priceManager.getPriceSync(model);
       maxTokens = priceResult.contextWindow;
-    } catch {
+    } catch (err) {
+
       // use default
+
+      logger.debug("Operation skipped", { context: "use default", error: err instanceof Error ? err.message : String(err) });
+
     }
 
     const totalTokens = this.items.reduce((sum, item) => sum + item.tokens, 0);

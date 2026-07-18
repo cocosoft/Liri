@@ -8,6 +8,9 @@
 import os from 'os';
 import { execSync } from 'child_process';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'monitoring:metrics:SystemMetricsCollector', level: LogLevel.INFO });
+
 // ── CPU 计算器（进程级） ──────────────────────────────────────────
 
 /**
@@ -232,8 +235,12 @@ export function getDiskInfo(): DiskInfo {
         }
       }
     }
-  } catch {
+  } catch (err) {
+
     // 磁盘信息不可用时静默处理
+
+    logger.debug("Operation skipped", { context: "磁盘信息不可用时静默处理", error: err instanceof Error ? err.message : String(err) });
+
   }
 
   const usedBytes = totalBytes - freeBytes;

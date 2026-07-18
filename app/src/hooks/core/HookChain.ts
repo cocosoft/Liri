@@ -16,6 +16,9 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'hooks:core:HookChain', level: LogLevel.INFO });
+
 /**
  * Hook 上下文
  */
@@ -132,8 +135,12 @@ export class HookChain {
         if (!hook.enabled) continue;
         try {
           await hook.handler(errorCtx);
-        } catch {
+        } catch (err) {
+
           // onError hook 自身不得抛出异常
+
+          logger.debug("Operation skipped", { context: "onError hook 自身不得抛出异常", error: err instanceof Error ? err.message : String(err) });
+
         }
       }
 

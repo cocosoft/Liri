@@ -32,6 +32,9 @@ import {
 } from '@modules/components/attachments';
 import { handleError } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'infrastructure:http:handlers:files-handlers', level: LogLevel.INFO });
+
 // 已注册的存储分区别名 → 绝对路径解析函数（延迟动态 import）
 function resolveStorePath(rawPath: string): string {
   const { isAbsolute, resolve, join } = require('path');
@@ -104,8 +107,12 @@ export async function handleFileList(
         const stat = statSync(fullPath);
         size = stat.size;
         modifiedAt = stat.mtimeMs;
-      } catch {
+      } catch (err) {
+
         // 权限不足时跳过 stat
+
+        logger.debug("Operation skipped", { context: "权限不足时跳过 stat", error: err instanceof Error ? err.message : String(err) });
+
       }
       return {
         name: dirent.name,
@@ -337,7 +344,11 @@ export async function handleFileUpload(
         res.end(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
-      } catch {} /* res可能已结束, 忽略 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* res可能已结束, 忽略 */
     }
   }
 }
@@ -369,7 +380,11 @@ export async function handleConvertFile(
         res.end(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
-      } catch {} /* res可能已结束, 忽略 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* res可能已结束, 忽略 */
     }
   }
 }
@@ -397,7 +412,11 @@ export async function handleDetectFileType(
         res.end(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
-      } catch {} /* res可能已结束, 忽略 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* res可能已结束, 忽略 */
     }
   }
 }
@@ -462,7 +481,11 @@ export async function handleSendFileToAI(
         res.end(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
-      } catch {} /* res可能已结束, 忽略 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* res可能已结束, 忽略 */
     }
   }
 }
@@ -493,8 +516,12 @@ async function registerUploadToFileRegistry(
       description: `HTTP 上传文件: ${fileName}`,
       storeZone: 'inbound',
     });
-  } catch {
+  } catch (err) {
+
     // 静默失败，不影响 HTTP 响应
+
+    logger.warn("Operation skipped", { context: "静默失败，不影响 HTTP 响应", error: err instanceof Error ? err.message : String(err) });
+
   }
 }
 

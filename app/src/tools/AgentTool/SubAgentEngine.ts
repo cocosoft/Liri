@@ -24,6 +24,9 @@ import { withRetry } from '@modules/utils/withRetry';
 import { globalEventBus } from '../../core/events/EventBus.js';
 import { AgentEventType } from '../../agent/events/types.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:AgentTool:SubAgentEngine', level: LogLevel.INFO });
+
 /**
  * 子代理进度事件类型
  */
@@ -169,8 +172,12 @@ export class SubAgentEngine {
         maxTurns,
         message: `子代理 ${agentId} 开始执行`,
       });
-    } catch {
+    } catch (err) {
+
       // EventBus 发射失败不阻塞主流程
+
+      logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
+
     }
 
     try {
@@ -204,8 +211,12 @@ export class SubAgentEngine {
               durationMs: Date.now() - startTime,
               error: 'Execution aborted by user',
             });
-          } catch {
+          } catch (err) {
+
             // EventBus 发射失败不阻塞主流程
+
+            logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
+
           }
 
           return this.buildResult(agentId, startTime, {
@@ -229,8 +240,12 @@ export class SubAgentEngine {
             turn,
             message: `子代理第 ${turn + 1}/${maxTurns} 轮思考`,
           });
-        } catch {
+        } catch (err) {
+
           // EventBus 发射失败不阻塞主流程
+
+          logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
+
         }
 
         onProgress?.({
@@ -262,8 +277,12 @@ export class SubAgentEngine {
               turn,
             });
           }
-        } catch {
+        } catch (err) {
+
           // EventBus 发射失败不阻塞主流程
+
+          logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
+
         }
 
         // 发射思考结束事件
@@ -272,8 +291,12 @@ export class SubAgentEngine {
             agentId,
             turn,
           });
-        } catch {
+        } catch (err) {
+
           // EventBus 发射失败不阻塞主流程
+
+          logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
+
         }
 
         if (response.tool_calls && response.tool_calls.length > 0) {
@@ -303,8 +326,12 @@ export class SubAgentEngine {
                 toolUseId: toolCall.id,
                 turn,
               });
-            } catch {
+            } catch (err) {
+
               // EventBus 发射失败不阻塞主流程
+
+              logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
+
             }
 
             onProgress?.({
@@ -343,8 +370,12 @@ export class SubAgentEngine {
                     : JSON.stringify(toolResult),
                 turn,
               });
-            } catch {
+            } catch (err) {
+
               // EventBus 发射失败不阻塞主流程
+
+              logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
+
             }
 
             // 发射工具调用结束事件
@@ -356,8 +387,12 @@ export class SubAgentEngine {
                 status: 'completed',
                 turn,
               });
-            } catch {
+            } catch (err) {
+
               // EventBus 发射失败不阻塞主流程
+
+              logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
+
             }
 
             onProgress?.({
@@ -391,8 +426,12 @@ export class SubAgentEngine {
               turnsUsed: turn + 1,
               durationMs,
             });
-          } catch {
+          } catch (err) {
+
             // EventBus 发射失败不阻塞主流程
+
+            logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
+
           }
 
           return {
@@ -423,8 +462,12 @@ export class SubAgentEngine {
           durationMs: Date.now() - startTime,
           error: `Max turns (${maxTurns}) reached without completion`,
         });
-      } catch {
+      } catch (err) {
+
         // EventBus 发射失败不阻塞主流程
+
+        logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
+
       }
 
       return this.buildResult(agentId, startTime, {
@@ -452,8 +495,12 @@ export class SubAgentEngine {
           error: errorMessage,
           toolCallCount,
         });
-      } catch {
+      } catch (err) {
+
         // EventBus 发射失败不阻塞主流程
+
+        logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
+
       }
 
       onProgress?.({

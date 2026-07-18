@@ -7,6 +7,9 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@modules/core';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'cli:history', level: LogLevel.INFO });
+
 export interface HistoryOptions {
   maxItems?: number;
   historyFile?: string;
@@ -51,8 +54,12 @@ export class CommandHistory {
     try {
       const content = this.history.join('\n');
       writeFileSync(this.historyFile, content, 'utf-8');
-    } catch {
+    } catch (err) {
+
       // 忽略保存错误
+
+      logger.debug("Operation skipped", { context: "忽略保存错误", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 

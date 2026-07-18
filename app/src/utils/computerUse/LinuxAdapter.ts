@@ -25,6 +25,9 @@ import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'utils:computerUse:LinuxAdapter', level: LogLevel.INFO });
+
 const execAsync = promisify(execFile);
 
 /** 命令执行默认超时时间（毫秒） */
@@ -152,8 +155,12 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
       // 清理临时文件
       try {
         fs.unlinkSync(tmpFile);
-      } catch {
-        /* ignore */
+      } catch (err) {
+
+        // ignore
+
+        logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
+
       }
 
       return { data, format: 'jpeg', width, height };
@@ -161,8 +168,12 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
       // 清理临时文件
       try {
         fs.unlinkSync(tmpFile);
-      } catch {
-        /* ignore */
+      } catch (err) {
+
+        // ignore
+
+        logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
+
       }
       throw err;
     }
@@ -540,12 +551,20 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
                 pid: parseInt(pidStr.trim(), 10) || undefined,
               });
             }
-          } catch {
+          } catch (err) {
+
             // 单个窗口查询失败跳过
+
+            logger.warn("Operation skipped", { context: "单个窗口查询失败跳过", error: err instanceof Error ? err.message : String(err) });
+
           }
         }
-      } catch {
+      } catch (err) {
+
         // 两种方式都失败
+
+        logger.warn("Operation skipped", { context: "两种方式都失败", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
 

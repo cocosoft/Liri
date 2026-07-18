@@ -13,6 +13,9 @@ import type { Skill } from '../types';
 export { SkillSource, SkillLoadMethod };
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'skills:utils:skillParser', level: LogLevel.INFO });
+
 export interface SkillFrontmatter {
   name?: string;
   description?: string;
@@ -227,8 +230,12 @@ export class SkillParser {
       // JSON数组格式
       try {
         return JSON.parse(value);
-      } catch {
+      } catch (err) {
+
         // 如果JSON解析失败，回退到简单分割
+
+        logger.warn("Operation skipped", { context: "如果JSON解析失败，回退到简单分割", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
 

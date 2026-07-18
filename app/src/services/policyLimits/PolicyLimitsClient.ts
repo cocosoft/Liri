@@ -1,6 +1,9 @@
 import type { PolicyDefinition, PolicyLimitConfig, UsageQuota } from './types';
 import { DEFAULT_POLICY_CONFIG, LimitType } from './types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'services:policyLimits:PolicyLimitsClient', level: LogLevel.INFO });
+
 export class PolicyLimitsClient {
   private config: PolicyLimitConfig;
   private policies: Map<LimitType, PolicyDefinition> = new Map();
@@ -63,8 +66,12 @@ export class PolicyLimitsClient {
         }
         this.lastFetchTime = Date.now();
       }
-    } catch {
+    } catch (err) {
+
       // Fallback to defaults
+
+      logger.debug("Operation skipped", { context: "Fallback to defaults", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 

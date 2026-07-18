@@ -9,6 +9,9 @@ import { BaseTask } from './BaseTask';
 import { TaskType, TaskStatus, isTerminalTaskStatus } from './types';
 import type { AgentDefinition, AgentProgress, ToolActivity } from './types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tasks:InProcessTeammateTask', level: LogLevel.INFO });
+
 /**
  * Teammate身份标识
  */
@@ -154,8 +157,12 @@ export class InProcessTeammateTask extends BaseTask {
 
         const backend = new InProcessTeammateBackend();
         await backend.kill(this.teammateBackendHandle);
-      } catch {
+      } catch (err) {
+
         // Ignore kill errors during cleanup
+
+        logger.debug("Operation skipped", { context: "Ignore kill errors during cleanup", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
 

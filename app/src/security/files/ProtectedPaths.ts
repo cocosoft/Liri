@@ -5,6 +5,9 @@ import os from 'os';
 import path from 'path';
 import { configManager } from '@modules/config';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'security:files:ProtectedPaths', level: LogLevel.INFO });
+
 /**
  * 获取用户主目录
  */
@@ -123,8 +126,12 @@ export function getCrossPlatformProtectedFiles(): string[] {
       const userPaths = blacklist.map((r: any) => normalizePath(r.path));
       return [...baseList, ...userPaths];
     }
-  } catch {
+  } catch (err) {
+
     // config 系统未初始化时静默降级
+
+    logger.debug("Operation skipped", { context: "config 系统未初始化时静默降级", error: err instanceof Error ? err.message : String(err) });
+
   }
 
   return baseList;
@@ -177,8 +184,12 @@ export function getCrossPlatformProtectedDirectoryPrefixes(): string[] {
       });
       return [...baseList, ...userPaths];
     }
-  } catch {
+  } catch (err) {
+
     // config 系统未初始化时静默降级
+
+    logger.debug("Operation skipped", { context: "config 系统未初始化时静默降级", error: err instanceof Error ? err.message : String(err) });
+
   }
 
   return baseList;

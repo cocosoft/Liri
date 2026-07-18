@@ -1,5 +1,8 @@
 ﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'chat:streaming:AdvancedStreamingProcessor', level: LogLevel.INFO });
+
 export enum StreamState {
   IDLE = 'idle',
   ACTIVE = 'active',
@@ -168,8 +171,12 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
     for (const listener of this.chunkListeners) {
       try {
         listener(chunk);
-      } catch {
-        /* ignore */
+      } catch (err) {
+
+        // ignore
+
+        logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
   }
@@ -196,8 +203,12 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
       for (const listener of this.chunkListeners) {
         try {
           listener(buffered);
-        } catch {
-          /* ignore */
+        } catch (err) {
+
+          // ignore
+
+          logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
+
         }
       }
     }
@@ -259,8 +270,12 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
     for (const listener of this.completeListeners) {
       try {
         listener(session);
-      } catch {
-        /* ignore */
+      } catch (err) {
+
+        // ignore
+
+        logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
 
@@ -308,8 +323,12 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
     for (const listener of this.stateChangeListeners) {
       try {
         listener(sessionId, oldState, newState);
-      } catch {
-        /* ignore */
+      } catch (err) {
+
+        // ignore
+
+        logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
   }

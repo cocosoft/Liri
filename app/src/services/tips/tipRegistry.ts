@@ -5,6 +5,9 @@
 
 import type { Tip, TipContext } from './types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'services:tips:tipRegistry', level: LogLevel.INFO });
+
 const externalTips: Tip[] = [
   {
     id: 'new-user-warmup',
@@ -79,8 +82,12 @@ export async function getRelevantTips(context?: TipContext): Promise<Tip[]> {
       if (await tip.isRelevant()) {
         relevant.push(tip);
       }
-    } catch {
+    } catch (err) {
+
       // ignore
+
+      logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 

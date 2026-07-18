@@ -11,6 +11,9 @@ import type {
 } from '../types/index.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'bridge:managers:SessionManager', level: LogLevel.INFO });
+
 /**
  * 会话信息
  */
@@ -249,8 +252,12 @@ export class SessionManager {
 
     try {
       await sessionInfo.handle.stop();
-    } catch {
+    } catch (err) {
+
       // 忽略停止时的错误
+
+      logger.debug("Operation skipped", { context: "忽略停止时的错误", error: err instanceof Error ? err.message : String(err) });
+
     }
 
     this.sessions.delete(sessionId);

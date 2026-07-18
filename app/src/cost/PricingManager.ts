@@ -8,6 +8,9 @@ import { logForDebugging } from '../utils/debug.js';
 import { ModelPricing } from './ModelPricing.js';
 import { ModelRegistry } from '@modules/ai';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'cost:PricingManager', level: LogLevel.INFO });
+
 /**
  * 定价版本信息
  */
@@ -122,8 +125,12 @@ export class PricingManager {
           webSearchPricePerRequest: 0.01,
         };
       }
-    } catch {
+    } catch (err) {
+
       // ModelRegistry 不可用时忽略
+
+      logger.debug("Operation skipped", { context: "ModelRegistry 不可用时忽略", error: err instanceof Error ? err.message : String(err) });
+
     }
 
     return undefined;

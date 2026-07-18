@@ -22,6 +22,9 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { setEmailRuntime, clearEmailRuntime } from './runtime';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'channels:email:EmailChannel', level: LogLevel.INFO });
+
 /**
  * Email 配置
  */
@@ -402,8 +405,12 @@ class SmtpClient {
   async quit(): Promise<void> {
     try {
       await this.sendCommand('QUIT', 221);
-    } catch {
-      /* 忽略 QUIT 错误 */
+    } catch (err) {
+
+      // 忽略 QUIT 错误
+
+      logger.debug("Operation skipped", { context: "忽略 QUIT 错误", error: err instanceof Error ? err.message : String(err) });
+
     }
     this.close();
   }
@@ -414,8 +421,12 @@ class SmtpClient {
     if (this.socket) {
       try {
         this.socket.destroy();
-      } catch {
-        /* 忽略 */
+      } catch (err) {
+
+        // 忽略
+
+        logger.debug("Operation skipped", { context: "忽略", error: err instanceof Error ? err.message : String(err) });
+
       }
       this.socket = null;
     }
@@ -746,8 +757,12 @@ class EmailChannelPlugin extends BaseChannelPlugin {
     if (this.smtpClient) {
       try {
         await this.smtpClient.quit();
-      } catch {
-        /* 忽略 */
+      } catch (err) {
+
+        // 忽略
+
+        logger.debug("Operation skipped", { context: "忽略", error: err instanceof Error ? err.message : String(err) });
+
       }
       this.smtpClient = null;
     }

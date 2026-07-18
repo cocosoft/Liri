@@ -17,6 +17,9 @@ import { createHash } from 'crypto';
 import path from 'path';
 import fs from 'fs';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'channels:wechat:cli-manager', level: LogLevel.INFO });
+
 // ─── 日志工具（独立轻量，不依赖外部 logger） ─────────────
 
 function log(level: string, msg: string, ...args: unknown[]): void {
@@ -328,8 +331,12 @@ export class WeixinCliManager extends EventEmitter {
         // 超时强制杀死
         try {
           proc.kill('SIGKILL');
-        } catch {
-          /* ignore */
+        } catch (err) {
+
+          // ignore
+
+          logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
+
         }
       }, 10_000);
 
@@ -344,8 +351,12 @@ export class WeixinCliManager extends EventEmitter {
       // 先 SIGTERM 优雅退出
       try {
         proc.kill('SIGTERM');
-      } catch {
-        /* ignore */
+      } catch (err) {
+
+        // ignore
+
+        logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
+
       }
     });
   }
@@ -408,8 +419,12 @@ export class WeixinCliManager extends EventEmitter {
       const timer = setTimeout(() => {
         try {
           child.kill('SIGKILL');
-        } catch {
-          /* ignore */
+        } catch (err) {
+
+          // ignore
+
+          logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
+
         }
         resolve(false);
       }, timeoutMs);

@@ -7,6 +7,9 @@ import path from 'path';
 import { resolvePyappHome } from '@modules/core';
 import { handleError } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'session:transcript:SessionTranscript', level: LogLevel.INFO });
+
 /**
  * 转录配置
  */
@@ -157,7 +160,11 @@ export class SessionTranscript {
         const filePath = path.join(this.config.storePath, file);
         total += fs.statSync(filePath).size;
       }
-    } catch {} // @ignore-catch: 计算存储占用失败，返回 0
+    } catch (err) {
+
+      logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+    } // @ignore-catch: 计算存储占用失败，返回 0
 
     return total;
   }

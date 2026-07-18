@@ -2,6 +2,9 @@
 import { extname } from 'path';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'config:hotreload:HotReloader', level: LogLevel.INFO });
+
 export type ReloadStrategy = 'watch' | 'poll' | 'manual';
 
 export interface ReloadEvent {
@@ -226,8 +229,12 @@ export class HotReloader {
     for (const listener of this.listeners) {
       try {
         listener(event);
-      } catch {
+      } catch (err) {
+
         // ignore listener errors
+
+        logger.debug("Operation skipped", { context: "ignore listener errors", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
   }
@@ -239,8 +246,12 @@ export class HotReloader {
     for (const listener of this.errorListeners) {
       try {
         listener(error, previousConfig);
-      } catch {
+      } catch (err) {
+
         // ignore listener errors
+
+        logger.debug("Operation skipped", { context: "ignore listener errors", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
   }

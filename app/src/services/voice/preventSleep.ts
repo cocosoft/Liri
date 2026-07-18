@@ -5,6 +5,9 @@
 
 import { spawn } from 'child_process';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'services:voice:preventSleep', level: LogLevel.INFO });
+
 const CAFFEINATE_TIMEOUT_SECONDS = 300;
 const RESTART_INTERVAL_MS = 4 * 60 * 1000;
 
@@ -101,8 +104,12 @@ function killCaffeinate(): void {
   if (caffeinateProcess) {
     try {
       caffeinateProcess.kill('SIGTERM');
-    } catch {
+    } catch (err) {
+
       // ignore
+
+      logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
+
     }
     caffeinateProcess = null;
   }

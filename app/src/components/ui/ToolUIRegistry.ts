@@ -9,6 +9,9 @@
 import type React from 'react';
 import { handleError } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'components:ui:ToolUIRegistry', level: LogLevel.INFO });
+
 export interface ToolUIRenderer {
   renderToolUseMessage?: (
     input: any,
@@ -114,7 +117,11 @@ export function initDefaultToolUIRegistry(): void {
     const agentUI = require('../../tools/AgentTool/UI');
     registerToolUI('agent', agentUI);
     registerToolUI('agenttool', agentUI);
-  } catch {} // @ignore-catch: optional UI module
+  } catch (err) {
+
+    logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+  } // @ignore-catch: optional UI module
 
   try {
     const fileReadUI = require('../../tools/FileReadTool/UI');

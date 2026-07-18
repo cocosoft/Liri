@@ -9,6 +9,9 @@
 import { ModelRegistry } from '@modules/ai';
 import { getModelConfigById } from '@modules/ai';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'cost:ModelPricing', level: LogLevel.INFO });
+
 export interface ModelPricing {
   inputPricePerMillion: number;
   outputPricePerMillion: number;
@@ -46,8 +49,12 @@ function getPricingFromRegistry(modelName: string): ModelPricing | null {
         webSearchPricePerRequest: 0.01,
       };
     }
-  } catch {
+  } catch (err) {
+
     // ModelRegistry 不可用时忽略
+
+    logger.debug("Operation skipped", { context: "ModelRegistry 不可用时忽略", error: err instanceof Error ? err.message : String(err) });
+
   }
   return null;
 }
@@ -56,8 +63,12 @@ export function getCanonicalModelName(modelName: string): string {
   try {
     const config = getModelConfigById(modelName);
     if (config?.firstParty) return config.firstParty;
-  } catch {
+  } catch (err) {
+
     // 忽略
+
+    logger.debug("Operation skipped", { context: "忽略", error: err instanceof Error ? err.message : String(err) });
+
   }
   return modelName;
 }

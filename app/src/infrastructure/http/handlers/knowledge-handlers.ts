@@ -13,6 +13,9 @@ import {
 import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'infrastructure:http:handlers:knowledge-handlers', level: LogLevel.INFO });
+
 export async function handleListKnowledge(
   req: http.IncomingMessage,
   res: http.ServerResponse
@@ -62,8 +65,12 @@ export async function handleListKnowledge(
         const fileStat = await stat(fullPath);
         size = fileStat.size;
         updatedAt = fileStat.mtimeMs;
-      } catch {
+      } catch (err) {
+
         // 文件可能已被移动，使用默认值
+
+        logger.debug("Operation skipped", { context: "文件可能已被移动，使用默认值", error: err instanceof Error ? err.message : String(err) });
+
       }
 
       const content = doc.content || '';
@@ -756,8 +763,12 @@ export async function handleGetRawFiles(
         try {
           const metaContent = readFileSync(join(rawDir, metaFile), 'utf-8');
           meta = JSON.parse(metaContent);
-        } catch {
+        } catch (err) {
+
           // 元数据文件损坏，忽略
+
+          logger.debug("Operation skipped", { context: "元数据文件损坏，忽略", error: err instanceof Error ? err.message : String(err) });
+
         }
       }
 
@@ -1062,8 +1073,12 @@ export async function handleUpdateKnowledgeDoc(
           try {
             const digestService = getDefaultDigestService();
             await digestService.buildDigest();
-          } catch {
+          } catch (err) {
+
             // 摘要重建失败不影响主流程
+
+            logger.warn("Operation skipped", { context: "摘要重建失败不影响主流程", error: err instanceof Error ? err.message : String(err) });
+
           }
 
           res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1095,8 +1110,12 @@ export async function handleUpdateKnowledgeDoc(
     try {
       const digestService = getDefaultDigestService();
       await digestService.buildDigest();
-    } catch {
+    } catch (err) {
+
       // 摘要重建失败不影响主流程
+
+      logger.warn("Operation skipped", { context: "摘要重建失败不影响主流程", error: err instanceof Error ? err.message : String(err) });
+
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

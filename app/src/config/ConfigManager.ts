@@ -17,7 +17,6 @@ import {
 } from 'fs';
 import { join, dirname, basename } from 'path';
 import { createHash } from 'crypto';
-import { logger } from '../utils/log.js';
 import {
   GlobalConfig,
   ProjectConfig,
@@ -54,6 +53,9 @@ import {
   hashRuntimeConfigValue as hashRuntimeConfigSnapshotValue,
   registerRuntimeConfigWriteListener,
 } from './RuntimeConfigSnapshot.js';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'config:ConfigManager', level: LogLevel.INFO });
 
 /**
  * 确定性 JSON 序列化，用于配置 Hash 计算
@@ -241,8 +243,12 @@ export class ConfigManager {
       let stats: { mtimeMs: number; size: number } | null = null;
       try {
         stats = statSync(this.globalConfigPath);
-      } catch {
+      } catch (err) {
+
         // 文件不存在
+
+        logger.debug("Operation skipped", { context: "文件不存在", error: err instanceof Error ? err.message : String(err) });
+
       }
 
       const config = this.loadConfigFromFile();
@@ -607,8 +613,12 @@ export class ConfigManager {
       if (tempPath && existsSync(tempPath)) {
         try {
           unlinkSync(tempPath);
-        } catch {
+        } catch (err) {
+
           // 忽略清理错误
+
+          logger.debug("Operation skipped", { context: "忽略清理错误", error: err instanceof Error ? err.message : String(err) });
+
         }
       }
       throw error;
@@ -675,8 +685,12 @@ export class ConfigManager {
 
       const backups = readFileSync(backupDir, 'utf-8');
       // 这里简化处理，实际应该读取目录列表
-    } catch {
+    } catch (err) {
+
       // 忽略清理错误
+
+      logger.debug("Operation skipped", { context: "忽略清理错误", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 
@@ -746,8 +760,12 @@ export class ConfigManager {
           this.configHashRevision++;
           setRuntimeConfigSnapshot(mergedConfig);
           logger.debug('文件监控检测到配置变更，已更新缓存和快照');
-        } catch {
+        } catch (err) {
+
           // 忽略读取错误
+
+          logger.debug("Operation skipped", { context: "忽略读取错误", error: err instanceof Error ? err.message : String(err) });
+
         }
       }
     );
@@ -1092,8 +1110,12 @@ export class ConfigManager {
         if (existsSync(tempPath)) {
           unlinkSync(tempPath);
         }
-      } catch {
+      } catch (err) {
+
         // 忽略清理错误
+
+        logger.debug("Operation skipped", { context: "忽略清理错误", error: err instanceof Error ? err.message : String(err) });
+
       }
       logger.error('JSON 文件写入失败', { filePath, error: String(error) });
       return false;

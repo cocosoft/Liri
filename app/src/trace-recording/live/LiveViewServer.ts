@@ -12,6 +12,9 @@ import type { TraceRecord } from '../types';
 import { ViewerService } from '../viewer/ViewerService';
 import { TraceEngine } from '../engine/TraceEngine';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'trace-recording:live:LiveViewServer', level: LogLevel.INFO });
+
 /** SSE 客户端连接 */
 interface SSEClient {
   id: number;
@@ -61,8 +64,12 @@ export class LiveViewServer {
     for (const client of this.clients.values()) {
       try {
         client.res.end();
-      } catch {
+      } catch (err) {
+
         // 忽略关闭异常
+
+        logger.debug("Operation skipped", { context: "忽略关闭异常", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
     this.clients.clear();

@@ -8,6 +8,9 @@ import { watch, unwatchFile } from 'fs';
 import type { KeybindingConfig } from './validation';
 import { validateConfig } from './validation';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'keybindings:hotReload', level: LogLevel.INFO });
+
 export interface HotReloadOptions {
   configPath?: string;
   debounceDelay?: number;
@@ -51,8 +54,12 @@ export class HotReloadManager {
   stop(): void {
     try {
       unwatchFile(this.configPath);
-    } catch {
+    } catch (err) {
+
       // 忽略错误
+
+      logger.debug("Operation skipped", { context: "忽略错误", error: err instanceof Error ? err.message : String(err) });
+
     }
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);

@@ -11,6 +11,9 @@ import { TaskType, TaskStatus } from './types';
 import type { TaskState } from './types';
 import { BaseTask } from './BaseTask';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tasks:MonitorTask', level: LogLevel.INFO });
+
 export interface MonitorTarget {
   name: string;
   url: string;
@@ -80,8 +83,12 @@ export class MonitorTask extends BaseTask {
               `[${new Date().toISOString()}] ${target.name} 持续不可用\n`
             );
           }
-        } catch {
+        } catch (err) {
+
           // 单目标探测失败不中断其他目标
+
+          logger.warn("Operation skipped", { context: "单目标探测失败不中断其他目标", error: err instanceof Error ? err.message : String(err) });
+
         }
       }
     }, 10_000); // 每 10s 检查一轮

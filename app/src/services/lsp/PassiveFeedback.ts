@@ -6,6 +6,9 @@ import {
   globalDiagnosticRegistry,
 } from './DiagnosticRegistry';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'services:lsp:PassiveFeedback', level: LogLevel.INFO });
+
 export type FeedbackEvent = 'diagnostics_changed' | 'diagnostics_cleared';
 
 export type FeedbackListener = (event: FeedbackEvent, data: any) => void;
@@ -44,8 +47,12 @@ export class PassiveFeedback {
       for (const listener of listeners) {
         try {
           listener(event, data);
-        } catch {
+        } catch (err) {
+
           // ignore listener errors
+
+          logger.debug("Operation skipped", { context: "ignore listener errors", error: err instanceof Error ? err.message : String(err) });
+
         }
       }
     }

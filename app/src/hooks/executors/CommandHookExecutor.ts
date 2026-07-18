@@ -12,6 +12,9 @@ import {
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'hooks:executors:CommandHookExecutor', level: LogLevel.INFO });
+
 const execPromise = promisify(exec);
 
 /**
@@ -69,8 +72,12 @@ export class CommandHookExecutor {
       try {
         const parsed = JSON.parse(stdout.trim());
         result = this.processHookJsonOutput(parsed, result);
-      } catch {
+      } catch (err) {
+
         // 不是有效的JSON，保持原样
+
+        logger.debug("Operation skipped", { context: "不是有效的JSON，保持原样", error: err instanceof Error ? err.message : String(err) });
+
       }
 
       return result;

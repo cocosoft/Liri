@@ -33,6 +33,9 @@ import type {
   ChainEndData,
 } from '../events/OrchestrationEvents.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'agent:chains:AgentChain', level: LogLevel.INFO });
+
 /**
  * 模拟 Agent 执行函数
  * 在真实环境中应替换为实际的 Agent 调用
@@ -193,8 +196,12 @@ export class AgentChain extends EventEmitter {
         input: request.input,
       };
       globalEventBus.publish(OrchestrationEventType.CHAIN_START, startData);
-    } catch {
+    } catch (err) {
+
       // EventBus 发射失败不阻塞主流程
+
+      logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
+
     }
 
     for (let i = 0; i < chain.steps.length; i++) {
@@ -270,8 +277,12 @@ export class AgentChain extends EventEmitter {
         error: chainError,
       };
       globalEventBus.publish(OrchestrationEventType.CHAIN_END, endData);
-    } catch {
+    } catch (err) {
+
       // EventBus 发射失败不阻塞主流程
+
+      logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
+
     }
 
     return {
@@ -566,8 +577,12 @@ export class AgentChain extends EventEmitter {
         };
         globalEventBus.publish(OrchestrationEventType.CHAIN_STEP, stepData);
       }
-    } catch {
+    } catch (err) {
+
       // EventBus 发射失败不阻塞主流程
+
+      logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 

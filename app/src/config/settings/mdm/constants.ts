@@ -6,6 +6,9 @@
 import { homedir, userInfo } from 'os';
 import { join } from 'path';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'config:settings:mdm:constants', level: LogLevel.INFO });
+
 /**
  * macOS偏好域
  */
@@ -51,8 +54,12 @@ export function getMacOSPlistPaths(): Array<{ path: string; label: string }> {
   let username = '';
   try {
     username = userInfo().username;
-  } catch {
+  } catch (err) {
+
     // ignore
+
+    logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
+
   }
 
   const paths: Array<{ path: string; label: string }> = [];

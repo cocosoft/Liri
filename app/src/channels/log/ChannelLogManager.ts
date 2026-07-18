@@ -9,6 +9,9 @@ import { resolvePyappHome } from '@modules/core';
 import type { ChannelId, MessageContext } from '../types/IChannel.js';
 import { getRedactMiddleware } from '../../security/redact/RedactMiddleware';
 
+import { Logger, LogLevel as MonitoringLogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'channels:log:ChannelLogManager', level: MonitoringLogLevel.INFO });
+
 /**
  * 日志级别
  */
@@ -262,8 +265,12 @@ export class ChannelLogManager {
       const line = JSON.stringify(entry) + '\n';
 
       fs.appendFileSync(filePath, line, 'utf-8');
-    } catch {
+    } catch (err) {
+
       // 持久化失败不影响主流程
+
+      logger.warn("Operation skipped", { context: "持久化失败不影响主流程", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 

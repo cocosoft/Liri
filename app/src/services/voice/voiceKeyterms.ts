@@ -5,6 +5,9 @@
 
 import { basename } from 'path';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'services:voice:voiceKeyterms', level: LogLevel.INFO });
+
 const GLOBAL_KEYTERMS: readonly string[] = [
   'MCP',
   'symlink',
@@ -53,8 +56,12 @@ export async function getVoiceKeyterms(
         terms.add(name);
       }
     }
-  } catch {
+  } catch (err) {
+
     // ignore
+
+    logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
+
   }
 
   if (recentFiles) {

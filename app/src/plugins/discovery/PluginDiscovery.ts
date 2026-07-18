@@ -7,6 +7,9 @@ import path from 'path';
 import { resolveProjectRoot, resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'plugins:discovery:PluginDiscovery', level: LogLevel.INFO });
+
 /**
  * 发现源类型
  */
@@ -156,8 +159,12 @@ export class PluginDiscovery {
                 fs.readFileSync(manifestPath, 'utf-8')
               );
               version = manifest.version;
-            } catch {
+            } catch (err) {
+
               // 忽略解析错误
+
+              logger.debug("Operation skipped", { context: "忽略解析错误", error: err instanceof Error ? err.message : String(err) });
+
             }
 
             results.push({
@@ -180,8 +187,12 @@ export class PluginDiscovery {
           results.push(...subResults);
         }
       }
-    } catch {
+    } catch (err) {
+
       // 忽略扫描错误
+
+      logger.debug("Operation skipped", { context: "忽略扫描错误", error: err instanceof Error ? err.message : String(err) });
+
     }
 
     return results;

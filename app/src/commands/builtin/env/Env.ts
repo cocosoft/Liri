@@ -6,6 +6,9 @@ import { arch, platform } from 'os';
 import { configManager } from '@modules/config';
 import type { CommandContext, CommandResult } from '@modules/commands';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:builtin:env:Env', level: LogLevel.INFO });
+
 /**
  * 应用相关环境变量前缀列表
  */
@@ -238,8 +241,12 @@ const envCommand = {
       try {
         const { logEvent } = await import('@modules/analytics/index.js');
         logEvent('tengu_env_view', { showAll });
-      } catch {
+      } catch (err) {
+
         // analytics 非关键
+
+        logger.debug("Operation skipped", { context: "analytics 非关键", error: err instanceof Error ? err.message : String(err) });
+
       }
 
       return handleDefault(showAll);

@@ -11,6 +11,9 @@ import { platform, homedir } from 'os';
 import { configManager } from '@modules/config';
 import { delimiter, join, sep } from 'path';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'diagnostics:InstallationTypeDetector', level: LogLevel.INFO });
+
 const execAsync = promisify(exec) as (
   command: string,
   options?: Record<string, unknown>
@@ -335,8 +338,12 @@ export class InstallationTypeDetector {
           });
         }
       }
-    } catch {
+    } catch (err) {
+
       // where命令失败，可能只有一个安装
+
+      logger.warn("Operation skipped", { context: "where命令失败，可能只有一个安装", error: err instanceof Error ? err.message : String(err) });
+
     }
 
     const hasMultiple = installations.length > 1;

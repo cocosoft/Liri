@@ -12,6 +12,9 @@ import { resolvePyappHome } from '@modules/core';
 import { randomUUID } from 'crypto';
 import { configManager } from '@modules/config';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'utils:auth', level: LogLevel.INFO });
+
 export interface AuthSession {
   oauthToken: string;
   apiKey?: string;
@@ -64,8 +67,12 @@ export async function loadAuthConfig(): Promise<AuthConfig> {
       const data = await readFile(CONFIG_FILE, 'utf-8');
       return JSON.parse(data) as AuthConfig;
     }
-  } catch {
+  } catch (err) {
+
     // 配置文件不存在或格式错误时返回空配置
+
+    logger.debug("Operation skipped", { context: "配置文件不存在或格式错误时返回空配置", error: err instanceof Error ? err.message : String(err) });
+
   }
   return {};
 }
@@ -84,8 +91,12 @@ export async function loadSession(): Promise<AuthSession | null> {
       const data = await readFile(SESSION_FILE, 'utf-8');
       return JSON.parse(data) as AuthSession;
     }
-  } catch {
+  } catch (err) {
+
     // 会话文件异常时返回 null
+
+    logger.debug("Operation skipped", { context: "会话文件异常时返回 null", error: err instanceof Error ? err.message : String(err) });
+
   }
   return null;
 }
@@ -103,8 +114,12 @@ export async function clearSession(): Promise<void> {
     if (existsSync(SESSION_FILE)) {
       await writeFile(SESSION_FILE, JSON.stringify({}), 'utf-8');
     }
-  } catch {
+  } catch (err) {
+
     // 清理失败时静默处理
+
+    logger.warn("Operation skipped", { context: "清理失败时静默处理", error: err instanceof Error ? err.message : String(err) });
+
   }
 }
 

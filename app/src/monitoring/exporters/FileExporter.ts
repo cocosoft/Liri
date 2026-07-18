@@ -9,6 +9,9 @@ import { resolveLogsDir } from '@modules/core';
 import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'monitoring:exporters:FileExporter', level: LogLevel.INFO });
+
 /**
  * 导出数据
  */
@@ -139,13 +142,21 @@ export class FileExporter {
         for (const file of files.slice(this.config.maxFiles)) {
           try {
             fs.unlinkSync(file.path);
-          } catch {
+          } catch (err) {
+
             // 忽略删除错误
+
+            logger.debug("Operation skipped", { context: "忽略删除错误", error: err instanceof Error ? err.message : String(err) });
+
           }
         }
       }
-    } catch {
+    } catch (err) {
+
       // 忽略清理错误
+
+      logger.debug("Operation skipped", { context: "忽略清理错误", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 

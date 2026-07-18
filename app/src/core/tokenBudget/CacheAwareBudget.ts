@@ -6,6 +6,9 @@
 import { priceManager } from './PriceManager';
 import type { ModelPriceTable, TokenUsageDetail } from './types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'core:tokenBudget:CacheAwareBudget', level: LogLevel.INFO });
+
 export interface CacheEfficiencyResult {
   efficiency: number;
   ratio: string;
@@ -84,8 +87,12 @@ export function getCacheEfficiency(
       const cacheCost =
         (cacheReadTokens / 1_000_000) * priceResult.pricing.cacheReadPer1M;
       totalSavings = fullCost - cacheCost;
-    } catch {
+    } catch (err) {
+
       // ignore
+
+      logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 

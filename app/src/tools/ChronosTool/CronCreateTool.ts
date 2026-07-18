@@ -8,6 +8,9 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:ChronosTool:CronCreateTool', level: LogLevel.INFO });
+
 const MAX_JOBS = 50;
 
 export class CronCreateTool {
@@ -215,8 +218,12 @@ export class CronCreateTool {
             const { wakeGlobalCronScheduler } =
               await import('@modules/tasks/cron/GlobalCronScheduler');
             wakeGlobalCronScheduler();
-          } catch {
+          } catch (err) {
+
             // 调度器可能未启动，忽略
+
+            logger.debug("Operation skipped", { context: "调度器可能未启动，忽略", error: err instanceof Error ? err.message : String(err) });
+
           }
 
           const humanSchedule = parsed.display || expression;

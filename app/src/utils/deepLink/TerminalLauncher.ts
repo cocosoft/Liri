@@ -16,6 +16,9 @@ import { spawn } from 'child_process';
 import { configManager } from '@modules/config';
 import { basename } from 'path';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'utils:deepLink:TerminalLauncher', level: LogLevel.INFO });
+
 export type TerminalInfo = {
   name: string;
   command: string;
@@ -245,8 +248,12 @@ async function launchLinuxTerminal(
         stdio: 'ignore',
       }).unref();
       return true;
-    } catch {
+    } catch (err) {
+
       // last attempt failed
+
+      logger.debug("Operation skipped", { context: "last attempt failed", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 

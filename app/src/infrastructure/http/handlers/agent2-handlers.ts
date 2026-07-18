@@ -26,6 +26,9 @@ import type { HandlerCtx } from './handler-utils';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { handleError } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'infrastructure:http:handlers:agent2-handlers', level: LogLevel.INFO });
+
 // ========== Agent2 Handlers ==========
 
 export async function handleCancelAgentTask(
@@ -47,7 +50,11 @@ export async function handleCancelAgentTask(
         res.end(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
-      } catch {} /* res可能已结束, 忽略 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* res可能已结束, 忽略 */
     }
   }
 }
@@ -79,7 +86,11 @@ export async function handleGetAgentTaskState(
         res.end(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
-      } catch {} /* res可能已结束, 忽略 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* res可能已结束, 忽略 */
     }
   }
 }
@@ -106,7 +117,11 @@ export async function handleGetAgentTaskAudit(
         res.end(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
-      } catch {} /* res可能已结束, 忽略 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* res可能已结束, 忽略 */
     }
   }
 }
@@ -158,7 +173,11 @@ export async function handleGetAgentTaskLogs(
         res.end(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
-      } catch {} /* res可能已结束, 忽略 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* res可能已结束, 忽略 */
     }
   }
 }
@@ -192,7 +211,11 @@ export async function handleGetAgentTaskOutput(
         res.end(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
-      } catch {} /* res可能已结束, 忽略 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* res可能已结束, 忽略 */
     }
   }
 }
@@ -221,7 +244,11 @@ export async function handleRecoverAgentTask(
         res.end(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
-      } catch {} /* res可能已结束, 忽略 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* res可能已结束, 忽略 */
     }
   }
 }
@@ -257,7 +284,11 @@ export async function handleAgentTaskChat(
         res.end(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
-      } catch {} /* res可能已结束, 忽略 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* res可能已结束, 忽略 */
     }
   }
 }

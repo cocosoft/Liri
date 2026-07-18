@@ -22,6 +22,9 @@ import {
   resolveAttachmentsDir,
 } from '@modules/core/paths';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'infrastructure:http:handlers:image-handlers', level: LogLevel.INFO });
+
 /** 图片输出根目录（上传） */
 const IMAGES_ROOT = path.join(resolveOutputDir(), 'images');
 
@@ -194,8 +197,12 @@ function collectImageFiles(
         }
       }
     }
-  } catch {
+  } catch (err) {
+
     // 目录不存在或不可读，忽略
+
+    logger.debug("Operation skipped", { context: "目录不存在或不可读，忽略", error: err instanceof Error ? err.message : String(err) });
+
   }
 }
 

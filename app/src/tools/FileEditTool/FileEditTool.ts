@@ -43,8 +43,12 @@ function readFileWithEncoding(filePath: string): string {
   if (nativeRead) {
     try {
       return nativeRead(filePath);
-    } catch {
+    } catch (err) {
+
       // 原生模块读取失败，回退到 UTF-8
+
+      logger.warn("Operation skipped", { context: "原生模块读取失败，回退到 UTF-8", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
   return fs.readFileSync(filePath, 'utf-8');
@@ -147,6 +151,9 @@ import type {
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:FileEditTool:FileEditTool', level: LogLevel.INFO });
 
 function normalizeQuotes(str: string): string {
   return str.replace(/\u2018|\u2019/g, "'").replace(/\u201c|\u201d/g, '"');

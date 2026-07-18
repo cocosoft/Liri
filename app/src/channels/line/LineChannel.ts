@@ -14,6 +14,9 @@ import type {
 import { TTLCache } from '@modules/utils/cache';
 import { handleError } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'channels:line:LineChannel', level: LogLevel.INFO });
+
 const LINE_API_BASE = 'https://api.line.me/v2/bot';
 
 const LINE_META: ChannelMeta = {
@@ -96,8 +99,12 @@ class UserProfileCache {
         this.cache.set(userId, name);
         return name;
       }
-    } catch {
+    } catch (err) {
+
       // 静默降级
+
+      logger.debug("Operation skipped", { context: "静默降级", error: err instanceof Error ? err.message : String(err) });
+
     }
     return userId;
   }

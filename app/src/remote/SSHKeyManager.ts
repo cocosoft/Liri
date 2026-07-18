@@ -13,6 +13,9 @@ import { homedir } from 'os';
 import { randomUUID } from 'crypto';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'remote:SSHKeyManager', level: LogLevel.INFO });
+
 const execPromise = promisify(exec);
 
 /**
@@ -334,12 +337,20 @@ export class SSHKeyManager {
             fingerprint: fingerprintResult.trim(),
             loadedToAgent: false,
           });
-        } catch {
+        } catch (err) {
+
           // skip unreadable keys
+
+          logger.debug("Operation skipped", { context: "skip unreadable keys", error: err instanceof Error ? err.message : String(err) });
+
         }
       }
-    } catch {
+    } catch (err) {
+
       // storage dir might not exist yet
+
+      logger.debug("Operation skipped", { context: "storage dir might not exist yet", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 
@@ -362,8 +373,12 @@ export class SSHKeyManager {
         if (existsSync(p)) {
           await unlink(p);
         }
-      } catch {
+      } catch (err) {
+
         // ignore cleanup failures
+
+        logger.debug("Operation skipped", { context: "ignore cleanup failures", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
   }

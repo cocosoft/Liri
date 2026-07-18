@@ -7,6 +7,9 @@ import { resolve, dirname } from 'path';
 import { pathToFileURL } from 'url';
 import { createRequire } from 'module';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:converter:converters:PdfConverter', level: LogLevel.INFO });
+
 let _depError: Error | null = null;
 let _pdfjsLib: any = null;
 let _cMapUrl: string | undefined;
@@ -22,8 +25,12 @@ function ensurePdfJsLoaded(): void {
     const pdfjsDistPath = dirname(require.resolve('pdfjs-dist/package.json'));
     _cMapUrl = pathToFileURL(resolve(pdfjsDistPath, 'cmaps') + '/').href;
     return;
-  } catch {
+  } catch (err) {
+
     // 标准 require 失败，继续尝试其他方式
+
+    logger.warn("Operation skipped", { context: "标准 require 失败，继续尝试其他方式", error: err instanceof Error ? err.message : String(err) });
+
   }
 
   // 尝试2: 通过 createRequire 从 exe 同目录加载外部 node_modules
@@ -36,8 +43,12 @@ function ensurePdfJsLoaded(): void {
     );
     _cMapUrl = pathToFileURL(resolve(pdfjsDistPath, 'cmaps') + '/').href;
     return;
-  } catch {
+  } catch (err) {
+
     // 外部路径也失败
+
+    logger.warn("Operation skipped", { context: "外部路径也失败", error: err instanceof Error ? err.message : String(err) });
+
   }
 
   // 尝试3: 最终回退，加载未指定 legacy 的版本

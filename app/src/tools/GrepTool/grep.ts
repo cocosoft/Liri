@@ -5,6 +5,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { handleError } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:GrepTool:grep', level: LogLevel.INFO });
+
 // 懒初始化 Rust 原生模块，用于自动检测文件编码
 let nativeReadFile: ((filePath: string) => string) | null = null;
 
@@ -97,8 +100,12 @@ export function grep(options: GrepOptions): GrepResult {
     } else {
       searchDir(searchPath, regex, options, fileMatches, MAX_RESULTS);
     }
-  } catch {
+  } catch (err) {
+
     // 路径无效时静默处理，返回空结果
+
+    logger.debug("Operation skipped", { context: "路径无效时静默处理，返回空结果", error: err instanceof Error ? err.message : String(err) });
+
   }
 
   let outputLines: string[] = [];

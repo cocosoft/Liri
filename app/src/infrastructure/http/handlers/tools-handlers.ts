@@ -24,6 +24,9 @@ import type { HandlerCtx } from './handler-utils';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { handleError } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'infrastructure:http:handlers:tools-handlers', level: LogLevel.INFO });
+
 // ========== Tools Handlers ==========
 
 export async function handleListTools(
@@ -44,7 +47,11 @@ export async function handleListTools(
         res.end(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
-      } catch {} /* res可能已结束, 忽略 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* res可能已结束, 忽略 */
     }
   }
 }
@@ -77,7 +84,11 @@ export async function handleExecuteTool(
         res.end(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
-      } catch {} /* res可能已结束, 忽略 */
+      } catch (err) {
+
+        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
+
+      } /* res可能已结束, 忽略 */
     }
   }
 }

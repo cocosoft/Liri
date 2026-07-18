@@ -27,6 +27,9 @@
 import type { Command, CommandContext, CommandResult } from '@modules/commands';
 import { getCommandManager } from '@modules/commands';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:stats:index', level: LogLevel.INFO });
+
 /**
  * 统计数据类型
  */
@@ -152,8 +155,12 @@ async function handleTokens(): Promise<CommandResult> {
       `  Total Tokens:  ${(totalInput + totalOutput).toLocaleString()}`,
       `  Total Cost:    $${totalCost.toFixed(4)}`,
     ].join('\n');
-  } catch {
+  } catch (err) {
+
     // 兜底：costTracker 可能未加载
+
+    logger.debug("Operation skipped", { context: "兜底：costTracker 可能未加载", error: err instanceof Error ? err.message : String(err) });
+
   }
 
   return {

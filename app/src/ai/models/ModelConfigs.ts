@@ -7,6 +7,9 @@
 
 import { ModelCapability } from './types.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'ai:models:ModelConfigs', level: LogLevel.INFO });
+
 /**
  * API提供商类型
  */
@@ -82,8 +85,12 @@ function _getAllFromRegistry(): Record<string, ModelConfig> {
       const reg = mod.ModelRegistry.getInstance();
       return reg.getAllModelsAsRecord();
     }
-  } catch {
+  } catch (err) {
+
     // ModelRegistry 不可用
+
+    logger.debug("Operation skipped", { context: "ModelRegistry 不可用", error: err instanceof Error ? err.message : String(err) });
+
   }
   return {};
 }

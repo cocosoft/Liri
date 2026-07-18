@@ -7,6 +7,9 @@ import { resolve, normalize, relative, sep } from 'path';
 import { existsSync, statSync } from 'fs';
 import { configManager } from '@modules/config';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'security:bash:DirectoryScopeRestriction', level: LogLevel.INFO });
+
 /**
  * 路径验证结果
  */
@@ -112,8 +115,12 @@ export class DirectoryScopeRestriction {
           this.config.allowedDirs = [...this.config.allowedDirs, ...wsDirs];
         }
       }
-    } catch {
+    } catch (err) {
+
       // config 系统未初始化时静默降级
+
+      logger.debug("Operation skipped", { context: "config 系统未初始化时静默降级", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 

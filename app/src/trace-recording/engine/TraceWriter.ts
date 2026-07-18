@@ -11,6 +11,9 @@ import fs from 'fs';
 import path from 'path';
 import type { TraceRecord } from '../types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'trace-recording:engine:TraceWriter', level: LogLevel.INFO });
+
 /** TraceWriter 统计 */
 export interface WriterStats {
   totalWritten: number;
@@ -90,8 +93,12 @@ export class TraceWriter {
     for (const line of content.split('\n').filter(Boolean)) {
       try {
         records.push(JSON.parse(line));
-      } catch {
+      } catch (err) {
+
         // 忽略无效行
+
+        logger.debug("Operation skipped", { context: "忽略无效行", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
     return records;
@@ -118,8 +125,12 @@ export class TraceWriter {
       for (const line of content.split('\n').filter(Boolean)) {
         try {
           records.push(JSON.parse(line));
-        } catch {
+        } catch (err) {
+
           // 忽略无效行
+
+          logger.debug("Operation skipped", { context: "忽略无效行", error: err instanceof Error ? err.message : String(err) });
+
         }
       }
     }

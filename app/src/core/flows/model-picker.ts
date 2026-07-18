@@ -6,6 +6,9 @@ import type {
 } from './types.js';
 import { modelManager } from '@modules/ai';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'core:flows:model-picker', level: LogLevel.INFO });
+
 export type ModelCatalogEntry = {
   id: string;
   provider: string;
@@ -45,8 +48,12 @@ function loadModelCatalog(): Map<string, ModelCatalogEntry> {
         capabilities: ['text'],
       });
     }
-  } catch {
+  } catch (err) {
+
     // ModelManager 不可用时使用空目录
+
+    logger.debug("Operation skipped", { context: "ModelManager 不可用时使用空目录", error: err instanceof Error ? err.message : String(err) });
+
   }
   return catalog;
 }

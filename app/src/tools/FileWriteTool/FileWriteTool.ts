@@ -44,8 +44,12 @@ function readFileWithEncoding(filePath: string): string {
   if (nativeRead) {
     try {
       return nativeRead(filePath);
-    } catch {
+    } catch (err) {
+
       // 原生模块读取失败，回退到 UTF-8
+
+      logger.warn("Operation skipped", { context: "原生模块读取失败，回退到 UTF-8", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
   return fs.readFileSync(filePath, 'utf-8');
@@ -109,6 +113,9 @@ import type {
 import { createToolResult } from '../types/ToolResult';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { checkPathAccessibility } from '../utils/ToolUtils';
+
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:FileWriteTool:FileWriteTool', level: LogLevel.INFO });
 
 export class FileWriteTool extends BaseTool {
   name = 'file_write';
@@ -276,8 +283,12 @@ export class FileWriteTool extends BaseTool {
           description: `FileWriteTool 写入: ${filePath}`,
           storeZone: 'inbound',
         });
-      } catch {
+      } catch (err) {
+
         // 静默失败，不干扰工具调用主流程
+
+        logger.warn("Operation skipped", { context: "静默失败，不干扰工具调用主流程", error: err instanceof Error ? err.message : String(err) });
+
       }
     });
   }

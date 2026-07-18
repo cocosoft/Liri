@@ -8,6 +8,9 @@ import type { SessionLifecycleEvent } from '@modules/session/lifecycle/SessionLi
 import type { EventSubscription } from '@modules/core';
 import { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'chat:services:SessionStateBridge', level: LogLevel.INFO });
+
 export class SessionStateBridge {
   private eventBus: SessionLifecycleEventBus;
   private sessionMachines: Map<string, SessionStateMachine> = new Map();
@@ -57,8 +60,12 @@ export class SessionStateBridge {
         const machine = this.getSessionMachine(event.sessionId);
         try {
           machine.complete('会话归档前完成');
-        } catch {
+        } catch (err) {
+
           // 忽略非 RUNNING 状态下 complete 失败的异常
+
+          logger.warn("Operation skipped", { context: "忽略非 RUNNING 状态下 complete 失败的异常", error: err instanceof Error ? err.message : String(err) });
+
         }
       })
     );

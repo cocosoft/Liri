@@ -6,6 +6,9 @@
 
 import { SSHConnection, SSHConfig, SSHConnectionStatus } from './SSHConnection';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'remote:SSHConnectionPool', level: LogLevel.INFO });
+
 /**
  * 连接池配置
  */
@@ -191,8 +194,12 @@ export class SSHConnectionPool {
     for (const [, entry] of this.pool) {
       try {
         entry.connection.disconnect();
-      } catch {
+      } catch (err) {
+
         // ignore disconnect errors during shutdown
+
+        logger.debug("Operation skipped", { context: "ignore disconnect errors during shutdown", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
     this.pool.clear();

@@ -145,6 +145,9 @@ import { getConverterEngine } from '../../tools/converter/engine/ConverterEngine
 import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector';
 import { checkPathAccessibility } from '../utils/ToolUtils';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:FileReadTool:FileReadTool', level: LogLevel.INFO });
+
 const BINARY_EXTENSIONS = new Set([
   '.docx',
   '.xlsx',
@@ -400,8 +403,12 @@ export class FileReadTool extends BaseTool {
       if (record) {
         return record.savedPath;
       }
-    } catch {
+    } catch (err) {
+
       // 静默失败，回退到 file_path
+
+      logger.warn("Operation skipped", { context: "静默失败，回退到 file_path", error: err instanceof Error ? err.message : String(err) });
+
     }
     return null;
   }
@@ -463,8 +470,12 @@ export class FileReadTool extends BaseTool {
           sourceId: filePath,
           description: 'FileReadTool 自动注册',
         });
-      } catch {
+      } catch (err) {
+
         // 静默失败，不干扰主流程
+
+        logger.warn("Operation skipped", { context: "静默失败，不干扰主流程", error: err instanceof Error ? err.message : String(err) });
+
       }
 
       try {
@@ -475,8 +486,12 @@ export class FileReadTool extends BaseTool {
         await service.ingestFile(filePath, 'file_read', {
           skipClassification: true,
         });
-      } catch {
+      } catch (err) {
+
         // 静默失败，不干扰主流程
+
+        logger.warn("Operation skipped", { context: "静默失败，不干扰主流程", error: err instanceof Error ? err.message : String(err) });
+
       }
     });
   }

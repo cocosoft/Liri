@@ -11,6 +11,9 @@
 
 import type { SSERawEvent } from '../types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'trace-recording:sse:SSEReassembler', level: LogLevel.INFO });
+
 /**
  * SSE 重组器
  */
@@ -71,8 +74,12 @@ export class SSEReassembler {
         let data: unknown = rawData;
         try {
           data = JSON.parse(rawData);
-        } catch {
+        } catch (err) {
+
           // 保留原始字符串
+
+          logger.debug("Operation skipped", { context: "保留原始字符串", error: err instanceof Error ? err.message : String(err) });
+
         }
 
         const eventType = this.currentEvent || 'message';
@@ -174,8 +181,12 @@ export class SSEReassembler {
           if ('_partialJson' in block) {
             try {
               block.input = JSON.parse(block._partialJson as string);
-            } catch {
+            } catch (err) {
+
               // partial JSON 不完整时保留原值
+
+              logger.debug("Operation skipped", { context: "partial JSON 不完整时保留原值", error: err instanceof Error ? err.message : String(err) });
+
             }
             delete block._partialJson;
           }
@@ -193,8 +204,12 @@ export class SSEReassembler {
           Object.assign(this.snapshot.usage as Record<string, unknown>, usage);
         }
       }
-    } catch {
+    } catch (err) {
+
       // 累积异常时静默忽略，不影响主流程
+
+      logger.warn("Operation skipped", { context: "累积异常时静默忽略，不影响主流程", error: err instanceof Error ? err.message : String(err) });
+
     }
   }
 
@@ -321,8 +336,12 @@ export class SSEReassembler {
     if (argsStr) {
       try {
         block.input = JSON.parse(argsStr);
-      } catch {
+      } catch (err) {
+
         // 参数仍在流式传输中
+
+        logger.debug("Operation skipped", { context: "参数仍在流式传输中", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
   }

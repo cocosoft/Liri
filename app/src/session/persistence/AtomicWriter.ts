@@ -9,6 +9,9 @@ import path from 'path';
 import crypto from 'crypto';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'session:persistence:AtomicWriter', level: LogLevel.INFO });
+
 export class AtomicWriteError extends AppError {
   public readonly path: string;
   public readonly tmpPath: string;
@@ -71,8 +74,12 @@ export class AtomicWriter {
       let existing = '';
       try {
         existing = await fs.readFile(targetPath, 'utf-8');
-      } catch {
+      } catch (err) {
+
         // file doesn't exist yet, that's fine
+
+        logger.debug("Operation skipped", { context: "file doesn't exist yet, that's fine", error: err instanceof Error ? err.message : String(err) });
+
       }
       await fs.writeFile(tmpPath, existing + data, 'utf-8');
       await fs.rename(tmpPath, targetPath);

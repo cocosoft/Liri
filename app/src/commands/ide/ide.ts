@@ -9,6 +9,9 @@ import { join } from 'path';
 import { configManager } from '@modules/config';
 import type { CommandContext, CommandResult } from '@modules/commands';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:ide:ide', level: LogLevel.INFO });
+
 /**
  * IDE 定义接口
  */
@@ -206,8 +209,12 @@ function detectByPath(def: IDEDefinition): {
     if (firstPath) {
       return { installed: true, path: firstPath };
     }
-  } catch {
+  } catch (err) {
+
     // not in PATH
+
+    logger.debug("Operation skipped", { context: "not in PATH", error: err instanceof Error ? err.message : String(err) });
+
   }
   return { installed: false };
 }
@@ -432,8 +439,12 @@ const ideCommand = {
       try {
         const { logEvent } = await import('@modules/analytics/index.js');
         logEvent('tengu_ide_view', { action: action || 'list', showJson });
-      } catch {
+      } catch (err) {
+
         // analytics 非关键
+
+        logger.debug("Operation skipped", { context: "analytics 非关键", error: err instanceof Error ? err.message : String(err) });
+
       }
 
       if (action === 'open') {

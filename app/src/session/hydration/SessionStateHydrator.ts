@@ -16,6 +16,9 @@
 import type { ChatSession } from '../../chat/types/session';
 import type { Message } from '../../chat/types/message';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'session:hydration:SessionStateHydrator', level: LogLevel.INFO });
+
 // ============================================================================
 // 类型定义
 // ============================================================================
@@ -160,8 +163,12 @@ export class SessionStateHydrator {
             const parsed = JSON.parse(block.text);
             const path = parsed.file_path || parsed.filePath || parsed.path;
             if (typeof path === 'string') return path;
-          } catch {
+          } catch (err) {
+
             // ignore
+
+            logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
+
           }
         }
       }
@@ -189,8 +196,12 @@ export class SessionStateHydrator {
         if (block.type === 'text' && block.text) {
           try {
             return JSON.parse(block.text);
-          } catch {
+          } catch (err) {
+
             // ignore
+
+            logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
+
           }
         }
         if (block.value) {

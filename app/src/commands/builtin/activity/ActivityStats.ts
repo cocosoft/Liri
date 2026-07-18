@@ -11,6 +11,9 @@ import { promises as fs } from 'fs';
 import { join, extname } from 'path';
 import { getCommandManager as getCmdMgr } from '@modules/commands';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:builtin:activity:ActivityStats', level: LogLevel.INFO });
+
 /**
  * 语言扩展名映射
  */
@@ -93,8 +96,12 @@ async function scanProjectCode(rootDir?: string): Promise<CodeScanResult> {
       totalFiles += stats.files;
       totalLines += stats.lines;
     });
-  } catch {
+  } catch (err) {
+
     // 扫描失败时返回空数据
+
+    logger.warn("Operation skipped", { context: "扫描失败时返回空数据", error: err instanceof Error ? err.message : String(err) });
+
   }
 
   const languages: LanguageStat[] = Object.entries(languageData)

@@ -8,6 +8,9 @@ import type {
 } from './ProviderCatalog.js';
 import type { ProviderCredentials } from './ProviderAuth.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'plugins:provider:ProviderRuntime', level: LogLevel.INFO });
+
 /**
  * 运行时状态
  */
@@ -209,8 +212,12 @@ export class ProviderRuntime {
     for (const listener of this.eventListeners) {
       try {
         listener(event);
-      } catch {
+      } catch (err) {
+
         // 忽略监听器错误
+
+        logger.debug("Operation skipped", { context: "忽略监听器错误", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
   }

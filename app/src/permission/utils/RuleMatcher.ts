@@ -14,6 +14,9 @@ import {
   createPermissionRule,
 } from '../types/PermissionRule';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'permission:utils:RuleMatcher', level: LogLevel.INFO });
+
 /**
  * 通配符模式类型
  */
@@ -209,8 +212,12 @@ export function matchWildcard(
         pattern: wildcardPattern,
       };
     }
-  } catch {
+  } catch (err) {
+
     // Invalid regex pattern
+
+    logger.debug("Operation skipped", { context: "Invalid regex pattern", error: err instanceof Error ? err.message : String(err) });
+
   }
 
   return { matched: false };

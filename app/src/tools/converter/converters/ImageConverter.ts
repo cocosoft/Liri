@@ -7,6 +7,9 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:converter:converters:ImageConverter', level: LogLevel.INFO });
+
 const __filename = fileURLToPath(import.meta.url);
 
 let _loaded = false;
@@ -27,15 +30,23 @@ function ensureSharpLoaded(): void {
   try {
     _sharp = require('sharp');
     return;
-  } catch {
-    /* 继续尝试下一级 */
+  } catch (err) {
+
+    // 继续尝试下一级
+
+    logger.debug("Operation skipped", { context: "继续尝试下一级", error: err instanceof Error ? err.message : String(err) });
+
   }
 
   try {
     const exeRequire = createRequire(__filename);
     _sharp = exeRequire('sharp');
-  } catch {
-    /* sharp 不可用，_sharp 保持 null */
+  } catch (err) {
+
+    // sharp 不可用，_sharp 保持 null
+
+    logger.debug("Operation skipped", { context: "sharp 不可用，_sharp 保持 null", error: err instanceof Error ? err.message : String(err) });
+
   }
 }
 

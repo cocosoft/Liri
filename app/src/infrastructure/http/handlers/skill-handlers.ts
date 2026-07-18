@@ -23,6 +23,9 @@ import type http from 'http';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 import type { Skill } from '@modules/skills/types';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'infrastructure:http:handlers:skill-handlers', level: LogLevel.INFO });
+
 /**
  * ClawHub Adapter 接口类型
  * 基于 BaseThirdPartyAdapter 的实际方法
@@ -46,8 +49,12 @@ async function getClawHubAdapter(): Promise<ClawHubAdapter> {
       // ThirdPartySkillAdapter 缺少 enableSkill/disableSkill，需要类型断言
       return registered as unknown as ClawHubAdapter;
     }
-  } catch {
+  } catch (err) {
+
     // 注册表不可用时 fallback
+
+    logger.debug("Operation skipped", { context: "注册表不可用时 fallback", error: err instanceof Error ? err.message : String(err) });
+
   }
 
   const { ClawHubAdapter } =

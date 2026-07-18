@@ -12,6 +12,9 @@ import type {
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'mcp:protocol:MCPProtocol', level: LogLevel.INFO });
+
 /**
  * MCP协议错误
  */
@@ -530,8 +533,12 @@ export class MCPProtocolManager {
         if (typeof parsed.id === 'string') {
           requestId = parsed.id;
         }
-      } catch {
+      } catch (err) {
+
         // 忽略解析错误
+
+        logger.debug("Operation skipped", { context: "忽略解析错误", error: err instanceof Error ? err.message : String(err) });
+
       }
 
       // 创建错误响应

@@ -5,6 +5,9 @@ import * as path from 'path';
 import type { LspServerState, ScopedLspServerConfig } from './types.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'lsp:LSPServerInstance', level: LogLevel.INFO });
+
 const LSP_ERROR_CONTENT_MODIFIED = -32801;
 const MAX_RETRIES_FOR_TRANSIENT_ERRORS = 3;
 const RETRY_BASE_DELAY_MS = 500;
@@ -104,8 +107,12 @@ export function createLSPServerInstance(
       if (client) {
         await client.stop();
       }
-    } catch {
+    } catch (err) {
+
       // Errors during stop are ignored
+
+      logger.debug("Operation skipped", { context: "Errors during stop are ignored", error: err instanceof Error ? err.message : String(err) });
+
     }
 
     client = undefined;

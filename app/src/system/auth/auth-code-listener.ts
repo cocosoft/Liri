@@ -14,6 +14,9 @@
 import { createServer, type Server } from 'http';
 import type { AddressInfo } from 'net';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'system:auth:auth-code-listener', level: LogLevel.INFO });
+
 /** 默认端口范围（对标 cline-main 48801-48811） */
 const DEFAULT_PORT_RANGE = { start: 48801, end: 48811 };
 
@@ -48,8 +51,12 @@ export class AuthCodeListener {
         const bound = await this.tryBind(this.preferredPort);
         this.startIdleTimer();
         return bound;
-      } catch {
+      } catch (err) {
+
         // 端口被占用，回退到范围扫描
+
+        logger.debug("Operation skipped", { context: "端口被占用，回退到范围扫描", error: err instanceof Error ? err.message : String(err) });
+
       }
     }
 

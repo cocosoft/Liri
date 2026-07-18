@@ -7,6 +7,9 @@ import path from 'path';
 import fs from 'fs';
 import { resolveDataSubDir, resolveProjectRoot } from '@modules/core';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'performance:StartupReportService', level: LogLevel.INFO });
+
 /**
  * 启动报告配置
  */
@@ -324,8 +327,12 @@ export class StartupReportService {
           );
         }
       }
-    } catch {
+    } catch (err) {
+
       // 忽略错误
+
+      logger.debug("Operation skipped", { context: "忽略错误", error: err instanceof Error ? err.message : String(err) });
+
     }
 
     return deps;

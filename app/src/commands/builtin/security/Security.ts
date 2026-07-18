@@ -13,6 +13,9 @@ import { createSecurityScanner } from '@modules/security/scanners/SecurityScanne
 // eslint-disable-next-line no-restricted-imports
 import { inputValidator } from '@modules/security/validators/InputValidator.js';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:builtin:security:Security', level: LogLevel.INFO });
+
 const securityCommand = {
   async execute(args: string, context: CommandContext) {
     const trimmed = args.trim();
@@ -446,8 +449,12 @@ const securityCommand = {
         const rulesCount = Array.isArray(rules) ? rules.length : 0;
         output += `\n会话规则数: ${rulesCount}\n`;
       }
-    } catch {
+    } catch (err) {
+
       // 权限管理器可能不支持 getRules
+
+      logger.debug("Operation skipped", { context: "权限管理器可能不支持 getRules", error: err instanceof Error ? err.message : String(err) });
+
     }
 
     return { success: true, message: output };

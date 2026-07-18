@@ -4,6 +4,9 @@ import { PRIORITY_SPECIFIC_FILE_FORMAT } from '../engine/types';
 import { AppError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'tools:converter:converters:EpubConverter', level: LogLevel.INFO });
+
 let _depError: Error | null = null;
 let _AdmZip: any = null;
 try {
@@ -130,8 +133,12 @@ export class EpubConverter extends HtmlConverter {
       meta.date = extractTag('dc:date') || extractTag('date');
       meta.description =
         extractTag('dc:description') || extractTag('description');
-    } catch {
+    } catch (err) {
+
       // 元数据解析失败时静默处理
+
+      logger.warn("Operation skipped", { context: "元数据解析失败时静默处理", error: err instanceof Error ? err.message : String(err) });
+
     }
 
     return meta;

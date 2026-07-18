@@ -92,6 +92,9 @@ import {
   COMPOSITE_COMMAND_RULES,
 } from '../../security/patterns/dangerousCommands';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'services:executor:ShellExecutor', level: LogLevel.INFO });
+
 /** P1: ShellExecutor 的 SecurityPattern（内部使用，保持与 int 签名一致） */
 interface SecurityPattern {
   name: string;
@@ -306,8 +309,12 @@ function collectFiles(dirPath: string, result: string[]): void {
         result.push(fullPath);
       }
     }
-  } catch {
+  } catch (err) {
+
     // 跳过无权限访问的目录
+
+    logger.debug("Operation skipped", { context: "跳过无权限访问的目录", error: err instanceof Error ? err.message : String(err) });
+
   }
 }
 
@@ -373,8 +380,12 @@ function restoreFromDir(
         restoredFiles.push(originalPath);
       }
     }
-  } catch {
+  } catch (err) {
+
     // 跳过恢复失败的条目
+
+    logger.warn("Operation skipped", { context: "跳过恢复失败的条目", error: err instanceof Error ? err.message : String(err) });
+
   }
 }
 

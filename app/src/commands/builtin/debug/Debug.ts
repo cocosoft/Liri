@@ -14,6 +14,9 @@ import {
 } from 'os';
 import type { CommandContext, CommandResult } from '@modules/commands';
 
+import { Logger, LogLevel } from '@modules/monitoring';
+const logger = new Logger({ module: 'commands:builtin:debug:Debug', level: LogLevel.INFO });
+
 /**
  * 解析标志参数
  */
@@ -237,8 +240,12 @@ const debugCommand = {
       try {
         const { logEvent } = await import('@modules/analytics/index.js');
         logEvent('tengu_debug_view', { subcommand, showJson });
-      } catch {
+      } catch (err) {
+
         // analytics 非关键
+
+        logger.debug("Operation skipped", { context: "analytics 非关键", error: err instanceof Error ? err.message : String(err) });
+
       }
 
       switch (subcommand.toLowerCase()) {

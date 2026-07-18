@@ -23,5 +23,5 @@
  */
 
 export { createOAuthCrypto } from './OAuthCrypto';
-export { createOAuthStorage } from './OAuthStorage';
+export { createOAuthStorage } from '../services/OAuthStorage.js';
 export { createOAuthConfig } from './OAuthConfig';

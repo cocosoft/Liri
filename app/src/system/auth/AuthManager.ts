@@ -6,17 +6,17 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
-import { oauthService } from '@modules/oauth';
+import {
+  oauthService,
+  TokenManager,
+  type CachedToken,
+} from '@modules/oauth';
 import type { OAuthTokenData } from '@modules/oauth';
 import type {
   OAuthTokens as OAuthTokensType,
   OAuthServiceOptions,
 } from './oauth-types.js';
 import { logger } from '@modules/infrastructure';
-import {
-  TokenManager,
-  type CachedToken,
-} from '@modules/oauth/services/TokenManager.js';
 
 export type OAuthTokens = OAuthTokenData;
 

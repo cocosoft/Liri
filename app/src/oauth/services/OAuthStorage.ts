@@ -7,7 +7,7 @@
  * 使用 AES-256-GCM + PBKDF2(100k iterations) 加密存储每个 Token 到独立文件。
  * 文件权限 0o600，每个 Token 独立加密。
  *
- * OAuthTokenManager 已废弃，TokenManager 是唯一的 Token 管理入口，本存储是唯一的持久化实现。
+ * TokenManager 是唯一的 Token 管理入口，本存储是唯一的持久化实现。
  */
 
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';

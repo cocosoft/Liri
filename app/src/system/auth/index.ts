@@ -44,7 +44,7 @@ export {
   OAuthService,
   oauthService,
   OAuthClient,
-  OAuthTokenManager,
+  TokenManager,
   OAuthDiscovery,
   type OAuthProvider,
   type OAuthToken,

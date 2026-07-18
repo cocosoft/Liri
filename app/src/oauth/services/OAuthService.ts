@@ -6,9 +6,11 @@
  * - 单一职责：仅负责OAuth操作的协调和路由
  * - 依赖注入：通过构造函数注入依赖
  * - 线程安全：支持多线程访问
+ *
+ * Token 管理已统一到 TokenManager（单轨），本服务通过 TokenManager.getInstance() 调用。
  */
 import { logger } from '@modules/infrastructure';
-import { OAuthTokenManager } from './OAuthTokenManager';
+import { TokenManager } from './TokenManager';
 import { OAuthDiscovery } from './OAuthDiscovery';
 import type {
   OAuthProvider,
@@ -19,12 +21,12 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 export class OAuthService {
-  private tokenManager: OAuthTokenManager;
+  private tokenManager: TokenManager;
   private discovery: OAuthDiscovery;
   private providers: Map<string, OAuthProvider>;
 
   constructor() {
-    this.tokenManager = new OAuthTokenManager();
+    this.tokenManager = TokenManager.getInstance();
     this.discovery = new OAuthDiscovery();
     this.providers = new Map();
     logger.info('OAuthService initialized');
@@ -79,7 +81,8 @@ export class OAuthService {
       );
     }
 
-    return this.tokenManager.getToken(providerId);
+    const cached = this.tokenManager.getCachedToken(providerId);
+    return cached ? { ...cached } : null;
   }
 
   /**
@@ -104,7 +107,13 @@ export class OAuthService {
     }
 
     const token = await provider.authorize(options);
-    await this.tokenManager.saveToken(providerId, token);
+    await this.tokenManager.cacheToken(providerId, {
+      accessToken: token.accessToken,
+      refreshToken: token.refreshToken,
+      expiresAt: token.expiresAt,
+      tokenType: token.tokenType,
+      scopes: token.scopes,
+    });
     return token;
   }
 
@@ -125,7 +134,7 @@ export class OAuthService {
       );
     }
 
-    const existingToken = await this.tokenManager.getToken(providerId);
+    const existingToken = this.tokenManager.getCachedToken(providerId);
     if (!existingToken) {
       throw new AppError(
         'No token found to refresh',
@@ -135,9 +144,14 @@ export class OAuthService {
       );
     }
 
-    // 刷新回调由 TokenManager 管理，直接调用 provider
     const newToken = await provider.refreshToken(existingToken.refreshToken);
-    await this.tokenManager.saveToken(providerId, newToken);
+    await this.tokenManager.cacheToken(providerId, {
+      accessToken: newToken.accessToken,
+      refreshToken: newToken.refreshToken,
+      expiresAt: newToken.expiresAt,
+      tokenType: newToken.tokenType,
+      scopes: newToken.scopes,
+    });
     return newToken;
   }
 
@@ -157,7 +171,6 @@ export class OAuthService {
       );
     }
 
-    // 使用 TokenManager 的 revokeToken（自动处理远程撤销 + 本地删除）
     await this.tokenManager.revokeToken(providerId);
     logger.info(`Token revoked for provider: ${providerId}`);
   }

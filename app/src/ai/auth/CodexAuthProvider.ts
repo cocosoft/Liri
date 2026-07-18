@@ -14,7 +14,7 @@
  * 4. 通过 TokenManager 持久化到加密磁盘存储
  */
 import { Logger, LogLevel } from '@modules/monitoring';
-import { TokenManager } from '@modules/oauth/services/TokenManager';
+import { TokenManager } from '@modules/oauth';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'ai:codex-auth' });
 

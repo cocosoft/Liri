@@ -23,7 +23,8 @@
  */
 
 export { OAuthDiscovery } from './OAuthDiscovery';
-export { OAuthTokenManager } from './OAuthTokenManager';
+export { TokenManager, createTokenManager } from './TokenManager';
+export type { CachedToken, TokenStatus, TokenRefreshFn } from './TokenManager';
 export { OAuthClient } from './OAuthClient';
 export { DynamicClientReg } from './DynamicClientReg';
 export type { OAuthStorage } from './OAuthStorage';

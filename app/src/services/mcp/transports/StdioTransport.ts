@@ -1,18 +1,26 @@
 /**
  * Stdio传输层
  * 基于标准输入输出与子进程通信
+ *
+ * 对标 hermes _kill_orphaned_mcp_children:
+ *   - connect() 前清理旧进程（避免重连孤儿泄漏）
+ *   - disconnect() 两阶段终止（SIGTERM → 2s 等待 → SIGKILL）
+ *   - 通过 ChildProcessTracker 全局追踪活跃/孤儿进程
  */
-
 import { spawn, type ChildProcess } from 'child_process';
 import type { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { trackProcess, untrackProcess } from './ChildProcessTracker';
 
 const logger = new Logger({
   module: 'services:mcp:stdio',
   level: LogLevel.INFO,
 });
+
+/** 两阶段清理的优雅等待时间（毫秒） */
+const GRACE_PERIOD_MS = 2000;
 
 /**
  * Stdio传输层选项
@@ -65,16 +73,22 @@ export class StdioTransport extends MCPTransport {
 
   /**
    * 连接
+   * 先终止旧进程（防止重连孤儿泄漏），再创建新进程
    */
   override async connect(): Promise<void> {
+    // 清理旧进程（对标 hermes：重连前 teardown 旧连接）
     if (this.process) {
-      return;
+      await this.killProcess();
     }
 
     this.process = spawn(this.command, this.args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: this.env,
     });
+
+    // 注册到全局进程追踪器
+    const serverName = this.command + ' ' + (this.args || []).join(' ');
+    trackProcess(this.process, serverName);
 
     // 处理标准输出
     this.process.stdout?.on('data', (data) => {
@@ -104,14 +118,63 @@ export class StdioTransport extends MCPTransport {
   }
 
   /**
-   * 断开连接
+   * 断开连接（两阶段终止）
+   * Phase 1: SIGTERM（优雅退出）
+   * Phase 2: 等待 2s
+   * Phase 3: SIGKILL 兜底
    */
   override disconnect(): void {
     if (this.process) {
-      this.process.kill();
-      this.process = null;
+      this.killProcess();
     }
     super.disconnect();
+  }
+
+  /**
+   * 两阶段终止子进程
+   * 对标 hermes: _kill_orphaned_mcp_children 的 kill 逻辑
+   */
+  private killProcess(): void {
+    const proc = this.process;
+    if (!proc) return;
+
+    this.process = null;
+
+    // 先尝试 SIGTERM
+    try {
+      proc.kill('SIGTERM');
+    } catch {
+      // SIGTERM 不可用（Windows），直接强制终止
+      try {
+        proc.kill();
+      } catch {
+        // 已退出
+      }
+      untrackProcess(proc);
+      return;
+    }
+
+    // 等待后 SIGKILL 兜底
+    const sigkillTimer = setTimeout(() => {
+      try {
+        proc.kill(0); // 探测存活
+        // 仍存活 → 强制终止
+        try {
+          proc.kill('SIGKILL');
+        } catch {
+          proc.kill();
+        }
+      } catch {
+        // 已退出
+      }
+      untrackProcess(proc);
+    }, GRACE_PERIOD_MS);
+
+    // 进程在等待期内自行退出
+    proc.once('exit', () => {
+      clearTimeout(sigkillTimer);
+      untrackProcess(proc);
+    });
   }
 
   /**

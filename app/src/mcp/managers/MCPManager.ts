@@ -96,12 +96,17 @@ export class MCPManager {
     for (const serverName of servers) {
       try {
         const conn = this.serverManager.getServer(serverName);
-        // 通过 MCPServerConnection 断开连接时会终止子进程
         await conn?.disconnect?.();
       } catch {
         // 断开连接失败不阻塞 shutdown
       }
     }
+
+    // 最终孤儿进程扫描：强制清理所有残留子进程
+    const { killOrphanedProcesses } = await import(
+      '@modules/services/mcp/transports/ChildProcessTracker'
+    );
+    await killOrphanedProcesses(true);
 
     await this.serverManager.shutdown();
     this.notificationListeners.clear();

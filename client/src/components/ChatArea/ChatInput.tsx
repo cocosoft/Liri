@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, Suspense, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useChatStore, inferFileType } from "../../stores/chatStore";
+import { useShallow } from "zustand/shallow";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useConfigStore } from "../../stores/configStore";
 import { useNavigationStore } from "../../stores/navigationStore";
@@ -91,7 +92,7 @@ function ChatInput() {
   }, []);
 
   const { streamMessage, isSending, isStreaming, isUploading, clearMessages, messageQueue, stopMessage } = useChatStore();
-  const sessionFiles = useChatStore((s) => s.sessionFiles);
+  const sessionFiles = useChatStore(useShallow((s) => s.sessionFiles));
   const { currentSession, createSession } = useSessionStore();
   const { config } = useConfigStore();
   const setActivePage = useNavigationStore((s) => s.setActivePage);

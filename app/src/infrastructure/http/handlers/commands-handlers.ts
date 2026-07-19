@@ -652,10 +652,11 @@ export async function handleRecommendedSkills(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ recommended, categories }));
   } catch (err) {
-    sendError(res, err);
+    logger.warn('获取推荐技能列表失败，返回空列表', { error: String(err) });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ recommended: [], categories: {} }));
   }
 }
-
 /**
  * 处理技能分类列表请求 GET /v1/skills/categories
  * 按能力分类统计已安装插件数量，技能统一归入 skill 分类
@@ -705,10 +706,11 @@ export async function handleSkillSources(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ sources }));
   } catch (err) {
-    sendError(res, err);
+    logger.warn('获取技能来源列表失败，返回空列表', { error: String(err) });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ sources: [] }));
   }
 }
-
 /**
  * 添加自定义技能搜索源 POST /v1/skills/sources
  * Body: { name: string, apiBaseUrl: string }

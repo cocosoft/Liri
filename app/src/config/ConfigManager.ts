@@ -857,10 +857,8 @@ export class ConfigManager {
   setValue(key: string, value: unknown): void {
     const parts = key.split('.');
     this.saveGlobalConfig((config) => {
-      let current: Record<string, unknown> = config as unknown as Record<
-        string,
-        unknown
-      >;
+      const draft = { ...config } as typeof config;
+      let current: Record<string, unknown> = draft;
 
       for (let i = 0; i < parts.length - 1; i++) {
         const part = parts[i];
@@ -871,7 +869,7 @@ export class ConfigManager {
       }
 
       current[parts[parts.length - 1]] = value;
-      return config;
+      return draft;
     });
   }
 

@@ -10,6 +10,7 @@ import BlockRenderer from "./BlockRenderer";
 import { knowledgeService } from "../../services/knowledgeService";
 import { useConfigStore } from "../../stores/configStore";
 import { useChatStore } from "../../stores/chatStore";
+import { useShallow } from "zustand/shallow";
 import { useSessionStore } from "../../stores/sessionStore";
 
 const SaveKnowledgeModal = React.lazy(() => import("./SaveKnowledgeModal"));
@@ -593,7 +594,7 @@ function AssistantMessage({
   isStreaming?: boolean;
 }) {
   const { t } = useTranslation();
-  const sessionFiles = useChatStore((s) => s.sessionFiles);
+  const sessionFiles = useChatStore(useShallow((s) => s.sessionFiles));
   const knownPaths = useMemo(() => sessionFiles.map((f) => f.path), [sessionFiles]);
 
   // 优先使用 blocks 渲染，如果 blocks 不存在则从 content 和 tool_calls 重建

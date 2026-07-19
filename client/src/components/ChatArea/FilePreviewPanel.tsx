@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useChatStore } from "../../stores/chatStore";
+import { useShallow } from "zustand/shallow";
 import { useNavigationStore } from "../../stores/navigationStore";
 import FilePreviewContent from "./FilePreviewContent";
 import FileTypeBadge from "./FileTypeBadge";
@@ -22,7 +23,13 @@ type PanelTab = 'session' | 'manage' | 'usage';
  */
 function FilePreviewPanel() {
   const { previewFile, sessionFiles, setPreviewFile, clearSessionFiles, messages } =
-    useChatStore();
+    useChatStore(useShallow((s) => ({
+      previewFile: s.previewFile,
+      sessionFiles: s.sessionFiles,
+      setPreviewFile: s.setPreviewFile,
+      clearSessionFiles: s.clearSessionFiles,
+      messages: s.messages,
+    })));
   const setActivePage = useNavigationStore((s) => s.setActivePage);
   const [isExpanded, setIsExpanded] = useState(false);
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);

@@ -99,6 +99,10 @@ function PermissionPage() {
   }, [loadConfig]);
 
   const loadPermissions = async () => {
+    if (!authService.isAuthenticated()) {
+      setPermissionsLoading(false);
+      return;
+    }
     setPermissionsLoading(true);
     try {
       const perms = await authService.getPermissions();

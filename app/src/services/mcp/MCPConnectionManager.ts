@@ -422,6 +422,15 @@ export class MCPConnectionManager {
   }
 
   /**
+   * 外部注入服务器工具到 toolsCache
+   * 用于 MCPToolBridge 通过 refreshAllTools 重新同步时能发现这些工具。
+   * DocModule 等模块通过 MCPServerManager 连接服务器后，可调用此方法注入工具。
+   */
+  addServerTools(serverName: string, tools: SerializedTool[]): void {
+    this.toolsCache.set(serverName, tools);
+  }
+
+  /**
    * 获取所有服务器的序列化工具列表（扁平化）
    * 委托 toolsCache 构建
    */

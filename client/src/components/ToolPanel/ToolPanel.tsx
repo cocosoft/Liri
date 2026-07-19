@@ -401,21 +401,21 @@ function ContextPanel() {
         </h3>
         <div className="space-y-1">
           <button
-            onClick={() => navigate("/dev/terminal")}
+            onClick={() => navigate("/terminal")}
             className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 text-sm transition-colors"
           >
             <DevIcon size={16} />
             <span>终端</span>
           </button>
           <button
-            onClick={() => navigate("/dev/logs")}
+            onClick={() => navigate("/logs")}
             className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 text-sm transition-colors"
           >
             <SearchIcon size={16} />
             <span>日志查看</span>
           </button>
           <button
-            onClick={() => navigate("/dev/sandbox")}
+            onClick={() => navigate("/sandbox")}
             className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 text-sm transition-colors"
           >
             <SettingsIcon size={16} />

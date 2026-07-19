@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useModelStore } from "../../stores/modelStore";
 import { useModelAdminStore } from "../../stores/modelAdminStore";
 import { useConfigStore } from "../../stores/configStore";
@@ -31,11 +32,13 @@ const TYPE_COLORS: Record<string, string> = {
 const DEFAULT_COLOR =
   "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
 
-function formatDate(ts: number): string {
-  return new Date(ts * 1000).toLocaleDateString("zh-CN");
+function formatDate(ts: number, locale = "zh-CN"): string {
+  return new Date(ts * 1000).toLocaleDateString(locale);
 }
 
 function ProviderPage() {
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === "en" ? "en-US" : "zh-CN";
   const { models, isLoading: modelsLoading, loadModels, toggleModel, deleteModel } = useModelStore();
   const store = useModelAdminStore();
   const config = useConfigStore((s) => s.config);
@@ -115,7 +118,7 @@ function ProviderPage() {
 
   const handleDelete = useCallback(
     async (id: string, name: string) => {
-      if (window.confirm(`确定要删除 Provider "${name}" 吗？`)) {
+      if (window.confirm(t("settings.modelDeleteProviderConfirm").replace("{name}", name))) {
         await store.deleteProvider(id);
       }
     },
@@ -177,7 +180,7 @@ function ProviderPage() {
       setShowAddModel(false);
       loadModels();
     } catch (e) {
-      alert(`创建模型失败: ${e instanceof Error ? e.message : "未知错误"}`);
+      alert(`${t("settings.modelCreateFailed")}: ${e instanceof Error ? e.message : t("settings.modelUnknownError")}`);
     }
   }, [store, loadModels]);
 
@@ -190,7 +193,7 @@ function ProviderPage() {
       await loadModels();
       alert(`成功导入 ${modelIds.length} 个模型到模型列表`);
     } catch (e) {
-      alert(`导入失败: ${e instanceof Error ? e.message : "未知错误"}`);
+      alert(`${t("settings.modelImportFailed")}: ${e instanceof Error ? e.message : t("settings.modelUnknownError")}`);
     } finally {
       setImporting(false);
     }
@@ -210,7 +213,7 @@ function ProviderPage() {
         alert(`余额查询失败: ${result.error}`);
       }
     } catch {
-      alert("余额查询失败");
+      alert(t("settings.modelBalanceFailed"));
     } finally {
       setCheckingBalanceId(null);
     }
@@ -223,7 +226,7 @@ function ProviderPage() {
       await modelSwitchService.setDefaultModel(provider.id, modelId);
       alert(`已${modelId ? `将 "${provider.name}" 默认模型设为 ${modelId}` : `清除 "${provider.name}" 的默认模型`}`);
     } catch (e) {
-      alert(`设置失败: ${e instanceof Error ? e.message : "未知错误"}`);
+      alert(`${t("settings.modelSetDefaultFailed")}: ${e instanceof Error ? e.message : t("settings.modelUnknownError")}`);
     }
   }, []);
 
@@ -277,10 +280,10 @@ function ProviderPage() {
             >
               {
                 {
-                  providers: "Provider 管理",
-                  models: "模型列表",
-                  tasks: "任务分工",
-                  usage: "用量",
+                  providers: t("settings.modelTabProviders"),
+                  models: t("settings.modelTabModelList"),
+                  tasks: t("settings.modelTabTasks"),
+                  usage: t("settings.modelTabUsage"),
                 }[tab]
               }
             </button>
@@ -295,7 +298,7 @@ function ProviderPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="搜索 Provider 名称、类型、URL..."
+                placeholder={t("settings.modelSearchProvider")}
                 className="w-full px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -315,12 +318,12 @@ function ProviderPage() {
             ) : filteredProviders.length === 0 ? (
               <div className="text-center py-16">
                 <p className="text-gray-400 dark:text-gray-500 text-lg mb-2">
-                  {searchQuery ? "未找到匹配的 Provider" : "暂无 Provider"}
+                  {searchQuery ? t("settings.modelNoProvider") : t("settings.modelNoProvider")}
                 </p>
-                <p className="text-gray-400 dark:text-gray-500 text-sm mb-4">
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                   {searchQuery
-                    ? "请尝试其他关键词"
-                    : '点击"+ 新增 Provider"开始配置'}
+                    ? t("settings.modelTryOtherKeywords")
+                    : t("settings.modelNoProviderHint")}
                 </p>
               </div>
             ) : (
@@ -345,21 +348,21 @@ function ProviderPage() {
                           {!p.requiresAuth && (
                             <span
                               className="text-[10px] px-1 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded"
-                              title="本地供应商，无需 API Key"
+                              title={t("settings.modelLocalProvider")}
                             >
                               本地
                             </span>
                           )}
                           <span
                             className={`inline-block w-2 h-2 rounded-full ${p.isActive ? "bg-green-400" : "bg-gray-400"}`}
-                            title={p.isActive ? "已启用" : "已停用"}
+                            title={p.isActive ? t("settings.modelEnabled") : t("settings.modelDisabled")}
                           />
                         </div>
                         <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
                           {p.baseUrl}
                         </p>
                         <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
-                          创建: {formatDate(p.createdAt)} | ID:{" "}
+                          创建: {formatDate(p.createdAt, dateLocale)} | ID:{" "}
                           {p.id.substring(0, 8)}...
                         </p>
                       </div>
@@ -372,8 +375,8 @@ function ProviderPage() {
                           }
                           title={
                             p.requiresAuth && !p.apiKey
-                              ? "需要先配置 API Key"
-                              : "获取可用模型列表"
+                              ? t("settings.modelNeedsApiKey")
+                              : t("settings.modelFetchModels")
                           }
                           className="px-2 py-1.5 text-xs bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded transition-colors disabled:opacity-30"
                         >
@@ -391,8 +394,8 @@ function ProviderPage() {
                           disabled={p.requiresAuth && !p.apiKey}
                           title={
                             p.requiresAuth && !p.apiKey
-                              ? "需要先配置 API Key"
-                              : "测试端点延迟"
+                              ? t("settings.modelNeedsApiKey")
+                              : t("settings.modelTestLatency")
                           }
                           className="px-2 py-1.5 text-xs bg-teal-50 dark:bg-teal-900/20 hover:bg-teal-100 dark:hover:bg-teal-900/40 text-teal-600 dark:text-teal-400 rounded transition-colors disabled:opacity-30"
                         >
@@ -402,11 +405,11 @@ function ProviderPage() {
                           onClick={() => store.toggleProvider(p.id)}
                           className="px-2 py-1.5 text-xs bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded transition-colors"
                         >
-                          {p.isActive ? "停用" : "启用"}
+                          {p.isActive ? t("settings.modelDisable") : t("settings.modelEnable")}
                         </button>
                         <button
                           onClick={() => handleSetDefaultModel(p)}
-                          title="设置该供应商使用的默认模型"
+                          title={t("settings.modelSetDefault")}
                           className="px-2 py-1.5 text-xs bg-sky-50 dark:bg-sky-900/20 hover:bg-sky-100 dark:hover:bg-sky-900/40 text-sky-600 dark:text-sky-400 rounded transition-colors"
                         >
                           设默认
@@ -420,12 +423,12 @@ function ProviderPage() {
                           }
                           title={
                             p.requiresAuth && !p.apiKey
-                              ? "需要先配置 API Key"
-                              : "查询账户余额"
+                              ? t("settings.modelNeedsApiKey")
+                              : t("settings.modelCheckBalance")
                           }
                           className="px-2 py-1.5 text-xs bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/40 text-green-600 dark:text-green-400 rounded transition-colors disabled:opacity-30"
                         >
-                          {checkingBalanceId === p.id ? "..." : "余额"}
+                          {checkingBalanceId === p.id ? "..." : t("settings.modelBalanceBtn")}
                         </button>
                         )}
                         <button
@@ -555,9 +558,9 @@ function ProviderPage() {
                               ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-700 hover:bg-green-200 dark:hover:bg-green-900/50"
                               : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600"
                           }`}
-                          title={model.enabled ? "点击停用" : "点击启用"}
+                          title={model.enabled ? t("settings.modelClickDisable") : t("settings.modelClickEnable")}
                         >
-                          {model.enabled ? "可用" : "停用"}
+                          {model.enabled ? t("settings.modelAvailable") : t("settings.modelStatusDisabled")}
                         </button>
                         {model.providerId && (
                           <button
@@ -580,7 +583,7 @@ function ProviderPage() {
                             }
                           }}
                           className="px-2 py-1 text-xs bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 rounded shrink-0"
-                          title="删除模型"
+                          title={t("settings.modelDeleteModel")}
                         >
                           删除
                         </button>

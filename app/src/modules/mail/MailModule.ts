@@ -5,7 +5,6 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { feature } from '@modules/core';
-import { isBuildVariant } from '@modules/core/featureFlags';
 import { globalToolManager } from '@modules/tools';
 
 import { MailModuleStatus as Status } from './types';
@@ -17,20 +16,28 @@ const logger = new Logger({
   level: LogLevel.INFO,
 });
 
+/** MailModule 单例 */
+let mailModuleInstance: MailModule | null = null;
+
 export class MailModule {
   private status: MailModuleStatus = Status.UNINITIALIZED;
   private emailTool: any = null;
+
+  /**
+   * 获取模块单例
+   */
+  static getInstance(): MailModule {
+    if (!mailModuleInstance) {
+      mailModuleInstance = new MailModule();
+    }
+    return mailModuleInstance;
+  }
 
   async onLoad(): Promise<void> {
     logger.info('MailModule 加载中...');
   }
 
   async onReady(): Promise<void> {
-    if (!isBuildVariant('enterprise')) {
-      logger.info('非 enterprise 构建变体，跳过 mail 模块');
-      return;
-    }
-
     if (!feature('MAIL_MODULE')) {
       logger.info('MAIL_MODULE feature flag 已关闭，跳过 mail 模块');
       return;
@@ -63,5 +70,16 @@ export class MailModule {
 
   getStatus(): MailModuleStatus {
     return this.status;
+  }
+
+  /**
+   * 获取模块能力报告（前端的 /v1/mail/status 数据来源）
+   */
+  getCapabilities() {
+    return {
+      status: this.status,
+      accountCount: this.emailTool?.getAccounts().length ?? 0,
+      imapEnabled: feature('MAIL_IMAP'),
+    };
   }
 }

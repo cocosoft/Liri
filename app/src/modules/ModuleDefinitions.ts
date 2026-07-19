@@ -8,7 +8,10 @@ import { ErrorCodes } from '@modules/error';
 import { ModuleCategory, type ModuleDefinition } from './moduleTypes';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'modules\ModuleDefinitions', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'modules\ModuleDefinitions',
+  level: LogLevel.INFO,
+});
 
 /**
  * 所有模块的定义
@@ -811,7 +814,6 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     displayName: '文档模块',
     version: '1.0.0',
     category: ModuleCategory.OFFICE,
-    tier: 'enterprise',
     description:
       '文档模块，基于 OfficeCLI MCP 提供 Word/Excel/PPT 的创建、读取、修改、渲染和模板化生成',
     dependencies: ['core', 'infrastructure', 'mcp', 'tools'],
@@ -824,7 +826,6 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     displayName: '邮件模块',
     version: '1.0.0',
     category: ModuleCategory.OFFICE,
-    tier: 'enterprise',
     description:
       '邮件模块，提供 SMTP/IMAP 收发、OAuth2 认证、附件管理和加密凭据存储',
     dependencies: ['core', 'infrastructure', 'tools'],
@@ -837,7 +838,6 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     displayName: '日历模块',
     version: '1.0.0',
     category: ModuleCategory.OFFICE,
-    tier: 'enterprise',
     description: '日历模块，提供日程管理、.ics 文件操作和事件提醒',
     dependencies: ['core', 'infrastructure', 'chronos'],
     optionalDependencies: ['monitoring', 'doc', 'mail'],
@@ -891,6 +891,7 @@ export const MODULE_INITIALIZATION_ORDER: string[] = [
   'channels',
   'tools',
   'commands',
+  'doc', // 办公模块：需在 CRITICAL 阶段初始化以注册 MCP 工具
 
   // ==================== DEFERRED 阶段 ====================
   // 第五阶段：功能模块
@@ -946,8 +947,7 @@ export const MODULE_INITIALIZATION_ORDER: string[] = [
   'extensions',
   'insights',
   'wizard',
-  // 办公模块（enterprise tier，延迟加载）
-  'doc',
+  // 办公模块（已在 eager 阶段加载）
   'mail',
   'calendar',
 ];

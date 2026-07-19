@@ -22,12 +22,11 @@ interface NotificationsPanelProps {
 }
 
 /** 请求浏览器通知权限（仅当未决定时） */
-function requestNotificationPermission(): void {
+function requestNotificationPermission(t: (key: string) => string): void {
   if (typeof Notification !== "undefined" && Notification.permission === "default") {
     Notification.requestPermission();
   } else if (typeof Notification !== "undefined" && Notification.permission === "denied") {
-    // 使用 alert 作为兜底，告知用户手动开启
-    alert("通知已被浏览器阻止，请在浏览器设置中允许本网站的通知");
+    alert(t("settings.notificationsBlockedAlert"));
   }
 }
 
@@ -45,7 +44,7 @@ function NotificationsPanel({
       isDark={isDark}
     >
       <div className="space-y-4">
-        <ConfigItem label="通知渠道" isDark={isDark}>
+        <ConfigItem label={t("settings.notificationsChannel")} isDark={isDark}>
           <SelectConfig
             isDark={isDark}
             value={notifications.preferredChannel}
@@ -56,16 +55,16 @@ function NotificationsPanel({
               })
             }
             options={[
-              { value: "auto", label: "自动选择" },
-              { value: "native", label: "系统原生" },
-              { value: "none", label: "关闭" },
+              { value: "auto", label: t("settings.notificationsChannelAuto") },
+              { value: "native", label: t("settings.notificationsChannelNative") },
+              { value: "none", label: t("settings.notificationsChannelNone") },
             ]}
           />
         </ConfigItem>
 
         <ConfigItem
-          label="空闲阈值"
-          description="超过此时间未响应时发送通知"
+          label={t("settings.notificationsIdleThreshold")}
+          description={t("settings.notificationsIdleThresholdDesc")}
           isDark={isDark}
         >
           <TextConfig
@@ -83,8 +82,8 @@ function NotificationsPanel({
         <div className={`h-px ${isDark ? "bg-gray-700" : "bg-gray-200"}`} />
 
         <ConfigItem
-          label="任务完成通知"
-          description="任务执行完成时发送通知"
+          label={t("settings.notificationsTaskComplete")}
+          description={t("settings.notificationsTaskCompleteDesc")}
           isDark={isDark}
         >
           <ToggleConfig
@@ -92,14 +91,14 @@ function NotificationsPanel({
             checked={notifications.taskCompleteEnabled}
             onChange={(checked) => {
               onUpdate({ taskCompleteEnabled: checked });
-              if (checked) requestNotificationPermission();
+              if (checked) requestNotificationPermission(t);
             }}
           />
         </ConfigItem>
 
         <ConfigItem
-          label="需要输入通知"
-          description="需要用户输入时发送通知"
+          label={t("settings.notificationsInputNeeded")}
+          description={t("settings.notificationsInputNeededDesc")}
           isDark={isDark}
         >
           <ToggleConfig
@@ -107,14 +106,14 @@ function NotificationsPanel({
             checked={notifications.inputNeededEnabled}
             onChange={(checked) => {
               onUpdate({ inputNeededEnabled: checked });
-              if (checked) requestNotificationPermission();
+              if (checked) requestNotificationPermission(t);
             }}
           />
         </ConfigItem>
 
         <ConfigItem
-          label="代理推送通知"
-          description="Agent 推送消息时发送通知"
+          label={t("settings.notificationsAgentPush")}
+          description={t("settings.notificationsAgentPushDesc")}
           isDark={isDark}
         >
           <ToggleConfig

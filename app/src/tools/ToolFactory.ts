@@ -70,6 +70,7 @@ import { ExitWorktreeTool } from './ExitWorktreeTool/ExitWorktreeTool';
 import { ListPeersTool } from './ListPeersTool/ListPeersTool';
 import { SessionsTool } from './SessionsTool/SessionsTool';
 import { ClipboardTool } from './ClipboardTool/ClipboardTool';
+import { DocGenerateTool } from './DocGenerateTool/DocGenerateTool';
 import { createComputerUseTool } from './ComputerUseTool';
 import { ImageTool } from './ImageTool/ImageTool';
 import { ImageAnalysisTool } from './ImageAnalysisTool/ImageAnalysisTool';
@@ -899,6 +900,13 @@ export class ToolFactory {
   }
 
   /**
+   * 创建文档生成工具（officecli）
+   */
+  createDocGenerateTool(): Tool {
+    return new DocGenerateTool();
+  }
+
+  /**
    * 创建桌面自动化工具（ComputerUse）
    */
   createComputerUseTool(): Tool {
@@ -1257,6 +1265,11 @@ export function getAllBaseTools(): Tool[] {
   const clipboardTool = new ClipboardTool();
   if (clipboardTool) {
     tools.push(clipboardTool);
+  }
+
+  const docGenerateTool = new DocGenerateTool();
+  if (docGenerateTool) {
+    tools.push(docGenerateTool);
   }
 
   const imageTool = new ImageTool();

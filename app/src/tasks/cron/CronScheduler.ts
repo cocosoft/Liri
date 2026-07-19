@@ -13,6 +13,10 @@ import type {
 } from './types';
 import { validateCronTransition } from './types';
 import { CronJobStore } from './CronJobStore';
+import {
+  getCalendarEventBus,
+  CalendarEvents,
+} from '@modules/calendar/CalendarEventBus';
 import type { CronRunLog } from './CronRunLog';
 import type { DeliveryQueue, DeliveryQueueEntry } from './DeliveryQueue';
 import { computeNextCronRun, isValidCronExpr } from './CronParser';
@@ -88,6 +92,18 @@ export class CronScheduler {
   private deliveryQueue: DeliveryQueue | null = null;
   private runLog: CronRunLog | null = null;
   private alertService: CronAlertService | null = null;
+
+  /** 状态变更时通知日历模块 */
+  private emitCalendarStateChange(jobId: string, newState: string): void {
+    try {
+      getCalendarEventBus().publish(CalendarEvents.CRON_STATE_CHANGED, {
+        jobId,
+        newState,
+      });
+    } catch {
+      // 非关键路径，静默失败
+    }
+  }
 
   constructor(
     store: CronJobStore,
@@ -200,7 +216,7 @@ export class CronScheduler {
 
           // 标记为 failed
           await this.store.updateJobState(job.id, 'failed');
-          await this.store.markJobRun(job.id, false, interruptedReason);
+          this.emitCalendarStateChange(job.id, 'failed');
 
           // 更新连续错误计数
           const prevErrors = job.consecutiveErrors ?? 0;
@@ -267,6 +283,7 @@ export class CronScheduler {
           } else {
             // 超宽限期，标记完成
             await this.store.updateJobState(job.id, 'completed');
+            this.emitCalendarStateChange(job.id, 'completed');
             logger.info('[CronScheduler] 一次性作业已过期，标记完成', {
               jobId: job.id,
               name: job.name,
@@ -395,8 +412,7 @@ export class CronScheduler {
     // 记录开始运行时间并更新状态
     const runningAtMs = Date.now();
     await this.store.updateJobState(job.id, 'running');
-
-    // 持久化 runningAtMs（用于启动恢复时计算耗时）
+    this.emitCalendarStateChange(job.id, 'running');
     job.runningAtMs = runningAtMs;
     try {
       await this.store.upsertJob(job);
@@ -636,6 +652,7 @@ export class CronScheduler {
   private async completeJob(jobId: string): Promise<void> {
     try {
       await this.store.updateJobState(jobId, 'completed');
+      this.emitCalendarStateChange(jobId, 'completed');
       logger.info('[CronScheduler] 作业已标记完成', { jobId });
     } catch (error) {
       logger.error('[CronScheduler] 标记完成失败', {

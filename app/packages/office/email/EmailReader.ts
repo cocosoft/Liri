@@ -85,6 +85,34 @@ export class EmailReader {
   }
 
   /**
+   * 标记已读/未读
+   */
+  async markRead(uid: number, read: boolean): Promise<void> {
+    const accounts = this.configService.getAccounts();
+    if (accounts.length === 0) throw new Error('未配置邮箱账户');
+
+    const { ImapFlow } = await import('imapflow');
+    const client = new ImapFlow(this.buildImapConfig(accounts[0]));
+
+    try {
+      await client.connect();
+      await client.mailboxOpen('INBOX');
+      if (read) {
+        await client.messageFlagsAdd(`${uid}`, ['\\Seen']);
+      } else {
+        await client.messageFlagsRemove(`${uid}`, ['\\Seen']);
+      }
+      logger.info(read ? '邮件已标记已读' : '邮件已标记未读', { uid });
+    } finally {
+      try {
+        client.close();
+      } catch {
+        /* 忽略 */
+      }
+    }
+  }
+
+  /**
    * 构建 IMAP 连接配置
    */
   private buildImapConfig(account: any): Record<string, any> {

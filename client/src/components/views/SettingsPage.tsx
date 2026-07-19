@@ -15,6 +15,18 @@ import TrustedWorkspacesPanel from "../settings/TrustedWorkspacesPanel";
 import CustomRulesPanel from "../settings/CustomRulesPanel";
 import VoiceSettings from "../settings/VoiceSettings";
 import KnowledgeIngestPanel from "../settings/KnowledgeIngestPanel";
+import LogViewerPage from "../views/LogViewerPage";
+import ModelPage from "../views/ModelPage";
+import SkillPage from "../views/SkillPage";
+import ChannelsPage from "../views/ChannelsPage";
+import MCPMarketPage from "../views/MCPMarketPage";
+import SkillMarketPage from "../views/SkillMarketPage";
+import FileExplorerPage from "../views/FileExplorerPage";
+import CostPage from "../views/CostPage";
+import PermissionPage from "../views/PermissionPage";
+import OAuthPage from "../views/OAuthPage";
+import SandboxPage from "../views/SandboxPage";
+import AutoReplyPage from "../views/AutoReplyPage";
 import SoulPanel from "../settings/SoulPanel";
 import UserPanel from "../settings/UserPanel";
 import SecurityDashboard from "../views/SecurityDashboard";
@@ -26,7 +38,7 @@ import {
 import type { BackendStatus } from "../../types";
 import { useApiKeyStore } from "../../stores/authStore";
 import { routerService } from "../../services/routerService";
-import { SettingsIcon, MicIcon, KeyIcon, FolderOpenIcon, BellIcon, ModelIcon, SkillIcon, ShieldIcon, ChannelIcon, McpIcon, DollarIcon, FileIcon, CloudIcon, ZapIcon, PlayIcon, LinkIcon, ImageIcon, SlidersIcon, WrenchIcon, BookOpenIcon, UserIcon } from "../../assets/icons";
+import { SettingsIcon, MicIcon, KeyIcon, FolderOpenIcon, BellIcon, ModelIcon, SkillIcon, ShieldIcon, ChannelIcon, McpIcon, DollarIcon, FileIcon, CloudIcon, ZapIcon, PlayIcon, LinkIcon, SlidersIcon, WrenchIcon, BookOpenIcon, UserIcon } from "../../assets/icons";
 import type { BaseIconProps } from "../../assets/icons";
 
 /** 导航项类型 */
@@ -54,6 +66,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "config", labelKey: "settings.generalConfig", icon: SettingsIcon, zone: "general" },
       { id: "notifications", labelKey: "settings.notifications", icon: BellIcon, zone: "general" },
+      { id: "logs", labelKey: "settings.logs", icon: FileIcon, zone: "general" },
     ],
   },
   {
@@ -102,7 +115,6 @@ const NAV_GROUPS: NavGroup[] = [
       { id: "files", labelKey: "settings.files", icon: FileIcon, zone: "storage" },
       { id: "ingest", labelKey: "settings.ingest", icon: BookOpenIcon, zone: "storage" },
       { id: "cost", labelKey: "settings.cost", icon: DollarIcon, zone: "storage" },
-      { id: "media", labelKey: "settings.media", icon: ImageIcon, zone: "storage" },
       { id: "sandbox", labelKey: "settings.sandbox", icon: PlayIcon, zone: "storage" },
     ],
   },
@@ -568,6 +580,8 @@ function SettingsPage() {
             }
           />
         );
+      case "logs":
+        return <LogViewerPage />;
       case "models":
         return <ModelManagementContent isDark={isDark} />;
       case "skills":
@@ -608,8 +622,6 @@ function SettingsPage() {
         return <KnowledgeIngestPanel isDark={isDark} />;
       case "cost":
         return <CostStatisticsContent isDark={isDark} />;
-      case "media":
-        return <MediaManagementContent isDark={isDark} />;
       case "sandbox":
         return <SandboxManagementContent isDark={isDark} />;
       default:
@@ -1073,34 +1085,14 @@ function MigrationResult({
 
 /* ── 新增内容组件 ── */
 
-/** 模型管理内容 */
+/** 模型管理内容 — 内联渲染完整模型管理页面 */
 function ModelManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return (
-    <div className="p-6">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">模型管理</h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">管理 AI 模型配置、切换默认模型、测试模型响应</p>
-      <div className="rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 p-4">
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          此功能需要跳转到 <a href="/models" className="text-blue-500 hover:underline">模型管理页面</a> 进行完整配置。
-        </p>
-      </div>
-    </div>
-  );
+  return <ModelPage />;
 }
 
 /** 技能管理内容 */
 function SkillManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return (
-    <div className="p-6">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">技能管理</h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">管理已安装技能、配置技能参数、查看技能详情</p>
-      <div className="rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 p-4">
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          此功能需要跳转到 <a href="/skills" className="text-blue-500 hover:underline">技能管理页面</a> 进行完整配置。
-        </p>
-      </div>
-    </div>
-  );
+  return <SkillPage />;
 }
 
 /** 智能路由配置内容 */
@@ -1204,152 +1196,47 @@ function RouterConfigContent({
 
 /** 权限管理内容 */
 function PermissionManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return (
-    <div className="p-6">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">权限管理</h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">管理用户权限、信任等级、访问控制</p>
-      <div className="rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 p-4">
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          此功能需要跳转到 <a href="/permissions" className="text-blue-500 hover:underline">权限管理页面</a> 进行完整配置。
-        </p>
-      </div>
-    </div>
-  );
+  return <PermissionPage />;
 }
 
 /** OAuth 认证管理内容 */
 function OAuthManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return (
-    <div className="p-6">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">OAuth 认证</h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">管理第三方 OAuth 应用授权</p>
-      <div className="rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 p-4">
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          此功能需要跳转到 <a href="/oauth" className="text-blue-500 hover:underline">OAuth 页面</a> 进行完整配置。
-        </p>
-      </div>
-    </div>
-  );
+  return <OAuthPage />;
 }
 
 /** 消息渠道管理内容 */
 function ChannelsManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return (
-    <div className="p-6">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">消息渠道</h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">管理消息推送渠道、配置通知方式</p>
-      <div className="rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 p-4">
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          此功能需要跳转到 <a href="/channels" className="text-blue-500 hover:underline">消息渠道页面</a> 进行完整配置。
-        </p>
-      </div>
-    </div>
-  );
+  return <ChannelsPage />;
 }
 
 /** MCP 市场内容 */
 function MCPMarketContent({ isDark: _isDark }: { isDark: boolean }) {
-  return (
-    <div className="p-6">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">MCP 市场</h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">浏览和安装 MCP 服务器</p>
-      <div className="rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 p-4">
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          此功能需要跳转到 <a href="/mcp" className="text-blue-500 hover:underline">MCP 市场页面</a> 进行完整配置。
-        </p>
-      </div>
-    </div>
-  );
+  return <MCPMarketPage />;
 }
 
 /** 技能市场内容 */
 function SkillMarketContent({ isDark: _isDark }: { isDark: boolean }) {
-  return (
-    <div className="p-6">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">技能市场</h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">浏览和安装社区技能</p>
-      <div className="rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 p-4">
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          此功能需要跳转到 <a href="/skill-market" className="text-blue-500 hover:underline">技能市场页面</a> 进行完整配置。
-        </p>
-      </div>
-    </div>
-  );
+  return <SkillMarketPage />;
 }
 
 /** 自动回复管理内容 */
 function AutoReplyManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return (
-    <div className="p-6">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">自动回复</h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">配置自动回复规则和触发条件</p>
-      <div className="rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 p-4">
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          此功能需要跳转到 <a href="/autoreply" className="text-blue-500 hover:underline">自动回复页面</a> 进行完整配置。
-        </p>
-      </div>
-    </div>
-  );
+  return <AutoReplyPage />;
 }
 
 /** 文件管理内容 */
 function FileManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return (
-    <div className="p-6">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">文件管理</h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">浏览和管理应用文件</p>
-      <div className="rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 p-4">
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          此功能需要跳转到 <a href="/files" className="text-blue-500 hover:underline">文件管理页面</a> 进行完整配置。
-        </p>
-      </div>
-    </div>
-  );
+  return <FileExplorerPage />;
 }
 
 /** 成本统计内容 */
 function CostStatisticsContent({ isDark: _isDark }: { isDark: boolean }) {
-  return (
-    <div className="p-6">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">成本统计</h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">查看 API 调用成本、Token 使用量统计</p>
-      <div className="rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 p-4">
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          此功能需要跳转到 <a href="/cost" className="text-blue-500 hover:underline">成本统计页面</a> 进行完整配置。
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/** 媒体管理内容 */
-function MediaManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return (
-    <div className="p-6">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">媒体管理</h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">管理生成的图片、音频、视频等媒体文件</p>
-      <div className="rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 p-4">
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          此功能需要跳转到 <a href="/media" className="text-blue-500 hover:underline">媒体管理页面</a> 进行完整配置。
-        </p>
-      </div>
-    </div>
-  );
+  return <CostPage />;
 }
 
 /** 沙箱管理内容 */
 function SandboxManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return (
-    <div className="p-6">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">沙箱管理</h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">管理工具执行沙箱环境和安全策略</p>
-      <div className="rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 p-4">
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          此功能需要跳转到 <a href="/sandbox" className="text-blue-500 hover:underline">沙箱管理页面</a> 进行完整配置。
-        </p>
-      </div>
-    </div>
-  );
+  return <SandboxPage />;
 }
 
 export default SettingsPage;

@@ -34,6 +34,11 @@ const TTSPage = lazy(() => import("../components/views/TTSPage"));
 const ImagePage = lazy(() => import("../components/views/ImagePage"));
 const VideoPage = lazy(() => import("../components/views/VideoPage"));
 const MediaPage = lazy(() => import("../components/views/MediaPage"));
+const TerminalPage = lazy(() => import("../components/views/TerminalPage"));
+const LogViewerPage = lazy(() => import("../components/views/LogViewerPage"));
+const SandboxPage = lazy(() => import("../components/views/SandboxPage"));
+const AutoReplyPage = lazy(() => import("../components/views/AutoReplyPage"));
+const STTTestPage = lazy(() => import("../components/views/STTTestPage"));
 const TranslatePage = lazy(() => import("../components/views/TranslatePage"));
 const OfficePage = lazy(() => import("../components/views/office/OfficePage"));
 const OfficeDocPage = lazy(() => import("../components/views/office/OfficeDocPage"));
@@ -79,7 +84,10 @@ export const routes: RouteObject[] = [
   { path: "/office", element: <AuthGuard><OfficePage /></AuthGuard> },
   { path: "/office/doc", element: <AuthGuard><OfficeDocPage /></AuthGuard> },
   { path: "/office/mail", element: <AuthGuard><OfficeMailPage /></AuthGuard> },
-  { path: "/office/calendar", element: <AuthGuard><OfficeCalendarPage /></AuthGuard> },
+  { path: "/office/calendar", element: <Navigate to="/calendar" replace /> },
+
+  // 日历模块（独立顶级路由）
+  { path: "/calendar", element: <AuthGuard><OfficeCalendarPage /></AuthGuard> },
 
   // 开发者工具
   { path: "/dev", element: <Navigate to="/dev/terminal" replace /> },
@@ -145,13 +153,23 @@ export const routes: RouteObject[] = [
   { path: "/plans", element: <Navigate to="/tasks" replace /> },
   { path: "/semantic", element: <Navigate to="/knowledge" replace /> },
 
-  // 开发者工具重定向
-  { path: "/logs", element: <Navigate to="/dev/logs" replace /> },
-  { path: "/voice-stt", element: <Navigate to="/dev/stt-test" replace /> },
-  { path: "/terminal", element: <Navigate to="/dev/terminal" replace /> },
-  { path: "/sandbox", element: <Navigate to="/dev/sandbox" replace /> },
+  // 终端
+  { path: "/terminal", element: <AuthGuard><TerminalPage /></AuthGuard> },
+
+  // 日志查看
+  { path: "/logs", element: <AuthGuard><LogViewerPage /></AuthGuard> },
+
+  // 沙箱管理
+  { path: "/sandbox", element: <AuthGuard><SandboxPage /></AuthGuard> },
+
+  // 媒体管理
   { path: "/media", element: <AuthGuard><MediaPage /></AuthGuard> },
-  { path: "/autoreply", element: <Navigate to="/dev/autoreply" replace /> },
+
+  // 自动回复
+  { path: "/autoreply", element: <AuthGuard><AutoReplyPage /></AuthGuard> },
+
+  // 语音测试
+  { path: "/voice-stt", element: <AuthGuard><STTTestPage /></AuthGuard> },
 
   // routes/index.tsx 原有保留路由（未在 App.tsx 中出现）
   { path: "/apikeys", element: <ApiKeyPage /> },

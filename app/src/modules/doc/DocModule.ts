@@ -5,7 +5,6 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { feature, resolveOutputDir } from '@modules/core';
-import { isBuildVariant } from '@modules/core/featureFlags';
 import { join } from 'path';
 import { readdirSync, statSync } from 'fs';
 
@@ -82,12 +81,6 @@ export class DocModule {
    * 就绪阶段：所有依赖模块已就绪，执行业务初始化
    */
   async onReady(): Promise<void> {
-    // 构建变体守卫：非 enterprise 版本直接跳过
-    if (!isBuildVariant('enterprise')) {
-      logger.info('非 enterprise 构建变体，跳过 doc 模块');
-      return;
-    }
-
     if (!feature('DOC_MODULE')) {
       logger.info('DOC_MODULE feature flag 已关闭，跳过 doc 模块');
       return;
@@ -115,7 +108,6 @@ export class DocModule {
       await this.initFullMode(info);
     } else {
       // 回退检查：detectOfficeCLI 未找到，但可能已通过 MCP 配置连接了 officecli
-      // （例如用户通过 MCP 设置 UI 手动配置，或 Tauri 侧预先注册）
       const existingMcp = await this.findExistingOfficeCLIMcp();
       if (existingMcp) {
         logger.info(
@@ -123,9 +115,17 @@ export class DocModule {
         );
         this.status = Status.FULL;
         this.officeCLIVersion = existingMcp.version;
-        // 不重复注册 MCP server（已在 MCP 层注册）
+        await this.syncMCPServerTools();
       } else {
-        await this.initDegradedMode();
+        // 最终回退：主动尝试通过 MCP 客户端直接连接 officecli
+        // MCP 配置可能未自动重连（重启后），此处主动触发连接
+        const connected = await this.tryDirectMcpConnect();
+        if (connected) {
+          this.status = Status.FULL;
+          await this.syncMCPServerTools();
+        } else {
+          await this.initDegradedMode();
+        }
       }
     }
 
@@ -180,6 +180,107 @@ export class DocModule {
       templates: templateNames,
       documents: this.scanOutputDirectory(),
     };
+  }
+
+  /**
+   * 动态刷新 MCP 连接状态
+   * 当缓存为 DEGRADED 时检查 MCPServerManager（唯一事实来源）中是否已有 officecli。
+   * MCPConnectionManager（适配层）在连接成功时已同步到 MCPServerManager，无需重复检查。
+   * 解决用户通过 UI 连接 MCP officecli 后模块仍显示"未安装"的问题。
+   */
+  async refreshMCPStatus(): Promise<void> {
+    if (this.status === Status.FULL) return;
+
+    try {
+      const { getMCPServerManager } =
+        await import('@modules/services/mcp/MCPServerManager');
+      const manager = getMCPServerManager();
+
+      if (manager.getServer('officecli')) {
+        logger.info('MCPServerManager 中检测到 officecli，状态修正为 FULL');
+        this.status = Status.FULL;
+        await this.syncMCPServerTools();
+      }
+    } catch (error) {
+      logger.debug('MCP 状态刷新失败', { error: String(error) });
+    }
+  }
+
+  /**
+   * 主动尝试通过 MCP 客户端直接连接 officecli
+   * 用于 MCP 配置未自动重连的场景（如重启后），在进入 DEGRADED 前做最终尝试。
+   */
+  private async tryDirectMcpConnect(): Promise<boolean> {
+    try {
+      const { getMcpToolsCommandsAndResources } =
+        await import('@modules/services/mcp/client');
+      const { getMCPServerManager } =
+        await import('@modules/services/mcp/MCPServerManager');
+
+      let connected = false;
+
+      await getMcpToolsCommandsAndResources(
+        (result) => {
+          if (result.connection.type === 'connected') {
+            const manager = getMCPServerManager();
+            manager.addServer('officecli', result.connection.config);
+            connected = true;
+            logger.info('主动连接 officecli 成功，已注册到 MCPServerManager');
+          }
+        },
+        {
+          officecli: buildOfficeCLIMcpConfig({
+            installed: true,
+            path: 'officecli',
+          }) as any,
+        }
+      );
+
+      return connected;
+    } catch (error) {
+      logger.warn('主动连接 officecli 失败', { error: String(error) });
+      return false;
+    }
+  }
+
+  /**
+   * 同步 MCP officecli 工具到 ToolManager
+   * DocModule 通过 MCPServerManager 连接 officecli，但 MCPToolBridge 从
+   * MCPConnectionManager.toolsCache 获取工具列表。此处通过 MCP 客户端管线
+   * 重新获取工具，注入 toolsCache，再触发 MCPToolBridge 同步到 ToolManager。
+   */
+  private async syncMCPServerTools(): Promise<void> {
+    try {
+      const mcpConfig = buildOfficeCLIMcpConfig({
+        installed: true,
+        path: 'officecli',
+      });
+
+      const { getMcpToolsCommandsAndResources } =
+        await import('@modules/services/mcp/client');
+      const { mcpConnectionManager } =
+        await import('@modules/services/mcp/MCPConnectionManager');
+
+      // 通过 MCP 客户端连接 officecli 并获取工具列表
+      await getMcpToolsCommandsAndResources(
+        (result) => {
+          if (result.tools?.length > 0) {
+            mcpConnectionManager.addServerTools('officecli', result.tools);
+            logger.info(
+              `officecli 工具已注入 toolsCache: ${result.tools.length} 个`
+            );
+          }
+        },
+        { officecli: mcpConfig as any }
+      );
+
+      // 触发 MCPToolBridge 从 toolsCache 同步到 ToolManager
+      const { mcpSystem } = await import('@modules/services/mcp');
+      const count = await mcpSystem.refreshAllTools();
+      logger.info(`MCP 工具已刷新：${count} 个工具可用`);
+    } catch (error) {
+      logger.warn('MCP 工具刷新失败', { error: String(error) });
+    }
   }
 
   /**
@@ -262,7 +363,8 @@ export class DocModule {
       manager.addServer('officecli', mcpConfig as any);
       logger.info('OfficeCLI MCP Server 已注册');
 
-      // MCPToolBridge 将自动同步工具到 ToolManager
+      // MCPToolBridge 在启动时已执行 syncTools，此时需手动触发刷新
+      await this.syncMCPServerTools();
     } catch (error) {
       logger.warn('MCP Server 注册失败，尝试降级', { error: String(error) });
       await this.initDegradedMode();

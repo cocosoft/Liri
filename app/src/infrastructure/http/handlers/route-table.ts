@@ -2220,6 +2220,16 @@ export async function dispatchRoute(
     await handleDocUndo(req, res);
     return true;
   }
+  if (method === 'POST' && url === '/v1/doc/create') {
+    const { handleDocCreate } = await import('@modules/doc');
+    await handleDocCreate(req, res);
+    return true;
+  }
+  if (method === 'GET' && url.startsWith('/v1/doc/download')) {
+    const { handleDocDownload } = await import('@modules/doc');
+    await handleDocDownload(req, res);
+    return true;
+  }
   if (method === 'GET' && url.startsWith('/v1/doc/graph')) {
     const { handleDocGraph } = await import('@modules/doc');
     await handleDocGraph(req, res);
@@ -2232,11 +2242,101 @@ export async function dispatchRoute(
     await handleMailStatus(req, res);
     return true;
   }
+  if (method === 'POST' && url === '/v1/mail/config') {
+    const { handleMailConfig } = await import('@modules/doc');
+    await handleMailConfig(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/mail/config') {
+    const { handleMailConfigRead } = await import('@modules/doc');
+    await handleMailConfigRead(req, res);
+    return true;
+  }
+  if (method === 'DELETE' && url === '/v1/mail/config') {
+    const { handleMailConfigDelete } = await import('@modules/doc');
+    await handleMailConfigDelete(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/mail/send') {
+    const { handleMailSend } = await import('@modules/doc');
+    await handleMailSend(req, res);
+    return true;
+  }
+  if (method === 'GET' && url.startsWith('/v1/mail/inbox')) {
+    const { handleMailInbox } = await import('@modules/doc');
+    await handleMailInbox(req, res);
+    return true;
+  }
+  if (method === 'GET' && url.startsWith('/v1/mail/search')) {
+    const { handleMailSearch } = await import('@modules/doc');
+    await handleMailSearch(req, res);
+    return true;
+  }
+  if (method === 'GET' && url.startsWith('/v1/mail/sent')) {
+    const { handleMailSent } = await import('@modules/doc');
+    await handleMailSent(req, res);
+    return true;
+  }
+  if (
+    method === 'PATCH' &&
+    url.startsWith('/v1/mail/') &&
+    url.endsWith('/read')
+  ) {
+    const { handleMailPatchRead } = await import('@modules/doc');
+    await handleMailPatchRead(req, res);
+    return true;
+  }
+  if (
+    method === 'DELETE' &&
+    url.startsWith('/v1/mail/') &&
+    url !== '/v1/mail/config'
+  ) {
+    const { handleMailDelete } = await import('@modules/doc');
+    await handleMailDelete(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/mail/refresh') {
+    const { handleMailRefresh } = await import('@modules/doc');
+    await handleMailRefresh(req, res);
+    return true;
+  }
 
   // ---- Office / calendar 模块 API ----
+  // 精确匹配在前，避免被 startsWith 误匹配
   if (method === 'GET' && url === '/v1/calendar/status') {
     const { handleCalendarStatus } = await import('@modules/doc');
     await handleCalendarStatus(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/calendar/events') {
+    const { handleCalendarList } = await import('@modules/doc');
+    await handleCalendarList(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/calendar/events') {
+    const { handleCalendarAdd } = await import('@modules/doc');
+    await handleCalendarAdd(req, res);
+    return true;
+  }
+  // 带参数匹配在后（export/:id 在 events/:id 之前避免 export 被 events 匹配）
+  if (method === 'GET' && url.startsWith('/v1/calendar/export/')) {
+    const { handleCalendarExport } = await import('@modules/doc');
+    await handleCalendarExport(req, res);
+    return true;
+  }
+  if (method === 'PUT' && url.startsWith('/v1/calendar/events/')) {
+    const { handleCalendarUpdate } = await import('@modules/doc');
+    await handleCalendarUpdate(req, res);
+    return true;
+  }
+  if (method === 'DELETE' && url.startsWith('/v1/calendar/events/')) {
+    const { handleCalendarDelete } = await import('@modules/doc');
+    await handleCalendarDelete(req, res);
+    return true;
+  }
+  if (method === 'GET' && url.startsWith('/v1/calendar/merged')) {
+    const { handleCalendarMerged } = await import('@modules/doc');
+    await handleCalendarMerged(req, res);
     return true;
   }
 

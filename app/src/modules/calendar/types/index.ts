@@ -31,6 +31,14 @@ export interface CalendarAddArgs {
     minutesBefore: number;
     method: 'push' | 'log';
   };
+  /** 多提醒支持：提前分钟数数组，如 [15, 1440] 表示15分钟前和1天前 */
+  reminderMinutes?: number[];
+  /** AI 对话片段（静态摘要） */
+  snippet?: string;
+  /** 对话会话 ID（AI 创建时传入） */
+  sessionId?: string;
+  /** 工具调用 ID */
+  toolCallId?: string;
 }
 
 /** 日历模块状态 */

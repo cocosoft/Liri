@@ -90,6 +90,7 @@ export function getBuiltinToolLoaders(): ToolLoader[] {
     // 会话管理工具
     createToolLoader(ToolFactory.prototype.createSessionsTool),
     createToolLoader(ToolFactory.prototype.createClipboardTool),
+    createToolLoader(ToolFactory.prototype.createDocGenerateTool),
     createToolLoader(ToolFactory.prototype.createComputerUseTool),
 
     // 媒体编辑工具

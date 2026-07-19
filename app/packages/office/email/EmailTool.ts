@@ -10,7 +10,11 @@ import { EmailSender } from './EmailSender';
 import { EmailReader } from './EmailReader';
 import { EmailConfigService } from './EmailConfigService';
 
-import type { EmailSendArgs, EmailSendResult, EmailAccount } from '@modules/mail/types';
+import type {
+  EmailSendArgs,
+  EmailSendResult,
+  EmailAccount,
+} from '@modules/mail/types';
 
 const logger = new Logger({
   module: 'mail:tool',
@@ -69,5 +73,38 @@ export class EmailTool {
    */
   getAccounts(): EmailAccount[] {
     return this.configService.getAccounts();
+  }
+
+  /**
+   * IMAP 连通性测试
+   * 在保存配置前验证凭据是否有效
+   */
+  async testConnection(
+    account: Record<string, unknown>
+  ): Promise<{ ok: boolean }> {
+    const { ImapFlow } = await import('imapflow');
+
+    const client = new ImapFlow({
+      host: account.imapHost || 'imap.gmail.com',
+      port: (account.imapPort as number) || 993,
+      secure: true,
+      auth: {
+        user: account.user as string,
+        pass: account.pass as string,
+      },
+    });
+
+    try {
+      await client.connect();
+      await client.logout();
+      return { ok: true };
+    } finally {
+      // 确保连接被关闭（即使 logout 失败）
+      try {
+        client.close();
+      } catch {
+        /* 忽略 */
+      }
+    }
   }
 }

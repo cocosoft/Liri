@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { LogEntry } from "../../types";
 
 interface LogViewerProps {
@@ -15,8 +16,11 @@ interface LogDetailModalProps {
 }
 
 function LogDetailModal({ log, isDark, onClose }: LogDetailModalProps) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language === "en" ? "en-US" : "zh-CN";
+
   const formatTime = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString("zh-CN", {
+    return new Date(timestamp).toLocaleString(locale, {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -39,7 +43,7 @@ function LogDetailModal({ log, isDark, onClose }: LogDetailModalProps) {
           className={`p-4 border-b flex items-center justify-between ${isDark ? "border-gray-700" : "border-gray-200"}`}
         >
           <h3 className={`font-medium ${isDark ? "text-gray-100" : "text-gray-900"}`}>
-            日志详情
+            {t("settings.logViewerDetailTitle")}
           </h3>
           <button
             onClick={onClose}
@@ -52,7 +56,7 @@ function LogDetailModal({ log, isDark, onClose }: LogDetailModalProps) {
           <div className="space-y-4">
             <div>
               <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                级别
+                {t("settings.logViewerFieldLevel")}
               </label>
               <span className={`px-2 py-1 rounded text-sm ${
                 log.level === "error" ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400" :
@@ -65,32 +69,32 @@ function LogDetailModal({ log, isDark, onClose }: LogDetailModalProps) {
             </div>
             <div>
               <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                时间
+                {t("settings.logViewerFieldTime")}
               </label>
               <p className="text-sm">{formatTime(log.timestamp)}</p>
             </div>
             <div>
               <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                来源
+                {t("settings.logViewerFieldSource")}
               </label>
               <p className="text-sm">{log.source || "-"}</p>
             </div>
             <div>
               <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                模块
+                {t("settings.logViewerFieldModule")}
               </label>
               <p className="text-sm">{log.module || "-"}</p>
             </div>
             <div>
               <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                消息
+                {t("settings.logViewerFieldMessage")}
               </label>
               <p className="text-sm whitespace-pre-wrap">{log.message}</p>
             </div>
             {log.details && (
               <div>
                 <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                  详情
+                  {t("settings.logViewerFieldDetails")}
                 </label>
                 <pre className={`p-3 rounded text-sm overflow-auto max-h-64 ${isDark ? "bg-gray-900 text-gray-300" : "bg-gray-100 text-gray-700"}`}>
                   {log.details}
@@ -133,10 +137,12 @@ function LogViewer({
   onLoadMore,
   hasMore = false,
 }: LogViewerProps) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language === "en" ? "en-US" : "zh-CN";
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
 
   const formatTime = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString("zh-CN", {
+    return new Date(timestamp).toLocaleString(locale, {
       month: "2-digit",
       day: "2-digit",
       hour: "2-digit",
@@ -157,7 +163,7 @@ function LogViewer({
             <div
               className={`p-8 text-center ${isDark ? "text-gray-500" : "text-gray-400"}`}
             >
-              暂无日志
+              {t("settings.logViewerNoLogs")}
             </div>
           ) : (
             logs.map((log) => {
@@ -193,7 +199,7 @@ function LogViewer({
                   <span
                     className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
                   >
-                    查看详情 →
+                    {t("settings.logViewerViewDetail")}
                   </span>
                 </div>
               );
@@ -208,7 +214,7 @@ function LogViewer({
               onClick={onLoadMore}
               className={`w-full py-2 text-sm rounded-lg border ${isDark ? "border-gray-600 text-gray-400 hover:bg-gray-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}
             >
-              加载更多
+              {t("settings.logViewerLoadMore")}
             </button>
           </div>
         )}

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { monitorService } from "../../services/monitorService";
 import { costService, type CostSummary } from "../../services/costService";
@@ -13,6 +14,7 @@ const logger = createLogger("components:logViewer");
 type TabType = "logs" | "sessions" | "cost";
 
 function LogViewerPage() {
+  const { t, i18n } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
 
@@ -69,7 +71,7 @@ function LogViewerPage() {
         }
         setLogsTotal(result.total);
       } catch (e) {
-        setLogsError(e instanceof Error ? e.message : "获取日志失败");
+        setLogsError(e instanceof Error ? e.message : t("settings.logViewerErrorFetchLogs"));
       } finally {
         setIsLoadingLogs(false);
       }
@@ -85,7 +87,7 @@ function LogViewerPage() {
       const result = await monitorService.getSessions({ limit: 50, offset: 0 });
       setSessions(result.sessions);
     } catch (e) {
-      setSessionsError(e instanceof Error ? e.message : "获取会话列表失败");
+      setSessionsError(e instanceof Error ? e.message : t("settings.logViewerErrorFetchSessions"));
     } finally {
       setIsLoadingSessions(false);
     }
@@ -99,7 +101,7 @@ function LogViewerPage() {
       const result = await costService.getCostSummary();
       setCostSummary(result);
     } catch (e) {
-      setCostError(e instanceof Error ? e.message : "获取成本统计失败");
+      setCostError(e instanceof Error ? e.message : t("settings.logViewerErrorFetchCost"));
     } finally {
       setIsLoadingCost(false);
     }
@@ -182,7 +184,8 @@ function LogViewerPage() {
 
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
-    return date.toLocaleString("zh-CN", {
+    const locale = i18n.language === "en" ? "en-US" : "zh-CN";
+    return date.toLocaleString(locale, {
       month: "2-digit",
       day: "2-digit",
       hour: "2-digit",
@@ -191,9 +194,9 @@ function LogViewerPage() {
   };
 
   const tabs = [
-    { key: "logs" as TabType, label: "系统日志" },
-    { key: "sessions" as TabType, label: "LLM 会话" },
-    { key: "cost" as TabType, label: "成本统计" },
+    { key: "logs" as TabType, label: t("settings.logViewerTabLogs") },
+    { key: "sessions" as TabType, label: t("settings.logViewerTabSessions") },
+    { key: "cost" as TabType, label: t("settings.logViewerTabCost") },
   ];
 
   return (
@@ -205,12 +208,12 @@ function LogViewerPage() {
           <h1
             className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}
           >
-            日志浏览器
+            {t("settings.logViewerTitle")}
           </h1>
           <p
             className={`mt-1 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
           >
-            浏览系统日志、LLM 会话记录和成本统计
+            {t("settings.logViewerDesc")}
           </p>
         </div>
 
@@ -247,7 +250,7 @@ function LogViewerPage() {
                     value={searchQuery}
                     onChange={setSearchQuery}
                     onSearch={handleSearch}
-                    placeholder="搜索日志内容..."
+                    placeholder={t("settings.logViewerSearchPlaceholder")}
                     isDark={isDark}
                   />
                 </div>
@@ -260,7 +263,7 @@ function LogViewerPage() {
                       : "bg-white border-gray-300 text-gray-700"
                   } focus:outline-none focus:ring-2 focus:ring-blue-500`}
                 >
-                  <option value="all">全部级别</option>
+                  <option value="all">{t("settings.logViewerLevelAll")}</option>
                   <option value="debug">Debug</option>
                   <option value="info">Info</option>
                   <option value="warn">Warning</option>
@@ -275,11 +278,11 @@ function LogViewerPage() {
                       : "bg-white border-gray-300 text-gray-700"
                   } focus:outline-none focus:ring-2 focus:ring-blue-500`}
                 >
-                  <option value="all">全部来源</option>
-                  <option value="logger">普通日志</option>
-                  <option value="structured">结构化日志</option>
-                  <option value="otel">OTel 日志</option>
-                  <option value="llm">LLM 跟踪</option>
+                  <option value="all">{t("settings.logViewerSourceAll")}</option>
+                  <option value="logger">{t("settings.logViewerSourceLogger")}</option>
+                  <option value="structured">{t("settings.logViewerSourceStructured")}</option>
+                  <option value="otel">{t("settings.logViewerSourceOtel")}</option>
+                  <option value="llm">{t("settings.logViewerSourceLlm")}</option>
                 </select>
                 <button
                   onClick={() => fetchLogs(true)}
@@ -290,7 +293,7 @@ function LogViewerPage() {
                       : "bg-blue-600 hover:bg-blue-700 text-white"
                   } disabled:opacity-50`}
                 >
-                  {isLoadingLogs ? "刷新中..." : "刷新"}
+                  {isLoadingLogs ? t("settings.logViewerRefreshing") : t("settings.logViewerRefresh")}
                 </button>
                 <button
                   onClick={() => handleExportLogs('json')}
@@ -301,7 +304,7 @@ function LogViewerPage() {
                       : "bg-green-600 hover:bg-green-700 text-white"
                   } disabled:opacity-50`}
                 >
-                  导出 JSON
+                  {t("settings.logViewerExportJson")}
                 </button>
                 <button
                   onClick={() => handleExportLogs('csv')}
@@ -312,7 +315,7 @@ function LogViewerPage() {
                       : "bg-green-600 hover:bg-green-700 text-white"
                   } disabled:opacity-50`}
                 >
-                  导出 CSV
+                  {t("settings.logViewerExportCsv")}
                 </button>
               </div>
             </div>
@@ -351,7 +354,7 @@ function LogViewerPage() {
               </div>
             ) : sessions.length === 0 ? (
               <div className={`text-center py-12 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                <p>暂无 LLM 会话记录</p>
+                <p>{t("settings.logViewerNoSessions")}</p>
               </div>
             ) : (
               <div className={`space-y-3 ${isDark ? "bg-gray-900" : "bg-white"} rounded-lg border ${isDark ? "border-gray-700" : "border-gray-200"} overflow-hidden`}>
@@ -364,14 +367,14 @@ function LogViewerPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <h3 className={`font-medium ${isDark ? "text-gray-100" : "text-gray-900"}`}>
-                          {session.title || `会话 ${session.sessionId.substring(0, 8)}`}
+                          {session.title || `${t("settings.logViewerSessionPrefix")} ${session.sessionId.substring(0, 8)}`}
                         </h3>
                         <div className="flex flex-wrap gap-2 mt-2">
                           <span className={`px-2 py-0.5 text-xs rounded ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"}`}>
                             {session.models.join(", ")}
                           </span>
                           <span className={`px-2 py-0.5 text-xs rounded ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"}`}>
-                            {session.totalRequests} 次调用
+                            {session.totalRequests} {t("settings.logViewerCallCount")}
                           </span>
                           <span className={`px-2 py-0.5 text-xs rounded ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"}`}>
                             {formatTokens(session.totalTokens)} tokens
@@ -410,25 +413,25 @@ function LogViewerPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className={`p-6 rounded-lg ${isDark ? "bg-gray-800" : "bg-white"} border ${isDark ? "border-gray-700" : "border-gray-200"}`}>
-                  <div className={`text-sm mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>总会话数</div>
+                  <div className={`text-sm mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>{t("settings.logViewerStatTotalSessions")}</div>
                   <div className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}>
                     {costSummary?.totalSessions || 0}
                   </div>
                 </div>
                 <div className={`p-6 rounded-lg ${isDark ? "bg-gray-800" : "bg-white"} border ${isDark ? "border-gray-700" : "border-gray-200"}`}>
-                  <div className={`text-sm mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>总请求数</div>
+                  <div className={`text-sm mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>{t("settings.logViewerStatTotalRequests")}</div>
                   <div className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}>
                     {costSummary?.totalRequests || 0}
                   </div>
                 </div>
                 <div className={`p-6 rounded-lg ${isDark ? "bg-gray-800" : "bg-white"} border ${isDark ? "border-gray-700" : "border-gray-200"}`}>
-                  <div className={`text-sm mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>总输入 Token</div>
+                  <div className={`text-sm mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>{t("settings.logViewerStatInputTokens")}</div>
                   <div className={`text-2xl font-bold ${isDark ? "text-blue-400" : "text-blue-600"}`}>
                     {formatTokens(costSummary?.totalInputTokens || 0)}
                   </div>
                 </div>
                 <div className={`p-6 rounded-lg ${isDark ? "bg-gray-800" : "bg-white"} border ${isDark ? "border-gray-700" : "border-gray-200"}`}>
-                  <div className={`text-sm mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>总输出 Token</div>
+                  <div className={`text-sm mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>{t("settings.logViewerStatOutputTokens")}</div>
                   <div className={`text-2xl font-bold ${isDark ? "text-green-400" : "text-green-600"}`}>
                     {formatTokens(costSummary?.totalOutputTokens || 0)}
                   </div>
@@ -445,7 +448,7 @@ function LogViewerPage() {
           <div className={`w-full max-w-4xl max-h-[80vh] overflow-hidden rounded-lg ${isDark ? "bg-gray-800" : "bg-white"}`}>
             <div className={`p-4 border-b flex items-center justify-between ${isDark ? "border-gray-700" : "border-gray-200"}`}>
               <h2 className={`text-lg font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}>
-                {selectedSession.title || `会话 ${selectedSession.sessionId.substring(0, 8)}`}
+                {selectedSession.title || `${t("settings.logViewerSessionPrefix")} ${selectedSession.sessionId.substring(0, 8)}`}
               </h2>
               <button
                 onClick={handleCloseSessionDetail}
@@ -458,25 +461,25 @@ function LogViewerPage() {
             <div className={`p-4 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <div className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>总调用次数</div>
+                  <div className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>{t("settings.logViewerStatTotalCalls")}</div>
                   <div className={`text-lg font-medium ${isDark ? "text-gray-200" : "text-gray-800"}`}>
                     {selectedSession.totalRequests}
                   </div>
                 </div>
                 <div>
-                  <div className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>输入 Token</div>
+                  <div className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>{t("settings.logViewerStatInputToken")}</div>
                   <div className={`text-lg font-medium ${isDark ? "text-blue-400" : "text-blue-600"}`}>
                     {formatTokens(selectedSession.totalInputTokens)}
                   </div>
                 </div>
                 <div>
-                  <div className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>输出 Token</div>
+                  <div className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>{t("settings.logViewerStatOutputToken")}</div>
                   <div className={`text-lg font-medium ${isDark ? "text-green-400" : "text-green-600"}`}>
                     {formatTokens(selectedSession.totalOutputTokens)}
                   </div>
                 </div>
                 <div>
-                  <div className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>总成本</div>
+                  <div className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>{t("settings.logViewerStatTotalCost")}</div>
                   <div className={`text-lg font-medium ${isDark ? "text-yellow-400" : "text-yellow-600"}`}>
                     ${formatCost(selectedSession.totalCostUsd)}
                   </div>
@@ -484,17 +487,17 @@ function LogViewerPage() {
               </div>
               <div className="flex flex-wrap gap-2 mt-4">
                 <span className={`px-2 py-1 text-xs rounded ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"}`}>
-                  模型: {selectedSession.models.join(", ")}
+                  {t("settings.logViewerLabelModel")}: {selectedSession.models.join(", ")}
                 </span>
                 <span className={`px-2 py-1 text-xs rounded ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"}`}>
-                  提供商: {selectedSession.providers.join(", ")}
+                  {t("settings.logViewerLabelProvider")}: {selectedSession.providers.join(", ")}
                 </span>
               </div>
             </div>
 
             <div className="overflow-y-auto max-h-[50vh] p-4">
               <h3 className={`text-sm font-medium mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                LLM 调用记录 ({selectedSession.calls.length})
+                {t("settings.logViewerLlmCalls")} ({selectedSession.calls.length})
               </h3>
               <div className="space-y-3">
                 {selectedSession.calls.map((call, index) => (
@@ -517,26 +520,26 @@ function LogViewerPage() {
                         </div>
                         <div className="flex flex-wrap gap-4 mt-2 text-xs">
                           <span className={isDark ? "text-gray-400" : "text-gray-500"}>
-                            输入: <span className={isDark ? "text-blue-400" : "text-blue-600"}>{call.inputTokens}</span>
+                            {t("settings.logViewerLabelInput")}: <span className={isDark ? "text-blue-400" : "text-blue-600"}>{call.inputTokens}</span>
                           </span>
                           <span className={isDark ? "text-gray-400" : "text-gray-500"}>
-                            输出: <span className={isDark ? "text-green-400" : "text-green-600"}>{call.outputTokens}</span>
+                            {t("settings.logViewerLabelOutput")}: <span className={isDark ? "text-green-400" : "text-green-600"}>{call.outputTokens}</span>
                           </span>
                           {call.cacheReadTokens > 0 && (
                             <span className={isDark ? "text-gray-400" : "text-gray-500"}>
-                              缓存读取: <span className={isDark ? "text-cyan-400" : "text-cyan-600"}>{call.cacheReadTokens}</span>
+                              {t("settings.logViewerLabelCacheRead")}: <span className={isDark ? "text-cyan-400" : "text-cyan-600"}>{call.cacheReadTokens}</span>
                             </span>
                           )}
                           {call.cacheCreateTokens > 0 && (
                             <span className={isDark ? "text-gray-400" : "text-gray-500"}>
-                              缓存创建: <span className={isDark ? "text-purple-400" : "text-purple-600"}>{call.cacheCreateTokens}</span>
+                              {t("settings.logViewerLabelCacheCreate")}: <span className={isDark ? "text-purple-400" : "text-purple-600"}>{call.cacheCreateTokens}</span>
                             </span>
                           )}
                           <span className={isDark ? "text-gray-400" : "text-gray-500"}>
-                            耗时: <span className={isDark ? "text-orange-400" : "text-orange-600"}>{call.durationMs}ms</span>
+                            {t("settings.logViewerLabelDuration")}: <span className={isDark ? "text-orange-400" : "text-orange-600"}>{call.durationMs}ms</span>
                           </span>
                           <span className={isDark ? "text-gray-400" : "text-gray-500"}>
-                            成本: <span className={isDark ? "text-yellow-400" : "text-yellow-600"}>${formatCost(call.costUsd)}</span>
+                            {t("settings.logViewerLabelCost")}: <span className={isDark ? "text-yellow-400" : "text-yellow-600"}>${formatCost(call.costUsd)}</span>
                           </span>
                         </div>
                       </div>

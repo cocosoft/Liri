@@ -120,15 +120,15 @@ export const FEATURE_FLAGS = {
 
   // ───── 办公模块（Office） ─────
   /** 文档模块（OfficeCLI MCP 集成） */
-  DOC_MODULE: false,
+  DOC_MODULE: true,
   /** 文档模板引擎 */
-  DOC_TEMPLATE: false,
+  DOC_TEMPLATE: true,
   /** 邮件模块 */
-  MAIL_MODULE: false,
+  MAIL_MODULE: true,
   /** 邮件 IMAP 收件箱 */
-  MAIL_IMAP: false,
+  MAIL_IMAP: true,
   /** 日历模块 */
-  CALENDAR_MODULE: false,
+  CALENDAR_MODULE: true,
   /** 计划工具 */
   PLAN: true,
   /** 配置工具 */

@@ -53,6 +53,8 @@ export class ICalParser {
           currentEvent.description = trimmed.substring(12);
         } else if (trimmed.startsWith('LOCATION:')) {
           currentEvent.location = trimmed.substring(9);
+        } else if (trimmed.startsWith('UID:')) {
+          currentEvent.id = trimmed.substring(4);
         }
       }
 

@@ -5,31 +5,45 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { feature } from '@modules/core';
-import { isBuildVariant } from '@modules/core/featureFlags';
 import { globalToolManager } from '@modules/tools';
 
 import { CalendarModuleStatus as Status } from './types';
 import type { CalendarModuleStatus } from './types';
-import { createCalendarAddTool } from './tools/CalendarToolWrap';
+import {
+  createCalendarAddTool,
+  createCalendarListTool,
+  createCalendarUpdateTool,
+  createCalendarDeleteTool,
+} from './tools/CalendarToolWrap';
+import { ScheduleHook } from './ScheduleHook';
 
 const logger = new Logger({
   module: 'calendar:lifecycle',
   level: LogLevel.INFO,
 });
 
+/** CalendarModule 单例 */
+let calendarModuleInstance: CalendarModule | null = null;
+
 export class CalendarModule {
   private status: CalendarModuleStatus = Status.UNINITIALIZED;
+  private scheduleHook: ScheduleHook | null = null;
+
+  /**
+   * 获取模块单例
+   */
+  static getInstance(): CalendarModule {
+    if (!calendarModuleInstance) {
+      calendarModuleInstance = new CalendarModule();
+    }
+    return calendarModuleInstance;
+  }
 
   async onLoad(): Promise<void> {
     logger.info('CalendarModule 加载中...');
   }
 
   async onReady(): Promise<void> {
-    if (!isBuildVariant('enterprise')) {
-      logger.info('非 enterprise 构建变体，跳过 calendar 模块');
-      return;
-    }
-
     if (!feature('CALENDAR_MODULE')) {
       logger.info('CALENDAR_MODULE feature flag 已关闭，跳过 calendar 模块');
       return;
@@ -43,9 +57,18 @@ export class CalendarModule {
 
       // 注册日历工具到全局 ToolManager
       globalToolManager.registerTool(createCalendarAddTool());
+      globalToolManager.registerTool(createCalendarListTool());
+      globalToolManager.registerTool(createCalendarUpdateTool());
+      globalToolManager.registerTool(createCalendarDeleteTool());
+
+      // 初始化 ScheduleHook（事件总线 + Cron 提醒 + AI 索引）
+      this.scheduleHook = new ScheduleHook();
+      await this.scheduleHook.init();
 
       this.status = Status.READY;
-      logger.info('CalendarModule 就绪 — 日历工具已注册');
+      logger.info(
+        'CalendarModule 就绪 — 4 个日历工具已注册，ScheduleHook 已启动'
+      );
     } catch (error) {
       logger.warn('日历模块初始化失败', { error: String(error) });
       this.status = Status.DEGRADED;
@@ -54,10 +77,24 @@ export class CalendarModule {
 
   async onDestroy(): Promise<void> {
     logger.info('CalendarModule 销毁中...');
+    if (this.scheduleHook) {
+      await this.scheduleHook.destroy();
+      this.scheduleHook = null;
+    }
     this.status = Status.SHUTDOWN;
   }
 
   getStatus(): CalendarModuleStatus {
     return this.status;
+  }
+
+  /**
+   * 获取模块能力报告（前端的 /v1/calendar/status 数据来源）
+   */
+  getCapabilities() {
+    return {
+      status: this.status,
+      toolCount: 4,
+    };
   }
 }

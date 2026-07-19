@@ -5,7 +5,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:tools:file:convert', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:tools:file:convert',
+  level: LogLevel.INFO,
+});
 
 function buildHelpText(): string {
   return [

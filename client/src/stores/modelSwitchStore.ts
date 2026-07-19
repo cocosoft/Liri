@@ -1,31 +1,19 @@
 /**
- * Model Switch Store — 薄委托层
+ * Model Switch Store — 独立 Zustand Store
  *
- * 保持向后兼容的导出接口（useModelSwitchStore），
- * 内部状态已合并到 appStore。
+ * 当前模型状态、模型切换、任务分工策略管理。
+ * 原状态从 appStore 迁出，现已为真实独立 Store。
+ *
+ * 跨 Store 依赖：switchModel() 通过 useModelStore 查找模型名。
  */
 
-import { useAppStore } from "./appStore";
+import { create } from "zustand";
+import { modelSwitchService } from "../services/modelSwitchService";
+import { handleClientError } from "@/utils/handleError";
+import { useModelStore } from "./modelStore";
 import type { CurrentModelInfo, TaskModelConfig } from "../types";
 
-interface ModelSwitchSlice {
-  currentModelId: string;     // UUID（内部标识符）
-  currentModelName: string;   // 模型名（显示用）
-  currentProvider: string;
-  routerTier: string;
-  routingMode: "dynamic" | "static" | "off";
-  costThisSession: number;
-  availableTasks: CurrentModelInfo["availableTasks"];
-  tasks: TaskModelConfig;
-  isLoading: boolean;
-  error: string | null;
-  loadCurrent: () => Promise<void>;
-  switchModel: (modelId: string) => Promise<void>;
-  loadTasks: () => Promise<void>;
-  saveTasks: (tasks: TaskModelConfig) => Promise<void>;
-}
-
-function mapSlice(s: {
+interface ModelSwitchState {
   currentModelId: string;
   currentModelName: string;
   currentProvider: string;
@@ -34,55 +22,81 @@ function mapSlice(s: {
   costThisSession: number;
   availableTasks: CurrentModelInfo["availableTasks"];
   tasks: TaskModelConfig;
-  modelSwitchLoading: boolean;
-  modelSwitchError: string | null;
-  loadCurrentModel: () => Promise<void>;
+  isLoading: boolean;
+  error: string | null;
+
+  loadCurrent: () => Promise<void>;
   switchModel: (modelId: string) => Promise<void>;
-  loadModelTasks: () => Promise<void>;
-  saveModelTasks: (tasks: TaskModelConfig) => Promise<void>;
-}): ModelSwitchSlice {
-  return {
-    currentModelId: s.currentModelId,
-    currentModelName: s.currentModelName,
-    currentProvider: s.currentProvider,
-    routerTier: s.routerTier,
-    routingMode: s.routingMode,
-    costThisSession: s.costThisSession,
-    availableTasks: s.availableTasks,
-    tasks: s.tasks,
-    isLoading: s.modelSwitchLoading,
-    error: s.modelSwitchError,
-    loadCurrent: s.loadCurrentModel,
-    switchModel: s.switchModel,
-    loadTasks: s.loadModelTasks,
-    saveTasks: s.saveModelTasks,
-  };
+  loadTasks: () => Promise<void>;
+  saveTasks: (tasks: TaskModelConfig) => Promise<void>;
 }
 
-export function useModelSwitchStore(): ModelSwitchSlice;
-export function useModelSwitchStore<T>(selector: (slice: ModelSwitchSlice) => T): T;
-export function useModelSwitchStore(selector?: any): any {
-  const currentModelId = useAppStore((s) => s.currentModelId);
-  const currentModelName = useAppStore((s) => s.currentModelName);
-  const currentProvider = useAppStore((s) => s.currentProvider);
-  const routerTier = useAppStore((s) => s.routerTier);
-  const routingMode = useAppStore((s) => s.routingMode);
-  const costThisSession = useAppStore((s) => s.costThisSession);
-  const availableTasks = useAppStore((s) => s.availableTasks);
-  const tasks = useAppStore((s) => s.tasks);
-  const isLoading = useAppStore((s) => s.modelSwitchLoading);
-  const error = useAppStore((s) => s.modelSwitchError);
-  const loadCurrent = useAppStore((s) => s.loadCurrentModel);
-  const switchModel = useAppStore((s) => s.switchModel);
-  const loadTasks = useAppStore((s) => s.loadModelTasks);
-  const saveTasks = useAppStore((s) => s.saveModelTasks);
-  const slice = {
-    currentModelId, currentModelName, currentProvider, routerTier, routingMode,
-    costThisSession, availableTasks, tasks,
-    isLoading, error,
-    loadCurrent, switchModel, loadTasks, saveTasks,
-  };
-  return selector ? selector(slice) : slice;
-}
+export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
+  currentModelId: "",
+  currentModelName: "",
+  currentProvider: "deepseek",
+  routerTier: "",
+  routingMode: "static" as const,
+  costThisSession: 0,
+  availableTasks: [],
+  tasks: {},
+  isLoading: false,
+  error: null,
 
-useModelSwitchStore.getState = () => mapSlice(useAppStore.getState());
+  loadCurrent: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const info = await modelSwitchService.getCurrent();
+      set({
+        currentModelId: info.modelUuid,
+        currentModelName: info.modelId,
+        currentProvider: info.provider,
+        routerTier: info.routerTier ?? "",
+        routingMode: info.routingMode ?? "static",
+        costThisSession: info.costThisSession,
+        availableTasks: info.availableTasks,
+        isLoading: false,
+      });
+    } catch (e) {
+      handleClientError(e, { module: 'stores:modelSwitchStore', action: 'loadCurrent' }, 'warn');
+      set({
+        error: e instanceof Error ? e.message : "获取当前模型失败",
+        isLoading: false,
+      });
+    }
+  },
+
+  switchModel: async (modelId) => {
+    set({ error: null });
+    try {
+      await modelSwitchService.switch(modelId);
+      const tasks = await modelSwitchService.getTasks();
+      const model = useModelStore.getState().models.find((m) => m.id === modelId);
+      set({ currentModelId: modelId, currentModelName: model?.modelId || model?.name || modelId, tasks });
+    } catch (e) {
+      handleClientError(e, { module: 'stores:modelSwitchStore', action: 'switchModel' }, 'warn');
+      set({ error: e instanceof Error ? e.message : "切换模型失败" });
+    }
+  },
+
+  loadTasks: async () => {
+    try {
+      const tasks = await modelSwitchService.getTasks();
+      set({ tasks });
+    } catch (e) {
+      handleClientError(e, { module: 'stores:modelSwitchStore', action: 'loadTasks' }, 'warn');
+      set({ error: e instanceof Error ? e.message : "获取任务策略失败" });
+    }
+  },
+
+  saveTasks: async (tasks) => {
+    set({ error: null });
+    try {
+      await modelSwitchService.saveTasks(tasks);
+      set({ tasks });
+    } catch (e) {
+      handleClientError(e, { module: 'stores:modelSwitchStore', action: 'saveTasks' }, 'warn');
+      set({ error: e instanceof Error ? e.message : "保存任务策略失败" });
+    }
+  },
+}));

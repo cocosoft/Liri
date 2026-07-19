@@ -1,5 +1,8 @@
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'acp:control-plane:session-actor-queue', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'acp:control-plane:session-actor-queue',
+  level: LogLevel.INFO,
+});
 
 type Task<T = void> = () => Promise<T>;
 

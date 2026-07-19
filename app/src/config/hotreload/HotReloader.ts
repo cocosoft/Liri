@@ -3,7 +3,10 @@ import { extname } from 'path';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '../../monitoring/logs/Logger.js';
-const logger = new Logger({ module: 'config:hotreload:HotReloader', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'config:hotreload:HotReloader',
+  level: LogLevel.INFO,
+});
 
 export type ReloadStrategy = 'watch' | 'poll' | 'manual';
 
@@ -230,11 +233,12 @@ export class HotReloader {
       try {
         listener(event);
       } catch (err) {
-
         // ignore listener errors
 
-        logger.debug("Operation skipped", { context: "ignore listener errors", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: 'ignore listener errors',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   }
@@ -247,11 +251,12 @@ export class HotReloader {
       try {
         listener(error, previousConfig);
       } catch (err) {
-
         // ignore listener errors
 
-        logger.debug("Operation skipped", { context: "ignore listener errors", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: 'ignore listener errors',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   }

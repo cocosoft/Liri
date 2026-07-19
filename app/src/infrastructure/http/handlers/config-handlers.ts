@@ -25,7 +25,10 @@ import { broadcastEvent } from './handler-utils';
 import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'infrastructure:http:handlers:config-handlers', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'infrastructure:http:handlers:config-handlers',
+  level: LogLevel.INFO,
+});
 
 // ========== Config Handlers ==========
 
@@ -91,9 +94,9 @@ export async function handleSetConfig(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -124,9 +127,9 @@ export async function handleDeleteConfig(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -171,9 +174,9 @@ export async function handleRouterGetConfig(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -227,9 +230,9 @@ export async function handleRouterUpdateConfig(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }

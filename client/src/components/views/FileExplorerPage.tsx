@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useFileStore } from "../../stores/fileStore";
-import { useAppStore } from "../../stores/appStore";
+import { useNavigationStore } from "../../stores/navigationStore";
 import { useToastStore } from "../../stores/toastStore";
 import { SkeletonTable } from "../common/Skeleton";
 import SearchInput from "../common/SearchInput";
@@ -91,7 +91,7 @@ function FileExplorerPage() {
     saveToMemory,
   } = useFileStore();
 
-  const setActivePage = useAppStore((s) => s.setActivePage);
+  const setActivePage = useNavigationStore((s) => s.setActivePage);
   const addToast = useToastStore((s) => s.addToast);
   const fileInputRef = useRef<HTMLInputElement>(null);
 

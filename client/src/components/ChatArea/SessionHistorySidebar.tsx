@@ -6,6 +6,7 @@ import { sessionService } from "../../services/sessionService";
 import ConfirmDialog from "../common/ConfirmDialog";
 import SessionContextMenu from "./SessionContextMenu";
 import SessionListItem from "./SessionListItem";
+import { SessionSliceList } from "./SessionSliceList";
 
 /**
  * 会话来源渠道 → 显示名称映射
@@ -486,6 +487,11 @@ function SessionHistorySidebar() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Phase 4: SessionHub 会话列表 — 带模块类型筛选 */}
+      <div className="border-t border-gray-200 dark:border-gray-700">
+        <SessionSliceList />
       </div>
 
       {sessions.length > 0 && (

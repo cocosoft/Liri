@@ -16,7 +16,10 @@ import { SubAgentFactory } from './SubAgentFactory';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'subagent\SubAgentManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'subagent\SubAgentManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 子agent管理器

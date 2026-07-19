@@ -12,21 +12,31 @@ import { FirstRunWizard } from "./components/views/FirstRunWizard";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { TooltipProvider } from "./components/ui/tooltip";
 import routes from "./routes";
-import { useAppStore } from "./stores/appStore";
 import { useConfigStore } from "./stores/configStore";
 import { useChatStore } from "./stores/chatStore";
 import { useSessionStore } from "./stores/sessionStore";
+import { useNavigationStore } from "./stores/navigationStore";
+import { useRootStore } from "./stores/root-store";
+import { registerBuiltinModules } from "./stores/root-store/moduleRegistry";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { useBuddyNotification } from "./hooks/useBuddyNotification";
 import { useInitApp } from "./hooks/useInitApp";
+import { useSessionBridge } from "./hooks/useSessionBridge";
+import { useWorktreeSync } from "./hooks/useWorktreeSync";
+import { useAutoCreateSession } from "./hooks/useAutoCreateSession";
 
 function App() {
-  const setActivePage = useAppStore((s) => s.setActivePage);
-  const _setNavigate = useAppStore((s) => s._setNavigate);
+  const setActivePage = useNavigationStore((s) => s.setActivePage);
+  const _setNavigate = useNavigationStore((s) => s._setNavigate);
   const { config } = useConfigStore();
   const location = useLocation();
   const navigate = useNavigate();
   const { initState, completeWizard } = useInitApp();
+
+  // Root Store: 工作空间初始化（与现有 stores 并行）
+  const rootCurrentWorktreeId = useRootStore((s) => s.currentWorktreeId);
+  const rootCreateWorktree = useRootStore((s) => s.createWorktree);
+  const rootSwitchWorktree = useRootStore((s) => s.switchWorktree);
 
   // ⚠️ useRoutes 必须无条件调用，放在条件 return 之前
   // 否则初始化阶段走 early return 时不调用 useRoutes，
@@ -35,6 +45,9 @@ function App() {
 
   useKeyboard();
   useBuddyNotification();
+  useSessionBridge();     // Phase 6: 旧 sessionStore → 新 SessionHub 同步
+  useWorktreeSync();      // Phase 6: 旧 workspaceStore → 新 WorkspaceSlice 同步
+  useAutoCreateSession(); // Phase 7: URL 导航 → SessionHub 自动创建模块 session
 
   // 主题切换
   useEffect(() => {
@@ -88,6 +101,20 @@ function App() {
     window.addEventListener("liri:append-knowledge", handleAppendKnowledge);
     return () => window.removeEventListener("liri:append-knowledge", handleAppendKnowledge);
   }, [navigate]);
+
+  // Root Store: 首次启动时自动创建默认工作空间 + 注册模块
+  useEffect(() => {
+    if (initState.phase !== "ready") return;
+
+    // 注册内置模块视图组件
+    registerBuiltinModules();
+
+    if (rootCurrentWorktreeId) return;
+
+    // 创建默认工作空间
+    const wtId = rootCreateWorktree({ name: "默认工作空间" });
+    rootSwitchWorktree(wtId);
+  }, [initState.phase, rootCurrentWorktreeId, rootCreateWorktree, rootSwitchWorktree]);
 
   // 初始化未完成 / 加载失败时显示过渡态
   if (initState.phase !== "ready" && initState.phase !== "first_run_wizard") {

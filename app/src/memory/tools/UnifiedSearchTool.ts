@@ -7,7 +7,10 @@ import {
 } from '../services/UnifiedSearchService';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'memory:tools:UnifiedSearchTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'memory:tools:UnifiedSearchTool',
+  level: LogLevel.INFO,
+});
 
 export class UnifiedSearchTool implements Tool {
   public name: string = 'unified_search';

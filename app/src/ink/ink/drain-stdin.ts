@@ -46,7 +46,10 @@
 import { closeSync, constants as fsConstants, openSync, readSync } from 'fs';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'ink:ink:drain-stdin', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ink:ink:drain-stdin',
+  level: LogLevel.INFO,
+});
 
 export function drainStdin(stdin: NodeJS.ReadStream = process.stdin): void {
   if (!stdin.isTTY) return;
@@ -57,11 +60,12 @@ export function drainStdin(stdin: NodeJS.ReadStream = process.stdin): void {
       /* discard */
     }
   } catch (err) {
-
     // stream may be destroyed
 
-    logger.debug("Operation skipped", { context: "stream may be destroyed", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: 'stream may be destroyed',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   // Windows 没有 /dev/tty；CONIN$ 不支持 O_NONBLOCK 语义
@@ -82,32 +86,35 @@ export function drainStdin(stdin: NodeJS.ReadStream = process.stdin): void {
       if (readSync(fd, buf, 0, buf.length, null) <= 0) break;
     }
   } catch (err) {
-
     // EAGAIN, ENXIO/ENOENT, EBADF/EIO
 
-    logger.debug("Operation skipped", { context: "EAGAIN, ENXIO/ENOENT, EBADF/EIO", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: 'EAGAIN, ENXIO/ENOENT, EBADF/EIO',
+      error: err instanceof Error ? err.message : String(err),
+    });
   } finally {
     if (fd >= 0) {
       try {
         closeSync(fd);
       } catch (err) {
-
         // ignore
 
-        logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: 'ignore',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
     if (!wasRaw) {
       try {
         tty.setRawMode?.(false);
       } catch (err) {
-
         // TTY may be gone
 
-        logger.debug("Operation skipped", { context: "TTY may be gone", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: 'TTY may be gone',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   }

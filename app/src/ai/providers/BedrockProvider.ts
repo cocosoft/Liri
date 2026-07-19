@@ -21,7 +21,10 @@ import { TransportProviderAdapter } from '../transports/TransportProviderAdapter
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'ai\providers\BedrockProvider', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ai\providers\BedrockProvider',
+  level: LogLevel.INFO,
+});
 
 export class BedrockProvider extends BaseAIProvider {
   private config: ProviderConfig;

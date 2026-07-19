@@ -2,7 +2,10 @@
 import type { Command, CommandImplementation } from '@modules/commands';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:loader:LazyCommand', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:loader:LazyCommand',
+  level: LogLevel.INFO,
+});
 
 /**
  * 懒加载命令包装器

@@ -10,7 +10,10 @@ import { existsSync } from 'fs';
 import { resolvePyappHome } from '@modules/core';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'utils:sessionStorage', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'utils:sessionStorage',
+  level: LogLevel.INFO,
+});
 
 export interface SessionData<T = unknown> {
   id: string;
@@ -73,11 +76,12 @@ export class SessionStorage {
         await unlink(filePath);
       }
     } catch (err) {
-
       // 删除失败时静默处理
 
-      logger.warn("Operation skipped", { context: "删除失败时静默处理", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '删除失败时静默处理',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -127,11 +131,12 @@ export class SessionStorage {
         }
       }
     } catch (err) {
-
       // 清理失败时静默处理
 
-      logger.warn("Operation skipped", { context: "清理失败时静默处理", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '清理失败时静默处理',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 }

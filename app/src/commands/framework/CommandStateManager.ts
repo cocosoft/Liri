@@ -5,7 +5,10 @@
 import type { CommandResult } from '@modules/commands';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:framework:CommandStateManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:framework:CommandStateManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 命令执行阶段
@@ -187,11 +190,12 @@ export class CommandStateManager {
       try {
         listener(snapshot);
       } catch (err) {
-
         // 忽略监听器错误
 
-        logger.debug("Operation skipped", { context: "忽略监听器错误", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: '忽略监听器错误',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   }

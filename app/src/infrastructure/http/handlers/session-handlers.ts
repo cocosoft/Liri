@@ -59,9 +59,9 @@ export async function handleListSessions(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -100,9 +100,9 @@ export async function handleCreateSession(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -140,9 +140,9 @@ export async function handleGetSession(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -171,9 +171,9 @@ export async function handleGetSessionMessages(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -208,9 +208,9 @@ export async function handleUpdateMessageBlocks(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -240,9 +240,9 @@ export async function handleDeleteSession(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -271,9 +271,9 @@ export async function handleClearAllSessions(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -301,9 +301,9 @@ export async function handleGetCurrentSession(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -343,9 +343,9 @@ export async function handleSwitchSession(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -377,9 +377,9 @@ export async function handleRenameSession(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -418,9 +418,9 @@ export async function handleGenerateTitle(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -460,9 +460,9 @@ export async function handleUpdateSessionMeta(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -511,9 +511,9 @@ export async function handleCompactSession(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -565,9 +565,9 @@ export async function handlePruneSession(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -613,9 +613,9 @@ export async function handleGetSessionMemory(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }

@@ -55,11 +55,12 @@ export class CommandHistory {
       const content = this.history.join('\n');
       writeFileSync(this.historyFile, content, 'utf-8');
     } catch (err) {
-
       // 忽略保存错误
 
-      logger.debug("Operation skipped", { context: "忽略保存错误", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: '忽略保存错误',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

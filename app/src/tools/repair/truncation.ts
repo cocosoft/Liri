@@ -31,7 +31,10 @@
 import type { TruncationRepairResult } from './types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:repair:truncation', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:repair:truncation',
+  level: LogLevel.INFO,
+});
 
 /**
  * 修复被截断的 JSON 字符串
@@ -52,11 +55,12 @@ export function repairTruncatedJson(input: string): TruncationRepairResult {
     JSON.parse(input);
     return { repaired: input, changed: false, notes: [], fallback: false };
   } catch (err) {
-
     // 继续修复
 
-    logger.debug("Operation skipped", { context: "继续修复", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: '继续修复',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   const stack: Array<'}' | ']' | '"'> = [];

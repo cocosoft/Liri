@@ -3,9 +3,11 @@ import { useTranslation } from "react-i18next";
 import { useChatStore } from "../../stores/chatStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useBackendStore } from "../../stores/backendStore";
-import { useAppStore } from "../../stores/appStore";
+import { useVoiceStore } from "../../stores/voiceStore";
 import { useConfigStore } from "../../stores/configStore";
+import { useModelSwitchStore } from "../../stores/modelSwitchStore";
 import { useAutoScroll } from "../../hooks/useAutoScroll";
+import { useSessionContextSync } from "../../hooks/useSessionContextSync";
 import { voiceService } from "../../services/voiceService";
 import { ErrorBoundary } from "../common/ErrorBoundary";
 import ChatMessageList from "./ChatMessageList";
@@ -24,7 +26,19 @@ function ChatArea() {
   const backendRunning = useBackendStore((s) => s.status.running);
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
-  const { interimText, finalText, audioLevel, subtitleStatus } = useAppStore();
+  const { interimText, finalText, audioLevel, subtitleStatus } = useVoiceStore();
+
+  /** 模块上下文同步：保存/恢复 ChatSessionContext */
+  useSessionContextSync("chat", {
+    save: () => ({
+      moduleType: "chat" as const,
+      modelId: useModelSwitchStore.getState().currentModelId || undefined,
+      agentId: undefined,
+    }),
+    restore: (_ctx) => {
+      // model switching is handled by the model switch system
+    },
+  });
 
   /** 统一滚动状态：isUserScrolledUp 和 scrollToBottom 均由 useAutoScroll 管理 */
   const { containerRef, isUserScrolledUp, scrollToBottom, distanceFromBottom } = useAutoScroll({
@@ -53,8 +67,8 @@ function ChatArea() {
   };
 
   // ---- 自动 TTS 播放 ----
-  const voiceSettings = useAppStore((s) => s.voiceSettings);
-  const playResponse = useAppStore((s) => s.playResponse);
+  const voiceSettings = useVoiceStore((s) => s.settings);
+  const playResponse = useVoiceStore((s) => s.playResponse);
   const lastPlayedMsgRef = useRef<string | null>(null);
 
   useEffect(() => {

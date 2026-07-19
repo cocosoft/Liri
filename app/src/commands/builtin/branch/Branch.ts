@@ -10,7 +10,10 @@ import type {
 } from '@modules/commands';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:builtin:branch:Branch', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:builtin:branch:Branch',
+  level: LogLevel.INFO,
+});
 
 /**
  * Branch命令实现类

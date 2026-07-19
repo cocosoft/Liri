@@ -14,7 +14,10 @@ import type {
 import { BaseChannelPlugin } from '@modules/channels/base/BaseChannelPlugin';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'channels:yuanbao:YuanbaoChannel', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'channels:yuanbao:YuanbaoChannel',
+  level: LogLevel.INFO,
+});
 
 /**
  * 元宝配置

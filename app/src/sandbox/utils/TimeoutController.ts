@@ -6,7 +6,10 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'sandbox:utils:TimeoutController', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'sandbox:utils:TimeoutController',
+  level: LogLevel.INFO,
+});
 
 /**
  * 超时错误

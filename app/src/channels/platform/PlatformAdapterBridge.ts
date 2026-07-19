@@ -32,7 +32,10 @@ import type {
 import type { PlatformAdapter } from './PlatformAdapter.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'channels:platform:PlatformAdapterBridge', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'channels:platform:PlatformAdapterBridge',
+  level: LogLevel.INFO,
+});
 
 /**
  * 平台类型 → ChannelId 映射表

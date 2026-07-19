@@ -12,7 +12,10 @@ import { randomUUID } from 'crypto';
 import { resolveDbPath, resolveProjectRoot } from '@modules/core';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'diagnostics:DiagnosticsService', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'diagnostics:DiagnosticsService',
+  level: LogLevel.INFO,
+});
 
 const execAsync = promisify(exec);
 

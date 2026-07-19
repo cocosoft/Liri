@@ -27,7 +27,10 @@ import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'infrastructure:http:handlers:agent2-handlers', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'infrastructure:http:handlers:agent2-handlers',
+  level: LogLevel.INFO,
+});
 
 // ========== Agent2 Handlers ==========
 
@@ -51,9 +54,9 @@ export async function handleCancelAgentTask(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -87,9 +90,9 @@ export async function handleGetAgentTaskState(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -118,9 +121,9 @@ export async function handleGetAgentTaskAudit(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -174,9 +177,9 @@ export async function handleGetAgentTaskLogs(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -212,9 +215,9 @@ export async function handleGetAgentTaskOutput(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -245,9 +248,9 @@ export async function handleRecoverAgentTask(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -285,9 +288,9 @@ export async function handleAgentTaskChat(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }

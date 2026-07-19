@@ -13,7 +13,10 @@ import type { LSPServerInstance } from './LSPServerInstance.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'lsp\EnhancedLSPManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'lsp\EnhancedLSPManager',
+  level: LogLevel.INFO,
+});
 
 export interface EnhancedLSPManagerConfig {
   enableAdvancedFeatures: boolean;

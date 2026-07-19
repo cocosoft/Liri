@@ -2,7 +2,10 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools\TaskOutputTool\schemas', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools\TaskOutputTool\schemas',
+  level: LogLevel.INFO,
+});
 
 /**
  * TaskOutputTool 输入模式

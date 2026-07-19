@@ -17,7 +17,10 @@ import fs from 'fs';
 import { getPerformanceConfig } from './PerformanceConfig.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'performance:StartupProfiler', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'performance:StartupProfiler',
+  level: LogLevel.INFO,
+});
 
 // 模块级状态 - 延迟初始化避免循环依赖
 let DETAILED_PROFILING: boolean | undefined;
@@ -149,11 +152,12 @@ export function profilePhaseEnd(phase: string): number {
   try {
     perf.measure(phase, startMark, endMark);
   } catch (err) {
-
     // 起始标记不存在时（如未调用 profilePhaseStart），忽略测量
 
-    logger.debug("Operation skipped", { context: "起始标记不存在时（如未调用 profilePhaseStart），忽略测量", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: '起始标记不存在时（如未调用 profilePhaseStart），忽略测量',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   // 获取阶段时间

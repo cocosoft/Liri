@@ -7,7 +7,10 @@ import { BaseTool } from '../BaseTool.js';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:TraceRecordingTool:TraceRecordingTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:TraceRecordingTool:TraceRecordingTool',
+  level: LogLevel.INFO,
+});
 
 /**
  * 获取 AITracePlugin 实例

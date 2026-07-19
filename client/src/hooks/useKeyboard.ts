@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from "react";
 import { useChatStore } from "../stores/chatStore";
 import { useSessionStore } from "../stores/sessionStore";
-import { useAppStore } from "../stores/appStore";
+import { useNavigationStore } from "../stores/navigationStore";
 
 const shortcutMap: Record<
   string,
@@ -28,7 +28,7 @@ export type ShortcutAction =
 export function useKeyboard() {
   const { clearMessages } = useChatStore();
   const { createSession, sessions } = useSessionStore();
-  const { activePage, setActivePage } = useAppStore();
+  const { activePage, setActivePage } = useNavigationStore();
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {

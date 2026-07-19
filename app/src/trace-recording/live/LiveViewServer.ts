@@ -13,7 +13,10 @@ import { ViewerService } from '../viewer/ViewerService';
 import { TraceEngine } from '../engine/TraceEngine';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'trace-recording:live:LiveViewServer', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'trace-recording:live:LiveViewServer',
+  level: LogLevel.INFO,
+});
 
 /** SSE 客户端连接 */
 interface SSEClient {
@@ -65,11 +68,12 @@ export class LiveViewServer {
       try {
         client.res.end();
       } catch (err) {
-
         // 忽略关闭异常
 
-        logger.debug("Operation skipped", { context: "忽略关闭异常", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: '忽略关闭异常',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
     this.clients.clear();

@@ -2340,5 +2340,22 @@ export async function dispatchRoute(
     return true;
   }
 
+  // ---- Git Context (Phase 3) ----
+  if (method === 'GET' && url === '/v1/git/status') {
+    const { getGitContextService } =
+      await import('@modules/context/GitContextService');
+    const git = getGitContextService();
+    const isRepo = await git.isGitRepository();
+    if (!isRepo) {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ isGitRepo: false }));
+      return true;
+    }
+    const info = await git.getGitStatus();
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ isGitRepo: true, ...info }));
+    return true;
+  }
+
   return false;
 }

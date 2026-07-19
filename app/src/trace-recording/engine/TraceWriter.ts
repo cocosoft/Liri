@@ -12,7 +12,10 @@ import path from 'path';
 import type { TraceRecord } from '../types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'trace-recording:engine:TraceWriter', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'trace-recording:engine:TraceWriter',
+  level: LogLevel.INFO,
+});
 
 /** TraceWriter 统计 */
 export interface WriterStats {
@@ -94,11 +97,12 @@ export class TraceWriter {
       try {
         records.push(JSON.parse(line));
       } catch (err) {
-
         // 忽略无效行
 
-        logger.debug("Operation skipped", { context: "忽略无效行", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: '忽略无效行',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
     return records;
@@ -126,11 +130,12 @@ export class TraceWriter {
         try {
           records.push(JSON.parse(line));
         } catch (err) {
-
           // 忽略无效行
 
-          logger.debug("Operation skipped", { context: "忽略无效行", error: err instanceof Error ? err.message : String(err) });
-
+          logger.debug('Operation skipped', {
+            context: '忽略无效行',
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }
     }

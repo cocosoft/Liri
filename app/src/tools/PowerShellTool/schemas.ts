@@ -2,7 +2,10 @@ import { z } from 'zod';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools\PowerShellTool\schemas', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools\PowerShellTool\schemas',
+  level: LogLevel.INFO,
+});
 
 /**
  * PowerShellTool 输入模式

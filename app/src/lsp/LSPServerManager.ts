@@ -8,7 +8,10 @@ import {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'lsp\LSPServerManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'lsp\LSPServerManager',
+  level: LogLevel.INFO,
+});
 
 export type LSPServerManager = {
   initialize(configs: ScopedLspServerConfig[]): Promise<void>;

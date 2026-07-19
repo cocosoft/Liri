@@ -17,7 +17,10 @@ import { permissionModeIntegrationService } from '@modules/chat/services/Permiss
 import { completeSecuritySystem } from '@modules/security';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:builtin:permissions:Permissions', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:builtin:permissions:Permissions',
+  level: LogLevel.INFO,
+});
 
 const COMMON_PERMISSIONS: Record<
   string,
@@ -154,11 +157,12 @@ async function handleList(context: CommandContext): Promise<CommandResult> {
     const { logEvent } = await import('@modules/services/analytics/index.js');
     logEvent('tengu_permissions_list');
   } catch (err) {
-
     // analytics 非关键
 
-    logger.debug("Operation skipped", { context: "analytics 非关键", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: 'analytics 非关键',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   const simpleList = Object.entries(COMMON_PERMISSIONS)
@@ -191,11 +195,12 @@ async function handleList(context: CommandContext): Promise<CommandResult> {
       }
     }
   } catch (err) {
-
     // 忽略细粒度查询失败
 
-    logger.warn("Operation skipped", { context: "忽略细粒度查询失败", error: err instanceof Error ? err.message : String(err) });
-
+    logger.warn('Operation skipped', {
+      context: '忽略细粒度查询失败',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   const mode = permissionModeIntegrationService.getPermissionMode();
@@ -266,11 +271,12 @@ async function handleGrant(
       };
     permissionManager.addRule('allow', permissionName);
   } catch (err) {
-
     // 忽略管理器调用失败
 
-    logger.warn("Operation skipped", { context: "忽略管理器调用失败", error: err instanceof Error ? err.message : String(err) });
-
+    logger.warn('Operation skipped', {
+      context: '忽略管理器调用失败',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   context.onDone?.(`权限 ${permissionName} 已授予`, { display: 'system' });
@@ -313,11 +319,12 @@ async function handleRevoke(
       }
     }
   } catch (err) {
-
     // 忽略
 
-    logger.debug("Operation skipped", { context: "忽略", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: '忽略',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   context.onDone?.(`权限 ${permissionName} 已撤销`, { display: 'system' });
@@ -352,11 +359,12 @@ async function handleStatus(
       enabled: enabledCount,
     });
   } catch (err) {
-
     // analytics 非关键
 
-    logger.debug("Operation skipped", { context: "analytics 非关键", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: 'analytics 非关键',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   if (useJson) {
@@ -560,11 +568,12 @@ async function handleAdd(params: string[]): Promise<CommandResult> {
         >;
       (permissionManager.addRule as Function)(action, resourceName, operation);
     } catch (err) {
-
       // 可选同步失败不影响主要结果
 
-      logger.warn("Operation skipped", { context: "可选同步失败不影响主要结果", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '可选同步失败不影响主要结果',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     return { success: true, message: `权限规则添加成功，ID: ${ruleId}` };

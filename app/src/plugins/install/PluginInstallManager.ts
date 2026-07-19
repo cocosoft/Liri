@@ -11,7 +11,10 @@ import { NpmDistributor } from '../distribution/NpmDistributor.js';
 import { pluginSecurityScanner } from '../utils/pluginSecurityScanner.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'plugins:install:PluginInstallManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:install:PluginInstallManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 安装源类型
@@ -416,11 +419,12 @@ export class PluginInstallManager {
         'utf-8'
       );
     } catch (err) {
-
       // 忽略保存错误
 
-      logger.debug("Operation skipped", { context: "忽略保存错误", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: '忽略保存错误',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 }

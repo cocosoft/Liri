@@ -6,7 +6,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'hooks:usePrStatus', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'hooks:usePrStatus',
+  level: LogLevel.INFO,
+});
 
 /**
  * PR状态枚举

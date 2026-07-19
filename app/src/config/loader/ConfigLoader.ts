@@ -4,7 +4,10 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolvePyappHome } from '@modules/core';
 
 import { Logger, LogLevel } from '../../monitoring/logs/Logger.js';
-const logger = new Logger({ module: 'config:loader:ConfigLoader', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'config:loader:ConfigLoader',
+  level: LogLevel.INFO,
+});
 
 export type ConfigFormat = 'json' | 'yaml' | 'env';
 
@@ -297,11 +300,12 @@ export class ConfigLoader implements IConfigLoader {
           const config = this.parse(content, format);
           callback(config);
         } catch (err) {
-
           // ignore read errors during watch
 
-          logger.debug("Operation skipped", { context: "ignore read errors during watch", error: err instanceof Error ? err.message : String(err) });
-
+          logger.debug('Operation skipped', {
+            context: 'ignore read errors during watch',
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }, 2000);
 

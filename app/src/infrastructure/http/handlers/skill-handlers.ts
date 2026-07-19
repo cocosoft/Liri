@@ -24,7 +24,10 @@ import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 import type { Skill } from '@modules/skills/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'infrastructure:http:handlers:skill-handlers', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'infrastructure:http:handlers:skill-handlers',
+  level: LogLevel.INFO,
+});
 
 /**
  * ClawHub Adapter 接口类型
@@ -50,11 +53,12 @@ async function getClawHubAdapter(): Promise<ClawHubAdapter> {
       return registered as unknown as ClawHubAdapter;
     }
   } catch (err) {
-
     // 注册表不可用时 fallback
 
-    logger.debug("Operation skipped", { context: "注册表不可用时 fallback", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: '注册表不可用时 fallback',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   const { ClawHubAdapter } =

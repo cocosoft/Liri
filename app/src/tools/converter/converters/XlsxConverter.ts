@@ -5,7 +5,10 @@ import { AppError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools\converter\converters\XlsxConverter', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools\converter\converters\XlsxConverter',
+  level: LogLevel.INFO,
+});
 
 let _depError: Error | null = null;
 let _xlsx: any = null;

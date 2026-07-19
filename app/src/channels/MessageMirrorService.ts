@@ -8,7 +8,10 @@ import { getDeliveryRouter } from './DeliveryRouter';
 import { DeliveryTarget } from './DeliveryTarget';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'channels:MessageMirrorService', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'channels:MessageMirrorService',
+  level: LogLevel.INFO,
+});
 
 /**
  * 镜像规则

@@ -20,7 +20,10 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'oauth\services\OAuthService', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'oauth\services\OAuthService',
+  level: LogLevel.INFO,
+});
 
 export class OAuthService {
   private tokenManager: TokenManager;

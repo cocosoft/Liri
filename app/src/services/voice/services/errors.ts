@@ -11,7 +11,10 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'services\voice\services\errors', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services\voice\services\errors',
+  level: LogLevel.INFO,
+});
 
 /** TTS 错误码枚举 */
 export enum TTS_ERR_CODE {

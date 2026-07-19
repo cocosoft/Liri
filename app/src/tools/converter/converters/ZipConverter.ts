@@ -5,7 +5,10 @@ import { AppError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools\converter\converters\ZipConverter', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools\converter\converters\ZipConverter',
+  level: LogLevel.INFO,
+});
 
 /**
  * 转换引擎引用（DI 注入，避免循环依赖）

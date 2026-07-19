@@ -7,7 +7,10 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:ChronosTool:CronListTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:ChronosTool:CronListTool',
+  level: LogLevel.INFO,
+});
 
 export class CronListTool {
   static create(): Tool {

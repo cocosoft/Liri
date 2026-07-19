@@ -17,7 +17,10 @@ export interface OversizedImage {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'utils\imageValidation', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'utils\imageValidation',
+  level: LogLevel.INFO,
+});
 
 /**
  * 图片大小超限错误

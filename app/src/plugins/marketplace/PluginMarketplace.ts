@@ -8,7 +8,10 @@ import { join, dirname } from 'path';
 import { resolvePyappHome } from '@modules/core';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'plugins:marketplace:PluginMarketplace', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:marketplace:PluginMarketplace',
+  level: LogLevel.INFO,
+});
 
 /**
  * 市场插件信息
@@ -493,11 +496,12 @@ export class PluginMarketplace {
       }
       writeFileSync(getCacheFilePath(), JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {
-
       // 缓存写入失败不中断主流程
 
-      logger.warn("Operation skipped", { context: "缓存写入失败不中断主流程", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '缓存写入失败不中断主流程',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -553,11 +557,12 @@ export class PluginMarketplace {
         }
       }
     } catch (err) {
-
       // 缓存加载失败不中断
 
-      logger.warn("Operation skipped", { context: "缓存加载失败不中断", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '缓存加载失败不中断',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -589,11 +594,12 @@ export class PluginMarketplace {
         'utf-8'
       );
     } catch (err) {
-
       // 元数据写入失败不中断
 
-      logger.warn("Operation skipped", { context: "元数据写入失败不中断", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '元数据写入失败不中断',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

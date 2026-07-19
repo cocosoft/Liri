@@ -30,7 +30,10 @@ import type { SkillRegistry } from './SkillRegistry';
 import { SkillSource } from './types/index';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'skills:SkillProvenanceTracker', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'skills:SkillProvenanceTracker',
+  level: LogLevel.INFO,
+});
 
 export type ProvenanceSource =
   | 'builtin'
@@ -76,11 +79,12 @@ export class SkillProvenanceTracker {
       this.entries = loaded;
       this.dbInitialized = true;
     } catch (err) {
-
       // DB 不可用时继续使用纯内存模式
 
-      logger.debug("Operation skipped", { context: "DB 不可用时继续使用纯内存模式", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: 'DB 不可用时继续使用纯内存模式',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

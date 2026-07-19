@@ -13,7 +13,10 @@ import { request } from 'https';
 import { URL } from 'url';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'hooks:executors:HttpHookExecutor', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'hooks:executors:HttpHookExecutor',
+  level: LogLevel.INFO,
+});
 
 /**
  * HTTP Hook执行器

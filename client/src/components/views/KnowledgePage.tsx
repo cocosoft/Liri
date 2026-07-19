@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useAppStore } from "../../stores/appStore";
+import { useKnowledgeStore } from "../../stores/knowledgeStore";
 import { useConfigStore } from "../../stores/configStore";
 import { knowledgeService } from "../../services/knowledgeService";
 import type { KnowledgeFile, KnowledgeSearchResult } from "../../types";
@@ -16,12 +16,13 @@ import SearchPanel from "../Knowledge/SearchPanel";
 import StatsPanel from "../Knowledge/StatsPanel";
 import VersionHistory from "../Knowledge/VersionHistory";
 import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
+import { useSessionContextSync } from "../../hooks/useSessionContextSync";
 
 type ActiveTab = "knowledge" | "search-demo" | "stats" | "semantic";
 
 function KnowledgePage() {
-  const items = useAppStore((s) => s.knowledgeItems);
-  const loadItems = useAppStore((s) => s.loadKnowledge);
+  const items = useKnowledgeStore((s) => s.items);
+  const loadItems = useKnowledgeStore((s) => s.loadItems);
   const { config } = useConfigStore();
   const isDark = config.theme === "dark";
 
@@ -43,6 +44,20 @@ function KnowledgePage() {
     type: "success" | "error";
     message: string;
   } | null>(null);
+
+  /** 模块上下文同步：保存/恢复 KnowledgeSessionContext */
+  useSessionContextSync("knowledge", {
+    save: () => ({
+      moduleType: "knowledge" as const,
+      query: searchQuery || undefined,
+      selectedDocIds: selectedFile ? [selectedFile.id] : undefined,
+    }),
+    restore: (ctx) => {
+      if (ctx.moduleType !== "knowledge") return;
+      if (ctx.query) setSearchQuery(ctx.query);
+      // selectedDocIds 恢复需要完整的 KnowledgeFile 数据，仅恢复查询
+    },
+  });
 
   const bgClass = isDark ? "bg-gray-900" : "bg-gray-50";
   const textPrimary = isDark ? "text-gray-100" : "text-gray-900";

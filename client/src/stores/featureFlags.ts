@@ -1,24 +1,39 @@
 /**
- * Feature Flags 存储 — 已合并到 appStore
+ * Feature Flags 存储 — 独立 Zustand Store
  *
- * 本文件为向后兼容的薄封装层，所有状态实际存储在 appStore 中。
- * 通过独立的 useSelector 调用实现精细订阅，避免无关变更触发重渲染。
- * 新代码请直接使用 useAppStore。
+ * 用于管理 Feature Flag 的读写与重置。
+ * 通过独立的 Store 实现精细订阅，避免无关变更触发重渲染。
  */
-import { useAppStore, type AppStore } from "./appStore";
-export type { FeatureFlags } from "./appStore";
+import { create } from "zustand";
 
-/** 从 appStore 中提取 FeatureFlag 相关状态 */
-function flagsSlice(state: AppStore): Pick<AppStore, "flags" | "setFlags" | "resetAll"> {
-  return {
-    flags: state.flags,
-    setFlags: state.setFlags,
-    resetAll: state.resetAll,
-  };
+/** 所有 Feature Flag 定义 */
+export interface FeatureFlags {
+  /** 工具调用扁平化（旧版 ToolCallBlock / 新版 ToolCallInline） */
+  toolcall_flat: boolean;
+  /** 消息排队（一问一答 / 队列模式） */
+  message_queue: boolean;
+  /** 虚拟化（全量渲染 / 虚拟列表） */
+  virtual_list: boolean;
+  /** 拆分后的 ChatInput（原版 / 拆分版） */
+  new_chat_input: boolean;
+}
+
+const DEFAULT_FLAGS: FeatureFlags = {
+  toolcall_flat: true,
+  message_queue: true,
+  virtual_list: false,
+  new_chat_input: false,
+};
+
+/** Feature Flag Store 接口 */
+interface FeatureFlagStore {
+  flags: FeatureFlags;
+  setFlags: (partial: Partial<FeatureFlags>) => void;
+  resetAll: () => void;
 }
 
 /**
- * 使用 Feature Flag 状态（兼容原 useFeatureFlagStore API）
+ * Feature Flag 状态管理 Store
  *
  * 传选择器精细订阅：
  *   const flag = useFeatureFlagStore((s) => s.flags.toolcall_flat);
@@ -26,21 +41,16 @@ function flagsSlice(state: AppStore): Pick<AppStore, "flags" | "setFlags" | "res
  * 使用 getState() 在非组件代码中读取：
  *   const enabled = useFeatureFlagStore.getState().flags.message_queue;
  */
-function useFeatureFlagStore(): ReturnType<typeof flagsSlice>;
-function useFeatureFlagStore<T>(
-  selector: (slice: ReturnType<typeof flagsSlice>) => T,
-): T;
-function useFeatureFlagStore(selector?: any): any {
-  // 三个独立订阅，仅当对应字段变化时触发重渲染
-  const flags = useAppStore((s) => s.flags);
-  const setFlags = useAppStore((s) => s.setFlags);
-  const resetAll = useAppStore((s) => s.resetAll);
+export const useFeatureFlagStore = create<FeatureFlagStore>((set) => ({
 
-  const slice = { flags, setFlags, resetAll };
-  return selector ? selector(slice) : slice;
-}
+  flags: { ...DEFAULT_FLAGS },
 
-/** 兼容 getState() 调用 */
-useFeatureFlagStore.getState = () => flagsSlice(useAppStore.getState());
+  setFlags: (partial: Partial<FeatureFlags>) => {
+    set((state) => ({ flags: { ...state.flags, ...partial } }));
+  },
 
-export { useFeatureFlagStore };
+  resetAll: () => {
+    set({ flags: { ...DEFAULT_FLAGS } });
+  },
+
+}));

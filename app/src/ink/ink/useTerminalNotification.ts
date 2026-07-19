@@ -12,7 +12,10 @@ import {
 } from './termio/osc.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'ink:ink:useTerminalNotification', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ink:ink:useTerminalNotification',
+  level: LogLevel.INFO,
+});
 
 type WriteRaw = (data: string) => void;
 

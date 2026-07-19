@@ -15,7 +15,10 @@ import { resolveOutputDir } from '@modules/core';
 import type { CommandContext, CommandResult } from '@modules/commands';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:builtin:trace-recording:TraceRecording', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:builtin:trace-recording:TraceRecording',
+  level: LogLevel.INFO,
+});
 
 /**
  * 获取 AITracePlugin 实例
@@ -225,11 +228,12 @@ const traceRecordingCommand = {
           `  可用日期: ${Array.isArray(availableDates) ? availableDates.length : 0} 天`
         );
       } catch (err) {
-
         // 忽略引擎查询错误
 
-        logger.debug("Operation skipped", { context: "忽略引擎查询错误", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: '忽略引擎查询错误',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 

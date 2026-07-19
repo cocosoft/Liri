@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useAppStore } from "../../stores/appStore";
+import { useNavigationStore } from "../../stores/navigationStore";
 import { useConfigStore } from "../../stores/configStore";
 import { HomeIcon, ChatIcon, KnowledgeIcon, ImageIcon, TranslateIcon, ModelIcon, SkillIcon, FileIcon, McpIcon, ChannelIcon, ThemeIcon, SettingsIcon, CouncilIcon, OfficeIcon, CalendarIcon } from "../../assets/icons";
 
@@ -63,7 +63,7 @@ function MenuButton({ item, isActive, onNavigate }: {
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const setActivePage = useAppStore((s) => s.setActivePage);
+  const setActivePage = useNavigationStore((s) => s.setActivePage);
   const config = useConfigStore((s) => s.config);
   const setConfig = useConfigStore((s) => s.setConfig);
   const isDark = config.theme === "dark";

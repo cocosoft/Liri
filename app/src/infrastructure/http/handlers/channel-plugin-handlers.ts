@@ -23,7 +23,10 @@ import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'infrastructure:http:handlers:channel-plugin-handlers', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'infrastructure:http:handlers:channel-plugin-handlers',
+  level: LogLevel.INFO,
+});
 
 // ========== ChannelPlugin Handlers ==========
 

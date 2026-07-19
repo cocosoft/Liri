@@ -93,11 +93,12 @@ export function parseForSecurity(command: string): ParseForSecurityResult {
         return { kind: 'too-complex', reason: result.error };
       }
     } catch (err) {
-
       // 降级到TypeScript解析
 
-      logger.debug("Operation skipped", { context: "降级到TypeScript解析", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: '降级到TypeScript解析',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -252,7 +253,10 @@ export function hasRedirects(commands: SimpleCommand[]): boolean {
 import type { IParsedCommand } from './ParsedCommand';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'security:bash:BashAST', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'security:bash:BashAST',
+  level: LogLevel.INFO,
+});
 export type CommandArg = string;
 export type RedirectInfo = Redirect;
 export type EnvAssignment = { name: string; value: string };

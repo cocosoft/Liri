@@ -14,6 +14,7 @@ import { useConfigStore } from "../../../stores/configStore";
 import type { CalendarEventItem, UnifiedCalendarEvent, EventSource } from "../../../types/office";
 import type { CronTask } from "../../../types/schedule";
 import { solarToLunar } from "../../../utils/lunarCalendar";
+import { useSessionContextSync } from "../../../hooks/useSessionContextSync";
 
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 const WEEKDAYS_FULL = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
@@ -182,6 +183,21 @@ export default function OfficeCalendarPage() {
   useEffect(() => {
     refreshMerged();
   }, [viewYear, viewMonth, weekOffset, viewMode]);
+
+  /** 模块上下文同步：保存/恢复 CalendarSessionContext */
+  useSessionContextSync("calendar", {
+    save: () => ({
+      moduleType: "calendar" as const,
+      view: (viewMode === "year" ? "month" : viewMode) as "month" | "week" | "day",
+      dateRange: getViewRange(),
+    }),
+    restore: (ctx) => {
+      if (ctx.moduleType !== "calendar") return;
+      if (ctx.view === "month" || ctx.view === "week") {
+        setViewMode(ctx.view);
+      }
+    },
+  });
 
   /** 构建统一事件列表 */
   const unifiedEvents = useMemo((): UnifiedCalendarEvent[] => {

@@ -5,7 +5,10 @@ import { AppError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools\converter\converters\IpynbConverter', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools\converter\converters\IpynbConverter',
+  level: LogLevel.INFO,
+});
 
 export class IpynbConverter extends BaseConverter {
   override readonly name = 'ipynb';

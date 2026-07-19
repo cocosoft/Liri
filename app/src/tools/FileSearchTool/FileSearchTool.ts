@@ -22,7 +22,10 @@ import type { FileSearchInputType } from './schemas';
 import { validateFileSearchInput } from './schemas';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:FileSearchTool:FileSearchTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:FileSearchTool:FileSearchTool',
+  level: LogLevel.INFO,
+});
 
 /** 搜索结果条目，含 canonicalPath 便于前端定位 */
 export interface FileSearchItem extends FileOperationResult {

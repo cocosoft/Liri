@@ -25,7 +25,10 @@ import { trySessionMemoryCompaction } from './sessionMemoryCompact';
 import { runPostCompactCleanup } from './postCompactCleanup';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'services:compact:AutoCompactService', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:compact:AutoCompactService',
+  level: LogLevel.INFO,
+});
 
 export interface AutoCompactTrackingState extends CompactState {
   lastRecompactInfo?: string;

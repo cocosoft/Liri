@@ -25,7 +25,10 @@ import type {
 import { WorkItemStore } from './WorkItemStore';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'workspace:ProjectStore', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'workspace:ProjectStore',
+  level: LogLevel.INFO,
+});
 
 /** 项目存储子目录 */
 const PROJECTS_DIR = 'projects';
@@ -162,11 +165,12 @@ export class ProjectStore {
             projects.push(project);
           }
         } catch (err) {
-
           // 跳过损坏的文件
 
-          logger.debug("Operation skipped", { context: "跳过损坏的文件", error: err instanceof Error ? err.message : String(err) });
-
+          logger.debug('Operation skipped', {
+            context: '跳过损坏的文件',
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }
 

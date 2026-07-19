@@ -14,7 +14,10 @@ import { readSoulMd, writeSoulMd } from '@modules/services/soul/SoulReader';
 import { readUserMd, writeUserMd } from '@modules/services/soul/UserReader';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:utility-io-tools', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:utility-io-tools',
+  level: LogLevel.INFO,
+});
 
 export function collectIoTools(tools: Tool[]): void {
   // ========== 网络工具 (4) ==========

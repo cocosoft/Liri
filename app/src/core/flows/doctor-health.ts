@@ -6,7 +6,10 @@ import type {
 import { HealthChecker } from '../../monitoring/health/HealthChecker.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'core:flows:doctor-health', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:flows:doctor-health',
+  level: LogLevel.INFO,
+});
 
 /**
  * @deprecated 请使用 monitoring/health/HealthChecker 注册新的健康检查。

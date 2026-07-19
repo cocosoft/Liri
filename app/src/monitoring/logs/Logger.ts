@@ -125,11 +125,12 @@ async function flushFileBuffer(filePath: string): Promise<void> {
   try {
     await appendFile(filePath, lines.join('\n') + '\n', 'utf-8');
   } catch (err) {
-
     // 文件写入失败时静默处理
 
-    console.warn("Logger file write failed", { context: "文件写入失败时静默处理", error: err instanceof Error ? err.message : String(err) });
-
+    console.warn('Logger file write failed', {
+      context: '文件写入失败时静默处理',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 
@@ -295,11 +296,12 @@ export class Logger {
       try {
         handler(logEntry);
       } catch (err) {
-
         // 处理器异常不中断主流程
 
-        console.debug("Logger handler exception", { context: "处理器异常不中断主流程", error: err instanceof Error ? err.message : String(err) });
-
+        console.debug('Logger handler exception', {
+          context: '处理器异常不中断主流程',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   }

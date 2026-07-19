@@ -21,7 +21,10 @@ import type {
 import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'channels:telegram:TelegramChannel', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'channels:telegram:TelegramChannel',
+  level: LogLevel.INFO,
+});
 
 const TELEGRAM_META: ChannelMeta = {
   id: 'telegram',
@@ -229,11 +232,12 @@ class TelegramFallbackTransport {
           }
         }
       } catch (err) {
-
         // 单个 DoH 失败不影响其他
 
-        logger.warn("Operation skipped", { context: "单个 DoH 失败不影响其他", error: err instanceof Error ? err.message : String(err) });
-
+        logger.warn('Operation skipped', {
+          context: '单个 DoH 失败不影响其他',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
@@ -336,11 +340,12 @@ class TelegramFallbackTransport {
         this.currentBaseUrl = TELEGRAM_API_BASE;
       }
     } catch (err) {
-
       // 恢复失败，保持现有 fallback
 
-      logger.warn("Operation skipped", { context: "恢复失败，保持现有 fallback", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '恢复失败，保持现有 fallback',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 }

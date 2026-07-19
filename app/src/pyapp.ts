@@ -254,11 +254,12 @@ process.env.LIRI_PROJECT_DIR = projectRoot;
       }
     }
   } catch (err) {
-
     // 非致命：.env 加载失败不影响启动
 
-    logger.warn("Operation skipped", { context: "非致命：.env 加载失败不影响启动", error: err instanceof Error ? err.message : String(err) });
-
+    logger.warn('Operation skipped', {
+      context: '非致命：.env 加载失败不影响启动',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 
@@ -295,11 +296,12 @@ try {
     );
   }
 } catch (err) {
-
   // 非致命：用户档案文件创建失败不影响启动
 
-  logger.warn("Operation skipped", { context: "非致命：用户档案文件创建失败不影响启动", error: err instanceof Error ? err.message : String(err) });
-
+  logger.warn('Operation skipped', {
+    context: '非致命：用户档案文件创建失败不影响启动',
+    error: err instanceof Error ? err.message : String(err),
+  });
 }
 
 // ── 策略 6: 全局异常捕获（进程级兜底） ──
@@ -377,11 +379,12 @@ if (isCompiledBinary) {
           const req = createRequire(path.join(dir, '_placeholder_.js'));
           return req.resolve(request);
         } catch (err) {
-
           // 当前目录没有 node_modules，继续尝试下一个
 
-          logger.debug("Operation skipped", { context: "当前目录没有 node_modules，继续尝试下一个", error: err instanceof Error ? err.message : String(err) });
-
+          logger.debug('Operation skipped', {
+            context: '当前目录没有 node_modules，继续尝试下一个',
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }
       throw new Error(
@@ -405,11 +408,12 @@ if (isCompiledBinary) {
         try {
           return resolveExternalModule(request);
         } catch (err) {
-
           // fallback to original
 
-          logger.debug("Operation skipped", { context: "fallback to original", error: err instanceof Error ? err.message : String(err) });
-
+          logger.debug('Operation skipped', {
+            context: 'fallback to original',
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }
       return origResolveFilename(request, parent, isMain, options);

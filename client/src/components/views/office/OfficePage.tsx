@@ -15,6 +15,7 @@ import { LeftPanel } from "./LeftPanel";
 import { CenterPanel } from "./CenterPanel";
 import { OfficeChatPanel } from "./OfficeChatPanel";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { useSessionContextSync } from "../../../hooks/useSessionContextSync";
 
 export default function OfficePage() {
   const { t } = useTranslation();
@@ -31,6 +32,26 @@ export default function OfficePage() {
 
   /** 注册快捷键 */
   useOfficeHotkeys();
+
+  /** 模块上下文同步：保存/恢复 OfficeSessionContext */
+  useSessionContextSync("office", {
+    save: () => {
+      const state = useOfficeStore.getState();
+      return {
+        moduleType: "office" as const,
+        fileRef: state.selectedFile?.name ?? "",
+        templateId: state.docTemplates?.[0],
+      };
+    },
+    restore: (ctx) => {
+      if (ctx.moduleType !== "office") return;
+      if (ctx.fileRef) {
+        const state = useOfficeStore.getState();
+        const file = state.fileList.find((f) => f.name === ctx.fileRef);
+        if (file) state.selectFile(file);
+      }
+    },
+  });
 
   /** 初始化：加载办公模块状态 */
   useEffect(() => {

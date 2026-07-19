@@ -9,7 +9,10 @@
 import type { SkillDB } from './persistence/SkillDB';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'skills:SkillCurator', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'skills:SkillCurator',
+  level: LogLevel.INFO,
+});
 
 /**
  * 策展操作类型
@@ -87,11 +90,12 @@ export class SkillCurator {
       this.states = loaded;
       this.dbInitialized = true;
     } catch (err) {
-
       // DB 不可用时继续使用纯内存模式
 
-      logger.debug("Operation skipped", { context: "DB 不可用时继续使用纯内存模式", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: 'DB 不可用时继续使用纯内存模式',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -122,11 +126,12 @@ export class SkillCurator {
         await this.skillDB.saveCuration(state);
       }
     } catch (err) {
-
       // 静默处理 DB 错误
 
-      logger.debug("Operation skipped", { context: "静默处理 DB 错误", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: '静默处理 DB 错误',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

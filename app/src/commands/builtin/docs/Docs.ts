@@ -7,7 +7,10 @@ import { fileDocsProvider } from '@modules/docs/FileDocsProvider.js';
 import type { FileDocEntry } from '@modules/docs/FileDocsProvider.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:builtin:docs:Docs', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:builtin:docs:Docs',
+  level: LogLevel.INFO,
+});
 
 interface DocSection {
   title: string;

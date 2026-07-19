@@ -8,7 +8,10 @@ import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'infrastructure:http:handlers:commands-handlers', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'infrastructure:http:handlers:commands-handlers',
+  level: LogLevel.INFO,
+});
 
 /**
  * 处理列出所有命令请求 GET /v1/commands
@@ -223,11 +226,12 @@ export async function handleSetDataDirectory(
           'utf-8'
         );
       } catch (err) {
-
         // 非致命：令牌写入失败不影响迁移
 
-        logger.warn("Operation skipped", { context: "非致命：令牌写入失败不影响迁移", error: err instanceof Error ? err.message : String(err) });
-
+        logger.warn('Operation skipped', {
+          context: '非致命：令牌写入失败不影响迁移',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
 
       migrationResult = copyDirectory(currentDir, resolvedDir, fs, path);
@@ -261,11 +265,12 @@ export async function handleSetDataDirectory(
           'utf-8'
         );
       } catch (err) {
-
         // 非致命：标记写入失败不影响目录切换
 
-        logger.warn("Operation skipped", { context: "非致命：标记写入失败不影响目录切换", error: err instanceof Error ? err.message : String(err) });
-
+        logger.warn('Operation skipped', {
+          context: '非致命：标记写入失败不影响目录切换',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
@@ -320,20 +325,22 @@ function rollbackMigration(
             fs.unlinkSync(entryPath);
           }
         } catch (err) {
-
           // 静默忽略清理中的个别错误
 
-          logger.debug("Operation skipped", { context: "静默忽略清理中的个别错误", error: err instanceof Error ? err.message : String(err) });
-
+          logger.debug('Operation skipped', {
+            context: '静默忽略清理中的个别错误',
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }
     }
   } catch (err) {
-
     // 回滚清理失败不影响主流程，数据保留在原目录
 
-    logger.warn("Operation skipped", { context: "回滚清理失败不影响主流程，数据保留在原目录", error: err instanceof Error ? err.message : String(err) });
-
+    logger.warn('Operation skipped', {
+      context: '回滚清理失败不影响主流程，数据保留在原目录',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 
@@ -355,11 +362,12 @@ export async function getClawHubAdapter(): Promise<any> {
       return registered;
     }
   } catch (err) {
-
     // 注册表不可用时 fallback
 
-    logger.debug("Operation skipped", { context: "注册表不可用时 fallback", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: '注册表不可用时 fallback',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   // Fallback: 直接 import
@@ -440,11 +448,12 @@ export async function handleListSystemSkills(
             createdAt = st.birthtimeMs;
             updatedAt = st.mtimeMs;
           } catch (err) {
-
             // use defaults
 
-            logger.debug("Operation skipped", { context: "use defaults", error: err instanceof Error ? err.message : String(err) });
-
+            logger.debug('Operation skipped', {
+              context: 'use defaults',
+              error: err instanceof Error ? err.message : String(err),
+            });
           }
 
           skills.push({
@@ -464,11 +473,12 @@ export async function handleListSystemSkills(
             frontmatter: { author, version, category },
           });
         } catch (err) {
-
           // skip malformed files
 
-          logger.debug("Operation skipped", { context: "skip malformed files", error: err instanceof Error ? err.message : String(err) });
-
+          logger.debug('Operation skipped', {
+            context: 'skip malformed files',
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }
     };
@@ -561,11 +571,12 @@ export async function handleSystemSkillContent(
         }
       }
     } catch (err) {
-
       // ignore
 
-      logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: 'ignore',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });

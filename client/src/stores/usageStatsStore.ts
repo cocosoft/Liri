@@ -1,11 +1,11 @@
 /**
- * Usage Stats Store — 薄委托层
+ * Usage Stats Store — 独立 Zustand Store
  *
- * 保持向后兼容的导出接口（useUsageStatsStore），
- * 内部状态已合并到 appStore。
+ * 管理用量统计数据的加载和状态。
  */
-
-import { useAppStore } from "./appStore";
+import { create } from "zustand";
+import { usageService } from "../services/usageService";
+import { handleClientError } from "@/utils/handleError";
 import type {
   UsageSummary,
   DailyUsageStats,
@@ -13,52 +13,53 @@ import type {
   ProviderUsageStats,
 } from "../types";
 
-interface UsageStatsSlice {
+
+
+interface UsageStatsStore {
   summary: UsageSummary | null;
   trends: DailyUsageStats[];
   modelStats: ModelUsageStats[];
   providerStats: ProviderUsageStats[];
   isLoading: boolean;
   error: string | null;
+
   loadAll: (rangeDays?: number) => Promise<void>;
   clearError: () => void;
 }
 
-function mapSlice(s: {
-  usageSummary: UsageSummary | null;
-  usageTrends: DailyUsageStats[];
-  usageModelStats: ModelUsageStats[];
-  usageProviderStats: ProviderUsageStats[];
-  usageLoading: boolean;
-  usageError: string | null;
-  loadUsageAll: (rangeDays?: number) => Promise<void>;
-  clearUsageError: () => void;
-}): UsageStatsSlice {
-  return {
-    summary: s.usageSummary,
-    trends: s.usageTrends,
-    modelStats: s.usageModelStats,
-    providerStats: s.usageProviderStats,
-    isLoading: s.usageLoading,
-    error: s.usageError,
-    loadAll: s.loadUsageAll,
-    clearError: s.clearUsageError,
-  };
-}
+export const useUsageStatsStore = create<UsageStatsStore>()((set) => ({
+  summary: null,
+  trends: [],
+  modelStats: [],
+  providerStats: [],
+  isLoading: false,
+  error: null,
 
-export function useUsageStatsStore(): UsageStatsSlice;
-export function useUsageStatsStore<T>(selector: (slice: UsageStatsSlice) => T): T;
-export function useUsageStatsStore(selector?: any): any {
-  const summary = useAppStore((s) => s.usageSummary);
-  const trends = useAppStore((s) => s.usageTrends);
-  const modelStats = useAppStore((s) => s.usageModelStats);
-  const providerStats = useAppStore((s) => s.usageProviderStats);
-  const isLoading = useAppStore((s) => s.usageLoading);
-  const error = useAppStore((s) => s.usageError);
-  const loadAll = useAppStore((s) => s.loadUsageAll);
-  const clearError = useAppStore((s) => s.clearUsageError);
-  const slice = { summary, trends, modelStats, providerStats, isLoading, error, loadAll, clearError };
-  return selector ? selector(slice) : slice;
-}
+  loadAll: async (rangeDays = 30) => {
+    set({ isLoading: true, error: null });
+    try {
+      const end = Math.floor(Date.now() / 1000);
+      const start = end - rangeDays * 86400;
+      const range = { startDate: start, endDate: end };
+      const todayEnd = Math.floor(Date.now() / 1000);
+      const todayStart = todayEnd - 86400;
+      const todayRange = { startDate: todayStart, endDate: todayEnd };
 
-useUsageStatsStore.getState = () => mapSlice(useAppStore.getState());
+      const [summary, trends, modelStats, providerStats] = await Promise.all([
+        usageService.summary(todayRange),
+        usageService.trend(range),
+        usageService.modelStats(range),
+        usageService.providerStats(range),
+      ]);
+      set({ summary, trends, modelStats, providerStats, isLoading: false });
+    } catch (e) {
+      handleClientError(e, { module: 'stores:usageStatsStore', action: 'loadAll' }, 'warn');
+      set({
+        error: e instanceof Error ? e.message : "获取使用量统计失败",
+        isLoading: false,
+      });
+    }
+  },
+
+  clearError: () => set({ error: null }),
+}));

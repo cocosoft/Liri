@@ -7,7 +7,10 @@ import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'services\mcp\transports\InProcessTransport', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services\mcp\transports\InProcessTransport',
+  level: LogLevel.INFO,
+});
 
 /**
  * 进程内传输接口

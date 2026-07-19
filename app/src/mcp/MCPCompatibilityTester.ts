@@ -4,7 +4,10 @@
 import { EventEmitter } from 'events';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'mcp:MCPCompatibilityTester', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'mcp:MCPCompatibilityTester',
+  level: LogLevel.INFO,
+});
 
 /**
  * 测试用例

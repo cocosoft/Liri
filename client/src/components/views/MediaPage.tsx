@@ -15,6 +15,7 @@ import { createPortal } from "react-dom";
 import { useConfigStore } from "../../stores/configStore";
 import { useMediaStore, type GalleryItem } from "../../stores/mediaStore";
 import { useVideoTaskPolling } from "../../hooks/useVideoTaskPolling";
+import { useSessionContextSync } from "../../hooks/useSessionContextSync";
 import { GallerySearchBar } from "./media/GallerySearchBar";
 import { TaskList, GenerationTaskList } from "./media/TaskCard";
 import { TemplateCarousel } from "./media/TemplateCarousel";
@@ -112,6 +113,28 @@ function MediaPage() {
   const selectMedia = useMediaStore((s) => s.selectMedia);
   const setSearchParams = useMediaStore((s) => s.setSearchParams);
   const removeGalleryItem = useMediaStore((s) => s.removeGalleryItem);
+
+  // ──── SessionHub 上下文同步（Phase 4）──
+  // 保存/恢复媒体模块的 prompt、尺寸、风格、当前文件
+  useSessionContextSync("media", {
+    save: () => {
+      const state = useMediaStore.getState();
+      return {
+        moduleType: "media" as const,
+        prompt: state.prompt,
+        size: state.params.aspectRatio,
+        style: state.params.style,
+        currentFile: state.editingImage?.url,
+      };
+    },
+    restore: (ctx) => {
+      if (ctx.moduleType !== "media") return;
+      const state = useMediaStore.getState();
+      if (ctx.prompt) state.setPrompt(ctx.prompt);
+      if (ctx.size) state.setParams({ aspectRatio: ctx.size });
+      if (ctx.style) state.setParams({ style: ctx.style });
+    },
+  });
   const setIntendedAction = useMediaStore((s) => s.setIntendedAction);
   const clearSelectedImage = useMediaStore((s) => s.clearSelectedImage);
   const editingImage = useMediaStore((s) => s.editingImage);

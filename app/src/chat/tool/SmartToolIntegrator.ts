@@ -1,7 +1,10 @@
 ﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'chat\tool\SmartToolIntegrator', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chat\tool\SmartToolIntegrator',
+  level: LogLevel.INFO,
+});
 
 //
 export interface SmartTool {

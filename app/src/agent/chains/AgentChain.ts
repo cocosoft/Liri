@@ -34,7 +34,10 @@ import type {
 } from '../events/OrchestrationEvents.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'agent:chains:AgentChain', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent:chains:AgentChain',
+  level: LogLevel.INFO,
+});
 
 /**
  * 模拟 Agent 执行函数
@@ -197,11 +200,12 @@ export class AgentChain extends EventEmitter {
       };
       globalEventBus.publish(OrchestrationEventType.CHAIN_START, startData);
     } catch (err) {
-
       // EventBus 发射失败不阻塞主流程
 
-      logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: 'EventBus 发射失败不阻塞主流程',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     for (let i = 0; i < chain.steps.length; i++) {
@@ -278,11 +282,12 @@ export class AgentChain extends EventEmitter {
       };
       globalEventBus.publish(OrchestrationEventType.CHAIN_END, endData);
     } catch (err) {
-
       // EventBus 发射失败不阻塞主流程
 
-      logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: 'EventBus 发射失败不阻塞主流程',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     return {
@@ -578,11 +583,12 @@ export class AgentChain extends EventEmitter {
         globalEventBus.publish(OrchestrationEventType.CHAIN_STEP, stepData);
       }
     } catch (err) {
-
       // EventBus 发射失败不阻塞主流程
 
-      logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: 'EventBus 发射失败不阻塞主流程',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

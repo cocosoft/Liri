@@ -6,7 +6,10 @@
 import { EventEmitter } from 'events';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'bridge:websocket:WebSocketClient', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'bridge:websocket:WebSocketClient',
+  level: LogLevel.INFO,
+});
 
 /**
  * WebSocket客户端配置

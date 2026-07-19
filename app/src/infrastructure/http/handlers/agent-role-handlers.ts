@@ -14,7 +14,10 @@ import { getAgentRoleStore } from '@modules/workspace/AgentRoleStore';
 import type { HandlerCtx } from './handler-utils';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'infrastructure:http:handlers:agent-role-handlers', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'infrastructure:http:handlers:agent-role-handlers',
+  level: LogLevel.INFO,
+});
 
 /**
  * GET /v1/agent-roles

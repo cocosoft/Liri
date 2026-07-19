@@ -16,7 +16,10 @@ import type { CommandContext } from '@modules/commands';
 import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:builtin:git:Git', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:builtin:git:Git',
+  level: LogLevel.INFO,
+});
 
 const execAsync = promisify(exec);
 

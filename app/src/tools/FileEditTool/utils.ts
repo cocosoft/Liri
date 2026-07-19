@@ -20,7 +20,10 @@ import {
 } from './types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:FileEditTool:utils', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:FileEditTool:utils',
+  level: LogLevel.INFO,
+});
 
 const DEFAULT_OPTIONS: Required<EditOptions> = {
   dryRun: false,
@@ -197,11 +200,12 @@ export async function applyBatchEdits(
       try {
         snapshots.set(edit.path, takeSnapshot(edit.path));
       } catch (err) {
-
         // File may not exist yet
 
-        logger.debug("Operation skipped", { context: "File may not exist yet", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: 'File may not exist yet',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   }
@@ -220,11 +224,12 @@ export async function applyBatchEdits(
             try {
               writeFileContent(path, snapshot.content);
             } catch (err) {
-
               // Rollback silently
 
-              logger.debug("Operation skipped", { context: "Rollback silently", error: err instanceof Error ? err.message : String(err) });
-
+              logger.debug('Operation skipped', {
+                context: 'Rollback silently',
+                error: err instanceof Error ? err.message : String(err),
+              });
             }
           }
 

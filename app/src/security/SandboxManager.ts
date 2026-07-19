@@ -4,7 +4,10 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'security:SandboxManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'security:SandboxManager',
+  level: LogLevel.INFO,
+});
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**

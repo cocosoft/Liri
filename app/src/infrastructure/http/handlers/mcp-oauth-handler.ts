@@ -15,7 +15,10 @@ import { readMcpConfig } from '@modules/mcp';
 import { configManager } from '@modules/config';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'infrastructure:http:handlers:mcp-oauth-handler', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'infrastructure:http:handlers:mcp-oauth-handler',
+  level: LogLevel.INFO,
+});
 
 /**
  * 通过 OAuth Discovery 将 McpOAuthConfig 解析为 MCPOAuthConfig
@@ -35,11 +38,14 @@ async function resolveOAuthConfig(
   return {
     clientId: oauth.clientId || '',
     authUrl:
-      metadata?.authorizationEndpoint ||
-      oauth.authServerMetadataUrl || '',
+      metadata?.authorizationEndpoint || oauth.authServerMetadataUrl || '',
     tokenUrl:
       metadata?.tokenEndpoint ||
-      oauth.authServerMetadataUrl?.replace(/\/\.well-known\/oauth-authorization-server$/, '/token') || '',
+      oauth.authServerMetadataUrl?.replace(
+        /\/\.well-known\/oauth-authorization-server$/,
+        '/token'
+      ) ||
+      '',
     redirectUri: `${callbackBase}/v1/mcp/oauth/callback`,
   };
 }

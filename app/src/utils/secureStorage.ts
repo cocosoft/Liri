@@ -17,7 +17,10 @@ import {
 } from '@modules/security';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'utils:secureStorage', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'utils:secureStorage',
+  level: LogLevel.INFO,
+});
 
 const STORAGE_DIR = join(resolvePyappHome(), 'secure');
 const MASTER_KEY_FILE = join(STORAGE_DIR, '.master_key');
@@ -29,11 +32,12 @@ function getOrCreateMasterKey(): Buffer {
       return Buffer.from(keyData.trim(), 'hex');
     }
   } catch (err) {
-
     // 读取失败则创建新密钥
 
-    logger.warn("Operation skipped", { context: "读取失败则创建新密钥", error: err instanceof Error ? err.message : String(err) });
-
+    logger.warn('Operation skipped', {
+      context: '读取失败则创建新密钥',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   const key = generateEncryptionKey(32);
@@ -99,10 +103,11 @@ export async function secureDelete(key: string): Promise<void> {
       await writeFile(filePath, '', 'utf-8');
     }
   } catch (err) {
-
     // 删除失败时静默处理
 
-    logger.warn("Operation skipped", { context: "删除失败时静默处理", error: err instanceof Error ? err.message : String(err) });
-
+    logger.warn('Operation skipped', {
+      context: '删除失败时静默处理',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }

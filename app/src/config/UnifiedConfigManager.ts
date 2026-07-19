@@ -10,7 +10,10 @@
  */
 
 import { Logger, LogLevel } from '../monitoring/logs/Logger.js';
-const logger = new Logger({ module: 'config:UnifiedConfigManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'config:UnifiedConfigManager',
+  level: LogLevel.INFO,
+});
 import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus.js';
 import {
   ConfigLoader,

@@ -28,7 +28,10 @@ import type {
 } from '@modules/acp/runtime/types.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'bridge:ModuleBridgeRuntime', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'bridge:ModuleBridgeRuntime',
+  level: LogLevel.INFO,
+});
 
 export interface ModuleBridgeDependencies {
   taskRegistry?: {

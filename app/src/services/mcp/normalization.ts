@@ -5,7 +5,10 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ module: 'mcp:normalization', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'mcp:normalization',
+  level: LogLevel.INFO,
+});
 
 const CLAUDEAI_SERVER_PREFIX = 'claude.ai ';
 const NON_ALPHANUMERIC = /[^a-zA-Z0-9_-]/g;

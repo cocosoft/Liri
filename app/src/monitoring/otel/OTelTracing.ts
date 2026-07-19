@@ -25,7 +25,10 @@ import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'monitoring\otel\OTelTracing', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'monitoring\otel\OTelTracing',
+  level: LogLevel.INFO,
+});
 
 /**
  * 追踪配置

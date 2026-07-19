@@ -18,7 +18,10 @@ import type { WorkItem, WorkItemStatus, WorkItemType } from './types';
 import type { LiriConfigManager } from './LiriConfigManager';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'workspace:WorkItemStore', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'workspace:WorkItemStore',
+  level: LogLevel.INFO,
+});
 
 /** .liri/workitems/ 子目录 */
 const WORKITEMS_DIR = 'workitems';
@@ -81,11 +84,12 @@ export class WorkItemStore {
             items.push(item);
           }
         } catch (err) {
-
           // 跳过损坏的文件
 
-          logger.debug("Operation skipped", { context: "跳过损坏的文件", error: err instanceof Error ? err.message : String(err) });
-
+          logger.debug('Operation skipped', {
+            context: '跳过损坏的文件',
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }
 

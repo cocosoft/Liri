@@ -25,7 +25,10 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'agent:harness:index', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent:harness:index',
+  level: LogLevel.INFO,
+});
 
 export type HookName =
   | 'beforeInit'

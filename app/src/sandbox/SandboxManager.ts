@@ -27,7 +27,10 @@ import {
 } from './utils/TimeoutController';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'sandbox:SandboxManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'sandbox:SandboxManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 沙箱管理器

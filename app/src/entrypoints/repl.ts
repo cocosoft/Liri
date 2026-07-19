@@ -962,9 +962,9 @@ export async function executeOnce(
           sessionId = sessions[0].id;
         }
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } // @ignore-catch: 会话查询失败，后续 sendMessage 会重试
 
       profileCheckpoint('execute_once_send_message_start');

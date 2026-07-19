@@ -19,7 +19,10 @@ import { PermissionMode } from './PermissionMode';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'permission\EnhancedPermissionEngine', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'permission\EnhancedPermissionEngine',
+  level: LogLevel.INFO,
+});
 
 /**
  * 规则条件类型

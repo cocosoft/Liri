@@ -10,7 +10,10 @@ import type { Command, CommandResult } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:tools:task:todo', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:tools:task:todo',
+  level: LogLevel.INFO,
+});
 
 /** 有效的 todo 状态 */
 const VALID_STATUSES = ['pending', 'in_progress', 'completed'] as const;

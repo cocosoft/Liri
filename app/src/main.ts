@@ -349,9 +349,9 @@ async function checkFirstRunAndOnboard(): Promise<void> {
       try {
         rmSync(onboardRetryFlag, { force: true });
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } // @ignore-catch: 清理重试标志文件，失败不影响流程
     }
     return;
@@ -379,9 +379,9 @@ async function checkFirstRunAndOnboard(): Promise<void> {
       try {
         rmSync(onboardRetryFlag, { force: true });
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } // @ignore-catch: 清理重试标志文件，失败不影响流程
     }
 
@@ -403,9 +403,9 @@ async function checkFirstRunAndOnboard(): Promise<void> {
       }
       writeFileSync(onboardRetryFlag, String(retryCount), 'utf-8');
     } catch (err) {
-
-      logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     } // @ignore-catch: 重试计数写入失败不影响主流程
 
     const errorMsg = error instanceof Error ? error.message : String(error);

@@ -11,7 +11,10 @@ import { join } from 'path';
 import { resolvePyappHome } from '@modules/core';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:memory:memory', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:memory:memory',
+  level: LogLevel.INFO,
+});
 
 /**
  * 获取记忆文件目录

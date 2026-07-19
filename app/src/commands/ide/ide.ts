@@ -210,11 +210,12 @@ function detectByPath(def: IDEDefinition): {
       return { installed: true, path: firstPath };
     }
   } catch (err) {
-
     // not in PATH
 
-    logger.debug("Operation skipped", { context: "not in PATH", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: 'not in PATH',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
   return { installed: false };
 }
@@ -440,11 +441,12 @@ const ideCommand = {
         const { logEvent } = await import('@modules/analytics/index.js');
         logEvent('tengu_ide_view', { action: action || 'list', showJson });
       } catch (err) {
-
         // analytics 非关键
 
-        logger.debug("Operation skipped", { context: "analytics 非关键", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: 'analytics 非关键',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
 
       if (action === 'open') {

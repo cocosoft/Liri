@@ -12,7 +12,10 @@ import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands\builtin\memory\Memory', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands\builtin\memory\Memory',
+  level: LogLevel.INFO,
+});
 
 /**
  * 获取记忆文件目录

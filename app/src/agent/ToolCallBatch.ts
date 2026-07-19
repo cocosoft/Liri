@@ -8,7 +8,10 @@ import type { ToolCallProgress } from '../tools/types/Tool';
 import type { BaseTool } from '../tools/BaseTool';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'agent:ToolCallBatch', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent:ToolCallBatch',
+  level: LogLevel.INFO,
+});
 
 export interface ToolCallItem {
   id: string;

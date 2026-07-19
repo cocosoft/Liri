@@ -36,7 +36,10 @@ import type {
 } from './types/ToolTypes';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:ToolManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:ToolManager',
+  level: LogLevel.INFO,
+});
 /**
  * 工具管理器选项
  */

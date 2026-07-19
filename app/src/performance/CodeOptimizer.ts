@@ -7,7 +7,10 @@ import { logForDebugging } from '../utils/debug.js';
 import { slowLogging } from './SlowOperations.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'performance:CodeOptimizer', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'performance:CodeOptimizer',
+  level: LogLevel.INFO,
+});
 
 /**
  * 节流函数

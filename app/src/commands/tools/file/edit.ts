@@ -8,7 +8,10 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:tools:file:edit', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:tools:file:edit',
+  level: LogLevel.INFO,
+});
 
 interface EditOptions {
   filePath: string;
@@ -208,11 +211,12 @@ const editCommand = {
         hasContent: options.newString.length > 0,
       });
     } catch (err) {
-
       // analytics 非关键
 
-      logger.debug("Operation skipped", { context: "analytics 非关键", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: 'analytics 非关键',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     try {

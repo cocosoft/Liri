@@ -18,7 +18,10 @@ import { handleError } from '@modules/error';
 import { resolveMediaDir } from '@modules/core/paths';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'infrastructure:http:handlers:video-handlers', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'infrastructure:http:handlers:video-handlers',
+  level: LogLevel.INFO,
+});
 
 /** 视频根目录（AI 生成持久化） */
 const VIDEOS_ROOT = path.join(resolveMediaDir(), 'video');
@@ -95,11 +98,12 @@ function collectVideoFiles(
       }
     }
   } catch (err) {
-
     // 目录不存在或不可读，忽略
 
-    logger.debug("Operation skipped", { context: "目录不存在或不可读，忽略", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: '目录不存在或不可读，忽略',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 
@@ -143,11 +147,12 @@ function collectRegisteredVideos(): Array<{
 
     db.close();
   } catch (err) {
-
     // DB 不可用，回退到文件系统扫描
 
-    logger.debug("Operation skipped", { context: "DB 不可用，回退到文件系统扫描", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: 'DB 不可用，回退到文件系统扫描',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   return result;
@@ -313,11 +318,12 @@ export async function handleVideoMetadata(
       }
       db.close();
     } catch (err) {
-
       // DB 不可用，忽略
 
-      logger.debug("Operation skipped", { context: "DB 不可用，忽略", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: 'DB 不可用，忽略',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -540,11 +546,12 @@ export async function handleVideoDelete(
       db.prepare(`DELETE FROM file_files WHERE saved_name = ?`).run(fileName);
       db.close();
     } catch (err) {
-
       // DB 不可用，忽略
 
-      logger.debug("Operation skipped", { context: "DB 不可用，忽略", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: 'DB 不可用，忽略',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

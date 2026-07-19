@@ -5,7 +5,10 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'ai:localAgent:MCPProvider', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ai:localAgent:MCPProvider',
+  level: LogLevel.INFO,
+});
 
 export interface MCPToolCall {
   name: string;

@@ -7,7 +7,10 @@ import { z } from 'zod';
 import type { KeybindingContextName } from './types.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'keybindings:schema', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'keybindings:schema',
+  level: LogLevel.INFO,
+});
 
 /**
  * 有效的按键绑定上下文名称

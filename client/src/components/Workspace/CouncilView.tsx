@@ -125,7 +125,6 @@ const EmptyState: React.FC = () => {
     if (!topic) return;
 
     try {
-      const { useAppStore } = await import("../../stores/appStore");
       const { workspaceService } = await import("../../services/workspaceService");
       const { httpLegacy } = await import("../../services/httpClient");
 
@@ -164,7 +163,7 @@ const EmptyState: React.FC = () => {
       });
 
       const sessionId = result.sessionId;
-      useAppStore.getState().startCouncil(sessionId, topic);
+      useCouncilStore.getState().startCouncil(sessionId, topic);
     } catch (err) {
       logger.error("手动创建 Council 失败", err);
     }

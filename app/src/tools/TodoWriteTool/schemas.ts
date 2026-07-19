@@ -2,7 +2,10 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools\TodoWriteTool\schemas', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools\TodoWriteTool\schemas',
+  level: LogLevel.INFO,
+});
 
 /**
  * Todo 项状态枚举

@@ -9,7 +9,10 @@ import { type BridgeSession } from '@modules/bridge/sessions/MultiSessionManager
 import { type BridgeMessage } from '@modules/bridge/messaging/BridgeMessaging';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'hooks:useReplBridge', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'hooks:useReplBridge',
+  level: LogLevel.INFO,
+});
 
 /**
  * REPL状态

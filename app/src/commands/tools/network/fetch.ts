@@ -23,7 +23,10 @@ import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:tools:network:fetch', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:tools:network:fetch',
+  level: LogLevel.INFO,
+});
 
 /** 默认内容截断长度 */
 const DEFAULT_MAX_LENGTH = 2000;

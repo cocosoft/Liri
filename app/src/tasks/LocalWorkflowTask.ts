@@ -6,7 +6,10 @@ import { BaseTask } from './BaseTask';
 import { TaskType, TaskStatus } from './types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tasks:LocalWorkflowTask', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tasks:LocalWorkflowTask',
+  level: LogLevel.INFO,
+});
 
 export interface WorkflowStep {
   id: string;

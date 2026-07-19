@@ -47,11 +47,12 @@ export class TelemetryService {
         return readFileSync(userIdFile, 'utf-8');
       }
     } catch (err) {
-
       // 读取失败则创建新 ID
 
-      logger.warn("Operation skipped", { context: "读取失败则创建新 ID", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '读取失败则创建新 ID',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
     const id = randomUUID();
     if (!existsSync(TELEMETRY_DIR)) {

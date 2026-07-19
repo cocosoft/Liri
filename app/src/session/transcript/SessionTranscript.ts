@@ -8,7 +8,10 @@ import { resolvePyappHome } from '@modules/core';
 import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'session:transcript:SessionTranscript', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:transcript:SessionTranscript',
+  level: LogLevel.INFO,
+});
 
 /**
  * 转录配置
@@ -161,9 +164,9 @@ export class SessionTranscript {
         total += fs.statSync(filePath).size;
       }
     } catch (err) {
-
-      logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     } // @ignore-catch: 计算存储占用失败，返回 0
 
     return total;

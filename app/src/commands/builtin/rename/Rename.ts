@@ -4,7 +4,10 @@
 import type { CommandContext, CommandResult } from '@modules/commands';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:builtin:rename:Rename', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:builtin:rename:Rename',
+  level: LogLevel.INFO,
+});
 
 export default {
   /**

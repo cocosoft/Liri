@@ -30,7 +30,10 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { TAORLoop } from '../../../query/TAORLoop.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'infrastructure:http:handlers:checkpoint-handlers', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'infrastructure:http:handlers:checkpoint-handlers',
+  level: LogLevel.INFO,
+});
 
 /** 活跃的 TAORLoop 实例注册表（由 ChatManager 和 PDCA 注册） */
 const activeLoops = new Map<string, TAORLoop>();

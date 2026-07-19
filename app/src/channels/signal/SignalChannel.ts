@@ -10,7 +10,10 @@ import type {
 } from '@modules/channels/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'channels:signal:SignalChannel', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'channels:signal:SignalChannel',
+  level: LogLevel.INFO,
+});
 
 const execFileAsync = promisify(execFile);
 

@@ -14,7 +14,10 @@ import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { FFmpegWrapper } from '../../media/ffmpeg/FFmpegWrapper';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:MusicTool:MusicTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:MusicTool:MusicTool',
+  level: LogLevel.INFO,
+});
 
 /**
  * 音频编辑操作参数

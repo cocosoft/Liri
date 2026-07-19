@@ -1,57 +1,73 @@
 /**
- * 向后兼容 — 已合并到 appStore
+ * Knowledge Store — 独立 Zustand Store
  *
- * 原独立 Store 已合并到 appStore，此文件为薄封装层。
- * 新代码请直接使用 useAppStore。
+ * 管理知识库条目（KnowledgeItem）的 CRUD 操作和加载状态。
  */
-import { useAppStore } from "./appStore";
+import { create } from "zustand";
+import { knowledgeService } from "../services/knowledgeService";
+import { handleClientError } from "@/utils/handleError";
 import type { KnowledgeItem } from "../types";
+
+
 
 export type { KnowledgeItem };
 
-/** Knowledge 相关状态切片 */
-interface KnowledgeSlice {
+interface KnowledgeStore {
   items: KnowledgeItem[];
   isLoading: boolean;
   error: string | null;
+
   loadItems: () => Promise<void>;
   createItem: (item: Omit<KnowledgeItem, "id" | "created_at" | "updated_at">) => Promise<void>;
   updateItem: (id: string, updates: Partial<KnowledgeItem>) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
 }
 
-function knowledgeSlice(state: { knowledgeItems: KnowledgeItem[]; knowledgeLoading: boolean; knowledgeError: string | null; loadKnowledge: () => Promise<void>; createKnowledge: (item: Omit<KnowledgeItem, "id" | "created_at" | "updated_at">) => Promise<void>; updateKnowledge: (id: string, updates: Partial<KnowledgeItem>) => Promise<void>; deleteKnowledge: (id: string) => Promise<void> }): KnowledgeSlice {
-  return {
-    items: state.knowledgeItems,
-    isLoading: state.knowledgeLoading,
-    error: state.knowledgeError,
-    loadItems: state.loadKnowledge,
-    createItem: state.createKnowledge,
-    updateItem: state.updateKnowledge,
-    deleteItem: state.deleteKnowledge,
-  };
-}
+export const useKnowledgeStore = create<KnowledgeStore>()((set) => ({
+  items: [],
+  isLoading: false,
+  error: null,
 
-export function useKnowledgeStore(): KnowledgeSlice;
-export function useKnowledgeStore<T>(selector: (slice: KnowledgeSlice) => T): T;
-export function useKnowledgeStore<T>(selector?: (slice: KnowledgeSlice) => T): KnowledgeSlice | T {
-  const items = useAppStore((s) => s.knowledgeItems);
-  const isLoading = useAppStore((s) => s.knowledgeLoading);
-  const error = useAppStore((s) => s.knowledgeError);
-  const loadItems = useAppStore((s) => s.loadKnowledge);
-  const createItem = useAppStore((s) => s.createKnowledge);
-  const updateItem = useAppStore((s) => s.updateKnowledge);
-  const deleteItem = useAppStore((s) => s.deleteKnowledge);
-  const slice: KnowledgeSlice = { items, isLoading, error, loadItems, createItem, updateItem, deleteItem };
-  return selector ? selector(slice) : slice;
-}
+  loadItems: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const items = await knowledgeService.list();
+      set({ items, isLoading: false });
+    } catch (e) {
+      handleClientError(e, { module: 'stores:knowledgeStore', action: 'loadItems' }, 'warn');
+      set({ error: String(e), isLoading: false });
+    }
+  },
 
-useKnowledgeStore.getState = () =>
-  knowledgeSlice(useAppStore.getState() as Parameters<typeof knowledgeSlice>[0]);
-useKnowledgeStore.setState = (partial: Partial<KnowledgeSlice>) => {
-  useAppStore.setState({
-    ...(partial.items !== undefined && { knowledgeItems: partial.items }),
-    ...(partial.isLoading !== undefined && { knowledgeLoading: partial.isLoading }),
-    ...(partial.error !== undefined && { knowledgeError: partial.error }),
-  });
-};
+  createItem: async (item) => {
+    try {
+      const created = await knowledgeService.create(item);
+      set((state) => ({ items: [...state.items, created] }));
+    } catch (e) {
+      handleClientError(e, { module: 'stores:knowledgeStore', action: 'createItem' }, 'warn');
+      set({ error: String(e) });
+    }
+  },
+
+  updateItem: async (id, updates) => {
+    try {
+      const updated = await knowledgeService.update(id, updates);
+      set((state) => ({
+        items: state.items.map((i) => (i.id === id ? updated : i)),
+      }));
+    } catch (e) {
+      handleClientError(e, { module: 'stores:knowledgeStore', action: 'updateItem' }, 'warn');
+      set({ error: String(e) });
+    }
+  },
+
+  deleteItem: async (id) => {
+    try {
+      await knowledgeService.delete(id);
+      set((state) => ({ items: state.items.filter((i) => i.id !== id) }));
+    } catch (e) {
+      handleClientError(e, { module: 'stores:knowledgeStore', action: 'deleteItem' }, 'warn');
+      set({ error: String(e) });
+    }
+  },
+}));

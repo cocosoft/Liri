@@ -10,7 +10,10 @@ import { errorMessage } from '@modules/error';
 import { configManager } from '@modules/config';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'monitoring\otel\OTelLogger', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'monitoring\otel\OTelLogger',
+  level: LogLevel.INFO,
+});
 
 /**
  * OpenTelemetry诊断日志记录器

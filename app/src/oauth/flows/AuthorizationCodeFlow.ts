@@ -14,7 +14,10 @@ import type { OAuthConfig, OAuthAuthResult } from '../types/OAuthTypes';
 import { OAuthError } from '../types/OAuthTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ module: 'oauth:flows:authCode', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'oauth:flows:authCode',
+  level: LogLevel.INFO,
+});
 
 export interface AuthorizationCodeFlowOptions {
   state?: string;

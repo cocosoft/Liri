@@ -15,7 +15,10 @@ import { ALL_MODEL_CONFIGS } from '@modules/ai';
 import { priceManager } from './PriceManager';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'core:tokenBudget:ModelContextCache', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:tokenBudget:ModelContextCache',
+  level: LogLevel.INFO,
+});
 
 /** TTL 默认值: 5 分钟 */
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -137,11 +140,12 @@ export class ModelContextCache {
       try {
         listener();
       } catch (err) {
-
         // 忽略单个监听器异常，确保其他监听器继续执行
 
-        logger.debug("Operation skipped", { context: "忽略单个监听器异常，确保其他监听器继续执行", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: '忽略单个监听器异常，确保其他监听器继续执行',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   }
@@ -180,11 +184,12 @@ export class ModelContextCache {
         );
         count++;
       } catch (err) {
-
         // 模型未在 PriceManager 中注册，跳过
 
-        logger.debug("Operation skipped", { context: "模型未在 PriceManager 中注册，跳过", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: '模型未在 PriceManager 中注册，跳过',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
     return count;

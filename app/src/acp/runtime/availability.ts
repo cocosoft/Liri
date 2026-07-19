@@ -3,7 +3,10 @@ import type { AcpRuntimeHandle } from './types.js';
 import { AcpRuntimeError } from './errors.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'acp:runtime:availability', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'acp:runtime:availability',
+  level: LogLevel.INFO,
+});
 
 export interface RuntimeAvailabilityResult {
   available: boolean;

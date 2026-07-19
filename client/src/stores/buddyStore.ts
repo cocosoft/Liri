@@ -1,16 +1,17 @@
 /**
- * 向后兼容 — 已合并到 appStore
+ * Buddy 状态存储 — 独立 Zustand Store
  *
- * 原独立 Store 已合并到 appStore，此文件为薄封装层。
- * 新代码请直接使用 useAppStore。
+ * 管理 AI 伙伴（Buddy Companion）的状态、交互与统计。
  */
-import { useAppStore } from "./appStore";
+import { create } from "zustand";
+import { buddyService } from "../services/buddyService";
+import { handleClientError } from "@/utils/handleError";
 import type { BuddyCompanion, BuddyInteractionResult } from "../types";
 
 export type { BuddyCompanion, BuddyInteractionResult };
 
-/** Buddy 状态切片 */
-interface BuddySlice {
+/** Buddy Store 状态切片 */
+interface BuddyStore {
   companion: BuddyCompanion | null;
   lastInteraction: BuddyInteractionResult | null;
   stats: { interactions: number; dreamsCompleted: number; totalXp: number } | null;
@@ -21,41 +22,50 @@ interface BuddySlice {
   loadStats: () => Promise<void>;
 }
 
-function buddySlice(s: any): BuddySlice {
-  return {
-    companion: s.buddyCompanion,
-    lastInteraction: s.buddyLastInteraction,
-    stats: s.buddyStats,
-    isLoading: s.buddyLoading,
-    error: s.buddyError,
-    loadBuddy: s.loadBuddy,
-    interact: s.buddyInteract,
-    loadStats: s.loadBuddyStats,
-  };
-}
+/**
+ * Buddy 状态管理 Store
+ *
+ * 提供伙伴的加载、交互和统计数据管理。
+ * 所有操作通过 buddyService 代理到后端 /v1/buddy/* 接口。
+ */
+export const useBuddyStore = create<BuddyStore>((set) => ({
 
-export function useBuddyStore(): BuddySlice;
-export function useBuddyStore<T>(selector: (slice: BuddySlice) => T): T;
-export function useBuddyStore(selector?: any): any {
-  const companion = useAppStore((s) => s.buddyCompanion);
-  const lastInteraction = useAppStore((s) => s.buddyLastInteraction);
-  const stats = useAppStore((s) => s.buddyStats);
-  const isLoading = useAppStore((s) => s.buddyLoading);
-  const error = useAppStore((s) => s.buddyError);
-  const loadBuddy = useAppStore((s) => s.loadBuddy);
-  const interact = useAppStore((s) => s.buddyInteract);
-  const loadStats = useAppStore((s) => s.loadBuddyStats);
-  const slice: BuddySlice = { companion, lastInteraction, stats, isLoading, error, loadBuddy, interact, loadStats };
-  return selector ? selector(slice) : slice;
-}
+  companion: null,
+  lastInteraction: null,
+  stats: null,
+  isLoading: false,
+  error: null,
 
-useBuddyStore.getState = () => buddySlice(useAppStore.getState());
-useBuddyStore.setState = (partial: Partial<BuddySlice>) => {
-  useAppStore.setState({
-    ...(partial.companion !== undefined && { buddyCompanion: partial.companion }),
-    ...(partial.lastInteraction !== undefined && { buddyLastInteraction: partial.lastInteraction }),
-    ...(partial.stats !== undefined && { buddyStats: partial.stats }),
-    ...(partial.isLoading !== undefined && { buddyLoading: partial.isLoading }),
-    ...(partial.error !== undefined && { buddyError: partial.error }),
-  } as any);
-};
+  loadBuddy: async (name?: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const companion = await buddyService.getBuddy(name);
+      set({ companion, isLoading: false });
+    } catch (e) {
+      handleClientError(e, { module: 'stores:buddyStore', action: 'loadBuddy' }, 'warn');
+      set({ error: String(e), isLoading: false });
+    }
+  },
+
+  interact: async (action: string, name?: string) => {
+    set({ error: null });
+    try {
+      const result = await buddyService.interact(action, name);
+      set({ companion: result.companion, lastInteraction: result });
+    } catch (e) {
+      handleClientError(e, { module: 'stores:buddyStore', action: 'interact' }, 'warn');
+      set({ error: String(e) });
+    }
+  },
+
+  loadStats: async () => {
+    try {
+      const stats = await buddyService.getStats();
+      set({ stats });
+    } catch (e) {
+      handleClientError(e, { module: 'stores:buddyStore', action: 'loadStats' }, 'warn');
+      set({ error: String(e) });
+    }
+  },
+
+}));

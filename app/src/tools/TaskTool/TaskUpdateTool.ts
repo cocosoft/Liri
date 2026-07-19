@@ -15,7 +15,10 @@ import type {
 import { defaultTaskStorage } from './TaskStorage';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:TaskTool:TaskUpdateTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:TaskTool:TaskUpdateTool',
+  level: LogLevel.INFO,
+});
 
 /**
  * TaskUpdateTool参数定义

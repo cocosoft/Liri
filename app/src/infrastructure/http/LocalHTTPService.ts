@@ -4076,9 +4076,9 @@ export class LocalHTTPService {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
         orchestrator = m.getOrchestrator(taskId);
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* 可选模块, 加载失败时降级 */
       if (!orchestrator) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -4105,9 +4105,9 @@ export class LocalHTTPService {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
         orchestrator = m.getOrchestrator(taskId);
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* 可选模块, 加载失败时降级 */
       if (!orchestrator) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -4137,9 +4137,9 @@ export class LocalHTTPService {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
         orchestrator = m.getOrchestrator(taskId);
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* 可选模块, 加载失败时降级 */
       if (!orchestrator) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -4165,9 +4165,9 @@ export class LocalHTTPService {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
         list = m.getAllOrchestrators().map((o: any) => o.getStatus());
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* 可选模块, 加载失败时降级 */
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(list));
@@ -4187,9 +4187,9 @@ export class LocalHTTPService {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
         orchestrator = m.getOrchestrator(taskId);
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* 可选模块, 加载失败时降级 */
       if (!orchestrator) {
         res.writeHead(200, { 'Content-Type': 'application/json' });

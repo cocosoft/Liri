@@ -23,7 +23,10 @@ import type http from 'http';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'infrastructure:http:handlers:kanban-handlers', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'infrastructure:http:handlers:kanban-handlers',
+  level: LogLevel.INFO,
+});
 
 // ========== Kanban Handlers ==========
 

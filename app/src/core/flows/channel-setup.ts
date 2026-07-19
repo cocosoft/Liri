@@ -5,7 +5,10 @@ import type {
 } from './types.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'core:flows:channel-setup', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:flows:channel-setup',
+  level: LogLevel.INFO,
+});
 
 export type ChannelSetupPlugin = {
   channelId: string;

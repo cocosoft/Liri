@@ -28,7 +28,10 @@ import { SystemInfoHandler } from './handlers/SystemInfoHandler.js';
 import { GreetingHandler } from './handlers/GreetingHandler.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'ai:localAgent:LocalAgent', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ai:localAgent:LocalAgent',
+  level: LogLevel.INFO,
+});
 
 export class LocalAgent {
   private ruleEngine: IRuleEngine;

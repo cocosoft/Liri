@@ -8,7 +8,10 @@ import { resolvePyappHome } from '@modules/core';
 import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'session\maintenance\SessionMaintenance', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session\maintenance\SessionMaintenance',
+  level: LogLevel.INFO,
+});
 
 /**
  * 维护配置

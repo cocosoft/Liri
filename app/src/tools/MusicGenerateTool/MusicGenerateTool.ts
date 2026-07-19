@@ -10,7 +10,10 @@ import { resolveOutputDir } from '@modules/core';
 import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:MusicGenerateTool:MusicGenerateTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:MusicGenerateTool:MusicGenerateTool',
+  level: LogLevel.INFO,
+});
 
 export interface MusicGenerateParams {
   prompt: string;

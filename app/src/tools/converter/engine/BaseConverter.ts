@@ -9,7 +9,10 @@ import type {
 import { PRIORITY_SPECIFIC_FILE_FORMAT } from './types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools\converter\engine\BaseConverter', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools\converter\engine\BaseConverter',
+  level: LogLevel.INFO,
+});
 
 export abstract class BaseConverter implements ConverterRegistration {
   abstract readonly name: string;

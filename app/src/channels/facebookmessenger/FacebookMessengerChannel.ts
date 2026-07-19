@@ -8,7 +8,10 @@ import type {
 } from '@modules/channels/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'channels:facebookmessenger:FacebookMessengerChannel', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'channels:facebookmessenger:FacebookMessengerChannel',
+  level: LogLevel.INFO,
+});
 
 export interface FacebookMessengerConfig {
   enabled: boolean;

@@ -7,7 +7,10 @@ import {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'context\ContextInjector', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'context\ContextInjector',
+  level: LogLevel.INFO,
+});
 
 export interface IContextInjector {
   inject(context: Context, target: unknown): Promise<void>;

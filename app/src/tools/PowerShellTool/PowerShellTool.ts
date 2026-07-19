@@ -31,7 +31,10 @@ import { configManager } from '@modules/config';
 import type { PermissionConfig } from '@modules/config/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:PowerShellTool:PowerShellTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:PowerShellTool:PowerShellTool',
+  level: LogLevel.INFO,
+});
 
 /** PowerShell 删除命令别名（来源：dangerousCommands.ts DELETION_RULES） */
 const POWERSHELL_DELETION_ALIASES = [

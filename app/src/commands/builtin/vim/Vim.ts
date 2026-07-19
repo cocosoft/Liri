@@ -12,7 +12,10 @@
 import { configManager } from '@modules/config/ConfigManager.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:builtin:vim:Vim', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:builtin:vim:Vim',
+  level: LogLevel.INFO,
+});
 
 /**
  * Vim命令实现

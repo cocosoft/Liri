@@ -1,17 +1,38 @@
 /**
- * 向后兼容 — 已合并到 appStore
+ * Voice Store — 独立 Zustand Store
  *
- * 原独立 Store 已合并到 appStore，此文件为薄封装层。
- * 新代码请直接使用 useAppStore。
+ * 语音设置、录制、WebSocket、字幕、唤醒词、TTS 全部合并为一个 Store。
+ * 原状态从 appStore 迁出，现已为真实独立 Store。
  */
-import { useAppStore, type SubtitleEntry } from "./appStore";
-import type { VoiceSettings, VoiceSession } from "../services/voiceService";
+
+import { create } from "zustand";
+import {
+  voiceService,
+  connectVoiceWebSocket,
+  disconnectVoiceWebSocket,
+  onVoiceStateChange,
+  onVoiceDisconnect,
+  connectWakeWordWebSocket,
+  disconnectWakeWordWebSocket,
+  onWakeWordDetected,
+  onWakeDisconnect,
+  type VoiceSettings,
+  type VoiceSession,
+} from "../services/voiceService";
+import { handleClientError } from "@/utils/handleError";
 
 export type { VoiceSettings, VoiceSession };
-export type { SubtitleEntry };
 
-/** Voice 状态切片 */
-interface VoiceSlice {
+/** 字幕条目 */
+export interface SubtitleEntry {
+  text: string;
+  timestamp: number;
+  isFinal: boolean;
+  confidence?: number;
+}
+
+interface VoiceState {
+  // ---- Voice ----
   settings: VoiceSettings | null;
   sessions: VoiceSession[];
   currentSession: VoiceSession | null;
@@ -21,24 +42,30 @@ interface VoiceSlice {
   isProcessing: boolean;
   isPlaying: boolean;
   error: string | null;
-  voiceError: string | null;
   audioLevel: number;
   micStatus: { status: string; audioLevel: number } | null;
 
-  // === 字幕状态 ===
+  // ---- Subtitle ----
   interimText: string;
   finalText: string;
   subtitleHistory: SubtitleEntry[];
   subtitleStatus: "idle" | "listening" | "processing" | "done";
 
-  // === 唤醒状态 ===
+  // ---- Wake Word ----
   wakeWordEnabled: boolean;
   wakeWordTriggers: string[];
   wakeWordListening: boolean;
   wakeWordTriggered: string | null;
+  wakeWsConnected: boolean;
 
+  // ---- TTS ----
+  ttsProviders: string[];
+  ttsVoices: { id: string; name: string; language: string }[];
+  ttsHealth: { status: string; message?: string };
+
+  // ---- Actions ----
   loadSettings: () => Promise<void>;
-  updateSettings: (settings: Partial<VoiceSettings>) => Promise<void>;
+  updateSettings: (updates: Partial<VoiceSettings>) => Promise<void>;
   connectWebSocket: () => Promise<void>;
   disconnectWebSocket: () => void;
   startRecording: () => Promise<void>;
@@ -46,106 +73,276 @@ interface VoiceSlice {
   playResponse: (audioUrl: string) => Promise<void>;
   stopPlayback: () => void;
   clearError: () => void;
+
   toggleWakeWord: () => Promise<void>;
   setWakeWordTriggers: (triggers: string[]) => Promise<void>;
+  connectWakeWordWebSocket: () => Promise<void>;
+  disconnectWakeWordWebSocket: () => void;
+
+  loadTTSProviders: () => Promise<void>;
+  loadTTSVoices: (provider: string) => Promise<void>;
+  checkTTSHealth: () => Promise<void>;
 }
 
-function voiceSlice(s: any): VoiceSlice {
+let voiceCallbacksRegistered = false;
+
+/** 注册一次性的语音状态变更回调（幂等） */
+function ensureVoiceCallbacksRegistered(set: (partial: Partial<VoiceState>) => void, get: () => VoiceState) {
+  if (voiceCallbacksRegistered) return;
+  voiceCallbacksRegistered = true;
+
+  onVoiceStateChange((state, _previous) => {
+    set({ sessionState: state });
+
+    if (state === "disconnected" || state === "error") {
+      set({
+        isRecording: false,
+        isProcessing: false,
+        currentSession: null,
+      });
+    }
+  });
+
+  onVoiceDisconnect(() => {
+    set({
+      wsConnected: false,
+      sessionState: "idle",
+      isRecording: false,
+      isProcessing: false,
+      currentSession: null,
+    });
+  });
+
+  onWakeWordDetected((data) => {
+    const store = get();
+
+    set({
+      wakeWordTriggered: data.matchedTrigger,
+      wakeWordListening: false,
+    });
+
+    if (!store.isRecording && !store.isProcessing) {
+      store.startRecording().catch((e) => {
+        handleClientError(e, { module: 'stores:voiceStore', action: 'wakeWordAutoRecord' }, 'warn');
+      });
+    }
+  });
+
+  onWakeDisconnect(() => {
+    set({ wakeWsConnected: false });
+  });
+}
+
+export const useVoiceStore = create<VoiceState>((set, get) => {
+  ensureVoiceCallbacksRegistered(set, get);
+
   return {
-    settings: s.voiceSettings,
-    sessions: s.voiceSessions,
-    currentSession: s.voiceCurrentSession,
-    sessionState: s.voiceSessionState,
-    wsConnected: s.voiceWsConnected,
-    isRecording: s.voiceIsRecording,
-    isProcessing: s.voiceIsProcessing,
-    isPlaying: s.voiceIsPlaying,
-    error: s.voiceError,
-    voiceError: s.voiceError,
-    audioLevel: s.audioLevel,
-    micStatus: s.micStatus,
-    interimText: s.interimText,
-    finalText: s.finalText,
-    subtitleHistory: s.subtitleHistory,
-    subtitleStatus: s.subtitleStatus,
-    wakeWordEnabled: s.wakeWordEnabled,
-    wakeWordTriggers: s.wakeWordTriggers,
-    wakeWordListening: s.wakeWordListening,
-    wakeWordTriggered: s.wakeWordTriggered,
-    loadSettings: s.loadVoiceSettings,
-    updateSettings: s.updateVoiceSettings,
-    connectWebSocket: s.connectVoiceWebSocket,
-    disconnectWebSocket: s.disconnectVoiceWebSocket,
-    startRecording: s.startRecording,
-    stopRecording: s.stopRecording,
-    playResponse: s.playResponse,
-    stopPlayback: s.stopPlayback,
-    clearError: s.clearVoiceError,
-    toggleWakeWord: s.toggleWakeWord,
-    setWakeWordTriggers: s.setWakeWordTriggers,
+    // ---- Voice ----
+    settings: null,
+    sessions: [],
+    currentSession: null,
+    sessionState: "idle",
+    wsConnected: false,
+    isRecording: false,
+    isProcessing: false,
+    isPlaying: false,
+    error: null,
+    audioLevel: 0,
+    micStatus: null,
+
+    // ---- Subtitle ----
+    interimText: "",
+    finalText: "",
+    subtitleHistory: [],
+    subtitleStatus: "idle",
+
+    // ---- Wake Word ----
+    wakeWordEnabled: false,
+    wakeWordTriggers: [],
+    wakeWordListening: false,
+    wakeWordTriggered: null,
+    wakeWsConnected: false,
+
+    // ---- TTS ----
+    ttsProviders: [],
+    ttsVoices: [],
+    ttsHealth: { status: "unknown" },
+
+    // ---- Voice Actions ----
+    loadSettings: async () => {
+      try {
+        const settings = await voiceService.getSettings();
+        set({ settings, error: null });
+      } catch (e) {
+        handleClientError(e, { module: 'stores:voiceStore', action: 'loadSettings' }, 'warn');
+        set({ error: e instanceof Error ? e.message : "加载语音设置失败" });
+      }
+    },
+
+    updateSettings: async (updates) => {
+      const { settings } = get();
+      if (!settings) return;
+      set({ isProcessing: true, error: null });
+      try {
+        const updated = await voiceService.updateSettings({ ...settings, ...updates });
+        set({ settings: updated });
+      } catch (e) {
+        handleClientError(e, { module: 'stores:voiceStore', action: 'updateSettings' }, 'warn');
+        set({ error: e instanceof Error ? e.message : "更新语音设置失败" });
+      } finally {
+        set({ isProcessing: false });
+      }
+    },
+
+    connectWebSocket: async () => {
+      try {
+        await connectVoiceWebSocket();
+        set({ wsConnected: true, sessionState: "connected" });
+      } catch (e) {
+        handleClientError(e, { module: 'stores:voiceStore', action: 'connectWebSocket' }, 'warn');
+        set({ wsConnected: false });
+      }
+    },
+
+    disconnectWebSocket: () => {
+      disconnectVoiceWebSocket();
+      set({ wsConnected: false, sessionState: "idle" });
+    },
+
+    startRecording: async () => {
+      set({ isRecording: true, error: null, audioLevel: 0 });
+      try {
+        if (!get().wsConnected) {
+          await get().connectWebSocket();
+        }
+
+        const session = await voiceService.startSession();
+        set({ currentSession: session, sessionState: "active" });
+      } catch (e) {
+        handleClientError(e, { module: 'stores:voiceStore', action: 'startRecording' }, 'warn');
+        set({ error: e instanceof Error ? e.message : "开始录音失败", isRecording: false });
+      }
+    },
+
+    stopRecording: async () => {
+      const { currentSession } = get();
+      if (!currentSession) { set({ isRecording: false }); return; }
+      set({ isRecording: false, isProcessing: true });
+      try {
+        await voiceService.endSession(currentSession.id);
+        set({ currentSession: null });
+
+        get().disconnectWebSocket();
+      } catch (e) {
+        handleClientError(e, { module: 'stores:voiceStore', action: 'stopRecording' }, 'warn');
+        set({ error: e instanceof Error ? e.message : "停止录音失败" });
+      } finally {
+        set({ isProcessing: false });
+
+        const { wakeWordEnabled } = get();
+        if (wakeWordEnabled) {
+          set({ wakeWordListening: true, wakeWordTriggered: null });
+        }
+      }
+    },
+
+    playResponse: async (audioUrl) => {
+      try {
+        set({ isPlaying: true });
+        const audio = new Audio(audioUrl);
+        audio.onended = () => set({ isPlaying: false });
+        audio.onerror = () => { set({ isPlaying: false, error: "音频播放失败" }); };
+        await audio.play();
+      } catch (e) {
+        handleClientError(e, { module: 'stores:voiceStore', action: 'playResponse' }, 'warn');
+        set({ isPlaying: false, error: "音频播放失败" });
+      }
+    },
+
+    stopPlayback: () => { set({ isPlaying: false }); },
+
+    clearError: () => set({ error: null }),
+
+    // ---- Wake Word Actions ----
+    toggleWakeWord: async () => {
+      const { wakeWordEnabled } = get();
+      const newEnabled = !wakeWordEnabled;
+      set({ wakeWordEnabled: newEnabled });
+
+      if (newEnabled) {
+        try {
+          const res = await fetch('/v1/voice/wake/start', { method: 'POST' });
+          if (res.ok) {
+            const data = await res.json();
+            set({ wakeWordListening: data.status === 'listening' });
+
+            await get().connectWakeWordWebSocket();
+          }
+        } catch (e) {
+          handleClientError(e, { module: 'stores:voiceStore', action: 'toggleWakeWord:start' }, 'warn');
+          set({ wakeWordEnabled: false, wakeWordListening: false });
+        }
+      } else {
+        try {
+          await fetch('/v1/voice/wake/stop', { method: 'POST' });
+        } catch (e) {
+          handleClientError(e, { module: 'stores:voiceStore', action: 'toggleWakeWord:stop' }, 'warn');
+        }
+        get().disconnectWakeWordWebSocket();
+        set({ wakeWordListening: false, wakeWordTriggered: null });
+      }
+    },
+
+    setWakeWordTriggers: async (triggers) => {
+      set({ wakeWordTriggers: triggers });
+      try {
+        await fetch('/v1/voice/wake/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ triggers }),
+        });
+      } catch (e) {
+        handleClientError(e, { module: 'stores:voiceStore', action: 'setWakeWordTriggers' }, 'warn');
+      }
+    },
+
+    connectWakeWordWebSocket: async () => {
+      try {
+        await connectWakeWordWebSocket();
+        set({ wakeWsConnected: true });
+      } catch (e) {
+        handleClientError(e, { module: 'stores:voiceStore', action: 'connectWakeWordWebSocket' }, 'warn');
+        set({ wakeWsConnected: false });
+      }
+    },
+
+    disconnectWakeWordWebSocket: () => {
+      disconnectWakeWordWebSocket(true);
+      set({ wakeWsConnected: false });
+    },
+
+    // ---- TTS Actions ----
+    loadTTSProviders: async () => {
+      try {
+        const providers = await voiceService.getTTSProviders();
+        set({ ttsProviders: providers });
+      } catch (e) {
+        handleClientError(e, { module: 'stores:voiceStore', action: 'loadTTSProviders' }, 'warn');
+      }
+    },
+
+    loadTTSVoices: async (provider) => {
+      try {
+        const voices = await voiceService.getVoices(provider);
+        set({ ttsVoices: voices });
+      } catch (e) {
+        handleClientError(e, { module: 'stores:voiceStore', action: 'loadTTSVoices' }, 'warn');
+      }
+    },
+
+    checkTTSHealth: async () => {
+      const health = await voiceService.checkTTSHealth();
+      set({ ttsHealth: health });
+    },
   };
-}
-
-export function useVoiceStore(): VoiceSlice;
-export function useVoiceStore<T>(selector: (slice: VoiceSlice) => T): T;
-export function useVoiceStore(selector?: any): any {
-  const settings = useAppStore((s) => s.voiceSettings);
-  const sessions = useAppStore((s) => s.voiceSessions);
-  const currentSession = useAppStore((s) => s.voiceCurrentSession);
-  const sessionState = useAppStore((s) => s.voiceSessionState);
-  const wsConnected = useAppStore((s) => s.voiceWsConnected);
-  const isRecording = useAppStore((s) => s.voiceIsRecording);
-  const isProcessing = useAppStore((s) => s.voiceIsProcessing);
-  const isPlaying = useAppStore((s) => s.voiceIsPlaying);
-  const error = useAppStore((s) => s.voiceError);
-  const voiceError = useAppStore((s) => s.voiceError);
-  const audioLevel = useAppStore((s) => s.audioLevel);
-  const micStatus = useAppStore((s) => s.micStatus);
-  const interimText = useAppStore((s) => s.interimText);
-  const finalText = useAppStore((s) => s.finalText);
-  const subtitleHistory = useAppStore((s) => s.subtitleHistory);
-  const subtitleStatus = useAppStore((s) => s.subtitleStatus);
-  const wakeWordEnabled = useAppStore((s) => s.wakeWordEnabled);
-  const wakeWordTriggers = useAppStore((s) => s.wakeWordTriggers);
-  const wakeWordListening = useAppStore((s) => s.wakeWordListening);
-  const wakeWordTriggered = useAppStore((s) => s.wakeWordTriggered);
-  const loadSettings = useAppStore((s) => s.loadVoiceSettings);
-  const updateSettings = useAppStore((s) => s.updateVoiceSettings);
-  const connectWebSocket = useAppStore((s) => s.connectVoiceWebSocket);
-  const disconnectWebSocket = useAppStore((s) => s.disconnectVoiceWebSocket);
-  const startRecording = useAppStore((s) => s.startRecording);
-  const stopRecording = useAppStore((s) => s.stopRecording);
-  const playResponse = useAppStore((s) => s.playResponse);
-  const stopPlayback = useAppStore((s) => s.stopPlayback);
-  const clearError = useAppStore((s) => s.clearVoiceError);
-  const toggleWakeWord = useAppStore((s) => s.toggleWakeWord);
-  const setWakeWordTriggers = useAppStore((s) => s.setWakeWordTriggers);
-  const slice: VoiceSlice = { settings, sessions, currentSession, sessionState, wsConnected, isRecording, isProcessing, isPlaying, error, voiceError, audioLevel, micStatus, interimText, finalText, subtitleHistory, subtitleStatus, wakeWordEnabled, wakeWordTriggers, wakeWordListening, wakeWordTriggered, loadSettings, updateSettings, connectWebSocket, disconnectWebSocket, startRecording, stopRecording, playResponse, stopPlayback, clearError, toggleWakeWord, setWakeWordTriggers };
-  return selector ? selector(slice) : slice;
-}
-
-useVoiceStore.getState = () => voiceSlice(useAppStore.getState());
-useVoiceStore.setState = (partial: Partial<VoiceSlice>) => {
-  useAppStore.setState({
-    ...(partial.settings !== undefined && { voiceSettings: partial.settings }),
-    ...(partial.sessions !== undefined && { voiceSessions: partial.sessions }),
-    ...(partial.currentSession !== undefined && { voiceCurrentSession: partial.currentSession }),
-    ...(partial.isRecording !== undefined && { voiceIsRecording: partial.isRecording }),
-    ...(partial.sessionState !== undefined && { voiceSessionState: partial.sessionState }),
-    ...(partial.wsConnected !== undefined && { voiceWsConnected: partial.wsConnected }),
-    ...(partial.isProcessing !== undefined && { voiceIsProcessing: partial.isProcessing }),
-    ...(partial.isPlaying !== undefined && { voiceIsPlaying: partial.isPlaying }),
-    ...(partial.error !== undefined && { voiceError: partial.error }),
-    ...(partial.voiceError !== undefined && { voiceError: partial.voiceError }),
-    ...(partial.audioLevel !== undefined && { audioLevel: partial.audioLevel }),
-    ...(partial.micStatus !== undefined && { micStatus: partial.micStatus }),
-    ...(partial.interimText !== undefined && { interimText: partial.interimText }),
-    ...(partial.finalText !== undefined && { finalText: partial.finalText }),
-    ...(partial.subtitleHistory !== undefined && { subtitleHistory: partial.subtitleHistory }),
-    ...(partial.subtitleStatus !== undefined && { subtitleStatus: partial.subtitleStatus }),
-    ...(partial.wakeWordEnabled !== undefined && { wakeWordEnabled: partial.wakeWordEnabled }),
-    ...(partial.wakeWordTriggers !== undefined && { wakeWordTriggers: partial.wakeWordTriggers }),
-    ...(partial.wakeWordListening !== undefined && { wakeWordListening: partial.wakeWordListening }),
-    ...(partial.wakeWordTriggered !== undefined && { wakeWordTriggered: partial.wakeWordTriggered }),
-  } as any);
-};
+});

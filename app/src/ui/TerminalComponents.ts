@@ -7,7 +7,10 @@
 import chalk from 'chalk';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'ui:TerminalComponents', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ui:TerminalComponents',
+  level: LogLevel.INFO,
+});
 
 export interface TableColumn {
   header: string;

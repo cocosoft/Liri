@@ -12,7 +12,10 @@ import {
 } from './types.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'runtime:acp:server', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'runtime:acp:server',
+  level: LogLevel.INFO,
+});
 
 let _serverIdCounter = 0;
 function nextServerId(): string {

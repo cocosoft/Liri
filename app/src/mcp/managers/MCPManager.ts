@@ -103,9 +103,8 @@ export class MCPManager {
     }
 
     // 最终孤儿进程扫描：强制清理所有残留子进程
-    const { killOrphanedProcesses } = await import(
-      '@modules/services/mcp/transports/ChildProcessTracker'
-    );
+    const { killOrphanedProcesses } =
+      await import('@modules/services/mcp/transports/ChildProcessTracker');
     await killOrphanedProcesses(true);
 
     await this.serverManager.shutdown();

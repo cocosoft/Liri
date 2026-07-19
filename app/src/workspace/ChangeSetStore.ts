@@ -17,7 +17,10 @@ import { join } from 'path';
 import type { ChangeSet, FileChange, FileChangeType } from './types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'workspace:ChangeSetStore', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'workspace:ChangeSetStore',
+  level: LogLevel.INFO,
+});
 
 /** 变更集存储子目录 */
 const CHANGESETS_DIR = 'changesets';
@@ -69,11 +72,12 @@ export class ChangeSetStore {
             changesets.push(cs);
           }
         } catch (err) {
-
           // 跳过损坏的文件
 
-          logger.debug("Operation skipped", { context: "跳过损坏的文件", error: err instanceof Error ? err.message : String(err) });
-
+          logger.debug('Operation skipped', {
+            context: '跳过损坏的文件',
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }
 

@@ -33,7 +33,10 @@ import type { ComputerUseAdapter } from './types';
 import { NoopComputerUseAdapter } from './NoopAdapter';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'utils:computerUse:index', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'utils:computerUse:index',
+  level: LogLevel.INFO,
+});
 
 let adapter: ComputerUseAdapter | null = null;
 

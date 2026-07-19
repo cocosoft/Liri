@@ -32,7 +32,10 @@ import type { ContextTracker } from './context/ContextTracker.js';
 import type { ChatMessage } from '../ai/models/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'query:ContextAutoCompressor', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'query:ContextAutoCompressor',
+  level: LogLevel.INFO,
+});
 
 interface CompressionDeps {
   engineRegistry: ContextEngineRegistry;

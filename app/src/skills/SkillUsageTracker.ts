@@ -8,7 +8,10 @@ import type { SkillRegistry } from './SkillRegistry';
 import type { SkillDB } from './persistence/SkillDB';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'skills:SkillUsageTracker', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'skills:SkillUsageTracker',
+  level: LogLevel.INFO,
+});
 
 /**
  * 技能使用记录
@@ -72,11 +75,12 @@ export class SkillUsageTracker {
       this.records = records;
       this.dbInitialized = true;
     } catch (err) {
-
       // DB 不可用时继续使用纯内存模式
 
-      logger.debug("Operation skipped", { context: "DB 不可用时继续使用纯内存模式", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: 'DB 不可用时继续使用纯内存模式',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

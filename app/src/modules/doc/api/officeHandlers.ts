@@ -640,6 +640,19 @@ export async function handleMailInbox(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ code: 200, message: 'ok', data: { mails } }));
   } catch (err) {
+    // 未配置邮箱账户时返回空收件箱（非错误状态）
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('未配置邮箱账户') || msg.includes('MAIL_AUTH_FAILED')) {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({
+          code: 200,
+          message: '未配置邮箱账户',
+          data: { mails: [] },
+        })
+      );
+      return;
+    }
     await handleError(err, { module: 'mail:api', action: 'mail_inbox' });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ code: 500, message: '获取收件箱失败' }));

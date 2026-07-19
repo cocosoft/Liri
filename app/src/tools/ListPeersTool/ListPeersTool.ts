@@ -13,7 +13,10 @@ import { join } from 'path';
 import { resolveDataSubDir } from '@modules/core';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:ListPeersTool:ListPeersTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:ListPeersTool:ListPeersTool',
+  level: LogLevel.INFO,
+});
 
 /**
  * Peer信息
@@ -126,19 +129,21 @@ export class ListPeersTool extends BaseTool<ListPeersInput, ListPeersOutput> {
             });
           }
         } catch (err) {
-
           // 忽略无法访问的socket
 
-          logger.debug("Operation skipped", { context: "忽略无法访问的socket", error: err instanceof Error ? err.message : String(err) });
-
+          logger.debug('Operation skipped', {
+            context: '忽略无法访问的socket',
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }
     } catch (err) {
-
       // 目录不存在或无法访问
 
-      logger.debug("Operation skipped", { context: "目录不存在或无法访问", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: '目录不存在或无法访问',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     return peers;
@@ -171,11 +176,12 @@ export class ListPeersTool extends BaseTool<ListPeersInput, ListPeersOutput> {
         }
       }
     } catch (err) {
-
       // 目录不存在或无法访问
 
-      logger.debug("Operation skipped", { context: "目录不存在或无法访问", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: '目录不存在或无法访问',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     return peers;
@@ -202,11 +208,12 @@ export class ListPeersTool extends BaseTool<ListPeersInput, ListPeersOutput> {
         });
       }
     } catch (err) {
-
       // TeammateManager不可用
 
-      logger.debug("Operation skipped", { context: "TeammateManager不可用", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: 'TeammateManager不可用',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     return peers;

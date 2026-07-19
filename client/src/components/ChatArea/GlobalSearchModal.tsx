@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessionStore } from "../../stores/sessionStore";
-import { useAppStore } from "../../stores/appStore";
+import { useNavigationStore } from "../../stores/navigationStore";
 import { fileService } from "../../services/fileService";
 import { knowledgeService } from "../../services/knowledgeService";
 import type { Session } from "../../types";
@@ -34,7 +34,7 @@ export default function GlobalSearchModal({ isOpen, onClose, isDark: _isDark }: 
   const [searching, setSearching] = useState(false);
   const sessions = useSessionStore((s) => s.sessions);
   const switchSession = useSessionStore((s) => s.switchSession);
-  const setActivePage = useAppStore((s) => s.setActivePage);
+  const setActivePage = useNavigationStore((s) => s.setActivePage);
 
   /** 聚焦输入框 */
   useEffect(() => {

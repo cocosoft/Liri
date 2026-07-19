@@ -6,7 +6,10 @@ import { init } from '../entrypoints/init.js';
 import { commandExecutor } from '../commands/executor/index.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'scripts:batch-test-v3', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'scripts:batch-test-v3',
+  level: LogLevel.INFO,
+});
 
 const TEST_COMMANDS = [
   // A组: 基础命令

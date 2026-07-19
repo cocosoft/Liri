@@ -2,10 +2,10 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAutoUpdate } from "../../hooks/useAutoUpdate";
-import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { useConfigStore } from "../../stores/configStore";
 import { DashboardIcon, BellIcon, UserIcon, HelpIcon, SearchIcon } from "../../assets/icons";
 import GlobalSearchModal from "../ChatArea/GlobalSearchModal";
+import WorkspaceSwitcher from "./WorkspaceSwitcher";
 
 /**
  * 页面顶部 Header
@@ -14,7 +14,6 @@ import GlobalSearchModal from "../ChatArea/GlobalSearchModal";
 function Header() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const workspacePath = useWorkspaceStore((s) => s.currentWorkspace?.path);
   const isDark = useConfigStore((s) => s.config.theme === "dark");
   const [showUpdateMenu, setShowUpdateMenu] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -92,10 +91,8 @@ function Header() {
           <span>{t("nav.dashboard")}</span>
         </button>
 
-        {/* 当前工作目录 — 来自 workspaceStore */}
-        <span className="flex items-center gap-1.5 px-3 py-1.5 text-gray-400 dark:text-gray-500 text-sm select-none" title={workspacePath}>
-          {t("header.currentDir")}: {workspacePath || "—"}
-        </span>
+        {/* 工作空间切换器（Phase 7.3：集成到 root store） */}
+        <WorkspaceSwitcher />
 
         {/* 分隔线 */}
         <span className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-1" />

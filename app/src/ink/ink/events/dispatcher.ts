@@ -6,7 +6,10 @@ import {
   NoEventPriority,
 } from 'react-reconciler/constants.js';
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'ink:events:dispatcher', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ink:events:dispatcher',
+  level: LogLevel.INFO,
+});
 import { HANDLER_FOR_EVENT } from './event-handlers.js';
 import type { EventTarget, TerminalEvent } from './terminal-event.js';
 

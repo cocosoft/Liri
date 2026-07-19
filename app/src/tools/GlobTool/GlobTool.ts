@@ -5,7 +5,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:GlobTool:GlobTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:GlobTool:GlobTool',
+  level: LogLevel.INFO,
+});
 
 export interface GlobResult {
   durationMs: number;
@@ -43,11 +46,12 @@ export function glob(
       normalizedSearchPath
     );
   } catch (err) {
-
     // 权限拒绝时返回空
 
-    logger.debug("Operation skipped", { context: "权限拒绝时返回空", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: '权限拒绝时返回空',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   const durationMs = Date.now() - startTime;

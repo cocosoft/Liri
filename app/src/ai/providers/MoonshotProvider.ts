@@ -12,7 +12,10 @@ import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'ai\providers\MoonshotProvider', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ai\providers\MoonshotProvider',
+  level: LogLevel.INFO,
+});
 
 export class MoonshotProvider extends BaseAIProvider {
   private baseUrl: string;

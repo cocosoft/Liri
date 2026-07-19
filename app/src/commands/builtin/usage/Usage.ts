@@ -10,7 +10,10 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { getCommandManager as getCmdMgr } from '@modules/commands';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:builtin:usage:Usage', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:builtin:usage:Usage',
+  level: LogLevel.INFO,
+});
 
 /**
  * 使用情况统计命令

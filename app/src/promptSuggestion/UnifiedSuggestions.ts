@@ -18,7 +18,10 @@ import {
 } from './types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'promptSuggestion:UnifiedSuggestions', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'promptSuggestion:UnifiedSuggestions',
+  level: LogLevel.INFO,
+});
 
 /**
  * 截断描述文本
@@ -132,11 +135,12 @@ async function scanDirectory(
       }
     }
   } catch (err) {
-
     // 忽略无法访问的目录
 
-    logger.debug("Operation skipped", { context: "忽略无法访问的目录", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: '忽略无法访问的目录',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   return results;
@@ -187,11 +191,12 @@ export async function generateFileSuggestions(
       }
     }
   } catch (err) {
-
     // 扫描失败时返回空列表
 
-    logger.warn("Operation skipped", { context: "扫描失败时返回空列表", error: err instanceof Error ? err.message : String(err) });
-
+    logger.warn('Operation skipped', {
+      context: '扫描失败时返回空列表',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   return suggestions;

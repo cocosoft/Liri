@@ -10,7 +10,10 @@ import type { ModelPriceTable } from './types';
 import { ModelRegistry } from '@modules/ai';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'core:tokenBudget:PriceManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:tokenBudget:PriceManager',
+  level: LogLevel.INFO,
+});
 
 export interface CostCalculationResult {
   cost: number;
@@ -77,11 +80,12 @@ export class PriceManager {
         };
       }
     } catch (err) {
-
       // ModelRegistry 不可用时忽略
 
-      logger.debug("Operation skipped", { context: "ModelRegistry 不可用时忽略", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: 'ModelRegistry 不可用时忽略',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
     return null;
   }

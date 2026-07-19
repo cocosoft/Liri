@@ -13,6 +13,7 @@ import { useMediaStore } from "../stores/mediaStore";
 import type { VideoTaskItem } from "../stores/mediaStore";
 import { videoService } from "../services/videoService";
 import { createLogger } from "../utils/logger";
+import { handleClientError } from "@/utils/handleError";
 
 const logger = createLogger("useVideoTaskPolling");
 
@@ -67,7 +68,7 @@ export function useVideoTaskPolling(onTaskCompleted?: (taskId: string) => void) 
         logger.info("恢复活跃任务", { count: mapped.length });
       }
     } catch (e) {
-      logger.warn("恢复活跃任务失败", { error: String(e) });
+      handleClientError(e, { module: 'hooks:useVideoTaskPolling', action: 'restoreActiveTasks' }, 'warn');
     }
   }, [setActiveTasks]);
 

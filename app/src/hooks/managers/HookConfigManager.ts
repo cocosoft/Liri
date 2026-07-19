@@ -13,7 +13,10 @@ import {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'hooks\managers\HookConfigManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'hooks\managers\HookConfigManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * Hook配置管理器

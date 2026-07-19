@@ -2,7 +2,10 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools\executor\ExtendedToolExecutor', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools\executor\ExtendedToolExecutor',
+  level: LogLevel.INFO,
+});
 
 interface ToolDescriptor {
   execute(

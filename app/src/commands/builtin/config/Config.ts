@@ -4,7 +4,10 @@ import { getToolManager } from '@modules/tools/ToolManager';
 import { ConfigDocGenerator, configSchema } from '@modules/config/schema';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:builtin:config:Config', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:builtin:config:Config',
+  level: LogLevel.INFO,
+});
 
 const listConfig = async (): Promise<{ type: 'text'; value: string }> => {
   try {

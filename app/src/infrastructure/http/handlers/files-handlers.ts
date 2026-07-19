@@ -33,7 +33,10 @@ import {
 import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'infrastructure:http:handlers:files-handlers', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'infrastructure:http:handlers:files-handlers',
+  level: LogLevel.INFO,
+});
 
 // 已注册的存储分区别名 → 绝对路径解析函数（延迟动态 import）
 function resolveStorePath(rawPath: string): string {
@@ -108,11 +111,12 @@ export async function handleFileList(
         size = stat.size;
         modifiedAt = stat.mtimeMs;
       } catch (err) {
-
         // 权限不足时跳过 stat
 
-        logger.debug("Operation skipped", { context: "权限不足时跳过 stat", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: '权限不足时跳过 stat',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
       return {
         name: dirent.name,
@@ -345,9 +349,9 @@ export async function handleFileUpload(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -381,9 +385,9 @@ export async function handleConvertFile(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -413,9 +417,9 @@ export async function handleDetectFileType(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -482,9 +486,9 @@ export async function handleSendFileToAI(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-
-        logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } /* res可能已结束, 忽略 */
     }
   }
@@ -517,11 +521,12 @@ async function registerUploadToFileRegistry(
       storeZone: 'inbound',
     });
   } catch (err) {
-
     // 静默失败，不影响 HTTP 响应
 
-    logger.warn("Operation skipped", { context: "静默失败，不影响 HTTP 响应", error: err instanceof Error ? err.message : String(err) });
-
+    logger.warn('Operation skipped', {
+      context: '静默失败，不影响 HTTP 响应',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 

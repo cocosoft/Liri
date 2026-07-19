@@ -16,7 +16,10 @@ import { extractModelName } from './URLMatcher';
 import crypto from 'crypto';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'trace-recording:interceptor:FetchInterceptor', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'trace-recording:interceptor:FetchInterceptor',
+  level: LogLevel.INFO,
+});
 
 /** 拦截器回调 - 当有流量被录制时触发 */
 export type InterceptorCallback = (record: TraceRecord) => void | Promise<void>;
@@ -174,11 +177,12 @@ export class FetchInterceptor {
         }
       }
     } catch (err) {
-
       // body 读取失败时不录制
 
-      logger.warn("Operation skipped", { context: "body 读取失败时不录制", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: 'body 读取失败时不录制',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     // 构建请求头
@@ -202,11 +206,12 @@ export class FetchInterceptor {
         });
       }
     } catch (err) {
-
       // 头读取失败
 
-      logger.warn("Operation skipped", { context: "头读取失败", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '头读取失败',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     try {
@@ -253,11 +258,12 @@ export class FetchInterceptor {
             }
           }
         } catch (err) {
-
           // 流读取异常时使用已有的数据
 
-          logger.debug("Operation skipped", { context: "流读取异常时使用已有的数据", error: err instanceof Error ? err.message : String(err) });
-
+          logger.debug('Operation skipped', {
+            context: '流读取异常时使用已有的数据',
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
 
         sseEvents = reassembler.getEvents();
@@ -297,11 +303,12 @@ export class FetchInterceptor {
               respBody = text;
             }
           } catch (err) {
-
             // body 解析失败
 
-            logger.warn("Operation skipped", { context: "body 解析失败", error: err instanceof Error ? err.message : String(err) });
-
+            logger.warn('Operation skipped', {
+              context: 'body 解析失败',
+              error: err instanceof Error ? err.message : String(err),
+            });
           }
         }
 

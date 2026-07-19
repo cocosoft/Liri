@@ -4,7 +4,10 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'security:SecurityAudit', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'security:SecurityAudit',
+  level: LogLevel.INFO,
+});
 import { join, dirname } from 'path';
 import { homedir, tmpdir } from 'os';
 import {

@@ -6,11 +6,7 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
-import {
-  oauthService,
-  TokenManager,
-  type CachedToken,
-} from '@modules/oauth';
+import { oauthService, TokenManager, type CachedToken } from '@modules/oauth';
 import type { OAuthTokenData } from '@modules/oauth';
 import type {
   OAuthTokens as OAuthTokensType,
@@ -18,7 +14,10 @@ import type {
 } from './oauth-types.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'system:auth:AuthManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'system:auth:AuthManager',
+  level: LogLevel.INFO,
+});
 
 export type OAuthTokens = OAuthTokenData;
 

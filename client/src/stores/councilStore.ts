@@ -1,16 +1,38 @@
 /**
- * 向后兼容 — 已合并到 appStore
+ * Council Store — 独立 Zustand Store
  *
- * 原独立 Store 已合并到 appStore，此文件为薄封装层。
- * 新代码请直接使用 useAppStore。
+ * 理事会辩论状态管理，含 SSE 流式事件订阅。
+ * 原状态从 appStore 迁出，现已为真实独立 Store。
+ *
+ * 跨 Store 依赖：
+ *   - useWorkspaceStore：获取当前 workspace ID
+ *   - useToastStore：共识完成时弹 toast 通知
  */
-import { useAppStore } from "./appStore";
-import type { CouncilStatementUI, CouncilPhaseUI, ConsensusResultUI } from "./appStore";
 
-export type { CouncilStatementUI, CouncilPhaseUI, ConsensusResultUI };
+import { create } from "zustand";
+import { useWorkspaceStore } from "./workspaceStore";
+import { useToastStore } from "./toastStore";
+import { handleClientError } from "@/utils/handleError";
 
-/** Council 状态切片 */
-interface CouncilSlice {
+/** 从后端流式事件中提取的发言 */
+export interface CouncilStatementUI {
+  id: string;
+  agentId: string;
+  agentName: string;
+  round: number;
+  type: "position" | "rebuttal" | "supplement" | "final";
+  content: string;
+  keyPoints: string[];
+  timestamp: number;
+}
+
+/** Council 辩论阶段 */
+export type CouncilPhaseUI = "idle" | "convening" | "debating" | "consensus" | "completed" | "error";
+
+/** 共识结果 */
+export type ConsensusResultUI = "unanimous" | "majority" | "deadlock";
+
+interface CouncilState {
   isActive: boolean;
   sessionId: string | null;
   phase: CouncilPhaseUI;
@@ -23,6 +45,7 @@ interface CouncilSlice {
   minorityOpinion: string | null;
   error: string | null;
   eventSource: EventSource | null;
+
   startCouncil: (sessionId: string, topic: string) => void;
   addStatement: (statement: CouncilStatementUI) => void;
   addAgentJoined: (agentId: string, agentName: string) => void;
@@ -34,74 +57,145 @@ interface CouncilSlice {
   reset: () => void;
 }
 
-function councilSlice(s: any): CouncilSlice {
-  return {
-    isActive: s.councilIsActive,
-    sessionId: s.councilSessionId,
-    phase: s.councilPhase,
-    topic: s.councilTopic,
-    currentRound: s.councilCurrentRound,
-    statements: s.councilStatements,
-    joinedAgents: s.councilJoinedAgents,
-    result: s.councilResult,
-    finalProposal: s.councilFinalProposal,
-    minorityOpinion: s.councilMinorityOpinion,
-    error: s.councilError,
-    eventSource: s.councilEventSource,
-    startCouncil: s.startCouncil,
-    addStatement: s.addStatement,
-    addAgentJoined: s.addAgentJoined,
-    setPhase: s.setCouncilPhase,
-    setRound: s.setCouncilRound,
-    setResult: s.setCouncilResult,
-    setError: s.setCouncilError,
-    setEventSource: s.setCouncilEventSource,
-    reset: s.resetCouncil,
-  };
-}
+export const useCouncilStore = create<CouncilState>((set, get) => ({
+  isActive: false,
+  sessionId: null,
+  phase: "idle",
+  topic: "",
+  currentRound: 0,
+  statements: [],
+  joinedAgents: [],
+  result: null,
+  finalProposal: null,
+  minorityOpinion: null,
+  error: null,
+  eventSource: null,
 
-export function useCouncilStore(): CouncilSlice;
-export function useCouncilStore<T>(selector: (slice: CouncilSlice) => T): T;
-export function useCouncilStore(selector?: any): any {
-  const isActive = useAppStore((s) => s.councilIsActive);
-  const sessionId = useAppStore((s) => s.councilSessionId);
-  const phase = useAppStore((s) => s.councilPhase);
-  const topic = useAppStore((s) => s.councilTopic);
-  const currentRound = useAppStore((s) => s.councilCurrentRound);
-  const statements = useAppStore((s) => s.councilStatements);
-  const joinedAgents = useAppStore((s) => s.councilJoinedAgents);
-  const result = useAppStore((s) => s.councilResult);
-  const finalProposal = useAppStore((s) => s.councilFinalProposal);
-  const minorityOpinion = useAppStore((s) => s.councilMinorityOpinion);
-  const error = useAppStore((s) => s.councilError);
-  const eventSource = useAppStore((s) => s.councilEventSource);
-  const startCouncil = useAppStore((s) => s.startCouncil);
-  const addStatement = useAppStore((s) => s.addStatement);
-  const addAgentJoined = useAppStore((s) => s.addAgentJoined);
-  const setPhase = useAppStore((s) => s.setCouncilPhase);
-  const setRound = useAppStore((s) => s.setCouncilRound);
-  const setResult = useAppStore((s) => s.setCouncilResult);
-  const setError = useAppStore((s) => s.setCouncilError);
-  const setEventSource = useAppStore((s) => s.setCouncilEventSource);
-  const reset = useAppStore((s) => s.resetCouncil);
-  const slice: CouncilSlice = { isActive, sessionId, phase, topic, currentRound, statements, joinedAgents, result, finalProposal, minorityOpinion, error, eventSource, startCouncil, addStatement, addAgentJoined, setPhase, setRound, setResult, setError, setEventSource, reset };
-  return selector ? selector(slice) : slice;
-}
+  startCouncil: (sessionId, topic) => {
+    const prev = get().eventSource;
+    if (prev) {
+      prev.close();
+    }
 
-useCouncilStore.getState = () => councilSlice(useAppStore.getState());
-useCouncilStore.setState = (partial: Partial<CouncilSlice>) => {
-  useAppStore.setState({
-    ...(partial.isActive !== undefined && { councilIsActive: partial.isActive }),
-    ...(partial.sessionId !== undefined && { councilSessionId: partial.sessionId }),
-    ...(partial.phase !== undefined && { councilPhase: partial.phase }),
-    ...(partial.topic !== undefined && { councilTopic: partial.topic }),
-    ...(partial.currentRound !== undefined && { councilCurrentRound: partial.currentRound }),
-    ...(partial.statements !== undefined && { councilStatements: partial.statements }),
-    ...(partial.joinedAgents !== undefined && { councilJoinedAgents: partial.joinedAgents }),
-    ...(partial.result !== undefined && { councilResult: partial.result }),
-    ...(partial.finalProposal !== undefined && { councilFinalProposal: partial.finalProposal }),
-    ...(partial.minorityOpinion !== undefined && { councilMinorityOpinion: partial.minorityOpinion }),
-    ...(partial.error !== undefined && { councilError: partial.error }),
-    ...(partial.eventSource !== undefined && { councilEventSource: partial.eventSource }),
-  } as any);
-};
+    set({
+      isActive: true,
+      sessionId,
+      topic,
+      phase: "convening",
+      currentRound: 0,
+      statements: [],
+      joinedAgents: [],
+      result: null,
+      finalProposal: null,
+      minorityOpinion: null,
+      error: null,
+    });
+
+    const workspaceId = useWorkspaceStore.getState().currentWorkspace?.id || 'default';
+    const API_BASE = '';
+
+    const es = new EventSource(
+      `${API_BASE}/v1/workspaces/${workspaceId}/council/${sessionId}/stream`
+    );
+
+    es.addEventListener("council_started", () => {
+      set({ phase: "convening" });
+    });
+
+    es.addEventListener("agent_joined", (e: MessageEvent) => {
+      const data = JSON.parse(e.data);
+      set((state) => ({
+        joinedAgents: [
+          ...(state.joinedAgents || []),
+          { agentId: data.agentId, agentName: data.agentName },
+        ],
+      }));
+    });
+
+    es.addEventListener("statement", (e: MessageEvent) => {
+      const data = JSON.parse(e.data);
+      get().addStatement(data.statement);
+    });
+
+    es.addEventListener("round_started", (e: MessageEvent) => {
+      const data = JSON.parse(e.data);
+      set({ phase: "debating", currentRound: data.round });
+    });
+
+    es.addEventListener("consensus_reached", (e: MessageEvent) => {
+      const data = JSON.parse(e.data);
+      set({
+        phase: "consensus",
+        result: data.result,
+        finalProposal: data.finalProposal,
+        minorityOpinion: data.minorityOpinion,
+      });
+    });
+
+    es.addEventListener("council_completed", () => {
+      set({ phase: "completed" });
+      useToastStore.getState().addToast("info", `\u{1F3DB}\uFE0F 理事会已达成共识："${get().topic}"`, 5000);
+      es.close();
+      set({ eventSource: null });
+    });
+
+    es.addEventListener("council_error", (e: MessageEvent) => {
+      const data = JSON.parse(e.data);
+      set({
+        phase: "error",
+        error: data.error,
+      });
+      es.close();
+      set({ eventSource: null });
+    });
+
+    es.addEventListener("error", (e) => {
+      handleClientError(e instanceof ErrorEvent ? e : new Error('SSE 连接异常'), { module: 'stores:councilStore', action: 'councilSSE' }, 'warn');
+    });
+
+    set({ eventSource: es });
+  },
+
+  addStatement: (statement) =>
+    set((state) => ({ statements: [...state.statements, statement] })),
+
+  addAgentJoined: (agentId, agentName) =>
+    set((state) => ({
+      joinedAgents: [
+        ...(state.joinedAgents || []),
+        { agentId, agentName },
+      ],
+    })),
+
+  setPhase: (phase) => set({ phase }),
+
+  setRound: (round) => set({ currentRound: round }),
+
+  setResult: (result, finalProposal, minorityOpinion) =>
+    set({ result, finalProposal, minorityOpinion }),
+
+  setError: (error) => set({ error, isActive: false }),
+
+  setEventSource: (es) => set({ eventSource: es }),
+
+  reset: () => {
+    const { eventSource } = get();
+    if (eventSource) {
+      eventSource.close();
+    }
+    set({
+      isActive: false,
+      sessionId: null,
+      phase: "idle",
+      topic: "",
+      currentRound: 0,
+      statements: [],
+      joinedAgents: [],
+      result: null,
+      finalProposal: null,
+      minorityOpinion: null,
+      error: null,
+      eventSource: null,
+    });
+  },
+}));

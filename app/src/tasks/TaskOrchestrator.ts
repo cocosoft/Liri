@@ -33,7 +33,10 @@ import { OrchestrationEventType as OrchEvent } from '../agent/events/Orchestrati
 import type { PlanProgressData } from '../agent/events/OrchestrationEvents.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tasks:TaskOrchestrator', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tasks:TaskOrchestrator',
+  level: LogLevel.INFO,
+});
 
 export interface PlanStep {
   id: string;
@@ -113,11 +116,12 @@ export class TaskOrchestrator {
         const plan = JSON.parse(data) as Plan;
         this.plans.set(plan.id, plan);
       } catch (err) {
-
         // 跳过损坏的文件
 
-        logger.debug("Operation skipped", { context: "跳过损坏的文件", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: '跳过损坏的文件',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   }
@@ -137,11 +141,12 @@ export class TaskOrchestrator {
         'utf-8'
       );
     } catch (err) {
-
       // 持久化失败不应阻塞主流程
 
-      logger.warn("Operation skipped", { context: "持久化失败不应阻塞主流程", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '持久化失败不应阻塞主流程',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -152,11 +157,12 @@ export class TaskOrchestrator {
         unlinkSync(filePath);
       }
     } catch (err) {
-
       // 忽略清理失败
 
-      logger.warn("Operation skipped", { context: "忽略清理失败", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '忽略清理失败',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -216,11 +222,12 @@ export class TaskOrchestrator {
         totalSteps: steps.length,
       });
     } catch (err) {
-
       // EventBus 发射失败不阻塞主流程
 
-      logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: 'EventBus 发射失败不阻塞主流程',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     return plan;
@@ -321,11 +328,12 @@ export class TaskOrchestrator {
           description: step.description,
         });
       } catch (err) {
-
         // EventBus 发射失败不阻塞
 
-        logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞", error: err instanceof Error ? err.message : String(err) });
-
+        logger.warn('Operation skipped', {
+          context: 'EventBus 发射失败不阻塞',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
 
       return step;
@@ -371,11 +379,12 @@ export class TaskOrchestrator {
           result,
         });
       } catch (err) {
-
         // EventBus 发射失败不阻塞
 
-        logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞", error: err instanceof Error ? err.message : String(err) });
-
+        logger.warn('Operation skipped', {
+          context: 'EventBus 发射失败不阻塞',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
 
       // 发射进度更新事件
@@ -429,11 +438,12 @@ export class TaskOrchestrator {
           result: error,
         });
       } catch (err) {
-
         // EventBus 发射失败不阻塞
 
-        logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞", error: err instanceof Error ? err.message : String(err) });
-
+        logger.warn('Operation skipped', {
+          context: 'EventBus 发射失败不阻塞',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
 
       // 发射进度更新事件
@@ -493,11 +503,12 @@ export class TaskOrchestrator {
       };
       globalEventBus.publish(OrchEvent.PLAN_PROGRESS, payload);
     } catch (err) {
-
       // EventBus 发射失败不阻塞
 
-      logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: 'EventBus 发射失败不阻塞',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -515,11 +526,12 @@ export class TaskOrchestrator {
         status: plan.status,
       });
     } catch (err) {
-
       // EventBus 发射失败不阻塞
 
-      logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: 'EventBus 发射失败不阻塞',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

@@ -11,6 +11,7 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { useTranslateStore } from "../../stores/translateStore";
+import { useSessionContextSync } from "../../hooks/useSessionContextSync";
 import { translateService } from "../../services/translateService";
 import type { AlternativeTranslation } from "../../services/translateService";
 import { imageService } from "../../services/imageService";
@@ -433,6 +434,26 @@ function TranslatePage() {
     clearResult, loadHistory, setSearchQuery, toggleStar, deleteHistory,
     toggleAutoTranslate, toggleCompareMode,
   } = useTranslateStore();
+
+  // ──── SessionHub 上下文同步（Phase 4）──
+  // 保存/恢复翻译模块的源语言、目标语言
+  useSessionContextSync("translation", {
+    save: () => {
+      const state = useTranslateStore.getState();
+      return {
+        moduleType: "translation" as const,
+        sourceLang: state.sourceLang,
+        targetLang: state.targetLang,
+        sourceText: state.sourceText,
+      };
+    },
+    restore: (ctx) => {
+      if (ctx.moduleType !== "translation") return;
+      const state = useTranslateStore.getState();
+      if (ctx.sourceLang) state.setSourceLang(ctx.sourceLang);
+      if (ctx.targetLang) state.setTargetLang(ctx.targetLang);
+    },
+  });
 
   const [historyCollapsed, setHistoryCollapsed] = useState(false);
 

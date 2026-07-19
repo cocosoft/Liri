@@ -11,7 +11,10 @@ import {
 } from '../types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'hooks:executors:PromptHookExecutor', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'hooks:executors:PromptHookExecutor',
+  level: LogLevel.INFO,
+});
 
 /**
  * 提示Hook执行器

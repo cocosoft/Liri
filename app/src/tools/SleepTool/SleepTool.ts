@@ -6,7 +6,10 @@ import { BaseTool } from '../BaseTool';
 import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:SleepTool:SleepTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:SleepTool:SleepTool',
+  level: LogLevel.INFO,
+});
 
 interface SleepInput {
   durationMs: number;

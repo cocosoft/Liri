@@ -146,7 +146,10 @@ import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector'
 import { checkPathAccessibility } from '../utils/ToolUtils';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:FileReadTool:FileReadTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:FileReadTool:FileReadTool',
+  level: LogLevel.INFO,
+});
 
 const BINARY_EXTENSIONS = new Set([
   '.docx',
@@ -404,11 +407,12 @@ export class FileReadTool extends BaseTool {
         return record.savedPath;
       }
     } catch (err) {
-
       // 静默失败，回退到 file_path
 
-      logger.warn("Operation skipped", { context: "静默失败，回退到 file_path", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '静默失败，回退到 file_path',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
     return null;
   }
@@ -471,11 +475,12 @@ export class FileReadTool extends BaseTool {
           description: 'FileReadTool 自动注册',
         });
       } catch (err) {
-
         // 静默失败，不干扰主流程
 
-        logger.warn("Operation skipped", { context: "静默失败，不干扰主流程", error: err instanceof Error ? err.message : String(err) });
-
+        logger.warn('Operation skipped', {
+          context: '静默失败，不干扰主流程',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
 
       try {
@@ -487,11 +492,12 @@ export class FileReadTool extends BaseTool {
           skipClassification: true,
         });
       } catch (err) {
-
         // 静默失败，不干扰主流程
 
-        logger.warn("Operation skipped", { context: "静默失败，不干扰主流程", error: err instanceof Error ? err.message : String(err) });
-
+        logger.warn('Operation skipped', {
+          context: '静默失败，不干扰主流程',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     });
   }

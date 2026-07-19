@@ -8,7 +8,10 @@ import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:SessionsSpawnTool:SessionsSpawnTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:SessionsSpawnTool:SessionsSpawnTool',
+  level: LogLevel.INFO,
+});
 
 export interface SessionSpawnConfig {
   name?: string;

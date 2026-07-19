@@ -5,7 +5,10 @@
 import { EventEmitter } from 'events';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'plugins:hooks:PhaseHooks', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'plugins:hooks:PhaseHooks',
+  level: LogLevel.INFO,
+});
 
 /**
  * 阶段名称

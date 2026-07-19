@@ -12,7 +12,7 @@ import {
   RARITY_COLORS,
 } from "../Buddy/buddySprites";
 import type { BuddyStat } from "../../types";
-import { useAppStore } from "../../stores/appStore";
+import { useNavigationStore } from "../../stores/navigationStore";
 
 const INTERACTIONS = ["pet", "feed", "play", "praise", "scold"];
 const INTERACTION_LABELS: Record<string, string> = {
@@ -33,7 +33,7 @@ function BuddyPage() {
     interact,
     loadStats,
   } = useBuddyStore();
-  const setActivePage = useAppStore((s) => s.setActivePage);
+  const setActivePage = useNavigationStore((s) => s.setActivePage);
   const [message, setMessage] = useState("");
   const [activeTab, setActiveTab] = useState<
     "overview" | "dreams" | "game" | "evolution" | "dreamDetail"

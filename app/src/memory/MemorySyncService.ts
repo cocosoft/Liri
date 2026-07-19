@@ -10,7 +10,10 @@ import type {
 import { getExternalMemoryProviderRegistry } from './providers/ExternalMemoryProvider';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'memory:MemorySyncService', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'memory:MemorySyncService',
+  level: LogLevel.INFO,
+});
 
 /**
  * 同步状态

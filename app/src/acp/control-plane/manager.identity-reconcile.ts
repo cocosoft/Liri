@@ -8,7 +8,10 @@ import {
 } from '../runtime/session-identity.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'acp:control-plane:manager.identity-reconcile', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'acp:control-plane:manager.identity-reconcile',
+  level: LogLevel.INFO,
+});
 
 export interface PendingSessionIdentity {
   sessionKey: string;

@@ -9,7 +9,10 @@ import { MessageQueue } from './MessageQueue.js';
 import type { MessageQueueStats } from './MessageQueue.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'chat:services:DeliveryRouter', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chat:services:DeliveryRouter',
+  level: LogLevel.INFO,
+});
 
 const BASE_RETRY_DELAY_MS = 1000;
 const MAX_RETRY_DELAY_MS = 60000;

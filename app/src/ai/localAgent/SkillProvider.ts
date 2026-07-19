@@ -5,7 +5,10 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'ai:localAgent:SkillProvider', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ai:localAgent:SkillProvider',
+  level: LogLevel.INFO,
+});
 
 export interface SkillContext {
   input: string;

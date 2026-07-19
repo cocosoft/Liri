@@ -2,7 +2,10 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'skills:utils:skillExecution', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'skills:utils:skillExecution',
+  level: LogLevel.INFO,
+});
 
 /**
  * 执行技能

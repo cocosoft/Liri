@@ -33,10 +33,7 @@ const orphanProcesses: Set<number> = new Set();
 /**
  * 注册一个子进程
  */
-export function trackProcess(
-  process: ChildProcess,
-  serverName: string
-): void {
+export function trackProcess(process: ChildProcess, serverName: string): void {
   const pid = process.pid;
   if (!pid) return;
 
@@ -69,7 +66,9 @@ export function untrackProcess(process: ChildProcess): void {
   try {
     process.kill(0); // signal 0 仅探测
     orphanProcesses.add(pid);
-    logger.warn(`MCP child process PID ${pid} still alive after kill, marked orphan`);
+    logger.warn(
+      `MCP child process PID ${pid} still alive after kill, marked orphan`
+    );
   } catch (err) {
     // 已退出，正常
   }
@@ -186,9 +185,7 @@ export async function killOrphanedProcesses(
   }
 
   if (killed > 0 || failed > 0) {
-    logger.info(
-      `MCP orphan cleanup: ${killed} killed, ${failed} failed`
-    );
+    logger.info(`MCP orphan cleanup: ${killed} killed, ${failed} failed`);
   }
 
   return { killed, failed };

@@ -6,7 +6,10 @@
 import type { Tip, TipContext } from './types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'services:tips:tipRegistry', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:tips:tipRegistry',
+  level: LogLevel.INFO,
+});
 
 const externalTips: Tip[] = [
   {
@@ -83,11 +86,12 @@ export async function getRelevantTips(context?: TipContext): Promise<Tip[]> {
         relevant.push(tip);
       }
     } catch (err) {
-
       // ignore
 
-      logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: 'ignore',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

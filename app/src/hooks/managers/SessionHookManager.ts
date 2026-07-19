@@ -8,7 +8,10 @@ import { EventEmitter } from 'events';
 import type { HookEvent } from '../types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'hooks:managers:SessionHookManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'hooks:managers:SessionHookManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 函数钩子回调类型

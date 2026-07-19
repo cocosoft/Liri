@@ -20,7 +20,10 @@ const execAsync = promisify(exec);
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'utils:imageResizer', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'utils:imageResizer',
+  level: LogLevel.INFO,
+});
 
 /**
  * 图片缩放错误
@@ -227,11 +230,12 @@ export async function maybeResizeAndDownsampleImageBuffer(
         height
       );
     } catch (err) {
-
       // Fall through to size validation
 
-      logger.debug("Operation skipped", { context: "Fall through to size validation", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: 'Fall through to size validation',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -435,11 +439,12 @@ export async function compressImageBuffer(
         originalSize,
       };
     } catch (err) {
-
       // Fall through
 
-      logger.debug("Operation skipped", { context: "Fall through", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: 'Fall through',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -503,18 +508,20 @@ export async function compressImageBuffer(
         };
       }
     } catch (err) {
-
       // sharp png palette may fail for some images
 
-      logger.debug("Operation skipped", { context: "sharp png palette may fail for some images", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: 'sharp png palette may fail for some images',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   } catch (err) {
-
     // sharp not available, fall through to error
 
-    logger.debug("Operation skipped", { context: "sharp not available, fall through to error", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: 'sharp not available, fall through to error',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   const hint = hasMagick

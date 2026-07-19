@@ -15,7 +15,10 @@ import { OAuthClient, OAuthConfig } from '@modules/oauth';
 import { configManager } from '@modules/config';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'system:auth:CoreOAuthProvider', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'system:auth:CoreOAuthProvider',
+  level: LogLevel.INFO,
+});
 
 /**
  * Core OAuth提供者
@@ -95,11 +98,12 @@ export class CoreOAuthProvider implements OAuthProvider {
     try {
       await this.client.revokeToken({ token: '' });
     } catch (err) {
-
       // 忽略撤销失败
 
-      logger.warn("Operation skipped", { context: "忽略撤销失败", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '忽略撤销失败',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

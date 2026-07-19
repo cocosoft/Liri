@@ -11,7 +11,10 @@ import { join, resolve } from 'path';
 import { existsSync, type Dirent } from 'fs';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'utils:git:GitFilesystem', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'utils:git:GitFilesystem',
+  level: LogLevel.INFO,
+});
 
 const resolveGitDirCache = new Map<string, string | null>();
 
@@ -111,11 +114,12 @@ export async function resolveRef(
     const sha = (await readFile(join(gitDir, ref), 'utf-8')).trim();
     if (/^[0-9a-f]{40}$/.test(sha)) return sha;
   } catch (err) {
-
     // not found as loose ref
 
-    logger.debug("Operation skipped", { context: "not found as loose ref", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: 'not found as loose ref',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   // Try packed-refs
@@ -136,11 +140,12 @@ export async function resolveRef(
       }
     }
   } catch (err) {
-
     // no packed-refs file
 
-    logger.debug("Operation skipped", { context: "no packed-refs file", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: 'no packed-refs file',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   return null;
@@ -193,11 +198,12 @@ export async function getDefaultBranch(gitDir: string): Promise<string | null> {
       if (isSafeRefName(branch)) return branch;
     }
   } catch (err) {
-
     // no origin/HEAD
 
-    logger.debug("Operation skipped", { context: "no origin/HEAD", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: 'no origin/HEAD',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   // Try init.defaultBranch from config
@@ -208,11 +214,12 @@ export async function getDefaultBranch(gitDir: string): Promise<string | null> {
       if (m) return m[1].trim();
     }
   } catch (err) {
-
     // no config
 
-    logger.debug("Operation skipped", { context: "no config", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: 'no config',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   return null;

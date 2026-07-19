@@ -18,7 +18,10 @@
 import os from 'os';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'entrypoints:api-handler', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'entrypoints:api-handler',
+  level: LogLevel.INFO,
+});
 
 export type APIHandler = (req: Request) => Promise<Response>;
 
@@ -44,11 +47,12 @@ export function createAPIHandler(): APIHandler {
       try {
         return await shared.realHandler(req);
       } catch (err) {
-
         // 真实处理器失败，走内联路径
 
-        logger.warn("Operation skipped", { context: "真实处理器失败，走内联路径", error: err instanceof Error ? err.message : String(err) });
-
+        logger.warn('Operation skipped', {
+          context: '真实处理器失败，走内联路径',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 

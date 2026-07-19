@@ -16,7 +16,10 @@ import { REPLToolImpl } from '../repl/REPLToolImpl.js';
 import type { REPLSession } from '../repl/types/index.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:adapters:REPLToolAdapter', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:adapters:REPLToolAdapter',
+  level: LogLevel.INFO,
+});
 
 /**
  * REPL工具适配器

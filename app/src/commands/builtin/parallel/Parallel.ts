@@ -5,7 +5,10 @@ import { getEmptyToolUseContext } from '@modules/tools/types/ToolUseContext.js';
 import type { ToolUseContext } from '@modules/tools/types/ToolUseContext.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:builtin:parallel:Parallel', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:builtin:parallel:Parallel',
+  level: LogLevel.INFO,
+});
 
 const toolManager = createToolManager();
 

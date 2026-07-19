@@ -32,7 +32,10 @@ import type {
 } from './ChannelManagerTypes';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'core:gateway:ChannelManagerInternals', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:gateway:ChannelManagerInternals',
+  level: LogLevel.INFO,
+});
 
 /**
  * 将 GatewayChannel 适配为 ChannelInterface，用于同步到 ChannelRegistry

@@ -13,7 +13,10 @@ import {
 } from '../security/patterns/dangerousCommands';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'permission:PermissionPolicies', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'permission:PermissionPolicies',
+  level: LogLevel.INFO,
+});
 
 const PROTECTED_PATHS = [
   '/etc',

@@ -75,7 +75,10 @@ import { recordCost } from '@modules/cost/CostMonitor.js';
 import { getCostMetricsBridge } from '@modules/cost/CostMetricsBridge.js';
 import { eventNotificationService } from '@modules/chat/services/EventNotificationService';
 
-const logger = new Logger({ module: 'runtime:api:CoreAPIImpl', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'runtime:api:CoreAPIImpl',
+  level: LogLevel.INFO,
+});
 
 let _coreApiInstance: CoreAPIImpl | null = null;
 

@@ -16,7 +16,10 @@ import {
 } from './memoryTypes.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'memory:services:MemoryPromptBuilder', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'memory:services:MemoryPromptBuilder',
+  level: LogLevel.INFO,
+});
 
 export const ENTRYPOINT_NAME = 'MEMORY.md';
 export const MAX_ENTRYPOINT_LINES = 200;
@@ -87,11 +90,12 @@ export function ensureMemoryDirExists(memoryDir: string): void {
     try {
       mkdirSync(memoryDir, { recursive: true });
     } catch (err) {
-
       // 目录创建失败，不影响后续操作
 
-      logger.warn("Operation skipped", { context: "目录创建失败，不影响后续操作", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '目录创建失败，不影响后续操作',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 }
@@ -185,11 +189,12 @@ export function buildMemoryPrompt(params: {
       entrypointContent = readFileSync(entrypointPath, 'utf-8');
     }
   } catch (err) {
-
     // 文件读取失败，使用空内容
 
-    logger.warn("Operation skipped", { context: "文件读取失败，使用空内容", error: err instanceof Error ? err.message : String(err) });
-
+    logger.warn('Operation skipped', {
+      context: '文件读取失败，使用空内容',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   const lines = buildMemoryLines(displayName, memoryDir, extraGuidelines);

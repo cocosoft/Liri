@@ -1,7 +1,10 @@
 ﻿import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'services:compact:compactHooks', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:compact:compactHooks',
+  level: LogLevel.INFO,
+});
 /**
  * Compact Hooks（Pre/Post压缩钩子集成）
  */
@@ -41,11 +44,12 @@ export async function executePreCompactHooks(
     try {
       await hook.execute(context);
     } catch (err) {
-
       // Hook errors must not break compact flow
 
-      logger.debug("Operation skipped", { context: "Hook errors must not break compact flow", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: 'Hook errors must not break compact flow',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 }

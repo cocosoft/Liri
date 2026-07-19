@@ -1,20 +1,41 @@
 /**
- * 向后兼容 — 已合并到 appStore
+ * Work Store — 独立 Zustand Store
  *
- * 原独立 Store 已合并到 appStore，此文件为薄封装层。
- * 新代码请直接使用 useAppStore。
+ * 管理 Plan/Do 模式、工作项、内容视图等 UI 状态。
+ * 与 workspaceStore 联动：模式切换时通知执行策略变更。
  */
-import { useAppStore } from "./appStore";
-import type { ContentView, WorkItemStatus, WorkItem } from "./appStore";
+import { create } from "zustand";
 
-export type { ContentView, WorkItemStatus, WorkItem };
 
-/** Work 状态切片 */
-interface WorkSlice {
+
+/** 工作界面内容视图类型 */
+export type ContentView = "welcome" | "project" | "plan_schema" | "plan_analysis" | "editor" | "diff" | "overview" | "team" | "cost" | "workflow_templates" | "council" | "intelligence" | "rules" | "agent";
+
+/** 工作项生命周期状态 */
+export type WorkItemStatus = "pending" | "running" | "paused" | "review" | "done" | "failed";
+
+/** 工作项 */
+export interface WorkItem {
+  id: string;
+  title: string;
+  status: WorkItemStatus;
+  description?: string;
+  type?: string;
+  workspaceId?: string;
+  sessionId?: string;
+  createdAt: number;
+  updatedAt?: number;
+  completedAt?: number;
+  tags?: string[];
+  priority?: number;
+}
+
+interface WorkStore {
   mode: "plan" | "do";
   activeWorkItem: WorkItem | null;
   contentView: ContentView;
   workTabs: string[] | undefined;
+
   setMode: (mode: "plan" | "do") => void;
   toggleMode: () => void;
   setActiveWorkItem: (item: WorkItem | null) => void;
@@ -22,45 +43,29 @@ interface WorkSlice {
   setWorkTabs: (tabs: string[] | undefined) => void;
 }
 
-function workSlice(state: {
-  workMode: "plan" | "do"; activeWorkItem: WorkItem | null; contentView: ContentView; workTabs: string[] | undefined;
-  setWorkMode: (mode: "plan" | "do") => void; toggleWorkMode: () => void; setActiveWorkItem: (item: WorkItem | null) => void;
-  setContentView: (view: ContentView) => void; setWorkTabs: (tabs: string[] | undefined) => void;
-}): WorkSlice {
-  return {
-    mode: state.workMode,
-    activeWorkItem: state.activeWorkItem,
-    contentView: state.contentView,
-    workTabs: state.workTabs,
-    setMode: state.setWorkMode,
-    toggleMode: state.toggleWorkMode,
-    setActiveWorkItem: state.setActiveWorkItem,
-    setContentView: state.setContentView,
-    setWorkTabs: state.setWorkTabs,
-  };
-}
+export const useWorkStore = create<WorkStore>()((set, get) => ({
+  mode: "plan",
+  activeWorkItem: null,
+  contentView: "welcome",
+  workTabs: undefined,
 
-export function useWorkStore(): WorkSlice;
-export function useWorkStore<T>(selector: (slice: WorkSlice) => T): T;
-export function useWorkStore(selector?: any): any {
-  const mode = useAppStore((s) => s.workMode);
-  const activeWorkItem = useAppStore((s) => s.activeWorkItem);
-  const contentView = useAppStore((s) => s.contentView);
-  const workTabs = useAppStore((s) => s.workTabs);
-  const setMode = useAppStore((s) => s.setWorkMode);
-  const toggleMode = useAppStore((s) => s.toggleWorkMode);
-  const setActiveWorkItem = useAppStore((s) => s.setActiveWorkItem);
-  const setContentView = useAppStore((s) => s.setContentView);
-  const setWorkTabs = useAppStore((s) => s.setWorkTabs);
-  const slice: WorkSlice = { mode, activeWorkItem, contentView, workTabs, setMode, toggleMode, setActiveWorkItem, setContentView, setWorkTabs };
-  return selector ? selector(slice) : slice;
-}
+  setMode: (mode) => {
+    set({ mode });
+    if (mode === "plan") {
+      set({ contentView: "plan_schema" });
+    } else {
+      set({ contentView: "editor" });
+    }
+  },
 
-useWorkStore.getState = () => workSlice(useAppStore.getState());
-useWorkStore.setState = (partial: Partial<WorkSlice>) => {
-  useAppStore.setState({
-    ...(partial.mode !== undefined && { workMode: partial.mode }),
-    ...(partial.contentView !== undefined && { contentView: partial.contentView }),
-    ...(partial.workTabs !== undefined && { workTabs: partial.workTabs }),
-  } as any);
-};
+  toggleMode: () => {
+    const current = get().mode;
+    get().setMode(current === "plan" ? "do" : "plan");
+  },
+
+  setActiveWorkItem: (item) => set({ activeWorkItem: item }),
+
+  setContentView: (view) => set({ contentView: view }),
+
+  setWorkTabs: (tabs) => set({ workTabs: tabs }),
+}));

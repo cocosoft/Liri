@@ -11,7 +11,10 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'services:voice:services:audioFormatConverter', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:voice:services:audioFormatConverter',
+  level: LogLevel.INFO,
+});
 
 /**
  * 支持的音频格式

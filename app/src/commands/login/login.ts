@@ -10,7 +10,10 @@ import { executePostLogin } from '@modules/system/auth/post-login.js';
 import { configManager } from '@modules/config';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:login:login', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:login:login',
+  level: LogLevel.INFO,
+});
 
 /**
  * 登录结果

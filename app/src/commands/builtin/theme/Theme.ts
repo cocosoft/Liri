@@ -8,7 +8,10 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { ThemeManager } from '@modules/ui/ThemeManager';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:builtin:theme:Theme', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:builtin:theme:Theme',
+  level: LogLevel.INFO,
+});
 
 export default {
   /**

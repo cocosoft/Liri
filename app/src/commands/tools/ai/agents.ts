@@ -17,7 +17,10 @@ import { getToolManager } from '@modules/tools/ToolManager.js';
 import { AgentTool } from '@modules/tools/AgentTool/AgentTool.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:tools:ai:agents', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:tools:ai:agents',
+  level: LogLevel.INFO,
+});
 
 /** 可用的 Agent 类型列表 */
 const AGENT_TYPES = [

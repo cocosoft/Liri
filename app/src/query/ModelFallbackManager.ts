@@ -29,7 +29,10 @@
 
 /** 故障转移配置 */
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'query:ModelFallbackManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'query:ModelFallbackManager',
+  level: LogLevel.INFO,
+});
 
 interface FallbackConfig {
   enabled: boolean;

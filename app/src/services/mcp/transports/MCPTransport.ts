@@ -12,7 +12,10 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { McpTlsManager, type McpTlsConfig } from './McpTlsManager';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'services\mcp\transports\MCPTransport', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services\mcp\transports\MCPTransport',
+  level: LogLevel.INFO,
+});
 
 /**
  * MCP传输层基础类

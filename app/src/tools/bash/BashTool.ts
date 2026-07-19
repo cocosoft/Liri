@@ -35,7 +35,10 @@ import { SandboxSecurityChecker } from '@modules/sandbox/SandboxSecurityChecker'
 import { completeSecuritySystem } from '@modules/security';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools\bash\BashTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools\bash\BashTool',
+  level: LogLevel.INFO,
+});
 
 const execAsync = promisify(exec);
 

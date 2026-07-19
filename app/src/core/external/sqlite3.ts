@@ -31,7 +31,10 @@ import { mkdirSync } from 'fs';
 import { dirname } from 'path';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'core:external:sqlite3', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:external:sqlite3',
+  level: LogLevel.INFO,
+});
 
 // 使用 Bun 内置的 sqlite
 const { Database: BunDB } = require('bun:sqlite') as {
@@ -76,11 +79,12 @@ class Database {
     try {
       mkdirSync(dirname(path), { recursive: true });
     } catch (err) {
-
       // 忽略
 
-      logger.debug("Operation skipped", { context: "忽略", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: '忽略',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     let cb: ((err: Error | null) => void) | undefined;

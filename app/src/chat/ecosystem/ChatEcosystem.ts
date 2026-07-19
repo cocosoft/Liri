@@ -1,7 +1,10 @@
 ﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'chat:ecosystem:ChatEcosystem', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chat:ecosystem:ChatEcosystem',
+  level: LogLevel.INFO,
+});
 
 export interface ExtensionPoint {
   name: string;
@@ -218,11 +221,12 @@ export class ChatEcosystem implements IChatEcosystem {
       try {
         listener(event);
       } catch (err) {
-
         // ignore
 
-        logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: 'ignore',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   }

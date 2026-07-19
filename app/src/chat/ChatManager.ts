@@ -582,8 +582,10 @@ export class ChatManagerImpl implements ChatManager {
       );
     } catch (err) {
       // 更新失败不应影响主消息流
-      logger.warn("Operation skipped", { context: "更新失败不应影响主消息流", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '更新失败不应影响主消息流',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -639,8 +641,10 @@ export class ChatManagerImpl implements ChatManager {
       migrateSessionsToWorktree();
     } catch (err) {
       // 非阻塞
-      logger.warn("Operation skipped", { context: "非阻塞", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '非阻塞',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     // 连线 SessionLifecycle 事件 → 记忆/心跳自动化
@@ -652,8 +656,10 @@ export class ChatManagerImpl implements ChatManager {
       connectSessionHandlers(getGlobalEventBus());
     } catch (err) {
       // 非阻塞：事件连线失败不影响主流程
-      logger.warn("Operation skipped", { context: "非阻塞：事件连线失败不影响主流程", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '非阻塞：事件连线失败不影响主流程',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     // 启动回滚系统：清理中断轮次 + 配额管理
@@ -751,8 +757,10 @@ export class ChatManagerImpl implements ChatManager {
             }
           } catch (err) {
             // 回灌失败不影响会话加载
-            logger.warn("Operation skipped", { context: "回灌失败不影响会话加载", error: err instanceof Error ? err.message : String(err) });
-
+            logger.warn('Operation skipped', {
+              context: '回灌失败不影响会话加载',
+              error: err instanceof Error ? err.message : String(err),
+            });
           }
         } catch (e) {
           logger.warn('加载单个会话失败，跳过', {
@@ -1045,13 +1053,17 @@ export class ChatManagerImpl implements ChatManager {
       try {
         trajectoryRecorder.startSession(session.id, options?.model);
       } catch (err) {
-    logger.debug("Telemetry recording skipped", { error: err instanceof Error ? err.message : String(err) });
-  }
+        logger.debug('Telemetry recording skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
       try {
         trajectoryRuntime.startSession(session.id, options?.model);
       } catch (err) {
-    logger.debug("Telemetry recording skipped", { error: err instanceof Error ? err.message : String(err) });
-  }
+        logger.debug('Telemetry recording skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
 
     // 准备消息列表
@@ -1310,8 +1322,10 @@ export class ChatManagerImpl implements ChatManager {
         }
       } catch (err) {
         // 共享上下文加载失败不影响主流程
-        logger.warn("Operation skipped", { context: "共享上下文加载失败不影响主流程", error: err instanceof Error ? err.message : String(err) });
-
+        logger.warn('Operation skipped', {
+          context: '共享上下文加载失败不影响主流程',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
@@ -1334,8 +1348,10 @@ export class ChatManagerImpl implements ChatManager {
           this._toolRoundCount + 1
         );
       } catch (err) {
-    logger.debug("Telemetry recording skipped", { error: err instanceof Error ? err.message : String(err) });
-  }
+        logger.debug('Telemetry recording skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
     if (this.ENABLE_TRAJECTORY) {
       try {
@@ -1345,8 +1361,10 @@ export class ChatManagerImpl implements ChatManager {
           modelName: options?.model,
         });
       } catch (err) {
-    logger.debug("Telemetry recording skipped", { error: err instanceof Error ? err.message : String(err) });
-  }
+        logger.debug('Telemetry recording skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
 
     logger.debug('准备调用 activeClient.sendMessage', {
@@ -1390,8 +1408,10 @@ export class ChatManagerImpl implements ChatManager {
           response.usage?.completion_tokens ?? 0
         );
       } catch (err) {
-    logger.debug("Telemetry recording skipped", { error: err instanceof Error ? err.message : String(err) });
-  }
+        logger.debug('Telemetry recording skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
     if (this.ENABLE_TRAJECTORY) {
       try {
@@ -1407,8 +1427,10 @@ export class ChatManagerImpl implements ChatManager {
           durationMs: llmDuration,
         });
       } catch (err) {
-    logger.debug("Telemetry recording skipped", { error: err instanceof Error ? err.message : String(err) });
-  }
+        logger.debug('Telemetry recording skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
 
     // 通知外部：本次 LLM 响应的词元用量
@@ -1605,8 +1627,10 @@ export class ChatManagerImpl implements ChatManager {
       try {
         agentTelemetry.endTurn(session.id, 'completed');
       } catch (err) {
-    logger.debug("Telemetry recording skipped", { error: err instanceof Error ? err.message : String(err) });
-  }
+        logger.debug('Telemetry recording skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
     if (this.ENABLE_TRAJECTORY) {
       try {
@@ -1620,8 +1644,10 @@ export class ChatManagerImpl implements ChatManager {
         trajectoryRecorder.completeSession(session.id);
         trajectoryRuntime.completeSession(session.id);
       } catch (err) {
-    logger.debug("Telemetry recording skipped", { error: err instanceof Error ? err.message : String(err) });
-  }
+        logger.debug('Telemetry recording skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
 
     return assistantMessage;
@@ -1673,8 +1699,10 @@ export class ChatManagerImpl implements ChatManager {
       });
     } catch (err) {
       // 记忆提取失败不影响主流程
-      logger.warn("Operation skipped", { context: "记忆提取失败不影响主流程", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '记忆提取失败不影响主流程',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -1906,13 +1934,17 @@ export class ChatManagerImpl implements ChatManager {
       try {
         trajectoryRecorder.startSession(session.id, options?.model);
       } catch (err) {
-    logger.debug("Telemetry recording skipped", { error: err instanceof Error ? err.message : String(err) });
-  }
+        logger.debug('Telemetry recording skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
       try {
         trajectoryRuntime.startSession(session.id, options?.model);
       } catch (err) {
-    logger.debug("Telemetry recording skipped", { error: err instanceof Error ? err.message : String(err) });
-  }
+        logger.debug('Telemetry recording skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
 
     // 准备消息列表（用于API调用）
@@ -2152,8 +2184,10 @@ export class ChatManagerImpl implements ChatManager {
           this._toolRoundCount + 1
         );
       } catch (err) {
-    logger.debug("Telemetry recording skipped", { error: err instanceof Error ? err.message : String(err) });
-  }
+        logger.debug('Telemetry recording skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
     if (this.ENABLE_TRAJECTORY) {
       try {
@@ -2163,8 +2197,10 @@ export class ChatManagerImpl implements ChatManager {
           modelName: options?.model,
         });
       } catch (err) {
-    logger.debug("Telemetry recording skipped", { error: err instanceof Error ? err.message : String(err) });
-  }
+        logger.debug('Telemetry recording skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
 
     const gen = activeClient.streamMessage(
@@ -2228,8 +2264,10 @@ export class ChatManagerImpl implements ChatManager {
           finalResponse?.usage?.outputTokens ?? 0
         );
       } catch (err) {
-    logger.debug("Telemetry recording skipped", { error: err instanceof Error ? err.message : String(err) });
-  }
+        logger.debug('Telemetry recording skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
     if (this.ENABLE_TRAJECTORY) {
       try {
@@ -2245,8 +2283,10 @@ export class ChatManagerImpl implements ChatManager {
           durationMs: streamLlmDuration,
         });
       } catch (err) {
-    logger.debug("Telemetry recording skipped", { error: err instanceof Error ? err.message : String(err) });
-  }
+        logger.debug('Telemetry recording skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
 
     // 通知外部：本次 LLM 响应的词元用量
@@ -2649,8 +2689,10 @@ export class ChatManagerImpl implements ChatManager {
       try {
         agentTelemetry.endTurn(session.id, 'completed');
       } catch (err) {
-    logger.debug("Telemetry recording skipped", { error: err instanceof Error ? err.message : String(err) });
-  }
+        logger.debug('Telemetry recording skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
     if (this.ENABLE_TRAJECTORY) {
       try {
@@ -2664,8 +2706,10 @@ export class ChatManagerImpl implements ChatManager {
         trajectoryRecorder.completeSession(session.id);
         trajectoryRuntime.completeSession(session.id);
       } catch (err) {
-    logger.debug("Telemetry recording skipped", { error: err instanceof Error ? err.message : String(err) });
-  }
+        logger.debug('Telemetry recording skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
 
     return assistantMessage;
@@ -3684,8 +3728,10 @@ export class ChatManagerImpl implements ChatManager {
           }
         } catch (err) {
           // 回灌失败不影响
-          logger.warn("Operation skipped", { context: "回灌失败不影响", error: err instanceof Error ? err.message : String(err) });
-
+          logger.warn('Operation skipped', {
+            context: '回灌失败不影响',
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
         return chatSession;
       }
@@ -4542,8 +4588,10 @@ export class ChatManagerImpl implements ChatManager {
                 ]);
               } catch (err) {
                 // 降级也失败，放弃
-                logger.warn("Operation skipped", { context: "降级也失败，放弃", error: err instanceof Error ? err.message : String(err) });
-
+                logger.warn('Operation skipped', {
+                  context: '降级也失败，放弃',
+                  error: err instanceof Error ? err.message : String(err),
+                });
               }
             }
           });
@@ -4559,10 +4607,13 @@ export class ChatManagerImpl implements ChatManager {
               ]);
             } catch (err) {
               /* 忽略 */
-              logger.debug('Memory append skipped (discussion fallback failed)', {
-                sessionId,
-                error: err instanceof Error ? err.message : String(err),
-              });
+              logger.debug(
+                'Memory append skipped (discussion fallback failed)',
+                {
+                  sessionId,
+                  error: err instanceof Error ? err.message : String(err),
+                }
+              );
             }
           });
         }

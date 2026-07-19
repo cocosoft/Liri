@@ -13,7 +13,10 @@ import { configManager } from '@modules/config';
 import { resolveOutputDir } from '@modules/core';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:utils:ToolUtils', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:utils:ToolUtils',
+  level: LogLevel.INFO,
+});
 
 /**
  * 归一化工具路径，确保跨平台兼容
@@ -446,11 +449,12 @@ export async function checkPathAccessibilityAsync(
     await fsp.access(resolved, fs.constants.F_OK);
     return { accessible: true, resolvedPath: resolved };
   } catch (err) {
-
     // 路径不存在，走同步逻辑构建友好的错误提示
 
-    logger.debug("Operation skipped", { context: "路径不存在，走同步逻辑构建友好的错误提示", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: '路径不存在，走同步逻辑构建友好的错误提示',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   const suggestions: string[] = [];

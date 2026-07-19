@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAgentStore } from "../../stores/agentStore";
-import { useAppStore } from "../../stores/appStore";
+import { useNavigationStore } from "../../stores/navigationStore";
 import { SkeletonCard } from "../common/Skeleton";
 
 function AgentPage() {
@@ -14,7 +14,7 @@ function AgentPage() {
     cancelTask,
     getTaskProgress,
   } = useAgentStore();
-  const setActivePage = useAppStore((s) => s.setActivePage);
+  const setActivePage = useNavigationStore((s) => s.setActivePage);
   const [taskName, setTaskName] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const expandedPollRef = useRef<ReturnType<typeof setInterval> | null>(null);

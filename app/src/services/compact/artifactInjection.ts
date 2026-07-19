@@ -7,7 +7,10 @@
 import type { SessionMessage } from '@modules/session/models/SessionMessage';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'services:compact:artifactInjection', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:compact:artifactInjection',
+  level: LogLevel.INFO,
+});
 
 /**
  * 制品类型（来自CC源码）

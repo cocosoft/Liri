@@ -2,7 +2,10 @@ import path from 'path';
 import fs from 'fs/promises';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'core:memory-host-sdk:events', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:memory-host-sdk:events',
+  level: LogLevel.INFO,
+});
 
 export const MEMORY_HOST_EVENT_LOG_RELATIVE_PATH = path.join(
   'memory',
@@ -97,11 +100,12 @@ export async function readMemoryHostEvents(params: {
       const parsed = JSON.parse(line) as MemoryHostEvent;
       events.push(parsed);
     } catch (err) {
-
       // skip malformed lines
 
-      logger.debug("Operation skipped", { context: "skip malformed lines", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: 'skip malformed lines',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

@@ -8,7 +8,10 @@
 import { configManager } from '@modules/config';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'services:compact:timeBasedMCConfig', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:compact:timeBasedMCConfig',
+  level: LogLevel.INFO,
+});
 
 export interface TimeBasedMCConfig {
   enabled: boolean;
@@ -41,11 +44,12 @@ export function getTimeBasedMCConfig(): TimeBasedMCConfig {
       };
     }
   } catch (err) {
-
     // 解析失败时使用默认值
 
-    logger.warn("Operation skipped", { context: "解析失败时使用默认值", error: err instanceof Error ? err.message : String(err) });
-
+    logger.warn('Operation skipped', {
+      context: '解析失败时使用默认值',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   return { ...TIME_BASED_MC_CONFIG_DEFAULTS };

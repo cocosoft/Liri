@@ -7,7 +7,10 @@ import type { CommandContext } from '@modules/commands';
 import { historyManager } from '@modules/utils/history.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:builtin:history:History', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:builtin:history:History',
+  level: LogLevel.INFO,
+});
 
 /**
  * 显示历史记录

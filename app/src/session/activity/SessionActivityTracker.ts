@@ -22,7 +22,10 @@ import { join } from 'path';
 import { resolvePyappHome } from '@modules/core/paths';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'session:activity:SessionActivityTracker', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'session:activity:SessionActivityTracker',
+  level: LogLevel.INFO,
+});
 
 // ============================================================================
 // 类型定义
@@ -202,11 +205,12 @@ export class SessionActivityTracker {
       const pidPath = this.getPidPath(sessionId);
       writeFileSync(pidPath, String(process.pid), 'utf-8');
     } catch (err) {
-
       // PID 写入失败不影响主流程
 
-      logger.warn("Operation skipped", { context: "PID 写入失败不影响主流程", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: 'PID 写入失败不影响主流程',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -220,11 +224,12 @@ export class SessionActivityTracker {
         unlinkSync(pidPath);
       }
     } catch (err) {
-
       // 删除失败不影响
 
-      logger.warn("Operation skipped", { context: "删除失败不影响", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '删除失败不影响',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

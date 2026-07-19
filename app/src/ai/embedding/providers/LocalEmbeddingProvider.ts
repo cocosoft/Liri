@@ -37,7 +37,10 @@ import {
 import { configManager } from '@modules/config';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'ai:embedding:providers:LocalEmbeddingProvider', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ai:embedding:providers:LocalEmbeddingProvider',
+  level: LogLevel.INFO,
+});
 
 const DEFAULT_OLLAMA_URL = 'http://localhost:11434';
 const DEFAULT_EMBED_MODEL = 'nomic-embed-text';

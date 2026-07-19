@@ -1,5 +1,8 @@
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'cache:performance:CachePerformanceOptimizer', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'cache:performance:CachePerformanceOptimizer',
+  level: LogLevel.INFO,
+});
 
 export interface MemoryPool {
   id: string;

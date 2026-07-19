@@ -26,7 +26,10 @@ import { promisify } from 'util';
 import * as fs from 'fs';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'utils:computerUse:LinuxAdapter', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'utils:computerUse:LinuxAdapter',
+  level: LogLevel.INFO,
+});
 
 const execAsync = promisify(execFile);
 
@@ -156,11 +159,12 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
       try {
         fs.unlinkSync(tmpFile);
       } catch (err) {
-
         // ignore
 
-        logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: 'ignore',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
 
       return { data, format: 'jpeg', width, height };
@@ -169,11 +173,12 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
       try {
         fs.unlinkSync(tmpFile);
       } catch (err) {
-
         // ignore
 
-        logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: 'ignore',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
       throw err;
     }
@@ -552,19 +557,21 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
               });
             }
           } catch (err) {
-
             // 单个窗口查询失败跳过
 
-            logger.warn("Operation skipped", { context: "单个窗口查询失败跳过", error: err instanceof Error ? err.message : String(err) });
-
+            logger.warn('Operation skipped', {
+              context: '单个窗口查询失败跳过',
+              error: err instanceof Error ? err.message : String(err),
+            });
           }
         }
       } catch (err) {
-
         // 两种方式都失败
 
-        logger.warn("Operation skipped", { context: "两种方式都失败", error: err instanceof Error ? err.message : String(err) });
-
+        logger.warn('Operation skipped', {
+          context: '两种方式都失败',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 

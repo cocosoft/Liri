@@ -43,7 +43,10 @@ import {
 } from './ChannelManagerInternals';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'core:gateway:ChannelManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:gateway:ChannelManager',
+  level: LogLevel.INFO,
+});
 
 /** 废弃告警是否已输出（全局仅输出一次） */
 let _channelManagerDeprecationWarned = false;

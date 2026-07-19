@@ -8,7 +8,10 @@ import { join, relative, basename, dirname } from 'path';
 import { resolvePyappHome } from '@modules/core';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'docs:FileDocsProvider', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'docs:FileDocsProvider',
+  level: LogLevel.INFO,
+});
 
 export interface FileDocEntry {
   relativePath: string;
@@ -234,11 +237,12 @@ export class FileDocsProvider {
           const cacheKey = `${sourceRoot}:${relativePath}`;
           this.cache.set(cacheKey, docEntry);
         } catch (err) {
-
           // 跳过无法读取的文件
 
-          logger.debug("Operation skipped", { context: "跳过无法读取的文件", error: err instanceof Error ? err.message : String(err) });
-
+          logger.debug('Operation skipped', {
+            context: '跳过无法读取的文件',
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }
     }

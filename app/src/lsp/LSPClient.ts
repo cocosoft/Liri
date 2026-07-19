@@ -219,11 +219,12 @@ export function createLSPClient(
               try {
                 handler(message.params);
               } catch (err) {
-
                 // Handler errors are isolated per handler
 
-                logger.debug("Operation skipped", { context: "Handler errors are isolated per handler", error: err instanceof Error ? err.message : String(err) });
-
+                logger.debug('Operation skipped', {
+                  context: 'Handler errors are isolated per handler',
+                  error: err instanceof Error ? err.message : String(err),
+                });
               }
             }
           }
@@ -234,11 +235,12 @@ export function createLSPClient(
           }
         }
       } catch (err) {
-
         // JSON parse errors are silently ignored
 
-        logger.debug("Operation skipped", { context: "JSON parse errors are silently ignored", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: 'JSON parse errors are silently ignored',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   }
@@ -706,11 +708,12 @@ export function createLSPClient(
           sendNotification('exit', {});
         }
       } catch (err) {
-
         // Errors during shutdown are ignored
 
-        logger.debug("Operation skipped", { context: "Errors during shutdown are ignored", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: 'Errors during shutdown are ignored',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
       if (childProcess && !childProcess.killed) {
         childProcess.kill();

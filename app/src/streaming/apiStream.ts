@@ -12,7 +12,10 @@ import type { StreamChunk, StreamEvent } from './types';
 import { ApiError, ApiConnectionError } from '../services/api';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'streaming:apiStream', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'streaming:apiStream',
+  level: LogLevel.INFO,
+});
 
 export class ApiStream {
   private client: ApiClient;

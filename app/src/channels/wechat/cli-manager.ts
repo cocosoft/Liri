@@ -18,7 +18,10 @@ import path from 'path';
 import fs from 'fs';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'channels:wechat:cli-manager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'channels:wechat:cli-manager',
+  level: LogLevel.INFO,
+});
 
 // ─── 日志工具（独立轻量，不依赖外部 logger） ─────────────
 
@@ -332,11 +335,12 @@ export class WeixinCliManager extends EventEmitter {
         try {
           proc.kill('SIGKILL');
         } catch (err) {
-
           // ignore
 
-          logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
-
+          logger.debug('Operation skipped', {
+            context: 'ignore',
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }, 10_000);
 
@@ -352,11 +356,12 @@ export class WeixinCliManager extends EventEmitter {
       try {
         proc.kill('SIGTERM');
       } catch (err) {
-
         // ignore
 
-        logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: 'ignore',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     });
   }
@@ -420,11 +425,12 @@ export class WeixinCliManager extends EventEmitter {
         try {
           child.kill('SIGKILL');
         } catch (err) {
-
           // ignore
 
-          logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
-
+          logger.debug('Operation skipped', {
+            context: 'ignore',
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
         resolve(false);
       }, timeoutMs);

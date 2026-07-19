@@ -5,7 +5,10 @@
 import type { CommandContext } from '@modules/commands';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:builtin:advisor:Advisor', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:builtin:advisor:Advisor',
+  level: LogLevel.INFO,
+});
 
 interface AnalysisResult {
   type: 'text';

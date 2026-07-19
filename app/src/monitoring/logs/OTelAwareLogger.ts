@@ -32,11 +32,12 @@ export class OTelAwareLogger {
         }
       }
     } catch (err) {
-
       // OTel 未初始化或 Span 不可用时静默降级
 
-      console.debug("OTel context unavailable, silent degrade", { context: "OTel 未初始化或 Span 不可用时静默降级", error: err instanceof Error ? err.message : String(err) });
-
+      this.logger.debug('OTel context unavailable, silent degrade', {
+        context: 'OTel 未初始化或 Span 不可用时静默降级',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
     return {};
   }

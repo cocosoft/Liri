@@ -12,7 +12,10 @@ import { execSync } from 'child_process';
 import { exitWorktree } from '@modules/workspaces/commands/session';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:ExitWorktreeTool:ExitWorktreeTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:ExitWorktreeTool:ExitWorktreeTool',
+  level: LogLevel.INFO,
+});
 
 /**
  * 退出Worktree输入

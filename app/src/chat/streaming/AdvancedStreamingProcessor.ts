@@ -1,7 +1,10 @@
 ﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'chat:streaming:AdvancedStreamingProcessor', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chat:streaming:AdvancedStreamingProcessor',
+  level: LogLevel.INFO,
+});
 
 export enum StreamState {
   IDLE = 'idle',
@@ -172,11 +175,12 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
       try {
         listener(chunk);
       } catch (err) {
-
         // ignore
 
-        logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: 'ignore',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   }
@@ -204,11 +208,12 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
         try {
           listener(buffered);
         } catch (err) {
-
           // ignore
 
-          logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
-
+          logger.debug('Operation skipped', {
+            context: 'ignore',
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
       }
     }
@@ -271,11 +276,12 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
       try {
         listener(session);
       } catch (err) {
-
         // ignore
 
-        logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: 'ignore',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
@@ -324,11 +330,12 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
       try {
         listener(sessionId, oldState, newState);
       } catch (err) {
-
         // ignore
 
-        logger.debug("Operation skipped", { context: "ignore", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: 'ignore',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   }

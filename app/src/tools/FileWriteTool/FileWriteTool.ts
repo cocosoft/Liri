@@ -45,11 +45,12 @@ function readFileWithEncoding(filePath: string): string {
     try {
       return nativeRead(filePath);
     } catch (err) {
-
       // 原生模块读取失败，回退到 UTF-8
 
-      logger.warn("Operation skipped", { context: "原生模块读取失败，回退到 UTF-8", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '原生模块读取失败，回退到 UTF-8',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   return fs.readFileSync(filePath, 'utf-8');
@@ -115,7 +116,10 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { checkPathAccessibility } from '../utils/ToolUtils';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:FileWriteTool:FileWriteTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:FileWriteTool:FileWriteTool',
+  level: LogLevel.INFO,
+});
 
 export class FileWriteTool extends BaseTool {
   name = 'file_write';
@@ -284,11 +288,12 @@ export class FileWriteTool extends BaseTool {
           storeZone: 'inbound',
         });
       } catch (err) {
-
         // 静默失败，不干扰工具调用主流程
 
-        logger.warn("Operation skipped", { context: "静默失败，不干扰工具调用主流程", error: err instanceof Error ? err.message : String(err) });
-
+        logger.warn('Operation skipped', {
+          context: '静默失败，不干扰工具调用主流程',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     });
   }

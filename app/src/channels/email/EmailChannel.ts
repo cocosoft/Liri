@@ -23,7 +23,10 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { setEmailRuntime, clearEmailRuntime } from './runtime';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'channels:email:EmailChannel', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'channels:email:EmailChannel',
+  level: LogLevel.INFO,
+});
 
 /**
  * Email 配置
@@ -406,11 +409,12 @@ class SmtpClient {
     try {
       await this.sendCommand('QUIT', 221);
     } catch (err) {
-
       // 忽略 QUIT 错误
 
-      logger.debug("Operation skipped", { context: "忽略 QUIT 错误", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: '忽略 QUIT 错误',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
     this.close();
   }
@@ -422,11 +426,12 @@ class SmtpClient {
       try {
         this.socket.destroy();
       } catch (err) {
-
         // 忽略
 
-        logger.debug("Operation skipped", { context: "忽略", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: '忽略',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
       this.socket = null;
     }
@@ -758,11 +763,12 @@ class EmailChannelPlugin extends BaseChannelPlugin {
       try {
         await this.smtpClient.quit();
       } catch (err) {
-
         // 忽略
 
-        logger.debug("Operation skipped", { context: "忽略", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: '忽略',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
       this.smtpClient = null;
     }

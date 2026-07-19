@@ -14,7 +14,10 @@ import { launchInTerminal } from './TerminalLauncher';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ module: 'utils:deepLink:ProtocolHandler', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'utils:deepLink:ProtocolHandler',
+  level: LogLevel.INFO,
+});
 
 export const DEEP_LINK_PROTOCOL = 'pyapp';
 

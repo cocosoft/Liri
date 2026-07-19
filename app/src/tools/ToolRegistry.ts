@@ -15,7 +15,10 @@ import { ToolDefinitionAdapter } from './utils/ToolDefinitionAdapter';
 import type { ToolDefinition, ToolImplementation } from './types/ToolTypes';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:ToolRegistry', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:ToolRegistry',
+  level: LogLevel.INFO,
+});
 
 export interface ToolSchema {
   name: string;

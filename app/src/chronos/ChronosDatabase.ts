@@ -11,7 +11,10 @@ import { resolveDbPath } from '@modules/core';
 import { SimpleMutex } from '@modules/core';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'chronos\ChronosDatabase', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chronos\ChronosDatabase',
+  level: LogLevel.INFO,
+});
 
 /**
  * Chronos数据库存储实现

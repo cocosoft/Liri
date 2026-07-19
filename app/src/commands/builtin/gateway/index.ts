@@ -32,7 +32,10 @@ import type { GatewayChannel } from '../../../core/gateway/types';
 import { ChannelStatus } from '../../../core/gateway/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:builtin:gateway:index', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:builtin:gateway:index',
+  level: LogLevel.INFO,
+});
 
 /**
  * 网关命令

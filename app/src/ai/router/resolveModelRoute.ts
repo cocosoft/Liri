@@ -34,7 +34,10 @@ import { RouteKey, ROUTE_TO_TASK } from './routes.js';
 import type { RouteKey as RouteKeyType } from './routes.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'ai:router:resolveModelRoute', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ai:router:resolveModelRoute',
+  level: LogLevel.INFO,
+});
 
 /** 延迟获取 ModelRouter 实例，避免循环依赖（resolveModelRoute → modelRouter → @modules/ai → BaseAIProvider → resolveModelRoute） */
 async function getModelRouter() {
@@ -68,11 +71,12 @@ export async function resolveModelRoute(
       return decision.model;
     }
   } catch (err) {
-
     // SmartRouter 不可用时静默回退到 ModelRouter
 
-    logger.debug("Operation skipped", { context: "SmartRouter 不可用时静默回退到 ModelRouter", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: 'SmartRouter 不可用时静默回退到 ModelRouter',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   const mr = await getModelRouter();

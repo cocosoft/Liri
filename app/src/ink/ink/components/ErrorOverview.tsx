@@ -6,7 +6,10 @@ import Box from './Box.js';
 import Text from './Text.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'ink:ink:components:ErrorOverview', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ink:ink:components:ErrorOverview',
+  level: LogLevel.INFO,
+});
 
 // 使用 require 避免类型问题
 
@@ -44,11 +47,12 @@ export default function ErrorOverview({ error }: Props) {
         }
       }
     } catch (err) {
-
       // file not readable — skip source context
 
-      logger.debug("Operation skipped", { context: "file not readable — skip source context", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: 'file not readable — skip source context',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   return (

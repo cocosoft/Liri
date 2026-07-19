@@ -38,6 +38,7 @@ import { startMCPServer } from '../../entrypoints/mcp.js';
 const cwd = process.cwd();
 
 startMCPServer(cwd).catch((error: unknown) => {
+  // eslint-disable-next-line no-console -- MCP server entrypoint, Logger may not be initialized yet
   console.error('MCP Server failed to start:', error);
   process.exit(1);
 });

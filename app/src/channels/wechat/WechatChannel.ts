@@ -26,7 +26,10 @@ import { handleError } from '@modules/error';
 import { WeixinCliManager, type CliStatus } from './cli-manager';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'channels\wechat\WechatChannel', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'channels\wechat\WechatChannel',
+  level: LogLevel.INFO,
+});
 
 const WECHAT_META: ChannelMeta = {
   id: 'wechat',

@@ -13,7 +13,10 @@ import type { Task, TaskStorage, TaskStatus } from './types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools\TaskTool\TaskStorage', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools\TaskTool\TaskStorage',
+  level: LogLevel.INFO,
+});
 
 /**
  * @deprecated 使用 TaskRegistry 替代

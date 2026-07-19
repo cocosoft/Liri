@@ -13,7 +13,10 @@ import type {
 } from '@modules/channels/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'channels:nostr:NostrChannel', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'channels:nostr:NostrChannel',
+  level: LogLevel.INFO,
+});
 
 /**
  * Nostr 配置

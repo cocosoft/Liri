@@ -36,7 +36,10 @@ import {
 import { join, relative, resolve, basename } from 'path';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'agent:sandbox:index', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent:sandbox:index',
+  level: LogLevel.INFO,
+});
 
 export interface WorkspaceConfig {
   rootDir: string;

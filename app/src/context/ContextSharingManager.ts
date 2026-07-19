@@ -3,7 +3,10 @@ import type { Context } from './types/Context';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'context\ContextSharingManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'context\ContextSharingManager',
+  level: LogLevel.INFO,
+});
 
 export interface SharedContextEntry {
   context: Context;

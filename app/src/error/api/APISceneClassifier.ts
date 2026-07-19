@@ -16,7 +16,10 @@ import { extractConnectionErrorDetails } from './errorUtils';
 import { configManager } from '@modules/config';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'error\api\APISceneClassifier', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'error\api\APISceneClassifier',
+  level: LogLevel.INFO,
+});
 
 /**
  * API 错误场景枚举

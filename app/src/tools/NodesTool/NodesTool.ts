@@ -9,7 +9,10 @@ import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { ToolTag } from '../types/index';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:NodesTool:NodesTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:NodesTool:NodesTool',
+  level: LogLevel.INFO,
+});
 
 export interface NodeInfo {
   id: string;

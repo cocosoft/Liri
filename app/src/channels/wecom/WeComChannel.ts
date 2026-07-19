@@ -18,7 +18,10 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'channels\wecom\WeComChannel', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'channels\wecom\WeComChannel',
+  level: LogLevel.INFO,
+});
 
 const WECOM_META: ChannelMeta = {
   id: 'wecom',

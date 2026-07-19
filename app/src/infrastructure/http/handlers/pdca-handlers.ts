@@ -25,7 +25,10 @@ import type http from 'http';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'infrastructure:http:handlers:pdca-handlers', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'infrastructure:http:handlers:pdca-handlers',
+  level: LogLevel.INFO,
+});
 
 // ========== PDCA Handlers ==========
 
@@ -68,11 +71,12 @@ export async function handlePdcaStatus(
       const mod = await import('@modules/tasks/LongRunningTaskOrchestrator');
       orchestrator = mod.getOrchestrator(taskId);
     } catch (err) {
-
       // 模块加载失败或无 orchestrator
 
-      logger.warn("Operation skipped", { context: "模块加载失败或无 orchestrator", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '模块加载失败或无 orchestrator',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
     if (!orchestrator) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -102,9 +106,9 @@ export async function handlePdcaAudit(
       const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
       orchestrator = m.getOrchestrator(taskId);
     } catch (err) {
-
-      logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     } /* 可选模块, 加载失败时降级 */
     if (!orchestrator) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -134,9 +138,9 @@ export async function handlePdcaReviewStep(
       const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
       orchestrator = m.getOrchestrator(taskId);
     } catch (err) {
-
-      logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     } /* 可选模块, 加载失败时降级 */
     if (!orchestrator) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -169,9 +173,9 @@ export async function handlePdcaDecideStep(
       const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
       orchestrator = m.getOrchestrator(taskId);
     } catch (err) {
-
-      logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     } /* 可选模块, 加载失败时降级 */
     if (!orchestrator) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -200,9 +204,9 @@ export async function handlePdcaList(
       const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
       list = m.getAllOrchestrators().map((o: any) => o.getStatus());
     } catch (err) {
-
-      logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     } /* 可选模块, 加载失败时降级 */
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(list));
@@ -225,9 +229,9 @@ export async function handlePdcaConfirm(
       const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
       orchestrator = m.getOrchestrator(taskId);
     } catch (err) {
-
-      logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     } /* 可选模块, 加载失败时降级 */
     if (!orchestrator) {
       res.writeHead(200, { 'Content-Type': 'application/json' });

@@ -27,7 +27,10 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'agent\auth-profiles\index', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent\auth-profiles\index',
+  level: LogLevel.INFO,
+});
 
 export type AuthProviderType =
   | 'openai'

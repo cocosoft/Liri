@@ -7,7 +7,10 @@ import type { BridgeApiClient } from '../types/index.js';
 import { bridgeStateStore } from '../state/BridgeStateStore.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'bridge:managers:HeartbeatManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'bridge:managers:HeartbeatManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 心跳状态

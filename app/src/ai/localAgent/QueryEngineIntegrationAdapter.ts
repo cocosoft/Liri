@@ -15,7 +15,10 @@ import {
 import { createSkillProvider, type SkillProvider } from './SkillProvider.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'ai:localAgent:QueryEngineIntegrationAdapter', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ai:localAgent:QueryEngineIntegrationAdapter',
+  level: LogLevel.INFO,
+});
 
 export interface QueryEngineIntegrationConfig {
   enabled: boolean;

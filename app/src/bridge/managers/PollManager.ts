@@ -12,7 +12,10 @@ import type {
 import { bridgeStateStore } from '../state/BridgeStateStore.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'bridge:managers:PollManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'bridge:managers:PollManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 轮询状态

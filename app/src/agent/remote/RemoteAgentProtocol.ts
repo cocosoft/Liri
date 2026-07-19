@@ -13,7 +13,10 @@ import {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'agent\remote\RemoteAgentProtocol', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent\remote\RemoteAgentProtocol',
+  level: LogLevel.INFO,
+});
 
 const DEFAULT_OPTIONS: ProtocolOptions = {
   timeout: 30000,

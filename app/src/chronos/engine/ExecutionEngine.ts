@@ -1,5 +1,8 @@
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'chronos:engine:ExecutionEngine', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chronos:engine:ExecutionEngine',
+  level: LogLevel.INFO,
+});
 
 export type TaskStatus =
   | 'pending'

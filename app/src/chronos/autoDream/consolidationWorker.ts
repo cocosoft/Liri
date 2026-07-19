@@ -4,7 +4,10 @@ import { existsSync } from 'fs';
 import { configManager } from '@modules/config';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'chronos:autoDream:consolidationWorker', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chronos:autoDream:consolidationWorker',
+  level: LogLevel.INFO,
+});
 
 const prompt = configManager.env('LIRI_DREAM_PROMPT') || '';
 const memoryRoot = configManager.env('LIRI_DREAM_MEMORY_ROOT') || '';
@@ -101,11 +104,12 @@ async function walkDirectory(
       }
     }
   } catch (err) {
-
     // directory not accessible
 
-    logger.debug("Operation skipped", { context: "directory not accessible", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: 'directory not accessible',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
   return results;
 }

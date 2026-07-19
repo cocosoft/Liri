@@ -5,7 +5,10 @@
 
 import { spawn } from 'child_process';
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'remote:SSHConnection', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'remote:SSHConnection',
+  level: LogLevel.INFO,
+});
 
 /**
  * SSH连接配置

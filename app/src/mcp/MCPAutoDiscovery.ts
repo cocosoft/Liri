@@ -9,7 +9,10 @@ import path from 'path';
 import { enhancedMcpConfigManager } from '@modules/services/mcp/EnhancedMCPConfigManager';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ module: 'mcp:autoDiscovery', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'mcp:autoDiscovery',
+  level: LogLevel.INFO,
+});
 
 /**
  * 发现的 MCP Server 条目
@@ -160,7 +163,9 @@ export class MCPAutoDiscovery {
         }
       }
     } catch {
-      logger.debug('Failed to parse config file during discovery', { filePath });
+      logger.debug('Failed to parse config file during discovery', {
+        filePath,
+      });
     }
   }
 
@@ -190,7 +195,9 @@ export class MCPAutoDiscovery {
         });
       }
     } catch {
-      logger.debug('Failed to parse NPM package.json during discovery', { pkgPath });
+      logger.debug('Failed to parse NPM package.json during discovery', {
+        pkgPath,
+      });
     }
   }
 

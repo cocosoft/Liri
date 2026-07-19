@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useChatStore, inferFileType } from "../../stores/chatStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useConfigStore } from "../../stores/configStore";
-import { useAppStore } from "../../stores/appStore";
+import { useNavigationStore } from "../../stores/navigationStore";
+import { useVoiceStore } from "../../stores/voiceStore";
 import { useFeatureFlagStore } from "../../stores/featureFlags";
 import { fileService } from "../../services/fileService";
 import { imageService } from "../../services/imageService";
@@ -93,9 +94,9 @@ function ChatInput() {
   const sessionFiles = useChatStore((s) => s.sessionFiles);
   const { currentSession, createSession } = useSessionStore();
   const { config } = useConfigStore();
-  const setActivePage = useAppStore((s) => s.setActivePage);
+  const setActivePage = useNavigationStore((s) => s.setActivePage);
   const messageQueueEnabled = useFeatureFlagStore((s) => s.flags.message_queue);
-  const voiceIsRecording = useAppStore((s) => s.voiceIsRecording);
+  const voiceIsRecording = useVoiceStore((s) => s.isRecording);
 
   // 草稿持久化
   const { input, setInput, setInputWithDraft, clearDraft } = useChatDraft(currentSession?.id);

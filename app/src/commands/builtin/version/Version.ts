@@ -13,7 +13,10 @@ import { join } from 'path';
 import type { CommandContext } from '@modules/commands';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:builtin:version:Version', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:builtin:version:Version',
+  level: LogLevel.INFO,
+});
 
 /**
  * 包信息缓存
@@ -35,11 +38,12 @@ function readPackageInfo(): Record<string, unknown> {
       cachedPackage = JSON.parse(content);
     }
   } catch (err) {
-
     // 读取失败时使用默认值
 
-    logger.warn("Operation skipped", { context: "读取失败时使用默认值", error: err instanceof Error ? err.message : String(err) });
-
+    logger.warn('Operation skipped', {
+      context: '读取失败时使用默认值',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   if (!cachedPackage) {

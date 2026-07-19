@@ -5,7 +5,10 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'utils:memoryManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'utils:memoryManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 内存使用阈值

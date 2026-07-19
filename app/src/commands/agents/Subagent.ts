@@ -10,7 +10,10 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:agents:Subagent', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:agents:Subagent',
+  level: LogLevel.INFO,
+});
 
 /**
  * Agent 源类型
@@ -270,11 +273,12 @@ async function loadAllAgents(): Promise<AgentInfo[]> {
         if (agent) agents.push(agent);
       }
     } catch (err) {
-
       // 跳过不可读目录
 
-      logger.debug("Operation skipped", { context: "跳过不可读目录", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: '跳过不可读目录',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -674,11 +678,12 @@ const subagentCommand = {
         const { logEvent } = await import('@modules/analytics/index.js');
         logEvent('tengu_subagent_view', { subcommand, showJson });
       } catch (err) {
-
         // analytics 非关键
 
-        logger.debug("Operation skipped", { context: "analytics 非关键", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: 'analytics 非关键',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
 
       return {

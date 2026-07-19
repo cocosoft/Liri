@@ -7,7 +7,10 @@
 import chalk from 'chalk';
 import { TerminalComponents } from '../ui/TerminalComponents.js';
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'ui:TerminalUIIntegration', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ui:TerminalUIIntegration',
+  level: LogLevel.INFO,
+});
 import { StartupProfiler } from '../utils/startupProfiler.js';
 
 /**

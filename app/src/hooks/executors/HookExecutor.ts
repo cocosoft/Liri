@@ -21,7 +21,10 @@ import { securityManager } from '../utils/SecurityManager';
 import { performanceManager } from '../utils/PerformanceManager';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'hooks:executors:HookExecutor', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'hooks:executors:HookExecutor',
+  level: LogLevel.INFO,
+});
 
 /**
  * Hook执行器

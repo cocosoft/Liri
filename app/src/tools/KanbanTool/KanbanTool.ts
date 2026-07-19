@@ -7,7 +7,10 @@ import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:KanbanTool:KanbanTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:KanbanTool:KanbanTool',
+  level: LogLevel.INFO,
+});
 
 /**
  * 卡片优先级

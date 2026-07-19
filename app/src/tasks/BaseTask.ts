@@ -145,11 +145,12 @@ export abstract class BaseTask extends EventEmitter {
       await fs.appendFile(this.state.outputFile, chunk, 'utf-8');
       this.state.outputOffset += Buffer.byteLength(chunk, 'utf-8');
     } catch (err) {
-
       // 写入失败时不抛出异常，仅跳过本次写入
 
-      logger.warn("Operation skipped", { context: "写入失败时不抛出异常，仅跳过本次写入", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '写入失败时不抛出异常，仅跳过本次写入',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -169,11 +170,12 @@ export abstract class BaseTask extends EventEmitter {
       await fs.writeFile(this.state.outputFile, '', 'utf-8');
       this.state.outputOffset = 0;
     } catch (err) {
-
       // 清空失败时不抛出异常，仅跳过
 
-      logger.warn("Operation skipped", { context: "清空失败时不抛出异常，仅跳过", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: '清空失败时不抛出异常，仅跳过',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
     if (this.taskContext?.getAppState) {
       const appState = this.taskContext.getAppState();

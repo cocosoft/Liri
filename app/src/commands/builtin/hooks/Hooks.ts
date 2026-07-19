@@ -6,7 +6,10 @@
 import type { CommandContext } from '@modules/commands';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:builtin:hooks:Hooks', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'commands:builtin:hooks:Hooks',
+  level: LogLevel.INFO,
+});
 
 /**
  * 展示用的钩子信息

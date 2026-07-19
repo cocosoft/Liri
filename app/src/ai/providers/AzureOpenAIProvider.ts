@@ -15,7 +15,10 @@ import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'ai\providers\AzureOpenAIProvider', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'ai\providers\AzureOpenAIProvider',
+  level: LogLevel.INFO,
+});
 
 export class AzureOpenAIProvider extends BaseAIProvider {
   private config: ProviderConfig;

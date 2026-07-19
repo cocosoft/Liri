@@ -28,7 +28,10 @@ import type { BlueBubblesProbe } from './probe';
 import { BLUEBUBBLES_TOOL_HINTS } from './channel.runtime';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'channels\bluebubbles\BlueBubblesChannel', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'channels\bluebubbles\BlueBubblesChannel',
+  level: LogLevel.INFO,
+});
 
 const BLUEBUBBLES_META: ChannelMeta = {
   id: 'bluebubbles',

@@ -6,7 +6,10 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'services\vcr\SessionRecorder', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services\vcr\SessionRecorder',
+  level: LogLevel.INFO,
+});
 
 export interface RecordedMessage {
   id: string;

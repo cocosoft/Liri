@@ -369,7 +369,7 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
           } catch (err) {
             logger.error("语音转录失败", err);
             useVoiceStore.setState({
-              voiceError:
+              error:
                 err instanceof Error ? err.message : t("voice.sttFailed"),
               subtitleStatus: "idle",
             });

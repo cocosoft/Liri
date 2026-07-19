@@ -9,7 +9,10 @@ import { globalEventBus, SystemEvents } from '@modules/core';
 import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'daemon:audit:DaemonAudit', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'daemon:audit:DaemonAudit',
+  level: LogLevel.INFO,
+});
 
 /**
  * 审计事件类型
@@ -226,9 +229,9 @@ export class DaemonAudit {
     try {
       fs.appendFileSync(this.logFile, JSON.stringify(event) + '\n', 'utf-8');
     } catch (err) {
-
-      logger.debug("Operation skipped", { error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     } // @ignore-catch: io error, non-blocking
   }
 

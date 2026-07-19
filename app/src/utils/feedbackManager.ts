@@ -12,7 +12,10 @@ import {
   appendFileSync,
 } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'utils:feedbackManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'utils:feedbackManager',
+  level: LogLevel.INFO,
+});
 import { sanitizeInput } from '@modules/security';
 import { resolveDataDir } from '@modules/core';
 

@@ -8,7 +8,10 @@ import { configManager } from '@modules/config';
 import { BUILTIN_TRANSLATIONS } from './extended-translations';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'system:i18n:extended', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'system:i18n:extended',
+  level: LogLevel.INFO,
+});
 
 /**
  * 翻译键类型 — 从内置翻译数据自动推导，提供编译期类型检查
@@ -79,11 +82,12 @@ export function detectSystemLocale(): SupportedLocale {
     if (intlLocale.startsWith('ja')) return 'ja';
     if (intlLocale.startsWith('ko')) return 'ko';
   } catch (err) {
-
     // Intl API 不可用时静默降级
 
-    logger.debug("Operation skipped", { context: "Intl API 不可用时静默降级", error: err instanceof Error ? err.message : String(err) });
-
+    logger.debug('Operation skipped', {
+      context: 'Intl API 不可用时静默降级',
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   return 'zh';

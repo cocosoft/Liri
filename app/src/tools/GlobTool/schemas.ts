@@ -2,7 +2,10 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools\GlobTool\schemas', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools\GlobTool\schemas',
+  level: LogLevel.INFO,
+});
 
 /**
  * GlobTool 输入模式

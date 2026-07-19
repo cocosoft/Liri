@@ -22,7 +22,10 @@ import type {
   TTSSpeakResult,
 } from './ttsProvider';
 
-const logger = new Logger({ module: 'services:voice:services:commandTTSProvider', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:voice:services:commandTTSProvider',
+  level: LogLevel.INFO,
+});
 
 /** 平台特定语音列表 */
 const PLATFORM_VOICES: Record<string, TTSVoice[]> = {

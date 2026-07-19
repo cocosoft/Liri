@@ -3,7 +3,10 @@ import { execSync } from 'child_process';
 import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools\environments\PersistentTerminalVm', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools\environments\PersistentTerminalVm',
+  level: LogLevel.INFO,
+});
 
 export interface PersistentTerminalSession {
   readonly sessionId: string;

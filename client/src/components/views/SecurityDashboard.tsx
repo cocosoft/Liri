@@ -51,6 +51,15 @@ function SecurityDashboard() {
     setLoading(true);
     try {
       const data = await fetchSecurityStatus();
+      // 去重：后端可能返回重复 ID 的事件
+      if (data.recentEvents.length > 0) {
+        const seen = new Set<string>();
+        data.recentEvents = data.recentEvents.filter((e) => {
+          if (seen.has(e.id)) return false;
+          seen.add(e.id);
+          return true;
+        });
+      }
       setStatus(data);
     } catch {
       // 静默处理

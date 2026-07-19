@@ -3,7 +3,10 @@ import * as path from 'path';
 import { CommandTrace, TraceExportFormat, TraceSession } from './types.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'core:trajectory:CommandExport', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'core:trajectory:CommandExport',
+  level: LogLevel.INFO,
+});
 
 export interface ExportOptions {
   format: TraceExportFormat;

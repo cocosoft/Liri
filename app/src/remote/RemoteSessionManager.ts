@@ -4,7 +4,10 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'remote:RemoteSessionManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'remote:RemoteSessionManager',
+  level: LogLevel.INFO,
+});
 import { SSHConnection, SSHConfig } from './SSHConnection.js';
 import {
   DirectConnectManager,

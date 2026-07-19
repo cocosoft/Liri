@@ -3,7 +3,10 @@ import type { Context } from './types/Context';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'context\ContextIsolator', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'context\ContextIsolator',
+  level: LogLevel.INFO,
+});
 
 export type IsolationLevel = 'strict' | 'inherited' | 'shared';
 

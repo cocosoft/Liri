@@ -13,7 +13,10 @@ import type {
 } from '../../utils/computerUse/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools:ComputerUseTool:ComputerUseTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tools:ComputerUseTool:ComputerUseTool',
+  level: LogLevel.INFO,
+});
 
 /**
  * ComputerUse 操作参数

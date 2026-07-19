@@ -12,7 +12,10 @@ import type { SerializedTool } from './types';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'services:mcp:McpToolWrapper', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'services:mcp:McpToolWrapper',
+  level: LogLevel.INFO,
+});
 
 /**
  * MCP工具包装器

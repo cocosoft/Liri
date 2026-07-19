@@ -20,7 +20,10 @@ import { createTeamStore } from '@modules/workspace/TeamStore';
 import { resolveWorkspacePath } from './workspaces-handlers';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'infrastructure\http\handlers\team-handlers', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'infrastructure\http\handlers\team-handlers',
+  level: LogLevel.INFO,
+});
 
 /**
  * 获取或创建 TeamStore

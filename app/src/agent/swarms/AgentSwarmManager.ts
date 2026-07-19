@@ -29,7 +29,10 @@ import {
 } from '../../tools/AgentTool/SubAgentEngine';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'agent:swarms:AgentSwarmManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent:swarms:AgentSwarmManager',
+  level: LogLevel.INFO,
+});
 
 const DEFAULT_CONFIG: SwarmConfig = {
   maxAgents: 10,
@@ -86,11 +89,12 @@ class RealSwarmAgent implements ISwarmAgent {
         connections: [],
       });
     } catch (err) {
-
       // EventBus 发射失败不阻塞主流程
 
-      logger.warn("Operation skipped", { context: "EventBus 发射失败不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
-
+      logger.warn('Operation skipped', {
+        context: 'EventBus 发射失败不阻塞主流程',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     try {
@@ -121,11 +125,12 @@ class RealSwarmAgent implements ISwarmAgent {
                 connections: [],
               });
             } catch (err) {
-
               // 不阻塞主流程
 
-              logger.debug("Operation skipped", { context: "不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
-
+              logger.debug('Operation skipped', {
+                context: '不阻塞主流程',
+                error: err instanceof Error ? err.message : String(err),
+              });
             }
           }
         }
@@ -147,11 +152,12 @@ class RealSwarmAgent implements ISwarmAgent {
           connections: [],
         });
       } catch (err) {
-
         // 不阻塞主流程
 
-        logger.debug("Operation skipped", { context: "不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: '不阻塞主流程',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
 
       return {
@@ -176,11 +182,12 @@ class RealSwarmAgent implements ISwarmAgent {
           connections: [],
         });
       } catch (err) {
-
         // 不阻塞主流程
 
-        logger.debug("Operation skipped", { context: "不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: '不阻塞主流程',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
 
       return {
@@ -284,11 +291,12 @@ export class AgentSwarmManager {
         connections: [],
       });
     } catch (err) {
-
       // 不阻塞主流程
 
-      logger.debug("Operation skipped", { context: "不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: '不阻塞主流程',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -334,11 +342,12 @@ export class AgentSwarmManager {
         connections: [],
       });
     } catch (err) {
-
       // 不阻塞主流程
 
-      logger.debug("Operation skipped", { context: "不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: '不阻塞主流程',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -380,11 +389,12 @@ export class AgentSwarmManager {
             connections: [],
           });
         } catch (err) {
-
           // 不阻塞主流程
 
-          logger.debug("Operation skipped", { context: "不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
-
+          logger.debug('Operation skipped', {
+            context: '不阻塞主流程',
+            error: err instanceof Error ? err.message : String(err),
+          });
         }
 
         // 自动恢复：检查 RealSwarmAgent 是否需要重建
@@ -408,11 +418,12 @@ export class AgentSwarmManager {
               connections: [],
             });
           } catch (err) {
-
             // 不阻塞主流程
 
-            logger.debug("Operation skipped", { context: "不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
-
+            logger.debug('Operation skipped', {
+              context: '不阻塞主流程',
+              error: err instanceof Error ? err.message : String(err),
+            });
           }
         }
       }
@@ -458,11 +469,12 @@ export class AgentSwarmManager {
         })),
       });
     } catch (err) {
-
       // 不阻塞主流程
 
-      logger.debug("Operation skipped", { context: "不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
-
+      logger.debug('Operation skipped', {
+        context: '不阻塞主流程',
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     // 确保健康监控已启动
@@ -485,11 +497,12 @@ export class AgentSwarmManager {
           failedTasks: results.filter((r) => !r.success).length,
         });
       } catch (err) {
-
         // 不阻塞主流程
 
-        logger.debug("Operation skipped", { context: "不阻塞主流程", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: '不阻塞主流程',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
 
       return results;

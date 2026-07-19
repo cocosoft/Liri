@@ -9,7 +9,10 @@ import { SkillLoader } from '../loaders/SkillLoader.js';
 import type { Skill } from '../types/index.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'skills:source:SkillSourceManager', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'skills:source:SkillSourceManager',
+  level: LogLevel.INFO,
+});
 
 /**
  * 技能源定义

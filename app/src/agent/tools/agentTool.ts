@@ -5,7 +5,10 @@
 import { AgentTool } from '../models/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'agent:tools:agentTool', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'agent:tools:agentTool',
+  level: LogLevel.INFO,
+});
 
 /**
  * 代理工具基类

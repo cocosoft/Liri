@@ -18,7 +18,10 @@ import type { BashTaskOptions } from './types';
 import { taskRegistry } from './TaskRegistry';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tasks:LocalBashTask', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'tasks:LocalBashTask',
+  level: LogLevel.INFO,
+});
 
 /** 卡死检测间隔（毫秒） */
 const STALL_CHECK_INTERVAL_MS = 5_000;
@@ -193,11 +196,12 @@ export class LocalBashTask extends BaseTask {
           tail,
         });
       } catch (err) {
-
         // 输出文件可能还不存在
 
-        logger.debug("Operation skipped", { context: "输出文件可能还不存在", error: err instanceof Error ? err.message : String(err) });
-
+        logger.debug('Operation skipped', {
+          context: '输出文件可能还不存在',
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }, STALL_CHECK_INTERVAL_MS);
 

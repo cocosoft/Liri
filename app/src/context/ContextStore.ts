@@ -8,7 +8,10 @@ import {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'context\ContextStore', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'context\ContextStore',
+  level: LogLevel.INFO,
+});
 
 export interface IContextStore {
   create(data: ContextData): Promise<Context>;

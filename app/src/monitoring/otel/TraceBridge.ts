@@ -8,7 +8,10 @@ import { OTelTracing } from './OTelTracing.js';
 import { errorMessage } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'monitoring\otel\TraceBridge', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'monitoring\otel\TraceBridge',
+  level: LogLevel.INFO,
+});
 
 export interface TraceEvent {
   name: string;

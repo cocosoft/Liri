@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 
 import { appStateStore } from '../../system/state/AppStateStore';
 import type { AppState } from '../../system/state/AppState';
+import { TaskStatus } from '../../tasks/types';
 
 /**
  * 任务完成通知钩子
@@ -20,18 +21,18 @@ export function useTaskCompletionNotification(): void {
         const prevTask = prev[taskId];
         if (!prevTask) continue;
 
-        const wasRunning = prevTask.status === 'running';
+        const wasRunning = prevTask.status === TaskStatus.RUNNING;
         const isDone =
-          currTask.status === 'completed' ||
-          currTask.status === 'failed' ||
-          currTask.status === 'cancelled';
+          currTask.status === TaskStatus.COMPLETED ||
+          currTask.status === TaskStatus.FAILED ||
+          currTask.status === TaskStatus.LOST;
         if (!wasRunning || !isDone) continue;
 
-        const type = currTask.status === 'completed' ? 'success' : 'warning';
+        const type = currTask.status === TaskStatus.COMPLETED ? 'success' : 'warning';
         const label =
-          currTask.status === 'completed'
+          currTask.status === TaskStatus.COMPLETED
             ? '完成'
-            : currTask.status === 'failed'
+            : currTask.status === TaskStatus.FAILED
               ? '失败'
               : '取消';
 

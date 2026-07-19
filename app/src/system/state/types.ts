@@ -23,7 +23,6 @@
  * 应用状态类型定义
  */
 
-import type { Store } from './Store.js';
 
 /**
  * 工具权限上下文
@@ -74,29 +73,9 @@ export interface PluginLoadState {
 
 /**
  * 任务状态
- * 使用核心任务模块的类型定义
+ * 规范来源: tasks/types.ts
  */
-export interface TaskState {
-  id: string;
-  type: string;
-  status:
-    | 'pending'
-    | 'running'
-    | 'completed'
-    | 'failed'
-    | 'killed'
-    | 'cancelled';
-  description: string;
-  toolUseId?: string;
-  startTime: number;
-  endTime?: number;
-  totalPausedMs?: number;
-  outputFile: string;
-  outputOffset: number;
-  notified: boolean;
-  result?: unknown;
-  error?: string;
-}
+export type { TaskState } from '@modules/tasks/types';
 
 /**
  * 通知类型
@@ -117,74 +96,6 @@ export interface Notification {
 }
 
 /**
- * 应用状态接口
- */
-export interface AppState {
-  settings: Record<string, unknown>;
-  verbose: boolean;
-  statusLineText?: string;
-  expandedView: 'none' | 'tasks' | 'settings';
-  isBriefOnly: boolean;
-  toolPermissionContext: ToolPermissionContext;
-  denialTracking: DenialTrackingState;
-  mcp: MCPState;
-  plugins: PluginLoadState;
-  tasks: { [taskId: string]: TaskState };
-  notifications: Notification[];
-  notificationCount: number;
-  sandboxEnabled: boolean;
-  remoteSessionUrl?: string;
-  remoteConnectionStatus?:
-    | 'connecting'
-    | 'connected'
-    | 'reconnecting'
-    | 'disconnected';
-  startupTime: number;
-}
-
-/**
- * 创建默认应用状态
- * @returns 默认应用状态
- */
-export function createDefaultAppState(): AppState {
-  return {
-    settings: {},
-    verbose: false,
-    statusLineText: undefined,
-    expandedView: 'none',
-    isBriefOnly: false,
-    toolPermissionContext: {
-      mode: 'default',
-      alwaysAllowRules: {},
-      alwaysDenyRules: {},
-      alwaysAskRules: {},
-    },
-    denialTracking: {
-      consecutiveDenials: 0,
-      totalDenials: 0,
-    },
-    mcp: {
-      clients: [],
-      tools: [],
-      commands: [],
-      pluginReconnectKey: 0,
-    },
-    plugins: {
-      enabled: [],
-      disabled: [],
-      errors: [],
-    },
-    tasks: {},
-    notifications: [],
-    notificationCount: 0,
-    sandboxEnabled: true,
-    remoteSessionUrl: undefined,
-    remoteConnectionStatus: undefined,
-    startupTime: Date.now(),
-  };
-}
-
-/**
  * 会话ID类型
  */
 export type SessionId = string;
@@ -196,24 +107,4 @@ export function generateSessionId(): SessionId {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substring(2, 10);
   return `sess_${timestamp}_${random}`;
-}
-
-/**
- * AppState存储接口
- */
-export interface AppStateStore {
-  store: Store<AppState>;
-  getState: () => AppState;
-  setState: (updater: (prev: AppState) => AppState) => void;
-  subscribe: (listener: (state: AppState) => void) => () => void;
-  updateToolPermissionContext: (
-    context: Partial<ToolPermissionContext>
-  ) => void;
-  addNotification: (
-    notification: Omit<Notification, 'id' | 'timestamp'>
-  ) => void;
-  removeNotification: (id: string) => void;
-  clearNotifications: () => void;
-  updateDenialTracking: (state: Partial<DenialTrackingState>) => void;
-  resetDenialTracking: () => void;
 }

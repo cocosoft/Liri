@@ -13,7 +13,7 @@ const logger = new Logger({
   level: LogLevel.INFO,
 });
 
-export interface SessionMessage {
+export interface SessionSendPayload {
   sessionId: string;
   content: string;
   type: 'text' | 'command' | 'result' | 'error' | 'system';

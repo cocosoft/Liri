@@ -1,4 +1,3 @@
-export type SessionId = string;
 export type MessageId = string;
 export type UserId = string;
 export type ConversationId = string;

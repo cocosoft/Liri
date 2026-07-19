@@ -21,6 +21,6 @@
 export {
   SessionsSendTool,
   createSessionsSendTool,
-  type SessionMessage,
+  type SessionSendPayload,
   type SessionMessageResult,
 } from './SessionsSendTool';

@@ -14,8 +14,6 @@ import type { OAuthTokenData } from '../services/OAuthStorage.js';
 export type { OAuthServerMetadata };
 export type { OAuthTokenData };
 
-export type OAuthTokens = OAuthTokenData;
-
 /**
  * OAuth 配置
  */

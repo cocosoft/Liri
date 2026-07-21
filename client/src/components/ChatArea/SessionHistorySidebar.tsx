@@ -2,11 +2,11 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useSessionStore } from "../../stores/sessionStore";
+import { useRootStore } from "../../stores/root-store";
 import { sessionService } from "../../services/sessionService";
 import ConfirmDialog from "../common/ConfirmDialog";
 import SessionContextMenu from "./SessionContextMenu";
 import SessionListItem from "./SessionListItem";
-import { SessionSliceList } from "./SessionSliceList";
 
 /**
  * 会话来源渠道 → 显示名称映射
@@ -59,6 +59,10 @@ function SessionHistorySidebar() {
     togglePin,
     pinnedSessionIds,
   } = useSessionStore();
+
+  // 从 rootStore SessionHub 获取 moduleType，用于过滤非 chat 会话
+  const rootSessions = useRootStore((s) => s.sessions);
+  const currentWorktreeId = useRootStore((s) => s.currentWorktreeId);
 
   // 从 localStorage 恢复折叠状态，默认展开
   const [isExpanded, setIsExpanded] = useState(() => {
@@ -197,6 +201,17 @@ function SessionHistorySidebar() {
   const filteredSessions = useMemo(() => {
     let result = sessions;
 
+    // 0. 过滤非 chat 类型的会话（通过 rootStore SessionHub 的 moduleType 识别）
+    //    避免日历/办公等其他模块的会话混入聊天历史
+    const nonChatIds = new Set(
+      Object.values(rootSessions)
+        .filter((s) => s.worktreeId === currentWorktreeId && s.moduleType !== "chat")
+        .map((s) => s.id),
+    );
+    if (nonChatIds.size > 0) {
+      result = result.filter((s) => !nonChatIds.has(s.id));
+    }
+
     // 1. 过滤 tab：仅保留"已固定"筛选
     if (filterTab === "pinned") {
       const pinnedSet = new Set(pinnedSessionIds);
@@ -221,7 +236,7 @@ function SessionHistorySidebar() {
       return [...pinnedItems, ...normalItems];
     }
     return result;
-  }, [sessions, debouncedQuery, pinnedSessionIds, filterTab]);
+  }, [sessions, debouncedQuery, pinnedSessionIds, filterTab, rootSessions, currentWorktreeId]);
 
   // 虚拟列表计算：仅当会话数 > 50 时启用，减少小列表开销
   const VIRTUAL_SCROLL_THRESHOLD = 50;
@@ -487,11 +502,6 @@ function SessionHistorySidebar() {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Phase 4: SessionHub 会话列表 — 带模块类型筛选 */}
-      <div className="border-t border-gray-200 dark:border-gray-700">
-        <SessionSliceList />
       </div>
 
       {sessions.length > 0 && (

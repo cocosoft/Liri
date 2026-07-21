@@ -1,10 +1,8 @@
 /**
- * useSessionBridge — 旧 sessionStore ↔ 新 SessionHub 双向同步
+ * useSessionBridge — 旧 sessionStore ↔ 新 SessionHub 双向同步（已废弃）
  *
- * 两套 Store 并行期间，将旧 sessionStore 的当前会话同步到新 root store。
- * 仅同步当前会话（不批量同步历史会话列表），避免重复创建和切换。
- *
- * Phase 4 全部迁移后，此钩子可安全移除。
+ * @deprecated 同步逻辑已内置到 sessionStore.ts（store.subscribe 自动同步到 rootStore）。
+ *             App.tsx 不再调用此钩子。保留文件仅用于参考，下一轮清理时删除。
  */
 
 import { useEffect, useRef } from "react";

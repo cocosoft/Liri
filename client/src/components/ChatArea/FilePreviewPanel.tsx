@@ -37,6 +37,7 @@ function FilePreviewPanel() {
   const [fileStats, setFileStats] = useState<FileStats | null>(null);
   const [recentFiles, setRecentFiles] = useState<FileRegistryRecord[]>([]);
   const [statsLoading, setStatsLoading] = useState(false);
+  const [manageError, setManageError] = useState<string | null>(null);
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
   /** 从 messages 中聚合 Token 用量统计 */
@@ -120,8 +121,9 @@ function FilePreviewPanel() {
   useEffect(() => {
     if (activeTab === 'manage') {
       setStatsLoading(true);
+      setManageError(null);
       Promise.all([
-        fileService.getFileStats().then(setFileStats).catch(() => {}),
+        fileService.getFileStats().then(setFileStats).catch((err) => setManageError(String(err))),
         fileService.searchFiles({ limit: 5 }).then((r) => setRecentFiles(r.items)).catch(() => {}),
       ]).finally(() => setStatsLoading(false));
     }
@@ -301,9 +303,25 @@ function FilePreviewPanel() {
 
       {/* 文件管理视图 */}
       {activeTab === 'manage' && (
-        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto p-3 space-y-3">
           {statsLoading ? (
             <div className="text-center py-8 text-gray-400 text-sm">加载中...</div>
+          ) : manageError && !fileStats ? (
+            <div className="flex flex-col items-center justify-center flex-1 text-center">
+              <svg className="w-10 h-10 text-amber-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <p className="text-sm text-amber-600 dark:text-amber-400">文件管理服务未就绪</p>
+              <p className="text-xs text-gray-400 mt-1 max-w-[200px]">请确认后端文件管理接口已部署并可用</p>
+            </div>
+          ) : !fileStats && recentFiles.length === 0 ? (
+            <div className="flex flex-col items-center justify-center flex-1 text-center">
+              <svg className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              </svg>
+              <p className="text-sm text-gray-400 dark:text-gray-500">暂无文件数据</p>
+              <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">文件管理服务正常，暂无文件记录</p>
+            </div>
           ) : (
             <>
               {fileStats && (
@@ -364,9 +382,29 @@ function FilePreviewPanel() {
 
       {/* 用量统计视图 */}
       {activeTab === 'usage' && (
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto p-3">
+          {/* 会话基础统计 */}
+          <div className="space-y-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 mb-3">
+            <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              会话概览
+            </h4>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <div className="text-xs text-gray-400">消息数</div>
+                <div className="font-mono text-gray-700 dark:text-gray-300">{messages.length}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-400">文件数</div>
+                <div className="font-mono text-gray-700 dark:text-gray-300">{sessionFiles.length}</div>
+              </div>
+            </div>
+          </div>
+
           {sessionUsage ? (
             <div className="space-y-2">
+              <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Token 统计
+              </h4>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500 dark:text-gray-400">输入词元</span>
                 <span className="font-mono text-gray-700 dark:text-gray-300">{sessionUsage.inputTokens.toLocaleString()}</span>
@@ -387,9 +425,14 @@ function FilePreviewPanel() {
               )}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <p className="text-sm text-gray-400 dark:text-gray-500">暂无用量数据</p>
-              <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">发送消息后将在此显示 Token 用量</p>
+            <div className="flex-1 flex flex-col items-center justify-center text-center">
+              <svg className="w-8 h-8 text-gray-300 dark:text-gray-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              <p className="text-sm text-gray-400 dark:text-gray-500">暂无 Token 统计</p>
+              <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">
+                {messages.length > 0 ? "当前模型未返回 Token 用量数据" : "发送消息后自动统计"}
+              </p>
             </div>
           )}
         </div>

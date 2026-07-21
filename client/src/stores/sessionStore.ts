@@ -1,12 +1,17 @@
+/**
+ * Session Store — rootStore 的薄封装（零重复状态）
+ *
+ * 所有状态真实存储在 useRootStore.sessionSlice 中。
+ * useSessionStore 是一个 Zustand store 镜像，通过 subscribe 自动同步 rootStore 变更。
+ * 组件使用方式和 API 完全不变。
+ *
+ * 迁移完成后，组件可逐步迁移到 useRootStore 直接取值。
+ */
+
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { Session } from "../types";
-import { sessionService } from "../services/sessionService";
-import { useChatStore } from "./chat";
-import { createLogger } from "../utils/logger";
-import { handleClientError } from "@/utils/handleError";
-
-const logger = createLogger("sessionStore");
+import { useRootStore } from "./root-store";
 
 interface SessionStore {
   sessions: Session[];
@@ -25,344 +30,92 @@ interface SessionStore {
   isPinned: (id: string) => boolean;
 }
 
+/**
+ * 从 rootStore 派生当前 sessionStore 镜像状态
+ */
+function deriveState(root: ReturnType<typeof useRootStore.getState>): {
+  sessions: Session[];
+  currentSession: Session | null;
+  isLoading: boolean;
+  switching: boolean;
+  error: string | null;
+  pinnedSessionIds: string[];
+} {
+  const currentId = root.currentSessionId;
+  return {
+    sessions: root.chatSessions ?? [],
+    currentSession: currentId
+      ? (root.chatSessions ?? []).find((s) => s.id === currentId) ?? null
+      : null,
+    isLoading: root.isLoading,
+    switching: root.switching,
+    error: root.error,
+    pinnedSessionIds: root.pinnedSessionIds ?? [],
+  };
+}
+
+/**
+ * sessionStore — rootStore 的 Zustand 镜像
+ *
+ * 自身也有 persist（向后兼容 localStorage 中的 "liri-sessions" 键），
+ * 但 hydrate 后立即同步到 rootStore。
+ */
 export const useSessionStore = create<SessionStore>()(
   persist(
-    (set, get) => ({
-      sessions: [],
-      currentSession: null,
-      isLoading: false,
-      switching: false,
-      error: null,
-      pinnedSessionIds: [],
+    () => ({
+      ...deriveState(useRootStore.getState()),
 
-      togglePin: (id: string) => {
-        const pinned = get().pinnedSessionIds;
-        const updated = pinned.includes(id)
-          ? pinned.filter((pid) => pid !== id)
-          : [id, ...pinned];
-        set({ pinnedSessionIds: updated });
-      },
-
-      isPinned: (id: string) => {
-        return get().pinnedSessionIds.includes(id);
-      },
-
-      loadSessions: async () => {
-        set({ isLoading: true, error: null });
-        try {
-          let sessions = await sessionService.list();
-          sessions = sessions.sort(
-            (a, b) =>
-              new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-          );
-          const currentSession = await sessionService.getCurrent();
-          set({ sessions, currentSession, isLoading: false });
-        } catch (error) {
-          handleClientError(error, { module: 'stores:sessionStore', action: 'loadSessions' }, 'warn');
-          set({ error: String(error), isLoading: false });
-        }
-      },
-
-      createSession: async (title: string) => {
-        logger.debug("Creating session with title:", title);
-        set({ isLoading: true, error: null });
-        try {
-          // 获取当前后端生效模型作为会话绑定模型
-          let modelId: string | undefined;
-          try {
-            const { modelSwitchService } = await import("../services/modelSwitchService");
-            const current = await modelSwitchService.getCurrent();
-            modelId = current.modelId;
-          } catch (e) {
-            handleClientError(e, { module: 'stores:sessionStore', action: 'createSession:getModelId' }, 'warn');
-          }
-
-          // 获取当前模型的任务分工配置作为会话初始覆盖
-          let tasksOverride: Record<string, string> | undefined;
-          try {
-            const { modelSwitchService } = await import("../services/modelSwitchService");
-            const tasks = await modelSwitchService.getTasks();
-            tasksOverride = tasks as Record<string, string>;
-          } catch (e) {
-            handleClientError(e, { module: 'stores:sessionStore', action: 'createSession:getTasks' }, 'warn');
-          }
-
-          // 获取当前工作空间作为会话绑定工作空间
-          let workspaceId: string | undefined;
-          let workspacePath: string | undefined;
-          try {
-            const { useWorkspaceStore } = await import("./workspaceStore");
-            const ws = useWorkspaceStore.getState().currentWorkspace;
-            workspaceId = ws?.id;
-            workspacePath = ws?.path;
-          } catch (e) {
-            handleClientError(e, { module: 'stores:sessionStore', action: 'createSession:getWorkspace' }, 'warn');
-          }
-
-          const session = await sessionService.create(title, { modelId, workspaceId, workspacePath });
-          // 存储任务分工快照到本地 session
-          const sessionWithTasks: Session = tasksOverride
-            ? { ...session, tasksOverride: tasksOverride as unknown as Partial<import("../types/model").TaskModelConfig> }
-            : session;
-          logger.debug("Created session: " + session.id + " " + session.title, { modelId, workspaceId });
-          // sessionService.create() 已统一展平 titleAutoGenerated（BUG #12）
-          const enriched: Session = sessionWithTasks;
-          useChatStore.getState().clearMessages();
-          let sessions = await sessionService.list();
-          sessions = sessions.sort(
-            (a, b) =>
-              new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-          );
-          logger.debug("Session list after create: " + sessions.length + " sessions");
-          logger.debug("Session IDs:", sessions.map((s) => s.id));
-          set({
-            sessions,
-            currentSession: enriched,
-            isLoading: false,
-          });
-          return session;
-        } catch (error) {
-          handleClientError(error, { module: 'stores:sessionStore', action: 'createSession' }, 'warn');
-          set({ error: String(error), isLoading: false });
-          throw error;
-        }
-      },
-
-  switchSession: async (id: string) => {
-    // 乐观 UI 更新：立即标记切换中，后端 SessionLock 保证同一时刻只有一个 switch 完成
-    const prevId = get().currentSession?.id ?? null;
-    set({ switching: true, error: null });
-
-    try {
-      // 中止当前正在进行的流式请求，避免旧流数据污染新会话
-      useChatStore.getState().stopMessage();
-      // 先 flush 当前会话未持久化的 blocks，避免切走时丢失
-      await useChatStore.getState().flushPendingSaves();
-
-      // 记录离开当前会话的时间戳（用于回切摘要）
-      const prevSession = get().currentSession;
-      if (prevSession) {
-        const chatStore = (await import('./chatStore')).useChatStore;
-        const prevMsgCount = chatStore.getState().messages.length;
-        import('../components/ChatArea/ReEntryBanner').then((m) =>
-          m.recordSessionLeave(prevSession.id, prevMsgCount),
-        );
-      }
-
-      const session = await sessionService.switch(id);
-
-      // sessionService.switch() 已统一展平 titleAutoGenerated（BUG #12）
-      const enriched: Session = session;
-
-      // 检查消息缓存（避免重复 fetch）
-      const { _getCachedMessages } = await import('./chatStore');
-      const cached = _getCachedMessages(id);
-      const messages = cached ?? await sessionService.getMessages(id);
-      if (cached) {
-        logger.debug('使用缓存的会话消息', { id, count: cached.length });
-      }
-
-      useChatStore.getState().setMessages(messages);
-
-      // 清除旧会话的路径解析缓存，防止残留旧会话的文件路径
-      import('../components/ChatArea/markdown/pathCache').then(m => m.clearPathCache());
-
-      // 从消息中重建 sessionFiles（修复 BUG #11 切换会话后文件上下文丢失）
-      const filePaths = new Set<string>();
-      for (const msg of messages) {
-        // 扫描 content 中的文件路径
-        if (typeof msg.content === 'string') {
-          const matches = msg.content.match(/[a-zA-Z]:\\(?:[^\\\n\r]+\\)*[^\\\n\r]*\.[a-zA-Z0-9]+|\/(?:[^/\n\r]+\/)*[^/\n\r]*\.[a-zA-Z0-9]+/g);
-          if (matches) matches.forEach(p => filePaths.add(p));
-        }
-        // 扫描 tool_calls 参数中的文件路径
-        const toolCalls = (msg as unknown as Record<string, unknown>).tool_calls;
-        if (Array.isArray(toolCalls)) {
-          for (const tc of toolCalls) {
-            const args = tc.arguments;
-            if (typeof args === 'string') {
-              try {
-                const parsed = JSON.parse(args);
-                const fp = parsed.file_path || parsed.path || parsed.filePath;
-                if (fp && typeof fp === 'string') filePaths.add(fp);
-              } catch (e) {
-                handleClientError(e, { module: 'stores:sessionStore', action: 'switchSession:parseArgs' }, 'warn');
-              }
-            } else if (args && typeof args === 'object') {
-              const rargs = args as Record<string, unknown>;
-              const fp = rargs.file_path || rargs.path || rargs.filePath;
-              if (fp && typeof fp === 'string') filePaths.add(fp as string);
-            }
-          }
-        }
-        // 扫描 metadata 中的文件路径
-        const metadata = (msg as unknown as Record<string, unknown>).metadata;
-        if (metadata && typeof metadata === 'object') {
-          const m = metadata as Record<string, unknown>;
-          if (m.file_path && typeof m.file_path === 'string') filePaths.add(m.file_path);
-        }
-      }
-      // 批量添加到 store
-      const chatStore = (await import('./chatStore')).useChatStore;
-      const { inferFileType } = await import('./chatStore');
-      for (const fp of filePaths) {
-        const name = fp.split(/[/\\]/).pop() || fp;
-        chatStore.getState().addSessionFile({ path: fp, name, content: '', type: inferFileType(fp) });
-      }
-
-      set({ currentSession: enriched });
-
-      // 【懒加载恢复模型】如果会话绑定了模型且与后端当前模型不同，同步切换
-      if (enriched.modelId) {
-        try {
-          const { modelSwitchService } = await import("../services/modelSwitchService");
-          const current = await modelSwitchService.getCurrent();
-          if (current.modelId !== enriched.modelId) {
-            logger.debug("switchSession: 懒加载恢复会话模型", {
-              sessionModelId: enriched.modelId,
-              backendModelId: current.modelId,
-            });
-            await modelSwitchService.switch(enriched.modelId);
-          }
-        } catch (e) {
-          handleClientError(e, { module: 'stores:sessionStore', action: 'switchSession:lazyModelRestore' }, 'warn');
-        }
-      }
-
-      // 【刷新路由状态】切换会话后立即更新 Footer 中的 tier 显示
-      try {
-        const { modelSwitchService } = await import("../services/modelSwitchService");
-        await modelSwitchService.getCurrent();
-        // 通过 modelSwitchStore 更新本地状态（proxy 到 appStore）
-        const { useModelSwitchStore } = await import("../stores/modelSwitchStore");
-        useModelSwitchStore.getState().loadCurrent();
-      } catch (e) {
-        handleClientError(e, { module: 'stores:sessionStore', action: 'switchSession:refreshRoute' }, 'warn');
-      }
-
-      // 【联动工作空间】如果会话绑定了工作空间且与当前不同，同步切换
-      if (enriched.workspaceId) {
-        try {
-          const { useWorkspaceStore } = await import("./workspaceStore");
-          const wsState = useWorkspaceStore.getState();
-          if (wsState.currentWorkspace?.id !== enriched.workspaceId) {
-            logger.debug("switchSession: 联动切换工作空间", {
-              sessionWorkspaceId: enriched.workspaceId,
-              currentWorkspaceId: wsState.currentWorkspace?.id,
-            });
-            // 异步打开工作空间（不阻塞会话切换）
-            wsState.openWorkspace(enriched.workspaceId).catch((err: unknown) => {
-              handleClientError(err, { module: 'stores:sessionStore', action: 'switchSession:workspaceLink' }, 'warn');
-            });
-          }
-        } catch (e) {
-          handleClientError(e, { module: 'stores:sessionStore', action: 'switchSession:workspaceModuleLoad' }, 'warn');
-        }
-      }
-    } catch (error) {
-      handleClientError(error, { module: 'stores:sessionStore', action: 'switchSession' }, 'warn');
-      // 失败时回滚到上一个会话
-      if (prevId) {
-        set({ currentSession: get().sessions.find(s => s.id === prevId) ?? null });
-      }
-      set({ error: String(error) });
-    } finally {
-      set({ switching: false });
-    }
-  },
-
-  deleteSession: async (id: string) => {
-    // 中止当前正在进行的流式请求，避免旧流数据污染（修复 BUG #3）
-    useChatStore.getState().stopMessage();
-    set({ isLoading: true, error: null });
-    try {
-      await sessionService.delete(id);
-      const sessions = get().sessions.filter((s) => s.id !== id);
-      if (get().currentSession?.id === id) {
-        if (sessions[0]) {
-          // 有剩余会话 → 加载该会话的消息（修复 BUG #3）
-          const messages = await sessionService.getMessages(sessions[0].id);
-          useChatStore.getState().setMessages(messages);
-          set({ sessions, currentSession: sessions[0], isLoading: false });
-        } else {
-          // 无剩余会话 → 清空消息（修复 BUG #3）
-          useChatStore.getState().clearMessages();
-          set({ sessions, currentSession: null, isLoading: false });
-        }
-      } else {
-        set({ sessions, isLoading: false });
-      }
-    } catch (error) {
-      handleClientError(error, { module: 'stores:sessionStore', action: 'deleteSession' }, 'warn');
-      set({ error: String(error), isLoading: false });
-    }
-  },
-
-  renameSession: async (id: string, title: string) => {
-        set({ isLoading: true, error: null });
-        try {
-          await sessionService.rename(id, title);
-          const sessions = get().sessions.map((s) =>
-            s.id === id ? { ...s, title, titleAutoGenerated: true } : s,
-          );
-          const current = get().currentSession;
-          const updatedSession: Session | null =
-            current?.id === id
-              ? { ...current, title, titleAutoGenerated: true }
-              : current;
-          set({ sessions, currentSession: updatedSession, isLoading: false });
-        } catch (error) {
-          handleClientError(error, { module: 'stores:sessionStore', action: 'renameSession' }, 'warn');
-          set({ error: String(error), isLoading: false });
-        }
-      },
-
-  clearAllSessions: async () => {
-    // 中止当前正在进行的流式请求（修复 BUG #4）
-    useChatStore.getState().stopMessage();
-    set({ isLoading: true, error: null });
-    try {
-      await sessionService.clearAll();
-      useChatStore.getState().clearMessages();
-      set({ sessions: [], currentSession: null, isLoading: false });
-    } catch (error) {
-      handleClientError(error, { module: 'stores:sessionStore', action: 'clearAllSessions' }, 'warn');
-      set({ error: String(error), isLoading: false });
-    }},
-  }),
-  {
-    name: "liri-sessions",
-    partialize: (state) => ({
-      sessions: state.sessions.map((s) => ({
-        id: s.id,
-        title: s.title,
-        updatedAt: s.updatedAt,
-        titleAutoGenerated: s.titleAutoGenerated,
-        modelId: s.modelId,
-        providerId: s.providerId,
-        workspaceId: s.workspaceId,
-        workspacePath: s.workspacePath,
-        tasksOverride: s.tasksOverride,
-      })),
-      currentSession: state.currentSession
-        ? {
-            id: state.currentSession.id,
-            title: state.currentSession.title,
-            updatedAt: state.currentSession.updatedAt,
-            titleAutoGenerated: state.currentSession.titleAutoGenerated,
-            modelId: state.currentSession.modelId,
-            providerId: state.currentSession.providerId,
-            workspaceId: state.currentSession.workspaceId,
-            workspacePath: state.currentSession.workspacePath,
-            tasksOverride: state.currentSession.tasksOverride,
-          }
-        : null,
-      pinnedSessionIds: state.pinnedSessionIds,
+      loadSessions: () => useRootStore.getState().loadChatSessions(),
+      createSession: (title) => useRootStore.getState().createChatSession(title),
+      switchSession: (id) => useRootStore.getState().switchChatSession(id),
+      deleteSession: (id) => useRootStore.getState().deleteChatSession(id),
+      renameSession: (id, title) => useRootStore.getState().renameChatSession(id, title),
+      clearAllSessions: () => useRootStore.getState().clearAllChatSessions(),
+      togglePin: (id) => useRootStore.getState().togglePin(id),
+      isPinned: (id) => useRootStore.getState().isPinned(id),
     }),
-  },
-));
+    {
+      name: "liri-sessions",
+      partialize: (state) => ({
+        sessions: state.sessions.map((s) => ({
+          id: s.id,
+          title: s.title,
+          updatedAt: s.updatedAt,
+          titleAutoGenerated: s.titleAutoGenerated,
+          modelId: s.modelId,
+          providerId: s.providerId,
+          workspaceId: s.workspaceId,
+          workspacePath: s.workspacePath,
+          tasksOverride: s.tasksOverride,
+        })),
+        pinnedSessionIds: state.pinnedSessionIds,
+      }),
+      // 反序列化时：恢复旧数据到 rootStore
+      onRehydrateStorage: () => (state, error) => {
+        if (error || !state) return;
+        // 将旧 persist 数据迁移到 rootStore
+        const root = useRootStore.getState();
+        if (state.sessions?.length && root.chatSessions.length === 0) {
+          useRootStore.setState((s) => ({ ...s, chatSessions: state.sessions as Session[] }));
+        }
+        if (state.pinnedSessionIds?.length) {
+          useRootStore.setState((s) => ({ ...s, pinnedSessionIds: state.pinnedSessionIds }));
+        }
+        if (state.currentSession) {
+          useRootStore.setState((s) => ({ ...s, currentSessionId: (state.currentSession as Session).id }));
+        }
+      },
+    },
+  ),
+);
 
+// ─── 核心：rootStore → sessionStore 单向镜像 ────────────
+// rootStore 是唯一事实来源，sessionStore 只是它的投影。
+// 任何 rootStore 变更自动同步到 sessionStore，保证「数出同源」。
 
+useRootStore.subscribe((root) => {
+  useSessionStore.setState(deriveState(root));
+});
 
 // 状态变更日志（仅开发环境）
 import { withStoreLogging } from "../utils/storeLogger";

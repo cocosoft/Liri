@@ -34,6 +34,8 @@ export interface ExecutionPhaseData {
 export interface Worktree {
   id: string;
   name: string;
+  /** 关联的文件夹路径（必填，工作空间的核心绑定） */
+  path: string;
   description?: string;
 
   /** 环境隔离 */

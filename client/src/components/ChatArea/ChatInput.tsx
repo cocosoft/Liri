@@ -831,8 +831,8 @@ function ChatInput() {
               </label>
             </div>
           )}
-          {/* 模式选择器 — 输入框上方小标签 */}
-          <div className="flex items-center mb-1">
+          {/* 模式选择器 + 上传/表情 — 输入框上方 */}
+          <div className="flex items-center gap-1 mb-1">
             <div className="relative">
               <button
                 onClick={() => setShowModeMenu(!showModeMenu)}
@@ -873,9 +873,69 @@ function ChatInput() {
                 </>
               )}
             </div>
+            {/* 上传 + 表情按钮 */}
+            <div className="flex items-center gap-0.5">
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) handleImageFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+              <div className="relative" ref={uploadMenuRef}>
+                <button
+                  onClick={() => setShowUploadMenu(!showUploadMenu)}
+                  aria-label={t('chat.uploadFile')}
+                  disabled={!currentSession || isUploading}
+                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={t('chat.uploadFile')}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+                {showUploadMenu && (
+                  <div className="absolute bottom-full left-0 mb-1 w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-20">
+                    <button
+                      onClick={() => { imageInputRef.current?.click(); setShowUploadMenu(false); }}
+                      className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {t('chat.uploadImage')}
+                    </button>
+                    <button
+                      onClick={() => { fileBarRef.current?.triggerFileInput(); setShowUploadMenu(false); }}
+                      className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                      </svg>
+                      {t('chat.uploadFile')}
+                    </button>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                aria-label={t('chat.emoji')}
+                disabled={!currentSession}
+                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={t('chat.emoji')}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+            </div>
           </div>
-          {/* 输入框 + 按钮 */}
-          <div className="flex items-end gap-2 bg-gray-100 dark:bg-gray-700 rounded-2xl p-1.5 ring-1 ring-transparent focus-within:ring-blue-500/40 dark:focus-within:ring-blue-400/30 focus-within:shadow-md transition-all duration-200">
+          {/* 输入框 + 按钮 — textarea 独占整行，按钮在下方右对齐 */}
+          <div className="flex flex-col gap-1.5 bg-gray-100 dark:bg-gray-700 rounded-2xl p-1.5 ring-1 ring-transparent focus-within:ring-blue-500/40 dark:focus-within:ring-blue-400/30 focus-within:shadow-md transition-all duration-200">
             {/* 文本输入 */}
             <div className="flex-1 relative">
               <textarea
@@ -900,74 +960,8 @@ function ChatInput() {
               />
             </div>
 
-            {/* 右侧按钮 */}
-            <div className="flex items-center gap-1">
-              {/* 隐藏的图片选择输入 */}
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files) handleImageFiles(e.target.files);
-                  e.target.value = "";
-                }}
-              />
-              {/* 统一上传「+」按钮 — 点击展开菜单选择上传图片或文件 */}
-              <div className="relative" ref={uploadMenuRef}>
-                <button
-                  onClick={() => setShowUploadMenu(!showUploadMenu)}
-                  aria-label={t('chat.uploadFile')}
-                  disabled={!currentSession || isUploading}
-                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={t('chat.uploadFile')}
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                </button>
-                {showUploadMenu && (
-                  <div className="absolute bottom-full left-0 mb-1 w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-20">
-                    <button
-                      onClick={() => {
-                        imageInputRef.current?.click();
-                        setShowUploadMenu(false);
-                      }}
-                      className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      {t('chat.uploadImage')}
-                    </button>
-                    <button
-                      onClick={() => {
-                        fileBarRef.current?.triggerFileInput();
-                        setShowUploadMenu(false);
-                      }}
-                      className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                      </svg>
-                      {t('chat.uploadFile')}
-                    </button>
-                  </div>
-                )}
-              </div>
-              {/* Emoji 选择器按钮 */}
-              <button
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                aria-label={t('chat.emoji')}
-                disabled={!currentSession}
-                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title={t('chat.emoji')}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
+            {/* 底部按钮 — 语音 + 发送，右对齐 */}
+            <div className="flex items-center gap-1 self-end">
               <VoiceInputButton
                 ref={voiceBtnRef}
                 isDark={config.theme === "dark"}

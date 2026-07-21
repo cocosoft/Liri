@@ -137,7 +137,7 @@ function ChatArea() {
       <div className="flex-1 relative min-w-0">
         <div
           ref={containerRef}
-          className="absolute inset-0 overflow-y-auto pb-28"
+          className="absolute inset-0 overflow-y-auto pb-36"
         >
           {/* 错误提示 */}
           {displayError && (
@@ -260,21 +260,22 @@ function ChatArea() {
           </div>
         )}
 
-        {/* AI 运行状态栏 */}
-        <StatusFloatBar />
+        {/* 底部区域：AI 状态栏 + 输入区（flex-col，StatusFloatBar 自然贴着输入区上方） */}
+        <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-col">
+          <StatusFloatBar />
 
-        {/* 语音字幕覆盖层 */}
-        <VoiceSubtitleOverlay
-          interimText={interimText}
-          finalText={finalText}
-          audioLevel={audioLevel}
-          status={subtitleStatus}
-          isDark={isDark}
-          position="bottom"
-        />
+          {/* 语音字幕覆盖层 */}
+          <VoiceSubtitleOverlay
+            interimText={interimText}
+            finalText={finalText}
+            audioLevel={audioLevel}
+            status={subtitleStatus}
+            isDark={isDark}
+            position="bottom"
+          />
 
-        {/* 输入区域 */}
-        <ChatInput />
+          <ChatInput />
+        </div>
       </div>
     </div>
   );

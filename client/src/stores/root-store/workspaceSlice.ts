@@ -1,8 +1,8 @@
 /**
- * Workspace Slice — 工作空间统一状态管理
+ * Workspace Slice — 工作空间统一状态管理 + 旧 workspaceStore 状态
  *
  * 合并环境隔离 + 任务管理 + 会话历史 + UI 布局为一个 Worktree 模型。
- * 与现有 workspaceStore 并行运行（两套 Store 共存策略）。
+ * workspaceStore.ts 作为薄镜像，通过 subscribe 自动同步。
  */
 
 import type { StateCreator } from "zustand";
@@ -10,8 +10,11 @@ import type {
   Worktree,
   WorktreeLayout,
   WorktreeTransition,
+  WorkItem as RootWorkItem,
 } from "./types";
 import type { RootState } from "./index";
+import type { WorkspaceListItem } from "@/services/workspaceService";
+import type { WorkItem as OldWorkItem, WorkItemStatus } from "@/stores/workStore";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("root-store:workspaceSlice");
@@ -19,13 +22,14 @@ const logger = createLogger("root-store:workspaceSlice");
 // ─── Slice 接口 ────────────────────────────────────────
 
 export interface WorkspaceSlice {
+  // ── Worktree 字段 ──
   /** 当前工作空间 ID */
   currentWorktreeId: string | null;
 
   /** 所有工作空间 */
   worktrees: Record<string, Worktree>;
 
-  /** 最近使用的工作空间 ID（方便快速切换） */
+  /** 最近使用的工作空间 ID */
   recentWorktreeIds: string[];
 
   /** 当前 worktree 切换的状态 */
@@ -37,21 +41,42 @@ export interface WorkspaceSlice {
   /** 是否正在加载 */
   isLoading: boolean;
 
-  // ─── 动作 ───
+  // ── 旧 workspaceStore 兼容字段 ──
+  /** 工作空间列表（workspaceStore 镜像源） */
+  workspaceList: WorkspaceListItem[];
 
-  createWorktree: (config: Partial<Pick<Worktree, "name" | "description">>) => string;
-  /** 两阶段切换：先标记 pending，并行加载，汇总失败后标记 completed/partial */
+  /** 后端 API 是否就绪 */
+  backendReady: boolean;
+
+  // ─── Worktree 动作 ───
+  createWorktree: (config: { name: string; path: string; description?: string }) => string;
   switchWorktree: (id: string) => Promise<void>;
   deleteWorktree: (id: string) => void;
+  /** 更新工作空间名称或路径 */
+  updateWorktree: (id: string, updates: { name?: string; path?: string; description?: string }) => void;
   updateWorktreeLayout: (layout: Partial<WorktreeLayout>) => void;
   bindGitRepo: (worktreeId: string, repoPath: string) => void;
   bindModel: (worktreeId: string, modelId: string, providerId: string) => void;
   bindAgent: (worktreeId: string, agentId: string) => void;
   addKnowledgeBase: (worktreeId: string, kbId: string) => void;
   removeKnowledgeBase: (worktreeId: string, kbId: string) => void;
+
+  // ─── 旧 workspaceStore 兼容动作（异步，调用 workspaceService）───
+  /** 获取工作空间列表 */
+  listWorkspaces: () => Promise<void>;
+  /** 打开工作空间：加载信息 + 工作项列表 */
+  openWorkspace: (workspaceId: string) => Promise<void>;
+  /** 创建工作项 */
+  createWorkItem: (title: string) => Promise<void>;
+  /** 更新工作项状态 */
+  updateWorkItemStatus: (itemId: string, status: WorkItemStatus) => Promise<void>;
+  /** 检查后端就绪 */
+  checkBackendReady: () => Promise<void>;
+  /** 重置状态 */
+  resetWorkspace: () => void;
 }
 
-// ─── Slice 实现 ────────────────────────────────────────
+// ─── 默认布局 ──────────────────────────────────────────
 
 const DEFAULT_LAYOUT: WorktreeLayout = {
   activeModuleId: null,
@@ -61,25 +86,32 @@ const DEFAULT_LAYOUT: WorktreeLayout = {
   uiSnapshots: {},
 };
 
+// ─── Slice 实现 ────────────────────────────────────────
+
 export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlice> = (
   set,
   get
 ) => ({
+  // ── 初始状态 ──
   currentWorktreeId: null,
   worktrees: {},
   recentWorktreeIds: [],
   transition: null,
   error: null,
   isLoading: false,
+  workspaceList: [],
+  backendReady: false,
 
-  // ─── 创建工作空间 ───
+  // ─── Worktree 动作 ──────────────────────────────────
+
   createWorktree: (config) => {
     const id = `wt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const now = Date.now();
 
     const worktree: Worktree = {
       id,
-      name: config.name ?? "未命名工作空间",
+      name: config.name,
+      path: config.path,
       description: config.description,
       modelConfig: { modelId: "", providerId: "" },
       agentId: "",
@@ -97,33 +129,41 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
       recentWorktreeIds: [id, ...state.recentWorktreeIds].slice(0, 20),
     }));
 
-    logger.info("工作空间创建", { worktreeId: id, name: worktree.name });
+    logger.info("工作空间创建", { worktreeId: id, name: config.name, path: config.path });
     return id;
   },
 
-  // ─── 两阶段切换工作空间 ───
+  updateWorktree: (id, updates) => {
+    set((state) => {
+      const wt = state.worktrees[id];
+      if (!wt) return state;
+      return {
+        worktrees: {
+          ...state.worktrees,
+          [id]: { ...wt, ...updates, updatedAt: Date.now() },
+        },
+      };
+    });
+    logger.info("工作空间更新", { worktreeId: id, ...updates });
+  },
+
   switchWorktree: async (id) => {
     if (!get().worktrees[id]) {
       set({ error: `工作空间 ${id} 不存在` });
       return;
     }
 
-    // 阶段 1：标记 pending
     set({
       transition: { targetId: id, status: "pending", errors: [] },
       isLoading: true,
       error: null,
     });
 
-    // 阶段 2：并行加载资源（容忍部分失败）
     const loadTasks: Promise<{ source: string; ok: boolean; error?: string }>[] = [];
 
-    // 加载会话列表（内部方法，由 SessionSlice 提供或直接调用 sessionService）
     loadTasks.push(
       (async () => {
         try {
-          // 会话列表加载由 SessionSlice.loadSessionsForWorktree 负责，
-          // 这里仅触发 — 实际加载逻辑在 sessionSlice 的 subscribe 中
           return { source: "session", ok: true };
         } catch (e) {
           return { source: "session", ok: false, error: String(e) };
@@ -131,14 +171,12 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
       })()
     );
 
-    // Git 状态（由独立 gitStore 负责）
     loadTasks.push(
       (async () => {
         try {
           const wt = get().worktrees[id];
           if (wt?.gitRepo?.path) {
-            // gitStore 尚未创建，此处预留调用
-            // await useGitStore.getState().refreshStatus(id);
+            // gitStore 预留
           }
           return { source: "git", ok: true };
         } catch (e) {
@@ -147,7 +185,6 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
       })()
     );
 
-    // 知识库索引
     loadTasks.push(
       (async () => {
         try {
@@ -180,28 +217,21 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
       error: errors.length > 0 ? `部分资源加载失败: ${errors.map((e) => e.source).join(", ")}` : null,
     });
 
-    logger.info("工作空间切换", {
-      worktreeId: id,
-      status: transitionStatus,
-      errors: errors.length,
-    });
+    logger.info("工作空间切换", { worktreeId: id, status: transitionStatus, errors: errors.length });
   },
 
-  // ─── 删除工作空间 ───
   deleteWorktree: (id) => {
     const { [id]: _removed, ...rest } = get().worktrees;
 
     set((state) => ({
       worktrees: rest,
       recentWorktreeIds: state.recentWorktreeIds.filter((rid) => rid !== id),
-      currentWorktreeId:
-        state.currentWorktreeId === id ? null : state.currentWorktreeId,
+      currentWorktreeId: state.currentWorktreeId === id ? null : state.currentWorktreeId,
     }));
 
     logger.info("工作空间删除", { worktreeId: id });
   },
 
-  // ─── 布局更新 ───
   updateWorktreeLayout: (layout) => {
     const id = get().currentWorktreeId;
     if (!id) return;
@@ -212,17 +242,12 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
       return {
         worktrees: {
           ...state.worktrees,
-          [id]: {
-            ...wt,
-            layout: { ...wt.layout, ...layout },
-            updatedAt: Date.now(),
-          },
+          [id]: { ...wt, layout: { ...wt.layout, ...layout }, updatedAt: Date.now() },
         },
       };
     });
   },
 
-  // ─── 绑定 ───
   bindGitRepo: (worktreeId, repoPath) => {
     set((state) => {
       const wt = state.worktrees[worktreeId];
@@ -230,11 +255,7 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
       return {
         worktrees: {
           ...state.worktrees,
-          [worktreeId]: {
-            ...wt,
-            gitRepo: { path: repoPath, currentBranch: "" },
-            updatedAt: Date.now(),
-          },
+          [worktreeId]: { ...wt, gitRepo: { path: repoPath, currentBranch: "" }, updatedAt: Date.now() },
         },
       };
     });
@@ -247,11 +268,7 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
       return {
         worktrees: {
           ...state.worktrees,
-          [worktreeId]: {
-            ...wt,
-            modelConfig: { modelId, providerId },
-            updatedAt: Date.now(),
-          },
+          [worktreeId]: { ...wt, modelConfig: { modelId, providerId }, updatedAt: Date.now() },
         },
       };
     });
@@ -278,11 +295,7 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
       return {
         worktrees: {
           ...state.worktrees,
-          [worktreeId]: {
-            ...wt,
-            knowledgeBaseIds: [...wt.knowledgeBaseIds, kbId],
-            updatedAt: Date.now(),
-          },
+          [worktreeId]: { ...wt, knowledgeBaseIds: [...wt.knowledgeBaseIds, kbId], updatedAt: Date.now() },
         },
       };
     });
@@ -302,6 +315,153 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
           },
         },
       };
+    });
+  },
+
+  // ─── 旧 workspaceStore 兼容动作（异步）───────────────
+
+  listWorkspaces: async () => {
+    try {
+      const { workspaceService } = await import("@/services/workspaceService");
+      const list = await workspaceService.listWorkspaces();
+      list.sort((a, b) => b.updatedAt - a.updatedAt);
+      set({ workspaceList: list });
+    } catch (err) {
+      logger.warn("获取工作空间列表失败", err);
+      set({ workspaceList: [] });
+    }
+  },
+
+  openWorkspace: async (workspaceId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { workspaceService } = await import("@/services/workspaceService");
+      const ws = await workspaceService.getWorkspace(workspaceId);
+      const items: OldWorkItem[] = await workspaceService.getWorkItems(workspaceId);
+
+      const wtId = workspaceId;
+
+      // 确保 worktree 存在
+      if (!get().worktrees[wtId]) {
+        get().createWorktree({ name: ws?.path ?? "工作空间", path: ws?.path ?? workspaceId });
+      }
+
+      // 映射 workItems 到 RootWorkItem
+      const mappedItems: RootWorkItem[] = items.map((item) => ({
+        id: item.id,
+        title: item.title,
+        description: item.description ?? "",
+        status: item.status,
+        worktreeId: wtId,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt ?? item.createdAt,
+      }));
+
+      // 使用 set 更新当前 worktree 的 workItems
+      set((s) => {
+        const wt = s.worktrees[wtId];
+        if (!wt) return s;
+        return {
+          currentWorktreeId: wtId,
+          worktrees: {
+            ...s.worktrees,
+            [wtId]: { ...wt, workItems: mappedItems, updatedAt: Date.now() },
+          },
+          isLoading: false,
+        } as Partial<RootState>;
+      });
+    } catch (err) {
+      if (!get().worktrees[workspaceId]) {
+        get().createWorktree({ name: workspaceId, path: workspaceId });
+      }
+      set({ currentWorktreeId: workspaceId, isLoading: false, error: String(err) });
+    }
+  },
+
+  createWorkItem: async (title: string) => {
+    const wtId = get().currentWorktreeId;
+    if (!wtId) return;
+
+    set({ isLoading: true, error: null });
+
+    let sessionId: string | undefined;
+    try {
+      sessionId = get().currentSessionId ?? undefined;
+    } catch { /* ignore */ }
+
+    const { workspaceService } = await import("@/services/workspaceService");
+    const item = await workspaceService.createWorkItem(wtId, { title, sessionId });
+
+    set((s) => {
+      const wt = s.worktrees[wtId];
+      if (!wt) return s;
+      const mappedItem: RootWorkItem = {
+        id: item.id,
+        title: item.title,
+        description: item.description ?? "",
+        status: item.status,
+        worktreeId: wtId,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt ?? item.createdAt,
+      };
+      return {
+        ...s,
+        worktrees: {
+          ...s.worktrees,
+          [wtId]: { ...wt, workItems: [...wt.workItems, mappedItem], updatedAt: Date.now() },
+        },
+        isLoading: false,
+      };
+    });
+  },
+
+  updateWorkItemStatus: async (itemId: string, status: WorkItemStatus) => {
+    const wtId = get().currentWorktreeId;
+    if (!wtId) return;
+
+    // 乐观更新本地
+    set((s) => {
+      const wt = s.worktrees[wtId];
+      if (!wt) return s;
+      const now = Date.now();
+      return {
+        ...s,
+        worktrees: {
+          ...s.worktrees,
+          [wtId]: {
+            ...wt,
+            workItems: wt.workItems.map((item) =>
+              item.id === itemId
+                ? {
+                    ...item,
+                    status,
+                    updatedAt: now,
+                  }
+                : item
+            ),
+            updatedAt: now,
+          },
+        },
+      };
+    });
+
+    const { workspaceService } = await import("@/services/workspaceService");
+    await workspaceService.updateWorkItem(wtId, itemId, { status });
+  },
+
+  checkBackendReady: async () => {
+    const { workspaceService } = await import("@/services/workspaceService");
+    const ready = await workspaceService.isBackendReady();
+    set({ backendReady: ready });
+  },
+
+  resetWorkspace: () => {
+    set({
+      currentWorktreeId: null,
+      worktrees: {},
+      workspaceList: [],
+      isLoading: false,
+      error: null,
     });
   },
 });

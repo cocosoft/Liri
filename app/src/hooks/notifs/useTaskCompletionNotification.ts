@@ -28,7 +28,8 @@ export function useTaskCompletionNotification(): void {
           currTask.status === TaskStatus.LOST;
         if (!wasRunning || !isDone) continue;
 
-        const type = currTask.status === TaskStatus.COMPLETED ? 'success' : 'warning';
+        const type =
+          currTask.status === TaskStatus.COMPLETED ? 'success' : 'warning';
         const label =
           currTask.status === TaskStatus.COMPLETED
             ? '完成'

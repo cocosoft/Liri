@@ -21,8 +21,6 @@ import { registerBuiltinModules } from "./stores/root-store/moduleRegistry";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { useBuddyNotification } from "./hooks/useBuddyNotification";
 import { useInitApp } from "./hooks/useInitApp";
-import { useSessionBridge } from "./hooks/useSessionBridge";
-import { useWorktreeSync } from "./hooks/useWorktreeSync";
 import { useAutoCreateSession } from "./hooks/useAutoCreateSession";
 
 function App() {
@@ -45,9 +43,8 @@ function App() {
 
   useKeyboard();
   useBuddyNotification();
-  useSessionBridge();     // Phase 6: 旧 sessionStore → 新 SessionHub 同步
-  useWorktreeSync();      // Phase 6: 旧 workspaceStore → 新 WorkspaceSlice 同步
   useAutoCreateSession(); // Phase 7: URL 导航 → SessionHub 自动创建模块 session
+  // useSessionBridge / useWorktreeSync 已移除：同步逻辑已内置到 sessionStore / workspaceStore 中
 
   // 主题切换
   useEffect(() => {
@@ -112,7 +109,7 @@ function App() {
     if (rootCurrentWorktreeId) return;
 
     // 创建默认工作空间
-    const wtId = rootCreateWorktree({ name: "默认工作空间" });
+    const wtId = rootCreateWorktree({ name: "默认工作空间", path: "." });
     rootSwitchWorktree(wtId);
   }, [initState.phase, rootCurrentWorktreeId, rootCreateWorktree, rootSwitchWorktree]);
 

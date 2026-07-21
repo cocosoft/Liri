@@ -46,6 +46,7 @@ export const useRootStore = create<RootState>()(
           currentWorktreeId: state.currentWorktreeId,
           currentSessionId: state.currentSessionId,
           sessions: state.sessions,          // 核心：会话记录必须持久化
+          chatSessions: state.chatSessions,  // 旧 sessionStore 兼容数据
           worktrees: state.worktrees,
           recentWorktreeIds: state.recentWorktreeIds,
           moduleOrder: state.moduleOrder,

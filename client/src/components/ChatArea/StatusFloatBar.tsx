@@ -75,7 +75,7 @@ function TaskMiniPanel({
   onClose: () => void;
 }) {
   return (
-    <div className="absolute bottom-[132px] left-0 right-0 px-3 z-10" onClick={(e) => e.stopPropagation()}>
+    <div className="absolute bottom-full left-0 right-0 px-3 pb-1" onClick={(e) => e.stopPropagation()}>
       <div className="max-w-3xl mx-auto">
         <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-md p-3 space-y-1.5">
           <div className="flex items-center justify-between">
@@ -188,9 +188,9 @@ export default function StatusFloatBar() {
   };
 
   return (
-    <>
+    <div className="w-full relative">
       <div
-        className={`absolute bottom-[88px] left-0 right-0 px-3 transition-opacity duration-1000 ease-in-out z-10 ${fadingOut ? 'opacity-0' : 'opacity-100'}`}
+        className={`w-full px-3 transition-opacity duration-1000 ease-in-out ${fadingOut ? 'opacity-0' : 'opacity-100'}`}
         onClick={() => setShowTaskPanel(!showTaskPanel)}
       >
         <div className="max-w-3xl mx-auto">
@@ -248,6 +248,6 @@ export default function StatusFloatBar() {
       {showTaskPanel && taskCard && (
         <TaskMiniPanel data={taskCard} onClose={() => setShowTaskPanel(false)} />
       )}
-    </>
+    </div>
   );
 }

@@ -222,6 +222,21 @@ export async function initializeModelManagementServices(): Promise<void> {
     });
   }
 
+  try {
+    const { getCapabilityService } =
+      await import('@modules/ai/services/CapabilityService.js');
+    const capabilityService = getCapabilityService();
+    services.push({
+      name: 'CapabilityService',
+      init: () => capabilityService.init(),
+    });
+  } catch (err) {
+    void handleError(err, {
+      module: 'ai:ModelManagementBootstrap.ts',
+      action: 'catch_error',
+    });
+  }
+
   // 逐个初始化 DB 表
   let initialized = 0;
 

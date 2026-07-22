@@ -134,20 +134,11 @@ export function isValidApiKey(key: string | undefined | null): boolean {
  */
 async function isAIConfigured(): Promise<boolean> {
   try {
-    if (isValidApiKey(configManager.env('DEEPSEEK_API_KEY'))) return true;
-    const { getConfig } = await import('./config/index.js');
-    const config = getConfig();
-    const ai = (config as Record<string, unknown>).ai as
-      | Record<string, unknown>
-      | undefined;
-    const apiKey: string =
-      ((config as Record<string, unknown>)['ai.deepseek.apiKey'] as string) ||
-      ((ai?.['deepseek'] as Record<string, unknown> | undefined)?.[
-        'apiKey'
-      ] as string) ||
-      '';
-    return isValidApiKey(apiKey);
-  } catch (err) {
+    // 数出同源：DB 是 API Key 的唯一事实来源，无数据时前端引导用户配置
+    const { providerManager } = await import('./ai/providers/ProviderManager.js');
+    const dbProviders = await providerManager.listProviders({ isActive: true });
+    return dbProviders.some((p) => isValidApiKey(p.apiKey));
+  } catch {
     return false;
   }
 }

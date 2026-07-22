@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { useBackendStore } from "../../stores/backendStore";
 import { useModelSwitchStore } from "../../stores/modelSwitchStore";
 import {
@@ -14,6 +15,7 @@ const logger = createLogger("components:footer");
 
 function Footer() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { status, checkStatus, startBackend, stopBackend, error } =
     useBackendStore();
   const { currentModelName, routerTier, routingMode, loadCurrent } =
@@ -176,29 +178,43 @@ function Footer() {
         {status.running && (
           <>
             <span className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
-            <button
-              onClick={() => setShowModelSwitcher(true)}
-              className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
-              title={t("footer.switchModel")}
-            >
-              <span className="text-purple-500">Model:</span>
-              <span
-                className="text-gray-700 dark:text-gray-300 font-medium max-w-[120px] truncate inline-block"
-                onDoubleClick={copyModelName}
+            {currentModelName ? (
+              <button
+                onClick={() => setShowModelSwitcher(true)}
+                className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+                title={t("footer.switchModel")}
               >
-                {currentModelName}
-              </span>
-              {routingMode === 'dynamic' && routerTier ? (
-                <span className="px-1 py-0.5 text-[10px] font-medium bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded">
-                  dynamic:{routerTier}
+                <span className="text-purple-500">Model:</span>
+                <span
+                  className="text-gray-700 dark:text-gray-300 font-medium max-w-[120px] truncate inline-block"
+                  onDoubleClick={copyModelName}
+                >
+                  {currentModelName}
                 </span>
-              ) : routingMode && routingMode !== 'static' ? (
-                <span className="px-1 py-0.5 text-[10px] font-medium bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 rounded">
-                  {routingMode}
-                </span>
-              ) : null}
-              <span className="text-gray-400">▼</span>
-            </button>
+                {routingMode === 'dynamic' && routerTier ? (
+                  <span className="px-1 py-0.5 text-[10px] font-medium bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded">
+                    dynamic:{routerTier}
+                  </span>
+                ) : routingMode && routingMode !== 'static' ? (
+                  <span className="px-1 py-0.5 text-[10px] font-medium bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 rounded">
+                    {routingMode}
+                  </span>
+                ) : null}
+                <span className="text-gray-400">▼</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate("/models")}
+                className="flex items-center gap-1 text-amber-500 hover:text-amber-600 transition-colors"
+                title="配置 AI 模型"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <span className="text-xs font-medium">配置模型</span>
+              </button>
+            )}
           </>
         )}
 

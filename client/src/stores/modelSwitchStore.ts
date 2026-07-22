@@ -34,7 +34,7 @@ interface ModelSwitchState {
 export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
   currentModelId: "",
   currentModelName: "",
-  currentProvider: "deepseek",
+  currentProvider: "",
   routerTier: "",
   routingMode: "static" as const,
   costThisSession: 0,

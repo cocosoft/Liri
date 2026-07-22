@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { modelAdminService } from "../../services/modelAdminService";
 import { configService } from "../../services/configService";
+import { capabilityService } from "../../services/capabilityService";
+import type { ModelCapabilityDefinition } from "../../services/capabilityService";
 
 interface ModelMetaEditorProps {
   modelId: string;
@@ -20,19 +22,6 @@ interface FormState {
   capabilities: string[];
 }
 
-const CAPABILITY_OPTIONS = [
-  { value: "streaming", label: "Streaming" },
-  { value: "function_calling", label: "Function Calling" },
-  { value: "vision", label: "Vision" },
-  { value: "thinking", label: "Thinking" },
-  { value: "tool_use", label: "Tool Use" },
-  { value: "structured_output", label: "Structured Output" },
-  { value: "image_input", label: "Image Input" },
-  { value: "pdf_input", label: "PDF Input" },
-];
-
-const DEFAULT_CAPABILITIES = ["streaming", "function_calling", "tool_use"];
-
 function ModelMetaEditor({
   modelId,
   modelName,
@@ -47,11 +36,13 @@ function ModelMetaEditor({
     outputPrice: "",
     cacheReadPrice: "",
     cacheWritePrice: "",
-    capabilities: [...DEFAULT_CAPABILITIES],
+    capabilities: [],
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [capabilities, setCapabilities] = useState<ModelCapabilityDefinition[]>([]);
+  const [capabilitiesLoaded, setCapabilitiesLoaded] = useState(false);
 
   // 加载已有的模型覆盖配置
   useEffect(() => {
@@ -115,6 +106,80 @@ function ModelMetaEditor({
     };
     loadOverrides();
   }, [modelId]);
+
+  // 加载能力定义列表（从服务端动态获取）
+  useEffect(() => {
+    const loadCapabilities = async () => {
+      try {
+        const result = await capabilityService.getCapabilitiesCached();
+        setCapabilities(result);
+        
+        // 如果表单中没有设置能力，使用默认能力
+        setForm((prev) => {
+          if (prev.capabilities.length === 0) {
+            const defaultCaps = result.filter((c) => c.isDefault).map((c) => c.key);
+            return { ...prev, capabilities: defaultCaps.length > 0 ? defaultCaps : ["streaming", "function_calling", "tool_use"] };
+          }
+          return prev;
+        });
+      } catch {
+        // 加载失败使用基础能力列表作为 fallback
+        setCapabilities([
+          { key: "streaming", labelFallback: "Streaming", isDefault: true, enabled: true, category: "core" } as ModelCapabilityDefinition,
+          { key: "function_calling", labelFallback: "Function Calling", isDefault: true, enabled: true, category: "core" } as ModelCapabilityDefinition,
+          { key: "vision", labelFallback: "Vision", isDefault: false, enabled: true, category: "vision" } as ModelCapabilityDefinition,
+          { key: "thinking", labelFallback: "Thinking", isDefault: false, enabled: true, category: "special" } as ModelCapabilityDefinition,
+          { key: "tool_use", labelFallback: "Tool Use", isDefault: true, enabled: true, category: "tools" } as ModelCapabilityDefinition,
+          { key: "structured_output", labelFallback: "Structured Output", isDefault: false, enabled: true, category: "core" } as ModelCapabilityDefinition,
+          { key: "image_input", labelFallback: "Image Input", isDefault: false, enabled: true, category: "vision" } as ModelCapabilityDefinition,
+          { key: "pdf_input", labelFallback: "PDF Input", isDefault: false, enabled: true, category: "tools" } as ModelCapabilityDefinition,
+        ]);
+        if (!form.capabilities || form.capabilities.length === 0) {
+          setForm((prev) => ({ ...prev, capabilities: ["streaming", "function_calling", "tool_use"] }));
+        }
+      } finally {
+        setCapabilitiesLoaded(true);
+      }
+    };
+    loadCapabilities();
+  }, []);
+
+  // 将能力按分类分组
+  const capabilitiesByCategory = useMemo(() => {
+    const grouped: Record<string, ModelCapabilityDefinition[]> = {};
+    const categoryOrder = ["core", "vision", "media", "tools", "special"];
+    
+    for (const cat of categoryOrder) {
+      grouped[cat] = [];
+    }
+    
+    for (const cap of capabilities) {
+      if (grouped[cap.category]) {
+        grouped[cap.category].push(cap);
+      } else {
+        grouped[cap.category] = [cap];
+      }
+    }
+    
+    // 按 sortOrder 排序
+    for (const cat in grouped) {
+      grouped[cat].sort((a, b) => a.sortOrder - b.sortOrder);
+    }
+    
+    return grouped;
+  }, [capabilities]);
+
+  // 获取分类显示名称
+  const getCategoryName = (categoryKey: string): string => {
+    const names: Record<string, string> = {
+      core: "核心能力",
+      vision: "视觉能力",
+      media: "媒体能力",
+      tools: "工具能力",
+      special: "特殊能力",
+    };
+    return names[categoryKey] || categoryKey;
+  };
 
   const handleChange = (field: keyof FormState, value: string | string[]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -190,7 +255,7 @@ function ModelMetaEditor({
         className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[80vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {!loaded ? (
+        {!loaded || !capabilitiesLoaded ? (
           <div className="py-8 text-center text-gray-400 text-sm">
             加载中...
           </div>
@@ -319,21 +384,36 @@ function ModelMetaEditor({
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   能力
                 </label>
-                <div className="flex flex-wrap gap-2">
-                  {CAPABILITY_OPTIONS.map((cap) => (
-                    <label
-                      key={cap.value}
-                      className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-gray-700 rounded text-xs cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={form.capabilities.includes(cap.value)}
-                        onChange={() => toggleCapability(cap.value)}
-                        className="rounded"
-                      />
-                      {cap.label}
-                    </label>
-                  ))}
+                <div className="space-y-3">
+                  {Object.entries(capabilitiesByCategory)
+                    .filter(([, caps]) => caps.length > 0)
+                    .map(([category, caps]) => (
+                      <div key={category}>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                          {getCategoryName(category)}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {caps.map((cap) => (
+                            <label
+                              key={cap.key}
+                              className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer transition-colors ${
+                                form.capabilities.includes(cap.key)
+                                  ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800"
+                                  : "bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={form.capabilities.includes(cap.key)}
+                                onChange={() => toggleCapability(cap.key)}
+                                className="rounded"
+                              />
+                              {capabilityService.getDisplayName(cap)}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                 </div>
               </div>
             </div>

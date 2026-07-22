@@ -1,4 +1,4 @@
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRoutes, useLocation, useNavigate } from "react-router-dom";
 import "./components/ChatArea/markdown-theme.css";
 import Sidebar, { MobileBottomNav } from "./components/Sidebar/Sidebar";
@@ -9,6 +9,7 @@ import ConfigPanel from "./components/ConfigPanel/ConfigPanel";
 import ToastContainer from "./components/common/ToastContainer";
 import KeyboardShortcutsHelp from "./components/common/KeyboardShortcutsHelp";
 import { FirstRunWizard } from "./components/views/FirstRunWizard";
+import { LLMSetupGuide } from "./components/views/LLMSetupGuide";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { TooltipProvider } from "./components/ui/tooltip";
 import routes from "./routes";
@@ -30,6 +31,17 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const { initState, completeWizard } = useInitApp();
+
+  // LLM 配置引导：ready 后检测是否已配置 AI 模型
+  const [showLLMGuide, setShowLLMGuide] = useState(false);
+  const [llmGuideChecked, setLlmGuideChecked] = useState(false);
+
+  useEffect(() => {
+    if (initState.phase === "ready" && !llmGuideChecked) {
+      setShowLLMGuide(true);
+      setLlmGuideChecked(true);
+    }
+  }, [initState.phase, llmGuideChecked]);
 
   // Root Store: 工作空间初始化（与现有 stores 并行）
   const rootCurrentWorktreeId = useRootStore((s) => s.currentWorktreeId);
@@ -154,6 +166,9 @@ function App() {
       <KeyboardShortcutsHelp />
       {initState.phase === "first_run_wizard" && (
         <FirstRunWizard onComplete={completeWizard} />
+      )}
+      {showLLMGuide && (
+        <LLMSetupGuide onDismiss={() => setShowLLMGuide(false)} />
       )}
     </div>
     </TooltipProvider>

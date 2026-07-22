@@ -33,6 +33,7 @@ import { AppError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { ModelCapability } from './models/types';
+import { CapabilityCategory } from './services/CapabilityService.js';
 import {
   getModelCapabilities,
   getModelContextWindow,
@@ -1181,21 +1182,20 @@ async function handleListModels(
               ? 'voice'
               : 'chat';
 
+      // 仅当定价记录有匹配的活跃供应商时才纳入模型列表
+      // 避免 YAML 种子数据在不配置供应商时被当作可用模型展示
+      if (!matchingProvider) continue;
+
       models.push({
         id: pr.id, // UUID
         modelId: pr.modelId, // 模型名（新增）
         name: pr.displayName || pr.modelId,
-        provider: matchingProvider?.name || pr.modelId.split('-')[0],
-        providerId: matchingProvider?.id || '',
-        requiresAuth: matchingProvider ? matchingProvider.requiresAuth : true,
+        provider: matchingProvider.name,
+        providerId: matchingProvider.id,
+        requiresAuth: matchingProvider.requiresAuth,
         type: modelType,
         context_length: getModelContextWindow(pr.modelId),
-        enabled:
-          pr.enabled !== undefined
-            ? pr.enabled
-            : matchingProvider
-              ? matchingProvider.isActive
-              : true,
+        enabled: pr.enabled !== undefined ? pr.enabled : matchingProvider.isActive,
         pricing: {
           inputPer1M: pr.inputCostPerMillion,
           outputPer1M: pr.outputCostPerMillion,
@@ -1205,19 +1205,8 @@ async function handleListModels(
       });
     }
 
-    if (models.length === 0) {
-      models.push({
-        id: 'pyapp-default', // 兜底 UUID
-        modelId: 'pyapp-default', // 兜底模型名
-        name: 'Liri 默认',
-        provider: 'pyapp',
-        providerId: '',
-        requiresAuth: false,
-        type: 'chat',
-        context_length: 65536,
-        enabled: true,
-      });
-    }
+    // 不返回 mock 数据。若无活跃供应商对应的模型，返回空列表，
+    // 前端据此引导用户前往配置页面。
 
     otel.endSpan(span, SpanStatusCode.OK);
 
@@ -1695,6 +1684,318 @@ async function handlePutUser(
   }
 }
 
+// ─── Capabilities 路由 ────────────────────────────────
+
+/**
+ * GET /v1/models/capabilities — 获取能力列表（支持过滤）
+ */
+async function handleListCapabilities(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null
+): Promise<void> {
+  try {
+    const url = new URL(req.url || '/', 'http://localhost');
+    const category = url.searchParams.get('category') || undefined;
+    const enabled = url.searchParams.has('enabled')
+      ? url.searchParams.get('enabled') === 'true'
+      : undefined;
+
+    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const service = getCapabilityService();
+    await service.init();
+
+    const result = await service.getAll({ category, enabled });
+    sendJson(res, { data: result });
+  } catch (err) {
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'listCapabilities',
+    });
+    sendError(res, `获取能力列表失败: ${(err as Error).message}`, 500);
+  }
+}
+
+/**
+ * GET /v1/models/capabilities/:key — 获取单个能力详情
+ */
+async function handleGetCapability(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  match: RegExpMatchArray | null
+): Promise<void> {
+  const key = decodeURIComponent(match![1]);
+  try {
+    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const service = getCapabilityService();
+    await service.init();
+
+    const capability = await service.get(key);
+    if (!capability) {
+      sendError(res, `能力 ${key} 不存在`, 404);
+      return;
+    }
+    sendJson(res, { data: capability });
+  } catch (err) {
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'getCapability',
+    });
+    sendError(res, `获取能力失败: ${(err as Error).message}`, 500);
+  }
+}
+
+/**
+ * POST /v1/models/capabilities — 创建新能力
+ */
+async function handleCreateCapability(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null
+): Promise<void> {
+  try {
+    const body = (await parseBody(req)) as Record<string, unknown>;
+
+    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const service = getCapabilityService();
+    await service.init();
+
+    await service.create({
+      key: body.key as string,
+      category: body.category as CapabilityCategory,
+      labelKey: body.labelKey as string,
+      descriptionKey: body.descriptionKey as string,
+      labelFallback: body.labelFallback as string,
+      descriptionFallback: (body.descriptionFallback as string) || '',
+      isDefault: (body.isDefault as boolean) || false,
+      enabled: body.enabled !== undefined ? (body.enabled as boolean) : true,
+      taskTypes: (body.taskTypes as string[]) || [],
+      sortOrder: (body.sortOrder as number) || 0,
+      sinceVersion: body.sinceVersion as string | undefined,
+      deprecatedSince: body.deprecatedSince as string | undefined,
+      dependencies: (body.dependencies as string[]) || [],
+    });
+
+    sendJson(res, { success: true }, 201);
+  } catch (err) {
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'createCapability',
+    });
+    sendError(res, `创建能力失败: ${(err as Error).message}`, 500);
+  }
+}
+
+/**
+ * PUT /v1/models/capabilities/:key — 更新能力（乐观锁）
+ */
+async function handleUpdateCapability(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  match: RegExpMatchArray | null
+): Promise<void> {
+  const key = decodeURIComponent(match![1]);
+  try {
+    const body = (await parseBody(req)) as Record<string, unknown>;
+
+    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const service = getCapabilityService();
+    await service.init();
+
+    await service.update(key, {
+      category: body.category as CapabilityCategory | undefined,
+      labelKey: body.labelKey as string | undefined,
+      descriptionKey: body.descriptionKey as string | undefined,
+      labelFallback: body.labelFallback as string | undefined,
+      descriptionFallback: body.descriptionFallback as string | undefined,
+      isDefault: body.isDefault as boolean | undefined,
+      enabled: body.enabled as boolean | undefined,
+      taskTypes: body.taskTypes as string[] | undefined,
+      sortOrder: body.sortOrder as number | undefined,
+      sinceVersion: body.sinceVersion as string | undefined,
+      deprecatedSince: body.deprecatedSince as string | undefined,
+      dependencies: body.dependencies as string[] | undefined,
+    });
+
+    sendJson(res, { success: true });
+  } catch (err) {
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'updateCapability',
+    });
+    const status = (err as any)?.errorCode === 'CAPS_005' ? 404 :
+                   (err as any)?.errorCode === 'CAPS_006' ? 409 : 500;
+    sendError(res, `更新能力失败: ${(err as Error).message}`, status);
+  }
+}
+
+/**
+ * DELETE /v1/models/capabilities/:key — 删除能力（软删除）
+ */
+async function handleDeleteCapability(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  match: RegExpMatchArray | null
+): Promise<void> {
+  const key = decodeURIComponent(match![1]);
+  try {
+    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const service = getCapabilityService();
+    await service.init();
+
+    await service.delete(key);
+    sendJson(res, { success: true });
+  } catch (err) {
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'deleteCapability',
+    });
+    sendError(res, `删除能力失败: ${(err as Error).message}`, 500);
+  }
+}
+
+/**
+ * POST /v1/models/capabilities/batch — 批量创建/更新能力
+ */
+async function handleBatchCapabilities(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null
+): Promise<void> {
+  try {
+    const body = (await parseBody(req)) as { data: any[] };
+    if (!body.data || !Array.isArray(body.data) || body.data.length === 0) {
+      sendError(res, 'data 不能为空', 400);
+      return;
+    }
+
+    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const service = getCapabilityService();
+    await service.init();
+
+    await service.batch(body.data);
+    sendJson(res, { success: true, count: body.data.length });
+  } catch (err) {
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'batchCapabilities',
+    });
+    sendError(res, `批量操作失败: ${(err as Error).message}`, 500);
+  }
+}
+
+/**
+ * GET /v1/models/capabilities/task-mappings — 获取任务-能力映射列表
+ */
+async function handleGetTaskMappings(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null
+): Promise<void> {
+  try {
+    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const service = getCapabilityService();
+    await service.init();
+
+    const mappings = await service.getTaskMappings();
+    sendJson(res, { data: mappings });
+  } catch (err) {
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'getTaskMappings',
+    });
+    sendError(res, `获取任务映射失败: ${(err as Error).message}`, 500);
+  }
+}
+
+/**
+ * PUT /v1/models/capabilities/task-mappings — 更新任务-能力映射
+ */
+async function handleUpdateTaskMappings(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null
+): Promise<void> {
+  try {
+    const body = (await parseBody(req)) as { data: any[] };
+    if (!body.data || !Array.isArray(body.data) || body.data.length === 0) {
+      sendError(res, 'data 不能为空', 400);
+      return;
+    }
+
+    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const service = getCapabilityService();
+    await service.init();
+
+    await service.updateTaskMappings(body.data);
+    sendJson(res, { success: true, count: body.data.length });
+  } catch (err) {
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'updateTaskMappings',
+    });
+    sendError(res, `更新任务映射失败: ${(err as Error).message}`, 500);
+  }
+}
+
+/**
+ * POST /v1/models/capabilities/validate — 验证模型能力配置
+ */
+async function handleValidateCapabilities(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null
+): Promise<void> {
+  try {
+    const body = (await parseBody(req)) as {
+      taskType: string;
+      modelCapabilities: string[];
+    };
+
+    if (!body.taskType || !Array.isArray(body.modelCapabilities)) {
+      sendError(res, 'taskType 和 modelCapabilities 必填', 400);
+      return;
+    }
+
+    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const service = getCapabilityService();
+    await service.init();
+
+    const issues = await service.validateTaskAssignment(body.taskType, body.modelCapabilities);
+    sendJson(res, { data: { valid: issues.length === 0, issues } });
+  } catch (err) {
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'validateCapabilities',
+    });
+    sendError(res, `验证失败: ${(err as Error).message}`, 500);
+  }
+}
+
+/**
+ * GET /v1/models/capabilities/categories — 获取分类列表
+ */
+async function handleGetCapabilityCategories(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null
+): Promise<void> {
+  try {
+    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const service = getCapabilityService();
+    await service.init();
+
+    const categories = await service.getCategories();
+    sendJson(res, { data: categories });
+  } catch (err) {
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'getCapabilityCategories',
+    });
+    sendError(res, `获取分类失败: ${(err as Error).message}`, 500);
+  }
+}
+
 // ─── 路由表 ───────────────────────────────────────────
 
 interface RouteEntry {
@@ -2159,6 +2460,51 @@ const ROUTES: RouteEntry[] = [
     method: 'DELETE',
     pattern: /^\/v1\/models\/app-config\/([^/]+)$/,
     handler: handleDeleteAppConfig,
+  },
+
+  // Capabilities — 特定路由必须在通用路由之前
+  { method: 'GET', pattern: /^\/v1\/models\/capabilities$/, handler: handleListCapabilities },
+  { method: 'POST', pattern: /^\/v1\/models\/capabilities$/, handler: handleCreateCapability },
+  {
+    method: 'GET',
+    pattern: /^\/v1\/models\/capabilities\/task-mappings$/,
+    handler: handleGetTaskMappings,
+  },
+  {
+    method: 'PUT',
+    pattern: /^\/v1\/models\/capabilities\/task-mappings$/,
+    handler: handleUpdateTaskMappings,
+  },
+  {
+    method: 'GET',
+    pattern: /^\/v1\/models\/capabilities\/categories$/,
+    handler: handleGetCapabilityCategories,
+  },
+  {
+    method: 'POST',
+    pattern: /^\/v1\/models\/capabilities\/batch$/,
+    handler: handleBatchCapabilities,
+  },
+  {
+    method: 'POST',
+    pattern: /^\/v1\/models\/capabilities\/validate$/,
+    handler: handleValidateCapabilities,
+  },
+  // 通用路由 :key 必须放在最后
+  {
+    method: 'GET',
+    pattern: /^\/v1\/models\/capabilities\/([^/]+)$/,
+    handler: handleGetCapability,
+  },
+  {
+    method: 'PUT',
+    pattern: /^\/v1\/models\/capabilities\/([^/]+)$/,
+    handler: handleUpdateCapability,
+  },
+  {
+    method: 'DELETE',
+    pattern: /^\/v1\/models\/capabilities\/([^/]+)$/,
+    handler: handleDeleteCapability,
   },
 
   // Soul/User

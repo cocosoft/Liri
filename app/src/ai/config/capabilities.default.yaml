@@ -1,0 +1,399 @@
+# 模型能力默认配置基线
+# 此文件随版本更新，用户自定义配置存储在数据库中
+
+categories:
+  - key: core
+    labelKey: capability.category.core
+    sortOrder: 1
+  - key: vision
+    labelKey: capability.category.vision
+    sortOrder: 2
+  - key: media
+    labelKey: capability.category.media
+    sortOrder: 3
+  - key: tools
+    labelKey: capability.category.tools
+    sortOrder: 4
+  - key: special
+    labelKey: capability.category.special
+    sortOrder: 5
+
+capabilities:
+  # 核心能力
+  - key: streaming
+    category: core
+    labelKey: capability.streaming
+    descriptionKey: capability.streaming.desc
+    labelFallback: "Streaming"
+    descriptionFallback: "Supports real-time streaming responses"
+    isDefault: true
+    enabled: true
+    taskTypes: ["chat", "default"]
+    sortOrder: 1
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  - key: function_calling
+    category: core
+    labelKey: capability.function_calling
+    descriptionKey: capability.function_calling.desc
+    labelFallback: "Function Calling"
+    descriptionFallback: "Supports calling external functions"
+    isDefault: true
+    enabled: true
+    taskTypes: ["chat", "default", "code"]
+    sortOrder: 2
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  - key: thinking
+    category: core
+    labelKey: capability.thinking
+    descriptionKey: capability.thinking.desc
+    labelFallback: "Thinking"
+    descriptionFallback: "Supports chain-of-thought reasoning"
+    isDefault: false
+    enabled: true
+    taskTypes: ["chat", "default"]
+    sortOrder: 3
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  - key: structured_output
+    category: core
+    labelKey: capability.structured_output
+    descriptionKey: capability.structured_output.desc
+    labelFallback: "Structured Output"
+    descriptionFallback: "Supports JSON and other structured output formats"
+    isDefault: false
+    enabled: true
+    taskTypes: ["chat", "default", "code"]
+    sortOrder: 4
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  # 视觉能力
+  - key: vision
+    category: vision
+    labelKey: capability.vision
+    descriptionKey: capability.vision.desc
+    labelFallback: "Vision"
+    descriptionFallback: "Supports analyzing images and videos"
+    isDefault: false
+    enabled: true
+    taskTypes: ["chat"]
+    sortOrder: 1
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  - key: image_input
+    category: vision
+    labelKey: capability.image_input
+    descriptionKey: capability.image_input.desc
+    labelFallback: "Image Input"
+    descriptionFallback: "Supports image inputs for analysis"
+    isDefault: false
+    enabled: true
+    taskTypes: ["chat"]
+    sortOrder: 2
+    sinceVersion: "0.4.0"
+    dependencies: ["vision"]
+
+  - key: pdf_input
+    category: vision
+    labelKey: capability.pdf_input
+    descriptionKey: capability.pdf_input.desc
+    labelFallback: "PDF Input"
+    descriptionFallback: "Supports PDF document inputs"
+    isDefault: false
+    enabled: true
+    taskTypes: ["chat"]
+    sortOrder: 3
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  - key: video_input
+    category: vision
+    labelKey: capability.video_input
+    descriptionKey: capability.video_input.desc
+    labelFallback: "Video Input"
+    descriptionFallback: "Supports video inputs for analysis"
+    isDefault: false
+    enabled: true
+    taskTypes: ["chat"]
+    sortOrder: 4
+    sinceVersion: "0.4.0"
+    dependencies: ["vision"]
+
+  - key: audio_input
+    category: vision
+    labelKey: capability.audio_input
+    descriptionKey: capability.audio_input.desc
+    labelFallback: "Audio Input"
+    descriptionFallback: "Supports audio inputs for analysis"
+    isDefault: false
+    enabled: true
+    taskTypes: ["chat"]
+    sortOrder: 5
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  # 媒体能力
+  - key: image_generation
+    category: media
+    labelKey: capability.image_generation
+    descriptionKey: capability.image_generation.desc
+    labelFallback: "Image Generation"
+    descriptionFallback: "Supports generating images from text descriptions"
+    isDefault: false
+    enabled: true
+    taskTypes: ["image"]
+    sortOrder: 1
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  - key: image_editing
+    category: media
+    labelKey: capability.image_editing
+    descriptionKey: capability.image_editing.desc
+    labelFallback: "Image Editing"
+    descriptionFallback: "Supports editing existing images"
+    isDefault: false
+    enabled: true
+    taskTypes: ["image"]
+    sortOrder: 2
+    sinceVersion: "0.4.0"
+    dependencies: ["image_generation"]
+
+  - key: video_generation
+    category: media
+    labelKey: capability.video_generation
+    descriptionKey: capability.video_generation.desc
+    labelFallback: "Video Generation"
+    descriptionFallback: "Supports generating videos from text descriptions"
+    isDefault: false
+    enabled: true
+    taskTypes: ["video"]
+    sortOrder: 3
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  - key: text_to_speech
+    category: media
+    labelKey: capability.text_to_speech
+    descriptionKey: capability.text_to_speech.desc
+    labelFallback: "Text to Speech"
+    descriptionFallback: "Supports converting text to speech"
+    isDefault: false
+    enabled: true
+    taskTypes: ["voice"]
+    sortOrder: 4
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  - key: speech_recognition
+    category: media
+    labelKey: capability.speech_recognition
+    descriptionKey: capability.speech_recognition.desc
+    labelFallback: "Speech Recognition"
+    descriptionFallback: "Supports converting speech to text"
+    isDefault: false
+    enabled: true
+    taskTypes: ["voice"]
+    sortOrder: 5
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  # 工具能力
+  - key: tool_use
+    category: tools
+    labelKey: capability.tool_use
+    descriptionKey: capability.tool_use.desc
+    labelFallback: "Tool Use"
+    descriptionFallback: "Supports using external tools"
+    isDefault: true
+    enabled: true
+    taskTypes: ["chat", "default"]
+    sortOrder: 1
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  - key: computer_use
+    category: tools
+    labelKey: capability.computer_use
+    descriptionKey: capability.computer_use.desc
+    labelFallback: "Computer Use"
+    descriptionFallback: "Supports operating a virtual desktop"
+    isDefault: false
+    enabled: true
+    taskTypes: ["chat"]
+    sortOrder: 2
+    sinceVersion: "0.4.0"
+    dependencies: ["vision", "tool_use"]
+
+  - key: bash_sandbox
+    category: tools
+    labelKey: capability.bash_sandbox
+    descriptionKey: capability.bash_sandbox.desc
+    labelFallback: "Bash Sandbox"
+    descriptionFallback: "Supports executing bash commands in a sandbox"
+    isDefault: false
+    enabled: true
+    taskTypes: ["code"]
+    sortOrder: 3
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  - key: code_execution
+    category: tools
+    labelKey: capability.code_execution
+    descriptionKey: capability.code_execution.desc
+    labelFallback: "Code Execution"
+    descriptionFallback: "Supports executing code in various languages"
+    isDefault: false
+    enabled: true
+    taskTypes: ["code"]
+    sortOrder: 4
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  - key: parallel_tool_calls
+    category: tools
+    labelKey: capability.parallel_tool_calls
+    descriptionKey: capability.parallel_tool_calls.desc
+    labelFallback: "Parallel Tool Calls"
+    descriptionFallback: "Supports calling multiple tools in parallel"
+    isDefault: false
+    enabled: true
+    taskTypes: ["chat", "default"]
+    sortOrder: 5
+    sinceVersion: "0.4.0"
+    dependencies: ["tool_use"]
+
+  # 特殊能力
+  - key: context_caching
+    category: special
+    labelKey: capability.context_caching
+    descriptionKey: capability.context_caching.desc
+    labelFallback: "Context Caching"
+    descriptionFallback: "Supports caching conversation context"
+    isDefault: false
+    enabled: true
+    taskTypes: ["chat", "default"]
+    sortOrder: 1
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  - key: prompt_caching
+    category: special
+    labelKey: capability.prompt_caching
+    descriptionKey: capability.prompt_caching.desc
+    labelFallback: "Prompt Caching"
+    descriptionFallback: "Supports caching prompt prefixes"
+    isDefault: false
+    enabled: true
+    taskTypes: ["chat", "default"]
+    sortOrder: 2
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  - key: files_api
+    category: special
+    labelKey: capability.files_api
+    descriptionKey: capability.files_api.desc
+    labelFallback: "Files API"
+    descriptionFallback: "Supports file management operations"
+    isDefault: false
+    enabled: true
+    taskTypes: ["chat"]
+    sortOrder: 3
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  - key: batch_api
+    category: special
+    labelKey: capability.batch_api
+    descriptionKey: capability.batch_api.desc
+    labelFallback: "Batch API"
+    descriptionFallback: "Supports batch processing of requests"
+    isDefault: false
+    enabled: true
+    taskTypes: ["default"]
+    sortOrder: 4
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  - key: embedding
+    category: special
+    labelKey: capability.embedding
+    descriptionKey: capability.embedding.desc
+    labelFallback: "Embedding"
+    descriptionFallback: "Supports generating text embeddings"
+    isDefault: false
+    enabled: true
+    taskTypes: ["embedding"]
+    sortOrder: 5
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  - key: reranking
+    category: special
+    labelKey: capability.reranking
+    descriptionKey: capability.reranking.desc
+    labelFallback: "Reranking"
+    descriptionFallback: "Supports reranking search results"
+    isDefault: false
+    enabled: true
+    taskTypes: ["default"]
+    sortOrder: 6
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  - key: moderation
+    category: special
+    labelKey: capability.moderation
+    descriptionKey: capability.moderation.desc
+    labelFallback: "Moderation"
+    descriptionFallback: "Supports content moderation"
+    isDefault: false
+    enabled: true
+    taskTypes: ["default"]
+    sortOrder: 7
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+taskMappings:
+  - taskType: chat
+    requiredCapabilities: ["streaming", "function_calling", "tool_use"]
+    optionalCapabilities: ["vision"]
+    sortOrder: 1
+
+  - taskType: default
+    requiredCapabilities: ["streaming", "function_calling", "tool_use"]
+    optionalCapabilities: []
+    sortOrder: 2
+
+  - taskType: image
+    requiredCapabilities: ["image_generation"]
+    optionalCapabilities: ["image_editing"]
+    sortOrder: 3
+
+  - taskType: video
+    requiredCapabilities: ["video_generation"]
+    optionalCapabilities: []
+    sortOrder: 4
+
+  - taskType: embedding
+    requiredCapabilities: ["embedding"]
+    optionalCapabilities: []
+    sortOrder: 5
+
+  - taskType: voice
+    requiredCapabilities: []
+    optionalCapabilities: ["text_to_speech", "speech_recognition"]
+    sortOrder: 6
+
+  - taskType: code
+    requiredCapabilities: ["function_calling"]
+    optionalCapabilities: ["code_execution", "bash_sandbox"]
+    sortOrder: 7

@@ -278,24 +278,13 @@ export async function launchRepl(
   // 启动检查（仅关键警告显示到控制台）
   try {
     profileCheckpoint('repl_startup_checks_start');
-    const cfg = getConfig();
-    const { detectUnifiedProviders } =
-      await import('../ai/providers/detectUnifiedProviders.js');
-    const envProviders = detectUnifiedProviders();
-    const configApiKey =
-      cfg['ai.deepseek.apiKey'] || cfg.ai?.deepseek?.apiKey || '';
-    const hasApiKey = envProviders.length > 0 || !!configApiKey;
+    // 数出同源：DB 是 API Key 的唯一事实来源
+    const { providerManager } = await import('../ai/providers/ProviderManager.js');
+    const dbProviders = await providerManager.listProviders({ isActive: true });
+    const hasApiKey = dbProviders.some((p) => !!p.apiKey);
     if (isOfflineMode || !hasApiKey) {
       ui.showWarning('AI 对话功能不可用：未检测到有效的 API 密钥');
-      ui.showInfo('配置方法（任选其一）:');
-      ui.showInfo('  • 方法 1: 运行 /onboard 启动交互式配置向导（推荐）');
-      ui.showInfo(
-        '  • 方法 2: 在命令行输入 /config set ai.deepseek.apiKey sk-你的密钥'
-      );
-      ui.showInfo(
-        '  • 方法 3: 编辑 app/.env 文件，填入 DEEPSEEK_API_KEY=sk-你的密钥'
-      );
-      ui.showInfo('  • 运行 /demo 预览对话效果（无需配置）');
+      ui.showInfo('请在模型管理 → 供应商中添加 API 密钥，或运行 /onboard 启动配置向导');
     }
 
     const commandCount = commandRegistry.getCommandCount();

@@ -7,9 +7,16 @@ interface TaskCardProps {
   data: TaskCardData;
 }
 
-const STATUS_CONFIG: Record<TaskCardTask["status"], { icon: string; color: string; label: string }> = {
+const STATUS_CONFIG: Record<
+  TaskCardTask["status"],
+  { icon: string; color: string; label: string }
+> = {
   pending: { icon: "○", color: "text-gray-400", label: "等待中" },
-  in_progress: { icon: "⟳", color: "text-blue-500 animate-spin inline-block", label: "执行中" },
+  in_progress: {
+    icon: "⟳",
+    color: "text-blue-500 animate-spin inline-block",
+    label: "执行中",
+  },
   completed: { icon: "✓", color: "text-green-500", label: "已完成" },
   failed: { icon: "✗", color: "text-red-500", label: "失败" },
   blocked: { icon: "⏸", color: "text-orange-400", label: "等待依赖" },
@@ -24,7 +31,10 @@ function formatDuration(ms: number): string {
 }
 
 /** 从 dependsOn 构建 human-readable 的依赖标签 */
-function renderDepends(dependsOn: string[], tasks: TaskCardTask[]): string | null {
+function renderDepends(
+  dependsOn: string[],
+  tasks: TaskCardTask[],
+): string | null {
   if (dependsOn.length === 0) return null;
   const names = dependsOn
     .map((id) => tasks.find((t) => t.id === id)?.name || id)
@@ -135,7 +145,11 @@ export default function TaskCard({ data }: TaskCardProps) {
             className="w-full px-3 py-1 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors flex items-center gap-1 justify-center"
           >
             <span>{showDAG ? "▲" : "▼"}</span>
-            <span>查看依赖关系图 ({tasks.filter((t) => t.dependsOn.length > 0).length} 个节点, {tasks.reduce((sum, t) => sum + t.dependsOn.length, 0)} 条边)</span>
+            <span>
+              查看依赖关系图 (
+              {tasks.filter((t) => t.dependsOn.length > 0).length} 个节点,{" "}
+              {tasks.reduce((sum, t) => sum + t.dependsOn.length, 0)} 条边)
+            </span>
           </button>
           {showDAG && (
             <div className="px-2 pb-2">

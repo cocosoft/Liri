@@ -252,6 +252,10 @@ export {
   flushTelemetry,
 } from './instrumentation.js';
 
+// 监控心跳
+export { HeartbeatMonitor } from './HeartbeatMonitor.js';
+export type { HeartbeatEntry } from './HeartbeatMonitor.js';
+
 // 备份管理
 export { BackupManager, createDefaultBackupManager } from './backup/index.js';
 

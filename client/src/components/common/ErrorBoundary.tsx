@@ -45,14 +45,21 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       if (this.props.fallback) return this.props.fallback;
 
       return (
-        <div className="flex items-center justify-center min-h-[400px] p-8" role="alert" aria-live="assertive">
+        <div
+          className="flex items-center justify-center min-h-[400px] p-8"
+          role="alert"
+          aria-live="assertive"
+        >
           <div className="text-center max-w-md">
-            <div className="text-4xl mb-4" aria-hidden="true">⚠️</div>
+            <div className="text-4xl mb-4" aria-hidden="true">
+              ⚠️
+            </div>
             <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">
               {this.props.t("errorBoundary.title")}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              {this.state.error?.message || this.props.t("errorBoundary.unknown")}
+              {this.state.error?.message ||
+                this.props.t("errorBoundary.unknown")}
             </p>
             <div className="flex gap-3 justify-center">
               <button

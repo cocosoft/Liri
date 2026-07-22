@@ -1,19 +1,20 @@
 /**
  * 模型能力管理服务层
- * 
+ *
  * 提供能力定义的 CRUD 操作、任务映射管理、能力验证等功能。
  * 采用缓存策略：首次请求后缓存，后台静默刷新。
  */
 
 import { httpLegacy as http } from "./httpClient";
+import { handleClientError } from "../utils/handleError";
 
 /** 能力分类 */
 export enum CapabilityCategory {
-  CORE = 'core',
-  VISION = 'vision',
-  MEDIA = 'media',
-  TOOLS = 'tools',
-  SPECIAL = 'special',
+  CORE = "core",
+  VISION = "vision",
+  MEDIA = "media",
+  TOOLS = "tools",
+  SPECIAL = "special",
 }
 
 /** 能力定义接口 */
@@ -88,28 +89,24 @@ function getCachedCategories(): CapabilityCategoryDefinition[] {
   return cache.categories;
 }
 
-
-
 export const capabilityService = {
   /**
    * 获取能力列表（支持过滤）
    * @param params 过滤参数
    * @returns 能力列表和分类信息
    */
-  async getAll(
-    params?: { category?: string; enabled?: boolean }
-  ): Promise<{
+  async getAll(params?: { category?: string; enabled?: boolean }): Promise<{
     capabilities: ModelCapabilityDefinition[];
     categories: CapabilityCategoryDefinition[];
     version: string;
     lastModified: string;
   }> {
-    const url = new URL('/v1/models/capabilities', window.location.origin);
+    const url = new URL("/v1/models/capabilities", window.location.origin);
     if (params?.category) {
-      url.searchParams.set('category', params.category);
+      url.searchParams.set("category", params.category);
     }
     if (params?.enabled !== undefined) {
-      url.searchParams.set('enabled', String(params.enabled));
+      url.searchParams.set("enabled", String(params.enabled));
     }
 
     const data = await http.get<{
@@ -137,8 +134,11 @@ export const capabilityService = {
    */
   async get(key: string): Promise<ModelCapabilityDefinition | null> {
     try {
-      return await http.get<ModelCapabilityDefinition>(`/v1/models/capabilities/${encodeURIComponent(key)}`);
-    } catch {
+      return await http.get<ModelCapabilityDefinition>(
+        `/v1/models/capabilities/${encodeURIComponent(key)}`,
+      );
+    } catch (e) {
+      handleClientError(e, { module: "services:capability", action: "get" });
       return null;
     }
   },
@@ -147,8 +147,10 @@ export const capabilityService = {
    * 创建新能力
    * @param definition 能力定义
    */
-  async create(definition: Omit<ModelCapabilityDefinition, 'version'>): Promise<void> {
-    await http.post('/v1/models/capabilities', definition);
+  async create(
+    definition: Omit<ModelCapabilityDefinition, "version">,
+  ): Promise<void> {
+    await http.post("/v1/models/capabilities", definition);
     // 清除缓存
     cache = null;
   },
@@ -160,9 +162,12 @@ export const capabilityService = {
    */
   async update(
     key: string,
-    updates: Partial<Omit<ModelCapabilityDefinition, 'key'>>
+    updates: Partial<Omit<ModelCapabilityDefinition, "key">>,
   ): Promise<void> {
-    await http.put(`/v1/models/capabilities/${encodeURIComponent(key)}`, updates);
+    await http.put(
+      `/v1/models/capabilities/${encodeURIComponent(key)}`,
+      updates,
+    );
     // 清除缓存
     cache = null;
   },
@@ -182,7 +187,7 @@ export const capabilityService = {
    * @param data 能力定义数组
    */
   async batch(data: ModelCapabilityDefinition[]): Promise<void> {
-    await http.post('/v1/models/capabilities/batch', { data });
+    await http.post("/v1/models/capabilities/batch", { data });
     // 清除缓存
     cache = null;
   },
@@ -192,7 +197,9 @@ export const capabilityService = {
    * @returns 任务映射列表
    */
   async getTaskMappings(): Promise<TaskCapabilityMapping[]> {
-    return await http.get<TaskCapabilityMapping[]>('/v1/models/capabilities/task-mappings');
+    return await http.get<TaskCapabilityMapping[]>(
+      "/v1/models/capabilities/task-mappings",
+    );
   },
 
   /**
@@ -200,7 +207,7 @@ export const capabilityService = {
    * @param mappings 任务映射数组
    */
   async updateTaskMappings(mappings: TaskCapabilityMapping[]): Promise<void> {
-    await http.put('/v1/models/capabilities/task-mappings', { data: mappings });
+    await http.put("/v1/models/capabilities/task-mappings", { data: mappings });
   },
 
   /**
@@ -208,7 +215,9 @@ export const capabilityService = {
    * @returns 分类列表
    */
   async getCategories(): Promise<CapabilityCategoryDefinition[]> {
-    return await http.get<CapabilityCategoryDefinition[]>('/v1/models/capabilities/categories');
+    return await http.get<CapabilityCategoryDefinition[]>(
+      "/v1/models/capabilities/categories",
+    );
   },
 
   /**
@@ -219,12 +228,15 @@ export const capabilityService = {
    */
   async validate(
     taskType: string,
-    modelCapabilities: string[]
+    modelCapabilities: string[],
   ): Promise<{ valid: boolean; issues: ValidationIssue[] }> {
-    return await http.post<{ valid: boolean; issues: ValidationIssue[] }>('/v1/models/capabilities/validate', {
-      taskType,
-      modelCapabilities,
-    });
+    return await http.post<{ valid: boolean; issues: ValidationIssue[] }>(
+      "/v1/models/capabilities/validate",
+      {
+        taskType,
+        modelCapabilities,
+      },
+    );
   },
 
   /**
@@ -232,7 +244,9 @@ export const capabilityService = {
    * @param forceRefresh 是否强制刷新
    * @returns 能力列表
    */
-  async getCapabilitiesCached(forceRefresh = false): Promise<ModelCapabilityDefinition[]> {
+  async getCapabilitiesCached(
+    forceRefresh = false,
+  ): Promise<ModelCapabilityDefinition[]> {
     // 如果有有效缓存且不强制刷新，直接返回缓存
     const cached = getCachedCapabilities();
     if (cached.length > 0 && !forceRefresh) {
@@ -249,7 +263,9 @@ export const capabilityService = {
    * @param forceRefresh 是否强制刷新
    * @returns 分类列表
    */
-  async getCategoriesCached(forceRefresh = false): Promise<CapabilityCategoryDefinition[]> {
+  async getCategoriesCached(
+    forceRefresh = false,
+  ): Promise<CapabilityCategoryDefinition[]> {
     // 如果有有效缓存且不强制刷新，直接返回缓存
     const cached = getCachedCategories();
     if (cached.length > 0 && !forceRefresh) {
@@ -269,7 +285,7 @@ export const capabilityService = {
    */
   getDisplayName(
     capability: ModelCapabilityDefinition,
-    t?: (key: string) => string
+    t?: (key: string) => string,
   ): string {
     if (t) {
       const translated = t(capability.labelKey);
@@ -289,7 +305,7 @@ export const capabilityService = {
    */
   getDescription(
     capability: ModelCapabilityDefinition,
-    t?: (key: string) => string
+    t?: (key: string) => string,
   ): string {
     if (t) {
       const translated = t(capability.descriptionKey);
@@ -308,7 +324,7 @@ export const capabilityService = {
    */
   getCategoryDisplayName(
     category: CapabilityCategoryDefinition,
-    t?: (key: string) => string
+    t?: (key: string) => string,
   ): string {
     if (t) {
       const translated = t(category.labelKey);
@@ -318,11 +334,11 @@ export const capabilityService = {
     }
     // 提供默认的分类显示名称映射
     const fallbackNames: Record<string, string> = {
-      [CapabilityCategory.CORE]: '核心能力',
-      [CapabilityCategory.VISION]: '视觉能力',
-      [CapabilityCategory.MEDIA]: '媒体能力',
-      [CapabilityCategory.TOOLS]: '工具能力',
-      [CapabilityCategory.SPECIAL]: '特殊能力',
+      [CapabilityCategory.CORE]: "核心能力",
+      [CapabilityCategory.VISION]: "视觉能力",
+      [CapabilityCategory.MEDIA]: "媒体能力",
+      [CapabilityCategory.TOOLS]: "工具能力",
+      [CapabilityCategory.SPECIAL]: "特殊能力",
     };
     return fallbackNames[category.key] || category.key;
   },

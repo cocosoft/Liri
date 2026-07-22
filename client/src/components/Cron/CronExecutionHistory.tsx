@@ -37,16 +37,15 @@ function CronExecutionHistory({ tasks }: CronExecutionHistoryProps) {
         ? new Date(task.lastRun! + task.lastDurationMs).toLocaleString(locale)
         : undefined,
       duration: Math.round((task.lastDurationMs ?? 0) / 1000),
-      status: (
-        task.lastStatus === "ok"
-          ? "success"
-          : task.lastStatus === "error"
-            ? "failed"
-            : task.status === "running"
-              ? "running"
-              : "success"
-      ) as "success" | "failed" | "running",
-      output: task.lastStatus === "ok" ? t("cron.historyCompleted", "Completed") : "",
+      status: (task.lastStatus === "ok"
+        ? "success"
+        : task.lastStatus === "error"
+          ? "failed"
+          : task.status === "running"
+            ? "running"
+            : "success") as "success" | "failed" | "running",
+      output:
+        task.lastStatus === "ok" ? t("cron.historyCompleted", "Completed") : "",
       error: task.lastError,
     }))
     .sort((a, b) => {
@@ -188,10 +187,14 @@ function CronExecutionHistory({ tasks }: CronExecutionHistoryProps) {
                     </span>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    <span
+                      className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                    >
                       {record.startTime}
                     </span>
-                    <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    <span
+                      className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                    >
                       {formatDuration(record.duration)}
                     </span>
                   </div>

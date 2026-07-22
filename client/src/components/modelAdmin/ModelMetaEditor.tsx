@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { modelAdminService } from "../../services/modelAdminService";
 import { configService } from "../../services/configService";
 import { capabilityService } from "../../services/capabilityService";
+import { handleClientError } from "../../utils/handleError";
 import type { ModelCapabilityDefinition } from "../../services/capabilityService";
 
 interface ModelMetaEditorProps {
@@ -41,7 +42,9 @@ function ModelMetaEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [capabilities, setCapabilities] = useState<ModelCapabilityDefinition[]>([]);
+  const [capabilities, setCapabilities] = useState<ModelCapabilityDefinition[]>(
+    [],
+  );
   const [capabilitiesLoaded, setCapabilitiesLoaded] = useState(false);
 
   // 加载已有的模型覆盖配置
@@ -98,7 +101,8 @@ function ModelMetaEditor({
               : prev.capabilities,
           }));
         }
-      } catch {
+      } catch (e) {
+        handleClientError(e, { module: "components:modelAdmin:ModelMetaEditor", action: "loadOverrides" });
         // 加载失败使用默认值
       } finally {
         setLoaded(true);
@@ -113,29 +117,89 @@ function ModelMetaEditor({
       try {
         const result = await capabilityService.getCapabilitiesCached();
         setCapabilities(result);
-        
+
         // 如果表单中没有设置能力，使用默认能力
         setForm((prev) => {
           if (prev.capabilities.length === 0) {
-            const defaultCaps = result.filter((c) => c.isDefault).map((c) => c.key);
-            return { ...prev, capabilities: defaultCaps.length > 0 ? defaultCaps : ["streaming", "function_calling", "tool_use"] };
+            const defaultCaps = result
+              .filter((c) => c.isDefault)
+              .map((c) => c.key);
+            return {
+              ...prev,
+              capabilities:
+                defaultCaps.length > 0
+                  ? defaultCaps
+                  : ["streaming", "function_calling", "tool_use"],
+            };
           }
           return prev;
         });
-      } catch {
+      } catch (e) {
+        handleClientError(e, { module: "components:modelAdmin:ModelMetaEditor", action: "loadCapabilities" });
         // 加载失败使用基础能力列表作为 fallback
         setCapabilities([
-          { key: "streaming", labelFallback: "Streaming", isDefault: true, enabled: true, category: "core" } as ModelCapabilityDefinition,
-          { key: "function_calling", labelFallback: "Function Calling", isDefault: true, enabled: true, category: "core" } as ModelCapabilityDefinition,
-          { key: "vision", labelFallback: "Vision", isDefault: false, enabled: true, category: "vision" } as ModelCapabilityDefinition,
-          { key: "thinking", labelFallback: "Thinking", isDefault: false, enabled: true, category: "special" } as ModelCapabilityDefinition,
-          { key: "tool_use", labelFallback: "Tool Use", isDefault: true, enabled: true, category: "tools" } as ModelCapabilityDefinition,
-          { key: "structured_output", labelFallback: "Structured Output", isDefault: false, enabled: true, category: "core" } as ModelCapabilityDefinition,
-          { key: "image_input", labelFallback: "Image Input", isDefault: false, enabled: true, category: "vision" } as ModelCapabilityDefinition,
-          { key: "pdf_input", labelFallback: "PDF Input", isDefault: false, enabled: true, category: "tools" } as ModelCapabilityDefinition,
+          {
+            key: "streaming",
+            labelFallback: "Streaming",
+            isDefault: true,
+            enabled: true,
+            category: "core",
+          } as ModelCapabilityDefinition,
+          {
+            key: "function_calling",
+            labelFallback: "Function Calling",
+            isDefault: true,
+            enabled: true,
+            category: "core",
+          } as ModelCapabilityDefinition,
+          {
+            key: "vision",
+            labelFallback: "Vision",
+            isDefault: false,
+            enabled: true,
+            category: "vision",
+          } as ModelCapabilityDefinition,
+          {
+            key: "thinking",
+            labelFallback: "Thinking",
+            isDefault: false,
+            enabled: true,
+            category: "special",
+          } as ModelCapabilityDefinition,
+          {
+            key: "tool_use",
+            labelFallback: "Tool Use",
+            isDefault: true,
+            enabled: true,
+            category: "tools",
+          } as ModelCapabilityDefinition,
+          {
+            key: "structured_output",
+            labelFallback: "Structured Output",
+            isDefault: false,
+            enabled: true,
+            category: "core",
+          } as ModelCapabilityDefinition,
+          {
+            key: "image_input",
+            labelFallback: "Image Input",
+            isDefault: false,
+            enabled: true,
+            category: "vision",
+          } as ModelCapabilityDefinition,
+          {
+            key: "pdf_input",
+            labelFallback: "PDF Input",
+            isDefault: false,
+            enabled: true,
+            category: "tools",
+          } as ModelCapabilityDefinition,
         ]);
         if (!form.capabilities || form.capabilities.length === 0) {
-          setForm((prev) => ({ ...prev, capabilities: ["streaming", "function_calling", "tool_use"] }));
+          setForm((prev) => ({
+            ...prev,
+            capabilities: ["streaming", "function_calling", "tool_use"],
+          }));
         }
       } finally {
         setCapabilitiesLoaded(true);
@@ -148,11 +212,11 @@ function ModelMetaEditor({
   const capabilitiesByCategory = useMemo(() => {
     const grouped: Record<string, ModelCapabilityDefinition[]> = {};
     const categoryOrder = ["core", "vision", "media", "tools", "special"];
-    
+
     for (const cat of categoryOrder) {
       grouped[cat] = [];
     }
-    
+
     for (const cap of capabilities) {
       if (grouped[cap.category]) {
         grouped[cap.category].push(cap);
@@ -160,12 +224,12 @@ function ModelMetaEditor({
         grouped[cap.category] = [cap];
       }
     }
-    
+
     // 按 sortOrder 排序
     for (const cat in grouped) {
       grouped[cat].sort((a, b) => a.sortOrder - b.sortOrder);
     }
-    
+
     return grouped;
   }, [capabilities]);
 

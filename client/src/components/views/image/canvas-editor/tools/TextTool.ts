@@ -27,11 +27,11 @@ export class TextTool implements CanvasToolHandler {
     const dpr = ctx.transform.dpr || 1;
     const rect = ctx.overlayCanvas?.getBoundingClientRect();
     if (rect) {
-      ta.style.left = (rect.left + px / dpr) + "px";
-      ta.style.top = (rect.top + py / dpr) + "px";
+      ta.style.left = rect.left + px / dpr + "px";
+      ta.style.top = rect.top + py / dpr + "px";
     } else {
-      ta.style.left = (px / dpr) + "px";
-      ta.style.top = (py / dpr) + "px";
+      ta.style.left = px / dpr + "px";
+      ta.style.top = py / dpr + "px";
     }
     ta.style.fontSize = this.fontSize + "px";
     ta.style.fontFamily = this.fontFamily;
@@ -54,16 +54,22 @@ export class TextTool implements CanvasToolHandler {
     if (!document.getElementById("canvas-text-caret-style")) {
       const style = document.createElement("style");
       style.id = "canvas-text-caret-style";
-      style.textContent = "@keyframes canvas-caret-blink{0%,100%{caret-color:transparent}50%{caret-color:currentColor}}";
+      style.textContent =
+        "@keyframes canvas-caret-blink{0%,100%{caret-color:transparent}50%{caret-color:currentColor}}";
       document.head.appendChild(style);
     }
 
-    ta.addEventListener("compositionstart", () => { this.isComposing = true; });
-    ta.addEventListener("compositionend", () => { this.isComposing = false; });
+    ta.addEventListener("compositionstart", () => {
+      this.isComposing = true;
+    });
+    ta.addEventListener("compositionend", () => {
+      this.isComposing = false;
+    });
     ta.addEventListener("blur", () => this.commit(ctx));
     ta.addEventListener("keydown", (ev) => {
-      if (ev.key === "Escape") { this.removeTextarea(); }
-      else if (ev.key === "Enter" && !ev.shiftKey && !this.isComposing) {
+      if (ev.key === "Escape") {
+        this.removeTextarea();
+      } else if (ev.key === "Enter" && !ev.shiftKey && !this.isComposing) {
         ev.preventDefault();
         this.commit(ctx);
       }
@@ -100,9 +106,14 @@ export class TextTool implements CanvasToolHandler {
     ctx.commands.execute({
       type: "text",
       bbox: { x: this.textX, y: this.textY, w, h },
-      before, after,
-      apply: (c2) => { c2.putImageData(after, this.textX, this.textY); },
-      revert: (c2) => { c2.putImageData(before, this.textX, this.textY); },
+      before,
+      after,
+      apply: (c2) => {
+        c2.putImageData(after, this.textX, this.textY);
+      },
+      revert: (c2) => {
+        c2.putImageData(before, this.textX, this.textY);
+      },
     });
   }
 
@@ -115,5 +126,7 @@ export class TextTool implements CanvasToolHandler {
 
   onPointerMove(_e: CanvasPointerEvent, _ctx: ToolContext) {}
   onPointerUp(_e: CanvasPointerEvent, _ctx: ToolContext) {}
-  onDeactivate() { this.removeTextarea(); }
+  onDeactivate() {
+    this.removeTextarea();
+  }
 }

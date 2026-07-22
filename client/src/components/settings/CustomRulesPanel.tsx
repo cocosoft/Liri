@@ -7,6 +7,7 @@ import {
   SelectConfig,
 } from "./ConfigComponents";
 import { httpLegacy as http } from "../../services/httpClient";
+import { handleClientError } from "../../utils/handleError";
 
 /** 命令规则 */
 interface CommandRule {
@@ -42,7 +43,8 @@ interface CustomRulesPanelProps {
   isDark: boolean;
 }
 
-type RuleTab = "command-blacklist" | "command-whitelist" | "dir-blacklist" | "dir-whitelist";
+type RuleTab =
+  "command-blacklist" | "command-whitelist" | "dir-blacklist" | "dir-whitelist";
 
 const RULE_TABS: { id: RuleTab; label: string }[] = [
   { id: "command-blacklist", label: "命令黑名单" },
@@ -64,7 +66,7 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
   const loadConfig = async () => {
     try {
       const res = await http.get<{ key: string; value: PermissionConfig }>(
-        "/v1/config/permission"
+        "/v1/config/permission",
       );
       if (res?.value?.customRules) {
         setConfig(res.value.customRules);
@@ -75,7 +77,8 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
           directoryRules: { whitelist: [], blacklist: [] },
         });
       }
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "components:settings:CustomRules", action: "loadConfig" });
       setError("加载自定义规则失败");
     }
   };
@@ -87,7 +90,7 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
     setError(null);
     try {
       const res = await http.get<{ key: string; value: PermissionConfig }>(
-        "/v1/config/permission"
+        "/v1/config/permission",
       );
       const existing = res?.value || {};
       await http.put("/v1/config/permission", {
@@ -95,7 +98,8 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "components:settings:CustomRules", action: "saveConfig" });
       setError("保存失败");
     } finally {
       setLoading(false);
@@ -273,16 +277,32 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
 
       {/* 规则列表 */}
       {getCurrentList().length === 0 ? (
-        <div className={`py-3 px-3 rounded-lg text-xs space-y-1.5 ${isDark ? "bg-gray-800/50 text-gray-400" : "bg-gray-50 text-gray-500"}`}>
-          <p className="font-medium">暂无{activeTab.includes("command") ? "命令" : "目录"}规则</p>
+        <div
+          className={`py-3 px-3 rounded-lg text-xs space-y-1.5 ${isDark ? "bg-gray-800/50 text-gray-400" : "bg-gray-50 text-gray-500"}`}
+        >
+          <p className="font-medium">
+            暂无{activeTab.includes("command") ? "命令" : "目录"}规则
+          </p>
           {activeTab === "command-blacklist" && (
-            <p>添加命令模式（如 <code className="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700">rm -rf</code>）后，匹配的命令将被拦截。</p>
+            <p>
+              添加命令模式（如{" "}
+              <code className="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700">
+                rm -rf
+              </code>
+              ）后，匹配的命令将被拦截。
+            </p>
           )}
           {activeTab === "command-whitelist" && (
             <p>添加命令模式后，仅允许匹配的命令执行，其余全部拦截。</p>
           )}
           {activeTab === "dir-blacklist" && (
-            <p>添加目录路径（如 <code className="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700">/etc</code>）后，禁止访问该目录。</p>
+            <p>
+              添加目录路径（如{" "}
+              <code className="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700">
+                /etc
+              </code>
+              ）后，禁止访问该目录。
+            </p>
           )}
           {activeTab === "dir-whitelist" && (
             <p>添加目录路径后，仅允许访问这些目录，其余全部拦截。</p>
@@ -319,12 +339,8 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
         >
           {loading ? "保存中..." : "保存配置"}
         </button>
-        {saved && (
-          <span className="text-xs text-green-500">已保存</span>
-        )}
-        {error && (
-          <span className="text-xs text-red-500">{error}</span>
-        )}
+        {saved && <span className="text-xs text-green-500">已保存</span>}
+        {error && <span className="text-xs text-red-500">{error}</span>}
       </div>
     </ConfigSection>
   );

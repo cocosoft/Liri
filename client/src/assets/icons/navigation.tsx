@@ -4,7 +4,11 @@ interface BaseIconProps {
   color?: string;
 }
 
-export const HomeIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const HomeIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -21,7 +25,11 @@ export const HomeIcon = ({ className = '', size = 24, color = 'currentColor' }: 
   </svg>
 );
 
-export const ChatIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const ChatIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -37,7 +45,11 @@ export const ChatIcon = ({ className = '', size = 24, color = 'currentColor' }: 
   </svg>
 );
 
-export const TaskIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const TaskIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -54,7 +66,11 @@ export const TaskIcon = ({ className = '', size = 24, color = 'currentColor' }: 
   </svg>
 );
 
-export const DevIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const DevIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -71,7 +87,11 @@ export const DevIcon = ({ className = '', size = 24, color = 'currentColor' }: B
   </svg>
 );
 
-export const CronIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const CronIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -88,7 +108,11 @@ export const CronIcon = ({ className = '', size = 24, color = 'currentColor' }: 
   </svg>
 );
 
-export const KnowledgeIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const KnowledgeIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -104,7 +128,11 @@ export const KnowledgeIcon = ({ className = '', size = 24, color = 'currentColor
   </svg>
 );
 
-export const ModelIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const ModelIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -123,7 +151,11 @@ export const ModelIcon = ({ className = '', size = 24, color = 'currentColor' }:
   </svg>
 );
 
-export const SkillIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const SkillIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -141,7 +173,11 @@ export const SkillIcon = ({ className = '', size = 24, color = 'currentColor' }:
   </svg>
 );
 
-export const FileIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const FileIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -161,7 +197,11 @@ export const FileIcon = ({ className = '', size = 24, color = 'currentColor' }: 
   </svg>
 );
 
-export const McpIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const McpIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -178,7 +218,11 @@ export const McpIcon = ({ className = '', size = 24, color = 'currentColor' }: B
   </svg>
 );
 
-export const ChannelIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const ChannelIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -194,7 +238,11 @@ export const ChannelIcon = ({ className = '', size = 24, color = 'currentColor' 
   </svg>
 );
 
-export const BuddyIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const BuddyIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -211,7 +259,11 @@ export const BuddyIcon = ({ className = '', size = 24, color = 'currentColor' }:
   </svg>
 );
 
-export const DashboardIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const DashboardIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -230,7 +282,11 @@ export const DashboardIcon = ({ className = '', size = 24, color = 'currentColor
   </svg>
 );
 
-export const KeyIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const KeyIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -248,7 +304,11 @@ export const KeyIcon = ({ className = '', size = 24, color = 'currentColor' }: B
   </svg>
 );
 
-export const ShieldIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const ShieldIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -265,7 +325,11 @@ export const ShieldIcon = ({ className = '', size = 24, color = 'currentColor' }
   </svg>
 );
 
-export const BookOpenIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const BookOpenIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -282,7 +346,11 @@ export const BookOpenIcon = ({ className = '', size = 24, color = 'currentColor'
   </svg>
 );
 
-export const DatabaseIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const DatabaseIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -300,7 +368,11 @@ export const DatabaseIcon = ({ className = '', size = 24, color = 'currentColor'
   </svg>
 );
 
-export const DollarIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const DollarIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -317,7 +389,11 @@ export const DollarIcon = ({ className = '', size = 24, color = 'currentColor' }
   </svg>
 );
 
-export const CloudIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const CloudIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -333,7 +409,11 @@ export const CloudIcon = ({ className = '', size = 24, color = 'currentColor' }:
   </svg>
 );
 
-export const ImageIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const ImageIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -351,7 +431,11 @@ export const ImageIcon = ({ className = '', size = 24, color = 'currentColor' }:
   </svg>
 );
 
-export const ZapIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const ZapIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -367,7 +451,11 @@ export const ZapIcon = ({ className = '', size = 24, color = 'currentColor' }: B
   </svg>
 );
 
-export const UsersIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const UsersIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -386,7 +474,11 @@ export const UsersIcon = ({ className = '', size = 24, color = 'currentColor' }:
   </svg>
 );
 
-export const CouncilIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const CouncilIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -408,7 +500,11 @@ export const CouncilIcon = ({ className = '', size = 24, color = 'currentColor' 
 );
 
 /** 语音波形图标 — 用于 TTS 页面导航 */
-export const WaveformIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const WaveformIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -431,7 +527,11 @@ export const WaveformIcon = ({ className = '', size = 24, color = 'currentColor'
 /**
  * 视频图标 — 用于视频页面导航
  */
-export const VideoIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const VideoIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -451,7 +551,11 @@ export const VideoIcon = ({ className = '', size = 24, color = 'currentColor' }:
 /**
  * 翻译图标 — 用于翻译页面导航
  */
-export const TranslateIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const TranslateIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -472,8 +576,23 @@ export const TranslateIcon = ({ className = '', size = 24, color = 'currentColor
 export type { BaseIconProps };
 
 /** 办公图标 — 公文包 */
-export const OfficeIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+export const OfficeIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
     <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
     <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
     <path d="M12 12v4" />
@@ -482,8 +601,23 @@ export const OfficeIcon = ({ className = '', size = 24, color = 'currentColor' }
 );
 
 /** 文档图标 — 用于办公模块 */
-export const DocIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+export const DocIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
     <polyline points="14 2 14 8 20 8" />
     <line x1="16" y1="13" x2="8" y2="13" />
@@ -493,16 +627,46 @@ export const DocIcon = ({ className = '', size = 24, color = 'currentColor' }: B
 );
 
 /** 邮件图标 — 用于办公模块 */
-export const MailIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+export const MailIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
     <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
     <polyline points="22,6 12,13 2,6" />
   </svg>
 );
 
 /** 日历图标 — 用于办公模块 */
-export const CalendarIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+export const CalendarIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
     <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
     <line x1="16" y1="2" x2="16" y2="6" />
     <line x1="8" y1="2" x2="8" y2="6" />

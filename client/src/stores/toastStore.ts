@@ -31,12 +31,13 @@ interface ToastStore {
  * addToast 通过 crypto.randomUUID() 生成唯一 ID。
  */
 export const useToastStore = create<ToastStore>((set) => ({
-
   toasts: [],
 
   addToast: (type: ToastType, message: string, duration: number = 3000) => {
     const id = crypto.randomUUID();
-    set((state) => ({ toasts: [...state.toasts, { id, type, message, duration }] }));
+    set((state) => ({
+      toasts: [...state.toasts, { id, type, message, duration }],
+    }));
 
     if (duration > 0) {
       setTimeout(() => {
@@ -48,5 +49,4 @@ export const useToastStore = create<ToastStore>((set) => ({
   removeToast: (id: string) => {
     set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
   },
-
 }));

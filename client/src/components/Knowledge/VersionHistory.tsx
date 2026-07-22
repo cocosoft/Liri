@@ -59,7 +59,9 @@ function VersionHistory({
     try {
       const snapDir = `.knowledge-snapshots/${title}/${name}`;
       // 通过读取 snapshot 内容来展示 diff（简化：用 fetch 获取）
-      const resp = await fetch(`/api/files/read?path=${encodeURIComponent(snapDir)}`);
+      const resp = await fetch(
+        `/api/files/read?path=${encodeURIComponent(snapDir)}`,
+      );
       if (resp.ok) {
         const data = await resp.json();
         setSnapshotContent(data.content || "");
@@ -72,7 +74,8 @@ function VersionHistory({
   }
 
   async function handleRestore() {
-    if (!selectedSnapshot || !confirm("确定恢复到此版本？当前内容将被覆盖。")) return;
+    if (!selectedSnapshot || !confirm("确定恢复到此版本？当前内容将被覆盖。"))
+      return;
     setRestoring(true);
     const ok = await knowledgeService.restoreSnapshot(title, selectedSnapshot);
     setRestoring(false);
@@ -88,7 +91,10 @@ function VersionHistory({
     // snapshot_2026-07-12T05-30-00-000Z.md
     const m = name.match(/snapshot_(.+)\.md$/);
     if (!m) return name;
-    return m[1].replace(/T/, " ").replace(/-/g, (c, i) => (i >= 10 ? ":" : c)).replace("Z", "");
+    return m[1]
+      .replace(/T/, " ")
+      .replace(/-/g, (c, i) => (i >= 10 ? ":" : c))
+      .replace("Z", "");
   }
 
   if (!open) {
@@ -104,9 +110,13 @@ function VersionHistory({
   }
 
   return (
-    <div className={`mt-4 rounded-lg border ${borderColor} ${bgClass} overflow-hidden`}>
+    <div
+      className={`mt-4 rounded-lg border ${borderColor} ${bgClass} overflow-hidden`}
+    >
       {/* 头部 */}
-      <div className={`px-3 py-2 border-b ${borderColor} flex items-center justify-between`}>
+      <div
+        className={`px-3 py-2 border-b ${borderColor} flex items-center justify-between`}
+      >
         <span className={`text-sm font-medium ${textPrimary}`}>
           历史版本 ({snapshots.length})
         </span>
@@ -120,7 +130,10 @@ function VersionHistory({
             <option value="inline">行内对比</option>
           </select>
           <button
-            onClick={() => { setOpen(false); setSelectedSnapshot(null); }}
+            onClick={() => {
+              setOpen(false);
+              setSelectedSnapshot(null);
+            }}
             className={`text-xs ${btnClass} px-2 py-0.5 rounded`}
           >
             关闭
@@ -130,10 +143,18 @@ function VersionHistory({
 
       {/* 快照列表 */}
       <div className="flex max-h-80">
-        <div className={`w-56 border-r ${borderColor} overflow-y-auto flex-shrink-0`}>
-          {loading && <div className={`px-3 py-2 text-xs ${textSecondary}`}>加载中...</div>}
+        <div
+          className={`w-56 border-r ${borderColor} overflow-y-auto flex-shrink-0`}
+        >
+          {loading && (
+            <div className={`px-3 py-2 text-xs ${textSecondary}`}>
+              加载中...
+            </div>
+          )}
           {!loading && snapshots.length === 0 && (
-            <div className={`px-3 py-2 text-xs ${textSecondary}`}>暂无历史版本</div>
+            <div className={`px-3 py-2 text-xs ${textSecondary}`}>
+              暂无历史版本
+            </div>
           )}
           {snapshots.map((name) => (
             <button
@@ -153,7 +174,10 @@ function VersionHistory({
         {/* 对比区域 */}
         <div className="flex-1 overflow-auto" style={{ maxHeight: "20rem" }}>
           {viewMode === "side" ? (
-            <div className="grid grid-cols-2 divide-x" style={{ minHeight: "10rem" }}>
+            <div
+              className="grid grid-cols-2 divide-x"
+              style={{ minHeight: "10rem" }}
+            >
               <div className="p-2">
                 <div className="text-xs font-semibold text-green-600 dark:text-green-400 mb-1">
                   旧版本
@@ -192,7 +216,9 @@ function VersionHistory({
 
       {/* 底部操作 */}
       {selectedSnapshot && (
-        <div className={`px-3 py-2 border-t ${borderColor} flex items-center justify-end gap-2`}>
+        <div
+          className={`px-3 py-2 border-t ${borderColor} flex items-center justify-end gap-2`}
+        >
           <button
             onClick={handleRestore}
             disabled={restoring}

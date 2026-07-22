@@ -12,6 +12,7 @@
 
 import { useConfigStore } from "../stores/configStore";
 import { createLogger } from "@/utils/logger";
+import { handleClientError } from "../utils/handleError";
 
 const logger = createLogger("services:soundService");
 
@@ -43,6 +44,7 @@ function getContext(): AudioContext | null {
     }
     return audioCtx;
   } catch (e) {
+    handleClientError(e, { module: "services:sound", action: "getContext" });
     logger.warn("AudioContext 不可用，静默降级", e);
     audioAvailable = false;
     return null;
@@ -52,7 +54,8 @@ function getContext(): AudioContext | null {
 /** 读取通知配置中的布尔开关 */
 function isNotificationEnabled(key: string): boolean {
   const config = useConfigStore.getState().config;
-  const notifications = config.notifications as Record<string, unknown> | undefined;
+  const notifications = config.notifications as
+    Record<string, unknown> | undefined;
   if (notifications && typeof notifications[key] === "boolean") {
     return notifications[key] as boolean;
   }
@@ -118,7 +121,10 @@ export function playCompletionSound(): void {
     osc.type = "sine";
     osc.frequency.value = freq;
     gain.gain.setValueAtTime(0.2, ctx.currentTime + i * 0.15);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.2);
+    gain.gain.exponentialRampToValueAtTime(
+      0.01,
+      ctx.currentTime + i * 0.15 + 0.2,
+    );
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.start(ctx.currentTime + i * 0.15);

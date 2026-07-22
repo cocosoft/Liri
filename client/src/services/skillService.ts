@@ -1,4 +1,5 @@
 import { httpLegacy as http } from "./httpClient";
+import { handleClientError } from "../utils/handleError";
 
 export type SkillStatus = "enabled" | "disabled" | "draft";
 
@@ -273,13 +274,17 @@ const skillService = {
         `/v1/skills/${encodeURIComponent(skillId)}`,
       );
       return res.skill || null;
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:skill", action: "getMarketDetail" });
       return null;
     }
   },
 
   /** 安装技能 */
-  async installMarket(skillId: string, sourceUrl?: string): Promise<InstalledSkill> {
+  async installMarket(
+    skillId: string,
+    sourceUrl?: string,
+  ): Promise<InstalledSkill> {
     const res = await http.post<{ success: boolean; skill: InstalledSkill }>(
       "/v1/skills/install",
       { skillId, sourceUrl },

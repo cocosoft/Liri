@@ -4,6 +4,7 @@ import {
   pricingService,
   type ModelPricingRecord,
 } from "../../services/pricingService";
+import { handleClientError } from "../../utils/handleError";
 
 interface FormData {
   modelId: string;
@@ -40,6 +41,7 @@ function PricingPanel() {
       const data = await pricingService.list();
       setRecords(data);
     } catch (e) {
+      handleClientError(e, { module: "components:usage:PricingPanel", action: "loadRecords" });
       setError(e instanceof Error ? e.message : "加载定价失败");
     } finally {
       setLoading(false);
@@ -70,6 +72,7 @@ function PricingPanel() {
       setShowForm(false);
       await loadRecords();
     } catch (e) {
+      handleClientError(e, { module: "components:usage:PricingPanel", action: "handleSave" });
       setError(e instanceof Error ? e.message : "保存失败");
     } finally {
       setSaving(false);
@@ -82,6 +85,7 @@ function PricingPanel() {
       await pricingService.remove(modelId);
       await loadRecords();
     } catch (e) {
+      handleClientError(e, { module: "components:usage:PricingPanel", action: "handleDelete" });
       setError(e instanceof Error ? e.message : "删除失败");
     }
   };

@@ -1,65 +1,227 @@
 /**
- * 前端轻量错误处理器
+ * 前端统一错误处理
  *
- * 统一前端 catch 块的错误日志格式，提供模块级上下文。
- * 与后端 handleError 功能对应，但前端不做 OTel/ErrorTracker 追踪。
+ * 与后端 error/handleError.ts 功能对齐：
+ * - 错误标准化（转 AppError）
+ * - OTEL Span 追踪
+ * - 分级日志记录
+ * - 后端错误上报（异步，不阻塞）
+ * - 内存错误统计（供仪表盘展示）
  */
 
-import { createLogger } from './logger';
+import { AppError, ErrorCategory, ErrorSeverity } from "../error/types";
+import { getOTelTracing } from "../monitoring/otel/OTelTracing";
+import { getBackendBaseUrl, getApiSecret } from "../services/backendUrl";
 
-/** 错误处理上下文 */
-export interface ClientErrorContext {
-  /** 模块名（如 'stores:appStore'） */
+/**
+ * 统一错误处理选项
+ */
+export interface HandleErrorOptions {
+  /** 必传：哪个模块 */
   module: string;
-  /** 操作名（如 'loadSessions'） */
-  action: string;
-  /** 额外元数据 */
+  /** 当时在做什么 */
+  action?: string;
+  /** 附加上下文 */
   meta?: Record<string, unknown>;
 }
 
-/** 错误严重级别 */
-export type ClientErrorSeverity = 'warn' | 'error';
+// ---------------------------------------------------------------------------
+// 内存错误统计
+// ---------------------------------------------------------------------------
+
+interface TrackedEntry {
+  id: string;
+  message: string;
+  category: ErrorCategory;
+  severity: ErrorSeverity;
+  code?: string;
+  module: string;
+  action?: string;
+  timestamp: number;
+  stack?: string;
+}
+
+const MAX_TRACKED = 500;
+const MAX_RECENT = 50;
+
+/** 内存中的错误统计 */
+export const errorStats = {
+  total: 0,
+  byCategory: {} as Record<string, number>,
+  bySeverity: {} as Record<string, number>,
+  recent: [] as TrackedEntry[],
+};
+
+/** 已追踪的错误列表（供仪表盘 UI 展示） */
+let trackedErrors: TrackedEntry[] = [];
+
+function recordToMemory(entry: TrackedEntry): void {
+  errorStats.total++;
+  errorStats.byCategory[entry.category] =
+    (errorStats.byCategory[entry.category] || 0) + 1;
+  errorStats.bySeverity[entry.severity] =
+    (errorStats.bySeverity[entry.severity] || 0) + 1;
+
+  errorStats.recent.unshift(entry);
+  if (errorStats.recent.length > MAX_RECENT) {
+    errorStats.recent = errorStats.recent.slice(0, MAX_RECENT);
+  }
+
+  trackedErrors.push(entry);
+  if (trackedErrors.length > MAX_TRACKED) {
+    trackedErrors = trackedErrors.slice(-MAX_TRACKED);
+  }
+}
+
+/** 获取已追踪错误列表（清空后返回，供仪表盘轮询） */
+export function drainTrackedErrors(): TrackedEntry[] {
+  const drained = trackedErrors;
+  trackedErrors = [];
+  return drained;
+}
+
+// ---------------------------------------------------------------------------
+// 后端上报
+// ---------------------------------------------------------------------------
+
+const REPORT_THROTTLE_MS = 5000;
+const PENDING_ERRORS: TrackedEntry[] = [];
+
+let reportTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleReport(): void {
+  if (reportTimer) return;
+  reportTimer = setTimeout(async () => {
+    reportTimer = null;
+    if (PENDING_ERRORS.length === 0) return;
+
+    const batch = PENDING_ERRORS.splice(0);
+    try {
+      const baseUrl = getBackendBaseUrl();
+      const body = JSON.stringify({
+        errors: batch.map((e) => ({
+          message: e.message,
+          category: e.category,
+          severity: e.severity,
+          code: e.code,
+          module: e.module,
+          action: e.action,
+          timestamp: e.timestamp,
+          stack: e.stack?.split("\n").slice(0, 3).join("\n"),
+        })),
+      });
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      const secret = getApiSecret();
+      if (secret) headers["X-API-Key"] = secret;
+
+      await fetch(`${baseUrl}/v1/errors/report`, {
+        method: "POST",
+        headers,
+        body,
+        // 不阻塞，静默失败
+      }).catch(() => {});
+    } catch {
+      // 静默失败
+    }
+  }, REPORT_THROTTLE_MS);
+}
+
+function reportToBackend(entry: TrackedEntry): void {
+  PENDING_ERRORS.push(entry);
+  scheduleReport();
+}
+
+// ---------------------------------------------------------------------------
+// 统一错误处理入口
+// ---------------------------------------------------------------------------
 
 /**
- * handleClientError — 前端统一错误处理
+ * 统一的错误处理入口函数
  *
- * 将 catch 到的错误统一记录日志，避免各模块散落 console.error。
+ * 所有 catch 块的标准模式：
+ * 1. 转为 AppError（标准化）
+ * 2. 记录到 OTEL Span
+ * 3. 分级日志输出
+ * 4. 内存统计（供仪表盘）
+ * 5. 后端异步上报
  *
- * @param err 捕获的错误对象
- * @param ctx 上下文信息
- * @param severity 严重级别，默认 'error'
- * @returns 标准化的错误消息字符串
- *
- * @example
- * ```ts
- * catch (e) {
- *   handleClientError(e, { module: 'stores:appStore', action: 'loadSessions' });
- * }
- * ```
+ * @param error 捕获到的错误对象
+ * @param options 处理选项
+ * @returns 标准化后的 AppError 实例
  */
 export function handleClientError(
-  err: unknown,
-  ctx: ClientErrorContext,
-  severity: ClientErrorSeverity = 'error',
-): string {
-  const logger = createLogger(ctx.module);
-  const errorMsg =
-    err instanceof Error ? err.message : String(err);
+  error: unknown,
+  options: HandleErrorOptions,
+  _severity?: "warn" | "error" // 保留签名兼容性
+): AppError {
+  // 1. 转为 AppError（标准化）
+  const appError =
+    error instanceof AppError
+      ? error
+      : new AppError(
+          (error as Error)?.message || String(error),
+          ErrorCategory.UNKNOWN,
+          ErrorSeverity.MEDIUM,
+          "UNHANDLED_ERROR",
+        );
 
-  const logData: Record<string, unknown> = {
-    action: ctx.action,
-    ...ctx.meta,
+  const { module, action, meta } = options;
+
+  // 2. OTEL Span 追踪
+  const otel = getOTelTracing();
+  const span = otel.getActiveSpan();
+  if (span) {
+    otel.recordError(span, error);
+    span.setAttribute("error.module", module);
+    if (action) span.setAttribute("error.action", action);
+    if (meta) {
+      Object.entries(meta).forEach(([k, v]) => {
+        if (typeof v === "string" || typeof v === "number") {
+          span.setAttribute(`meta.${k}`, v);
+        }
+      });
+    }
+  }
+
+  // 3. 分级日志输出
+  const logMeta = {
+    category: appError.category,
+    severity: appError.severity,
+    code: appError.code,
+    module,
+    action,
+    ...meta,
   };
 
-  if (err instanceof Error) {
-    logData.stack = err.stack?.split('\n').slice(0, 3).join('\n');
-  }
-
-  if (severity === 'warn') {
-    logger.warn(`${ctx.action} 失败: ${errorMsg}`, logData);
+  if (appError.severity === ErrorSeverity.CRITICAL) {
+    console.error(`[${module}] ${appError.message}`, logMeta, appError.stack);
+  } else if (
+    appError.severity === ErrorSeverity.HIGH
+  ) {
+    console.warn(`[${module}] ${appError.message}`, logMeta);
   } else {
-    logger.error(`${ctx.action} 失败: ${errorMsg}`, logData);
+    console.log(`[${module}] ${appError.message}`, logMeta);
   }
 
-  return errorMsg;
+  // 4. 内存统计
+  const entry: TrackedEntry = {
+    id: `client_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+    message: appError.message,
+    category: appError.category,
+    severity: appError.severity,
+    code: appError.code,
+    module,
+    action,
+    timestamp: Date.now(),
+    stack: (error as Error)?.stack,
+  };
+  recordToMemory(entry);
+
+  // 5. 后端异步上报
+  reportToBackend(entry);
+
+  return appError;
 }

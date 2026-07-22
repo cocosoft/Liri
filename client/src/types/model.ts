@@ -1,6 +1,6 @@
 export interface ModelInfo {
-  id: string;        // UUID（后端返回）—— BREAKING CHANGE: 原为模型名
-  modelId: string;   // 模型名（新增）
+  id: string; // UUID（后端返回）—— BREAKING CHANGE: 原为模型名
+  modelId: string; // 模型名（新增）
   name: string;
   provider: string;
   providerId?: string;
@@ -16,7 +16,8 @@ export interface ModelInfo {
   };
 }
 
-export type ProviderCategory = 'official' | 'aggregator' | 'third_party' | 'cn_official';
+export type ProviderCategory =
+  "official" | "aggregator" | "third_party" | "cn_official";
 
 export interface ProviderInfo {
   id: string;
@@ -56,7 +57,7 @@ export interface ProviderPreset {
   settingsConfig: ProviderFormData;
   isOfficial: boolean;
   category: ProviderCategory;
-  apiFormat: 'openai' | 'anthropic' | 'google' | 'custom';
+  apiFormat: "openai" | "anthropic" | "google" | "custom";
   providerType: string;
   requiresOAuth: boolean;
   modelsUrl?: string;
@@ -76,11 +77,11 @@ export interface EndpointLatency {
 }
 
 export interface CurrentModelInfo {
-  modelId: string;    // 模型名
-  modelUuid: string;  // UUID（新增）
+  modelId: string; // 模型名
+  modelUuid: string; // UUID（新增）
   provider: string;
   routerTier?: string;
-  routingMode?: 'dynamic' | 'static' | 'off';
+  routingMode?: "dynamic" | "static" | "off";
   taskType: string;
   costThisSession: number;
   availableTasks: Array<{ type: string; label: string; icon: string }>;

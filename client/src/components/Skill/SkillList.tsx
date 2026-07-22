@@ -81,7 +81,13 @@ const SOURCE_CONFIG: Record<
   },
 };
 
-function SkillList({ skills, isDark, onSelect, selectedId, hasActiveFilters }: SkillListProps) {
+function SkillList({
+  skills,
+  isDark,
+  onSelect,
+  selectedId,
+  hasActiveFilters,
+}: SkillListProps) {
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString("zh-CN", {
       month: "2-digit",

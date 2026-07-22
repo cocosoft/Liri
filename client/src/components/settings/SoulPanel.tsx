@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { fetchSoul, saveSoul } from "../../services/soulService";
 import { ConfigSection } from "./ConfigComponents";
+import { handleClientError } from "../../utils/handleError";
 
 interface SoulPanelProps {
   isDark: boolean;
@@ -57,7 +58,8 @@ function SoulPanel({ isDark }: SoulPanelProps) {
       const data = await fetchSoul();
       setContent(data);
       setOriginalContent(data);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "components:settings:Soul", action: "loadSoul" });
       setMessage({ type: "error", text: "加载人格定义失败" });
     }
   };
@@ -75,7 +77,8 @@ function SoulPanel({ isDark }: SoulPanelProps) {
       setOriginalContent(content);
       setMessage({ type: "success", text: "人格定义已保存" });
       setTimeout(() => setMessage(null), 3000);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "components:settings:Soul", action: "handleSave" });
       setMessage({ type: "error", text: "保存失败，请重试" });
     } finally {
       setSaving(false);

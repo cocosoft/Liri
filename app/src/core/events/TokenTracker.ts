@@ -12,7 +12,18 @@
  */
 
 import { OrchestrationEventType } from '@modules/agent/events/OrchestrationEvents';
-import { globalEventBus, type EventSubscription } from './EventBus';
+import {
+  globalEventBus,
+  type EventSubscription,
+  SystemEvents,
+} from './EventBus';
+import type { CostRecordedEvent } from './EventBus';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({
+  module: 'core:events:TokenTracker',
+  level: LogLevel.WARN,
+});
 
 /** Token 使用量上报 payload */
 export interface TokenUsagePayload {
@@ -48,6 +59,8 @@ export class TokenTracker {
   private trackingStarted = false;
   /** 订阅对象（用于取消） */
   private subscription: EventSubscription | null = null;
+  /** P2-2.8 Phase 2: COST_RECORDED 订阅（被动接收 CostTracker 数据） */
+  private costSubscription: EventSubscription | null = null;
 
   /**
    * @param maxTokensPerSession 每 session 最大 token 预算（默认 100,000）
@@ -80,12 +93,43 @@ export class TokenTracker {
   }
 
   /**
+   * P2-2.8 Phase 2: 订阅 COST_RECORDED 事件，被动同步 CostTracker 数据
+   *
+   * 消除 TokenTracker 独立追踪的冗余性，改为从 CostTracker（唯一写入点）被动订阅。
+   * recordUsage() 仍可用作主动写入，但数据来源逐步迁移到 CostTracker → EventBus 管线。
+   */
+  subscribeToCostEvents(): void {
+    if (this.costSubscription) return;
+
+    this.costSubscription = globalEventBus.subscribe(
+      SystemEvents.COST_RECORDED,
+      (event: CostRecordedEvent) => {
+        const sessionId = event.sessionId || 'global';
+        const tokens = event.inputTokens + event.outputTokens;
+
+        const current = this.sessionTokens.get(sessionId) ?? 0;
+        this.sessionTokens.set(sessionId, current + tokens);
+
+        const currentInput = this.inputTokens.get(sessionId) ?? 0;
+        this.inputTokens.set(sessionId, currentInput + event.inputTokens);
+
+        const currentOutput = this.outputTokens.get(sessionId) ?? 0;
+        this.outputTokens.set(sessionId, currentOutput + event.outputTokens);
+      }
+    );
+  }
+
+  /**
    * 停止追踪
    */
   stopTracking(): void {
     if (this.subscription) {
       this.subscription.unsubscribe();
       this.subscription = null;
+    }
+    if (this.costSubscription) {
+      this.costSubscription.unsubscribe();
+      this.costSubscription = null;
     }
     this.trackingStarted = false;
   }
@@ -104,6 +148,11 @@ export class TokenTracker {
     inputTokens?: number,
     outputTokens?: number
   ): void {
+    // P2-2.8: 迁移警告 — CostTracker 将成为唯一写入点
+    logger.info(
+      '[MIGRATION] TokenTracker.recordUsage 将被迁移到 CostTracker.addCost 统一入口，见 ADR-001',
+      { sessionId, tokens }
+    );
     const current = this.sessionTokens.get(sessionId) ?? 0;
     const newTotal = current + tokens;
     this.sessionTokens.set(sessionId, newTotal);
@@ -227,6 +276,8 @@ export function getTokenTracker(maxTokensPerSession?: number): TokenTracker {
   if (!tokenTracker) {
     tokenTracker = new TokenTracker(maxTokensPerSession);
     tokenTracker.startTracking();
+    // P2-2.8 Phase 2: 订阅 COST_RECORDED 实现被动数据同步
+    tokenTracker.subscribeToCostEvents();
   }
   return tokenTracker;
 }

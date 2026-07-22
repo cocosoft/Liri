@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useApiKeyStore } from "../../stores/authStore";
 import { useConfigStore } from "../../stores/configStore";
+import { handleClientError } from "../../utils/handleError";
 
 function ApiKeyPage() {
   const { t } = useTranslation();
@@ -43,7 +44,9 @@ function ApiKeyPage() {
 
     try {
       await deleteApiKey(id);
-    } catch {}
+    } catch (e) {
+      handleClientError(e, { module: "components:views:ApiKey", action: "deleteApiKey" });
+    }
   };
 
   const handleCopy = async () => {
@@ -52,7 +55,9 @@ function ApiKeyPage() {
         await navigator.clipboard.writeText(newKeyValue);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-      } catch {}
+      } catch (e) {
+        handleClientError(e, { module: "components:views:ApiKey", action: "copyKey" });
+      }
     }
   };
 
@@ -151,10 +156,18 @@ function ApiKeyPage() {
                   className={`text-left text-sm border-b ${isDark ? "border-gray-700 text-gray-400" : "border-gray-200 text-gray-500"}`}
                 >
                   <th className="px-4 py-3 font-medium">{t("common.name")}</th>
-                  <th className="px-4 py-3 font-medium">{t("settings.apiKey")}</th>
-                  <th className="px-4 py-3 font-medium">{t("settings.createdAt")}</th>
-                  <th className="px-4 py-3 font-medium">{t("settings.lastUsed")}</th>
-                  <th className="px-4 py-3 font-medium">{t("settings.actions")}</th>
+                  <th className="px-4 py-3 font-medium">
+                    {t("settings.apiKey")}
+                  </th>
+                  <th className="px-4 py-3 font-medium">
+                    {t("settings.createdAt")}
+                  </th>
+                  <th className="px-4 py-3 font-medium">
+                    {t("settings.lastUsed")}
+                  </th>
+                  <th className="px-4 py-3 font-medium">
+                    {t("settings.actions")}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">

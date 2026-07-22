@@ -10,6 +10,7 @@
 import { create } from "zustand";
 import { httpLegacy as http } from "../services/httpClient";
 import { createLogger } from "@/utils/logger";
+import { handleClientError } from "@/utils/handleError";
 
 const logger = createLogger("stores:gitStore");
 
@@ -158,8 +159,12 @@ export const useGitStore = create<GitStore>()((set, get) => ({
         };
       });
 
-      logger.debug("Git 状态刷新完成", { worktreeId, branch: gitStatus.branch });
+      logger.debug("Git 状态刷新完成", {
+        worktreeId,
+        branch: gitStatus.branch,
+      });
     } catch (e) {
+      handleClientError(e, { module: "stores:git", action: "refreshStatus" });
       set((state) => {
         const r = state.repos[worktreeId];
         if (!r) return state;
@@ -268,6 +273,7 @@ export const useGitStore = create<GitStore>()((set, get) => ({
         };
       });
     } catch (e) {
+      handleClientError(e, { module: "stores:git", action: "getLog" });
       logger.error("Git 日志获取失败", { worktreeId, error: String(e) });
     }
   },
@@ -298,7 +304,7 @@ setTimeout(() => {
             }
           }
         }
-      }
+      },
     );
   });
 }, 0);

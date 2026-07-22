@@ -23,7 +23,9 @@ export default function WorkChatPanel({ className }: WorkChatPanelProps) {
   const currentSession = useSessionStore((s) => s.currentSession);
 
   return (
-    <div className={`${className} flex flex-col bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700`}>
+    <div
+      className={`${className} flex flex-col bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700`}
+    >
       {/* 顶部：Plan/Do 模式切换标签 */}
       <PlanDoToggle
         mode={mode}

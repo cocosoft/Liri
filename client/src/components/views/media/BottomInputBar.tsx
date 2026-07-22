@@ -69,10 +69,12 @@ export const BottomInputBar: React.FC<{
     if (intendedAction.type === "generate-video") {
       setMode("video");
       if (intendedAction.sourceImage) {
-        useMediaStore.getState().setSelectedImage(
-          intendedAction.sourceImage.url,
-          intendedAction.sourceImage.id
-        );
+        useMediaStore
+          .getState()
+          .setSelectedImage(
+            intendedAction.sourceImage.url,
+            intendedAction.sourceImage.id,
+          );
       }
       useMediaStore.getState().lastConsumedSeq = intendedAction.seq;
 
@@ -141,9 +143,7 @@ export const BottomInputBar: React.FC<{
           <>
             <select
               value={params.duration || 5}
-              onChange={(e) =>
-                setParams({ duration: Number(e.target.value) })
-              }
+              onChange={(e) => setParams({ duration: Number(e.target.value) })}
               className={`rounded-md border px-2 py-1.5 text-xs ${
                 isDark
                   ? "border-gray-600 bg-gray-700 text-gray-200"

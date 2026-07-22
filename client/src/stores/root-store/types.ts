@@ -10,7 +10,8 @@ import type { Message, ToolCall } from "@/types/message";
 // ─── Worktree ──────────────────────────────────────────
 
 /** 工作项状态 */
-export type WorkItemStatus = "pending" | "running" | "paused" | "review" | "done" | "failed";
+export type WorkItemStatus =
+  "pending" | "running" | "paused" | "review" | "done" | "failed";
 
 /** 工作项 */
 export interface WorkItem {
@@ -25,7 +26,13 @@ export interface WorkItem {
 
 /** 执行阶段数据 */
 export interface ExecutionPhaseData {
-  phase: "analyzing" | "designing" | "implementing" | "verifying" | "presenting" | null;
+  phase:
+    | "analyzing"
+    | "designing"
+    | "implementing"
+    | "verifying"
+    | "presenting"
+    | null;
   progress: number;
   description: string;
 }

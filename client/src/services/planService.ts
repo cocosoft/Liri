@@ -43,7 +43,7 @@ export const planService = {
   get: async (id: string): Promise<Plan | null> => {
     try {
       const res = await http.get<Plan>(`/v1/plans/${encodeURIComponent(id)}`);
-      return res ?? null as Plan | null;
+      return res ?? (null as Plan | null);
     } catch {
       return null;
     }
@@ -53,7 +53,7 @@ export const planService = {
   create: async (input: CreatePlanInput): Promise<Plan | null> => {
     try {
       const res = await http.post<Plan>("/v1/plans", input);
-      return res ?? null as Plan | null;
+      return res ?? (null as Plan | null);
     } catch {
       return null;
     }
@@ -115,17 +115,25 @@ export const pdcaService = {
   /** 获取 PDCA 状态 */
   getStatus: async (id: string): Promise<PdcaStatus | null> => {
     try {
-      const res = await http.get<PdcaStatus>(`/v1/pdca/${encodeURIComponent(id)}`);
-      return res ?? null as PdcaStatus | null;
+      const res = await http.get<PdcaStatus>(
+        `/v1/pdca/${encodeURIComponent(id)}`,
+      );
+      return res ?? (null as PdcaStatus | null);
     } catch {
       return null;
     }
   },
 
   /** 启动 PDCA */
-  start: async (description: string, sessionId?: string): Promise<string | null> => {
+  start: async (
+    description: string,
+    sessionId?: string,
+  ): Promise<string | null> => {
     try {
-      const res = await http.post<{ taskId: string }>("/v1/pdca/start", { description, sessionId });
+      const res = await http.post<{ taskId: string }>("/v1/pdca/start", {
+        description,
+        sessionId,
+      });
       return (res as any)?.taskId ?? null;
     } catch {
       return null;
@@ -158,7 +166,11 @@ export const kanbanService = {
   },
 
   /** 创建卡片 */
-  create: async (card: { title: string; description?: string; priority?: string }): Promise<boolean> => {
+  create: async (card: {
+    title: string;
+    description?: string;
+    priority?: string;
+  }): Promise<boolean> => {
     try {
       await http.post("/v1/kanban", card);
       return true;
@@ -190,7 +202,9 @@ export const kanbanService = {
   /** 移动卡片到其他列 */
   move: async (id: string, columnId: string): Promise<boolean> => {
     try {
-      await http.post(`/v1/kanban/${encodeURIComponent(id)}/move`, { columnId });
+      await http.post(`/v1/kanban/${encodeURIComponent(id)}/move`, {
+        columnId,
+      });
       return true;
     } catch {
       return false;

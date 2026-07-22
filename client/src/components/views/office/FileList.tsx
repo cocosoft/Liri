@@ -51,7 +51,10 @@ export function FileList() {
       if (filterType !== "all" && !f.name.endsWith(`.${filterType}`)) {
         return false;
       }
-      if (searchQuery && !f.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+      if (
+        searchQuery &&
+        !f.name.toLowerCase().includes(searchQuery.toLowerCase())
+      ) {
         return false;
       }
       return true;
@@ -59,13 +62,10 @@ export function FileList() {
   }, [fileList, searchQuery, filterType]);
 
   /** 文件拖拽开始 */
-  const handleDragStart = useCallback(
-    (e: React.DragEvent, file: FileInfo) => {
-      e.dataTransfer.setData("text/plain", file.id);
-      e.dataTransfer.effectAllowed = "move";
-    },
-    [],
-  );
+  const handleDragStart = useCallback((e: React.DragEvent, file: FileInfo) => {
+    e.dataTransfer.setData("text/plain", file.id);
+    e.dataTransfer.effectAllowed = "move";
+  }, []);
 
   /** 文件点击 → 预览 */
   const handleFileClick = useCallback(
@@ -107,7 +107,8 @@ export function FileList() {
   /** 删除文件 */
   const handleDelete = useCallback(
     async (name: string) => {
-      if (!window.confirm(t("office.confirmDelete", "确定要删除此文件吗？"))) return;
+      if (!window.confirm(t("office.confirmDelete", "确定要删除此文件吗？")))
+        return;
       try {
         await officeApi.deleteDoc(name);
         // 若当前预览此文件，清空预览
@@ -284,9 +285,10 @@ export function FileList() {
               key={ft.key}
               onClick={() => setFilterType(ft.key)}
               className={`px-2 py-0.5 text-xs rounded-full transition-colors
-                ${filterType === ft.key
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                ${
+                  filterType === ft.key
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                 }
               `}
               aria-pressed={filterType === ft.key}
@@ -309,7 +311,11 @@ export function FileList() {
       </div>
 
       {/* 文件列表（虚拟滚动） */}
-      <div className="flex-1 mt-2" role="listbox" aria-label={t("office.fileList", "文件列表")}>
+      <div
+        className="flex-1 mt-2"
+        role="listbox"
+        aria-label={t("office.fileList", "文件列表")}
+      >
         {filteredFiles.length === 0 ? (
           <p className="text-xs text-center text-gray-400 dark:text-gray-500 py-4">
             {searchQuery

@@ -113,7 +113,8 @@ export function MCPMarketDetailModal({
             <div>
               <span className="font-semibold">{t("mcp.rating")}</span>
               <p className={isDark ? "text-gray-200" : "text-gray-800"}>
-                {getRatingStars(server.rating)} ({t("mcp.installCount", { count: server.installCount })})
+                {getRatingStars(server.rating)} (
+                {t("mcp.installCount", { count: server.installCount })})
               </p>
             </div>
             <div>
@@ -206,7 +207,9 @@ export function MCPMarketDetailModal({
                       {env.name}
                     </code>
                     {env.required && (
-                      <span className="text-red-500 text-xs">*{t("mcp.required")}</span>
+                      <span className="text-red-500 text-xs">
+                        *{t("mcp.required")}
+                      </span>
                     )}
                     <span
                       className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}

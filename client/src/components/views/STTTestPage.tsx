@@ -16,7 +16,7 @@ const getSupportedMimeType = (): string => {
     "audio/mp4",
     "audio/mp4;codecs=mp4a.40.2",
   ];
-  return types.find(type => MediaRecorder.isTypeSupported(type)) || "";
+  return types.find((type) => MediaRecorder.isTypeSupported(type)) || "";
 };
 
 /** 转录历史记录 */
@@ -41,14 +41,13 @@ const MAX_HISTORY = 50;
  * 提供录音和文件上传两种输入方式，调用后端 STT 提供者进行语音转文字测试
  */
 function STTTestPage() {
-
   const [isRecording, setIsRecording] = useState(false);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [providerId, setProviderId] = useState("local");
   const [language, setLanguage] = useState("zh-CN");
   const [keyterms, setKeyterms] = useState("");
-    const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<STTResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [providers, setProviders] = useState<string[]>([]);
@@ -82,7 +81,6 @@ function STTTestPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
-
   /**
    * 开始录音
    */
@@ -91,9 +89,11 @@ function STTTestPage() {
       setError(null);
       setResult(null);
       audioChunksRef.current = [];
-      
+
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : true,
+        audio: selectedDeviceId
+          ? { deviceId: { exact: selectedDeviceId } }
+          : true,
       });
 
       // S1.3: 创建音频分析器（用于电平指示）
@@ -108,7 +108,8 @@ function STTTestPage() {
       const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
       const updateLevel = () => {
         analyserNode.getByteFrequencyData(dataArray);
-        const avg = Array.from(dataArray).reduce((a, b) => a + b, 0) / dataArray.length;
+        const avg =
+          Array.from(dataArray).reduce((a, b) => a + b, 0) / dataArray.length;
         setLevel(avg / 255);
         setRecordingTime((prev) => prev + 0.1);
         rafRef.current = requestAnimationFrame(updateLevel);
@@ -116,7 +117,11 @@ function STTTestPage() {
       updateLevel();
 
       const mimeType = getSupportedMimeType();
-      const ext = mimeType.includes("mp4") ? "mp4" : mimeType.includes("ogg") ? "ogg" : "webm";
+      const ext = mimeType.includes("mp4")
+        ? "mp4"
+        : mimeType.includes("ogg")
+          ? "ogg"
+          : "webm";
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: mimeType || undefined,
       });
@@ -136,7 +141,9 @@ function STTTestPage() {
         const url = URL.createObjectURL(audioBlob);
         setAudioUrl(url);
         setAudioFile(
-          new File([audioBlob], "recording." + ext, { type: mimeType || "audio/webm" }),
+          new File([audioBlob], "recording." + ext, {
+            type: mimeType || "audio/webm",
+          }),
         );
 
         stream.getTracks().forEach((track) => track.stop());
@@ -311,7 +318,10 @@ function STTTestPage() {
     wsRef.current = null;
 
     // S3.2: 停止录音
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
@@ -382,18 +392,20 @@ function STTTestPage() {
       autoTranscribeRef.current = false;
       handleTranscribe();
     }
-  }, [audioFile]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [audioFile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // S2.6: 页面加载时枚举麦克风设备
   useEffect(() => {
-    navigator.mediaDevices.enumerateDevices()
+    navigator.mediaDevices
+      .enumerateDevices()
       .then((devs) => setDevices(devs.filter((d) => d.kind === "audioinput")))
       .catch(() => {});
   }, []);
 
   // S1.1: 页面加载时拉取可用提供者列表
   useEffect(() => {
-    voiceService.getProviders()
+    voiceService
+      .getProviders()
       .then((list) => setProviders(list.map((p) => p)))
       .catch(() => setProviders(["local", "cloud", "stream"]));
   }, []);
@@ -410,9 +422,7 @@ function STTTestPage() {
   const labelClass = `block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300`;
 
   return (
-    <div
-      className={`flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900`}
-    >
+    <div className={`flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900`}>
       <div className="max-w-4xl mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -421,9 +431,7 @@ function STTTestPage() {
             >
               STT 语音识别测试
             </h1>
-            <p
-              className={`mt-1 text-sm text-gray-500 dark:text-gray-400`}
-            >
+            <p className={`mt-1 text-sm text-gray-500 dark:text-gray-400`}>
               测试语音转文字功能，选择音频来源和转录选项
             </p>
           </div>
@@ -431,7 +439,9 @@ function STTTestPage() {
 
         {/* S2.1: 一键测试工具栏 */}
         <div className="flex flex-wrap items-center gap-2 mb-4 p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 mr-1">快捷操作:</span>
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 mr-1">
+            快捷操作:
+          </span>
           <button
             onClick={() => {
               if (!isRecording) startRecording();
@@ -480,7 +490,6 @@ function STTTestPage() {
               >
                 音频输入
               </h2>
-
               {/* S2.4: 输入模式切换 */}
               <div className="flex mb-4 border-b border-gray-200 dark:border-gray-700">
                 <button
@@ -504,11 +513,12 @@ function STTTestPage() {
                   上传文件
                 </button>
               </div>
-
               {/* S2.6: 麦克风设备选择 */}
               {devices.length > 0 && inputMode === "record" && (
                 <div className="mb-4">
-                  <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">麦克风设备</label>
+                  <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">
+                    麦克风设备
+                  </label>
                   <select
                     value={selectedDeviceId}
                     onChange={(e) => setSelectedDeviceId(e.target.value)}
@@ -523,40 +533,54 @@ function STTTestPage() {
                   </select>
                 </div>
               )}
-
               {/* S1.3: 录音电平指示器 */}
               {isRecording && (
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">录音电平</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">{recordingTime.toFixed(1)}s</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      录音电平
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {recordingTime.toFixed(1)}s
+                    </span>
                   </div>
                   <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-100"
                       style={{
                         width: `${Math.min(level * 100, 100)}%`,
-                        background: level > 0.7
-                          ? "linear-gradient(90deg, #22c55e, #eab308, #ef4444)"
-                          : "linear-gradient(90deg, #22c55e, #eab308)",
+                        background:
+                          level > 0.7
+                            ? "linear-gradient(90deg, #22c55e, #eab308, #ef4444)"
+                            : "linear-gradient(90deg, #22c55e, #eab308)",
                       }}
                     />
                   </div>
                   <div className="flex justify-between mt-1">
-                    <span className="text-xs text-gray-400 dark:text-gray-500">静音</span>
-                    <span className="text-xs text-gray-400 dark:text-gray-500">最大</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                      静音
+                    </span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                      最大
+                    </span>
                   </div>
                 </div>
               )}
-
               {/* S3.1: 拖拽上传区域 — 包裹按钮组 */}
               <div
-                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
                 onDrop={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   const file = e.dataTransfer.files?.[0];
-                  if (file && (file.type.startsWith("audio/") || file.type.startsWith("video/"))) {
+                  if (
+                    file &&
+                    (file.type.startsWith("audio/") ||
+                      file.type.startsWith("video/"))
+                  ) {
                     setAudioFile(file);
                     setAudioUrl((prev) => {
                       if (prev) URL.revokeObjectURL(prev);
@@ -570,93 +594,99 @@ function STTTestPage() {
                     : "border-transparent"
                 }`}
               >
-              <div className="flex items-center gap-4 mb-4">
-                <button
-                  onClick={isRecording ? stopRecording : startRecording}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isRecording
-                      ? "bg-red-600 hover:bg-red-700 text-white"
-                      : "bg-blue-500 hover:bg-blue-600 text-white dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white"
-                  }`}
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
+                <div className="flex items-center gap-4 mb-4">
+                  <button
+                    onClick={isRecording ? stopRecording : startRecording}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isRecording
+                        ? "bg-red-600 hover:bg-red-700 text-white"
+                        : "bg-blue-500 hover:bg-blue-600 text-white dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white"
+                    }`}
                   >
-                    {isRecording ? (
-                      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                    ) : (
-                      <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-                    )}
-                  </svg>
-                  {isRecording ? "停止录音" : "开始录音"}
-                </button>
+                    <svg
+                      className="w-4 h-4"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      {isRecording ? (
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                      ) : (
+                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                      )}
+                    </svg>
+                    {isRecording ? "停止录音" : "开始录音"}
+                  </button>
 
-                <span
-                  className={`text-sm text-gray-500 dark:text-gray-400`}
-                >
-                  或
-                </span>
+                  <span className={`text-sm text-gray-500 dark:text-gray-400`}>
+                    或
+                  </span>
 
-                <label
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300 dark:border dark:border-gray-600`}
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+                  <label
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300 dark:border dark:border-gray-600`}
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                      />
+                    </svg>
+                    选择媒体文件
+                    <input
+                      type="file"
+                      accept="audio/*,video/*"
+                      onChange={handleFileChange}
+                      className="hidden"
                     />
-                  </svg>
-                  选择媒体文件
-                  <input
-                    type="file"
-                    accept="audio/*,video/*"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-
-              {audioUrl && (
-                <div
-                  className={`p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50`}
-                >
-                  <p
-                    className={`text-xs mb-2 text-gray-500 dark:text-gray-400`}
-                  >
-                    已选择：{audioFile?.name || "录音文件"} (
-                    {audioFile?.size ? (audioFile.size / 1024).toFixed(1) : 0}{" "}
-                    KB)
-                  </p>
-                  <audio ref={audioRef} src={audioUrl} controls className="w-full h-8" />
-                  {/* S3.4: 播放速度控制 */}
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">播放速度:</span>
-                    {[0.5, 0.75, 1, 1.25, 1.5, 2].map((speed) => (
-                      <button
-                        key={speed}
-                        onClick={() => setPlaybackRate(speed)}
-                        className={`px-2 py-0.5 text-xs rounded transition-colors ${
-                          playbackRate === speed
-                            ? "bg-blue-500 text-white"
-                            : "bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500"
-                        }`}
-                      >
-                        {speed}x
-                      </button>
-                    ))}
-                  </div>
+                  </label>
                 </div>
-              )}
-              </div>  {/* S3.1: drag-drop wrap end */}
+
+                {audioUrl && (
+                  <div
+                    className={`p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50`}
+                  >
+                    <p
+                      className={`text-xs mb-2 text-gray-500 dark:text-gray-400`}
+                    >
+                      已选择：{audioFile?.name || "录音文件"} (
+                      {audioFile?.size ? (audioFile.size / 1024).toFixed(1) : 0}{" "}
+                      KB)
+                    </p>
+                    <audio
+                      ref={audioRef}
+                      src={audioUrl}
+                      controls
+                      className="w-full h-8"
+                    />
+                    {/* S3.4: 播放速度控制 */}
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        播放速度:
+                      </span>
+                      {[0.5, 0.75, 1, 1.25, 1.5, 2].map((speed) => (
+                        <button
+                          key={speed}
+                          onClick={() => setPlaybackRate(speed)}
+                          className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                            playbackRate === speed
+                              ? "bg-blue-500 text-white"
+                              : "bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500"
+                          }`}
+                        >
+                          {speed}x
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>{" "}
+              {/* S3.1: drag-drop wrap end */}
             </div>
 
             <div
@@ -676,8 +706,10 @@ function STTTestPage() {
                     onChange={(e) => setProviderId(e.target.value)}
                     className={inputClass}
                   >
-                    {providers.map(id => (
-                      <option key={id} value={id}>{id}</option>
+                    {providers.map((id) => (
+                      <option key={id} value={id}>
+                        {id}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -801,9 +833,7 @@ function STTTestPage() {
                   <div
                     className={`p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50`}
                   >
-                    <p
-                      className={`text-xs text-gray-500 dark:text-gray-400`}
-                    >
+                    <p className={`text-xs text-gray-500 dark:text-gray-400`}>
                       置信度
                     </p>
                     <p
@@ -818,9 +848,7 @@ function STTTestPage() {
                   <div
                     className={`p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50`}
                   >
-                    <p
-                      className={`text-xs text-gray-500 dark:text-gray-400`}
-                    >
+                    <p className={`text-xs text-gray-500 dark:text-gray-400`}>
                       处理耗时
                     </p>
                     <p
@@ -833,9 +861,7 @@ function STTTestPage() {
                   <div
                     className={`p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50`}
                   >
-                    <p
-                      className={`text-xs text-gray-500 dark:text-gray-400`}
-                    >
+                    <p className={`text-xs text-gray-500 dark:text-gray-400`}>
                       音频时长
                     </p>
                     <p
@@ -850,9 +876,7 @@ function STTTestPage() {
                   <div
                     className={`p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50`}
                   >
-                    <p
-                      className={`text-xs text-gray-500 dark:text-gray-400`}
-                    >
+                    <p className={`text-xs text-gray-500 dark:text-gray-400`}>
                       检测语言
                     </p>
                     <p
@@ -871,8 +895,18 @@ function STTTestPage() {
                       download
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-blue-500 hover:bg-blue-600 text-white`}
                     >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
                       </svg>
                       下载 SRT 字幕
                     </a>
@@ -888,13 +922,11 @@ function STTTestPage() {
                   </div>
                 )}
 
-                {result.provider && typeof result.provider !== 'string' && (
+                {result.provider && typeof result.provider !== "string" && (
                   <div
                     className={`mt-3 p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50`}
                   >
-                    <p
-                      className={`text-xs text-gray-500 dark:text-gray-400`}
-                    >
+                    <p className={`text-xs text-gray-500 dark:text-gray-400`}>
                       提供者
                     </p>
                     <p

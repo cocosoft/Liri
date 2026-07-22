@@ -4,6 +4,9 @@
  */
 
 import { Component, type ReactNode } from "react";
+import { createLogger } from "../../../../utils/logger";
+
+const logger = createLogger("components:office:ErrorBoundary");
 
 interface ErrorBoundaryProps {
   /** 自定义错误回退 UI */
@@ -35,7 +38,7 @@ export class ErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    console.error("[ErrorBoundary]", error, errorInfo);
+    logger.error("ErrorBoundary caught", { error, errorInfo });
     this.props.onError?.(error, errorInfo);
   }
 

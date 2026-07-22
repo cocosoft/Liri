@@ -31,9 +31,7 @@ export default function FetchedModelList({
   return (
     <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs text-gray-500">
-          可用模型 ({total}):
-        </p>
+        <p className="text-xs text-gray-500">可用模型 ({total}):</p>
         <div className="flex items-center gap-2">
           <button
             onClick={() => onBulkImport(models.map((m) => m.id))}
@@ -65,7 +63,8 @@ export default function FetchedModelList({
       {total > pageSize && (
         <div className="flex items-center justify-between text-xs text-gray-500">
           <span>
-            显示 {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, total)} 条
+            显示 {(currentPage - 1) * pageSize + 1} -{" "}
+            {Math.min(currentPage * pageSize, total)} 条
           </span>
           <div className="flex items-center gap-1">
             <button
@@ -77,7 +76,11 @@ export default function FetchedModelList({
             </button>
             <span>{currentPage}</span>
             <button
-              onClick={() => onPageChange(Math.min(Math.ceil(total / pageSize), currentPage + 1))}
+              onClick={() =>
+                onPageChange(
+                  Math.min(Math.ceil(total / pageSize), currentPage + 1),
+                )
+              }
               disabled={currentPage >= Math.ceil(total / pageSize)}
               className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded disabled:opacity-30"
             >

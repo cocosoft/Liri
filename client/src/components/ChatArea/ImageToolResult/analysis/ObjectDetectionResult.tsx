@@ -3,7 +3,9 @@
  */
 import { useTranslation } from "react-i18next";
 
-interface Props { data: Record<string, unknown>; }
+interface Props {
+  data: Record<string, unknown>;
+}
 
 export default function ObjectDetectionResult({ data }: Props) {
   const { t } = useTranslation();
@@ -14,8 +16,14 @@ export default function ObjectDetectionResult({ data }: Props) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-2 text-[10px]">
-        <span className="font-medium text-gray-300">{t("image.objectDetection")}</span>
-        {model && <span className="text-gray-500">{t("image.model")}: {model}</span>}
+        <span className="font-medium text-gray-300">
+          {t("image.objectDetection")}
+        </span>
+        {model && (
+          <span className="text-gray-500">
+            {t("image.model")}: {model}
+          </span>
+        )}
         <span className="ml-auto text-gray-400">{count} objects</span>
       </div>
       <div className="space-y-0.5">
@@ -27,11 +35,19 @@ export default function ObjectDetectionResult({ data }: Props) {
             <div key={i} className="flex items-center gap-2 text-[10px]">
               <span
                 className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                  confidence > 0.7 ? "bg-green-500" : confidence > 0.4 ? "bg-yellow-500" : "bg-red-500"
+                  confidence > 0.7
+                    ? "bg-green-500"
+                    : confidence > 0.4
+                      ? "bg-yellow-500"
+                      : "bg-red-500"
                 }`}
               />
               <span className="text-gray-300">{label}</span>
-              <span className={confidence > 0.7 ? "text-green-500" : "text-yellow-500"}>
+              <span
+                className={
+                  confidence > 0.7 ? "text-green-500" : "text-yellow-500"
+                }
+              >
                 {(confidence * 100).toFixed(0)}%
               </span>
               {bbox && (

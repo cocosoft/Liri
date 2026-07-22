@@ -72,14 +72,23 @@ export interface SessionSlice {
 
 // ─── Slice 实现 ────────────────────────────────────────
 
-export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> = (
-  set,
-  get
-) => ({
+export const createSessionSlice: StateCreator<
+  RootState,
+  [],
+  [],
+  SessionSlice
+> = (set, get) => ({
   // ── 初始状态 ──
   sessions: {},
   currentSessionId: null,
-  moduleOrder: ["chat", "media", "office", "calendar", "translation", "knowledge"],
+  moduleOrder: [
+    "chat",
+    "media",
+    "office",
+    "calendar",
+    "translation",
+    "knowledge",
+  ],
   pinnedSessionIds: [],
   error: null,
   isLoading: false,
@@ -90,7 +99,9 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
 
   createSession: (moduleType, title, overrideId) => {
     const wtId = get().currentWorktreeId;
-    const id = overrideId ?? `sess-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const id =
+      overrideId ??
+      `sess-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const now = Date.now();
 
     let context: SessionContext;
@@ -146,7 +157,8 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
     const { [sessionId]: _removed, ...rest } = get().sessions;
     set((state) => ({
       sessions: rest,
-      currentSessionId: state.currentSessionId === sessionId ? null : state.currentSessionId,
+      currentSessionId:
+        state.currentSessionId === sessionId ? null : state.currentSessionId,
       pinnedSessionIds: state.pinnedSessionIds.filter((id) => id !== sessionId),
     }));
     logger.info("会话删除", { sessionId });
@@ -157,7 +169,10 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
       const sess = state.sessions[id];
       if (!sess) return state;
       return {
-        sessions: { ...state.sessions, [id]: { ...sess, title, updatedAt: Date.now() } },
+        sessions: {
+          ...state.sessions,
+          [id]: { ...sess, title, updatedAt: Date.now() },
+        },
       };
     });
   },
@@ -169,7 +184,11 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
       return {
         sessions: {
           ...state.sessions,
-          [id]: { ...sess, context: { ...sess.context, ...updates } as SessionContext, updatedAt: Date.now() },
+          [id]: {
+            ...sess,
+            context: { ...sess.context, ...updates } as SessionContext,
+            updatedAt: Date.now(),
+          },
         },
       };
     });
@@ -178,7 +197,7 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
   getOrCreateSession: (moduleType, title) => {
     const wtId = get().currentWorktreeId;
     const existing = Object.values(get().sessions).find(
-      (s) => s.worktreeId === wtId && s.moduleType === moduleType
+      (s) => s.worktreeId === wtId && s.moduleType === moduleType,
     );
     if (existing) {
       set({ currentSessionId: existing.id });
@@ -211,7 +230,8 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
       const { sessionService } = await import("@/services/sessionService");
       let sessions = await sessionService.list();
       sessions = sessions.sort(
-        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
       );
       const currentSession = await sessionService.getCurrent();
       set({
@@ -221,7 +241,11 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
       });
     } catch (error) {
       const { handleClientError } = await import("@/utils/handleError");
-      handleClientError(error, { module: 'stores:sessionSlice', action: 'loadChatSessions' }, 'warn');
+      handleClientError(
+        error,
+        { module: "stores:sessionSlice", action: "loadChatSessions" },
+        "warn",
+      );
       set({ error: String(error), isLoading: false });
     }
   },
@@ -235,23 +259,39 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
       // 获取当前后端生效模型
       let modelId: string | undefined;
       try {
-        const { modelSwitchService } = await import("@/services/modelSwitchService");
+        const { modelSwitchService } =
+          await import("@/services/modelSwitchService");
         const current = await modelSwitchService.getCurrent();
         modelId = current.modelId;
       } catch (e) {
         const { handleClientError } = await import("@/utils/handleError");
-        handleClientError(e, { module: 'stores:sessionSlice', action: 'createChatSession:getModelId' }, 'warn');
+        handleClientError(
+          e,
+          {
+            module: "stores:sessionSlice",
+            action: "createChatSession:getModelId",
+          },
+          "warn",
+        );
       }
 
       // 获取任务分工配置
       let tasksOverride: Record<string, string> | undefined;
       try {
-        const { modelSwitchService } = await import("@/services/modelSwitchService");
+        const { modelSwitchService } =
+          await import("@/services/modelSwitchService");
         const tasks = await modelSwitchService.getTasks();
         tasksOverride = tasks as Record<string, string>;
       } catch (e) {
         const { handleClientError } = await import("@/utils/handleError");
-        handleClientError(e, { module: 'stores:sessionSlice', action: 'createChatSession:getTasks' }, 'warn');
+        handleClientError(
+          e,
+          {
+            module: "stores:sessionSlice",
+            action: "createChatSession:getTasks",
+          },
+          "warn",
+        );
       }
 
       // 获取当前工作空间
@@ -264,9 +304,18 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
         workspacePath = wt.name;
       }
 
-      const session = await sessionService.create(title, { modelId, workspaceId, workspacePath });
+      const session = await sessionService.create(title, {
+        modelId,
+        workspaceId,
+        workspacePath,
+      });
       const sessionWithTasks: Session = tasksOverride
-        ? { ...session, tasksOverride: tasksOverride as unknown as Partial<import("@/types/model").TaskModelConfig> }
+        ? {
+            ...session,
+            tasksOverride: tasksOverride as unknown as Partial<
+              import("@/types/model").TaskModelConfig
+            >,
+          }
         : session;
 
       logger.debug("会话已创建: " + session.id, { modelId, workspaceId });
@@ -277,13 +326,21 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
         useChatStore.getState().clearMessages();
       } catch (e) {
         const { handleClientError } = await import("@/utils/handleError");
-        handleClientError(e, { module: 'stores:sessionSlice', action: 'createChatSession:clearMessages' }, 'warn');
+        handleClientError(
+          e,
+          {
+            module: "stores:sessionSlice",
+            action: "createChatSession:clearMessages",
+          },
+          "warn",
+        );
       }
 
       // 重新加载会话列表
       let sessions = await sessionService.list();
       sessions = sessions.sort(
-        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
       );
 
       set({
@@ -298,7 +355,11 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
       return sessionWithTasks;
     } catch (error) {
       const { handleClientError } = await import("@/utils/handleError");
-      handleClientError(error, { module: 'stores:sessionSlice', action: 'createChatSession' }, 'warn');
+      handleClientError(
+        error,
+        { module: "stores:sessionSlice", action: "createChatSession" },
+        "warn",
+      );
       set({ error: String(error), isLoading: false });
       throw error;
     }
@@ -328,49 +389,16 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
       // 获取消息（优先缓存）
       const { _getCachedMessages } = await import("@/stores/chatStore");
       const cached = _getCachedMessages(id);
-      const messages = cached ?? await sessionService.getMessages(id);
+      const messages = cached ?? (await sessionService.getMessages(id));
 
       useChatStore.getState().setMessages(messages);
 
       // 清除路径缓存
-      import("@/components/ChatArea/markdown/pathCache").then(m => m.clearPathCache());
+      import("@/components/ChatArea/markdown/pathCache").then((m) =>
+        m.clearPathCache(),
+      );
 
-      // 从消息中重建 sessionFiles
-      const filePaths = new Set<string>();
-      for (const msg of messages) {
-        if (typeof msg.content === "string") {
-          const matches = msg.content.match(/[a-zA-Z]:\\(?:[^\\\n\r]+\\)*[^\\\n\r]*\.[a-zA-Z0-9]+|\/(?:[^/\n\r]+\/)*[^/\n\r]*\.[a-zA-Z0-9]+/g);
-          if (matches) matches.forEach(p => filePaths.add(p));
-        }
-        const toolCalls = (msg as unknown as Record<string, unknown>).tool_calls;
-        if (Array.isArray(toolCalls)) {
-          for (const tc of toolCalls) {
-            const args = tc.arguments;
-            if (typeof args === "string") {
-              try {
-                const parsed = JSON.parse(args);
-                const fp = parsed.file_path || parsed.path || parsed.filePath;
-                if (fp && typeof fp === "string") filePaths.add(fp);
-              } catch { /* ignore parse errors */ }
-            } else if (args && typeof args === "object") {
-              const rargs = args as Record<string, unknown>;
-              const fp = rargs.file_path || rargs.path || rargs.filePath;
-              if (fp && typeof fp === "string") filePaths.add(fp);
-            }
-          }
-        }
-        const metadata = (msg as unknown as Record<string, unknown>).metadata;
-        if (metadata && typeof metadata === "object") {
-          const m = metadata as Record<string, unknown>;
-          if (m.file_path && typeof m.file_path === "string") filePaths.add(m.file_path);
-        }
-      }
-      const { inferFileType } = await import("@/stores/chatStore");
-      for (const fp of filePaths) {
-        const name = fp.split(/[/\\]/).pop() || fp;
-        useChatStore.getState().addSessionFile({ path: fp, name, content: '', type: inferFileType(fp) });
-      }
-
+      // 文件路径已在 setMessages → addFilePathsFromBlocks 中提取，此处无需重复
       set({ currentSessionId: id });
       // 同步到 SessionHub
       get().createSession("chat", session.title, id);
@@ -378,26 +406,43 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
       // 懒加载恢复模型
       if (session.modelId) {
         try {
-          const { modelSwitchService } = await import("@/services/modelSwitchService");
+          const { modelSwitchService } =
+            await import("@/services/modelSwitchService");
           const current = await modelSwitchService.getCurrent();
           if (current.modelId !== session.modelId) {
             await modelSwitchService.switch(session.modelId);
           }
         } catch (e) {
           const { handleClientError } = await import("@/utils/handleError");
-          handleClientError(e, { module: 'stores:sessionSlice', action: 'switchChatSession:modelRestore' }, 'warn');
+          handleClientError(
+            e,
+            {
+              module: "stores:sessionSlice",
+              action: "switchChatSession:modelRestore",
+            },
+            "warn",
+          );
         }
       }
 
       // 刷新路由状态
       try {
-        const { modelSwitchService } = await import("@/services/modelSwitchService");
+        const { modelSwitchService } =
+          await import("@/services/modelSwitchService");
         await modelSwitchService.getCurrent();
-        const { useModelSwitchStore } = await import("@/stores/modelSwitchStore");
+        const { useModelSwitchStore } =
+          await import("@/stores/modelSwitchStore");
         useModelSwitchStore.getState().loadCurrent();
       } catch (e) {
         const { handleClientError } = await import("@/utils/handleError");
-        handleClientError(e, { module: 'stores:sessionSlice', action: 'switchChatSession:refreshRoute' }, 'warn');
+        handleClientError(
+          e,
+          {
+            module: "stores:sessionSlice",
+            action: "switchChatSession:refreshRoute",
+          },
+          "warn",
+        );
       }
 
       // 联动工作空间
@@ -406,19 +451,40 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
           const { useWorkspaceStore } = await import("@/stores/workspaceStore");
           const wsState = useWorkspaceStore.getState();
           if (wsState.currentWorkspace?.id !== session.workspaceId) {
-            wsState.openWorkspace(session.workspaceId).catch(async (err: unknown) => {
-              const { handleClientError } = await import("@/utils/handleError");
-              handleClientError(err, { module: 'stores:sessionSlice', action: 'switchChatSession:workspaceLink' }, 'warn');
-            });
+            wsState
+              .openWorkspace(session.workspaceId)
+              .catch(async (err: unknown) => {
+                const { handleClientError } =
+                  await import("@/utils/handleError");
+                handleClientError(
+                  err,
+                  {
+                    module: "stores:sessionSlice",
+                    action: "switchChatSession:workspaceLink",
+                  },
+                  "warn",
+                );
+              });
           }
         } catch (e) {
           const { handleClientError } = await import("@/utils/handleError");
-          handleClientError(e, { module: 'stores:sessionSlice', action: 'switchChatSession:workspaceLoad' }, 'warn');
+          handleClientError(
+            e,
+            {
+              module: "stores:sessionSlice",
+              action: "switchChatSession:workspaceLoad",
+            },
+            "warn",
+          );
         }
       }
     } catch (error) {
       const { handleClientError } = await import("@/utils/handleError");
-      handleClientError(error, { module: 'stores:sessionSlice', action: 'switchChatSession' }, 'warn');
+      handleClientError(
+        error,
+        { module: "stores:sessionSlice", action: "switchChatSession" },
+        "warn",
+      );
       if (prevId) {
         set({ currentSessionId: prevId });
       }
@@ -432,7 +498,9 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
     try {
       const { useChatStore } = await import("@/stores/chatStore");
       useChatStore.getState().stopMessage();
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     set({ isLoading: true, error: null });
     try {
@@ -447,14 +515,26 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
             const messages = await sessionService.getMessages(sessions[0].id);
             const { useChatStore } = await import("@/stores/chatStore");
             useChatStore.getState().setMessages(messages);
-          } catch { /* ignore */ }
-          set({ chatSessions: sessions, currentSessionId: sessions[0].id, isLoading: false });
+          } catch {
+            /* ignore */
+          }
+          set({
+            chatSessions: sessions,
+            currentSessionId: sessions[0].id,
+            isLoading: false,
+          });
         } else {
           try {
             const { useChatStore } = await import("@/stores/chatStore");
             useChatStore.getState().clearMessages();
-          } catch { /* ignore */ }
-          set({ chatSessions: sessions, currentSessionId: null, isLoading: false });
+          } catch {
+            /* ignore */
+          }
+          set({
+            chatSessions: sessions,
+            currentSessionId: null,
+            isLoading: false,
+          });
         }
       } else {
         set({ chatSessions: sessions, isLoading: false });
@@ -464,7 +544,11 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
       get().deleteSession(id);
     } catch (error) {
       const { handleClientError } = await import("@/utils/handleError");
-      handleClientError(error, { module: 'stores:sessionSlice', action: 'deleteChatSession' }, 'warn');
+      handleClientError(
+        error,
+        { module: "stores:sessionSlice", action: "deleteChatSession" },
+        "warn",
+      );
       set({ error: String(error), isLoading: false });
     }
   },
@@ -483,7 +567,11 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
       get().renameSession(id, title);
     } catch (error) {
       const { handleClientError } = await import("@/utils/handleError");
-      handleClientError(error, { module: 'stores:sessionSlice', action: 'renameChatSession' }, 'warn');
+      handleClientError(
+        error,
+        { module: "stores:sessionSlice", action: "renameChatSession" },
+        "warn",
+      );
       set({ error: String(error), isLoading: false });
     }
   },
@@ -492,7 +580,9 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
     try {
       const { useChatStore } = await import("@/stores/chatStore");
       useChatStore.getState().stopMessage();
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     set({ isLoading: true, error: null });
     try {
@@ -501,11 +591,17 @@ export const createSessionSlice: StateCreator<RootState, [], [], SessionSlice> =
       try {
         const { useChatStore } = await import("@/stores/chatStore");
         useChatStore.getState().clearMessages();
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       set({ chatSessions: [], currentSessionId: null, isLoading: false });
     } catch (error) {
       const { handleClientError } = await import("@/utils/handleError");
-      handleClientError(error, { module: 'stores:sessionSlice', action: 'clearAllChatSessions' }, 'warn');
+      handleClientError(
+        error,
+        { module: "stores:sessionSlice", action: "clearAllChatSessions" },
+        "warn",
+      );
       set({ error: String(error), isLoading: false });
     }
   },

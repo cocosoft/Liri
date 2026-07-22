@@ -16,7 +16,11 @@ function getSavedLanguage(): string {
       const parsed = JSON.parse(stored);
       const lang = parsed?.state?.config?.language as string | undefined;
       if (lang) {
-        return lang.startsWith("zh") ? "zh" : lang.startsWith("en") ? "en" : "zh";
+        return lang.startsWith("zh")
+          ? "zh"
+          : lang.startsWith("en")
+            ? "en"
+            : "zh";
       }
     }
   } catch {}

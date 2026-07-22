@@ -67,7 +67,13 @@ export default function TaskHistoryPanel({ onResume }: Props) {
           if (!expanded) refresh();
           setExpanded(!expanded);
         }}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!expanded) refresh(); setExpanded(!expanded); } }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            if (!expanded) refresh();
+            setExpanded(!expanded);
+          }
+        }}
         className="flex items-center gap-1 w-full text-left text-xs text-gray-400 hover:text-gray-300 bg-transparent cursor-pointer"
       >
         <span className="text-[10px]">{expanded ? "▼" : "▶"}</span>
@@ -75,7 +81,10 @@ export default function TaskHistoryPanel({ onResume }: Props) {
         <span className="text-gray-600 ml-0.5">({items.length})</span>
         {items.length > 0 && (
           <button
-            onClick={(e) => { e.stopPropagation(); handleClear(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleClear();
+            }}
             className="ml-auto text-[9px] text-gray-600 hover:text-red-400 bg-transparent border-0 cursor-pointer"
           >
             {t("image.clearHistory")}
@@ -104,7 +113,9 @@ export default function TaskHistoryPanel({ onResume }: Props) {
                 <span className="text-gray-500 shrink-0 w-14 text-right">
                   {formatTime(item.startedAt)}
                 </span>
-                <span className="text-gray-400 shrink-0 w-10">{toolLabel(item.toolName)}</span>
+                <span className="text-gray-400 shrink-0 w-10">
+                  {toolLabel(item.toolName)}
+                </span>
                 <span className="text-gray-500 truncate text-right ml-auto">
                   {argSummary(item.args)}
                 </span>

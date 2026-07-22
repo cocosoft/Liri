@@ -12,6 +12,7 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import type { Socket } from 'net';
 import { createHash, randomUUID } from 'crypto';
 import type { WakeDetectionResult } from './types';
+import { withTraceContextFromRequest } from '../monitoring/tracing/traceContextExtractor';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'voice:wake-ws' });
 
@@ -334,26 +335,29 @@ export function handleWakeUpgrade(
 
   let dataBuffer: Buffer = Buffer.alloc(0);
 
-  rawSocket.on('data', (data: Buffer) => {
-    dataBuffer = Buffer.concat([dataBuffer, data]) as Buffer;
-    dataBuffer = handleClientFrame(client, dataBuffer);
-  });
-
-  rawSocket.on('close', () => {
-    if (client.state !== ConnState.CLOSED) {
-      client.state = ConnState.CLOSED;
-      stopHeartbeat(client);
-      wakeClients.delete(clientId);
-      client.closeHandler?.();
-    }
-  });
-
-  rawSocket.on('error', (err) => {
-    logger.error('唤醒 WS 连接错误', {
-      clientId,
-      error: err.message,
+  // P1-2.16: 在提取的 TraceContext 中注册消息监听，实现跨进程追踪
+  withTraceContextFromRequest(req, () => {
+    rawSocket.on('data', (data: Buffer) => {
+      dataBuffer = Buffer.concat([dataBuffer, data]) as Buffer;
+      dataBuffer = handleClientFrame(client, dataBuffer);
     });
-    cleanupClient(client, 1011, 'internal error');
+
+    rawSocket.on('close', () => {
+      if (client.state !== ConnState.CLOSED) {
+        client.state = ConnState.CLOSED;
+        stopHeartbeat(client);
+        wakeClients.delete(clientId);
+        client.closeHandler?.();
+      }
+    });
+
+    rawSocket.on('error', (err) => {
+      logger.error('唤醒 WS 连接错误', {
+        clientId,
+        error: err.message,
+      });
+      cleanupClient(client, 1011, 'internal error');
+    });
   });
 
   // 启动心跳

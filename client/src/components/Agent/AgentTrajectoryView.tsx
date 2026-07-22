@@ -120,7 +120,7 @@ function AgentTrajectoryView({
 
                 <div className="space-y-4">
                   {trajectory.steps.map((step, index) => {
-                      const actionInfo = ACTION_LABELS[step.action] || {
+                    const actionInfo = ACTION_LABELS[step.action] || {
                       label: step.action,
                       color: isDark ? "text-gray-400" : "text-gray-500",
                     };

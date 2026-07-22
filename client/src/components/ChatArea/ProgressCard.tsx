@@ -4,26 +4,29 @@ interface ProgressCardProps {
   data: ProgressData;
 }
 
-const PHASE_LABELS: Record<ProgressData["phase"], { icon: string; label: string }> = {
-  analyzing:    { icon: "\u{1F50D}", label: "分析中" },
-  designing:    { icon: "\u{1F3D7}\uFE0F", label: "设计中" },
+const PHASE_LABELS: Record<
+  ProgressData["phase"],
+  { icon: string; label: string }
+> = {
+  analyzing: { icon: "\u{1F50D}", label: "分析中" },
+  designing: { icon: "\u{1F3D7}\uFE0F", label: "设计中" },
   implementing: { icon: "\u{1F527}", label: "实现中" },
-  verifying:    { icon: "\u2705", label: "验证中" },
-  presenting:   { icon: "\u{1F4CB}", label: "展示结果" },
+  verifying: { icon: "\u2705", label: "验证中" },
+  presenting: { icon: "\u{1F4CB}", label: "展示结果" },
 };
 
 const STEP_STATUS_ICONS: Record<string, string> = {
-  pending:     "\u25CB",
+  pending: "\u25CB",
   in_progress: "\u27F3",
-  done:        "\u2713",
-  failed:      "\u2717",
+  done: "\u2713",
+  failed: "\u2717",
 };
 
 const STEP_STATUS_COLORS: Record<string, string> = {
-  pending:     "text-gray-400",
+  pending: "text-gray-400",
   in_progress: "text-blue-500",
-  done:        "text-green-500",
-  failed:      "text-red-500",
+  done: "text-green-500",
+  failed: "text-red-500",
 };
 
 /**
@@ -64,12 +67,18 @@ export default function ProgressCard({ data }: ProgressCardProps) {
         <div className="px-3 py-2 space-y-1">
           {steps.map((step, idx) => (
             <div key={idx} className="flex items-center gap-2 text-xs">
-              <span className={`flex-shrink-0 ${STEP_STATUS_COLORS[step.status] || "text-gray-400"}`}>
+              <span
+                className={`flex-shrink-0 ${STEP_STATUS_COLORS[step.status] || "text-gray-400"}`}
+              >
                 {STEP_STATUS_ICONS[step.status] || "\u25CB"}
               </span>
-              <span className={`truncate ${
-                step.status === "in_progress" ? "text-blue-600 dark:text-blue-400 font-medium" : "text-gray-600 dark:text-gray-400"
-              }`}>
+              <span
+                className={`truncate ${
+                  step.status === "in_progress"
+                    ? "text-blue-600 dark:text-blue-400 font-medium"
+                    : "text-gray-600 dark:text-gray-400"
+                }`}
+              >
                 {step.name}
               </span>
               {step.name === currentStep && (

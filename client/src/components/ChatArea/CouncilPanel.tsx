@@ -8,7 +8,10 @@
  */
 
 import { useMemo } from "react";
-import type { CouncilStartData, CouncilEndData } from "../../types/orchestration";
+import type {
+  CouncilStartData,
+  CouncilEndData,
+} from "../../types/orchestration";
 
 // ========== 类型定义 ==========
 
@@ -55,23 +58,57 @@ interface CouncilPanelProps {
 // ========== 发言类型配置 ==========
 
 const STATEMENT_STYLES: Record<string, { label: string; color: string }> = {
-  position: { label: "立场", color: "border-l-blue-500 bg-blue-50 dark:bg-blue-900/20" },
-  rebuttal: { label: "反驳", color: "border-l-orange-500 bg-orange-50 dark:bg-orange-900/20" },
-  supplement: { label: "补充", color: "border-l-green-500 bg-green-50 dark:bg-green-900/20" },
-  final: { label: "总结", color: "border-l-purple-500 bg-purple-50 dark:bg-purple-900/20" },
+  position: {
+    label: "立场",
+    color: "border-l-blue-500 bg-blue-50 dark:bg-blue-900/20",
+  },
+  rebuttal: {
+    label: "反驳",
+    color: "border-l-orange-500 bg-orange-50 dark:bg-orange-900/20",
+  },
+  supplement: {
+    label: "补充",
+    color: "border-l-green-500 bg-green-50 dark:bg-green-900/20",
+  },
+  final: {
+    label: "总结",
+    color: "border-l-purple-500 bg-purple-50 dark:bg-purple-900/20",
+  },
 };
 
-const DEFAULT_STATEMENT_STYLE = { label: "发言", color: "border-l-gray-500 bg-gray-50 dark:bg-gray-800" };
+const DEFAULT_STATEMENT_STYLE = {
+  label: "发言",
+  color: "border-l-gray-500 bg-gray-50 dark:bg-gray-800",
+};
 
 // ========== 共识结果配置 ==========
 
-const RESULT_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
-  unanimous: { label: "一致通过", icon: "✅", color: "text-green-600 bg-green-50 dark:bg-green-900/20" },
-  majority: { label: "多数表决", icon: "💰", color: "text-blue-600 bg-blue-50 dark:bg-blue-900/20" },
-  deadlock: { label: "无法达成", icon: "⚠️", color: "text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20" },
+const RESULT_CONFIG: Record<
+  string,
+  { label: string; icon: string; color: string }
+> = {
+  unanimous: {
+    label: "一致通过",
+    icon: "✅",
+    color: "text-green-600 bg-green-50 dark:bg-green-900/20",
+  },
+  majority: {
+    label: "多数表决",
+    icon: "💰",
+    color: "text-blue-600 bg-blue-50 dark:bg-blue-900/20",
+  },
+  deadlock: {
+    label: "无法达成",
+    icon: "⚠️",
+    color: "text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20",
+  },
 };
 
-const DEFAULT_RESULT = { label: "已完成", icon: "📋", color: "text-gray-600 bg-gray-50 dark:bg-gray-800" };
+const DEFAULT_RESULT = {
+  label: "已完成",
+  icon: "📋",
+  color: "text-gray-600 bg-gray-50 dark:bg-gray-800",
+};
 
 /**
  * CouncilPanel 组件
@@ -110,11 +147,15 @@ function CouncilPanel({
   return (
     <div className="rounded-lg border dark:border-gray-700 overflow-hidden">
       {/* 头部 */}
-      <div className={`p-3 border-b ${isDark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-50"}`}>
+      <div
+        className={`p-3 border-b ${isDark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-50"}`}
+      >
         <div className="flex items-center justify-between">
           <div>
             <h4 className="text-sm font-semibold">Agent 理事会辩论</h4>
-            <p className="text-xs text-gray-500 mt-0.5">议题：{startData.topic}</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              议题：{startData.topic}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">
@@ -143,7 +184,10 @@ function CouncilPanel({
 
       {/* 多列布局 */}
       <div className={`p-3 ${isDark ? "bg-gray-900" : "bg-white"}`}>
-        <div className="flex gap-3 overflow-x-auto" style={{ minHeight: "120px" }}>
+        <div
+          className="flex gap-3 overflow-x-auto"
+          style={{ minHeight: "120px" }}
+        >
           {agents.map((agent) => {
             const agentStatements = groupedByAgent.get(agent.agentId) || [];
             const isSpeaking = speakingAgentId === agent.agentId;
@@ -161,9 +205,11 @@ function CouncilPanel({
                 } ${isDark ? "bg-gray-800" : "bg-gray-50"}`}
               >
                 {/* Agent 列头 */}
-                <div className={`p-2 border-b text-center ${
-                  isDark ? "border-gray-700" : "border-gray-200"
-                }`}>
+                <div
+                  className={`p-2 border-b text-center ${
+                    isDark ? "border-gray-700" : "border-gray-200"
+                  }`}
+                >
                   <div className="text-sm font-medium">{agent.name}</div>
                   <div className="text-xs text-gray-500 truncate">
                     {agent.expertise.join("、")}
@@ -173,7 +219,8 @@ function CouncilPanel({
                 {/* 发言列表 */}
                 <div className="p-2 space-y-2 max-h-[400px] overflow-y-auto">
                   {agentStatements.map((s) => {
-                    const style = STATEMENT_STYLES[s.type] || DEFAULT_STATEMENT_STYLE;
+                    const style =
+                      STATEMENT_STYLES[s.type] || DEFAULT_STATEMENT_STYLE;
                     return (
                       <div
                         key={s.id}
@@ -227,17 +274,25 @@ function CouncilPanel({
 
       {/* 共识结果 */}
       {endData && (
-        <div className={`p-3 border-t ${isDark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-50"}`}>
+        <div
+          className={`p-3 border-t ${isDark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-50"}`}
+        >
           <div className="flex items-start gap-3">
-            <div className={`px-3 py-2 rounded-lg text-sm ${
-              (RESULT_CONFIG[endData.result] || DEFAULT_RESULT).color
-            }`}>
-              <span className="mr-1">{(RESULT_CONFIG[endData.result] || DEFAULT_RESULT).icon}</span>
+            <div
+              className={`px-3 py-2 rounded-lg text-sm ${
+                (RESULT_CONFIG[endData.result] || DEFAULT_RESULT).color
+              }`}
+            >
+              <span className="mr-1">
+                {(RESULT_CONFIG[endData.result] || DEFAULT_RESULT).icon}
+              </span>
               {(RESULT_CONFIG[endData.result] || DEFAULT_RESULT).label}
             </div>
             <div className="flex-1">
               <div className="text-sm font-medium mb-1">最终方案</div>
-              <p className="text-sm whitespace-pre-wrap">{endData.finalProposal}</p>
+              <p className="text-sm whitespace-pre-wrap">
+                {endData.finalProposal}
+              </p>
               {endData.minorityOpinion && (
                 <div className="mt-2 text-xs text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded">
                   少数派意见：{endData.minorityOpinion}

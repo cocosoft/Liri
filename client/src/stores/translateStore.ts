@@ -1,6 +1,9 @@
-import { create } from 'zustand';
-import { translateService } from '../services/translateService';
-import type { TranslateResult, TranslateHistoryRecord } from '../services/translateService';
+import { create } from "zustand";
+import { translateService } from "../services/translateService";
+import type {
+  TranslateResult,
+  TranslateHistoryRecord,
+} from "../services/translateService";
 
 /** 模块级 AbortController，用于取消流式翻译 */
 let abortController: AbortController | null = null;
@@ -44,10 +47,10 @@ interface TranslateStore {
 }
 
 export const useTranslateStore = create<TranslateStore>()((set, get) => ({
-  sourceText: '',
-  sourceLang: 'auto',
-  targetLang: 'en',
-  translatedText: '',
+  sourceText: "",
+  sourceLang: "auto",
+  targetLang: "en",
+  translatedText: "",
   isTranslating: false,
   isStreaming: false,
   autoTranslateMode: true,
@@ -59,7 +62,7 @@ export const useTranslateStore = create<TranslateStore>()((set, get) => ({
   historyTotal: 0,
   historyPage: 1,
   isLoadingHistory: false,
-  searchQuery: '',
+  searchQuery: "",
 
   setSourceText: (text) => set({ sourceText: text }),
 
@@ -69,7 +72,7 @@ export const useTranslateStore = create<TranslateStore>()((set, get) => ({
 
   swapLanguages: () => {
     const { sourceLang, targetLang } = get();
-    if (sourceLang === 'auto') return;
+    if (sourceLang === "auto") return;
     set({ sourceLang: targetLang, targetLang: sourceLang });
   },
 
@@ -89,16 +92,22 @@ export const useTranslateStore = create<TranslateStore>()((set, get) => ({
       abortController.abort();
     }
 
-    set({ isTranslating: true, isStreaming: true, error: null, canFallback: false, translatedText: '' });
+    set({
+      isTranslating: true,
+      isStreaming: true,
+      error: null,
+      canFallback: false,
+      translatedText: "",
+    });
 
     // requestAnimationFrame 批量合并：积累 token 到 pending，每帧 flush 一次
-    let pendingTokens = '';
+    let pendingTokens = "";
     let rafId: number | null = null;
 
     const flushTokens = () => {
       if (pendingTokens) {
         const batch = pendingTokens;
-        pendingTokens = '';
+        pendingTokens = "";
         set((state) => ({ translatedText: state.translatedText + batch }));
       }
       rafId = null;
@@ -158,7 +167,12 @@ export const useTranslateStore = create<TranslateStore>()((set, get) => ({
     const { sourceText, sourceLang, targetLang } = get();
     if (!sourceText.trim()) return;
 
-    set({ isTranslating: true, isStreaming: false, error: null, canFallback: false });
+    set({
+      isTranslating: true,
+      isStreaming: false,
+      error: null,
+      canFallback: false,
+    });
 
     try {
       const result = await translateService.translate({
@@ -186,8 +200,8 @@ export const useTranslateStore = create<TranslateStore>()((set, get) => ({
       abortController = null;
     }
     set({
-      sourceText: '',
-      translatedText: '',
+      sourceText: "",
+      translatedText: "",
       error: null,
       lastResult: null,
       isTranslating: false,
@@ -226,7 +240,7 @@ export const useTranslateStore = create<TranslateStore>()((set, get) => ({
       const starred = await translateService.toggleStar(id);
       set((state) => ({
         history: state.history.map((h) =>
-          h.id === id ? { ...h, starred } : h
+          h.id === id ? { ...h, starred } : h,
         ),
       }));
     } catch {

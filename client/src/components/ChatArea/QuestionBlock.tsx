@@ -14,7 +14,11 @@ interface QuestionBlockProps {
 // "其他"选项的固定 label
 const OTHER_LABEL = "__other__";
 
-function QuestionBlock({ questionData, sessionId, onResponse }: QuestionBlockProps) {
+function QuestionBlock({
+  questionData,
+  sessionId,
+  onResponse,
+}: QuestionBlockProps) {
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [otherText, setOtherText] = useState<string>("");
   const [submitted, setSubmitted] = useState(false);
@@ -53,7 +57,9 @@ function QuestionBlock({ questionData, sessionId, onResponse }: QuestionBlockPro
     let answers: string[];
     if (isOtherSelected) {
       // 把"其他"替换成用户实际填写的文字
-      answers = selectedLabels.map((l) => (l === OTHER_LABEL ? otherText.trim() : l));
+      answers = selectedLabels.map((l) =>
+        l === OTHER_LABEL ? otherText.trim() : l,
+      );
     } else {
       answers = selectedLabels;
     }
@@ -77,8 +83,7 @@ function QuestionBlock({ questionData, sessionId, onResponse }: QuestionBlockPro
     }
   };
 
-  const canSubmit =
-    selectedLabels.length > 0 && !otherRequiresText;
+  const canSubmit = selectedLabels.length > 0 && !otherRequiresText;
 
   return (
     <div className="my-3 border border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden bg-blue-50/50 dark:bg-blue-950/30">
@@ -88,9 +93,7 @@ function QuestionBlock({ questionData, sessionId, onResponse }: QuestionBlockPro
         className="w-full flex items-center justify-between px-4 py-2.5 bg-blue-100/80 dark:bg-blue-900/40 hover:bg-blue-200/60 dark:hover:bg-blue-800/40 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <span className="text-blue-600 dark:text-blue-400 text-sm">
-            💬
-          </span>
+          <span className="text-blue-600 dark:text-blue-400 text-sm">💬</span>
           <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
             {header || "请选择一个选项"}
           </span>
@@ -254,9 +257,7 @@ function QuestionBlock({ questionData, sessionId, onResponse }: QuestionBlockPro
                   : "确认选择"}
               </button>
               {multiSelect && (
-                <span className="text-xs text-gray-400">
-                  可多选
-                </span>
+                <span className="text-xs text-gray-400">可多选</span>
               )}
             </div>
           )}

@@ -19,6 +19,7 @@ import {
   BasicTracerProvider,
   BatchSpanProcessor,
   ConsoleSpanExporter,
+  TraceIdRatioBasedSampler,
 } from '@opentelemetry/sdk-trace-base';
 import {
   ATTR_SERVICE_NAME,
@@ -241,7 +242,12 @@ async function getOtlpTraceExporters() {
 }
 
 export function isTelemetryEnabled() {
-  return isEnvTruthy(configManager.env('Liri_ENABLE_TELEMETRY'));
+  const envValue = configManager.env('Liri_ENABLE_TELEMETRY');
+  if (envValue !== undefined) {
+    return isEnvTruthy(envValue);
+  }
+  // P1-2.4: 默认启用在 production 环境，开发环境默认关闭
+  return process.env.NODE_ENV === 'production';
 }
 
 function parseOtelHeadersEnvVar(): Record<string, string> {
@@ -421,9 +427,16 @@ export async function initializeTelemetry() {
           })
       );
 
+      // P1-2.4: 采样率配置（默认 10%）
+      const samplingRate = parseFloat(
+        configManager.env('Liri_OTEL_SAMPLING_RATE') || '0.1'
+      );
+      const sampler = new TraceIdRatioBasedSampler(samplingRate);
+
       const tracerProvider = new BasicTracerProvider({
         resource,
         spanProcessors,
+        sampler,
       });
 
       // Register the tracer provider globally

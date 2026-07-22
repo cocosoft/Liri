@@ -13,20 +13,20 @@ import SessionListItem from "./SessionListItem";
  * 根据会话的 source 字段显示来源标签，如【QQ】【WeChat】
  */
 const SESSION_SOURCE_LABELS: Record<string, string> = {
-  web:       'Web',
-  qq:        'QQ',
-  discord:   'Discord',
-  telegram:  'Telegram',
-  wechat:    'WeChat',
-  wecom:     '企微',
-  feishu:    '飞书',
-  dingtalk:  '钉钉',
-  slack:     'Slack',
-  mcp:       'MCP',
-  api:       'API',
-  cli:       'CLI',
-  irc:       'IRC',
-  nostr:     'Nostr',
+  web: "Web",
+  qq: "QQ",
+  discord: "Discord",
+  telegram: "Telegram",
+  wechat: "WeChat",
+  wecom: "企微",
+  feishu: "飞书",
+  dingtalk: "钉钉",
+  slack: "Slack",
+  mcp: "MCP",
+  api: "API",
+  cli: "CLI",
+  irc: "IRC",
+  nostr: "Nostr",
 };
 
 /**
@@ -34,9 +34,9 @@ const SESSION_SOURCE_LABELS: Record<string, string> = {
  * @returns 如 "【QQ】" 格式的标签文字，无 source 时返回空字符串
  */
 function getSourceLabel(source?: string): string {
-  if (!source) return '';
+  if (!source) return "";
   const label = SESSION_SOURCE_LABELS[source];
-  return label ? `【${label}】` : '';
+  return label ? `【${label}】` : "";
 }
 
 /**
@@ -112,7 +112,9 @@ function SessionHistorySidebar() {
 
   // 会话详情弹窗状态
   const [detailSessionId, setDetailSessionId] = useState<string | null>(null);
-  const detailSession = detailSessionId ? sessions.find((s) => s.id === detailSessionId) : null;
+  const detailSession = detailSessionId
+    ? sessions.find((s) => s.id === detailSessionId)
+    : null;
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, sessionId: string) => {
@@ -145,7 +147,10 @@ function SessionHistorySidebar() {
     setContextMenu(null);
   };
 
-  const handleExportSession = async (sessionId: string, format: "json" | "md") => {
+  const handleExportSession = async (
+    sessionId: string,
+    format: "json" | "md",
+  ) => {
     try {
       const session = sessions.find((s) => s.id === sessionId);
       if (!session) return;
@@ -205,7 +210,9 @@ function SessionHistorySidebar() {
     //    避免日历/办公等其他模块的会话混入聊天历史
     const nonChatIds = new Set(
       Object.values(rootSessions)
-        .filter((s) => s.worktreeId === currentWorktreeId && s.moduleType !== "chat")
+        .filter(
+          (s) => s.worktreeId === currentWorktreeId && s.moduleType !== "chat",
+        )
         .map((s) => s.id),
     );
     if (nonChatIds.size > 0) {
@@ -236,7 +243,14 @@ function SessionHistorySidebar() {
       return [...pinnedItems, ...normalItems];
     }
     return result;
-  }, [sessions, debouncedQuery, pinnedSessionIds, filterTab, rootSessions, currentWorktreeId]);
+  }, [
+    sessions,
+    debouncedQuery,
+    pinnedSessionIds,
+    filterTab,
+    rootSessions,
+    currentWorktreeId,
+  ]);
 
   // 虚拟列表计算：仅当会话数 > 50 时启用，减少小列表开销
   const VIRTUAL_SCROLL_THRESHOLD = 50;
@@ -244,15 +258,24 @@ function SessionHistorySidebar() {
 
   const virtualList = useMemo(() => {
     if (!useVirtualScroll) {
-      return { total: filteredSessions.length, visibleItems: filteredSessions, offsetY: 0, startIdx: 0 };
+      return {
+        total: filteredSessions.length,
+        visibleItems: filteredSessions,
+        offsetY: 0,
+        startIdx: 0,
+      };
     }
     const total = filteredSessions.length;
     const viewportHeight = listContainerRef.current?.clientHeight || 400;
     const overscan = 5;
-    const startIdx = Math.max(0, Math.floor(scrollTop / ESTIMATED_ITEM_HEIGHT) - overscan);
+    const startIdx = Math.max(
+      0,
+      Math.floor(scrollTop / ESTIMATED_ITEM_HEIGHT) - overscan,
+    );
     const endIdx = Math.min(
       total,
-      Math.ceil((scrollTop + viewportHeight) / ESTIMATED_ITEM_HEIGHT) + overscan,
+      Math.ceil((scrollTop + viewportHeight) / ESTIMATED_ITEM_HEIGHT) +
+        overscan,
     );
     return {
       total,
@@ -267,7 +290,7 @@ function SessionHistorySidebar() {
   }, [loadSessions]);
 
   const handleNewSession = async () => {
-    const title = t('chat.newSession') + ` ${sessions.length + 1}`;
+    const title = t("chat.newSession") + ` ${sessions.length + 1}`;
     await createSession(title);
     navigate("/chat");
   };
@@ -339,7 +362,7 @@ function SessionHistorySidebar() {
           <button
             onClick={toggleSidebar}
             className="p-1 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-            title={t('chat.expandSidebar')}
+            title={t("chat.expandSidebar")}
           >
             <svg
               className="w-4 h-4"
@@ -356,7 +379,7 @@ function SessionHistorySidebar() {
             </svg>
           </button>
           <span className="hidden group-hover:inline text-xs font-medium text-gray-500 dark:text-gray-400">
-            {t('chat.sessionHistory')}
+            {t("chat.sessionHistory")}
           </span>
         </div>
         <div className="flex-1 flex flex-col items-center py-2 gap-2 group-hover:hidden">
@@ -379,7 +402,7 @@ function SessionHistorySidebar() {
         </div>
         <div className="hidden group-hover:flex flex-1 flex-col overflow-y-auto p-2">
           <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-4">
-            {t('chat.allSessions')}
+            {t("chat.allSessions")}
           </p>
         </div>
       </div>
@@ -390,13 +413,13 @@ function SessionHistorySidebar() {
     <div className="bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col w-60">
       <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          {t('chat.sessionHistory')}
+          {t("chat.sessionHistory")}
         </h3>
         <div className="flex items-center gap-1">
           <button
             onClick={handleNewSession}
             className="p-1 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-            title={t('chat.newSession')}
+            title={t("chat.newSession")}
           >
             <svg
               className="w-4 h-4"
@@ -415,7 +438,7 @@ function SessionHistorySidebar() {
           <button
             onClick={toggleSidebar}
             className="p-1 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-            title={t('chat.collapseSidebar')}
+            title={t("chat.collapseSidebar")}
           >
             <svg
               className="w-4 h-4"
@@ -440,7 +463,7 @@ function SessionHistorySidebar() {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={t('chat.searchSessions')}
+          placeholder={t("chat.searchSessions")}
           className="w-full px-2 py-1 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200 placeholder-gray-400"
         />
       </div>
@@ -457,7 +480,9 @@ function SessionHistorySidebar() {
                 : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
             }`}
           >
-            {tab === "all" ? t('chat.filterHistory', '历史记录') : t('chat.filterPinned')}
+            {tab === "all"
+              ? t("chat.filterHistory", "历史记录")
+              : t("chat.filterPinned")}
           </button>
         ))}
       </div>
@@ -467,20 +492,55 @@ function SessionHistorySidebar() {
         <div className="h-0.5 bg-gradient-to-r from-blue-500 to-blue-300 animate-pulse" />
       )}
 
-      <div ref={listContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-2">
+      <div
+        ref={listContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-2"
+      >
         {sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <svg className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            <svg
+              className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+              />
             </svg>
-            <p className="text-sm text-gray-400 dark:text-gray-500">{t('chat.noSessions')}</p>
-            <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">{t('chat.createSessionHint')}</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500">
+              {t("chat.noSessions")}
+            </p>
+            <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">
+              {t("chat.createSessionHint")}
+            </p>
           </div>
         ) : filteredSessions.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-4">{t('chat.noResults')}</p>
+          <p className="text-xs text-gray-400 text-center py-4">
+            {t("chat.noResults")}
+          </p>
         ) : (
-          <div style={useVirtualScroll ? { height: virtualList.total * ESTIMATED_ITEM_HEIGHT, position: "relative" } : undefined}>
-            <div style={useVirtualScroll ? { transform: `translateY(${virtualList.offsetY}px)` } : undefined}>
+          <div
+            style={
+              useVirtualScroll
+                ? {
+                    height: virtualList.total * ESTIMATED_ITEM_HEIGHT,
+                    position: "relative",
+                  }
+                : undefined
+            }
+          >
+            <div
+              style={
+                useVirtualScroll
+                  ? { transform: `translateY(${virtualList.offsetY}px)` }
+                  : undefined
+              }
+            >
               {virtualList.visibleItems.map((session) => (
                 <SessionListItem
                   key={session.id}
@@ -523,7 +583,7 @@ function SessionHistorySidebar() {
                 d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
               />
             </svg>
-            {t('chat.clearHistory')}
+            {t("chat.clearHistory")}
           </button>
         </div>
       )}
@@ -531,9 +591,13 @@ function SessionHistorySidebar() {
       {/* 删除会话确认对话框 */}
       <ConfirmDialog
         open={deleteTarget !== null}
-        title={t('chat.deleteSession')}
-        message={t('chat.confirmDeleteSession', { title: sessions.find((s) => s.id === deleteTarget)?.title || t('chat.unnamedSession') })}
-        confirmText={t('common.delete')}
+        title={t("chat.deleteSession")}
+        message={t("chat.confirmDeleteSession", {
+          title:
+            sessions.find((s) => s.id === deleteTarget)?.title ||
+            t("chat.unnamedSession"),
+        })}
+        confirmText={t("common.delete")}
         variant="danger"
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
@@ -542,9 +606,9 @@ function SessionHistorySidebar() {
       {/* 清除全部确认对话框 */}
       <ConfirmDialog
         open={showClearConfirm}
-        title={t('chat.clearAllTitle')}
-        message={t('chat.clearAllMessage')}
-        confirmText={t('chat.clearAll')}
+        title={t("chat.clearAllTitle")}
+        message={t("chat.clearAllMessage")}
+        confirmText={t("chat.clearAll")}
         variant="danger"
         onConfirm={handleConfirmClearAll}
         onCancel={handleCancelClearAll}
@@ -577,53 +641,65 @@ function SessionHistorySidebar() {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-3">
-              {t('chat.sessionDetail')}
+              {t("chat.sessionDetail")}
             </h3>
             <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
               <div className="flex justify-between">
-                <span>{t('chat.sessionId')}</span>
-                <span className="font-mono text-gray-800 dark:text-gray-200 max-w-[180px] truncate" title={detailSession.id}>
+                <span>{t("chat.sessionId")}</span>
+                <span
+                  className="font-mono text-gray-800 dark:text-gray-200 max-w-[180px] truncate"
+                  title={detailSession.id}
+                >
                   {detailSession.id.slice(0, 8)}...
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>{t('chat.messageCount')}</span>
-                <span className="text-gray-800 dark:text-gray-200">{detailSession.messageCount}</span>
+                <span>{t("chat.messageCount")}</span>
+                <span className="text-gray-800 dark:text-gray-200">
+                  {detailSession.messageCount}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span>{t('chat.roundCount')}</span>
-                <span className="text-gray-800 dark:text-gray-200">{detailSession.roundCount}</span>
+                <span>{t("chat.roundCount")}</span>
+                <span className="text-gray-800 dark:text-gray-200">
+                  {detailSession.roundCount}
+                </span>
               </div>
               {detailSession.tokenUsage && (
                 <div className="flex justify-between">
-                  <span>{t('chat.tokenUsage')}</span>
+                  <span>{t("chat.tokenUsage")}</span>
                   <span className="text-gray-800 dark:text-gray-200">
-                    {detailSession.tokenUsage.totalInput + detailSession.tokenUsage.totalOutput}
+                    {detailSession.tokenUsage.totalInput +
+                      detailSession.tokenUsage.totalOutput}
                   </span>
                 </div>
               )}
               <div className="flex justify-between">
-                <span>{t('chat.createdAt')}</span>
+                <span>{t("chat.createdAt")}</span>
                 <span className="text-gray-800 dark:text-gray-200">
                   {new Date(detailSession.createdAt).toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>{t('chat.updatedAt')}</span>
+                <span>{t("chat.updatedAt")}</span>
                 <span className="text-gray-800 dark:text-gray-200">
                   {new Date(detailSession.updatedAt).toLocaleString()}
                 </span>
               </div>
               {detailSession.modelId && (
                 <div className="flex justify-between">
-                  <span>{t('chat.modelId')}</span>
-                  <span className="text-gray-800 dark:text-gray-200">{detailSession.modelId}</span>
+                  <span>{t("chat.modelId")}</span>
+                  <span className="text-gray-800 dark:text-gray-200">
+                    {detailSession.modelId}
+                  </span>
                 </div>
               )}
               {detailSession.source && (
                 <div className="flex justify-between">
-                  <span>{t('chat.source')}</span>
-                  <span className="text-gray-800 dark:text-gray-200">{getSourceLabel(detailSession.source)}</span>
+                  <span>{t("chat.source")}</span>
+                  <span className="text-gray-800 dark:text-gray-200">
+                    {getSourceLabel(detailSession.source)}
+                  </span>
                 </div>
               )}
             </div>
@@ -631,7 +707,7 @@ function SessionHistorySidebar() {
               onClick={() => setDetailSessionId(null)}
               className="mt-3 w-full px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
             >
-              {t('common.close')}
+              {t("common.close")}
             </button>
           </div>
         </div>

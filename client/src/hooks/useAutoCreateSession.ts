@@ -47,13 +47,16 @@ export function useAutoCreateSession(): void {
     // 精确匹配或前缀匹配（如 /office/doc → office）
     let moduleType: string | undefined;
     for (const [path, type] of Object.entries(pathToModule)) {
-      if (location.pathname === path || location.pathname.startsWith(path + "/")) {
+      if (
+        location.pathname === path ||
+        location.pathname.startsWith(path + "/")
+      ) {
         moduleType = type;
         break;
       }
     }
 
-    if (!moduleType) return;  // 首页等非模块页面跳过
+    if (!moduleType) return; // 首页等非模块页面跳过
 
     const sessionId = getOrCreateSession(moduleType);
     logger.debug("Session 自动创建/恢复", {
@@ -61,5 +64,10 @@ export function useAutoCreateSession(): void {
       moduleType,
       sessionId,
     });
-  }, [location.pathname, rootCurrentWorktreeId, pathToModule, getOrCreateSession]);
+  }, [
+    location.pathname,
+    rootCurrentWorktreeId,
+    pathToModule,
+    getOrCreateSession,
+  ]);
 }

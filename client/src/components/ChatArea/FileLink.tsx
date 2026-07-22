@@ -9,7 +9,9 @@ interface FileLinkProps {
   onPreview?: (path: string) => void;
 }
 
-const isTauri = typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
+const isTauri =
+  typeof window !== "undefined" &&
+  ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
 
 function FileLink({ filePath, onPreview }: FileLinkProps) {
   const [opening, setOpening] = useState(false);
@@ -19,7 +21,7 @@ function FileLink({ filePath, onPreview }: FileLinkProps) {
    */
   const authHeaders = useCallback((): Record<string, string> => {
     const secret = getApiSecret();
-    return secret ? { 'X-API-Key': secret } : {};
+    return secret ? { "X-API-Key": secret } : {};
   }, []);
 
   const handleClick = useCallback(
@@ -38,7 +40,9 @@ function FileLink({ filePath, onPreview }: FileLinkProps) {
         } else {
           const baseUrl = getBackendBaseUrl();
           const encodedPath = encodeURIComponent(filePath);
-          await fetch(`${baseUrl}/api/file/open?path=${encodedPath}`, { headers: authHeaders() });
+          await fetch(`${baseUrl}/api/file/open?path=${encodedPath}`, {
+            headers: authHeaders(),
+          });
         }
       } catch (err) {
         logger.error("打开文件失败", err);
@@ -63,7 +67,9 @@ function FileLink({ filePath, onPreview }: FileLinkProps) {
         } else {
           const baseUrl = getBackendBaseUrl();
           const encodedPath = encodeURIComponent(filePath);
-          await fetch(`${baseUrl}/api/file/open?path=${encodedPath}`, { headers: authHeaders() });
+          await fetch(`${baseUrl}/api/file/open?path=${encodedPath}`, {
+            headers: authHeaders(),
+          });
         }
       } catch (err) {
         logger.error("打开文件失败", err);

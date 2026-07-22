@@ -33,18 +33,21 @@ function AlternativesPopover({
 
   const handleClickOutside = useCallback(
     (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(e.target as Node)
+      ) {
         onClose();
       }
     },
-    [onClose]
+    [onClose],
   );
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     },
-    [onClose]
+    [onClose],
   );
 
   useEffect(() => {
@@ -87,9 +90,13 @@ function AlternativesPopover({
       </div>
 
       {loading ? (
-        <div className={`px-3 py-2 text-xs ${mutedColor}`}>{t("common.loading")}</div>
+        <div className={`px-3 py-2 text-xs ${mutedColor}`}>
+          {t("common.loading")}
+        </div>
       ) : alternatives.length === 0 ? (
-        <div className={`px-3 py-2 text-xs ${mutedColor}`}>{t("translate.noAlternatives") || "无备选结果"}</div>
+        <div className={`px-3 py-2 text-xs ${mutedColor}`}>
+          {t("translate.noAlternatives") || "无备选结果"}
+        </div>
       ) : (
         <div className="max-h-[200px] overflow-y-auto">
           {alternatives.map((alt, idx) => (

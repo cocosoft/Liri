@@ -23,9 +23,15 @@ interface NotificationsPanelProps {
 
 /** 请求浏览器通知权限（仅当未决定时） */
 function requestNotificationPermission(t: (key: string) => string): void {
-  if (typeof Notification !== "undefined" && Notification.permission === "default") {
+  if (
+    typeof Notification !== "undefined" &&
+    Notification.permission === "default"
+  ) {
     Notification.requestPermission();
-  } else if (typeof Notification !== "undefined" && Notification.permission === "denied") {
+  } else if (
+    typeof Notification !== "undefined" &&
+    Notification.permission === "denied"
+  ) {
     alert(t("settings.notificationsBlockedAlert"));
   }
 }
@@ -56,7 +62,10 @@ function NotificationsPanel({
             }
             options={[
               { value: "auto", label: t("settings.notificationsChannelAuto") },
-              { value: "native", label: t("settings.notificationsChannelNative") },
+              {
+                value: "native",
+                label: t("settings.notificationsChannelNative"),
+              },
               { value: "none", label: t("settings.notificationsChannelNone") },
             ]}
           />

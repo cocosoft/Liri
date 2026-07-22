@@ -3,7 +3,7 @@
  *
  * 用于展示编辑前后、分析对比等场景的两图对比视图。
  */
-import { useState } from 'react';
+import { useState } from "react";
 
 interface ImageCompareViewProps {
   /** 左侧图片（原图） */
@@ -20,9 +20,9 @@ interface ImageCompareViewProps {
 
 export function ImageCompareView({
   originalSrc,
-  originalLabel = '原始',
+  originalLabel = "原始",
   modifiedSrc,
-  modifiedLabel = '修改后',
+  modifiedLabel = "修改后",
   width = 600,
 }: ImageCompareViewProps) {
   const [sliderPos, setSliderPos] = useState(50);
@@ -63,7 +63,8 @@ export function ImageCompareView({
       </div>
 
       {/* 滑块对比模式 */}
-      <div className="relative overflow-hidden rounded-lg border border-gray-700"
+      <div
+        className="relative overflow-hidden rounded-lg border border-gray-700"
         style={{ width }}
       >
         <div className="relative" style={{ width }}>

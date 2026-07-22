@@ -52,7 +52,9 @@ export const officeApi = {
     const res = await http.get<{
       data: { documents?: DocItem[] };
     }>("/v1/doc/status");
-    const resp = res as unknown as { data?: { data?: { documents?: DocItem[] } } };
+    const resp = res as unknown as {
+      data?: { data?: { documents?: DocItem[] } };
+    };
     return resp?.data?.data?.documents ?? [];
   },
 

@@ -21,7 +21,7 @@
 
 /**
  * 模型能力服务层
- * 
+ *
  * 负责能力定义的持久化、缓存和验证。
  * 采用双重持久化策略：YAML 基线 + 数据库覆盖层。
  */
@@ -137,17 +137,17 @@ export class CapabilityService {
   private db: Database | null = null;
   private dbPath: string;
   private initialized = false;
-  
+
   /** 内存缓存 */
   private capabilitiesCache: ModelCapabilityDefinition[] = [];
   private categoriesCache: CapabilityCategoryDefinition[] = [];
   private taskMappingsCache: TaskCapabilityMapping[] = [];
   private cacheVersion = '0';
-  
+
   constructor(dbPath: string = resolveDbPath()) {
     this.dbPath = dbPath;
   }
-  
+
   /**
    * 初始化数据库和缓存
    */
@@ -155,16 +155,16 @@ export class CapabilityService {
     if (this.initialized) {
       return;
     }
-    
+
     // 初始化数据库
     await this.initDatabase();
-    
+
     // 从 YAML 加载默认配置并合并到数据库（幂等）
     await this.mergeYamlToDatabase();
-    
+
     // 加载到内存缓存
     await this.refreshCache();
-    
+
     this.initialized = true;
     logger.info('CapabilityService 初始化完成', {
       capabilityCount: this.capabilitiesCache.length,
@@ -172,7 +172,7 @@ export class CapabilityService {
       mappingCount: this.taskMappingsCache.length,
     });
   }
-  
+
   /**
    * 初始化数据库连接和表结构
    */
@@ -183,10 +183,10 @@ export class CapabilityService {
         else resolve(db);
       });
     });
-    
+
     await this.createTables();
   }
-  
+
   /**
    * 创建数据库表
    */
@@ -199,7 +199,7 @@ export class CapabilityService {
         'CAPS_001'
       );
     }
-    
+
     // 创建能力定义表
     await new Promise<void>((resolve, reject) => {
       this.db?.run(
@@ -227,7 +227,7 @@ export class CapabilityService {
         }
       );
     });
-    
+
     // 创建索引
     await new Promise<void>((resolve, reject) => {
       this.db?.run(
@@ -238,7 +238,7 @@ export class CapabilityService {
         }
       );
     });
-    
+
     await new Promise<void>((resolve, reject) => {
       this.db?.run(
         `CREATE INDEX IF NOT EXISTS idx_capabilities_enabled ON ${CAPABILITIES_TABLE}(enabled)`,
@@ -248,7 +248,7 @@ export class CapabilityService {
         }
       );
     });
-    
+
     // 创建任务-能力映射表
     await new Promise<void>((resolve, reject) => {
       this.db?.run(
@@ -267,7 +267,7 @@ export class CapabilityService {
         }
       );
     });
-    
+
     // 创建索引
     await new Promise<void>((resolve, reject) => {
       this.db?.run(
@@ -278,10 +278,10 @@ export class CapabilityService {
         }
       );
     });
-    
+
     logger.info('能力数据库表创建/验证完成');
   }
-  
+
   /**
    * 从 YAML 加载配置并合并到数据库（幂等）
    */
@@ -294,7 +294,7 @@ export class CapabilityService {
         'CAPS_002'
       );
     }
-    
+
     let yamlData: any;
     try {
       const content = fs.readFileSync(YAML_CONFIG_PATH, 'utf-8');
@@ -304,10 +304,10 @@ export class CapabilityService {
       // YAML 加载失败不阻塞启动，使用数据库已有数据或空数据
       return;
     }
-    
+
     // 验证 YAML 结构
     this.validateYamlSchema(yamlData);
-    
+
     // 合并分类
     if (yamlData.categories) {
       for (const cat of yamlData.categories) {
@@ -315,14 +315,14 @@ export class CapabilityService {
         // 这里只记录到日志，实际分类通过能力的 category 字段体现
       }
     }
-    
+
     // 合并能力定义
     if (yamlData.capabilities) {
       const dbCapabilities = await this.getAllFromDb();
-      
+
       for (const yamlCap of yamlData.capabilities) {
-        const dbCap = dbCapabilities.find(c => c.key === yamlCap.key);
-        
+        const dbCap = dbCapabilities.find((c) => c.key === yamlCap.key);
+
         if (!dbCap) {
           // 数据库没有 → insert
           await this.createFromYaml(yamlCap);
@@ -332,25 +332,29 @@ export class CapabilityService {
           continue;
         }
       }
-      
+
       // 检查废弃能力（YAML 中移除的能力）
       const currentVersion = '0.4.0'; // TODO: 从版本配置获取
       for (const dbCap of dbCapabilities) {
-        const yamlCap = yamlData.capabilities.find((c: any) => c.key === dbCap.key);
+        const yamlCap = yamlData.capabilities.find(
+          (c: any) => c.key === dbCap.key
+        );
         if (!yamlCap && !dbCap.deprecatedSince) {
           // YAML 没有但 DB 有 → 标记废弃
           await this.update(dbCap.key, { deprecatedSince: currentVersion });
         }
       }
     }
-    
+
     // 合并任务-能力映射
     if (yamlData.taskMappings) {
       const dbMappings = await this.getTaskMappingsFromDb();
-      
+
       for (const yamlMapping of yamlData.taskMappings) {
-        const dbMapping = dbMappings.find(m => m.taskType === yamlMapping.taskType);
-        
+        const dbMapping = dbMappings.find(
+          (m) => m.taskType === yamlMapping.taskType
+        );
+
         if (!dbMapping) {
           // 数据库没有 → insert
           await this.createTaskMappingFromYaml(yamlMapping);
@@ -360,10 +364,10 @@ export class CapabilityService {
         }
       }
     }
-    
+
     logger.info('YAML 配置合并到数据库完成');
   }
-  
+
   /**
    * 验证 YAML 结构
    */
@@ -372,9 +376,9 @@ export class CapabilityService {
       logger.error('YAML 数据格式无效');
       return;
     }
-    
+
     const data = yamlData as Record<string, unknown>;
-    
+
     if (data.capabilities) {
       const caps = data.capabilities as Array<unknown>;
       for (let i = 0; i < caps.length; i++) {
@@ -384,7 +388,7 @@ export class CapabilityService {
         }
       }
     }
-    
+
     if (data.taskMappings) {
       const mappings = data.taskMappings as Array<unknown>;
       for (let i = 0; i < mappings.length; i++) {
@@ -395,13 +399,13 @@ export class CapabilityService {
       }
     }
   }
-  
+
   /**
    * 从 YAML 数据创建能力
    */
   private async createFromYaml(yamlCap: any): Promise<void> {
     if (!this.db) return;
-    
+
     await new Promise<void>((resolve, reject) => {
       this.db?.run(
         `INSERT INTO ${CAPABILITIES_TABLE} (
@@ -432,13 +436,13 @@ export class CapabilityService {
       );
     });
   }
-  
+
   /**
    * 从 YAML 数据创建任务映射
    */
   private async createTaskMappingFromYaml(yamlMapping: any): Promise<void> {
     if (!this.db) return;
-    
+
     await new Promise<void>((resolve, reject) => {
       this.db?.run(
         `INSERT INTO ${TASK_MAPPINGS_TABLE} (
@@ -457,30 +461,32 @@ export class CapabilityService {
       );
     });
   }
-  
+
   /**
    * 刷新内存缓存
    */
   private async refreshCache(): Promise<void> {
     this.capabilitiesCache = await this.getAllFromDb();
     this.taskMappingsCache = await this.getTaskMappingsFromDb();
-    
+
     // 从能力中提取分类
     const categorySet = new Set<string>();
     for (const cap of this.capabilitiesCache) {
       categorySet.add(cap.category);
     }
-    
-    this.categoriesCache = Array.from(categorySet).map(key => ({
-      key,
-      labelKey: `capability.category.${key}`,
-      sortOrder: this.getCategorySortOrder(key),
-    })).sort((a, b) => a.sortOrder - b.sortOrder);
-    
+
+    this.categoriesCache = Array.from(categorySet)
+      .map((key) => ({
+        key,
+        labelKey: `capability.category.${key}`,
+        sortOrder: this.getCategorySortOrder(key),
+      }))
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
     // 更新缓存版本
     this.cacheVersion = Date.now().toString();
   }
-  
+
   /**
    * 获取分类排序顺序
    */
@@ -494,9 +500,9 @@ export class CapabilityService {
     };
     return order[key] || 99;
   }
-  
+
   // ==================== 公开 API ====================
-  
+
   /**
    * 获取所有能力定义
    */
@@ -507,22 +513,24 @@ export class CapabilityService {
     lastModified: string;
   }> {
     let caps = [...this.capabilitiesCache];
-    
+
     if (params?.category) {
-      caps = caps.filter(c => c.category === params.category);
+      caps = caps.filter((c) => c.category === params.category);
     }
-    
+
     if (params?.enabled !== undefined) {
-      caps = caps.filter(c => c.enabled === params.enabled);
+      caps = caps.filter((c) => c.enabled === params.enabled);
     }
-    
+
     // 按分类和排序权重排序
     caps.sort((a, b) => {
-      const catOrder = this.getCategorySortOrder(a.category) - this.getCategorySortOrder(b.category);
+      const catOrder =
+        this.getCategorySortOrder(a.category) -
+        this.getCategorySortOrder(b.category);
       if (catOrder !== 0) return catOrder;
       return a.sortOrder - b.sortOrder;
     });
-    
+
     return {
       capabilities: caps,
       categories: this.categoriesCache,
@@ -530,18 +538,22 @@ export class CapabilityService {
       lastModified: new Date().toISOString(),
     };
   }
-  
+
   /**
    * 获取单个能力详情
    */
   async get(key: string): Promise<ModelCapabilityDefinition | null> {
-    return this.capabilitiesCache.find(c => c.key === key) || null;
+    return this.capabilitiesCache.find((c) => c.key === key) || null;
   }
-  
+
   /**
    * 创建新能力
    */
-  async create(definition: Omit<ModelCapabilityDefinition, 'key' | 'version'> & { key: string }): Promise<void> {
+  async create(
+    definition: Omit<ModelCapabilityDefinition, 'key' | 'version'> & {
+      key: string;
+    }
+  ): Promise<void> {
     if (!this.db) {
       throw new AppError(
         '数据库未初始化',
@@ -550,7 +562,7 @@ export class CapabilityService {
         'CAPS_003'
       );
     }
-    
+
     await new Promise<void>((resolve, reject) => {
       this.db?.run(
         `INSERT INTO ${CAPABILITIES_TABLE} (
@@ -580,15 +592,18 @@ export class CapabilityService {
         }
       );
     });
-    
+
     await this.refreshCache();
     logger.info('能力创建成功', { key: definition.key });
   }
-  
+
   /**
    * 更新能力定义（乐观锁）
    */
-  async update(key: string, updates: Partial<Omit<ModelCapabilityDefinition, 'key'>>): Promise<void> {
+  async update(
+    key: string,
+    updates: Partial<Omit<ModelCapabilityDefinition, 'key'>>
+  ): Promise<void> {
     if (!this.db) {
       throw new AppError(
         '数据库未初始化',
@@ -597,7 +612,7 @@ export class CapabilityService {
         'CAPS_004'
       );
     }
-    
+
     const existing = await this.get(key);
     if (!existing) {
       throw new AppError(
@@ -607,11 +622,11 @@ export class CapabilityService {
         'CAPS_005'
       );
     }
-    
+
     // 构建更新语句
     const setClauses: string[] = [];
     const values: (string | number)[] = [];
-    
+
     if (updates.category !== undefined) {
       setClauses.push('category = ?');
       values.push(updates.category);
@@ -660,15 +675,15 @@ export class CapabilityService {
       setClauses.push('dependencies = ?');
       values.push(JSON.stringify(updates.dependencies));
     }
-    
+
     if (setClauses.length === 0) {
       return;
     }
-    
+
     // 添加版本检查（乐观锁）
     setClauses.push('version = version + 1');
     values.push(existing.version);
-    
+
     const result = await new Promise<number>((resolve, reject) => {
       this.db?.run(
         `UPDATE ${CAPABILITIES_TABLE} SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE key = ? AND version = ?`,
@@ -679,7 +694,7 @@ export class CapabilityService {
         }
       );
     });
-    
+
     if (result === 0) {
       throw new AppError(
         `能力 ${key} 更新冲突，可能已被其他用户修改`,
@@ -688,11 +703,11 @@ export class CapabilityService {
         'CAPS_006'
       );
     }
-    
+
     await this.refreshCache();
     logger.info('能力更新成功', { key });
   }
-  
+
   /**
    * 删除能力（软删除）
    */
@@ -700,11 +715,16 @@ export class CapabilityService {
     await this.update(key, { enabled: false });
     logger.info('能力已禁用（软删除）', { key });
   }
-  
+
   /**
    * 批量创建/更新能力
    */
-  async batch(data: Array<ModelCapabilityDefinition | (Omit<ModelCapabilityDefinition, 'key'> & { key: string })>): Promise<void> {
+  async batch(
+    data: Array<
+      | ModelCapabilityDefinition
+      | (Omit<ModelCapabilityDefinition, 'key'> & { key: string })
+    >
+  ): Promise<void> {
     for (const item of data) {
       const existing = await this.get(item.key);
       if (existing) {
@@ -714,14 +734,16 @@ export class CapabilityService {
       }
     }
   }
-  
+
   /**
    * 获取任务-能力映射
    */
   async getTaskMappings(): Promise<TaskCapabilityMapping[]> {
-    return [...this.taskMappingsCache].sort((a, b) => a.sortOrder - b.sortOrder);
+    return [...this.taskMappingsCache].sort(
+      (a, b) => a.sortOrder - b.sortOrder
+    );
   }
-  
+
   /**
    * 更新任务-能力映射
    */
@@ -734,10 +756,12 @@ export class CapabilityService {
         'CAPS_007'
       );
     }
-    
+
     for (const mapping of mappings) {
-      const existing = this.taskMappingsCache.find(m => m.taskType === mapping.taskType);
-      
+      const existing = this.taskMappingsCache.find(
+        (m) => m.taskType === mapping.taskType
+      );
+
       if (existing) {
         // 更新
         await new Promise<void>((resolve, reject) => {
@@ -778,38 +802,43 @@ export class CapabilityService {
         });
       }
     }
-    
+
     await this.refreshCache();
     logger.info('任务-能力映射更新成功', { count: mappings.length });
   }
-  
+
   /**
    * 获取分类列表
    */
   async getCategories(): Promise<CapabilityCategoryDefinition[]> {
     return this.categoriesCache;
   }
-  
+
   /**
    * 验证模型是否具备任务所需的能力
    */
-  async validateTaskAssignment(taskType: string, modelCapabilities: string[]): Promise<ValidationIssue[]> {
+  async validateTaskAssignment(
+    taskType: string,
+    modelCapabilities: string[]
+  ): Promise<ValidationIssue[]> {
     const issues: ValidationIssue[] = [];
-    
+
     // 获取任务映射
-    const mapping = this.taskMappingsCache.find(m => m.taskType === taskType);
-    
+    const mapping = this.taskMappingsCache.find((m) => m.taskType === taskType);
+
     if (!mapping) {
-      return [{
-        type: 'mapping_not_found',
-        taskType,
-        message: `未找到任务类型 ${taskType} 的能力映射`,
-      }];
+      return [
+        {
+          type: 'mapping_not_found',
+          taskType,
+          message: `未找到任务类型 ${taskType} 的能力映射`,
+        },
+      ];
     }
-    
+
     // 检查必需能力（AND）
     const missingRequired = mapping.requiredCapabilities.filter(
-      cap => !modelCapabilities.includes(cap)
+      (cap) => !modelCapabilities.includes(cap)
     );
     if (missingRequired.length > 0) {
       issues.push({
@@ -819,11 +848,11 @@ export class CapabilityService {
         message: `模型缺少必需能力: ${missingRequired.join(', ')}`,
       });
     }
-    
+
     // 检查可选能力（OR）
     if (mapping.optionalCapabilities.length > 0) {
-      const hasOptional = mapping.optionalCapabilities.some(
-        cap => modelCapabilities.includes(cap)
+      const hasOptional = mapping.optionalCapabilities.some((cap) =>
+        modelCapabilities.includes(cap)
       );
       if (!hasOptional) {
         issues.push({
@@ -834,24 +863,27 @@ export class CapabilityService {
         });
       }
     }
-    
+
     // 检查能力依赖（递归）
-    const dependencyIssues = this.validateCapabilityDependencies(modelCapabilities);
+    const dependencyIssues =
+      this.validateCapabilityDependencies(modelCapabilities);
     issues.push(...dependencyIssues);
-    
+
     return issues;
   }
-  
+
   /**
    * 递归检查能力依赖
    */
-  private validateCapabilityDependencies(capabilities: string[]): ValidationIssue[] {
+  private validateCapabilityDependencies(
+    capabilities: string[]
+  ): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
-    
+
     for (const capKey of capabilities) {
-      const capability = this.capabilitiesCache.find(c => c.key === capKey);
+      const capability = this.capabilitiesCache.find((c) => c.key === capKey);
       if (!capability) continue;
-      
+
       for (const depKey of capability.dependencies) {
         if (!capabilities.includes(depKey)) {
           issues.push({
@@ -863,18 +895,18 @@ export class CapabilityService {
         }
       }
     }
-    
+
     return issues;
   }
-  
+
   // ==================== 私有数据库操作 ====================
-  
+
   /**
    * 从数据库获取所有能力
    */
   private async getAllFromDb(): Promise<ModelCapabilityDefinition[]> {
     if (!this.db) return [];
-    
+
     return new Promise((resolve, reject) => {
       this.db?.all(
         `SELECT * FROM ${CAPABILITIES_TABLE}`,
@@ -885,13 +917,13 @@ export class CapabilityService {
       );
     });
   }
-  
+
   /**
    * 从数据库获取任务映射
    */
   private async getTaskMappingsFromDb(): Promise<TaskCapabilityMapping[]> {
     if (!this.db) return [];
-    
+
     return new Promise((resolve, reject) => {
       this.db?.all(
         `SELECT * FROM ${TASK_MAPPINGS_TABLE}`,
@@ -902,12 +934,12 @@ export class CapabilityService {
       );
     });
   }
-  
+
   /**
    * 将数据库行映射为能力定义
    */
   private mapRowsToDefinitions(rows: any[]): ModelCapabilityDefinition[] {
-    return rows.map(row => ({
+    return rows.map((row) => ({
       key: row.key,
       category: row.category as CapabilityCategory,
       labelKey: row.label_key,
@@ -924,15 +956,19 @@ export class CapabilityService {
       version: row.version || 1,
     }));
   }
-  
+
   /**
    * 将数据库行映射为任务映射
    */
   private mapRowsToMappings(rows: any[]): TaskCapabilityMapping[] {
-    return rows.map(row => ({
+    return rows.map((row) => ({
       taskType: row.task_type,
-      requiredCapabilities: row.required_capabilities ? JSON.parse(row.required_capabilities) : [],
-      optionalCapabilities: row.optional_capabilities ? JSON.parse(row.optional_capabilities) : [],
+      requiredCapabilities: row.required_capabilities
+        ? JSON.parse(row.required_capabilities)
+        : [],
+      optionalCapabilities: row.optional_capabilities
+        ? JSON.parse(row.optional_capabilities)
+        : [],
       sortOrder: row.sort_order || 0,
     }));
   }

@@ -1,4 +1,11 @@
-import { useState, useEffect, useRef, useCallback, Suspense, lazy } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  Suspense,
+  lazy,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { httpLegacy as http } from "../../services/httpClient";
 
@@ -82,7 +89,8 @@ function TerminalPage() {
       return {
         success: false,
         output: "",
-        error: error instanceof Error ? error.message : t("terminal.networkError"),
+        error:
+          error instanceof Error ? error.message : t("terminal.networkError"),
       };
     }
   };
@@ -248,56 +256,62 @@ function TerminalPage() {
         </div>
       </div>
       {mode === "xterm" ? (
-        <Suspense fallback={<div className="flex-1 flex items-center justify-center text-gray-500 text-sm">{t("terminal.loadingEngine")}</div>}>
+        <Suspense
+          fallback={
+            <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
+              {t("terminal.loadingEngine")}
+            </div>
+          }
+        >
           <XTermPanel />
         </Suspense>
       ) : (
         <>
-        <div className="px-4 py-2 bg-gray-900 border-b border-gray-800 flex items-center justify-end">
-          <button
-            onClick={() => setLines([])}
-            className="px-2 py-1 text-xs text-gray-400 hover:text-white hover:bg-gray-800 rounded"
-          >
-            {t("terminal.clear")}
-          </button>
-        </div>
-
-        <div
-          ref={terminalRef}
-          className="flex-1 overflow-y-auto p-4 font-mono text-sm"
-          onClick={focusInput}
-        >
-          {lines.map((line) => (
-            <div key={line.id} className="whitespace-pre-wrap">
-              {line.type === "input" ? (
-                <span className="text-green-400">{line.content}</span>
-              ) : line.type === "error" ? (
-                <span className="text-red-400">{line.content}</span>
-              ) : (
-                <span className="text-gray-300">{line.content}</span>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div className="px-4 py-3 bg-gray-900 border-t border-gray-800">
-          <div className="flex items-center">
-            <span className="text-green-400 font-mono text-sm mr-2">
-              {getPrompt()}
-            </span>
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={isExecuting}
-              className="flex-1 bg-transparent text-white font-mono text-sm outline-none"
-              autoFocus
-              placeholder={isExecuting ? t("terminal.executing") : ""}
-            />
+          <div className="px-4 py-2 bg-gray-900 border-b border-gray-800 flex items-center justify-end">
+            <button
+              onClick={() => setLines([])}
+              className="px-2 py-1 text-xs text-gray-400 hover:text-white hover:bg-gray-800 rounded"
+            >
+              {t("terminal.clear")}
+            </button>
           </div>
-        </div>
+
+          <div
+            ref={terminalRef}
+            className="flex-1 overflow-y-auto p-4 font-mono text-sm"
+            onClick={focusInput}
+          >
+            {lines.map((line) => (
+              <div key={line.id} className="whitespace-pre-wrap">
+                {line.type === "input" ? (
+                  <span className="text-green-400">{line.content}</span>
+                ) : line.type === "error" ? (
+                  <span className="text-red-400">{line.content}</span>
+                ) : (
+                  <span className="text-gray-300">{line.content}</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="px-4 py-3 bg-gray-900 border-t border-gray-800">
+            <div className="flex items-center">
+              <span className="text-green-400 font-mono text-sm mr-2">
+                {getPrompt()}
+              </span>
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={isExecuting}
+                className="flex-1 bg-transparent text-white font-mono text-sm outline-none"
+                autoFocus
+                placeholder={isExecuting ? t("terminal.executing") : ""}
+              />
+            </div>
+          </div>
         </>
       )}
     </div>

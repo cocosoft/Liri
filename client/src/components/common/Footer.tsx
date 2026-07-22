@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useBackendStore } from "../../stores/backendStore";
 import { useModelSwitchStore } from "../../stores/modelSwitchStore";
+import { handleClientError } from "../../utils/handleError";
 import {
   monitorService,
   type MonitorSummary,
@@ -68,10 +69,13 @@ function Footer() {
   }, []);
 
   const getStatusDot = (running: boolean) => (
-    <span className={`inline-block w-2 h-2 rounded-full ${running ? "bg-green-500" : "bg-red-500"}`} />
+    <span
+      className={`inline-block w-2 h-2 rounded-full ${running ? "bg-green-500" : "bg-red-500"}`}
+    />
   );
 
-  const getStatusText = () => (status.running ? t("common.running") : t("common.stopped"));
+  const getStatusText = () =>
+    status.running ? t("common.running") : t("common.stopped");
 
   const handleStart = async () => {
     setActionLoading(true);
@@ -110,7 +114,8 @@ function Footer() {
   const copyModelName = async () => {
     try {
       await navigator.clipboard.writeText(currentModelName);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "components:common:Footer", action: "copyModelName" });
       // 静默失败
     }
   };
@@ -120,12 +125,12 @@ function Footer() {
       <div className="flex items-center gap-3 flex-1">
         {/* 后端状态 */}
         <div
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1.5 hover:text-gray-900 dark:hover:text-gray-200 transition-colors cursor-pointer"
-            title={t("footer.expandStatus")}
-          >
-            {getStatusDot(status.running)}
-            <span>Backend {getStatusText()}</span>
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex items-center gap-1.5 hover:text-gray-900 dark:hover:text-gray-200 transition-colors cursor-pointer"
+          title={t("footer.expandStatus")}
+        >
+          {getStatusDot(status.running)}
+          <span>Backend {getStatusText()}</span>
           {status.running ? (
             <button
               onClick={(e) => {
@@ -191,11 +196,11 @@ function Footer() {
                 >
                   {currentModelName}
                 </span>
-                {routingMode === 'dynamic' && routerTier ? (
+                {routingMode === "dynamic" && routerTier ? (
                   <span className="px-1 py-0.5 text-[10px] font-medium bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded">
                     dynamic:{routerTier}
                   </span>
-                ) : routingMode && routingMode !== 'static' ? (
+                ) : routingMode && routingMode !== "static" ? (
                   <span className="px-1 py-0.5 text-[10px] font-medium bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 rounded">
                     {routingMode}
                   </span>
@@ -208,9 +213,18 @@ function Footer() {
                 className="flex items-center gap-1 text-amber-500 hover:text-amber-600 transition-colors"
                 title="配置 AI 模型"
               >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
+                  />
                 </svg>
                 <span className="text-xs font-medium">配置模型</span>
               </button>
@@ -241,7 +255,7 @@ function Footer() {
             {/* 今日消费 */}
             {costSummary.todayCost > 0 && (
               <span className="text-orange-500">
-                 {t("footer.today")}: ¥{costSummary.todayCost.toFixed(4)}
+                {t("footer.today")}: ¥{costSummary.todayCost.toFixed(4)}
               </span>
             )}
           </>
@@ -266,13 +280,17 @@ function Footer() {
           </div>
           <div className="space-y-1.5">
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">{t("footer.input")}</span>
+              <span className="text-gray-500 dark:text-gray-400">
+                {t("footer.input")}
+              </span>
               <span className="text-blue-500 font-medium">
                 {costSummary.sessionInputTokens.toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">{t("footer.output")}</span>
+              <span className="text-gray-500 dark:text-gray-400">
+                {t("footer.output")}
+              </span>
               <span className="text-green-500 font-medium">
                 {costSummary.sessionOutputTokens.toLocaleString()}
               </span>
@@ -299,19 +317,25 @@ function Footer() {
             )}
             <div className="border-t border-gray-200 dark:border-gray-700 my-1.5" />
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">{t("footer.today")}</span>
+              <span className="text-gray-500 dark:text-gray-400">
+                {t("footer.today")}
+              </span>
               <span className="text-gray-900 dark:text-gray-100">
                 {costSummary.todayTokens.toLocaleString()} tokens
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">{t("footer.todayCost")}</span>
+              <span className="text-gray-500 dark:text-gray-400">
+                {t("footer.todayCost")}
+              </span>
               <span className="text-orange-500 font-medium">
                 ${costSummary.todayCost.toFixed(4)}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">{t("footer.sessionCost")}</span>
+              <span className="text-gray-500 dark:text-gray-400">
+                {t("footer.sessionCost")}
+              </span>
               <span className="text-red-500 font-medium">
                 ${costSummary.sessionCost.toFixed(4)}
               </span>
@@ -345,7 +369,9 @@ function Footer() {
             </div>
             {status.port && (
               <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">{t("footer.port")}</span>
+                <span className="text-gray-500 dark:text-gray-400">
+                  {t("footer.port")}
+                </span>
                 <span className="text-gray-900 dark:text-gray-100">
                   {status.port}
                 </span>
@@ -377,7 +403,9 @@ function Footer() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">{t("footer.memory")}</span>
+                  <span className="text-gray-500 dark:text-gray-400">
+                    {t("footer.memory")}
+                  </span>
                   <span className={`${getPercentColor(summary.memoryPercent)}`}>
                     {summary.memoryPercent.toFixed(1)}%
                   </span>
@@ -422,20 +450,26 @@ function Footer() {
                   {t("footer.costOverview")}
                 </h5>
                 <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">{t("footer.today")}</span>
+                  <span className="text-gray-500 dark:text-gray-400">
+                    {t("footer.today")}
+                  </span>
                   <span className="text-orange-500 font-medium">
                     ¥{costSummary.todayCost.toFixed(4)} /{" "}
                     {costSummary.todayTokens.toLocaleString()} tokens
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">{t("footer.thisWeek")}</span>
+                  <span className="text-gray-500 dark:text-gray-400">
+                    {t("footer.thisWeek")}
+                  </span>
                   <span className="text-gray-900 dark:text-gray-100">
                     ¥{costSummary.weeklyCost.toFixed(4)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">{t("footer.thisMonth")}</span>
+                  <span className="text-gray-500 dark:text-gray-400">
+                    {t("footer.thisMonth")}
+                  </span>
                   <span className="text-gray-900 dark:text-gray-100">
                     ¥{costSummary.monthlyCost.toFixed(4)}
                   </span>

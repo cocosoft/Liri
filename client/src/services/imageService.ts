@@ -26,7 +26,11 @@ export interface GenerateResult {
   model: string;
   durationMs: number;
   usedProvider: string;
-  costBreakdown: Array<{ provider: string; status: string; estimatedCostUsd: number }>;
+  costBreakdown: Array<{
+    provider: string;
+    status: string;
+    estimatedCostUsd: number;
+  }>;
   totalCostUsd: number;
 }
 
@@ -137,15 +141,18 @@ export const imageService = {
    */
   async svgGenerate(
     prompt: string,
-    options?: Record<string, unknown>
+    options?: Record<string, unknown>,
   ): Promise<{ svg: string; model: string; size: string }> {
-    const raw = await toolService.execute("image_svg_generate", {
+    const raw = (await toolService.execute("image_svg_generate", {
       prompt,
       ...options,
-    }) as { success: boolean; data: { svg: string; model: string; size: string; filePath?: string }; error?: string | null };
+    })) as {
+      success: boolean;
+      data: { svg: string; model: string; size: string; filePath?: string };
+      error?: string | null;
+    };
 
     if (!raw?.success || !raw?.data) {
-      
       throw new Error(raw?.error || "SVG generation failed");
     }
     return raw.data;
@@ -160,12 +167,12 @@ export const imageService = {
       format?: string;
       /** 参考图本地路径，用于分辨率推断 */
       inputImage?: string;
-    }
+    },
   ): Promise<GenerateResult> {
-    const raw = await toolService.execute("image_generate", {
+    const raw = (await toolService.execute("image_generate", {
       prompt,
       ...options,
-    }) as { success: boolean; data: GenerateResult; error?: string | null };
+    })) as { success: boolean; data: GenerateResult; error?: string | null };
 
     if (!raw?.success || !raw?.data || !raw.data.images?.length) {
       throw new Error(raw?.error || "Image generation failed");
@@ -179,13 +186,13 @@ export const imageService = {
   async analyze(
     imagePath: string,
     action: string,
-    options?: Record<string, unknown>
+    options?: Record<string, unknown>,
   ): Promise<AnalysisResult> {
-    const raw = await toolService.execute("image_analysis", {
+    const raw = (await toolService.execute("image_analysis", {
       action,
       inputPath: imagePath,
       ...options,
-    }) as { success: boolean; data: AnalysisResult; error?: string | null };
+    })) as { success: boolean; data: AnalysisResult; error?: string | null };
 
     if (!raw?.success || !raw?.data) {
       throw new Error(raw?.error || "Image analysis failed");
@@ -199,13 +206,13 @@ export const imageService = {
   async edit(
     inputPath: string,
     action: string,
-    options?: Record<string, unknown>
+    options?: Record<string, unknown>,
   ): Promise<EditResult> {
-    const raw = await toolService.execute("image", {
+    const raw = (await toolService.execute("image", {
       action,
       inputPath,
       ...options,
-    }) as { success: boolean; data: EditResult; error?: string | null };
+    })) as { success: boolean; data: EditResult; error?: string | null };
 
     if (!raw?.success || !raw?.data) {
       throw new Error(raw?.error || "Image edit failed");
@@ -231,7 +238,11 @@ export const imageService = {
   /**
    * 获取图片列表（含 TTL 缓存 + 分页）
    */
-  async listImages(params?: { page?: number; pageSize?: number; signal?: AbortSignal }): Promise<{
+  async listImages(params?: {
+    page?: number;
+    pageSize?: number;
+    signal?: AbortSignal;
+  }): Promise<{
     images: Array<{ path: string; url: string }>;
     total: number;
     page: number;
@@ -262,7 +273,9 @@ export const imageService = {
     if (imagePathOrUrl.startsWith("/v1/images/static/")) {
       backendPath = imagePathOrUrl.slice("/v1/images/static/".length);
     }
-    return http.delete(`/v1/images/delete?path=${encodeURIComponent(backendPath)}`);
+    return http.delete(
+      `/v1/images/delete?path=${encodeURIComponent(backendPath)}`,
+    );
   },
 
   /**
@@ -270,9 +283,12 @@ export const imageService = {
    */
   async canvas(
     action: string,
-    options?: Record<string, unknown>
+    options?: Record<string, unknown>,
   ): Promise<CanvasResult> {
-    const raw = await toolService.execute("canvas", { action, ...options }) as {
+    const raw = (await toolService.execute("canvas", {
+      action,
+      ...options,
+    })) as {
       success: boolean;
       data: CanvasResult;
       error?: string | null;
@@ -288,7 +304,7 @@ export const imageService = {
    */
   upload(
     file: File,
-    onProgress?: (pct: number) => void
+    onProgress?: (pct: number) => void,
   ): Promise<{ path: string; url: string }> {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();

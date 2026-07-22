@@ -1,10 +1,14 @@
 import type { Message, Session } from "../types";
 import { http as apiHttp } from "./httpClient";
 import { createLogger } from "../utils/logger";
+import { handleClientError } from "../utils/handleError";
+import { getOTelTracing } from "../monitoring/otel";
 
 const logger = createLogger("sessionService");
 
-const isTauri = typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
+const isTauri =
+  typeof window !== "undefined" &&
+  ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
 
 // 是否已降级到内存模式（后端不可用时设为 true）
 let _isUsingFallback = false;
@@ -18,7 +22,8 @@ async function getTauriCore() {
   if (!isTauri) return null;
   try {
     return await import("@tauri-apps/api/core");
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "services:session", action: "getTauriCore" });
     return null;
   }
 }
@@ -57,7 +62,8 @@ async function tryTauri<T>(
   if (!core) return null;
   try {
     return await core.invoke<T>(method, args);
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "services:session", action: "tryTauri" });
     return null;
   }
 }
@@ -85,8 +91,12 @@ function flattenSession<S extends Session | null>(session: S): S {
     modelId: raw.metadata?.model || session.modelId,
     providerId: raw.metadata?.providerId || session.providerId,
     workspaceId: raw.metadata?.workspaceId || session.workspaceId,
-    workspacePath: raw.metadata?.workspacePath || (session as { workspacePath?: string }).workspacePath,
-    tasksOverride: (raw.metadata?.tasksOverride as Record<string, string> | undefined) || session.tasksOverride,
+    workspacePath:
+      raw.metadata?.workspacePath ||
+      (session as { workspacePath?: string }).workspacePath,
+    tasksOverride:
+      (raw.metadata?.tasksOverride as Record<string, string> | undefined) ||
+      session.tasksOverride,
   };
 }
 
@@ -96,91 +106,110 @@ function flattenSession<S extends Session | null>(session: S): S {
  * @param options 可选：绑定模型ID、工作空间ID
  */
 export const sessionService = {
-  list: async (): Promise<Session[]> => {
-    try {
-      const res = await apiHttp.get<Session[]>("/v1/sessions");
-      if (res.ok) {
-        _isUsingFallback = false;
-        return (res.data ?? []).map(flattenSession);
+  list: (): Promise<Session[]> => {
+    return getOTelTracing().asyncWrap("services:session:list", async () => {
+      try {
+        const res = await apiHttp.get<Session[]>("/v1/sessions");
+        if (res.ok) {
+          _isUsingFallback = false;
+          return (res.data ?? []).map(flattenSession);
+        }
+        logger.warn("获取会话列表失败", { error: res.error });
+      } catch (e) {
+        handleClientError(e, { module: "services:session", action: "list" });
+        // 网络错误，尝试降级
       }
-      logger.warn("获取会话列表失败", { error: res.error });
-    } catch {
-      // 网络错误，尝试降级
-    }
-    const result = await tryTauri<Session[]>("list_sessions");
-    if (result) return result.map(flattenSession);
-    return createMemorySessionService().list();
+      const result = await tryTauri<Session[]>("list_sessions");
+      if (result) return result.map(flattenSession);
+      return createMemorySessionService().list();
+    });
   },
 
-  create: async (
+  create: (
     title: string,
-    options?: { modelId?: string; workspaceId?: string; workspacePath?: string }
+    options?: {
+      modelId?: string;
+      workspaceId?: string;
+      workspacePath?: string;
+    },
   ): Promise<Session> => {
-    try {
-      const body: Record<string, unknown> = { title };
-      if (options?.modelId) body.model = options.modelId;
-      if (options?.workspaceId) body.workspaceId = options.workspaceId;
-      if (options?.workspacePath) body.workspace_path = options.workspacePath;
-      const res = await apiHttp.post<Session>("/v1/sessions", body);
-      if (res.ok) {
-        _isUsingFallback = false;
-        return flattenSession(res.data as Session);
+    return getOTelTracing().asyncWrap("services:session:createSession", async () => {
+      try {
+        const body: Record<string, unknown> = { title };
+        if (options?.modelId) body.model = options.modelId;
+        if (options?.workspaceId) body.workspaceId = options.workspaceId;
+        if (options?.workspacePath) body.workspace_path = options.workspacePath;
+        const res = await apiHttp.post<Session>("/v1/sessions", body);
+        if (res.ok) {
+          _isUsingFallback = false;
+          return flattenSession(res.data as Session);
+        }
+        logger.warn("创建会话失败", { error: res.error });
+      } catch (e) {
+        handleClientError(e, { module: "services:session", action: "create" });
+        // 网络错误
       }
-      logger.warn("创建会话失败", { error: res.error });
-    } catch {
-      // 网络错误
-    }
-    const result = await tryTauri<Session>("create_session", { title });
-    if (result) return flattenSession(result);
-    return createMemorySessionService().create(title);
+      const result = await tryTauri<Session>("create_session", { title });
+      if (result) return flattenSession(result);
+      return createMemorySessionService().create(title);
+    });
   },
 
-  switch: async (id: string): Promise<Session> => {
-    try {
-      const res = await apiHttp.post<Session>(`/v1/sessions/${id}/switch`);
-      if (res.ok) {
-        _isUsingFallback = false;
-        return flattenSession(res.data as Session);
+  switch: (id: string): Promise<Session> => {
+    return getOTelTracing().asyncWrap("services:session:switchSession", async () => {
+      try {
+        const res = await apiHttp.post<Session>(`/v1/sessions/${id}/switch`);
+        if (res.ok) {
+          _isUsingFallback = false;
+          return flattenSession(res.data as Session);
+        }
+        logger.warn("切换会话失败", { id, error: res.error });
+      } catch (e) {
+        handleClientError(e, { module: "services:session", action: "switch" });
+        // 网络错误
       }
-      logger.warn("切换会话失败", { id, error: res.error });
-    } catch {
-      // 网络错误
-    }
-    const result = await tryTauri<Session>("switch_session", { id });
-    if (result) return flattenSession(result);
-    return createMemorySessionService().switch(id);
+      const result = await tryTauri<Session>("switch_session", { id });
+      if (result) return flattenSession(result);
+      return createMemorySessionService().switch(id);
+    });
   },
 
-  delete: async (id: string): Promise<void> => {
-    try {
-      const res = await apiHttp.delete<void>(`/v1/sessions/${id}`);
-      if (res.ok) {
-        _isUsingFallback = false;
-        return;
+  delete: (id: string): Promise<void> => {
+    return getOTelTracing().asyncWrap("services:session:deleteSession", async () => {
+      try {
+        const res = await apiHttp.delete<void>(`/v1/sessions/${id}`);
+        if (res.ok) {
+          _isUsingFallback = false;
+          return;
+        }
+        logger.warn("删除会话失败", { id, error: res.error });
+      } catch (e) {
+        handleClientError(e, { module: "services:session", action: "delete" });
+        // 网络错误
       }
-      logger.warn("删除会话失败", { id, error: res.error });
-    } catch {
-      // 网络错误
-    }
-    const result = await tryTauri<void>("delete_session", { id });
-    if (result !== null) return;
-    return createMemorySessionService().delete(id);
+      const result = await tryTauri<void>("delete_session", { id });
+      if (result !== null) return;
+      return createMemorySessionService().delete(id);
+    });
   },
 
-  rename: async (id: string, title: string): Promise<void> => {
-    try {
-      const res = await apiHttp.put<void>(`/v1/sessions/${id}`, { title });
-      if (res.ok) {
-        _isUsingFallback = false;
-        return;
+  rename: (id: string, title: string): Promise<void> => {
+    return getOTelTracing().asyncWrap("services:session:renameSession", async () => {
+      try {
+        const res = await apiHttp.put<void>(`/v1/sessions/${id}`, { title });
+        if (res.ok) {
+          _isUsingFallback = false;
+          return;
+        }
+        logger.warn("重命名会话失败", { id, error: res.error });
+      } catch (e) {
+        handleClientError(e, { module: "services:session", action: "rename" });
+        // 网络错误
       }
-      logger.warn("重命名会话失败", { id, error: res.error });
-    } catch {
-      // 网络错误
-    }
-    const result = await tryTauri<void>("rename_session", { id, title });
-    if (result !== null) return;
-    return createMemorySessionService().rename(id, title);
+      const result = await tryTauri<void>("rename_session", { id, title });
+      if (result !== null) return;
+      return createMemorySessionService().rename(id, title);
+    });
   },
 
   generateTitle: async (
@@ -198,7 +227,8 @@ export const sessionService = {
         return (res.data as { title: string | null })?.title ?? null;
       }
       logger.debug("generateTitle 静默降级", { sessionId, error: res.error });
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:session", action: "generateTitle" });
       // 网络错误
     }
     const result = await tryTauri<{ title: string | null }>(
@@ -216,7 +246,8 @@ export const sessionService = {
         return flattenSession(res.data as Session | null);
       }
       logger.warn("获取当前会话失败", { error: res.error });
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:session", action: "getCurrent" });
       // 网络错误
     }
     const result = await tryTauri<Session | null>("get_current_session");
@@ -232,7 +263,8 @@ export const sessionService = {
         return flattenSession(res.data as Session);
       }
       logger.warn("获取会话失败", { id, error: res.error });
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:session", action: "get" });
       // 网络错误
     }
     const result = await tryTauri<Session | null>("get_session", { id });
@@ -242,20 +274,27 @@ export const sessionService = {
       .then((sessions) => sessions.find((s) => s.id === id) || null);
   },
 
-  getMessages: async (sessionId: string): Promise<Message[]> => {
-    try {
-      const res = await apiHttp.get<Message[]>(`/v1/sessions/${sessionId}/messages`);
-      if (res.ok) {
-        _isUsingFallback = false;
-        return res.data ?? [];
+  getMessages: (sessionId: string): Promise<Message[]> => {
+    return getOTelTracing().asyncWrap("services:session:getMessages", async () => {
+      try {
+        const res = await apiHttp.get<Message[]>(
+          `/v1/sessions/${sessionId}/messages`,
+        );
+        if (res.ok) {
+          _isUsingFallback = false;
+          return res.data ?? [];
+        }
+        logger.warn("获取会话消息失败", { sessionId, error: res.error });
+      } catch (e) {
+        handleClientError(e, { module: "services:session", action: "getMessages" });
+        // 网络错误
       }
-      logger.warn("获取会话消息失败", { sessionId, error: res.error });
-    } catch {
-      // 网络错误
-    }
-    const result = await tryTauri<Message[]>("get_session_messages", { sessionId });
-    if (result) return result;
-    return [];
+      const result = await tryTauri<Message[]>("get_session_messages", {
+        sessionId,
+      });
+      if (result) return result;
+      return [];
+    });
   },
 
   clearAll: async (): Promise<void> => {
@@ -266,7 +305,8 @@ export const sessionService = {
         return;
       }
       logger.warn("清除所有会话失败", { error: res.error });
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:session", action: "clearAll" });
       // 网络错误
     }
     const result = await tryTauri<void>("clear_all_sessions");
@@ -279,20 +319,27 @@ export const sessionService = {
    */
   updateSessionMeta: async (
     sessionId: string,
-    meta: { modelId?: string; providerId?: string; workspaceId?: string; tasksOverride?: Record<string, string> }
+    meta: {
+      modelId?: string;
+      providerId?: string;
+      workspaceId?: string;
+      tasksOverride?: Record<string, string>;
+    },
   ): Promise<boolean> => {
     try {
       const body: Record<string, unknown> = {};
       if (meta.modelId !== undefined) body.model = meta.modelId;
       if (meta.providerId !== undefined) body.provider_id = meta.providerId;
       if (meta.workspaceId !== undefined) body.workspace_id = meta.workspaceId;
-      if (meta.tasksOverride !== undefined) body.tasks_override = meta.tasksOverride;
+      if (meta.tasksOverride !== undefined)
+        body.tasks_override = meta.tasksOverride;
       const res = await apiHttp.patch(`/v1/sessions/${sessionId}/meta`, body);
       if (res.ok) {
         _isUsingFallback = false;
         return true;
       }
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:session", action: "updateSessionMeta" });
       // 网络错误
     }
     logger.debug("updateSessionMeta 静默降级：PATCH API 不可用", { sessionId });
@@ -306,7 +353,8 @@ export const sessionService = {
         _isUsingFallback = false;
         return res.data;
       }
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:session", action: "compact" });
       // 网络错误
     }
     logger.debug("compact 静默降级：API 不可用", { sessionId });
@@ -320,7 +368,8 @@ export const sessionService = {
         _isUsingFallback = false;
         return res.data;
       }
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:session", action: "prune" });
       // 网络错误
     }
     logger.debug("prune 静默降级：API 不可用", { sessionId });
@@ -330,20 +379,23 @@ export const sessionService = {
   getMemory: async (
     sessionId: string,
     query?: string,
-    topK?: number
+    topK?: number,
   ): Promise<{ items: unknown[]; sessionId: string } | null> => {
     try {
       const params = new URLSearchParams();
-      if (query) params.set('q', query);
-      if (topK) params.set('topK', String(topK));
+      if (query) params.set("q", query);
+      if (topK) params.set("topK", String(topK));
       const qs = params.toString();
-      const url = `/v1/sessions/${sessionId}/memory${qs ? `?${qs}` : ''}`;
-      const res = await apiHttp.get<{ items: unknown[]; sessionId: string }>(url);
+      const url = `/v1/sessions/${sessionId}/memory${qs ? `?${qs}` : ""}`;
+      const res = await apiHttp.get<{ items: unknown[]; sessionId: string }>(
+        url,
+      );
       if (res.ok) {
         _isUsingFallback = false;
         return res.data as { items: unknown[]; sessionId: string } | null;
       }
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:session", action: "getMemory" });
       // 网络错误
     }
     logger.debug("getMemory 静默降级：API 不可用", { sessionId });
@@ -356,12 +408,15 @@ export const sessionService = {
    */
   getArtifacts: async (sessionId: string): Promise<unknown[] | null> => {
     try {
-      const res = await apiHttp.get<unknown[]>(`/v1/sessions/${sessionId}/artifacts`);
+      const res = await apiHttp.get<unknown[]>(
+        `/v1/sessions/${sessionId}/artifacts`,
+      );
       if (res.ok) {
         _isUsingFallback = false;
         return res.data ?? null;
       }
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:session", action: "getArtifacts" });
       // 网络错误
     }
     logger.debug("getArtifacts 静默降级：API 不可用", { sessionId });
@@ -379,7 +434,8 @@ export const sessionService = {
         _isUsingFallback = false;
         return true;
       }
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:session", action: "batchDelete" });
       // 网络错误
     }
     logger.debug("batchDelete 静默降级：API 不可用", { ids });

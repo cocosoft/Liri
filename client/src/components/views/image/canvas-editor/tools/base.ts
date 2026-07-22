@@ -1,6 +1,11 @@
 // canvas-editor/tools/base.ts — 工具接口 + ToolContext
 
-import { CanvasTool, CanvasPointerEvent, ParamSchema, CanvasState } from "../types";
+import {
+  CanvasTool,
+  CanvasPointerEvent,
+  ParamSchema,
+  CanvasState,
+} from "../types";
 import { CanvasTransform } from "../core/CanvasTransform";
 import { CommandManager } from "../core/CommandManager";
 import { OffscreenBuffer } from "../core/OffscreenBuffer";

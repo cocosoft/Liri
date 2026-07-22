@@ -25,7 +25,12 @@ export function getHistory(): TaskHistory[] {
   }
 }
 
-export function addHistory(entry: Omit<TaskHistory, "id" | "startedAt" | "completedAt"> & { startedAt?: number; completedAt?: number }): void {
+export function addHistory(
+  entry: Omit<TaskHistory, "id" | "startedAt" | "completedAt"> & {
+    startedAt?: number;
+    completedAt?: number;
+  },
+): void {
   const list = getHistory();
   list.unshift({
     ...entry,
@@ -41,7 +46,9 @@ export function addHistory(entry: Omit<TaskHistory, "id" | "startedAt" | "comple
     localStorage.removeItem(STORAGE_KEY);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, 10)));
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   }
 }
 

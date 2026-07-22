@@ -13,8 +13,6 @@ import type {
   ProviderUsageStats,
 } from "../types";
 
-
-
 interface UsageStatsStore {
   summary: UsageSummary | null;
   trends: DailyUsageStats[];
@@ -53,7 +51,11 @@ export const useUsageStatsStore = create<UsageStatsStore>()((set) => ({
       ]);
       set({ summary, trends, modelStats, providerStats, isLoading: false });
     } catch (e) {
-      handleClientError(e, { module: 'stores:usageStatsStore', action: 'loadAll' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:usageStatsStore", action: "loadAll" },
+        "warn",
+      );
       set({
         error: e instanceof Error ? e.message : "获取使用量统计失败",
         isLoading: false,

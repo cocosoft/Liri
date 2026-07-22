@@ -42,7 +42,6 @@ interface FeatureFlagStore {
  *   const enabled = useFeatureFlagStore.getState().flags.message_queue;
  */
 export const useFeatureFlagStore = create<FeatureFlagStore>((set) => ({
-
   flags: { ...DEFAULT_FLAGS },
 
   setFlags: (partial: Partial<FeatureFlags>) => {
@@ -52,5 +51,4 @@ export const useFeatureFlagStore = create<FeatureFlagStore>((set) => ({
   resetAll: () => {
     set({ flags: { ...DEFAULT_FLAGS } });
   },
-
 }));

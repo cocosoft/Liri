@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 会话追踪系统
  */
 
@@ -12,6 +12,11 @@ import {
 import { AsyncLocalStorage } from 'async_hooks';
 import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/error';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import {
+  isSpanCovered,
+  markSpanCovered,
+} from '@modules/monitoring/tracing/SpanCoverageRegistry';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -87,11 +92,11 @@ export class SessionTracing {
   }
 
   /**
-   * 获取Tracer
+   * 获取Tracer（统一使用 getOTelTracing() 单例，确保所有 Span 在同一棵树内）
    * @returns Tracer
    */
   private getTracer() {
-    return trace.getTracer(this.config.serviceName, this.config.serviceVersion);
+    return getOTelTracing().getTracer();
   }
 
   /**
@@ -250,7 +255,19 @@ export class SessionTracing {
       ? trace.setSpan(context.active(), parentSpanCtx.span)
       : context.active();
 
+    // P2-2.9: 去重检查 — 避免与 EventBusOTelBridge 创建重复 Span
+    if (
+      parentSpanCtx &&
+      isSpanCovered(parentSpanCtx.span, 'Liri.llm_request')
+    ) {
+      return trace.getActiveSpan() || tracer.startSpan('dummy');
+    }
+
     const span = tracer.startSpan('Liri.llm_request', { attributes }, ctx);
+
+    if (parentSpanCtx) {
+      markSpanCovered(parentSpanCtx.span, 'Liri.llm_request');
+    }
 
     const spanId = this.getSpanId(span);
     const spanContext: SpanContext = {
@@ -355,7 +372,16 @@ export class SessionTracing {
       ? trace.setSpan(context.active(), parentSpanCtx.span)
       : context.active();
 
+    // P2-2.9: 去重检查 — 避免与 EventBusOTelBridge 创建重复 Span
+    if (parentSpanCtx && isSpanCovered(parentSpanCtx.span, 'Liri.tool')) {
+      return trace.getActiveSpan() || tracer.startSpan('dummy');
+    }
+
     const span = tracer.startSpan('Liri.tool', { attributes }, ctx);
+
+    if (parentSpanCtx) {
+      markSpanCovered(parentSpanCtx.span, 'Liri.tool');
+    }
 
     const spanId = this.getSpanId(span);
     const spanContext: SpanContext = {

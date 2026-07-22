@@ -68,8 +68,18 @@ export default function ReEntryBanner({
                 onClick={onScrollToLatest}
                 className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 flex items-center gap-1"
               >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                <svg
+                  className="w-3 h-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                  />
                 </svg>
                 {t("chat.reentryScrollToLatest")}
               </button>
@@ -97,7 +107,10 @@ const _sessionLeaveTimes = new Map<string, number>();
 const _sessionMessageCounts = new Map<string, number>();
 
 /** 切走时调用，记录离开时间 */
-export function recordSessionLeave(sessionId: string, messageCount: number): void {
+export function recordSessionLeave(
+  sessionId: string,
+  messageCount: number,
+): void {
   _sessionLeaveTimes.set(sessionId, Date.now());
   _sessionMessageCounts.set(sessionId, messageCount);
 }

@@ -6,13 +6,26 @@
  */
 import { create } from "zustand";
 
-
-
 /** 工作界面内容视图类型 */
-export type ContentView = "welcome" | "project" | "plan_schema" | "plan_analysis" | "editor" | "diff" | "overview" | "team" | "cost" | "workflow_templates" | "council" | "intelligence" | "rules" | "agent";
+export type ContentView =
+  | "welcome"
+  | "project"
+  | "plan_schema"
+  | "plan_analysis"
+  | "editor"
+  | "diff"
+  | "overview"
+  | "team"
+  | "cost"
+  | "workflow_templates"
+  | "council"
+  | "intelligence"
+  | "rules"
+  | "agent";
 
 /** 工作项生命周期状态 */
-export type WorkItemStatus = "pending" | "running" | "paused" | "review" | "done" | "failed";
+export type WorkItemStatus =
+  "pending" | "running" | "paused" | "review" | "done" | "failed";
 
 /** 工作项 */
 export interface WorkItem {

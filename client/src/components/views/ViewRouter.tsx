@@ -22,9 +22,7 @@ function WelcomeScreen(): React.ReactElement {
       <div className="text-center">
         <p className="text-lg mb-2">选择一个功能模块开始</p>
         {wt && (
-          <p className="text-sm">
-            当前工作空间: {wt.worktreeId ?? "未选择"}
-          </p>
+          <p className="text-sm">当前工作空间: {wt.worktreeId ?? "未选择"}</p>
         )}
       </div>
     </div>
@@ -50,12 +48,18 @@ export function ViewRouter(): React.ReactElement {
   const Component = mod?.component;
 
   if (!Component) {
-    logger.debug("未找到模块视图组件", { moduleType: currentSession.moduleType });
+    logger.debug("未找到模块视图组件", {
+      moduleType: currentSession.moduleType,
+    });
     return <WelcomeScreen />;
   }
 
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-full">加载中...</div>}>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-full">加载中...</div>
+      }
+    >
       <Component sessionId={currentSession.id} />
     </Suspense>
   );

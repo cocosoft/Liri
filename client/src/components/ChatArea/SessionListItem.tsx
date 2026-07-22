@@ -74,9 +74,7 @@ function SessionListItem({
           />
         ) : (
           <div className="flex-1 min-w-0">
-            <div className="truncate">
-              {session.title || "未命名会话"}
-            </div>
+            <div className="truncate">{session.title || "未命名会话"}</div>
             <div className="text-xs text-gray-400 dark:text-gray-500 truncate">
               {session.source ? (
                 <span className="font-medium text-gray-400 dark:text-gray-500 mr-1">
@@ -84,7 +82,8 @@ function SessionListItem({
                 </span>
               ) : null}
               {formatRelativeTime(session.updatedAt)}
-              {(session.roundCount ?? Math.ceil(session.messageCount / 2)) > 0 &&
+              {(session.roundCount ?? Math.ceil(session.messageCount / 2)) >
+                0 &&
                 ` · ${session.roundCount ?? Math.ceil(session.messageCount / 2)} 轮对话`}
             </div>
           </div>

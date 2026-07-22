@@ -279,12 +279,15 @@ export async function launchRepl(
   try {
     profileCheckpoint('repl_startup_checks_start');
     // 数出同源：DB 是 API Key 的唯一事实来源
-    const { providerManager } = await import('../ai/providers/ProviderManager.js');
+    const { providerManager } =
+      await import('../ai/providers/ProviderManager.js');
     const dbProviders = await providerManager.listProviders({ isActive: true });
     const hasApiKey = dbProviders.some((p) => !!p.apiKey);
     if (isOfflineMode || !hasApiKey) {
       ui.showWarning('AI 对话功能不可用：未检测到有效的 API 密钥');
-      ui.showInfo('请在模型管理 → 供应商中添加 API 密钥，或运行 /onboard 启动配置向导');
+      ui.showInfo(
+        '请在模型管理 → 供应商中添加 API 密钥，或运行 /onboard 启动配置向导'
+      );
     }
 
     const commandCount = commandRegistry.getCommandCount();

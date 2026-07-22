@@ -45,7 +45,7 @@ function deriveState(root: ReturnType<typeof useRootStore.getState>): {
   return {
     sessions: root.chatSessions ?? [],
     currentSession: currentId
-      ? (root.chatSessions ?? []).find((s) => s.id === currentId) ?? null
+      ? ((root.chatSessions ?? []).find((s) => s.id === currentId) ?? null)
       : null,
     isLoading: root.isLoading,
     switching: root.switching,
@@ -66,10 +66,12 @@ export const useSessionStore = create<SessionStore>()(
       ...deriveState(useRootStore.getState()),
 
       loadSessions: () => useRootStore.getState().loadChatSessions(),
-      createSession: (title) => useRootStore.getState().createChatSession(title),
+      createSession: (title) =>
+        useRootStore.getState().createChatSession(title),
       switchSession: (id) => useRootStore.getState().switchChatSession(id),
       deleteSession: (id) => useRootStore.getState().deleteChatSession(id),
-      renameSession: (id, title) => useRootStore.getState().renameChatSession(id, title),
+      renameSession: (id, title) =>
+        useRootStore.getState().renameChatSession(id, title),
       clearAllSessions: () => useRootStore.getState().clearAllChatSessions(),
       togglePin: (id) => useRootStore.getState().togglePin(id),
       isPinned: (id) => useRootStore.getState().isPinned(id),
@@ -96,13 +98,22 @@ export const useSessionStore = create<SessionStore>()(
         // 将旧 persist 数据迁移到 rootStore
         const root = useRootStore.getState();
         if (state.sessions?.length && root.chatSessions.length === 0) {
-          useRootStore.setState((s) => ({ ...s, chatSessions: state.sessions as Session[] }));
+          useRootStore.setState((s) => ({
+            ...s,
+            chatSessions: state.sessions as Session[],
+          }));
         }
         if (state.pinnedSessionIds?.length) {
-          useRootStore.setState((s) => ({ ...s, pinnedSessionIds: state.pinnedSessionIds }));
+          useRootStore.setState((s) => ({
+            ...s,
+            pinnedSessionIds: state.pinnedSessionIds,
+          }));
         }
         if (state.currentSession) {
-          useRootStore.setState((s) => ({ ...s, currentSessionId: (state.currentSession as Session).id }));
+          useRootStore.setState((s) => ({
+            ...s,
+            currentSessionId: (state.currentSession as Session).id,
+          }));
         }
       },
     },

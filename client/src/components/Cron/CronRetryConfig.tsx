@@ -65,7 +65,10 @@ function CronRetryConfig({ tasks }: CronRetryConfigProps) {
     setPolicies((prev) =>
       prev.map((p) =>
         p.taskId === taskId
-          ? { ...p, retryableErrors: p.retryableErrors.filter((e) => e !== error) }
+          ? {
+              ...p,
+              retryableErrors: p.retryableErrors.filter((e) => e !== error),
+            }
           : p,
       ),
     );
@@ -103,14 +106,19 @@ function CronRetryConfig({ tasks }: CronRetryConfigProps) {
 
       {tasks.length === 0 ? (
         <p className="text-center text-gray-400 py-8 text-sm">
-          {key("noRetryPolicies", "No cron tasks available for retry configuration")}
+          {key(
+            "noRetryPolicies",
+            "No cron tasks available for retry configuration",
+          )}
         </p>
       ) : (
         <div className="grid grid-cols-3 gap-4">
           <div
             className={`rounded-lg border ${isDark ? "bg-gray-700/30 border-gray-700" : "bg-gray-50 border-gray-200"} p-3`}
           >
-            <h4 className={`text-xs font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+            <h4
+              className={`text-xs font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
+            >
               {key("taskList", "Task List")}
             </h4>
             <div className="space-y-2">
@@ -128,7 +136,9 @@ function CronRetryConfig({ tasks }: CronRetryConfigProps) {
                 >
                   <div className="flex items-center justify-between">
                     <span>{policy.taskName}</span>
-                    <span className={`text-xs ${policy.enabled ? "text-green-400" : "text-gray-500"}`}>
+                    <span
+                      className={`text-xs ${policy.enabled ? "text-green-400" : "text-gray-500"}`}
+                    >
                       {policy.enabled ? "ON" : "OFF"}
                     </span>
                   </div>
@@ -143,15 +153,20 @@ function CronRetryConfig({ tasks }: CronRetryConfigProps) {
             {selectedPolicy ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h4 className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                    {selectedPolicy.taskName} - {key("retryPolicy", "Retry Policy")}
+                  <h4
+                    className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}
+                  >
+                    {selectedPolicy.taskName} -{" "}
+                    {key("retryPolicy", "Retry Policy")}
                   </h4>
                   <button
                     onClick={() => toggleRetry(selectedPolicy.taskId)}
                     className={`px-3 py-1 text-xs rounded-full transition-colors ${
                       selectedPolicy.enabled
                         ? "bg-green-600 text-white"
-                        : isDark ? "bg-gray-600 text-gray-300" : "bg-gray-300 text-gray-700"
+                        : isDark
+                          ? "bg-gray-600 text-gray-300"
+                          : "bg-gray-300 text-gray-700"
                     }`}
                   >
                     {selectedPolicy.enabled
@@ -162,35 +177,45 @@ function CronRetryConfig({ tasks }: CronRetryConfigProps) {
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                    <label
+                      className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}
+                    >
                       {key("maxRetries", "Max Retries")}
                     </label>
                     <input
                       type="number"
                       value={selectedPolicy.maxRetries}
                       onChange={(e) =>
-                        updatePolicy(selectedPolicy.taskId, { maxRetries: parseInt(e.target.value, 10) || 0 })
+                        updatePolicy(selectedPolicy.taskId, {
+                          maxRetries: parseInt(e.target.value, 10) || 0,
+                        })
                       }
                       disabled={!selectedPolicy.enabled}
                       className={`w-full px-2 py-1 text-sm border rounded ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"} disabled:opacity-50`}
                     />
                   </div>
                   <div>
-                    <label className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                    <label
+                      className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}
+                    >
                       {key("retryDelaySec", "Retry Delay (s)")}
                     </label>
                     <input
                       type="number"
                       value={selectedPolicy.retryDelay}
                       onChange={(e) =>
-                        updatePolicy(selectedPolicy.taskId, { retryDelay: parseInt(e.target.value, 10) || 0 })
+                        updatePolicy(selectedPolicy.taskId, {
+                          retryDelay: parseInt(e.target.value, 10) || 0,
+                        })
                       }
                       disabled={!selectedPolicy.enabled}
                       className={`w-full px-2 py-1 text-sm border rounded ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"} disabled:opacity-50`}
                     />
                   </div>
                   <div>
-                    <label className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                    <label
+                      className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}
+                    >
                       {key("backoffMultiplier", "Backoff")}
                     </label>
                     <input
@@ -198,7 +223,9 @@ function CronRetryConfig({ tasks }: CronRetryConfigProps) {
                       step="0.1"
                       value={selectedPolicy.backoffMultiplier}
                       onChange={(e) =>
-                        updatePolicy(selectedPolicy.taskId, { backoffMultiplier: parseFloat(e.target.value) || 1 })
+                        updatePolicy(selectedPolicy.taskId, {
+                          backoffMultiplier: parseFloat(e.target.value) || 1,
+                        })
                       }
                       disabled={!selectedPolicy.enabled}
                       className={`w-full px-2 py-1 text-sm border rounded ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"} disabled:opacity-50`}
@@ -207,7 +234,9 @@ function CronRetryConfig({ tasks }: CronRetryConfigProps) {
                 </div>
 
                 <div>
-                  <label className={`block text-xs mb-2 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                  <label
+                    className={`block text-xs mb-2 ${isDark ? "text-gray-400" : "text-gray-600"}`}
+                  >
                     {key("retryableErrors", "Retryable Errors")}
                   </label>
                   <div className="flex flex-wrap gap-2 mb-2">
@@ -215,12 +244,17 @@ function CronRetryConfig({ tasks }: CronRetryConfigProps) {
                       <span
                         key={error}
                         className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${
-                          isDark ? "bg-blue-900/30 text-blue-400" : "bg-blue-100 text-blue-700"
+                          isDark
+                            ? "bg-blue-900/30 text-blue-400"
+                            : "bg-blue-100 text-blue-700"
                         }`}
                       >
-                        {errorTypeOptions.find((o) => o.value === error)?.label ?? error}
+                        {errorTypeOptions.find((o) => o.value === error)
+                          ?.label ?? error}
                         <button
-                          onClick={() => removeRetryableError(selectedPolicy.taskId, error)}
+                          onClick={() =>
+                            removeRetryableError(selectedPolicy.taskId, error)
+                          }
                           disabled={!selectedPolicy.enabled}
                           className="hover:text-red-400 disabled:opacity-50"
                         >
@@ -233,36 +267,63 @@ function CronRetryConfig({ tasks }: CronRetryConfigProps) {
                     disabled={!selectedPolicy.enabled}
                     onChange={(e) => {
                       if (e.target.value) {
-                        addRetryableError(selectedPolicy.taskId, e.target.value);
+                        addRetryableError(
+                          selectedPolicy.taskId,
+                          e.target.value,
+                        );
                         e.target.value = "";
                       }
                     }}
                     className={`px-2 py-1 text-sm border rounded ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"} disabled:opacity-50`}
                   >
-                    <option value="">{key("addErrorType", "Add error type...")}</option>
+                    <option value="">
+                      {key("addErrorType", "Add error type...")}
+                    </option>
                     {errorTypeOptions.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
                     ))}
                   </select>
                 </div>
 
-                <div className={`p-3 rounded-lg ${isDark ? "bg-gray-800" : "bg-white"}`}>
-                  <h5 className={`text-xs font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                <div
+                  className={`p-3 rounded-lg ${isDark ? "bg-gray-800" : "bg-white"}`}
+                >
+                  <h5
+                    className={`text-xs font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
+                  >
                     {key("retryTimeline", "Retry Timeline Example")}
                   </h5>
                   <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
                     <span>{key("failure", "Failure")}</span>
-                    {Array.from({ length: selectedPolicy.maxRetries }).map((_, i) => {
-                      const delay = selectedPolicy.retryDelay * Math.pow(selectedPolicy.backoffMultiplier, i);
-                      return (
-                        <span key={i} className="flex items-center gap-2">
-                          <span className={isDark ? "text-gray-600" : "text-gray-300"}>→</span>
-                          <span className="text-blue-500">{delay}s</span>
-                          <span className={isDark ? "text-gray-600" : "text-gray-300"}>→</span>
-                          <span>{key("retryN", `Retry ${i + 1}`)}</span>
-                        </span>
-                      );
-                    })}
+                    {Array.from({ length: selectedPolicy.maxRetries }).map(
+                      (_, i) => {
+                        const delay =
+                          selectedPolicy.retryDelay *
+                          Math.pow(selectedPolicy.backoffMultiplier, i);
+                        return (
+                          <span key={i} className="flex items-center gap-2">
+                            <span
+                              className={
+                                isDark ? "text-gray-600" : "text-gray-300"
+                              }
+                            >
+                              →
+                            </span>
+                            <span className="text-blue-500">{delay}s</span>
+                            <span
+                              className={
+                                isDark ? "text-gray-600" : "text-gray-300"
+                              }
+                            >
+                              →
+                            </span>
+                            <span>{key("retryN", `Retry ${i + 1}`)}</span>
+                          </span>
+                        );
+                      },
+                    )}
                   </div>
                 </div>
               </div>

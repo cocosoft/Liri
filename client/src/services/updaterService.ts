@@ -7,6 +7,7 @@ import { check } from "@tauri-apps/plugin-updater";
 import type { DownloadEvent } from "@tauri-apps/plugin-updater";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { handleClientError } from "../utils/handleError";
 
 export interface UpdateCheckResult {
   available: boolean;
@@ -31,7 +32,8 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
       latestVersion: update.version,
       body: update.body,
     };
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "services:updater", action: "checkForUpdate" });
     return { available: false, currentVersion: "" };
   }
 }

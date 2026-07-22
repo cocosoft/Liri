@@ -42,7 +42,9 @@ function LogDetailModal({ log, isDark, onClose }: LogDetailModalProps) {
         <div
           className={`p-4 border-b flex items-center justify-between ${isDark ? "border-gray-700" : "border-gray-200"}`}
         >
-          <h3 className={`font-medium ${isDark ? "text-gray-100" : "text-gray-900"}`}>
+          <h3
+            className={`font-medium ${isDark ? "text-gray-100" : "text-gray-900"}`}
+          >
             {t("settings.logViewerDetailTitle")}
           </h3>
           <button
@@ -52,51 +54,72 @@ function LogDetailModal({ log, isDark, onClose }: LogDetailModalProps) {
             ×
           </button>
         </div>
-        <div className={`p-4 overflow-auto flex-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+        <div
+          className={`p-4 overflow-auto flex-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}
+        >
           <div className="space-y-4">
             <div>
-              <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+              <label
+                className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+              >
                 {t("settings.logViewerFieldLevel")}
               </label>
-              <span className={`px-2 py-1 rounded text-sm ${
-                log.level === "error" ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400" :
-                log.level === "warn" ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-400" :
-                log.level === "info" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400" :
-                "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
-              }`}>
+              <span
+                className={`px-2 py-1 rounded text-sm ${
+                  log.level === "error"
+                    ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400"
+                    : log.level === "warn"
+                      ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-400"
+                      : log.level === "info"
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400"
+                        : "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+                }`}
+              >
                 {log.level.toUpperCase()}
               </span>
             </div>
             <div>
-              <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+              <label
+                className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+              >
                 {t("settings.logViewerFieldTime")}
               </label>
               <p className="text-sm">{formatTime(log.timestamp)}</p>
             </div>
             <div>
-              <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+              <label
+                className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+              >
                 {t("settings.logViewerFieldSource")}
               </label>
               <p className="text-sm">{log.source || "-"}</p>
             </div>
             <div>
-              <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+              <label
+                className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+              >
                 {t("settings.logViewerFieldModule")}
               </label>
               <p className="text-sm">{log.module || "-"}</p>
             </div>
             <div>
-              <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+              <label
+                className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+              >
                 {t("settings.logViewerFieldMessage")}
               </label>
               <p className="text-sm whitespace-pre-wrap">{log.message}</p>
             </div>
             {log.details && (
               <div>
-                <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                <label
+                  className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                >
                   {t("settings.logViewerFieldDetails")}
                 </label>
-                <pre className={`p-3 rounded text-sm overflow-auto max-h-64 ${isDark ? "bg-gray-900 text-gray-300" : "bg-gray-100 text-gray-700"}`}>
+                <pre
+                  className={`p-3 rounded text-sm overflow-auto max-h-64 ${isDark ? "bg-gray-900 text-gray-300" : "bg-gray-100 text-gray-700"}`}
+                >
                   {log.details}
                 </pre>
               </div>

@@ -202,6 +202,11 @@ export async function initializeCostTrackingSystem(): Promise<void> {
       await import('../analytics/CostAnalyticsTracker.js');
     getCostAnalyticsTracker(getGlobalAnalyticsQueue());
 
+    // P1-2.5: 注册 OTel 成本指标（ObservableGauge）
+    const { getCostMetricsBridge: getBridge } =
+      await import('./CostMetricsBridge.js');
+    getBridge().init();
+
     logger.info('成本跟踪系统初始化完成');
   } catch (error) {
     logger.error(

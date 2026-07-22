@@ -178,7 +178,10 @@ export class SessionGateway {
     }
 
     if (this.config.wireServices) {
-      this.setTokenTracker(new SessionTokenTracker());
+      const tracker = new SessionTokenTracker();
+      // P2-2.8 Phase 2: 订阅 COST_RECORDED 实现被动数据同步
+      tracker.subscribeToCostEvents();
+      this.setTokenTracker(tracker);
       this.setCompactionBridge(createWiredCompactionBridge());
     }
   }
@@ -244,7 +247,10 @@ export class SessionGateway {
    * 适用于 ChatManager / SessionHandler 等使用方，免去手动装配
    */
   wireWithRealServices(): this {
-    this.setTokenTracker(new SessionTokenTracker());
+    const tracker = new SessionTokenTracker();
+    // P2-2.8 Phase 2: 订阅 COST_RECORDED 实现被动数据同步
+    tracker.subscribeToCostEvents();
+    this.setTokenTracker(tracker);
     this.setCompactionBridge(createWiredCompactionBridge());
     return this;
   }

@@ -3,7 +3,23 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useNavigationStore } from "../../stores/navigationStore";
 import { useConfigStore } from "../../stores/configStore";
-import { HomeIcon, ChatIcon, KnowledgeIcon, ImageIcon, TranslateIcon, ModelIcon, SkillIcon, FileIcon, McpIcon, ChannelIcon, ThemeIcon, SettingsIcon, CouncilIcon, OfficeIcon, CalendarIcon } from "../../assets/icons";
+import {
+  HomeIcon,
+  ChatIcon,
+  KnowledgeIcon,
+  ImageIcon,
+  TranslateIcon,
+  ModelIcon,
+  SkillIcon,
+  FileIcon,
+  McpIcon,
+  ChannelIcon,
+  ThemeIcon,
+  SettingsIcon,
+  CouncilIcon,
+  OfficeIcon,
+  CalendarIcon,
+} from "../../assets/icons";
 
 interface MenuItem {
   id: string;
@@ -48,7 +64,12 @@ const MANAGEMENT_ITEMS: MenuItem[] = [
   { id: "files", label: "文件", icon: FileIcon, path: "/files" },
   { id: "mcp", label: "MCP", icon: McpIcon, path: "/market/mcp" },
   { id: "channels", label: "频道", icon: ChannelIcon, path: "/channels" },
-  { id: "council-roles", label: "理事会", icon: CouncilIcon, path: "/agent/roles" },
+  {
+    id: "council-roles",
+    label: "理事会",
+    icon: CouncilIcon,
+    path: "/agent/roles",
+  },
 ];
 
 const SYSTEM_ITEMS: MenuItem[] = [
@@ -56,7 +77,11 @@ const SYSTEM_ITEMS: MenuItem[] = [
   { id: "settings", label: "设置", icon: SettingsIcon, path: "/settings" },
 ];
 
-function MenuButton({ item, isActive, onNavigate }: {
+function MenuButton({
+  item,
+  isActive,
+  onNavigate,
+}: {
   item: MenuItem;
   isActive: boolean;
   onNavigate?: () => void;
@@ -222,18 +247,26 @@ function MobileBottomNav() {
   const items: MenuItem[] = [
     { id: "home", label: t("nav.home"), icon: HomeIcon, path: "/" },
     { id: "chat", label: t("nav.chat"), icon: ChatIcon, path: "/chat" },
-    { id: "settings", label: t("nav.settings"), icon: SettingsIcon, path: "/settings" },
+    {
+      id: "settings",
+      label: t("nav.settings"),
+      icon: SettingsIcon,
+      path: "/settings",
+    },
   ];
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex justify-around py-1 z-50 safe-area-bottom">
       {items.map((item) => {
-        const isActive = activeRoute === (item.path?.replace("/", "") || "home");
+        const isActive =
+          activeRoute === (item.path?.replace("/", "") || "home");
         const IconComponent = item.icon;
         return (
           <button
             key={item.id}
-            onClick={() => { navigate(item.path!); }}
+            onClick={() => {
+              navigate(item.path!);
+            }}
             className={`flex flex-col items-center px-2 py-1 min-w-0 ${
               isActive ? "text-blue-600" : "text-gray-500 dark:text-gray-400"
             }`}

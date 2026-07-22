@@ -30,8 +30,12 @@ export class PencilTool implements CanvasToolHandler {
     this.bbox = {
       x: Math.min(this.bbox.x, e.x - r),
       y: Math.min(this.bbox.y, e.y - r),
-      w: Math.max(this.bbox.x + this.bbox.w, e.x + r) - Math.min(this.bbox.x, e.x - r),
-      h: Math.max(this.bbox.y + this.bbox.h, e.y + r) - Math.min(this.bbox.y, e.y - r),
+      w:
+        Math.max(this.bbox.x + this.bbox.w, e.x + r) -
+        Math.min(this.bbox.x, e.x - r),
+      h:
+        Math.max(this.bbox.y + this.bbox.h, e.y + r) -
+        Math.min(this.bbox.y, e.y - r),
     };
 
     // 在 Interactive 层绘制预览
@@ -81,9 +85,14 @@ export class PencilTool implements CanvasToolHandler {
     ctx.commands.execute({
       type: "stroke",
       bbox: { x, y, w, h },
-      before, after,
-      apply: (ctx2) => { ctx2.putImageData(after, x, y); },
-      revert: (ctx2) => { ctx2.putImageData(before, x, y); },
+      before,
+      after,
+      apply: (ctx2) => {
+        ctx2.putImageData(after, x, y);
+      },
+      revert: (ctx2) => {
+        ctx2.putImageData(before, x, y);
+      },
     });
 
     this.path = null;

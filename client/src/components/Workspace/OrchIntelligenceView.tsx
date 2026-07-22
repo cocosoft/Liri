@@ -12,6 +12,7 @@ import React, { useState, useEffect } from "react";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { workspaceService } from "../../services/workspaceService";
 import { createLogger } from "@/utils/logger";
+import { handleClientError } from "../../utils/handleError";
 
 const logger = createLogger("components:orchIntelligence");
 
@@ -78,7 +79,8 @@ interface ResourceStatus {
 const LEVEL_COLORS: Record<string, string> = {
   critical: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
   high: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
-  medium: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
+  medium:
+    "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
   low: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
   none: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
 };
@@ -106,10 +108,14 @@ function ImpactPanel() {
     try {
       const res = await workspaceService.analyzeImpact(
         currentWorkspace?.id || "",
-        { changedFiles: files.split("\n").filter(Boolean), changedContent: content }
+        {
+          changedFiles: files.split("\n").filter(Boolean),
+          changedContent: content,
+        },
       );
       setResult(res as ImpactResult);
     } catch (e) {
+      handleClientError(e, { module: "components:workspace:OrchIntelligence", action: "analyzeImpact" });
       logger.error("影响评估失败", e);
     } finally {
       setLoading(false);
@@ -151,7 +157,9 @@ function ImpactPanel() {
       {result && (
         <div className="border border-gray-200 dark:border-gray-700 rounded-md p-3 space-y-2">
           <div className="flex items-center gap-2">
-            <span className={`text-xs px-2 py-0.5 rounded ${LEVEL_COLORS[result.impactLevel] || ""}`}>
+            <span
+              className={`text-xs px-2 py-0.5 rounded ${LEVEL_COLORS[result.impactLevel] || ""}`}
+            >
               {result.impactLevel}
             </span>
             {result.isBreaking && (
@@ -160,19 +168,31 @@ function ImpactPanel() {
               </span>
             )}
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{result.description}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {result.description}
+          </p>
           <div>
             <p className="text-xs text-gray-500 font-medium">受影响模块</p>
             <div className="flex flex-wrap gap-1 mt-1">
               {result.affectedModules.map((m) => (
-                <span key={m} className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">{m}</span>
+                <span
+                  key={m}
+                  className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded"
+                >
+                  {m}
+                </span>
               ))}
             </div>
           </div>
           <div>
             <p className="text-xs text-gray-500 font-medium">测试建议</p>
             {result.testSuggestions.map((t, i) => (
-              <p key={i} className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{t}</p>
+              <p
+                key={i}
+                className="text-xs text-gray-600 dark:text-gray-400 mt-0.5"
+              >
+                {t}
+              </p>
             ))}
           </div>
         </div>
@@ -198,12 +218,13 @@ function RiskPanel() {
     try {
       const res = await workspaceService.detectRisks(
         currentWorkspace?.id || "",
-        { title, description: desc, changedFiles: [] }
+        { title, description: desc, changedFiles: [] },
       );
       const data = res as { risks: RiskItem[]; summary: string };
       setRisks(data.risks);
       setSummary(data.summary);
     } catch (e) {
+      handleClientError(e, { module: "components:workspace:OrchIntelligence", action: "detectRisks" });
       logger.error("风险识别失败", e);
     } finally {
       setLoading(false);
@@ -243,22 +264,35 @@ function RiskPanel() {
       </button>
 
       {summary && (
-        <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">{summary}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+          {summary}
+        </p>
       )}
       {risks.map((risk) => (
-        <div key={risk.id} className="border border-gray-200 dark:border-gray-700 rounded-md p-3 space-y-1">
+        <div
+          key={risk.id}
+          className="border border-gray-200 dark:border-gray-700 rounded-md p-3 space-y-1"
+        >
           <div className="flex items-center gap-2">
-            <span className={`text-xs px-2 py-0.5 rounded ${LEVEL_COLORS[risk.level] || ""}`}>
+            <span
+              className={`text-xs px-2 py-0.5 rounded ${LEVEL_COLORS[risk.level] || ""}`}
+            >
               {risk.level}
             </span>
             <span className="text-xs text-gray-500">{risk.category}</span>
           </div>
-          <p className="text-sm text-gray-700 dark:text-gray-300">{risk.description}</p>
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            {risk.description}
+          </p>
           <div className="flex items-center gap-2 text-xs">
             <span className="text-gray-400">触发条件:</span>
-            <code className="text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1 rounded">{risk.trigger}</code>
+            <code className="text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1 rounded">
+              {risk.trigger}
+            </code>
           </div>
-          <p className="text-xs text-green-600 dark:text-green-400">{risk.mitigation}</p>
+          <p className="text-xs text-green-600 dark:text-green-400">
+            {risk.mitigation}
+          </p>
         </div>
       ))}
       {!loading && risks.length === 0 && summary && (
@@ -284,10 +318,11 @@ function DecisionPanel() {
     try {
       const res = await workspaceService.classifyDecision(
         currentWorkspace?.id || "",
-        { title, description: desc }
+        { title, description: desc },
       );
       setResult(res as DecisionResult);
     } catch (e) {
+      handleClientError(e, { module: "components:workspace:OrchIntelligence", action: "classifyDecision" });
       logger.error("决策分级失败", e);
     } finally {
       setLoading(false);
@@ -332,23 +367,30 @@ function DecisionPanel() {
               {DECISION_LABELS[result.type] || result.type}
             </span>
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{result.reason}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {result.reason}
+          </p>
           {result.requiredApprover && (
             <p className="text-xs text-gray-500">
-              审批人: <span className="font-medium">{result.requiredApprover}</span>
+              审批人:{" "}
+              <span className="font-medium">{result.requiredApprover}</span>
             </p>
           )}
           {result.evidence.length > 0 && (
             <div>
               <p className="text-xs text-gray-500 font-medium">决策依据</p>
               {result.evidence.map((e, i) => (
-                <p key={i} className="text-xs text-gray-600 dark:text-gray-400">{e}</p>
+                <p key={i} className="text-xs text-gray-600 dark:text-gray-400">
+                  {e}
+                </p>
               ))}
             </div>
           )}
           {result.aiProposal && (
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-md p-2">
-              <p className="text-xs text-blue-600 dark:text-blue-400 whitespace-pre-wrap">{result.aiProposal}</p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 whitespace-pre-wrap">
+                {result.aiProposal}
+              </p>
             </div>
           )}
         </div>
@@ -368,9 +410,12 @@ function EscalationsPanel() {
   const fetchEscalations = async () => {
     setLoading(true);
     try {
-      const res = await workspaceService.getEscalations(currentWorkspace?.id || "");
+      const res = await workspaceService.getEscalations(
+        currentWorkspace?.id || "",
+      );
       setEscalations(res as EscalationItem[]);
     } catch (e) {
+      handleClientError(e, { module: "components:workspace:OrchIntelligence", action: "getEscalations" });
       logger.error("获取异常列表失败", e);
     } finally {
       setLoading(false);
@@ -395,14 +440,25 @@ function EscalationsPanel() {
         <p className="text-sm text-center text-gray-400 py-8">暂无活跃异常</p>
       )}
       {escalations.map((esc, i) => (
-        <div key={i} className="border border-gray-200 dark:border-gray-700 rounded-md p-3 space-y-1">
+        <div
+          key={i}
+          className="border border-gray-200 dark:border-gray-700 rounded-md p-3 space-y-1"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-gray-500">{esc.type}</span>
-            <span className="text-xs text-gray-400">×{esc.occurrenceCount}</span>
+            <span className="text-xs font-medium text-gray-500">
+              {esc.type}
+            </span>
+            <span className="text-xs text-gray-400">
+              ×{esc.occurrenceCount}
+            </span>
           </div>
-          <p className="text-sm text-gray-700 dark:text-gray-300">{esc.description}</p>
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            {esc.description}
+          </p>
           <p className="text-xs text-gray-500">工作项: {esc.workItemId}</p>
-          <p className="text-xs text-blue-600 dark:text-blue-400">{esc.suggestedDirection}</p>
+          <p className="text-xs text-blue-600 dark:text-blue-400">
+            {esc.suggestedDirection}
+          </p>
         </div>
       ))}
     </div>
@@ -420,9 +476,12 @@ function ResourcesPanel() {
   const fetchResources = async () => {
     setLoading(true);
     try {
-      const res = await workspaceService.getResources(currentWorkspace?.id || "");
+      const res = await workspaceService.getResources(
+        currentWorkspace?.id || "",
+      );
       setResources(res as ResourceStatus[]);
     } catch (e) {
+      handleClientError(e, { module: "components:workspace:OrchIntelligence", action: "getResources" });
       logger.error("获取资源状态失败", e);
     } finally {
       setLoading(false);
@@ -447,15 +506,22 @@ function ResourcesPanel() {
         <p className="text-sm text-center text-gray-400 py-8">暂无活跃资源</p>
       )}
       {resources.map((r, i) => (
-        <div key={i} className="border border-gray-200 dark:border-gray-700 rounded-md p-3 flex items-center justify-between">
+        <div
+          key={i}
+          className="border border-gray-200 dark:border-gray-700 rounded-md p-3 flex items-center justify-between"
+        >
           <div>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{r.resource}</p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {r.resource}
+            </p>
             <p className="text-xs text-gray-500">
               {r.lockedBy ? `占用: ${r.lockedBy}` : "空闲"}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${r.lockedBy ? "bg-red-500" : "bg-green-500"}`} />
+            <span
+              className={`w-2 h-2 rounded-full ${r.lockedBy ? "bg-red-500" : "bg-green-500"}`}
+            />
             {r.queueLength > 0 && (
               <span className="text-xs text-yellow-600 dark:text-yellow-400">
                 排队 {r.queueLength}

@@ -23,7 +23,8 @@ interface ToolCallState {
 }
 
 /** Agent 执行状态 */
-type AgentExecStatus = "idle" | "thinking" | "tool_call" | "completed" | "failed";
+type AgentExecStatus =
+  "idle" | "thinking" | "tool_call" | "completed" | "failed";
 
 /** AgentProgressBlock 属性 */
 interface AgentProgressBlockProps {
@@ -57,12 +58,35 @@ interface AgentProgressBlockProps {
 
 // ========== 状态配色 ==========
 
-const STATUS_CONFIG: Record<AgentExecStatus, { label: string; dot: string; bg: string }> = {
-  idle: { label: "等待中", dot: "bg-gray-400", bg: "bg-gray-50 dark:bg-gray-800" },
-  thinking: { label: "思考中", dot: "bg-blue-500", bg: "bg-blue-50 dark:bg-blue-900/20" },
-  tool_call: { label: "调用工具", dot: "bg-yellow-500", bg: "bg-yellow-50 dark:bg-yellow-900/20" },
-  completed: { label: "已完成", dot: "bg-green-500", bg: "bg-green-50 dark:bg-green-900/20" },
-  failed: { label: "已失败", dot: "bg-red-500", bg: "bg-red-50 dark:bg-red-900/20" },
+const STATUS_CONFIG: Record<
+  AgentExecStatus,
+  { label: string; dot: string; bg: string }
+> = {
+  idle: {
+    label: "等待中",
+    dot: "bg-gray-400",
+    bg: "bg-gray-50 dark:bg-gray-800",
+  },
+  thinking: {
+    label: "思考中",
+    dot: "bg-blue-500",
+    bg: "bg-blue-50 dark:bg-blue-900/20",
+  },
+  tool_call: {
+    label: "调用工具",
+    dot: "bg-yellow-500",
+    bg: "bg-yellow-50 dark:bg-yellow-900/20",
+  },
+  completed: {
+    label: "已完成",
+    dot: "bg-green-500",
+    bg: "bg-green-50 dark:bg-green-900/20",
+  },
+  failed: {
+    label: "已失败",
+    dot: "bg-red-500",
+    bg: "bg-red-50 dark:bg-red-900/20",
+  },
 };
 
 /**
@@ -124,11 +148,13 @@ function AgentProgressBlock({
   }, [status, durationMs]);
 
   const config = STATUS_CONFIG[status];
-  const progressValue = progress ?? (status === "completed" ? 100 : status === "thinking" ? 50 : 0);
+  const progressValue =
+    progress ?? (status === "completed" ? 100 : status === "thinking" ? 50 : 0);
 
   // ETA 估算：当已耗时 > 10s 且进度 > 0 且 < 100 时估算剩余时间
   const etaSec = useMemo(() => {
-    if (elapsed <= 10000 || progressValue <= 0 || progressValue >= 100) return null;
+    if (elapsed <= 10000 || progressValue <= 0 || progressValue >= 100)
+      return null;
     const rate = progressValue / elapsed;
     if (rate <= 0) return null;
     return Math.ceil((100 - progressValue) / rate / 1000);
@@ -146,11 +172,15 @@ function AgentProgressBlock({
       {/* 头部：Agent 名称 + 状态 */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${config.dot} animate-pulse`} />
+          <span
+            className={`w-2 h-2 rounded-full ${config.dot} animate-pulse`}
+          />
           <span className="text-sm font-medium">{agentName}</span>
-          <span className={`text-xs px-1.5 py-0.5 rounded ${
-            isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"
-          }`}>
+          <span
+            className={`text-xs px-1.5 py-0.5 rounded ${
+              isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"
+            }`}
+          >
             {config.label}
           </span>
         </div>
@@ -160,9 +190,13 @@ function AgentProgressBlock({
       </div>
 
       {/* 进度条 */}
-      {(status === "thinking" || status === "tool_call" || status === "completed") && (
+      {(status === "thinking" ||
+        status === "tool_call" ||
+        status === "completed") && (
         <div className="mb-2">
-          <div className={`w-full h-1 rounded-full ${isDark ? "bg-gray-700" : "bg-gray-200"}`}>
+          <div
+            className={`w-full h-1 rounded-full ${isDark ? "bg-gray-700" : "bg-gray-200"}`}
+          >
             <div
               className={`h-full rounded-full transition-all duration-300 ${
                 status === "completed" ? "bg-green-500" : "bg-blue-500"
@@ -192,9 +226,11 @@ function AgentProgressBlock({
 
       {/* Thinking 内容 */}
       {status === "thinking" && displayedText && (
-        <div className={`mb-2 p-2 rounded text-sm whitespace-pre-wrap ${
-          isDark ? "bg-gray-800 text-gray-300" : "bg-white text-gray-700"
-        }`}>
+        <div
+          className={`mb-2 p-2 rounded text-sm whitespace-pre-wrap ${
+            isDark ? "bg-gray-800 text-gray-300" : "bg-white text-gray-700"
+          }`}
+        >
           <span className="text-xs text-blue-500 mb-1 block">思考过程</span>
           {displayedText}
           <span className="inline-block w-1 h-4 bg-blue-500 ml-0.5 animate-pulse" />
@@ -203,9 +239,11 @@ function AgentProgressBlock({
 
       {/* Tool Call */}
       {currentToolCall && (
-        <div className={`mb-2 p-2 rounded text-sm ${
-          isDark ? "bg-gray-800 text-gray-300" : "bg-white text-gray-700"
-        }`}>
+        <div
+          className={`mb-2 p-2 rounded text-sm ${
+            isDark ? "bg-gray-800 text-gray-300" : "bg-white text-gray-700"
+          }`}
+        >
           <span className="text-xs text-yellow-600 mb-1 block">
             🔧 {currentToolCall.toolName}
           </span>
@@ -232,12 +270,20 @@ function AgentProgressBlock({
           </summary>
           <div className="mt-1 space-y-1">
             {toolCallHistory.map((tc, i) => (
-              <div key={i} className={`text-xs p-1 rounded ${
-                isDark ? "bg-gray-800" : "bg-gray-50"
-              }`}>
+              <div
+                key={i}
+                className={`text-xs p-1 rounded ${
+                  isDark ? "bg-gray-800" : "bg-gray-50"
+                }`}
+              >
                 <span className="font-medium">{tc.toolName}</span> —{" "}
-                {tc.status === "completed" ? "✅" : tc.status === "failed" ? "❌" : "⏳"}
-                {tc.endTime !== undefined && ` (${((tc.endTime - tc.startTime) / 1000).toFixed(1)}s)`}
+                {tc.status === "completed"
+                  ? "✅"
+                  : tc.status === "failed"
+                    ? "❌"
+                    : "⏳"}
+                {tc.endTime !== undefined &&
+                  ` (${((tc.endTime - tc.startTime) / 1000).toFixed(1)}s)`}
               </div>
             ))}
           </div>
@@ -246,9 +292,11 @@ function AgentProgressBlock({
 
       {/* 输出内容 */}
       {output && (
-        <div className={`text-sm whitespace-pre-wrap ${
-          isDark ? "text-gray-300" : "text-gray-700"
-        }`}>
+        <div
+          className={`text-sm whitespace-pre-wrap ${
+            isDark ? "text-gray-300" : "text-gray-700"
+          }`}
+        >
           <span className="text-xs text-green-600 mb-1 block">输出</span>
           {output.slice(0, 300)}
           {output.length > 300 ? "..." : ""}

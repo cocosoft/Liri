@@ -28,7 +28,6 @@ interface AgentBinding {
   agentName: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface PersonaBindings {
   personaId: string;
   agents: AgentBinding[];
@@ -62,7 +61,9 @@ export function TTSPersonaManager() {
   /** 加载默认人设 */
   const loadDefaultPersona = useCallback(async () => {
     try {
-      const response = await fetch(`${getBackendBaseUrl()}/v1/tts/personas/default`);
+      const response = await fetch(
+        `${getBackendBaseUrl()}/v1/tts/personas/default`,
+      );
       if (response.ok) {
         const data = await response.json();
         setDefaultPersonaId(data.id || null);
@@ -75,7 +76,9 @@ export function TTSPersonaManager() {
   /** 加载 Agent 绑定信息 */
   const loadBindings = useCallback(async () => {
     try {
-      const response = await fetch(`${getBackendBaseUrl()}/v1/tts/personas/bindings`);
+      const response = await fetch(
+        `${getBackendBaseUrl()}/v1/tts/personas/bindings`,
+      );
       if (response.ok) {
         const data: PersonaBindings[] = await response.json();
         const map: Record<string, AgentBinding[]> = {};
@@ -110,9 +113,12 @@ export function TTSPersonaManager() {
   /** 删除人设 */
   const handleDelete = async (id: string) => {
     try {
-      const response = await fetch(`${getBackendBaseUrl()}/v1/tts/personas/${id}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        `${getBackendBaseUrl()}/v1/tts/personas/${id}`,
+        {
+          method: "DELETE",
+        },
+      );
       if (!response.ok) throw new Error("删除人设失败");
       await loadPersonas();
       await loadDefaultPersona();
@@ -125,9 +131,12 @@ export function TTSPersonaManager() {
   const handleSetDefault = async (id: string) => {
     setSettingDefault(id);
     try {
-      const response = await fetch(`${getBackendBaseUrl()}/v1/tts/personas/${id}/default`, {
-        method: "PUT",
-      });
+      const response = await fetch(
+        `${getBackendBaseUrl()}/v1/tts/personas/${id}/default`,
+        {
+          method: "PUT",
+        },
+      );
       if (response.ok) {
         setDefaultPersonaId(id);
       }
@@ -150,11 +159,7 @@ export function TTSPersonaManager() {
         <CardContent>
           {/* 新建按钮 */}
           <div className="mb-4">
-            <Button
-              variant="outline"
-              onClick={handleCreate}
-              size="sm"
-            >
+            <Button variant="outline" onClick={handleCreate} size="sm">
               + 新建人设
             </Button>
           </div>

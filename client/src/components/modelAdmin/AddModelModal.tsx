@@ -24,7 +24,11 @@ interface AddModelModalProps {
   onClose: () => void;
 }
 
-export default function AddModelModal({ providers, onSave, onClose }: AddModelModalProps) {
+export default function AddModelModal({
+  providers,
+  onSave,
+  onClose,
+}: AddModelModalProps) {
   const [form, setForm] = useState<AddModelFormData>({
     modelId: "",
     displayName: "",
@@ -92,7 +96,9 @@ export default function AddModelModal({ providers, onSave, onClose }: AddModelMo
             <input
               type="text"
               value={form.displayName}
-              onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, displayName: e.target.value })
+              }
               placeholder="可选，默认使用模型 ID"
               className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -107,7 +113,10 @@ export default function AddModelModal({ providers, onSave, onClose }: AddModelMo
                 type="number"
                 value={form.contextWindow}
                 onChange={(e) =>
-                  setForm({ ...form, contextWindow: parseInt(e.target.value) || 200000 })
+                  setForm({
+                    ...form,
+                    contextWindow: parseInt(e.target.value) || 200000,
+                  })
                 }
                 className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -120,7 +129,10 @@ export default function AddModelModal({ providers, onSave, onClose }: AddModelMo
                 type="number"
                 value={form.maxOutputTokens}
                 onChange={(e) =>
-                  setForm({ ...form, maxOutputTokens: parseInt(e.target.value) || 4096 })
+                  setForm({
+                    ...form,
+                    maxOutputTokens: parseInt(e.target.value) || 4096,
+                  })
                 }
                 className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -137,7 +149,10 @@ export default function AddModelModal({ providers, onSave, onClose }: AddModelMo
                 step="0.01"
                 value={form.inputCostPerMillion}
                 onChange={(e) =>
-                  setForm({ ...form, inputCostPerMillion: parseFloat(e.target.value) || 0 })
+                  setForm({
+                    ...form,
+                    inputCostPerMillion: parseFloat(e.target.value) || 0,
+                  })
                 }
                 className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -151,7 +166,10 @@ export default function AddModelModal({ providers, onSave, onClose }: AddModelMo
                 step="0.01"
                 value={form.outputCostPerMillion}
                 onChange={(e) =>
-                  setForm({ ...form, outputCostPerMillion: parseFloat(e.target.value) || 0 })
+                  setForm({
+                    ...form,
+                    outputCostPerMillion: parseFloat(e.target.value) || 0,
+                  })
                 }
                 className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />

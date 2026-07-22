@@ -16,6 +16,10 @@ import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { OrchestrationEventType } from '@modules/agent/events/OrchestrationEvents';
 import { globalEventBus } from './EventBus';
 import { getOTelTracing } from '@modules/monitoring';
+import {
+  isSpanCovered,
+  markSpanCovered,
+} from '@modules/monitoring/tracing/SpanCoverageRegistry';
 
 /** Span 映射配置 */
 interface SpanMapping {
@@ -131,9 +135,19 @@ function startSpanForEvent(
     parentSpan = activeSpanMap.get(config.parentEvent)?.span;
   }
 
+  // P2-2.9: 去重检查 — 避免与 SessionTracing 创建重复 Span
+  if (parentSpan && isSpanCovered(parentSpan, config.spanName)) {
+    return;
+  }
+
   const attributes = toSpanAttributes(payload);
   const otel = getOTelTracing();
   const span = otel.startSpan(config.spanName, attributes, parentSpan);
+
+  // 标记 Span 已创建（后续同名 Span 将被去重）
+  if (parentSpan) {
+    markSpanCovered(parentSpan, config.spanName);
+  }
 
   activeSpanMap.set(eventType, { span, depth: parentDepth + 1 });
 }

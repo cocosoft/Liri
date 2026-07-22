@@ -14,7 +14,10 @@ import type {
 } from "./types";
 import type { RootState } from "./index";
 import type { WorkspaceListItem } from "@/services/workspaceService";
-import type { WorkItem as OldWorkItem, WorkItemStatus } from "@/stores/workStore";
+import type {
+  WorkItem as OldWorkItem,
+  WorkItemStatus,
+} from "@/stores/workStore";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("root-store:workspaceSlice");
@@ -49,11 +52,18 @@ export interface WorkspaceSlice {
   backendReady: boolean;
 
   // ─── Worktree 动作 ───
-  createWorktree: (config: { name: string; path: string; description?: string }) => string;
+  createWorktree: (config: {
+    name: string;
+    path: string;
+    description?: string;
+  }) => string;
   switchWorktree: (id: string) => Promise<void>;
   deleteWorktree: (id: string) => void;
   /** 更新工作空间名称或路径 */
-  updateWorktree: (id: string, updates: { name?: string; path?: string; description?: string }) => void;
+  updateWorktree: (
+    id: string,
+    updates: { name?: string; path?: string; description?: string },
+  ) => void;
   updateWorktreeLayout: (layout: Partial<WorktreeLayout>) => void;
   bindGitRepo: (worktreeId: string, repoPath: string) => void;
   bindModel: (worktreeId: string, modelId: string, providerId: string) => void;
@@ -69,7 +79,10 @@ export interface WorkspaceSlice {
   /** 创建工作项 */
   createWorkItem: (title: string) => Promise<void>;
   /** 更新工作项状态 */
-  updateWorkItemStatus: (itemId: string, status: WorkItemStatus) => Promise<void>;
+  updateWorkItemStatus: (
+    itemId: string,
+    status: WorkItemStatus,
+  ) => Promise<void>;
   /** 检查后端就绪 */
   checkBackendReady: () => Promise<void>;
   /** 重置状态 */
@@ -88,10 +101,12 @@ const DEFAULT_LAYOUT: WorktreeLayout = {
 
 // ─── Slice 实现 ────────────────────────────────────────
 
-export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlice> = (
-  set,
-  get
-) => ({
+export const createWorkspaceSlice: StateCreator<
+  RootState,
+  [],
+  [],
+  WorkspaceSlice
+> = (set, get) => ({
   // ── 初始状态 ──
   currentWorktreeId: null,
   worktrees: {},
@@ -129,7 +144,11 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
       recentWorktreeIds: [id, ...state.recentWorktreeIds].slice(0, 20),
     }));
 
-    logger.info("工作空间创建", { worktreeId: id, name: config.name, path: config.path });
+    logger.info("工作空间创建", {
+      worktreeId: id,
+      name: config.name,
+      path: config.path,
+    });
     return id;
   },
 
@@ -159,7 +178,11 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
       error: null,
     });
 
-    const loadTasks: Promise<{ source: string; ok: boolean; error?: string }>[] = [];
+    const loadTasks: Promise<{
+      source: string;
+      ok: boolean;
+      error?: string;
+    }>[] = [];
 
     loadTasks.push(
       (async () => {
@@ -168,7 +191,7 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
         } catch (e) {
           return { source: "session", ok: false, error: String(e) };
         }
-      })()
+      })(),
     );
 
     loadTasks.push(
@@ -182,7 +205,7 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
         } catch (e) {
           return { source: "git", ok: false, error: String(e) };
         }
-      })()
+      })(),
     );
 
     loadTasks.push(
@@ -192,7 +215,7 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
         } catch (e) {
           return { source: "knowledge", ok: false, error: String(e) };
         }
-      })()
+      })(),
     );
 
     const results = await Promise.all(loadTasks);
@@ -214,10 +237,17 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
         errors,
       },
       isLoading: false,
-      error: errors.length > 0 ? `部分资源加载失败: ${errors.map((e) => e.source).join(", ")}` : null,
+      error:
+        errors.length > 0
+          ? `部分资源加载失败: ${errors.map((e) => e.source).join(", ")}`
+          : null,
     });
 
-    logger.info("工作空间切换", { worktreeId: id, status: transitionStatus, errors: errors.length });
+    logger.info("工作空间切换", {
+      worktreeId: id,
+      status: transitionStatus,
+      errors: errors.length,
+    });
   },
 
   deleteWorktree: (id) => {
@@ -226,7 +256,8 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
     set((state) => ({
       worktrees: rest,
       recentWorktreeIds: state.recentWorktreeIds.filter((rid) => rid !== id),
-      currentWorktreeId: state.currentWorktreeId === id ? null : state.currentWorktreeId,
+      currentWorktreeId:
+        state.currentWorktreeId === id ? null : state.currentWorktreeId,
     }));
 
     logger.info("工作空间删除", { worktreeId: id });
@@ -242,7 +273,11 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
       return {
         worktrees: {
           ...state.worktrees,
-          [id]: { ...wt, layout: { ...wt.layout, ...layout }, updatedAt: Date.now() },
+          [id]: {
+            ...wt,
+            layout: { ...wt.layout, ...layout },
+            updatedAt: Date.now(),
+          },
         },
       };
     });
@@ -255,7 +290,11 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
       return {
         worktrees: {
           ...state.worktrees,
-          [worktreeId]: { ...wt, gitRepo: { path: repoPath, currentBranch: "" }, updatedAt: Date.now() },
+          [worktreeId]: {
+            ...wt,
+            gitRepo: { path: repoPath, currentBranch: "" },
+            updatedAt: Date.now(),
+          },
         },
       };
     });
@@ -268,7 +307,11 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
       return {
         worktrees: {
           ...state.worktrees,
-          [worktreeId]: { ...wt, modelConfig: { modelId, providerId }, updatedAt: Date.now() },
+          [worktreeId]: {
+            ...wt,
+            modelConfig: { modelId, providerId },
+            updatedAt: Date.now(),
+          },
         },
       };
     });
@@ -295,7 +338,11 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
       return {
         worktrees: {
           ...state.worktrees,
-          [worktreeId]: { ...wt, knowledgeBaseIds: [...wt.knowledgeBaseIds, kbId], updatedAt: Date.now() },
+          [worktreeId]: {
+            ...wt,
+            knowledgeBaseIds: [...wt.knowledgeBaseIds, kbId],
+            updatedAt: Date.now(),
+          },
         },
       };
     });
@@ -337,13 +384,17 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
     try {
       const { workspaceService } = await import("@/services/workspaceService");
       const ws = await workspaceService.getWorkspace(workspaceId);
-      const items: OldWorkItem[] = await workspaceService.getWorkItems(workspaceId);
+      const items: OldWorkItem[] =
+        await workspaceService.getWorkItems(workspaceId);
 
       const wtId = workspaceId;
 
       // 确保 worktree 存在
       if (!get().worktrees[wtId]) {
-        get().createWorktree({ name: ws?.path ?? "工作空间", path: ws?.path ?? workspaceId });
+        get().createWorktree({
+          name: ws?.path ?? "工作空间",
+          path: ws?.path ?? workspaceId,
+        });
       }
 
       // 映射 workItems 到 RootWorkItem
@@ -374,7 +425,11 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
       if (!get().worktrees[workspaceId]) {
         get().createWorktree({ name: workspaceId, path: workspaceId });
       }
-      set({ currentWorktreeId: workspaceId, isLoading: false, error: String(err) });
+      set({
+        currentWorktreeId: workspaceId,
+        isLoading: false,
+        error: String(err),
+      });
     }
   },
 
@@ -387,10 +442,15 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
     let sessionId: string | undefined;
     try {
       sessionId = get().currentSessionId ?? undefined;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     const { workspaceService } = await import("@/services/workspaceService");
-    const item = await workspaceService.createWorkItem(wtId, { title, sessionId });
+    const item = await workspaceService.createWorkItem(wtId, {
+      title,
+      sessionId,
+    });
 
     set((s) => {
       const wt = s.worktrees[wtId];
@@ -408,7 +468,11 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
         ...s,
         worktrees: {
           ...s.worktrees,
-          [wtId]: { ...wt, workItems: [...wt.workItems, mappedItem], updatedAt: Date.now() },
+          [wtId]: {
+            ...wt,
+            workItems: [...wt.workItems, mappedItem],
+            updatedAt: Date.now(),
+          },
         },
         isLoading: false,
       };
@@ -437,7 +501,7 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
                     status,
                     updatedAt: now,
                   }
-                : item
+                : item,
             ),
             updatedAt: now,
           },

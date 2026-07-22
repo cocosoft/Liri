@@ -191,7 +191,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
               🗑️ 删除
             </button>
           </div>,
-          document.body
+          document.body,
         )}
 
       {/* 确认对话框 — 通过 Portal 渲染到 body，避免被卡片 contentVisibility:auto 的 contain:layout 裁剪 */}
@@ -203,7 +203,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
             onConfirm={handleDelete}
             onCancel={() => setConfirming(false)}
           />,
-          document.body
+          document.body,
         )}
     </>
   );

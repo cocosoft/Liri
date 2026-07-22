@@ -9,18 +9,10 @@ export type { AgentProgress };
 export type TaskRuntime = "cli" | "cron" | "subagent" | "acp" | "daemon";
 
 export type TaskStatus =
-  | "pending"
-  | "running"
-  | "completed"
-  | "failed"
-  | "killed"
-  | "lost";
+  "pending" | "running" | "completed" | "failed" | "killed" | "lost";
 
 export type TaskDeliveryStatus =
-  | "pending"
-  | "delivered"
-  | "failed"
-  | "not_applicable";
+  "pending" | "delivered" | "failed" | "not_applicable";
 
 export type TaskNotifyPolicy = "done_only" | "state_changes" | "silent";
 

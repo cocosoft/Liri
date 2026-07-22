@@ -6,6 +6,7 @@
  */
 
 import { createLogger } from "@/utils/logger";
+import { handleClientError } from "../utils/handleError";
 
 const logger = createLogger("clipboardService");
 
@@ -27,20 +28,20 @@ export async function readImageFromClipboard(): Promise<ClipboardImageResult | n
   try {
     const platform = getPlatform();
     let base64: string | null = null;
-    let mimeType = 'image/png';
+    let mimeType = "image/png";
 
     switch (platform) {
-      case 'windows':
+      case "windows":
         base64 = await readFromWindows();
         break;
-      case 'macos':
+      case "macos":
         base64 = await readFromMacOS();
         break;
-      case 'linux':
+      case "linux":
         base64 = await readFromLinux();
         break;
       default:
-        logger.warn('不支持的平台:', platform);
+        logger.warn("不支持的平台:", platform);
         return null;
     }
 
@@ -52,7 +53,8 @@ export async function readImageFromClipboard(): Promise<ClipboardImageResult | n
       size: base64.length,
     };
   } catch (err) {
-    logger.warn('剪贴板读取失败:', err);
+    handleClientError(err, { module: "services:clipboard", action: "readImageFromClipboard" });
+    logger.warn("剪贴板读取失败:", err);
     return null;
   }
 }
@@ -68,14 +70,14 @@ export async function hasImageInClipboard(): Promise<boolean> {
 /** 获取当前平台标识 */
 function getPlatform(): string {
   // Tauri 环境下使用 window.__TAURI__ 判断，否则用 navigator
-  if (typeof navigator !== 'undefined') {
-    const ua = navigator.userAgent || '';
-    if (ua.includes('Win')) return 'windows';
-    if (ua.includes('Mac')) return 'macos';
-    if (ua.includes('Linux')) return 'linux';
+  if (typeof navigator !== "undefined") {
+    const ua = navigator.userAgent || "";
+    if (ua.includes("Win")) return "windows";
+    if (ua.includes("Mac")) return "macos";
+    if (ua.includes("Linux")) return "linux";
   }
   // 默认返回 Windows
-  return 'windows';
+  return "windows";
 }
 
 /** Windows: 使用 PowerShell Get-Clipboard */
@@ -101,7 +103,8 @@ async function readFromWindows(): Promise<string | null> {
       return result.trim();
     }
     return null;
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "services:clipboard", action: "readFromWindows" });
     return null;
   }
 }
@@ -116,23 +119,29 @@ async function readFromMacOS(): Promise<string | null> {
         return pngData
       end if
     `;
-    const result = await execCommand(`osascript -e '${script.replace(/'/g, "\\'")}'`);
-    if (result && result.trim() && !result.includes('missing value')) {
+    const result = await execCommand(
+      `osascript -e '${script.replace(/'/g, "\\'")}'`,
+    );
+    if (result && result.trim() && !result.includes("missing value")) {
       return result.trim();
     }
 
     // 方法 2: 使用 pngpaste (如已安装)
     try {
-      const pngResult = await execCommand('pngpaste -b /dev/stdout 2>/dev/null | base64');
+      const pngResult = await execCommand(
+        "pngpaste -b /dev/stdout 2>/dev/null | base64",
+      );
       if (pngResult && pngResult.trim()) {
         return pngResult.trim();
       }
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:clipboard", action: "readFromMacOS-pngpaste" });
       // pngpaste 不可用，忽略
     }
 
     return null;
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "services:clipboard", action: "readFromMacOS" });
     return null;
   }
 }
@@ -141,21 +150,27 @@ async function readFromMacOS(): Promise<string | null> {
 async function readFromLinux(): Promise<string | null> {
   try {
     // 尝试 Wayland
-    const waylandResult = await execCommand('wl-paste --type image/png 2>/dev/null | base64 -w0');
+    const waylandResult = await execCommand(
+      "wl-paste --type image/png 2>/dev/null | base64 -w0",
+    );
     if (waylandResult && waylandResult.trim()) {
       return waylandResult.trim();
     }
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "services:clipboard", action: "readFromLinux-wayland" });
     // Wayland 不可用
   }
 
   try {
     // 尝试 X11
-    const xResult = await execCommand('xclip -selection clipboard -t image/png -o 2>/dev/null | base64 -w0');
+    const xResult = await execCommand(
+      "xclip -selection clipboard -t image/png -o 2>/dev/null | base64 -w0",
+    );
     if (xResult && xResult.trim()) {
       return xResult.trim();
     }
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "services:clipboard", action: "readFromLinux-xclip" });
     // xclip 不可用
   }
 
@@ -171,28 +186,30 @@ async function execCommand(cmd: string): Promise<string> {
   // 或使用 Tauri invoke
   try {
     // 使用 Tauri command invoke（如果在 Tauri 环境中）
-    if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+    if (typeof window !== "undefined" && (window as any).__TAURI__) {
       const { invoke } = (window as any).__TAURI__.core;
-      return await invoke('exec_command', { command: cmd }) as string;
+      return (await invoke("exec_command", { command: cmd })) as string;
     }
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "services:clipboard", action: "execCommand-tauri" });
     // 非 Tauri 环境
   }
 
   // 回退：通过 fetch 调用后端 API
   try {
-    const response = await fetch('/v1/system/exec', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const response = await fetch("/v1/system/exec", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ command: cmd }),
     });
     if (response.ok) {
-      const data = await response.json() as { output: string };
-      return data.output || '';
+      const data = (await response.json()) as { output: string };
+      return data.output || "";
     }
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "services:clipboard", action: "execCommand-fetch" });
     // API 不可用
   }
 
-  return '';
+  return "";
 }

@@ -35,10 +35,13 @@ export default function WorkPageLayout() {
   /**
    * 拖拽手柄鼠标事件处理
    */
-  const handleMouseDown = useCallback((side: "left" | "right") => (e: React.MouseEvent) => {
-    e.preventDefault();
-    setDragging(side);
-  }, []);
+  const handleMouseDown = useCallback(
+    (side: "left" | "right") => (e: React.MouseEvent) => {
+      e.preventDefault();
+      setDragging(side);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!dragging) return;

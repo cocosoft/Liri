@@ -84,14 +84,24 @@ function TaskCenterPage() {
 
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [pageTab, setPageTab] = useState<"tasks" | "plans">("tasks");
-  const [detailTab, setDetailTab] = useState<"info" | "audit" | "output" | "chat" | "orchestrate">("info");
+  const [detailTab, setDetailTab] = useState<
+    "info" | "audit" | "output" | "chat" | "orchestrate"
+  >("info");
   const [plans, setPlans] = useState<any[]>([]);
   const [flows, setFlows] = useState<any[]>([]);
-  const [auditLogs, setAuditLogs] = useState<Array<{
-    taskId: string; eventType: string; oldStatus: string | null; newStatus: string; timestamp: number;
-  }>>([]);
+  const [auditLogs, setAuditLogs] = useState<
+    Array<{
+      taskId: string;
+      eventType: string;
+      oldStatus: string | null;
+      newStatus: string;
+      timestamp: number;
+    }>
+  >([]);
   const [outputContent, setOutputContent] = useState<string | null>(null);
-  const [taskState, setTaskState] = useState<Record<string, unknown> | null>(null);
+  const [taskState, setTaskState] = useState<Record<string, unknown> | null>(
+    null,
+  );
   const [recoveringIds, setRecoveringIds] = useState<Set<string>>(new Set());
 
   const expandedPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -408,8 +418,14 @@ function TaskCenterPage() {
     setDetailTab("info");
     if (selectedTask) {
       getAgentTaskProgress(selectedTask.id);
-      agentService.getTaskState(selectedTask.id).then((s) => setTaskState(s ?? null)).catch(() => {});
-      agentService.getTaskAuditLogs(selectedTask.id).then((logs) => setAuditLogs(Array.isArray(logs) ? logs : [])).catch(() => {});
+      agentService
+        .getTaskState(selectedTask.id)
+        .then((s) => setTaskState(s ?? null))
+        .catch(() => {});
+      agentService
+        .getTaskAuditLogs(selectedTask.id)
+        .then((logs) => setAuditLogs(Array.isArray(logs) ? logs : []))
+        .catch(() => {});
       if (selectedTask.status === "running") {
         expandedPollRef.current = setInterval(() => {
           getAgentTaskProgress(selectedTask.id);
@@ -530,7 +546,11 @@ function TaskCenterPage() {
   const reloadOutput = async (id: string) => {
     try {
       const content = await agentService.getTaskOutput(id);
-      setOutputContent(typeof content === 'string' ? content : JSON.stringify(content, null, 2));
+      setOutputContent(
+        typeof content === "string"
+          ? content
+          : JSON.stringify(content, null, 2),
+      );
     } catch {
       setOutputContent("(无法加载输出)");
     }
@@ -580,8 +600,8 @@ function TaskCenterPage() {
   const loadOrchestrationData = async () => {
     try {
       const [plansData, flowsData] = await Promise.all([
-        http.get<any[]>("/v1/plans").then((r: any) => r?.ok ? r.data : []),
-        http.get<any[]>("/v1/flows").then((r: any) => r?.ok ? r.data : []),
+        http.get<any[]>("/v1/plans").then((r: any) => (r?.ok ? r.data : [])),
+        http.get<any[]>("/v1/flows").then((r: any) => (r?.ok ? r.data : [])),
       ]);
       setPlans(Array.isArray(plansData) ? plansData : []);
       setFlows(Array.isArray(flowsData) ? flowsData : []);
@@ -592,8 +612,11 @@ function TaskCenterPage() {
 
   const statusDot = (s: string) => {
     const map: Record<string, string> = {
-      pending: "bg-yellow-400", running: "bg-blue-400 animate-pulse",
-      completed: "bg-green-400", failed: "bg-red-400", cancelled: "bg-gray-400",
+      pending: "bg-yellow-400",
+      running: "bg-blue-400 animate-pulse",
+      completed: "bg-green-400",
+      failed: "bg-red-400",
+      cancelled: "bg-gray-400",
       aborted: "bg-red-400",
     };
     return map[s] || "bg-gray-300";
@@ -666,343 +689,457 @@ function TaskCenterPage() {
         {pageTab === "plans" ? (
           <PlansPanel />
         ) : (
-        <div className="flex gap-4">
-          <div className="flex-1">
-            {agentError && (
-              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded text-sm text-red-600 dark:text-red-400">
-                {agentError}
-              </div>
-            )}
+          <div className="flex gap-4">
+            <div className="flex-1">
+              {agentError && (
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded text-sm text-red-600 dark:text-red-400">
+                  {agentError}
+                </div>
+              )}
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                    <svg
-                      className="w-4 h-4 text-blue-600 dark:text-blue-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                      />
-                    </svg>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                      <svg
+                        className="w-4 h-4 text-blue-600 dark:text-blue-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        总任务
+                      </p>
+                      <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                        {agentTasks.length}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      总任务
-                    </p>
-                    <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                      {agentTasks.length}
-                    </p>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                      <svg
+                        className="w-4 h-4 text-green-600 dark:text-green-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        已完成
+                      </p>
+                      <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                        {
+                          agentTasks.filter((t) => t.status === "completed")
+                            .length
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center">
+                      <svg
+                        className="w-4 h-4 text-yellow-600 dark:text-yellow-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 10V3L4 14h7v7l9-11h-7z"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        运行中
+                      </p>
+                      <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                        {
+                          agentTasks.filter((t) => t.status === "running")
+                            .length
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+                      <svg
+                        className="w-4 h-4 text-red-600 dark:text-red-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        失败
+                      </p>
+                      <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                        {agentTasks.filter((t) => t.status === "failed").length}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                    <svg
-                      className="w-4 h-4 text-green-600 dark:text-green-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      已完成
-                    </p>
-                    <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                      {
-                        agentTasks.filter((t) => t.status === "completed")
-                          .length
-                      }
-                    </p>
-                  </div>
-                </div>
+              <div className="flex items-center gap-2 mb-4 flex-wrap">
+                <label className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={autoRefresh}
+                    onChange={(e) => setAutoRefresh(e.target.checked)}
+                    className="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded"
+                  />
+                  自动刷新
+                </label>
+                <span className="text-gray-300 dark:text-gray-600">|</span>
+                <span className="text-xs text-gray-400">
+                  已失联 {agentTasks.filter((t) => t.status === "lost").length}
+                </span>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center">
-                    <svg
-                      className="w-4 h-4 text-yellow-600 dark:text-yellow-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
+              {selectedAgentTaskIds.length > 0 && (
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-blue-700 dark:text-blue-300">
+                      已选择 <strong>{selectedAgentTaskIds.length}</strong>{" "}
+                      个Agent任务
+                    </span>
+                    <button
+                      onClick={() => setSelectedAgentTaskIds([])}
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 10V3L4 14h7v7l9-11h-7z"
-                      />
-                    </svg>
+                      取消选择
+                    </button>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      运行中
-                    </p>
-                    <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                      {agentTasks.filter((t) => t.status === "running").length}
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleAgentBatchExecute}
+                      className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg"
+                    >
+                      重新执行
+                    </button>
+                    <button
+                      onClick={handleBatchKill}
+                      className="px-3 py-1.5 text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-lg"
+                    >
+                      批量终止
+                    </button>
+                    <button
+                      onClick={handleAgentBatchDelete}
+                      className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg"
+                    >
+                      批量删除
+                    </button>
                   </div>
                 </div>
-              </div>
+              )}
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
-                    <svg
-                      className="w-4 h-4 text-red-600 dark:text-red-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <input
+                    type="checkbox"
+                    checked={isAllAgentSelected}
+                    onChange={toggleSelectAllAgents}
+                    disabled={filteredAgentTasks.length === 0}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <div className="flex-1 w-full sm:w-auto">
+                    <div className="relative">
+                      <svg
+                        className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"
+                        />
+                      </svg>
+                      <input
+                        type="text"
+                        placeholder="搜索Agent任务..."
+                        value={agentSearchQuery}
+                        onChange={(e) => setAgentSearchQuery(e.target.value)}
+                        className="w-full sm:w-64 pl-10 pr-4 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100 placeholder-gray-400"
                       />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      失败
-                    </p>
-                    <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                      {agentTasks.filter((t) => t.status === "failed").length}
-                    </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 mb-4 flex-wrap">
-              <label className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={autoRefresh}
-                  onChange={(e) => setAutoRefresh(e.target.checked)}
-                  className="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded"
-                />
-                自动刷新
-              </label>
-              <span className="text-gray-300 dark:text-gray-600">|</span>
-              <span className="text-xs text-gray-400">
-                已失联 {agentTasks.filter((t) => t.status === "lost").length}
-              </span>
-            </div>
-
-            {selectedAgentTaskIds.length > 0 && (
-              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-blue-700 dark:text-blue-300">
-                    已选择 <strong>{selectedAgentTaskIds.length}</strong>{" "}
-                    个Agent任务
+                <div className="flex items-center gap-3">
+                  <select
+                    value={agentStatusFilter}
+                    onChange={(e) =>
+                      setAgentStatusFilter(e.target.value as any)
+                    }
+                    className="px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="all">全部状态</option>
+                    <option value="pending">等待中</option>
+                    <option value="running">运行中</option>
+                    <option value="completed">已完成</option>
+                    <option value="failed">失败</option>
+                    <option value="lost">已失联</option>
+                  </select>
+                  <select
+                    value={agentSortBy}
+                    onChange={(e) =>
+                      setAgentSortBy(
+                        e.target.value as "created_at" | "name" | "priority",
+                      )
+                    }
+                    className="px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="created_at">创建时间</option>
+                    <option value="name">名称</option>
+                    <option value="priority">优先级</option>
+                  </select>
+                  <button
+                    onClick={() =>
+                      setAgentSortOrder(
+                        agentSortOrder === "asc" ? "desc" : "asc",
+                      )
+                    }
+                    className="px-2 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
+                    title={agentSortOrder === "asc" ? "升序 ↑" : "降序 ↓"}
+                  >
+                    {agentSortOrder === "asc" ? "↑" : "↓"}
+                  </button>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    共 {filteredAgentTasks.length} 个Agent任务
                   </span>
                   <button
-                    onClick={() => setSelectedAgentTaskIds([])}
-                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    onClick={loadAgentTasks}
+                    disabled={isAgentLoading}
+                    className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg disabled:opacity-50"
                   >
-                    取消选择
-                  </button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleAgentBatchExecute}
-                    className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg"
-                  >
-                    重新执行
-                  </button>
-                  <button
-                    onClick={handleBatchKill}
-                    className="px-3 py-1.5 text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-lg"
-                  >
-                    批量终止
-                  </button>
-                  <button
-                    onClick={handleAgentBatchDelete}
-                    className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg"
-                  >
-                    批量删除
+                    刷新
                   </button>
                 </div>
               </div>
-            )}
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
-              <div className="flex items-center gap-3 w-full sm:w-auto">
-                <input
-                  type="checkbox"
-                  checked={isAllAgentSelected}
-                  onChange={toggleSelectAllAgents}
-                  disabled={filteredAgentTasks.length === 0}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-                <div className="flex-1 w-full sm:w-auto">
-                  <div className="relative">
-                    <svg
-                      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"
-                      />
-                    </svg>
-                    <input
-                      type="text"
-                      placeholder="搜索Agent任务..."
-                      value={agentSearchQuery}
-                      onChange={(e) => setAgentSearchQuery(e.target.value)}
-                      className="w-full sm:w-64 pl-10 pr-4 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100 placeholder-gray-400"
-                    />
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                {isAgentLoading && filteredAgentTasks.length === 0 ? (
+                  <div className="p-4 space-y-3">
+                    <SkeletonCard count={3} />
                   </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <select
-                  value={agentStatusFilter}
-                  onChange={(e) => setAgentStatusFilter(e.target.value as any)}
-                  className="px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100"
-                >
-                  <option value="all">全部状态</option>
-                  <option value="pending">等待中</option>
-                  <option value="running">运行中</option>
-                  <option value="completed">已完成</option>
-                  <option value="failed">失败</option>
-                  <option value="lost">已失联</option>
-                </select>
-                <select
-                  value={agentSortBy}
-                  onChange={(e) =>
-                    setAgentSortBy(
-                      e.target.value as "created_at" | "name" | "priority",
-                    )
-                  }
-                  className="px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100"
-                >
-                  <option value="created_at">创建时间</option>
-                  <option value="name">名称</option>
-                  <option value="priority">优先级</option>
-                </select>
-                <button
-                  onClick={() =>
-                    setAgentSortOrder(agentSortOrder === "asc" ? "desc" : "asc")
-                  }
-                  className="px-2 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
-                  title={agentSortOrder === "asc" ? "升序 ↑" : "降序 ↓"}
-                >
-                  {agentSortOrder === "asc" ? "↑" : "↓"}
-                </button>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  共 {filteredAgentTasks.length} 个Agent任务
-                </span>
-                <button
-                  onClick={loadAgentTasks}
-                  disabled={isAgentLoading}
-                  className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg disabled:opacity-50"
-                >
-                  刷新
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-              {isAgentLoading && filteredAgentTasks.length === 0 ? (
-                <div className="p-4 space-y-3">
-                  <SkeletonCard count={3} />
-                </div>
-              ) : filteredAgentTasks.length === 0 ? (
-                <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-                  暂无匹配的Agent任务
-                  <p className="text-sm mt-2">尝试调整搜索关键词或筛选条件</p>
-                </div>
-              ) : (
-                <ul className="divide-y divide-gray-100 dark:divide-gray-700/50">
-                  {filteredAgentTasks.map((task) => (
-                    <li
-                      key={task.id}
-                      className={`group px-4 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
-                        selectedAgentTaskIds.includes(task.id)
-                          ? "ring-2 ring-blue-500"
-                          : ""
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-3 min-w-0">
-                          <input
-                            type="checkbox"
-                            checked={selectedAgentTaskIds.includes(task.id)}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              toggleSelectAgentTask(task.id);
-                            }}
-                            className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer shrink-0"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${agentStatusColor[task.status] || ""}`}
-                              >
-                                {agentStatusText[task.status] || task.status}
-                              </span>
-                              {task.priority && (
+                ) : filteredAgentTasks.length === 0 ? (
+                  <div className="text-center py-12 text-gray-400 dark:text-gray-500">
+                    暂无匹配的Agent任务
+                    <p className="text-sm mt-2">尝试调整搜索关键词或筛选条件</p>
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                    {filteredAgentTasks.map((task) => (
+                      <li
+                        key={task.id}
+                        className={`group px-4 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
+                          selectedAgentTaskIds.includes(task.id)
+                            ? "ring-2 ring-blue-500"
+                            : ""
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={selectedAgentTaskIds.includes(task.id)}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                toggleSelectAgentTask(task.id);
+                              }}
+                              className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
                                 <span
-                                  className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${
-                                    task.priority === "high"
-                                      ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-                                      : task.priority === "medium"
-                                        ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
-                                        : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                                  }`}
+                                  className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${agentStatusColor[task.status] || ""}`}
                                 >
-                                  {task.priority === "high"
-                                    ? "高"
-                                    : task.priority === "medium"
-                                      ? "中"
-                                      : "低"}
+                                  {agentStatusText[task.status] || task.status}
                                 </span>
+                                {task.priority && (
+                                  <span
+                                    className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${
+                                      task.priority === "high"
+                                        ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                                        : task.priority === "medium"
+                                          ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
+                                          : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                                    }`}
+                                  >
+                                    {task.priority === "high"
+                                      ? "高"
+                                      : task.priority === "medium"
+                                        ? "中"
+                                        : "低"}
+                                  </span>
+                                )}
+                                <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                  {task.name || task.type || "未知任务"}
+                                </h3>
+                              </div>
+                              {task.description && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
+                                  {task.description}
+                                </p>
                               )}
-                              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                                {task.name || task.type || "未知任务"}
-                              </h3>
                             </div>
-                            {task.description && (
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
-                                {task.description}
-                              </p>
-                            )}
                           </div>
-                        </div>
-                        <div className="flex items-center gap-3 shrink-0">
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {task.status === "pending" && (
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {task.status === "pending" && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleExecuteAgentTask(task.name);
+                                  }}
+                                  className="p-1.5 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 rounded"
+                                  title="执行"
+                                >
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                                    />
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M21 12a9 9 0 11-18 0 9 9 0 0118 0"
+                                    />
+                                  </svg>
+                                </button>
+                              )}
+                              {(task.status === "completed" ||
+                                task.status === "failed") && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleExecuteAgentTask(task.name);
+                                  }}
+                                  className="p-1.5 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 rounded"
+                                  title="重新执行"
+                                >
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                    />
+                                  </svg>
+                                </button>
+                              )}
+                              {task.status === "running" && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    cancelAgentTask(task.id);
+                                  }}
+                                  className="p-1.5 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded"
+                                  title="取消"
+                                >
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                </button>
+                              )}
+                              {task.status === "lost" && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRecoverTask(task.id);
+                                  }}
+                                  disabled={recoveringIds.has(task.id)}
+                                  className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded"
+                                  title="恢复"
+                                >
+                                  {recoveringIds.has(task.id) ? (
+                                    <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                                  ) : (
+                                    <svg
+                                      className="w-4 h-4"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                      />
+                                    </svg>
+                                  )}
+                                </button>
+                              )}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleExecuteAgentTask(task.name);
+                                  handleOpenEditModal(task);
                                 }}
-                                className="p-1.5 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 rounded"
-                                title="执行"
+                                className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded"
+                                title="编辑"
                               >
                                 <svg
                                   className="w-4 h-4"
@@ -1014,26 +1151,19 @@ function TaskCenterPage() {
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
                                     strokeWidth={2}
-                                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                                  />
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0"
+                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                                   />
                                 </svg>
                               </button>
-                            )}
-                            {(task.status === "completed" ||
-                              task.status === "failed") && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleExecuteAgentTask(task.name);
+                                  if (confirm("确定要删除这个Agent任务吗？")) {
+                                    deleteAgentTask(task.id);
+                                  }
                                 }}
-                                className="p-1.5 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 rounded"
-                                title="重新执行"
+                                className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded"
+                                title="删除"
                               >
                                 <svg
                                   className="w-4 h-4"
@@ -1045,61 +1175,34 @@ function TaskCenterPage() {
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
                                     strokeWidth={2}
-                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                                   />
                                 </svg>
                               </button>
-                            )}
+                            </div>
                             {task.status === "running" && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  cancelAgentTask(task.id);
-                                }}
-                                className="p-1.5 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded"
-                                title="取消"
-                              >
-                                <svg
-                                  className="w-4 h-4"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M6 18L18 6M6 6l12 12"
-                                  />
-                                </svg>
-                              </button>
+                              <div className="flex items-center gap-2 mr-2">
+                                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                {task.progress !== undefined && (
+                                  <span className="text-xs text-blue-600 dark:text-blue-400">
+                                    {task.progress}%
+                                  </span>
+                                )}
+                              </div>
                             )}
                             {task.status === "lost" && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRecoverTask(task.id);
-                                }}
-                                disabled={recoveringIds.has(task.id)}
-                                className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded"
-                                title="恢复"
-                              >
-                                {recoveringIds.has(task.id) ? (
-                                  <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                  </svg>
-                                )}
-                              </button>
+                              <div className="flex items-center gap-2 mr-2">
+                                <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">
+                                  失联
+                                </span>
+                              </div>
                             )}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleOpenEditModal(task);
+                                selectAgentTask(task);
                               }}
-                              className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded"
-                              title="编辑"
+                              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
                             >
                               <svg
                                 className="w-4 h-4"
@@ -1111,351 +1214,415 @@ function TaskCenterPage() {
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
                                   strokeWidth={2}
-                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (confirm("确定要删除这个Agent任务吗？")) {
-                                  deleteAgentTask(task.id);
-                                }
-                              }}
-                              className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded"
-                              title="删除"
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0"
                                 />
                               </svg>
                             </button>
                           </div>
-                          {task.status === "running" && (
-                            <div className="flex items-center gap-2 mr-2">
-                              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                              {task.progress !== undefined && (
-                                <span className="text-xs text-blue-600 dark:text-blue-400">
-                                  {task.progress}%
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          {task.status === "lost" && (
-                            <div className="flex items-center gap-2 mr-2">
-                              <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">失联</span>
-                            </div>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              selectAgentTask(task);
-                            }}
-                            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0"
-                              />
-                            </svg>
-                          </button>
                         </div>
-                      </div>
 
-                      {task.status === "failed" && task.error && (
-                        <div className="mt-3 border-t border-gray-100 dark:border-gray-700 pt-3">
-                          <div className="p-3 bg-red-50 dark:bg-red-900/30 rounded">
-                            <span className="text-xs font-medium text-red-600 dark:text-red-400">
-                              错误信息
-                            </span>
-                            <pre className="mt-1 text-xs text-red-700 dark:text-red-300 whitespace-pre-wrap font-mono">
-                              {task.error}
-                            </pre>
+                        {task.status === "failed" && task.error && (
+                          <div className="mt-3 border-t border-gray-100 dark:border-gray-700 pt-3">
+                            <div className="p-3 bg-red-50 dark:bg-red-900/30 rounded">
+                              <span className="text-xs font-medium text-red-600 dark:text-red-400">
+                                错误信息
+                              </span>
+                              <pre className="mt-1 text-xs text-red-700 dark:text-red-300 whitespace-pre-wrap font-mono">
+                                {task.error}
+                              </pre>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
-          </div>
 
-          {selectedTask && (
-            <div className="w-80 shrink-0">
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sticky top-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-                    {selectedTask.name}
-                  </h3>
-                  <button
-                    onClick={() => selectAgentTask(null as any)}
-                    className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Tabs */}
-                <div className="flex gap-1 mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">
-                  {(["info", "audit", "output", "chat", "orchestrate"] as const).map((tab) => (
+            {selectedTask && (
+              <div className="w-80 shrink-0">
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sticky top-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                      {selectedTask.name}
+                    </h3>
                     <button
-                      key={tab}
-                      onClick={() => {
-                        setDetailTab(tab);
-                        if (tab === "output" && !outputContent) reloadOutput(selectedTask.id);
-                        if (tab === "orchestrate" && plans.length === 0) {
-                          loadOrchestrationData();
-                        }
-                      }}
-                      className={`text-xs px-2.5 py-1 rounded-t transition-colors ${
-                        detailTab === tab
-                          ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium"
-                          : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                      }`}
+                      onClick={() => selectAgentTask(null as any)}
+                      className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
                     >
-                      {tab === "info" ? "详情" : tab === "audit" ? "审计" : tab === "output" ? "输出" : tab === "chat" ? "对话" : "编排"}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Info Tab */}
-                {detailTab === "info" && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${agentStatusColor[selectedTask.status] || ""}`}
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
                       >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${selectedTask.status === "running" ? "bg-blue-400 animate-pulse" : selectedTask.status === "completed" ? "bg-green-400" : selectedTask.status === "failed" ? "bg-red-400" : selectedTask.status === "lost" ? "bg-gray-400" : "bg-gray-400"}`}
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
                         />
-                        {agentStatusText[selectedTask.status] || selectedTask.status}
-                      </span>
-                      {selectedTask.priority && (
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          selectedTask.priority === "high" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                          : selectedTask.priority === "medium" ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                          : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
-                        }`}>
-                          {selectedTask.priority === "high" ? "高" : selectedTask.priority === "medium" ? "中" : "低"}
-                        </span>
-                      )}
-                    </div>
-                    {selectedTask.description && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-                        {selectedTask.description}
-                      </p>
-                    )}
-                    {taskState && (
-                      <div className="text-xs text-gray-500 space-y-1 bg-gray-50 dark:bg-gray-700/30 p-2 rounded">
-                        <div>类型: {(taskState.type as string) || "-"}</div>
-                        <div>工具调用: {taskState.toolUseCount as number ?? 0} 次</div>
-                        <div>Token: {taskState.tokenCount as number ?? 0}</div>
-                        <div>创建: {typeof taskState.startTime === 'number' ? formatTimestamp(taskState.startTime as number) : "-"}</div>
-                      </div>
-                    )}
-                    {selectedTask.tokenUsed !== undefined && (
-                      <div className="text-xs text-gray-500">Token 消耗: {selectedTask.tokenUsed}</div>
-                    )}
-                    <div className="text-xs text-gray-500">创建: {formatTimestamp(selectedTask.created_at)}</div>
-
-                    {taskLogs.length > 0 && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">日志</p>
-                        <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap overflow-auto max-h-32 font-mono bg-gray-50 dark:bg-gray-700/50 p-2 rounded border">
-                          {taskLogs.slice(-20).join("\n")}
-                        </pre>
-                      </div>
-                    )}
-
-                    <div className="border-t border-gray-100 dark:border-gray-700 pt-2 space-y-1.5">
-                      {selectedTask.status === "pending" && (
-                        <button onClick={() => handleExecuteAgentTask(selectedTask.name)}
-                          className="w-full text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded">▶ 执行任务</button>
-                      )}
-                      {selectedTask.status === "running" && (
-                        <button onClick={() => cancelAgentTask(selectedTask.id)}
-                          className="w-full text-xs px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded">⏹ 终止任务</button>
-                      )}
-                      {(selectedTask.status === "completed" || selectedTask.status === "failed") && (
-                        <button onClick={() => handleExecuteAgentTask(selectedTask.name)}
-                          className="w-full text-xs px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded">↻ 重新执行</button>
-                      )}
-                      {selectedTask.status === "lost" && (
-                        <button onClick={() => handleRecoverTask(selectedTask.id)} disabled={recoveringIds.has(selectedTask.id)}
-                          className="w-full text-xs px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white rounded disabled:opacity-50">
-                          {recoveringIds.has(selectedTask.id) ? "恢复中..." : "🔄 恢复任务"}
-                        </button>
-                      )}
-                    </div>
+                      </svg>
+                    </button>
                   </div>
-                )}
 
-                {/* Audit Tab */}
-                {detailTab === "audit" && (
-                  <div>
-                    {(!auditLogs || !Array.isArray(auditLogs) || auditLogs.length === 0) ? (
-                      <p className="text-xs text-gray-400 text-center py-6">暂无审计记录</p>
-                    ) : (
-                      <div className="space-y-2 max-h-[320px] overflow-y-auto">
-                        {auditLogs.map((entry, i) => (
-                          <div key={i} className="border-l-2 border-gray-200 dark:border-gray-600 pl-2.5 py-0.5">
-                            <div className="flex items-center gap-1.5 text-xs">
-                              <span className="text-gray-500">
-                                {new Date(entry.timestamp).toLocaleTimeString()}
-                              </span>
-                              <span className={`px-1 rounded text-[10px] ${
-                                entry.eventType === "state_change" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                                : entry.eventType === "lost_detected" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
-                                : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                              }`}>
-                                {entry.eventType === "state_change" ? "变更" : entry.eventType === "lost_detected" ? "失联" : entry.eventType}
-                              </span>
-                            </div>
-                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                              {entry.oldStatus || "(初始)"} → {entry.newStatus}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Output Tab */}
-                {detailTab === "output" && (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-gray-500">任务输出</span>
-                      <button onClick={() => reloadOutput(selectedTask.id)}
-                        className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400">
-                        刷新
+                  {/* Tabs */}
+                  <div className="flex gap-1 mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">
+                    {(
+                      [
+                        "info",
+                        "audit",
+                        "output",
+                        "chat",
+                        "orchestrate",
+                      ] as const
+                    ).map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => {
+                          setDetailTab(tab);
+                          if (tab === "output" && !outputContent)
+                            reloadOutput(selectedTask.id);
+                          if (tab === "orchestrate" && plans.length === 0) {
+                            loadOrchestrationData();
+                          }
+                        }}
+                        className={`text-xs px-2.5 py-1 rounded-t transition-colors ${
+                          detailTab === tab
+                            ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                        }`}
+                      >
+                        {tab === "info"
+                          ? "详情"
+                          : tab === "audit"
+                            ? "审计"
+                            : tab === "output"
+                              ? "输出"
+                              : tab === "chat"
+                                ? "对话"
+                                : "编排"}
                       </button>
-                    </div>
-                    {outputContent === null ? (
-                      <div className="flex items-center justify-center py-6">
-                        <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                      </div>
-                    ) : (
-                      <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap overflow-auto max-h-[360px] font-mono bg-gray-50 dark:bg-gray-700/50 p-2 rounded border">
-                        {outputContent || "(无输出)"}
-                      </pre>
-                    )}
+                    ))}
                   </div>
-                )}
 
-                {/* Chat Tab */}
-                {detailTab === "chat" && (
-                  <AgentChatPanel taskId={selectedTask.id} taskName={selectedTask.name} />
-                )}
+                  {/* Info Tab */}
+                  {detailTab === "info" && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${agentStatusColor[selectedTask.status] || ""}`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${selectedTask.status === "running" ? "bg-blue-400 animate-pulse" : selectedTask.status === "completed" ? "bg-green-400" : selectedTask.status === "failed" ? "bg-red-400" : selectedTask.status === "lost" ? "bg-gray-400" : "bg-gray-400"}`}
+                          />
+                          {agentStatusText[selectedTask.status] ||
+                            selectedTask.status}
+                        </span>
+                        {selectedTask.priority && (
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                              selectedTask.priority === "high"
+                                ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                : selectedTask.priority === "medium"
+                                  ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                  : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                            }`}
+                          >
+                            {selectedTask.priority === "high"
+                              ? "高"
+                              : selectedTask.priority === "medium"
+                                ? "中"
+                                : "低"}
+                          </span>
+                        )}
+                      </div>
+                      {selectedTask.description && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                          {selectedTask.description}
+                        </p>
+                      )}
+                      {taskState && (
+                        <div className="text-xs text-gray-500 space-y-1 bg-gray-50 dark:bg-gray-700/30 p-2 rounded">
+                          <div>类型: {(taskState.type as string) || "-"}</div>
+                          <div>
+                            工具调用: {(taskState.toolUseCount as number) ?? 0}{" "}
+                            次
+                          </div>
+                          <div>
+                            Token: {(taskState.tokenCount as number) ?? 0}
+                          </div>
+                          <div>
+                            创建:{" "}
+                            {typeof taskState.startTime === "number"
+                              ? formatTimestamp(taskState.startTime as number)
+                              : "-"}
+                          </div>
+                        </div>
+                      )}
+                      {selectedTask.tokenUsed !== undefined && (
+                        <div className="text-xs text-gray-500">
+                          Token 消耗: {selectedTask.tokenUsed}
+                        </div>
+                      )}
+                      <div className="text-xs text-gray-500">
+                        创建: {formatTimestamp(selectedTask.created_at)}
+                      </div>
 
-                {/* Orchestrate Tab */}
-                {detailTab === "orchestrate" && (
-                  <div className="space-y-4 max-h-[400px] overflow-y-auto">
-                    {/* PDCA 管线 */}
-                    <PdcaPipeline taskId={selectedTask.id} />
-                    <hr className="border-gray-100 dark:border-gray-700" />
-                    {/* Kanban 看板 */}
-                    <KanbanBoard />
-                    <hr className="border-gray-100 dark:border-gray-700" />
-                    {/* Plans 编排计划 */}
+                      {taskLogs.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            日志
+                          </p>
+                          <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap overflow-auto max-h-32 font-mono bg-gray-50 dark:bg-gray-700/50 p-2 rounded border">
+                            {taskLogs.slice(-20).join("\n")}
+                          </pre>
+                        </div>
+                      )}
+
+                      <div className="border-t border-gray-100 dark:border-gray-700 pt-2 space-y-1.5">
+                        {selectedTask.status === "pending" && (
+                          <button
+                            onClick={() =>
+                              handleExecuteAgentTask(selectedTask.name)
+                            }
+                            className="w-full text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded"
+                          >
+                            ▶ 执行任务
+                          </button>
+                        )}
+                        {selectedTask.status === "running" && (
+                          <button
+                            onClick={() => cancelAgentTask(selectedTask.id)}
+                            className="w-full text-xs px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded"
+                          >
+                            ⏹ 终止任务
+                          </button>
+                        )}
+                        {(selectedTask.status === "completed" ||
+                          selectedTask.status === "failed") && (
+                          <button
+                            onClick={() =>
+                              handleExecuteAgentTask(selectedTask.name)
+                            }
+                            className="w-full text-xs px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded"
+                          >
+                            ↻ 重新执行
+                          </button>
+                        )}
+                        {selectedTask.status === "lost" && (
+                          <button
+                            onClick={() => handleRecoverTask(selectedTask.id)}
+                            disabled={recoveringIds.has(selectedTask.id)}
+                            className="w-full text-xs px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white rounded disabled:opacity-50"
+                          >
+                            {recoveringIds.has(selectedTask.id)
+                              ? "恢复中..."
+                              : "🔄 恢复任务"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Audit Tab */}
+                  {detailTab === "audit" && (
+                    <div>
+                      {!auditLogs ||
+                      !Array.isArray(auditLogs) ||
+                      auditLogs.length === 0 ? (
+                        <p className="text-xs text-gray-400 text-center py-6">
+                          暂无审计记录
+                        </p>
+                      ) : (
+                        <div className="space-y-2 max-h-[320px] overflow-y-auto">
+                          {auditLogs.map((entry, i) => (
+                            <div
+                              key={i}
+                              className="border-l-2 border-gray-200 dark:border-gray-600 pl-2.5 py-0.5"
+                            >
+                              <div className="flex items-center gap-1.5 text-xs">
+                                <span className="text-gray-500">
+                                  {new Date(
+                                    entry.timestamp,
+                                  ).toLocaleTimeString()}
+                                </span>
+                                <span
+                                  className={`px-1 rounded text-[10px] ${
+                                    entry.eventType === "state_change"
+                                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                                      : entry.eventType === "lost_detected"
+                                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                                        : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                                  }`}
+                                >
+                                  {entry.eventType === "state_change"
+                                    ? "变更"
+                                    : entry.eventType === "lost_detected"
+                                      ? "失联"
+                                      : entry.eventType}
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                                {entry.oldStatus || "(初始)"} →{" "}
+                                {entry.newStatus}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Output Tab */}
+                  {detailTab === "output" && (
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">历史计划 (Plan)</span>
-                        <button onClick={loadOrchestrationData} className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400">
+                        <span className="text-xs text-gray-500">任务输出</span>
+                        <button
+                          onClick={() => reloadOutput(selectedTask.id)}
+                          className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                        >
                           刷新
                         </button>
                       </div>
-                      {plans.length === 0 ? (
-                        <p className="text-xs text-gray-400 text-center py-3">暂无编排计划</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {plans.map((plan: any) => (
-                            <div key={plan.id} className="border border-gray-200 dark:border-gray-700 rounded p-2">
-                              <div className="flex items-center gap-1.5 mb-1.5">
-                                <span className={`w-1.5 h-1.5 rounded-full ${statusDot(plan.status)}`} />
-                                <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{plan.description || plan.id}</span>
-                              </div>
-                              {plan.steps && (
-                                <div className="space-y-1">
-                                  {plan.steps.map((step: any, si: number) => (
-                                    <div key={step.id} className="flex items-center gap-1.5">
-                                      <span className="w-4 h-4 flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 text-[9px] text-gray-500 shrink-0">
-                                        {si + 1}
-                                      </span>
-                                      <div className="flex items-center gap-1 flex-1 min-w-0">
-                                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot(step.status)}`} />
-                                        <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{step.description}</span>
-                                      </div>
-                                      <span className="text-[9px] text-gray-400">{step.status}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                      {outputContent === null ? (
+                        <div className="flex items-center justify-center py-6">
+                          <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                         </div>
+                      ) : (
+                        <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap overflow-auto max-h-[360px] font-mono bg-gray-50 dark:bg-gray-700/50 p-2 rounded border">
+                          {outputContent || "(无输出)"}
+                        </pre>
                       )}
                     </div>
+                  )}
 
-                    {/* Flows 流程图 */}
-                    <div>
-                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">流程图 (Flow)</span>
-                      {flows.length === 0 ? (
-                        <p className="text-xs text-gray-400 text-center py-3">暂无流程图</p>
-                      ) : (
-                        <div className="space-y-2 mt-2">
-                          {flows.map((flow: any) => (
-                            <div key={flow.flowId} className="border border-gray-200 dark:border-gray-700 rounded p-2">
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <span className={`w-1.5 h-1.5 rounded-full ${statusDot(flow.status)}`} />
-                                <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{flow.goal || flow.flowId}</span>
-                              </div>
-                              <div className="flex items-center gap-2 text-[10px] text-gray-400">
-                                <span>状态: {flow.status}</span>
-                                <span>owner: {flow.ownerKey?.slice(0, 8)}</span>
-                                {flow.currentStep && <span>步骤: {flow.currentStep}</span>}
-                              </div>
-                            </div>
-                          ))}
+                  {/* Chat Tab */}
+                  {detailTab === "chat" && (
+                    <AgentChatPanel
+                      taskId={selectedTask.id}
+                      taskName={selectedTask.name}
+                    />
+                  )}
+
+                  {/* Orchestrate Tab */}
+                  {detailTab === "orchestrate" && (
+                    <div className="space-y-4 max-h-[400px] overflow-y-auto">
+                      {/* PDCA 管线 */}
+                      <PdcaPipeline taskId={selectedTask.id} />
+                      <hr className="border-gray-100 dark:border-gray-700" />
+                      {/* Kanban 看板 */}
+                      <KanbanBoard />
+                      <hr className="border-gray-100 dark:border-gray-700" />
+                      {/* Plans 编排计划 */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                            历史计划 (Plan)
+                          </span>
+                          <button
+                            onClick={loadOrchestrationData}
+                            className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                          >
+                            刷新
+                          </button>
                         </div>
-                      )}
+                        {plans.length === 0 ? (
+                          <p className="text-xs text-gray-400 text-center py-3">
+                            暂无编排计划
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {plans.map((plan: any) => (
+                              <div
+                                key={plan.id}
+                                className="border border-gray-200 dark:border-gray-700 rounded p-2"
+                              >
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${statusDot(plan.status)}`}
+                                  />
+                                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">
+                                    {plan.description || plan.id}
+                                  </span>
+                                </div>
+                                {plan.steps && (
+                                  <div className="space-y-1">
+                                    {plan.steps.map((step: any, si: number) => (
+                                      <div
+                                        key={step.id}
+                                        className="flex items-center gap-1.5"
+                                      >
+                                        <span className="w-4 h-4 flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 text-[9px] text-gray-500 shrink-0">
+                                          {si + 1}
+                                        </span>
+                                        <div className="flex items-center gap-1 flex-1 min-w-0">
+                                          <span
+                                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot(step.status)}`}
+                                          />
+                                          <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                                            {step.description}
+                                          </span>
+                                        </div>
+                                        <span className="text-[9px] text-gray-400">
+                                          {step.status}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Flows 流程图 */}
+                      <div>
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                          流程图 (Flow)
+                        </span>
+                        {flows.length === 0 ? (
+                          <p className="text-xs text-gray-400 text-center py-3">
+                            暂无流程图
+                          </p>
+                        ) : (
+                          <div className="space-y-2 mt-2">
+                            {flows.map((flow: any) => (
+                              <div
+                                key={flow.flowId}
+                                className="border border-gray-200 dark:border-gray-700 rounded p-2"
+                              >
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${statusDot(flow.status)}`}
+                                  />
+                                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">
+                                    {flow.goal || flow.flowId}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                                  <span>状态: {flow.status}</span>
+                                  <span>
+                                    owner: {flow.ownerKey?.slice(0, 8)}
+                                  </span>
+                                  {flow.currentStep && (
+                                    <span>步骤: {flow.currentStep}</span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
         )}
 
         {showCreateModal && (
@@ -1622,9 +1789,7 @@ function TaskCenterPage() {
                             setNewTaskForm((prev) => ({
                               ...prev,
                               scheduleType: e.target.value as
-                                | "cron"
-                                | "interval"
-                                | "once",
+                                "cron" | "interval" | "once",
                             }))
                           }
                           className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
@@ -1818,9 +1983,7 @@ function TaskCenterPage() {
                           setNewTemplateForm((prev) => ({
                             ...prev,
                             priority: e.target.value as
-                              | "high"
-                              | "medium"
-                              | "low",
+                              "high" | "medium" | "low",
                           }))
                         }
                         className="px-3 py-2 text-sm bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"

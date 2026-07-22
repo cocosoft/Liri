@@ -11,7 +11,13 @@
 import { useState, useEffect } from "react";
 import FileLink from "../FileLink";
 import { getBackendBaseUrl, getApiSecret } from "../../../services/backendUrl";
-import { matchFilePath, pathResolveCache, pathResolvePending, setPathCache, getCacheKey } from "./pathCache";
+import {
+  matchFilePath,
+  pathResolveCache,
+  pathResolvePending,
+  setPathCache,
+  getCacheKey,
+} from "./pathCache";
 import { useSessionStore } from "../../../stores/sessionStore";
 
 interface InlineCodeLinkProps {
@@ -46,7 +52,9 @@ export function InlineCodeLink({
     const pathLike =
       /^(?:[A-Za-z]:)?[\\/]?(?:[\p{L}\p{N}\w\-.]+[\\/])*[\p{L}\p{N}\w\-.]+\.(?:[a-zA-Z0-9]{1,10})?$/u;
     if (pathLike.test(codeContent) && !checking) {
-      const cacheKey = sessionId ? getCacheKey(sessionId, codeContent) : codeContent;
+      const cacheKey = sessionId
+        ? getCacheKey(sessionId, codeContent)
+        : codeContent;
 
       // 先查缓存（含别名匹配），命中则直接使用
       const cached = pathResolveCache.get(cacheKey);
@@ -64,22 +72,28 @@ export function InlineCodeLink({
       const apiSecret = getApiSecret();
       const headers: Record<string, string> = {};
       if (apiSecret) {
-        headers['X-API-Key'] = apiSecret;
+        headers["X-API-Key"] = apiSecret;
       }
       fetch(`${baseUrl}/api/file/resolve-path?path=${encodedPath}`, { headers })
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           const resolved = data?.resolvedPath || null;
-                      if (resolved) {
+          if (resolved) {
             if (sessionId) {
               setPathCache(sessionId, codeContent, resolved);
             } else {
               // 无 sessionId 时退化为全局缓存
-              pathResolveCache.set(cacheKey, { canonical: resolved, aliases: new Set() });
+              pathResolveCache.set(cacheKey, {
+                canonical: resolved,
+                aliases: new Set(),
+              });
             }
             setConfirmedPath(resolved);
           } else {
-            pathResolveCache.set(cacheKey, { canonical: "", aliases: new Set() });
+            pathResolveCache.set(cacheKey, {
+              canonical: "",
+              aliases: new Set(),
+            });
           }
         })
         .catch(() => {

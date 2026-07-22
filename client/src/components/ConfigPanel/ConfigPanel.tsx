@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useConfigStore } from "../../stores/configStore";
 import { chatService } from "../../services/chatService";
+import { handleClientError } from "../../utils/handleError";
 import type { BackendStatus } from "../../types";
 
 interface ModalProps {
@@ -82,7 +83,8 @@ function BackendControl() {
       const status = await chatService.getBackendStatus();
       setBackendStatus(status);
       setError(null);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "components:config:ConfigPanel", action: "checkBackendStatus" });
       setBackendStatus({ running: false, port: null });
     }
   };

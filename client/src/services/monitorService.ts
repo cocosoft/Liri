@@ -170,26 +170,26 @@ export const monitorService = {
   },
 
   async exportLogs(params: {
-    format?: 'json' | 'csv';
+    format?: "json" | "csv";
     level?: string;
     source?: string;
     search?: string;
   }): Promise<Blob> {
-    const { getBackendBaseUrl } = await import('./backendUrl');
+    const { getBackendBaseUrl } = await import("./backendUrl");
     const baseUrl = getBackendBaseUrl();
-    
+
     const response = await fetch(`${baseUrl}/v1/monitor/logs/export`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(params),
     });
-    
+
     if (!response.ok) {
-      throw new Error('导出失败');
+      throw new Error("导出失败");
     }
-    
+
     return response.blob();
   },
 };

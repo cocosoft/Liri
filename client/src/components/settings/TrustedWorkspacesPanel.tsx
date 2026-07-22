@@ -8,6 +8,7 @@ import {
   TextConfig,
 } from "./ConfigComponents";
 import { httpLegacy as http } from "../../services/httpClient";
+import { handleClientError } from "../../utils/handleError";
 
 /** 工作空间信任级别 */
 type WorkspaceTrustLevel = "chat" | "work" | "development";
@@ -46,12 +47,13 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
   const loadConfig = async () => {
     try {
       const res = await http.get<{ key: string; value: PermissionConfig }>(
-        "/v1/config/permission"
+        "/v1/config/permission",
       );
       if (res?.value) {
         setPermission(res.value);
       }
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "components:settings:TrustedWorkspaces", action: "loadConfig" });
       setError("加载权限配置失败");
     }
   };
@@ -65,7 +67,8 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
       await http.put("/v1/config/permission", { value: permission });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "components:settings:TrustedWorkspaces", action: "saveConfig" });
       setError("保存失败");
     } finally {
       setLoading(false);
@@ -96,7 +99,7 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
     setPermission({
       ...permission,
       trustedWorkspaces: permission.trustedWorkspaces.filter(
-        (_, i) => i !== index
+        (_, i) => i !== index,
       ),
     });
   };
@@ -194,7 +197,9 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
             onChange={() => toggleWorkspace(i)}
           />
           <div className="flex-1 min-w-0">
-            <div className={`text-sm truncate ${ws.enabled ? "" : "opacity-50"}`}>
+            <div
+              className={`text-sm truncate ${ws.enabled ? "" : "opacity-50"}`}
+            >
               {ws.path}
             </div>
             <div className="text-xs text-gray-400">
@@ -222,7 +227,9 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
       ))}
 
       {permission.trustedWorkspaces.length === 0 && (
-        <p className={`text-xs py-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+        <p
+          className={`text-xs py-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+        >
           尚未添加信任工作区。添加后 AI 在该目录内的操作将减少安全拦截。
         </p>
       )}
@@ -236,12 +243,8 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
         >
           {loading ? "保存中..." : "保存配置"}
         </button>
-        {saved && (
-          <span className="text-xs text-green-500">已保存</span>
-        )}
-        {error && (
-          <span className="text-xs text-red-500">{error}</span>
-        )}
+        {saved && <span className="text-xs text-green-500">已保存</span>}
+        {error && <span className="text-xs text-red-500">{error}</span>}
       </div>
     </ConfigSection>
   );

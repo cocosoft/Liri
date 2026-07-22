@@ -1,14 +1,29 @@
 // canvas-editor/types.ts — 核心类型定义
 
 export type CanvasTool =
-  | "pencil" | "eraser" | "line" | "arrow" | "rect" | "roundedRect"
-  | "ellipse" | "polygon" | "star" | "fill" | "text" | "eyedropper"
-  | "select" | "lasso" | "pan";
+  | "pencil"
+  | "eraser"
+  | "line"
+  | "arrow"
+  | "rect"
+  | "roundedRect"
+  | "ellipse"
+  | "polygon"
+  | "star"
+  | "fill"
+  | "text"
+  | "eyedropper"
+  | "select"
+  | "lasso"
+  | "pan";
 
 export interface CanvasPointerEvent {
-  x: number; y: number;
+  x: number;
+  y: number;
   button: number;
-  shiftKey: boolean; ctrlKey: boolean; altKey: boolean;
+  shiftKey: boolean;
+  ctrlKey: boolean;
+  altKey: boolean;
   pressure: number;
 }
 
@@ -20,7 +35,15 @@ export interface ParamSchema {
 }
 
 export interface DrawCommand {
-  type: "stroke" | "shape" | "fill" | "text" | "clear" | "image" | "selection" | "paramChange";
+  type:
+    | "stroke"
+    | "shape"
+    | "fill"
+    | "text"
+    | "clear"
+    | "image"
+    | "selection"
+    | "paramChange";
   bbox: { x: number; y: number; w: number; h: number };
   before: ImageData;
   after: ImageData;
@@ -29,12 +52,16 @@ export interface DrawCommand {
 }
 
 export interface CanvasState {
-  width: number; height: number;
-  zoom: number; offsetX: number; offsetY: number;
+  width: number;
+  height: number;
+  zoom: number;
+  offsetX: number;
+  offsetY: number;
   fitToWindow: boolean;
   activeTool: CanvasTool;
   strokeWidth: number;
-  fgColor: string; bgColor: string;
+  fgColor: string;
+  bgColor: string;
   /** 当前工具的动态参数（由 paramsSchema 驱动） */
   toolParams: Record<string, unknown>;
 }
@@ -44,7 +71,7 @@ export interface Layer {
   id: string;
   name: string;
   visible: boolean;
-  opacity: number;              // 0-1
+  opacity: number; // 0-1
   composite: GlobalCompositeOperation;
   /** 该层的 1:1 像素缓冲 */
   buffer: OffscreenCanvas;

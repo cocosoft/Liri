@@ -17,13 +17,24 @@ const logger = createLogger("workspaceStore");
 
 /** 执行阶段数据 */
 interface ExecutionPhaseData {
-  phase: "analyzing" | "designing" | "implementing" | "verifying" | "presenting" | null;
+  phase:
+    | "analyzing"
+    | "designing"
+    | "implementing"
+    | "verifying"
+    | "presenting"
+    | null;
   progress: number;
   description: string;
 }
 
 interface WorkspaceStore {
-  currentWorkspace: { id: string; path: string; createdAt?: string; updatedAt?: string } | null;
+  currentWorkspace: {
+    id: string;
+    path: string;
+    createdAt?: string;
+    updatedAt?: string;
+  } | null;
   workspaces: WorkspaceListItem[];
   workItems: WorkItem[];
   executionPhase: ExecutionPhaseData | null;
@@ -34,7 +45,10 @@ interface WorkspaceStore {
   listWorkspaces: () => Promise<void>;
   openWorkspace: (workspaceId: string) => Promise<void>;
   createWorkItem: (title: string) => Promise<void>;
-  updateWorkItemStatus: (itemId: string, status: WorkItemStatus) => Promise<void>;
+  updateWorkItemStatus: (
+    itemId: string,
+    status: WorkItemStatus,
+  ) => Promise<void>;
   pauseWorkItem: (itemId: string) => Promise<void>;
   resumeWorkItem: (itemId: string) => Promise<void>;
   submitForReview: (itemId: string) => Promise<void>;
@@ -48,7 +62,12 @@ interface WorkspaceStore {
  * 从 rootStore 派生当前 workspaceStore 镜像状态
  */
 function deriveState(root: ReturnType<typeof useRootStore.getState>): {
-  currentWorkspace: { id: string; path: string; createdAt?: string; updatedAt?: string } | null;
+  currentWorkspace: {
+    id: string;
+    path: string;
+    createdAt?: string;
+    updatedAt?: string;
+  } | null;
   workspaces: WorkspaceListItem[];
   workItems: WorkItem[];
   executionPhase: ExecutionPhaseData | null;
@@ -90,11 +109,16 @@ export const useWorkspaceStore = create<WorkspaceStore>()(() => ({
   listWorkspaces: () => useRootStore.getState().listWorkspaces(),
   openWorkspace: (id) => useRootStore.getState().openWorkspace(id),
   createWorkItem: (title) => useRootStore.getState().createWorkItem(title),
-  updateWorkItemStatus: (itemId, status) => useRootStore.getState().updateWorkItemStatus(itemId, status),
-  pauseWorkItem: (itemId) => useRootStore.getState().updateWorkItemStatus(itemId, "paused"),
-  resumeWorkItem: (itemId) => useRootStore.getState().updateWorkItemStatus(itemId, "running"),
-  submitForReview: (itemId) => useRootStore.getState().updateWorkItemStatus(itemId, "review"),
-  completeWorkItem: (itemId) => useRootStore.getState().updateWorkItemStatus(itemId, "done"),
+  updateWorkItemStatus: (itemId, status) =>
+    useRootStore.getState().updateWorkItemStatus(itemId, status),
+  pauseWorkItem: (itemId) =>
+    useRootStore.getState().updateWorkItemStatus(itemId, "paused"),
+  resumeWorkItem: (itemId) =>
+    useRootStore.getState().updateWorkItemStatus(itemId, "running"),
+  submitForReview: (itemId) =>
+    useRootStore.getState().updateWorkItemStatus(itemId, "review"),
+  completeWorkItem: (itemId) =>
+    useRootStore.getState().updateWorkItemStatus(itemId, "done"),
   checkBackendReady: () => useRootStore.getState().checkBackendReady(),
 
   syncModeFromWorkStore: () => {

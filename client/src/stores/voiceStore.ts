@@ -87,7 +87,10 @@ interface VoiceState {
 let voiceCallbacksRegistered = false;
 
 /** 注册一次性的语音状态变更回调（幂等） */
-function ensureVoiceCallbacksRegistered(set: (partial: Partial<VoiceState>) => void, get: () => VoiceState) {
+function ensureVoiceCallbacksRegistered(
+  set: (partial: Partial<VoiceState>) => void,
+  get: () => VoiceState,
+) {
   if (voiceCallbacksRegistered) return;
   voiceCallbacksRegistered = true;
 
@@ -123,7 +126,11 @@ function ensureVoiceCallbacksRegistered(set: (partial: Partial<VoiceState>) => v
 
     if (!store.isRecording && !store.isProcessing) {
       store.startRecording().catch((e) => {
-        handleClientError(e, { module: 'stores:voiceStore', action: 'wakeWordAutoRecord' }, 'warn');
+        handleClientError(
+          e,
+          { module: "stores:voiceStore", action: "wakeWordAutoRecord" },
+          "warn",
+        );
       });
     }
   });
@@ -174,7 +181,11 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
         const settings = await voiceService.getSettings();
         set({ settings, error: null });
       } catch (e) {
-        handleClientError(e, { module: 'stores:voiceStore', action: 'loadSettings' }, 'warn');
+        handleClientError(
+          e,
+          { module: "stores:voiceStore", action: "loadSettings" },
+          "warn",
+        );
         set({ error: e instanceof Error ? e.message : "加载语音设置失败" });
       }
     },
@@ -184,10 +195,17 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
       if (!settings) return;
       set({ isProcessing: true, error: null });
       try {
-        const updated = await voiceService.updateSettings({ ...settings, ...updates });
+        const updated = await voiceService.updateSettings({
+          ...settings,
+          ...updates,
+        });
         set({ settings: updated });
       } catch (e) {
-        handleClientError(e, { module: 'stores:voiceStore', action: 'updateSettings' }, 'warn');
+        handleClientError(
+          e,
+          { module: "stores:voiceStore", action: "updateSettings" },
+          "warn",
+        );
         set({ error: e instanceof Error ? e.message : "更新语音设置失败" });
       } finally {
         set({ isProcessing: false });
@@ -199,7 +217,11 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
         await connectVoiceWebSocket();
         set({ wsConnected: true, sessionState: "connected" });
       } catch (e) {
-        handleClientError(e, { module: 'stores:voiceStore', action: 'connectWebSocket' }, 'warn');
+        handleClientError(
+          e,
+          { module: "stores:voiceStore", action: "connectWebSocket" },
+          "warn",
+        );
         set({ wsConnected: false });
       }
     },
@@ -219,14 +241,24 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
         const session = await voiceService.startSession();
         set({ currentSession: session, sessionState: "active" });
       } catch (e) {
-        handleClientError(e, { module: 'stores:voiceStore', action: 'startRecording' }, 'warn');
-        set({ error: e instanceof Error ? e.message : "开始录音失败", isRecording: false });
+        handleClientError(
+          e,
+          { module: "stores:voiceStore", action: "startRecording" },
+          "warn",
+        );
+        set({
+          error: e instanceof Error ? e.message : "开始录音失败",
+          isRecording: false,
+        });
       }
     },
 
     stopRecording: async () => {
       const { currentSession } = get();
-      if (!currentSession) { set({ isRecording: false }); return; }
+      if (!currentSession) {
+        set({ isRecording: false });
+        return;
+      }
       set({ isRecording: false, isProcessing: true });
       try {
         await voiceService.endSession(currentSession.id);
@@ -234,7 +266,11 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
 
         get().disconnectWebSocket();
       } catch (e) {
-        handleClientError(e, { module: 'stores:voiceStore', action: 'stopRecording' }, 'warn');
+        handleClientError(
+          e,
+          { module: "stores:voiceStore", action: "stopRecording" },
+          "warn",
+        );
         set({ error: e instanceof Error ? e.message : "停止录音失败" });
       } finally {
         set({ isProcessing: false });
@@ -251,15 +287,23 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
         set({ isPlaying: true });
         const audio = new Audio(audioUrl);
         audio.onended = () => set({ isPlaying: false });
-        audio.onerror = () => { set({ isPlaying: false, error: "音频播放失败" }); };
+        audio.onerror = () => {
+          set({ isPlaying: false, error: "音频播放失败" });
+        };
         await audio.play();
       } catch (e) {
-        handleClientError(e, { module: 'stores:voiceStore', action: 'playResponse' }, 'warn');
+        handleClientError(
+          e,
+          { module: "stores:voiceStore", action: "playResponse" },
+          "warn",
+        );
         set({ isPlaying: false, error: "音频播放失败" });
       }
     },
 
-    stopPlayback: () => { set({ isPlaying: false }); },
+    stopPlayback: () => {
+      set({ isPlaying: false });
+    },
 
     clearError: () => set({ error: null }),
 
@@ -271,22 +315,30 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
 
       if (newEnabled) {
         try {
-          const res = await fetch('/v1/voice/wake/start', { method: 'POST' });
+          const res = await fetch("/v1/voice/wake/start", { method: "POST" });
           if (res.ok) {
             const data = await res.json();
-            set({ wakeWordListening: data.status === 'listening' });
+            set({ wakeWordListening: data.status === "listening" });
 
             await get().connectWakeWordWebSocket();
           }
         } catch (e) {
-          handleClientError(e, { module: 'stores:voiceStore', action: 'toggleWakeWord:start' }, 'warn');
+          handleClientError(
+            e,
+            { module: "stores:voiceStore", action: "toggleWakeWord:start" },
+            "warn",
+          );
           set({ wakeWordEnabled: false, wakeWordListening: false });
         }
       } else {
         try {
-          await fetch('/v1/voice/wake/stop', { method: 'POST' });
+          await fetch("/v1/voice/wake/stop", { method: "POST" });
         } catch (e) {
-          handleClientError(e, { module: 'stores:voiceStore', action: 'toggleWakeWord:stop' }, 'warn');
+          handleClientError(
+            e,
+            { module: "stores:voiceStore", action: "toggleWakeWord:stop" },
+            "warn",
+          );
         }
         get().disconnectWakeWordWebSocket();
         set({ wakeWordListening: false, wakeWordTriggered: null });
@@ -296,13 +348,17 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
     setWakeWordTriggers: async (triggers) => {
       set({ wakeWordTriggers: triggers });
       try {
-        await fetch('/v1/voice/wake/start', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        await fetch("/v1/voice/wake/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ triggers }),
         });
       } catch (e) {
-        handleClientError(e, { module: 'stores:voiceStore', action: 'setWakeWordTriggers' }, 'warn');
+        handleClientError(
+          e,
+          { module: "stores:voiceStore", action: "setWakeWordTriggers" },
+          "warn",
+        );
       }
     },
 
@@ -311,7 +367,11 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
         await connectWakeWordWebSocket();
         set({ wakeWsConnected: true });
       } catch (e) {
-        handleClientError(e, { module: 'stores:voiceStore', action: 'connectWakeWordWebSocket' }, 'warn');
+        handleClientError(
+          e,
+          { module: "stores:voiceStore", action: "connectWakeWordWebSocket" },
+          "warn",
+        );
         set({ wakeWsConnected: false });
       }
     },
@@ -327,7 +387,11 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
         const providers = await voiceService.getTTSProviders();
         set({ ttsProviders: providers });
       } catch (e) {
-        handleClientError(e, { module: 'stores:voiceStore', action: 'loadTTSProviders' }, 'warn');
+        handleClientError(
+          e,
+          { module: "stores:voiceStore", action: "loadTTSProviders" },
+          "warn",
+        );
       }
     },
 
@@ -336,7 +400,11 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
         const voices = await voiceService.getVoices(provider);
         set({ ttsVoices: voices });
       } catch (e) {
-        handleClientError(e, { module: 'stores:voiceStore', action: 'loadTTSVoices' }, 'warn');
+        handleClientError(
+          e,
+          { module: "stores:voiceStore", action: "loadTTSVoices" },
+          "warn",
+        );
       }
     },
 

@@ -19,7 +19,15 @@ interface ModuleCardProps {
 }
 
 /** 办公模块入口卡片 */
-export function ModuleCard({ id, name, icon: IconComp, description, status, statusText, path }: ModuleCardProps) {
+export function ModuleCard({
+  id,
+  name,
+  icon: IconComp,
+  description,
+  status,
+  statusText,
+  path,
+}: ModuleCardProps) {
   const navigate = useNavigate();
 
   return (
@@ -35,7 +43,9 @@ export function ModuleCard({ id, name, icon: IconComp, description, status, stat
           <IconComp className="text-blue-600 dark:text-blue-400" size={20} />
         </div>
         <div>
-          <h2 className="font-semibold text-gray-900 dark:text-white">{name}</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white">
+            {name}
+          </h2>
           <OfficeStatusBadge status={status} text={statusText} />
         </div>
       </div>

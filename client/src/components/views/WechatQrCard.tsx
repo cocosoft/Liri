@@ -74,7 +74,8 @@ function WechatQrCard() {
     wechatCliStatus;
 
   // 已登录或运行中且已有二维码 → 显示成功
-  const isReady = state === "logged_in" || (running && state !== "waiting_scan");
+  const isReady =
+    state === "logged_in" || (running && state !== "waiting_scan");
 
   // 等待扫码状态
   const isWaitingScan = state === "waiting_scan" || !!qrRaw;
@@ -98,16 +99,14 @@ function WechatQrCard() {
 
       {/* 状态描述 */}
       <div className="text-xs text-gray-500 dark:text-gray-400 mb-3 space-y-1">
-        {state === "idle" && <p>weixin-cli 未启动，保存配置后将自动安装并启动。</p>}
+        {state === "idle" && (
+          <p>weixin-cli 未启动，保存配置后将自动安装并启动。</p>
+        )}
         {state === "installing" && <p>正在安装 weixin-cli 插件，请稍候...</p>}
         {state === "installed" && <p>weixin-cli 已安装，正在自动启动...</p>}
         {state === "starting" && <p>正在启动 weixin-cli 服务...</p>}
-        {state === "waiting_scan" && (
-          <p>请使用微信扫描下方二维码完成登录。</p>
-        )}
-        {state === "running" && !qrRaw && (
-          <p>weixin-cli 服务运行中。</p>
-        )}
+        {state === "waiting_scan" && <p>请使用微信扫描下方二维码完成登录。</p>}
+        {state === "running" && !qrRaw && <p>weixin-cli 服务运行中。</p>}
         {state === "logged_in" && <p>微信已登录，消息收发功能正常。</p>}
         {state === "error" && (
           <p className="text-red-500">
@@ -116,7 +115,10 @@ function WechatQrCard() {
         )}
         {running && uptimeSec !== null && (
           <p className="text-gray-400">
-            运行时长: {uptimeSec > 60 ? `${Math.floor(uptimeSec / 60)} 分钟` : `${uptimeSec} 秒`}
+            运行时长:{" "}
+            {uptimeSec > 60
+              ? `${Math.floor(uptimeSec / 60)} 分钟`
+              : `${uptimeSec} 秒`}
           </p>
         )}
       </div>
@@ -141,9 +143,7 @@ function WechatQrCard() {
           <div className="w-48 h-48 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg">
             <div className="text-center p-4">
               <span className="text-3xl">📷</span>
-              <p className="text-xs text-gray-500 mt-2 mt-1">
-                二维码加载中...
-              </p>
+              <p className="text-xs text-gray-500 mt-2 mt-1">二维码加载中...</p>
             </div>
           </div>
           <details className="text-xs w-full">

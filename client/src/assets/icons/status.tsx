@@ -4,7 +4,11 @@ interface BaseIconProps {
   color?: string;
 }
 
-export const ThemeIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const ThemeIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -21,7 +25,11 @@ export const ThemeIcon = ({ className = '', size = 24, color = 'currentColor' }:
   </svg>
 );
 
-export const SettingsIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const SettingsIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -38,7 +46,11 @@ export const SettingsIcon = ({ className = '', size = 24, color = 'currentColor'
   </svg>
 );
 
-export const UserIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const UserIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -55,7 +67,11 @@ export const UserIcon = ({ className = '', size = 24, color = 'currentColor' }: 
   </svg>
 );
 
-export const HelpIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const HelpIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -73,7 +89,11 @@ export const HelpIcon = ({ className = '', size = 24, color = 'currentColor' }: 
   </svg>
 );
 
-export const GaugeIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const GaugeIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -91,7 +111,11 @@ export const GaugeIcon = ({ className = '', size = 24, color = 'currentColor' }:
   </svg>
 );
 
-export const CpuIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const CpuIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -111,7 +135,11 @@ export const CpuIcon = ({ className = '', size = 24, color = 'currentColor' }: B
   </svg>
 );
 
-export const MemoryStickIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const MemoryStickIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -130,5 +158,3 @@ export const MemoryStickIcon = ({ className = '', size = 24, color = 'currentCol
     <path d="M14 22v-3" />
   </svg>
 );
-
-

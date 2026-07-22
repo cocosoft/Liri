@@ -3,7 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAutoUpdate } from "../../hooks/useAutoUpdate";
 import { useConfigStore } from "../../stores/configStore";
-import { DashboardIcon, BellIcon, UserIcon, HelpIcon, SearchIcon } from "../../assets/icons";
+import {
+  DashboardIcon,
+  BellIcon,
+  UserIcon,
+  HelpIcon,
+  SearchIcon,
+} from "../../assets/icons";
 import GlobalSearchModal from "../ChatArea/GlobalSearchModal";
 import WorkspaceSwitcher from "./WorkspaceSwitcher";
 
@@ -169,7 +175,9 @@ function Header() {
                 {result?.available && (
                   <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
                     <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">
-                      {t("header.newVersionFound", { version: result.latestVersion })}
+                      {t("header.newVersionFound", {
+                        version: result.latestVersion,
+                      })}
                     </p>
                     {result.body && (
                       <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5 line-clamp-2">
@@ -195,7 +203,11 @@ function Header() {
       </div>
 
       {/* 全局搜索弹窗（应用级，所有页面可用） */}
-      <GlobalSearchModal isOpen={searchOpen} onClose={handleCloseSearch} isDark={isDark} />
+      <GlobalSearchModal
+        isOpen={searchOpen}
+        onClose={handleCloseSearch}
+        isDark={isDark}
+      />
     </header>
   );
 }

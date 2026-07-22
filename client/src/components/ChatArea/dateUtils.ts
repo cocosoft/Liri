@@ -1,4 +1,5 @@
 import type { Message } from "../../types";
+import { handleClientError } from "../../utils/handleError";
 
 /**
  * 格式化日期标签：今天/昨天/日期（如 2026-07-10）
@@ -11,8 +12,16 @@ export function formatDateLabel(timestamp: number): string {
     const now = new Date();
 
     // 归一化到当天 0 点，比较日期差
-    const dateDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-    const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const dateDay = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+    ).getTime();
+    const nowDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    ).getTime();
     const diffDays = Math.round((nowDay - dateDay) / (24 * 60 * 60 * 1000));
 
     if (diffDays === 0) return "今天";
@@ -28,7 +37,8 @@ export function formatDateLabel(timestamp: number): string {
     }
 
     return `${year}-${month}-${day}`;
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "components:chat:dateUtils", action: "formatDateLabel" });
     // 异常时返回空字符串，由调用方跳过日期分隔线
     return "";
   }
@@ -41,7 +51,10 @@ export function formatDateLabel(timestamp: number): string {
  * @param messages 完整消息列表
  * @returns 是否需要在当前消息前显示日期分隔线
  */
-export function shouldShowDateSeparator(index: number, messages: Message[]): boolean {
+export function shouldShowDateSeparator(
+  index: number,
+  messages: Message[],
+): boolean {
   if (messages.length === 0) return false;
   if (index < 0 || index >= messages.length) return false;
   if (index === 0) return false; // 第一条消息不显示分隔线，SessionHeader 已标明时间
@@ -55,11 +68,20 @@ export function shouldShowDateSeparator(index: number, messages: Message[]): boo
     const currentDate = new Date(current.timestamp);
     const prevDate = new Date(previous.timestamp);
 
-    const currentDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()).getTime();
-    const prevDay = new Date(prevDate.getFullYear(), prevDate.getMonth(), prevDate.getDate()).getTime();
+    const currentDay = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      currentDate.getDate(),
+    ).getTime();
+    const prevDay = new Date(
+      prevDate.getFullYear(),
+      prevDate.getMonth(),
+      prevDate.getDate(),
+    ).getTime();
 
     return currentDay !== prevDay;
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "components:chat:dateUtils", action: "shouldShowDateSeparator" });
     return false;
   }
 }

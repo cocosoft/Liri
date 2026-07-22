@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { semanticService } from "../../services/semanticService";
-import type { SemanticIndexStatus, SemanticSearchResult } from "../../services/semanticService";
+import type {
+  SemanticIndexStatus,
+  SemanticSearchResult,
+} from "../../services/semanticService";
 import { SkeletonCard } from "../common/Skeleton";
 
 /**
@@ -14,7 +17,9 @@ export default function SemanticIndexPage() {
   const [clearing, setClearing] = useState(false);
   const [buildMsg, setBuildMsg] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SemanticSearchResult[]>([]);
+  const [searchResults, setSearchResults] = useState<SemanticSearchResult[]>(
+    [],
+  );
   const [searching, setSearching] = useState(false);
 
   const loadStatus = useCallback(async () => {
@@ -24,7 +29,9 @@ export default function SemanticIndexPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { loadStatus(); }, [loadStatus]);
+  useEffect(() => {
+    loadStatus();
+  }, [loadStatus]);
 
   const handleBuild = async () => {
     setBuilding(true);
@@ -32,7 +39,9 @@ export default function SemanticIndexPage() {
     const result = await semanticService.buildIndex();
     if (result) {
       if (result.ok) {
-        setBuildMsg(`✅ 构建完成 — ${result.chunkCount} 个分块, ${result.embeddedCount} 个嵌入, 耗时 ${(result.durationMs / 1000).toFixed(1)}s`);
+        setBuildMsg(
+          `✅ 构建完成 — ${result.chunkCount} 个分块, ${result.embeddedCount} 个嵌入, 耗时 ${(result.durationMs / 1000).toFixed(1)}s`,
+        );
       } else {
         setBuildMsg(`❌ ${result.error || "构建失败"}`);
       }
@@ -94,25 +103,33 @@ export default function SemanticIndexPage() {
                 <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {status.exists ? "✅" : "❌"}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">索引存在</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  索引存在
+                </p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {status.docCount}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">文档数</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  文档数
+                </p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {status.chunkCount}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">片段数</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  片段数
+                </p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {formatBytes(status.sizeBytes)}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">大小</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  大小
+                </p>
               </div>
             </div>
           ) : (
@@ -138,7 +155,9 @@ export default function SemanticIndexPage() {
           </div>
 
           {buildMsg && (
-            <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">{buildMsg}</p>
+            <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+              {buildMsg}
+            </p>
           )}
         </div>
 

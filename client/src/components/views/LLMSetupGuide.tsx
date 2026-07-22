@@ -28,7 +28,9 @@ export function LLMSetupGuide({ onDismiss }: LLMSetupGuideProps) {
       }
     };
     check();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // 已有模型则自动关闭引导
@@ -58,9 +60,18 @@ export function LLMSetupGuide({ onDismiss }: LLMSetupGuideProps) {
       <div className="max-w-md w-full mx-4 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 text-center">
         {/* 图标 */}
         <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
-          <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          <svg
+            className="w-8 h-8 text-white"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+            />
           </svg>
         </div>
 
@@ -68,12 +79,14 @@ export function LLMSetupGuide({ onDismiss }: LLMSetupGuideProps) {
           尚未配置 AI 模型
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-6">
-          Liri 需要至少配置一个 AI 供应商才能正常使用。
-          请在模型管理页面添加你的 API 密钥和模型。
+          Liri 需要至少配置一个 AI 供应商才能正常使用。 请在模型管理页面添加你的
+          API 密钥和模型。
         </p>
 
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 mb-6 text-left">
-          <p className="text-xs text-blue-700 dark:text-blue-300 font-medium mb-2">快速开始：</p>
+          <p className="text-xs text-blue-700 dark:text-blue-300 font-medium mb-2">
+            快速开始：
+          </p>
           <ol className="text-xs text-blue-600 dark:text-blue-400 space-y-1.5 list-decimal list-inside">
             <li>点击「添加供应商」选择你的 AI 服务商</li>
             <li>填入 API 密钥和接口地址</li>

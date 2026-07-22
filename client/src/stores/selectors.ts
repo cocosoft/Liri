@@ -15,7 +15,7 @@ import type { SessionRecord, Worktree } from "./root-store/types";
 /** 当前工作空间 */
 export const selectCurrentWorktree = (state: RootState): Worktree | null => {
   return state.currentWorktreeId
-    ? state.worktrees[state.currentWorktreeId] ?? null
+    ? (state.worktrees[state.currentWorktreeId] ?? null)
     : null;
 };
 
@@ -36,10 +36,10 @@ export const selectRecentWorktrees = (state: RootState): Worktree[] => {
 
 /** 当前活跃会话 */
 export const selectCurrentSession = (
-  state: RootState
+  state: RootState,
 ): SessionRecord | null => {
   return state.currentSessionId
-    ? state.sessions[state.currentSessionId] ?? null
+    ? (state.sessions[state.currentSessionId] ?? null)
     : null;
 };
 
@@ -50,26 +50,24 @@ export const selectSessionsByCurrentWorktreeAndType =
     const wtId = state.currentWorktreeId;
     if (!wtId) return [];
     return Object.values(state.sessions).filter(
-      (s) => s.worktreeId === wtId && s.moduleType === moduleType
+      (s) => s.worktreeId === wtId && s.moduleType === moduleType,
     );
   };
 
 /** 当前 worktree 下所有 session */
 export const selectSessionsByCurrentWorktree = (
-  state: RootState
+  state: RootState,
 ): SessionRecord[] => {
   const wtId = state.currentWorktreeId;
   if (!wtId) return [];
-  return Object.values(state.sessions).filter(
-    (s) => s.worktreeId === wtId
-  );
+  return Object.values(state.sessions).filter((s) => s.worktreeId === wtId);
 };
 
 /** 按模块类型筛选的 session 列表 */
 export const selectSessionsByModule = (moduleType: string) => {
   return (state: RootState): SessionRecord[] => {
     return Object.values(state.sessions).filter(
-      (s) => s.moduleType === moduleType
+      (s) => s.moduleType === moduleType,
     );
   };
 };

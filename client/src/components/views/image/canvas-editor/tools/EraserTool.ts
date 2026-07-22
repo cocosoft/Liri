@@ -7,7 +7,12 @@ export class EraserTool implements CanvasToolHandler {
   readonly id: CanvasTool = "eraser";
   readonly cursor = "cell";
   readonly paramsSchema: ParamSchema[] = [
-    { name: "transparent", type: "boolean", default: false, labelKey: "透明擦" },
+    {
+      name: "transparent",
+      type: "boolean",
+      default: false,
+      labelKey: "透明擦",
+    },
   ];
 
   private isErasing = false;
@@ -32,8 +37,12 @@ export class EraserTool implements CanvasToolHandler {
     this.bbox = {
       x: Math.min(this.bbox.x, e.x - r),
       y: Math.min(this.bbox.y, e.y - r),
-      w: Math.max(this.bbox.x + this.bbox.w, e.x + r) - Math.min(this.bbox.x, e.x - r),
-      h: Math.max(this.bbox.y + this.bbox.h, e.y + r) - Math.min(this.bbox.y, e.y - r),
+      w:
+        Math.max(this.bbox.x + this.bbox.w, e.x + r) -
+        Math.min(this.bbox.x, e.x - r),
+      h:
+        Math.max(this.bbox.y + this.bbox.h, e.y + r) -
+        Math.min(this.bbox.y, e.y - r),
     };
 
     // Interactive 层预览
@@ -92,9 +101,14 @@ export class EraserTool implements CanvasToolHandler {
     ctx.commands.execute({
       type: "stroke",
       bbox: { x, y, w, h },
-      before, after,
-      apply: (ctx2) => { ctx2.putImageData(after, x, y); },
-      revert: (ctx2) => { ctx2.putImageData(before, x, y); },
+      before,
+      after,
+      apply: (ctx2) => {
+        ctx2.putImageData(after, x, y);
+      },
+      revert: (ctx2) => {
+        ctx2.putImageData(before, x, y);
+      },
     });
 
     this.path = null;

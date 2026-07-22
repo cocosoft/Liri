@@ -169,33 +169,50 @@ function SkillDetail({
               </div>
             )}
             {/* 致谢区域：展示作者、许可证与致谢信息 */}
-            {frontmatter && (frontmatter.author || frontmatter.license || frontmatter.acknowledgements) ? (
-              <div className={`mt-3 pt-3 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}>
-                <h4 className={`text-xs font-medium mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+            {frontmatter &&
+            (frontmatter.author ||
+              frontmatter.license ||
+              frontmatter.acknowledgements) ? (
+              <div
+                className={`mt-3 pt-3 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}
+              >
+                <h4
+                  className={`text-xs font-medium mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                >
                   致谢
                 </h4>
                 {frontmatter.author ? (
                   <div className="flex items-center justify-between">
-                    <span className={isDark ? "text-gray-400" : "text-gray-600"}>
+                    <span
+                      className={isDark ? "text-gray-400" : "text-gray-600"}
+                    >
                       作者
                     </span>
-                    <span className={isDark ? "text-gray-200" : "text-gray-800"}>
+                    <span
+                      className={isDark ? "text-gray-200" : "text-gray-800"}
+                    >
                       {String(frontmatter.author as string)}
                     </span>
                   </div>
                 ) : null}
                 {frontmatter.license ? (
                   <div className="flex items-center justify-between">
-                    <span className={isDark ? "text-gray-400" : "text-gray-600"}>
+                    <span
+                      className={isDark ? "text-gray-400" : "text-gray-600"}
+                    >
                       许可证
                     </span>
-                    <span className={isDark ? "text-gray-200" : "text-gray-800"}>
+                    <span
+                      className={isDark ? "text-gray-200" : "text-gray-800"}
+                    >
                       {String(frontmatter.license as string)}
                     </span>
                   </div>
                 ) : null}
                 {frontmatter.acknowledgements ? (
-                  <div className={`mt-2 text-xs leading-relaxed whitespace-pre-wrap ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                  <div
+                    className={`mt-2 text-xs leading-relaxed whitespace-pre-wrap ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                  >
                     {String(frontmatter.acknowledgements as string)}
                   </div>
                 ) : null}

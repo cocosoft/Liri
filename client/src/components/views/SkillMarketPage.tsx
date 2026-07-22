@@ -88,7 +88,12 @@ function SkillMarketPage() {
   // ── 首次加载 ──────────────────────────────────────
 
   useEffect(() => {
-    Promise.all([loadInstalled(), loadRecommended(), loadCategories(), loadSources()]).finally(() => {
+    Promise.all([
+      loadInstalled(),
+      loadRecommended(),
+      loadCategories(),
+      loadSources(),
+    ]).finally(() => {
       setIsLoadingHome(false);
     });
   }, [loadInstalled, loadRecommended, loadCategories, loadSources]);
@@ -273,7 +278,10 @@ function SkillMarketPage() {
         const existingNames = new Set(installed.map((s) => s.meta.name));
         const duplicates = skills.filter((s) => existingNames.has(s.name));
         if (duplicates.length > 0) {
-          addToast("warning", `以下技能已存在，将被覆盖: ${duplicates.map((d) => d.name).join(", ")}`);
+          addToast(
+            "warning",
+            `以下技能已存在，将被覆盖: ${duplicates.map((d) => d.name).join(", ")}`,
+          );
         }
 
         await skillService.importSkills(skills);
@@ -533,7 +541,7 @@ function SkillMarketPage() {
                     : "bg-yellow-50 text-yellow-700 hover:bg-yellow-100 border border-yellow-200"
                 }`}
               >
-              {t("skill.updateAll")}
+                {t("skill.updateAll")}
               </button>
             )}
             <button
@@ -913,35 +921,65 @@ function SkillMarketPage() {
             {isLoadingHome ? (
               <>
                 <div>
-                  <div className={`h-4 w-24 rounded mb-3 ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
+                  <div
+                    className={`h-4 w-24 rounded mb-3 ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`}
+                  />
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {[1, 2, 3].map((i) => (
-                      <div key={i} className={`p-4 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+                      <div
+                        key={i}
+                        className={`p-4 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+                      >
                         <div className="flex items-center gap-2 mb-2">
-                          <div className={`w-8 h-8 rounded-lg ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
+                          <div
+                            className={`w-8 h-8 rounded-lg ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`}
+                          />
                           <div className="flex-1 space-y-1.5">
-                            <div className={`h-3 w-24 rounded ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
-                            <div className={`h-2.5 w-16 rounded ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
+                            <div
+                              className={`h-3 w-24 rounded ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`}
+                            />
+                            <div
+                              className={`h-2.5 w-16 rounded ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`}
+                            />
                           </div>
                         </div>
                         <div className="space-y-1.5 mb-3">
-                          <div className={`h-2.5 w-full rounded ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
-                          <div className={`h-2.5 w-3/4 rounded ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
+                          <div
+                            className={`h-2.5 w-full rounded ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`}
+                          />
+                          <div
+                            className={`h-2.5 w-3/4 rounded ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`}
+                          />
                         </div>
-                        <div className={`h-7 w-full rounded-lg ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
+                        <div
+                          className={`h-7 w-full rounded-lg ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`}
+                        />
                       </div>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <div className={`h-4 w-24 rounded mb-3 ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
-                  <div className={`rounded-lg border divide-y ${isDark ? "bg-gray-800 border-gray-700 divide-gray-700" : "bg-white border-gray-200 divide-gray-200"}`}>
+                  <div
+                    className={`h-4 w-24 rounded mb-3 ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`}
+                  />
+                  <div
+                    className={`rounded-lg border divide-y ${isDark ? "bg-gray-800 border-gray-700 divide-gray-700" : "bg-white border-gray-200 divide-gray-200"}`}
+                  >
                     {[1, 2, 3].map((i) => (
-                      <div key={i} className="px-4 py-3 flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex-shrink-0 ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
+                      <div
+                        key={i}
+                        className="px-4 py-3 flex items-center gap-3"
+                      >
+                        <div
+                          className={`w-8 h-8 rounded-lg flex-shrink-0 ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`}
+                        />
                         <div className="flex-1 space-y-1.5">
-                          <div className={`h-3 w-32 rounded ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
-                          <div className={`h-2.5 w-20 rounded ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`} />
+                          <div
+                            className={`h-3 w-32 rounded ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`}
+                          />
+                          <div
+                            className={`h-2.5 w-20 rounded ${isDark ? "bg-gray-700" : "bg-gray-200"} animate-pulse`}
+                          />
                         </div>
                       </div>
                     ))}
@@ -950,240 +988,252 @@ function SkillMarketPage() {
               </>
             ) : (
               <>
-            {/* 推荐技能 */}
-            {recommended.length > 0 && (
-              <div>
-                <h2
-                  className={`text-sm font-semibold mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}
-                >
-                  {t("skill.recommended")}
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {recommended.map((r) => (
-                    <div
-                      key={r.skill.id}
-                      className={`p-4 rounded-lg border cursor-pointer transition-colors ${
-                        isDark
-                          ? "bg-gray-800 border-gray-700 hover:bg-gray-700"
-                          : "bg-white border-gray-200 hover:bg-gray-50"
-                      }`}
-                      onClick={() => handleShowDetail(r.skill)}
+                {/* 推荐技能 */}
+                {recommended.length > 0 && (
+                  <div>
+                    <h2
+                      className={`text-sm font-semibold mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}
                     >
-                      <div className="flex items-center gap-2 mb-2">
+                      {t("skill.recommended")}
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {recommended.map((r) => (
                         <div
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? "bg-gray-700" : "bg-gray-100"}`}
+                          key={r.skill.id}
+                          className={`p-4 rounded-lg border cursor-pointer transition-colors ${
+                            isDark
+                              ? "bg-gray-800 border-gray-700 hover:bg-gray-700"
+                              : "bg-white border-gray-200 hover:bg-gray-50"
+                          }`}
+                          onClick={() => handleShowDetail(r.skill)}
                         >
-                          <svg
-                            className="w-4 h-4 text-gray-500"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M13 10V3L4 14h7v7l9-11h-7z"
-                            />
-                          </svg>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3
-                            className={`text-sm font-medium truncate ${isDark ? "text-gray-200" : "text-gray-800"}`}
-                          >
-                            {r.skill.name}
-                          </h3>
-                          <span
-                            className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
-                          >
-                            {r.skill.author} · v{r.skill.version}
-                          </span>
-                        </div>
-                      </div>
-                      <p
-                        className={`text-xs line-clamp-2 mb-3 ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                      >
-                        {r.skill.description}
-                      </p>
-                      <div onClick={(e) => e.stopPropagation()}>
-                        {isInstalled(r.skill.id) ? (
-                          <div className="flex items-center justify-between">
-                            {getStatusBadge(r.skill.id)}
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() =>
-                                  handleToggle(
-                                    r.skill.id,
-                                    !isEnabled(r.skill.id),
-                                  )
-                                }
-                                disabled={operatingId === r.skill.id}
-                                className={`px-2 py-1 text-xs rounded transition-colors ${
-                                  isEnabled(r.skill.id)
-                                    ? "bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300"
-                                    : "bg-blue-600 hover:bg-blue-700 text-white"
-                                } disabled:opacity-50`}
+                          <div className="flex items-center gap-2 mb-2">
+                            <div
+                              className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? "bg-gray-700" : "bg-gray-100"}`}
+                            >
+                              <svg
+                                className="w-4 h-4 text-gray-500"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
                               >
-                                {isEnabled(r.skill.id) ? t("common.disable") : t("common.enable")}
-                              </button>
-                              <button
-                                onClick={() => setUninstallTarget(r.skill.id)}
-                                disabled={operatingId === r.skill.id}
-                                className="px-2 py-1 text-xs rounded bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 transition-colors disabled:opacity-50"
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                                />
+                              </svg>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3
+                                className={`text-sm font-medium truncate ${isDark ? "text-gray-200" : "text-gray-800"}`}
                               >
-                                {t("skill.uninstall")}
-                              </button>
+                                {r.skill.name}
+                              </h3>
+                              <span
+                                className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
+                              >
+                                {r.skill.author} · v{r.skill.version}
+                              </span>
                             </div>
                           </div>
-                        ) : (
-                          <button
-                            onClick={() => handleInstall(r.skill.id)}
-                            disabled={operatingId === r.skill.id}
-                            className={`w-full py-1.5 text-xs rounded-lg font-medium transition-colors ${
-                              operatingId === r.skill.id
-                                ? "bg-blue-400 text-white cursor-not-allowed"
-                                : "bg-blue-600 hover:bg-blue-700 text-white"
-                            }`}
+                          <p
+                            className={`text-xs line-clamp-2 mb-3 ${isDark ? "text-gray-400" : "text-gray-500"}`}
                           >
-                            {operatingId === r.skill.id ? t("common.installing") : t("skill.install")}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 已安装技能 */}
-            {installed.length > 0 && (
-              <div>
-                <h2
-                  className={`text-sm font-semibold mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}
-                >
-                  已安装技能 ({installed.length})
-                </h2>
-                <div
-                  className={`rounded-lg border divide-y ${isDark ? "bg-gray-800 border-gray-700 divide-gray-700" : "bg-white border-gray-200 divide-gray-200"}`}
-                >
-                  {installed.map((s) => (
-                    <div
-                      key={s.meta.id}
-                      className="px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isDark ? "bg-gray-700" : "bg-gray-100"}`}
-                        >
-                          <svg
-                            className="w-4 h-4 text-gray-500"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M13 10V3L4 14h7v7l9-11h-7z"
-                            />
-                          </svg>
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`text-sm font-medium truncate ${isDark ? "text-gray-200" : "text-gray-800"}`}
-                            >
-                              {s.meta.name}
-                            </span>
-                            {s.hasUpdate && (
-                              <span
-                                className={`px-1.5 py-0.5 text-xs rounded-full flex-shrink-0 ${
-                                  isDark
-                                    ? "bg-yellow-900/30 text-yellow-400"
-                                    : "bg-yellow-100 text-yellow-700"
+                            {r.skill.description}
+                          </p>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            {isInstalled(r.skill.id) ? (
+                              <div className="flex items-center justify-between">
+                                {getStatusBadge(r.skill.id)}
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() =>
+                                      handleToggle(
+                                        r.skill.id,
+                                        !isEnabled(r.skill.id),
+                                      )
+                                    }
+                                    disabled={operatingId === r.skill.id}
+                                    className={`px-2 py-1 text-xs rounded transition-colors ${
+                                      isEnabled(r.skill.id)
+                                        ? "bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300"
+                                        : "bg-blue-600 hover:bg-blue-700 text-white"
+                                    } disabled:opacity-50`}
+                                  >
+                                    {isEnabled(r.skill.id)
+                                      ? t("common.disable")
+                                      : t("common.enable")}
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      setUninstallTarget(r.skill.id)
+                                    }
+                                    disabled={operatingId === r.skill.id}
+                                    className="px-2 py-1 text-xs rounded bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 transition-colors disabled:opacity-50"
+                                  >
+                                    {t("skill.uninstall")}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleInstall(r.skill.id)}
+                                disabled={operatingId === r.skill.id}
+                                className={`w-full py-1.5 text-xs rounded-lg font-medium transition-colors ${
+                                  operatingId === r.skill.id
+                                    ? "bg-blue-400 text-white cursor-not-allowed"
+                                    : "bg-blue-600 hover:bg-blue-700 text-white"
                                 }`}
                               >
-                                {t("skill.hasUpdate")}
-                              </span>
-                            )}
-                            {s.enabled ? (
-                              <span
-                                className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0"
-                                title={t("skill.enabled")}
-                              />
-                            ) : (
-                              <span
-                                className="w-1.5 h-1.5 rounded-full bg-gray-400 flex-shrink-0"
-                                title="已禁用"
-                              />
+                                {operatingId === r.skill.id
+                                  ? t("common.installing")
+                                  : t("skill.install")}
+                              </button>
                             )}
                           </div>
-                          <span
-                            className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
-                          >
-                            v{s.meta.version} · {s.meta.author}
-                          </span>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {s.hasUpdate && (
-                          <button
-                            onClick={() => handleUpdate(s.meta.id)}
-                            disabled={updatingIds.has(s.meta.id)}
-                            className={`px-2 py-1 text-xs rounded transition-colors ${
-                              isDark
-                                ? "bg-yellow-900/30 text-yellow-400 hover:bg-yellow-800/30"
-                                : "bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
-                            }`}
-                          >
-                            {updatingIds.has(s.meta.id) ? "更新中..." : "更新"}
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleToggle(s.meta.id, !s.enabled)}
-                          disabled={operatingId === s.meta.id}
-                          className={`px-2 py-1 text-xs rounded transition-colors ${
-                            s.enabled
-                              ? "bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300"
-                              : "bg-blue-600 hover:bg-blue-700 text-white"
-                          } disabled:opacity-50`}
-                        >
-                          {s.enabled ? t("common.disable") : t("common.enable")}
-                        </button>
-                        <button
-                          onClick={() => handleClone(s.meta.id)}
-                          disabled={operatingId === s.meta.id}
-                          title={t("skill.clone")}
-                          className="px-2 py-1 text-xs rounded bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-400 transition-colors disabled:opacity-50"
-                        >
-                          {t("skill.clone")}
-                        </button>
-                        <button
-                          onClick={() => setUninstallTarget(s.meta.id)}
-                          disabled={operatingId === s.meta.id}
-                          className="px-2 py-1 text-xs rounded bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 transition-colors disabled:opacity-50"
-                        >
-                          {t("skill.uninstall")}
-                        </button>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                  </div>
+                )}
 
-            {/* 完全空状态（无推荐无已安装） */}
-            {recommended.length === 0 && installed.length === 0 && (
-              <div className="text-center py-12">
-                <div className="text-4xl mb-3">🔍</div>
-                <p
-                  className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                >
-                  {t("skill.searchMarketHint")}
-                </p>
-              </div>
-            )}
+                {/* 已安装技能 */}
+                {installed.length > 0 && (
+                  <div>
+                    <h2
+                      className={`text-sm font-semibold mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}
+                    >
+                      已安装技能 ({installed.length})
+                    </h2>
+                    <div
+                      className={`rounded-lg border divide-y ${isDark ? "bg-gray-800 border-gray-700 divide-gray-700" : "bg-white border-gray-200 divide-gray-200"}`}
+                    >
+                      {installed.map((s) => (
+                        <div
+                          key={s.meta.id}
+                          className="px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div
+                              className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isDark ? "bg-gray-700" : "bg-gray-100"}`}
+                            >
+                              <svg
+                                className="w-4 h-4 text-gray-500"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                                />
+                              </svg>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`text-sm font-medium truncate ${isDark ? "text-gray-200" : "text-gray-800"}`}
+                                >
+                                  {s.meta.name}
+                                </span>
+                                {s.hasUpdate && (
+                                  <span
+                                    className={`px-1.5 py-0.5 text-xs rounded-full flex-shrink-0 ${
+                                      isDark
+                                        ? "bg-yellow-900/30 text-yellow-400"
+                                        : "bg-yellow-100 text-yellow-700"
+                                    }`}
+                                  >
+                                    {t("skill.hasUpdate")}
+                                  </span>
+                                )}
+                                {s.enabled ? (
+                                  <span
+                                    className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0"
+                                    title={t("skill.enabled")}
+                                  />
+                                ) : (
+                                  <span
+                                    className="w-1.5 h-1.5 rounded-full bg-gray-400 flex-shrink-0"
+                                    title="已禁用"
+                                  />
+                                )}
+                              </div>
+                              <span
+                                className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
+                              >
+                                v{s.meta.version} · {s.meta.author}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {s.hasUpdate && (
+                              <button
+                                onClick={() => handleUpdate(s.meta.id)}
+                                disabled={updatingIds.has(s.meta.id)}
+                                className={`px-2 py-1 text-xs rounded transition-colors ${
+                                  isDark
+                                    ? "bg-yellow-900/30 text-yellow-400 hover:bg-yellow-800/30"
+                                    : "bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
+                                }`}
+                              >
+                                {updatingIds.has(s.meta.id)
+                                  ? "更新中..."
+                                  : "更新"}
+                              </button>
+                            )}
+                            <button
+                              onClick={() =>
+                                handleToggle(s.meta.id, !s.enabled)
+                              }
+                              disabled={operatingId === s.meta.id}
+                              className={`px-2 py-1 text-xs rounded transition-colors ${
+                                s.enabled
+                                  ? "bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300"
+                                  : "bg-blue-600 hover:bg-blue-700 text-white"
+                              } disabled:opacity-50`}
+                            >
+                              {s.enabled
+                                ? t("common.disable")
+                                : t("common.enable")}
+                            </button>
+                            <button
+                              onClick={() => handleClone(s.meta.id)}
+                              disabled={operatingId === s.meta.id}
+                              title={t("skill.clone")}
+                              className="px-2 py-1 text-xs rounded bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-400 transition-colors disabled:opacity-50"
+                            >
+                              {t("skill.clone")}
+                            </button>
+                            <button
+                              onClick={() => setUninstallTarget(s.meta.id)}
+                              disabled={operatingId === s.meta.id}
+                              className="px-2 py-1 text-xs rounded bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 transition-colors disabled:opacity-50"
+                            >
+                              {t("skill.uninstall")}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 完全空状态（无推荐无已安装） */}
+                {recommended.length === 0 && installed.length === 0 && (
+                  <div className="text-center py-12">
+                    <div className="text-4xl mb-3">🔍</div>
+                    <p
+                      className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                    >
+                      {t("skill.searchMarketHint")}
+                    </p>
+                  </div>
+                )}
               </>
             )}
           </div>

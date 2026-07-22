@@ -84,7 +84,11 @@ export const PRESETS: ProviderPreset[] = [
       requiresAuth: true,
       category: "official",
     },
-    theme: { icon: "anthropic", backgroundColor: "#d97757", textColor: "#ffffff" },
+    theme: {
+      icon: "anthropic",
+      backgroundColor: "#d97757",
+      textColor: "#ffffff",
+    },
   },
   {
     name: "Google Gemini",
@@ -133,7 +137,11 @@ export const PRESETS: ProviderPreset[] = [
       requiresAuth: true,
       category: "official",
     },
-    theme: { icon: "deepseek", backgroundColor: "#4f6ef7", textColor: "#ffffff" },
+    theme: {
+      icon: "deepseek",
+      backgroundColor: "#4f6ef7",
+      textColor: "#ffffff",
+    },
   },
   {
     name: "Grok",
@@ -181,7 +189,11 @@ export const PRESETS: ProviderPreset[] = [
       requiresAuth: true,
       category: "aggregator",
     },
-    theme: { icon: "openrouter", backgroundColor: "#7b3fe4", textColor: "#ffffff" },
+    theme: {
+      icon: "openrouter",
+      backgroundColor: "#7b3fe4",
+      textColor: "#ffffff",
+    },
   },
   {
     name: "Together AI",
@@ -204,7 +216,11 @@ export const PRESETS: ProviderPreset[] = [
       requiresAuth: true,
       category: "aggregator",
     },
-    theme: { icon: "together", backgroundColor: "#6366f1", textColor: "#ffffff" },
+    theme: {
+      icon: "together",
+      backgroundColor: "#6366f1",
+      textColor: "#ffffff",
+    },
   },
   {
     name: "Fireworks AI",
@@ -227,7 +243,11 @@ export const PRESETS: ProviderPreset[] = [
       requiresAuth: true,
       category: "aggregator",
     },
-    theme: { icon: "fireworks", backgroundColor: "#f97316", textColor: "#ffffff" },
+    theme: {
+      icon: "fireworks",
+      backgroundColor: "#f97316",
+      textColor: "#ffffff",
+    },
   },
   {
     name: "Groq",
@@ -275,7 +295,11 @@ export const PRESETS: ProviderPreset[] = [
       requiresAuth: true,
       category: "third_party",
     },
-    theme: { icon: "mistral", backgroundColor: "#fca5a5", textColor: "#1a1a2e" },
+    theme: {
+      icon: "mistral",
+      backgroundColor: "#fca5a5",
+      textColor: "#1a1a2e",
+    },
   },
   {
     name: "Perplexity",
@@ -298,7 +322,11 @@ export const PRESETS: ProviderPreset[] = [
       requiresAuth: true,
       category: "third_party",
     },
-    theme: { icon: "perplexity", backgroundColor: "#1d4ed8", textColor: "#ffffff" },
+    theme: {
+      icon: "perplexity",
+      backgroundColor: "#1d4ed8",
+      textColor: "#ffffff",
+    },
   },
   {
     name: "Cohere",
@@ -344,7 +372,11 @@ export const PRESETS: ProviderPreset[] = [
       requiresAuth: true,
       category: "cn_official",
     },
-    theme: { icon: "siliconflow", backgroundColor: "#0ea5e9", textColor: "#ffffff" },
+    theme: {
+      icon: "siliconflow",
+      backgroundColor: "#0ea5e9",
+      textColor: "#ffffff",
+    },
   },
   {
     name: "智谱AI (GLM)",
@@ -401,9 +433,7 @@ export const PRESETS: ProviderPreset[] = [
     apiFormat: "openai",
     providerType: "qianfan",
     requiresOAuth: false,
-    endpointCandidates: [
-      "https://qianfan.baidubce.com/v2",
-    ],
+    endpointCandidates: ["https://qianfan.baidubce.com/v2"],
     settingsConfig: {
       name: "百度千帆",
       providerType: "qianfan",
@@ -414,7 +444,11 @@ export const PRESETS: ProviderPreset[] = [
       requiresAuth: true,
       category: "cn_official",
     },
-    theme: { icon: "qianfan", backgroundColor: "#2932e1", textColor: "#ffffff" },
+    theme: {
+      icon: "qianfan",
+      backgroundColor: "#2932e1",
+      textColor: "#ffffff",
+    },
   },
   {
     name: "Moonshot (月之暗面)",
@@ -437,7 +471,11 @@ export const PRESETS: ProviderPreset[] = [
       requiresAuth: true,
       category: "cn_official",
     },
-    theme: { icon: "moonshot", backgroundColor: "#8b5cf6", textColor: "#ffffff" },
+    theme: {
+      icon: "moonshot",
+      backgroundColor: "#8b5cf6",
+      textColor: "#ffffff",
+    },
   },
 
   // ═══════════════════════ Local ═══════════════════════
@@ -489,7 +527,11 @@ export const PRESETS: ProviderPreset[] = [
       requiresAuth: false,
       category: "third_party",
     },
-    theme: { icon: "lmstudio", backgroundColor: "#e11d48", textColor: "#ffffff" },
+    theme: {
+      icon: "lmstudio",
+      backgroundColor: "#e11d48",
+      textColor: "#ffffff",
+    },
   },
   {
     name: "LocalAI",
@@ -514,7 +556,11 @@ export const PRESETS: ProviderPreset[] = [
       requiresAuth: false,
       category: "third_party",
     },
-    theme: { icon: "localai", backgroundColor: "#0891b2", textColor: "#ffffff" },
+    theme: {
+      icon: "localai",
+      backgroundColor: "#0891b2",
+      textColor: "#ffffff",
+    },
   },
 ];
 

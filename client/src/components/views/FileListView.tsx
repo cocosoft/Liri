@@ -40,9 +40,15 @@ function FileListView() {
   } = useFileStore();
 
   const [searchText, setSearchText] = useState("");
-  const [activeSource, setActiveSource] = useState<string | undefined>(undefined);
-  const [storeZone, setStoreZone] = useState<StoreZone | string | undefined>("inbound");
-  const [selectedFile, setSelectedFile] = useState<FileRegistryRecord | null>(null);
+  const [activeSource, setActiveSource] = useState<string | undefined>(
+    undefined,
+  );
+  const [storeZone, setStoreZone] = useState<StoreZone | string | undefined>(
+    "inbound",
+  );
+  const [selectedFile, setSelectedFile] = useState<FileRegistryRecord | null>(
+    null,
+  );
 
   /** 执行搜索 */
   const doSearch = useCallback(() => {
@@ -85,7 +91,20 @@ function FileListView() {
   const getFileIcon = (record: FileRegistryRecord) => {
     const ext = record.originalName.split(".").pop()?.toLowerCase() || "";
     const imageExts = ["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"];
-    const codeExts = ["js", "ts", "tsx", "jsx", "py", "java", "cpp", "c", "go", "rs", "rb", "php"];
+    const codeExts = [
+      "js",
+      "ts",
+      "tsx",
+      "jsx",
+      "py",
+      "java",
+      "cpp",
+      "c",
+      "go",
+      "rs",
+      "rb",
+      "php",
+    ];
     const docExts = ["md", "markdown", "txt", "pdf", "doc", "docx"];
     const archiveExts = ["zip", "tar", "gz", "rar", "7z"];
 
@@ -105,17 +124,29 @@ function FileListView() {
   /** 获取来源颜色 */
   const getSourceColor = (source: string): string => {
     const colors: Record<string, string> = {
-      upload: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-      channel_telegram: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
-      tool_write: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-      tool_download: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-      tool_generate: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-      auto_ingest: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400",
-      artifact: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400",
-      notebook: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
-      archive_extracted: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+      upload:
+        "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+      channel_telegram:
+        "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+      tool_write:
+        "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+      tool_download:
+        "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+      tool_generate:
+        "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+      auto_ingest:
+        "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400",
+      artifact:
+        "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400",
+      notebook:
+        "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+      archive_extracted:
+        "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
     };
-    return colors[source] || "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400";
+    return (
+      colors[source] ||
+      "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+    );
   };
 
   return (
@@ -125,18 +156,23 @@ function FileListView() {
         <div className="flex items-center gap-3">
           <SearchInput
             value={searchText}
-            onChange={(v) => { setSearchText(v); }}
+            onChange={(v) => {
+              setSearchText(v);
+            }}
             placeholder="FTS 全文搜索..."
             className="flex-1"
           />
           <button
-            onClick={() => { doSearch(); searchRegistry(); }}
+            onClick={() => {
+              doSearch();
+              searchRegistry();
+            }}
             className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
             搜索
           </button>
           <button
-            onClick={() => setViewMode('directory')}
+            onClick={() => setViewMode("directory")}
             className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
           >
             返回目录
@@ -145,14 +181,19 @@ function FileListView() {
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* 来源筛选 */}
-          <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">来源:</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">
+            来源:
+          </span>
           {SOURCE_GROUPS.map((group) => {
             const sources = group.sources ?? [];
             return (
               <button
                 key={group.label}
                 onClick={() => {
-                  const newSource = activeSource === sources[0] ? undefined : (sources[0] || undefined);
+                  const newSource =
+                    activeSource === sources[0]
+                      ? undefined
+                      : sources[0] || undefined;
                   setActiveSource(newSource);
                 }}
                 className={`px-2 py-0.5 text-xs rounded-full transition-colors ${
@@ -170,37 +211,57 @@ function FileListView() {
 
         <div className="flex items-center gap-2">
           {/* 存储分区筛选 */}
-          <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">分区:</span>
-          {(['inbound', 'media', 'artifact', 'notebook'] as const).map((zone) => (
-            <button
-              key={zone}
-              onClick={() => setStoreZone(storeZone === zone ? undefined : zone)}
-              className={`px-2 py-0.5 text-xs rounded-full transition-colors ${
-                storeZone === zone
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600"
-              }`}
-            >
-              {zone === 'inbound' ? '入站' : zone === 'media' ? '媒体' : zone === 'artifact' ? '制品' : '笔记本'}
-            </button>
-          ))}
+          <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">
+            分区:
+          </span>
+          {(["inbound", "media", "artifact", "notebook"] as const).map(
+            (zone) => (
+              <button
+                key={zone}
+                onClick={() =>
+                  setStoreZone(storeZone === zone ? undefined : zone)
+                }
+                className={`px-2 py-0.5 text-xs rounded-full transition-colors ${
+                  storeZone === zone
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600"
+                }`}
+              >
+                {zone === "inbound"
+                  ? "入站"
+                  : zone === "media"
+                    ? "媒体"
+                    : zone === "artifact"
+                      ? "制品"
+                      : "笔记本"}
+              </button>
+            ),
+          )}
         </div>
       </div>
 
       {/* 统计信息 */}
       <div className="px-6 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
         <span className="text-sm text-gray-500 dark:text-gray-400">
-            共 <strong className="text-gray-900 dark:text-gray-100">{registryTotal ?? 0}</strong> 条记录
-            {(registryResults ?? []).length < (registryTotal ?? 0) && (
-              <span className="ml-1">（已显示 {(registryResults ?? []).length} 条）</span>
-            )}
-          </span>
+          共{" "}
+          <strong className="text-gray-900 dark:text-gray-100">
+            {registryTotal ?? 0}
+          </strong>{" "}
+          条记录
+          {(registryResults ?? []).length < (registryTotal ?? 0) && (
+            <span className="ml-1">
+              （已显示 {(registryResults ?? []).length} 条）
+            </span>
+          )}
+        </span>
       </div>
 
       {/* 文件列表 */}
       <div className="flex-1 overflow-y-auto p-4">
         {registryLoading && (registryResults ?? []).length === 0 ? (
-          <div className="text-center py-12 text-gray-500 dark:text-gray-400">加载中...</div>
+          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+            加载中...
+          </div>
         ) : error ? (
           <div className="text-center py-12 text-red-500">{error}</div>
         ) : (registryResults ?? []).length === 0 ? (
@@ -216,7 +277,11 @@ function FileListView() {
               {registryResults.map((record) => (
                 <div
                   key={record.fileId}
-                  onClick={() => setSelectedFile(selectedFile?.fileId === record.fileId ? null : record)}
+                  onClick={() =>
+                    setSelectedFile(
+                      selectedFile?.fileId === record.fileId ? null : record,
+                    )
+                  }
                   className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
                     selectedFile?.fileId === record.fileId
                       ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
@@ -225,7 +290,9 @@ function FileListView() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span className="text-xl flex-shrink-0">{getFileIcon(record)}</span>
+                      <span className="text-xl flex-shrink-0">
+                        {getFileIcon(record)}
+                      </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-gray-900 dark:text-gray-100 truncate">
@@ -248,7 +315,9 @@ function FileListView() {
                         </div>
                       </div>
                     </div>
-                    <span className={`flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded ${getSourceColor(record.source)}`}>
+                    <span
+                      className={`flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded ${getSourceColor(record.source)}`}
+                    >
                       {getSourceLabel(record.source)}
                     </span>
                   </div>
@@ -259,24 +328,34 @@ function FileListView() {
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>
                           <span className="text-gray-400">来源 ID：</span>
-                          <span className="text-gray-700 dark:text-gray-300">{record.sourceId || "-"}</span>
+                          <span className="text-gray-700 dark:text-gray-300">
+                            {record.sourceId || "-"}
+                          </span>
                         </div>
                         <div>
                           <span className="text-gray-400">存储分区：</span>
-                          <span className="text-gray-700 dark:text-gray-300">{record.storeZone}</span>
+                          <span className="text-gray-700 dark:text-gray-300">
+                            {record.storeZone}
+                          </span>
                         </div>
                         <div>
                           <span className="text-gray-400">MD5：</span>
-                          <code className="text-xs text-gray-700 dark:text-gray-300">{record.md5 || "-"}</code>
+                          <code className="text-xs text-gray-700 dark:text-gray-300">
+                            {record.md5 || "-"}
+                          </code>
                         </div>
                         <div>
                           <span className="text-gray-400">文件 ID：</span>
-                          <code className="text-xs text-gray-700 dark:text-gray-300">{record.fileId}</code>
+                          <code className="text-xs text-gray-700 dark:text-gray-300">
+                            {record.fileId}
+                          </code>
                         </div>
-                        {record.storeZone === 'inbound' && (
+                        {record.storeZone === "inbound" && (
                           <div className="col-span-2">
                             <span className="text-gray-400">保存路径：</span>
-                            <code className="text-xs text-gray-600 dark:text-gray-400 break-all">{record.savedPath}</code>
+                            <code className="text-xs text-gray-600 dark:text-gray-400 break-all">
+                              {record.savedPath}
+                            </code>
                           </div>
                         )}
                       </div>
@@ -291,13 +370,17 @@ function FileListView() {
                         >
                           复制路径
                         </button>
-                        {record.storeZone !== 'media' && (
+                        {record.storeZone !== "media" && (
                           <button
                             onClick={async (e) => {
                               e.stopPropagation();
                               try {
-                                await useFileStore.getState().saveToKnowledge(record.savedPath);
-                              } catch (_) { /* ignore */ }
+                                await useFileStore
+                                  .getState()
+                                  .saveToKnowledge(record.savedPath);
+                              } catch (_) {
+                                /* ignore */
+                              }
                             }}
                             className="px-3 py-1 text-xs bg-orange-500 hover:bg-orange-600 text-white rounded-md transition-colors"
                           >

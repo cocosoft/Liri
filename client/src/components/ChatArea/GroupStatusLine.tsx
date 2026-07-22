@@ -14,7 +14,8 @@ function GroupStatusLine({
   isStreaming?: boolean;
 }) {
   const isRunning = content.includes("Running");
-  const isCompleted = content.includes("completed") || content.includes("\u{2705}");
+  const isCompleted =
+    content.includes("completed") || content.includes("\u{2705}");
 
   const textColor = isRunning
     ? "text-amber-300"
@@ -38,10 +39,7 @@ function GroupStatusLine({
       >
         {content}
         {isStreaming && (
-          <span
-            className="ml-0.5"
-            style={STYLES.blinkCursor}
-          >
+          <span className="ml-0.5" style={STYLES.blinkCursor}>
             |
           </span>
         )}

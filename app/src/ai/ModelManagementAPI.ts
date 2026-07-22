@@ -1195,7 +1195,8 @@ async function handleListModels(
         requiresAuth: matchingProvider.requiresAuth,
         type: modelType,
         context_length: getModelContextWindow(pr.modelId),
-        enabled: pr.enabled !== undefined ? pr.enabled : matchingProvider.isActive,
+        enabled:
+          pr.enabled !== undefined ? pr.enabled : matchingProvider.isActive,
         pricing: {
           inputPer1M: pr.inputCostPerMillion,
           outputPer1M: pr.outputCostPerMillion,
@@ -1701,7 +1702,8 @@ async function handleListCapabilities(
       ? url.searchParams.get('enabled') === 'true'
       : undefined;
 
-    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const { getCapabilityService } =
+      await import('./services/CapabilityService.js');
     const service = getCapabilityService();
     await service.init();
 
@@ -1726,7 +1728,8 @@ async function handleGetCapability(
 ): Promise<void> {
   const key = decodeURIComponent(match![1]);
   try {
-    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const { getCapabilityService } =
+      await import('./services/CapabilityService.js');
     const service = getCapabilityService();
     await service.init();
 
@@ -1756,7 +1759,8 @@ async function handleCreateCapability(
   try {
     const body = (await parseBody(req)) as Record<string, unknown>;
 
-    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const { getCapabilityService } =
+      await import('./services/CapabilityService.js');
     const service = getCapabilityService();
     await service.init();
 
@@ -1798,7 +1802,8 @@ async function handleUpdateCapability(
   try {
     const body = (await parseBody(req)) as Record<string, unknown>;
 
-    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const { getCapabilityService } =
+      await import('./services/CapabilityService.js');
     const service = getCapabilityService();
     await service.init();
 
@@ -1823,8 +1828,12 @@ async function handleUpdateCapability(
       module: 'ai:modelManagement',
       action: 'updateCapability',
     });
-    const status = (err as any)?.errorCode === 'CAPS_005' ? 404 :
-                   (err as any)?.errorCode === 'CAPS_006' ? 409 : 500;
+    const status =
+      (err as any)?.errorCode === 'CAPS_005'
+        ? 404
+        : (err as any)?.errorCode === 'CAPS_006'
+          ? 409
+          : 500;
     sendError(res, `更新能力失败: ${(err as Error).message}`, status);
   }
 }
@@ -1839,7 +1848,8 @@ async function handleDeleteCapability(
 ): Promise<void> {
   const key = decodeURIComponent(match![1]);
   try {
-    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const { getCapabilityService } =
+      await import('./services/CapabilityService.js');
     const service = getCapabilityService();
     await service.init();
 
@@ -1869,7 +1879,8 @@ async function handleBatchCapabilities(
       return;
     }
 
-    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const { getCapabilityService } =
+      await import('./services/CapabilityService.js');
     const service = getCapabilityService();
     await service.init();
 
@@ -1893,7 +1904,8 @@ async function handleGetTaskMappings(
   _match: RegExpMatchArray | null
 ): Promise<void> {
   try {
-    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const { getCapabilityService } =
+      await import('./services/CapabilityService.js');
     const service = getCapabilityService();
     await service.init();
 
@@ -1923,7 +1935,8 @@ async function handleUpdateTaskMappings(
       return;
     }
 
-    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const { getCapabilityService } =
+      await import('./services/CapabilityService.js');
     const service = getCapabilityService();
     await service.init();
 
@@ -1957,11 +1970,15 @@ async function handleValidateCapabilities(
       return;
     }
 
-    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const { getCapabilityService } =
+      await import('./services/CapabilityService.js');
     const service = getCapabilityService();
     await service.init();
 
-    const issues = await service.validateTaskAssignment(body.taskType, body.modelCapabilities);
+    const issues = await service.validateTaskAssignment(
+      body.taskType,
+      body.modelCapabilities
+    );
     sendJson(res, { data: { valid: issues.length === 0, issues } });
   } catch (err) {
     await handleError(err, {
@@ -1981,7 +1998,8 @@ async function handleGetCapabilityCategories(
   _match: RegExpMatchArray | null
 ): Promise<void> {
   try {
-    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const { getCapabilityService } =
+      await import('./services/CapabilityService.js');
     const service = getCapabilityService();
     await service.init();
 
@@ -2463,8 +2481,16 @@ const ROUTES: RouteEntry[] = [
   },
 
   // Capabilities — 特定路由必须在通用路由之前
-  { method: 'GET', pattern: /^\/v1\/models\/capabilities$/, handler: handleListCapabilities },
-  { method: 'POST', pattern: /^\/v1\/models\/capabilities$/, handler: handleCreateCapability },
+  {
+    method: 'GET',
+    pattern: /^\/v1\/models\/capabilities$/,
+    handler: handleListCapabilities,
+  },
+  {
+    method: 'POST',
+    pattern: /^\/v1\/models\/capabilities$/,
+    handler: handleCreateCapability,
+  },
   {
     method: 'GET',
     pattern: /^\/v1\/models\/capabilities\/task-mappings$/,

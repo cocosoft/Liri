@@ -9,27 +9,48 @@
 /** SSE 下发的编排事件类型（不含 orch: 前缀） */
 export type TimelineEventType =
   // DAG 编排
-  | "dag:start" | "dag:task:start" | "dag:task:progress" | "dag:task:end" | "dag:end"
+  | "dag:start"
+  | "dag:task:start"
+  | "dag:task:progress"
+  | "dag:task:end"
+  | "dag:end"
   // Plan 编排
-  | "plan:start" | "plan:step:start" | "plan:step:completed" | "plan:progress" | "plan:completed"
+  | "plan:start"
+  | "plan:step:start"
+  | "plan:step:completed"
+  | "plan:progress"
+  | "plan:completed"
   // AgentChain 编排
-  | "chain:start" | "chain:step" | "chain:end"
+  | "chain:start"
+  | "chain:step"
+  | "chain:end"
   // Council 辩论
-  | "council:start" | "council:round:start" | "council:agent:speaking"
-  | "council:agent:delta" | "council:round" | "council:end" | "council:detail"
+  | "council:start"
+  | "council:round:start"
+  | "council:agent:speaking"
+  | "council:agent:delta"
+  | "council:round"
+  | "council:end"
+  | "council:detail"
   // Swarm 群组
-  | "swarm:dispatch" | "swarm:agent:status" | "swarm:complete"
+  | "swarm:dispatch"
+  | "swarm:agent:status"
+  | "swarm:complete"
   // SubAgent 引擎
-  | "agent:thinking:start" | "agent:thinking:delta" | "agent:thinking:end"
-  | "agent:tool_call:start" | "agent:tool_call:delta" | "agent:tool_call:end";
+  | "agent:thinking:start"
+  | "agent:thinking:delta"
+  | "agent:thinking:end"
+  | "agent:tool_call:start"
+  | "agent:tool_call:delta"
+  | "agent:tool_call:end";
 
 // ========== 事件载荷接口 ==========
 
 /** SSE 下发的原始事件结构 */
 export interface SSETimelineEvent {
-  event: string;       // 原始事件类型（如 orch:council:start）
-  data: unknown;       // 事件载荷
-  timestamp: number;   // 时间戳
+  event: string; // 原始事件类型（如 orch:council:start）
+  data: unknown; // 事件载荷
+  timestamp: number; // 时间戳
 }
 
 /** 前端统一时间线事件 */

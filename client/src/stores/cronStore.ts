@@ -8,8 +8,6 @@ import { cronService } from "../services/cronService";
 import { handleClientError } from "@/utils/handleError";
 import type { CronTask, ScheduleMode } from "../types";
 
-
-
 export type { CronTask, ScheduleMode };
 
 interface CronStore {
@@ -17,7 +15,13 @@ interface CronStore {
   isLoading: boolean;
   error: string | null;
   saving: boolean;
-  schedulerStatus: { running: boolean; lastTickAt?: number; activeJobs: number; totalJobs: number; uptimeMs: number } | null;
+  schedulerStatus: {
+    running: boolean;
+    lastTickAt?: number;
+    activeJobs: number;
+    totalJobs: number;
+    uptimeMs: number;
+  } | null;
   statusLoading: boolean;
 
   loadTasks: () => Promise<void>;
@@ -57,7 +61,11 @@ export const useCronStore = create<CronStore>()((set) => ({
       const tasks = await cronService.list();
       set({ tasks, isLoading: false });
     } catch (e) {
-      handleClientError(e, { module: 'stores:cronStore', action: 'loadTasks' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:cronStore", action: "loadTasks" },
+        "warn",
+      );
       set({ error: String(e), isLoading: false });
     }
   },
@@ -68,7 +76,11 @@ export const useCronStore = create<CronStore>()((set) => ({
       const status = await cronService.getStatus();
       set({ schedulerStatus: status, statusLoading: false });
     } catch (e) {
-      handleClientError(e, { module: 'stores:cronStore', action: 'loadStatus' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:cronStore", action: "loadStatus" },
+        "warn",
+      );
       set({ schedulerStatus: null, statusLoading: false });
     }
   },
@@ -79,7 +91,11 @@ export const useCronStore = create<CronStore>()((set) => ({
       const created = await cronService.create(task as any);
       set((state) => ({ tasks: [...state.tasks, created] }));
     } catch (e) {
-      handleClientError(e, { module: 'stores:cronStore', action: 'createTask' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:cronStore", action: "createTask" },
+        "warn",
+      );
       set({ error: String(e) });
     } finally {
       set({ saving: false });
@@ -94,7 +110,11 @@ export const useCronStore = create<CronStore>()((set) => ({
         tasks: state.tasks.map((t) => (t.id === id ? updated : t)),
       }));
     } catch (e) {
-      handleClientError(e, { module: 'stores:cronStore', action: 'updateTask' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:cronStore", action: "updateTask" },
+        "warn",
+      );
       set({ error: String(e) });
     } finally {
       set({ saving: false });
@@ -107,7 +127,11 @@ export const useCronStore = create<CronStore>()((set) => ({
       await cronService.delete(id);
       set((state) => ({ tasks: state.tasks.filter((t) => t.id !== id) }));
     } catch (e) {
-      handleClientError(e, { module: 'stores:cronStore', action: 'deleteTask' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:cronStore", action: "deleteTask" },
+        "warn",
+      );
       set({ error: String(e) });
     } finally {
       set({ saving: false });
@@ -122,7 +146,11 @@ export const useCronStore = create<CronStore>()((set) => ({
         tasks: state.tasks.map((t) => (t.id === id ? updated : t)),
       }));
     } catch (e) {
-      handleClientError(e, { module: 'stores:cronStore', action: 'toggleTask' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:cronStore", action: "toggleTask" },
+        "warn",
+      );
       set({ error: String(e) });
     } finally {
       set({ saving: false });
@@ -134,7 +162,11 @@ export const useCronStore = create<CronStore>()((set) => ({
     try {
       await cronService.runNow(id);
     } catch (e) {
-      handleClientError(e, { module: 'stores:cronStore', action: 'runTaskNow' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:cronStore", action: "runTaskNow" },
+        "warn",
+      );
       set({ error: String(e) });
     } finally {
       set({ saving: false });

@@ -45,7 +45,7 @@ export function VoiceSelector({
       setLoading(true);
       try {
         const response = await fetch(
-          `${getBackendBaseUrl()}/v1/voice/voices?provider=${encodeURIComponent(provider)}`
+          `${getBackendBaseUrl()}/v1/voice/voices?provider=${encodeURIComponent(provider)}`,
         );
         const data = await response.json();
         if (Array.isArray(data)) {
@@ -125,18 +125,16 @@ export function VoiceSelector({
       )}
 
       {/* 无可选格式时的只读标签 */}
-      {supportedFormats &&
-        supportedFormats.length > 0 &&
-        !onFormatChange && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              音频格式
-            </label>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {supportedFormats.join(", ")}
-            </p>
-          </div>
-        )}
+      {supportedFormats && supportedFormats.length > 0 && !onFormatChange && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            音频格式
+          </label>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {supportedFormats.join(", ")}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

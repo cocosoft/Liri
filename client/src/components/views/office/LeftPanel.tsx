@@ -20,7 +20,7 @@ export function LeftPanel() {
   const handleCardClick = useCallback(
     (prompt: string) => {
       const chatInput = document.querySelector<HTMLTextAreaElement>(
-        '[data-office-chat-input]',
+        "[data-office-chat-input]",
       );
       if (chatInput) {
         chatInput.focus();

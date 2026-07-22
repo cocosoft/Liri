@@ -4,8 +4,9 @@
  * 封装 /v1/translate 和 /v1/translate/history 的 HTTP 调用。
  */
 
-import { httpLegacy as http } from './httpClient';
-import { getBackendBaseUrl, getApiSecret } from './backendUrl';
+import { httpLegacy as http } from "./httpClient";
+import { getBackendBaseUrl, getApiSecret } from "./backendUrl";
+import { handleClientError } from "../utils/handleError";
 
 /** 翻译请求参数 */
 export interface TranslateParams {
@@ -73,8 +74,8 @@ export const translateService = {
   /** 执行翻译 */
   async translate(params: TranslateParams): Promise<TranslateResult> {
     const response = await http.post<{ data: TranslateResult }>(
-      '/v1/translate',
-      params
+      "/v1/translate",
+      params,
     );
     return response.data;
   },
@@ -92,16 +93,16 @@ export const translateService = {
     onDone: (result: TranslateResult) => void,
     onError: (error: string, canFallback: boolean) => void,
   ): AbortController {
-    const baseUrl = getBackendBaseUrl().replace(/\/+$/, '');
+    const baseUrl = getBackendBaseUrl().replace(/\/+$/, "");
     const url = `${baseUrl}/v1/translate/stream`;
 
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Accept: 'text/event-stream',
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
     };
     const secret = getApiSecret();
     if (secret) {
-      headers['X-API-Key'] = secret;
+      headers["X-API-Key"] = secret;
     }
 
     const controller = new AbortController();
@@ -110,56 +111,58 @@ export const translateService = {
     const doFetch = async (): Promise<void> => {
       try {
         const res = await fetch(url, {
-          method: 'POST',
+          method: "POST",
           headers,
           body: JSON.stringify(params),
           signal: controller.signal,
         });
 
         if (!res.ok) {
-          const text = await res.text().catch(() => '');
+          const text = await res.text().catch(() => "");
           onError(`HTTP ${res.status}: ${text.slice(0, 200)}`, false);
           return;
         }
 
         if (!res.body) {
-          onError('响应体为空', false);
+          onError("响应体为空", false);
           return;
         }
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
-        let buffer = '';
+        let buffer = "";
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
 
           for (const line of lines) {
             const trimmed = line.trim();
-            if (!trimmed || !trimmed.startsWith('data: ')) continue;
+            if (!trimmed || !trimmed.startsWith("data: ")) continue;
 
             try {
               const chunk = JSON.parse(trimmed.slice(6));
-              if (chunk.type === 'token') {
+              if (chunk.type === "token") {
                 onToken(chunk.token);
-              } else if (chunk.type === 'done') {
+              } else if (chunk.type === "done") {
                 onDone(chunk.result);
                 retryCount = 0; // 成功，重置
-              } else if (chunk.type === 'error') {
+              } else if (chunk.type === "error") {
                 onError(chunk.message, true);
               }
-            } catch {
+            } catch (e) {
+              handleClientError(e, { module: "services:translate", action: "streamTranslate-parseLine" });
               // 跳过无法解析的行
             }
           }
         }
       } catch (err) {
-        if ((err as Error).name === 'AbortError') return;
+        handleClientError(err, { module: "services:translate", action: "streamTranslate-fetch" });
+        if ((err as Error).name === "AbortError") return;
 
         // 自动重试 1 次
         if (retryCount < 1 && !controller.signal.aborted) {
@@ -169,8 +172,8 @@ export const translateService = {
         }
 
         onError(
-          (err as Error).message || '流式翻译失败',
-          retryCount > 0 // 已重试过，允许降级
+          (err as Error).message || "流式翻译失败",
+          retryCount > 0, // 已重试过，允许降级
         );
       }
     };
@@ -190,8 +193,8 @@ export const translateService = {
     starred?: boolean;
   }): Promise<TranslateHistoryPage> {
     const response = await http.get<{ data: TranslateHistoryPage }>(
-      '/v1/translate/history',
-      { params }
+      "/v1/translate/history",
+      { params },
     );
     return response.data;
   },
@@ -199,7 +202,7 @@ export const translateService = {
   /** 切换收藏状态 */
   async toggleStar(id: string): Promise<boolean> {
     const response = await http.post<{ data: { starred: boolean } }>(
-      `/v1/translate/history/${id}/star`
+      `/v1/translate/history/${id}/star`,
     );
     return response.data.starred;
   },
@@ -207,8 +210,8 @@ export const translateService = {
   /** 批量删除历史记录 */
   async deleteByIds(ids: string[]): Promise<number> {
     const response = await http.post<{ data: { deleted: number } }>(
-      '/v1/translate/history/delete',
-      { ids }
+      "/v1/translate/history/delete",
+      { ids },
     );
     return response.data.deleted;
   },
@@ -221,8 +224,8 @@ export const translateService = {
     context?: string;
   }): Promise<AlternativesResult> {
     const response = await http.post<{ data: AlternativesResult }>(
-      '/v1/translate/alternatives',
-      params
+      "/v1/translate/alternatives",
+      params,
     );
     return response.data;
   },
@@ -233,8 +236,8 @@ export const translateService = {
     targetLang?: string;
   }): Promise<TranslateHistoryRecord[]> {
     const response = await http.get<{ data: TranslateHistoryRecord[] }>(
-      '/v1/translate/history/export',
-      { params }
+      "/v1/translate/history/export",
+      { params },
     );
     return response.data;
   },

@@ -5,7 +5,12 @@ import { useToastStore } from "../../stores/toastStore";
 import { SkeletonTable } from "../common/Skeleton";
 import SearchInput from "../common/SearchInput";
 import { fileService } from "../../services/fileService";
-import type { FileEntry, FileCategory, FilePreview, FileStats } from "../../types";
+import type {
+  FileEntry,
+  FileCategory,
+  FilePreview,
+  FileStats,
+} from "../../types";
 import type { FileReadDetail } from "../../services/fileService";
 import FileListView from "./FileListView";
 import DirectoryTree from "./DirectoryTree";
@@ -20,7 +25,8 @@ function formatSize(bytes?: number): string {
   if (bytes === undefined || bytes === null) return "";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
@@ -40,27 +46,60 @@ function formatDate(ts?: number): string {
 type ViewMode = "grid" | "list";
 
 /** 分类配置 */
-const CATEGORY_CONFIG: Record<FileCategory, { label: string; icon: string; color: string; path: string }> = {
-  all:         { label: "全部",       icon: "🗂️", color: "bg-gray-500",    path: "" },
-  output:      { label: "AI 输出",    icon: "📤", color: "bg-blue-500",    path: "output" },
-  downloads:   { label: "下载材料",   icon: "📥", color: "bg-green-500",   path: "downloads" },
-  attachments: { label: "上传文件",   icon: "📁", color: "bg-purple-500",  path: "attachments" },
-  knowledge:   { label: "知识库",     icon: "📚", color: "bg-orange-500",  path: "knowledge" },
-  memory:      { label: "记忆",       icon: "🧠", color: "bg-pink-500",    path: "memory" },
-  inbound:     { label: "入站",       icon: "📥", color: "bg-teal-500",    path: "inbound" },
-  media:       { label: "媒体",       icon: "🎬", color: "bg-red-500",     path: "media" },
-  artifact:    { label: "制品",       icon: "🔧", color: "bg-indigo-500",  path: "artifact" },
-  notebook:    { label: "笔记本",     icon: "📓", color: "bg-yellow-500",  path: "notebook" },
+const CATEGORY_CONFIG: Record<
+  FileCategory,
+  { label: string; icon: string; color: string; path: string }
+> = {
+  all: { label: "全部", icon: "🗂️", color: "bg-gray-500", path: "" },
+  output: {
+    label: "AI 输出",
+    icon: "📤",
+    color: "bg-blue-500",
+    path: "output",
+  },
+  downloads: {
+    label: "下载材料",
+    icon: "📥",
+    color: "bg-green-500",
+    path: "downloads",
+  },
+  attachments: {
+    label: "上传文件",
+    icon: "📁",
+    color: "bg-purple-500",
+    path: "attachments",
+  },
+  knowledge: {
+    label: "知识库",
+    icon: "📚",
+    color: "bg-orange-500",
+    path: "knowledge",
+  },
+  memory: { label: "记忆", icon: "🧠", color: "bg-pink-500", path: "memory" },
+  inbound: { label: "入站", icon: "📥", color: "bg-teal-500", path: "inbound" },
+  media: { label: "媒体", icon: "🎬", color: "bg-red-500", path: "media" },
+  artifact: {
+    label: "制品",
+    icon: "🔧",
+    color: "bg-indigo-500",
+    path: "artifact",
+  },
+  notebook: {
+    label: "笔记本",
+    icon: "📓",
+    color: "bg-yellow-500",
+    path: "notebook",
+  },
 };
 
 /** 目录树根配置 */
 const TREE_ROOTS = [
-  { key: "all",         label: "全部文件",  path: "",           icon: "🗂️" },
-  { key: "output",      label: "AI 输出",    path: "output",      icon: "📤" },
-  { key: "downloads",   label: "下载材料",   path: "downloads",   icon: "📥" },
-  { key: "attachments", label: "上传文件",   path: "attachments", icon: "📁" },
-  { key: "knowledge",   label: "知识库",     path: "knowledge",   icon: "📚" },
-  { key: "memory",      label: "记忆",       path: "memory",      icon: "🧠" },
+  { key: "all", label: "全部文件", path: "", icon: "🗂️" },
+  { key: "output", label: "AI 输出", path: "output", icon: "📤" },
+  { key: "downloads", label: "下载材料", path: "downloads", icon: "📥" },
+  { key: "attachments", label: "上传文件", path: "attachments", icon: "📁" },
+  { key: "knowledge", label: "知识库", path: "knowledge", icon: "📚" },
+  { key: "memory", label: "记忆", path: "memory", icon: "🧠" },
 ];
 
 /**
@@ -118,7 +157,10 @@ function FileExplorerPage() {
         // 加载失败时重试
         if (retryCountRef.current < MAX_RETRIES) {
           retryCountRef.current++;
-          const delay = Math.min(1000 * Math.pow(2, retryCountRef.current - 1), 8000);
+          const delay = Math.min(
+            1000 * Math.pow(2, retryCountRef.current - 1),
+            8000,
+          );
           setTimeout(loadWithRetry, delay);
         }
       }
@@ -126,7 +168,10 @@ function FileExplorerPage() {
 
     loadWithRetry();
     loadWorkspaces();
-    fileService.getFileStats().then(setFileStats).catch(() => {});
+    fileService
+      .getFileStats()
+      .then(setFileStats)
+      .catch(() => {});
   }, []);
 
   /** 过滤和排序条目 */
@@ -144,50 +189,93 @@ function FileExplorerPage() {
   }, [entries, searchQuery]);
 
   /** 获取文件预览类型 */
-  const getFilePreviewType = useCallback((fileName: string): FilePreview["type"] => {
-    const ext = fileName.split(".").pop()?.toLowerCase() || "";
-    const imageExts = ["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"];
-    const codeExts = ["js", "ts", "tsx", "jsx", "py", "java", "cpp", "c", "go", "rs", "rb", "php",
-      "swift", "kt", "scala", "hs", "lua", "pl", "pm", "r", "m", "h", "hpp", "css", "scss", "less",
-      "sh", "bash", "zsh", "ps1", "bat", "cmd", "sql", "graphql", "proto", "gradle"];
-    const jsonExts = ["json", "jsonc"];
-    const yamlExts = ["yaml", "yml"];
-    const markdownExts = ["md", "markdown", "mdx"];
-    const pdfExts = ["pdf"];
-    const docxExts = ["docx", "doc"];
-    const pptxExts = ["pptx", "ppt"];
+  const getFilePreviewType = useCallback(
+    (fileName: string): FilePreview["type"] => {
+      const ext = fileName.split(".").pop()?.toLowerCase() || "";
+      const imageExts = ["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"];
+      const codeExts = [
+        "js",
+        "ts",
+        "tsx",
+        "jsx",
+        "py",
+        "java",
+        "cpp",
+        "c",
+        "go",
+        "rs",
+        "rb",
+        "php",
+        "swift",
+        "kt",
+        "scala",
+        "hs",
+        "lua",
+        "pl",
+        "pm",
+        "r",
+        "m",
+        "h",
+        "hpp",
+        "css",
+        "scss",
+        "less",
+        "sh",
+        "bash",
+        "zsh",
+        "ps1",
+        "bat",
+        "cmd",
+        "sql",
+        "graphql",
+        "proto",
+        "gradle",
+      ];
+      const jsonExts = ["json", "jsonc"];
+      const yamlExts = ["yaml", "yml"];
+      const markdownExts = ["md", "markdown", "mdx"];
+      const pdfExts = ["pdf"];
+      const docxExts = ["docx", "doc"];
+      const pptxExts = ["pptx", "ppt"];
 
-    if (imageExts.includes(ext)) return "image";
-    if (pdfExts.includes(ext)) return "pdf";
-    if (docxExts.includes(ext)) return "docx";
-    if (pptxExts.includes(ext)) return "pptx";
-    if (codeExts.includes(ext)) return "code";
-    if (jsonExts.includes(ext)) return "json";
-    if (yamlExts.includes(ext)) return "yaml";
-    if (markdownExts.includes(ext)) return "markdown";
-    return "text";
-  }, []);
+      if (imageExts.includes(ext)) return "image";
+      if (pdfExts.includes(ext)) return "pdf";
+      if (docxExts.includes(ext)) return "docx";
+      if (pptxExts.includes(ext)) return "pptx";
+      if (codeExts.includes(ext)) return "code";
+      if (jsonExts.includes(ext)) return "json";
+      if (yamlExts.includes(ext)) return "yaml";
+      if (markdownExts.includes(ext)) return "markdown";
+      return "text";
+    },
+    [],
+  );
 
   /** 处理文件预览 */
-  const handlePreview = useCallback(async (entry: { name: string; path: string; size?: number }) => {
-    try {
-      setPreviewLoading(true);
-      const detail: FileReadDetail = await fileService.readFileDetail(entry.path);
-      const fileType = getFilePreviewType(entry.name);
+  const handlePreview = useCallback(
+    async (entry: { name: string; path: string; size?: number }) => {
+      try {
+        setPreviewLoading(true);
+        const detail: FileReadDetail = await fileService.readFileDetail(
+          entry.path,
+        );
+        const fileType = getFilePreviewType(entry.name);
 
-      setPreviewFile({
-        name: entry.name,
-        path: entry.path,
-        content: detail.content,
-        type: fileType,
-        size: entry.size,
-      });
-    } catch (e) {
-      addToast("error", `预览失败: ${e}`);
-    } finally {
-      setPreviewLoading(false);
-    }
-  }, [getFilePreviewType, addToast]);
+        setPreviewFile({
+          name: entry.name,
+          path: entry.path,
+          content: detail.content,
+          type: fileType,
+          size: entry.size,
+        });
+      } catch (e) {
+        addToast("error", `预览失败: ${e}`);
+      } finally {
+        setPreviewLoading(false);
+      }
+    },
+    [getFilePreviewType, addToast],
+  );
 
   /** 关闭预览 */
   const closePreview = useCallback(() => {
@@ -195,14 +283,17 @@ function FileExplorerPage() {
   }, []);
 
   /** 处理文件/目录点击 */
-  const handleItemClick = useCallback((entry: FileEntry) => {
-    if (entry.type === "directory") {
-      navigateTo(entry.path);
-      selectFile(null);
-    } else {
-      selectFile({ name: entry.name, path: entry.path });
-    }
-  }, [navigateTo, selectFile]);
+  const handleItemClick = useCallback(
+    (entry: FileEntry) => {
+      if (entry.type === "directory") {
+        navigateTo(entry.path);
+        selectFile(null);
+      } else {
+        selectFile({ name: entry.name, path: entry.path });
+      }
+    },
+    [navigateTo, selectFile],
+  );
 
   /** 处理上传按钮点击 */
   const handleUploadClick = useCallback(() => {
@@ -210,13 +301,16 @@ function FileExplorerPage() {
   }, []);
 
   /** 处理文件选择 */
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      uploadFile(file);
-      e.target.value = "";
-    }
-  }, [uploadFile]);
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        uploadFile(file);
+        e.target.value = "";
+      }
+    },
+    [uploadFile],
+  );
 
   /** 拖拽上传处理 */
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -228,54 +322,72 @@ function FileExplorerPage() {
     setIsDragging(false);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files);
-    files.forEach((file) => uploadFile(file));
-  }, [uploadFile]);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      const files = Array.from(e.dataTransfer.files);
+      files.forEach((file) => uploadFile(file));
+    },
+    [uploadFile],
+  );
 
   /** 发送给 AI */
-  const handleSendToAI = useCallback(async (filePath: string) => {
-    try {
-      await sendToAI(filePath);
-      addToast("success", "文件已发送给 AI 分析");
-      setActivePage("chat");
-    } catch (e) {
-      addToast("error", `发送失败: ${e}`);
-    }
-  }, [sendToAI, addToast, setActivePage]);
+  const handleSendToAI = useCallback(
+    async (filePath: string) => {
+      try {
+        await sendToAI(filePath);
+        addToast("success", "文件已发送给 AI 分析");
+        setActivePage("chat");
+      } catch (e) {
+        addToast("error", `发送失败: ${e}`);
+      }
+    },
+    [sendToAI, addToast, setActivePage],
+  );
 
   /** 存入知识库 */
-  const handleSaveToKnowledge = useCallback(async (filePath: string) => {
-    try {
-      await saveToKnowledge(filePath);
-      addToast("success", "文件已存入知识库");
-    } catch (e) {
-      addToast("error", `存入失败: ${e}`);
-    }
-  }, [saveToKnowledge, addToast]);
+  const handleSaveToKnowledge = useCallback(
+    async (filePath: string) => {
+      try {
+        await saveToKnowledge(filePath);
+        addToast("success", "文件已存入知识库");
+      } catch (e) {
+        addToast("error", `存入失败: ${e}`);
+      }
+    },
+    [saveToKnowledge, addToast],
+  );
 
   /** 存入记忆 */
-  const handleSaveToMemory = useCallback(async (filePath: string) => {
-    try {
-      await saveToMemory(filePath);
-      addToast("success", "文件内容已存入记忆");
-    } catch (e) {
-      addToast("error", `存入失败: ${e}`);
-    }
-  }, [saveToMemory, addToast]);
+  const handleSaveToMemory = useCallback(
+    async (filePath: string) => {
+      try {
+        await saveToMemory(filePath);
+        addToast("success", "文件内容已存入记忆");
+      } catch (e) {
+        addToast("error", `存入失败: ${e}`);
+      }
+    },
+    [saveToMemory, addToast],
+  );
 
   /** 目录树导航 */
-  const handleTreeNavigate = useCallback((path: string) => {
-    navigateTo(path);
-  }, [navigateTo]);
+  const handleTreeNavigate = useCallback(
+    (path: string) => {
+      navigateTo(path);
+    },
+    [navigateTo],
+  );
 
   /** 根目录切换 */
-  const handleRootChange = useCallback((key: string) => {
-    setCategory(key as FileCategory);
-    setShowRegistry(false);
-  }, [setCategory]);
+  const handleRootChange = useCallback(
+    (key: string) => {
+      setCategory(key as FileCategory);
+      setShowRegistry(false);
+    },
+    [setCategory],
+  );
 
   const isFileSelected = (entry: { name: string; path: string }) => {
     return selectedFile?.path === entry.path;
@@ -338,7 +450,10 @@ function FileExplorerPage() {
             onClick={() => {
               setShowRegistry(!showRegistry);
               if (!showRegistry) {
-                fileService.getFileStats().then(setFileStats).catch(() => {});
+                fileService
+                  .getFileStats()
+                  .then(setFileStats)
+                  .catch(() => {});
               }
             }}
             className={`px-4 py-2 text-sm rounded-lg transition-colors ${
@@ -365,9 +480,12 @@ function FileExplorerPage() {
             key={key}
             onClick={() => {
               setCategory(key as FileCategory);
-              if (['inbound', 'media', 'artifact', 'notebook'].includes(key)) {
+              if (["inbound", "media", "artifact", "notebook"].includes(key)) {
                 setShowRegistry(true);
-                fileService.getFileStats().then(setFileStats).catch(() => {});
+                fileService
+                  .getFileStats()
+                  .then(setFileStats)
+                  .catch(() => {});
               } else {
                 setShowRegistry(false);
               }
@@ -408,18 +526,32 @@ function FileExplorerPage() {
               {fileStats && !showRegistry && (
                 <div className="flex items-center gap-6 px-6 py-2 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/10 dark:to-purple-900/10">
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    📁 文件总数: <strong className="text-gray-700 dark:text-gray-300">{fileStats.totalFiles}</strong>
+                    📁 文件总数:{" "}
+                    <strong className="text-gray-700 dark:text-gray-300">
+                      {fileStats.totalFiles}
+                    </strong>
                   </span>
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    📦 总大小: <strong className="text-gray-700 dark:text-gray-300">{formatSize(fileStats.totalSize)}</strong>
+                    📦 总大小:{" "}
+                    <strong className="text-gray-700 dark:text-gray-300">
+                      {formatSize(fileStats.totalSize)}
+                    </strong>
                   </span>
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    📤 今日入站: <strong className="text-gray-700 dark:text-gray-300">{fileStats.todayInbound}</strong>
+                    📤 今日入站:{" "}
+                    <strong className="text-gray-700 dark:text-gray-300">
+                      {fileStats.todayInbound}
+                    </strong>
                   </span>
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    🔁 去重节省: <strong className="text-gray-700 dark:text-gray-300">{fileStats.dedupSaved} 次</strong>
+                    🔁 去重节省:{" "}
+                    <strong className="text-gray-700 dark:text-gray-300">
+                      {fileStats.dedupSaved} 次
+                    </strong>
                     {fileStats.dedupSize > 0 && (
-                      <span className="text-gray-400 ml-1">({formatSize(fileStats.dedupSize)})</span>
+                      <span className="text-gray-400 ml-1">
+                        ({formatSize(fileStats.dedupSize)})
+                      </span>
                     )}
                   </span>
                 </div>
@@ -437,7 +569,11 @@ function FileExplorerPage() {
                   {/* 工作空间选择 */}
                   <div className="relative">
                     <button
-                      onClick={() => setActiveMenu(activeMenu === "workspace" ? null : "workspace")}
+                      onClick={() =>
+                        setActiveMenu(
+                          activeMenu === "workspace" ? null : "workspace",
+                        )
+                      }
                       className="flex items-center gap-2 px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
                     >
                       <span>📁</span>
@@ -454,7 +590,9 @@ function FileExplorerPage() {
                               setActiveMenu(null);
                             }}
                             className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                              currentWorkspace?.id === ws.id ? "bg-blue-50 dark:bg-blue-900/20" : ""
+                              currentWorkspace?.id === ws.id
+                                ? "bg-blue-50 dark:bg-blue-900/20"
+                                : ""
                             }`}
                           >
                             {ws.name}
@@ -473,7 +611,9 @@ function FileExplorerPage() {
                 <div className="flex gap-2">
                   <button
                     onClick={goUp}
-                    disabled={currentPath.split("/").filter(Boolean).length <= 1}
+                    disabled={
+                      currentPath.split("/").filter(Boolean).length <= 1
+                    }
                     className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     上级目录
@@ -512,10 +652,14 @@ function FileExplorerPage() {
                 )}
 
                 {isLoading ? (
-                  <div className="p-6"><SkeletonTable /></div>
+                  <div className="p-6">
+                    <SkeletonTable />
+                  </div>
                 ) : error ? (
                   <div className="text-center py-12 px-6">
-                    <p className="text-red-500 dark:text-red-400 mb-2">{error}</p>
+                    <p className="text-red-500 dark:text-red-400 mb-2">
+                      {error}
+                    </p>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                       请确认后端服务（Liri_coding）是否已正常启动
                     </p>
@@ -677,7 +821,12 @@ interface FilePreviewModalProps {
  * - pdf/docx/pptx: 使用 MarkdownRenderer 渲染后端转换后的文本
  * - text: 纯文本显示
  */
-function FilePreviewModal({ preview, onClose, onSendToAI, onSaveToKnowledge }: FilePreviewModalProps) {
+function FilePreviewModal({
+  preview,
+  onClose,
+  onSendToAI,
+  onSaveToKnowledge,
+}: FilePreviewModalProps) {
   const [copySuccess, setCopySuccess] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -686,7 +835,9 @@ function FilePreviewModal({ preview, onClose, onSendToAI, onSaveToKnowledge }: F
       await navigator.clipboard.writeText(preview.content);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   };
 
   /** 是否为文本类内容（可复制） */
@@ -708,9 +859,18 @@ function FilePreviewModal({ preview, onClose, onSendToAI, onSaveToKnowledge }: F
         <div className="flex-1 overflow-auto p-4 bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
           {imageError ? (
             <div className="text-center text-gray-400 dark:text-gray-500">
-              <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              <svg
+                className="w-12 h-12 mx-auto mb-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+                />
               </svg>
               <p className="text-sm">图片加载失败</p>
             </div>
@@ -770,7 +930,11 @@ function FilePreviewModal({ preview, onClose, onSendToAI, onSaveToKnowledge }: F
   }
 
   // PDF/DOCX/PPTX — 后端已转换为文本，使用 Markdown 渲染
-  if (preview.type === "pdf" || preview.type === "docx" || preview.type === "pptx") {
+  if (
+    preview.type === "pdf" ||
+    preview.type === "docx" ||
+    preview.type === "pptx"
+  ) {
     return (
       <ModalOverlay onClose={onClose}>
         <ModalHeader
@@ -790,7 +954,13 @@ function FilePreviewModal({ preview, onClose, onSendToAI, onSaveToKnowledge }: F
   }
 
   // code / yaml / text — 使用语法高亮渲染
-  const language = preview.language || (preview.type === "yaml" ? "yaml" : preview.type === "code" ? undefined : "text");
+  const language =
+    preview.language ||
+    (preview.type === "yaml"
+      ? "yaml"
+      : preview.type === "code"
+        ? undefined
+        : "text");
   return (
     <ModalOverlay onClose={onClose}>
       <ModalHeader
@@ -812,7 +982,13 @@ function FilePreviewModal({ preview, onClose, onSendToAI, onSaveToKnowledge }: F
 /**
  * 模态框遮罩层
  */
-function ModalOverlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+function ModalOverlay({
+  children,
+  onClose,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
@@ -841,7 +1017,15 @@ interface ModalHeaderProps {
   showCopy: boolean;
 }
 
-function ModalHeader({ preview, onClose, onSendToAI, onSaveToKnowledge, onCopy, copySuccess, showCopy }: ModalHeaderProps) {
+function ModalHeader({
+  preview,
+  onClose,
+  onSendToAI,
+  onSaveToKnowledge,
+  onCopy,
+  copySuccess,
+  showCopy,
+}: ModalHeaderProps) {
   return (
     <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700">
       <div className="flex items-center gap-3 min-w-0">
@@ -880,8 +1064,18 @@ function ModalHeader({ preview, onClose, onSendToAI, onSaveToKnowledge, onCopy, 
           onClick={onClose}
           className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         </button>
       </div>
@@ -894,20 +1088,53 @@ function ModalHeader({ preview, onClose, onSendToAI, onSaveToKnowledge, onCopy, 
  */
 function FileTypeBadge({ type }: { type: FilePreview["type"] }) {
   const badges: Record<string, { label: string; color: string }> = {
-    image: { label: "图片", color: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" },
-    code: { label: "代码", color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
-    markdown: { label: "Markdown", color: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300" },
-    json: { label: "JSON", color: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300" },
-    yaml: { label: "YAML", color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300" },
-    text: { label: "文本", color: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300" },
-    pdf: { label: "PDF", color: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" },
-    docx: { label: "文档", color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
-    pptx: { label: "演示", color: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300" },
+    image: {
+      label: "图片",
+      color:
+        "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+    },
+    code: {
+      label: "代码",
+      color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+    },
+    markdown: {
+      label: "Markdown",
+      color:
+        "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
+    },
+    json: {
+      label: "JSON",
+      color:
+        "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+    },
+    yaml: {
+      label: "YAML",
+      color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300",
+    },
+    text: {
+      label: "文本",
+      color: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
+    },
+    pdf: {
+      label: "PDF",
+      color: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+    },
+    docx: {
+      label: "文档",
+      color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+    },
+    pptx: {
+      label: "演示",
+      color:
+        "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
+    },
   };
   const badge = badges[type] || badges.text;
 
   return (
-    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${badge.color}`}>
+    <span
+      className={`px-2 py-0.5 text-xs font-medium rounded-full ${badge.color}`}
+    >
       {badge.label}
     </span>
   );

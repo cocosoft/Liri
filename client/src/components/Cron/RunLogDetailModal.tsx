@@ -35,8 +35,7 @@ function RunLogDetailModal({
 
   if (!entry) return null;
 
-  const formatTs = (ms: number) =>
-    new Date(ms).toLocaleString();
+  const formatTs = (ms: number) => new Date(ms).toLocaleString();
 
   const formatDuration = (ms?: number) => {
     if (!ms) return "—";
@@ -49,8 +48,10 @@ function RunLogDetailModal({
   };
 
   const getStatusStyle = (status?: string) => {
-    if (status === "ok") return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
-    if (status === "failed") return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+    if (status === "ok")
+      return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+    if (status === "failed")
+      return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
     return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
   };
 
@@ -71,8 +72,18 @@ function RunLogDetailModal({
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -84,7 +95,9 @@ function RunLogDetailModal({
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                 {t("cron.taskName", "Task Name")}
               </label>
-              <p className="text-sm text-gray-900 dark:text-gray-100">{taskName}</p>
+              <p className="text-sm text-gray-900 dark:text-gray-100">
+                {taskName}
+              </p>
             </div>
           )}
 
@@ -131,21 +144,26 @@ function RunLogDetailModal({
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                   {t("cron.model", "Model")}
                 </label>
-                <p className="text-sm text-gray-900 dark:text-gray-100">{entry.model}</p>
+                <p className="text-sm text-gray-900 dark:text-gray-100">
+                  {entry.model}
+                </p>
               </div>
               {entry.provider && (
                 <div>
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                     Provider
                   </label>
-                  <p className="text-sm text-gray-900 dark:text-gray-100">{entry.provider}</p>
+                  <p className="text-sm text-gray-900 dark:text-gray-100">
+                    {entry.provider}
+                  </p>
                 </div>
               )}
             </div>
           )}
 
           {/* Token */}
-          {(entry.inputTokens !== undefined || entry.outputTokens !== undefined) && (
+          {(entry.inputTokens !== undefined ||
+            entry.outputTokens !== undefined) && (
             <div className="grid grid-cols-2 gap-4">
               {entry.inputTokens !== undefined && (
                 <div>
@@ -179,7 +197,9 @@ function RunLogDetailModal({
               <p className="text-sm text-gray-900 dark:text-gray-100">
                 {entry.deliveryStatus}
                 {entry.deliveryError && (
-                  <span className="text-red-500 ml-2">({entry.deliveryError})</span>
+                  <span className="text-red-500 ml-2">
+                    ({entry.deliveryError})
+                  </span>
                 )}
               </p>
             </div>
@@ -203,7 +223,9 @@ function RunLogDetailModal({
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                 {t("cron.summaryLabel", "Summary")}
               </label>
-              <p className="text-sm text-gray-900 dark:text-gray-100">{entry.summary}</p>
+              <p className="text-sm text-gray-900 dark:text-gray-100">
+                {entry.summary}
+              </p>
             </div>
           )}
 

@@ -6,6 +6,7 @@
  */
 
 import { create } from "zustand";
+import { handleClientError } from "@/utils/handleError";
 
 // ============================================================
 // 类型
@@ -83,7 +84,8 @@ function loadFavorites(): Set<string> {
     if (raw) {
       return new Set(JSON.parse(raw));
     }
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "stores:media", action: "loadFavorites" });
     // 解析失败则忽略
   }
   return new Set();
@@ -92,7 +94,8 @@ function loadFavorites(): Set<string> {
 function saveFavorites(ids: Set<string>): void {
   try {
     localStorage.setItem(FAVORITES_KEY, JSON.stringify([...ids]));
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "stores:media", action: "saveFavorites" });
     // 存储满则忽略
   }
 }
@@ -270,8 +273,7 @@ export const useMediaStore = create<MediaStore>()((set, get) => ({
       selectedImageUrl: s.selectedId === id ? null : s.selectedImageUrl,
     })),
 
-  addTask: (task) =>
-    set((s) => ({ activeTasks: [task, ...s.activeTasks] })),
+  addTask: (task) => set((s) => ({ activeTasks: [task, ...s.activeTasks] })),
 
   updateTask: (taskId, update) =>
     set((s) => ({
@@ -314,7 +316,8 @@ export const useMediaStore = create<MediaStore>()((set, get) => ({
   clearIntendedAction: () => set({ intendedAction: null }),
 
   // 设置/清除编辑图片，同时控制 isEditing 锁
-  setEditingImage: (image) => set({ editingImage: image, isEditing: image !== null }),
+  setEditingImage: (image) =>
+    set({ editingImage: image, isEditing: image !== null }),
 
   // 增量插入画廊项（头部插入 + 去重）
   addGalleryItem: (item) =>

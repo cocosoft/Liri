@@ -8,10 +8,10 @@
  * - 请求/响应拦截
  */
 
-import {
-  getBackendBaseUrl,
-  getApiSecret,
-} from "./backendUrl";
+import { getBackendBaseUrl, getApiSecret } from "./backendUrl";
+import { propagation, context as otelContext } from "@opentelemetry/api";
+import { handleClientError } from "../utils/handleError";
+import { getOTelTracing } from "../monitoring/otel";
 
 import type { ApiError, ApiResponse } from "../types/api";
 
@@ -68,6 +68,9 @@ function buildHeaders(extra?: Record<string, string>): Record<string, string> {
     headers["X-API-Key"] = secret;
   }
 
+  // W3C TraceContext 传播：注入 traceparent 头
+  propagation.inject(otelContext.active(), headers);
+
   return headers;
 }
 
@@ -76,7 +79,12 @@ function formatError(status: number, body?: string): ApiError {
   try {
     if (body) {
       const parsed = JSON.parse(body);
-      message = parsed.message || (typeof parsed.error === 'string' ? parsed.error : parsed.error?.message) || message;
+      message =
+        parsed.message ||
+        (typeof parsed.error === "string"
+          ? parsed.error
+          : parsed.error?.message) ||
+        message;
     }
   } catch {
     if (body) message = body.slice(0, 200);
@@ -90,47 +98,57 @@ async function request<T>(
   body?: unknown,
   config?: HttpClientConfig,
 ): Promise<ApiResponse<T>> {
-  const url = buildUrl(path);
-  const timeout = config?.timeout ?? globalConfig.timeout ?? DEFAULT_TIMEOUT;
-  const headers = buildHeaders(config?.headers);
+  return getOTelTracing().asyncWrap(
+    `http:${method}:${path}`,
+    async () => {
+      const url = buildUrl(path);
+      const timeout = config?.timeout ?? globalConfig.timeout ?? DEFAULT_TIMEOUT;
+      const headers = buildHeaders(config?.headers);
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
 
-  try {
-    const fetchOptions: RequestInit = {
-      method,
-      headers,
-      signal: controller.signal,
-    };
+      try {
+        const fetchOptions: RequestInit = {
+          method,
+          headers,
+          signal: controller.signal,
+        };
 
-    if (body !== undefined && method !== "GET") {
-      fetchOptions.body = JSON.stringify(body);
-    }
+        if (body !== undefined && method !== "GET") {
+          fetchOptions.body = JSON.stringify(body);
+        }
 
-    const res = await fetch(url, fetchOptions);
+        const res = await fetch(url, fetchOptions);
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      return { ok: false, error: formatError(res.status, text) };
-    }
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          return { ok: false, error: formatError(res.status, text) };
+        }
 
-    // 204 No Content
-    if (res.status === 204) {
-      return { ok: true, data: undefined as unknown as T };
-    }
+        // 204 No Content
+        if (res.status === 204) {
+          return { ok: true, data: undefined as unknown as T };
+        }
 
-    const data = await res.json().catch(() => null);
-    return { ok: true, data: data as T };
-  } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") {
-      return { ok: false, error: { code: 408, message: `请求超时 (${timeout}ms)` } };
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    return { ok: false, error: { code: 0, message } };
-  } finally {
-    clearTimeout(timer);
-  }
+        const data = await res.json().catch(() => null);
+        return { ok: true, data: data as T };
+      } catch (err) {
+        handleClientError(err, { module: "services:httpClient", action: "request" });
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return {
+            ok: false,
+            error: { code: 408, message: `请求超时 (${timeout}ms)` },
+          };
+        }
+        const message = err instanceof Error ? err.message : String(err);
+        return { ok: false, error: { code: 0, message } };
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+    { "http.method": method, "http.url": path },
+  );
 }
 
 // ─── httpLegacy（旧 API，后向兼容，抛异常）─────────────────────
@@ -153,7 +171,7 @@ export class HTTPClientError extends Error {
 /** 从 ApiResponse 解包，失败时抛 HTTPClientError（后向兼容迁移辅助） */
 export function unwrapOrThrow<T>(res: ApiResponse<T>): T {
   if (!res.ok) {
-    const error = res.error || { code: 500, message: '未知错误' };
+    const error = res.error || { code: 500, message: "未知错误" };
     throw new HTTPClientError(error.message, error.code, error);
   }
   return res.data as T;
@@ -203,7 +221,10 @@ export const httpLegacy = {
 // ─── http（新 API，返回 ApiResponse<T>）────────────────────────
 
 export const http = {
-  async get<T>(path: string, options?: { params?: Record<string, unknown> }): Promise<ApiResponse<T>> {
+  async get<T>(
+    path: string,
+    options?: { params?: Record<string, unknown> },
+  ): Promise<ApiResponse<T>> {
     let url = path;
     if (options?.params) {
       const params = new URLSearchParams();
@@ -240,7 +261,10 @@ export const http = {
     config?: HttpClientConfig,
   ): Promise<AbortController> {
     const url = buildUrl(path);
-    const headers = buildHeaders({ Accept: "text/event-stream", ...config?.headers });
+    const headers = buildHeaders({
+      Accept: "text/event-stream",
+      ...config?.headers,
+    });
     const controller = new AbortController();
 
     const doFetch = async (): Promise<void> => {

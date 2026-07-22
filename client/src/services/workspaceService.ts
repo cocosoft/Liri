@@ -211,7 +211,9 @@ export const workspaceService = {
 
   /** 获取工作空间的 session 列表 */
   async getSessions(workspaceId: string): Promise<WorkspaceSession[]> {
-    return await http.get<WorkspaceSession[]>(`/v1/workspaces/${workspaceId}/sessions`);
+    return await http.get<WorkspaceSession[]>(
+      `/v1/workspaces/${workspaceId}/sessions`,
+    );
   },
 
   /** 开启工作空间 session */
@@ -231,8 +233,14 @@ export const workspaceService = {
   },
 
   /** 创建工作项 */
-  async createWorkItem(workspaceId: string, data: CreateWorkItemRequest): Promise<WorkItem> {
-    return await http.post<WorkItem>(`/v1/workspaces/${workspaceId}/items`, data);
+  async createWorkItem(
+    workspaceId: string,
+    data: CreateWorkItemRequest,
+  ): Promise<WorkItem> {
+    return await http.post<WorkItem>(
+      `/v1/workspaces/${workspaceId}/items`,
+      data,
+    );
   },
 
   /** 更新工作项 */
@@ -241,7 +249,10 @@ export const workspaceService = {
     itemId: string,
     data: Partial<WorkItem>,
   ): Promise<WorkItem> {
-    return await http.patch<WorkItem>(`/v1/workspaces/${workspaceId}/items/${itemId}`, data);
+    return await http.patch<WorkItem>(
+      `/v1/workspaces/${workspaceId}/items/${itemId}`,
+      data,
+    );
   },
 
   /** 检查后端 Workspace API 是否就绪 */
@@ -258,22 +269,34 @@ export const workspaceService = {
 
   /** 检测 .liri/ 目录 */
   async detectLiriDir(workspaceId: string): Promise<LiriDetectionResult> {
-    return await http.get<LiriDetectionResult>(`/v1/workspaces/${workspaceId}/liri/detect`);
+    return await http.get<LiriDetectionResult>(
+      `/v1/workspaces/${workspaceId}/liri/detect`,
+    );
   },
 
   /** 初始化 .liri/ 目录结构 */
   async initLiriDir(workspaceId: string): Promise<LiriDetectionResult> {
-    return await http.post<LiriDetectionResult>(`/v1/workspaces/${workspaceId}/liri/init`);
+    return await http.post<LiriDetectionResult>(
+      `/v1/workspaces/${workspaceId}/liri/init`,
+    );
   },
 
   /** 获取工作空间配置摘要 */
   async getConfig(workspaceId: string): Promise<WorkspaceConfigSummary> {
-    return await http.get<WorkspaceConfigSummary>(`/v1/workspaces/${workspaceId}/config`);
+    return await http.get<WorkspaceConfigSummary>(
+      `/v1/workspaces/${workspaceId}/config`,
+    );
   },
 
   /** 更新工作空间配置 */
-  async updateConfig(workspaceId: string, data: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return await http.put<Record<string, unknown>>(`/v1/workspaces/${workspaceId}/config`, data);
+  async updateConfig(
+    workspaceId: string,
+    data: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return await http.put<Record<string, unknown>>(
+      `/v1/workspaces/${workspaceId}/config`,
+      data,
+    );
   },
 
   /** 获取工作空间规则 */
@@ -282,55 +305,87 @@ export const workspaceService = {
   },
 
   /** 更新工作空间规则 */
-  async updateRules(workspaceId: string, data: UpdateRulesRequest): Promise<{ success: boolean }> {
-    return await http.put<{ success: boolean }>(`/v1/workspaces/${workspaceId}/rules`, data);
+  async updateRules(
+    workspaceId: string,
+    data: UpdateRulesRequest,
+  ): Promise<{ success: boolean }> {
+    return await http.put<{ success: boolean }>(
+      `/v1/workspaces/${workspaceId}/rules`,
+      data,
+    );
   },
 
   // ========== 变更集 API ==========
 
   /** 列出工作项的变更集 */
-  async listChangeSets(workspaceId: string, itemId: string): Promise<ChangeSet[]> {
-    return await http.get<ChangeSet[]>(`/v1/workspaces/${workspaceId}/items/${itemId}/changesets`);
+  async listChangeSets(
+    workspaceId: string,
+    itemId: string,
+  ): Promise<ChangeSet[]> {
+    return await http.get<ChangeSet[]>(
+      `/v1/workspaces/${workspaceId}/items/${itemId}/changesets`,
+    );
   },
 
   /** 创建变更集 */
   async createChangeSet(
     workspaceId: string,
     itemId: string,
-    data: { description: string; files?: ChangeSetFile[] }
+    data: { description: string; files?: ChangeSetFile[] },
   ): Promise<ChangeSet> {
-    return await http.post<ChangeSet>(`/v1/workspaces/${workspaceId}/items/${itemId}/changesets`, data);
+    return await http.post<ChangeSet>(
+      `/v1/workspaces/${workspaceId}/items/${itemId}/changesets`,
+      data,
+    );
   },
 
   /** 获取变更集详情 */
-  async getChangeSet(workspaceId: string, changesetId: string): Promise<ChangeSet> {
-    return await http.get<ChangeSet>(`/v1/workspaces/${workspaceId}/changesets/${changesetId}`);
+  async getChangeSet(
+    workspaceId: string,
+    changesetId: string,
+  ): Promise<ChangeSet> {
+    return await http.get<ChangeSet>(
+      `/v1/workspaces/${workspaceId}/changesets/${changesetId}`,
+    );
   },
 
   /** 添加文件变更到变更集 */
   async addFileChange(
     workspaceId: string,
     changesetId: string,
-    data: { path: string; change: string; additions?: number; deletions?: number }
+    data: {
+      path: string;
+      change: string;
+      additions?: number;
+      deletions?: number;
+    },
   ): Promise<ChangeSet> {
-    return await http.post<ChangeSet>(`/v1/workspaces/${workspaceId}/changesets/${changesetId}/files`, data);
+    return await http.post<ChangeSet>(
+      `/v1/workspaces/${workspaceId}/changesets/${changesetId}/files`,
+      data,
+    );
   },
 
   /** 更新变更集状态（审核） */
   async updateChangeSet(
     workspaceId: string,
     changesetId: string,
-    data: { status: string }
+    data: { status: string },
   ): Promise<ChangeSet> {
-    return await http.patch<ChangeSet>(`/v1/workspaces/${workspaceId}/changesets/${changesetId}`, data);
+    return await http.patch<ChangeSet>(
+      `/v1/workspaces/${workspaceId}/changesets/${changesetId}`,
+      data,
+    );
   },
 
   /** 获取变更集统计摘要 */
   async getChangeSetSummary(
     workspaceId: string,
-    changesetId: string
+    changesetId: string,
   ): Promise<ChangeSetSummary> {
-    return await http.get<ChangeSetSummary>(`/v1/workspaces/${workspaceId}/changesets/${changesetId}/summary`);
+    return await http.get<ChangeSetSummary>(
+      `/v1/workspaces/${workspaceId}/changesets/${changesetId}/summary`,
+    );
   },
 
   // ========== 项目 API ==========
@@ -341,56 +396,94 @@ export const workspaceService = {
   },
 
   /** 创建项目 */
-  async createProject(workspaceId: string, data: CreateProjectRequest): Promise<Project> {
-    return await http.post<Project>(`/v1/workspaces/${workspaceId}/projects`, data);
+  async createProject(
+    workspaceId: string,
+    data: CreateProjectRequest,
+  ): Promise<Project> {
+    return await http.post<Project>(
+      `/v1/workspaces/${workspaceId}/projects`,
+      data,
+    );
   },
 
   /** 获取项目详情 */
   async getProject(workspaceId: string, projectId: string): Promise<Project> {
-    return await http.get<Project>(`/v1/workspaces/${workspaceId}/projects/${projectId}`);
+    return await http.get<Project>(
+      `/v1/workspaces/${workspaceId}/projects/${projectId}`,
+    );
   },
 
   /** 更新项目 */
   async updateProject(
     workspaceId: string,
     projectId: string,
-    data: UpdateProjectRequest
+    data: UpdateProjectRequest,
   ): Promise<Project> {
-    return await http.patch<Project>(`/v1/workspaces/${workspaceId}/projects/${projectId}`, data);
+    return await http.patch<Project>(
+      `/v1/workspaces/${workspaceId}/projects/${projectId}`,
+      data,
+    );
   },
 
   /** 删除项目 */
-  async deleteProject(workspaceId: string, projectId: string): Promise<{ success: boolean }> {
-    return await http.delete<{ success: boolean }>(`/v1/workspaces/${workspaceId}/projects/${projectId}`);
+  async deleteProject(
+    workspaceId: string,
+    projectId: string,
+  ): Promise<{ success: boolean }> {
+    return await http.delete<{ success: boolean }>(
+      `/v1/workspaces/${workspaceId}/projects/${projectId}`,
+    );
   },
 
   /** 获取项目看板 */
-  async getProjectBoard(workspaceId: string, projectId: string): Promise<ProjectBoard> {
-    return await http.get<ProjectBoard>(`/v1/workspaces/${workspaceId}/projects/${projectId}/board`);
+  async getProjectBoard(
+    workspaceId: string,
+    projectId: string,
+  ): Promise<ProjectBoard> {
+    return await http.get<ProjectBoard>(
+      `/v1/workspaces/${workspaceId}/projects/${projectId}/board`,
+    );
   },
 
   /** 获取项目级规则 */
-  async getProjectRules(workspaceId: string, projectId: string): Promise<{ content: string }> {
-    return await http.get<{ content: string }>(`/v1/workspaces/${workspaceId}/projects/${projectId}/rules`);
+  async getProjectRules(
+    workspaceId: string,
+    projectId: string,
+  ): Promise<{ content: string }> {
+    return await http.get<{ content: string }>(
+      `/v1/workspaces/${workspaceId}/projects/${projectId}/rules`,
+    );
   },
 
   /** 更新项目级规则 */
-  async updateProjectRules(workspaceId: string, projectId: string, data: { content: string }): Promise<{ success: boolean }> {
-    return await http.put<{ success: boolean }>(`/v1/workspaces/${workspaceId}/projects/${projectId}/rules`, data);
+  async updateProjectRules(
+    workspaceId: string,
+    projectId: string,
+    data: { content: string },
+  ): Promise<{ success: boolean }> {
+    return await http.put<{ success: boolean }>(
+      `/v1/workspaces/${workspaceId}/projects/${projectId}/rules`,
+      data,
+    );
   },
 
   /** 获取工作项模板列表 */
   async getTemplates(workspaceId: string): Promise<WorkItemTemplate[]> {
-    return await http.get<WorkItemTemplate[]>(`/v1/workspaces/${workspaceId}/templates`);
+    return await http.get<WorkItemTemplate[]>(
+      `/v1/workspaces/${workspaceId}/templates`,
+    );
   },
 
   /** 按模板创建工作项 */
   async createProjectWorkItem(
     workspaceId: string,
     projectId: string,
-    data: CreateProjectWorkItemRequest
+    data: CreateProjectWorkItemRequest,
   ): Promise<WorkItem> {
-    return await http.post<WorkItem>(`/v1/workspaces/${workspaceId}/projects/${projectId}/items`, data);
+    return await http.post<WorkItem>(
+      `/v1/workspaces/${workspaceId}/projects/${projectId}/items`,
+      data,
+    );
   },
 
   // ========== 编排 API ==========
@@ -398,33 +491,53 @@ export const workspaceService = {
   /** 获取编排快照 */
   async getOrchestrationSnapshot(
     workspaceId: string,
-    itemId: string
+    itemId: string,
   ): Promise<Record<string, unknown>> {
-    return await http.get<Record<string, unknown>>(`/v1/workspaces/${workspaceId}/items/${itemId}/orchestration`);
+    return await http.get<Record<string, unknown>>(
+      `/v1/workspaces/${workspaceId}/items/${itemId}/orchestration`,
+    );
   },
 
   // ========== Swarm API ==========
 
   /** 获取 Swarm 群组状态 */
   async getSwarmStatus(workspaceId: string): Promise<Record<string, unknown>> {
-    return await http.get<Record<string, unknown>>(`/v1/workspaces/${workspaceId}/swarm`);
+    return await http.get<Record<string, unknown>>(
+      `/v1/workspaces/${workspaceId}/swarm`,
+    );
   },
 
   // ========== Agent-Model 绑定 ==========
 
   /** 获取 Agent-Model 绑定配置 */
-  async getAgentModelBindings(
-    workspaceId: string
-  ): Promise<{ bindings: Array<{ agentRole: string; model: string; maxTokens: number; temperature: number }>; availableModels: Array<{ id: string; name: string; provider: string }> }> {
+  async getAgentModelBindings(workspaceId: string): Promise<{
+    bindings: Array<{
+      agentRole: string;
+      model: string;
+      maxTokens: number;
+      temperature: number;
+    }>;
+    availableModels: Array<{ id: string; name: string; provider: string }>;
+  }> {
     return await http.get(`/v1/workspaces/${workspaceId}/agent-model-bindings`);
   },
 
   /** 更新 Agent-Model 绑定配置 */
   async updateAgentModelBindings(
     workspaceId: string,
-    data: { bindings: Array<{ agentRole: string; model: string; maxTokens: number; temperature: number }> }
+    data: {
+      bindings: Array<{
+        agentRole: string;
+        model: string;
+        maxTokens: number;
+        temperature: number;
+      }>;
+    },
   ): Promise<{ success: boolean }> {
-    return await http.put(`/v1/workspaces/${workspaceId}/agent-model-bindings`, data as Record<string, unknown>);
+    return await http.put(
+      `/v1/workspaces/${workspaceId}/agent-model-bindings`,
+      data as Record<string, unknown>,
+    );
   },
 
   // ========== 团队 API ==========
@@ -435,8 +548,14 @@ export const workspaceService = {
   },
 
   /** 创建团队 */
-  async createTeam(workspaceId: string, data: { name: string; description?: string; members?: unknown[] }): Promise<unknown> {
-    return await http.post(`/v1/workspaces/${workspaceId}/teams`, data as Record<string, unknown>);
+  async createTeam(
+    workspaceId: string,
+    data: { name: string; description?: string; members?: unknown[] },
+  ): Promise<unknown> {
+    return await http.post(
+      `/v1/workspaces/${workspaceId}/teams`,
+      data as Record<string, unknown>,
+    );
   },
 
   /** 获取团队详情 */
@@ -445,28 +564,65 @@ export const workspaceService = {
   },
 
   /** 更新团队 */
-  async updateTeam(workspaceId: string, teamId: string, data: Record<string, unknown>): Promise<unknown> {
-    return await http.put(`/v1/workspaces/${workspaceId}/teams/${teamId}`, data);
+  async updateTeam(
+    workspaceId: string,
+    teamId: string,
+    data: Record<string, unknown>,
+  ): Promise<unknown> {
+    return await http.put(
+      `/v1/workspaces/${workspaceId}/teams/${teamId}`,
+      data,
+    );
   },
 
   /** 删除团队 */
-  async deleteTeam(workspaceId: string, teamId: string): Promise<{ success: boolean }> {
+  async deleteTeam(
+    workspaceId: string,
+    teamId: string,
+  ): Promise<{ success: boolean }> {
     return await http.delete(`/v1/workspaces/${workspaceId}/teams/${teamId}`);
   },
 
   /** 添加团队成员 */
-  async addTeamMember(workspaceId: string, teamId: string, data: { id: string; name: string; role?: string; isAgent?: boolean; model?: string }): Promise<unknown> {
-    return await http.post(`/v1/workspaces/${workspaceId}/teams/${teamId}/members`, data as Record<string, unknown>);
+  async addTeamMember(
+    workspaceId: string,
+    teamId: string,
+    data: {
+      id: string;
+      name: string;
+      role?: string;
+      isAgent?: boolean;
+      model?: string;
+    },
+  ): Promise<unknown> {
+    return await http.post(
+      `/v1/workspaces/${workspaceId}/teams/${teamId}/members`,
+      data as Record<string, unknown>,
+    );
   },
 
   /** 移除团队成员 */
-  async removeTeamMember(workspaceId: string, teamId: string, memberId: string): Promise<unknown> {
-    return await http.delete(`/v1/workspaces/${workspaceId}/teams/${teamId}/members/${memberId}`);
+  async removeTeamMember(
+    workspaceId: string,
+    teamId: string,
+    memberId: string,
+  ): Promise<unknown> {
+    return await http.delete(
+      `/v1/workspaces/${workspaceId}/teams/${teamId}/members/${memberId}`,
+    );
   },
 
   /** 更新成员角色 */
-  async updateMemberRole(workspaceId: string, teamId: string, memberId: string, role: string): Promise<unknown> {
-    return await http.put(`/v1/workspaces/${workspaceId}/teams/${teamId}/members/${memberId}/role`, { role });
+  async updateMemberRole(
+    workspaceId: string,
+    teamId: string,
+    memberId: string,
+    role: string,
+  ): Promise<unknown> {
+    return await http.put(
+      `/v1/workspaces/${workspaceId}/teams/${teamId}/members/${memberId}/role`,
+      { role },
+    );
   },
 
   // ========== 成本 API ==========
@@ -484,7 +640,10 @@ export const workspaceService = {
   // ========== 工作项搜索 API ==========
 
   /** 搜索工作项 */
-  async searchWorkItems(workspaceId: string, query: Record<string, unknown>): Promise<unknown> {
+  async searchWorkItems(
+    workspaceId: string,
+    query: Record<string, unknown>,
+  ): Promise<unknown> {
     return await http.post(`/v1/workspaces/${workspaceId}/items/search`, query);
   },
 
@@ -506,17 +665,24 @@ export const workspaceService = {
   },
 
   /** 创建工作流模板 */
-  async createWorkflowTemplate(data: Record<string, unknown>): Promise<unknown> {
+  async createWorkflowTemplate(
+    data: Record<string, unknown>,
+  ): Promise<unknown> {
     return await http.post("/v1/workflows/templates", data);
   },
 
   /** 更新工作流模板 */
-  async updateWorkflowTemplate(templateId: string, data: Record<string, unknown>): Promise<unknown> {
+  async updateWorkflowTemplate(
+    templateId: string,
+    data: Record<string, unknown>,
+  ): Promise<unknown> {
     return await http.put(`/v1/workflows/templates/${templateId}`, data);
   },
 
   /** 删除工作流模板 */
-  async deleteWorkflowTemplate(templateId: string): Promise<{ success: boolean }> {
+  async deleteWorkflowTemplate(
+    templateId: string,
+  ): Promise<{ success: boolean }> {
     return await http.delete(`/v1/workflows/templates/${templateId}`);
   },
 
@@ -525,56 +691,115 @@ export const workspaceService = {
   /** 创建 Council 会话 */
   async createCouncil(
     workspaceId: string,
-    data: { topic: string; context: string; agents: Array<{ agentId: string; name: string; expertise: string[]; weight: number }>; maxRounds?: number }
+    data: {
+      topic: string;
+      context: string;
+      agents: Array<{
+        agentId: string;
+        name: string;
+        expertise: string[];
+        weight: number;
+      }>;
+      maxRounds?: number;
+    },
   ): Promise<{ sessionId: string; message: string }> {
     return await http.post(`/v1/workspaces/${workspaceId}/council`, data);
   },
 
   /** 获取 Council 会话 */
-  async getCouncil(workspaceId: string, sessionId: string): Promise<import("@/types/council").CouncilSession> {
+  async getCouncil(
+    workspaceId: string,
+    sessionId: string,
+  ): Promise<import("@/types/council").CouncilSession> {
     return await http.get(`/v1/workspaces/${workspaceId}/council/${sessionId}`);
   },
 
   /** 列出活跃的 Council 会话 */
-  async listCouncils(workspaceId: string): Promise<import("@/types/council").CouncilSession[]> {
+  async listCouncils(
+    workspaceId: string,
+  ): Promise<import("@/types/council").CouncilSession[]> {
     return await http.get(`/v1/workspaces/${workspaceId}/council`);
   },
 
   // ==================== 编排智能 API ====================
 
   /** 变更影响评估 */
-  async analyzeImpact(workspaceId: string, data: { changedFiles: string[]; changedContent: string }): Promise<unknown> {
-    return await http.post(`/v1/workspaces/${workspaceId}/intelligence/impact`, data);
+  async analyzeImpact(
+    workspaceId: string,
+    data: { changedFiles: string[]; changedContent: string },
+  ): Promise<unknown> {
+    return await http.post(
+      `/v1/workspaces/${workspaceId}/intelligence/impact`,
+      data,
+    );
   },
 
   /** 风险识别 */
-  async detectRisks(workspaceId: string, data: { title: string; description: string; changedFiles: string[] }): Promise<unknown> {
-    return await http.post(`/v1/workspaces/${workspaceId}/intelligence/risks`, data);
+  async detectRisks(
+    workspaceId: string,
+    data: { title: string; description: string; changedFiles: string[] },
+  ): Promise<unknown> {
+    return await http.post(
+      `/v1/workspaces/${workspaceId}/intelligence/risks`,
+      data,
+    );
   },
 
   /** 决策分级 */
-  async classifyDecision(workspaceId: string, data: { title: string; description: string; impactResult?: unknown; risks?: unknown[] }): Promise<unknown> {
-    return await http.post(`/v1/workspaces/${workspaceId}/intelligence/decision`, data);
+  async classifyDecision(
+    workspaceId: string,
+    data: {
+      title: string;
+      description: string;
+      impactResult?: unknown;
+      risks?: unknown[];
+    },
+  ): Promise<unknown> {
+    return await http.post(
+      `/v1/workspaces/${workspaceId}/intelligence/decision`,
+      data,
+    );
   },
 
   /** 异常升级 */
-  async escalate(workspaceId: string, data: { workItemId: string; type: string; description: string; suggestedDirection: string }): Promise<unknown> {
-    return await http.post(`/v1/workspaces/${workspaceId}/intelligence/escalate`, data);
+  async escalate(
+    workspaceId: string,
+    data: {
+      workItemId: string;
+      type: string;
+      description: string;
+      suggestedDirection: string;
+    },
+  ): Promise<unknown> {
+    return await http.post(
+      `/v1/workspaces/${workspaceId}/intelligence/escalate`,
+      data,
+    );
   },
 
   /** 获取活跃异常 */
   async getEscalations(workspaceId: string): Promise<unknown> {
-    return await http.get(`/v1/workspaces/${workspaceId}/intelligence/escalations`);
+    return await http.get(
+      `/v1/workspaces/${workspaceId}/intelligence/escalations`,
+    );
   },
 
   /** 资源调度 */
-  async scheduleResource(workspaceId: string, data: { workItemId: string; resources: string[]; priority: number }): Promise<unknown> {
-    return await http.post(`/v1/workspaces/${workspaceId}/intelligence/schedule`, data);
+  async scheduleResource(
+    workspaceId: string,
+    data: { workItemId: string; resources: string[]; priority: number },
+  ): Promise<unknown> {
+    return await http.post(
+      `/v1/workspaces/${workspaceId}/intelligence/schedule`,
+      data,
+    );
   },
 
   /** 获取资源状态 */
   async getResources(workspaceId: string): Promise<unknown> {
-    return await http.get(`/v1/workspaces/${workspaceId}/intelligence/resources`);
+    return await http.get(
+      `/v1/workspaces/${workspaceId}/intelligence/resources`,
+    );
   },
 
   // ==================== 规则管理 API ====================
@@ -586,21 +811,40 @@ export const workspaceService = {
 
   /** 读取规则 */
   async getRule(workspaceId: string, specialization: string): Promise<unknown> {
-    return await http.get(`/v1/workspaces/${workspaceId}/rules/${specialization}`);
+    return await http.get(
+      `/v1/workspaces/${workspaceId}/rules/${specialization}`,
+    );
   },
 
   /** 写入规则 */
-  async writeRule(workspaceId: string, specialization: string, content: string): Promise<unknown> {
-    return await http.put(`/v1/workspaces/${workspaceId}/rules/${specialization}`, { content });
+  async writeRule(
+    workspaceId: string,
+    specialization: string,
+    content: string,
+  ): Promise<unknown> {
+    return await http.put(
+      `/v1/workspaces/${workspaceId}/rules/${specialization}`,
+      { content },
+    );
   },
 
   /** 追加规则 */
-  async appendRule(workspaceId: string, specialization: string, content: string): Promise<unknown> {
-    return await http.post(`/v1/workspaces/${workspaceId}/rules/${specialization}`, { content });
+  async appendRule(
+    workspaceId: string,
+    specialization: string,
+    content: string,
+  ): Promise<unknown> {
+    return await http.post(
+      `/v1/workspaces/${workspaceId}/rules/${specialization}`,
+      { content },
+    );
   },
 
   /** 按工作项加载规则 */
-  async loadRulesForWorkItem(workspaceId: string, data: { title: string; description: string; changedFiles: string[] }): Promise<unknown> {
+  async loadRulesForWorkItem(
+    workspaceId: string,
+    data: { title: string; description: string; changedFiles: string[] },
+  ): Promise<unknown> {
     return await http.post(`/v1/workspaces/${workspaceId}/rules/load`, data);
   },
 

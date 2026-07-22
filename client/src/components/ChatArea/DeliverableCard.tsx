@@ -10,34 +10,39 @@ interface DeliverableCardProps {
 }
 
 const CHANGE_LABELS: Record<string, string> = {
-  added:    "[A]",
+  added: "[A]",
   modified: "[M]",
-  deleted:  "[D]",
+  deleted: "[D]",
 };
 
 const CHANGE_COLORS: Record<string, string> = {
-  added:    "text-green-600 dark:text-green-400",
+  added: "text-green-600 dark:text-green-400",
   modified: "text-amber-600 dark:text-amber-400",
-  deleted:  "text-red-600 dark:text-red-400",
+  deleted: "text-red-600 dark:text-red-400",
 };
 
 const FILE_STATUS_ICONS: Record<string, string> = {
-  pending:  "\u25CB",
+  pending: "\u25CB",
   verified: "\u2713",
-  failed:   "\u2717",
+  failed: "\u2717",
 };
 
 const FILE_STATUS_COLORS: Record<string, string> = {
-  pending:  "text-gray-400",
+  pending: "text-gray-400",
   verified: "text-green-500",
-  failed:   "text-red-500",
+  failed: "text-red-500",
 };
 
 /**
  * 交付物卡片组件
  * 渲染 AI 完成工作后的交付物：文件变更列表 + 校验结果 + 操作按钮
  */
-export default function DeliverableCard({ data, onAction, onEnterWorkMode, workModeReady }: DeliverableCardProps) {
+export default function DeliverableCard({
+  data,
+  onAction,
+  onEnterWorkMode,
+  workModeReady,
+}: DeliverableCardProps) {
   const { files, summary, checks, actions } = data;
 
   const handleAction = (action: string, file?: string) => {
@@ -59,13 +64,17 @@ export default function DeliverableCard({ data, onAction, onEnterWorkMode, workM
         <div className="px-3 py-2 space-y-1">
           {files.map((file, idx) => (
             <div key={idx} className="flex items-center gap-2 text-xs">
-              <span className={`flex-shrink-0 font-mono ${CHANGE_COLORS[file.change] || "text-gray-500"}`}>
+              <span
+                className={`flex-shrink-0 font-mono ${CHANGE_COLORS[file.change] || "text-gray-500"}`}
+              >
                 {CHANGE_LABELS[file.change] || file.change}
               </span>
               <span className="text-gray-700 dark:text-gray-300 font-mono truncate flex-1">
                 {file.path}
               </span>
-              <span className={`flex-shrink-0 ${FILE_STATUS_COLORS[file.status] || "text-gray-400"}`}>
+              <span
+                className={`flex-shrink-0 ${FILE_STATUS_COLORS[file.status] || "text-gray-400"}`}
+              >
                 {FILE_STATUS_ICONS[file.status] || "\u25CB"}
               </span>
             </div>
@@ -78,10 +87,14 @@ export default function DeliverableCard({ data, onAction, onEnterWorkMode, workM
         <div className="px-3 py-2 border-t border-gray-50 dark:border-gray-750 space-y-1">
           {checks.map((check, idx) => (
             <div key={idx} className="flex items-center gap-1.5 text-xs">
-              <span className={check.passed ? "text-green-500" : "text-red-500"}>
+              <span
+                className={check.passed ? "text-green-500" : "text-red-500"}
+              >
                 {check.passed ? "\u2713" : "\u2717"}
               </span>
-              <span className="text-gray-600 dark:text-gray-400">{check.name}</span>
+              <span className="text-gray-600 dark:text-gray-400">
+                {check.name}
+              </span>
               {check.detail && (
                 <span className="text-gray-400 dark:text-gray-500 truncate">
                   {check.detail}
@@ -120,7 +133,11 @@ export default function DeliverableCard({ data, onAction, onEnterWorkMode, workM
                 ? "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
                 : "bg-blue-500 hover:bg-blue-600 text-white shadow-sm"
             }`}
-            title={workModeReady === false ? "工作界面暂未就绪" : "进入工作界面查看文件变更详情"}
+            title={
+              workModeReady === false
+                ? "工作界面暂未就绪"
+                : "进入工作界面查看文件变更详情"
+            }
           >
             {workModeReady === false ? "工作界面暂未就绪" : "进入工作模式"}
           </button>

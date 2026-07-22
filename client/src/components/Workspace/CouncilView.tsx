@@ -8,9 +8,13 @@
  * - 底部：共识结果 + 最终方案
  */
 import React, { useEffect, useRef } from "react";
+import { handleClientError } from "../../utils/handleError";
 import { useCouncilStore } from "../../stores/councilStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
-import type { CouncilStatementUI, CouncilPhaseUI } from "../../stores/councilStore";
+import type {
+  CouncilStatementUI,
+  CouncilPhaseUI,
+} from "../../stores/councilStore";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("components:councilView");
@@ -36,9 +40,12 @@ const STATEMENT_TYPE_LABELS: Record<string, string> = {
 /** 发言类型颜色 */
 const STATEMENT_TYPE_COLORS: Record<string, string> = {
   position: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-  rebuttal: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
-  supplement: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
-  final: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
+  rebuttal:
+    "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
+  supplement:
+    "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+  final:
+    "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
 };
 
 /** 共识结果图标 */
@@ -49,7 +56,9 @@ const RESULT_ICONS: Record<string, string> = {
 };
 
 /** 单条发言 */
-const StatementBubble: React.FC<{ statement: CouncilStatementUI }> = ({ statement }) => {
+const StatementBubble: React.FC<{ statement: CouncilStatementUI }> = ({
+  statement,
+}) => {
   return (
     <div className="mb-3 pl-2 border-l-2 border-gray-200 dark:border-gray-700">
       <div className="flex items-center gap-2 mb-1">
@@ -104,14 +113,22 @@ const ConsensusResult: React.FC = () => {
       </div>
       {finalProposal && (
         <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-3 mb-2">
-          <p className="text-xs text-green-600 dark:text-green-400 font-medium mb-1">最终方案</p>
-          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{finalProposal}</p>
+          <p className="text-xs text-green-600 dark:text-green-400 font-medium mb-1">
+            最终方案
+          </p>
+          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+            {finalProposal}
+          </p>
         </div>
       )}
       {minorityOpinion && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3">
-          <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium mb-1">少数派意见</p>
-          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{minorityOpinion}</p>
+          <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium mb-1">
+            少数派意见
+          </p>
+          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+            {minorityOpinion}
+          </p>
         </div>
       )}
     </div>
@@ -125,13 +142,20 @@ const EmptyState: React.FC = () => {
     if (!topic) return;
 
     try {
-      const { workspaceService } = await import("../../services/workspaceService");
+      const { workspaceService } =
+        await import("../../services/workspaceService");
       const { httpLegacy } = await import("../../services/httpClient");
 
-      const workspaceId = useWorkspaceStore.getState().currentWorkspace?.id || 'default';
+      const workspaceId =
+        useWorkspaceStore.getState().currentWorkspace?.id || "default";
 
       // 从 API 加载启用的 Agent 角色，失败时使用硬编码默认值
-      let agents: Array<{ agentId: string; name: string; expertise: string[]; weight: number }>;
+      let agents: Array<{
+        agentId: string;
+        name: string;
+        expertise: string[];
+        weight: number;
+      }>;
       try {
         const roles = await httpLegacy.get<any[]>("/v1/agent-roles");
         const enabledRoles = roles.filter((r) => r.enabled !== false);
@@ -145,14 +169,40 @@ const EmptyState: React.FC = () => {
         } else {
           throw new Error("无可用角色");
         }
-      } catch {
+      } catch (e) {
+        handleClientError(e, { module: "components:workspace:Council", action: "initializeAgents" });
         // 回退到硬编码默认值
         agents = [
-          { agentId: "architect", name: "架构师", expertise: ["系统架构", "技术选型"], weight: 5 },
-          { agentId: "security", name: "安全专家", expertise: ["安全审计", "漏洞分析"], weight: 5 },
-          { agentId: "performance", name: "性能专家", expertise: ["性能优化", "并发处理"], weight: 4 },
-          { agentId: "frontend", name: "前端专家", expertise: ["前端架构", "UI/UX"], weight: 4 },
-          { agentId: "backend", name: "后端专家", expertise: ["后端开发", "API设计"], weight: 4 },
+          {
+            agentId: "architect",
+            name: "架构师",
+            expertise: ["系统架构", "技术选型"],
+            weight: 5,
+          },
+          {
+            agentId: "security",
+            name: "安全专家",
+            expertise: ["安全审计", "漏洞分析"],
+            weight: 5,
+          },
+          {
+            agentId: "performance",
+            name: "性能专家",
+            expertise: ["性能优化", "并发处理"],
+            weight: 4,
+          },
+          {
+            agentId: "frontend",
+            name: "前端专家",
+            expertise: ["前端架构", "UI/UX"],
+            weight: 4,
+          },
+          {
+            agentId: "backend",
+            name: "后端专家",
+            expertise: ["后端开发", "API设计"],
+            weight: 4,
+          },
         ];
       }
 
@@ -260,7 +310,9 @@ export const CouncilView: React.FC = () => {
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <div className="animate-spin text-2xl mb-2">{"\u23F3"}</div>
-              <p className="text-sm text-gray-400 dark:text-gray-500">等待专家发言中...</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">
+                等待专家发言中...
+              </p>
             </div>
           </div>
         )}

@@ -3,6 +3,14 @@
  * 将成本追踪数据转换为 OTel Metrics 格式，生成 Dashboard 数据
  */
 import type { TokenUsage } from './types';
+import { metrics } from '@opentelemetry/api';
+import type { ObservableGauge } from '@opentelemetry/api';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({
+  module: 'cost:metrics-bridge',
+  level: LogLevel.WARN,
+});
 
 /**
  * Metrics 数据类型
@@ -77,9 +85,69 @@ export class CostMetricsBridge {
   private config: MetricsBridgeConfig;
   private flushTimer: ReturnType<typeof setInterval> | null = null;
   private onFlushCallback: ((data: CostDashboardData) => void) | null = null;
+  private otelInitialized = false;
+  private costGauge: ObservableGauge | null = null;
+  private tokenGauge: ObservableGauge | null = null;
 
   constructor(config?: Partial<MetricsBridgeConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+  }
+
+  /**
+   * P1-2.5: 注册 OTel ObservableGauge，将成本数据纳入 OTel 导出
+   * 在 MeterProvider 初始化后调用（失败时不抛异常）
+   */
+  init(): void {
+    if (this.otelInitialized) return;
+
+    try {
+      const meter = metrics.getMeter('liri-cost');
+
+      this.costGauge = meter.createObservableGauge('Liri.cost.total', {
+        description: '累计成本 (USD)',
+        unit: 'USD',
+      });
+      this.costGauge.addCallback((result) => {
+        try {
+          const totalCost = this.records.reduce((sum, r) => sum + r.costUSD, 0);
+          result.observe(totalCost, { currency: 'USD' });
+        } catch {
+          result.observe(0, { currency: 'USD' });
+        }
+      });
+
+      this.tokenGauge = meter.createObservableGauge('Liri.tokens.total', {
+        description: '累计 Token 消耗',
+        unit: 'tokens',
+      });
+      this.tokenGauge.addCallback((result) => {
+        try {
+          const totalInput = this.records.reduce(
+            (sum, r) => sum + r.inputTokens,
+            0
+          );
+          const totalOutput = this.records.reduce(
+            (sum, r) => sum + r.outputTokens,
+            0
+          );
+          result.observe(totalInput, { type: 'input' });
+          result.observe(totalOutput, { type: 'output' });
+        } catch {
+          result.observe(0, { type: 'input' });
+          result.observe(0, { type: 'output' });
+        }
+      });
+
+      this.otelInitialized = true;
+      logger.info('CostMetricsBridge OTel 指标注册完成');
+    } catch (err) {
+      logger.warn(
+        'CostMetricsBridge OTel 指标注册失败（MeterProvider 可能未配置）',
+        {
+          error: String(err),
+        }
+      );
+    }
   }
 
   /**

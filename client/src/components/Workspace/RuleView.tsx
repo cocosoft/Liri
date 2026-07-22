@@ -12,7 +12,16 @@ import { createLogger } from "@/utils/logger";
 const logger = createLogger("components:ruleView");
 
 /** 专业领域 */
-type Specialization = "all" | "security" | "performance" | "architecture" | "data" | "frontend" | "backend" | "test" | "custom";
+type Specialization =
+  | "all"
+  | "security"
+  | "performance"
+  | "architecture"
+  | "data"
+  | "frontend"
+  | "backend"
+  | "test"
+  | "custom";
 
 /** 规则项 */
 interface RuleItem {
@@ -107,7 +116,11 @@ export const RuleView: React.FC = () => {
     if (!currentWorkspace || !selectedSpec) return;
     setSaving(true);
     try {
-      await workspaceService.writeRule(currentWorkspace.id, selectedSpec, content);
+      await workspaceService.writeRule(
+        currentWorkspace.id,
+        selectedSpec,
+        content,
+      );
       await loadRules();
       await loadOverview();
     } catch (e) {
@@ -130,9 +143,13 @@ export const RuleView: React.FC = () => {
       {/* 左侧：规则列表 */}
       <div className="w-48 border-r border-gray-200 dark:border-gray-700 overflow-y-auto bg-gray-50 dark:bg-gray-900">
         <div className="p-3 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">规则分类</h3>
+          <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+            规则分类
+          </h3>
         </div>
-        {loading && <p className="text-xs text-center text-gray-400 p-4">加载中...</p>}
+        {loading && (
+          <p className="text-xs text-center text-gray-400 p-4">加载中...</p>
+        )}
         {rules.map((rule) => (
           <button
             key={rule.specialization}
@@ -145,7 +162,9 @@ export const RuleView: React.FC = () => {
           >
             <span>{SPEC_ICONS[rule.specialization]}</span>
             <span className="flex-1">{SPEC_LABELS[rule.specialization]}</span>
-            <span className={`w-2 h-2 rounded-full ${rule.exists ? "bg-green-500" : "bg-gray-300"}`} />
+            <span
+              className={`w-2 h-2 rounded-full ${rule.exists ? "bg-green-500" : "bg-gray-300"}`}
+            />
           </button>
         ))}
       </div>
@@ -186,7 +205,9 @@ export const RuleView: React.FC = () => {
         ) : (
           /* 规则总览 */
           <div className="flex-1 overflow-y-auto p-4">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">规则总览</h3>
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              规则总览
+            </h3>
             <pre className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap font-mono">
               {overview || "暂无规则"}
             </pre>

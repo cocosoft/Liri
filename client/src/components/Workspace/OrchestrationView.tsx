@@ -36,7 +36,8 @@ interface RuleCheck {
 /** 编排快照 */
 interface OrchestrationSnapshot {
   workItemId: string;
-  status: "idle" | "planning" | "executing" | "checking" | "completed" | "failed";
+  status:
+    "idle" | "planning" | "executing" | "checking" | "completed" | "failed";
   tasks: OrchTask[];
   ruleChecks: RuleCheck[];
   layers: string[][];
@@ -61,11 +62,30 @@ interface OrchestrationViewProps {
 
 // ========== 状态配色 ==========
 
-const STATUS_COLORS: Record<string, { bg: string; border: string; text: string }> = {
-  pending: { bg: "bg-gray-100 dark:bg-gray-800", border: "border-gray-300 dark:border-gray-600", text: "text-gray-500" },
-  running: { bg: "bg-blue-50 dark:bg-blue-900/20", border: "border-blue-400", text: "text-blue-600" },
-  completed: { bg: "bg-green-50 dark:bg-green-900/20", border: "border-green-400", text: "text-green-600" },
-  failed: { bg: "bg-red-50 dark:bg-red-900/20", border: "border-red-400", text: "text-red-600" },
+const STATUS_COLORS: Record<
+  string,
+  { bg: string; border: string; text: string }
+> = {
+  pending: {
+    bg: "bg-gray-100 dark:bg-gray-800",
+    border: "border-gray-300 dark:border-gray-600",
+    text: "text-gray-500",
+  },
+  running: {
+    bg: "bg-blue-50 dark:bg-blue-900/20",
+    border: "border-blue-400",
+    text: "text-blue-600",
+  },
+  completed: {
+    bg: "bg-green-50 dark:bg-green-900/20",
+    border: "border-green-400",
+    text: "text-green-600",
+  },
+  failed: {
+    bg: "bg-red-50 dark:bg-red-900/20",
+    border: "border-red-400",
+    text: "text-red-600",
+  },
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -78,7 +98,11 @@ const STATUS_LABELS: Record<string, string> = {
 /**
  * 编排可视化组件
  */
-function OrchestrationView({ workspaceId, workItemId, isDark }: OrchestrationViewProps) {
+function OrchestrationView({
+  workspaceId,
+  workItemId,
+  isDark,
+}: OrchestrationViewProps) {
   const [snapshot, setSnapshot] = useState<OrchestrationSnapshot | null>(null);
   const [connected, setConnected] = useState(false);
   const [viewMode, setViewMode] = useState<"dag" | "timeline">("dag");
@@ -107,7 +131,9 @@ function OrchestrationView({ workspaceId, workItemId, isDark }: OrchestrationVie
           ...prev,
           status: "executing",
           tasks: prev.tasks.map((t) =>
-            t.id === data.data.taskId ? { ...t, status: "running", progress: 0 } : t
+            t.id === data.data.taskId
+              ? { ...t, status: "running", progress: 0 }
+              : t,
           ),
         };
       });
@@ -122,7 +148,7 @@ function OrchestrationView({ workspaceId, workItemId, isDark }: OrchestrationVie
           tasks: prev.tasks.map((t) =>
             t.id === data.data.taskId
               ? { ...t, progress: (data.data.progress as number) || 0 }
-              : t
+              : t,
           ),
         };
       });
@@ -144,7 +170,7 @@ function OrchestrationView({ workspaceId, workItemId, isDark }: OrchestrationVie
                   error: data.data.error as string,
                   durationMs: data.data.durationMs as number,
                 }
-              : t
+              : t,
           ),
         };
       });
@@ -184,7 +210,9 @@ function OrchestrationView({ workspaceId, workItemId, isDark }: OrchestrationVie
         return {
           ...prev,
           ruleChecks: prev.ruleChecks.map((rc) =>
-            rc.ruleId === data.data.ruleId ? { ...rc, passed: true, message: data.data.message as string } : rc
+            rc.ruleId === data.data.ruleId
+              ? { ...rc, passed: true, message: data.data.message as string }
+              : rc,
           ),
         };
       });
@@ -198,8 +226,13 @@ function OrchestrationView({ workspaceId, workItemId, isDark }: OrchestrationVie
           ...prev,
           ruleChecks: prev.ruleChecks.map((rc) =>
             rc.ruleId === data.data.ruleId
-              ? { ...rc, passed: false, needsReview: data.data.needsReview as boolean, message: data.data.message as string }
-              : rc
+              ? {
+                  ...rc,
+                  passed: false,
+                  needsReview: data.data.needsReview as boolean,
+                  message: data.data.message as string,
+                }
+              : rc,
           ),
         };
       });
@@ -222,13 +255,17 @@ function OrchestrationView({ workspaceId, workItemId, isDark }: OrchestrationVie
   // 获取总体进度
   const getOverallProgress = useCallback(() => {
     if (!snapshot || snapshot.tasks.length === 0) return 0;
-    const completed = snapshot.tasks.filter((t) => t.status === "completed" || t.status === "failed").length;
+    const completed = snapshot.tasks.filter(
+      (t) => t.status === "completed" || t.status === "failed",
+    ).length;
     return Math.round((completed / snapshot.tasks.length) * 100);
   }, [snapshot]);
 
   if (!snapshot) {
     return (
-      <div className={`p-6 text-center ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+      <div
+        className={`p-6 text-center ${isDark ? "text-gray-400" : "text-gray-500"}`}
+      >
         {connected ? "等待编排数据..." : "正在连接..."}
       </div>
     );
@@ -251,9 +288,18 @@ function OrchestrationView({ workspaceId, workItemId, isDark }: OrchestrationVie
                     : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
             }`}
           >
-            {snapshot.status === "executing" ? "执行中" : snapshot.status === "completed" ? "已完成" : snapshot.status === "failed" ? "失败" : "空闲"}
+            {snapshot.status === "executing"
+              ? "执行中"
+              : snapshot.status === "completed"
+                ? "已完成"
+                : snapshot.status === "failed"
+                  ? "失败"
+                  : "空闲"}
           </span>
-          <span className={`w-2 h-2 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`} title={connected ? "已连接" : "已断开"} />
+          <span
+            className={`w-2 h-2 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`}
+            title={connected ? "已连接" : "已断开"}
+          />
         </div>
         <div className="flex gap-2">
           <button
@@ -290,7 +336,9 @@ function OrchestrationView({ workspaceId, workItemId, isDark }: OrchestrationVie
             <span>总体进度</span>
             <span>{getOverallProgress()}%</span>
           </div>
-          <div className={`w-full h-2 rounded-full ${isDark ? "bg-gray-700" : "bg-gray-200"}`}>
+          <div
+            className={`w-full h-2 rounded-full ${isDark ? "bg-gray-700" : "bg-gray-200"}`}
+          >
             <div
               className="h-full rounded-full bg-blue-500 transition-all duration-300"
               style={{ width: `${getOverallProgress()}%` }}
@@ -304,7 +352,9 @@ function OrchestrationView({ workspaceId, workItemId, isDark }: OrchestrationVie
         <div className="space-y-3">
           {snapshot.layers.map((layer, layerIndex) => (
             <div key={layerIndex}>
-              <div className="text-xs text-gray-500 mb-1">第 {layerIndex + 1} 层（并行执行）</div>
+              <div className="text-xs text-gray-500 mb-1">
+                第 {layerIndex + 1} 层（并行执行）
+              </div>
               <div className="flex flex-wrap gap-2">
                 {layer.map((taskId) => {
                   const task = snapshot.tasks.find((t) => t.id === taskId);
@@ -317,10 +367,14 @@ function OrchestrationView({ workspaceId, workItemId, isDark }: OrchestrationVie
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-sm font-medium">{task.name}</span>
-                        <span className={`text-xs ${colors.text}`}>{STATUS_LABELS[task.status]}</span>
+                        <span className={`text-xs ${colors.text}`}>
+                          {STATUS_LABELS[task.status]}
+                        </span>
                       </div>
                       {task.status === "running" && (
-                        <div className={`w-full h-1.5 rounded-full ${isDark ? "bg-gray-600" : "bg-gray-200"}`}>
+                        <div
+                          className={`w-full h-1.5 rounded-full ${isDark ? "bg-gray-600" : "bg-gray-200"}`}
+                        >
                           <div
                             className="h-full rounded-full bg-blue-500 transition-all duration-300"
                             style={{ width: `${task.progress}%` }}
@@ -328,9 +382,15 @@ function OrchestrationView({ workspaceId, workItemId, isDark }: OrchestrationVie
                         </div>
                       )}
                       {task.durationMs !== undefined && (
-                        <div className="text-xs text-gray-500 mt-1">{(task.durationMs / 1000).toFixed(1)}s</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {(task.durationMs / 1000).toFixed(1)}s
+                        </div>
                       )}
-                      {task.error && <div className="text-xs text-red-500 mt-1">{task.error}</div>}
+                      {task.error && (
+                        <div className="text-xs text-red-500 mt-1">
+                          {task.error}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -348,27 +408,48 @@ function OrchestrationView({ workspaceId, workItemId, isDark }: OrchestrationVie
             return (
               <div key={task.id} className="flex items-start gap-3">
                 <div className="flex flex-col items-center">
-                  <div className={`w-3 h-3 rounded-full ${colors.border.replace("border", "bg")}`} />
+                  <div
+                    className={`w-3 h-3 rounded-full ${colors.border.replace("border", "bg")}`}
+                  />
                   {i < snapshot.tasks.length - 1 && (
-                    <div className={`w-0.5 h-8 ${isDark ? "bg-gray-600" : "bg-gray-300"}`} />
+                    <div
+                      className={`w-0.5 h-8 ${isDark ? "bg-gray-600" : "bg-gray-300"}`}
+                    />
                   )}
                 </div>
                 <div className="flex-1 pb-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">{task.name}</span>
-                    <span className={`text-xs ${colors.text}`}>{STATUS_LABELS[task.status]}</span>
+                    <span className={`text-xs ${colors.text}`}>
+                      {STATUS_LABELS[task.status]}
+                    </span>
                   </div>
                   {task.dependsOn.length > 0 && (
                     <div className="text-xs text-gray-500">
-                      依赖: {task.dependsOn.map((d) => snapshot.tasks.find((t) => t.id === d)?.name || d).join(", ")}
+                      依赖:{" "}
+                      {task.dependsOn
+                        .map(
+                          (d) =>
+                            snapshot.tasks.find((t) => t.id === d)?.name || d,
+                        )
+                        .join(", ")}
                     </div>
                   )}
                   {task.status === "running" && (
-                    <div className={`w-full h-1.5 rounded-full mt-1 ${isDark ? "bg-gray-600" : "bg-gray-200"}`}>
-                      <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${task.progress}%` }} />
+                    <div
+                      className={`w-full h-1.5 rounded-full mt-1 ${isDark ? "bg-gray-600" : "bg-gray-200"}`}
+                    >
+                      <div
+                        className="h-full rounded-full bg-blue-500 transition-all"
+                        style={{ width: `${task.progress}%` }}
+                      />
                     </div>
                   )}
-                  {task.error && <div className="text-xs text-red-500 mt-1">{task.error}</div>}
+                  {task.error && (
+                    <div className="text-xs text-red-500 mt-1">
+                      {task.error}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -395,11 +476,15 @@ function OrchestrationView({ workspaceId, workItemId, isDark }: OrchestrationVie
                 <div className="flex items-center gap-2">
                   <span>{rc.passed ? "✓" : rc.needsReview ? "⚠" : "✗"}</span>
                   <span className="font-medium">{rc.ruleName}</span>
-                  <span className={`text-xs ${rc.passed ? "text-green-600" : rc.needsReview ? "text-yellow-600" : "text-red-600"}`}>
+                  <span
+                    className={`text-xs ${rc.passed ? "text-green-600" : rc.needsReview ? "text-yellow-600" : "text-red-600"}`}
+                  >
                     {rc.passed ? "通过" : rc.needsReview ? "需审核" : "未通过"}
                   </span>
                 </div>
-                {rc.message && <div className="text-xs mt-1 text-gray-500">{rc.message}</div>}
+                {rc.message && (
+                  <div className="text-xs mt-1 text-gray-500">{rc.message}</div>
+                )}
               </div>
             ))}
           </div>

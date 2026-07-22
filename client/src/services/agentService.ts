@@ -1,13 +1,18 @@
 import type { AgentTask } from "../types";
 import { httpLegacy as http } from "./httpClient";
+import { getOTelTracing } from "../monitoring/otel";
+import { handleClientError } from "../utils/handleError";
 
-const isTauri = typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
+const isTauri =
+  typeof window !== "undefined" &&
+  ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
 
 async function getTauriCore() {
   if (!isTauri) return null;
   try {
     return await import("@tauri-apps/api/core");
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "services:agent", action: "getTauriCore" });
     return null;
   }
 }
@@ -20,7 +25,8 @@ async function tryTauri<T>(
   if (!core) return null;
   try {
     return await core.invoke<T>(method, args);
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "services:agent", action: "tryTauri" });
     return null;
   }
 }
@@ -69,20 +75,24 @@ export type AgentTaskCreateParamsRecord = Record<string, unknown> &
   AgentTaskCreateParams;
 
 export const agentService = {
-  listTasks: async (): Promise<AgentTask[]> => {
-    try {
-      return await http.get<AgentTask[]>("/v1/agents/tasks");
-    } catch {
-      const result = await tryTauri<AgentTask[]>("list_agent_tasks");
-      if (result) return result;
-      return createMemoryAgentService().listTasks();
-    }
+  listTasks: (): Promise<AgentTask[]> => {
+    return getOTelTracing().asyncWrap("services:agent:listTasks", async () => {
+      try {
+        return await http.get<AgentTask[]>("/v1/agents/tasks");
+      } catch (e) {
+        handleClientError(e, { module: "services:agent", action: "listTasks" });
+        const result = await tryTauri<AgentTask[]>("list_agent_tasks");
+        if (result) return result;
+        return createMemoryAgentService().listTasks();
+      }
+    });
   },
 
   getTask: async (id: string): Promise<AgentProgress> => {
     try {
       return await http.get<AgentProgress>(`/v1/agents/tasks/${id}`);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:agent", action: "getTask" });
       const result = await tryTauri<AgentProgress>("get_agent_progress", {
         id,
       });
@@ -94,7 +104,8 @@ export const agentService = {
   getTaskLogs: async (id: string): Promise<string[]> => {
     try {
       return await http.get<string[]>(`/v1/agents/tasks/${id}/logs`);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:agent", action: "getTaskLogs" });
       const result = await tryTauri<string[]>("get_agent_task_logs", { id });
       if (result) return result;
       return [];
@@ -107,7 +118,8 @@ export const agentService = {
         "/v1/agents/tasks",
         params as unknown as Record<string, unknown>,
       );
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:agent", action: "createTask" });
       const result = await tryTauri<AgentTask>(
         "create_agent_task",
         params as unknown as Record<string, unknown>,
@@ -126,23 +138,26 @@ export const agentService = {
     }
   },
 
-  executeTask: async (
+  executeTask: (
     name: string,
     params?: Record<string, unknown>,
   ): Promise<AgentTask> => {
-    try {
-      return await http.post<AgentTask>("/v1/agents/tasks/execute", {
-        name,
-        ...params,
-      });
-    } catch {
-      const result = await tryTauri<AgentTask>("execute_agent_task", {
-        name,
-        params,
-      });
-      if (result) return result;
-      return createMemoryAgentService().executeTask(name, params);
-    }
+    return getOTelTracing().asyncWrap("services:agent:executeTask", async () => {
+      try {
+        return await http.post<AgentTask>("/v1/agents/tasks/execute", {
+          name,
+          ...params,
+        });
+      } catch (e) {
+        handleClientError(e, { module: "services:agent", action: "executeTask" });
+        const result = await tryTauri<AgentTask>("execute_agent_task", {
+          name,
+          params,
+        });
+        if (result) return result;
+        return createMemoryAgentService().executeTask(name, params);
+      }
+    });
   },
 
   updateTask: async (
@@ -151,7 +166,8 @@ export const agentService = {
   ): Promise<AgentTask> => {
     try {
       return await http.put<AgentTask>(`/v1/agents/tasks/${id}`, params);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:agent", action: "updateTask" });
       const result = await tryTauri<AgentTask>("update_agent_task", {
         id,
         ...params,
@@ -166,7 +182,8 @@ export const agentService = {
   deleteTask: async (id: string): Promise<void> => {
     try {
       await http.delete<void>(`/v1/agents/tasks/${id}`);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:agent", action: "deleteTask" });
       const result = await tryTauri<void>("delete_agent_task", { id });
       if (result !== null) return;
     }
@@ -175,7 +192,8 @@ export const agentService = {
   cancelTask: async (id: string): Promise<void> => {
     try {
       await http.post<void>(`/v1/agents/tasks/${id}/cancel`);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:agent", action: "cancelTask" });
       const result = await tryTauri<void>("cancel_agent_task", { id });
       if (result !== null) return;
       return createMemoryAgentService().cancelTask(id);
@@ -185,7 +203,8 @@ export const agentService = {
   listTaskHistory: async (): Promise<AgentTask[]> => {
     try {
       return await http.get<AgentTask[]>("/v1/agents/tasks/history");
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:agent", action: "listTaskHistory" });
       const result = await tryTauri<AgentTask[]>("list_agent_task_history");
       if (result) return result;
       return [];
@@ -193,16 +212,21 @@ export const agentService = {
   },
 
   /** 获取任务审计日志 */
-  getTaskAuditLogs: async (taskId: string): Promise<Array<{
-    taskId: string;
-    eventType: string;
-    oldStatus: string | null;
-    newStatus: string;
-    timestamp: number;
-  }>> => {
+  getTaskAuditLogs: async (
+    taskId: string,
+  ): Promise<
+    Array<{
+      taskId: string;
+      eventType: string;
+      oldStatus: string | null;
+      newStatus: string;
+      timestamp: number;
+    }>
+  > => {
     try {
       return await http.get(`/v1/agents/tasks/${taskId}/audit`);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:agent", action: "getTaskAuditLogs" });
       const result = await tryTauri("get_task_audit_logs", { taskId });
       if (result) return result as any[];
       return [];
@@ -213,15 +237,20 @@ export const agentService = {
   recoverTask: async (taskId: string): Promise<AgentTask> => {
     try {
       return await http.post(`/v1/agents/tasks/${taskId}/recover`);
-    } catch {
-      const result = await tryTauri<AgentTask>("recover_agent_task", { taskId });
+    } catch (e) {
+      handleClientError(e, { module: "services:agent", action: "recoverTask" });
+      const result = await tryTauri<AgentTask>("recover_agent_task", {
+        taskId,
+      });
       if (result) return result;
       throw new Error("无法恢复任务");
     }
   },
 
   /** 获取任务状态（后端 TaskState） */
-  getTaskState: async (taskId: string): Promise<{
+  getTaskState: async (
+    taskId: string,
+  ): Promise<{
     id: string;
     type: string;
     status: string;
@@ -235,7 +264,8 @@ export const agentService = {
   } | null> => {
     try {
       return await http.get(`/v1/agents/tasks/${taskId}/state`);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:agent", action: "getTaskState" });
       const result = await tryTauri("get_task_state", { taskId });
       return (result as any) || null;
     }
@@ -245,7 +275,8 @@ export const agentService = {
   getTaskOutput: async (taskId: string): Promise<string> => {
     try {
       return await http.get<string>(`/v1/agents/tasks/${taskId}/output`);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:agent", action: "getTaskOutput" });
       const result = await tryTauri<string>("get_task_output", { taskId });
       return result || "";
     }
@@ -254,9 +285,15 @@ export const agentService = {
   /** 向 Agent 任务发送对话消息 */
   sendChatMessage: async (taskId: string, message: string): Promise<string> => {
     try {
-      return await http.post<string>(`/v1/agents/tasks/${taskId}/chat`, { message });
-    } catch {
-      const result = await tryTauri<string>("agent_task_chat", { taskId, message });
+      return await http.post<string>(`/v1/agents/tasks/${taskId}/chat`, {
+        message,
+      });
+    } catch (e) {
+      handleClientError(e, { module: "services:agent", action: "sendChatMessage" });
+      const result = await tryTauri<string>("agent_task_chat", {
+        taskId,
+        message,
+      });
       return result || "";
     }
   },

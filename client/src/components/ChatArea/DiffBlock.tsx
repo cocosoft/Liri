@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { DiffData } from "../../types";
+import { handleClientError } from "../../utils/handleError";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("components:diffBlock");
@@ -12,7 +13,10 @@ interface DiffBlockProps {
 /**
  * 解析 diff 结果中的单个行，返回行类型和样式
  */
-function parseDiffLine(line: string): { type: "add" | "del" | "header" | "normal"; content: string } {
+function parseDiffLine(line: string): {
+  type: "add" | "del" | "header" | "normal";
+  content: string;
+} {
   if (line.startsWith("@@")) {
     return { type: "header", content: line };
   }
@@ -26,15 +30,16 @@ function parseDiffLine(line: string): { type: "add" | "del" | "header" | "normal
 }
 
 const LINE_STYLES: Record<string, string> = {
-  add:    "bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300",
-  del:    "bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300",
-  header: "bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 font-medium",
+  add: "bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300",
+  del: "bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300",
+  header:
+    "bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 font-medium",
   normal: "text-gray-700 dark:text-gray-300",
 };
 
 const LINE_PREFIX: Record<string, string> = {
-  add:    "+",
-  del:    "-",
+  add: "+",
+  del: "-",
   header: " ",
   normal: " ",
 };
@@ -58,7 +63,10 @@ function formatRawDiff(lines: string[]): string {
  * Diff 预览组件
  * 内嵌 diff 预览，支持展开/折叠、行号显示、语法高亮、应用/拒绝操作
  */
-export default function DiffBlock({ data, collapsible = true }: DiffBlockProps) {
+export default function DiffBlock({
+  data,
+  collapsible = true,
+}: DiffBlockProps) {
   const { file, diff, stats } = data;
   const [isExpanded, setIsExpanded] = useState(!collapsible);
   const [applying, setApplying] = useState(false);
@@ -77,6 +85,7 @@ export default function DiffBlock({ data, collapsible = true }: DiffBlockProps) 
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
+      handleClientError(err, { module: "components:chat:DiffBlock", action: "applyDiff" });
       logger.error("复制失败", err);
     } finally {
       setApplying(false);
@@ -99,7 +108,9 @@ export default function DiffBlock({ data, collapsible = true }: DiffBlockProps) 
               {file}
             </span>
           </div>
-          <span className="text-xs text-gray-400 dark:text-gray-500">已拒绝</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">
+            已拒绝
+          </span>
         </div>
       </div>
     );
@@ -118,9 +129,13 @@ export default function DiffBlock({ data, collapsible = true }: DiffBlockProps) 
         <div className="flex items-center gap-2 flex-shrink-0 ml-2">
           {stats && (
             <span className="text-xs text-gray-500 dark:text-gray-400">
-              <span className="text-green-600 dark:text-green-400">+{stats.additions}</span>
+              <span className="text-green-600 dark:text-green-400">
+                +{stats.additions}
+              </span>
               {" / "}
-              <span className="text-red-600 dark:text-red-400">-{stats.deletions}</span>
+              <span className="text-red-600 dark:text-red-400">
+                -{stats.deletions}
+              </span>
             </span>
           )}
           {collapsible && (

@@ -4,9 +4,19 @@
  * 无 Zustand 状态字段，仅提供工具函数和类导出。
  * 被 chat-message.slice 和 chat-file.slice 引用。
  */
-import { MessageBlock, ToolCall, TaskCardData, TaskCardTask, ProgressData } from "../../types";
+import {
+  MessageBlock,
+  ToolCall,
+  TaskCardData,
+  TaskCardTask,
+  ProgressData,
+} from "../../types";
 import type { Message } from "../../types";
-import type { StreamChunk, QuestionData, QuestionOption } from "../../services/chatService";
+import type {
+  StreamChunk,
+  QuestionData,
+  QuestionOption,
+} from "../../services/chatService";
 import { handleClientError } from "@/utils/handleError";
 
 /**
@@ -166,7 +176,9 @@ export class ChronologicalBlockBuilder {
           : existing.toolCall?.arguments || toolCall.arguments;
       // 保留已存在的 result（由 tool_completed 事件设置），避免被 tool_call completion chunk 覆盖
       // 同时检查 pendingResults 中的待处理结果
-      const existingResult = existing.toolCall?.result || (pendingResult ? { success: true, data: pendingResult } : undefined);
+      const existingResult =
+        existing.toolCall?.result ||
+        (pendingResult ? { success: true, data: pendingResult } : undefined);
       existing.toolCall = {
         ...toolCall,
         arguments: mergedArgs,
@@ -174,7 +186,13 @@ export class ChronologicalBlockBuilder {
         result: toolCall.result || existingResult,
       };
       existing.isStreaming = toolCall.status === "running";
-        if (toolCall.status !== "running") { for (const b of this.blocks) { if (b.type === "status" && b.toolCallId === toolCall.id) { b.isStreaming = false; } } }
+      if (toolCall.status !== "running") {
+        for (const b of this.blocks) {
+          if (b.type === "status" && b.toolCallId === toolCall.id) {
+            b.isStreaming = false;
+          }
+        }
+      }
       // 消费已应用的待处理结果
       if (pendingResult) {
         this.pendingResults.delete(toolCall.id);
@@ -216,7 +234,10 @@ export class ChronologicalBlockBuilder {
   }
 
   /** 更新工具调用结果（用于 tool_completed 事件，携带结构化 result data） */
-  updateToolCallResult(toolCallId: string, resultData: Record<string, unknown>): void {
+  updateToolCallResult(
+    toolCallId: string,
+    resultData: Record<string, unknown>,
+  ): void {
     const block = this.blocks.find(
       (b) => b.type === "tool_call" && b.toolCall?.id === toolCallId,
     );
@@ -257,7 +278,8 @@ export class ChronologicalBlockBuilder {
     const raw = todoData as unknown as { phase?: string };
     const normalized: TaskCardData = {
       ...todoData,
-      status: (raw.phase || todoData.status || 'planning') as "done" | "planning" | "executing",
+      status: (raw.phase || todoData.status || "planning") as
+        "done" | "planning" | "executing",
     };
 
     // 先按标题精确匹配
@@ -286,13 +308,18 @@ export class ChronologicalBlockBuilder {
    * 更新 todo 块中单个任务的状态
    * 用于流式传输中实时反映任务进度变化
    */
-  updateTodoTask(taskId: string, updates: Partial<{ status: TaskCardTask["status"]; result: string; durationMs: number }>): void {
-    const idx = this.blocks.findIndex(b =>
-      b.type === "todo" && b.taskCard
-    );
+  updateTodoTask(
+    taskId: string,
+    updates: Partial<{
+      status: TaskCardTask["status"];
+      result: string;
+      durationMs: number;
+    }>,
+  ): void {
+    const idx = this.blocks.findIndex((b) => b.type === "todo" && b.taskCard);
     if (idx !== -1 && this.blocks[idx].taskCard) {
-      const tasks = this.blocks[idx].taskCard!.tasks.map(t =>
-        String(t.id) === String(taskId) ? { ...t, ...updates } : t
+      const tasks = this.blocks[idx].taskCard!.tasks.map((t) =>
+        String(t.id) === String(taskId) ? { ...t, ...updates } : t,
       );
       this.blocks[idx].taskCard = { ...this.blocks[idx].taskCard!, tasks };
     }
@@ -305,7 +332,8 @@ export class ChronologicalBlockBuilder {
   addProgress(progressData: ProgressData): void {
     // 按 phase 查找已有的进度块（同一次执行中同一 phase 不会重复出现）
     const idx = this.blocks.findIndex(
-      (b) => b.type === "progress" && b.progressData?.phase === progressData.phase,
+      (b) =>
+        b.type === "progress" && b.progressData?.phase === progressData.phase,
     );
     if (idx !== -1) {
       this.blocks[idx].progressData = progressData;
@@ -327,8 +355,8 @@ export class ChronologicalBlockBuilder {
     for (const block of this.blocks) {
       block.isStreaming = false;
       // R1: 对 todo 块最终化其整体状态（修复 BUG #11）
-      if (block.type === 'todo' && block.taskCard) {
-        block.taskCard.status = 'done';
+      if (block.type === "todo" && block.taskCard) {
+        block.taskCard.status = "done";
       }
     }
     this.activeTextBlock = null;
@@ -398,10 +426,18 @@ export function createThinkExtractor() {
           }
 
           // 找到更靠前的标签
-          if (thinkStart !== -1 && (thinkStart < responseStart || responseStart === -1)) {
+          if (
+            thinkStart !== -1 &&
+            (thinkStart < responseStart || responseStart === -1)
+          ) {
             output += remaining.slice(0, thinkStart);
             // 跳过 <think> 或 <thinking>（7 或 9 字符）
-            const tagLen = remaining.slice(thinkStart, thinkStart + 9).toLowerCase().startsWith("<thinking") ? 10 : 7;
+            const tagLen = remaining
+              .slice(thinkStart, thinkStart + 9)
+              .toLowerCase()
+              .startsWith("<thinking")
+              ? 10
+              : 7;
             remaining = remaining.slice(thinkStart + tagLen);
             inThink = true;
             thinkBuffer = "";
@@ -428,7 +464,12 @@ export function createThinkExtractor() {
           }
           thinkBuffer = "";
           inThink = false;
-          const tagLen = remaining.slice(endMatch.index!, endMatch.index! + 12).toLowerCase().startsWith("</thinking") ? 12 : 8;
+          const tagLen = remaining
+            .slice(endMatch.index!, endMatch.index! + 12)
+            .toLowerCase()
+            .startsWith("</thinking")
+            ? 12
+            : 8;
           remaining = remaining.slice(endMatch.index! + tagLen);
           continue;
         }
@@ -456,11 +497,7 @@ export function createThinkExtractor() {
         yield { type: "text" as const, content: output };
       }
     },
-    flush: function* (): Generator<
-      StreamChunk,
-      void,
-      unknown
-    > {
+    flush: function* (): Generator<StreamChunk, void, unknown> {
       // 未闭合的 think 标签 → 作为 thinking 输出
       if (inThink && thinkBuffer) {
         yield { type: "thinking" as const, content: thinkBuffer };
@@ -480,7 +517,9 @@ export function createThinkExtractor() {
 /**
  * 查找消息中最后一个 tool_call 的 id
  */
-export function findLastToolCallId(msg: Message & { tool_calls?: ToolCall[]; blocks?: MessageBlock[] }): string | undefined {
+export function findLastToolCallId(
+  msg: Message & { tool_calls?: ToolCall[]; blocks?: MessageBlock[] },
+): string | undefined {
   if (msg.tool_calls && msg.tool_calls.length > 0) {
     return msg.tool_calls[msg.tool_calls.length - 1].id;
   }
@@ -500,14 +539,26 @@ export function findLastToolCallId(msg: Message & { tool_calls?: ToolCall[]; blo
  */
 export function normalizeToolCall(tc: unknown): ToolCall {
   const obj = tc as Record<string, unknown>;
-  if (obj && obj.type === "function" && obj.function && typeof obj.function === "object") {
+  if (
+    obj &&
+    obj.type === "function" &&
+    obj.function &&
+    typeof obj.function === "object"
+  ) {
     const fn = obj.function as Record<string, unknown>;
     const rawArgs = fn.arguments;
     let parsedArgs: Record<string, unknown> = {};
     try {
-      parsedArgs = typeof rawArgs === "string" ? JSON.parse(rawArgs || "{}") : (rawArgs as Record<string, unknown>) || {};
+      parsedArgs =
+        typeof rawArgs === "string"
+          ? JSON.parse(rawArgs || "{}")
+          : (rawArgs as Record<string, unknown>) || {};
     } catch (err) {
-      handleClientError(err, { module: 'stores:chat:toolcall', action: 'normalizeToolCall' }, 'warn');
+      handleClientError(
+        err,
+        { module: "stores:chat:toolcall", action: "normalizeToolCall" },
+        "warn",
+      );
       parsedArgs = { raw: rawArgs };
     }
     return {
@@ -524,7 +575,9 @@ export function normalizeToolCall(tc: unknown): ToolCall {
  * 智能重建 blocks：基于 content + tool_calls 还原时序
  * 对标流式 ChronologicalBlockBuilder 的输出结构，分配 groupId 确保分组正确
  */
-export function rebuildBlocksFromContent(msg: Message & { tool_calls?: ToolCall[] }): MessageBlock[] {
+export function rebuildBlocksFromContent(
+  msg: Message & { tool_calls?: ToolCall[] },
+): MessageBlock[] {
   // 守卫：如果消息已有 blocks，直接返回，不再重建
   if (msg.blocks && msg.blocks.length > 0) {
     return msg.blocks.map((b: MessageBlock) => ({ ...b, isStreaming: false }));
@@ -564,22 +617,23 @@ export function rebuildBlocksFromContent(msg: Message & { tool_calls?: ToolCall[
     return newBlocks;
   }
 
-  const boundaries: Array<{ idx: number; pos: number; len: number } | null> = toolCalls.map((tc: ToolCall) => {
-    const name = tc.name;
-    if (!name) return null;
-    const candidates = [
-      `\`${name}\``,
-      `「${name}」`,
-      `${name} 工具`,
-      `${name}工具`,
-      name,
-    ];
-    for (const c of candidates) {
-      const pos = fullText.indexOf(c);
-      if (pos !== -1) return { idx: -1, pos, len: c.length };
-    }
-    return null;
-  });
+  const boundaries: Array<{ idx: number; pos: number; len: number } | null> =
+    toolCalls.map((tc: ToolCall) => {
+      const name = tc.name;
+      if (!name) return null;
+      const candidates = [
+        `\`${name}\``,
+        `「${name}」`,
+        `${name} 工具`,
+        `${name}工具`,
+        name,
+      ];
+      for (const c of candidates) {
+        const pos = fullText.indexOf(c);
+        if (pos !== -1) return { idx: -1, pos, len: c.length };
+      }
+      return null;
+    });
 
   // 填充 tool_call index
   let boundaryIdx = 0;
@@ -686,20 +740,29 @@ export function rebuildBlocksFromContent(msg: Message & { tool_calls?: ToolCall[
   for (let i = 0; i < newBlocks.length; i++) {
     const block = newBlocks[i];
     if (block.type === "tool_call" && block.toolCall?.name === "todo_write") {
-      const args = block.toolCall.arguments as Record<string, unknown> | undefined;
+      const args = block.toolCall.arguments as
+        Record<string, unknown> | undefined;
       if (args?.action === "write" && args?.todos) {
         const todos = args.todos as Array<{
-          id?: string; name?: string; status?: string;
-          dependsOn?: string[]; activeForm?: string; metadata?: Record<string, unknown>;
+          id?: string;
+          name?: string;
+          status?: string;
+          dependsOn?: string[];
+          activeForm?: string;
+          metadata?: Record<string, unknown>;
         }>;
         if (Array.isArray(todos) && todos.length > 0) {
           // 兼容 content 字段（TodoWriteTool 内部字段名）和 name 字段
-          const taskName = (t: { name?: string; content?: string }, idx: number) =>
-            t.name || t.content || `步骤 ${idx + 1}`;
+          const taskName = (
+            t: { name?: string; content?: string },
+            idx: number,
+          ) => t.name || t.content || `步骤 ${idx + 1}`;
           const tasks = todos.map((t, idx) => ({
             id: t.id || String(idx + 1),
             name: taskName(t, idx),
-            status: (t.status as "pending" | "in_progress" | "completed") || "pending",
+            status:
+              (t.status as "pending" | "in_progress" | "completed") ||
+              "pending",
             dependsOn: t.dependsOn || [],
           }));
           const title =

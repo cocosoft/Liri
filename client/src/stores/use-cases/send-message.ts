@@ -27,7 +27,10 @@ export interface SendMessageController {
  * 委托给 chatStore.sendMessage（异步，等待完整回复）。
  * 返回控制对象，cancel() 调用 chatStore.stopMessage 中断流式输出。
  */
-export function sendMessage(content: string, sessionId?: string): SendMessageController {
+export function sendMessage(
+  content: string,
+  sessionId?: string,
+): SendMessageController {
   const root = useRootStore.getState();
   const chat = useChatStore.getState();
 
@@ -40,7 +43,8 @@ export function sendMessage(content: string, sessionId?: string): SendMessageCon
   // updatedAt 由 Slice 内部在上下文变更时自动维护
 
   // chatStore.sendMessage 是异步的，等待完整回复
-  const promise = chat.sendMessage(content, sessionId)
+  const promise = chat
+    .sendMessage(content, sessionId)
     .then(() => {
       logger.info("消息发送完成", { sessionId: root.currentSessionId });
     })

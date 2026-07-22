@@ -4,7 +4,11 @@ interface BaseIconProps {
   color?: string;
 }
 
-export const PlusIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const PlusIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -21,7 +25,11 @@ export const PlusIcon = ({ className = '', size = 24, color = 'currentColor' }: 
   </svg>
 );
 
-export const DeleteIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const DeleteIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -39,7 +47,11 @@ export const DeleteIcon = ({ className = '', size = 24, color = 'currentColor' }
   </svg>
 );
 
-export const SearchIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const SearchIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -56,7 +68,11 @@ export const SearchIcon = ({ className = '', size = 24, color = 'currentColor' }
   </svg>
 );
 
-export const MicIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const MicIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -75,7 +91,11 @@ export const MicIcon = ({ className = '', size = 24, color = 'currentColor' }: B
   </svg>
 );
 
-export const Trash2Icon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const Trash2Icon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -93,7 +113,11 @@ export const Trash2Icon = ({ className = '', size = 24, color = 'currentColor' }
   </svg>
 );
 
-export const ChevronLeftIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const ChevronLeftIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -109,7 +133,11 @@ export const ChevronLeftIcon = ({ className = '', size = 24, color = 'currentCol
   </svg>
 );
 
-export const ChevronRightIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const ChevronRightIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -125,7 +153,11 @@ export const ChevronRightIcon = ({ className = '', size = 24, color = 'currentCo
   </svg>
 );
 
-export const UploadIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const UploadIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -143,7 +175,11 @@ export const UploadIcon = ({ className = '', size = 24, color = 'currentColor' }
   </svg>
 );
 
-export const SlidersIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const SlidersIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -162,7 +198,11 @@ export const SlidersIcon = ({ className = '', size = 24, color = 'currentColor' 
   </svg>
 );
 
-export const KeyboardIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const KeyboardIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -181,7 +221,11 @@ export const KeyboardIcon = ({ className = '', size = 24, color = 'currentColor'
   </svg>
 );
 
-export const InfoIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const InfoIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -199,7 +243,11 @@ export const InfoIcon = ({ className = '', size = 24, color = 'currentColor' }: 
   </svg>
 );
 
-export const WrenchIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const WrenchIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -218,7 +266,11 @@ export const WrenchIcon = ({ className = '', size = 24, color = 'currentColor' }
   </svg>
 );
 
-export const FolderOpenIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const FolderOpenIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -234,7 +286,11 @@ export const FolderOpenIcon = ({ className = '', size = 24, color = 'currentColo
   </svg>
 );
 
-export const BellIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const BellIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -251,7 +307,11 @@ export const BellIcon = ({ className = '', size = 24, color = 'currentColor' }: 
   </svg>
 );
 
-export const PlayIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const PlayIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -267,7 +327,11 @@ export const PlayIcon = ({ className = '', size = 24, color = 'currentColor' }: 
   </svg>
 );
 
-export const LinkIcon = ({ className = '', size = 24, color = 'currentColor' }: BaseIconProps) => (
+export const LinkIcon = ({
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: BaseIconProps) => (
   <svg
     width={size}
     height={size}
@@ -283,5 +347,3 @@ export const LinkIcon = ({ className = '', size = 24, color = 'currentColor' }: 
     <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
   </svg>
 );
-
-

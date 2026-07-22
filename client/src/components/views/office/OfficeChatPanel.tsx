@@ -11,10 +11,7 @@ import {
   type FormEvent,
 } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  useOfficeStore,
-  type ChatMessage,
-} from "../../../stores/officeStore";
+import { useOfficeStore, type ChatMessage } from "../../../stores/officeStore";
 
 /** localStorage 存储键 */
 const CHAT_STORAGE_KEY = "office-chat-messages";
@@ -106,7 +103,8 @@ export function OfficeChatPanel({
   }, [chatMessages]);
 
   /** 生成唯一 ID */
-  const genId = () => `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const genId = () =>
+    `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   /** 发送消息 */
   const handleSend = useCallback(
@@ -146,9 +144,18 @@ export function OfficeChatPanel({
 
   /** 快捷指令 */
   const quickActions = [
-    { label: t("office.createDoc", "创建文档"), prompt: "请帮我创建一份文档：" },
-    { label: t("office.createTable", "创建表格"), prompt: "请帮我创建一份表格：" },
-    { label: t("office.createPpt", "创建演示"), prompt: "请帮我创建一份演示文稿：" },
+    {
+      label: t("office.createDoc", "创建文档"),
+      prompt: "请帮我创建一份文档：",
+    },
+    {
+      label: t("office.createTable", "创建表格"),
+      prompt: "请帮我创建一份表格：",
+    },
+    {
+      label: t("office.createPpt", "创建演示"),
+      prompt: "请帮我创建一份演示文稿：",
+    },
   ];
 
   return (
@@ -244,7 +251,10 @@ export function OfficeChatPanel({
             type="text"
             value={input}
             onChange={(e) => handleInputChange(e.target.value)}
-            placeholder={t("office.chatPlaceholder", "输入指令，让 AI 帮你处理文档...")}
+            placeholder={t(
+              "office.chatPlaceholder",
+              "输入指令，让 AI 帮你处理文档...",
+            )}
             data-office-chat-input
             className="flex-1 px-2.5 py-1.5 text-sm border border-gray-200 
               dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 

@@ -26,10 +26,13 @@ export default function ImageEditResultView({ data }: Props) {
   const height = data.height as number | undefined;
   const aspectRatio = data.aspectRatio as number | undefined;
   const format = data.format as string | undefined;
-  const batchResults = data.batchResults as Array<Record<string, unknown>> | undefined;
+  const batchResults = data.batchResults as
+    Array<Record<string, unknown>> | undefined;
 
   const downloadUrl = outputPath ? imageService.getImageUrl(outputPath) : null;
-  const fileName = outputPath ? outputPath.split(/[/\\]/).pop() || "edited_image" : "edited_image";
+  const fileName = outputPath
+    ? outputPath.split(/[/\\]/).pop() || "edited_image"
+    : "edited_image";
 
   // 批量结果
   if (batchResults && batchResults.length > 0) {
@@ -46,7 +49,7 @@ export default function ImageEditResultView({ data }: Props) {
                   item.action ? "bg-green-500" : "bg-red-500"
                 }`}
               />
-              <span className="text-gray-400">{String(item.action ?? '')}</span>
+              <span className="text-gray-400">{String(item.action ?? "")}</span>
               {!!item.outputPath && (
                 <span className="text-gray-500 truncate">
                   → {String(item.outputPath).split(/[/\\]/).pop()}
@@ -81,7 +84,8 @@ export default function ImageEditResultView({ data }: Props) {
         )}
         {format && (
           <span>
-            {t("image.outputFormat")}: <span className="text-gray-300">{format}</span>
+            {t("image.outputFormat")}:{" "}
+            <span className="text-gray-300">{format}</span>
           </span>
         )}
       </div>
@@ -89,7 +93,10 @@ export default function ImageEditResultView({ data }: Props) {
       {/* 尺寸对比 */}
       {width && height && (
         <div className="text-[10px] text-gray-500">
-          {t("image.dimensions")}: <span className="text-gray-300">{width}x{height}</span>
+          {t("image.dimensions")}:{" "}
+          <span className="text-gray-300">
+            {width}x{height}
+          </span>
           {aspectRatio && (
             <span className="ml-1">(AR: {aspectRatio.toFixed(3)})</span>
           )}
@@ -114,8 +121,8 @@ export default function ImageEditResultView({ data }: Props) {
               ({processedSize < originalSize ? "-" : "+"}
               {Math.abs(
                 Math.round(
-                  ((processedSize - originalSize) / originalSize) * 100
-                )
+                  ((processedSize - originalSize) / originalSize) * 100,
+                ),
               )}
               %)
             </span>

@@ -6,15 +6,14 @@ export interface DecomposeOptions {
 
 function ruleBasedDecompose(
   requirements: string,
-  options: { projectId: string }
+  options: { projectId: string },
 ): ProjectNode[] {
   const nodes: ProjectNode[] = [];
   const projectId = options.projectId;
   let nodeCounter = 0;
   const id = () => `${projectId}_n${++nodeCounter}`;
 
-  const hasScene = (keyword: string) =>
-    requirements.includes(keyword);
+  const hasScene = (keyword: string) => requirements.includes(keyword);
 
   const baseNodeId = id();
   nodes.push({
@@ -22,7 +21,8 @@ function ruleBasedDecompose(
     projectId,
     type: "phase",
     title: "流程数据接入层搭建",
-    description: "对接电网管理平台各业务域数据接口,建立统一的数据模型和指标引擎",
+    description:
+      "对接电网管理平台各业务域数据接口,建立统一的数据模型和指标引擎",
     priority: "P0",
     status: "planning",
     progress: 0,
@@ -36,7 +36,11 @@ function ruleBasedDecompose(
     createdAt: Date.now(),
   });
 
-  const baseChildren = ["数据接口适配器", "统一流程数据模型", "流程指标计算引擎"];
+  const baseChildren = [
+    "数据接口适配器",
+    "统一流程数据模型",
+    "流程指标计算引擎",
+  ];
   for (const i in baseChildren) {
     nodes.push({
       id: `${baseNodeId}_${i}`,
@@ -64,7 +68,8 @@ function ruleBasedDecompose(
     projectId,
     type: "phase",
     title: "流程穿式监控大看板框架",
-    description: "统一入口框架,集中展示流程运行状态、关键指标、问题分布、风险等级和整改进度",
+    description:
+      "统一入口框架,集中展示流程运行状态、关键指标、问题分布、风险等级和整改进度",
     priority: "P0",
     status: "planning",
     progress: 0,
@@ -106,7 +111,8 @@ function ruleBasedDecompose(
     projectId,
     type: "story",
     title: "采购全流程时长预警场景",
-    description: "采购立项→方案编制→文件审批→招标→定标→通知书下发→履约的全流程时长监控与预警",
+    description:
+      "采购立项→方案编制→文件审批→招标→定标→通知书下发→履约的全流程时长监控与预警",
     priority: "P0",
     status: "planning",
     progress: 0,
@@ -120,7 +126,11 @@ function ruleBasedDecompose(
     createdAt: Date.now(),
   });
 
-  const scene5Children = ["采购流程数据清洗与时序建模", "时长预警规则配置与督办引擎", "采购场景看板卡片"];
+  const scene5Children = [
+    "采购流程数据清洗与时序建模",
+    "时长预警规则配置与督办引擎",
+    "采购场景看板卡片",
+  ];
   for (const i in scene5Children) {
     nodes.push({
       id: `${scene5Id}_${i}`,
@@ -437,7 +447,7 @@ function ruleBasedDecompose(
 
 export async function decompose(
   requirements: string,
-  options: DecomposeOptions
+  options: DecomposeOptions,
 ): Promise<ProjectNode[]> {
   return ruleBasedDecompose(requirements, options);
 }

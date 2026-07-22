@@ -31,7 +31,6 @@ interface BackendStore {
  * Tauri 模式下可通过 chatService 控制后端进程的启停。
  */
 export const useBackendStore = create<BackendStore>((set, get) => ({
-
   status: { running: false, port: null },
   isChecking: false,
   error: null,
@@ -41,8 +40,12 @@ export const useBackendStore = create<BackendStore>((set, get) => ({
     const tauri = await (async () => {
       if (typeof window === "undefined") return false;
       if ("__TAURI__" in window || "__TAURI_INTERNALS__" in window) return true;
-      try { await import("@tauri-apps/api/core"); return true; }
-      catch { return false; }
+      try {
+        await import("@tauri-apps/api/core");
+        return true;
+      } catch {
+        return false;
+      }
     })();
     set({ isBrowserMode: !tauri });
   },
@@ -53,8 +56,16 @@ export const useBackendStore = create<BackendStore>((set, get) => ({
       const status = await chatService.getBackendStatus();
       set({ status, isChecking: false, error: null });
     } catch (e) {
-      handleClientError(e, { module: 'stores:backendStore', action: 'checkStatus' }, 'warn');
-      set({ status: { running: false, port: null }, isChecking: false, error: e instanceof Error ? e.message : String(e) });
+      handleClientError(
+        e,
+        { module: "stores:backendStore", action: "checkStatus" },
+        "warn",
+      );
+      set({
+        status: { running: false, port: null },
+        isChecking: false,
+        error: e instanceof Error ? e.message : String(e),
+      });
     }
   },
 
@@ -72,11 +83,18 @@ export const useBackendStore = create<BackendStore>((set, get) => ({
           set({ error: errorMsg });
         }
       } catch (e) {
-        handleClientError(e, { module: 'stores:backendStore', action: 'startBackend' }, 'warn');
+        handleClientError(
+          e,
+          { module: "stores:backendStore", action: "startBackend" },
+          "warn",
+        );
         set({ error: e instanceof Error ? e.message : String(e) });
       }
     } else {
-      set({ error: "浏览器模式下无法自动启动后端。请在终端中运行：\ncd app && bun run src/main.ts repl --http-port 7890\n启动后刷新页面。" });
+      set({
+        error:
+          "浏览器模式下无法自动启动后端。请在终端中运行：\ncd app && bun run src/main.ts repl --http-port 7890\n启动后刷新页面。",
+      });
     }
   },
 
@@ -87,7 +105,11 @@ export const useBackendStore = create<BackendStore>((set, get) => ({
         await chatService.stopBackend();
         set({ status: { running: false, port: null } });
       } catch (e) {
-        handleClientError(e, { module: 'stores:backendStore', action: 'stopBackend' }, 'warn');
+        handleClientError(
+          e,
+          { module: "stores:backendStore", action: "stopBackend" },
+          "warn",
+        );
         set({ error: e instanceof Error ? e.message : String(e) });
       }
     } else {
@@ -96,5 +118,4 @@ export const useBackendStore = create<BackendStore>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
-
 }));

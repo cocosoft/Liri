@@ -9,6 +9,7 @@ import { create } from "zustand";
 import type { AgentTask, AgentProgress } from "@/types";
 import { agentService } from "@/services/agentService";
 import { createLogger } from "@/utils/logger";
+import { handleClientError } from "@/utils/handleError";
 
 const logger = createLogger("stores:agentList");
 
@@ -57,6 +58,7 @@ export const useAgentListStore = create<AgentListSlice>((set, get) => ({
       set({ tasks, isLoading: false });
       logger.debug("任务列表加载完成", { count: tasks.length });
     } catch (e) {
+      handleClientError(e, { module: "stores:agent:list", action: "loadTasks" });
       set({ error: String(e), isLoading: false });
       logger.error("任务列表加载失败", { error: String(e) });
     }
@@ -75,6 +77,7 @@ export const useAgentListStore = create<AgentListSlice>((set, get) => ({
       });
       set({ tasks: [task, ...get().tasks] });
     } catch (e) {
+      handleClientError(e, { module: "stores:agent:list", action: "createTask" });
       set({ error: String(e) });
     }
   },
@@ -86,6 +89,7 @@ export const useAgentListStore = create<AgentListSlice>((set, get) => ({
       const task = await agentService.executeTask(name, params);
       set({ tasks: [task, ...get().tasks] });
     } catch (e) {
+      handleClientError(e, { module: "stores:agent:list", action: "executeTask" });
       set({ error: String(e) });
     }
   },
@@ -99,6 +103,7 @@ export const useAgentListStore = create<AgentListSlice>((set, get) => ({
         tasks: get().tasks.map((t) => (t.id === id ? updated : t)),
       });
     } catch (e) {
+      handleClientError(e, { module: "stores:agent:list", action: "updateTask" });
       set({ error: String(e) });
     }
   },
@@ -110,6 +115,7 @@ export const useAgentListStore = create<AgentListSlice>((set, get) => ({
       await agentService.deleteTask(id);
       set({ tasks: get().tasks.filter((t) => t.id !== id) });
     } catch (e) {
+      handleClientError(e, { module: "stores:agent:list", action: "deleteTask" });
       set({ error: String(e) });
     }
   },
@@ -124,6 +130,7 @@ export const useAgentListStore = create<AgentListSlice>((set, get) => ({
         ),
       });
     } catch (e) {
+      handleClientError(e, { module: "stores:agent:list", action: "cancelTask" });
       set({ error: String(e) });
     }
   },
@@ -135,6 +142,7 @@ export const useAgentListStore = create<AgentListSlice>((set, get) => ({
       set({ taskProgress: progress });
       return progress;
     } catch (e) {
+      handleClientError(e, { module: "stores:agent:list", action: "getTaskProgress" });
       set({ error: String(e) });
       return null;
     }

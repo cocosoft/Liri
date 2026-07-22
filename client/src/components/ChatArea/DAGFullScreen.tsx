@@ -17,7 +17,10 @@ interface DAGFullScreenProps {
   onClose: () => void;
 }
 
-const STATUS_COLORS: Record<TaskCardTask["status"], { bg: string; border: string; text: string }> = {
+const STATUS_COLORS: Record<
+  TaskCardTask["status"],
+  { bg: string; border: string; text: string }
+> = {
   pending: { bg: "#f3f4f6", border: "#d1d5db", text: "#6b7280" },
   in_progress: { bg: "#dbeafe", border: "#60a5fa", text: "#2563eb" },
   completed: { bg: "#dcfce7", border: "#22c55e", text: "#16a34a" },
@@ -28,7 +31,13 @@ const STATUS_COLORS: Record<TaskCardTask["status"], { bg: string; border: string
 function layoutNodes(tasks: TaskCardTask[]): { nodes: Node[]; edges: Edge[] } {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: "TB", nodesep: 40, ranksep: 60, marginx: 20, marginy: 20 });
+  g.setGraph({
+    rankdir: "TB",
+    nodesep: 40,
+    ranksep: 60,
+    marginx: 20,
+    marginy: 20,
+  });
 
   const nodeWidth = 200;
   const nodeHeight = 60;
@@ -48,10 +57,15 @@ function layoutNodes(tasks: TaskCardTask[]): { nodes: Node[]; edges: Edge[] } {
     const pos = g.node(task.id);
     const colors = STATUS_COLORS[task.status] || STATUS_COLORS.pending;
     const icon =
-      task.status === "completed" ? "✓" :
-      task.status === "in_progress" ? "⟳" :
-      task.status === "failed" ? "✗" :
-      task.status === "blocked" ? "⏸" : "";
+      task.status === "completed"
+        ? "✓"
+        : task.status === "in_progress"
+          ? "⟳"
+          : task.status === "failed"
+            ? "✗"
+            : task.status === "blocked"
+              ? "⏸"
+              : "";
     const label = task.result
       ? `${icon} ${task.id}. ${task.name}\n${task.durationMs ? `${(task.durationMs / 1000).toFixed(1)}s` : ""} → ${task.result}`
       : `${icon} ${task.id}. ${task.name}`;
@@ -98,7 +112,11 @@ function layoutNodes(tasks: TaskCardTask[]): { nodes: Node[]; edges: Edge[] } {
   return { nodes, edges };
 }
 
-export default function DAGFullScreen({ tasks, title, onClose }: DAGFullScreenProps) {
+export default function DAGFullScreen({
+  tasks,
+  title,
+  onClose,
+}: DAGFullScreenProps) {
   const { nodes, edges } = useMemo(() => layoutNodes(tasks), [tasks]);
 
   return (
@@ -114,10 +132,22 @@ export default function DAGFullScreen({ tasks, title, onClose }: DAGFullScreenPr
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mr-2">
-              <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-green-100 border border-green-500 mr-1" />已完成</span>
-              <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-100 border border-blue-500 mr-1" />执行中</span>
-              <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-orange-100 border border-orange-500 mr-1" />等待</span>
-              <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-red-100 border border-red-500 mr-1" />失败</span>
+              <span>
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-100 border border-green-500 mr-1" />
+                已完成
+              </span>
+              <span>
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-100 border border-blue-500 mr-1" />
+                执行中
+              </span>
+              <span>
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-orange-100 border border-orange-500 mr-1" />
+                等待
+              </span>
+              <span>
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-100 border border-red-500 mr-1" />
+                失败
+              </span>
             </div>
             <button
               onClick={onClose}
@@ -138,11 +168,7 @@ export default function DAGFullScreen({ tasks, title, onClose }: DAGFullScreenPr
           >
             <Background gap={20} color="#e2e8f0" />
             <Controls />
-            <MiniMap
-              nodeStrokeWidth={3}
-              pannable
-              zoomable
-            />
+            <MiniMap nodeStrokeWidth={3} pannable zoomable />
           </ReactFlow>
         </div>
       </div>

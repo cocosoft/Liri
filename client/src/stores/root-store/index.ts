@@ -22,10 +22,7 @@ const logger = createLogger("root-store");
 
 // ─── 根 State 类型 ─────────────────────────────────────
 
-export interface RootState
-  extends WorkspaceSlice,
-    SessionSlice,
-    FeatureSlice {}
+export interface RootState extends WorkspaceSlice, SessionSlice, FeatureSlice {}
 
 // ─── 根 Store 创建 ─────────────────────────────────────
 
@@ -45,8 +42,8 @@ export const useRootStore = create<RootState>()(
         partialize: (state) => ({
           currentWorktreeId: state.currentWorktreeId,
           currentSessionId: state.currentSessionId,
-          sessions: state.sessions,          // 核心：会话记录必须持久化
-          chatSessions: state.chatSessions,  // 旧 sessionStore 兼容数据
+          sessions: state.sessions, // 核心：会话记录必须持久化
+          chatSessions: state.chatSessions, // 旧 sessionStore 兼容数据
           worktrees: state.worktrees,
           recentWorktreeIds: state.recentWorktreeIds,
           moduleOrder: state.moduleOrder,
@@ -63,7 +60,8 @@ export const useRootStore = create<RootState>()(
             if (state.worktrees) {
               for (const wt of Object.values(state.worktrees)) {
                 if (wt.gitRepo?.path) {
-                  (wt.gitRepo as Record<string, unknown>)._pathValid = undefined;
+                  (wt.gitRepo as Record<string, unknown>)._pathValid =
+                    undefined;
                 }
               }
             }
@@ -72,7 +70,8 @@ export const useRootStore = create<RootState>()(
           // 清理孤儿数据：session 引用的 worktree 必须存在
           if (state.sessions) {
             const validWtIds = new Set(Object.keys(state.worktrees ?? {}));
-            const filtered: Record<string, typeof state.sessions[string]> = {};
+            const filtered: Record<string, (typeof state.sessions)[string]> =
+              {};
             for (const [id, s] of Object.entries(state.sessions)) {
               if (validWtIds.has(s.worktreeId)) {
                 filtered[id] = s;
@@ -86,15 +85,15 @@ export const useRootStore = create<RootState>()(
             const validSessionIds = new Set(Object.keys(state.sessions));
             (state as unknown as Record<string, unknown>).pinnedSessionIds =
               state.pinnedSessionIds.filter((id: string) =>
-                validSessionIds.has(id)
+                validSessionIds.has(id),
               );
           }
 
           return state;
         },
-      }
-    )
-  )
+      },
+    ),
+  ),
 );
 
 // ─── 初始化日志 ────────────────────────────────────────

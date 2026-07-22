@@ -17,12 +17,15 @@ function TableBlock({ content, renderText }: TableBlockProps) {
   const separator = rows[1];
   const dataRows = rows.slice(2);
 
-  const alignments = separator.split("|").filter((cell) => cell.trim()).map((cell) => {
-    if (cell.startsWith(":") && cell.endsWith(":")) return "center" as const;
-    if (cell.startsWith(":")) return "left" as const;
-    if (cell.endsWith(":")) return "right" as const;
-    return "left" as const;
-  });
+  const alignments = separator
+    .split("|")
+    .filter((cell) => cell.trim())
+    .map((cell) => {
+      if (cell.startsWith(":") && cell.endsWith(":")) return "center" as const;
+      if (cell.startsWith(":")) return "left" as const;
+      if (cell.endsWith(":")) return "right" as const;
+      return "left" as const;
+    });
 
   return (
     <table className="w-full border-collapse my-4">
@@ -45,7 +48,11 @@ function TableBlock({ content, renderText }: TableBlockProps) {
           return (
             <tr
               key={rowIdx}
-              className={rowIdx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-750"}
+              className={
+                rowIdx % 2 === 0
+                  ? "bg-white dark:bg-gray-800"
+                  : "bg-gray-50 dark:bg-gray-750"
+              }
             >
               {cells.map((cell, cellIdx) => (
                 <td

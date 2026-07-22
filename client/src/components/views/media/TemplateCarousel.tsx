@@ -20,9 +20,7 @@ interface TemplateInfo {
   sortOrder: number;
 }
 
-export const TemplateCarousel: React.FC<{ isDark: boolean }> = ({
-  isDark,
-}) => {
+export const TemplateCarousel: React.FC<{ isDark: boolean }> = ({ isDark }) => {
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const selectedId = useMediaStore((s) => s.selectedId);
   const selectTemplate = useMediaStore((s) => s.selectTemplate);
@@ -76,9 +74,7 @@ export const TemplateCarousel: React.FC<{ isDark: boolean }> = ({
               `${tmpl.name} (${tmpl.type === "i2i2v" ? "图生视频" : "图生图"})`
             }
           >
-            <span className="mr-1">
-              {tmpl.type === "i2i2v" ? "🎬" : "🖼️"}
-            </span>
+            <span className="mr-1">{tmpl.type === "i2i2v" ? "🎬" : "🖼️"}</span>
             {tmpl.name}
           </button>
         ))}

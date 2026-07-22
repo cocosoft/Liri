@@ -2,7 +2,12 @@
  * API 请求/响应类型 —— chat / message 模块
  */
 
-import type { ToolCall, MessageBlock, QuestionOption, QuestionData } from "../../types";
+import type {
+  ToolCall,
+  MessageBlock,
+  QuestionOption,
+  QuestionData,
+} from "../../types";
 
 export type { ToolCall, MessageBlock, QuestionOption, QuestionData };
 

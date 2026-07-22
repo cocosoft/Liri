@@ -16,16 +16,30 @@ interface RightPanelConfig {
 /** 配置驱动：与 App.tsx 中 inline IIFE 逻辑完全等价 */
 const RIGHT_PANEL_CONFIG: RightPanelConfig = {
   fullWidthPaths: [
-    "/settings", "/help", "/user", "/dashboard", "/login",
-    "/buddy", "/dream", "/memory", "/skills", "/permissions",
-    "/market/skills", "/market/mcp",
-    "/media", "/image", "/video",
-    "/office", "/office/doc", "/office/mail", "/office/calendar",
+    "/settings",
+    "/help",
+    "/user",
+    "/dashboard",
+    "/login",
+    "/buddy",
+    "/dream",
+    "/memory",
+    "/skills",
+    "/permissions",
+    "/market/skills",
+    "/market/mcp",
+    "/media",
+    "/image",
+    "/video",
+    "/office",
+    "/office/doc",
+    "/office/mail",
+    "/office/calendar",
     "/calendar",
   ],
   panelMap: {
-    '/chat': FilePreviewPanel,
-    '/': FilePreviewPanel,
+    "/chat": FilePreviewPanel,
+    "/": FilePreviewPanel,
   },
   defaultPanel: ToolPanel,
 };
@@ -48,34 +62,37 @@ export function RightPanelRouter() {
   }, []);
 
   /** 拖拽调整面板宽度（仅在展开状态下） */
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    if (collapsed) return;
-    e.preventDefault();
-    draggingRef.current = true;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      if (collapsed) return;
+      e.preventDefault();
+      draggingRef.current = true;
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
 
-    const onMove = (ev: MouseEvent) => {
-      if (!draggingRef.current || !wrapperRef.current) return;
-      const parent = wrapperRef.current.parentElement;
-      if (!parent) return;
-      const rect = parent.getBoundingClientRect();
-      const maxW = rect.width * 0.5;
-      const newW = rect.right - ev.clientX;
-      setPanelW(Math.max(PANEL_MIN, Math.min(maxW, newW)));
-    };
+      const onMove = (ev: MouseEvent) => {
+        if (!draggingRef.current || !wrapperRef.current) return;
+        const parent = wrapperRef.current.parentElement;
+        if (!parent) return;
+        const rect = parent.getBoundingClientRect();
+        const maxW = rect.width * 0.5;
+        const newW = rect.right - ev.clientX;
+        setPanelW(Math.max(PANEL_MIN, Math.min(maxW, newW)));
+      };
 
-    const onUp = () => {
-      draggingRef.current = false;
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-    };
+      const onUp = () => {
+        draggingRef.current = false;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+      };
 
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  }, [collapsed]);
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    },
+    [collapsed],
+  );
 
   // 全宽页面不显示右侧面板
   if (RIGHT_PANEL_CONFIG.fullWidthPaths.includes(location.pathname)) {
@@ -83,7 +100,9 @@ export function RightPanelRouter() {
   }
 
   // 匹配指定面板，未匹配则使用默认面板
-  const Panel = RIGHT_PANEL_CONFIG.panelMap[location.pathname] || RIGHT_PANEL_CONFIG.defaultPanel;
+  const Panel =
+    RIGHT_PANEL_CONFIG.panelMap[location.pathname] ||
+    RIGHT_PANEL_CONFIG.defaultPanel;
 
   return (
     <div
@@ -123,8 +142,17 @@ export function RightPanelRouter() {
             style={{ marginLeft: -3 }}
             title="收起面板"
           >
-            <svg className="w-3 h-3 text-gray-500 dark:text-gray-400" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M10.5 3L5.5 8l5 5" stroke="currentColor" strokeWidth="2" fill="none" />
+            <svg
+              className="w-3 h-3 text-gray-500 dark:text-gray-400"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+            >
+              <path
+                d="M10.5 3L5.5 8l5 5"
+                stroke="currentColor"
+                strokeWidth="2"
+                fill="none"
+              />
             </svg>
           </button>
           <div className="h-full overflow-hidden">

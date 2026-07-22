@@ -5,11 +5,19 @@ let clipData: ImageData | null = null;
 
 export const clipBoard = {
   /** 存入剪贴板 */
-  set(data: ImageData) { clipData = data; },
+  set(data: ImageData) {
+    clipData = data;
+  },
   /** 取出剪贴板 */
-  get(): ImageData | null { return clipData; },
+  get(): ImageData | null {
+    return clipData;
+  },
   /** 是否有内容 */
-  has(): boolean { return clipData !== null; },
+  has(): boolean {
+    return clipData !== null;
+  },
   /** 清空 */
-  clear() { clipData = null; },
+  clear() {
+    clipData = null;
+  },
 };

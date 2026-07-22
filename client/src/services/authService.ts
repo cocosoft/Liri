@@ -1,4 +1,5 @@
 import { httpLegacy as http } from "./httpClient";
+import { handleClientError } from "../utils/handleError";
 
 export interface User {
   id: string;
@@ -63,7 +64,8 @@ function getStoredUser(): User | null {
   if (!userStr) return null;
   try {
     return JSON.parse(userStr);
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "services:auth", action: "getStoredUser" });
     return null;
   }
 }
@@ -105,7 +107,8 @@ export const authService = {
   async logout(): Promise<void> {
     try {
       await http.post("/v1/auth/logout");
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:auth", action: "logout" });
     } finally {
       removeStoredToken();
       removeStoredUser();
@@ -119,7 +122,8 @@ export const authService = {
       const user = await http.get<User>("/v1/auth/me");
       setStoredUser(user);
       return user;
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:auth", action: "getCurrentUser" });
       removeStoredToken();
       removeStoredUser();
       return null;

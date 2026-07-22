@@ -82,7 +82,8 @@ function App() {
   // 知识库"发送到对话"事件监听
   useEffect(() => {
     function handleAppendKnowledge(e: Event) {
-      const detail = (e as CustomEvent).detail as { title: string; content: string } | undefined;
+      const detail = (e as CustomEvent).detail as
+        { title: string; content: string } | undefined;
       if (!detail?.content) return;
 
       const sessionState = useSessionStore.getState();
@@ -108,7 +109,11 @@ function App() {
     }
 
     window.addEventListener("liri:append-knowledge", handleAppendKnowledge);
-    return () => window.removeEventListener("liri:append-knowledge", handleAppendKnowledge);
+    return () =>
+      window.removeEventListener(
+        "liri:append-knowledge",
+        handleAppendKnowledge,
+      );
   }, [navigate]);
 
   // Root Store: 首次启动时自动创建默认工作空间 + 注册模块
@@ -123,7 +128,12 @@ function App() {
     // 创建默认工作空间
     const wtId = rootCreateWorktree({ name: "默认工作空间", path: "." });
     rootSwitchWorktree(wtId);
-  }, [initState.phase, rootCurrentWorktreeId, rootCreateWorktree, rootSwitchWorktree]);
+  }, [
+    initState.phase,
+    rootCurrentWorktreeId,
+    rootCreateWorktree,
+    rootSwitchWorktree,
+  ]);
 
   // 初始化未完成 / 加载失败时显示过渡态
   if (initState.phase !== "ready" && initState.phase !== "first_run_wizard") {
@@ -143,34 +153,32 @@ function App() {
 
   return (
     <TooltipProvider>
-    <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
-      <Header />
-      <div className="flex flex-1 overflow-hidden">
-        <div className="hidden lg:block">
-          <Sidebar />
+      <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
+        <Header />
+        <div className="flex flex-1 overflow-hidden">
+          <div className="hidden lg:block">
+            <Sidebar />
+          </div>
+          <div className="flex-1 flex page-transition-enter overflow-hidden">
+            <ErrorBoundary>
+              <Suspense fallback={null}>{routeElement}</Suspense>
+            </ErrorBoundary>
+          </div>
+          {/* 右侧面板：配置驱动 */}
+          <RightPanelRouter />
         </div>
-        <div className="flex-1 flex page-transition-enter overflow-hidden">
-          <ErrorBoundary>
-          <Suspense fallback={null}>
-            {routeElement}
-          </Suspense>
-          </ErrorBoundary>
-        </div>
-      {/* 右侧面板：配置驱动 */}
-        <RightPanelRouter />
+        <Footer />
+        <MobileBottomNav />
+        <ConfigPanel />
+        <ToastContainer />
+        <KeyboardShortcutsHelp />
+        {initState.phase === "first_run_wizard" && (
+          <FirstRunWizard onComplete={completeWizard} />
+        )}
+        {showLLMGuide && (
+          <LLMSetupGuide onDismiss={() => setShowLLMGuide(false)} />
+        )}
       </div>
-      <Footer />
-      <MobileBottomNav />
-      <ConfigPanel />
-      <ToastContainer />
-      <KeyboardShortcutsHelp />
-      {initState.phase === "first_run_wizard" && (
-        <FirstRunWizard onComplete={completeWizard} />
-      )}
-      {showLLMGuide && (
-        <LLMSetupGuide onDismiss={() => setShowLLMGuide(false)} />
-      )}
-    </div>
     </TooltipProvider>
   );
 }

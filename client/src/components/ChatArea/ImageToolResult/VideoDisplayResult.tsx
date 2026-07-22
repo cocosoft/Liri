@@ -33,7 +33,10 @@ function VideoDisplayResult({ data }: Props) {
   return (
     <div className="flex flex-col gap-3 my-2">
       {videos.map((video, idx) => (
-        <div key={idx} className="rounded-lg overflow-hidden border border-gray-700 bg-gray-900">
+        <div
+          key={idx}
+          className="rounded-lg overflow-hidden border border-gray-700 bg-gray-900"
+        >
           {/* 视频信息栏 */}
           <div className="flex items-center justify-between px-3 py-1.5 bg-gray-800 text-gray-400 text-xs">
             <span className="truncate max-w-[70%]" title={video.name}>

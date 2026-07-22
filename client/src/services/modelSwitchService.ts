@@ -4,7 +4,11 @@
  */
 
 import { httpLegacy as http } from "./httpClient";
-import type { CurrentModelInfo, TaskModelConfig, TaskDefinition } from "../types";
+import type {
+  CurrentModelInfo,
+  TaskModelConfig,
+  TaskDefinition,
+} from "../types";
 
 export const modelSwitchService = {
   async getCurrent(): Promise<CurrentModelInfo> {
@@ -16,7 +20,10 @@ export const modelSwitchService = {
   },
 
   async getTasks(): Promise<TaskModelConfig> {
-    const res = await http.get<{ tasks: TaskModelConfig; modelNames: Record<string, string> }>("/v1/models/tasks");
+    const res = await http.get<{
+      tasks: TaskModelConfig;
+      modelNames: Record<string, string>;
+    }>("/v1/models/tasks");
     return res.tasks;
   },
 

@@ -26,10 +26,8 @@ function ToolResultMessage({ message }: ToolResultMessageProps) {
   const { readFileToPreview } = useChatStore();
 
   // 检查是否为安全拦截结果
-  const isSecurityIntercepted =
-    message.metadata?.securityIntercepted === true;
-  const securityReason =
-    (message.metadata?.reason as string) || "";
+  const isSecurityIntercepted = message.metadata?.securityIntercepted === true;
+  const securityReason = (message.metadata?.reason as string) || "";
 
   // 直接使用 message.content 作为工具结果值
   // message.toolCallId 从后端获取工具调用 ID
@@ -60,7 +58,9 @@ function ToolResultMessage({ message }: ToolResultMessageProps) {
               安全拦截
             </div>
             <div className="text-xs text-orange-600 dark:text-orange-500 mt-0.5">
-              {SECURITY_REASON_LABELS[securityReason] || securityReason || "安全策略拦截"}
+              {SECURITY_REASON_LABELS[securityReason] ||
+                securityReason ||
+                "安全策略拦截"}
             </div>
           </div>
         </div>

@@ -14,7 +14,11 @@ export type { BuddyCompanion, BuddyInteractionResult };
 interface BuddyStore {
   companion: BuddyCompanion | null;
   lastInteraction: BuddyInteractionResult | null;
-  stats: { interactions: number; dreamsCompleted: number; totalXp: number } | null;
+  stats: {
+    interactions: number;
+    dreamsCompleted: number;
+    totalXp: number;
+  } | null;
   isLoading: boolean;
   error: string | null;
   loadBuddy: (name?: string) => Promise<void>;
@@ -29,7 +33,6 @@ interface BuddyStore {
  * 所有操作通过 buddyService 代理到后端 /v1/buddy/* 接口。
  */
 export const useBuddyStore = create<BuddyStore>((set) => ({
-
   companion: null,
   lastInteraction: null,
   stats: null,
@@ -42,7 +45,11 @@ export const useBuddyStore = create<BuddyStore>((set) => ({
       const companion = await buddyService.getBuddy(name);
       set({ companion, isLoading: false });
     } catch (e) {
-      handleClientError(e, { module: 'stores:buddyStore', action: 'loadBuddy' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:buddyStore", action: "loadBuddy" },
+        "warn",
+      );
       set({ error: String(e), isLoading: false });
     }
   },
@@ -53,7 +60,11 @@ export const useBuddyStore = create<BuddyStore>((set) => ({
       const result = await buddyService.interact(action, name);
       set({ companion: result.companion, lastInteraction: result });
     } catch (e) {
-      handleClientError(e, { module: 'stores:buddyStore', action: 'interact' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:buddyStore", action: "interact" },
+        "warn",
+      );
       set({ error: String(e) });
     }
   },
@@ -63,9 +74,12 @@ export const useBuddyStore = create<BuddyStore>((set) => ({
       const stats = await buddyService.getStats();
       set({ stats });
     } catch (e) {
-      handleClientError(e, { module: 'stores:buddyStore', action: 'loadStats' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:buddyStore", action: "loadStats" },
+        "warn",
+      );
       set({ error: String(e) });
     }
   },
-
 }));

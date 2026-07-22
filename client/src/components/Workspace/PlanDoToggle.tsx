@@ -11,7 +11,11 @@ interface PlanDoToggleProps {
  * 显示在右侧对话区顶部，支持 Plan（方案讨论）与 Do（执行变更）模式切换
  * AI 执行中（executionPhase 非空）时禁用切换
  */
-export default function PlanDoToggle({ mode, onToggle, disabled }: PlanDoToggleProps) {
+export default function PlanDoToggle({
+  mode,
+  onToggle,
+  disabled,
+}: PlanDoToggleProps) {
   const { t } = useTranslation();
   return (
     <div className="flex items-center border-b border-gray-200 dark:border-gray-700 px-2 py-1.5 gap-1">

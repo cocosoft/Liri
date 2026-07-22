@@ -3,6 +3,7 @@
  * 对应后端 LocalHTTPService 中的 Semantic Index 处理器
  */
 import { httpLegacy as http } from "./httpClient";
+import { handleClientError } from "../utils/handleError";
 
 export interface SemanticIndexStatus {
   exists: boolean;
@@ -34,9 +35,16 @@ export const semanticService = {
   /** 获取语义索引状态 */
   getStatus: async (): Promise<SemanticIndexStatus> => {
     try {
-      const res = await http.get<SemanticIndexStatus>("/v1/semantic/index/status");
-      return (res ?? { exists: false, docCount: 0, chunkCount: 0 }) as SemanticIndexStatus;
-    } catch {
+      const res = await http.get<SemanticIndexStatus>(
+        "/v1/semantic/index/status",
+      );
+      return (res ?? {
+        exists: false,
+        docCount: 0,
+        chunkCount: 0,
+      }) as SemanticIndexStatus;
+    } catch (e) {
+      handleClientError(e, { module: "services:semantic", action: "getStatus" });
       return { exists: false, docCount: 0, chunkCount: 0 };
     }
   },
@@ -49,7 +57,8 @@ export const semanticService = {
         incremental: true,
       });
       return (res ?? null) as IndexBuildResult | null;
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:semantic", action: "buildIndex" });
       return null;
     }
   },
@@ -59,21 +68,27 @@ export const semanticService = {
     try {
       await http.delete("/v1/semantic/index");
       return true;
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:semantic", action: "clearIndex" });
       return false;
     }
   },
 
   /** 语义搜索 */
-  search: async (query: string, topK: number = 10): Promise<SemanticSearchResult[]> => {
+  search: async (
+    query: string,
+    topK: number = 10,
+  ): Promise<SemanticSearchResult[]> => {
     try {
       const res = await http.get<SemanticSearchResult[]>(
-        `/v1/semantic/search?q=${encodeURIComponent(query)}&topK=${topK}`
+        `/v1/semantic/search?q=${encodeURIComponent(query)}&topK=${topK}`,
       );
       if (Array.isArray(res)) return res as SemanticSearchResult[];
-      if (res && Array.isArray((res as any).data)) return (res as any).data as SemanticSearchResult[];
+      if (res && Array.isArray((res as any).data))
+        return (res as any).data as SemanticSearchResult[];
       return [];
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:semantic", action: "search" });
       return [];
     }
   },

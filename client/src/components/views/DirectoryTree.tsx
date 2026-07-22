@@ -50,62 +50,73 @@ function DirectoryTree({
   const [treeData, setTreeData] = useState<Record<string, TreeNode[]>>({});
 
   /** 加载指定目录的子节点 */
-  const loadChildren = useCallback(async (dirPath: string): Promise<TreeNode[]> => {
-    try {
-      const entries = await fileService.listDir(dirPath);
-      return entries
-        .filter((e) => e.type === "directory")
-        .map((e) => ({
-          name: e.name,
-          path: e.path,
-          type: "directory" as const,
-          children: [],
-          expanded: false,
-          loading: false,
-        }));
-    } catch {
-      return [];
-    }
-  }, []);
+  const loadChildren = useCallback(
+    async (dirPath: string): Promise<TreeNode[]> => {
+      try {
+        const entries = await fileService.listDir(dirPath);
+        return entries
+          .filter((e) => e.type === "directory")
+          .map((e) => ({
+            name: e.name,
+            path: e.path,
+            type: "directory" as const,
+            children: [],
+            expanded: false,
+            loading: false,
+          }));
+      } catch {
+        return [];
+      }
+    },
+    [],
+  );
 
   /** 展开/折叠目录节点 */
-  const toggleNode = useCallback(async (parentPath: string, nodePath: string) => {
-    setTreeData((prev) => {
-      const updated = { ...prev };
-      const parentNodes = [...(updated[parentPath] || [])];
-      const idx = parentNodes.findIndex((n) => n.path === nodePath);
-      if (idx === -1) return prev;
+  const toggleNode = useCallback(
+    async (parentPath: string, nodePath: string) => {
+      setTreeData((prev) => {
+        const updated = { ...prev };
+        const parentNodes = [...(updated[parentPath] || [])];
+        const idx = parentNodes.findIndex((n) => n.path === nodePath);
+        if (idx === -1) return prev;
 
-      const node = { ...parentNodes[idx] };
+        const node = { ...parentNodes[idx] };
 
-      if (!node.expanded && node.children.length === 0) {
-        // 首次展开，标记为 loading
-        node.loading = true;
+        if (!node.expanded && node.children.length === 0) {
+          // 首次展开，标记为 loading
+          node.loading = true;
+          parentNodes[idx] = node;
+          updated[parentPath] = parentNodes;
+
+          // 异步加载子节点
+          loadChildren(nodePath).then((children) => {
+            setTreeData((p) => {
+              const next = { ...p };
+              const nodes = [...(next[parentPath] || [])];
+              const i = nodes.findIndex((n) => n.path === nodePath);
+              if (i === -1) return p;
+              nodes[i] = {
+                ...nodes[i],
+                children,
+                expanded: true,
+                loading: false,
+              };
+              next[parentPath] = nodes;
+              return next;
+            });
+          });
+
+          return updated;
+        }
+
+        node.expanded = !node.expanded;
         parentNodes[idx] = node;
         updated[parentPath] = parentNodes;
-
-        // 异步加载子节点
-        loadChildren(nodePath).then((children) => {
-          setTreeData((p) => {
-            const next = { ...p };
-            const nodes = [...(next[parentPath] || [])];
-            const i = nodes.findIndex((n) => n.path === nodePath);
-            if (i === -1) return p;
-            nodes[i] = { ...nodes[i], children, expanded: true, loading: false };
-            next[parentPath] = nodes;
-            return next;
-          });
-        });
-
         return updated;
-      }
-
-      node.expanded = !node.expanded;
-      parentNodes[idx] = node;
-      updated[parentPath] = parentNodes;
-      return updated;
-    });
-  }, [loadChildren]);
+      });
+    },
+    [loadChildren],
+  );
 
   /** 初始化根目录 */
   useEffect(() => {
@@ -148,7 +159,11 @@ function DirectoryTree({
             {node.loading ? (
               <span className="inline-block animate-spin">⟳</span>
             ) : node.children.length > 0 ? (
-              node.expanded ? "▼" : "▶"
+              node.expanded ? (
+                "▼"
+              ) : (
+                "▶"
+              )
             ) : (
               " "
             )}
@@ -165,7 +180,7 @@ function DirectoryTree({
         {node.expanded && node.children.length > 0 && (
           <div>
             {node.children.map((child) =>
-              renderNode(child, node.path, depth + 1)
+              renderNode(child, node.path, depth + 1),
             )}
           </div>
         )}

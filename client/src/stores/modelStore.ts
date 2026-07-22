@@ -34,8 +34,15 @@ export const useModelStore = create<ModelState>((set) => ({
       const models = await modelService.list();
       set({ models, isLoading: false });
     } catch (e) {
-      handleClientError(e, { module: 'stores:modelStore', action: 'loadModels' }, 'warn');
-      set({ error: e instanceof Error ? e.message : "获取模型列表失败", isLoading: false });
+      handleClientError(
+        e,
+        { module: "stores:modelStore", action: "loadModels" },
+        "warn",
+      );
+      set({
+        error: e instanceof Error ? e.message : "获取模型列表失败",
+        isLoading: false,
+      });
     }
   },
 
@@ -47,7 +54,11 @@ export const useModelStore = create<ModelState>((set) => ({
       }));
       return enabled;
     } catch (e) {
-      handleClientError(e, { module: 'stores:modelStore', action: 'toggleModel' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:modelStore", action: "toggleModel" },
+        "warn",
+      );
       set({ error: e instanceof Error ? e.message : "切换模型状态失败" });
       throw e;
     }
@@ -58,7 +69,11 @@ export const useModelStore = create<ModelState>((set) => ({
       await modelService.remove(id);
       set((state) => ({ models: state.models.filter((m) => m.id !== id) }));
     } catch (e) {
-      handleClientError(e, { module: 'stores:modelStore', action: 'deleteModel' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:modelStore", action: "deleteModel" },
+        "warn",
+      );
       set({ error: e instanceof Error ? e.message : "删除模型失败" });
       throw e;
     }

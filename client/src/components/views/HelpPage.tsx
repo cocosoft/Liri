@@ -38,20 +38,212 @@ const APP_VERSION = "7.9.0";
  * 文档分类索引（与 app/docs/ 目录结构同步）
  */
 const DOC_CATEGORIES: DocCategory[] = [
-  { name: "快速入门", dir: "快速入门", files: ["index", "installation", "onboarding", "quickstart", "setup", "upgrading"] },
-  { name: "安装部署", dir: "安装部署", files: ["index", "configuration", "docker", "linux", "macos", "source", "windows", "troubleshooting"] },
-  { name: "开发指南", dir: "开发指南", files: ["index", "add-ai-provider", "add-platform-channel", "add-tool-command-skill", "api-reference", "architecture", "code-style", "contributing", "getting-started", "internationalization-design", "module-dev", "module-to-plugin-migration", "security", "testing"] },
-  { name: "核心模块", dir: "核心模块", files: ["index", "acp-protocol", "app-core", "auth", "auto-reply", "cache-system", "config-manager", "context-engine", "coordinator", "cron-scheduler", "di-container", "error-handling", "event-bus", "flow-engine", "gateway", "i18n-registry", "logging", "markdown-render", "media-generation", "media-understanding", "memory-host", "notification", "session-manager", "state-management", "task-system"] },
-  { name: "工具参考", dir: "工具参考", files: ["index", "agent-tools", "bash", "browser", "code-execution", "file-edit", "file-read", "file-write", "image-generation", "lsp", "mcp", "music-generation", "pdf", "thinking", "tts", "video-generation", "web-fetch", "web-search"] },
-  { name: "插件系统", dir: "插件系统", files: ["index", "api-reference", "building-plugins", "bundled-plugins", "hooks", "lifecycle", "manifest", "marketplace", "overview", "plugin-sdk", "review-process", "skills"] },
-  { name: "概念与架构", dir: "概念与架构", files: ["index", "agent-model", "architecture", "design-philosophy", "plugin-architecture", "session", "streaming", "tool-system"] },
-  { name: "渠道 (Channels)", dir: "渠道", files: ["index", "channel-routing", "channel-testing", "dingtalk", "discord", "feishu", "irc", "line", "matrix", "overview", "qq", "signal", "slack", "telegram", "web", "wechat", "wecom", "whatsapp"] },
-  { name: "配置与安全", dir: "配置与安全", files: ["index", "audit", "configuration", "governance", "network-security", "oauth", "permissions", "sandbox", "secrets", "smart-router"] },
-  { name: "自动化", dir: "自动化", files: ["index", "cron", "hooks", "tasks", "webhooks"] },
-  { name: "帮助与支持", dir: "帮助与支持", files: ["index", "debugging", "environment", "faq-install", "faq", "support", "troubleshooting"] },
+  {
+    name: "快速入门",
+    dir: "快速入门",
+    files: [
+      "index",
+      "installation",
+      "onboarding",
+      "quickstart",
+      "setup",
+      "upgrading",
+    ],
+  },
+  {
+    name: "安装部署",
+    dir: "安装部署",
+    files: [
+      "index",
+      "configuration",
+      "docker",
+      "linux",
+      "macos",
+      "source",
+      "windows",
+      "troubleshooting",
+    ],
+  },
+  {
+    name: "开发指南",
+    dir: "开发指南",
+    files: [
+      "index",
+      "add-ai-provider",
+      "add-platform-channel",
+      "add-tool-command-skill",
+      "api-reference",
+      "architecture",
+      "code-style",
+      "contributing",
+      "getting-started",
+      "internationalization-design",
+      "module-dev",
+      "module-to-plugin-migration",
+      "security",
+      "testing",
+    ],
+  },
+  {
+    name: "核心模块",
+    dir: "核心模块",
+    files: [
+      "index",
+      "acp-protocol",
+      "app-core",
+      "auth",
+      "auto-reply",
+      "cache-system",
+      "config-manager",
+      "context-engine",
+      "coordinator",
+      "cron-scheduler",
+      "di-container",
+      "error-handling",
+      "event-bus",
+      "flow-engine",
+      "gateway",
+      "i18n-registry",
+      "logging",
+      "markdown-render",
+      "media-generation",
+      "media-understanding",
+      "memory-host",
+      "notification",
+      "session-manager",
+      "state-management",
+      "task-system",
+    ],
+  },
+  {
+    name: "工具参考",
+    dir: "工具参考",
+    files: [
+      "index",
+      "agent-tools",
+      "bash",
+      "browser",
+      "code-execution",
+      "file-edit",
+      "file-read",
+      "file-write",
+      "image-generation",
+      "lsp",
+      "mcp",
+      "music-generation",
+      "pdf",
+      "thinking",
+      "tts",
+      "video-generation",
+      "web-fetch",
+      "web-search",
+    ],
+  },
+  {
+    name: "插件系统",
+    dir: "插件系统",
+    files: [
+      "index",
+      "api-reference",
+      "building-plugins",
+      "bundled-plugins",
+      "hooks",
+      "lifecycle",
+      "manifest",
+      "marketplace",
+      "overview",
+      "plugin-sdk",
+      "review-process",
+      "skills",
+    ],
+  },
+  {
+    name: "概念与架构",
+    dir: "概念与架构",
+    files: [
+      "index",
+      "agent-model",
+      "architecture",
+      "design-philosophy",
+      "plugin-architecture",
+      "session",
+      "streaming",
+      "tool-system",
+    ],
+  },
+  {
+    name: "渠道 (Channels)",
+    dir: "渠道",
+    files: [
+      "index",
+      "channel-routing",
+      "channel-testing",
+      "dingtalk",
+      "discord",
+      "feishu",
+      "irc",
+      "line",
+      "matrix",
+      "overview",
+      "qq",
+      "signal",
+      "slack",
+      "telegram",
+      "web",
+      "wechat",
+      "wecom",
+      "whatsapp",
+    ],
+  },
+  {
+    name: "配置与安全",
+    dir: "配置与安全",
+    files: [
+      "index",
+      "audit",
+      "configuration",
+      "governance",
+      "network-security",
+      "oauth",
+      "permissions",
+      "sandbox",
+      "secrets",
+      "smart-router",
+    ],
+  },
+  {
+    name: "自动化",
+    dir: "自动化",
+    files: ["index", "cron", "hooks", "tasks", "webhooks"],
+  },
+  {
+    name: "帮助与支持",
+    dir: "帮助与支持",
+    files: [
+      "index",
+      "debugging",
+      "environment",
+      "faq-install",
+      "faq",
+      "support",
+      "troubleshooting",
+    ],
+  },
   { name: "知识库", dir: "知识库", files: ["index"] },
   { name: "语音", dir: "语音", files: ["语音生成功"] },
-  { name: "顶层文档", dir: ".", files: ["API", "CORE_MODULES", "DEVELOPMENT", "SKILLS", "TOOLS", "USAGE", "index"] },
+  {
+    name: "顶层文档",
+    dir: ".",
+    files: [
+      "API",
+      "CORE_MODULES",
+      "DEVELOPMENT",
+      "SKILLS",
+      "TOOLS",
+      "USAGE",
+      "index",
+    ],
+  },
 ];
 
 // 文档文件显示名称映射（去掉连字符、首字母大写）
@@ -161,14 +353,14 @@ const DOC_LABELS: Record<string, string> = {
   testing: "测试",
   contributing: "贡献指南",
   security: "安全",
-  "语音生成功": "语音合成",
-  "lsp": "LSP",
-  "mcp": "MCP",
-  "pdf": "PDF",
-  "tts": "TTS",
-  "thinking": "思考",
-  "browser": "浏览器",
-  "bash": "Bash",
+  语音生成功: "语音合成",
+  lsp: "LSP",
+  mcp: "MCP",
+  pdf: "PDF",
+  tts: "TTS",
+  thinking: "思考",
+  browser: "浏览器",
+  bash: "Bash",
 };
 
 /** 格式化文档名（i18n 优先，DOC_LABELS 为 fallback） */
@@ -185,7 +377,9 @@ function HelpPage() {
     try {
       const s = localStorage.getItem(ACTIVE_NAV_KEY);
       if (s && NAV_ITEMS.some((n) => n.id === s)) return s;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     return "docs";
   });
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
@@ -211,7 +405,9 @@ function HelpPage() {
     setDocContent(null);
     try {
       localStorage.setItem(ACTIVE_NAV_KEY, id);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   };
 
   /** 加载文档内容 */
@@ -219,9 +415,12 @@ function HelpPage() {
     setLoadingDoc(true);
     const docPath = `app/docs/${cat.dir}/${fileName}.md`;
     try {
-      const res = await http.get<{ ok: boolean; data: string }>("/api/file/read", {
-        params: { path: docPath },
-      });
+      const res = await http.get<{ ok: boolean; data: string }>(
+        "/api/file/read",
+        {
+          params: { path: docPath },
+        },
+      );
       if (res?.ok && res?.data) {
         // 简单将 markdown 换行转为段落
         const lines = res.data.split("\n");
@@ -230,7 +429,9 @@ function HelpPage() {
         for (const line of lines) {
           if (line.startsWith("```")) {
             inCode = !inCode;
-            html += inCode ? "<pre class='bg-gray-100 dark:bg-gray-800 p-3 rounded text-xs overflow-x-auto my-2'>" : "</pre>";
+            html += inCode
+              ? "<pre class='bg-gray-100 dark:bg-gray-800 p-3 rounded text-xs overflow-x-auto my-2'>"
+              : "</pre>";
             continue;
           }
           if (inCode) {
@@ -249,10 +450,16 @@ function HelpPage() {
         }
         setDocContent({ title: formatDocLabel(fileName, t), html });
       } else {
-        setDocContent({ title: formatDocLabel(fileName, t), html: `<p class='text-red-500'>${t("help.loadFailed")}</p>` });
+        setDocContent({
+          title: formatDocLabel(fileName, t),
+          html: `<p class='text-red-500'>${t("help.loadFailed")}</p>`,
+        });
       }
     } catch {
-      setDocContent({ title: formatDocLabel(fileName, t), html: `<p class='text-red-500'>${t("help.loadFailedBackend")}</p>` });
+      setDocContent({
+        title: formatDocLabel(fileName, t),
+        html: `<p class='text-red-500'>${t("help.loadFailedBackend")}</p>`,
+      });
     }
     setLoadingDoc(false);
   };
@@ -286,7 +493,9 @@ function HelpPage() {
                 <span className="w-5 h-5 rounded bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
                   {item.icon}
                 </span>
-                <span className="truncate">{t(NAV_LABEL_KEYS[item.id] || item.label)}</span>
+                <span className="truncate">
+                  {t(NAV_LABEL_KEYS[item.id] || item.label)}
+                </span>
               </button>
             );
           })}
@@ -386,7 +595,11 @@ function HelpPage() {
         </div>
 
         <p className="mt-6 text-sm text-gray-400 dark:text-gray-500">
-          {t("help.moreDocs")} <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">app/docs/</code> {t("help.directory")}
+          {t("help.moreDocs")}{" "}
+          <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">
+            app/docs/
+          </code>{" "}
+          {t("help.directory")}
         </p>
       </div>
     );
@@ -434,19 +647,25 @@ function HelpPage() {
           {/* 详细信息 */}
           <div className="space-y-3 text-sm">
             <div className="flex justify-between items-center py-2.5 px-3 bg-gray-50 dark:bg-gray-700/50 rounded">
-              <span className="text-gray-600 dark:text-gray-400">{t("help.license")}</span>
+              <span className="text-gray-600 dark:text-gray-400">
+                {t("help.license")}
+              </span>
               <span className="text-gray-900 dark:text-gray-100 font-medium">
                 MIT License
               </span>
             </div>
             <div className="flex justify-between items-center py-2.5 px-3 bg-gray-50 dark:bg-gray-700/50 rounded">
-              <span className="text-gray-600 dark:text-gray-400">{t("help.techStack")}</span>
+              <span className="text-gray-600 dark:text-gray-400">
+                {t("help.techStack")}
+              </span>
               <span className="text-gray-900 dark:text-gray-100">
                 {t("help.techStackValue")}
               </span>
             </div>
             <div className="flex justify-between items-center py-2.5 px-3 bg-gray-50 dark:bg-gray-700/50 rounded">
-              <span className="text-gray-600 dark:text-gray-400">{t("help.runtime")}</span>
+              <span className="text-gray-600 dark:text-gray-400">
+                {t("help.runtime")}
+              </span>
               <span className="text-gray-900 dark:text-gray-100">
                 {t("help.runtimeValue")}
               </span>

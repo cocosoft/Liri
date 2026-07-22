@@ -22,14 +22,28 @@ export default function ImageGenerateResult({ data }: Props) {
   // 解包双重嵌套：CoreAPIImpl 可能将 resultData 再包装为 { success: true, data: resultData }
   // 导致 data = { success: true, data: { images: [...] } }
   const innerData = (data.data as Record<string, unknown>) ?? data;
-  const images = (innerData.images as Array<Record<string, string>>) || (data.images as Array<Record<string, string>>) || [];
-  const usedProvider = (innerData.usedProvider as string) || (data.usedProvider as string) || "unknown";
+  const images =
+    (innerData.images as Array<Record<string, string>>) ||
+    (data.images as Array<Record<string, string>>) ||
+    [];
+  const usedProvider =
+    (innerData.usedProvider as string) ||
+    (data.usedProvider as string) ||
+    "unknown";
   const model = (innerData.model as string) || (data.model as string) || "";
-  const totalCostUsd = (innerData.totalCostUsd as number) ?? (data.totalCostUsd as number) ?? 0;
-  const costBreakdown = (innerData.costBreakdown as Array<Record<string, unknown>>) || (data.costBreakdown as Array<Record<string, unknown>>) || [];
+  const totalCostUsd =
+    (innerData.totalCostUsd as number) ?? (data.totalCostUsd as number) ?? 0;
+  const costBreakdown =
+    (innerData.costBreakdown as Array<Record<string, unknown>>) ||
+    (data.costBreakdown as Array<Record<string, unknown>>) ||
+    [];
 
   if (images.length === 0) {
-    return <div className="text-gray-500 text-xs italic px-2 py-1">{t("image.noImagesGenerated")}</div>;
+    return (
+      <div className="text-gray-500 text-xs italic px-2 py-1">
+        {t("image.noImagesGenerated")}
+      </div>
+    );
   }
 
   const handleImageClick = (index: number) => {
@@ -75,7 +89,9 @@ export default function ImageGenerateResult({ data }: Props) {
               <div className="absolute bottom-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <a
                   href={src}
-                  download={alt.replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, "_").slice(0, 50)}
+                  download={alt
+                    .replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, "_")
+                    .slice(0, 50)}
                   className="px-1.5 py-0.5 rounded text-[10px] bg-gray-900/80 text-gray-300 hover:bg-gray-800 no-underline"
                   onClick={(e) => e.stopPropagation()}
                   title={t("image.download")}
@@ -120,7 +136,8 @@ export default function ImageGenerateResult({ data }: Props) {
       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-400">
         {usedProvider && (
           <span>
-            {t("image.provider")}: <span className="text-gray-300">{usedProvider}</span>
+            {t("image.provider")}:{" "}
+            <span className="text-gray-300">{usedProvider}</span>
           </span>
         )}
         {model && (
@@ -130,7 +147,8 @@ export default function ImageGenerateResult({ data }: Props) {
         )}
         {totalCostUsd > 0 && (
           <span>
-            {t("image.cost")}: <span className="text-green-400">${totalCostUsd.toFixed(4)}</span>
+            {t("image.cost")}:{" "}
+            <span className="text-green-400">${totalCostUsd.toFixed(4)}</span>
           </span>
         )}
       </div>
@@ -138,15 +156,25 @@ export default function ImageGenerateResult({ data }: Props) {
       {/* 费用明细（可折叠） */}
       {costBreakdown.length > 0 && (
         <details className="text-[10px] text-gray-500">
-          <summary className="cursor-pointer hover:text-gray-400">{t("image.costBreakdown")}</summary>
+          <summary className="cursor-pointer hover:text-gray-400">
+            {t("image.costBreakdown")}
+          </summary>
           <div className="mt-1 space-y-0.5">
             {costBreakdown.map((item, i) => (
               <div key={i} className="flex gap-2">
                 <span>{item.provider as string}</span>
-                <span className={item.status === "success" ? "text-green-500" : "text-red-400"}>
+                <span
+                  className={
+                    item.status === "success"
+                      ? "text-green-500"
+                      : "text-red-400"
+                  }
+                >
                   {item.status as string}
                 </span>
-                <span className="text-gray-400">${(item.estimatedCostUsd as number)?.toFixed(4) || "0"}</span>
+                <span className="text-gray-400">
+                  ${(item.estimatedCostUsd as number)?.toFixed(4) || "0"}
+                </span>
               </div>
             ))}
           </div>

@@ -11,6 +11,12 @@
 import { OrchestrationEventType } from '@modules/agent/events/OrchestrationEvents';
 import { globalEventBus, type EventSubscription } from './EventBus';
 import type { OTelMetrics } from '@modules/monitoring/otel/OTelMetrics';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({
+  module: 'core:events:OrchestrationMetrics',
+  level: LogLevel.INFO,
+});
 
 /** 滑动窗口大小（记录最近 N 条延迟） */
 const SLIDING_WINDOW_SIZE = 100;
@@ -113,6 +119,23 @@ function extractDimensions(
 }
 
 /**
+ * 从事件 payload 中提取状态信息
+ *
+ * @param payload 事件 payload（可选）
+ * @returns 状态字符串，无法提取则返回 undefined
+ */
+function extractStatus(payload?: unknown): string | undefined {
+  if (payload && typeof payload === 'object') {
+    const p = payload as Record<string, unknown>;
+    const status = p.status ?? p.state;
+    if (typeof status === 'string') {
+      return status.toLowerCase();
+    }
+  }
+  return undefined;
+}
+
+/**
  * 编排指标统计
  */
 export class OrchestrationMetrics {
@@ -122,6 +145,8 @@ export class OrchestrationMetrics {
   private roleCounts: Map<string, number> = new Map();
   /** 业务类别 → 计数 */
   private categoryCounts: Map<string, number> = new Map();
+  /** 错误事件计数（P1-2.7: 按 category + agent_role 维度） */
+  private errorCounts: Map<string, number> = new Map();
   /** 首次记录时间 */
   private startTime: number = Date.now();
   /** 是否已订阅 globalEventBus */
@@ -205,6 +230,21 @@ export class OrchestrationMetrics {
         dims.category,
         (this.categoryCounts.get(dims.category) ?? 0) + 1
       );
+    }
+
+    // P1-2.7: 错误事件独立统计
+    const status = extractStatus(payload);
+    if (status === 'error' || status === 'failed') {
+      const errorKey = `${dims.category || 'unknown'}:${dims.agentRole || 'unknown'}`;
+      this.errorCounts.set(errorKey, (this.errorCounts.get(errorKey) ?? 0) + 1);
+
+      if (this.otelMetrics) {
+        this.otelMetrics.incrementCounter('orch.events.errors', 1, {
+          category: dims.category || 'unknown',
+          agent_role: dims.agentRole || 'unknown',
+          event_type: eventType,
+        });
+      }
     }
 
     // 如果配置了 OTel Metrics，同步记录多维指标

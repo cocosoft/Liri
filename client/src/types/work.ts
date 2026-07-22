@@ -7,7 +7,8 @@
 export type ProjectPriority = "P0" | "P1" | "P2" | "P3";
 
 /** 项目状态 */
-export type ProjectStatus = "planning" | "active" | "paused" | "completed" | "archived";
+export type ProjectStatus =
+  "planning" | "active" | "paused" | "completed" | "archived";
 
 /** 节点类型 */
 export type ProjectNodeType = "project" | "phase" | "story" | "task";
@@ -48,7 +49,8 @@ export interface Project {
 }
 
 /** 工作项状态过滤 */
-export type WorkItemFilter = "all" | "pending" | "in_progress" | "review" | "done" | "blocked";
+export type WorkItemFilter =
+  "all" | "pending" | "in_progress" | "review" | "done" | "blocked";
 
 /** 视图模式 */
 export type ProjectViewMode = "board" | "dag" | "list";

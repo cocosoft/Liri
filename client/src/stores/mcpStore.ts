@@ -6,6 +6,7 @@ import {
   type ServerDetail,
   type ThirdPartyRegistry,
 } from "../services/mcpMarketplaceService";
+import { handleClientError } from "@/utils/handleError";
 
 // ─── 工具条目类型 ─────────────────────────────────────
 
@@ -210,6 +211,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       });
       set({ searchResults: results, page: 1 });
     } catch (e) {
+      handleClientError(e, { module: "stores:mcp", action: "searchMarket" });
       set({
         error: e instanceof Error ? e.message : "搜索失败",
         searchResults: [],
@@ -226,7 +228,8 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
     try {
       const servers = await mcpMarketplaceService.getInstalledServers();
       set({ installedServers: servers });
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "stores:mcp", action: "loadInstalled" });
       // 静默失败
     }
   },
@@ -239,6 +242,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       await mcpMarketplaceService.install(serverId);
       await get().loadInstalled();
     } catch (e) {
+      handleClientError(e, { module: "stores:mcp", action: "install" });
       set({ error: e instanceof Error ? e.message : "安装失败" });
     } finally {
       set({ operatingId: null });
@@ -258,6 +262,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
         confirmUninstallId: null,
       }));
     } catch (e) {
+      handleClientError(e, { module: "stores:mcp", action: "uninstall" });
       set({ error: e instanceof Error ? e.message : "卸载失败" });
     } finally {
       set({ operatingId: null });
@@ -278,6 +283,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
     try {
       await mcpMarketplaceService.toggleServer(serverId, enabled);
     } catch (e) {
+      handleClientError(e, { module: "stores:mcp", action: "toggleServer" });
       // 回滚
       if (prev) {
         set((s) => ({
@@ -300,6 +306,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
         set({ selectedServerDetail: detail, showDetail: true });
       }
     } catch (e) {
+      handleClientError(e, { module: "stores:mcp", action: "getServerDetail" });
       set({ error: e instanceof Error ? e.message : "获取详情失败" });
     } finally {
       set({ isLoading: false });
@@ -322,7 +329,8 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
     try {
       const registries = await mcpMarketplaceService.getRegistries();
       set({ availableRegistries: registries });
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "stores:mcp", action: "loadRegistries" });
       // 静默失败
     }
   },
@@ -399,6 +407,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       await get().loadInstalled();
       set({ selectedServerNames: new Set<string>() });
     } catch (e) {
+      handleClientError(e, { module: "stores:mcp", action: "batchEnable" });
       set({ error: e instanceof Error ? e.message : "批量启用失败" });
     } finally {
       set({ batchOperating: false });
@@ -421,6 +430,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       await get().loadInstalled();
       set({ selectedServerNames: new Set<string>() });
     } catch (e) {
+      handleClientError(e, { module: "stores:mcp", action: "batchDisable" });
       set({ error: e instanceof Error ? e.message : "批量禁用失败" });
     } finally {
       set({ batchOperating: false });
@@ -444,6 +454,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
         selectedServerNames: new Set<string>(),
       }));
     } catch (e) {
+      handleClientError(e, { module: "stores:mcp", action: "batchUninstall" });
       set({ error: e instanceof Error ? e.message : "批量卸载失败" });
     } finally {
       set({ batchOperating: false });
@@ -462,6 +473,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
         });
       }
     } catch (e) {
+      handleClientError(e, { module: "stores:mcp", action: "verifyServer" });
       set({ error: e instanceof Error ? e.message : "验证失败" });
     } finally {
       set({ verifyingServer: null });
@@ -483,7 +495,8 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
           enabled: t.enabled,
         })),
       });
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "stores:mcp", action: "loadAllTools" });
       // 静默失败
     } finally {
       set({ toolsLoading: false });
@@ -501,6 +514,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
         ),
       });
     } catch (e) {
+      handleClientError(e, { module: "stores:mcp", action: "toggleTool" });
       set({ error: e instanceof Error ? e.message : "切换工具状态失败" });
     }
   },

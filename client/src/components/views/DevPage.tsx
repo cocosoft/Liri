@@ -1,7 +1,15 @@
 import { lazy, Suspense } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { DevIcon, SearchIcon, FileIcon, SettingsIcon, ThemeIcon, ChatIcon, MicIcon } from "../../assets/icons";
+import {
+  DevIcon,
+  SearchIcon,
+  FileIcon,
+  SettingsIcon,
+  ThemeIcon,
+  ChatIcon,
+  MicIcon,
+} from "../../assets/icons";
 
 /** 开发者工具导航项 */
 interface DevNavItem {
@@ -57,7 +65,8 @@ function DevPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { subPage } = useParams<{ subPage?: string }>();
-  const activeNav = subPage && NAV_ITEMS.some((n) => n.id === subPage) ? subPage : "terminal";
+  const activeNav =
+    subPage && NAV_ITEMS.some((n) => n.id === subPage) ? subPage : "terminal";
 
   return (
     <div className="flex flex-1 min-w-0 h-full bg-gray-50 dark:bg-gray-900">
@@ -74,16 +83,20 @@ function DevPage() {
             const IconComponent = item.icon;
             return (
               <button
-                  key={item.id}
-                  onClick={() => navigate(SUB_ROUTE_MAP[item.id] || "/dev/terminal")}
-                  className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-colors text-left ${
+                key={item.id}
+                onClick={() =>
+                  navigate(SUB_ROUTE_MAP[item.id] || "/dev/terminal")
+                }
+                className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-colors text-left ${
                   isActive
                     ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium border-r-2 border-blue-500"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-200"
                 }`}
               >
                 <IconComponent size={18} />
-                <span className="truncate">{t(NAV_LABEL_KEYS[item.id] || item.label)}</span>
+                <span className="truncate">
+                  {t(NAV_LABEL_KEYS[item.id] || item.label)}
+                </span>
               </button>
             );
           })}
@@ -92,7 +105,13 @@ function DevPage() {
 
       {/* ── 右侧内容区 ── */}
       <main className="flex-1 min-w-0 overflow-y-auto bg-white dark:bg-gray-800">
-        <Suspense fallback={<div className="p-6 text-gray-500 dark:text-gray-400">{t("common.loading")}</div>}>
+        <Suspense
+          fallback={
+            <div className="p-6 text-gray-500 dark:text-gray-400">
+              {t("common.loading")}
+            </div>
+          }
+        >
           {renderActivePage()}
         </Suspense>
       </main>
@@ -102,7 +121,12 @@ function DevPage() {
   /** 渲染当前激活的子页面 */
   function renderActivePage() {
     const LazyComp = SUB_PAGE_REGISTRY[activeNav];
-    if (!LazyComp) return <div className="p-6 text-gray-500 dark:text-gray-400">{t("dev.pageNotFound")}</div>;
+    if (!LazyComp)
+      return (
+        <div className="p-6 text-gray-500 dark:text-gray-400">
+          {t("dev.pageNotFound")}
+        </div>
+      );
     return <LazyComp />;
   }
 }

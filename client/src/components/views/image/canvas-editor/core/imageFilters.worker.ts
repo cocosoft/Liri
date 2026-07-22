@@ -1,16 +1,18 @@
 // canvas-editor/core/imageFilters.worker.ts — 图像滤镜 Worker（亮度/对比度/灰度/模糊）
 
 type FilterOp =
-  | { type: "brightness"; value: number }    // -255..255
-  | { type: "contrast"; value: number }      // 0..200 (100=normal)
+  | { type: "brightness"; value: number } // -255..255
+  | { type: "contrast"; value: number } // 0..200 (100=normal)
   | { type: "grayscale" }
-  | { type: "blur"; value: number }          // 1..20
+  | { type: "blur"; value: number } // 1..20
   | { type: "invert" };
 
 type WorkerInput = { imageData: ImageData; filters: FilterOp[] };
 type WorkerOutput = { result: ImageData } | { error: string };
 
-function clamp(v: number) { return Math.max(0, Math.min(255, v)); }
+function clamp(v: number) {
+  return Math.max(0, Math.min(255, v));
+}
 
 function applyBrightness(data: Uint8ClampedArray, value: number) {
   for (let i = 0; i < data.length; i += 4) {
@@ -44,24 +46,36 @@ function applyInvert(data: Uint8ClampedArray) {
   }
 }
 
-function applyBlur(data: Uint8ClampedArray, w: number, h: number, radius: number) {
+function applyBlur(
+  data: Uint8ClampedArray,
+  w: number,
+  h: number,
+  radius: number,
+) {
   const copy = new Uint8ClampedArray(data);
   const r = Math.max(1, Math.min(radius, 20));
   // Box blur 近似
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      let rSum = 0, gSum = 0, bSum = 0, count = 0;
+      let rSum = 0,
+        gSum = 0,
+        bSum = 0,
+        count = 0;
       for (let dy = -r; dy <= r; dy++) {
         for (let dx = -r; dx <= r; dx++) {
           const nx = Math.min(w - 1, Math.max(0, x + dx));
           const ny = Math.min(h - 1, Math.max(0, y + dy));
           const idx = (ny * w + nx) * 4;
-          rSum += copy[idx]; gSum += copy[idx + 1]; bSum += copy[idx + 2];
+          rSum += copy[idx];
+          gSum += copy[idx + 1];
+          bSum += copy[idx + 2];
           count++;
         }
       }
       const idx = (y * w + x) * 4;
-      data[idx] = rSum / count; data[idx + 1] = gSum / count; data[idx + 2] = bSum / count;
+      data[idx] = rSum / count;
+      data[idx + 1] = gSum / count;
+      data[idx + 2] = bSum / count;
     }
   }
 }
@@ -75,17 +89,31 @@ self.addEventListener("message", (e: MessageEvent<WorkerInput>) => {
 
     for (const f of filters) {
       switch (f.type) {
-        case "brightness": applyBrightness(data, f.value); break;
-        case "contrast": applyContrast(data, f.value); break;
-        case "grayscale": applyGrayscale(data); break;
-        case "invert": applyInvert(data); break;
-        case "blur": applyBlur(data, w, h, f.value || 3); break;
+        case "brightness":
+          applyBrightness(data, f.value);
+          break;
+        case "contrast":
+          applyContrast(data, f.value);
+          break;
+        case "grayscale":
+          applyGrayscale(data);
+          break;
+        case "invert":
+          applyInvert(data);
+          break;
+        case "blur":
+          applyBlur(data, w, h, f.value || 3);
+          break;
       }
     }
 
     const result = new ImageData(data, w, h);
-    (self as unknown as { postMessage: (msg: WorkerOutput) => void }).postMessage({ result });
+    (
+      self as unknown as { postMessage: (msg: WorkerOutput) => void }
+    ).postMessage({ result });
   } catch (err: unknown) {
-    (self as unknown as { postMessage: (msg: WorkerOutput) => void }).postMessage({ error: String(err) });
+    (
+      self as unknown as { postMessage: (msg: WorkerOutput) => void }
+    ).postMessage({ error: String(err) });
   }
 });

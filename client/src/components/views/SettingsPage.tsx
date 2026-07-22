@@ -6,6 +6,7 @@ import { chatService } from "../../services/chatService";
 import { appConfigService } from "../../services/appConfigService";
 import { setBackendPort as setBackendUrlPort } from "../../services/backendUrl";
 import { httpLegacy as http } from "../../services/httpClient";
+import { handleClientError } from "../../utils/handleError";
 import AIConfigPanel from "../settings/AIConfigPanel";
 import AutoUpdatePanel from "../settings/AutoUpdatePanel";
 import FeatureFlagsPanel from "../settings/FeatureFlagsPanel";
@@ -38,7 +39,28 @@ import {
 import type { BackendStatus } from "../../types";
 import { useApiKeyStore } from "../../stores/authStore";
 import { routerService } from "../../services/routerService";
-import { SettingsIcon, MicIcon, KeyIcon, FolderOpenIcon, BellIcon, ModelIcon, SkillIcon, ShieldIcon, ChannelIcon, McpIcon, DollarIcon, FileIcon, CloudIcon, ZapIcon, PlayIcon, LinkIcon, SlidersIcon, WrenchIcon, BookOpenIcon, UserIcon } from "../../assets/icons";
+import {
+  SettingsIcon,
+  MicIcon,
+  KeyIcon,
+  FolderOpenIcon,
+  BellIcon,
+  ModelIcon,
+  SkillIcon,
+  ShieldIcon,
+  ChannelIcon,
+  McpIcon,
+  DollarIcon,
+  FileIcon,
+  CloudIcon,
+  ZapIcon,
+  PlayIcon,
+  LinkIcon,
+  SlidersIcon,
+  WrenchIcon,
+  BookOpenIcon,
+  UserIcon,
+} from "../../assets/icons";
 import type { BaseIconProps } from "../../assets/icons";
 
 /** 导航项类型 */
@@ -62,21 +84,53 @@ const NAV_GROUPS: NavGroup[] = [
   {
     id: "general",
     labelKey: "settings.categoryGeneral",
-    badgeClass: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    badgeClass:
+      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
     items: [
-      { id: "config", labelKey: "settings.generalConfig", icon: SettingsIcon, zone: "general" },
-      { id: "notifications", labelKey: "settings.notifications", icon: BellIcon, zone: "general" },
-      { id: "logs", labelKey: "settings.logs", icon: FileIcon, zone: "general" },
+      {
+        id: "config",
+        labelKey: "settings.generalConfig",
+        icon: SettingsIcon,
+        zone: "general",
+      },
+      {
+        id: "notifications",
+        labelKey: "settings.notifications",
+        icon: BellIcon,
+        zone: "general",
+      },
+      {
+        id: "logs",
+        labelKey: "settings.logs",
+        icon: FileIcon,
+        zone: "general",
+      },
     ],
   },
   {
     id: "ai",
     labelKey: "settings.categoryAI",
-    badgeClass: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+    badgeClass:
+      "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
     items: [
-      { id: "models", labelKey: "settings.models", icon: ModelIcon, zone: "ai" },
-      { id: "skills", labelKey: "settings.skills", icon: SkillIcon, zone: "ai" },
-      { id: "router", labelKey: "settings.router", icon: SlidersIcon, zone: "ai" },
+      {
+        id: "models",
+        labelKey: "settings.models",
+        icon: ModelIcon,
+        zone: "ai",
+      },
+      {
+        id: "skills",
+        labelKey: "settings.skills",
+        icon: SkillIcon,
+        zone: "ai",
+      },
+      {
+        id: "router",
+        labelKey: "settings.router",
+        icon: SlidersIcon,
+        zone: "ai",
+      },
       { id: "soul", labelKey: "settings.soul", icon: BookOpenIcon, zone: "ai" },
       { id: "user", labelKey: "settings.user", icon: UserIcon, zone: "ai" },
     ],
@@ -86,36 +140,118 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: "settings.categorySecurity",
     badgeClass: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
     items: [
-      { id: "apikeys", labelKey: "settings.apiKeys", icon: KeyIcon, zone: "security" },
-      { id: "trusted-workspaces", labelKey: "settings.trustedWorkspaces", icon: FolderOpenIcon, zone: "security" },
-      { id: "custom-rules", labelKey: "settings.customRules", icon: WrenchIcon, zone: "security" },
-      { id: "permissions", labelKey: "settings.permissions", icon: ShieldIcon, zone: "security" },
-      { id: "oauth", labelKey: "settings.oauth", icon: LinkIcon, zone: "security" },
-      { id: "security-dashboard", labelKey: "settings.securityLog", icon: ShieldIcon, zone: "security" },
+      {
+        id: "apikeys",
+        labelKey: "settings.apiKeys",
+        icon: KeyIcon,
+        zone: "security",
+      },
+      {
+        id: "trusted-workspaces",
+        labelKey: "settings.trustedWorkspaces",
+        icon: FolderOpenIcon,
+        zone: "security",
+      },
+      {
+        id: "custom-rules",
+        labelKey: "settings.customRules",
+        icon: WrenchIcon,
+        zone: "security",
+      },
+      {
+        id: "permissions",
+        labelKey: "settings.permissions",
+        icon: ShieldIcon,
+        zone: "security",
+      },
+      {
+        id: "oauth",
+        labelKey: "settings.oauth",
+        icon: LinkIcon,
+        zone: "security",
+      },
+      {
+        id: "security-dashboard",
+        labelKey: "settings.securityLog",
+        icon: ShieldIcon,
+        zone: "security",
+      },
     ],
   },
   {
     id: "integration",
     labelKey: "settings.categoryIntegration",
-    badgeClass: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    badgeClass:
+      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
     items: [
-      { id: "channels", labelKey: "settings.channels", icon: ChannelIcon, zone: "integration" },
-      { id: "voice", labelKey: "settings.voice", icon: MicIcon, zone: "integration" },
-      { id: "mcp", labelKey: "settings.mcp", icon: McpIcon, zone: "integration" },
-      { id: "skill-market", labelKey: "settings.skillMarket", icon: CloudIcon, zone: "integration" },
-      { id: "autoreply", labelKey: "settings.autoReply", icon: ZapIcon, zone: "integration" },
+      {
+        id: "channels",
+        labelKey: "settings.channels",
+        icon: ChannelIcon,
+        zone: "integration",
+      },
+      {
+        id: "voice",
+        labelKey: "settings.voice",
+        icon: MicIcon,
+        zone: "integration",
+      },
+      {
+        id: "mcp",
+        labelKey: "settings.mcp",
+        icon: McpIcon,
+        zone: "integration",
+      },
+      {
+        id: "skill-market",
+        labelKey: "settings.skillMarket",
+        icon: CloudIcon,
+        zone: "integration",
+      },
+      {
+        id: "autoreply",
+        labelKey: "settings.autoReply",
+        icon: ZapIcon,
+        zone: "integration",
+      },
     ],
   },
   {
     id: "storage",
     labelKey: "settings.categoryStorage",
-    badgeClass: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    badgeClass:
+      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
     items: [
-      { id: "data-dir", labelKey: "settings.dataDir", icon: FolderOpenIcon, zone: "storage" },
-      { id: "files", labelKey: "settings.files", icon: FileIcon, zone: "storage" },
-      { id: "ingest", labelKey: "settings.ingest", icon: BookOpenIcon, zone: "storage" },
-      { id: "cost", labelKey: "settings.cost", icon: DollarIcon, zone: "storage" },
-      { id: "sandbox", labelKey: "settings.sandbox", icon: PlayIcon, zone: "storage" },
+      {
+        id: "data-dir",
+        labelKey: "settings.dataDir",
+        icon: FolderOpenIcon,
+        zone: "storage",
+      },
+      {
+        id: "files",
+        labelKey: "settings.files",
+        icon: FileIcon,
+        zone: "storage",
+      },
+      {
+        id: "ingest",
+        labelKey: "settings.ingest",
+        icon: BookOpenIcon,
+        zone: "storage",
+      },
+      {
+        id: "cost",
+        labelKey: "settings.cost",
+        icon: DollarIcon,
+        zone: "storage",
+      },
+      {
+        id: "sandbox",
+        labelKey: "settings.sandbox",
+        icon: PlayIcon,
+        zone: "storage",
+      },
     ],
   },
 ];
@@ -238,8 +374,8 @@ function SettingsPage() {
         setDataDirectory(r.currentDirectory || "");
         setConfiguredDirectory(r.configuredDirectory || null);
         setDefaultDirectory(r.defaultDirectory || "");
-        if ('envLiriHome' in r) setEnvLiriHome(r.envLiriHome ?? null);
-        if ('envLiriDataDir' in r) setEnvLiriDataDir(r.envLiriDataDir ?? null);
+        if ("envLiriHome" in r) setEnvLiriHome(r.envLiriHome ?? null);
+        if ("envLiriDataDir" in r) setEnvLiriDataDir(r.envLiriDataDir ?? null);
       }
     } catch {
       /* ignore */
@@ -312,7 +448,10 @@ function SettingsPage() {
         httpPort: port,
       });
       setBackendUrlPort(port);
-      if (typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window)) {
+      if (
+        typeof window !== "undefined" &&
+        ("__TAURI__" in window || "__TAURI_INTERNALS__" in window)
+      ) {
         try {
           const c = await import("@tauri-apps/api/core");
           if (c && typeof c.invoke === "function")
@@ -389,7 +528,9 @@ function SettingsPage() {
       <div key={group.id} className="mb-2">
         {/* 分组标题 */}
         <div className="px-4 pt-3 pb-1">
-          <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${group.badgeClass}`}>
+          <span
+            className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${group.badgeClass}`}
+          >
             {t(group.labelKey)}
           </span>
         </div>
@@ -426,7 +567,12 @@ function SettingsPage() {
             <AIConfigPanel
               isDark={isDark}
               config={(config.ai as Record<string, unknown>) || {}}
-              onUpdate={(updates) => setConfig("ai", { ...((config.ai as object) || {}), ...updates })}
+              onUpdate={(updates) =>
+                setConfig("ai", {
+                  ...((config.ai as object) || {}),
+                  ...updates,
+                })
+              }
             />
             <FeatureFlagsPanel
               isDark={isDark}
@@ -456,11 +602,15 @@ function SettingsPage() {
               isDark={isDark}
               localAgent={
                 (() => {
-                  const raw = (config.ai as Record<string, unknown>)?.localAgent as Record<string, unknown> | undefined;
+                  const raw = (config.ai as Record<string, unknown>)
+                    ?.localAgent as Record<string, unknown> | undefined;
                   // 深合并默认值，确保 routing 不会因残缺的已存储数据而丢失
                   return {
                     enabled: false,
-                    routing: { strategy: "cloud-first" as const, fallbackToCloud: true },
+                    routing: {
+                      strategy: "cloud-first" as const,
+                      fallbackToCloud: true,
+                    },
                     ...(raw || {}),
                   };
                 })() as unknown as Parameters<
@@ -485,7 +635,10 @@ function SettingsPage() {
                   ...((config.ai as object) || {}),
                   localAgent: {
                     // 提供 routing 默认值，防止首次启用时 routing 为 undefined 导致崩溃
-                    routing: { strategy: "cloud-first" as const, fallbackToCloud: true },
+                    routing: {
+                      strategy: "cloud-first" as const,
+                      fallbackToCloud: true,
+                    },
                     ...(((config.ai as Record<string, unknown>)
                       ?.localAgent as object) || {}),
                     ...u,
@@ -497,7 +650,10 @@ function SettingsPage() {
                   ...((config.ai as object) || {}),
                   localAgent: {
                     // 提供 routing 默认值，防止首次启用时 routing 为 undefined 导致崩溃
-                    routing: { strategy: "cloud-first" as const, fallbackToCloud: true },
+                    routing: {
+                      strategy: "cloud-first" as const,
+                      fallbackToCloud: true,
+                    },
                     ...(((config.ai as Record<string, unknown>)
                       ?.localAgent as object) || {}),
                     ollama: {
@@ -587,7 +743,13 @@ function SettingsPage() {
       case "skills":
         return <SkillManagementContent isDark={isDark} />;
       case "router":
-        return <RouterConfigContent isDark={isDark} config={config} setConfig={setConfig} />;
+        return (
+          <RouterConfigContent
+            isDark={isDark}
+            config={config}
+            setConfig={setConfig}
+          />
+        );
       case "soul":
         return <SoulPanel isDark={isDark} />;
       case "user":
@@ -661,16 +823,32 @@ function SettingsPage() {
       const lang = e.target.value;
       setConfig("language", lang);
       // 立即切换 i18n 语言
-      const i18nLang = lang.startsWith("zh") ? "zh" : lang.startsWith("en") ? "en" : "zh";
+      const i18nLang = lang.startsWith("zh")
+        ? "zh"
+        : lang.startsWith("en")
+          ? "en"
+          : "zh";
       i18n.changeLanguage(i18nLang);
     };
 
     const currentThemeLabel = isDark ? t("settings.dark") : t("settings.light");
 
     return (
-      <ConfigSection title={t("settings.appearance")} description={t("settings.appearanceDesc")} isDark={isDark}>
-        <ConfigItem label={t("settings.theme")} description={`${t("settings.current")}: ${currentThemeLabel}`} isDark={isDark}>
-          <ToggleConfig isDark={isDark} checked={isDark} onChange={toggleTheme} />
+      <ConfigSection
+        title={t("settings.appearance")}
+        description={t("settings.appearanceDesc")}
+        isDark={isDark}
+      >
+        <ConfigItem
+          label={t("settings.theme")}
+          description={`${t("settings.current")}: ${currentThemeLabel}`}
+          isDark={isDark}
+        >
+          <ToggleConfig
+            isDark={isDark}
+            checked={isDark}
+            onChange={toggleTheme}
+          />
         </ConfigItem>
         <ConfigItem label={t("settings.language")} isDark={isDark}>
           <select
@@ -680,12 +858,16 @@ function SettingsPage() {
           >
             <optgroup label="---">
               {SUPPORTED_LANGUAGES.map((l) => (
-                <option key={l.value} value={l.value}>{l.label}</option>
+                <option key={l.value} value={l.value}>
+                  {l.label}
+                </option>
               ))}
             </optgroup>
             <optgroup label={t("settings.comingSoon")}>
               {PLANNED_LANGUAGES.map((l) => (
-                <option key={l.value} value={l.value} disabled>{l.label}</option>
+                <option key={l.value} value={l.value} disabled>
+                  {l.label}
+                </option>
               ))}
             </optgroup>
           </select>
@@ -712,9 +894,19 @@ function SettingsPage() {
       ? `${t("settings.backendStatusRunning")} (${t("settings.backendPort")} ${backendStatus.port})`
       : t("settings.backendStatusStopped");
     return (
-      <ConfigSection title={t("settings.backendService")} description={t("settings.backendServiceDesc")} isDark={isDark}>
-        <ConfigItem label={t("settings.backendStatus")} description={statusText} isDark={isDark}>
-          <span className={`inline-block w-2 h-2 rounded-full ${backendStatus.running ? "bg-green-500" : "bg-red-500"}`} />
+      <ConfigSection
+        title={t("settings.backendService")}
+        description={t("settings.backendServiceDesc")}
+        isDark={isDark}
+      >
+        <ConfigItem
+          label={t("settings.backendStatus")}
+          description={statusText}
+          isDark={isDark}
+        >
+          <span
+            className={`inline-block w-2 h-2 rounded-full ${backendStatus.running ? "bg-green-500" : "bg-red-500"}`}
+          />
         </ConfigItem>
         <ConfigItem label={t("settings.backendPort")} isDark={isDark}>
           <div className="flex items-center gap-2">
@@ -732,7 +924,11 @@ function SettingsPage() {
             >
               {t("settings.applyPort")}
             </button>
-            {portSaved && <span className="text-xs text-green-500">{t("settings.portSaved")}</span>}
+            {portSaved && (
+              <span className="text-xs text-green-500">
+                {t("settings.portSaved")}
+              </span>
+            )}
           </div>
         </ConfigItem>
         {error && (
@@ -771,9 +967,14 @@ function SettingsPage() {
 
   function renderDataStorage() {
     // 构建生效目录信息行
-    const effectiveDir = configuredDirectory || defaultDirectory || dataDirectory;
+    const effectiveDir =
+      configuredDirectory || defaultDirectory || dataDirectory;
     let envInfo: string | null = null;
-    if (envLiriHome && configuredDirectory && envLiriHome !== configuredDirectory) {
+    if (
+      envLiriHome &&
+      configuredDirectory &&
+      envLiriHome !== configuredDirectory
+    ) {
       envInfo = `环境变量 LIRI_HOME 已设置 → ${envLiriHome}（设置页保存的目录优先）`;
     } else if (envLiriHome && !configuredDirectory) {
       envInfo = `环境变量 LIRI_HOME 已设置 → ${envLiriHome}`;
@@ -782,7 +983,11 @@ function SettingsPage() {
     }
 
     return (
-      <ConfigSection title="数据目录" description="配置数据文件存储位置" isDark={isDark}>
+      <ConfigSection
+        title="数据目录"
+        description="配置数据文件存储位置"
+        isDark={isDark}
+      >
         {/* 当前生效目录提示行 */}
         <div className="mb-3 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs">
           <p className="text-blue-700 dark:text-blue-300">
@@ -901,7 +1106,11 @@ function ApiKeyContent() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("确定要删除这个 API 密钥吗？此操作不可撤销。")) return;
-    try { await deleteApiKey(id); } catch {}
+    try {
+      await deleteApiKey(id);
+    } catch (e) {
+      handleClientError(e, { module: "components:views:Settings", action: "deleteApiKey" });
+    }
   };
 
   const handleCopy = async () => {
@@ -910,25 +1119,39 @@ function ApiKeyContent() {
         await navigator.clipboard.writeText(newKeyValue);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-      } catch {}
+      } catch (e) {
+        handleClientError(e, { module: "components:views:Settings", action: "copyKey" });
+      }
     }
   };
 
   const formatDate = (timestamp: number) =>
     new Date(timestamp).toLocaleString("zh-CN", {
-      year: "numeric", month: "2-digit", day: "2-digit",
-      hour: "2-digit", minute: "2-digit",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
     });
 
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">API 密钥管理</h2>
-          <p className="mt-1 text-sm text-gray-500">管理您的 API 密钥，用于程序化访问</p>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            API 密钥管理
+          </h2>
+          <p className="mt-1 text-sm text-gray-500">
+            管理您的 API 密钥，用于程序化访问
+          </p>
         </div>
         <button
-          onClick={() => { setShowCreateModal(true); setNewKeyValue(null); setNewKeyName(""); setCreateError(null); }}
+          onClick={() => {
+            setShowCreateModal(true);
+            setNewKeyValue(null);
+            setNewKeyName("");
+            setCreateError(null);
+          }}
           className="px-4 py-2 rounded-lg font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors"
         >
           创建密钥
@@ -945,11 +1168,23 @@ function ApiKeyContent() {
         <div className="text-center py-12 text-gray-500">加载中...</div>
       ) : apiKeys.length === 0 ? (
         <div className="text-center py-12 rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-          <svg className="w-12 h-12 mx-auto mb-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+          <svg
+            className="w-12 h-12 mx-auto mb-4 text-gray-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+            />
           </svg>
           <p className="text-gray-500">暂无 API 密钥</p>
-          <p className="mt-1 text-sm text-gray-400">点击上方按钮创建一个新的 API 密钥</p>
+          <p className="mt-1 text-sm text-gray-400">
+            点击上方按钮创建一个新的 API 密钥
+          </p>
         </div>
       ) : (
         <div className="rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -967,11 +1202,22 @@ function ApiKeyContent() {
               {apiKeys.map((key) => (
                 <tr key={key.id} className="text-gray-700 dark:text-gray-300">
                   <td className="px-4 py-3 font-medium">{key.name}</td>
-                  <td className="px-4 py-3 font-mono text-sm">{key.key_prefix}...****</td>
-                  <td className="px-4 py-3 text-sm">{formatDate(key.created_at)}</td>
-                  <td className="px-4 py-3 text-sm">{key.last_used_at ? formatDate(key.last_used_at) : "从未使用"}</td>
+                  <td className="px-4 py-3 font-mono text-sm">
+                    {key.key_prefix}...****
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    {formatDate(key.created_at)}
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    {key.last_used_at
+                      ? formatDate(key.last_used_at)
+                      : "从未使用"}
+                  </td>
                   <td className="px-4 py-3">
-                    <button onClick={() => handleDelete(key.id)} className="text-sm text-red-600 dark:text-red-400 hover:underline">
+                    <button
+                      onClick={() => handleDelete(key.id)}
+                      className="text-sm text-red-600 dark:text-red-400 hover:underline"
+                    >
                       删除
                     </button>
                   </td>
@@ -987,23 +1233,37 @@ function ApiKeyContent() {
           <div className="max-w-md w-full mx-4 p-6 rounded-xl bg-white dark:bg-gray-800">
             {newKeyValue ? (
               <>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">密钥已创建</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                  密钥已创建
+                </h3>
                 <div className="p-3 rounded bg-gray-50 dark:bg-gray-700">
-                  <code className="text-sm break-all text-gray-800 dark:text-gray-200">{newKeyValue}</code>
+                  <code className="text-sm break-all text-gray-800 dark:text-gray-200">
+                    {newKeyValue}
+                  </code>
                 </div>
-                <p className="text-xs text-red-500 mt-2">请立即复制，关闭后将无法再次查看</p>
+                <p className="text-xs text-red-500 mt-2">
+                  请立即复制，关闭后将无法再次查看
+                </p>
                 <div className="flex gap-2 mt-4">
-                  <button onClick={handleCopy} className="flex-1 px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white">
+                  <button
+                    onClick={handleCopy}
+                    className="flex-1 px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                  >
                     {copied ? "已复制" : "复制密钥"}
                   </button>
-                  <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-sm rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300">
+                  <button
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-4 py-2 text-sm rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
+                  >
                     关闭
                   </button>
                 </div>
               </>
             ) : (
               <>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">创建新密钥</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                  创建新密钥
+                </h3>
                 <input
                   type="text"
                   value={newKeyName}
@@ -1013,10 +1273,16 @@ function ApiKeyContent() {
                   autoFocus
                 />
                 <div className="flex gap-2">
-                  <button onClick={handleCreate} className="flex-1 px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white">
+                  <button
+                    onClick={handleCreate}
+                    className="flex-1 px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                  >
                     创建
                   </button>
-                  <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-sm rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300">
+                  <button
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-4 py-2 text-sm rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
+                  >
                     取消
                   </button>
                 </div>
@@ -1096,17 +1362,17 @@ function SkillManagementContent({ isDark: _isDark }: { isDark: boolean }) {
 }
 
 /** 智能路由配置内容 */
-function RouterConfigContent({ 
-  isDark, 
-  config, 
-  setConfig 
-}: { 
-  isDark: boolean; 
-  config: Record<string, unknown>; 
+function RouterConfigContent({
+  isDark,
+  config,
+  setConfig,
+}: {
+  isDark: boolean;
+  config: Record<string, unknown>;
   setConfig: (key: string, value: unknown) => void;
 }) {
   const [routerExpanded, setRouterExpanded] = useState(false);
-  
+
   const smartRouter = (config["models.router"] as {
     enabled: boolean;
     defaultTier: string;
@@ -1139,12 +1405,20 @@ function RouterConfigContent({
     setConfig("models.router", updated);
     syncRouterConfig(updated);
   };
-  
+
   return (
     <div className="p-6">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">智能路由配置</h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">由 LLM Judge 自动分级调度模型</p>
-      <ConfigSection title="SmartRouter" description="根据任务复杂度自动选择合适的模型" isDark={isDark}>
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+        智能路由配置
+      </h2>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+        由 LLM Judge 自动分级调度模型
+      </p>
+      <ConfigSection
+        title="SmartRouter"
+        description="根据任务复杂度自动选择合适的模型"
+        isDark={isDark}
+      >
         <ConfigItem label="启用 SmartRouter" isDark={isDark}>
           <ToggleConfig
             isDark={isDark}
@@ -1185,7 +1459,10 @@ function RouterConfigContent({
               />
             </div>
             <div className="text-gray-400">
-              Judge 模型: <span className="text-gray-500">使用 LocalAgent 本地模型判定</span>
+              Judge 模型:{" "}
+              <span className="text-gray-500">
+                使用 LocalAgent 本地模型判定
+              </span>
             </div>
           </div>
         )}

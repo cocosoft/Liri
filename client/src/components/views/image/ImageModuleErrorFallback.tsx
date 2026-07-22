@@ -14,9 +14,18 @@ export default function ImageModuleErrorFallback({ error, onRetry }: Props) {
 
   return (
     <div className="flex flex-col items-center justify-center h-full p-8 text-gray-400">
-      <svg className="w-16 h-16 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-          d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <svg
+        className="w-16 h-16 mb-4 opacity-30"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.5}
+          d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
       </svg>
       <h2 className="text-lg font-medium text-gray-300 mb-2">
         {t("image.moduleError")}

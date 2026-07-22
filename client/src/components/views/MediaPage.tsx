@@ -159,7 +159,9 @@ function MediaPage() {
   const [imageMeta, setImageMeta] = useState<ImageMetadata | null>(null);
   const [analyzingImage, setAnalyzingImage] = useState(false);
   // 删除确认：暂存待删除项
-  const [deleteConfirming, setDeleteConfirming] = useState<GalleryItem | null>(null);
+  const [deleteConfirming, setDeleteConfirming] = useState<GalleryItem | null>(
+    null,
+  );
 
   // 批量选择
   const [batchMode, setBatchMode] = useState(false);
@@ -176,20 +178,20 @@ function MediaPage() {
   const pendingScrollTopRef = useRef<number | null>(null);
 
   // 滚动位置恢复：loadGallery 完成后还原 scrollTop
-    useEffect(() => {
-      if (pendingScrollTopRef.current !== null && galleryScrollRef.current) {
-        const saved = pendingScrollTopRef.current;
-        pendingScrollTopRef.current = null;
-        // requestAnimationFrame 确保 DOM 已更新
-        requestAnimationFrame(() => {
-          if (galleryScrollRef.current) {
-            galleryScrollRef.current.scrollTop = saved;
-          }
-        });
-      }
-    }, [galleryItems]);
+  useEffect(() => {
+    if (pendingScrollTopRef.current !== null && galleryScrollRef.current) {
+      const saved = pendingScrollTopRef.current;
+      pendingScrollTopRef.current = null;
+      // requestAnimationFrame 确保 DOM 已更新
+      requestAnimationFrame(() => {
+        if (galleryScrollRef.current) {
+          galleryScrollRef.current.scrollTop = saved;
+        }
+      });
+    }
+  }, [galleryItems]);
 
-    // 路由守卫：编辑中拦截 React Router 导航跳转
+  // 路由守卫：编辑中拦截 React Router 导航跳转
   useEffect(() => {
     if (!isEditing) return;
     // 使用 popstate 事件拦截浏览器回退/前进（history.block 的底层原理也需要配合）
@@ -208,15 +210,21 @@ function MediaPage() {
   }, [isEditing, setEditingImage]);
 
   // ──── 拖拽到聊天区 ────
-  const handleDragStart = useCallback((e: React.DragEvent, item: GalleryItem) => {
-    e.dataTransfer.setData("text/plain", item.url);
-    e.dataTransfer.setData("application/pyapp-media", JSON.stringify({
-      url: item.url,
-      type: item.type,
-      id: item.id,
-    }));
-    e.dataTransfer.effectAllowed = "copy";
-  }, []);
+  const handleDragStart = useCallback(
+    (e: React.DragEvent, item: GalleryItem) => {
+      e.dataTransfer.setData("text/plain", item.url);
+      e.dataTransfer.setData(
+        "application/pyapp-media",
+        JSON.stringify({
+          url: item.url,
+          type: item.type,
+          id: item.id,
+        }),
+      );
+      e.dataTransfer.effectAllowed = "copy";
+    },
+    [],
+  );
 
   // ──── 图片对比 ────
   const handleCompareToggle = useCallback((id: string) => {
@@ -265,7 +273,12 @@ function MediaPage() {
   const typeCounts = useMemo(() => {
     const images = galleryItems.filter((i) => i.type === "image").length;
     const videos = galleryItems.filter((i) => i.type === "video").length;
-    return { all: galleryItems.length, images, videos, favorites: favoriteIds.size };
+    return {
+      all: galleryItems.length,
+      images,
+      videos,
+      favorites: favoriteIds.size,
+    };
   }, [galleryItems, favoriteIds]);
 
   // ──── 加载图库（首次加载 / 分页追加） ────
@@ -286,9 +299,8 @@ function MediaPage() {
         http.get<any>(`/v1/videos/list?${q.toString()}`),
       ]);
 
-      const images: GalleryItem[] = (imgRes.ok && imgRes.data?.images
-        ? imgRes.data.images
-        : []
+      const images: GalleryItem[] = (
+        imgRes.ok && imgRes.data?.images ? imgRes.data.images : []
       ).map((img: any) => ({
         id: `img:${img.path || img.url}`,
         type: "image" as const,
@@ -299,9 +311,8 @@ function MediaPage() {
         alt: img.alt || "",
       }));
 
-      const videos: GalleryItem[] = (vidRes.ok && vidRes.data?.videos
-        ? vidRes.data.videos
-        : []
+      const videos: GalleryItem[] = (
+        vidRes.ok && vidRes.data?.videos ? vidRes.data.videos : []
       ).map((vid: any) => ({
         id: `vid:${vid.path || vid.url}`,
         type: "video" as const,
@@ -316,15 +327,28 @@ function MediaPage() {
       if (append) {
         useMediaStore.getState().appendGalleryItems(newItems, hasMore);
       } else {
-        useMediaStore.setState({ galleryItems: newItems, galleryLoading: false, galleryHasMore: hasMore, galleryOffset: newItems.length });
+        useMediaStore.setState({
+          galleryItems: newItems,
+          galleryLoading: false,
+          galleryHasMore: hasMore,
+          galleryOffset: newItems.length,
+        });
       }
 
       pageOffsetRef.current = offset + newItems.length;
-      logger.info("图库加载完成", { append, page, total: pageOffsetRef.current });
+      logger.info("图库加载完成", {
+        append,
+        page,
+        total: pageOffsetRef.current,
+      });
     } catch (e) {
       logger.warn("加载图库失败", { error: String(e) });
       if (!append) {
-        useMediaStore.setState({ galleryItems: [], galleryLoading: false, galleryHasMore: false });
+        useMediaStore.setState({
+          galleryItems: [],
+          galleryLoading: false,
+          galleryHasMore: false,
+        });
       }
     }
   }, []);
@@ -343,7 +367,7 @@ function MediaPage() {
 
   const { activeTasks, submitTask } = useVideoTaskPolling(handleTaskCompleted);
   const generating = activeTasks.some((t) =>
-    ["pending", "queued", "running"].includes(t.status)
+    ["pending", "queued", "running"].includes(t.status),
   );
 
   // ──── 选中项切换时重置视频元数据 + 拉取图片元数据 ────
@@ -354,12 +378,19 @@ function MediaPage() {
     const selectedItem = galleryItems.find((i) => i.id === selectedId);
     if (!selectedItem) return;
 
-    const encodedPath = encodeURIComponent(selectedItem.url.replace(/^\/v1\/images\/static\//, ''));
-    http.get<any>(`/v1/images/metadata?path=${encodedPath}`).then((resp) => {
-      if (resp.ok && resp.data) {
-        setImageMeta(resp.data);
-      }
-    }).catch(() => { /* 图片元数据不可用时静默忽略 */ });
+    const encodedPath = encodeURIComponent(
+      selectedItem.url.replace(/^\/v1\/images\/static\//, ""),
+    );
+    http
+      .get<any>(`/v1/images/metadata?path=${encodedPath}`)
+      .then((resp) => {
+        if (resp.ok && resp.data) {
+          setImageMeta(resp.data);
+        }
+      })
+      .catch(() => {
+        /* 图片元数据不可用时静默忽略 */
+      });
   }, [selectedId]);
 
   /** "生成类似"：识图 → 生成 prompt → 切换图片模式 */
@@ -374,7 +405,8 @@ function MediaPage() {
     setAnalyzingImage(true);
     try {
       const analysis = await imageService.analyze(imageMeta.path, "vision", {
-        prompt: "请详细描述这张图片的视觉内容，包括主题、风格、颜色、构图、光线等，以便用于生成一张类似风格的图片。",
+        prompt:
+          "请详细描述这张图片的视觉内容，包括主题、风格、颜色、构图、光线等，以便用于生成一张类似风格的图片。",
       });
 
       if (analysis.description) {
@@ -402,11 +434,14 @@ function MediaPage() {
   }, [selectedId, galleryItems, imageMeta, addToast]);
 
   // ──── 上传完成回调 ────
-  const handleUploaded = useCallback((_result: { path: string; url: string }) => {
-    addToast("success", "上传成功");
-    loadGallery();
-    setShowUpload(false);
-  }, [addToast, loadGallery]);
+  const handleUploaded = useCallback(
+    (_result: { path: string; url: string }) => {
+      addToast("success", "上传成功");
+      loadGallery();
+      setShowUpload(false);
+    },
+    [addToast, loadGallery],
+  );
 
   // ──── 生成（图片 / 视频） ────
   const handleGenerate = useCallback(async () => {
@@ -494,7 +529,18 @@ function MediaPage() {
         logger.error("视频生成失败", { error: errMsg });
       }
     }
-  }, [prompt, mode, selectedImageUrl, imageMeta, params, submitTask, addToast, loadGallery, addGenerationTask, updateGenerationTask]);
+  }, [
+    prompt,
+    mode,
+    selectedImageUrl,
+    imageMeta,
+    params,
+    submitTask,
+    addToast,
+    loadGallery,
+    addGenerationTask,
+    updateGenerationTask,
+  ]);
 
   // ──── 打开 lightbox ────
   const handleOpenLightbox = useCallback(() => {
@@ -574,16 +620,19 @@ function MediaPage() {
   }, []);
 
   // ──── 统一选择处理：对比模式中点击图片直接作为第2张 ────
-  const handleGallerySelect = useCallback((id: string) => {
-    if (batchMode) {
-      toggleSelect(id);
-    } else if (compareIds && compareIds[0] && !compareIds[1]) {
-      // 对比模式中（已选第1张），点击任意图片作为第2张
-      handleCompareToggle(id);
-    } else {
-      selectMedia(id);
-    }
-  }, [batchMode, compareIds, toggleSelect, selectMedia, handleCompareToggle]);
+  const handleGallerySelect = useCallback(
+    (id: string) => {
+      if (batchMode) {
+        toggleSelect(id);
+      } else if (compareIds && compareIds[0] && !compareIds[1]) {
+        // 对比模式中（已选第1张），点击任意图片作为第2张
+        handleCompareToggle(id);
+      } else {
+        selectMedia(id);
+      }
+    },
+    [batchMode, compareIds, toggleSelect, selectMedia, handleCompareToggle],
+  );
 
   // 点击外部关闭右键菜单
   useEffect(() => {
@@ -594,12 +643,16 @@ function MediaPage() {
   }, [contextMenu]);
 
   const selectedItem = galleryItems.find((i) => i.id === selectedId);
-  const selectedFileName = selectedItem ? extractFileName(selectedItem.url) : "";
+  const selectedFileName = selectedItem
+    ? extractFileName(selectedItem.url)
+    : "";
   const selectedFormat = selectedItem ? extractFormat(selectedFileName) : "";
   const selectedDate = selectedItem ? extractDate(selectedItem.url) : "";
 
   return (
-    <div className={`flex h-full w-full flex-col ${isDark ? "bg-gray-900" : "bg-gray-50"}`}>
+    <div
+      className={`flex h-full w-full flex-col ${isDark ? "bg-gray-900" : "bg-gray-50"}`}
+    >
       {/* ========== 顶部：模板轮播 ========== */}
       <TemplateCarousel isDark={isDark} />
 
@@ -625,25 +678,37 @@ function MediaPage() {
                 label="全部"
                 count={typeCounts.all}
                 active={filterType === "all"}
-                onClick={() => { setFilterType("all"); selectMedia(""); }}
+                onClick={() => {
+                  setFilterType("all");
+                  selectMedia("");
+                }}
               />
               <FilterTab
                 label="图片"
                 count={typeCounts.images}
                 active={filterType === "image"}
-                onClick={() => { setFilterType("image"); selectMedia(""); }}
+                onClick={() => {
+                  setFilterType("image");
+                  selectMedia("");
+                }}
               />
               <FilterTab
                 label="视频"
                 count={typeCounts.videos}
                 active={filterType === "video"}
-                onClick={() => { setFilterType("video"); selectMedia(""); }}
+                onClick={() => {
+                  setFilterType("video");
+                  selectMedia("");
+                }}
               />
               <FilterTab
                 label="⭐"
                 count={typeCounts.favorites}
                 active={filterType === "favorites"}
-                onClick={() => { setFilterType("favorites"); selectMedia(""); }}
+                onClick={() => {
+                  setFilterType("favorites");
+                  selectMedia("");
+                }}
               />
 
               {/* 排序下拉 */}
@@ -671,7 +736,9 @@ function MediaPage() {
                       : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   }`}
                   title="瀑布流"
-                >▦</button>
+                >
+                  ▦
+                </button>
                 <button
                   onClick={() => setViewMode("grid")}
                   className={`px-1.5 py-0.5 text-xs ${
@@ -680,7 +747,9 @@ function MediaPage() {
                       : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   }`}
                   title="网格列表"
-                >⊞</button>
+                >
+                  ⊞
+                </button>
               </div>
             </div>
 
@@ -726,9 +795,7 @@ function MediaPage() {
             </div>
 
             {/* 上传区域 */}
-            {showUpload && (
-              <ImageUploadDrop onUploaded={handleUploaded} />
-            )}
+            {showUpload && <ImageUploadDrop onUploaded={handleUploaded} />}
           </div>
 
           {/* 画廊 */}
@@ -775,13 +842,19 @@ function MediaPage() {
                   <button
                     onClick={() => setCompareIds(null)}
                     className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                  >✕ 退出对比</button>
+                  >
+                    ✕ 退出对比
+                  </button>
                 </div>
                 {compareIds[1] ? (
                   <div className="grid grid-cols-2 gap-2">
                     {(() => {
-                      const imgA = galleryItems.find((i) => i.id === compareIds[0]);
-                      const imgB = galleryItems.find((i) => i.id === compareIds[1]);
+                      const imgA = galleryItems.find(
+                        (i) => i.id === compareIds[0],
+                      );
+                      const imgB = galleryItems.find(
+                        (i) => i.id === compareIds[1],
+                      );
                       return (
                         <>
                           <CompareImage item={imgA} isDark={isDark} />
@@ -822,33 +895,81 @@ function MediaPage() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   {selectedItem.type === "image" && (
                     <>
-                      <ActionButton label="放大查看" icon="🔍" isDark={isDark} onClick={handleOpenLightbox} />
-                      <ActionButton label="对比" icon="◧" isDark={isDark} onClick={() => handleCompareToggle(selectedItem.id)} />
-                      <ActionButton label="图生视频" icon="🎬" isDark={isDark} onClick={() => {
-                        setIntendedAction({
-                          type: "generate-video",
-                          sourceImage: { id: selectedItem.id, url: selectedItem.url },
-                          autoSubmit: false,
-                        });
-                      }} />
-                      <ActionButton label="编辑图片" icon="✏️" isDark={isDark} onClick={() => {
-                        editSessionRef.current++;
-                        setEditingImage({ id: selectedItem.id, url: selectedItem.url });
-                      }} />
+                      <ActionButton
+                        label="放大查看"
+                        icon="🔍"
+                        isDark={isDark}
+                        onClick={handleOpenLightbox}
+                      />
+                      <ActionButton
+                        label="对比"
+                        icon="◧"
+                        isDark={isDark}
+                        onClick={() => handleCompareToggle(selectedItem.id)}
+                      />
+                      <ActionButton
+                        label="图生视频"
+                        icon="🎬"
+                        isDark={isDark}
+                        onClick={() => {
+                          setIntendedAction({
+                            type: "generate-video",
+                            sourceImage: {
+                              id: selectedItem.id,
+                              url: selectedItem.url,
+                            },
+                            autoSubmit: false,
+                          });
+                        }}
+                      />
+                      <ActionButton
+                        label="编辑图片"
+                        icon="✏️"
+                        isDark={isDark}
+                        onClick={() => {
+                          editSessionRef.current++;
+                          setEditingImage({
+                            id: selectedItem.id,
+                            url: selectedItem.url,
+                          });
+                        }}
+                      />
                       <ActionButton
                         label={analyzingImage ? "识别中…" : "生成类似"}
                         icon={analyzingImage ? "⏳" : "✨"}
                         isDark={isDark}
                         onClick={handleGenerateSimilar}
                       />
-                      <ActionButton label="下载" icon="⬇️" isDark={isDark} onClick={() => window.open(selectedItem.url, "_blank")} />
-                      <ActionButton label="删除" icon="🗑️" isDark={isDark} danger onClick={() => handleDeleteItem(selectedItem)} />
+                      <ActionButton
+                        label="下载"
+                        icon="⬇️"
+                        isDark={isDark}
+                        onClick={() => window.open(selectedItem.url, "_blank")}
+                      />
+                      <ActionButton
+                        label="删除"
+                        icon="🗑️"
+                        isDark={isDark}
+                        danger
+                        onClick={() => handleDeleteItem(selectedItem)}
+                      />
                     </>
                   )}
                   {selectedItem.type === "video" && (
                     <>
-                      <ActionButton label="下载" icon="⬇️" isDark={isDark} onClick={() => window.open(selectedItem.url, "_blank")} />
-                      <ActionButton label="删除" icon="🗑️" isDark={isDark} danger onClick={() => handleDeleteItem(selectedItem)} />
+                      <ActionButton
+                        label="下载"
+                        icon="⬇️"
+                        isDark={isDark}
+                        onClick={() => window.open(selectedItem.url, "_blank")}
+                      />
+                      <ActionButton
+                        label="删除"
+                        icon="🗑️"
+                        isDark={isDark}
+                        danger
+                        onClick={() => handleDeleteItem(selectedItem)}
+                      />
                     </>
                   )}
                 </div>
@@ -860,25 +981,51 @@ function MediaPage() {
                   </h3>
                   <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
                     <InfoRow label="文件名" value={selectedFileName} />
-                    <InfoRow label="类型" value={selectedItem.type === "video" ? "视频" : "图片"} />
-                    <InfoRow label="格式" value={imageMeta?.format || selectedFormat} />
+                    <InfoRow
+                      label="类型"
+                      value={selectedItem.type === "video" ? "视频" : "图片"}
+                    />
+                    <InfoRow
+                      label="格式"
+                      value={imageMeta?.format || selectedFormat}
+                    />
                     {imageMeta?.width && imageMeta?.height && (
-                      <InfoRow label="尺寸" value={`${imageMeta.width} × ${imageMeta.height}`} />
+                      <InfoRow
+                        label="尺寸"
+                        value={`${imageMeta.width} × ${imageMeta.height}`}
+                      />
                     )}
-                    {!imageMeta && selectedItem.width && selectedItem.height && (
-                      <InfoRow label="尺寸" value={`${selectedItem.width} × ${selectedItem.height}`} />
-                    )}
+                    {!imageMeta &&
+                      selectedItem.width &&
+                      selectedItem.height && (
+                        <InfoRow
+                          label="尺寸"
+                          value={`${selectedItem.width} × ${selectedItem.height}`}
+                        />
+                      )}
                     {imageMeta?.size && (
-                      <InfoRow label="大小" value={formatFileSize(imageMeta.size)} />
+                      <InfoRow
+                        label="大小"
+                        value={formatFileSize(imageMeta.size)}
+                      />
                     )}
                     {selectedItem.duration && (
-                      <InfoRow label="时长" value={`${selectedItem.duration}s`} />
+                      <InfoRow
+                        label="时长"
+                        value={`${selectedItem.duration}s`}
+                      />
                     )}
                     {videoMeta && selectedItem.type === "video" && (
-                      <InfoRow label="分辨率" value={`${videoMeta.width} × ${videoMeta.height}`} />
+                      <InfoRow
+                        label="分辨率"
+                        value={`${videoMeta.width} × ${videoMeta.height}`}
+                      />
                     )}
                     {imageMeta?.createdAt && (
-                      <InfoRow label="日期" value={formatDate(imageMeta.createdAt)} />
+                      <InfoRow
+                        label="日期"
+                        value={formatDate(imageMeta.createdAt)}
+                      />
                     )}
                     {!imageMeta && selectedDate && (
                       <InfoRow label="日期" value={selectedDate} />
@@ -930,7 +1077,8 @@ function MediaPage() {
             if (sessionId === editSessionRef.current) {
               // 保存当前滚动位置，loadGallery 完成后自动恢复
               if (galleryScrollRef.current) {
-                pendingScrollTopRef.current = galleryScrollRef.current.scrollTop;
+                pendingScrollTopRef.current =
+                  galleryScrollRef.current.scrollTop;
               }
               loadGallery();
             }
@@ -941,7 +1089,9 @@ function MediaPage() {
       {/* ========== ImageViewer lightbox ========== */}
       {lightboxOpen && selectedItem && (
         <ImageViewer
-          images={galleryItems.filter((i) => i.type === "image").map((i) => i.url)}
+          images={galleryItems
+            .filter((i) => i.type === "image")
+            .map((i) => i.url)}
           initialIndex={lightboxIndex}
           onClose={() => {
             setLightboxOpen(false);
@@ -972,9 +1122,12 @@ function MediaPage() {
                 autoSubmit: false,
               });
             } else if (action === "copy-path") {
-              navigator.clipboard.writeText(item.url).then(() => {
-                addToast("success", "路径已复制");
-              }).catch(() => {});
+              navigator.clipboard
+                .writeText(item.url)
+                .then(() => {
+                  addToast("success", "路径已复制");
+                })
+                .catch(() => {});
             } else if (action === "extract-audio") {
               addToast("info", "音频提取功能开发中");
             }
@@ -985,29 +1138,41 @@ function MediaPage() {
       {/* 删除确认弹窗 — Portal 到 body 避免被卡片容器裁剪 */}
       {deleteConfirming &&
         createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setDeleteConfirming(null)}>
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            onClick={() => setDeleteConfirming(null)}
+          >
             <div
               className={`rounded-lg p-4 shadow-xl ${isDark ? "bg-gray-700 text-gray-200" : "bg-white text-gray-700"}`}
               style={{ minWidth: 280 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <p className="mb-3 text-sm">确定要删除此图片吗？此操作不可撤销。</p>
-              <p className="mb-3 text-xs text-gray-400 truncate" title={extractFileName(deleteConfirming.url)}>
+              <p className="mb-3 text-sm">
+                确定要删除此图片吗？此操作不可撤销。
+              </p>
+              <p
+                className="mb-3 text-xs text-gray-400 truncate"
+                title={extractFileName(deleteConfirming.url)}
+              >
                 {extractFileName(deleteConfirming.url)}
               </p>
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setDeleteConfirming(null)}
                   className={`rounded px-3 py-1 text-xs ${isDark ? "bg-gray-600 hover:bg-gray-500" : "bg-gray-100 hover:bg-gray-200"}`}
-                >取消</button>
+                >
+                  取消
+                </button>
                 <button
                   onClick={handleConfirmDelete}
                   className="rounded bg-red-500 px-3 py-1 text-xs text-white hover:bg-red-600"
-                >删除</button>
+                >
+                  删除
+                </button>
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
     </div>
   );
@@ -1017,7 +1182,10 @@ function MediaPage() {
 
 /** 筛选 Tab */
 const FilterTab: React.FC<{
-  label: string; count: number; active: boolean; onClick: () => void;
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
 }> = ({ label, count, active, onClick }) => (
   <button
     onClick={onClick}
@@ -1028,15 +1196,26 @@ const FilterTab: React.FC<{
     }`}
   >
     {label}
-    <span className={`ml-1 ${active ? "text-white/70" : "text-gray-400"}`}>{count}</span>
+    <span className={`ml-1 ${active ? "text-white/70" : "text-gray-400"}`}>
+      {count}
+    </span>
   </button>
 );
 
 /** 信息行 */
-const InfoRow: React.FC<{ label: string; value: string; mono?: boolean }> = ({ label, value, mono }) => (
+const InfoRow: React.FC<{ label: string; value: string; mono?: boolean }> = ({
+  label,
+  value,
+  mono,
+}) => (
   <div className="flex items-start gap-2">
-    <span className="min-w-[3em] text-gray-400 dark:text-gray-500">{label}</span>
-    <span className={`truncate ${mono ? "font-mono text-[10px]" : ""}`} title={value}>
+    <span className="min-w-[3em] text-gray-400 dark:text-gray-500">
+      {label}
+    </span>
+    <span
+      className={`truncate ${mono ? "font-mono text-[10px]" : ""}`}
+      title={value}
+    >
       {value}
     </span>
   </div>
@@ -1044,7 +1223,11 @@ const InfoRow: React.FC<{ label: string; value: string; mono?: boolean }> = ({ l
 
 /** 操作栏按钮 */
 const ActionButton: React.FC<{
-  label: string; icon: string; isDark: boolean; onClick: () => void; danger?: boolean;
+  label: string;
+  icon: string;
+  isDark: boolean;
+  onClick: () => void;
+  danger?: boolean;
 }> = ({ label, icon, isDark, onClick, danger }) => (
   <button
     onClick={onClick}
@@ -1056,7 +1239,8 @@ const ActionButton: React.FC<{
           : "text-gray-600 hover:bg-gray-100"
     }`}
   >
-    <span>{icon}</span><span>{label}</span>
+    <span>{icon}</span>
+    <span>{label}</span>
   </button>
 );
 
@@ -1085,17 +1269,38 @@ const ContextMenu: React.FC<{
       >
         {isImage && (
           <>
-            <MenuItem label="编辑图像" icon="✏️" onClick={() => onAction("edit")} />
-            <MenuItem label="图生视频" icon="🎬" onClick={() => onAction("generate-video")} />
+            <MenuItem
+              label="编辑图像"
+              icon="✏️"
+              onClick={() => onAction("edit")}
+            />
+            <MenuItem
+              label="图生视频"
+              icon="🎬"
+              onClick={() => onAction("generate-video")}
+            />
           </>
         )}
         <MenuItem label="下载" icon="⬇️" onClick={() => onAction("download")} />
-        <MenuItem label="复制路径" icon="📋" onClick={() => onAction("copy-path")} />
+        <MenuItem
+          label="复制路径"
+          icon="📋"
+          onClick={() => onAction("copy-path")}
+        />
         {!isImage && (
-          <MenuItem label="提取音频" icon="🎵" onClick={() => onAction("extract-audio")} />
+          <MenuItem
+            label="提取音频"
+            icon="🎵"
+            onClick={() => onAction("extract-audio")}
+          />
         )}
         <div className="my-1 border-t border-gray-200 dark:border-gray-600" />
-        <MenuItem label="删除" icon="🗑️" danger onClick={() => onAction("delete")} />
+        <MenuItem
+          label="删除"
+          icon="🗑️"
+          danger
+          onClick={() => onAction("delete")}
+        />
       </div>
     </div>
   );
@@ -1103,7 +1308,10 @@ const ContextMenu: React.FC<{
 
 /** 右键菜单项 */
 const MenuItem: React.FC<{
-  label: string; icon: string; onClick: () => void; danger?: boolean;
+  label: string;
+  icon: string;
+  onClick: () => void;
+  danger?: boolean;
 }> = ({ label, icon, onClick, danger }) => (
   <button
     onClick={onClick}
@@ -1111,7 +1319,8 @@ const MenuItem: React.FC<{
       danger ? "text-red-500" : ""
     }`}
   >
-    <span>{icon}</span><span>{label}</span>
+    <span>{icon}</span>
+    <span>{label}</span>
   </button>
 );
 
@@ -1127,7 +1336,18 @@ const GridView: React.FC<{
   onToggleFavorite?: (id: string) => void;
   onDragStart?: (e: React.DragEvent, item: GalleryItem) => void;
   onCompareToggle?: (id: string) => void;
-}> = ({ items, selectedId, isDark, onSelect, batchMode, selectedIds, favoriteIds, onToggleFavorite, onDragStart, onCompareToggle }) => (
+}> = ({
+  items,
+  selectedId,
+  isDark,
+  onSelect,
+  batchMode,
+  selectedIds,
+  favoriteIds,
+  onToggleFavorite,
+  onDragStart,
+  onCompareToggle,
+}) => (
   <div className="h-full overflow-y-auto p-3">
     <div className="grid grid-cols-3 gap-2">
       {items.map((item) => {
@@ -1155,7 +1375,10 @@ const GridView: React.FC<{
                   ? "border-gray-700 bg-gray-800 hover:border-gray-500"
                   : "border-gray-200 bg-white hover:border-gray-400"
             }`}
-            style={{ contentVisibility: "auto", containIntrinsicSize: "auto 150px" }}
+            style={{
+              contentVisibility: "auto",
+              containIntrinsicSize: "auto 150px",
+            }}
           >
             {/* 批量选择复选框 */}
             {batchMode && (
@@ -1174,19 +1397,29 @@ const GridView: React.FC<{
               <div className="absolute right-1 top-1 z-10 flex gap-0.5">
                 {onToggleFavorite && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); onToggleFavorite(item.id); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleFavorite(item.id);
+                    }}
                     className={`rounded bg-black/30 p-0.5 text-[10px] transition-colors hover:bg-black/50 ${
                       isFav ? "text-yellow-400" : "text-white/60"
                     }`}
                     title={isFav ? "取消收藏" : "收藏"}
-                  >{isFav ? "★" : "☆"}</button>
+                  >
+                    {isFav ? "★" : "☆"}
+                  </button>
                 )}
                 {onCompareToggle && item.type === "image" && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); onCompareToggle(item.id); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCompareToggle(item.id);
+                    }}
                     className="rounded bg-black/30 p-0.5 text-[10px] text-white/60 transition-colors hover:bg-black/50"
                     title="加入对比"
-                  >◧</button>
+                  >
+                    ◧
+                  </button>
                 )}
               </div>
             )}
@@ -1199,7 +1432,10 @@ const GridView: React.FC<{
                   muted
                   className="h-full w-full object-cover"
                   onMouseEnter={(e) => e.currentTarget.play()}
-                  onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.pause();
+                    e.currentTarget.currentTime = 0;
+                  }}
                 />
               ) : (
                 <img
@@ -1212,7 +1448,10 @@ const GridView: React.FC<{
             </div>
 
             <div className="overflow-hidden">
-              <p className="truncate text-[10px] font-medium text-gray-700 dark:text-gray-300" title={fileName}>
+              <p
+                className="truncate text-[10px] font-medium text-gray-700 dark:text-gray-300"
+                title={fileName}
+              >
                 {fileName}
               </p>
               <p className="text-[10px] text-gray-400 dark:text-gray-500">
@@ -1234,12 +1473,17 @@ const GridView: React.FC<{
 export default MediaPage;
 
 /** 对比图片面板 */
-const CompareImage: React.FC<{ item: GalleryItem | undefined; isDark: boolean }> = ({ item, isDark }) => {
+const CompareImage: React.FC<{
+  item: GalleryItem | undefined;
+  isDark: boolean;
+}> = ({ item, isDark }) => {
   if (!item) {
     return (
-      <div className={`flex aspect-square items-center justify-center rounded-lg border ${
-        isDark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-100"
-      }`}>
+      <div
+        className={`flex aspect-square items-center justify-center rounded-lg border ${
+          isDark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-100"
+        }`}
+      >
         <span className="text-xs text-gray-400">未选择</span>
       </div>
     );
@@ -1255,11 +1499,16 @@ const CompareImage: React.FC<{ item: GalleryItem | undefined; isDark: boolean }>
           loading="lazy"
         />
       </div>
-      <p className="truncate text-[10px] text-gray-500 dark:text-gray-400" title={extractFileName(item.url)}>
+      <p
+        className="truncate text-[10px] text-gray-500 dark:text-gray-400"
+        title={extractFileName(item.url)}
+      >
         {extractFileName(item.url)}
       </p>
       {item.width && item.height && (
-        <p className="text-[10px] text-gray-400">{item.width}×{item.height}</p>
+        <p className="text-[10px] text-gray-400">
+          {item.width}×{item.height}
+        </p>
       )}
     </div>
   );

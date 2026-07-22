@@ -157,7 +157,9 @@ function SandboxPage() {
                 : "bg-green-600 hover:bg-green-700 text-white"
             }`}
           >
-            {sandboxConfig.enabled ? t("sandbox.disableSandbox") : t("sandbox.enableSandbox")}
+            {sandboxConfig.enabled
+              ? t("sandbox.disableSandbox")
+              : t("sandbox.enableSandbox")}
           </button>
         </div>
 
@@ -386,7 +388,8 @@ function SandboxPage() {
                   <div className="flex items-center gap-4">
                     {session.status === "running" && (
                       <span className="text-sm text-gray-500">
-                        {t("sandbox.memory")}: {session.memoryUsage}MB | {t("sandbox.duration")}:{" "}
+                        {t("sandbox.memory")}: {session.memoryUsage}MB |{" "}
+                        {t("sandbox.duration")}:{" "}
                         {formatDuration(session.duration)}
                       </span>
                     )}

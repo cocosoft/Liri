@@ -33,13 +33,19 @@ interface BlockRendererProps {
   onQuestionResponse?: (content: string) => void;
 }
 
-function BlockRenderer({ block, sessionId, knownFilePaths, onQuestionResponse }: BlockRendererProps) {
+function BlockRenderer({
+  block,
+  sessionId,
+  knownFilePaths,
+  onQuestionResponse,
+}: BlockRendererProps) {
   const readFileToPreview = useChatStore((s) => s.readFileToPreview);
   const navigate = useNavigate();
   const backendReady = useWorkspaceStore((s) => s.backendReady);
 
   /** 功能开关：VITE_FEATURE_WORK_MODULE=disabled 时隐藏工作模块入口 */
-  const workModuleEnabled = import.meta.env.VITE_FEATURE_WORK_MODULE !== "disabled";
+  const workModuleEnabled =
+    import.meta.env.VITE_FEATURE_WORK_MODULE !== "disabled";
 
   /**
    * 进入工作模式：从聊天界面跳转到工作界面
@@ -87,7 +93,9 @@ function BlockRenderer({ block, sessionId, knownFilePaths, onQuestionResponse }:
     case "todo":
       return block.taskCard ? <TaskCard data={block.taskCard} /> : null;
     case "progress":
-      return block.progressData ? <ProgressCard data={block.progressData} /> : null;
+      return block.progressData ? (
+        <ProgressCard data={block.progressData} />
+      ) : null;
     case "deliverable":
       return block.deliverableData ? (
         <DeliverableCard

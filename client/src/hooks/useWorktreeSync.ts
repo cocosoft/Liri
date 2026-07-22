@@ -29,7 +29,10 @@ export function useWorktreeSync(): void {
 
     // 确保 worktree 存在
     if (!root.worktrees[wtId]) {
-      root.createWorktree({ name: oldWorkspace.path ?? "工作空间", path: oldWorkspace.path ?? "" });
+      root.createWorktree({
+        name: oldWorkspace.path ?? "工作空间",
+        path: oldWorkspace.path ?? "",
+      });
     }
 
     // 同步为当前 worktree

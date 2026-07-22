@@ -10,13 +10,25 @@ import { officeApi } from "../../../services/officeApi";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 /** 懒加载渲染器 */
-const DocxRenderer = lazy(() => import("./renderers/DocxRenderer").then(m => ({ default: m.DocxRenderer })));
-const XlsxRenderer = lazy(() => import("./renderers/XlsxRenderer").then(m => ({ default: m.XlsxRenderer })));
-const PptxRenderer = lazy(() => import("./renderers/PptxRenderer").then(m => ({ default: m.PptxRenderer })));
+const DocxRenderer = lazy(() =>
+  import("./renderers/DocxRenderer").then((m) => ({ default: m.DocxRenderer })),
+);
+const XlsxRenderer = lazy(() =>
+  import("./renderers/XlsxRenderer").then((m) => ({ default: m.XlsxRenderer })),
+);
+const PptxRenderer = lazy(() =>
+  import("./renderers/PptxRenderer").then((m) => ({ default: m.PptxRenderer })),
+);
 
 /** 不支持预览的格式映射 */
 const FALLBACK_EXTENSIONS = new Set([
-  "doc", "wps", "et", "dps", "pdf", "txt", "csv",
+  "doc",
+  "wps",
+  "et",
+  "dps",
+  "pdf",
+  "txt",
+  "csv",
 ]);
 
 /**
@@ -32,9 +44,7 @@ function PreviewContent({ file }: { file: FileInfo }) {
   }
 
   return (
-    <ErrorBoundary
-      fallback={<RenderFallback file={file} />}
-    >
+    <ErrorBoundary fallback={<RenderFallback file={file} />}>
       <Suspense fallback={<PreviewSkeleton />}>
         {ext === "docx" ? (
           <DocxRenderer file={file} />
@@ -96,9 +106,9 @@ export function CenterPanel() {
       e.preventDefault();
       const fileId = e.dataTransfer.getData("text/plain");
       if (fileId) {
-        const file = useOfficeStore.getState().fileList.find(
-          (f) => f.id === fileId,
-        );
+        const file = useOfficeStore
+          .getState()
+          .fileList.find((f) => f.id === fileId);
         if (file) {
           selectFile(file);
           setPreviewState("loading");
@@ -215,7 +225,10 @@ export function CenterPanel() {
       {/* 内容区 */}
       <div
         className="flex-1 min-h-0 overflow-hidden"
-        style={{ transform: `scale(${previewZoom / 100})`, transformOrigin: "top left" }}
+        style={{
+          transform: `scale(${previewZoom / 100})`,
+          transformOrigin: "top left",
+        }}
         aria-live="polite"
       >
         {previewState === "loading" && <PreviewSkeleton />}
@@ -248,7 +261,7 @@ function EmptyState() {
 
   const focusChat = (prompt: string) => {
     const chatInput = document.querySelector<HTMLTextAreaElement>(
-      '[data-office-chat-input]',
+      "[data-office-chat-input]",
     );
     if (chatInput) {
       chatInput.focus();
@@ -320,9 +333,7 @@ function PreviewSkeleton() {
       <div className="text-center animate-pulse">
         <div className="w-48 h-4 bg-gray-200 dark:bg-gray-700 rounded mx-auto mb-2" />
         <div className="w-32 h-3 bg-gray-100 dark:bg-gray-800 rounded mx-auto" />
-        <p className="text-sm text-gray-400 mt-3">
-          加载中...
-        </p>
+        <p className="text-sm text-gray-400 mt-3">加载中...</p>
       </div>
     </div>
   );

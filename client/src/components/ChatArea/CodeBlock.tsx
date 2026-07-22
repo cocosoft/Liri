@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import hljs from "highlight.js/lib/core";
 import "highlight.js/styles/github-dark.css";
+import { handleClientError } from "../../utils/handleError";
 import bash from "highlight.js/lib/languages/bash";
 import c from "highlight.js/lib/languages/c";
 import cpp from "highlight.js/lib/languages/cpp";
@@ -84,7 +85,8 @@ function CodeBlock({ code, language }: CodeBlockProps) {
     if (lang && hljs.getLanguage(lang)) {
       try {
         return hljs.highlight(code, { language: lang }).value;
-      } catch {
+      } catch (e) {
+        handleClientError(e, { module: "components:chat:CodeBlock", action: "highlight" });
         // 高亮失败时降级为自动检测
       }
     }
@@ -92,19 +94,23 @@ function CodeBlock({ code, language }: CodeBlockProps) {
     // 自动检测语言
     try {
       return hljs.highlightAuto(code).value;
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "components:chat:CodeBlock", action: "highlightAuto" });
       return escapeHtml(code);
     }
   }, [code, language]);
 
-  const displayLang = language ? LANG_DISPLAY[language.toLowerCase()] || language : "";
+  const displayLang = language
+    ? LANG_DISPLAY[language.toLowerCase()] || language
+    : "";
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "components:chat:CodeBlock", action: "copyToClipboard" });
       // 忽略复制失败
     }
   };

@@ -69,7 +69,7 @@ function DoContentArea() {
       <div className="text-center">
         <div className="text-4xl mb-3">{"\u{1F527}"}</div>
         <h3 className="text-base font-medium text-gray-700 dark:text-gray-300">
-            {t("workspace.do")}
+          {t("workspace.do")}
         </h3>
         <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
           {t("agent.status")}
@@ -91,7 +91,7 @@ function ContentViewRenderer({ contentView }: { contentView: ContentView }) {
           <div className="text-center">
             <div className="text-5xl mb-4">{"\u{1F3AF}"}</div>
             <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
-            {t("workspace.title")}
+              {t("workspace.title")}
             </h2>
             <p className="text-sm text-gray-400 dark:text-gray-500 mt-2 max-w-md">
               {t("workspace.overview")}
@@ -150,9 +150,17 @@ function BreadcrumbNav() {
     <nav className="flex items-center gap-1.5 px-4 py-1.5 text-xs text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-800">
       {pathParts.map((part, idx) => (
         <span key={idx} className="flex items-center gap-1">
-          {idx > 0 && <span className="text-gray-300 dark:text-gray-600 mx-0.5">/</span>}
+          {idx > 0 && (
+            <span className="text-gray-300 dark:text-gray-600 mx-0.5">/</span>
+          )}
           {part.icon && <span>{part.icon}</span>}
-          <span className={idx === pathParts.length - 1 ? "text-gray-600 dark:text-gray-300 font-medium" : ""}>
+          <span
+            className={
+              idx === pathParts.length - 1
+                ? "text-gray-600 dark:text-gray-300 font-medium"
+                : ""
+            }
+          >
             {part.label}
           </span>
         </span>
@@ -206,8 +214,18 @@ function NotificationBell() {
         className="relative p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         title={t("workspace.title")}
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+          />
         </svg>
         {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center w-3.5 h-3.5 text-[9px] font-bold text-white bg-red-500 rounded-full">
@@ -220,9 +238,14 @@ function NotificationBell() {
         <div className="absolute right-0 top-full mt-1 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 max-h-80 overflow-hidden flex flex-col">
           {/* 头部 */}
           <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 dark:border-gray-700">
-            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{t("common.success")}</span>
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              {t("common.success")}
+            </span>
             {unreadCount > 0 && (
-              <button onClick={markAllRead} className="text-xs text-blue-500 hover:text-blue-600">
+              <button
+                onClick={markAllRead}
+                className="text-xs text-blue-500 hover:text-blue-600"
+              >
                 {t("workspace.board")}
               </button>
             )}
@@ -231,17 +254,30 @@ function NotificationBell() {
           {/* 列表 */}
           <div className="flex-1 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="px-3 py-6 text-center text-xs text-gray-400">暂无通知</div>
+              <div className="px-3 py-6 text-center text-xs text-gray-400">
+                暂无通知
+              </div>
             ) : (
               notifications.map((n) => (
-                <div key={n.id} className={`px-3 py-2 text-xs border-b border-gray-50 dark:border-gray-700/50 ${n.read ? "" : "bg-blue-50 dark:bg-blue-900/20"}`}>
+                <div
+                  key={n.id}
+                  className={`px-3 py-2 text-xs border-b border-gray-50 dark:border-gray-700/50 ${n.read ? "" : "bg-blue-50 dark:bg-blue-900/20"}`}
+                >
                   <div className="flex items-start gap-2">
-                    <span className={`mt-0.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                      n.type === "success" ? "bg-green-500" :
-                      n.type === "warning" ? "bg-amber-400" :
-                      n.type === "error" ? "bg-red-500" : "bg-blue-400"
-                    }`} />
-                    <span className="text-gray-600 dark:text-gray-400">{n.message}</span>
+                    <span
+                      className={`mt-0.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                        n.type === "success"
+                          ? "bg-green-500"
+                          : n.type === "warning"
+                            ? "bg-amber-400"
+                            : n.type === "error"
+                              ? "bg-red-500"
+                              : "bg-blue-400"
+                      }`}
+                    />
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {n.message}
+                    </span>
                   </div>
                 </div>
               ))
@@ -269,7 +305,8 @@ export default function WorkContentArea({ className }: WorkContentAreaProps) {
   useEffect(() => {
     if (!currentWorkspace?.id) return;
 
-    workspaceService.getConfig(currentWorkspace.id)
+    workspaceService
+      .getConfig(currentWorkspace.id)
       .then((summary) => {
         const tabs = summary.config?.workTabs as string[] | undefined;
         setWorkTabs(Array.isArray(tabs) && tabs.length > 0 ? tabs : undefined);

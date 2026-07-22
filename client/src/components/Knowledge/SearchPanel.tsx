@@ -6,6 +6,7 @@
  */
 import React, { useState } from "react";
 import { SkeletonCard } from "../common/Skeleton";
+import { handleClientError } from "../../utils/handleError";
 
 interface KnowledgeSearchResult {
   id: string;
@@ -34,28 +35,43 @@ function loadHistory(): string[] {
   try {
     const raw = localStorage.getItem(HISTORY_KEY);
     return raw ? JSON.parse(raw) : [];
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "components:knowledge:SearchPanel", action: "loadHistory" });
     return [];
   }
 }
 
 function saveHistory(entries: string[]) {
   try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.slice(0, MAX_HISTORY)));
-  } catch { /* ignore */ }
+    localStorage.setItem(
+      HISTORY_KEY,
+      JSON.stringify(entries.slice(0, MAX_HISTORY)),
+    );
+  } catch (e) {
+    handleClientError(e, { module: "components:knowledge:SearchPanel", action: "saveHistory" });
+    /* ignore */
+  }
 }
 
 function highlightMatches(text: string, query: string): React.ReactNode {
   if (!query.trim() || !text) return text;
   const words = query.split(/\s+/).filter(Boolean);
-  const regex = new RegExp(`(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "gi");
+  const regex = new RegExp(
+    `(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`,
+    "gi",
+  );
   const parts = text.split(regex);
   return parts.map((part, i) =>
     regex.test(` ${part} `) ? (
-      <mark key={i} className="bg-yellow-200 dark:bg-yellow-700/40 rounded px-0.5">{part}</mark>
+      <mark
+        key={i}
+        className="bg-yellow-200 dark:bg-yellow-700/40 rounded px-0.5"
+      >
+        {part}
+      </mark>
     ) : (
       part
-    )
+    ),
   );
 }
 
@@ -98,7 +114,9 @@ function SearchPanel({
 
   // 得分统计
   const keywordCount = results.filter((r) => r.matchType === "keyword").length;
-  const semanticCount = results.filter((r) => r.matchType === "semantic").length;
+  const semanticCount = results.filter(
+    (r) => r.matchType === "semantic",
+  ).length;
   const total = keywordCount + semanticCount;
   const keywordPct = total > 0 ? Math.round((keywordCount / total) * 100) : 0;
 
@@ -143,7 +161,10 @@ function SearchPanel({
             <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] text-gray-400">最近搜索</span>
-                <button onClick={clearHistory} className="text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <button
+                  onClick={clearHistory}
+                  className="text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
                   清除
                 </button>
               </div>
@@ -151,7 +172,9 @@ function SearchPanel({
                 {history.map((h, i) => (
                   <button
                     key={i}
-                    onClick={() => { onQueryChange(h); }}
+                    onClick={() => {
+                      onQueryChange(h);
+                    }}
                     className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                   >
                     {h}
@@ -173,7 +196,9 @@ function SearchPanel({
 
         {/* 无结果 */}
         {!isSearching && results.length === 0 && searchDone && (
-          <div className={`${cardBg} rounded-lg p-6 text-center ${textSecondary}`}>
+          <div
+            className={`${cardBg} rounded-lg p-6 text-center ${textSecondary}`}
+          >
             未找到匹配的知识条目
           </div>
         )}
@@ -187,38 +212,60 @@ function SearchPanel({
                 匹配类型分布
               </h3>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-green-600 dark:text-green-400 w-12">关键词</span>
+                <span className="text-[10px] text-green-600 dark:text-green-400 w-12">
+                  关键词
+                </span>
                 <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-green-400 dark:bg-green-600 rounded-full transition-all duration-300"
                     style={{ width: `${keywordPct}%` }}
                   />
                 </div>
-                <span className="text-[10px] text-purple-600 dark:text-purple-400 w-10 text-right">语义</span>
+                <span className="text-[10px] text-purple-600 dark:text-purple-400 w-10 text-right">
+                  语义
+                </span>
               </div>
               <div className="flex justify-between mt-1">
-                <span className="text-[10px] text-green-500">{keywordCount} 条 ({keywordPct}%)</span>
-                <span className="text-[10px] text-purple-500">{semanticCount} 条 ({100 - keywordPct}%)</span>
+                <span className="text-[10px] text-green-500">
+                  {keywordCount} 条 ({keywordPct}%)
+                </span>
+                <span className="text-[10px] text-purple-500">
+                  {semanticCount} 条 ({100 - keywordPct}%)
+                </span>
               </div>
             </div>
 
             <div className={`${cardBg} rounded-lg`}>
-              <div className={`px-4 py-3 border-b ${borderColor} flex items-center justify-between`}>
-                <h3 className={`text-sm font-semibold ${textPrimary}`}>检索结果</h3>
+              <div
+                className={`px-4 py-3 border-b ${borderColor} flex items-center justify-between`}
+              >
+                <h3 className={`text-sm font-semibold ${textPrimary}`}>
+                  检索结果
+                </h3>
                 <span className={`text-xs ${textSecondary}`}>
                   共 {results.length} 条结果
                 </span>
               </div>
               <div className={`divide-y ${dividerColor}`}>
                 {results.map((result, idx) => (
-                  <div key={result.id} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer" onClick={() => onResultClick?.(result)}>
+                  <div
+                    key={result.id}
+                    className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
+                    onClick={() => onResultClick?.(result)}
+                  >
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span className={`text-xs font-mono ${textSecondary} w-5`}>
+                        <span
+                          className={`text-xs font-mono ${textSecondary} w-5`}
+                        >
                           #{idx + 1}
                         </span>
-                        <h4 className={`text-sm font-medium ${textPrimary} truncate`}>
-                          <mark className="bg-yellow-200 dark:bg-yellow-700/40 rounded px-0.5">{result.title}</mark>
+                        <h4
+                          className={`text-sm font-medium ${textPrimary} truncate`}
+                        >
+                          <mark className="bg-yellow-200 dark:bg-yellow-700/40 rounded px-0.5">
+                            {result.title}
+                          </mark>
                         </h4>
                       </div>
                       <div className="flex items-center gap-2 ml-2 shrink-0">
@@ -237,17 +284,24 @@ function SearchPanel({
                       </div>
                     </div>
                     <p className={`text-xs ${textSecondary} mt-1`}>
-                      <span className={result.content.length > 100 ? "line-clamp-2" : ""}>
+                      <span
+                        className={
+                          result.content.length > 100 ? "line-clamp-2" : ""
+                        }
+                      >
                         {highlightMatches(result.content, demoQuery)}
                       </span>
                       {result.content.length > 100 && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            const el = (e.target as HTMLElement).previousElementSibling;
+                            const el = (e.target as HTMLElement)
+                              .previousElementSibling;
                             if (el) el.classList.toggle("line-clamp-2");
                             (e.target as HTMLElement).textContent =
-                              el?.classList.contains("line-clamp-2") ? "展开" : "收起";
+                              el?.classList.contains("line-clamp-2")
+                                ? "展开"
+                                : "收起";
                           }}
                           className="text-[10px] text-blue-500 hover:text-blue-600 dark:text-blue-400 ml-1"
                         >
@@ -267,12 +321,28 @@ function SearchPanel({
 
         {/* 空状态引导 */}
         {!isSearching && !searchDone && (
-          <div className={`${cardBg} rounded-lg p-8 text-center ${textSecondary}`}>
-            <svg className="w-12 h-12 mx-auto mb-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          <div
+            className={`${cardBg} rounded-lg p-8 text-center ${textSecondary}`}
+          >
+            <svg
+              className="w-12 h-12 mx-auto mb-3 opacity-40"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
             </svg>
-            <p className="text-sm">在上方输入关键词后点击「检索」，查看知识库的混合搜索效果</p>
-            <p className="text-xs mt-2">支持按 domain 筛选知识库，结果展示关键词匹配与语义相似度的对比</p>
+            <p className="text-sm">
+              在上方输入关键词后点击「检索」，查看知识库的混合搜索效果
+            </p>
+            <p className="text-xs mt-2">
+              支持按 domain 筛选知识库，结果展示关键词匹配与语义相似度的对比
+            </p>
           </div>
         )}
       </div>

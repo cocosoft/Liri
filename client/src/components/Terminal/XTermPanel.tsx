@@ -55,7 +55,7 @@ export default function XTermPanel({ onReady }: XTermPanelProps) {
         const cmd = cmdBuffer.trim();
         if (cmd) {
           cmdHistory.push(cmd);
-            term.writeln(`执行: ${cmd}`);
+          term.writeln(`执行: ${cmd}`);
           // 通过回调发送命令
           onReady?.(term);
         }

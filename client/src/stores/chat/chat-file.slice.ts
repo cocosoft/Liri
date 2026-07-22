@@ -9,13 +9,19 @@ import type { MessageBlock, ToolCall } from "../../types";
 import type { FilePreview } from "../../types";
 import { httpLegacy as http } from "../../services/httpClient";
 import { resolveFilePath } from "../../services/filePathResolver";
-import { createLogger } from "../../utils/logger";
 import { handleClientError } from "@/utils/handleError";
 
-const logger = createLogger("stores:chat:file");
-
 /** 扩展名 → 文件类型映射表 */
-export type FileType = "code" | "text" | "image" | "markdown" | "json" | "yaml" | "pdf" | "docx" | "pptx";
+export type FileType =
+  | "code"
+  | "text"
+  | "image"
+  | "markdown"
+  | "json"
+  | "yaml"
+  | "pdf"
+  | "docx"
+  | "pptx";
 
 const EXT_TO_TYPE: Record<string, FileType> = {
   // 文档
@@ -181,7 +187,10 @@ export function addFilePathsFromBlocks(
   if (pendingResolves.length > 0) {
     Promise.all(
       pendingResolves.map(({ filePath }) =>
-        resolveFilePath(filePath).then((resolvedPath) => ({ filePath, resolvedPath })),
+        resolveFilePath(filePath).then((resolvedPath) => ({
+          filePath,
+          resolvedPath,
+        })),
       ),
     )
       .then((results) => {
@@ -228,8 +237,10 @@ export interface FileSlice {
 
   /** 设置预览文件 */
   setPreviewFile: (file: FilePreview | null) => void;
-  /** 添加生成的文件到列表 */
+  /** 添加生成的文件到列表（去重，单次一个文件） */
   addSessionFile: (file: FilePreview) => void;
+  /** 批量设置文件列表（直接替换，不逐个触发渲染） */
+  setSessionFiles: (files: FilePreview[]) => void;
   /** 清除会话文件列表 */
   clearSessionFiles: () => void;
   /** 读取文件内容并添加到预览 */
@@ -239,7 +250,10 @@ export interface FileSlice {
 /**
  * 创建 File Slice（Zustand StateCreator 模式）
  */
-export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (set, get) => ({
+export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (
+  set,
+  get,
+) => ({
   previewFile: null,
   sessionFiles: [],
   isUploading: false,
@@ -252,11 +266,12 @@ export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (set,
     const current = get().sessionFiles;
     const exists = current.some((f) => f.path === file.path);
     if (!exists) {
-      logger.debug("addSessionFile: adding: " + file.path + " total after: " + (current.length + 1));
       set({ sessionFiles: [...current, file] });
-    } else {
-      logger.debug("addSessionFile: already exists:", file.path);
     }
+  },
+
+  setSessionFiles: (files) => {
+    set({ sessionFiles: files });
   },
 
   clearSessionFiles: () => {
@@ -288,12 +303,17 @@ export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (set,
         return;
       }
 
-      const ext = resolvedPath.toLowerCase().split('.').pop();
-      const isOfficeFile = ext === 'pdf' || ext === 'docx' || ext === 'pptx';
+      const ext = resolvedPath.toLowerCase().split(".").pop();
+      const isOfficeFile = ext === "pdf" || ext === "docx" || ext === "pptx";
 
       // Office 文件使用预览转换接口，其他文件使用普通读取接口
-      const apiEndpoint = isOfficeFile ? '/api/file/preview' : '/api/file/read';
-      const data = await http.get<{ content: string; type: string; language?: string; size?: number }>(apiEndpoint, { params: { path: resolvedPath } });
+      const apiEndpoint = isOfficeFile ? "/api/file/preview" : "/api/file/read";
+      const data = await http.get<{
+        content: string;
+        type: string;
+        language?: string;
+        size?: number;
+      }>(apiEndpoint, { params: { path: resolvedPath } });
       const filePreview: FilePreview = {
         path: resolvedPath,
         name:
@@ -301,13 +321,17 @@ export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (set,
           resolvedPath.split("\\").pop() ||
           resolvedPath,
         content: data.content,
-        type: (data.type && data.type !== "text" ? data.type : inferFileType(resolvedPath)) as FilePreview["type"],
+        type: (data.type && data.type !== "text"
+          ? data.type
+          : inferFileType(resolvedPath)) as FilePreview["type"],
         language: data.language,
         size: data.size,
       };
       // 如果 sessionFiles 中已有该文件（但 content 为空），替换其内容
       const currentFiles = get().sessionFiles;
-      const existingIdx = currentFiles.findIndex((f) => f.path === resolvedPath);
+      const existingIdx = currentFiles.findIndex(
+        (f) => f.path === resolvedPath,
+      );
       if (existingIdx !== -1) {
         const updated = [...currentFiles];
         updated[existingIdx] = filePreview;
@@ -329,7 +353,11 @@ export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (set,
       }
       set({ previewFile: filePreview });
     } catch (err) {
-      handleClientError(err, { module: 'stores:chat:file', action: 'readFileToPreview' }, 'warn');
+      handleClientError(
+        err,
+        { module: "stores:chat:file", action: "readFileToPreview" },
+        "warn",
+      );
       set({
         previewFile: {
           path: filePath,

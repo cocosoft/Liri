@@ -28,12 +28,14 @@ export default function ProviderEditorModal({
 }: ProviderEditorModalProps) {
   const [formData, setFormData] = useState<ProviderFormData>(() => ({
     name: provider?.name ?? initialFormData?.name ?? "",
-    providerType: provider?.providerType ?? initialFormData?.providerType ?? "custom",
+    providerType:
+      provider?.providerType ?? initialFormData?.providerType ?? "custom",
     baseUrl: provider?.baseUrl ?? initialFormData?.baseUrl ?? "",
     apiKey: initialFormData?.apiKey ?? "",
     modelsUrl: provider?.modelsUrl ?? initialFormData?.modelsUrl ?? "",
     notes: provider?.notes ?? initialFormData?.notes ?? "",
-    requiresAuth: provider?.requiresAuth ?? initialFormData?.requiresAuth ?? true,
+    requiresAuth:
+      provider?.requiresAuth ?? initialFormData?.requiresAuth ?? true,
     icon: provider?.icon ?? initialFormData?.icon,
     iconColor: provider?.iconColor ?? initialFormData?.iconColor,
     category: provider?.category ?? initialFormData?.category,
@@ -83,7 +85,9 @@ export default function ProviderEditorModal({
             </label>
             <select
               value={formData.providerType}
-              onChange={(e) => handleFieldChange("providerType", e.target.value)}
+              onChange={(e) =>
+                handleFieldChange("providerType", e.target.value)
+              }
               className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
             >
               {Object.entries(PROVIDER_TYPE_LABELS).map(([k, v]) => (
@@ -134,7 +138,9 @@ export default function ProviderEditorModal({
               type="checkbox"
               id="requiresAuth"
               checked={!formData.requiresAuth}
-              onChange={(e) => handleFieldChange("requiresAuth", !e.target.checked)}
+              onChange={(e) =>
+                handleFieldChange("requiresAuth", !e.target.checked)
+              }
               className="rounded"
             />
             <label

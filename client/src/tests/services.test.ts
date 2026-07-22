@@ -31,12 +31,14 @@ vi.mock("../services/httpClient", () => ({
 }));
 
 // Mock fetch 确保 health check 不访问真实后端
-vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Mocked: fetch failed")));
+vi.stubGlobal(
+  "fetch",
+  vi.fn().mockRejectedValue(new Error("Mocked: fetch failed")),
+);
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
-
 
 describe("SessionService (fallback)", () => {
   it("list returns empty array", async () => {

@@ -74,9 +74,24 @@ function SkeletonTable({ rows = 5 }: { rows?: number }) {
  */
 function SkeletonMessageList({ count = 3 }: SkeletonProps) {
   const layouts = [
-    { align: "justify-start", bg: "bg-gray-100 dark:bg-gray-800", width: "w-3/4", showAvatar: true },
-    { align: "justify-end", bg: "bg-blue-100 dark:bg-blue-900/30", width: "w-2/3", showAvatar: false },
-    { align: "justify-start", bg: "bg-gray-100 dark:bg-gray-800", width: "w-4/5", showAvatar: true },
+    {
+      align: "justify-start",
+      bg: "bg-gray-100 dark:bg-gray-800",
+      width: "w-3/4",
+      showAvatar: true,
+    },
+    {
+      align: "justify-end",
+      bg: "bg-blue-100 dark:bg-blue-900/30",
+      width: "w-2/3",
+      showAvatar: false,
+    },
+    {
+      align: "justify-start",
+      bg: "bg-gray-100 dark:bg-gray-800",
+      width: "w-4/5",
+      showAvatar: true,
+    },
   ];
 
   return (
@@ -93,8 +108,12 @@ function SkeletonMessageList({ count = 3 }: SkeletonProps) {
             )}
 
             {/* 气泡占位 */}
-            <div className={`${layout.width} p-3 rounded-2xl space-y-2 ${layout.bg}`}>
-              <SkeletonPulse className={`h-3 ${i % 2 === 0 ? "w-1/3" : "w-1/4"}`} />
+            <div
+              className={`${layout.width} p-3 rounded-2xl space-y-2 ${layout.bg}`}
+            >
+              <SkeletonPulse
+                className={`h-3 ${i % 2 === 0 ? "w-1/3" : "w-1/4"}`}
+              />
               <SkeletonPulse className="h-3 w-full" />
               {i % 2 === 0 && <SkeletonPulse className="h-3 w-2/3" />}
               <SkeletonPulse className="h-2 w-12 ml-auto" />
@@ -113,4 +132,10 @@ function SkeletonMessageList({ count = 3 }: SkeletonProps) {
   );
 }
 
-export { SkeletonPulse, SkeletonText, SkeletonCard, SkeletonTable, SkeletonMessageList };
+export {
+  SkeletonPulse,
+  SkeletonText,
+  SkeletonCard,
+  SkeletonTable,
+  SkeletonMessageList,
+};

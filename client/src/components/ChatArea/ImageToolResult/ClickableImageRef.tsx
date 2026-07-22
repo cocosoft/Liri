@@ -4,7 +4,7 @@
  * 在聊天消息中显示图片引用链接，点击可预览大图。
  * 参照 cc_code ClickableImageRef.tsx
  */
-import { useState } from 'react';
+import { useState } from "react";
 
 interface ClickableImageRefProps {
   /** 图片 URL */
@@ -19,7 +19,7 @@ interface ClickableImageRefProps {
 
 export function ClickableImageRef({
   src,
-  alt = '图片',
+  alt = "图片",
   thumbWidth: _thumbWidth = 200,
   thumbHeight: _thumbHeight = 200,
 }: ClickableImageRefProps) {

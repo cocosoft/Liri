@@ -9,9 +9,13 @@ export class CommandManager {
   private onChangeCb: (() => void) | null = null;
 
   /** 注册变更回调（撤销/重做/执行后自动触发） */
-  onChange(cb: () => void) { this.onChangeCb = cb; }
+  onChange(cb: () => void) {
+    this.onChangeCb = cb;
+  }
 
-  private notify() { this.onChangeCb?.(); }
+  private notify() {
+    this.onChangeCb?.();
+  }
 
   /** 执行新命令 → 入 undoStack */
   execute(cmd: DrawCommand) {
@@ -41,7 +45,15 @@ export class CommandManager {
     return true;
   }
 
-  canUndo() { return this.undoStack.length > 0; }
-  canRedo() { return this.redoStack.length > 0; }
-  clear() { this.undoStack = []; this.redoStack = []; this.notify(); }
+  canUndo() {
+    return this.undoStack.length > 0;
+  }
+  canRedo() {
+    return this.redoStack.length > 0;
+  }
+  clear() {
+    this.undoStack = [];
+    this.redoStack = [];
+    this.notify();
+  }
 }

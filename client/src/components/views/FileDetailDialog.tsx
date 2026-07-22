@@ -34,7 +34,9 @@ function FileDetailDialog({ record, onClose }: FileDetailDialogProps) {
 
   /** 复制文本到剪贴板 */
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).catch(() => { /* ignore */ });
+    navigator.clipboard.writeText(text).catch(() => {
+      /* ignore */
+    });
   };
 
   return (
@@ -55,15 +57,29 @@ function FileDetailDialog({ record, onClose }: FileDetailDialogProps) {
             onClick={onClose}
             className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
 
         {/* 内容 */}
         <div className="px-5 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
-          <DetailRow label="原始文件名" value={record.originalName} mono={false} />
+          <DetailRow
+            label="原始文件名"
+            value={record.originalName}
+            mono={false}
+          />
           <DetailRow label="保存文件名" value={record.savedName} mono />
           <DetailRow label="文件 ID" value={record.fileId} mono />
           <DetailRow label="存储路径" value={record.savedPath} mono />
@@ -78,14 +94,30 @@ function FileDetailDialog({ record, onClose }: FileDetailDialogProps) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <DetailRow label="存储分区" value={record.storeZone} mono />
-            {record.storeZone === 'media' && (
-              <DetailRow label="媒体类型" value={record.mediaType || "-"} mono />
+            {record.storeZone === "media" && (
+              <DetailRow
+                label="媒体类型"
+                value={record.mediaType || "-"}
+                mono
+              />
             )}
           </div>
-          <DetailRow label="描述" value={record.description || "-"} mono={false} />
+          <DetailRow
+            label="描述"
+            value={record.description || "-"}
+            mono={false}
+          />
           <div className="grid grid-cols-2 gap-3">
-            <DetailRow label="创建时间" value={formatDate(record.createdAt)} mono />
-            <DetailRow label="更新时间" value={formatDate(record.updatedAt)} mono />
+            <DetailRow
+              label="创建时间"
+              value={formatDate(record.createdAt)}
+              mono
+            />
+            <DetailRow
+              label="更新时间"
+              value={formatDate(record.updatedAt)}
+              mono
+            />
           </div>
           {record.isArchive && (
             <div className="flex items-center gap-2 text-sm">
@@ -94,7 +126,8 @@ function FileDetailDialog({ record, onClose }: FileDetailDialogProps) {
               </span>
               {record.archiveParentId && (
                 <span className="text-gray-500">
-                  父文件 ID: <code className="text-xs">{record.archiveParentId}</code>
+                  父文件 ID:{" "}
+                  <code className="text-xs">{record.archiveParentId}</code>
                 </span>
               )}
             </div>
@@ -135,10 +168,20 @@ function FileDetailDialog({ record, onClose }: FileDetailDialogProps) {
 /**
  * 详情行组件
  */
-function DetailRow({ label, value, mono }: { label: string; value: string; mono: boolean }) {
+function DetailRow({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string;
+  mono: boolean;
+}) {
   return (
     <div>
-      <span className="text-xs text-gray-400 dark:text-gray-500 block mb-0.5">{label}</span>
+      <span className="text-xs text-gray-400 dark:text-gray-500 block mb-0.5">
+        {label}
+      </span>
       <span
         className={`text-sm text-gray-900 dark:text-gray-100 block ${
           mono ? "font-mono text-xs break-all" : ""

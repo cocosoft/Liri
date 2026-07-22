@@ -150,7 +150,7 @@ export function isLatexFormula(text: string): boolean {
     /\\\}/,
   ];
 
-  const hasLatexPattern = latexPatterns.some(pattern => pattern.test(text));
+  const hasLatexPattern = latexPatterns.some((pattern) => pattern.test(text));
 
   if (hasLatexPattern) {
     return true;

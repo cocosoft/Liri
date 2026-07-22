@@ -32,7 +32,16 @@ interface Props {
   /** 右键菜单翻转回调 */
   onContextFlip?: (dir: "horizontal" | "vertical") => void;
   /** 右键菜单滤镜回调 */
-  onContextFilter?: (op: "brightness+" | "brightness-" | "contrast+" | "contrast-" | "grayscale" | "invert" | "blur") => void;
+  onContextFilter?: (
+    op:
+      | "brightness+"
+      | "brightness-"
+      | "contrast+"
+      | "contrast-"
+      | "grayscale"
+      | "invert"
+      | "blur",
+  ) => void;
   /** 右键菜单新建画布回调 */
   onContextNew?: () => void;
   /** Ctrl+S 快捷键导出回调 */
@@ -47,7 +56,17 @@ let rafId = 0;
 let needsRender = true;
 
 /** 使用 Interactive 层进行实时预览的工具 */
-const INTERACTIVE_TOOLS = new Set<CanvasTool>(["pencil", "eraser", "line", "arrow", "rect", "roundedRect", "ellipse", "polygon", "star"]);
+const INTERACTIVE_TOOLS = new Set<CanvasTool>([
+  "pencil",
+  "eraser",
+  "line",
+  "arrow",
+  "rect",
+  "roundedRect",
+  "ellipse",
+  "polygon",
+  "star",
+]);
 
 /** 步进缩放档位（Ctrl+=/- 逐档切换） */
 const ZOOM_STEPS = [0.1, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0, 8.0, 16.0];
@@ -62,7 +81,9 @@ function findZoomStep(z: number) {
 }
 
 /** 从选区/套索工具获取当前选区 */
-function getSelection(toolId: CanvasTool): { x: number; y: number; w: number; h: number } | null {
+function getSelection(
+  toolId: CanvasTool,
+): { x: number; y: number; w: number; h: number } | null {
   if (toolId === "select") {
     const t = getTool("select") as SelectTool;
     return t?.getSelection?.() ?? null;
@@ -74,7 +95,25 @@ function getSelection(toolId: CanvasTool): { x: number; y: number; w: number; h:
   return null;
 }
 
-export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, commands, setActiveTool, onCursorMove, onStateChange, onLoadImage, onContextExport, onContextClear, onContextCrop, onContextFlip, onContextFilter, onContextNew, onExportShortcut, onSelectionExport, onDrawingChange }) => {
+export const CanvasSurface: React.FC<Props> = ({
+  state,
+  transform,
+  buffer,
+  commands,
+  setActiveTool,
+  onCursorMove,
+  onStateChange,
+  onLoadImage,
+  onContextExport,
+  onContextClear,
+  onContextCrop,
+  onContextFlip,
+  onContextFilter,
+  onContextNew,
+  onExportShortcut,
+  onSelectionExport,
+  onDrawingChange,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const staticRef = useRef<HTMLCanvasElement>(null);
   const interactiveRef = useRef<HTMLCanvasElement>(null);
@@ -82,7 +121,10 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
   const [toolCtx, setToolCtx] = useState<ToolContext | null>(null);
 
   // 右键菜单状态
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const closeContextMenu = () => setContextMenu(null);
 
   // 追踪最后光标位置（用于粘贴定位）
@@ -90,7 +132,9 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
 
   // 监听 canvas-render 自定义事件（由 CanvasEditor 工具栏按钮触发）
   useEffect(() => {
-    const handler = () => { needsRender = true; };
+    const handler = () => {
+      needsRender = true;
+    };
     window.addEventListener("canvas-render", handler);
     return () => window.removeEventListener("canvas-render", handler);
   }, []);
@@ -153,7 +197,8 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
         const overlayCanvas = overlayRef.current;
         if (overlayCanvas) {
           const oCtx = overlayCanvas.getContext("2d");
-          if (oCtx) oCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+          if (oCtx)
+            oCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         }
       }
 
@@ -200,7 +245,8 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
     const staticCanvas = staticRef.current;
     const interactiveCanvas = interactiveRef.current;
     const overlayCanvas = overlayRef.current;
-    if (!container || !staticCanvas || !interactiveCanvas || !overlayCanvas) return;
+    if (!container || !staticCanvas || !interactiveCanvas || !overlayCanvas)
+      return;
 
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
@@ -233,75 +279,117 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
     // InputAdapter —— 统一在 Overlay 层（顶层）监听事件
     const pointerDownRef = { current: false }; // 守卫：只有按下时 onPointerMove 才触发渲染
     const clearLongPress = () => {
-      if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
       if (toolBeforeEyedropper.current) {
         setActiveTool(toolBeforeEyedropper.current);
         toolBeforeEyedropper.current = null;
       }
     };
 
-    const adapter = new InputAdapter(overlayCanvas, transform, {
-      onPointerDown: (e) => {
-        pointerDownRef.current = true;
-        onDrawingChange?.(true);
-        if (toolCtx) {
-          // Alt+点击 → 临时取色器
-          if (e.altKey) {
-            const pixel = buffer.getImageData(Math.round(e.x), Math.round(e.y), 1, 1).data;
-            const hex = "#" + [pixel[0], pixel[1], pixel[2]].map(v => v.toString(16).padStart(2, "0")).join("");
-            onStateChange({ fgColor: hex });
-            return;
+    const adapter = new InputAdapter(
+      overlayCanvas,
+      transform,
+      {
+        onPointerDown: (e) => {
+          pointerDownRef.current = true;
+          onDrawingChange?.(true);
+          if (toolCtx) {
+            // Alt+点击 → 临时取色器
+            if (e.altKey) {
+              const pixel = buffer.getImageData(
+                Math.round(e.x),
+                Math.round(e.y),
+                1,
+                1,
+              ).data;
+              const hex =
+                "#" +
+                [pixel[0], pixel[1], pixel[2]]
+                  .map((v) => v.toString(16).padStart(2, "0"))
+                  .join("");
+              onStateChange({ fgColor: hex });
+              return;
+            }
+            // 长按取色器（500ms 无移动 → 取色并恢复原工具）
+            longPressPos.current = { x: e.x, y: e.y };
+            longPressTimer.current = setTimeout(() => {
+              toolBeforeEyedropper.current = state.activeTool as CanvasTool;
+              const pixel = buffer.getImageData(
+                Math.round(longPressPos.current.x),
+                Math.round(longPressPos.current.y),
+                1,
+                1,
+              ).data;
+              const hex =
+                "#" +
+                [pixel[0], pixel[1], pixel[2]]
+                  .map((v) => v.toString(16).padStart(2, "0"))
+                  .join("");
+              onStateChange({ fgColor: hex });
+              longPressTimer.current = null;
+            }, 500);
+
+            const t = getTool(state.activeTool);
+            t?.onPointerDown(e, toolCtx);
+            needsRender = true;
           }
-          // 长按取色器（500ms 无移动 → 取色并恢复原工具）
-          longPressPos.current = { x: e.x, y: e.y };
-          longPressTimer.current = setTimeout(() => {
-            toolBeforeEyedropper.current = state.activeTool as CanvasTool;
-            const pixel = buffer.getImageData(Math.round(longPressPos.current.x), Math.round(longPressPos.current.y), 1, 1).data;
-            const hex = "#" + [pixel[0], pixel[1], pixel[2]].map(v => v.toString(16).padStart(2, "0")).join("");
-            onStateChange({ fgColor: hex });
-            longPressTimer.current = null;
-          }, 500);
+        },
+        onPointerMove: (e) => {
+          // 移动超过 5px 取消长按
+          const dx = e.x - longPressPos.current.x;
+          const dy = e.y - longPressPos.current.y;
+          if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+            if (longPressTimer.current) {
+              clearTimeout(longPressTimer.current);
+              longPressTimer.current = null;
+            }
+          }
+          lastCursorRef.current = { x: e.x, y: e.y };
+          onCursorMove(e.x, e.y);
+          if (toolCtx) {
+            const t = getTool(state.activeTool);
+            t?.onPointerMove(e, toolCtx);
+            if (pointerDownRef.current) needsRender = true;
+          }
+        },
+        onPointerUp: (e) => {
+          pointerDownRef.current = false;
+          onDrawingChange?.(false);
+          clearLongPress();
+          if (toolCtx) {
+            const t = getTool(state.activeTool);
+            t?.onPointerUp(e, toolCtx);
+            needsRender = true;
+          }
+        },
+      },
+      {
+        // 双指捏合缩放
+        onPinchZoom: (ratio, _cx, _cy) => {
+          const z = Math.max(0.1, Math.min(8, transform.zoom * ratio));
+          transform.setZoom(z);
+          needsRender = true;
+        },
+        // 双指平移
+        onTwoFingerPan: (dx, dy) => {
+          transform.setOffset(transform.offsetX + dx, transform.offsetY + dy);
+          needsRender = true;
+        },
+        // 双击 100%
+        onDoubleTap: () => {
+          transform.setZoom(1);
+          needsRender = true;
+        },
+      },
+    );
 
-          const t = getTool(state.activeTool); t?.onPointerDown(e, toolCtx); needsRender = true;
-        }
-      },
-      onPointerMove: (e) => {
-        // 移动超过 5px 取消长按
-        const dx = e.x - longPressPos.current.x;
-        const dy = e.y - longPressPos.current.y;
-        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-          if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
-        }
-        lastCursorRef.current = { x: e.x, y: e.y };
-        onCursorMove(e.x, e.y);
-        if (toolCtx) { const t = getTool(state.activeTool); t?.onPointerMove(e, toolCtx); if (pointerDownRef.current) needsRender = true; }
-      },
-      onPointerUp: (e) => {
-        pointerDownRef.current = false;
-        onDrawingChange?.(false);
-        clearLongPress();
-        if (toolCtx) { const t = getTool(state.activeTool); t?.onPointerUp(e, toolCtx); needsRender = true; }
-      },
-    }, {
-      // 双指捏合缩放
-      onPinchZoom: (ratio, _cx, _cy) => {
-        const z = Math.max(0.1, Math.min(8, transform.zoom * ratio));
-        transform.setZoom(z);
-        needsRender = true;
-      },
-      // 双指平移
-      onTwoFingerPan: (dx, dy) => {
-        transform.setOffset(transform.offsetX + dx, transform.offsetY + dy);
-        needsRender = true;
-      },
-      // 双击 100%
-      onDoubleTap: () => {
-        transform.setZoom(1);
-        needsRender = true;
-      },
-    });
-
-    return () => { ro.disconnect(); adapter.destroy(); };
+    return () => {
+      ro.disconnect();
+      adapter.destroy();
+    };
   }, [transform, buffer, state, toolCtx, onCursorMove]);
 
   // Canvas context 丢失/恢复保护
@@ -322,7 +410,10 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
     staticCanvas.addEventListener("contextrestored", handleContextRestored);
     return () => {
       staticCanvas.removeEventListener("contextlost", handleContextLost);
-      staticCanvas.removeEventListener("contextrestored", handleContextRestored);
+      staticCanvas.removeEventListener(
+        "contextrestored",
+        handleContextRestored,
+      );
     };
   }, []);
 
@@ -331,8 +422,12 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
     let spaceDown = false;
     let isComposing = false;
 
-    const handleCompositionStart = () => { isComposing = true; };
-    const handleCompositionEnd = () => { isComposing = false; };
+    const handleCompositionStart = () => {
+      isComposing = true;
+    };
+    const handleCompositionEnd = () => {
+      isComposing = false;
+    };
     window.addEventListener("compositionstart", handleCompositionStart);
     window.addEventListener("compositionend", handleCompositionEnd);
 
@@ -343,12 +438,28 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
       const tag = (document.activeElement?.tagName || "").toLowerCase();
       if (tag === "input" || tag === "textarea" || tag === "select") return;
 
-      if (e.ctrlKey && e.key === "z") { e.preventDefault(); commands.undo(buffer.ctx); needsRender = true; }
-      else if (e.ctrlKey && (e.key === "y" || (e.shiftKey && e.key === "Z"))) { e.preventDefault(); commands.redo(buffer.ctx); needsRender = true; }
+      if (e.ctrlKey && e.key === "z") {
+        e.preventDefault();
+        commands.undo(buffer.ctx);
+        needsRender = true;
+      } else if (
+        e.ctrlKey &&
+        (e.key === "y" || (e.shiftKey && e.key === "Z"))
+      ) {
+        e.preventDefault();
+        commands.redo(buffer.ctx);
+        needsRender = true;
+      }
       // Ctrl+S → 快速导出 PNG
-      else if (e.ctrlKey && e.key === "s") { e.preventDefault(); onExportShortcut?.(); }
+      else if (e.ctrlKey && e.key === "s") {
+        e.preventDefault();
+        onExportShortcut?.();
+      }
       // Ctrl+Shift+S → 选区导出
-      else if (e.ctrlKey && e.shiftKey && e.key === "S") { e.preventDefault(); onSelectionExport?.(); }
+      else if (e.ctrlKey && e.shiftKey && e.key === "S") {
+        e.preventDefault();
+        onSelectionExport?.();
+      }
       // Ctrl+A → 全选画布
       else if (e.ctrlKey && e.key === "a") {
         e.preventDefault();
@@ -360,12 +471,19 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
         });
       }
       // Ctrl+C/V/X 剪切板（选区/套索工具激活时）
-      else if (e.ctrlKey && e.key === "c" && (state.activeTool === "select" || state.activeTool === "lasso")) {
+      else if (
+        e.ctrlKey &&
+        e.key === "c" &&
+        (state.activeTool === "select" || state.activeTool === "lasso")
+      ) {
         e.preventDefault();
         const sel = getSelection(state.activeTool);
         if (sel) clipBoard.set(buffer.getImageData(sel.x, sel.y, sel.w, sel.h));
-      }
-      else if (e.ctrlKey && e.key === "x" && (state.activeTool === "select" || state.activeTool === "lasso")) {
+      } else if (
+        e.ctrlKey &&
+        e.key === "x" &&
+        (state.activeTool === "select" || state.activeTool === "lasso")
+      ) {
         e.preventDefault();
         const sel = getSelection(state.activeTool);
         if (sel) {
@@ -377,9 +495,14 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
           commands.execute({
             type: "selection",
             bbox: { x: 0, y: 0, w: buffer.width, h: buffer.height },
-            before, after,
-            apply: (c) => { c.putImageData(after, 0, 0); },
-            revert: (c) => { c.putImageData(before, 0, 0); },
+            before,
+            after,
+            apply: (c) => {
+              c.putImageData(after, 0, 0);
+            },
+            revert: (c) => {
+              c.putImageData(before, 0, 0);
+            },
           });
 
           // 清除 overlay 选区框残留
@@ -391,27 +514,42 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
 
           needsRender = true;
         }
-      }
-      else if (e.ctrlKey && e.key === "v" && clipBoard.has()) {
+      } else if (e.ctrlKey && e.key === "v" && clipBoard.has()) {
         e.preventDefault();
         const data = clipBoard.get()!;
         // 粘贴到光标位置（如果没有移动过光标则居中）
         const cursor = lastCursorRef.current;
-        const px = Math.max(0, Math.min(buffer.width - data.width, Math.round(cursor.x - data.width / 2)));
-        const py = Math.max(0, Math.min(buffer.height - data.height, Math.round(cursor.y - data.height / 2)));
+        const px = Math.max(
+          0,
+          Math.min(
+            buffer.width - data.width,
+            Math.round(cursor.x - data.width / 2),
+          ),
+        );
+        const py = Math.max(
+          0,
+          Math.min(
+            buffer.height - data.height,
+            Math.round(cursor.y - data.height / 2),
+          ),
+        );
         const before = buffer.getImageData(px, py, data.width, data.height);
         buffer.ctx.putImageData(data, px, py);
         const after = buffer.getImageData(px, py, data.width, data.height);
         commands.execute({
           type: "selection",
           bbox: { x: px, y: py, w: data.width, h: data.height },
-          before, after,
-          apply: (c) => { c.putImageData(after, px, py); },
-          revert: (c) => { c.putImageData(before, px, py); },
+          before,
+          after,
+          apply: (c) => {
+            c.putImageData(after, px, py);
+          },
+          revert: (c) => {
+            c.putImageData(before, px, py);
+          },
         });
         needsRender = true;
-      }
-      else if (e.key === "b" || e.key === "p") setActiveTool("pencil");
+      } else if (e.key === "b" || e.key === "p") setActiveTool("pencil");
       else if (e.key === "e") setActiveTool("eraser");
       else if (e.key === "l") setActiveTool("line");
       else if (e.key === "a") setActiveTool("arrow");
@@ -426,18 +564,25 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
       else if (e.key === "h") setActiveTool("pan");
       else if (e.key === "v") setActiveTool("select");
       else if (e.key === "m") setActiveTool("lasso");
-      else if (e.key === " ") { spaceDown = true; e.preventDefault(); }
+      else if (e.key === " ") {
+        spaceDown = true;
+        e.preventDefault();
+      }
       // Escape → 取消选区 / 切换回画笔
       else if (e.key === "Escape") {
-        if (state.activeTool === "select" || state.activeTool === "lasso") setActiveTool("pencil");
+        if (state.activeTool === "select" || state.activeTool === "lasso")
+          setActiveTool("pencil");
       }
       // 方向键 → 微调选区（1px / Shift+10px）
-      else if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)
-        && (state.activeTool === "select" || state.activeTool === "lasso")) {
+      else if (
+        ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key) &&
+        (state.activeTool === "select" || state.activeTool === "lasso")
+      ) {
         const sel = getSelection(state.activeTool);
         if (sel && sel.w > 0 && sel.h > 0) {
           const step = e.shiftKey ? 10 : 1;
-          let dx = 0, dy = 0;
+          let dx = 0,
+            dy = 0;
           if (e.key === "ArrowLeft") dx = -step;
           if (e.key === "ArrowRight") dx = step;
           if (e.key === "ArrowUp") dy = -step;
@@ -447,7 +592,12 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
           const ny = Math.max(0, Math.min(buffer.height - sel.h, sel.y + dy));
           if (nx === sel.x && ny === sel.y) return; // 无移动
 
-          const selectedPixels = buffer.getImageData(sel.x, sel.y, sel.w, sel.h);
+          const selectedPixels = buffer.getImageData(
+            sel.x,
+            sel.y,
+            sel.w,
+            sel.h,
+          );
           const before = buffer.getImageData(0, 0, buffer.width, buffer.height);
           buffer.ctx.fillStyle = state.bgColor;
           buffer.ctx.fillRect(sel.x, sel.y, sel.w, sel.h);
@@ -457,9 +607,14 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
           commands.execute({
             type: "selection",
             bbox: { x: 0, y: 0, w: buffer.width, h: buffer.height },
-            before, after,
-            apply: (c) => { c.putImageData(after, 0, 0); },
-            revert: (c) => { c.putImageData(before, 0, 0); },
+            before,
+            after,
+            apply: (c) => {
+              c.putImageData(after, 0, 0);
+            },
+            revert: (c) => {
+              c.putImageData(before, 0, 0);
+            },
           });
           // 清除 overlay 旧位置选区框
           const oCanvas = overlayRef.current;
@@ -472,7 +627,10 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
         e.preventDefault();
       }
       // Delete → 仅清除选区内容
-      else if (e.key === "Delete" && (state.activeTool === "select" || state.activeTool === "lasso")) {
+      else if (
+        e.key === "Delete" &&
+        (state.activeTool === "select" || state.activeTool === "lasso")
+      ) {
         const sel = getSelection(state.activeTool);
         if (sel && sel.w > 0 && sel.h > 0) {
           const before = buffer.getImageData(sel.x, sel.y, sel.w, sel.h);
@@ -482,9 +640,14 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
           commands.execute({
             type: "selection",
             bbox: { x: sel.x, y: sel.y, w: sel.w, h: sel.h },
-            before, after,
-            apply: (c) => { c.putImageData(after, sel.x, sel.y); },
-            revert: (c) => { c.putImageData(before, sel.x, sel.y); },
+            before,
+            after,
+            apply: (c) => {
+              c.putImageData(after, sel.x, sel.y);
+            },
+            revert: (c) => {
+              c.putImageData(before, sel.x, sel.y);
+            },
           });
 
           // 清除 overlay 选区框残留
@@ -496,35 +659,39 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
 
           needsRender = true;
         }
-      }
-      else if (e.key === "[") onStateChange({ strokeWidth: Math.max(1, state.strokeWidth - 1) });
-      else if (e.key === "]") onStateChange({ strokeWidth: Math.min(20, state.strokeWidth + 1) });
+      } else if (e.key === "[")
+        onStateChange({ strokeWidth: Math.max(1, state.strokeWidth - 1) });
+      else if (e.key === "]")
+        onStateChange({ strokeWidth: Math.min(20, state.strokeWidth + 1) });
       // Ctrl+= / Ctrl+- 步进缩放（ZOOM_STEPS 11 档）
       else if (e.ctrlKey && (e.key === "=" || e.key === "+")) {
         e.preventDefault();
         const idx = findZoomStep(transform.zoom);
         transform.setZoom(ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, idx + 1)]);
         needsRender = true;
-      }
-      else if (e.ctrlKey && e.key === "-") {
+      } else if (e.ctrlKey && e.key === "-") {
         e.preventDefault();
         const idx = findZoomStep(transform.zoom);
         transform.setZoom(ZOOM_STEPS[Math.max(0, idx - 1)]);
         needsRender = true;
-      }
-      else if (e.ctrlKey && e.key === "0") {
+      } else if (e.ctrlKey && e.key === "0") {
         e.preventDefault();
         transform.setZoom(1);
         needsRender = true;
       }
     };
 
-    const handleKeyUp = (e: KeyboardEvent) => { if (e.key === " ") spaceDown = false; };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === " ") spaceDown = false;
+    };
 
     // 滚轮缩放 + Space 平移
     const handleWheel = (e: WheelEvent) => {
       if (spaceDown) {
-        transform.setOffset(transform.offsetX - e.deltaX, transform.offsetY - e.deltaY);
+        transform.setOffset(
+          transform.offsetX - e.deltaX,
+          transform.offsetY - e.deltaY,
+        );
         needsRender = true;
       } else {
         const z = transform.zoom * (e.deltaY > 0 ? 0.9 : 1.1);
@@ -536,7 +703,8 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
     window.addEventListener("keydown", handleKey);
     window.addEventListener("keyup", handleKeyUp);
     const container = containerRef.current;
-    if (container) container.addEventListener("wheel", handleWheel, { passive: false });
+    if (container)
+      container.addEventListener("wheel", handleWheel, { passive: false });
 
     return () => {
       window.removeEventListener("keydown", handleKey);
@@ -545,7 +713,14 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
       window.removeEventListener("compositionend", handleCompositionEnd);
       if (container) container.removeEventListener("wheel", handleWheel);
     };
-  }, [commands, buffer, state.strokeWidth, setActiveTool, onStateChange, transform]);
+  }, [
+    commands,
+    buffer,
+    state.strokeWidth,
+    setActiveTool,
+    onStateChange,
+    transform,
+  ]);
 
   // 拖拽导入图片
   useEffect(() => {
@@ -584,7 +759,9 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
     };
 
     // 点击外部关闭菜单
-    const handleClick = () => { if (contextMenu) closeContextMenu(); };
+    const handleClick = () => {
+      if (contextMenu) closeContextMenu();
+    };
 
     container.addEventListener("contextmenu", handleContextMenu);
     document.addEventListener("click", handleClick);
@@ -595,18 +772,24 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
   }, [contextMenu]);
 
   return (
-    <div ref={containerRef} className="flex-1 relative overflow-hidden bg-gray-950"
-        style={{
-          backgroundImage: "linear-gradient(45deg, #1a1a2e 25%, transparent 25%), linear-gradient(-45deg, #1a1a2e 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #1a1a2e 75%), linear-gradient(-45deg, transparent 75%, #1a1a2e 75%)",
-          backgroundSize: "16px 16px",
-          backgroundPosition: "0 0, 0 8px, 8px -8px, -8px 0",
-        }}
-      >
+    <div
+      ref={containerRef}
+      className="flex-1 relative overflow-hidden bg-gray-950"
+      style={{
+        backgroundImage:
+          "linear-gradient(45deg, #1a1a2e 25%, transparent 25%), linear-gradient(-45deg, #1a1a2e 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #1a1a2e 75%), linear-gradient(-45deg, transparent 75%, #1a1a2e 75%)",
+        backgroundSize: "16px 16px",
+        backgroundPosition: "0 0, 0 8px, 8px -8px, -8px 0",
+      }}
+    >
       {/* Static 层 — 从 Buffer 渲染（底部） */}
       <canvas ref={staticRef} className="absolute inset-0 z-0" />
 
       {/* Interactive 层 — 形状预览（中间，应用 transform） */}
-      <canvas ref={interactiveRef} className="absolute inset-0 z-10 pointer-events-none" />
+      <canvas
+        ref={interactiveRef}
+        className="absolute inset-0 z-10 pointer-events-none"
+      />
 
       {/* Overlay 层 — 选区框/文字编辑框（顶部，像素对齐，接收事件） */}
       <canvas
@@ -622,37 +805,161 @@ export const CanvasSurface: React.FC<Props> = ({ state, transform, buffer, comma
         <div
           className="fixed z-50 min-w-[140px] py-1 bg-gray-800 border border-gray-600/40 rounded shadow-xl"
           style={{ left: contextMenu.x, top: contextMenu.y }}
-          onClick={e => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
         >
           <button
-            onClick={() => { commands.undo(buffer.ctx); needsRender = true; closeContextMenu(); }}
+            onClick={() => {
+              commands.undo(buffer.ctx);
+              needsRender = true;
+              closeContextMenu();
+            }}
             disabled={!commands.canUndo()}
             className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 disabled:opacity-30 border-0 bg-transparent cursor-pointer"
-          >撤销 (Ctrl+Z)</button>
+          >
+            撤销 (Ctrl+Z)
+          </button>
           <button
-            onClick={() => { commands.redo(buffer.ctx); needsRender = true; closeContextMenu(); }}
+            onClick={() => {
+              commands.redo(buffer.ctx);
+              needsRender = true;
+              closeContextMenu();
+            }}
             disabled={!commands.canRedo()}
             className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 disabled:opacity-30 border-0 bg-transparent cursor-pointer"
-          >重做 (Ctrl+Y)</button>
+          >
+            重做 (Ctrl+Y)
+          </button>
           <div className="h-px bg-gray-600/30 my-1" />
-          <button onClick={() => { onContextExport?.("png"); closeContextMenu(); }} className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer">导出 PNG</button>
-          <button onClick={() => { onContextExport?.("jpeg"); closeContextMenu(); }} className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer">导出 JPEG</button>
+          <button
+            onClick={() => {
+              onContextExport?.("png");
+              closeContextMenu();
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
+          >
+            导出 PNG
+          </button>
+          <button
+            onClick={() => {
+              onContextExport?.("jpeg");
+              closeContextMenu();
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
+          >
+            导出 JPEG
+          </button>
           <div className="h-px bg-gray-600/30 my-1" />
-          <button onClick={() => { onContextFlip?.("horizontal"); closeContextMenu(); }} className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer">水平翻转</button>
-          <button onClick={() => { onContextFlip?.("vertical"); closeContextMenu(); }} className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer">垂直翻转</button>
+          <button
+            onClick={() => {
+              onContextFlip?.("horizontal");
+              closeContextMenu();
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
+          >
+            水平翻转
+          </button>
+          <button
+            onClick={() => {
+              onContextFlip?.("vertical");
+              closeContextMenu();
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
+          >
+            垂直翻转
+          </button>
           <div className="h-px bg-gray-600/30 my-1" />
           {/* 滤镜 */}
-          <button onClick={() => { onContextFilter?.("brightness+"); closeContextMenu(); }} className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer">亮度 +</button>
-          <button onClick={() => { onContextFilter?.("brightness-"); closeContextMenu(); }} className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer">亮度 -</button>
-          <button onClick={() => { onContextFilter?.("contrast+"); closeContextMenu(); }} className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer">对比度 +</button>
-          <button onClick={() => { onContextFilter?.("contrast-"); closeContextMenu(); }} className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer">对比度 -</button>
-          <button onClick={() => { onContextFilter?.("grayscale"); closeContextMenu(); }} className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer">灰度</button>
-          <button onClick={() => { onContextFilter?.("invert"); closeContextMenu(); }} className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer">反相</button>
-          <button onClick={() => { onContextFilter?.("blur"); closeContextMenu(); }} className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer">模糊</button>
+          <button
+            onClick={() => {
+              onContextFilter?.("brightness+");
+              closeContextMenu();
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
+          >
+            亮度 +
+          </button>
+          <button
+            onClick={() => {
+              onContextFilter?.("brightness-");
+              closeContextMenu();
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
+          >
+            亮度 -
+          </button>
+          <button
+            onClick={() => {
+              onContextFilter?.("contrast+");
+              closeContextMenu();
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
+          >
+            对比度 +
+          </button>
+          <button
+            onClick={() => {
+              onContextFilter?.("contrast-");
+              closeContextMenu();
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
+          >
+            对比度 -
+          </button>
+          <button
+            onClick={() => {
+              onContextFilter?.("grayscale");
+              closeContextMenu();
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
+          >
+            灰度
+          </button>
+          <button
+            onClick={() => {
+              onContextFilter?.("invert");
+              closeContextMenu();
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
+          >
+            反相
+          </button>
+          <button
+            onClick={() => {
+              onContextFilter?.("blur");
+              closeContextMenu();
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
+          >
+            模糊
+          </button>
           <div className="h-px bg-gray-600/30 my-1" />
-          <button onClick={() => { onContextCrop?.(); closeContextMenu(); }} className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer">裁剪到选区</button>
-          <button onClick={() => { onContextNew?.(); closeContextMenu(); }} className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer">新建画布</button>
-          <button onClick={() => { onContextClear?.(); closeContextMenu(); }} className="w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-gray-700 border-0 bg-transparent cursor-pointer">清空画布</button>
+          <button
+            onClick={() => {
+              onContextCrop?.();
+              closeContextMenu();
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
+          >
+            裁剪到选区
+          </button>
+          <button
+            onClick={() => {
+              onContextNew?.();
+              closeContextMenu();
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
+          >
+            新建画布
+          </button>
+          <button
+            onClick={() => {
+              onContextClear?.();
+              closeContextMenu();
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
+          >
+            清空画布
+          </button>
         </div>
       )}
     </div>

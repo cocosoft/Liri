@@ -3,6 +3,9 @@
  * 轻量级错误边界 — 捕获子组件渲染错误，防止白屏
  */
 import { Component, type ReactNode } from "react";
+import { createLogger } from "../../../utils/logger";
+
+const logger = createLogger("components:image:ErrorBoundary");
 
 interface Props {
   children: ReactNode;
@@ -25,7 +28,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: { componentStack: string }) {
-    console.error("[ImageModule] ErrorBoundary caught:", error, info.componentStack);
+    logger.error("ErrorBoundary caught", { error, componentStack: info.componentStack });
   }
 
   handleRetry = () => {

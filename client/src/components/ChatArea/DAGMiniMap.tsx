@@ -17,7 +17,10 @@ interface DAGMiniMapProps {
   onExpand?: () => void;
 }
 
-const STATUS_COLORS: Record<TaskCardTask["status"], { bg: string; border: string; text: string }> = {
+const STATUS_COLORS: Record<
+  TaskCardTask["status"],
+  { bg: string; border: string; text: string }
+> = {
   pending: { bg: "#f3f4f6", border: "#d1d5db", text: "#6b7280" },
   in_progress: { bg: "#dbeafe", border: "#60a5fa", text: "#2563eb" },
   completed: { bg: "#dcfce7", border: "#22c55e", text: "#16a34a" },
@@ -29,7 +32,13 @@ const STATUS_COLORS: Record<TaskCardTask["status"], { bg: string; border: string
 function layoutNodes(tasks: TaskCardTask[]): { nodes: Node[]; edges: Edge[] } {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: "TB", nodesep: 20, ranksep: 40, marginx: 10, marginy: 10 });
+  g.setGraph({
+    rankdir: "TB",
+    nodesep: 20,
+    ranksep: 40,
+    marginx: 10,
+    marginy: 10,
+  });
 
   const nodeWidth = 160;
   const nodeHeight = 48;
@@ -49,10 +58,15 @@ function layoutNodes(tasks: TaskCardTask[]): { nodes: Node[]; edges: Edge[] } {
     const pos = g.node(task.id);
     const colors = STATUS_COLORS[task.status] || STATUS_COLORS.pending;
     const icon =
-      task.status === "completed" ? "✓" :
-      task.status === "in_progress" ? "⟳" :
-      task.status === "failed" ? "✗" :
-      task.status === "blocked" ? "⏸" : "";
+      task.status === "completed"
+        ? "✓"
+        : task.status === "in_progress"
+          ? "⟳"
+          : task.status === "failed"
+            ? "✗"
+            : task.status === "blocked"
+              ? "⏸"
+              : "";
 
     return {
       id: task.id,
@@ -93,7 +107,11 @@ function layoutNodes(tasks: TaskCardTask[]): { nodes: Node[]; edges: Edge[] } {
   return { nodes, edges };
 }
 
-export default function DAGMiniMap({ tasks, height = 160, onExpand }: DAGMiniMapProps) {
+export default function DAGMiniMap({
+  tasks,
+  height = 160,
+  onExpand,
+}: DAGMiniMapProps) {
   const { nodes, edges } = useMemo(() => layoutNodes(tasks), [tasks]);
 
   return (
@@ -112,11 +130,7 @@ export default function DAGMiniMap({ tasks, height = 160, onExpand }: DAGMiniMap
       >
         <Background gap={16} color="#e5e7eb" />
         <Controls showInteractive={false} />
-        <MiniMap
-          nodeStrokeWidth={2}
-          pannable
-          zoomable
-        />
+        <MiniMap nodeStrokeWidth={2} pannable zoomable />
       </ReactFlow>
       {onExpand && (
         <button

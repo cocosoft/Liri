@@ -25,13 +25,15 @@ export const officeService = {
 
   getMailStatus: () =>
     http.get<ApiEnvelope<{ status: string; accountCount: number }>>(
-      "/v1/mail/status"
+      "/v1/mail/status",
     ),
 
   getMailConfig: () =>
-    http.get<ApiEnvelope<{ accounts: Array<{ provider: string; user: string; authMethod: string }> }>>(
-      "/v1/mail/config"
-    ),
+    http.get<
+      ApiEnvelope<{
+        accounts: Array<{ provider: string; user: string; authMethod: string }>;
+      }>
+    >("/v1/mail/config"),
 
   saveMailConfig: (p: MailConfigPayload) =>
     http.post<ApiEnvelope<{ accountCount: number }>>("/v1/mail/config", p),
@@ -43,17 +45,17 @@ export const officeService = {
 
   getMailInbox: (limit = 20) =>
     http.get<ApiEnvelope<{ mails: MailItem[] }>>(
-      `/v1/mail/inbox?limit=${limit}`
+      `/v1/mail/inbox?limit=${limit}`,
     ),
 
   getMailSent: (limit = 20) =>
     http.get<ApiEnvelope<{ mails: MailItem[] }>>(
-      `/v1/mail/sent?limit=${limit}`
+      `/v1/mail/sent?limit=${limit}`,
     ),
 
   searchMail: (q: string, limit = 20) =>
     http.get<ApiEnvelope<{ mails: MailItem[] }>>(
-      `/v1/mail/search?q=${encodeURIComponent(q)}&limit=${limit}`
+      `/v1/mail/search?q=${encodeURIComponent(q)}&limit=${limit}`,
     ),
 
   deleteMail: (id: string) =>
@@ -69,11 +71,14 @@ export const officeService = {
 
   getCalendarEvents: () =>
     http.get<ApiEnvelope<{ events: CalendarEventItem[] }>>(
-      "/v1/calendar/events"
+      "/v1/calendar/events",
     ),
 
   addCalendarEvent: (e: Record<string, unknown>) =>
-    http.post<ApiEnvelope<{ event: CalendarEventItem }>>("/v1/calendar/events", e),
+    http.post<ApiEnvelope<{ event: CalendarEventItem }>>(
+      "/v1/calendar/events",
+      e,
+    ),
 
   updateCalendarEvent: (id: string, u: Record<string, unknown>) =>
     http.put<ApiEnvelope<{ id: string }>>(`/v1/calendar/events/${id}`, u),
@@ -88,7 +93,7 @@ export const officeService = {
   getCalendarMerged: (start: string, end: string, timezone?: string) => {
     const tz = timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
     return http.get<ApiEnvelope<MergedCalendarResponse>>(
-      `/v1/calendar/merged?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&timezone=${encodeURIComponent(tz)}`
+      `/v1/calendar/merged?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&timezone=${encodeURIComponent(tz)}`,
     );
   },
 };

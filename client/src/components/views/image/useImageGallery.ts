@@ -39,7 +39,11 @@ export function useImageGallery() {
     setLoading(true);
     setLoadError(false);
     try {
-      const res = await imageService.listImages({ page: 1, pageSize, signal: abortRef.current.signal });
+      const res = await imageService.listImages({
+        page: 1,
+        pageSize,
+        signal: abortRef.current.signal,
+      });
       setImages(res.images);
       setTotal(res.total);
       setHasMore(res.hasMore);
@@ -77,7 +81,11 @@ export function useImageGallery() {
     setLoadingMore(true);
     try {
       const nextPage = page + 1;
-      const res = await imageService.listImages({ page: nextPage, pageSize, signal: abortRef.current?.signal });
+      const res = await imageService.listImages({
+        page: nextPage,
+        pageSize,
+        signal: abortRef.current?.signal,
+      });
       setImages((prev) => [...prev, ...res.images]);
       setTotal(res.total);
       setHasMore(res.hasMore);

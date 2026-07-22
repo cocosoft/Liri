@@ -193,7 +193,9 @@ function OAuthPage() {
                       <div
                         className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
                       >
-                        {provider.enabled ? t("common.enabled") : t("common.disabled")}
+                        {provider.enabled
+                          ? t("common.enabled")
+                          : t("common.disabled")}
                       </div>
                     </div>
                   </div>
@@ -236,7 +238,9 @@ function OAuthPage() {
                             : "bg-gray-200 hover:bg-gray-300 text-gray-700"
                       }`}
                     >
-                      {selectedProvider.enabled ? t("common.enabled") : t("common.disabled")}
+                      {selectedProvider.enabled
+                        ? t("common.enabled")
+                        : t("common.disabled")}
                     </button>
                   </div>
 
@@ -354,8 +358,12 @@ function OAuthPage() {
                           </span>
                         </div>
                         <div className="flex items-center gap-4 text-xs text-gray-500">
-                          <span>{t("oauth.userId")}: {session.userId}</span>
-                          <span>{t("oauth.expiresAt")}: {session.expiresAt}</span>
+                          <span>
+                            {t("oauth.userId")}: {session.userId}
+                          </span>
+                          <span>
+                            {t("oauth.expiresAt")}: {session.expiresAt}
+                          </span>
                         </div>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {session.scopes.map((scope) => (

@@ -5,7 +5,9 @@ import MetadataResult from "./MetadataResult";
 import ColorAnalysisResult from "./ColorAnalysisResult";
 import ContentAnalysisResult from "./ContentAnalysisResult";
 
-interface Props { data: Record<string, unknown>; }
+interface Props {
+  data: Record<string, unknown>;
+}
 
 export default function FullAnalysisResult({ data }: Props) {
   return (

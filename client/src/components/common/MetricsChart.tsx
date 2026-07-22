@@ -75,7 +75,10 @@ function MetricsChart({
   };
 
   const primary = useMemo(() => calcPaths(data), [data]);
-  const secondary = useMemo(() => calcPaths(secondaryData || []), [secondaryData]);
+  const secondary = useMemo(
+    () => calcPaths(secondaryData || []),
+    [secondaryData],
+  );
 
   const hasDualLine = secondaryData && secondaryData.length > 0;
 
@@ -132,7 +135,9 @@ function MetricsChart({
               className="w-3 h-0.5 rounded"
               style={{ backgroundColor: color }}
             />
-            <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+            <span
+              className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+            >
               系统
             </span>
           </div>
@@ -141,7 +146,9 @@ function MetricsChart({
               className="w-3 h-0.5 rounded"
               style={{ backgroundColor: secondaryColor }}
             />
-            <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+            <span
+              className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+            >
               {secondaryLabel || "应用"}
             </span>
           </div>
@@ -168,7 +175,9 @@ function MetricsChart({
             </linearGradient>
           </defs>
         )}
-        {showArea && <path d={primary.areaPath} fill={`url(#gradient-${title})`} />}
+        {showArea && (
+          <path d={primary.areaPath} fill={`url(#gradient-${title})`} />
+        )}
         {/* 主数据线 */}
         <path
           d={primary.path}

@@ -7,6 +7,9 @@
 import { useEffect, useRef, useState } from "react";
 import mammoth from "mammoth";
 import * as XLSX from "xlsx";
+import { createLogger } from "../../../utils/logger";
+
+const logger = createLogger("components:office:DocPreview");
 
 type FileFormat = "docx" | "xlsx" | "pptx";
 
@@ -24,7 +27,10 @@ function detectFormat(fileName: string): FileFormat {
   return "docx";
 }
 
-export default function DocPreviewModal({ file, onClose }: DocPreviewModalProps) {
+export default function DocPreviewModal({
+  file,
+  onClose,
+}: DocPreviewModalProps) {
   const format = detectFormat(file);
 
   const [html, setHtml] = useState<string>("");
@@ -49,17 +55,23 @@ export default function DocPreviewModal({ file, onClose }: DocPreviewModalProps)
   }, [file, format]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="w-[92vw] h-[88vh] bg-white dark:bg-gray-950 rounded-xl overflow-hidden flex flex-col shadow-2xl">
         {/* 头部 */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700 shrink-0">
           <span className="text-sm font-medium text-gray-900 dark:text-white truncate pr-4">
             {file}
           </span>
-          <button onClick={onClose}
+          <button
+            onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-lg leading-none p-1"
-            aria-label="关闭">
+            aria-label="关闭"
+          >
             ✕
           </button>
         </div>
@@ -76,8 +88,10 @@ export default function DocPreviewModal({ file, onClose }: DocPreviewModalProps)
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
                 <p className="text-red-500 text-sm mb-2">{error}</p>
-                <button onClick={onClose}
-                  className="text-xs text-blue-600 hover:underline">
+                <button
+                  onClick={onClose}
+                  className="text-xs text-blue-600 hover:underline"
+                >
                   关闭
                 </button>
               </div>
@@ -89,8 +103,10 @@ export default function DocPreviewModal({ file, onClose }: DocPreviewModalProps)
           )}
 
           {!loading && !error && format !== "pptx" && html && (
-            <div dangerouslySetInnerHTML={{ __html: html }}
-              className="prose prose-sm dark:prose-invert max-w-none" />
+            <div
+              dangerouslySetInnerHTML={{ __html: html }}
+              className="prose prose-sm dark:prose-invert max-w-none"
+            />
           )}
         </div>
       </div>
@@ -112,7 +128,9 @@ async function loadAndRender(
   pptxRef: React.RefObject<HTMLDivElement | null>,
   signal: AbortSignal,
 ): Promise<string> {
-  const res = await fetch(`/v1/doc/download?file=${encodeURIComponent(file)}`, { signal });
+  const res = await fetch(`/v1/doc/download?file=${encodeURIComponent(file)}`, {
+    signal,
+  });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error((body as { message?: string }).message || "文件加载失败");
@@ -148,7 +166,7 @@ async function renderDocx(arrayBuffer: ArrayBuffer): Promise<string> {
   );
 
   if (result.messages.length > 0) {
-    console.warn("[DocPreview] mammoth 转换警告:", result.messages);
+    logger.warn("mammoth 转换警告", result.messages);
   }
 
   return result.value;

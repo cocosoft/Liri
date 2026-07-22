@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import EditorToolbar from "./EditorToolbar";
 import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
+import { handleClientError } from "../../utils/handleError";
 
 type ViewMode = "edit" | "preview" | "split";
 
@@ -18,7 +19,8 @@ function loadDraft(): { title: string; content: string } | null {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
     return raw ? JSON.parse(raw) : null;
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "components:knowledge:KnowledgeEditor", action: "loadDraft" });
     return null;
   }
 }
@@ -26,11 +28,19 @@ function loadDraft(): { title: string; content: string } | null {
 function saveDraft(title: string, content: string) {
   try {
     localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, content }));
-  } catch { /* ignore */ }
+  } catch (e) {
+    handleClientError(e, { module: "components:knowledge:KnowledgeEditor", action: "saveDraft" });
+    /* ignore */
+  }
 }
 
 function clearDraft() {
-  try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch (e) {
+    handleClientError(e, { module: "components:knowledge:KnowledgeEditor", action: "clearDraft" });
+    /* ignore */
+  }
 }
 
 function KnowledgeEditor({
@@ -111,7 +121,7 @@ function KnowledgeEditor({
   const templates: { name: string; content: string }[] = [
     {
       name: "会议纪要",
-      content: `# 会议纪要\n\n**日期**: ${new Date().toISOString().slice(0,10)}\n**参与者**: \n**主题**: \n\n## 议程\n\n1. \n\n## 决议\n\n- \n\n## 待办\n\n- [ ] \n`,
+      content: `# 会议纪要\n\n**日期**: ${new Date().toISOString().slice(0, 10)}\n**参与者**: \n**主题**: \n\n## 议程\n\n1. \n\n## 决议\n\n- \n\n## 待办\n\n- [ ] \n`,
     },
     {
       name: "技术笔记",
@@ -123,7 +133,7 @@ function KnowledgeEditor({
     },
     {
       name: "周报",
-      content: `# 周报 (${new Date().toISOString().slice(0,10)})\n\n## 本周完成\n\n- \n\n## 遇到的问题\n\n- \n\n## 下周计划\n\n- \n`,
+      content: `# 周报 (${new Date().toISOString().slice(0, 10)})\n\n## 本周完成\n\n- \n\n## 遇到的问题\n\n- \n\n## 下周计划\n\n- \n`,
     },
   ];
 
@@ -206,7 +216,9 @@ function KnowledgeEditor({
           >
             <option value="">模板</option>
             {templates.map((t) => (
-              <option key={t.name} value={t.name}>{t.name}</option>
+              <option key={t.name} value={t.name}>
+                {t.name}
+              </option>
             ))}
           </select>
           <button

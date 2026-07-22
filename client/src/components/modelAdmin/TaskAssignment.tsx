@@ -38,9 +38,12 @@ function TaskAssignment() {
   }, [models]);
 
   /** 获取指定任务类型的可选模型（Local 仅显示本地模型） */
-  const getAvailableModels = (taskType: string, providerModels: ModelInfo[]) => {
-    if (taskType !== 'local') return providerModels;
-    return providerModels.filter(m => m.requiresAuth === false);
+  const getAvailableModels = (
+    taskType: string,
+    providerModels: ModelInfo[],
+  ) => {
+    if (taskType !== "local") return providerModels;
+    return providerModels.filter((m) => m.requiresAuth === false);
   };
 
   const handleTaskChange = (type: string, modelId: string) => {
@@ -120,7 +123,10 @@ function TaskAssignment() {
                 <option value="">— 未设置 —</option>
                 {Object.entries(modelsByProvider).map(
                   ([provider, providerModels]) => {
-                    const available = getAvailableModels(task.type, providerModels);
+                    const available = getAvailableModels(
+                      task.type,
+                      providerModels,
+                    );
                     if (available.length === 0) return null;
                     return (
                       <optgroup key={provider} label={provider}>

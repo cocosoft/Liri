@@ -17,6 +17,8 @@ import {
   accumulateTokenUsage,
 } from './models/SessionTokenUsage';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { globalEventBus, SystemEvents } from '../core/events/EventBus';
+import type { CostRecordedEvent } from '../core/events/EventBus';
 
 const logger = new Logger({
   module: 'session:tokenTracker',
@@ -52,12 +54,56 @@ export interface TokenBudgetAlert {
 export class SessionTokenTracker {
   private usages: Map<string, SessionTokenUsage> = new Map();
   private budgets: Map<string, TokenBudgetAlert> = new Map();
+  /** P2-2.8 Phase 2: COST_RECORDED 订阅（被动接收 CostTracker 数据） */
+  private costSubscribed = false;
+
+  /**
+   * P2-2.8 Phase 2: 订阅 COST_RECORDED 事件，被动同步 CostTracker 数据
+   *
+   * 消除独立追踪的冗余性，改为从 CostTracker（唯一写入点）被动订阅。
+   */
+  subscribeToCostEvents(): void {
+    if (this.costSubscribed) return;
+    this.costSubscribed = true;
+
+    globalEventBus.subscribe(
+      SystemEvents.COST_RECORDED,
+      (event: CostRecordedEvent) => {
+        const sessionId = event.sessionId || 'global';
+
+        const delta: SessionTokenUsage = {
+          inputTokens: event.inputTokens,
+          outputTokens: event.outputTokens,
+          cacheReadTokens: event.cacheReadInputTokens,
+          cacheCreationTokens: event.cacheCreationInputTokens,
+          reasoningTokens: 0,
+          totalTokens: event.inputTokens + event.outputTokens,
+          estimatedCostUsd: event.costUSD,
+          costStatus: 'estimated',
+          lastPromptTokens: event.inputTokens,
+        };
+
+        const existing = this.usages.get(sessionId) ?? createEmptyTokenUsage();
+        const updated = accumulateTokenUsage(existing, delta);
+        this.usages.set(sessionId, updated);
+      }
+    );
+
+    logger.info(
+      '[MIGRATION] SessionTokenTracker 已订阅 COST_RECORDED，实现被动数据同步'
+    );
+  }
 
   recordUsage(
     sessionId: string,
     input: TokenUsageInput,
     config?: TrackerConfig
   ): SessionTokenUsage {
+    // P2-2.8: 迁移警告 — CostTracker 将成为唯一写入点，此方法后续仅通过 EventBus 被动订阅
+    logger.warn(
+      '[MIGRATION] SessionTokenTracker.recordUsage 将被迁移到 CostTracker.addCost 统一入口，见 ADR-001',
+      { sessionId }
+    );
     const totalTokens =
       input.inputTokens +
       input.outputTokens +

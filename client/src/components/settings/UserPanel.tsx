@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { fetchUser, saveUser } from "../../services/soulService";
 import { ConfigSection } from "./ConfigComponents";
+import { handleClientError } from "../../utils/handleError";
 
 interface UserPanelProps {
   isDark: boolean;
@@ -47,7 +48,8 @@ function UserPanel({ isDark }: UserPanelProps) {
       const data = await fetchUser();
       setContent(data);
       setOriginalContent(data);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "components:settings:User", action: "loadUser" });
       setMessage({ type: "error", text: "加载用户身份失败" });
     }
   };
@@ -65,7 +67,8 @@ function UserPanel({ isDark }: UserPanelProps) {
       setOriginalContent(content);
       setMessage({ type: "success", text: "用户身份已保存" });
       setTimeout(() => setMessage(null), 3000);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "components:settings:User", action: "handleSave" });
       setMessage({ type: "error", text: "保存失败，请重试" });
     } finally {
       setSaving(false);

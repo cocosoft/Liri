@@ -70,7 +70,9 @@ export default function WorkSpaceSidebar({ className }: WorkSpaceSidebarProps) {
   };
 
   return (
-    <div className={`${className} flex flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700`}>
+    <div
+      className={`${className} flex flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700`}
+    >
       {/* 上半部分：工作项列表 */}
       <div className="flex-1 min-h-[120px] border-b border-gray-200 dark:border-gray-700 overflow-auto flex flex-col">
         {/* 标题栏 + 新增按钮 */}
@@ -152,7 +154,9 @@ export default function WorkSpaceSidebar({ className }: WorkSpaceSidebarProps) {
           ) : (
             <div className="flex items-center justify-center h-full py-4">
               <p className="text-xs text-gray-400 dark:text-gray-500">
-                {showInput ? t("workspace.noWorkflows") : t("workspace.noMembers")}
+                {showInput
+                  ? t("workspace.noWorkflows")
+                  : t("workspace.noMembers")}
               </p>
             </div>
           )}

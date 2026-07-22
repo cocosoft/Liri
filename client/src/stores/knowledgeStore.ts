@@ -8,8 +8,6 @@ import { knowledgeService } from "../services/knowledgeService";
 import { handleClientError } from "@/utils/handleError";
 import type { KnowledgeItem } from "../types";
 
-
-
 export type { KnowledgeItem };
 
 interface KnowledgeStore {
@@ -18,7 +16,9 @@ interface KnowledgeStore {
   error: string | null;
 
   loadItems: () => Promise<void>;
-  createItem: (item: Omit<KnowledgeItem, "id" | "created_at" | "updated_at">) => Promise<void>;
+  createItem: (
+    item: Omit<KnowledgeItem, "id" | "created_at" | "updated_at">,
+  ) => Promise<void>;
   updateItem: (id: string, updates: Partial<KnowledgeItem>) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
 }
@@ -34,7 +34,11 @@ export const useKnowledgeStore = create<KnowledgeStore>()((set) => ({
       const items = await knowledgeService.list();
       set({ items, isLoading: false });
     } catch (e) {
-      handleClientError(e, { module: 'stores:knowledgeStore', action: 'loadItems' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:knowledgeStore", action: "loadItems" },
+        "warn",
+      );
       set({ error: String(e), isLoading: false });
     }
   },
@@ -44,7 +48,11 @@ export const useKnowledgeStore = create<KnowledgeStore>()((set) => ({
       const created = await knowledgeService.create(item);
       set((state) => ({ items: [...state.items, created] }));
     } catch (e) {
-      handleClientError(e, { module: 'stores:knowledgeStore', action: 'createItem' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:knowledgeStore", action: "createItem" },
+        "warn",
+      );
       set({ error: String(e) });
     }
   },
@@ -56,7 +64,11 @@ export const useKnowledgeStore = create<KnowledgeStore>()((set) => ({
         items: state.items.map((i) => (i.id === id ? updated : i)),
       }));
     } catch (e) {
-      handleClientError(e, { module: 'stores:knowledgeStore', action: 'updateItem' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:knowledgeStore", action: "updateItem" },
+        "warn",
+      );
       set({ error: String(e) });
     }
   },
@@ -66,7 +78,11 @@ export const useKnowledgeStore = create<KnowledgeStore>()((set) => ({
       await knowledgeService.delete(id);
       set((state) => ({ items: state.items.filter((i) => i.id !== id) }));
     } catch (e) {
-      handleClientError(e, { module: 'stores:knowledgeStore', action: 'deleteItem' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:knowledgeStore", action: "deleteItem" },
+        "warn",
+      );
       set({ error: String(e) });
     }
   },

@@ -28,6 +28,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { usageService } from "../../services/usageService";
 import { balanceService } from "../../services/balanceService";
+import { handleClientError } from "../../utils/handleError";
 import type {
   UsageSummary,
   ModelUsageStats,
@@ -70,7 +71,8 @@ export default function UsageDashboard() {
       setModelStats(m);
       setProviderStats(p);
       setBalances(b);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "components:modelAdmin:UsageDashboard", action: "loadData" });
       // 静默失败，UI 显示空数据
     } finally {
       setLoading(false);
@@ -92,9 +94,7 @@ export default function UsageDashboard() {
   return (
     <div className="space-y-6">
       {/* 概览卡片 */}
-      {summary && (
-        <SummaryCards summary={summary} />
-      )}
+      {summary && <SummaryCards summary={summary} />}
 
       {/* 余额概览 */}
       <BalanceSection balances={balances} onRefresh={loadData} />
@@ -182,9 +182,7 @@ function BalanceSection({
                 <span className="font-medium text-gray-800 dark:text-gray-200">
                   {b.providerName}
                 </span>
-                <span className="text-xs text-gray-400">
-                  {b.providerType}
-                </span>
+                <span className="text-xs text-gray-400">{b.providerType}</span>
                 {b.belowThreshold && (
                   <span className="text-xs px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">
                     余额不足
@@ -198,9 +196,13 @@ function BalanceSection({
               </div>
               <div className="flex items-center gap-3">
                 {b.remaining !== null ? (
-                  <span className={`font-mono ${b.belowThreshold ? "text-red-600 dark:text-red-400" : "text-gray-700 dark:text-gray-300"}`}>
+                  <span
+                    className={`font-mono ${b.belowThreshold ? "text-red-600 dark:text-red-400" : "text-gray-700 dark:text-gray-300"}`}
+                  >
                     {b.remaining.toFixed(2)} {b.unit}
-                    {b.total !== null ? ` / ${b.total.toFixed(2)} ${b.unit}` : ""}
+                    {b.total !== null
+                      ? ` / ${b.total.toFixed(2)} ${b.unit}`
+                      : ""}
                   </span>
                 ) : (
                   <span className="text-gray-400">--</span>

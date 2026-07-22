@@ -44,7 +44,10 @@ function AutoUpdatePanel({
 
         {autoUpdate.enabled && (
           <>
-            <ConfigItem label={t("settings.autoUpdateCheckInterval")} isDark={isDark}>
+            <ConfigItem
+              label={t("settings.autoUpdateCheckInterval")}
+              isDark={isDark}
+            >
               <SelectConfig
                 isDark={isDark}
                 value={String(autoUpdate.checkIntervalMs)}
@@ -52,11 +55,26 @@ function AutoUpdatePanel({
                   onUpdate({ checkIntervalMs: parseInt(value, 10) })
                 }
                 options={[
-                  { value: "3600000", label: t("settings.autoUpdateInterval1h") },
-                  { value: "14400000", label: t("settings.autoUpdateInterval4h") },
-                  { value: "43200000", label: t("settings.autoUpdateInterval12h") },
-                  { value: "86400000", label: t("settings.autoUpdateInterval24h") },
-                  { value: "604800000", label: t("settings.autoUpdateInterval7d") },
+                  {
+                    value: "3600000",
+                    label: t("settings.autoUpdateInterval1h"),
+                  },
+                  {
+                    value: "14400000",
+                    label: t("settings.autoUpdateInterval4h"),
+                  },
+                  {
+                    value: "43200000",
+                    label: t("settings.autoUpdateInterval12h"),
+                  },
+                  {
+                    value: "86400000",
+                    label: t("settings.autoUpdateInterval24h"),
+                  },
+                  {
+                    value: "604800000",
+                    label: t("settings.autoUpdateInterval7d"),
+                  },
                 ]}
               />
             </ConfigItem>
@@ -69,7 +87,10 @@ function AutoUpdatePanel({
                   onUpdate({ channel: value as AutoUpdateConfig["channel"] })
                 }
                 options={[
-                  { value: "stable", label: t("settings.autoUpdateChannelStable") },
+                  {
+                    value: "stable",
+                    label: t("settings.autoUpdateChannelStable"),
+                  },
                   { value: "beta", label: t("settings.autoUpdateChannelBeta") },
                 ]}
               />

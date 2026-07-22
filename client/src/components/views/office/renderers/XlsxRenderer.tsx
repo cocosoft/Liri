@@ -109,11 +109,7 @@ export function XlsxRenderer({ file }: XlsxRendererProps) {
     <div ref={containerRef} className="h-full overflow-auto">
       <div
         className={`p-4 ${isDark ? "bg-gray-900" : "bg-white"}`}
-        style={
-          isDark
-            ? { filter: "invert(0.9) hue-rotate(180deg)" }
-            : {}
-        }
+        style={isDark ? { filter: "invert(0.9) hue-rotate(180deg)" } : {}}
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>

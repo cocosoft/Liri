@@ -1,12 +1,16 @@
 /**
  * 能力选择器组件
- * 
+ *
  * 通用的模型能力多选组件，支持分类分组、搜索过滤、国际化显示。
  */
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { capabilityService } from "../../services/capabilityService";
-import type { ModelCapabilityDefinition, CapabilityCategoryDefinition } from "../../services/capabilityService";
+import { handleClientError } from "../../utils/handleError";
+import type {
+  ModelCapabilityDefinition,
+  CapabilityCategoryDefinition,
+} from "../../services/capabilityService";
 
 interface CapabilitySelectorProps {
   /** 当前选中的能力 key 列表 */
@@ -47,8 +51,12 @@ export default function CapabilitySelector({
   capabilities: presetCapabilities,
   categories: presetCategories,
 }: CapabilitySelectorProps) {
-  const [capabilities, setCapabilities] = useState<ModelCapabilityDefinition[]>([]);
-  const [categories, setCategories] = useState<CapabilityCategoryDefinition[]>([]);
+  const [capabilities, setCapabilities] = useState<ModelCapabilityDefinition[]>(
+    [],
+  );
+  const [categories, setCategories] = useState<CapabilityCategoryDefinition[]>(
+    [],
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -66,18 +74,89 @@ export default function CapabilitySelector({
           setCategories(result.categories);
         }
       } catch (err) {
+        handleClientError(err, { module: "components:common:CapabilitySelector", action: "loadCapabilities" });
         // 使用基础 fallback 列表
         setCapabilities([
-          { key: "streaming", labelFallback: "Streaming", isDefault: true, enabled: true, category: "core", sortOrder: 1 } as ModelCapabilityDefinition,
-          { key: "function_calling", labelFallback: "Function Calling", isDefault: true, enabled: true, category: "core", sortOrder: 2 } as ModelCapabilityDefinition,
-          { key: "tool_use", labelFallback: "Tool Use", isDefault: true, enabled: true, category: "tools", sortOrder: 1 } as ModelCapabilityDefinition,
-          { key: "vision", labelFallback: "Vision", isDefault: false, enabled: true, category: "vision", sortOrder: 1 } as ModelCapabilityDefinition,
-          { key: "image_generation", labelFallback: "Image Generation", isDefault: false, enabled: true, category: "media", sortOrder: 1 } as ModelCapabilityDefinition,
-          { key: "text_to_speech", labelFallback: "Text to Speech", isDefault: false, enabled: true, category: "media", sortOrder: 2 } as ModelCapabilityDefinition,
-          { key: "speech_recognition", labelFallback: "Speech Recognition", isDefault: false, enabled: true, category: "media", sortOrder: 3 } as ModelCapabilityDefinition,
-          { key: "embedding", labelFallback: "Embedding", isDefault: false, enabled: true, category: "special", sortOrder: 1 } as ModelCapabilityDefinition,
-          { key: "structured_output", labelFallback: "Structured Output", isDefault: false, enabled: true, category: "core", sortOrder: 3 } as ModelCapabilityDefinition,
-          { key: "thinking", labelFallback: "Thinking", isDefault: false, enabled: true, category: "special", sortOrder: 2 } as ModelCapabilityDefinition,
+          {
+            key: "streaming",
+            labelFallback: "Streaming",
+            isDefault: true,
+            enabled: true,
+            category: "core",
+            sortOrder: 1,
+          } as ModelCapabilityDefinition,
+          {
+            key: "function_calling",
+            labelFallback: "Function Calling",
+            isDefault: true,
+            enabled: true,
+            category: "core",
+            sortOrder: 2,
+          } as ModelCapabilityDefinition,
+          {
+            key: "tool_use",
+            labelFallback: "Tool Use",
+            isDefault: true,
+            enabled: true,
+            category: "tools",
+            sortOrder: 1,
+          } as ModelCapabilityDefinition,
+          {
+            key: "vision",
+            labelFallback: "Vision",
+            isDefault: false,
+            enabled: true,
+            category: "vision",
+            sortOrder: 1,
+          } as ModelCapabilityDefinition,
+          {
+            key: "image_generation",
+            labelFallback: "Image Generation",
+            isDefault: false,
+            enabled: true,
+            category: "media",
+            sortOrder: 1,
+          } as ModelCapabilityDefinition,
+          {
+            key: "text_to_speech",
+            labelFallback: "Text to Speech",
+            isDefault: false,
+            enabled: true,
+            category: "media",
+            sortOrder: 2,
+          } as ModelCapabilityDefinition,
+          {
+            key: "speech_recognition",
+            labelFallback: "Speech Recognition",
+            isDefault: false,
+            enabled: true,
+            category: "media",
+            sortOrder: 3,
+          } as ModelCapabilityDefinition,
+          {
+            key: "embedding",
+            labelFallback: "Embedding",
+            isDefault: false,
+            enabled: true,
+            category: "special",
+            sortOrder: 1,
+          } as ModelCapabilityDefinition,
+          {
+            key: "structured_output",
+            labelFallback: "Structured Output",
+            isDefault: false,
+            enabled: true,
+            category: "core",
+            sortOrder: 3,
+          } as ModelCapabilityDefinition,
+          {
+            key: "thinking",
+            labelFallback: "Thinking",
+            isDefault: false,
+            enabled: true,
+            category: "special",
+            sortOrder: 2,
+          } as ModelCapabilityDefinition,
         ]);
       } finally {
         setLoading(false);
@@ -89,12 +168,12 @@ export default function CapabilitySelector({
   // 过滤和分组能力
   const filteredAndGroupedCapabilities = useMemo(() => {
     let filtered = capabilities;
-    
+
     // 按启用状态过滤
     if (onlyEnabled) {
       filtered = filtered.filter((c) => c.enabled);
     }
-    
+
     // 按搜索词过滤
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
@@ -102,19 +181,20 @@ export default function CapabilitySelector({
         (c) =>
           c.key.toLowerCase().includes(term) ||
           c.labelFallback.toLowerCase().includes(term) ||
-          (c.descriptionFallback && c.descriptionFallback.toLowerCase().includes(term))
+          (c.descriptionFallback &&
+            c.descriptionFallback.toLowerCase().includes(term)),
       );
     }
-    
+
     // 按分类分组
     const grouped: Record<string, ModelCapabilityDefinition[]> = {};
     const categoryOrder = ["core", "vision", "media", "tools", "special"];
-    
+
     // 初始化分类
     for (const cat of categoryOrder) {
       grouped[cat] = [];
     }
-    
+
     // 添加其他分类
     for (const cap of filtered) {
       if (!grouped[cap.category]) {
@@ -122,12 +202,12 @@ export default function CapabilitySelector({
       }
       grouped[cap.category].push(cap);
     }
-    
+
     // 排序
     for (const cat in grouped) {
       grouped[cat].sort((a, b) => a.sortOrder - b.sortOrder);
     }
-    
+
     return grouped;
   }, [capabilities, searchTerm, onlyEnabled]);
 
@@ -146,27 +226,27 @@ export default function CapabilitySelector({
   const toggleCapability = useCallback(
     (capKey: string) => {
       if (disabled) return;
-      
+
       const newValue = value.includes(capKey)
         ? value.filter((k) => k !== capKey)
         : [...value, capKey];
-      
+
       onChange(newValue);
     },
-    [value, onChange, disabled]
+    [value, onChange, disabled],
   );
 
   // 全选/取消全选分类
   const toggleCategory = useCallback(
     (categoryKey: string) => {
       if (disabled) return;
-      
+
       const catCaps = filteredAndGroupedCapabilities[categoryKey];
       if (!catCaps || catCaps.length === 0) return;
-      
+
       const catKeys = catCaps.map((c) => c.key);
       const allSelected = catKeys.every((k) => value.includes(k));
-      
+
       if (allSelected) {
         // 取消全选
         const newValue = value.filter((k) => !catKeys.includes(k));
@@ -177,7 +257,7 @@ export default function CapabilitySelector({
         onChange(newValue);
       }
     },
-    [filteredAndGroupedCapabilities, value, onChange, disabled]
+    [filteredAndGroupedCapabilities, value, onChange, disabled],
   );
 
   // 检查分类是否全选
@@ -187,7 +267,7 @@ export default function CapabilitySelector({
       if (!catCaps || catCaps.length === 0) return false;
       return catCaps.every((c) => value.includes(c.key));
     },
-    [filteredAndGroupedCapabilities, value]
+    [filteredAndGroupedCapabilities, value],
   );
 
   if (loading) {
@@ -224,7 +304,10 @@ export default function CapabilitySelector({
         {Object.entries(filteredAndGroupedCapabilities)
           .filter(([, caps]) => caps.length > 0)
           .map(([category, caps]) => (
-            <div key={category} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+            <div
+              key={category}
+              className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3"
+            >
               <div className="flex items-center justify-between mb-2">
                 <button
                   onClick={() => toggleCategory(category)}

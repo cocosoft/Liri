@@ -15,13 +15,18 @@ interface Props {
   onSaveSuccess?: () => void;
 }
 
-export const EditLayer: React.FC<Props> = ({ imageUrl, imageId, onClose, onSaveSuccess }) => {
+export const EditLayer: React.FC<Props> = ({
+  imageUrl,
+  imageId,
+  onClose,
+  onSaveSuccess,
+}) => {
   const [phase, setPhase] = useState<EditLayerPhase>("loading");
   const [error, setError] = useState<string | null>(null);
   const [hasUnsaved, setHasUnsaved] = useState(false);
-  const [retryKey, setRetryKey] = useState(0);     // 强制 CanvasEditor 重挂载
-  const savingRef = useRef(false);                   // 防重入锁
-  const hasUnsavedRef = useRef(false);               // StrictMode 兼容
+  const [retryKey, setRetryKey] = useState(0); // 强制 CanvasEditor 重挂载
+  const savingRef = useRef(false); // 防重入锁
+  const hasUnsavedRef = useRef(false); // StrictMode 兼容
   const editorRef = useRef<CanvasEditorHandle>(null); // CanvasEditor ref（Ctrl+S 调用 triggerSave）
 
   // 同步 hasUnsaved 到 ref
@@ -50,7 +55,9 @@ export const EditLayer: React.FC<Props> = ({ imageUrl, imageId, onClose, onSaveS
           setError("无法加载图片（跨域限制），请联系管理员配置 CORS 头");
         }
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [imageUrl]);
 
   // Ctrl+S 保存 + ESC 退出 + beforeunload + body 滚动锁定
@@ -110,80 +117,92 @@ export const EditLayer: React.FC<Props> = ({ imageUrl, imageId, onClose, onSaveS
       if (ct.includes("png")) return "png";
       if (ct.includes("jpeg") || ct.includes("jpg")) return "jpg";
       if (ct.includes("webp")) return "webp";
-    } catch { /* HEAD 失败，fallback 到 URL 正则 */ }
+    } catch {
+      /* HEAD 失败，fallback 到 URL 正则 */
+    }
     return url.match(/\.(\w+)(\?|$)/)?.[1] || "png";
   }, []);
 
   // 保存（含 toBlob null 检查、防重入锁、格式保持、超时、最小延迟）
-  const handleSave = useCallback(async (blob: Blob | null) => {
-    // 防重入锁：连按 Ctrl+S 只执行第一次
-    if (savingRef.current) return;
-    savingRef.current = true;
+  const handleSave = useCallback(
+    async (blob: Blob | null) => {
+      // 防重入锁：连按 Ctrl+S 只执行第一次
+      if (savingRef.current) return;
+      savingRef.current = true;
 
-    // null 检查
-    if (!blob) {
-      savingRef.current = false;
-      setPhase("error");
-      setError("画布导出失败，请重试或联系管理员");
-      return;
-    }
-
-    setPhase("saving");
-    try {
-      const format = await detectFormat(imageUrl);
-      // 安全过滤：仅允许已知图片格式
-      if (!["png", "jpg", "jpeg", "webp"].includes(format)) throw new Error(`不支持的格式: ${format}`);
-
-      const formData = new FormData();
-      const newName = `${imageId}_edited_${Date.now()}.${format}`;
-      formData.append("file", blob, newName);
-      formData.append("sourceImageId", imageId);
-
-      // 30s 超时
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000);
-
-      // 最少显示 500ms saving 状态（防闪烁）
-      const [result] = await Promise.all([
-        fetch("/v1/images/upload", {
-          method: "POST",
-          body: formData,
-          signal: controller.signal,
-        }),
-        new Promise(r => setTimeout(r, 500)),
-      ]);
-      clearTimeout(timeout);
-
-      if (!result.ok) {
-        throw new Error(`上传失败: ${result.status}`);
+      // null 检查
+      if (!blob) {
+        savingRef.current = false;
+        setPhase("error");
+        setError("画布导出失败，请重试或联系管理员");
+        return;
       }
 
-      setPhase("ready");
-      setHasUnsaved(false);
-      savingRef.current = false;
-      onSaveSuccess?.();
-      onClose();
-      // 外部负责 refreshGallery() + toast
-    } catch (e) {
-      savingRef.current = false;
-      setPhase("error");
-      if (e instanceof DOMException && e.name === "AbortError") {
-        setError("保存超时，请检查网络后重试");
-      } else {
-        setError(e instanceof Error ? e.message : "保存失败");
+      setPhase("saving");
+      try {
+        const format = await detectFormat(imageUrl);
+        // 安全过滤：仅允许已知图片格式
+        if (!["png", "jpg", "jpeg", "webp"].includes(format))
+          throw new Error(`不支持的格式: ${format}`);
+
+        const formData = new FormData();
+        const newName = `${imageId}_edited_${Date.now()}.${format}`;
+        formData.append("file", blob, newName);
+        formData.append("sourceImageId", imageId);
+
+        // 30s 超时
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+
+        // 最少显示 500ms saving 状态（防闪烁）
+        const [result] = await Promise.all([
+          fetch("/v1/images/upload", {
+            method: "POST",
+            body: formData,
+            signal: controller.signal,
+          }),
+          new Promise((r) => setTimeout(r, 500)),
+        ]);
+        clearTimeout(timeout);
+
+        if (!result.ok) {
+          throw new Error(`上传失败: ${result.status}`);
+        }
+
+        setPhase("ready");
+        setHasUnsaved(false);
+        savingRef.current = false;
+        onSaveSuccess?.();
+        onClose();
+        // 外部负责 refreshGallery() + toast
+      } catch (e) {
+        savingRef.current = false;
+        setPhase("error");
+        if (e instanceof DOMException && e.name === "AbortError") {
+          setError("保存超时，请检查网络后重试");
+        } else {
+          setError(e instanceof Error ? e.message : "保存失败");
+        }
       }
-    }
-  }, [imageUrl, imageId, detectFormat, onClose]);
+    },
+    [imageUrl, imageId, detectFormat, onClose],
+  );
 
   // CanvasEditor 内部保存触发（由 Ctrl+S 或工具栏按钮触发）
-  const handleEditorSave = useCallback(async (blob: Blob | null) => {
-    await handleSave(blob);
-  }, [handleSave]);
+  const handleEditorSave = useCallback(
+    async (blob: Blob | null) => {
+      await handleSave(blob);
+    },
+    [handleSave],
+  );
 
   // 遮罩点击 = 触发关闭检测
-  const handleOverlayClick = useCallback((e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) handleClose();
-  }, [handleClose]);
+  const handleOverlayClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.target === e.currentTarget) handleClose();
+    },
+    [handleClose],
+  );
 
   return (
     <div
@@ -212,7 +231,7 @@ export const EditLayer: React.FC<Props> = ({ imageUrl, imageId, onClose, onSaveS
             <button
               onClick={() => {
                 setPhase("loading");
-                setRetryKey(k => k + 1);
+                setRetryKey((k) => k + 1);
               }}
               className="px-4 py-2 rounded bg-blue-700/40 hover:bg-blue-600/40 border-0 cursor-pointer text-blue-200"
             >

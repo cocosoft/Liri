@@ -107,10 +107,7 @@ export function DocxRenderer({ file }: DocxRendererProps) {
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="h-full overflow-auto"
-    >
+    <div ref={containerRef} className="h-full overflow-auto">
       <div
         className="p-6 max-w-3xl mx-auto"
         style={{

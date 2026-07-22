@@ -129,7 +129,10 @@ export function getToolHumanSummary(toolCall: ToolCall): string {
       return formatSummary("正在读取", getArgStr(args, "file_path", "path"));
     case "file_write":
     case "write":
-      return formatSummary("正在写入", `${getArgStr(args, "file_path", "path")}${summarizeSize(args)}`);
+      return formatSummary(
+        "正在写入",
+        `${getArgStr(args, "file_path", "path")}${summarizeSize(args)}`,
+      );
     case "file_edit":
       return formatSummary("正在编辑", getArgStr(args, "file_path", "path"));
     case "file_delete":
@@ -137,9 +140,15 @@ export function getToolHumanSummary(toolCall: ToolCall): string {
       return formatSummary("正在删除", getArgStr(args, "file_path", "path"));
     case "file_create":
     case "create":
-      return formatSummary("正在创建", getArgStr(args, "file_path", "path") || getArgStr(args, "name"));
+      return formatSummary(
+        "正在创建",
+        getArgStr(args, "file_path", "path") || getArgStr(args, "name"),
+      );
     case "file_convert":
-      return formatSummary("正在转换文件", getArgStr(args, "file_path", "path", "input"));
+      return formatSummary(
+        "正在转换文件",
+        getArgStr(args, "file_path", "path", "input"),
+      );
 
     // ---- 执行类 ----
     case "bash":
@@ -148,17 +157,26 @@ export function getToolHumanSummary(toolCall: ToolCall): string {
     case "execute":
       return formatSummary("正在执行命令", summarizeCommand(args));
     case "run":
-      return formatSummary("正在运行", getArgStr(args, "command") || getArgStr(args, "script"));
+      return formatSummary(
+        "正在运行",
+        getArgStr(args, "command") || getArgStr(args, "script"),
+      );
 
     // ---- 任务与规划类 ----
     case "todo_write":
       return summarizeTodoWrite(args);
     case "plan":
-      return formatSummary("正在规划", getArgStr(args, "title") || getArgStr(args, "name"));
+      return formatSummary(
+        "正在规划",
+        getArgStr(args, "title") || getArgStr(args, "name"),
+      );
     case "ask_user_question":
       return formatSummary("正在询问用户", getArgStr(args, "question"));
     case "save_conversation":
-      return formatSummary("正在保存会话", getArgStr(args, "title") || getArgStr(args, "name"));
+      return formatSummary(
+        "正在保存会话",
+        getArgStr(args, "title") || getArgStr(args, "name"),
+      );
     case "brief":
       return "正在生成会话摘要";
     case "sessions":
@@ -170,7 +188,10 @@ export function getToolHumanSummary(toolCall: ToolCall): string {
     case "image":
       return formatSummary("正在编辑图片", getArgStr(args, "action"));
     case "image_analysis":
-      return formatSummary("正在分析图片", getArgStr(args, "action") || getArgStr(args, "image_path", "path"));
+      return formatSummary(
+        "正在分析图片",
+        getArgStr(args, "action") || getArgStr(args, "image_path", "path"),
+      );
     case "image_svg_generate":
       return formatSummary("正在生成 SVG", getArgStr(args, "prompt"));
     case "image_display":
@@ -219,24 +240,41 @@ export function getToolHumanSummary(toolCall: ToolCall): string {
 
     // ---- MCP ----
     case "mcp_resource":
-      return formatSummary("正在访问 MCP 资源", getArgStr(args, "resource", "name"));
+      return formatSummary(
+        "正在访问 MCP 资源",
+        getArgStr(args, "resource", "name"),
+      );
 
     // ---- 通用 ----
     case "fetch":
       return formatSummary("正在获取", summarizeUrl(args));
     case "list":
-      return formatSummary("正在列出", getArgStr(args, "path") || getArgStr(args, "type"));
+      return formatSummary(
+        "正在列出",
+        getArgStr(args, "path") || getArgStr(args, "type"),
+      );
     case "query":
-      return formatSummary("正在查询", getArgStr(args, "query") || getArgStr(args, "sql"));
+      return formatSummary(
+        "正在查询",
+        getArgStr(args, "query") || getArgStr(args, "sql"),
+      );
     case "build_index":
-      return formatSummary("正在构建索引", getArgStr(args, "path") || getArgStr(args, "name"));
+      return formatSummary(
+        "正在构建索引",
+        getArgStr(args, "path") || getArgStr(args, "name"),
+      );
 
     default:
       // 未知工具：显示工具名 + 第一个参数值
       const firstArg = Object.values(args)[0];
       const firstArgStr = typeof firstArg === "string" ? firstArg : "";
       if (firstArgStr) {
-        return formatSummary(name, firstArgStr.length > 30 ? firstArgStr.slice(0, 30) + "..." : firstArgStr);
+        return formatSummary(
+          name,
+          firstArgStr.length > 30
+            ? firstArgStr.slice(0, 30) + "..."
+            : firstArgStr,
+        );
       }
       return name;
   }
@@ -312,8 +350,10 @@ function summarizeTodoWrite(args: Record<string, unknown>): string {
       if (todos && todos.length > 0) {
         const first = todos[0];
         const status = first["status"];
-        if (status === "completed") return `完成了任务：${first["content"] || ""}`;
-        if (status === "in_progress") return `开始执行：${first["content"] || ""}`;
+        if (status === "completed")
+          return `完成了任务：${first["content"] || ""}`;
+        if (status === "in_progress")
+          return `开始执行：${first["content"] || ""}`;
         return `更新了任务：${first["content"] || ""}`;
       }
       return "更新任务状态";

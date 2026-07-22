@@ -51,9 +51,18 @@ interface CouncilDetailViewProps {
 
 /** 立场配色 */
 const STANCE_COLORS: Record<string, { bg: string; text: string }> = {
-  support: { bg: "bg-green-100 dark:bg-green-900/30", text: "text-green-700 dark:text-green-400" },
-  oppose: { bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-700 dark:text-red-400" },
-  neutral: { bg: "bg-gray-100 dark:bg-gray-800", text: "text-gray-600 dark:text-gray-400" },
+  support: {
+    bg: "bg-green-100 dark:bg-green-900/30",
+    text: "text-green-700 dark:text-green-400",
+  },
+  oppose: {
+    bg: "bg-red-100 dark:bg-red-900/30",
+    text: "text-red-700 dark:text-red-400",
+  },
+  neutral: {
+    bg: "bg-gray-100 dark:bg-gray-800",
+    text: "text-gray-600 dark:text-gray-400",
+  },
 };
 
 const STANCE_LABELS: Record<string, string> = {
@@ -71,7 +80,11 @@ const VOTE_LABELS: Record<string, string> = {
 /**
  * Council 辩论详情组件
  */
-function CouncilDetailView({ detail, isDark, onClose }: CouncilDetailViewProps) {
+function CouncilDetailView({
+  detail,
+  isDark,
+  onClose,
+}: CouncilDetailViewProps) {
   const { t } = useTranslation();
   const [selectedRound, setSelectedRound] = useState<number | null>(null);
 
@@ -112,15 +125,23 @@ function CouncilDetailView({ detail, isDark, onClose }: CouncilDetailViewProps) 
                     ? "border-gray-700 bg-gray-800 hover:bg-gray-750"
                     : "border-gray-200 bg-white hover:bg-gray-50"
               }`}
-              onClick={() => setSelectedRound(selectedRound === round.round ? null : round.round)}
+              onClick={() =>
+                setSelectedRound(
+                  selectedRound === round.round ? null : round.round,
+                )
+              }
             >
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-gray-500">R{round.round}</span>
+                  <span className="text-xs font-mono text-gray-500">
+                    R{round.round}
+                  </span>
                   <span className="text-sm font-medium">{round.agentName}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`px-1.5 py-0.5 rounded text-xs ${STANCE_COLORS[round.stance].bg} ${STANCE_COLORS[round.stance].text}`}>
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-xs ${STANCE_COLORS[round.stance].bg} ${STANCE_COLORS[round.stance].text}`}
+                  >
                     {t(STANCE_LABELS[round.stance])}
                   </span>
                   <span className="text-xs text-gray-500">
@@ -129,7 +150,9 @@ function CouncilDetailView({ detail, isDark, onClose }: CouncilDetailViewProps) 
                 </div>
               </div>
               {selectedRound === round.round && (
-                <div className={`mt-2 p-2 rounded text-sm ${isDark ? "bg-gray-700" : "bg-gray-100"}`}>
+                <div
+                  className={`mt-2 p-2 rounded text-sm ${isDark ? "bg-gray-700" : "bg-gray-100"}`}
+                >
                   {round.content}
                 </div>
               )}
@@ -146,7 +169,9 @@ function CouncilDetailView({ detail, isDark, onClose }: CouncilDetailViewProps) 
             <div
               key={vote.agentId}
               className={`p-2 rounded-lg border text-sm ${
-                isDark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"
+                isDark
+                  ? "border-gray-700 bg-gray-800"
+                  : "border-gray-200 bg-white"
               }`}
             >
               <div className="flex items-center justify-between">
@@ -161,10 +186,16 @@ function CouncilDetailView({ detail, isDark, onClose }: CouncilDetailViewProps) 
 
       {/* 最终结论 */}
       <div>
-        <h4 className="text-sm font-semibold mb-2">{t("workspace.orchestration")}</h4>
-        <div className={`p-3 rounded-lg border text-sm ${
-          isDark ? "border-green-700 bg-green-900/20" : "border-green-300 bg-green-50"
-        }`}>
+        <h4 className="text-sm font-semibold mb-2">
+          {t("workspace.orchestration")}
+        </h4>
+        <div
+          className={`p-3 rounded-lg border text-sm ${
+            isDark
+              ? "border-green-700 bg-green-900/20"
+              : "border-green-300 bg-green-50"
+          }`}
+        >
           {detail.conclusion}
         </div>
       </div>

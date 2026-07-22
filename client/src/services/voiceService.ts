@@ -1,4 +1,5 @@
 import { httpLegacy as http } from "./httpClient";
+import { getOTelTracing } from "../monitoring/otel";
 
 // STTResult、STTSegment、VoiceSession 来自共享类型定义
 import type { STTResult, STTSegment, VoiceSession } from "@shared/types";
@@ -84,7 +85,12 @@ let wakeWs: WebSocket | null = null;
 let wakeReconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** 唤醒词检测回调 */
-let onWakeWordDetectedCb: ((data: { matchedTrigger: string | null; remainingText: string | null }) => void) | null = null;
+let onWakeWordDetectedCb:
+  | ((data: {
+      matchedTrigger: string | null;
+      remainingText: string | null;
+    }) => void)
+  | null = null;
 
 /** 唤醒 WS 连接断开回调 — 保留供后续使用 */
 // @ts-expect-error TS6133: reserved for future use
@@ -107,7 +113,10 @@ let wakeReconnectAttempt = 0;
  * 当后端检测到唤醒词时通过 WebSocket 推送，此回调被触发
  */
 export function onWakeWordDetected(
-  cb: (data: { matchedTrigger: string | null; remainingText: string | null }) => void
+  cb: (data: {
+    matchedTrigger: string | null;
+    remainingText: string | null;
+  }) => void,
 ): void {
   onWakeWordDetectedCb = cb;
 }
@@ -133,7 +142,16 @@ export function connectWakeWordWebSocket(): Promise<void> {
     wakeReconnectAttempt = 0;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const url = `${protocol}//${window.location.host}/wake`;
+    // P1-2.16: 注入 traceparent 查询参数
+    const span = getOTelTracing().getActiveSpan();
+    let tpParam = '';
+    if (span) {
+      const ctx = span.spanContext();
+      if (ctx.traceId) {
+        tpParam = `?traceparent=00-${ctx.traceId}-${ctx.spanId}-0${ctx.traceFlags}`;
+      }
+    }
+    const url = `${protocol}//${window.location.host}/wake${tpParam}`;
     const ws = new WebSocket(url);
 
     ws.onopen = () => {
@@ -177,7 +195,7 @@ export function connectWakeWordWebSocket(): Promise<void> {
       // 自动重连（指数退避）
       const delay = Math.min(
         WAKE_RECONNECT_BASE_MS * Math.pow(2, wakeReconnectAttempt),
-        WAKE_RECONNECT_MAX_MS
+        WAKE_RECONNECT_MAX_MS,
       );
       wakeReconnectAttempt++;
 
@@ -223,7 +241,7 @@ export function disconnectWakeWordWebSocket(requested: boolean = true): void {
  * 当后端 VoiceSession 状态变更时通过 WebSocket 推送，此回调被触发
  */
 export function onVoiceStateChange(
-  cb: (state: string, previous: string) => void
+  cb: (state: string, previous: string) => void,
 ): void {
   onStateChangeCb = cb;
 }
@@ -246,7 +264,16 @@ export function connectVoiceWebSocket(): Promise<void> {
     disconnectVoiceWebSocket();
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const url = `${protocol}//${window.location.host}/voice`;
+    // P1-2.16: 注入 traceparent 查询参数，实现跨进程 TraceContext 传递
+    const span = getOTelTracing().getActiveSpan();
+    let tpParam = '';
+    if (span) {
+      const ctx = span.spanContext();
+      if (ctx.traceId) {
+        tpParam = `?traceparent=00-${ctx.traceId}-${ctx.spanId}-0${ctx.traceFlags}`;
+      }
+    }
+    const url = `${protocol}//${window.location.host}/voice${tpParam}`;
     const ws = new WebSocket(url);
 
     ws.onopen = () => {
@@ -368,29 +395,33 @@ const voiceService = {
     sessionId: string,
     audioBlob: Blob,
   ): Promise<{ transcript: string; audioUrl?: string }> {
-    const formData = new FormData();
-    formData.append("audio", audioBlob, "recording.webm");
-    formData.append("sessionId", sessionId);
+    return getOTelTracing().asyncWrap("services:voice:uploadAudio", async () => {
+      const formData = new FormData();
+      formData.append("audio", audioBlob, "recording.webm");
+      formData.append("sessionId", sessionId);
 
-    const response = await fetch(`${window.location.origin}/v1/voice/upload`, {
-      method: "POST",
-      body: formData,
+      const response = await fetch(`${window.location.origin}/v1/voice/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload audio");
+      }
+
+      return response.json();
     });
-
-    if (!response.ok) {
-      throw new Error("Failed to upload audio");
-    }
-
-    return response.json();
   },
 
   async getAudioStream(sessionId: string): Promise<MediaStream> {
-    const response = await fetch(`/v1/voice/stream/${sessionId}`);
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.play();
-    return new MediaStream();
+    return getOTelTracing().asyncWrap("services:voice:getAudioStream", async () => {
+      const response = await fetch(`/v1/voice/stream/${sessionId}`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.play();
+      return new MediaStream();
+    });
   },
 
   async synthesizeSpeech(text: string, voiceId?: string): Promise<string> {
@@ -439,57 +470,60 @@ const voiceService = {
       keyterms?: string[];
     },
   ): Promise<STTResult> {
-    // L15: 离线检测 — 网络不可用时给出友好提示
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      return Promise.reject(
-        new Error("网络不可用，语音识别暂不可用，请连接网络后重试"),
-      );
-    }
-
-    // L4/L5: 优先使用二进制传输（FormData / multipart）
-    try {
-      const formData = new FormData();
-      formData.append("audio", audioBlob, "recording.wav");
-      if (options?.providerId) formData.append("providerId", options.providerId);
-      if (options?.language) formData.append("language", options.language);
-      if (options?.keyterms) {
-        formData.append("keyterms", JSON.stringify(options.keyterms));
+    return getOTelTracing().asyncWrap("services:voice:transcribe", async () => {
+      // L15: 离线检测 — 网络不可用时给出友好提示
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        return Promise.reject(
+          new Error("网络不可用，语音识别暂不可用，请连接网络后重试"),
+        );
       }
 
-      const response = await fetch("/v1/voice/transcribe", {
-        method: "POST",
-        body: formData,
-      });
+      // L4/L5: 优先使用二进制传输（FormData / multipart）
+      try {
+        const formData = new FormData();
+        formData.append("audio", audioBlob, "recording.wav");
+        if (options?.providerId)
+          formData.append("providerId", options.providerId);
+        if (options?.language) formData.append("language", options.language);
+        if (options?.keyterms) {
+          formData.append("keyterms", JSON.stringify(options.keyterms));
+        }
 
-      if (!response.ok) {
-        throw new Error(`服务器响应异常 (${response.status})`);
+        const response = await fetch("/v1/voice/transcribe", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`服务器响应异常 (${response.status})`);
+        }
+
+        return await response.json();
+      } catch {
+        // 降级：二进制传输失败时回退到 JSON + base64
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+
+          reader.onload = async () => {
+            try {
+              const base64 = (reader.result as string).split(",")[1];
+              const result = await http.post<STTResult>("/v1/voice/transcribe", {
+                audioData: base64,
+                providerId: options?.providerId,
+                language: options?.language,
+                keyterms: options?.keyterms,
+              });
+              resolve(result);
+            } catch (err) {
+              reject(err);
+            }
+          };
+
+          reader.onerror = () => reject(new Error("读取音频文件失败"));
+          reader.readAsDataURL(audioBlob);
+        });
       }
-
-      return await response.json();
-    } catch {
-      // 降级：二进制传输失败时回退到 JSON + base64
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-
-        reader.onload = async () => {
-          try {
-            const base64 = (reader.result as string).split(",")[1];
-            const result = await http.post<STTResult>("/v1/voice/transcribe", {
-              audioData: base64,
-              providerId: options?.providerId,
-              language: options?.language,
-              keyterms: options?.keyterms,
-            });
-            resolve(result);
-          } catch (err) {
-            reject(err);
-          }
-        };
-
-        reader.onerror = () => reject(new Error("读取音频文件失败"));
-        reader.readAsDataURL(audioBlob);
-      });
-    }
+    });
   },
 
   // ═══════════════════════════════════════════
@@ -512,9 +546,10 @@ const voiceService = {
   async getTTSProvidersDetail(): Promise<
     Array<{ name: string; supportedFormats: string[] }>
   > {
-    const response = await http.get<
-      Array<{ name: string; supportedFormats: string[] }>
-    >("/v1/tts/providers");
+    const response =
+      await http.get<Array<{ name: string; supportedFormats: string[] }>>(
+        "/v1/tts/providers",
+      );
     return response;
   },
 

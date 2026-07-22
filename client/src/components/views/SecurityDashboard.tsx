@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useConfigStore } from '../../stores/configStore';
+import { useState, useEffect, useCallback } from "react";
+import { useConfigStore } from "../../stores/configStore";
 
 /**
  * 安全仪表盘
@@ -26,8 +26,8 @@ interface SecurityStatus {
 /** 从后端获取安全状态数据 */
 async function fetchSecurityStatus(): Promise<SecurityStatus> {
   try {
-    const response = await fetch('/v1/security/dashboard');
-    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const response = await fetch("/v1/security/dashboard");
+    if (!response.ok) throw new Error("HTTP " + response.status);
     return await response.json();
   } catch {
     // 后端 API 不可用时返回空状态
@@ -43,7 +43,7 @@ async function fetchSecurityStatus(): Promise<SecurityStatus> {
 
 function SecurityDashboard() {
   const { config } = useConfigStore();
-  const isDark = config.theme === 'dark';
+  const isDark = config.theme === "dark";
   const [status, setStatus] = useState<SecurityStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -72,37 +72,48 @@ function SecurityDashboard() {
     loadStatus();
   }, [loadStatus]);
 
-  const bgCard = isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200';
-  const textPrimary = isDark ? 'text-gray-100' : 'text-gray-900';
-  const textSecondary = isDark ? 'text-gray-400' : 'text-gray-500';
-  const badgeCritical = 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-  const badgeHigh = 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-  const badgeMedium = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+  const bgCard = isDark
+    ? "bg-gray-800 border-gray-700"
+    : "bg-white border-gray-200";
+  const textPrimary = isDark ? "text-gray-100" : "text-gray-900";
+  const textSecondary = isDark ? "text-gray-400" : "text-gray-500";
+  const badgeCritical =
+    "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
+  const badgeHigh =
+    "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200";
+  const badgeMedium =
+    "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
 
   /** 获取风险等级对应的 badge 样式 */
   function riskBadgeClass(level: string): string {
     switch (level) {
-      case 'critical': return badgeCritical;
-      case 'high': return badgeHigh;
-      case 'medium': return badgeMedium;
-      default: return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case "critical":
+        return badgeCritical;
+      case "high":
+        return badgeHigh;
+      case "medium":
+        return badgeMedium;
+      default:
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
     }
   }
 
   /** 获取决策对应的中文描述 */
   function decisionLabel(decision: string): string {
     const map: Record<string, string> = {
-      approved: '已批准',
-      rejected: '已拒绝',
-      auto_allowed: '自动放行',
-      auto_denied: '自动拒绝',
-      timeout_denied: '超时拒绝',
+      approved: "已批准",
+      rejected: "已拒绝",
+      auto_allowed: "自动放行",
+      auto_denied: "自动拒绝",
+      timeout_denied: "超时拒绝",
     };
     return map[decision] || decision;
   }
 
   return (
-    <div className={`p-6 min-h-screen ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+    <div
+      className={`p-6 min-h-screen ${isDark ? "bg-gray-900" : "bg-gray-50"}`}
+    >
       {/* 页面标题 */}
       <div className="mb-6">
         <h1 className={`text-2xl font-bold ${textPrimary}`}>安全仪表盘</h1>
@@ -111,14 +122,18 @@ function SecurityDashboard() {
 
       {/* 加载状态 */}
       {loading && (
-        <div className={`p-6 ${bgCard} border rounded-lg ${textSecondary} text-center`}>
+        <div
+          className={`p-6 ${bgCard} border rounded-lg ${textSecondary} text-center`}
+        >
           加载中...
         </div>
       )}
 
       {/* 空状态 */}
       {!loading && (!status || status.totalRules === 0) && (
-        <div className={`p-6 ${bgCard} border rounded-lg ${textSecondary} text-center`}>
+        <div
+          className={`p-6 ${bgCard} border rounded-lg ${textSecondary} text-center`}
+        >
           安全仪表盘尚未激活，请确保后端安全服务已启动。
         </div>
       )}
@@ -137,10 +152,14 @@ function SecurityDashboard() {
             <div className="mt-2 space-y-1">
               {Object.entries(status.riskDistribution).map(([level, count]) => (
                 <div key={level} className="flex items-center justify-between">
-                  <span className={`text-xs px-1.5 py-0.5 rounded ${riskBadgeClass(level)}`}>
+                  <span
+                    className={`text-xs px-1.5 py-0.5 rounded ${riskBadgeClass(level)}`}
+                  >
                     {level}
                   </span>
-                  <span className={`text-sm font-medium ${textPrimary}`}>{count}</span>
+                  <span className={`text-sm font-medium ${textPrimary}`}>
+                    {count}
+                  </span>
                 </div>
               ))}
             </div>
@@ -148,14 +167,21 @@ function SecurityDashboard() {
           <div className={`p-4 ${bgCard} border rounded-lg`}>
             <div className={`text-sm ${textSecondary}`}>决策分布</div>
             <div className="mt-2 space-y-1">
-              {Object.entries(status.decisionDistribution).map(([decision, count]) => (
-                <div key={decision} className="flex items-center justify-between">
-                  <span className={`text-xs ${textSecondary}`}>
-                    {decisionLabel(decision)}
-                  </span>
-                  <span className={`text-sm font-medium ${textPrimary}`}>{count}</span>
-                </div>
-              ))}
+              {Object.entries(status.decisionDistribution).map(
+                ([decision, count]) => (
+                  <div
+                    key={decision}
+                    className="flex items-center justify-between"
+                  >
+                    <span className={`text-xs ${textSecondary}`}>
+                      {decisionLabel(decision)}
+                    </span>
+                    <span className={`text-sm font-medium ${textPrimary}`}>
+                      {count}
+                    </span>
+                  </div>
+                ),
+              )}
             </div>
           </div>
         </div>
@@ -164,12 +190,16 @@ function SecurityDashboard() {
       {/* 最近审计事件 */}
       {status && status.recentEvents.length > 0 && (
         <div className={`${bgCard} border rounded-lg overflow-hidden`}>
-          <div className={`px-4 py-3 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-            <h2 className={`text-sm font-semibold ${textPrimary}`}>最近安全事件</h2>
+          <div
+            className={`px-4 py-3 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}
+          >
+            <h2 className={`text-sm font-semibold ${textPrimary}`}>
+              最近安全事件
+            </h2>
           </div>
           <div className="overflow-x-auto">
             <table className={`w-full text-sm ${textPrimary}`}>
-              <thead className={isDark ? 'bg-gray-700' : 'bg-gray-50'}>
+              <thead className={isDark ? "bg-gray-700" : "bg-gray-50"}>
                 <tr>
                   <th className="px-4 py-2 text-left font-medium">时间</th>
                   <th className="px-4 py-2 text-left font-medium">命令</th>
@@ -179,20 +209,27 @@ function SecurityDashboard() {
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {status.recentEvents.map((event) => (
-                  <tr key={event.id} className="hover:bg-gray-50 dark:hover:bg-gray-750">
+                  <tr
+                    key={event.id}
+                    className="hover:bg-gray-50 dark:hover:bg-gray-750"
+                  >
                     <td className="px-4 py-2 whitespace-nowrap text-xs">
-                      {new Date(event.timestamp).toLocaleString('zh-CN')}
+                      {new Date(event.timestamp).toLocaleString("zh-CN")}
                     </td>
                     <td className="px-4 py-2 max-w-md truncate font-mono text-xs">
                       {event.truncatedResult}
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap">
-                      <span className={`text-xs px-1.5 py-0.5 rounded ${riskBadgeClass(event.riskLevel)}`}>
+                      <span
+                        className={`text-xs px-1.5 py-0.5 rounded ${riskBadgeClass(event.riskLevel)}`}
+                      >
                         {decisionLabel(event.decision)}
                       </span>
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap">
-                      <span className={`text-xs px-1.5 py-0.5 rounded ${riskBadgeClass(event.riskLevel)}`}>
+                      <span
+                        className={`text-xs px-1.5 py-0.5 rounded ${riskBadgeClass(event.riskLevel)}`}
+                      >
                         {event.riskLevel}
                       </span>
                     </td>

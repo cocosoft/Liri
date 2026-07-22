@@ -57,64 +57,64 @@ export const statsService = {
     const backendStatus =
       results[0].status === "fulfilled"
         ? results[0].value
-        : ((results[0].status === "rejected" &&
-            logger.warn("后端状态加载失败:", results[0].reason)),
+        : (results[0].status === "rejected" &&
+            logger.warn("后端状态加载失败:", results[0].reason),
           { running: false, port: null });
 
     const models =
       results[1].status === "fulfilled"
         ? results[1].value
-        : ((results[1].status === "rejected" &&
-            logger.warn("模型列表加载失败:", results[1].reason)),
+        : (results[1].status === "rejected" &&
+            logger.warn("模型列表加载失败:", results[1].reason),
           []);
 
     const tools =
       results[2].status === "fulfilled"
         ? results[2].value
-        : ((results[2].status === "rejected" &&
-            logger.warn("工具列表加载失败:", results[2].reason)),
+        : (results[2].status === "rejected" &&
+            logger.warn("工具列表加载失败:", results[2].reason),
           []);
 
     const sessions =
       results[3].status === "fulfilled"
         ? results[3].value
-        : ((results[3].status === "rejected" &&
-            logger.warn("会话列表加载失败:", results[3].reason)),
+        : (results[3].status === "rejected" &&
+            logger.warn("会话列表加载失败:", results[3].reason),
           []);
 
     const knowledge =
       results[4].status === "fulfilled"
         ? results[4].value
-        : ((results[4].status === "rejected" &&
-            logger.warn("知识库列表加载失败:", results[4].reason)),
+        : (results[4].status === "rejected" &&
+            logger.warn("知识库列表加载失败:", results[4].reason),
           []);
 
     const cronTasks =
       results[5].status === "fulfilled"
         ? results[5].value
-        : ((results[5].status === "rejected" &&
-            logger.warn("定时任务列表加载失败:", results[5].reason)),
+        : (results[5].status === "rejected" &&
+            logger.warn("定时任务列表加载失败:", results[5].reason),
           []);
 
     const channels =
       results[6].status === "fulfilled"
         ? results[6].value
-        : ((results[6].status === "rejected" &&
-            logger.warn("渠道列表加载失败:", results[6].reason)),
+        : (results[6].status === "rejected" &&
+            logger.warn("渠道列表加载失败:", results[6].reason),
           []);
 
     const agentTasks =
       results[7].status === "fulfilled"
         ? results[7].value
-        : ((results[7].status === "rejected" &&
-            logger.warn("Agent 任务列表加载失败:", results[7].reason)),
+        : (results[7].status === "rejected" &&
+            logger.warn("Agent 任务列表加载失败:", results[7].reason),
           []);
 
     const buddy =
       results[8].status === "fulfilled"
         ? results[8].value
-        : ((results[8].status === "rejected" &&
-            logger.warn("Buddy 信息加载失败:", results[8].reason)),
+        : (results[8].status === "rejected" &&
+            logger.warn("Buddy 信息加载失败:", results[8].reason),
           null);
 
     return {

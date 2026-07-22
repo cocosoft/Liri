@@ -84,6 +84,21 @@ export { AITracePlugin } from './AITracePlugin';
 import { AITracePlugin } from './AITracePlugin';
 import type { MonitoringDeps, TraceConfig } from './types';
 
+/** createAITracePlugin 配置参数 */
+export interface AITracePluginOptions {
+  /** 录制存储目录（优先级高于环境变量 AI_TRACE_DIR） */
+  traceDir?: string;
+  /** 是否启用（优先级高于 DISABLE_TRACE_RECORDING 环境变量） */
+  enabled?: boolean;
+  /** 监控系统依赖（用于集成模式） */
+  deps?: {
+    /** OTel Tracer 实例（用于关联 Span） */
+    otel?: unknown;
+    /** Logger 实例 */
+    logger?: unknown;
+  };
+}
+
 /**
  * 全局 AITracePlugin 实例
  */
@@ -99,29 +114,60 @@ export function getAITracePlugin(): AITracePlugin | null {
 /**
  * 创建并启动 AITracePlugin
  *
- * 从环境变量读取配置：
+ * 从环境变量读取配置（options 参数优先级更高）：
  *   - AI_TRACE_DIR: 录制文件目录（默认: traces）
  *   - AI_TRACE_MODE: 录制模式 all|error-only|slow-only（默认: all）
  *   - AI_TRACE_SLOW_THRESHOLD: 慢请求阈值毫秒（默认: 30000）
  *   - AI_TRACE_LIVE_VIEW_PORT: 实时查看端口（0=禁用，默认: 0）
+ *   - DISABLE_TRACE_RECORDING: 设为 true 禁用录制
  *
- * @param deps 监控系统依赖（可选，传参启用集成模式）
+ * @param options 可选的配置覆盖 + 监控系统依赖
  */
-export function createAITracePlugin(deps?: MonitoringDeps): AITracePlugin {
+export function createAITracePlugin(
+  options?: AITracePluginOptions
+): AITracePlugin {
   if (globalPlugin) {
     return globalPlugin;
   }
 
+  const traceDir =
+    options?.traceDir || configManager.env('AI_TRACE_DIR') || 'traces';
+  const enabled =
+    options?.enabled ?? process.env.DISABLE_TRACE_RECORDING !== 'true';
+
   const config: TraceConfig = {
-    traceDir: configManager.env('AI_TRACE_DIR') || 'traces',
+    traceDir,
     mode: (configManager.env('AI_TRACE_MODE') as TraceConfig['mode']) || 'all',
     slowThresholdMs:
       Number(configManager.env('AI_TRACE_SLOW_THRESHOLD')) || 30000,
     liveViewPort: Number(configManager.env('AI_TRACE_LIVE_VIEW_PORT')) || 0,
+    enabled,
   };
 
-  globalPlugin = new AITracePlugin(config, deps || undefined);
-  globalPlugin.start();
+  // 将新的 deps 格式映射到 MonitoringDeps
+  let monitoring: MonitoringDeps | undefined;
+  if (options?.deps) {
+    monitoring = {};
+    if (
+      options.deps.otel &&
+      typeof (options.deps.otel as Record<string, unknown>).getActiveSpan ===
+        'function'
+    ) {
+      monitoring.tracing = {
+        getActiveSpan: (options.deps.otel as Record<string, unknown>)
+          .getActiveSpan as () =>
+          | { spanContext: () => { traceId: string; spanId: string } }
+          | undefined,
+      };
+    }
+  }
+
+  globalPlugin = new AITracePlugin(config, monitoring);
+
+  // 仅当 enabled 时启动
+  if (enabled) {
+    globalPlugin.start();
+  }
 
   return globalPlugin;
 }

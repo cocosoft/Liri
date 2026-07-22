@@ -29,7 +29,11 @@ function AgentChatPanel({ taskId, taskName }: AgentChatPanelProps) {
     const text = input.trim();
     if (!text || sending) return;
 
-    const userMsg: ChatEntry = { role: "user", content: text, timestamp: Date.now() };
+    const userMsg: ChatEntry = {
+      role: "user",
+      content: text,
+      timestamp: Date.now(),
+    };
     setMessages((p) => [...p, userMsg]);
     setInput("");
     setSending(true);
@@ -39,7 +43,11 @@ function AgentChatPanel({ taskId, taskName }: AgentChatPanelProps) {
       const reply = await agentService.sendChatMessage(taskId, text);
       setMessages((p) => [
         ...p,
-        { role: "assistant", content: reply || t("agent.error"), timestamp: Date.now() },
+        {
+          role: "assistant",
+          content: reply || t("agent.error"),
+          timestamp: Date.now(),
+        },
       ]);
     } catch (e) {
       setError(String(e));
@@ -51,7 +59,11 @@ function AgentChatPanel({ taskId, taskName }: AgentChatPanelProps) {
   return (
     <div className="flex flex-col h-full">
       <div className="text-xs text-gray-400 dark:text-gray-500 mb-2 truncate">
-        与 <span className="font-medium text-gray-600 dark:text-gray-300">{taskName}</span> 对话
+        与{" "}
+        <span className="font-medium text-gray-600 dark:text-gray-300">
+          {taskName}
+        </span>{" "}
+        对话
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-2 mb-2 min-h-[200px] max-h-[360px] bg-gray-50 dark:bg-gray-800/50 rounded p-2 border border-gray-100 dark:border-gray-700">

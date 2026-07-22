@@ -35,7 +35,12 @@ const MAX_INPUT_CHARS = 5000;
  * @param speed - 语速
  * @param provider - 当前选中的 TTS Provider
  */
-function TTSPlayground({ activeVoice, activeFormat, speed, provider }: TTSPlaygroundProps) {
+function TTSPlayground({
+  activeVoice,
+  activeFormat,
+  speed,
+  provider,
+}: TTSPlaygroundProps) {
   // ── 状态 ──
   const [text, setText] = useState("");
   const [synthesizing, setSynthesizing] = useState(false);
@@ -95,7 +100,9 @@ function TTSPlayground({ activeVoice, activeFormat, speed, provider }: TTSPlaygr
 
       if (!response.ok) {
         throw new Error(
-          result?.error?.message || result?.error || `服务器响应异常 (${response.status})`
+          result?.error?.message ||
+            result?.error ||
+            `服务器响应异常 (${response.status})`,
         );
       }
 
@@ -123,7 +130,16 @@ function TTSPlayground({ activeVoice, activeFormat, speed, provider }: TTSPlaygr
       setSynthesizing(false);
       abortRef.current = null;
     }
-  }, [text, activeVoice, activeFormat, speed, provider, synthesizing, history, saveHistory]);
+  }, [
+    text,
+    activeVoice,
+    activeFormat,
+    speed,
+    provider,
+    synthesizing,
+    history,
+    saveHistory,
+  ]);
 
   // ── 停止合成 ──
   const handleStop = useCallback(() => {
@@ -181,7 +197,9 @@ function TTSPlayground({ activeVoice, activeFormat, speed, provider }: TTSPlaygr
       <div className="flex gap-2 mb-3">
         <button
           onClick={handleSynthesize}
-          disabled={!text.trim() || synthesizing || text.length >= MAX_INPUT_CHARS}
+          disabled={
+            !text.trim() || synthesizing || text.length >= MAX_INPUT_CHARS
+          }
           className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {synthesizing ? "合成中..." : "合成"}
@@ -237,7 +255,9 @@ function TTSPlayground({ activeVoice, activeFormat, speed, provider }: TTSPlaygr
             src={audioUrl}
             controls
             className="w-full"
-            onError={() => setPlayError("无法播放音频，音频数据可能已损坏或格式不受支持。")}
+            onError={() =>
+              setPlayError("无法播放音频，音频数据可能已损坏或格式不受支持。")
+            }
             onCanPlay={() => setPlayError(null)}
           />
           {playError && (
@@ -261,13 +281,16 @@ function TTSPlayground({ activeVoice, activeFormat, speed, provider }: TTSPlaygr
             最近合成
           </h4>
           <div className="space-y-2 max-h-60 overflow-y-auto">
-            {[...history].reverse().slice(0, 20).map((item) => (
-              <TTSHistoryItem
-                key={item.id}
-                item={item}
-                onReSynthesize={handleReSynthesize}
-              />
-            ))}
+            {[...history]
+              .reverse()
+              .slice(0, 20)
+              .map((item) => (
+                <TTSHistoryItem
+                  key={item.id}
+                  item={item}
+                  onReSynthesize={handleReSynthesize}
+                />
+              ))}
           </div>
         </div>
       )}

@@ -110,7 +110,9 @@ function SecretField({
           type={showPassword ? "text" : "password"}
           value={currentInput}
           onChange={(e) => onSecretChange(field.key, e.target.value)}
-          placeholder={defaultValue ? "已保存，留空则不修改" : field.placeholder}
+          placeholder={
+            defaultValue ? "已保存，留空则不修改" : field.placeholder
+          }
           className="flex-1 px-3 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
@@ -304,9 +306,7 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
           )}
 
           {/* 微信扫码登录二维码 */}
-          {channel.type === "wechat" && (
-            <WechatQrCard />
-          )}
+          {channel.type === "wechat" && <WechatQrCard />}
 
           {/* 认证配置 */}
           {fields.length > 0 && (

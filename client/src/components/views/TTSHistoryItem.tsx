@@ -34,12 +34,9 @@ function TTSHistoryItem({ item, onReSynthesize }: TTSHistoryItemProps) {
   return (
     <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded text-sm">
       <div className="flex-1 min-w-0 mr-2">
-        <p className="truncate text-gray-700 dark:text-gray-300">
-          {item.text}
-        </p>
+        <p className="truncate text-gray-700 dark:text-gray-300">{item.text}</p>
         <p className="text-xs text-gray-400">
-          {new Date(item.createdAt).toLocaleTimeString()} ·{" "}
-          {item.charCount}字
+          {new Date(item.createdAt).toLocaleTimeString()} · {item.charCount}字
         </p>
       </div>
       <button

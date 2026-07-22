@@ -4,6 +4,7 @@
  * Phase 2 增强：旋转、翻转、实际大小、缩放滑块、全屏、快捷键
  */
 import { useState, useEffect, useCallback, useRef } from "react";
+import { handleClientError } from "../../../utils/handleError";
 
 /** 变换状态：统一管理缩放、旋转、翻转 */
 interface TransformState {
@@ -21,7 +22,12 @@ interface Props {
   onDelete?: () => void;
 }
 
-export default function ImageViewer({ images, initialIndex = 0, onClose, onDelete }: Props) {
+export default function ImageViewer({
+  images,
+  initialIndex = 0,
+  onClose,
+  onDelete,
+}: Props) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [transform, setTransform] = useState<TransformState>({
     scale: 1,
@@ -50,7 +56,7 @@ export default function ImageViewer({ images, initialIndex = 0, onClose, onDelet
       setCurrentIndex(index);
       resetTransform();
     },
-    [resetTransform]
+    [resetTransform],
   );
 
   /** images 变化时修正越界的 currentIndex */
@@ -62,7 +68,10 @@ export default function ImageViewer({ images, initialIndex = 0, onClose, onDelet
 
   /** 更新缩放 */
   const setScale = useCallback((newScale: number) => {
-    setTransform((prev) => ({ ...prev, scale: Math.max(0.25, Math.min(4, newScale)) }));
+    setTransform((prev) => ({
+      ...prev,
+      scale: Math.max(0.25, Math.min(4, newScale)),
+    }));
   }, []);
 
   // 快捷键
@@ -89,10 +98,16 @@ export default function ImageViewer({ images, initialIndex = 0, onClose, onDelet
 
       // 缩放
       if (e.key === "+" || e.key === "=") {
-        setTransform((prev) => ({ ...prev, scale: Math.min(4, prev.scale + 0.25) }));
+        setTransform((prev) => ({
+          ...prev,
+          scale: Math.min(4, prev.scale + 0.25),
+        }));
       }
       if (e.key === "-") {
-        setTransform((prev) => ({ ...prev, scale: Math.max(0.25, prev.scale - 0.25) }));
+        setTransform((prev) => ({
+          ...prev,
+          scale: Math.max(0.25, prev.scale - 0.25),
+        }));
       }
       if (e.key === "0" && !e.ctrlKey && !e.metaKey) {
         setTransform((prev) => ({ ...prev, scale: 1 }));
@@ -130,7 +145,15 @@ export default function ImageViewer({ images, initialIndex = 0, onClose, onDelet
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, images.length, currentIndex, goToImage, resetTransform, onDelete, isFullscreen]);
+  }, [
+    onClose,
+    images.length,
+    currentIndex,
+    goToImage,
+    resetTransform,
+    onDelete,
+    isFullscreen,
+  ]);
 
   /** 全屏切换 */
   const toggleFullscreen = useCallback(async () => {
@@ -143,7 +166,8 @@ export default function ImageViewer({ images, initialIndex = 0, onClose, onDelet
         await containerRef.current?.requestFullscreen();
         isFullscreenRef.current = true;
         setIsFullscreen(true);
-      } catch {
+      } catch (e) {
+        handleClientError(e, { module: "components:chat:ImageViewer", action: "toggleFullscreen" });
         // 浏览器拒绝全屏（如 iframe 限制等），忽略
       }
     }
@@ -169,7 +193,10 @@ export default function ImageViewer({ images, initialIndex = 0, onClose, onDelet
     const handler = (e: WheelEvent) => {
       e.preventDefault();
       setTransform((prev) => {
-        const next = { ...prev, scale: prev.scale + (e.deltaY > 0 ? -0.1 : 0.1) };
+        const next = {
+          ...prev,
+          scale: prev.scale + (e.deltaY > 0 ? -0.1 : 0.1),
+        };
         if (next.scale < 0.25) next.scale = 0.25;
         if (next.scale > 4) next.scale = 4;
         return next;
@@ -227,7 +254,8 @@ export default function ImageViewer({ images, initialIndex = 0, onClose, onDelet
     }
   };
 
-  const isTransformed = transform.rotation !== 0 || transform.flipX || transform.flipY;
+  const isTransformed =
+    transform.rotation !== 0 || transform.flipX || transform.flipY;
 
   return (
     <div
@@ -301,7 +329,10 @@ export default function ImageViewer({ images, initialIndex = 0, onClose, onDelet
 
         {/* 实际大小 */}
         <button
-          onClick={() => { setTransform((prev) => ({ ...prev, scale: 1 })); setOffset({ x: 0, y: 0 }); }}
+          onClick={() => {
+            setTransform((prev) => ({ ...prev, scale: 1 }));
+            setOffset({ x: 0, y: 0 });
+          }}
           className={`text-white/70 hover:text-white text-sm px-2 ${transform.scale === 1 && !isTransformed ? "text-white" : ""}`}
           title="实际大小 (0)"
         >
@@ -319,7 +350,9 @@ export default function ImageViewer({ images, initialIndex = 0, onClose, onDelet
 
         {/* 旋转 */}
         <button
-          onClick={() => setTransform((prev) => ({ ...prev, rotation: prev.rotation + 90 }))}
+          onClick={() =>
+            setTransform((prev) => ({ ...prev, rotation: prev.rotation + 90 }))
+          }
           className={`text-white/70 hover:text-white text-sm px-2 ${transform.rotation !== 0 ? "text-white" : ""}`}
           title="旋转90° (R)"
         >
@@ -328,7 +361,9 @@ export default function ImageViewer({ images, initialIndex = 0, onClose, onDelet
 
         {/* 水平翻转 */}
         <button
-          onClick={() => setTransform((prev) => ({ ...prev, flipX: !prev.flipX }))}
+          onClick={() =>
+            setTransform((prev) => ({ ...prev, flipX: !prev.flipX }))
+          }
           className={`text-white/70 hover:text-white text-sm px-2 ${transform.flipX ? "text-white" : ""}`}
           title="水平翻转 (H)"
         >
@@ -337,7 +372,9 @@ export default function ImageViewer({ images, initialIndex = 0, onClose, onDelet
 
         {/* 垂直翻转 */}
         <button
-          onClick={() => setTransform((prev) => ({ ...prev, flipY: !prev.flipY }))}
+          onClick={() =>
+            setTransform((prev) => ({ ...prev, flipY: !prev.flipY }))
+          }
           className={`text-white/70 hover:text-white text-sm px-2 ${transform.flipY ? "text-white" : ""}`}
           title="垂直翻转 (V)"
         >
@@ -368,7 +405,10 @@ export default function ImageViewer({ images, initialIndex = 0, onClose, onDelet
         {/* 删除 */}
         {onDelete && (
           <button
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
             className="text-white/70 hover:text-red-400 text-sm px-2"
             title="删除 (Delete)"
           >
@@ -380,7 +420,10 @@ export default function ImageViewer({ images, initialIndex = 0, onClose, onDelet
       {/* ──── 左右导航箭头 ──── */}
       {images.length > 1 && (
         <button
-          onClick={(e) => { e.stopPropagation(); goToImage((currentIndex - 1 + images.length) % images.length); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            goToImage((currentIndex - 1 + images.length) % images.length);
+          }}
           className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white text-4xl bg-transparent border-0 cursor-pointer z-10"
         >
           ‹
@@ -388,7 +431,10 @@ export default function ImageViewer({ images, initialIndex = 0, onClose, onDelet
       )}
       {images.length > 1 && (
         <button
-          onClick={(e) => { e.stopPropagation(); goToImage((currentIndex + 1) % images.length); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            goToImage((currentIndex + 1) % images.length);
+          }}
           className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white text-4xl bg-transparent border-0 cursor-pointer z-10"
         >
           ›
@@ -407,8 +453,11 @@ export default function ImageViewer({ images, initialIndex = 0, onClose, onDelet
             transform.flipX ? `scaleX(-1)` : "",
             transform.flipY ? `scaleY(-1)` : "",
             `translate(${offset.x / transform.scale}px, ${offset.y / transform.scale}px)`,
-          ].filter(Boolean).join(" "),
-          cursor: transform.scale > 1 ? (dragging ? "grabbing" : "grab") : "default",
+          ]
+            .filter(Boolean)
+            .join(" "),
+          cursor:
+            transform.scale > 1 ? (dragging ? "grabbing" : "grab") : "default",
           transition: dragging ? "none" : "transform 0.15s ease",
         }}
         onMouseDown={handleMouseDown}

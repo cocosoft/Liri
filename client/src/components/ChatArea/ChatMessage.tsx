@@ -1,4 +1,5 @@
 import React, { memo, useState, Suspense, useMemo } from "react";
+import { handleClientError } from "../../utils/handleError";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("components:chatMessage");
@@ -34,7 +35,15 @@ interface ChatMessageProps {
  * 从消息的 blocks 中提取完整文本内容（用于复制等操作）
  * 包含 text 块、thinking 块、tool_call 结果等所有可见文本
  */
-function getFullContent(message: Message, labels: { thoughtProcess: string; toolCall: string; parameters: string; result: string }): string {
+function getFullContent(
+  message: Message,
+  labels: {
+    thoughtProcess: string;
+    toolCall: string;
+    parameters: string;
+    result: string;
+  },
+): string {
   const parts: string[] = [];
 
   if (message.content) {
@@ -48,10 +57,14 @@ function getFullContent(message: Message, labels: { thoughtProcess: string; tool
           parts.push(block.content);
         }
       } else if (block.type === "thinking" && block.content) {
-        parts.push(`> 💭 ${labels.thoughtProcess}\n> ${block.content.replace(/\n/g, "\n> ")}`);
+        parts.push(
+          `> 💭 ${labels.thoughtProcess}\n> ${block.content.replace(/\n/g, "\n> ")}`,
+        );
       } else if (block.type === "tool_call" && block.toolCall) {
         const tc = block.toolCall;
-        const argsStr = tc.arguments ? JSON.stringify(tc.arguments, null, 2) : "";
+        const argsStr = tc.arguments
+          ? JSON.stringify(tc.arguments, null, 2)
+          : "";
         const resultStr = tc.result
           ? typeof tc.result === "string"
             ? tc.result
@@ -59,8 +72,10 @@ function getFullContent(message: Message, labels: { thoughtProcess: string; tool
           : "";
         if (argsStr || resultStr) {
           const lines = [`**${labels.toolCall}${tc.name}**`];
-          if (argsStr) lines.push(`${labels.parameters}\n\`\`\`json\n${argsStr}\n\`\`\``);
-          if (resultStr) lines.push(`${labels.result}\n${resultStr.slice(0, 500)}`);
+          if (argsStr)
+            lines.push(`${labels.parameters}\n\`\`\`json\n${argsStr}\n\`\`\``);
+          if (resultStr)
+            lines.push(`${labels.result}\n${resultStr.slice(0, 500)}`);
           parts.push(lines.join("\n\n"));
         }
       }
@@ -74,463 +89,524 @@ function getFullContent(message: Message, labels: { thoughtProcess: string; tool
  * ChatMessage 的 memo 比较器：仅在消息实际内容变化时重渲染
  * 避免流式传输中无关消息（已完成的历史消息）被频繁刷新
  */
-const ChatMessageMemo = memo(function ChatMessage({
-  message,
-  isStreaming,
-  hasReplies,
-  sessionUsage,
-}: ChatMessageProps) {
-  const { t } = useTranslation();
-  const setReplyMessage = useChatStore((s) => s.setReplyMessage);
-  const setEditTarget = useChatStore((s) => s.setEditTarget);
-  const regenerateMessage = useChatStore((s) => s.regenerateMessage);
-  const retryFromError = useChatStore((s) => s.retryFromError);
-  const messages = useChatStore((s) => s.messages);
-  const createSession = useSessionStore((s) => s.createSession);
-  const switchSession = useSessionStore((s) => s.switchSession);
-  const currentSession = useSessionStore((s) => s.currentSession);
-  const [showSaveModal, setShowSaveModal] = useState(false);
-  const [branching, setBranching] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [copyToast, setCopyToast] = useState<"copied" | "failed" | null>(null);
-  /** 移动端长按/右键菜单 */
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-  const configTheme = useConfigStore((s) => s.config.theme);
-  const isDark = configTheme === "dark";
-  const isUser = message.role === "user";
-  const isTool = message.role === "tool";
+const ChatMessageMemo = memo(
+  function ChatMessage({
+    message,
+    isStreaming,
+    hasReplies,
+    sessionUsage,
+  }: ChatMessageProps) {
+    const { t } = useTranslation();
+    const setReplyMessage = useChatStore((s) => s.setReplyMessage);
+    const setEditTarget = useChatStore((s) => s.setEditTarget);
+    const regenerateMessage = useChatStore((s) => s.regenerateMessage);
+    const retryFromError = useChatStore((s) => s.retryFromError);
+    const messages = useChatStore((s) => s.messages);
+    const createSession = useSessionStore((s) => s.createSession);
+    const switchSession = useSessionStore((s) => s.switchSession);
+    const currentSession = useSessionStore((s) => s.currentSession);
+    const [showSaveModal, setShowSaveModal] = useState(false);
+    const [branching, setBranching] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [copyToast, setCopyToast] = useState<"copied" | "failed" | null>(
+      null,
+    );
+    /** 移动端长按/右键菜单 */
+    const [contextMenu, setContextMenu] = useState<{
+      x: number;
+      y: number;
+    } | null>(null);
+    const configTheme = useConfigStore((s) => s.config.theme);
+    const isDark = configTheme === "dark";
+    const isUser = message.role === "user";
+    const isTool = message.role === "tool";
 
-  /** 查找被回复的原始消息 */
-  const replyTarget = useMemo(() => {
-    if (!message.replyToId) return null;
-    return messages.find((m) => m.id === message.replyToId) || null;
-  }, [message.replyToId, messages]);
+    /** 查找被回复的原始消息 */
+    const replyTarget = useMemo(() => {
+      if (!message.replyToId) return null;
+      return messages.find((m) => m.id === message.replyToId) || null;
+    }, [message.replyToId, messages]);
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString("zh-CN", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+    const formatTime = (timestamp: number) => {
+      const date = new Date(timestamp);
+      return date.toLocaleTimeString("zh-CN", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    };
 
-  const formatCost = (costUsd?: number) => {
-    if (!costUsd) return null;
-    if (costUsd < 0.01) {
-      return `${(costUsd * 100).toFixed(2)} ¢`;
-    }
-    return `$${costUsd.toFixed(4)}`;
-  };
+    const formatCost = (costUsd?: number) => {
+      if (!costUsd) return null;
+      if (costUsd < 0.01) {
+        return `${(costUsd * 100).toFixed(2)} ¢`;
+      }
+      return `$${costUsd.toFixed(4)}`;
+    };
 
-  /**
-   * 复制消息内容
-   * @param asMarkdown true=复制 Markdown 源码；false/Shift+Click=复制纯文本
-   */
-  const handleCopy = async (asMarkdown: boolean = true) => {
-    try {
-      const textToCopy = asMarkdown
-        ? (typeof message.content === "string" ? message.content : "")
-        : getFullContent(message, {
-            thoughtProcess: t('chat.thoughtProcess'),
-            toolCall: t('chat.toolCall'),
-            parameters: t('chat.parameters'),
-            result: t('chat.result'),
-          });
-      await navigator.clipboard.writeText(textToCopy);
-      setCopyToast("copied");
-      setTimeout(() => setCopyToast(null), 2000);
-    } catch {
-      setCopyToast("failed");
-      setTimeout(() => setCopyToast(null), 2000);
-    }
-  };
+    /**
+     * 复制消息内容
+     * @param asMarkdown true=复制 Markdown 源码；false/Shift+Click=复制纯文本
+     */
+    const handleCopy = async (asMarkdown: boolean = true) => {
+      try {
+        const textToCopy = asMarkdown
+          ? typeof message.content === "string"
+            ? message.content
+            : ""
+          : getFullContent(message, {
+              thoughtProcess: t("chat.thoughtProcess"),
+              toolCall: t("chat.toolCall"),
+              parameters: t("chat.parameters"),
+              result: t("chat.result"),
+            });
+        await navigator.clipboard.writeText(textToCopy);
+        setCopyToast("copied");
+        setTimeout(() => setCopyToast(null), 2000);
+      } catch (e) {
+        handleClientError(e, { module: "components:chat:ChatMessage", action: "handleCopy" });
+        setCopyToast("failed");
+        setTimeout(() => setCopyToast(null), 2000);
+      }
+    };
 
-  const handleRegenerate = () => {
-    regenerateMessage(message.session_id);
-  };
+    const handleRegenerate = () => {
+      regenerateMessage(message.session_id);
+    };
 
-  const handleRetry = () => {
-    // 找到此 AI 消息前面的用户消息
-    retryFromError(message.id, message.session_id);
-  };
+    const handleRetry = () => {
+      // 找到此 AI 消息前面的用户消息
+      retryFromError(message.id, message.session_id);
+    };
 
-  const handleContinue = () => {
-    setReplyMessage(message);
-  };
+    const handleContinue = () => {
+      setReplyMessage(message);
+    };
 
-  /** 创建分支：从当前消息处创建新会话并切换过去 */
-  const handleBranch = async () => {
-    if (branching) return;
-    setBranching(true);
-    try {
-      const branchTitle = currentSession
-        ? `${t('chat.branchPrefix')}${currentSession.title}`
-        : t('chat.newBranchSession');
-      const session = await createSession(branchTitle);
-      await switchSession(session.id);
-    } catch (err) {
-      logger.error("创建分支失败", err);
-    } finally {
-      setBranching(false);
-    }
-  };
+    /** 创建分支：从当前消息处创建新会话并切换过去 */
+    const handleBranch = async () => {
+      if (branching) return;
+      setBranching(true);
+      try {
+        const branchTitle = currentSession
+          ? `${t("chat.branchPrefix")}${currentSession.title}`
+          : t("chat.newBranchSession");
+        const session = await createSession(branchTitle);
+        await switchSession(session.id);
+      } catch (err) {
+        handleClientError(err, { module: "components:chat:ChatMessage", action: "handleBranch" });
+        logger.error("创建分支失败", err);
+      } finally {
+        setBranching(false);
+      }
+    };
 
-  const handleSaveToKnowledge = async (title: string, base: string) => {
-    const content = typeof message.content === "string" ? message.content : "";
-    await knowledgeService.saveFromChat({ base, title, content });
-  };
+    const handleSaveToKnowledge = async (title: string, base: string) => {
+      const content =
+        typeof message.content === "string" ? message.content : "";
+      await knowledgeService.saveFromChat({ base, title, content });
+    };
 
-  const openSaveModal = () => {
-    setShowSaveModal(true);
-  };
+    const openSaveModal = () => {
+      setShowSaveModal(true);
+    };
 
-  /** 移动端长按 / 右键菜单 */
-  const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY });
-  };
+    /** 移动端长按 / 右键菜单 */
+    const handleContextMenu = (e: React.MouseEvent) => {
+      e.preventDefault();
+      setContextMenu({ x: e.clientX, y: e.clientY });
+    };
 
-  /** 关闭菜单 */
-  const closeContextMenu = () => setContextMenu(null);
+    /** 关闭菜单 */
+    const closeContextMenu = () => setContextMenu(null);
 
-  return (
-    <div
-      className={`flex w-full items-start gap-3 px-3 py-2 ${isUser ? "justify-end" : "justify-start"}`}
-      onContextMenu={handleContextMenu}
-    >
-      {/* AI 头像（左侧，38px） */}
-      {!isUser && !isTool && (
-        <div className="flex-shrink-0" aria-hidden="true">
-          <img
-            src="/liri_logo.png"
-            alt="Liri"
-            className="w-9 h-9 rounded-full object-contain"
-            onError={(e) => {
-              // 头像加载失败：用首字母 fallback（L）
-              const el = e.target as HTMLImageElement;
-              el.style.display = "none";
-              const fallback = document.createElement("div");
-              fallback.className = "w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold";
-              fallback.textContent = "L";
-              el.parentElement!.appendChild(fallback);
-            }}
-          />
-        </div>
-      )}
-
-      {/* 消息气泡 */}
-      <div className="flex-1 min-w-0 max-w-[70%]">
-        {/* 头部：AI 才显示 agent 标签和被回复标记 */}
-        {!isUser && (message.agentName || hasReplies) && (
-          <div className="flex items-center gap-2 mb-1">
-            {/* Agent 名称标签 */}
-            {message.agentName && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 font-medium">
-                {message.agentName}
-              </span>
-            )}
-            {/* 被回复标记 */}
-            {hasReplies && (
-              <span className="text-[10px] text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">
-                {t('chat.hasReplies')}
-              </span>
-            )}
+    return (
+      <div
+        className={`flex w-full items-start gap-3 px-3 py-2 ${isUser ? "justify-end" : "justify-start"}`}
+        onContextMenu={handleContextMenu}
+      >
+        {/* AI 头像（左侧，38px） */}
+        {!isUser && !isTool && (
+          <div className="flex-shrink-0" aria-hidden="true">
+            <img
+              src="/liri_logo.png"
+              alt="Liri"
+              className="w-9 h-9 rounded-full object-contain"
+              onError={(e) => {
+                // 头像加载失败：用首字母 fallback（L）
+                const el = e.target as HTMLImageElement;
+                el.style.display = "none";
+                const fallback = document.createElement("div");
+                fallback.className =
+                  "w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold";
+                fallback.textContent = "L";
+                el.parentElement!.appendChild(fallback);
+              }}
+            />
           </div>
         )}
 
-        {/* 气泡主体 */}
-        <div
-          className={`px-4 py-2.5 ${
-            isUser
-              ? "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm rounded-2xl rounded-br-md"
-              : isTool
-              ? "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl"
-              : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-2xl rounded-bl-md"
-          }`}
-        >
-          {/* 被回复的引用 */}
-          {replyTarget && (
-            <div
-              className={`mb-2 p-2 rounded-lg text-xs border-l-2 cursor-pointer ${
-                isUser
-                  ? "bg-white/50 dark:bg-gray-600/50 border-gray-300 dark:border-gray-500 text-gray-600 dark:text-gray-300"
-                  : "bg-gray-50 dark:bg-gray-700/50 border-gray-300 dark:border-gray-500 text-gray-500 dark:text-gray-400"
-              }`}
-              onClick={() => {
-                const el = document.querySelector(`[data-msg-id="${replyTarget.id}"]`);
-                el?.scrollIntoView({ behavior: "smooth", block: "center" });
-              }}
-              title={t('chat.jumpToReply')}
-            >
-              <div className="font-medium mb-0.5">
-                {replyTarget.role === "user" ? `👤 ${t('chat.user')}` : `🤖 ${t('chat.assistant')}`}
-              </div>
-              <div className="truncate">
-                {typeof replyTarget.content === "string"
-                  ? replyTarget.content.slice(0, 80) +
-                    (replyTarget.content.length > 80 ? "..." : "")
-                  : t('chat.complexContent')}
-              </div>
-            </div>
-          )}
-
-          {/* 消息内容 */}
-          {isUser ? (
-            <div className="text-sm break-words leading-relaxed">
-              <BlockRenderer
-                block={{
-                  id: `${message.id}_content`,
-                  type: "text",
-                  content: typeof message.content === "string" ? message.content : "",
-                  isStreaming: false,
-                }}
-                sessionId={message.session_id}
-              />
-            </div>
-          ) : isTool ? (
-            <ToolResultMessage message={message} />
-          ) : (
-            <AssistantMessage message={message} isStreaming={isStreaming} />
-          )}
-
-          {/* Token/成本信息（默认隐藏，点 📊 图标展开） */}
-          {sessionUsage && sessionUsage.totalTokens > 0 && (
-            <TokenInfoSection sessionUsage={sessionUsage} isUser={isUser} formatCost={formatCost} />
-          )}
-        </div>
-
-        {/* 底部：时间戳 + 操作按钮（同一行） */}
-        {!message.error && (
-          <div className={`flex items-center gap-2 mt-1 text-[10px] text-gray-400 dark:text-gray-500 ${isUser ? "justify-end flex-row-reverse" : "justify-start"}`}>
-            {/* 时间戳 */}
-            {message.timestamp && (
-              <span>{formatTime(message.timestamp)}</span>
-            )}
-
-            {/* 用户消息：编辑常驻 */}
-            {isUser && (
-              <button
-                onClick={() => setEditTarget(message)}
-                className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                aria-label={t('chat.editMessage')}
-              >
-                ✏️ {t('chat.editMessage')}
-              </button>
-            )}
-
-            {/* AI 消息：复制常驻（Shift+Click 复制纯文本） */}
-            {!isUser && !isTool && (
-              <button
-                onClick={(e) => handleCopy(!e.shiftKey)}
-                className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                aria-label={t('chat.copyMessage')}
-                title={t('chat.copyMessage') + " (Shift+Click: " + t('chat.copyMessage') + ")"}
-              >
-                📋 {t('chat.copyMessage')}
-              </button>
-            )}
-
-            {/* AI 消息：重新生成常驻（流式中 disabled） */}
-            {!isUser && !isTool && (
-              <button
-                onClick={handleRegenerate}
-                disabled={isStreaming}
-                className={`${isStreaming ? "cursor-not-allowed text-gray-300 dark:text-gray-600" : "hover:text-gray-600 dark:hover:text-gray-300"} transition-colors`}
-                aria-label={t('chat.regenerate')}
-              >
-                {isStreaming ? "⏳" : "🔄"} {t('chat.regenerate')}
-              </button>
-            )}
-
-            {/* AI 消息：续写常驻 */}
-            {!isUser && !isTool && (
-              <button
-                onClick={handleContinue}
-                className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                aria-label={t('chat.continueGenerate')}
-              >
-                ✏️ {t('chat.continueGenerate')}
-              </button>
-            )}
-
-            {/* ⋯ 更多菜单 */}
-            <div className="relative">
-              <button
-                onClick={() => setMenuOpen(!menuOpen)}
-                onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
-                className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                aria-haspopup="true"
-                aria-expanded={menuOpen}
-                aria-label={t('chat.actionsMore')}
-              >
-                ⋯
-              </button>
-              {menuOpen && (
-                <div className="absolute bottom-full left-0 mb-1 w-32 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-30">
-                  {isUser ? (
-                    <>
-                      <button
-                        onClick={handleBranch}
-                        disabled={branching}
-                        className="w-full px-3 py-1.5 text-left text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
-                      >
-                        🌿 {branching ? t('chat.branching') : t('chat.branch')}
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        onClick={openSaveModal}
-                        className="w-full px-3 py-1.5 text-left text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      >
-                        💾 {t('chat.saveToKnowledge')}
-                      </button>
-                    </>
-                  )}
-                </div>
+        {/* 消息气泡 */}
+        <div className="flex-1 min-w-0 max-w-[70%]">
+          {/* 头部：AI 才显示 agent 标签和被回复标记 */}
+          {!isUser && (message.agentName || hasReplies) && (
+            <div className="flex items-center gap-2 mb-1">
+              {/* Agent 名称标签 */}
+              {message.agentName && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 font-medium">
+                  {message.agentName}
+                </span>
+              )}
+              {/* 被回复标记 */}
+              {hasReplies && (
+                <span className="text-[10px] text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">
+                  {t("chat.hasReplies")}
+                </span>
               )}
             </div>
+          )}
 
-            {/* 复制 toast */}
-            {copyToast && (
-              <span className={`${copyToast === "copied" ? "text-emerald-500" : "text-red-400"} animate-pulse`}>
-                {copyToast === "copied" ? t("chat.toastCopied") : t("chat.toastCopyFailed")}
-              </span>
+          {/* 气泡主体 */}
+          <div
+            className={`px-4 py-2.5 ${
+              isUser
+                ? "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm rounded-2xl rounded-br-md"
+                : isTool
+                  ? "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl"
+                  : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-2xl rounded-bl-md"
+            }`}
+          >
+            {/* 被回复的引用 */}
+            {replyTarget && (
+              <div
+                className={`mb-2 p-2 rounded-lg text-xs border-l-2 cursor-pointer ${
+                  isUser
+                    ? "bg-white/50 dark:bg-gray-600/50 border-gray-300 dark:border-gray-500 text-gray-600 dark:text-gray-300"
+                    : "bg-gray-50 dark:bg-gray-700/50 border-gray-300 dark:border-gray-500 text-gray-500 dark:text-gray-400"
+                }`}
+                onClick={() => {
+                  const el = document.querySelector(
+                    `[data-msg-id="${replyTarget.id}"]`,
+                  );
+                  el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }}
+                title={t("chat.jumpToReply")}
+              >
+                <div className="font-medium mb-0.5">
+                  {replyTarget.role === "user"
+                    ? `👤 ${t("chat.user")}`
+                    : `🤖 ${t("chat.assistant")}`}
+                </div>
+                <div className="truncate">
+                  {typeof replyTarget.content === "string"
+                    ? replyTarget.content.slice(0, 80) +
+                      (replyTarget.content.length > 80 ? "..." : "")
+                    : t("chat.complexContent")}
+                </div>
+              </div>
+            )}
+
+            {/* 消息内容 */}
+            {isUser ? (
+              <div className="text-sm break-words leading-relaxed">
+                <BlockRenderer
+                  block={{
+                    id: `${message.id}_content`,
+                    type: "text",
+                    content:
+                      typeof message.content === "string"
+                        ? message.content
+                        : "",
+                    isStreaming: false,
+                  }}
+                  sessionId={message.session_id}
+                />
+              </div>
+            ) : isTool ? (
+              <ToolResultMessage message={message} />
+            ) : (
+              <AssistantMessage message={message} isStreaming={isStreaming} />
+            )}
+
+            {/* Token/成本信息（默认隐藏，点 📊 图标展开） */}
+            {sessionUsage && sessionUsage.totalTokens > 0 && (
+              <TokenInfoSection
+                sessionUsage={sessionUsage}
+                isUser={isUser}
+                formatCost={formatCost}
+              />
             )}
           </div>
-        )}
 
-        {/* 错误状态操作按钮 */}
-        {message.error && !isStreaming && (
-          <div className="flex items-center gap-2 mt-2">
-            <button
-              onClick={handleRetry}
-              className="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+          {/* 底部：时间戳 + 操作按钮（同一行） */}
+          {!message.error && (
+            <div
+              className={`flex items-center gap-2 mt-1 text-[10px] text-gray-400 dark:text-gray-500 ${isUser ? "justify-end flex-row-reverse" : "justify-start"}`}
             >
-              🔄 {t('common.retry')}
-            </button>
-            <button
-              onClick={handleContinue}
-              className="px-4 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-md transition-colors"
-            >
-              {t('chat.continueGenerate')}
-            </button>
+              {/* 时间戳 */}
+              {message.timestamp && (
+                <span>{formatTime(message.timestamp)}</span>
+              )}
+
+              {/* 用户消息：编辑常驻 */}
+              {isUser && (
+                <button
+                  onClick={() => setEditTarget(message)}
+                  className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  aria-label={t("chat.editMessage")}
+                >
+                  ✏️ {t("chat.editMessage")}
+                </button>
+              )}
+
+              {/* AI 消息：复制常驻（Shift+Click 复制纯文本） */}
+              {!isUser && !isTool && (
+                <button
+                  onClick={(e) => handleCopy(!e.shiftKey)}
+                  className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  aria-label={t("chat.copyMessage")}
+                  title={
+                    t("chat.copyMessage") +
+                    " (Shift+Click: " +
+                    t("chat.copyMessage") +
+                    ")"
+                  }
+                >
+                  📋 {t("chat.copyMessage")}
+                </button>
+              )}
+
+              {/* AI 消息：重新生成常驻（流式中 disabled） */}
+              {!isUser && !isTool && (
+                <button
+                  onClick={handleRegenerate}
+                  disabled={isStreaming}
+                  className={`${isStreaming ? "cursor-not-allowed text-gray-300 dark:text-gray-600" : "hover:text-gray-600 dark:hover:text-gray-300"} transition-colors`}
+                  aria-label={t("chat.regenerate")}
+                >
+                  {isStreaming ? "⏳" : "🔄"} {t("chat.regenerate")}
+                </button>
+              )}
+
+              {/* AI 消息：续写常驻 */}
+              {!isUser && !isTool && (
+                <button
+                  onClick={handleContinue}
+                  className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  aria-label={t("chat.continueGenerate")}
+                >
+                  ✏️ {t("chat.continueGenerate")}
+                </button>
+              )}
+
+              {/* ⋯ 更多菜单 */}
+              <div className="relative">
+                <button
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
+                  className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  aria-haspopup="true"
+                  aria-expanded={menuOpen}
+                  aria-label={t("chat.actionsMore")}
+                >
+                  ⋯
+                </button>
+                {menuOpen && (
+                  <div className="absolute bottom-full left-0 mb-1 w-32 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-30">
+                    {isUser ? (
+                      <>
+                        <button
+                          onClick={handleBranch}
+                          disabled={branching}
+                          className="w-full px-3 py-1.5 text-left text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+                        >
+                          🌿{" "}
+                          {branching ? t("chat.branching") : t("chat.branch")}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={openSaveModal}
+                          className="w-full px-3 py-1.5 text-left text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          💾 {t("chat.saveToKnowledge")}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 复制 toast */}
+              {copyToast && (
+                <span
+                  className={`${copyToast === "copied" ? "text-emerald-500" : "text-red-400"} animate-pulse`}
+                >
+                  {copyToast === "copied"
+                    ? t("chat.toastCopied")
+                    : t("chat.toastCopyFailed")}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* 错误状态操作按钮 */}
+          {message.error && !isStreaming && (
+            <div className="flex items-center gap-2 mt-2">
+              <button
+                onClick={handleRetry}
+                className="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+              >
+                🔄 {t("common.retry")}
+              </button>
+              <button
+                onClick={handleContinue}
+                className="px-4 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-md transition-colors"
+              >
+                {t("chat.continueGenerate")}
+              </button>
+            </div>
+          )}
+
+          {/* 保存到知识库弹窗 */}
+          {showSaveModal && (
+            <Suspense fallback={null}>
+              <SaveKnowledgeModal
+                isDark={isDark}
+                initialTitle={
+                  typeof message.content === "string"
+                    ? message.content
+                        .split("\n")[0]
+                        .replace(/^#+\s*/, "")
+                        .slice(0, 50)
+                    : t("chat.chatContent")
+                }
+                onClose={() => setShowSaveModal(false)}
+                onSave={handleSaveToKnowledge}
+              />
+            </Suspense>
+          )}
+        </div>
+
+        {/* 用户头像（右侧，32px） */}
+        {isUser && (
+          <div
+            className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white"
+            style={{
+              background: `hsl(${(message.id.length * 7) % 360}, 70%, 60%)`,
+            }}
+            aria-hidden="true"
+          >
+            {"U"}
           </div>
         )}
 
-        {/* 保存到知识库弹窗 */}
-        {showSaveModal && (
-          <Suspense fallback={null}>
-            <SaveKnowledgeModal
-              isDark={isDark}
-              initialTitle={
-                typeof message.content === "string"
-                  ? message.content
-                      .split("\n")[0]
-                      .replace(/^#+\s*/, "")
-                      .slice(0, 50)
-                  : t('chat.chatContent')
-              }
-              onClose={() => setShowSaveModal(false)}
-              onSave={handleSaveToKnowledge}
+        {/* 移动端长按/右键操作菜单 */}
+        {contextMenu && (
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={closeContextMenu}
+              onTouchEnd={closeContextMenu}
             />
-          </Suspense>
+            <div
+              className="fixed z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl py-1 min-w-[140px]"
+              style={{
+                left: Math.min(contextMenu.x, window.innerWidth - 150),
+                top: Math.min(contextMenu.y, window.innerHeight - 200),
+              }}
+            >
+              {/* 复制（所有消息） */}
+              <button
+                onClick={() => {
+                  handleCopy(true);
+                  closeContextMenu();
+                }}
+                className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+              >
+                📋 {t("chat.copyMessage")}
+              </button>
+
+              {/* AI 消息操作 */}
+              {!isUser && !isTool && (
+                <>
+                  <button
+                    onClick={() => {
+                      handleRegenerate();
+                      closeContextMenu();
+                    }}
+                    disabled={isStreaming}
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 flex items-center gap-2"
+                  >
+                    🔄 {t("chat.regenerate")}
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleContinue();
+                      closeContextMenu();
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    ✏️ {t("chat.continueGenerate")}
+                  </button>
+                  <button
+                    onClick={() => {
+                      openSaveModal();
+                      closeContextMenu();
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    💾 {t("chat.saveToKnowledge")}
+                  </button>
+                </>
+              )}
+
+              {/* 用户消息操作 */}
+              {isUser && (
+                <>
+                  <button
+                    onClick={() => {
+                      setEditTarget(message);
+                      closeContextMenu();
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    ✏️ {t("chat.editMessage")}
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleBranch();
+                      closeContextMenu();
+                    }}
+                    disabled={branching}
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 flex items-center gap-2"
+                  >
+                    🌿 {branching ? t("chat.branching") : t("chat.branch")}
+                  </button>
+                </>
+              )}
+            </div>
+          </>
         )}
       </div>
-
-      {/* 用户头像（右侧，32px） */}
-      {isUser && (
-        <div
-          className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white"
-          style={{ background: `hsl(${(message.id.length * 7) % 360}, 70%, 60%)` }}
-          aria-hidden="true"
-        >
-          {"U"}
-        </div>
-      )}
-
-      {/* 移动端长按/右键操作菜单 */}
-      {contextMenu && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={closeContextMenu} onTouchEnd={closeContextMenu} />
-          <div
-            className="fixed z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl py-1 min-w-[140px]"
-            style={{
-              left: Math.min(contextMenu.x, window.innerWidth - 150),
-              top: Math.min(contextMenu.y, window.innerHeight - 200),
-            }}
-          >
-            {/* 复制（所有消息） */}
-            <button
-              onClick={() => { handleCopy(true); closeContextMenu(); }}
-              className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-            >
-              📋 {t('chat.copyMessage')}
-            </button>
-
-            {/* AI 消息操作 */}
-            {!isUser && !isTool && (
-              <>
-                <button
-                  onClick={() => { handleRegenerate(); closeContextMenu(); }}
-                  disabled={isStreaming}
-                  className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 flex items-center gap-2"
-                >
-                  🔄 {t('chat.regenerate')}
-                </button>
-                <button
-                  onClick={() => { handleContinue(); closeContextMenu(); }}
-                  className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                >
-                  ✏️ {t('chat.continueGenerate')}
-                </button>
-                <button
-                  onClick={() => { openSaveModal(); closeContextMenu(); }}
-                  className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                >
-                  💾 {t('chat.saveToKnowledge')}
-                </button>
-              </>
-            )}
-
-            {/* 用户消息操作 */}
-            {isUser && (
-              <>
-                <button
-                  onClick={() => { setEditTarget(message); closeContextMenu(); }}
-                  className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                >
-                  ✏️ {t('chat.editMessage')}
-                </button>
-                <button
-                  onClick={() => { handleBranch(); closeContextMenu(); }}
-                  disabled={branching}
-                  className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 flex items-center gap-2"
-                >
-                  🌿 {branching ? t('chat.branching') : t('chat.branch')}
-                </button>
-              </>
-            )}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}, (prevProps, nextProps) => {
-  // 自定义比较器：仅当消息实际内容变化时重渲染
-  if (prevProps.message.id !== nextProps.message.id) return false;
-  if (prevProps.isStreaming !== nextProps.isStreaming) return false;
-  if (prevProps.message.content !== nextProps.message.content) return false;
-  if (prevProps.message.role !== nextProps.message.role) return false;
-  // blocks 长度变化说明有新 block 追加，引用变化说明 block 内部状态更新（如 isStreaming）
-  const prevBlocks = prevProps.message.blocks;
-  const nextBlocks = nextProps.message.blocks;
-  if ((prevBlocks?.length ?? 0) !== (nextBlocks?.length ?? 0)) return false;
-  if (prevBlocks !== nextBlocks) return false;
-  // sessionUsage 引用变化时更新（仅显示用，不影响用户交互）
-  if (prevProps.sessionUsage !== nextProps.sessionUsage) return false;
-  return true;
-});
+    );
+  },
+  (prevProps, nextProps) => {
+    // 自定义比较器：仅当消息实际内容变化时重渲染
+    if (prevProps.message.id !== nextProps.message.id) return false;
+    if (prevProps.isStreaming !== nextProps.isStreaming) return false;
+    if (prevProps.message.content !== nextProps.message.content) return false;
+    if (prevProps.message.role !== nextProps.message.role) return false;
+    // blocks 长度变化说明有新 block 追加，引用变化说明 block 内部状态更新（如 isStreaming）
+    const prevBlocks = prevProps.message.blocks;
+    const nextBlocks = nextProps.message.blocks;
+    if ((prevBlocks?.length ?? 0) !== (nextBlocks?.length ?? 0)) return false;
+    if (prevBlocks !== nextBlocks) return false;
+    // sessionUsage 引用变化时更新（仅显示用，不影响用户交互）
+    if (prevProps.sessionUsage !== nextProps.sessionUsage) return false;
+    return true;
+  },
+);
 
 /**
  * Token/成本信息折叠组件
@@ -564,22 +640,32 @@ function TokenInfoSection({
         aria-expanded={expanded}
         aria-label={t("chat.tokenInfo")}
       >
-        📊 {expanded ? "" : sessionUsage.totalTokens.toLocaleString() + " tokens"}
+        📊{" "}
+        {expanded ? "" : sessionUsage.totalTokens.toLocaleString() + " tokens"}
       </button>
       {expanded && (
-        <div className={`mt-1 text-xs space-y-0.5 ${isUser ? "text-blue-200" : "text-gray-400 dark:text-gray-500"}`}>
+        <div
+          className={`mt-1 text-xs space-y-0.5 ${isUser ? "text-blue-200" : "text-gray-400 dark:text-gray-500"}`}
+        >
           <div>💬 {sessionUsage.totalTokens.toLocaleString()} tokens</div>
           <div>📥 输入: {sessionUsage.inputTokens.toLocaleString()}</div>
           <div>📤 输出: {sessionUsage.outputTokens.toLocaleString()}</div>
-          {sessionUsage.estimatedCostUsd != null && sessionUsage.estimatedCostUsd > 0 && (
-            <div>💰 {formatCost(sessionUsage.estimatedCostUsd)}</div>
-          )}
-          {showDebug && sessionUsage.cacheReadTokens != null && sessionUsage.cacheReadTokens > 0 && (
-            <div>📖 CR: {sessionUsage.cacheReadTokens.toLocaleString()}</div>
-          )}
-          {showDebug && sessionUsage.cacheCreationTokens != null && sessionUsage.cacheCreationTokens > 0 && (
-            <div>✏️ CW: {sessionUsage.cacheCreationTokens.toLocaleString()}</div>
-          )}
+          {sessionUsage.estimatedCostUsd != null &&
+            sessionUsage.estimatedCostUsd > 0 && (
+              <div>💰 {formatCost(sessionUsage.estimatedCostUsd)}</div>
+            )}
+          {showDebug &&
+            sessionUsage.cacheReadTokens != null &&
+            sessionUsage.cacheReadTokens > 0 && (
+              <div>📖 CR: {sessionUsage.cacheReadTokens.toLocaleString()}</div>
+            )}
+          {showDebug &&
+            sessionUsage.cacheCreationTokens != null &&
+            sessionUsage.cacheCreationTokens > 0 && (
+              <div>
+                ✏️ CW: {sessionUsage.cacheCreationTokens.toLocaleString()}
+              </div>
+            )}
         </div>
       )}
     </div>
@@ -595,7 +681,10 @@ function AssistantMessage({
 }) {
   const { t } = useTranslation();
   const sessionFiles = useChatStore(useShallow((s) => s.sessionFiles));
-  const knownPaths = useMemo(() => sessionFiles.map((f) => f.path), [sessionFiles]);
+  const knownPaths = useMemo(
+    () => sessionFiles.map((f) => f.path),
+    [sessionFiles],
+  );
 
   // 优先使用 blocks 渲染，如果 blocks 不存在则从 content 和 tool_calls 重建
   const blocks =
@@ -603,63 +692,85 @@ function AssistantMessage({
       ? message.blocks
       : buildFallbackBlocks(message);
 
-  const renderedContent = renderBlocksWithGroups(blocks, message.session_id, knownPaths, (content) => {
-    // 非流式路径：QuestionBlock 提交后后端返回了最终内容，追加为新的 assistant 消息
-    const newMsg: Message = {
-      id: crypto.randomUUID(),
-      role: "assistant",
-      content,
-      timestamp: Date.now(),
-      session_id: message.session_id,
-    };
-    const store = useChatStore.getState();
-    store.addMessage(newMsg);
-    // 用户已回答 question，清除待回答标记
-    useChatStore.setState({ hasPendingQuestion: false });
-  });
+  const renderedContent = renderBlocksWithGroups(
+    blocks,
+    message.session_id,
+    knownPaths,
+    (content) => {
+      // 非流式路径：QuestionBlock 提交后后端返回了最终内容，追加为新的 assistant 消息
+      const newMsg: Message = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content,
+        timestamp: Date.now(),
+        session_id: message.session_id,
+      };
+      const store = useChatStore.getState();
+      store.addMessage(newMsg);
+      // 用户已回答 question，清除待回答标记
+      useChatStore.setState({ hasPendingQuestion: false });
+    },
+  );
 
   return (
     <div className="text-sm break-words max-w-none space-y-1">
       {/* DEBUG: blocks 调试信息（仅 dev 模式或 VITE_SHOW_DEBUG=true 时显示） */}
-      {(process.env.NODE_ENV === "development" || import.meta.env.VITE_SHOW_DEBUG === "true") && (
+      {(process.env.NODE_ENV === "development" ||
+        import.meta.env.VITE_SHOW_DEBUG === "true") && (
         <DebugBlockInfo blocks={blocks} messageId={message.id} />
       )}
       {renderedContent}
       {/* 流式脉冲光标：消息仍在生成中时，显示 3 个脉冲圆点 */}
       {isStreaming && (
-        <span className="streaming-cursor" aria-live="polite" aria-label={t("chat.streamingLabel")} />
+        <span
+          className="streaming-cursor"
+          aria-live="polite"
+          aria-label={t("chat.streamingLabel")}
+        />
       )}
     </div>
   );
 }
 
 /** 调试组件：显示 block 结构信息 */
-function DebugBlockInfo({ blocks, messageId }: { blocks: MessageBlock[]; messageId: string }) {
+function DebugBlockInfo({
+  blocks,
+  messageId,
+}: {
+  blocks: MessageBlock[];
+  messageId: string;
+}) {
   return (
     <details className="mb-2 border border-red-400/30 rounded bg-red-50/30 dark:bg-red-950/20 p-2 text-xs">
       <summary className="cursor-pointer text-red-500 font-medium">
         🐛 Debug: {blocks.length} blocks
       </summary>
       <div className="mt-1 font-mono space-y-0.5 text-gray-600 dark:text-gray-400">
-        <div className="text-[10px] text-gray-400">msgId: {messageId.slice(0, 8)}...</div>
+        <div className="text-[10px] text-gray-400">
+          msgId: {messageId.slice(0, 8)}...
+        </div>
         {blocks.map((b, i) => (
           <div key={b.id} className="border-l-2 border-red-300 pl-2 py-0.5">
             <span className="font-semibold text-red-500">[{i}]</span>{" "}
             <span className="text-blue-500">{b.type}</span>
             {b.type === "question" && b.questionData ? (
               <span className="text-emerald-500">
-                {" "}questionId={b.questionData.questionId.slice(0, 8)}
-                {" "}options={b.questionData.options?.length}
-                {" "}header="{b.questionData.header}"
+                {" "}
+                questionId={b.questionData.questionId.slice(0, 8)} options=
+                {b.questionData.options?.length} header="{b.questionData.header}
+                "
               </span>
             ) : b.type === "status" ? (
               <span className="text-amber-500" title={b.content}>
-                {" "}status="{b.content.slice(0, 50)}{b.content.length > 50 ? "..." : ""}"
+                {" "}
+                status="{b.content.slice(0, 50)}
+                {b.content.length > 50 ? "..." : ""}"
               </span>
             ) : null}
             <span className="text-gray-400">
-              {" "}isStreaming={String(b.isStreaming)}
-              {" "}groupId={b.groupId?.slice(0, 8) ?? "none"}
+              {" "}
+              isStreaming={String(b.isStreaming)} groupId=
+              {b.groupId?.slice(0, 8) ?? "none"}
             </span>
           </div>
         ))}
@@ -785,11 +896,11 @@ function renderBlocksWithGroups(
     // 多媒体展示类工具（图片/视频/音频）直接渲染，不包装为 "工具执行" 组
     // 用户需要直接看到内容，不应要求展开两层折叠
     const isMediaDisplay = toolBlocks.some(
-      (b) => b.type === "tool_call" && (
-        b.toolCall?.name === "image_display" ||
-        b.toolCall?.name === "video_display" ||
-        b.toolCall?.name === "audio_play"
-      ),
+      (b) =>
+        b.type === "tool_call" &&
+        (b.toolCall?.name === "image_display" ||
+          b.toolCall?.name === "video_display" ||
+          b.toolCall?.name === "audio_play"),
     );
     if (isMediaDisplay) {
       for (const tb of toolBlocks) {

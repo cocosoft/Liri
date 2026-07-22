@@ -27,7 +27,13 @@ interface Props {
   onCancel?: () => void;
 }
 
-export default function ToolParamForm({ toolName, onSubmit, loading, selectedPath, onCancel }: Props) {
+export default function ToolParamForm({
+  toolName,
+  onSubmit,
+  loading,
+  selectedPath,
+  onCancel,
+}: Props) {
   const { t } = useTranslation();
   const schema = getToolSchema(toolName);
   const [values, setValues] = useState<Record<string, unknown>>(() => {
@@ -103,10 +109,19 @@ export default function ToolParamForm({ toolName, onSubmit, loading, selectedPat
 
   /** 判断数字参数是否应使用 range（有界数值） */
   const isRangeParam = (name: string) =>
-    ["quality", "brightness", "contrast", "saturation", "samplePrecision"].includes(name);
+    [
+      "quality",
+      "brightness",
+      "contrast",
+      "saturation",
+      "samplePrecision",
+    ].includes(name);
 
   /** range 参数的边界 */
-  const rangeBounds: Record<string, { min: number; max: number; step: number }> = {
+  const rangeBounds: Record<
+    string,
+    { min: number; max: number; step: number }
+  > = {
     quality: { min: 1, max: 100, step: 1 },
     brightness: { min: -100, max: 100, step: 1 },
     contrast: { min: -100, max: 100, step: 1 },
@@ -116,7 +131,9 @@ export default function ToolParamForm({ toolName, onSubmit, loading, selectedPat
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <h3 className="text-sm font-medium text-gray-200">{t(schema.titleKey)}</h3>
+      <h3 className="text-sm font-medium text-gray-200">
+        {t(schema.titleKey)}
+      </h3>
 
       {schema.params.map((param) => {
         // 条件显示：检查 dependsOn
@@ -143,13 +160,28 @@ export default function ToolParamForm({ toolName, onSubmit, loading, selectedPat
                   onChange={(e) => handleChange(param.name, e.target.checked)}
                   className="w-3.5 h-3.5 rounded border-gray-600 bg-gray-800 accent-blue-500"
                 />
-                <span className="text-[10px] text-gray-400">{value ? t("common.yes") : t("common.no")}</span>
+                <span className="text-[10px] text-gray-400">
+                  {value ? t("common.yes") : t("common.no")}
+                </span>
               </label>
             ) : param.type === "array" ? (
               <input
                 type="text"
-                value={Array.isArray(value) ? (value as string[]).join(", ") : value !== undefined ? String(value) : ""}
-                onChange={(e) => handleChange(param.name, e.target.value ? e.target.value.split(",").map(s => s.trim()) : [])}
+                value={
+                  Array.isArray(value)
+                    ? (value as string[]).join(", ")
+                    : value !== undefined
+                      ? String(value)
+                      : ""
+                }
+                onChange={(e) =>
+                  handleChange(
+                    param.name,
+                    e.target.value
+                      ? e.target.value.split(",").map((s) => s.trim())
+                      : [],
+                  )
+                }
                 placeholder={t(param.descriptionKey)}
                 className={`w-full bg-gray-800 border rounded px-2 py-1 text-xs text-gray-200 ${errors[param.name] ? "border-red-500" : "border-gray-600"}`}
               />
@@ -161,7 +193,9 @@ export default function ToolParamForm({ toolName, onSubmit, loading, selectedPat
               >
                 <option value="">-- {t("image.selectOption")} --</option>
                 {param.enum.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
                 ))}
               </select>
             ) : param.type === "number" ? (
@@ -172,19 +206,32 @@ export default function ToolParamForm({ toolName, onSubmit, loading, selectedPat
                     min={rangeBounds[param.name].min}
                     max={rangeBounds[param.name].max}
                     step={rangeBounds[param.name].step}
-                    value={value !== undefined ? Number(value) : rangeBounds[param.name].min}
-                    onChange={(e) => handleChange(param.name, Number(e.target.value))}
+                    value={
+                      value !== undefined
+                        ? Number(value)
+                        : rangeBounds[param.name].min
+                    }
+                    onChange={(e) =>
+                      handleChange(param.name, Number(e.target.value))
+                    }
                     className="flex-1 h-1 accent-blue-500"
                   />
                   <span className="text-[10px] text-gray-300 w-8 text-right shrink-0">
-                    {value !== undefined ? String(value) : rangeBounds[param.name].min}
+                    {value !== undefined
+                      ? String(value)
+                      : rangeBounds[param.name].min}
                   </span>
                 </div>
               ) : (
                 <input
                   type="number"
                   value={value !== undefined ? String(value) : ""}
-                  onChange={(e) => handleChange(param.name, e.target.value ? Number(e.target.value) : undefined)}
+                  onChange={(e) =>
+                    handleChange(
+                      param.name,
+                      e.target.value ? Number(e.target.value) : undefined,
+                    )
+                  }
                   placeholder={t(param.descriptionKey)}
                   className={`w-full bg-gray-800 border rounded px-2 py-1 text-xs text-gray-200 ${errors[param.name] ? "border-red-500" : "border-gray-600"}`}
                 />
@@ -225,7 +272,9 @@ export default function ToolParamForm({ toolName, onSubmit, loading, selectedPat
               />
             )}
             {errors[param.name] && (
-              <div className="text-[9px] text-red-400">{errors[param.name]}</div>
+              <div className="text-[9px] text-red-400">
+                {errors[param.name]}
+              </div>
             )}
           </div>
         );

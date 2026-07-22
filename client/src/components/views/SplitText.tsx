@@ -23,7 +23,8 @@ function SplitText({ text, isDark, onWordClick }: SplitTextProps) {
   const underlineColor = isDark ? "decoration-gray-500" : "decoration-gray-400";
 
   const renderTokens = useCallback(() => {
-    const tokens: Array<{ type: "word" | "space" | "punct"; text: string }> = [];
+    const tokens: Array<{ type: "word" | "space" | "punct"; text: string }> =
+      [];
     let i = 0;
 
     while (i < text.length) {

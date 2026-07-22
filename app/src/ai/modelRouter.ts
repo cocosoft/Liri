@@ -252,7 +252,7 @@ export interface ModelRouterOptions {
 /**
  * 任务类型 → 所需能力映射
  * 用于启动自引导：从 DB 中查找具有对应能力的模型自动填充任务分工
- * 
+ *
  * 优先从 CapabilityService 动态获取，回退到内置默认值
  */
 const DEFAULT_TASK_CAPABILITY: Partial<Record<TaskType, string[]>> = {
@@ -268,18 +268,21 @@ const DEFAULT_TASK_CAPABILITY: Partial<Record<TaskType, string[]>> = {
 };
 
 /** 动态任务-能力映射缓存 */
-let taskCapabilityMapping: Partial<Record<TaskType, string[]>> = { ...DEFAULT_TASK_CAPABILITY };
+let taskCapabilityMapping: Partial<Record<TaskType, string[]>> = {
+  ...DEFAULT_TASK_CAPABILITY,
+};
 
 /** 从 CapabilityService 刷新任务-能力映射 */
 async function refreshTaskCapabilityMapping(): Promise<void> {
   try {
-    const { getCapabilityService } = await import('./services/CapabilityService.js');
+    const { getCapabilityService } =
+      await import('./services/CapabilityService.js');
     const service = getCapabilityService();
     await service.init();
-    
+
     const mappings = await service.getTaskMappings();
     const newMapping: Partial<Record<TaskType, string[]>> = {};
-    
+
     for (const mapping of mappings) {
       // 将 requiredCapabilities 和 optionalCapabilities 合并
       const allCaps = [
@@ -290,10 +293,10 @@ async function refreshTaskCapabilityMapping(): Promise<void> {
         newMapping[mapping.taskType as TaskType] = allCaps;
       }
     }
-    
+
     // 合并默认值（配置中没有的使用默认值）
     taskCapabilityMapping = { ...DEFAULT_TASK_CAPABILITY, ...newMapping };
-    
+
     logger.debug('ModelRouter: 任务-能力映射已从 CapabilityService 刷新', {
       mappings: Object.keys(taskCapabilityMapping),
     });
@@ -770,14 +773,14 @@ export class ModelRouter {
       for (const taskType of ALL_TASK_TYPES) {
         const requiredCaps = getTaskCapabilities(taskType);
         if (requiredCaps.length === 0) continue;
-        
+
         // 找到具备所有必需能力的模型（AND 语义）
         const match = allModels.find((m) => {
           if (!m.enabled) return false;
           const modelCaps = m.capabilities || [];
           return requiredCaps.every((cap) => modelCaps.includes(cap));
         });
-        
+
         if (match) {
           tasks[taskType] = match.id || match.modelId; // 优先 UUID，回退模型名
         }

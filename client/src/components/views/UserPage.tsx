@@ -56,7 +56,9 @@ function UserPage() {
     try {
       const s = localStorage.getItem(ACTIVE_NAV_KEY);
       if (s && NAV_ITEMS.some((n) => n.id === s)) return s;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     return "profile";
   });
   const [appInfo, setAppInfo] = useState<{
@@ -64,8 +66,8 @@ function UserPage() {
     dataDir: string;
     pyappHome: string;
   } | null>(null);
-  const [nickname, setNickname] = useState(
-    () => String(userCfg?.displayName ?? "")
+  const [nickname, setNickname] = useState(() =>
+    String(userCfg?.displayName ?? ""),
   );
   const [nickSaved, setNickSaved] = useState(false);
   const isDark = config.theme === "dark";
@@ -73,7 +75,7 @@ function UserPage() {
   useEffect(() => {
     http
       .get<{ version: string; dataDir: string; pyappHome: string }>(
-        "/v1/app/info"
+        "/v1/app/info",
       )
       .then((r: any) => {
         if (r?.ok) setAppInfo(r.data);
@@ -85,20 +87,23 @@ function UserPage() {
     setActiveNav(id);
     try {
       localStorage.setItem(ACTIVE_NAV_KEY, id);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   };
 
   /** 保存昵称 */
   const saveNickname = useCallback(() => {
-    setConfig("user", { ...((config.user as object) || {}), displayName: nickname });
+    setConfig("user", {
+      ...((config.user as object) || {}),
+      displayName: nickname,
+    });
     setNickSaved(true);
     setTimeout(() => setNickSaved(false), 2000);
   }, [nickname, config.user, setConfig]);
 
   /** 获取头像首字母 */
-  const avatarInitial = nickname
-    ? nickname.charAt(0).toUpperCase()
-    : "U";
+  const avatarInitial = nickname ? nickname.charAt(0).toUpperCase() : "U";
 
   return (
     <div className="flex flex-1 min-w-0 h-full bg-gray-50 dark:bg-gray-900">
@@ -254,7 +259,10 @@ function UserPage() {
                 时区
               </label>
               <select
-                value={String(userCfg?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone)}
+                value={String(
+                  userCfg?.timezone ??
+                    Intl.DateTimeFormat().resolvedOptions().timeZone,
+                )}
                 onChange={(e) =>
                   setConfig("user", {
                     ...((config.user as object) || {}),

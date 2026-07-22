@@ -53,13 +53,19 @@ const ROLE_LABELS: Record<string, string> = {
 /**
  * Agent-Model 绑定配置组件
  */
-function AgentModelBindingConfig({ workspaceId, isDark }: AgentModelBindingConfigProps) {
+function AgentModelBindingConfig({
+  workspaceId,
+  isDark,
+}: AgentModelBindingConfigProps) {
   const { t } = useTranslation();
   const [bindings, setBindings] = useState<AgentModelBinding[]>([]);
   const [availableModels, setAvailableModels] = useState<AvailableModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   // 加载配置
   useEffect(() => {
@@ -81,9 +87,13 @@ function AgentModelBindingConfig({ workspaceId, isDark }: AgentModelBindingConfi
   };
 
   // 更新绑定
-  const updateBinding = (index: number, field: keyof AgentModelBinding, value: string | number) => {
+  const updateBinding = (
+    index: number,
+    field: keyof AgentModelBinding,
+    value: string | number,
+  ) => {
     setBindings((prev) =>
-      prev.map((b, i) => (i === index ? { ...b, [field]: value } : b))
+      prev.map((b, i) => (i === index ? { ...b, [field]: value } : b)),
     );
   };
 
@@ -91,7 +101,9 @@ function AgentModelBindingConfig({ workspaceId, isDark }: AgentModelBindingConfi
   const handleSave = async () => {
     setSaving(true);
     try {
-      await workspaceService.updateAgentModelBindings(workspaceId, { bindings });
+      await workspaceService.updateAgentModelBindings(workspaceId, {
+        bindings,
+      });
       setMessage({ type: "success", text: "保存成功" });
       setTimeout(() => setMessage(null), 2000);
     } catch (err) {
@@ -104,7 +116,9 @@ function AgentModelBindingConfig({ workspaceId, isDark }: AgentModelBindingConfi
 
   if (loading) {
     return (
-      <div className={`p-4 text-center ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+      <div
+        className={`p-4 text-center ${isDark ? "text-gray-400" : "text-gray-500"}`}
+      >
         加载中...
       </div>
     );
@@ -143,14 +157,18 @@ function AgentModelBindingConfig({ workspaceId, isDark }: AgentModelBindingConfi
           <div
             key={binding.agentRole}
             className={`p-4 rounded-lg border ${
-              isDark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"
+              isDark
+                ? "border-gray-700 bg-gray-800"
+                : "border-gray-200 bg-white"
             }`}
           >
             <div className="flex items-center gap-3 mb-3">
               <span className="text-sm font-medium w-24">
                 {ROLE_LABELS[binding.agentRole] || binding.agentRole}
               </span>
-              <span className="text-xs text-gray-500 font-mono">{binding.agentRole}</span>
+              <span className="text-xs text-gray-500 font-mono">
+                {binding.agentRole}
+              </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -159,7 +177,9 @@ function AgentModelBindingConfig({ workspaceId, isDark }: AgentModelBindingConfi
                 <label className="block text-xs text-gray-500 mb-1">模型</label>
                 <select
                   value={binding.model}
-                  onChange={(e) => updateBinding(index, "model", e.target.value)}
+                  onChange={(e) =>
+                    updateBinding(index, "model", e.target.value)
+                  }
                   className={`w-full p-2 rounded text-sm border ${
                     isDark
                       ? "bg-gray-700 border-gray-600 text-gray-200"
@@ -176,11 +196,19 @@ function AgentModelBindingConfig({ workspaceId, isDark }: AgentModelBindingConfi
 
               {/* 最大 Token */}
               <div>
-                <label className="block text-xs text-gray-500 mb-1">{t("workspace.cost")}</label>
+                <label className="block text-xs text-gray-500 mb-1">
+                  {t("workspace.cost")}
+                </label>
                 <input
                   type="number"
                   value={binding.maxTokens}
-                  onChange={(e) => updateBinding(index, "maxTokens", parseInt(e.target.value) || 4096)}
+                  onChange={(e) =>
+                    updateBinding(
+                      index,
+                      "maxTokens",
+                      parseInt(e.target.value) || 4096,
+                    )
+                  }
                   min={256}
                   max={128000}
                   step={256}
@@ -200,7 +228,13 @@ function AgentModelBindingConfig({ workspaceId, isDark }: AgentModelBindingConfi
                 <input
                   type="range"
                   value={binding.temperature}
-                  onChange={(e) => updateBinding(index, "temperature", parseFloat(e.target.value))}
+                  onChange={(e) =>
+                    updateBinding(
+                      index,
+                      "temperature",
+                      parseFloat(e.target.value),
+                    )
+                  }
                   min={0}
                   max={2}
                   step={0.1}

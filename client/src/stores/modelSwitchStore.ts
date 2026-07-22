@@ -58,7 +58,11 @@ export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
         isLoading: false,
       });
     } catch (e) {
-      handleClientError(e, { module: 'stores:modelSwitchStore', action: 'loadCurrent' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:modelSwitchStore", action: "loadCurrent" },
+        "warn",
+      );
       set({
         error: e instanceof Error ? e.message : "获取当前模型失败",
         isLoading: false,
@@ -71,10 +75,20 @@ export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
     try {
       await modelSwitchService.switch(modelId);
       const tasks = await modelSwitchService.getTasks();
-      const model = useModelStore.getState().models.find((m) => m.id === modelId);
-      set({ currentModelId: modelId, currentModelName: model?.modelId || model?.name || modelId, tasks });
+      const model = useModelStore
+        .getState()
+        .models.find((m) => m.id === modelId);
+      set({
+        currentModelId: modelId,
+        currentModelName: model?.modelId || model?.name || modelId,
+        tasks,
+      });
     } catch (e) {
-      handleClientError(e, { module: 'stores:modelSwitchStore', action: 'switchModel' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:modelSwitchStore", action: "switchModel" },
+        "warn",
+      );
       set({ error: e instanceof Error ? e.message : "切换模型失败" });
     }
   },
@@ -84,7 +98,11 @@ export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
       const tasks = await modelSwitchService.getTasks();
       set({ tasks });
     } catch (e) {
-      handleClientError(e, { module: 'stores:modelSwitchStore', action: 'loadTasks' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:modelSwitchStore", action: "loadTasks" },
+        "warn",
+      );
       set({ error: e instanceof Error ? e.message : "获取任务策略失败" });
     }
   },
@@ -95,7 +113,11 @@ export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
       await modelSwitchService.saveTasks(tasks);
       set({ tasks });
     } catch (e) {
-      handleClientError(e, { module: 'stores:modelSwitchStore', action: 'saveTasks' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:modelSwitchStore", action: "saveTasks" },
+        "warn",
+      );
       set({ error: e instanceof Error ? e.message : "保存任务策略失败" });
     }
   },

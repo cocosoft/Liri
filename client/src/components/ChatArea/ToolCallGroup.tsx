@@ -12,7 +12,10 @@ import type { ToolCall } from "../../types";
 import MarkdownRenderer from "./MarkdownRenderer";
 import ImageToolResult from "./ImageToolResult/ImageToolResult";
 import { useChatStore } from "../../stores/chatStore";
-import { getToolDisplayName, getToolHumanSummary } from "../../utils/toolHumanSummary";
+import {
+  getToolDisplayName,
+  getToolHumanSummary,
+} from "../../utils/toolHumanSummary";
 import { formatKey } from "../../utils/formatKey";
 import { formatValue } from "../../utils/formatValue";
 
@@ -52,7 +55,10 @@ function formatArgumentsNatural(
       key === "file_path" || key === "path" || key === "filePath";
 
     return (
-      <div key={key} className="flex flex-wrap gap-0.5 items-baseline text-[10px] leading-relaxed">
+      <div
+        key={key}
+        className="flex flex-wrap gap-0.5 items-baseline text-[10px] leading-relaxed"
+      >
         <span className="text-[#7aa2f7] font-medium shrink-0">{label}:</span>
         {isFilePathKey && onPreviewFile && typeof value === "string" ? (
           <a
@@ -66,21 +72,28 @@ function formatArgumentsNatural(
             {formattedValue}
           </a>
         ) : (
-          <span className="text-gray-200 break-words whitespace-pre-wrap">{formattedValue}</span>
+          <span className="text-gray-200 break-words whitespace-pre-wrap">
+            {formattedValue}
+          </span>
         )}
       </div>
     );
   });
 }
 
-function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: ToolCallGroupProps) {
+function ToolCallGroup({
+  toolCall,
+  isStreaming,
+  variant = "card",
+  onExpand,
+}: ToolCallGroupProps) {
   const { t } = useTranslation();
   const isMediaTool = MEDIA_TOOL_NAMES.includes(toolCall.name);
   // 多媒体展示工具（预览图片/视频/音频）默认展开，用户明确要求查看
   const [expanded, setExpanded] = useState(
     toolCall.name === "image_display" ||
-    toolCall.name === "video_display" ||
-    toolCall.name === "audio_play"
+      toolCall.name === "video_display" ||
+      toolCall.name === "audio_play",
   );
   const prevStreaming = useRef(isStreaming);
   const readFileToPreview = useChatStore((s) => s.readFileToPreview);
@@ -89,7 +102,14 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
     const wasStreaming = prevStreaming.current;
     prevStreaming.current = isStreaming;
     // 多媒体展示工具不自动折叠 — 图片/视频/音频结果是用户要看的，不应隐藏
-    if (wasStreaming && !isStreaming && variant === "card" && toolCall.name !== "image_display" && toolCall.name !== "video_display" && toolCall.name !== "audio_play") {
+    if (
+      wasStreaming &&
+      !isStreaming &&
+      variant === "card" &&
+      toolCall.name !== "image_display" &&
+      toolCall.name !== "video_display" &&
+      toolCall.name !== "audio_play"
+    ) {
       setExpanded(false);
     }
   }, [isStreaming, variant, toolCall.name]);
@@ -117,7 +137,9 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
     <>
       {toolCall.arguments && Object.keys(toolCall.arguments).length > 0 && (
         <div className="mb-0.5">
-          <div className="text-[10px] font-semibold text-[#565f89] uppercase tracking-wider mb-0.5">{t("chat.parameters")}</div>
+          <div className="text-[10px] font-semibold text-[#565f89] uppercase tracking-wider mb-0.5">
+            {t("chat.parameters")}
+          </div>
           <div className="flex flex-col gap-0.5">
             {formatArgumentsNatural(
               toolCall.arguments as Record<string, unknown>,
@@ -128,11 +150,16 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
       )}
       {toolCall.result !== undefined && (
         <div>
-          <div className="text-[10px] font-semibold text-[#565f89] uppercase tracking-wider mb-0.5">{t("chat.result")}</div>
+          <div className="text-[10px] font-semibold text-[#565f89] uppercase tracking-wider mb-0.5">
+            {t("chat.result")}
+          </div>
           {isMediaTool ? (
             <ImageToolResult toolCall={toolCall} />
           ) : typeof toolCall.result === "string" ? (
-            <MarkdownRenderer content={toolCall.result} onPreviewFile={readFileToPreview} />
+            <MarkdownRenderer
+              content={toolCall.result}
+              onPreviewFile={readFileToPreview}
+            />
           ) : (
             <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-[#a9b1d6] font-mono bg-black/15 p-1 rounded max-h-[200px] overflow-y-auto">
               {JSON.stringify(toolCall.result, null, 2)}
@@ -149,17 +176,28 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
         <button
           onClick={handleToggle}
           className="flex items-center gap-2 px-2 py-1 w-full text-left text-[12px] cursor-pointer transition-colors hover:bg-gray-400/[0.05]"
-          style={{ background: "transparent", border: "none", color: "#a9b1d6" }}
+          style={{
+            background: "transparent",
+            border: "none",
+            color: "#a9b1d6",
+          }}
         >
           <span className="shrink-0">{statusIcon}</span>
-          <span className="min-w-0 truncate">{humanSummary || displayName}</span>
+          <span className="min-w-0 truncate">
+            {humanSummary || displayName}
+          </span>
           {isStreaming && (
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse shrink-0" />
           )}
-          <span className="text-[10px] shrink-0 ml-auto">{expanded ? "\u25BC" : "\u25B6"}</span>
+          <span className="text-[10px] shrink-0 ml-auto">
+            {expanded ? "\u25BC" : "\u25B6"}
+          </span>
         </button>
         {expanded && (
-          <div className="border-t border-gray-400/[0.1] px-2.5 py-1" style={{ background: "rgba(0,0,0,0.05)" }}>
+          <div
+            className="border-t border-gray-400/[0.1] px-2.5 py-1"
+            style={{ background: "rgba(0,0,0,0.05)" }}
+          >
             {detailContent}
           </div>
         )}
@@ -184,7 +222,9 @@ function ToolCallGroup({ toolCall, isStreaming, variant = "card", onExpand }: To
             {humanSummary}
           </span>
         )}
-        <span className="text-[10px] shrink-0">{expanded ? "\u25BC" : "\u25B6"}</span>
+        <span className="text-[10px] shrink-0">
+          {expanded ? "\u25BC" : "\u25B6"}
+        </span>
       </button>
       {expanded && (
         <div className="px-2 py-1 border-t border-gray-400/10">

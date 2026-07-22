@@ -177,8 +177,7 @@ function InlineCalendarList({
             hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
           title={ev.summary}
         >
-          <span className="text-gray-400">{ev.start?.slice(0, 10)}</span>
-          {" "}
+          <span className="text-gray-400">{ev.start?.slice(0, 10)}</span>{" "}
           <span className="font-medium text-gray-800 dark:text-gray-200">
             {ev.summary}
           </span>

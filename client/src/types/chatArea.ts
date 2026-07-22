@@ -6,7 +6,13 @@
  */
 
 import type { MessageBlock, ToolCall } from "./message";
-import type { TaskCardData, QuestionData, ProgressData, DeliverableData, DiffData } from "./message";
+import type {
+  TaskCardData,
+  QuestionData,
+  ProgressData,
+  DeliverableData,
+  DiffData,
+} from "./message";
 
 // ============================================================================
 // Block 渲染上下文

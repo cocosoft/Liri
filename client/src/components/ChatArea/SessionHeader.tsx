@@ -19,7 +19,8 @@ function formatDateTime(dateStr: string): string {
 /** 从消息中提取可搜索文本 */
 function getMessageSearchText(message: Message): string {
   const parts: string[] = [];
-  if (message.content) parts.push(typeof message.content === "string" ? message.content : "");
+  if (message.content)
+    parts.push(typeof message.content === "string" ? message.content : "");
   if (message.blocks) {
     for (const block of message.blocks) {
       if (block.content) parts.push(block.content);
@@ -30,13 +31,20 @@ function getMessageSearchText(message: Message): string {
 }
 
 /** 导出为 Markdown */
-function exportAsMarkdown(messages: Message[], labels: Record<string, string>): string {
+function exportAsMarkdown(
+  messages: Message[],
+  labels: Record<string, string>,
+): string {
   return messages
     .map((msg) => {
       const roleLabel =
-        msg.role === "user" ? `👤 ${labels.user}` :
-        msg.role === "assistant" ? `🤖 ${labels.assistant}` :
-        msg.role === "system" ? `⚙️ ${labels.system}` : `🛠 ${labels.tool}`;
+        msg.role === "user"
+          ? `👤 ${labels.user}`
+          : msg.role === "assistant"
+            ? `🤖 ${labels.assistant}`
+            : msg.role === "system"
+              ? `⚙️ ${labels.system}`
+              : `🛠 ${labels.tool}`;
       const date = new Date(msg.timestamp).toLocaleString();
       const text = getMessageSearchText(msg);
       return `### ${roleLabel}  (${date})\n\n${text}\n`;
@@ -46,11 +54,16 @@ function exportAsMarkdown(messages: Message[], labels: Record<string, string>): 
 
 /** 导出为 JSON */
 function exportAsJson(messages: Message[]): string {
-  const cleaned = messages.map(({ id, role, content, timestamp, error, tool_calls }) => ({
-    id, role,
-    content: typeof content === "string" ? content : "",
-    timestamp, error, toolCalls: tool_calls,
-  }));
+  const cleaned = messages.map(
+    ({ id, role, content, timestamp, error, tool_calls }) => ({
+      id,
+      role,
+      content: typeof content === "string" ? content : "",
+      timestamp,
+      error,
+      toolCalls: tool_calls,
+    }),
+  );
   return JSON.stringify(cleaned, null, 2);
 }
 
@@ -115,10 +128,10 @@ function SessionHeader() {
   /** 导出 Markdown */
   const handleExportMarkdown = () => {
     const md = exportAsMarkdown(messages, {
-      user: t('chat.user'),
-      assistant: t('chat.assistant'),
-      system: t('chat.system'),
-      tool: t('chat.tool'),
+      user: t("chat.user"),
+      assistant: t("chat.assistant"),
+      system: t("chat.system"),
+      tool: t("chat.tool"),
     });
     const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -238,35 +251,45 @@ function SessionHeader() {
       <div className="flex items-center gap-1 flex-shrink-0">
         {/* 导出按钮 */}
         {currentSession && messages.length > 0 && (
-        <div ref={exportRef} className="relative flex-shrink-0">
-          <button
-            onClick={() => setExportOpen((prev) => !prev)}
-            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-            title={t('chat.exportSession')}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </button>
+          <div ref={exportRef} className="relative flex-shrink-0">
+            <button
+              onClick={() => setExportOpen((prev) => !prev)}
+              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              title={t("chat.exportSession")}
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+            </button>
 
-          {exportOpen && (
-            <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-30">
-              <button
-                onClick={handleExportMarkdown}
-                className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                导出为 Markdown
-              </button>
-              <button
-                onClick={handleExportJson}
-                className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                {t('chat.exportAsJson')}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+            {exportOpen && (
+              <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-30">
+                <button
+                  onClick={handleExportMarkdown}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  导出为 Markdown
+                </button>
+                <button
+                  onClick={handleExportJson}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  {t("chat.exportAsJson")}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );

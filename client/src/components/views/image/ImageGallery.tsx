@@ -40,9 +40,9 @@ function ImageGallery({
   onLoadMore,
   onRefresh,
   selectable,
-   onSelect,
-   onDelete,
- }: Props) {
+  onSelect,
+  onDelete,
+}: Props) {
   const { t } = useTranslation();
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
@@ -61,7 +61,7 @@ function ImageGallery({
           onLoadMore();
         }
       },
-      { rootMargin: "100px" }
+      { rootMargin: "100px" },
     );
     observer.observe(el);
     return () => observer.disconnect();
@@ -74,9 +74,18 @@ function ImageGallery({
 
   if (loading && images.length === 0) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3" style={{ contentVisibility: "auto", containIntrinsicSize: "auto 200px" }}>
+      <div
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"
+        style={{
+          contentVisibility: "auto",
+          containIntrinsicSize: "auto 200px",
+        }}
+      >
         {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="aspect-square bg-gray-700/20 rounded animate-pulse" />
+          <div
+            key={i}
+            className="aspect-square bg-gray-700/20 rounded animate-pulse"
+          />
         ))}
       </div>
     );
@@ -87,7 +96,9 @@ function ImageGallery({
       <div className="flex flex-col items-center justify-center py-16 text-gray-500">
         <p className="text-sm mb-3">{t("image.loadFailed")}</p>
         <button
-          onClick={() => { onRefresh(); }}
+          onClick={() => {
+            onRefresh();
+          }}
           className="px-3 py-1 rounded text-xs bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border-0 cursor-pointer"
         >
           {t("common.retry")}
@@ -99,7 +110,12 @@ function ImageGallery({
   if (images.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-gray-500">
-        <svg className="w-12 h-12 mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="w-12 h-12 mb-3 opacity-40"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <rect x="3" y="3" width="18" height="18" rx="2" />
           <circle cx="8.5" cy="8.5" r="1.5" />
           <polyline points="21 15 16 10 5 21" />
@@ -119,7 +135,13 @@ function ImageGallery({
 
   return (
     <>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3" style={{ contentVisibility: "auto", containIntrinsicSize: "auto 200px" }}>
+      <div
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"
+        style={{
+          contentVisibility: "auto",
+          containIntrinsicSize: "auto 200px",
+        }}
+      >
         {images.map((img, i) => (
           <div key={img.path} className="relative group">
             <button
@@ -135,8 +157,10 @@ function ImageGallery({
                   // 图片加载失败显示占位色块
                   const target = e.currentTarget;
                   target.style.display = "none";
-                  target.parentElement!.style.background = "rgba(128,128,128,0.1)";
-                  target.parentElement!.innerHTML = '<span style="font-size:20px;opacity:0.3">🖼</span>';
+                  target.parentElement!.style.background =
+                    "rgba(128,128,128,0.1)";
+                  target.parentElement!.innerHTML =
+                    '<span style="font-size:20px;opacity:0.3">🖼</span>';
                   target.parentElement!.style.display = "flex";
                   target.parentElement!.style.alignItems = "center";
                   target.parentElement!.style.justifyContent = "center";
@@ -196,7 +220,8 @@ function ImageGallery({
             {total && `${total - images.length} ${t("image.moreRemaining")}`}
           </span>
         ) : (
-          total !== undefined && total > 0 && (
+          total !== undefined &&
+          total > 0 && (
             <span className="text-[10px] text-gray-600">
               {total} {t("image.total")}
             </span>

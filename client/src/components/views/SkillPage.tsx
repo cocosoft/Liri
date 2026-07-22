@@ -46,7 +46,9 @@ function SkillPage() {
   const [statusFilter, setStatusFilter] = useState<SkillStatus | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState<SkillSource | null>(null);
-  const [activeTab, setActiveTab] = useState<"local" | "official" | "third_party">("local");
+  const [activeTab, setActiveTab] = useState<
+    "local" | "official" | "third_party"
+  >("local");
   const [showMarket, setShowMarket] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
@@ -182,9 +184,9 @@ function SkillPage() {
       }
       await loadSkills({ sortBy, sortOrder });
       // Bug 3: 刷新 selectedSkill 而非清除，保持详情面板可见
-      const updated = useSkillStore.getState().skills.find(
-        (s) => s.id === selectedSkill.id,
-      );
+      const updated = useSkillStore
+        .getState()
+        .skills.find((s) => s.id === selectedSkill.id);
       if (updated) {
         setSelectedSkill(updated);
       }
@@ -291,7 +293,11 @@ function SkillPage() {
         {/* 来源 Tab 栏 */}
         <div className="flex items-center gap-1 mb-4">
           {[
-            { key: "local" as const, label: "系统技能", desc: "内置/用户/项目" },
+            {
+              key: "local" as const,
+              label: "系统技能",
+              desc: "内置/用户/项目",
+            },
             { key: "official" as const, label: "官方", desc: "官方发布" },
             { key: "third_party" as const, label: "第三方", desc: "社区来源" },
           ].map((tab) => (
@@ -309,7 +315,9 @@ function SkillPage() {
               }`}
             >
               <div>{tab.label}</div>
-              <div className={`text-xs mt-0.5 ${activeTab === tab.key ? (isDark ? "text-blue-400" : "text-blue-500") : (isDark ? "text-gray-500" : "text-gray-400")}`}>
+              <div
+                className={`text-xs mt-0.5 ${activeTab === tab.key ? (isDark ? "text-blue-400" : "text-blue-500") : isDark ? "text-gray-500" : "text-gray-400"}`}
+              >
                 {tab.desc}
               </div>
             </button>

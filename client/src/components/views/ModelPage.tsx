@@ -11,9 +11,7 @@ import ProviderPresetPanel from "../modelAdmin/ProviderPresetPanel";
 import ProviderEditorModal from "../modelAdmin/ProviderEditorModal";
 import AddModelModal from "../modelAdmin/AddModelModal";
 import FetchedModelList from "../modelAdmin/FetchedModelList";
-import {
-  PROVIDER_TYPE_LABELS,
-} from "../../config/providerPresets";
+import { PROVIDER_TYPE_LABELS } from "../../config/providerPresets";
 import { balanceService } from "../../services/balanceService";
 import { modelSwitchService } from "../../services/modelSwitchService";
 import type { ProviderInfo, ProviderFormData, FetchedModel } from "../../types";
@@ -39,7 +37,13 @@ function formatDate(ts: number, locale = "zh-CN"): string {
 function ProviderPage() {
   const { t, i18n } = useTranslation();
   const dateLocale = i18n.language === "en" ? "en-US" : "zh-CN";
-  const { models, isLoading: modelsLoading, loadModels, toggleModel, deleteModel } = useModelStore();
+  const {
+    models,
+    isLoading: modelsLoading,
+    loadModels,
+    toggleModel,
+    deleteModel,
+  } = useModelStore();
   const store = useModelAdminStore();
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
@@ -50,7 +54,9 @@ function ProviderPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showPresets, setShowPresets] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editorProvider, setEditorProvider] = useState<ProviderInfo | null>(null);
+  const [editorProvider, setEditorProvider] = useState<ProviderInfo | null>(
+    null,
+  );
   const [showEditor, setShowEditor] = useState(false);
   const [editMetaId, setEditMetaId] = useState<string | null>(null);
   const [fetchedModels, setFetchedModels] = useState<FetchedModel[] | null>(
@@ -64,10 +70,14 @@ function ProviderPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 50;
   const [totalModels, setTotalModels] = useState(0);
-  const [fetchingProviderId, setFetchingProviderId] = useState<string | null>(null);
+  const [fetchingProviderId, setFetchingProviderId] = useState<string | null>(
+    null,
+  );
   const [showAddModel, setShowAddModel] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [initialFormData, setInitialFormData] = useState<Partial<ProviderFormData> | undefined>(undefined);
+  const [initialFormData, setInitialFormData] = useState<
+    Partial<ProviderFormData> | undefined
+  >(undefined);
 
   useEffect(() => {
     loadModels();
@@ -118,7 +128,11 @@ function ProviderPage() {
 
   const handleDelete = useCallback(
     async (id: string, name: string) => {
-      if (window.confirm(t("settings.modelDeleteProviderConfirm").replace("{name}", name))) {
+      if (
+        window.confirm(
+          t("settings.modelDeleteProviderConfirm").replace("{name}", name),
+        )
+      ) {
         await store.deleteProvider(id);
       }
     },
@@ -151,53 +165,70 @@ function ProviderPage() {
     [store, currentPage, pageSize, modelSearchText, fetchingProviderId],
   );
 
-  const handleSearchChange = useCallback((text: string) => {
-    setModelSearchText(text);
-    setCurrentPage(1);
-    if (fetchingProviderId) {
-      handleFetchModels(fetchingProviderId, { search: text, page: 1 });
-    }
-  }, [handleFetchModels, fetchingProviderId]);
+  const handleSearchChange = useCallback(
+    (text: string) => {
+      setModelSearchText(text);
+      setCurrentPage(1);
+      if (fetchingProviderId) {
+        handleFetchModels(fetchingProviderId, { search: text, page: 1 });
+      }
+    },
+    [handleFetchModels, fetchingProviderId],
+  );
 
-  const handlePageChange = useCallback((page: number) => {
-    setCurrentPage(page);
-    if (fetchingProviderId) {
-      handleFetchModels(fetchingProviderId, { page });
-    }
-  }, [handleFetchModels, fetchingProviderId]);
+  const handlePageChange = useCallback(
+    (page: number) => {
+      setCurrentPage(page);
+      if (fetchingProviderId) {
+        handleFetchModels(fetchingProviderId, { page });
+      }
+    },
+    [handleFetchModels, fetchingProviderId],
+  );
 
-  const handleAddModel = useCallback(async (form: {
-    modelId: string;
-    displayName: string;
-    providerId: string;
-    contextWindow: number;
-    maxOutputTokens: number;
-    inputCostPerMillion: number;
-    outputCostPerMillion: number;
-  }) => {
-    try {
-      await store.createModel(form);
-      setShowAddModel(false);
-      loadModels();
-    } catch (e) {
-      alert(`${t("settings.modelCreateFailed")}: ${e instanceof Error ? e.message : t("settings.modelUnknownError")}`);
-    }
-  }, [store, loadModels]);
+  const handleAddModel = useCallback(
+    async (form: {
+      modelId: string;
+      displayName: string;
+      providerId: string;
+      contextWindow: number;
+      maxOutputTokens: number;
+      inputCostPerMillion: number;
+      outputCostPerMillion: number;
+    }) => {
+      try {
+        await store.createModel(form);
+        setShowAddModel(false);
+        loadModels();
+      } catch (e) {
+        alert(
+          `${t("settings.modelCreateFailed")}: ${e instanceof Error ? e.message : t("settings.modelUnknownError")}`,
+        );
+      }
+    },
+    [store, loadModels],
+  );
 
-  const handleBulkImport = useCallback(async (modelIds: string[]) => {
-    if (!modelIds.length || !fetchingProviderId) return;
-    setImporting(true);
-    try {
-      const { providerService } = await import('../../services/providerService');
-      await providerService.bulkImportModels(fetchingProviderId, modelIds);
-      await loadModels();
-      alert(`成功导入 ${modelIds.length} 个模型到模型列表`);
-    } catch (e) {
-      alert(`${t("settings.modelImportFailed")}: ${e instanceof Error ? e.message : t("settings.modelUnknownError")}`);
-    } finally {
-      setImporting(false);
-    }
-  }, [fetchingProviderId, loadModels]);
+  const handleBulkImport = useCallback(
+    async (modelIds: string[]) => {
+      if (!modelIds.length || !fetchingProviderId) return;
+      setImporting(true);
+      try {
+        const { providerService } =
+          await import("../../services/providerService");
+        await providerService.bulkImportModels(fetchingProviderId, modelIds);
+        await loadModels();
+        alert(`成功导入 ${modelIds.length} 个模型到模型列表`);
+      } catch (e) {
+        alert(
+          `${t("settings.modelImportFailed")}: ${e instanceof Error ? e.message : t("settings.modelUnknownError")}`,
+        );
+      } finally {
+        setImporting(false);
+      }
+    },
+    [fetchingProviderId, loadModels],
+  );
 
   const handleCheckBalance = useCallback(async (provider: ProviderInfo) => {
     setCheckingBalanceId(provider.id);
@@ -220,13 +251,20 @@ function ProviderPage() {
   }, []);
 
   const handleSetDefaultModel = useCallback(async (provider: ProviderInfo) => {
-    const modelId = prompt(`为 "${provider.name}" 设置默认模型 ID:\n输入模型 ID（留空清除默认）`, '');
+    const modelId = prompt(
+      `为 "${provider.name}" 设置默认模型 ID:\n输入模型 ID（留空清除默认）`,
+      "",
+    );
     if (modelId === null) return;
     try {
       await modelSwitchService.setDefaultModel(provider.id, modelId);
-      alert(`已${modelId ? `将 "${provider.name}" 默认模型设为 ${modelId}` : `清除 "${provider.name}" 的默认模型`}`);
+      alert(
+        `已${modelId ? `将 "${provider.name}" 默认模型设为 ${modelId}` : `清除 "${provider.name}" 的默认模型`}`,
+      );
     } catch (e) {
-      alert(`${t("settings.modelSetDefaultFailed")}: ${e instanceof Error ? e.message : t("settings.modelUnknownError")}`);
+      alert(
+        `${t("settings.modelSetDefaultFailed")}: ${e instanceof Error ? e.message : t("settings.modelUnknownError")}`,
+      );
     }
   }, []);
 
@@ -318,7 +356,9 @@ function ProviderPage() {
             ) : filteredProviders.length === 0 ? (
               <div className="text-center py-16">
                 <p className="text-gray-400 dark:text-gray-500 text-lg mb-2">
-                  {searchQuery ? t("settings.modelNoProvider") : t("settings.modelNoProvider")}
+                  {searchQuery
+                    ? t("settings.modelNoProvider")
+                    : t("settings.modelNoProvider")}
                 </p>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                   {searchQuery
@@ -355,7 +395,11 @@ function ProviderPage() {
                           )}
                           <span
                             className={`inline-block w-2 h-2 rounded-full ${p.isActive ? "bg-green-400" : "bg-gray-400"}`}
-                            title={p.isActive ? t("settings.modelEnabled") : t("settings.modelDisabled")}
+                            title={
+                              p.isActive
+                                ? t("settings.modelEnabled")
+                                : t("settings.modelDisabled")
+                            }
                           />
                         </div>
                         <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
@@ -405,7 +449,9 @@ function ProviderPage() {
                           onClick={() => store.toggleProvider(p.id)}
                           className="px-2 py-1.5 text-xs bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded transition-colors"
                         >
-                          {p.isActive ? t("settings.modelDisable") : t("settings.modelEnable")}
+                          {p.isActive
+                            ? t("settings.modelDisable")
+                            : t("settings.modelEnable")}
                         </button>
                         <button
                           onClick={() => handleSetDefaultModel(p)}
@@ -415,21 +461,23 @@ function ProviderPage() {
                           设默认
                         </button>
                         {p.requiresAuth !== false && (
-                        <button
-                          onClick={() => handleCheckBalance(p)}
-                          disabled={
-                            checkingBalanceId === p.id ||
-                            (p.requiresAuth && !p.apiKey)
-                          }
-                          title={
-                            p.requiresAuth && !p.apiKey
-                              ? t("settings.modelNeedsApiKey")
-                              : t("settings.modelCheckBalance")
-                          }
-                          className="px-2 py-1.5 text-xs bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/40 text-green-600 dark:text-green-400 rounded transition-colors disabled:opacity-30"
-                        >
-                          {checkingBalanceId === p.id ? "..." : t("settings.modelBalanceBtn")}
-                        </button>
+                          <button
+                            onClick={() => handleCheckBalance(p)}
+                            disabled={
+                              checkingBalanceId === p.id ||
+                              (p.requiresAuth && !p.apiKey)
+                            }
+                            title={
+                              p.requiresAuth && !p.apiKey
+                                ? t("settings.modelNeedsApiKey")
+                                : t("settings.modelCheckBalance")
+                            }
+                            className="px-2 py-1.5 text-xs bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/40 text-green-600 dark:text-green-400 rounded transition-colors disabled:opacity-30"
+                          >
+                            {checkingBalanceId === p.id
+                              ? "..."
+                              : t("settings.modelBalanceBtn")}
+                          </button>
                         )}
                         <button
                           onClick={() => openEditor(p)}
@@ -558,9 +606,15 @@ function ProviderPage() {
                               ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-700 hover:bg-green-200 dark:hover:bg-green-900/50"
                               : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600"
                           }`}
-                          title={model.enabled ? t("settings.modelClickDisable") : t("settings.modelClickEnable")}
+                          title={
+                            model.enabled
+                              ? t("settings.modelClickDisable")
+                              : t("settings.modelClickEnable")
+                          }
                         >
-                          {model.enabled ? t("settings.modelAvailable") : t("settings.modelStatusDisabled")}
+                          {model.enabled
+                            ? t("settings.modelAvailable")
+                            : t("settings.modelStatusDisabled")}
                         </button>
                         {model.providerId && (
                           <button
@@ -578,7 +632,11 @@ function ProviderPage() {
                         </button>
                         <button
                           onClick={() => {
-                            if (window.confirm(`确定删除模型「${model.name || model.id}」？此操作不可恢复。`)) {
+                            if (
+                              window.confirm(
+                                `确定删除模型「${model.name || model.id}」？此操作不可恢复。`,
+                              )
+                            ) {
                               deleteModel(model.id).catch(() => {});
                             }
                           }}

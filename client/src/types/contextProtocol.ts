@@ -218,9 +218,18 @@ export function buildAggregatedContext(
   workspaceRules: string,
   projectRules: string,
   knowledgeEntries: KnowledgeEntry[],
-  memoryEntries: Array<{ workItemId: string; summary: string; createdAt: string }>,
+  memoryEntries: Array<{
+    workItemId: string;
+    summary: string;
+    createdAt: string;
+  }>,
   tools: ToolDefinition[],
-  modelBindings: Array<{ agentRole: string; model: string; maxTokens: number; temperature: number }>
+  modelBindings: Array<{
+    agentRole: string;
+    model: string;
+    maxTokens: number;
+    temperature: number;
+  }>,
 ): AggregatedContext {
   const now = new Date().toISOString();
 
@@ -252,7 +261,10 @@ export function buildAggregatedContext(
 /**
  * 解析规则文本为规则条目
  */
-function parseRules(content: string, source: "workspace" | "project" | "system"): RuleEntry[] {
+function parseRules(
+  content: string,
+  source: "workspace" | "project" | "system",
+): RuleEntry[] {
   if (!content) return [];
 
   const entries: RuleEntry[] = [];
@@ -261,7 +273,9 @@ function parseRules(content: string, source: "workspace" | "project" | "system")
 
   for (const line of lines) {
     // 匹配规则 ID 行：`[CS-ID] [级别] 描述`
-    const match = line.match(/^\[([A-Z]+-\d+)\]\s*\[(MUST|SHOULD|MAY)\]\s*(.+)$/);
+    const match = line.match(
+      /^\[([A-Z]+-\d+)\]\s*\[(MUST|SHOULD|MAY)\]\s*(.+)$/,
+    );
     if (match) {
       if (currentEntry?.id) {
         entries.push(currentEntry as RuleEntry);

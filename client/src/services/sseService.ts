@@ -1,4 +1,14 @@
 import { getBackendBaseUrl } from "./backendUrl";
+import { getOTelTracing } from "../monitoring/otel/OTelTracing";
+
+/** 构建 W3C traceparent 查询参数 */
+function buildTraceparentParam(): string {
+  const span = getOTelTracing().getActiveSpan();
+  if (!span) return '';
+  const ctx = span.spanContext();
+  if (!ctx.traceId) return '';
+  return `traceparent=00-${ctx.traceId}-${ctx.spanId}-0${ctx.traceFlags}`;
+}
 
 type EventHandler = (data: Record<string, unknown>) => void;
 
@@ -65,7 +75,10 @@ class SSEService {
     this.stopPolling();
 
     try {
-      this.eventSource = new EventSource(`${getBackendBaseUrl()}/v1/events`);
+      // P1-2.16: 注入 traceparent 查询参数，实现跨进程 TraceContext 传递
+      const tp = buildTraceparentParam();
+      const sseUrl = `${getBackendBaseUrl()}/v1/events${tp ? `?${tp}` : ''}`;
+      this.eventSource = new EventSource(sseUrl);
 
       this.eventSource.onopen = () => {
         // 连接成功：重置重连间隔，启动心跳，停止轮询
@@ -172,9 +185,11 @@ class SSEService {
       // 仅当 SSE 连接正常时才发送心跳
       if (!this.isConnected()) return;
 
-      fetch(`${getBackendBaseUrl()}/v1/events`, { method: "HEAD" }).catch(() => {
-        // 心跳失败静默处理，不干扰主流程
-      });
+      fetch(`${getBackendBaseUrl()}/v1/events`, { method: "HEAD" }).catch(
+        () => {
+          // 心跳失败静默处理，不干扰主流程
+        },
+      );
     }, 30000);
   }
 

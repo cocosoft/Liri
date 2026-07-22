@@ -14,7 +14,10 @@ interface GallerySearchBarProps {
   onRefresh?: () => void;
 }
 
-const DATE_RANGE_OPTIONS: { value: GallerySearchParams["dateRange"]; label: string }[] = [
+const DATE_RANGE_OPTIONS: {
+  value: GallerySearchParams["dateRange"];
+  label: string;
+}[] = [
   { value: "all", label: "全部" },
   { value: "today", label: "今天" },
   { value: "7days", label: "近 7 天" },
@@ -56,7 +59,9 @@ export const GallerySearchBar: React.FC<GallerySearchBarProps> = ({
       <select
         value={params.dateRange}
         onChange={(e) =>
-          onChange({ dateRange: e.target.value as GallerySearchParams["dateRange"] })
+          onChange({
+            dateRange: e.target.value as GallerySearchParams["dateRange"],
+          })
         }
         className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-600 focus:border-blue-400 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
       >

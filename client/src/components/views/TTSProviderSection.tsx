@@ -99,7 +99,7 @@ export function TTSProviderSection() {
   /** 保存 Provider 配置 */
   const handleSaveConfig = async (
     providerName: string,
-    config: Record<string, string>
+    config: Record<string, string>,
   ): Promise<void> => {
     setSaving((prev) => ({ ...prev, [providerName]: true }));
     setError(null);

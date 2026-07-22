@@ -33,15 +33,15 @@ const ACTIVE_STATUSES: VideoTaskItem["status"][] = [
  *
  * @param onTaskCompleted — 可选回调，单个任务完成时触发（用于刷新画廊等）
  */
-export function useVideoTaskPolling(onTaskCompleted?: (taskId: string) => void) {
+export function useVideoTaskPolling(
+  onTaskCompleted?: (taskId: string) => void,
+) {
   const activeTasks = useMediaStore((s) => s.activeTasks);
   const updateTask = useMediaStore((s) => s.updateTask);
   const addTask = useMediaStore((s) => s.addTask);
   const setActiveTasks = useMediaStore((s) => s.setActiveTasks);
 
-  const timers = useRef<Map<string, ReturnType<typeof setInterval>>>(
-    new Map()
-  );
+  const timers = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
 
   /** 恢复页面刷新前的活跃任务 */
   const restoreActiveTasks = useCallback(async () => {
@@ -68,7 +68,11 @@ export function useVideoTaskPolling(onTaskCompleted?: (taskId: string) => void) 
         logger.info("恢复活跃任务", { count: mapped.length });
       }
     } catch (e) {
-      handleClientError(e, { module: 'hooks:useVideoTaskPolling', action: 'restoreActiveTasks' }, 'warn');
+      handleClientError(
+        e,
+        { module: "hooks:useVideoTaskPolling", action: "restoreActiveTasks" },
+        "warn",
+      );
     }
   }, [setActiveTasks]);
 
@@ -109,7 +113,7 @@ export function useVideoTaskPolling(onTaskCompleted?: (taskId: string) => void) 
         logger.warn("轮询任务失败", { taskId, error: String(e) });
       }
     },
-    [updateTask, stopPolling, onTaskCompleted]
+    [updateTask, stopPolling, onTaskCompleted],
   );
 
   /** 开始轮询单个任务 */
@@ -123,7 +127,7 @@ export function useVideoTaskPolling(onTaskCompleted?: (taskId: string) => void) 
 
       timers.current.set(taskId, timer);
     },
-    [pollTask]
+    [pollTask],
   );
 
   /** 添加新任务并开始轮询 */
@@ -143,7 +147,7 @@ export function useVideoTaskPolling(onTaskCompleted?: (taskId: string) => void) 
       });
       startPolling(taskId);
     },
-    [addTask, startPolling]
+    [addTask, startPolling],
   );
 
   // ──── Effects ────

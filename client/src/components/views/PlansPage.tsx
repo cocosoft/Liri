@@ -80,7 +80,9 @@ function PlansView() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleCreate = async () => {
     const g = goal.trim();
@@ -121,7 +123,9 @@ function PlansView() {
   if (loading) {
     return (
       <div className="space-y-3">
-        {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+        {[1, 2, 3].map((i) => (
+          <SkeletonCard key={i} />
+        ))}
       </div>
     );
   }
@@ -174,7 +178,9 @@ function PlansView() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 ml-3">
-                  <span className={`text-xs font-medium ${statusColor[plan.status] || ""}`}>
+                  <span
+                    className={`text-xs font-medium ${statusColor[plan.status] || ""}`}
+                  >
                     {statusText[plan.status] || plan.status}
                   </span>
                   {plan.status === "pending" && (
@@ -222,7 +228,9 @@ function PdcaView() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleStart = async () => {
     const d = description.trim();
@@ -237,7 +245,9 @@ function PdcaView() {
   if (loading) {
     return (
       <div className="space-y-3">
-        {[1, 2].map((i) => <SkeletonCard key={i} />)}
+        {[1, 2].map((i) => (
+          <SkeletonCard key={i} />
+        ))}
       </div>
     );
   }

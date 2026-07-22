@@ -18,18 +18,35 @@ interface SwarmAgent {
 }
 
 /** 状态对应的颜色 */
-const STATUS_STYLE: Record<string, { dot: string; bg: string; text: string }> = {
-  idle:      { dot: "bg-gray-400",  bg: "bg-gray-50 dark:bg-gray-800/50",    text: "text-gray-500 dark:text-gray-400" },
-  running:   { dot: "bg-green-400", bg: "bg-green-50 dark:bg-green-900/20",   text: "text-green-600 dark:text-green-400" },
-  completed: { dot: "bg-blue-400",  bg: "bg-blue-50 dark:bg-blue-900/20",    text: "text-blue-600 dark:text-blue-400" },
-  error:     { dot: "bg-red-400",   bg: "bg-red-50 dark:bg-red-900/20",     text: "text-red-600 dark:text-red-400" },
-};
+const STATUS_STYLE: Record<string, { dot: string; bg: string; text: string }> =
+  {
+    idle: {
+      dot: "bg-gray-400",
+      bg: "bg-gray-50 dark:bg-gray-800/50",
+      text: "text-gray-500 dark:text-gray-400",
+    },
+    running: {
+      dot: "bg-green-400",
+      bg: "bg-green-50 dark:bg-green-900/20",
+      text: "text-green-600 dark:text-green-400",
+    },
+    completed: {
+      dot: "bg-blue-400",
+      bg: "bg-blue-50 dark:bg-blue-900/20",
+      text: "text-blue-600 dark:text-blue-400",
+    },
+    error: {
+      dot: "bg-red-400",
+      bg: "bg-red-50 dark:bg-red-900/20",
+      text: "text-red-600 dark:text-red-400",
+    },
+  };
 
 const STATUS_LABEL_KEYS: Record<string, string> = {
-  idle:      "chat.idle",
-  running:   "chat.running",
+  idle: "chat.idle",
+  running: "chat.running",
   completed: "chat.completed",
-  error:     "common.error",
+  error: "common.error",
 };
 
 /**
@@ -111,23 +128,32 @@ export default function AgentCardGrid() {
               {/* 卡片头部 */}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                    STATUS_STYLE[agent.status]?.dot ?? "bg-gray-400"
-                  }`} />
+                  <span
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                      STATUS_STYLE[agent.status]?.dot ?? "bg-gray-400"
+                    }`}
+                  />
                   <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
                     {agent.name}
                   </span>
                 </div>
-                <span className={`text-[10px] font-medium flex-shrink-0 ${
-                  STATUS_STYLE[agent.status]?.text ?? "text-gray-500"
-                }`}>
-                  {t(STATUS_LABEL_KEYS[agent.status] ?? agent.status, agent.status)}
+                <span
+                  className={`text-[10px] font-medium flex-shrink-0 ${
+                    STATUS_STYLE[agent.status]?.text ?? "text-gray-500"
+                  }`}
+                >
+                  {t(
+                    STATUS_LABEL_KEYS[agent.status] ?? agent.status,
+                    agent.status,
+                  )}
                 </span>
               </div>
 
               {/* 角色 */}
               <div className="mb-2">
-                <span className="text-[10px] text-gray-400 dark:text-gray-500">角色</span>
+                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                  角色
+                </span>
                 <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
                   {agent.role}
                 </p>
@@ -136,7 +162,9 @@ export default function AgentCardGrid() {
               {/* 任务和进度 */}
               {agent.task && (
                 <div className="mb-2">
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500">{t("agent.task")}</span>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                    {t("agent.task")}
+                  </span>
                   <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
                     {agent.task}
                   </p>
@@ -146,7 +174,9 @@ export default function AgentCardGrid() {
               {agent.progress !== undefined && agent.progress > 0 && (
                 <div className="mb-2">
                   <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-[10px] text-gray-400 dark:text-gray-500">{t("workspace.workflow")}</span>
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                      {t("workspace.workflow")}
+                    </span>
                     <span className="text-[10px] text-gray-500 dark:text-gray-400">
                       {Math.round(agent.progress * 100)}%
                     </span>
@@ -170,7 +200,9 @@ export default function AgentCardGrid() {
               {/* 操作按钮 */}
               <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 flex gap-1">
                 <button
-                  onClick={() => setChatAgentId(chatAgentId === agent.id ? null : agent.id)}
+                  onClick={() =>
+                    setChatAgentId(chatAgentId === agent.id ? null : agent.id)
+                  }
                   className="text-[10px] px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
                 >
                   {chatAgentId === agent.id ? "收起对话" : "对话"}

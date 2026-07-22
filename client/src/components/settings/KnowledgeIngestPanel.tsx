@@ -12,9 +12,21 @@ interface KnowledgeIngestPanelProps {
 
 /** 内置默认规则说明 */
 const DEFAULT_RULES_INFO = [
-  { label: "文本/代码文件", exts: ".md, .ts, .py, .rs, .json, .svg …", action: "完整处理 + AI 分类" },
-  { label: "图片/音视频/字体", exts: ".jpg, .png, .gif, .mp3, .mp4, .ttf …", action: "仅落库（复制 + 元数据）" },
-  { label: "编译产物/压缩包", exts: ".exe, .dll, .zip, .pyc, .wasm …", action: "彻底跳过" },
+  {
+    label: "文本/代码文件",
+    exts: ".md, .ts, .py, .rs, .json, .svg …",
+    action: "完整处理 + AI 分类",
+  },
+  {
+    label: "图片/音视频/字体",
+    exts: ".jpg, .png, .gif, .mp3, .mp4, .ttf …",
+    action: "仅落库（复制 + 元数据）",
+  },
+  {
+    label: "编译产物/压缩包",
+    exts: ".exe, .dll, .zip, .pyc, .wasm …",
+    action: "彻底跳过",
+  },
 ];
 
 function KnowledgeIngestPanel({ isDark }: KnowledgeIngestPanelProps) {
@@ -31,8 +43,12 @@ function KnowledgeIngestPanel({ isDark }: KnowledgeIngestPanelProps) {
   const loadConfig = useCallback(async () => {
     try {
       const [includeRes, excludeRes] = await Promise.all([
-        http.get<{ key: string; value: string[] }>("/v1/config/knowledge.ingest.include"),
-        http.get<{ key: string; value: string[] }>("/v1/config/knowledge.ingest.exclude"),
+        http.get<{ key: string; value: string[] }>(
+          "/v1/config/knowledge.ingest.include",
+        ),
+        http.get<{ key: string; value: string[] }>(
+          "/v1/config/knowledge.ingest.exclude",
+        ),
       ]);
       if (includeRes?.value && Array.isArray(includeRes.value)) {
         setIncludeTags(includeRes.value);
@@ -77,7 +93,7 @@ function KnowledgeIngestPanel({ isDark }: KnowledgeIngestPanelProps) {
     tag: string,
     tags: string[],
     setter: (t: string[]) => void,
-    inputSetter: (v: string) => void
+    inputSetter: (v: string) => void,
   ) => {
     const trimmed = tag.trim().toLowerCase();
     if (!trimmed || tags.includes(trimmed)) return;
@@ -86,7 +102,11 @@ function KnowledgeIngestPanel({ isDark }: KnowledgeIngestPanelProps) {
   };
 
   /** 删除标签 */
-  const removeTag = (tag: string, tags: string[], setter: (t: string[]) => void) => {
+  const removeTag = (
+    tag: string,
+    tags: string[],
+    setter: (t: string[]) => void,
+  ) => {
     setter(tags.filter((t) => t !== tag));
   };
 
@@ -96,7 +116,7 @@ function KnowledgeIngestPanel({ isDark }: KnowledgeIngestPanelProps) {
     tags: string[],
     setter: (t: string[]) => void,
     inputSetter: (v: string) => void,
-    inputValue: string
+    inputValue: string,
   ) => {
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
@@ -105,18 +125,13 @@ function KnowledgeIngestPanel({ isDark }: KnowledgeIngestPanelProps) {
   };
 
   /** 标签渲染 */
-  const renderTags = (
-    tags: string[],
-    setter: (t: string[]) => void
-  ) => (
+  const renderTags = (tags: string[], setter: (t: string[]) => void) => (
     <div className="flex flex-wrap gap-1.5 mb-2">
       {tags.map((tag) => (
         <span
           key={tag}
           className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full ${
-            isDark
-              ? "bg-blue-900/40 text-blue-300"
-              : "bg-blue-50 text-blue-700"
+            isDark ? "bg-blue-900/40 text-blue-300" : "bg-blue-50 text-blue-700"
           }`}
         >
           {tag}
@@ -147,7 +162,9 @@ function KnowledgeIngestPanel({ isDark }: KnowledgeIngestPanelProps) {
         <ul className="space-y-1">
           {DEFAULT_RULES_INFO.map((rule) => (
             <li key={rule.label} className="flex gap-2">
-              <span className="whitespace-nowrap font-medium">{rule.label}：</span>
+              <span className="whitespace-nowrap font-medium">
+                {rule.label}：
+              </span>
               <span className="text-gray-400">{rule.exts}</span>
               <span className="ml-auto text-gray-400">→ {rule.action}</span>
             </li>
@@ -167,10 +184,17 @@ function KnowledgeIngestPanel({ isDark }: KnowledgeIngestPanelProps) {
           value={inputInclude}
           onChange={(e) => setInputInclude(e.target.value)}
           onKeyDown={(e) =>
-            handleKeyDown(e, includeTags, setIncludeTags, setInputInclude, inputInclude)
+            handleKeyDown(
+              e,
+              includeTags,
+              setIncludeTags,
+              setInputInclude,
+              inputInclude,
+            )
           }
           onBlur={() =>
-            inputInclude && addTag(inputInclude, includeTags, setIncludeTags, setInputInclude)
+            inputInclude &&
+            addTag(inputInclude, includeTags, setIncludeTags, setInputInclude)
           }
           placeholder="输入扩展名后按 Enter，如 .md"
           className={`w-full px-3 py-1.5 text-sm border rounded ${
@@ -179,7 +203,9 @@ function KnowledgeIngestPanel({ isDark }: KnowledgeIngestPanelProps) {
               : "bg-white border-gray-300 text-gray-900"
           }`}
         />
-        <p className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+        <p
+          className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}
+        >
           格式：.md, .txt, .jpg（支持带点和不带点）
         </p>
       </ConfigItem>
@@ -196,10 +222,17 @@ function KnowledgeIngestPanel({ isDark }: KnowledgeIngestPanelProps) {
           value={inputExclude}
           onChange={(e) => setInputExclude(e.target.value)}
           onKeyDown={(e) =>
-            handleKeyDown(e, excludeTags, setExcludeTags, setInputExclude, inputExclude)
+            handleKeyDown(
+              e,
+              excludeTags,
+              setExcludeTags,
+              setInputExclude,
+              inputExclude,
+            )
           }
           onBlur={() =>
-            inputExclude && addTag(inputExclude, excludeTags, setExcludeTags, setInputExclude)
+            inputExclude &&
+            addTag(inputExclude, excludeTags, setExcludeTags, setInputExclude)
           }
           placeholder="输入扩展名后按 Enter，如 .log"
           className={`w-full px-3 py-1.5 text-sm border rounded ${
@@ -208,7 +241,9 @@ function KnowledgeIngestPanel({ isDark }: KnowledgeIngestPanelProps) {
               : "bg-white border-gray-300 text-gray-900"
           }`}
         />
-        <p className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+        <p
+          className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}
+        >
           include 和 exclude 同时配置时，include 优先
         </p>
       </ConfigItem>

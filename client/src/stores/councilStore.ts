@@ -27,7 +27,8 @@ export interface CouncilStatementUI {
 }
 
 /** Council 辩论阶段 */
-export type CouncilPhaseUI = "idle" | "convening" | "debating" | "consensus" | "completed" | "error";
+export type CouncilPhaseUI =
+  "idle" | "convening" | "debating" | "consensus" | "completed" | "error";
 
 /** 共识结果 */
 export type ConsensusResultUI = "unanimous" | "majority" | "deadlock";
@@ -51,7 +52,11 @@ interface CouncilState {
   addAgentJoined: (agentId: string, agentName: string) => void;
   setPhase: (phase: CouncilPhaseUI) => void;
   setRound: (round: number) => void;
-  setResult: (result: ConsensusResultUI, finalProposal: string, minorityOpinion: string | null) => void;
+  setResult: (
+    result: ConsensusResultUI,
+    finalProposal: string,
+    minorityOpinion: string | null,
+  ) => void;
   setError: (error: string) => void;
   setEventSource: (es: EventSource | null) => void;
   reset: () => void;
@@ -91,11 +96,12 @@ export const useCouncilStore = create<CouncilState>((set, get) => ({
       error: null,
     });
 
-    const workspaceId = useWorkspaceStore.getState().currentWorkspace?.id || 'default';
-    const API_BASE = '';
+    const workspaceId =
+      useWorkspaceStore.getState().currentWorkspace?.id || "default";
+    const API_BASE = "";
 
     const es = new EventSource(
-      `${API_BASE}/v1/workspaces/${workspaceId}/council/${sessionId}/stream`
+      `${API_BASE}/v1/workspaces/${workspaceId}/council/${sessionId}/stream`,
     );
 
     es.addEventListener("council_started", () => {
@@ -134,7 +140,13 @@ export const useCouncilStore = create<CouncilState>((set, get) => ({
 
     es.addEventListener("council_completed", () => {
       set({ phase: "completed" });
-      useToastStore.getState().addToast("info", `\u{1F3DB}\uFE0F 理事会已达成共识："${get().topic}"`, 5000);
+      useToastStore
+        .getState()
+        .addToast(
+          "info",
+          `\u{1F3DB}\uFE0F 理事会已达成共识："${get().topic}"`,
+          5000,
+        );
       es.close();
       set({ eventSource: null });
     });
@@ -150,7 +162,11 @@ export const useCouncilStore = create<CouncilState>((set, get) => ({
     });
 
     es.addEventListener("error", (e) => {
-      handleClientError(e instanceof ErrorEvent ? e : new Error('SSE 连接异常'), { module: 'stores:councilStore', action: 'councilSSE' }, 'warn');
+      handleClientError(
+        e instanceof ErrorEvent ? e : new Error("SSE 连接异常"),
+        { module: "stores:councilStore", action: "councilSSE" },
+        "warn",
+      );
     });
 
     set({ eventSource: es });
@@ -161,10 +177,7 @@ export const useCouncilStore = create<CouncilState>((set, get) => ({
 
   addAgentJoined: (agentId, agentName) =>
     set((state) => ({
-      joinedAgents: [
-        ...(state.joinedAgents || []),
-        { agentId, agentName },
-      ],
+      joinedAgents: [...(state.joinedAgents || []), { agentId, agentName }],
     })),
 
   setPhase: (phase) => set({ phase }),

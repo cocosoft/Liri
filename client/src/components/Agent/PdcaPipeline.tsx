@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { httpLegacy as http } from "../../services/httpClient";
+import { handleClientError } from "../../utils/handleError";
 
 interface ReviewIssue {
   severity: string;
@@ -120,7 +121,8 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
         setStatus(res as PdcaStatus);
         setNotFound(false);
       }
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "components:agent:PdcaPipeline", action: "load" });
       // 404/500 — 无 PDCA 任务关联，停止轮询
       setNotFound(true);
     } finally {
@@ -144,7 +146,8 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
     try {
       await http.post(`/v1/pdca/${taskId}/step/${stepId}/review`);
       load();
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "components:agent:PdcaPipeline", action: "handleReview" });
     } finally {
       setActionLoading(null);
     }
@@ -155,7 +158,8 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
     try {
       await http.post(`/v1/pdca/${taskId}/step/${stepId}/decide`, { decision });
       load();
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "components:agent:PdcaPipeline", action: "handleDecide" });
     } finally {
       setActionLoading(null);
     }
@@ -286,7 +290,10 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
               {expandedStep === step.id && (
                 <div className="px-3 pb-2 space-y-1.5 border-t border-gray-100 dark:border-gray-700">
                   <div className="flex items-center gap-4 text-[10px] text-gray-400 pt-1.5">
-                    <span>{t("agent.status")}: {t(STATUS_TEXT[step.status] || step.status)}</span>
+                    <span>
+                      {t("agent.status")}:{" "}
+                      {t(STATUS_TEXT[step.status] || step.status)}
+                    </span>
                     <span>
                       重试: {step.retryCount}/{step.maxRetries}
                     </span>
@@ -308,8 +315,8 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
                       }`}
                     >
                       <div className="font-medium">
-                        {step.reviewResult.pass ? "审查通过" : "审查未通过"}{" "}
-                        ({step.reviewResult.score}分)
+                        {step.reviewResult.pass ? "审查通过" : "审查未通过"} (
+                        {step.reviewResult.score}分)
                       </div>
                       {step.reviewResult.summary && (
                         <div className="mt-0.5">
@@ -388,7 +395,9 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
             审计报告
           </span>
           <div className="text-[10px] text-gray-500 space-y-0.5 bg-gray-50 dark:bg-gray-700/30 p-1.5 rounded">
-            <div>{audit.completedSteps}/{audit.totalSteps} 步骤完成</div>
+            <div>
+              {audit.completedSteps}/{audit.totalSteps} 步骤完成
+            </div>
             {audit.failedSteps > 0 && (
               <div className="text-red-500">{audit.failedSteps} 步骤失败</div>
             )}

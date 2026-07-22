@@ -83,7 +83,9 @@ export function TTSPersonaEditor({
     // 加载 Provider 列表
     (async () => {
       try {
-        const response = await fetch(`${getBackendBaseUrl()}/v1/voice/providers`);
+        const response = await fetch(
+          `${getBackendBaseUrl()}/v1/voice/providers`,
+        );
         const data = await response.json();
         if (Array.isArray(data)) {
           setProviders(data);
@@ -101,7 +103,7 @@ export function TTSPersonaEditor({
     (async () => {
       try {
         const response = await fetch(
-          `${getBackendBaseUrl()}/v1/voice/voices?provider=${encodeURIComponent(provider)}`
+          `${getBackendBaseUrl()}/v1/voice/voices?provider=${encodeURIComponent(provider)}`,
         );
         const data = await response.json();
         if (Array.isArray(data)) {
@@ -143,11 +145,14 @@ export function TTSPersonaEditor({
 
     try {
       if (isEditing) {
-        const response = await fetch(`${getBackendBaseUrl()}/v1/tts/personas/${persona!.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
+        const response = await fetch(
+          `${getBackendBaseUrl()}/v1/tts/personas/${persona!.id}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          },
+        );
         if (!response.ok) throw new Error("更新人设失败");
       } else {
         const response = await fetch(`${getBackendBaseUrl()}/v1/tts/personas`, {
@@ -171,9 +176,7 @@ export function TTSPersonaEditor({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>
-            {isEditing ? "编辑人设" : "新建人设"}
-          </DialogTitle>
+          <DialogTitle>{isEditing ? "编辑人设" : "新建人设"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -297,16 +300,10 @@ export function TTSPersonaEditor({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             取消
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={saving}
-          >
+          <Button onClick={handleSubmit} disabled={saving}>
             {saving ? "保存中..." : isEditing ? "更新人设" : "创建人设"}
           </Button>
         </DialogFooter>

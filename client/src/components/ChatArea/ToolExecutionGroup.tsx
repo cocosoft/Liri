@@ -4,7 +4,10 @@ import type { MessageBlock } from "../../types";
 import ToolCallGroup from "./ToolCallGroup";
 import MarkdownRenderer from "./MarkdownRenderer";
 import { useChatStore } from "../../stores/chatStore";
-import { getToolDisplayName, getToolHumanSummary } from "../../utils/toolHumanSummary";
+import {
+  getToolDisplayName,
+  getToolHumanSummary,
+} from "../../utils/toolHumanSummary";
 import { useFeatureFlagStore } from "../../stores/featureFlags";
 import GroupStatusLine from "./GroupStatusLine";
 import BlockItem from "./BlockItem";
@@ -18,7 +21,10 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
   const { readFileToPreview } = useChatStore();
   const toolcallFlat = useFeatureFlagStore((s) => s.flags.toolcall_flat);
 
-  const isGroupStreaming = useMemo(() => blocks.some(b => b.isStreaming), [blocks]);
+  const isGroupStreaming = useMemo(
+    () => blocks.some((b) => b.isStreaming),
+    [blocks],
+  );
   const [collapsed, setCollapsed] = useState(!isGroupStreaming);
   const [innerCollapsed, setInnerCollapsed] = useState(true);
   const prevStreaming = useRef(false);
@@ -57,7 +63,10 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
         ) {
           return "completed";
         }
-        if (block.content.includes("失败") || block.content.includes("\u{274C}")) {
+        if (
+          block.content.includes("失败") ||
+          block.content.includes("\u{274C}")
+        ) {
           return "failed";
         }
         if (block.content.includes("Running")) {
@@ -66,17 +75,25 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
       }
     }
 
-    return blocks.some(b => b.isStreaming) ? "running" : "completed";
+    return blocks.some((b) => b.isStreaming) ? "running" : "completed";
   }, [blocks]);
 
   const statusConfig = useMemo(() => {
     switch (status) {
       case "completed":
-        return { icon: "\u{2705}", label: t("chat.completed"), color: "#9ece6a" };
+        return {
+          icon: "\u{2705}",
+          label: t("chat.completed"),
+          color: "#9ece6a",
+        };
       case "failed":
         return { icon: "\u{274C}", label: t("chat.failed"), color: "#f7768e" };
       default:
-        return { icon: "\u{23F3}", label: t("chat.executing"), color: "#e6c384" };
+        return {
+          icon: "\u{23F3}",
+          label: t("chat.executing"),
+          color: "#e6c384",
+        };
     }
   }, [status, t]);
 
@@ -99,7 +116,11 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
         block.toolCall?.result
       ) {
         const result = block.toolCall.result;
-        if (result && typeof result === "object" && "error" in (result as Record<string, unknown>)) {
+        if (
+          result &&
+          typeof result === "object" &&
+          "error" in (result as Record<string, unknown>)
+        ) {
           const err = (result as Record<string, unknown>).error;
           return String(err).slice(0, 100);
         }
@@ -113,11 +134,16 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
 
   /** 聚合统计：对连续同类型工具调用进行计数 */
   const aggregateStats = useMemo(() => {
-    const toolCalls = blocks.filter(b => b.type === "tool_call" && b.toolCall);
+    const toolCalls = blocks.filter(
+      (b) => b.type === "tool_call" && b.toolCall,
+    );
     if (toolCalls.length < 3) return null;
 
     // 按工具名称分组
-    const groups = new Map<string, { total: number; completed: number; running: number; failed: number }>();
+    const groups = new Map<
+      string,
+      { total: number; completed: number; running: number; failed: number }
+    >();
     for (const b of toolCalls) {
       const name = b.toolCall?.name || "unknown";
       if (!groups.has(name)) {
@@ -126,7 +152,8 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
       const stat = groups.get(name)!;
       stat.total++;
       if (b.toolCall?.status === "completed") stat.completed++;
-      else if (b.toolCall?.status === "running" || b.isStreaming) stat.running++;
+      else if (b.toolCall?.status === "running" || b.isStreaming)
+        stat.running++;
       else if (b.toolCall?.status === "failed") stat.failed++;
     }
 
@@ -158,8 +185,12 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
 
       const prev = blocks[idx - 1];
       if (prev?.type === "status") {
-        const prevTool = prev.content.match(/(?:Running tool|Tool) (.+?)(?:\.\.\.| completed)/);
-        const currTool = block.content.match(/(?:Running tool|Tool) (.+?)(?:\.\.\.| completed)/);
+        const prevTool = prev.content.match(
+          /(?:Running tool|Tool) (.+?)(?:\.\.\.| completed)/,
+        );
+        const currTool = block.content.match(
+          /(?:Running tool|Tool) (.+?)(?:\.\.\.| completed)/,
+        );
         if (prevTool && currTool && prevTool[1] === currTool[1]) {
           return false;
         }
@@ -177,7 +208,7 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
       >
         {/* 状态图标 */}
         <span className="text-sm shrink-0 flex items-center">
-          {blocks.some(b => b.isStreaming) ? (
+          {blocks.some((b) => b.isStreaming) ? (
             <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-300 animate-pulse" />
           ) : (
             statusConfig.icon
@@ -203,7 +234,8 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
               {toolName}
               {summaryText && (
                 <span className="font-normal text-xs text-gray-500/60">
-                  {" "}— {summaryText}
+                  {" "}
+                  — {summaryText}
                 </span>
               )}
             </>
@@ -235,62 +267,69 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
           ) : (
             <div className="px-2 py-1 flex flex-col gap-0.5">
               {/* 时间线连接器：在左侧绘制垂直连接线 */}
-              {toolcallFlat ? (
-                // 扁平化模式：ToolCallGroup inline 行内展示，带时间线连接
-                filteredBlocks.map((block, idx) => {
-                  const isLast = idx === filteredBlocks.length - 1;
-                  const blockStatus = block.type === "tool_call" && block.toolCall?.status
-                    ? block.toolCall.status
-                    : null;
-                  const timelineColor =
-                    blockStatus === "running" ? "border-blue-400" :
-                    blockStatus === "failed" ? "border-red-400" :
-                    "border-gray-300 dark:border-gray-600";
+              {toolcallFlat
+                ? // 扁平化模式：ToolCallGroup inline 行内展示，带时间线连接
+                  filteredBlocks.map((block, idx) => {
+                    const isLast = idx === filteredBlocks.length - 1;
+                    const blockStatus =
+                      block.type === "tool_call" && block.toolCall?.status
+                        ? block.toolCall.status
+                        : null;
+                    const timelineColor =
+                      blockStatus === "running"
+                        ? "border-blue-400"
+                        : blockStatus === "failed"
+                          ? "border-red-400"
+                          : "border-gray-300 dark:border-gray-600";
 
-                  return (
-                    <div key={block.id} className="flex gap-1.5">
-                      {/* 时间线 */}
-                      <div className="flex flex-col items-center w-3 shrink-0 pt-1">
-                        <div className={`w-2 h-2 rounded-full border-2 ${timelineColor} ${blockStatus === "running" ? "bg-blue-400 animate-pulse" : blockStatus === "failed" ? "bg-red-400" : "bg-gray-300 dark:bg-gray-600"}`} />
-                        {!isLast && <div className={`w-0.5 flex-1 min-h-[12px] ${timelineColor}`} />}
+                    return (
+                      <div key={block.id} className="flex gap-1.5">
+                        {/* 时间线 */}
+                        <div className="flex flex-col items-center w-3 shrink-0 pt-1">
+                          <div
+                            className={`w-2 h-2 rounded-full border-2 ${timelineColor} ${blockStatus === "running" ? "bg-blue-400 animate-pulse" : blockStatus === "failed" ? "bg-red-400" : "bg-gray-300 dark:bg-gray-600"}`}
+                          />
+                          {!isLast && (
+                            <div
+                              className={`w-0.5 flex-1 min-h-[12px] ${timelineColor}`}
+                            />
+                          )}
+                        </div>
+                        {/* 内容 */}
+                        <div className="flex-1 min-w-0">
+                          {block.type === "tool_call" && block.toolCall ? (
+                            <ToolCallGroup
+                              key={block.id}
+                              toolCall={block.toolCall}
+                              isStreaming={block.isStreaming}
+                              variant="inline"
+                            />
+                          ) : block.type === "status" ? (
+                            <GroupStatusLine
+                              key={block.id}
+                              content={block.content}
+                              isStreaming={block.isStreaming}
+                            />
+                          ) : (
+                            <MarkdownRenderer
+                              key={block.id}
+                              content={block.content}
+                              isStreaming={block.isStreaming}
+                              onPreviewFile={readFileToPreview}
+                            />
+                          )}
+                        </div>
                       </div>
-                      {/* 内容 */}
-                      <div className="flex-1 min-w-0">
-                        {block.type === "tool_call" && block.toolCall ? (
-                          <ToolCallGroup
-                            key={block.id}
-                            toolCall={block.toolCall}
-                            isStreaming={block.isStreaming}
-                            variant="inline"
-                          />
-                        ) : block.type === "status" ? (
-                          <GroupStatusLine
-                            key={block.id}
-                            content={block.content}
-                            isStreaming={block.isStreaming}
-                          />
-                        ) : (
-                          <MarkdownRenderer
-                            key={block.id}
-                            content={block.content}
-                            isStreaming={block.isStreaming}
-                            onPreviewFile={readFileToPreview}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                // 旧版模式：BlockItem 嵌套卡片
-                filteredBlocks.map((block) => (
-                  <BlockItem
-                    key={block.id}
-                    block={block}
-                    onPreviewFile={readFileToPreview}
-                  />
-                ))
-              )}
+                    );
+                  })
+                : // 旧版模式：BlockItem 嵌套卡片
+                  filteredBlocks.map((block) => (
+                    <BlockItem
+                      key={block.id}
+                      block={block}
+                      onPreviewFile={readFileToPreview}
+                    />
+                  ))}
             </div>
           )}
         </div>

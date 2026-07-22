@@ -31,10 +31,17 @@ export default function ImageDisplayResult({ data }: Props) {
   const [viewerIndex, setViewerIndex] = useState(0);
 
   const innerData = (data.data as Record<string, unknown>) ?? data;
-  const images = (innerData.images as DisplayImage[]) || (data.images as DisplayImage[]) || [];
+  const images =
+    (innerData.images as DisplayImage[]) ||
+    (data.images as DisplayImage[]) ||
+    [];
 
   if (images.length === 0) {
-    return <div className="text-gray-500 text-xs italic px-2 py-1">没有可显示的图片</div>;
+    return (
+      <div className="text-gray-500 text-xs italic px-2 py-1">
+        没有可显示的图片
+      </div>
+    );
   }
 
   const handleClick = (index: number) => {
@@ -62,7 +69,11 @@ export default function ImageDisplayResult({ data }: Props) {
 
   // 网格列数：1张=1列，2张=2列，3+=3列
   const gridCols =
-    images.length === 1 ? "grid-cols-1" : images.length === 2 ? "grid-cols-2" : "grid-cols-3";
+    images.length === 1
+      ? "grid-cols-1"
+      : images.length === 2
+        ? "grid-cols-2"
+        : "grid-cols-3";
 
   return (
     <div className="space-y-2">
@@ -131,7 +142,9 @@ export default function ImageDisplayResult({ data }: Props) {
         <span>共 {images.length} 张图片</span>
         <button
           onClick={() => {
-            const refs = images.map((img) => `![${img.name}](${img.url})`).join("\n");
+            const refs = images
+              .map((img) => `![${img.name}](${img.url})`)
+              .join("\n");
             sendMessage(`以下图片供参考:\n${refs}`);
           }}
           className="text-blue-400 hover:text-blue-300 bg-transparent border-0 cursor-pointer"

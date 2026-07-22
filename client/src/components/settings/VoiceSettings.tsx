@@ -25,7 +25,7 @@ const STT_PROVIDER_LABELS: Record<string, string> = {
 const DEFAULT_TRIGGERS = ["小鸟小鸟", "Hi Liri"];
 
 /** 唤醒词状态机：idle → listening → triggered → recording → idle */
-type WakeWordStatus = 'idle' | 'listening' | 'triggered' | 'recording';
+type WakeWordStatus = "idle" | "listening" | "triggered" | "recording";
 
 /** 从现有 store 字段推导当前唤醒状态 */
 function getWakeWordStatus(
@@ -35,11 +35,11 @@ function getWakeWordStatus(
   isRecording: boolean,
   isProcessing: boolean,
 ): WakeWordStatus {
-  if (!enabled) return 'idle';
-  if (isRecording || isProcessing) return 'recording';
-  if (triggered) return 'triggered';
-  if (listening) return 'listening';
-  return 'idle';
+  if (!enabled) return "idle";
+  if (isRecording || isProcessing) return "recording";
+  if (triggered) return "triggered";
+  if (listening) return "listening";
+  return "idle";
 }
 
 function VoiceSettings({ isDark }: VoiceSettingsProps) {
@@ -104,10 +104,13 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
 
   /** 加载可用 STT 引擎列表 */
   useEffect(() => {
-    voiceService.getProviders().then(setSttProviders).catch(() => {
-      // 加载失败时使用默认列表
-      setSttProviders(["local", "cloud", "stream"]);
-    });
+    voiceService
+      .getProviders()
+      .then(setSttProviders)
+      .catch(() => {
+        // 加载失败时使用默认列表
+        setSttProviders(["local", "cloud", "stream"]);
+      });
   }, []);
 
   const handleSave = async () => {
@@ -311,34 +314,43 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
         {wakeWordEnabled && (
           <div className="space-y-3 border-l-2 border-blue-400 pl-4">
             {/* 唤醒状态机指示器：idle → listening → triggered → recording → idle */}
-            {wakeWordStatus === 'listening' && (
+            {wakeWordStatus === "listening" && (
               <div className="flex items-center gap-2">
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
-                <span className={`text-xs ${isDark ? 'text-green-400' : 'text-green-600'}`}>
+                <span
+                  className={`text-xs ${isDark ? "text-green-400" : "text-green-600"}`}
+                >
                   正在监听唤醒词...
                 </span>
               </div>
             )}
-            {wakeWordStatus === 'triggered' && (
+            {wakeWordStatus === "triggered" && (
               <div className="flex items-center gap-2">
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 animate-ping" />
-                <span className={`text-xs font-medium ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                <span
+                  className={`text-xs font-medium ${isDark ? "text-blue-400" : "text-blue-600"}`}
+                >
                   已触发：{wakeWordTriggered}
                 </span>
               </div>
             )}
-            {wakeWordStatus === 'recording' && (
+            {wakeWordStatus === "recording" && (
               <div className="flex items-center gap-2">
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-                <span className={`text-xs ${isDark ? 'text-red-400' : 'text-red-600'}`}>
-                  语音输入已激活{wakeWordTriggered ? `（唤醒词：${wakeWordTriggered}）` : ''}
+                <span
+                  className={`text-xs ${isDark ? "text-red-400" : "text-red-600"}`}
+                >
+                  语音输入已激活
+                  {wakeWordTriggered ? `（唤醒词：${wakeWordTriggered}）` : ""}
                 </span>
               </div>
             )}
-            {wakeWordStatus === 'idle' && (
+            {wakeWordStatus === "idle" && (
               <div className="flex items-center gap-2">
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-gray-400" />
-                <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                <span
+                  className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                >
                   唤醒监听未启动
                 </span>
               </div>
@@ -381,7 +393,7 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
                   value={newTrigger}
                   onChange={(e) => setNewTrigger(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newTrigger.trim()) {
+                    if (e.key === "Enter" && newTrigger.trim()) {
                       addTrigger();
                     }
                   }}

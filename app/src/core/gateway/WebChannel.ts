@@ -35,6 +35,7 @@ import type {
 import { handleError } from '@modules/error';
 import { handleVoiceUpgrade } from '../../voice/VoiceGatewayBridge';
 import { handleWakeUpgrade } from '../../voice/WakeWebSocketServer';
+import { withTraceContextFromRequest } from '../../monitoring/tracing/traceContextExtractor';
 
 const logger = new Logger({
   level: LogLevel.INFO,
@@ -402,7 +403,10 @@ export class WebChannel implements ChannelPlugin {
     this.clients.set(client.id, client);
     logger.info(`WebChannel: 客户端已连接 — ${client.id}`);
 
-    this.listenForFrames(client.id, rawSocket);
+    // P1-2.16: 在提取的 TraceContext 中注册消息监听，实现跨进程追踪
+    withTraceContextFromRequest(req, () => {
+      this.listenForFrames(client.id, rawSocket);
+    });
   }
 
   /**

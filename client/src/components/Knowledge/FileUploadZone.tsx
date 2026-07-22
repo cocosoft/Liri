@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { knowledgeService } from "../../services/knowledgeService";
 import { HTTPClientError } from "../../services/httpClient";
 import { readFileAsBase64 } from "../../utils/fileUtils";
+import { handleClientError } from "../../utils/handleError";
 
 interface FileUploadZoneProps {
   isDark: boolean;
@@ -103,6 +104,7 @@ function FileUploadZone({
           });
           return { success: true } as const;
         } catch (err) {
+          handleClientError(err, { module: "components:knowledge:FileUploadZone", action: "uploadFile" });
           if (err instanceof HTTPClientError) {
             lastErrorMessage = err.message;
           } else if (err instanceof Error) {

@@ -58,9 +58,7 @@ export default function MentionMenu({
       <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
         <span>@</span>
         <span>引用文件</span>
-        {query && (
-          <span className="text-blue-500 font-mono">"{query}"</span>
-        )}
+        {query && <span className="text-blue-500 font-mono">"{query}"</span>}
       </div>
       {filteredItems.map((item, idx) => (
         <button

@@ -1,10 +1,14 @@
+import { handleClientError } from "../utils/handleError";
+
 export interface AppConfig {
   dataDir: string;
   httpPort: number;
   firstRunCompleted: boolean;
 }
 
-const isTauri = typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
+const isTauri =
+  typeof window !== "undefined" &&
+  ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
 
 function defaultConfig(): AppConfig {
   // 解析用户主目录，优先级：
@@ -14,11 +18,15 @@ function defaultConfig(): AppConfig {
   let homeDir: string;
   if (typeof process !== "undefined" && process.env?.USERPROFILE) {
     homeDir = process.env.USERPROFILE;
-  } else if (typeof process !== "undefined" && process.env?.HOMEDRIVE && process.env?.HOMEPATH) {
+  } else if (
+    typeof process !== "undefined" &&
+    process.env?.HOMEDRIVE &&
+    process.env?.HOMEPATH
+  ) {
     homeDir = process.env.HOMEDRIVE + process.env.HOMEPATH;
   } else {
     throw new Error(
-      "无法解析用户主目录。请设置 USERPROFILE 或 HOMEDRIVE+HOMEPATH 环境变量。"
+      "无法解析用户主目录。请设置 USERPROFILE 或 HOMEDRIVE+HOMEPATH 环境变量。",
     );
   }
 
@@ -51,7 +59,8 @@ export const appConfigService = {
       }
 
       return config;
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:appConfig", action: "get" });
       return defaultConfig();
     }
   },
@@ -66,7 +75,8 @@ export const appConfigService = {
     try {
       const config = await this.get();
       return !config.firstRunCompleted;
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:appConfig", action: "isFirstRun" });
       return true;
     }
   },

@@ -11,8 +11,12 @@ export class OffscreenBuffer {
     this.ctx = ctx;
   }
 
-  get width() { return this.buffer.width; }
-  get height() { return this.buffer.height; }
+  get width() {
+    return this.buffer.width;
+  }
+  get height() {
+    return this.buffer.height;
+  }
 
   getImageData(x: number, y: number, w: number, h: number) {
     try {
@@ -34,11 +38,18 @@ export class OffscreenBuffer {
     this.ctx.putImageData(data, x, y);
   }
 
-  getSource(): CanvasImageSource { return this.buffer as unknown as CanvasImageSource; }
+  getSource(): CanvasImageSource {
+    return this.buffer as unknown as CanvasImageSource;
+  }
 
   resize(w: number, h: number) {
     if (w === this.width && h === this.height) return;
-    const old = this.ctx.getImageData(0, 0, Math.min(this.width, w), Math.min(this.height, h));
+    const old = this.ctx.getImageData(
+      0,
+      0,
+      Math.min(this.width, w),
+      Math.min(this.height, h),
+    );
     this.buffer = new OffscreenCanvas(w, h);
     const ctx = this.buffer.getContext("2d", { willReadFrequently: true })!;
     this.ctx = ctx;
@@ -51,12 +62,18 @@ export class OffscreenBuffer {
   }
 
   /** 导出为 Blob（支持 PNG/JPEG/WebP） */
-  async toBlob(format: "png" | "jpeg" | "webp" = "png", quality?: number): Promise<Blob> {
+  async toBlob(
+    format: "png" | "jpeg" | "webp" = "png",
+    quality?: number,
+  ): Promise<Blob> {
     return this.buffer.convertToBlob({ type: `image/${format}`, quality });
   }
 
   /** 导出为 DataURL */
-  async toDataURL(format: "png" | "jpeg" | "webp" = "png", quality?: number): Promise<string> {
+  async toDataURL(
+    format: "png" | "jpeg" | "webp" = "png",
+    quality?: number,
+  ): Promise<string> {
     const blob = await this.toBlob(format, quality);
     return new Promise((resolve, reject) => {
       const reader = new FileReader();

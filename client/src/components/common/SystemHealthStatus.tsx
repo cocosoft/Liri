@@ -52,8 +52,12 @@ export const SystemHealthStatus = memo(function SystemHealthStatus({
           <span>🩺</span> 系统健康
         </h3>
         <div className="flex items-center gap-2">
-          <span className={`w-2.5 h-2.5 rounded-full ${STATUS_COLOR[overallStatus] || "bg-gray-400"}`} />
-          <span className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+          <span
+            className={`w-2.5 h-2.5 rounded-full ${STATUS_COLOR[overallStatus] || "bg-gray-400"}`}
+          />
+          <span
+            className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}
+          >
             {STATUS_LABEL[overallStatus] || overallStatus}
           </span>
         </div>
@@ -62,13 +66,23 @@ export const SystemHealthStatus = memo(function SystemHealthStatus({
       <div className="grid grid-cols-3 gap-2 text-xs">
         {/* CPU 使用率 */}
         {status.system && (
-          <div className={`p-2 rounded ${isDark ? "bg-gray-700/50" : "bg-gray-50"}`}>
-            <span className={`block ${isDark ? "text-gray-400" : "text-gray-500"}`}>CPU</span>
-            <span className={`block font-bold mt-0.5 ${
-              status.system.resourceUsage.cpu.usage > 70
-                ? "text-red-500"
-                : isDark ? "text-gray-100" : "text-gray-900"
-            }`}>
+          <div
+            className={`p-2 rounded ${isDark ? "bg-gray-700/50" : "bg-gray-50"}`}
+          >
+            <span
+              className={`block ${isDark ? "text-gray-400" : "text-gray-500"}`}
+            >
+              CPU
+            </span>
+            <span
+              className={`block font-bold mt-0.5 ${
+                status.system.resourceUsage.cpu.usage > 70
+                  ? "text-red-500"
+                  : isDark
+                    ? "text-gray-100"
+                    : "text-gray-900"
+              }`}
+            >
               {status.system.resourceUsage.cpu.usage.toFixed(1)}%
             </span>
           </div>
@@ -76,13 +90,23 @@ export const SystemHealthStatus = memo(function SystemHealthStatus({
 
         {/* 内存使用率 */}
         {status.system && (
-          <div className={`p-2 rounded ${isDark ? "bg-gray-700/50" : "bg-gray-50"}`}>
-            <span className={`block ${isDark ? "text-gray-400" : "text-gray-500"}`}>内存</span>
-            <span className={`block font-bold mt-0.5 ${
-              status.system.resourceUsage.memory.usagePercent > 80
-                ? "text-red-500"
-                : isDark ? "text-gray-100" : "text-gray-900"
-            }`}>
+          <div
+            className={`p-2 rounded ${isDark ? "bg-gray-700/50" : "bg-gray-50"}`}
+          >
+            <span
+              className={`block ${isDark ? "text-gray-400" : "text-gray-500"}`}
+            >
+              内存
+            </span>
+            <span
+              className={`block font-bold mt-0.5 ${
+                status.system.resourceUsage.memory.usagePercent > 80
+                  ? "text-red-500"
+                  : isDark
+                    ? "text-gray-100"
+                    : "text-gray-900"
+              }`}
+            >
               {status.system.resourceUsage.memory.usagePercent.toFixed(1)}%
             </span>
           </div>
@@ -90,13 +114,23 @@ export const SystemHealthStatus = memo(function SystemHealthStatus({
 
         {/* 磁盘使用率 */}
         {status.system && (
-          <div className={`p-2 rounded ${isDark ? "bg-gray-700/50" : "bg-gray-50"}`}>
-            <span className={`block ${isDark ? "text-gray-400" : "text-gray-500"}`}>磁盘</span>
-            <span className={`block font-bold mt-0.5 ${
-              status.system.resourceUsage.disk.usagePercent > 85
-                ? "text-red-500"
-                : isDark ? "text-gray-100" : "text-gray-900"
-            }`}>
+          <div
+            className={`p-2 rounded ${isDark ? "bg-gray-700/50" : "bg-gray-50"}`}
+          >
+            <span
+              className={`block ${isDark ? "text-gray-400" : "text-gray-500"}`}
+            >
+              磁盘
+            </span>
+            <span
+              className={`block font-bold mt-0.5 ${
+                status.system.resourceUsage.disk.usagePercent > 85
+                  ? "text-red-500"
+                  : isDark
+                    ? "text-gray-100"
+                    : "text-gray-900"
+              }`}
+            >
               {status.system.resourceUsage.disk.usagePercent.toFixed(1)}%
             </span>
           </div>
@@ -106,7 +140,9 @@ export const SystemHealthStatus = memo(function SystemHealthStatus({
       {/* 通道健康缩略 */}
       {status.channels && status.channels.length > 0 && (
         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-          <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+          <span
+            className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+          >
             通道:
           </span>
           <div className="flex gap-1">
@@ -118,7 +154,9 @@ export const SystemHealthStatus = memo(function SystemHealthStatus({
               />
             ))}
           </div>
-          <span className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+          <span
+            className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
+          >
             {status.channels.filter((c) => c.healthy).length}/
             {status.channels.length}
           </span>
@@ -135,8 +173,12 @@ export const SystemHealthStatus = memo(function SystemHealthStatus({
                 className="flex items-center justify-between"
               >
                 <div className="flex items-center gap-1.5">
-                  <span className={`w-1.5 h-1.5 rounded-full ${STATUS_COLOR[check.status] || "bg-gray-400"}`} />
-                  <span className={`text-xs ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${STATUS_COLOR[check.status] || "bg-gray-400"}`}
+                  />
+                  <span
+                    className={`text-xs ${isDark ? "text-gray-300" : "text-gray-600"}`}
+                  >
                     {check.name}
                   </span>
                 </div>
@@ -145,7 +187,9 @@ export const SystemHealthStatus = memo(function SystemHealthStatus({
                     {check.error}
                   </span>
                 ) : (
-                  <span className="text-xs text-gray-400">{check.latency}ms</span>
+                  <span className="text-xs text-gray-400">
+                    {check.latency}ms
+                  </span>
                 )}
               </div>
             ))}

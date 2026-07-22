@@ -4,19 +4,69 @@ import { useSessionStore } from "../../stores/sessionStore";
 import { cronService } from "../../services/cronService";
 import { knowledgeService } from "../../services/knowledgeService";
 import type { CronTask, KnowledgeBase } from "../../types";
-import { PlusIcon, KnowledgeIcon, ChatIcon, Trash2Icon, FileIcon, SearchIcon, DevIcon, SettingsIcon, UserIcon, KeyIcon, ShieldIcon, BookOpenIcon, KeyboardIcon, InfoIcon, ChevronLeftIcon, ChevronRightIcon, UploadIcon, SlidersIcon, ModelIcon, CronIcon, HomeIcon, DashboardIcon, SkillIcon, McpIcon, TaskIcon } from "../../assets/icons";
+import {
+  PlusIcon,
+  KnowledgeIcon,
+  ChatIcon,
+  Trash2Icon,
+  FileIcon,
+  SearchIcon,
+  DevIcon,
+  SettingsIcon,
+  UserIcon,
+  KeyIcon,
+  ShieldIcon,
+  BookOpenIcon,
+  KeyboardIcon,
+  InfoIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  UploadIcon,
+  SlidersIcon,
+  ModelIcon,
+  CronIcon,
+  HomeIcon,
+  DashboardIcon,
+  SkillIcon,
+  McpIcon,
+  TaskIcon,
+} from "../../assets/icons";
 
 /** 根据当前路由路径判断所属页面分类 */
 function getRouteGroup(pathname: string): string {
   const p = pathname.replace(/^\//, "").split("/")[0] || "chat";
   // 顶级路由直接匹配
-  const topLevel = ["chat", "knowledge", "cost", "cron", "files", "dashboard",
-    "settings", "models", "tasks", "buddy", "memory", "dream"];
+  const topLevel = [
+    "chat",
+    "knowledge",
+    "cost",
+    "cron",
+    "files",
+    "dashboard",
+    "settings",
+    "models",
+    "tasks",
+    "buddy",
+    "memory",
+    "dream",
+  ];
   if (topLevel.includes(p)) return p;
   // 子路由分组
-  if (["dev", "terminal", "logs", "sandbox", "media", "autoreply", "voice-stt"].includes(p)) return "dev";
+  if (
+    [
+      "dev",
+      "terminal",
+      "logs",
+      "sandbox",
+      "media",
+      "autoreply",
+      "voice-stt",
+    ].includes(p)
+  )
+    return "dev";
   if (p === "market" || p === "skill-market" || p === "skills") return "market";
-  if (p === "user" || p === "apikeys" || p === "oauth" || p === "permissions") return "user";
+  if (p === "user" || p === "apikeys" || p === "oauth" || p === "permissions")
+    return "user";
   if (p === "help" || p === "docs" || p === "shortcuts") return "help";
   return "default";
 }
@@ -134,32 +184,32 @@ function ContextPanel() {
                 }`}
               >
                 <button
-                    onClick={() => {
-                      switchSession(session.id);
-                      navigate("/chat");
-                    }}
-                    className="flex-1 flex items-center gap-2 truncate text-left"
-                  >
-                    <ChatIcon size={16} />
-                    <span className="truncate">
-                      {session.title || "未命名会话"}
-                    </span>
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (
-                        confirm(
-                          `确定要删除会话 "${session.title || "未命名会话"}" 吗？`,
-                        )
-                      ) {
-                        deleteSession(session.id);
-                      }
-                    }}
-                    className="opacity-0 hover:opacity-100 transition-opacity p-1 hover:text-red-500 dark:hover:text-red-400"
-                  >
-                    <Trash2Icon size={14} />
-                  </button>
+                  onClick={() => {
+                    switchSession(session.id);
+                    navigate("/chat");
+                  }}
+                  className="flex-1 flex items-center gap-2 truncate text-left"
+                >
+                  <ChatIcon size={16} />
+                  <span className="truncate">
+                    {session.title || "未命名会话"}
+                  </span>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (
+                      confirm(
+                        `确定要删除会话 "${session.title || "未命名会话"}" 吗？`,
+                      )
+                    ) {
+                      deleteSession(session.id);
+                    }
+                  }}
+                  className="opacity-0 hover:opacity-100 transition-opacity p-1 hover:text-red-500 dark:hover:text-red-400"
+                >
+                  <Trash2Icon size={14} />
+                </button>
               </div>
             );
           })}
@@ -357,9 +407,9 @@ function ContextPanel() {
         </h3>
         <div className="space-y-1">
           <button className="w-full flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 text-sm transition-colors">
-              <UploadIcon size={16} />
-              <span>上传文件</span>
-            </button>
+            <UploadIcon size={16} />
+            <span>上传文件</span>
+          </button>
         </div>
       </div>
 
@@ -699,7 +749,11 @@ function ContextPanel() {
           className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded text-gray-500 dark:text-gray-400 transition-colors"
           title={isExpanded ? "收起面板" : "展开面板"}
         >
-          {isExpanded ? <ChevronLeftIcon size={16} /> : <ChevronRightIcon size={16} />}
+          {isExpanded ? (
+            <ChevronLeftIcon size={16} />
+          ) : (
+            <ChevronRightIcon size={16} />
+          )}
         </button>
       </div>
 

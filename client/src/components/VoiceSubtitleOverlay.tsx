@@ -74,10 +74,16 @@ export default function VoiceSubtitleOverlay({
     return null;
   }
 
-  const bgColor = isDark ? "rgba(30, 30, 30, 0.92)" : "rgba(255, 255, 255, 0.92)";
-  const borderColor = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.08)";
+  const bgColor = isDark
+    ? "rgba(30, 30, 30, 0.92)"
+    : "rgba(255, 255, 255, 0.92)";
+  const borderColor = isDark
+    ? "rgba(255, 255, 255, 0.08)"
+    : "rgba(0, 0, 0, 0.08)";
   const textColor = isDark ? "rgba(255, 255, 255, 0.9)" : "rgba(0, 0, 0, 0.85)";
-  const interimColor = isDark ? "rgba(255, 255, 255, 0.45)" : "rgba(0, 0, 0, 0.4)";
+  const interimColor = isDark
+    ? "rgba(255, 255, 255, 0.45)"
+    : "rgba(0, 0, 0, 0.4)";
   const accentColor = "#3b82f6";
 
   // 音频电平条宽度

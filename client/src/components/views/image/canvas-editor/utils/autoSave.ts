@@ -2,8 +2,10 @@
 
 export interface SnapMeta {
   version: number;
-  width: number; height: number;
-  bgColor: string; zoom: number;
+  width: number;
+  height: number;
+  bgColor: string;
+  zoom: number;
   savedAt: number;
 }
 
@@ -32,7 +34,8 @@ async function getKeys(db: IDBDatabase, prefix: string): Promise<string[]> {
     cursorReq.onsuccess = () => {
       const cursor = cursorReq.result;
       if (cursor) {
-        if (String(cursor.key).startsWith(prefix)) keys.push(String(cursor.key));
+        if (String(cursor.key).startsWith(prefix))
+          keys.push(String(cursor.key));
         cursor.continue();
       } else resolve(keys);
     };
@@ -51,7 +54,9 @@ export async function saveSnapshot(
 
     // 记录新版本号
     const keys = await getKeys(db, prefix);
-    const existing = keys.map(k => parseInt(k.slice(prefix.length), 10)).filter(n => !isNaN(n));
+    const existing = keys
+      .map((k) => parseInt(k.slice(prefix.length), 10))
+      .filter((n) => !isNaN(n));
     const nextVer = existing.length > 0 ? Math.max(...existing) + 1 : 1;
 
     const tx = db.transaction(STORE_NAME, "readwrite");
@@ -59,7 +64,10 @@ export async function saveSnapshot(
 
     // 保存新快照
     store.put(dataUrl, `${prefix}${nextVer}`);
-    store.put(JSON.stringify({ ...meta, version: nextVer }), `${prefix}meta_${nextVer}`);
+    store.put(
+      JSON.stringify({ ...meta, version: nextVer }),
+      `${prefix}meta_${nextVer}`,
+    );
 
     // 清理超出 MAX_VERSIONS 的旧版本
     const sorted = [...existing, nextVer].sort((a, b) => b - a);
@@ -82,24 +90,29 @@ export async function hasSnapshot(canvasId: string): Promise<boolean> {
   try {
     const db = await openDB();
     const keys = await getKeys(db, `${canvasId}:`);
-    return keys.some(k => /^\d+$/.test(k.slice(canvasId.length + 1)));
+    return keys.some((k) => /^\d+$/.test(k.slice(canvasId.length + 1)));
   } catch {
     return false;
   }
 }
 
 /** 获取最新快照 dataUrl */
-export async function getLatestSnapshot(canvasId: string): Promise<{ dataUrl: string; meta: SnapMeta } | null> {
+export async function getLatestSnapshot(
+  canvasId: string,
+): Promise<{ dataUrl: string; meta: SnapMeta } | null> {
   try {
     const db = await openDB();
     const keys = await getKeys(db, `${canvasId}:`);
-    const metaKeys = keys.filter(k => k.startsWith(`${canvasId}:meta_`));
+    const metaKeys = keys.filter((k) => k.startsWith(`${canvasId}:meta_`));
     if (metaKeys.length === 0) return null;
 
-    const versions = metaKeys.map(k => {
-      const v = k.slice(canvasId.length + 6); // 去掉 `${canvasId}:meta_`
-      return parseInt(v, 10);
-    }).filter(n => !isNaN(n)).sort((a, b) => b - a);
+    const versions = metaKeys
+      .map((k) => {
+        const v = k.slice(canvasId.length + 6); // 去掉 `${canvasId}:meta_`
+        return parseInt(v, 10);
+      })
+      .filter((n) => !isNaN(n))
+      .sort((a, b) => b - a);
 
     if (versions.length === 0) return null;
 

@@ -24,7 +24,8 @@ export class LassoSelectTool implements CanvasToolHandler {
     mode: "idle",
     path: [],
     bbox: { x: 0, y: 0, w: 0, h: 0 },
-    moveStartX: 0, moveStartY: 0,
+    moveStartX: 0,
+    moveStartY: 0,
     selectedPixels: null,
     dashOffset: 0,
     marqueeTimer: 0,
@@ -32,7 +33,8 @@ export class LassoSelectTool implements CanvasToolHandler {
 
   /** 获取选区信息 */
   getSelection(): { x: number; y: number; w: number; h: number } | null {
-    if (this.s.mode !== "selected" || this.s.bbox.w < 2 || this.s.bbox.h < 2) return null;
+    if (this.s.mode !== "selected" || this.s.bbox.w < 2 || this.s.bbox.h < 2)
+      return null;
     return { ...this.s.bbox };
   }
 
@@ -49,14 +51,16 @@ export class LassoSelectTool implements CanvasToolHandler {
   }
 
   onPointerDown(e: CanvasPointerEvent, ctx: ToolContext) {
-    const rx = Math.round(e.x), ry = Math.round(e.y);
+    const rx = Math.round(e.x),
+      ry = Math.round(e.y);
 
     if (this.s.mode === "selected") {
       // 检查是否在选区内 → 移动模式
       const b = this.s.bbox;
       if (rx >= b.x && rx <= b.x + b.w && ry >= b.y && ry <= b.y + b.h) {
         this.s.mode = "moving";
-        this.s.moveStartX = rx; this.s.moveStartY = ry;
+        this.s.moveStartX = rx;
+        this.s.moveStartY = ry;
         this.s.selectedPixels = ctx.buffer.getImageData(b.x, b.y, b.w, b.h);
         return;
       }
@@ -72,7 +76,8 @@ export class LassoSelectTool implements CanvasToolHandler {
   }
 
   onPointerMove(e: CanvasPointerEvent, ctx: ToolContext) {
-    const rx = Math.round(e.x), ry = Math.round(e.y);
+    const rx = Math.round(e.x),
+      ry = Math.round(e.y);
 
     if (this.s.mode === "drawing") {
       // 记录路径点（采样：与上一个点距离 > 3px 才记录）
@@ -85,9 +90,12 @@ export class LassoSelectTool implements CanvasToolHandler {
     }
 
     if (this.s.mode === "moving" && this.s.selectedPixels) {
-      const dx = rx - this.s.moveStartX, dy = ry - this.s.moveStartY;
-      this.s.bbox.x += dx; this.s.bbox.y += dy;
-      this.s.moveStartX = rx; this.s.moveStartY = ry;
+      const dx = rx - this.s.moveStartX,
+        dy = ry - this.s.moveStartY;
+      this.s.bbox.x += dx;
+      this.s.bbox.y += dy;
+      this.s.moveStartX = rx;
+      this.s.moveStartY = ry;
       this.drawBbox(ctx);
       return;
     }
@@ -101,10 +109,12 @@ export class LassoSelectTool implements CanvasToolHandler {
         return;
       }
       // 闭合路径 → 计算 bbox
-      const xs = this.s.path.map(p => p.x);
-      const ys = this.s.path.map(p => p.y);
-      const bx = Math.min(...xs), by = Math.min(...ys);
-      const bw = Math.max(...xs) - bx, bh = Math.max(...ys) - by;
+      const xs = this.s.path.map((p) => p.x);
+      const ys = this.s.path.map((p) => p.y);
+      const bx = Math.min(...xs),
+        by = Math.min(...ys);
+      const bw = Math.max(...xs) - bx,
+        bh = Math.max(...ys) - by;
       this.s.bbox = { x: bx, y: by, w: bw, h: bh };
       this.s.mode = "selected";
       this.drawBbox(ctx);
@@ -114,20 +124,35 @@ export class LassoSelectTool implements CanvasToolHandler {
     if (this.s.mode === "moving" && this.s.selectedPixels) {
       // 提交移动
       const b = this.s.bbox;
-      const before = ctx.buffer.getImageData(0, 0, ctx.buffer.width, ctx.buffer.height);
+      const before = ctx.buffer.getImageData(
+        0,
+        0,
+        ctx.buffer.width,
+        ctx.buffer.height,
+      );
 
       ctx.buffer.ctx.fillStyle = ctx.state.bgColor;
       ctx.buffer.ctx.fillRect(b.x, b.y, b.w, b.h);
       ctx.buffer.ctx.putImageData(this.s.selectedPixels, b.x, b.y);
 
-      const after = ctx.buffer.getImageData(0, 0, ctx.buffer.width, ctx.buffer.height);
+      const after = ctx.buffer.getImageData(
+        0,
+        0,
+        ctx.buffer.width,
+        ctx.buffer.height,
+      );
 
       ctx.commands.execute({
         type: "selection",
         bbox: { x: 0, y: 0, w: ctx.buffer.width, h: ctx.buffer.height },
-        before, after,
-        apply: (c) => { c.putImageData(after, 0, 0); },
-        revert: (c) => { c.putImageData(before, 0, 0); },
+        before,
+        after,
+        apply: (c) => {
+          c.putImageData(after, 0, 0);
+        },
+        revert: (c) => {
+          c.putImageData(before, 0, 0);
+        },
       });
 
       this.s.selectedPixels = null;
@@ -144,7 +169,8 @@ export class LassoSelectTool implements CanvasToolHandler {
     if (!oc || this.s.path.length < 2) return;
 
     const scale = ctx.transform.zoom * ctx.transform.dpr;
-    const ox = ctx.transform.offsetX, oy = ctx.transform.offsetY;
+    const ox = ctx.transform.offsetX,
+      oy = ctx.transform.offsetY;
 
     oc.clearRect(0, 0, oc.canvas.width, oc.canvas.height);
     oc.strokeStyle = "#fff";
@@ -167,7 +193,8 @@ export class LassoSelectTool implements CanvasToolHandler {
     if (!oc || this.s.bbox.w <= 0) return;
 
     const scale = ctx.transform.zoom * ctx.transform.dpr;
-    const ox = ctx.transform.offsetX, oy = ctx.transform.offsetY;
+    const ox = ctx.transform.offsetX,
+      oy = ctx.transform.offsetY;
     const b = this.s.bbox;
 
     oc.clearRect(0, 0, oc.canvas.width, oc.canvas.height);

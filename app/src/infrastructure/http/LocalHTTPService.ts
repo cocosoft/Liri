@@ -45,6 +45,10 @@ import {
   handleStartupError,
 } from './handlers/monitoring-handlers';
 import {
+  handleClientErrorReport,
+  handleGetErrorStats,
+} from './handlers/error-report-handlers';
+import {
   handleHealthReport,
   handleAnalyticsDashboard,
   handleCostSummary,
@@ -415,7 +419,7 @@ export class LocalHTTPService {
     );
     res.setHeader(
       'Access-Control-Allow-Headers',
-      'Content-Type, Authorization, x-api-key'
+      'Content-Type, Authorization, x-api-key, traceparent, tracestate'
     );
 
     if (req.method === 'OPTIONS') {
@@ -572,6 +576,20 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     return handleStartupError(this._handlerCtx, req, res);
+  }
+
+  private async handleClientErrorReport(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleClientErrorReport(req, res);
+  }
+
+  private handleGetErrorStats(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): void {
+    return handleGetErrorStats(req, res);
   }
 
   // ========== Health / Analytics / Cost Handlers (extracted to handlers/analytics-handlers.ts) ==========

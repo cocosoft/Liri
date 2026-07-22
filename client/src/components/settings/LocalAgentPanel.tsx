@@ -61,7 +61,10 @@ function LocalAgentPanel({
           <>
             <div className={`h-px ${isDark ? "bg-gray-700" : "bg-gray-200"}`} />
 
-            <ConfigItem label={t("settings.localAgentRoutingStrategy")} isDark={isDark}>
+            <ConfigItem
+              label={t("settings.localAgentRoutingStrategy")}
+              isDark={isDark}
+            >
               <SelectConfig
                 isDark={isDark}
                 value={localAgent.routing.strategy}
@@ -74,9 +77,18 @@ function LocalAgentPanel({
                   })
                 }
                 options={[
-                  { value: "cloud-first", label: t("settings.localAgentRoutingCloudFirst") },
-                  { value: "ollama-first", label: t("settings.localAgentRoutingOllamaFirst") },
-                  { value: "local-first", label: t("settings.localAgentRoutingLocalFirst") },
+                  {
+                    value: "cloud-first",
+                    label: t("settings.localAgentRoutingCloudFirst"),
+                  },
+                  {
+                    value: "ollama-first",
+                    label: t("settings.localAgentRoutingOllamaFirst"),
+                  },
+                  {
+                    value: "local-first",
+                    label: t("settings.localAgentRoutingLocalFirst"),
+                  },
                 ]}
               />
             </ConfigItem>
@@ -148,7 +160,10 @@ function LocalAgentPanel({
           {t("settings.localAgentOllamaTitle")}
         </div>
 
-        <ConfigItem label={t("settings.localAgentOllamaEnabled")} isDark={isDark}>
+        <ConfigItem
+          label={t("settings.localAgentOllamaEnabled")}
+          isDark={isDark}
+        >
           <ToggleConfig
             isDark={isDark}
             checked={ollama?.enabled || false}
@@ -158,7 +173,10 @@ function LocalAgentPanel({
 
         {ollama?.enabled && (
           <>
-            <ConfigItem label={t("settings.localAgentOllamaBaseUrl")} isDark={isDark}>
+            <ConfigItem
+              label={t("settings.localAgentOllamaBaseUrl")}
+              isDark={isDark}
+            >
               <SelectConfig
                 isDark={isDark}
                 value={ollama.baseUrl}
@@ -185,7 +203,10 @@ function LocalAgentPanel({
               />
             </ConfigItem>
 
-            <ConfigItem label={t("settings.localAgentOllamaTimeout")} isDark={isDark}>
+            <ConfigItem
+              label={t("settings.localAgentOllamaTimeout")}
+              isDark={isDark}
+            >
               <SelectConfig
                 isDark={isDark}
                 value={String(ollama.timeout)}
@@ -195,8 +216,14 @@ function LocalAgentPanel({
                 options={[
                   { value: "30000", label: t("settings.localAgentTimeout30s") },
                   { value: "60000", label: t("settings.localAgentTimeout60s") },
-                  { value: "120000", label: t("settings.localAgentTimeout120s") },
-                  { value: "300000", label: t("settings.localAgentTimeout300s") },
+                  {
+                    value: "120000",
+                    label: t("settings.localAgentTimeout120s"),
+                  },
+                  {
+                    value: "300000",
+                    label: t("settings.localAgentTimeout300s"),
+                  },
                 ]}
               />
             </ConfigItem>

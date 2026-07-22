@@ -102,10 +102,12 @@ export interface FeatureSlice {
 
 // ─── Slice 实现 ────────────────────────────────────────
 
-export const createFeatureSlice: StateCreator<RootState, [], [], FeatureSlice> = (
-  set,
-  get
-) => ({
+export const createFeatureSlice: StateCreator<
+  RootState,
+  [],
+  [],
+  FeatureSlice
+> = (set, get) => ({
   modules: [...BUILTIN_MODULES],
   pinnedModuleIds: BUILTIN_MODULES.filter((m) => m.pinned).map((m) => m.id),
 
@@ -115,7 +117,9 @@ export const createFeatureSlice: StateCreator<RootState, [], [], FeatureSlice> =
     if (existing >= 0) {
       // 更新已注册模块（如补全 component）
       set((state) => ({
-        modules: state.modules.map((m, i) => i === existing ? { ...m, ...module } : m),
+        modules: state.modules.map((m, i) =>
+          i === existing ? { ...m, ...module } : m,
+        ),
       }));
       logger.debug("模块更新", { moduleId: module.id });
       return;
@@ -137,7 +141,7 @@ export const createFeatureSlice: StateCreator<RootState, [], [], FeatureSlice> =
   toggleModule: (id) => {
     set((state) => ({
       modules: state.modules.map((m) =>
-        m.id === id ? { ...m, enabled: !m.enabled } : m
+        m.id === id ? { ...m, enabled: !m.enabled } : m,
       ),
     }));
   },
@@ -145,7 +149,7 @@ export const createFeatureSlice: StateCreator<RootState, [], [], FeatureSlice> =
   pinModule: (id) => {
     set((state) => ({
       modules: state.modules.map((m) =>
-        m.id === id ? { ...m, pinned: true } : m
+        m.id === id ? { ...m, pinned: true } : m,
       ),
       pinnedModuleIds: [...new Set([id, ...state.pinnedModuleIds])],
     }));
@@ -154,7 +158,7 @@ export const createFeatureSlice: StateCreator<RootState, [], [], FeatureSlice> =
   unpinModule: (id) => {
     set((state) => ({
       modules: state.modules.map((m) =>
-        m.id === id ? { ...m, pinned: false } : m
+        m.id === id ? { ...m, pinned: false } : m,
       ),
       pinnedModuleIds: state.pinnedModuleIds.filter((pid) => pid !== id),
     }));

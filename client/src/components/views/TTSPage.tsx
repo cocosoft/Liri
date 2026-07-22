@@ -57,9 +57,7 @@ function TTSPage() {
 
   /** 获取当前 Provider 支持的格式 */
   const currentFormats = (() => {
-    const detail = providerDetails.find(
-      (p) => p.name === activeProvider
-    );
+    const detail = providerDetails.find((p) => p.name === activeProvider);
     return detail?.supportedFormats;
   })();
 
@@ -68,9 +66,7 @@ function TTSPage() {
     setActiveProvider(newProvider);
     setActiveVoice("");
     // 切换 Provider 后自动选第一个支持的格式
-    const detail = providerDetails.find(
-      (p) => p.name === newProvider
-    );
+    const detail = providerDetails.find((p) => p.name === newProvider);
     if (detail && detail.supportedFormats.length > 0) {
       setActiveFormat(detail.supportedFormats[0]);
     }
@@ -95,7 +91,8 @@ function TTSPage() {
             TTS 模块尚未启动
           </h2>
           <p className="text-gray-500 dark:text-gray-400 mb-4">
-            请在设置中确认 TTS 提供者已启用，或在后端配置中启用 Edge TTS / OpenAI TTS 等提供者。
+            请在设置中确认 TTS 提供者已启用，或在后端配置中启用 Edge TTS /
+            OpenAI TTS 等提供者。
           </p>
           <button
             onClick={() => navigate("/settings")}

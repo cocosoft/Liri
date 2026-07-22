@@ -51,12 +51,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
       {/* 缩略图 / 状态图标 */}
       <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md bg-gray-100 dark:bg-gray-700">
-        {isActive && (
-          <span className="animate-pulse text-xl">{cfg.icon}</span>
-        )}
-        {isDone && task.resultVideoUrl && (
-          <span className="text-xl">▶️</span>
-        )}
+        {isActive && <span className="animate-pulse text-xl">{cfg.icon}</span>}
+        {isDone && task.resultVideoUrl && <span className="text-xl">▶️</span>}
         {isDone && !task.resultVideoUrl && (
           <span className="text-xl">{cfg.icon}</span>
         )}
@@ -70,9 +66,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             {queueLabel(task)}
           </span>
           {isActive && (
-            <span className="text-xs text-gray-400">
-              {task.progress}%
-            </span>
+            <span className="text-xs text-gray-400">{task.progress}%</span>
           )}
         </div>
 
@@ -199,9 +193,14 @@ const GenTaskCard: React.FC<GenTaskCardProps> = ({ task, onDelete }) => {
           <span className="text-[10px] text-gray-400">
             {task.type === "image" ? "🖼️" : "🎬"}
           </span>
-          <span className={`text-xs font-medium ${cfg.color}`}>{cfg.label}</span>
+          <span className={`text-xs font-medium ${cfg.color}`}>
+            {cfg.label}
+          </span>
         </div>
-        <p className="truncate text-[10px] text-gray-500 dark:text-gray-400" title={task.prompt}>
+        <p
+          className="truncate text-[10px] text-gray-500 dark:text-gray-400"
+          title={task.prompt}
+        >
           {task.prompt || "(无提示词)"}
         </p>
         {isRunning && (
@@ -222,7 +221,9 @@ const GenTaskCard: React.FC<GenTaskCardProps> = ({ task, onDelete }) => {
         <button
           onClick={() => onDelete(task.id)}
           className="text-xs text-gray-400 hover:text-red-500"
-        >✕</button>
+        >
+          ✕
+        </button>
       )}
     </div>
   );
@@ -237,7 +238,10 @@ interface GenTaskListProps {
   onDelete?: (id: string) => void;
 }
 
-export const GenerationTaskList: React.FC<GenTaskListProps> = ({ tasks, onDelete }) => {
+export const GenerationTaskList: React.FC<GenTaskListProps> = ({
+  tasks,
+  onDelete,
+}) => {
   if (tasks.length === 0) return null;
 
   return (

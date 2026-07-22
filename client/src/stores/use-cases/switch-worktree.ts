@@ -26,13 +26,19 @@ export interface SwitchWorktreeResult {
  * 阶段 2：并行加载会话列表 + Git 状态 + 知识库索引，
  *         容忍部分失败（partial 状态），汇总错误通知 UI。
  */
-export async function switchWorktree(id: string): Promise<SwitchWorktreeResult> {
+export async function switchWorktree(
+  id: string,
+): Promise<SwitchWorktreeResult> {
   const root = useRootStore.getState();
   const wt = root.worktrees[id];
 
   if (!wt) {
     logger.warn("工作空间不存在", { worktreeId: id });
-    return { status: "failed", worktreeId: id, errors: [{ source: "root", error: `工作空间 ${id} 不存在` }] };
+    return {
+      status: "failed",
+      worktreeId: id,
+      errors: [{ source: "root", error: `工作空间 ${id} 不存在` }],
+    };
   }
 
   logger.info("开始切换工作空间", { worktreeId: id, name: wt.name });
@@ -44,7 +50,12 @@ export async function switchWorktree(id: string): Promise<SwitchWorktreeResult> 
   const transition = finalState.transition;
 
   return {
-    status: transition?.status === "completed" ? "completed" : transition?.status === "partial" ? "partial" : "failed",
+    status:
+      transition?.status === "completed"
+        ? "completed"
+        : transition?.status === "partial"
+          ? "partial"
+          : "failed",
     worktreeId: id,
     errors: transition?.errors ?? [],
   };

@@ -22,7 +22,10 @@ export function isApiResponse<T>(value: unknown): value is ApiResponse<T> {
   if (value === null || value === undefined) return false;
   if (typeof value !== "object") return false;
   const obj = value as Record<string, unknown>;
-  return typeof obj.ok === "boolean" && (obj.error === undefined || typeof obj.error === "object");
+  return (
+    typeof obj.ok === "boolean" &&
+    (obj.error === undefined || typeof obj.error === "object")
+  );
 }
 
 /** 安全解包 ApiResponse：成功返回 data，失败抛出带 message 的 Error */

@@ -92,7 +92,10 @@ export function useSessionContextSync<T extends Partial<SessionContext>>(
       });
 
       // context 已由 save() 函数保证类型（T extends Partial<SessionContext>）
-      updateSessionContext(currentModuleSession.id, context as Partial<SessionContext>);
+      updateSessionContext(
+        currentModuleSession.id,
+        context as Partial<SessionContext>,
+      );
     }, debounceMs);
 
     return () => {

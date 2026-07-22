@@ -9,13 +9,13 @@ import { initBackendUrlFromConfig } from "../services/backendUrl";
 // 初始化阶段状态机
 type InitPhase =
   | "idle"
-  | "phase1_config"        // 阶段 1: loadConfig + initBrowserMode（并行）
-  | "phase1_first_run"     // 阶段 1: 检查首次运行
-  | "first_run_wizard"     // 显示首次运行向导
-  | "phase2_backend"       // 阶段 2: checkBackendStatus → startBackend（串行）
-  | "phase3_sse"           // 阶段 3: sseService.connect（串行）
-  | "ready"                // 初始化完成
-  | "error";               // 初始化失败
+  | "phase1_config" // 阶段 1: loadConfig + initBrowserMode（并行）
+  | "phase1_first_run" // 阶段 1: 检查首次运行
+  | "first_run_wizard" // 显示首次运行向导
+  | "phase2_backend" // 阶段 2: checkBackendStatus → startBackend（串行）
+  | "phase3_sse" // 阶段 3: sseService.connect（串行）
+  | "ready" // 初始化完成
+  | "error"; // 初始化失败
 
 type InitAction =
   | { type: "START" }
@@ -59,7 +59,11 @@ export function useInitApp() {
   const [initState, dispatch] = useReducer(initReducer, { phase: "idle" });
 
   const { loadSessions } = useSessionStore();
-  const { checkStatus: checkBackendStatus, initBrowserMode, startBackend } = useBackendStore.getState();
+  const {
+    checkStatus: checkBackendStatus,
+    initBrowserMode,
+    startBackend,
+  } = useBackendStore.getState();
   const { loadConfig } = useConfigStore();
 
   // 启动初始化流程
@@ -86,11 +90,14 @@ export function useInitApp() {
   useEffect(() => {
     if (initState.phase !== "phase1_first_run") return;
 
-    appConfigService.isFirstRun().then((firstRun) => {
-      dispatch({ type: "FIRST_RUN_CHECKED", isFirstRun: firstRun });
-    }).catch((e) => {
-      dispatch({ type: "ERROR", error: String(e) });
-    });
+    appConfigService
+      .isFirstRun()
+      .then((firstRun) => {
+        dispatch({ type: "FIRST_RUN_CHECKED", isFirstRun: firstRun });
+      })
+      .catch((e) => {
+        dispatch({ type: "ERROR", error: String(e) });
+      });
   }, [initState.phase]);
 
   // 阶段 2: 后端状态检查 + 启动

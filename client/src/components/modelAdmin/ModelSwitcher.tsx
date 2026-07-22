@@ -5,6 +5,7 @@ import { modelService } from "../../services/modelService";
 import { modelSwitchService } from "../../services/modelSwitchService";
 import { balanceService } from "../../services/balanceService";
 import { useSessionStore } from "../../stores/sessionStore";
+import { handleClientError } from "../../utils/handleError";
 import type { ModelInfo, BalanceRecord } from "../../types";
 
 interface ModelSwitcherProps {
@@ -42,7 +43,10 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
       .list()
       .then((all) => setModels(all.filter((m) => m.type === "chat")))
       .catch(() => {});
-    balanceService.batchCheck().then(setBalances).catch(() => {});
+    balanceService
+      .batchCheck()
+      .then(setBalances)
+      .catch(() => {});
   }, []);
 
   const filteredModels = useMemo(() => {
@@ -74,7 +78,8 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
       try {
         // 动态 import 避免循环依赖
         const { useSessionStore } = await import("../../stores/sessionStore");
-        const { sessionService } = await import("../../services/sessionService");
+        const { sessionService } =
+          await import("../../services/sessionService");
         const sessionState = useSessionStore.getState();
         const currentSession = sessionState.currentSession;
         if (currentSession) {
@@ -82,13 +87,16 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
           useSessionStore.setState({
             currentSession: { ...currentSession, modelId },
             sessions: sessionState.sessions.map((s) =>
-              s.id === currentSession.id ? { ...s, modelId } : s
+              s.id === currentSession.id ? { ...s, modelId } : s,
             ),
           });
           // 尝试持久化到后端（PATCH API 不存在时静默降级）
-          await sessionService.updateSessionMeta(currentSession.id, { modelId });
+          await sessionService.updateSessionMeta(currentSession.id, {
+            modelId,
+          });
         }
-      } catch {
+      } catch (e) {
+        handleClientError(e, { module: "components:modelAdmin:ModelSwitcher", action: "handleSwitch" });
         // 静默降级
       }
 
@@ -104,9 +112,14 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
     return null;
   }, [tasks, currentModelId]);
 
-  const [taskDefs, setTaskDefs] = useState<Array<{ type: string; label: string; icon: string }>>([]);
+  const [taskDefs, setTaskDefs] = useState<
+    Array<{ type: string; label: string; icon: string }>
+  >([]);
   useEffect(() => {
-    modelSwitchService.getTaskDefinitions().then(setTaskDefs).catch(() => {});
+    modelSwitchService
+      .getTaskDefinitions()
+      .then(setTaskDefs)
+      .catch(() => {});
   }, []);
 
   const taskLabels = useMemo(() => {
@@ -169,8 +182,12 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
             <div className="space-y-1">
               {Object.entries(taskLabels).map(([type, label]) => {
                 // 优先使用会话级覆盖，无覆盖时使用全局配置
-                const sessionModelId = (sessionTasks as Record<string, string | undefined> | undefined)?.[type];
-                const globalModelId = (tasks as Record<string, string | undefined>)[type];
+                const sessionModelId = (
+                  sessionTasks as Record<string, string | undefined> | undefined
+                )?.[type];
+                const globalModelId = (
+                  tasks as Record<string, string | undefined>
+                )[type];
                 const effectiveModelId = sessionModelId || globalModelId;
                 const model = models.find((m) => m.id === effectiveModelId);
                 const isSessionOverride = !!sessionModelId;
@@ -224,19 +241,25 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
                         {provider}
                       </span>
                       {(() => {
-                        const bal = balanceByProvider.get(provider.toLowerCase());
+                        const bal = balanceByProvider.get(
+                          provider.toLowerCase(),
+                        );
                         if (!bal) return null;
                         return (
-                          <span className={`text-xs font-mono ${
-                            bal.belowThreshold
-                              ? "text-red-500 dark:text-red-400"
-                              : bal.remaining !== null
-                                ? "text-gray-500 dark:text-gray-400"
-                                : "text-gray-400 dark:text-gray-500"
-                          }`}>
+                          <span
+                            className={`text-xs font-mono ${
+                              bal.belowThreshold
+                                ? "text-red-500 dark:text-red-400"
+                                : bal.remaining !== null
+                                  ? "text-gray-500 dark:text-gray-400"
+                                  : "text-gray-400 dark:text-gray-500"
+                            }`}
+                          >
                             {bal.remaining !== null
                               ? `${bal.remaining.toFixed(2)} ${bal.unit}`
-                              : bal.supported ? "--" : "暂不支持"}
+                              : bal.supported
+                                ? "--"
+                                : "暂不支持"}
                           </span>
                         );
                       })()}
@@ -297,7 +320,9 @@ function ModelRow({
         >
           {model.provider}
         </span>
-        <span className="text-sm truncate">{model.name || model.modelId || model.id}</span>
+        <span className="text-sm truncate">
+          {model.name || model.modelId || model.id}
+        </span>
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {isActive && (

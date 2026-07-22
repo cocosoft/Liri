@@ -29,8 +29,16 @@ describe("P2.5 — 端到端测试：UI 配置 → 安全检查生效", () => {
       value: {
         mode: "default" as const,
         trustedWorkspaces: [
-          { path: "/home/user/proj-a", trustLevel: "development" as const, enabled: true },
-          { path: "/home/user/proj-b", trustLevel: "work" as const, enabled: false },
+          {
+            path: "/home/user/proj-a",
+            trustLevel: "development" as const,
+            enabled: true,
+          },
+          {
+            path: "/home/user/proj-b",
+            trustLevel: "work" as const,
+            enabled: false,
+          },
         ],
       },
     };
@@ -68,7 +76,10 @@ describe("P2.5 — 端到端测试：UI 配置 → 安全检查生效", () => {
 
     it("可以添加新的工作空间", async () => {
       const user = userEvent.setup();
-      mockGet.mockResolvedValue({ key: "permission", value: { mode: "default", trustedWorkspaces: [] } });
+      mockGet.mockResolvedValue({
+        key: "permission",
+        value: { mode: "default", trustedWorkspaces: [] },
+      });
       mockPut.mockResolvedValue(undefined);
 
       render(<TrustedWorkspacesPanel isDark={false} />);
@@ -101,7 +112,9 @@ describe("P2.5 — 端到端测试：UI 配置 → 安全检查生效", () => {
       });
 
       // 点击第一个工作空间的删除按钮
-      const deleteBtns = await screen.findAllByRole("button", { name: /common\.delete|删除/ });
+      const deleteBtns = await screen.findAllByRole("button", {
+        name: /common\.delete|删除/,
+      });
       await user.click(deleteBtns[0]);
 
       await waitFor(() => {
@@ -110,7 +123,10 @@ describe("P2.5 — 端到端测试：UI 配置 → 安全检查生效", () => {
     });
 
     it("添加空路径时不生效", async () => {
-      mockGet.mockResolvedValue({ key: "permission", value: { mode: "default", trustedWorkspaces: [] } });
+      mockGet.mockResolvedValue({
+        key: "permission",
+        value: { mode: "default", trustedWorkspaces: [] },
+      });
 
       render(<TrustedWorkspacesPanel isDark={false} />);
 
@@ -269,7 +285,9 @@ describe("P2.5 — 端到端测试：UI 配置 → 安全检查生效", () => {
         expect(mockGet).toHaveBeenCalled();
       });
 
-      const input = screen.getByPlaceholderText("输入命令模式（如 rm -rf, chmod）");
+      const input = screen.getByPlaceholderText(
+        "输入命令模式（如 rm -rf, chmod）",
+      );
       await user.type(input, "chmod -R 777");
 
       const addBtn = screen.getByText("添加");
@@ -288,7 +306,9 @@ describe("P2.5 — 端到端测试：UI 配置 → 安全检查生效", () => {
         expect(screen.getByText("rm -rf")).toBeTruthy();
       });
 
-      const deleteBtns = await screen.findAllByRole("button", { name: /common\.delete|删除/ });
+      const deleteBtns = await screen.findAllByRole("button", {
+        name: /common\.delete|删除/,
+      });
       await user.click(deleteBtns[0]);
 
       await waitFor(() => {

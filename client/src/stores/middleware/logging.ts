@@ -22,7 +22,9 @@ const storeLogger = createLogger("stores:root");
  * 日志中间件 — 包装 StateCreator，在 set 前后比较并记录关键变更。
  */
 export const loggingMiddleware =
-  <T extends RootState>(config: StateCreator<T, [], []>): StateCreator<T, [], []> =>
+  <T extends RootState>(
+    config: StateCreator<T, [], []>,
+  ): StateCreator<T, [], []> =>
   (set, get, api) => {
     return config(
       (partial, replace) => {
@@ -49,7 +51,11 @@ export const loggingMiddleware =
         if (wtId && wtId === prev.currentWorktreeId) {
           const nextWt = next.worktrees[wtId];
           const prevWt = prev.worktrees[wtId];
-          if (nextWt && prevWt && nextWt.workItems?.length !== prevWt.workItems?.length) {
+          if (
+            nextWt &&
+            prevWt &&
+            nextWt.workItems?.length !== prevWt.workItems?.length
+          ) {
             storeLogger.debug("WorkItems 变更", {
               worktreeId: wtId,
               prevCount: prevWt.workItems?.length,
@@ -63,6 +69,6 @@ export const loggingMiddleware =
         }
       },
       get,
-      api
+      api,
     );
   };

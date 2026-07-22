@@ -79,7 +79,8 @@ function PendingCompilePanel({
       onCompileComplete?.();
     } catch (err) {
       setCompileResult({
-        message: "编译失败: " + (err instanceof Error ? err.message : "未知错误"),
+        message:
+          "编译失败: " + (err instanceof Error ? err.message : "未知错误"),
         hasError: true,
       });
     } finally {
@@ -169,7 +170,9 @@ function PendingCompilePanel({
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-2">
-                    <span className={textMuted}>{formatFileSize(file.size)}</span>
+                    <span className={textMuted}>
+                      {formatFileSize(file.size)}
+                    </span>
                     <span className={textMuted}>
                       {formatDate(file.modifiedAt)}
                     </span>

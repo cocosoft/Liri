@@ -1,5 +1,12 @@
-import { useRef, useCallback, useState, forwardRef, useImperativeHandle } from "react";
+import {
+  useRef,
+  useCallback,
+  useState,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import { readFileAsBase64 } from "../../utils/fileUtils";
+import { handleClientError } from "../../utils/handleError";
 
 interface FileAttachment {
   name: string;
@@ -30,11 +37,13 @@ const MAX_FILE_SIZE = 20 * 1024 * 1024;
  * 上传按钮已移至父组件（ChatInput）的统一「+」菜单中，
  * 通过 ref.triggerFileInput() 触发文件选择。
  */
-const FileAttachmentBar = forwardRef<FileAttachmentBarHandle, FileAttachmentBarProps>(function FileAttachmentBar({
-  attachments,
-  onAttachmentsChange,
-  disabled: _disabled,
-}, ref) {
+const FileAttachmentBar = forwardRef<
+  FileAttachmentBarHandle,
+  FileAttachmentBarProps
+>(function FileAttachmentBar(
+  { attachments, onAttachmentsChange, disabled: _disabled },
+  ref,
+) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -71,7 +80,8 @@ const FileAttachmentBar = forwardRef<FileAttachmentBarHandle, FileAttachmentBarP
         try {
           const data = await readFileAsBase64(file);
           newAttachments.push({ name: file.name, size: file.size, data });
-        } catch {
+        } catch (e) {
+          handleClientError(e, { module: "components:chat:FileAttachmentBar", action: "handleFileSelect" });
           alert(`读取文件 "${file.name}" 失败`);
         }
       }
@@ -111,7 +121,8 @@ const FileAttachmentBar = forwardRef<FileAttachmentBarHandle, FileAttachmentBarP
           try {
             const data = await readFileAsBase64(file);
             newAttachments.push({ name: file.name, size: file.size, data });
-          } catch {
+          } catch (e) {
+            handleClientError(e, { module: "components:chat:FileAttachmentBar", action: "handleFileDrop" });
             alert(`读取文件 "${file.name}" 失败`);
           }
         }

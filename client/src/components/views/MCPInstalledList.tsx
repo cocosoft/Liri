@@ -23,7 +23,9 @@ function MCPInstalledList() {
   /**
    * 获取服务器状态（结合 connected + enabled 推断可读状态）
    */
-  const getServerStatus = (s: InstalledMCPServer): {
+  const getServerStatus = (
+    s: InstalledMCPServer,
+  ): {
     label: string;
     color: string;
   } => {
@@ -37,7 +39,8 @@ function MCPInstalledList() {
     if (s.configInFile) {
       return {
         label: t("mcp.configFile"),
-        color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+        color:
+          "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
       };
     }
     if (s.enabled) {
@@ -230,7 +233,7 @@ function MCPInstalledList() {
             <span
               className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-            {t("mcp.operating")}
+              {t("mcp.operating")}
             </span>
           )}
         </div>
@@ -286,7 +289,9 @@ function MCPInstalledList() {
                           : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
                       }`}
                     >
-                      {server.installedFrom === "official" ? t("mcp.official") : t("mcp.thirdParty")}
+                      {server.installedFrom === "official"
+                        ? t("mcp.official")
+                        : t("mcp.thirdParty")}
                     </span>
                   )}
                 </div>
@@ -311,7 +316,8 @@ function MCPInstalledList() {
                     <span
                       className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
                     >
-                      {toolCount} {t("mcp.toolCountLabel", { count: toolCount })}
+                      {toolCount}{" "}
+                      {t("mcp.toolCountLabel", { count: toolCount })}
                     </span>
                   )}
 

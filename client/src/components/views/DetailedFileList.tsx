@@ -33,7 +33,8 @@ function formatSize(bytes?: number): string {
   if (bytes === undefined || bytes === null) return "-";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
@@ -58,7 +59,23 @@ function getFileIcon(entry: FileEntry): string {
   if (entry.type === "directory") return "📁";
   const ext = entry.name.split(".").pop()?.toLowerCase() || "";
   const imageExts = ["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"];
-  const codeExts = ["js", "ts", "tsx", "jsx", "py", "java", "cpp", "c", "go", "rs", "rb", "php", "css", "scss", "less"];
+  const codeExts = [
+    "js",
+    "ts",
+    "tsx",
+    "jsx",
+    "py",
+    "java",
+    "cpp",
+    "c",
+    "go",
+    "rs",
+    "rb",
+    "php",
+    "css",
+    "scss",
+    "less",
+  ];
   const docExts = ["md", "markdown", "txt", "pdf", "doc", "docx"];
   const archiveExts = ["zip", "tar", "gz", "rar", "7z"];
   const dataExts = ["json", "yaml", "yml", "xml", "csv", "toml"];
@@ -148,9 +165,7 @@ function DetailedFileList({
         {/* 表头 */}
         <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800">
           <tr className="border-b border-gray-200 dark:border-gray-700">
-            <th
-              className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 w-10"
-            >
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 w-10">
               类型
             </th>
             <th
@@ -195,7 +210,9 @@ function DetailedFileList({
             <tr>
               <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
                 <p className="mb-1">暂无文件</p>
-                <p className="text-xs text-gray-400">拖拽文件到此处或点击上传按钮添加文件</p>
+                <p className="text-xs text-gray-400">
+                  拖拽文件到此处或点击上传按钮添加文件
+                </p>
               </td>
             </tr>
           ) : (
@@ -299,7 +316,9 @@ function DetailedFileList({
                         </>
                       )}
                       {entry.type === "directory" && (
-                        <span className="text-xs text-gray-400 px-2">点击进入</span>
+                        <span className="text-xs text-gray-400 px-2">
+                          点击进入
+                        </span>
                       )}
                     </div>
                   </td>
@@ -350,7 +369,9 @@ function DetailedFileList({
               label="复制路径"
               icon="📋"
               onClick={() => {
-                navigator.clipboard.writeText(contextMenu.entry.path).catch(() => {});
+                navigator.clipboard
+                  .writeText(contextMenu.entry.path)
+                  .catch(() => {});
                 setContextMenu(null);
               }}
             />

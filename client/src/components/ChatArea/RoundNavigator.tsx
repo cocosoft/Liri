@@ -34,8 +34,7 @@ const COLLAPSE_THRESHOLD = HEAD_PINNED + TAIL_PINNED + NAV_WINDOW * 2 + 2;
 
 /** 渲染项：轮次或省略号 */
 type RenderItem =
-  | { type: "round"; round: Round }
-  | { type: "ellipsis"; key: string };
+  { type: "round"; round: Round } | { type: "ellipsis"; key: string };
 
 /**
  * 计算需要渲染的轮次列表（含省略号占位）
@@ -106,7 +105,11 @@ function computeRenderItems(
  * - 尾部固定显示后 3 轮
  * - 断开处以「···」连接，高度不随轮数增长
  */
-function RoundNavigator({ messages, isStreaming, containerRef }: RoundNavigatorProps) {
+function RoundNavigator({
+  messages,
+  isStreaming,
+  containerRef,
+}: RoundNavigatorProps) {
   const [activeRound, setActiveRound] = useState<number>(0);
   const [hoveredRound, setHoveredRound] = useState<number>(-1);
   /** 是否展开为完整轮次列表（默认折叠为小圆点） */
@@ -136,9 +139,11 @@ function RoundNavigator({ messages, isStreaming, containerRef }: RoundNavigatorP
       try {
         const d1 = new Date(ts1);
         const d2 = new Date(ts2);
-        return d1.getDate() !== d2.getDate() ||
-               d1.getMonth() !== d2.getMonth() ||
-               d1.getFullYear() !== d2.getFullYear();
+        return (
+          d1.getDate() !== d2.getDate() ||
+          d1.getMonth() !== d2.getMonth() ||
+          d1.getFullYear() !== d2.getFullYear()
+        );
       } catch {
         return false;
       }
@@ -151,7 +156,11 @@ function RoundNavigator({ messages, isStreaming, containerRef }: RoundNavigatorP
 
         // 查找下一个 assistant 消息，检查是否跨午夜
         for (let j = i + 1; j < messages.length; j++) {
-          if (messages[j].role === "assistant" && messages[j].timestamp && msg.timestamp) {
+          if (
+            messages[j].role === "assistant" &&
+            messages[j].timestamp &&
+            msg.timestamp
+          ) {
             crossesMidnight = isCrossDay(msg.timestamp, messages[j].timestamp!);
             break;
           }
@@ -189,7 +198,9 @@ function RoundNavigator({ messages, isStreaming, containerRef }: RoundNavigatorP
       const container = containerRef.current;
       if (!container) return;
 
-      const msgEl = container.querySelector(`[data-msg-id="${round.userMsgId}"]`);
+      const msgEl = container.querySelector(
+        `[data-msg-id="${round.userMsgId}"]`,
+      );
       if (msgEl) {
         msgEl.scrollIntoView({ behavior: "smooth", block: "start" });
       }
@@ -209,7 +220,9 @@ function RoundNavigator({ messages, isStreaming, containerRef }: RoundNavigatorP
       let activeIdx = rounds.length - 1;
 
       for (let i = rounds.length - 1; i >= 0; i--) {
-        const msgEl = container.querySelector(`[data-msg-id="${rounds[i].userMsgId}"]`);
+        const msgEl = container.querySelector(
+          `[data-msg-id="${rounds[i].userMsgId}"]`,
+        );
         if (msgEl && (msgEl as HTMLElement).offsetTop <= scrollTop + 120) {
           activeIdx = i;
           break;
@@ -232,7 +245,10 @@ function RoundNavigator({ messages, isStreaming, containerRef }: RoundNavigatorP
   }
 
   return (
-    <div ref={navRef} className="absolute left-0 top-0 bottom-0 z-10 pointer-events-none">
+    <div
+      ref={navRef}
+      className="absolute left-0 top-0 bottom-0 z-10 pointer-events-none"
+    >
       {/* 折叠模式：左侧边缘小圆点 */}
       {!expanded && (
         <button
@@ -312,7 +328,9 @@ function RoundNavigator({ messages, isStreaming, containerRef }: RoundNavigatorP
                     <span className="relative">
                       {round.index}
                       {round.crossesMidnight && (
-                        <span className="absolute -top-1 -right-1 text-[7px] leading-none">🌙</span>
+                        <span className="absolute -top-1 -right-1 text-[7px] leading-none">
+                          🌙
+                        </span>
                       )}
                     </span>
                   )}

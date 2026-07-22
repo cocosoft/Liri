@@ -28,11 +28,17 @@ export function staleSessionCache(sessionId: string): void {
 
 /** 写入会话消息缓存（带 LRU 淘汰） */
 export function setSessionCache(sessionId: string, messages: Message[]): void {
-  if (_sessionMessageCache.size >= MAX_CACHED_SESSIONS && !_sessionMessageCache.has(sessionId)) {
+  if (
+    _sessionMessageCache.size >= MAX_CACHED_SESSIONS &&
+    !_sessionMessageCache.has(sessionId)
+  ) {
     const oldest = _sessionMessageCache.keys().next().value;
     if (oldest) _sessionMessageCache.delete(oldest);
   }
-  _sessionMessageCache.set(sessionId, messages.slice(0, MAX_CACHED_MESSAGES_PER_SESSION));
+  _sessionMessageCache.set(
+    sessionId,
+    messages.slice(0, MAX_CACHED_MESSAGES_PER_SESSION),
+  );
 }
 
 // 防抖保存 blocks：流式传输中实时持久化，避免用户切换会话时丢失
@@ -104,7 +110,11 @@ export async function flushSaveBlocks(): Promise<void> {
           blocks as unknown as Array<Record<string, unknown>>,
         );
       } catch (err) {
-        handleClientError(err, { module: 'stores:chat:history', action: 'flushSaveBlocks' }, 'warn');
+        handleClientError(
+          err,
+          { module: "stores:chat:history", action: "flushSaveBlocks" },
+          "warn",
+        );
       }
     }
   } finally {
@@ -125,7 +135,8 @@ export function shouldAutoRename(sessionId?: string): boolean {
   }
 
   // 动态导入避免循环依赖（chat → sessionStore）
-  const { useSessionStore } = require("../sessionStore") as typeof import("../sessionStore");
+  const { useSessionStore } =
+    require("../sessionStore") as typeof import("../sessionStore");
   const store = useSessionStore.getState();
 
   // 优先从 currentSession 查找
@@ -167,10 +178,15 @@ export async function doAutoRename(
       assistantResponse,
     );
 
-    const finalTitle = title || userMessage.slice(0, 30) + (userMessage.length > 30 ? "…" : "");
+    const finalTitle =
+      title || userMessage.slice(0, 30) + (userMessage.length > 30 ? "…" : "");
     useRootStore.getState().renameSession(sessionId, finalTitle);
   } catch (_error) {
-    handleClientError(_error, { module: 'stores:chat:history', action: 'doAutoRename' }, 'warn');
+    handleClientError(
+      _error,
+      { module: "stores:chat:history", action: "doAutoRename" },
+      "warn",
+    );
     // LLM 生成标题失败，用用户消息前30字符降级
     const fallbackTitle =
       userMessage.length > 30 ? userMessage.slice(0, 30) + "…" : userMessage;

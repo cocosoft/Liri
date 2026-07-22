@@ -13,7 +13,7 @@ const MIN_PANEL_WIDTH = 200;
 const MAX_PANEL_WIDTH = 600;
 const DEFAULT_PANEL_WIDTH = 320;
 
-type PanelTab = 'session' | 'manage' | 'usage';
+type PanelTab = "session" | "manage" | "usage";
 
 /**
  * 文件预览面板组件
@@ -22,18 +22,25 @@ type PanelTab = 'session' | 'manage' | 'usage';
  * 支持会话文件 / 文件管理 / 用量统计三个标签页。
  */
 function FilePreviewPanel() {
-  const { previewFile, sessionFiles, setPreviewFile, clearSessionFiles, messages } =
-    useChatStore(useShallow((s) => ({
+  const {
+    previewFile,
+    sessionFiles,
+    setPreviewFile,
+    clearSessionFiles,
+    messages,
+  } = useChatStore(
+    useShallow((s) => ({
       previewFile: s.previewFile,
       sessionFiles: s.sessionFiles,
       setPreviewFile: s.setPreviewFile,
       clearSessionFiles: s.clearSessionFiles,
       messages: s.messages,
-    })));
+    })),
+  );
   const setActivePage = useNavigationStore((s) => s.setActivePage);
   const [isExpanded, setIsExpanded] = useState(false);
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
-  const [activeTab, setActiveTab] = useState<PanelTab>('session');
+  const [activeTab, setActiveTab] = useState<PanelTab>("session");
   const [fileStats, setFileStats] = useState<FileStats | null>(null);
   const [recentFiles, setRecentFiles] = useState<FileRegistryRecord[]>([]);
   const [statsLoading, setStatsLoading] = useState(false);
@@ -67,33 +74,36 @@ function FilePreviewPanel() {
   }, [previewFile]);
 
   /** 拖拽调整面板宽度 */
-  const handleDragStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    dragRef.current = { startX: e.clientX, startWidth: panelWidth };
+  const handleDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      dragRef.current = { startX: e.clientX, startWidth: panelWidth };
 
-    const handleMouseMove = (ev: MouseEvent) => {
-      if (!dragRef.current) return;
-      const delta = dragRef.current.startX - ev.clientX;
-      const newWidth = Math.min(
-        MAX_PANEL_WIDTH,
-        Math.max(MIN_PANEL_WIDTH, dragRef.current.startWidth + delta),
-      );
-      setPanelWidth(newWidth);
-    };
+      const handleMouseMove = (ev: MouseEvent) => {
+        if (!dragRef.current) return;
+        const delta = dragRef.current.startX - ev.clientX;
+        const newWidth = Math.min(
+          MAX_PANEL_WIDTH,
+          Math.max(MIN_PANEL_WIDTH, dragRef.current.startWidth + delta),
+        );
+        setPanelWidth(newWidth);
+      };
 
-    const handleMouseUp = () => {
-      dragRef.current = null;
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-    };
+      const handleMouseUp = () => {
+        dragRef.current = null;
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
 
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-  }, [panelWidth]);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    },
+    [panelWidth],
+  );
 
   const handleClose = useCallback(() => {
     setPreviewFile(null);
@@ -119,12 +129,18 @@ function FilePreviewPanel() {
 
   /** 切换到文件管理标签时加载统计数据 */
   useEffect(() => {
-    if (activeTab === 'manage') {
+    if (activeTab === "manage") {
       setStatsLoading(true);
       setManageError(null);
       Promise.all([
-        fileService.getFileStats().then(setFileStats).catch((err) => setManageError(String(err))),
-        fileService.searchFiles({ limit: 5 }).then((r) => setRecentFiles(r.items)).catch(() => {}),
+        fileService
+          .getFileStats()
+          .then(setFileStats)
+          .catch((err) => setManageError(String(err))),
+        fileService
+          .searchFiles({ limit: 5 })
+          .then((r) => setRecentFiles(r.items))
+          .catch(() => {}),
       ]).finally(() => setStatsLoading(false));
     }
   }, [activeTab]);
@@ -212,38 +228,39 @@ function FilePreviewPanel() {
       <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setActiveTab('session')}
+            onClick={() => setActiveTab("session")}
             className={`text-xs font-medium px-2 py-0.5 rounded transition-colors ${
-              activeTab === 'session'
-                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              activeTab === "session"
+                ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
             会话文件
           </button>
           <button
-            onClick={() => setActiveTab('manage')}
+            onClick={() => setActiveTab("manage")}
             className={`text-xs font-medium px-2 py-0.5 rounded transition-colors ${
-              activeTab === 'manage'
-                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              activeTab === "manage"
+                ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
             文件管理
           </button>
           <button
-            onClick={() => setActiveTab('usage')}
+            onClick={() => setActiveTab("usage")}
             className={`text-xs font-medium px-2 py-0.5 rounded transition-colors ${
-              activeTab === 'usage'
-                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              activeTab === "usage"
+                ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
             用量
           </button>
         </div>
         <div className="flex items-center gap-1">
-          {((activeTab === 'session' && hasFiles) || activeTab === 'manage') && (
+          {((activeTab === "session" && hasFiles) ||
+            activeTab === "manage") && (
             <button
               onClick={clearSessionFiles}
               className="p-1 text-xs text-gray-400 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
@@ -287,40 +304,70 @@ function FilePreviewPanel() {
       </div>
 
       {/* 会话文件视图 */}
-      {activeTab === 'session' && hasFiles && !previewFile && (
+      {activeTab === "session" && hasFiles && !previewFile && (
         <div className="flex-1 flex flex-col overflow-hidden">
           <FileList files={sessionFiles} onSelect={handleSelectFile} />
         </div>
       )}
 
-      {activeTab === 'session' && previewFile && (
+      {activeTab === "session" && previewFile && (
         <div className="flex-1 flex flex-col overflow-hidden">
           <FilePreviewContent file={previewFile} onClose={handleClose} />
         </div>
       )}
 
-      {activeTab === 'session' && !hasFiles && !previewFile && emptyState}
+      {activeTab === "session" && !hasFiles && !previewFile && emptyState}
 
       {/* 文件管理视图 */}
-      {activeTab === 'manage' && (
+      {activeTab === "manage" && (
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto p-3 space-y-3">
           {statsLoading ? (
-            <div className="text-center py-8 text-gray-400 text-sm">加载中...</div>
+            <div className="text-center py-8 text-gray-400 text-sm">
+              加载中...
+            </div>
           ) : manageError && !fileStats ? (
             <div className="flex flex-col items-center justify-center flex-1 text-center">
-              <svg className="w-10 h-10 text-amber-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              <svg
+                className="w-10 h-10 text-amber-400 mb-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+                />
               </svg>
-              <p className="text-sm text-amber-600 dark:text-amber-400">文件管理服务未就绪</p>
-              <p className="text-xs text-gray-400 mt-1 max-w-[200px]">请确认后端文件管理接口已部署并可用</p>
+              <p className="text-sm text-amber-600 dark:text-amber-400">
+                文件管理服务未就绪
+              </p>
+              <p className="text-xs text-gray-400 mt-1 max-w-[200px]">
+                请确认后端文件管理接口已部署并可用
+              </p>
             </div>
           ) : !fileStats && recentFiles.length === 0 ? (
             <div className="flex flex-col items-center justify-center flex-1 text-center">
-              <svg className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              <svg
+                className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                />
               </svg>
-              <p className="text-sm text-gray-400 dark:text-gray-500">暂无文件数据</p>
-              <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">文件管理服务正常，暂无文件记录</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">
+                暂无文件数据
+              </p>
+              <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">
+                文件管理服务正常，暂无文件记录
+              </p>
             </div>
           ) : (
             <>
@@ -330,10 +377,22 @@ function FilePreviewPanel() {
                     统计概览
                   </h4>
                   <div className="grid grid-cols-2 gap-2 text-sm">
-                    <StatItem label="文件总数" value={String(fileStats.totalFiles)} />
-                    <StatItem label="总大小" value={formatFileSize(fileStats.totalSize)} />
-                    <StatItem label="今日入站" value={String(fileStats.todayInbound)} />
-                    <StatItem label="去重节省" value={`${fileStats.dedupSaved} 次`} />
+                    <StatItem
+                      label="文件总数"
+                      value={String(fileStats.totalFiles)}
+                    />
+                    <StatItem
+                      label="总大小"
+                      value={formatFileSize(fileStats.totalSize)}
+                    />
+                    <StatItem
+                      label="今日入站"
+                      value={String(fileStats.todayInbound)}
+                    />
+                    <StatItem
+                      label="去重节省"
+                      value={`${fileStats.dedupSaved} 次`}
+                    />
                   </div>
                   {fileStats.dedupSize > 0 && (
                     <p className="text-xs text-gray-400">
@@ -370,7 +429,10 @@ function FilePreviewPanel() {
               )}
 
               <button
-                onClick={() => { setActivePage('files'); setIsExpanded(false); }}
+                onClick={() => {
+                  setActivePage("files");
+                  setIsExpanded(false);
+                }}
                 className="w-full py-2 px-4 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
               >
                 打开完整文件管理器
@@ -381,7 +443,7 @@ function FilePreviewPanel() {
       )}
 
       {/* 用量统计视图 */}
-      {activeTab === 'usage' && (
+      {activeTab === "usage" && (
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto p-3">
           {/* 会话基础统计 */}
           <div className="space-y-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 mb-3">
@@ -391,11 +453,15 @@ function FilePreviewPanel() {
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
                 <div className="text-xs text-gray-400">消息数</div>
-                <div className="font-mono text-gray-700 dark:text-gray-300">{messages.length}</div>
+                <div className="font-mono text-gray-700 dark:text-gray-300">
+                  {messages.length}
+                </div>
               </div>
               <div>
                 <div className="text-xs text-gray-400">文件数</div>
-                <div className="font-mono text-gray-700 dark:text-gray-300">{sessionFiles.length}</div>
+                <div className="font-mono text-gray-700 dark:text-gray-300">
+                  {sessionFiles.length}
+                </div>
               </div>
             </div>
           </div>
@@ -406,32 +472,61 @@ function FilePreviewPanel() {
                 Token 统计
               </h4>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500 dark:text-gray-400">输入词元</span>
-                <span className="font-mono text-gray-700 dark:text-gray-300">{sessionUsage.inputTokens.toLocaleString()}</span>
+                <span className="text-gray-500 dark:text-gray-400">
+                  输入词元
+                </span>
+                <span className="font-mono text-gray-700 dark:text-gray-300">
+                  {sessionUsage.inputTokens.toLocaleString()}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500 dark:text-gray-400">输出词元</span>
-                <span className="font-mono text-gray-700 dark:text-gray-300">{sessionUsage.outputTokens.toLocaleString()}</span>
+                <span className="text-gray-500 dark:text-gray-400">
+                  输出词元
+                </span>
+                <span className="font-mono text-gray-700 dark:text-gray-300">
+                  {sessionUsage.outputTokens.toLocaleString()}
+                </span>
               </div>
               <div className="flex justify-between text-sm font-medium border-t border-gray-100 dark:border-gray-800 pt-2 mt-1">
-                <span className="text-gray-700 dark:text-gray-300">总计词元</span>
-                <span className="font-mono text-gray-900 dark:text-gray-100">{sessionUsage.totalTokens.toLocaleString()}</span>
+                <span className="text-gray-700 dark:text-gray-300">
+                  总计词元
+                </span>
+                <span className="font-mono text-gray-900 dark:text-gray-100">
+                  {sessionUsage.totalTokens.toLocaleString()}
+                </span>
               </div>
-              {sessionUsage.estimatedCostUsd != null && sessionUsage.estimatedCostUsd > 0 && (
-                <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400">
-                  <span>费用</span>
-                  <span className="font-mono">${sessionUsage.estimatedCostUsd.toFixed(4)}</span>
-                </div>
-              )}
+              {sessionUsage.estimatedCostUsd != null &&
+                sessionUsage.estimatedCostUsd > 0 && (
+                  <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400">
+                    <span>费用</span>
+                    <span className="font-mono">
+                      ${sessionUsage.estimatedCostUsd.toFixed(4)}
+                    </span>
+                  </div>
+                )}
             </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center">
-              <svg className="w-8 h-8 text-gray-300 dark:text-gray-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              <svg
+                className="w-8 h-8 text-gray-300 dark:text-gray-600 mb-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                />
               </svg>
-              <p className="text-sm text-gray-400 dark:text-gray-500">暂无 Token 统计</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">
+                暂无 Token 统计
+              </p>
               <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">
-                {messages.length > 0 ? "当前模型未返回 Token 用量数据" : "发送消息后自动统计"}
+                {messages.length > 0
+                  ? "当前模型未返回 Token 用量数据"
+                  : "发送消息后自动统计"}
               </p>
             </div>
           )}

@@ -60,42 +60,39 @@ function VideoPage() {
   // 视频库：加载列表
   // ================================================================
 
-  const loadVideos = useCallback(
-    async (page: number, append: boolean) => {
-      if (page === 1) setLoading(true);
-      else setLoadingMore(true);
-      setLoadError(null);
+  const loadVideos = useCallback(async (page: number, append: boolean) => {
+    if (page === 1) setLoading(true);
+    else setLoadingMore(true);
+    setLoadError(null);
 
-      if (abortRef.current) abortRef.current.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-      try {
-        const res: VideoListResponse = await videoService.listVideos({
-          page,
-          pageSize: 50,
-          signal: controller.signal,
-        });
+    try {
+      const res: VideoListResponse = await videoService.listVideos({
+        page,
+        pageSize: 50,
+        signal: controller.signal,
+      });
 
-        if (append) {
-          setVideos((prev) => [...prev, ...res.videos]);
-        } else {
-          setVideos(res.videos);
-        }
-        setTotal(res.total);
-        setHasMore(res.hasMore);
-        pageRef.current = page;
-      } catch (err) {
-        if ((err as Error).name !== "AbortError") {
-          setLoadError((err as Error).message || "Failed to load videos");
-        }
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
+      if (append) {
+        setVideos((prev) => [...prev, ...res.videos]);
+      } else {
+        setVideos(res.videos);
       }
-    },
-    []
-  );
+      setTotal(res.total);
+      setHasMore(res.hasMore);
+      pageRef.current = page;
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        setLoadError((err as Error).message || "Failed to load videos");
+      }
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadVideos(1, false);
@@ -114,17 +111,14 @@ function VideoPage() {
     loadVideos(1, false);
   }, [loadVideos]);
 
-  const handleDelete = useCallback(
-    async (videoPath: string) => {
-      const ok = await videoService.deleteVideo(videoPath);
-      if (ok) {
-        setVideos((prev) => prev.filter((v) => v.path !== videoPath));
-        setTotal((prev) => prev - 1);
-        setViewerOpen(false);
-      }
-    },
-    []
-  );
+  const handleDelete = useCallback(async (videoPath: string) => {
+    const ok = await videoService.deleteVideo(videoPath);
+    if (ok) {
+      setVideos((prev) => prev.filter((v) => v.path !== videoPath));
+      setTotal((prev) => prev - 1);
+      setViewerOpen(false);
+    }
+  }, []);
 
   // ---- 查看器导航 ----
   const openViewer = useCallback((index: number) => {
@@ -166,9 +160,7 @@ function VideoPage() {
     setGenerating(true);
     setError(null);
     setSuccess(null);
-    setProgress(
-      asyncMode ? t("video.submitting") : t("video.generating")
-    );
+    setProgress(asyncMode ? t("video.submitting") : t("video.generating"));
 
     try {
       const result = await videoService.generate({
@@ -180,13 +172,11 @@ function VideoPage() {
       });
 
       if (asyncMode && result.taskId) {
-        setSuccess(
-          `${t("video.taskSubmitted")} (taskId: ${result.taskId})`
-        );
+        setSuccess(`${t("video.taskSubmitted")} (taskId: ${result.taskId})`);
         setProgress("");
       } else if (result.video?.url) {
         setSuccess(
-          `${t("video.generationComplete")} (${((result.durationMs || 0) / 1000).toFixed(1)}s)`
+          `${t("video.generationComplete")} (${((result.durationMs || 0) / 1000).toFixed(1)}s)`,
         );
         setProgress("");
         refresh();
@@ -196,7 +186,7 @@ function VideoPage() {
       }
     } catch (e) {
       setError(
-        `${t("video.generationFailed")}: ${e instanceof Error ? e.message : String(e)}`
+        `${t("video.generationFailed")}: ${e instanceof Error ? e.message : String(e)}`,
       );
       setProgress("");
     } finally {
@@ -218,15 +208,11 @@ function VideoPage() {
           <h1 className={`text-lg font-medium ${textColor}`}>
             {t("video.title")}
           </h1>
-          <p className={`text-xs ${subtitleColor}`}>
-            {t("video.subtitle")}
-          </p>
+          <p className={`text-xs ${subtitleColor}`}>{t("video.subtitle")}</p>
         </div>
         <div className="flex items-center gap-2">
           <span className={`text-xs ${subtitleColor}`}>
-            {total > 0
-              ? t("video.totalVideos", { count: total })
-              : ""}
+            {total > 0 ? t("video.totalVideos", { count: total }) : ""}
           </span>
           <button
             onClick={refresh}
@@ -282,9 +268,7 @@ function VideoPage() {
             <label className={`block text-xs font-medium mb-1 ${textColor}`}>
               {t("video.model")}
             </label>
-            <p className={`text-xs ${subtitleColor}`}>
-              Wan-AI/Wan2.2-T2V-A14B
-            </p>
+            <p className={`text-xs ${subtitleColor}`}>Wan-AI/Wan2.2-T2V-A14B</p>
           </div>
 
           <div>
@@ -376,7 +360,9 @@ function VideoPage() {
             <div className="flex items-center justify-center h-full">
               <div className="flex flex-col items-center gap-3">
                 <div className="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                <p className={`text-sm ${subtitleColor}`}>{t("video.loading")}</p>
+                <p className={`text-sm ${subtitleColor}`}>
+                  {t("video.loading")}
+                </p>
               </div>
             </div>
           )}
@@ -385,7 +371,10 @@ function VideoPage() {
           {!loading && loadError && (
             <div className="flex flex-col items-center justify-center h-full gap-3">
               <p className="text-sm text-red-400">{loadError}</p>
-              <button onClick={refresh} className="px-3 py-1 rounded text-xs border-0 cursor-pointer bg-blue-600/20 text-blue-400 hover:bg-blue-600/30">
+              <button
+                onClick={refresh}
+                className="px-3 py-1 rounded text-xs border-0 cursor-pointer bg-blue-600/20 text-blue-400 hover:bg-blue-600/30"
+              >
                 {t("video.retry")}
               </button>
             </div>
@@ -394,12 +383,21 @@ function VideoPage() {
           {/* Empty */}
           {!loading && !loadError && videos.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full">
-              <svg className="w-16 h-16 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg
+                className="w-16 h-16 mb-4 opacity-30"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <polygon points="23 7 16 12 23 17 23 7" />
                 <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
               </svg>
-              <p className={`text-sm ${subtitleColor}`}>{t("video.noVideos")}</p>
-              <p className={`text-xs mt-1 ${subtitleColor}`}>{t("video.noVideosHint")}</p>
+              <p className={`text-sm ${subtitleColor}`}>
+                {t("video.noVideos")}
+              </p>
+              <p className={`text-xs mt-1 ${subtitleColor}`}>
+                {t("video.noVideosHint")}
+              </p>
             </div>
           )}
 
@@ -411,14 +409,20 @@ function VideoPage() {
                   <div
                     key={idx}
                     className={`rounded border overflow-hidden group relative cursor-pointer ${
-                      isDark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"
+                      isDark
+                        ? "border-gray-700 bg-gray-800"
+                        : "border-gray-200 bg-white"
                     }`}
                     onClick={() => openViewer(idx)}
                   >
                     {/* 播放按钮覆盖层 */}
                     <div className="absolute inset-0 flex items-center justify-center z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
                       <div className="w-10 h-10 rounded-full bg-black/60 flex items-center justify-center">
-                        <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <svg
+                          className="w-5 h-5 text-white ml-0.5"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
                           <path d="M8 5v14l11-7z" />
                         </svg>
                       </div>
@@ -426,14 +430,29 @@ function VideoPage() {
 
                     {/* 删除按钮 */}
                     <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(video.path); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(video.path);
+                      }}
                       className={`absolute top-1 right-1 z-20 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${
-                        isDark ? "bg-red-900/70 text-red-300 hover:bg-red-800" : "bg-red-100 text-red-600 hover:bg-red-200"
+                        isDark
+                          ? "bg-red-900/70 text-red-300 hover:bg-red-800"
+                          : "bg-red-100 text-red-600 hover:bg-red-200"
                       }`}
                       title={t("video.delete")}
                     >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
                       </svg>
                     </button>
 
@@ -490,13 +509,17 @@ function VideoPage() {
       {viewerOpen && currentVideo && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85"
-          onClick={(e) => { if (e.target === e.currentTarget) setViewerOpen(false); }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setViewerOpen(false);
+          }}
         >
           {/* 关闭 */}
           <button
             onClick={() => setViewerOpen(false)}
             className="absolute top-4 right-4 text-white/70 hover:text-white text-2xl bg-transparent border-0 cursor-pointer z-10"
-          >✕</button>
+          >
+            ✕
+          </button>
 
           {/* 计数 */}
           <div className="absolute top-4 left-4 text-white/60 text-sm z-10">
@@ -505,9 +528,14 @@ function VideoPage() {
 
           {/* 删除 */}
           <button
-            onClick={(e) => { e.stopPropagation(); handleDelete(currentVideo.path); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete(currentVideo.path);
+            }}
             className="absolute top-4 left-20 text-white/70 hover:text-red-400 text-sm bg-transparent border-0 cursor-pointer z-10"
-          >{t("video.delete")}</button>
+          >
+            {t("video.delete")}
+          </button>
 
           {/* 下载 */}
           <button
@@ -518,22 +546,34 @@ function VideoPage() {
               a.click();
             }}
             className="absolute top-4 left-36 text-white/70 hover:text-white text-sm bg-transparent border-0 cursor-pointer z-10"
-          >⭳</button>
+          >
+            ⭳
+          </button>
 
           {/* 左箭头 */}
           {videos.length > 1 && (
             <button
-              onClick={(e) => { e.stopPropagation(); viewerPrev(); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                viewerPrev();
+              }}
               className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white text-4xl bg-transparent border-0 cursor-pointer z-10"
-            >‹</button>
+            >
+              ‹
+            </button>
           )}
 
           {/* 右箭头 */}
           {videos.length > 1 && (
             <button
-              onClick={(e) => { e.stopPropagation(); viewerNext(); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                viewerNext();
+              }}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white text-4xl bg-transparent border-0 cursor-pointer z-10"
-            >›</button>
+            >
+              ›
+            </button>
           )}
 
           {/* 视频播放器 */}

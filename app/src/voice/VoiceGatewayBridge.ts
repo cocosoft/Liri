@@ -12,6 +12,7 @@ import type { SessionIntegrationOptions } from './VoiceSession';
 import type { VoiceConnection } from './types';
 import type { SessionManager } from '@modules/session/SessionManager';
 import type { TranscriptManager } from '@modules/session/TranscriptManager';
+import { withTraceContextFromRequestResult } from '../monitoring/tracing/traceContextExtractor';
 
 const logger = new Logger({
   module: 'voice:gatewayBridge',
@@ -89,7 +90,11 @@ export function handleVoiceUpgrade(
     return false;
   }
 
-  const connection: VoiceConnection | null = upgradeToVoiceConnection(req, res);
+  // P1-2.16: 在提取的 TraceContext 中升级连接，socket 事件监听器将继承该上下文
+  const connection: VoiceConnection | null = withTraceContextFromRequestResult(
+    req,
+    () => upgradeToVoiceConnection(req, res)
+  );
   if (!connection) {
     logger.warn('语音连接升级失败');
     return false;

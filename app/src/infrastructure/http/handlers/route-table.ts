@@ -1740,6 +1740,16 @@ export async function dispatchRoute(
     await self['handleStartupError'](req, res);
     return true;
   }
+  // 前端错误上报
+  if (method === 'POST' && url === '/v1/errors/report') {
+    await self['handleClientErrorReport'](req, res);
+    return true;
+  }
+  // P3-2.11: 后端错误统计
+  if (method === 'GET' && url === '/v1/monitoring/errors') {
+    self['handleGetErrorStats'](req, res);
+    return true;
+  }
   if (method === 'POST' && url === '/v1/monitor/logs/export') {
     await self['handleExportLogs'](req, res);
     return true;

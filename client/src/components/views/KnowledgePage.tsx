@@ -88,7 +88,12 @@ function KnowledgePage() {
     setEditContent(file.content);
   }
 
-  function handleSearchResultClick(result: { id: string; title: string; content: string; category?: string }) {
+  function handleSearchResultClick(result: {
+    id: string;
+    title: string;
+    content: string;
+    category?: string;
+  }) {
     const file: KnowledgeFile = {
       id: result.id,
       title: result.title,
@@ -109,7 +114,7 @@ function KnowledgePage() {
     setEditContent(result.content);
     // 延迟滚动到编辑器（等 DOM 渲染）
     setTimeout(() => {
-      const el = document.querySelector('[data-editor-textarea]');
+      const el = document.querySelector("[data-editor-textarea]");
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
   }
@@ -206,23 +211,26 @@ function KnowledgePage() {
     }
   }
 
-  const handleDemoSearch = useCallback(async (domain?: string) => {
-    if (!demoQuery.trim()) return;
-    setIsDemoSearching(true);
-    setDemoSearchDone(false);
-    try {
-      const results = await knowledgeService.hybridSearch(
-        demoQuery.trim(),
-        selectedBase || undefined,
-        domain,
-      );
-      setDemoResults(results);
-    } catch {
-      setDemoResults([]);
-    }
-    setIsDemoSearching(false);
-    setDemoSearchDone(true);
-  }, [demoQuery, selectedBase]);
+  const handleDemoSearch = useCallback(
+    async (domain?: string) => {
+      if (!demoQuery.trim()) return;
+      setIsDemoSearching(true);
+      setDemoSearchDone(false);
+      try {
+        const results = await knowledgeService.hybridSearch(
+          demoQuery.trim(),
+          selectedBase || undefined,
+          domain,
+        );
+        setDemoResults(results);
+      } catch {
+        setDemoResults([]);
+      }
+      setIsDemoSearching(false);
+      setDemoSearchDone(true);
+    },
+    [demoQuery, selectedBase],
+  );
 
   const tabs: { key: ActiveTab; label: string }[] = [
     { key: "knowledge", label: "知识库" },
@@ -230,8 +238,6 @@ function KnowledgePage() {
     { key: "semantic", label: "语义索引" },
     { key: "stats", label: "知识统计" },
   ];
-
-
 
   return (
     <div className={`flex-1 overflow-y-auto ${bgClass}`}>
@@ -314,7 +320,7 @@ function KnowledgePage() {
                       <button
                         onClick={() => {
                           const el = document.querySelector<HTMLButtonElement>(
-                            '[data-testid="file-upload-trigger"]'
+                            '[data-testid="file-upload-trigger"]',
                           );
                           el?.click();
                         }}
@@ -397,9 +403,15 @@ function KnowledgePage() {
                         onClick={() => {
                           if (!selectedFile) return;
                           // 将选中文档内容作为系统消息发送到当前对话
-                          const event = new CustomEvent("liri:append-knowledge", {
-                            detail: { title: selectedFile.title, content: selectedFile.content },
-                          });
+                          const event = new CustomEvent(
+                            "liri:append-knowledge",
+                            {
+                              detail: {
+                                title: selectedFile.title,
+                                content: selectedFile.content,
+                              },
+                            },
+                          );
                           window.dispatchEvent(event);
                         }}
                         title="将文档内容发送到当前对话"
@@ -417,7 +429,10 @@ function KnowledgePage() {
                       <button
                         onClick={() => {
                           const base = selectedBase || "all";
-                          window.open(`/v1/knowledge/export?base=${encodeURIComponent(base)}`, "_blank");
+                          window.open(
+                            `/v1/knowledge/export?base=${encodeURIComponent(base)}`,
+                            "_blank",
+                          );
                         }}
                         title="ZIP 打包导出知识库"
                         className="px-3 py-1.5 text-sm text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-md hover:bg-purple-50 dark:hover:bg-purple-900/30"
@@ -433,7 +448,9 @@ function KnowledgePage() {
                       <button
                         onClick={async () => {
                           if (!selectedFile) return;
-                          const ok = await knowledgeService.trash(selectedFile.id);
+                          const ok = await knowledgeService.trash(
+                            selectedFile.id,
+                          );
                           if (ok) {
                             setSelectedFile(null);
                             setIsEditing(false);
@@ -452,9 +469,7 @@ function KnowledgePage() {
                     </div>
                   </div>
 
-                  <div
-                    className="prose prose-sm max-w-none dark:prose-invert"
-                  >
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
                     {selectedFile.content ? (
                       <MarkdownRenderer content={selectedFile.content} />
                     ) : (

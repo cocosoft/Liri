@@ -38,7 +38,9 @@ export function getCachedThumb(url: string): string | null {
       // 过期则删除
       localStorage.removeItem(STORAGE_PREFIX + url);
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 
   return null;
 }
@@ -50,7 +52,7 @@ export function setCachedThumb(url: string, dataUrl: string): void {
   // 限制 localStorage 条目数
   try {
     const keys = Object.keys(localStorage).filter((k) =>
-      k.startsWith(STORAGE_PREFIX)
+      k.startsWith(STORAGE_PREFIX),
     );
     if (keys.length >= MAX_STORAGE_ENTRIES) {
       // 删除最旧的 20%
@@ -68,9 +70,11 @@ export function setCachedThumb(url: string, dataUrl: string): void {
 
     localStorage.setItem(
       STORAGE_PREFIX + url,
-      JSON.stringify({ data: dataUrl, ts: Date.now() })
+      JSON.stringify({ data: dataUrl, ts: Date.now() }),
     );
-  } catch { /* localStorage 满则忽略 */ }
+  } catch {
+    /* localStorage 满则忽略 */
+  }
 }
 
 /**
@@ -120,10 +124,12 @@ export function clearThumbCache(): void {
   memCache.clear();
   try {
     const keys = Object.keys(localStorage).filter((k) =>
-      k.startsWith(STORAGE_PREFIX)
+      k.startsWith(STORAGE_PREFIX),
     );
     for (const key of keys) {
       localStorage.removeItem(key);
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }

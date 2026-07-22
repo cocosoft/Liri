@@ -12,8 +12,7 @@ function formatSchema(schema: Record<string, unknown> | undefined): string {
   if (!schema || typeof schema !== "object") return "";
 
   const props = (schema as Record<string, unknown>).properties as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
   const required = Array.isArray((schema as Record<string, unknown>).required)
     ? ((schema as Record<string, unknown>).required as string[])
     : [];
@@ -204,7 +203,9 @@ function MCPToolsPanel() {
       {/* 工具列表 */}
       <div className="divide-y divide-gray-200 dark:divide-gray-700">
         {toolsLoading ? (
-          <div className="p-6 text-center text-sm text-gray-400">{t("common.loading")}</div>
+          <div className="p-6 text-center text-sm text-gray-400">
+            {t("common.loading")}
+          </div>
         ) : filteredTools.length === 0 ? (
           <div className="p-6 text-center">
             <p

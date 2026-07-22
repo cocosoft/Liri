@@ -8,14 +8,31 @@ interface ProjectStore {
   decomposingProjectId: string | null;
   error: string | null;
 
-  createProject: (workspaceId: string, name: string, description: string) => Project;
-  importNodesDirect: (workspaceId: string, name: string, requirements: string, nodes: ProjectNode[]) => Project;
+  createProject: (
+    workspaceId: string,
+    name: string,
+    description: string,
+  ) => Project;
+  importNodesDirect: (
+    workspaceId: string,
+    name: string,
+    requirements: string,
+    nodes: ProjectNode[],
+  ) => Project;
   getProject: (projectId: string) => Project | null;
   getNode: (projectId: string, nodeId: string) => ProjectNode | null;
   getRootNodes: (projectId: string) => ProjectNode[];
   getChildren: (projectId: string, nodeId: string) => ProjectNode[];
-  updateNodeStatus: (projectId: string, nodeId: string, status: ProjectStatus) => void;
-  updateNodeProgress: (projectId: string, nodeId: string, progress: number) => void;
+  updateNodeStatus: (
+    projectId: string,
+    nodeId: string,
+    status: ProjectStatus,
+  ) => void;
+  updateNodeProgress: (
+    projectId: string,
+    nodeId: string,
+    progress: number,
+  ) => void;
   setActiveProject: (projectId: string | null) => void;
   recalculateProgress: (projectId: string) => void;
   deleteProject: (projectId: string) => void;
@@ -23,7 +40,7 @@ interface ProjectStore {
 
 let _counter = 0;
 function genId(): string {
-  return "proj_" + Date.now() + "_" + (++_counter);
+  return "proj_" + Date.now() + "_" + ++_counter;
 }
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
@@ -36,7 +53,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   createProject: (workspaceId, name, description) => {
     const id = genId();
     const project: Project = {
-      id, workspaceId, name, description,
+      id,
+      workspaceId,
+      name,
+      description,
       sourceRequirements: "",
       rootNodes: [],
       nodes: {},
@@ -73,7 +93,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
 
     const project: Project = {
-      id, workspaceId, name,
+      id,
+      workspaceId,
+      name,
       description: name,
       sourceRequirements: requirements,
       rootNodes,
@@ -104,7 +126,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   getRootNodes: (projectId) => {
     const project = get().projects[projectId];
     if (!project) return [];
-    return project.rootNodes.map((id) => project.nodes[id]).filter(Boolean) as ProjectNode[];
+    return project.rootNodes
+      .map((id) => project.nodes[id])
+      .filter(Boolean) as ProjectNode[];
   },
 
   getChildren: (projectId, nodeId) => {
@@ -112,7 +136,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (!project) return [];
     const node = project.nodes[nodeId];
     if (!node) return [];
-    return node.children.map((id) => project.nodes[id]).filter(Boolean) as ProjectNode[];
+    return node.children
+      .map((id) => project.nodes[id])
+      .filter(Boolean) as ProjectNode[];
   },
 
   updateNodeStatus: (projectId, nodeId, status) => {
@@ -200,7 +226,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   deleteProject: (projectId) => {
     set((s) => {
       const { [projectId]: _, ...rest } = s.projects;
-      const newActive = s.activeProjectId === projectId ? null : s.activeProjectId;
+      const newActive =
+        s.activeProjectId === projectId ? null : s.activeProjectId;
       return { projects: rest, activeProjectId: newActive };
     });
   },

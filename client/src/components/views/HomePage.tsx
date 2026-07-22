@@ -2,7 +2,17 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useBackendStore } from "../../stores/backendStore";
-import { ChatIcon, KnowledgeIcon, GaugeIcon, DashboardIcon, TaskIcon, CronIcon, FileIcon, DevIcon, SettingsIcon } from "../../assets/icons";
+import {
+  ChatIcon,
+  KnowledgeIcon,
+  GaugeIcon,
+  DashboardIcon,
+  TaskIcon,
+  CronIcon,
+  FileIcon,
+  DevIcon,
+  SettingsIcon,
+} from "../../assets/icons";
 import type { BaseIconProps } from "../../assets/icons";
 
 interface NavCardProps {
@@ -12,7 +22,12 @@ interface NavCardProps {
   path: string;
 }
 
-function NavCard({ icon: IconComponent, title, description, path }: NavCardProps) {
+function NavCard({
+  icon: IconComponent,
+  title,
+  description,
+  path,
+}: NavCardProps) {
   const navigate = useNavigate();
 
   return (
@@ -71,7 +86,9 @@ function HomePage() {
         <div className="mb-8 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full ${status.running ? "bg-green-500" : "bg-red-500"}`} />
+              <div
+                className={`w-3 h-3 rounded-full ${status.running ? "bg-green-500" : "bg-red-500"}`}
+              />
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   {t("common.backendService")}

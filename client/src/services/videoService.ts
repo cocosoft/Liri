@@ -67,12 +67,15 @@ export interface VideoListResponse {
 }
 
 /** 列表查询缓存（简单内存缓存，30s TTL） */
-const listCache = new Map<string, { data: ApiResponse<VideoListResponse>; ts: number }>();
+const listCache = new Map<
+  string,
+  { data: ApiResponse<VideoListResponse>; ts: number }
+>();
 const LIST_CACHE_TTL = 30_000;
 
 function withListCache(
   key: string,
-  fetcher: () => Promise<ApiResponse<VideoListResponse>>
+  fetcher: () => Promise<ApiResponse<VideoListResponse>>,
 ): Promise<ApiResponse<VideoListResponse>> {
   const cached = listCache.get(key);
   if (cached && Date.now() - cached.ts < LIST_CACHE_TTL) {
@@ -231,9 +234,7 @@ export const videoService = {
     if (params?.limit) query.set("limit", String(params.limit));
     if (params?.offset) query.set("offset", String(params.offset));
 
-    const res = await http.get<any>(
-      `/v1/video/tasks?${query.toString()}`,
-    );
+    const res = await http.get<any>(`/v1/video/tasks?${query.toString()}`);
     if (!res.ok) {
       throw new Error(String(res.error || "查询任务列表失败"));
     }

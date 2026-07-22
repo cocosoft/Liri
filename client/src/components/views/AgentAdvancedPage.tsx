@@ -17,7 +17,15 @@ function AgentAdvancedPage() {
 
   const [activeTab, setActiveTab] = useState<AgentTab>("strategy");
   const [currentStrategy, setCurrentStrategy] = useState<string>("general");
-  const [swarmAgents, setSwarmAgents] = useState<Array<{ id: string; name: string; role: string; status: "idle" | "running" | "completed" | "error"; connections: string[] }>>([]);
+  const [swarmAgents, setSwarmAgents] = useState<
+    Array<{
+      id: string;
+      name: string;
+      role: string;
+      status: "idle" | "running" | "completed" | "error";
+      connections: string[];
+    }>
+  >([]);
   const [identity, setIdentity] = useState({
     name: "Assistant",
     description: "An intelligent AI assistant",
@@ -38,7 +46,15 @@ function AgentAdvancedPage() {
     if (activeWorkspaceId) {
       workspaceService.getSwarmStatus(activeWorkspaceId).then((data) => {
         if (data.agents && Array.isArray(data.agents)) {
-          setSwarmAgents(data.agents as Array<{ id: string; name: string; role: string; status: "idle" | "running" | "completed" | "error"; connections: string[] }>);
+          setSwarmAgents(
+            data.agents as Array<{
+              id: string;
+              name: string;
+              role: string;
+              status: "idle" | "running" | "completed" | "error";
+              connections: string[];
+            }>,
+          );
         }
       });
     }

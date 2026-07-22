@@ -52,7 +52,17 @@ export interface QuestionData {
 
 export interface MessageBlock {
   id: string;
-  type: "text" | "thinking" | "tool_call" | "status" | "task_decomposition" | "question" | "todo" | "progress" | "deliverable" | "diff";
+  type:
+    | "text"
+    | "thinking"
+    | "tool_call"
+    | "status"
+    | "task_decomposition"
+    | "question"
+    | "todo"
+    | "progress"
+    | "deliverable"
+    | "diff";
   content: string;
   toolCall?: ToolCall;
   status?: string;
@@ -83,19 +93,31 @@ export interface TaskCardTask {
 
 /** 进度数据——由 ExecutionPhaseTracker 推送的流式进度信息 */
 export interface ProgressData {
-  phase: "analyzing" | "designing" | "implementing" | "verifying" | "presenting";
-  progress: number;          // 0-100
+  phase:
+    "analyzing" | "designing" | "implementing" | "verifying" | "presenting";
+  progress: number; // 0-100
   description: string;
-  steps: { name: string; status: "pending" | "in_progress" | "done" | "failed" }[];
+  steps: {
+    name: string;
+    status: "pending" | "in_progress" | "done" | "failed";
+  }[];
   currentStep: string;
 }
 
 /** 交付物数据——AI 完成工作后推送的文件变更列表 */
 export interface DeliverableData {
-  files: { path: string; change: "added" | "modified" | "deleted"; status: "pending" | "verified" | "failed" }[];
+  files: {
+    path: string;
+    change: "added" | "modified" | "deleted";
+    status: "pending" | "verified" | "failed";
+  }[];
   summary: string;
   checks?: { name: string; passed: boolean; detail?: string }[];
-  actions?: { label: string; action: "accept" | "reject" | "retry"; file?: string }[];
+  actions?: {
+    label: string;
+    action: "accept" | "reject" | "retry";
+    file?: string;
+  }[];
 }
 
 /** diff 数据——AI 代码变更的 unified diff 格式预览 */

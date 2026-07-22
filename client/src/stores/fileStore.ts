@@ -1,15 +1,23 @@
 import { create } from "zustand";
-import type { FileEntry, FileCategory, WorkspaceInfo, FileRegistryRecord, FileSearchParams, FileStats } from "../types";
+import type {
+  FileEntry,
+  FileCategory,
+  WorkspaceInfo,
+  FileRegistryRecord,
+  FileSearchParams,
+  FileStats,
+} from "../types";
 import {
   fileService,
   type FileDetectResult,
   type ConvertFileOptions,
 } from "../services/fileService";
 import { createLogger } from "@/utils/logger";
+import { handleClientError } from "@/utils/handleError";
 
 const logger = createLogger("fileStore");
 
-type FileViewMode = 'directory' | 'registry';
+type FileViewMode = "directory" | "registry";
 
 interface FileStore {
   entries: FileEntry[];
@@ -76,7 +84,7 @@ export const useFileStore = create<FileStore>((set, get) => ({
   selectedFile: null,
 
   // FileRegistry 查询
-  viewMode: 'directory',
+  viewMode: "directory",
   registryResults: [],
   registryTotal: 0,
   registryNextCursor: undefined,
@@ -90,6 +98,7 @@ export const useFileStore = create<FileStore>((set, get) => ({
       const entries = await fileService.listDir(path);
       set({ entries, currentPath: path, isLoading: false });
     } catch (e) {
+      handleClientError(e, { module: "stores:file", action: "loadDir" });
       set({ error: String(e), isLoading: false });
     }
   },
@@ -117,6 +126,7 @@ export const useFileStore = create<FileStore>((set, get) => ({
       set({ currentCategory: "attachments", currentPath: "attachments" });
       await get().loadDir("attachments");
     } catch (e) {
+      handleClientError(e, { module: "stores:file", action: "uploadFile" });
       set({ error: String(e), uploading: false });
     } finally {
       set({ uploading: false });
@@ -130,6 +140,7 @@ export const useFileStore = create<FileStore>((set, get) => ({
       set({ detectResult: result });
       return result;
     } catch (e) {
+      handleClientError(e, { module: "stores:file", action: "detectFile" });
       set({ error: String(e) });
       return null;
     }
@@ -142,6 +153,7 @@ export const useFileStore = create<FileStore>((set, get) => ({
       set({ convertResult: result });
       return result;
     } catch (e) {
+      handleClientError(e, { module: "stores:file", action: "convertFile" });
       set({ error: String(e) });
       return null;
     }
@@ -160,11 +172,25 @@ export const useFileStore = create<FileStore>((set, get) => ({
     set({ currentCategory: category });
 
     // 新分类走 FileRegistry 视图
-    const registryCategories: FileCategory[] = ['inbound', 'media', 'artifact', 'notebook'];
+    const registryCategories: FileCategory[] = [
+      "inbound",
+      "media",
+      "artifact",
+      "notebook",
+    ];
     if (registryCategories.includes(category)) {
       set({
-        viewMode: 'registry',
-        registryParams: { storeZone: category === 'inbound' ? 'inbound' : category === 'media' ? 'media' : category === 'artifact' ? 'artifact' : 'notebook' },
+        viewMode: "registry",
+        registryParams: {
+          storeZone:
+            category === "inbound"
+              ? "inbound"
+              : category === "media"
+                ? "media"
+                : category === "artifact"
+                  ? "artifact"
+                  : "notebook",
+        },
       });
       return;
     }
@@ -178,6 +204,7 @@ export const useFileStore = create<FileStore>((set, get) => ({
       const workspaces = await fileService.listWorkspaces();
       set({ workspaces });
     } catch (e) {
+      handleClientError(e, { module: "stores:file", action: "loadWorkspaces" });
       logger.error("Failed to load workspaces:", e);
     }
   },
@@ -190,6 +217,7 @@ export const useFileStore = create<FileStore>((set, get) => ({
     try {
       await fileService.sendToAI(filePath);
     } catch (e) {
+      handleClientError(e, { module: "stores:file", action: "sendToAI" });
       set({ error: String(e) });
     }
   },
@@ -198,6 +226,7 @@ export const useFileStore = create<FileStore>((set, get) => ({
     try {
       await fileService.saveToKnowledge(filePath);
     } catch (e) {
+      handleClientError(e, { module: "stores:file", action: "saveToKnowledge" });
       set({ error: String(e) });
     }
   },
@@ -206,6 +235,7 @@ export const useFileStore = create<FileStore>((set, get) => ({
     try {
       await fileService.saveToMemory(filePath);
     } catch (e) {
+      handleClientError(e, { module: "stores:file", action: "saveToMemory" });
       set({ error: String(e) });
     }
   },
@@ -232,6 +262,7 @@ export const useFileStore = create<FileStore>((set, get) => ({
         registryLoading: false,
       });
     } catch (e) {
+      handleClientError(e, { module: "stores:file", action: "searchRegistry" });
       set({ error: String(e), registryLoading: false });
     }
   },
@@ -252,6 +283,7 @@ export const useFileStore = create<FileStore>((set, get) => ({
         registryLoading: false,
       });
     } catch (e) {
+      handleClientError(e, { module: "stores:file", action: "loadMoreRegistry" });
       set({ error: String(e), registryLoading: false });
     }
   },
@@ -261,8 +293,9 @@ export const useFileStore = create<FileStore>((set, get) => ({
       const stats = await fileService.getFileStats();
       set({ fileStats: stats });
     } catch (e) {
+      handleClientError(e, { module: "stores:file", action: "fetchFileStats" });
       // stats 加载失败不阻塞 UI
-      logger.warn('Failed to fetch file stats:', e);
+      logger.warn("Failed to fetch file stats:", e);
     }
   },
 }));

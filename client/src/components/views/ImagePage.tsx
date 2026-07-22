@@ -37,7 +37,9 @@ function ImagePage() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700/20">
         <div>
-          <h1 className={`text-lg font-medium ${textColor}`}>{t("image.title")}</h1>
+          <h1 className={`text-lg font-medium ${textColor}`}>
+            {t("image.title")}
+          </h1>
           <p className={`text-xs ${subtitleColor}`}>{t("image.subtitle")}</p>
         </div>
         <button
@@ -76,7 +78,14 @@ function ImagePage() {
       )}
 
       {/* Main content */}
-      <ErrorBoundary fallback={<ImageModuleErrorFallback error={undefined} onRetry={gallery.refresh} />}>
+      <ErrorBoundary
+        fallback={
+          <ImageModuleErrorFallback
+            error={undefined}
+            onRetry={gallery.refresh}
+          />
+        }
+      >
         <div className="flex-1 overflow-hidden flex">
           <div className="w-64 shrink-0 overflow-y-auto border-r border-gray-700/20 p-3 space-y-4">
             <ModelSelector
@@ -102,19 +111,19 @@ function ImagePage() {
               </CanvasErrorBoundary>
             ) : (
               <ImageGallery
-              images={gallery.images}
-              total={gallery.total}
-              hasMore={gallery.hasMore}
-              loading={gallery.loading}
-              loadingMore={gallery.loadingMore}
-              loadError={gallery.loadError}
-              onLoadMore={gallery.loadMore}
-              onRefresh={gallery.refresh}
-              selectable={tool.toolNeedsInputPath}
-              onSelect={tool.handleSelectGalleryImage}
-              onDelete={tool.handleDeleteImage}
-            />
-          )}
+                images={gallery.images}
+                total={gallery.total}
+                hasMore={gallery.hasMore}
+                loading={gallery.loading}
+                loadingMore={gallery.loadingMore}
+                loadError={gallery.loadError}
+                onLoadMore={gallery.loadMore}
+                onRefresh={gallery.refresh}
+                selectable={tool.toolNeedsInputPath}
+                onSelect={tool.handleSelectGalleryImage}
+                onDelete={tool.handleDeleteImage}
+              />
+            )}
           </div>
         </div>
       </ErrorBoundary>

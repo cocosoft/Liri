@@ -36,7 +36,15 @@ export class InputAdapter {
 
   private adapt(e: PointerEvent): CanvasPointerEvent {
     const [x, y] = this.transform.clientToLogical(e.offsetX, e.offsetY);
-    return { x, y, button: e.button, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, altKey: e.altKey, pressure: e.pressure };
+    return {
+      x,
+      y,
+      button: e.button,
+      shiftKey: e.shiftKey,
+      ctrlKey: e.ctrlKey,
+      altKey: e.altKey,
+      pressure: e.pressure,
+    };
   }
 
   private getPointerArray(): { clientX: number; clientY: number }[] {
@@ -76,7 +84,10 @@ export class InputAdapter {
     el.style.touchAction = "none";
 
     el.addEventListener("pointerdown", (e: PointerEvent) => {
-      this.pointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+      this.pointers.set(e.pointerId, {
+        clientX: e.clientX,
+        clientY: e.clientY,
+      });
 
       // 双指手势初始化
       if (this.pointers.size === 2) {
@@ -91,7 +102,11 @@ export class InputAdapter {
 
       // 双击检测
       const now = Date.now();
-      if (now - this.lastTapTime < 300 && Math.abs(e.clientX - this.lastTapX) < 20 && Math.abs(e.clientY - this.lastTapY) < 20) {
+      if (
+        now - this.lastTapTime < 300 &&
+        Math.abs(e.clientX - this.lastTapX) < 20 &&
+        Math.abs(e.clientY - this.lastTapY) < 20
+      ) {
         this.gestureHandlers?.onDoubleTap?.(e.clientX, e.clientY);
         this.lastTapTime = 0;
         return;
@@ -133,5 +148,7 @@ export class InputAdapter {
     });
   }
 
-  destroy() { /* cleanup if needed */ }
+  destroy() {
+    /* cleanup if needed */
+  }
 }

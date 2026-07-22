@@ -1,5 +1,13 @@
-import type { FileEntry, WorkspaceInfo, FileRegistryRecord, FileSearchParams, FileSearchResult, FileStats } from "../types";
+import type {
+  FileEntry,
+  WorkspaceInfo,
+  FileRegistryRecord,
+  FileSearchParams,
+  FileSearchResult,
+  FileStats,
+} from "../types";
 import { httpLegacy as http } from "./httpClient";
+import { handleClientError } from "../utils/handleError";
 
 /**
  * 文件读取详情响应
@@ -17,9 +25,9 @@ export interface FileReadDetail {
  * 检测是否运行在 Tauri WebView 环境中。
  * Tauri v1 使用 window.__TAURI__，Tauri v2 使用 window.__TAURI_INTERNALS__。
  */
-const isTauri = typeof window !== "undefined" && (
-  "__TAURI__" in window || "__TAURI_INTERNALS__" in window
-);
+const isTauri =
+  typeof window !== "undefined" &&
+  ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
 
 export interface ConvertFileOptions {
   filePath: string;
@@ -64,7 +72,9 @@ function createFallbackFileService() {
     saveToMemory: async (_filePath: string): Promise<void> => {
       throw new Error("Not implemented");
     },
-    searchFiles: async (params: FileSearchParams): Promise<FileSearchResult> => {
+    searchFiles: async (
+      params: FileSearchParams,
+    ): Promise<FileSearchResult> => {
       const queryParams: Record<string, unknown> = {};
       if (params.query) queryParams.q = params.query;
       if (params.source) queryParams.source = params.source;
@@ -73,10 +83,14 @@ function createFallbackFileService() {
       if (params.endDate) queryParams.end_date = params.endDate;
       if (params.cursor) queryParams.cursor = params.cursor;
       if (params.limit) queryParams.limit = params.limit;
-      return http.get<FileSearchResult>("/v1/files/registry/search", { params: queryParams });
+      return http.get<FileSearchResult>("/v1/files/registry/search", {
+        params: queryParams,
+      });
     },
     getFileDetail: async (fileId: string): Promise<FileRegistryRecord> => {
-      return http.get<FileRegistryRecord>(`/v1/files/registry/detail`, { params: { fileId } });
+      return http.get<FileRegistryRecord>(`/v1/files/registry/detail`, {
+        params: { fileId },
+      });
     },
     getFileStats: async (): Promise<FileStats> => {
       return http.get<FileStats>("/v1/files/registry/stats");
@@ -92,28 +106,37 @@ function createTauriFileService() {
     // 走 HTTP API 而非 Tauri IPC（后端 Rust 命令未实现）
     listDir: async (path: string): Promise<FileEntry[]> => {
       try {
-        const result = await http.get<FileEntry[]>("/v1/files/list", { params: { path } });
+        const result = await http.get<FileEntry[]>("/v1/files/list", {
+          params: { path },
+        });
         return result;
       } catch (e) {
         // 将原始错误传递出去，让 UI 层展示真实错误信息
+        handleClientError(e, { module: "services:file", action: "listDir" });
         throw new Error(
-          `无法列出目录内容: ${e instanceof Error ? e.message : String(e)}`
+          `无法列出目录内容: ${e instanceof Error ? e.message : String(e)}`,
         );
       }
     },
     readFile: async (path: string): Promise<string> => {
       try {
-        const result = await http.get<{ content: string }>("/v1/files/read", { params: { path } });
+        const result = await http.get<{ content: string }>("/v1/files/read", {
+          params: { path },
+        });
         return result.content;
-      } catch {
+      } catch (e) {
+        handleClientError(e, { module: "services:file", action: "readFile" });
         throw new Error("无法读取文件");
       }
     },
     readFileDetail: async (path: string): Promise<FileReadDetail> => {
       try {
-        const result = await http.get<FileReadDetail>("/v1/files/read", { params: { path } });
+        const result = await http.get<FileReadDetail>("/v1/files/read", {
+          params: { path },
+        });
         return result;
-      } catch {
+      } catch (e) {
+        handleClientError(e, { module: "services:file", action: "readFileDetail" });
         throw new Error("无法读取文件");
       }
     },
@@ -128,7 +151,8 @@ function createTauriFileService() {
     listWorkspaces: async (): Promise<WorkspaceInfo[]> => {
       try {
         return await http.get<WorkspaceInfo[]>("/v1/workspaces");
-      } catch {
+      } catch (e) {
+        handleClientError(e, { module: "services:file", action: "listWorkspaces" });
         return [];
       }
     },
@@ -141,7 +165,9 @@ function createTauriFileService() {
     saveToMemory: async (filePath: string): Promise<void> => {
       await http.post("/v1/memory/create-from-file", { filePath });
     },
-    searchFiles: async (params: FileSearchParams): Promise<FileSearchResult> => {
+    searchFiles: async (
+      params: FileSearchParams,
+    ): Promise<FileSearchResult> => {
       const queryParams: Record<string, unknown> = {};
       if (params.query) queryParams.q = params.query;
       if (params.source) queryParams.source = params.source;
@@ -150,10 +176,14 @@ function createTauriFileService() {
       if (params.endDate) queryParams.end_date = params.endDate;
       if (params.cursor) queryParams.cursor = params.cursor;
       if (params.limit) queryParams.limit = params.limit;
-      return http.get<FileSearchResult>("/v1/files/registry/search", { params: queryParams });
+      return http.get<FileSearchResult>("/v1/files/registry/search", {
+        params: queryParams,
+      });
     },
     getFileDetail: async (fileId: string): Promise<FileRegistryRecord> => {
-      return http.get<FileRegistryRecord>("/v1/files/registry/detail", { params: { fileId } });
+      return http.get<FileRegistryRecord>("/v1/files/registry/detail", {
+        params: { fileId },
+      });
     },
     getFileStats: async (): Promise<FileStats> => {
       return http.get<FileStats>("/v1/files/registry/stats");

@@ -73,6 +73,8 @@ export interface TraceConfig {
   mode: 'all' | 'error-only' | 'slow-only';
   /** 慢查询阈值（ms） */
   slowThresholdMs: number;
+  /** 是否启用（默认 true） */
+  enabled?: boolean;
 }
 
 /** 统计快照 */
@@ -143,3 +145,13 @@ export interface MonitoringDeps {
 
 /** 导出格式 */
 export type ExportFormat = 'markdown' | 'json' | 'html';
+
+/** P3-2.14: 数据脱敏配置 */
+export interface SanitizeConfig {
+  /** 脱敏 API Key（默认 true） */
+  redactApiKeys: boolean;
+  /** 脱敏 PII — 邮箱、手机号（默认 true） */
+  redactPII: boolean;
+  /** 额外脱敏路径模式 */
+  redactPaths: string[];
+}

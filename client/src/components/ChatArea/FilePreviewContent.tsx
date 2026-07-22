@@ -4,6 +4,7 @@ import MarkdownRenderer from "./MarkdownRenderer";
 import CodeBlock from "./CodeBlock";
 import FileTypeIcon from "./FileTypeIcon";
 import { formatFileSize } from "../../utils/formatFileSize";
+import { handleClientError } from "../../utils/handleError";
 
 interface FilePreviewContentProps {
   file: FilePreview;
@@ -89,10 +90,7 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
   if (file.type === "image" && imageError) {
     return (
       <div className="flex flex-col h-full">
-        <FileHeader
-          file={file}
-          onClose={handleClose}
-        />
+        <FileHeader file={file} onClose={handleClose} />
         <div className="flex-1 flex items-center justify-center p-8 text-gray-400 dark:text-gray-500">
           <div className="text-center">
             <svg
@@ -118,10 +116,7 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
   if (file.type === "json") {
     return (
       <div className="flex flex-col h-full">
-        <FileHeader
-          file={file}
-          onClose={handleClose}
-        />
+        <FileHeader file={file} onClose={handleClose} />
         <div className="flex-1 overflow-auto p-4">
           <pre className="text-sm font-mono leading-relaxed text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
             <PrettyJson content={file.content} />
@@ -134,10 +129,7 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
   if (file.type === "markdown") {
     return (
       <div className="flex flex-col h-full">
-        <FileHeader
-          file={file}
-          onClose={handleClose}
-        />
+        <FileHeader file={file} onClose={handleClose} />
         <div className="flex-1 overflow-auto p-4 prose dark:prose-invert max-w-none">
           <MarkdownRenderer content={file.content} />
         </div>
@@ -148,10 +140,7 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
   if (file.type === "yaml") {
     return (
       <div className="flex flex-col h-full">
-        <FileHeader
-          file={file}
-          onClose={handleClose}
-        />
+        <FileHeader file={file} onClose={handleClose} />
         <div className="flex-1 overflow-auto p-4">
           <pre className="text-sm font-mono leading-relaxed text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
             <code>{file.content}</code>
@@ -165,10 +154,7 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
   if (file.type === "pdf" || file.type === "docx" || file.type === "pptx") {
     return (
       <div className="flex flex-col h-full">
-        <FileHeader
-          file={file}
-          onClose={handleClose}
-        />
+        <FileHeader file={file} onClose={handleClose} />
         <div className="flex-1 overflow-auto p-4 prose dark:prose-invert max-w-none">
           <MarkdownRenderer content={file.content} />
         </div>
@@ -232,7 +218,8 @@ function PrettyJson({ content }: { content: string }) {
   let parsed: unknown;
   try {
     parsed = JSON.parse(content);
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "components:chat:FilePreview", action: "parseJson" });
     return <code>{content}</code>;
   }
 

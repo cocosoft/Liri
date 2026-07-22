@@ -5,6 +5,7 @@ import FileUploadZone from "./FileUploadZone";
 import { createLogger } from "@/utils/logger";
 import { formatFileSize, formatDate } from "./shared/utils";
 import { sourceLabels } from "./shared/constants";
+import { handleClientError } from "../../utils/handleError";
 
 const logger = createLogger("components:knowledgeBaseList");
 
@@ -58,7 +59,10 @@ type ListAction =
   | { type: "START_EDIT_BASE"; name: string; label: string }
   | { type: "SET_EDIT_LABEL"; label: string }
   | { type: "CANCEL_EDIT_BASE" }
-  | { type: "SET_COMPILE_STATUS"; status: "idle" | "compiling" | "success" | "error" }
+  | {
+      type: "SET_COMPILE_STATUS";
+      status: "idle" | "compiling" | "success" | "error";
+    }
   | { type: "SET_COMPILE_MESSAGE"; message: string }
   | { type: "CLEAR_COMPILE" }
   | { type: "SET_SORT_BY"; sortBy: "updated" | "title" | "created" }
@@ -83,11 +87,23 @@ function listReducer(state: ListState, action: ListAction): ListState {
     case "SET_SEARCH_QUERY":
       return { ...state, searchQuery: action.query };
     case "OPEN_CREATE_MODAL":
-      return { ...state, showCreateModal: true, newBaseName: "", newBaseLabel: "", newBaseIcon: "", createStatus: "idle" };
+      return {
+        ...state,
+        showCreateModal: true,
+        newBaseName: "",
+        newBaseLabel: "",
+        newBaseIcon: "",
+        createStatus: "idle",
+      };
     case "CLOSE_CREATE_MODAL":
       return { ...state, showCreateModal: false };
     case "SET_NEW_BASE": {
-      const fieldKey = action.field === "name" ? "newBaseName" : action.field === "label" ? "newBaseLabel" : "newBaseIcon";
+      const fieldKey =
+        action.field === "name"
+          ? "newBaseName"
+          : action.field === "label"
+            ? "newBaseLabel"
+            : "newBaseIcon";
       return { ...state, [fieldKey]: action.value };
     }
     case "SET_CREATE_STATUS":
@@ -119,7 +135,12 @@ function listReducer(state: ListState, action: ListAction): ListState {
     case "CLEAR_SELECTION":
       return { ...state, selectedFileIds: new Set() };
     case "OPEN_BATCH_TAG_MODAL":
-      return { ...state, showBatchTagModal: true, batchTagInput: "", batchTagStatus: "idle" };
+      return {
+        ...state,
+        showBatchTagModal: true,
+        batchTagInput: "",
+        batchTagStatus: "idle",
+      };
     case "CLOSE_BATCH_TAG_MODAL":
       return { ...state, showBatchTagModal: false };
     case "SET_BATCH_TAG_INPUT":
@@ -169,12 +190,29 @@ function KnowledgeBaseList({
   });
 
   const {
-    bases, files, loading, searchQuery, showCreateModal,
-    newBaseName, newBaseLabel, newBaseIcon, createStatus,
-    editingBase, editLabel, compileStatus, compileMessage,
-    sortBy, selectedCategory, selectedSource, selectedFileIds,
-    showBatchTagModal, batchTagInput, batchTagStatus,
-    total, page, pageSize,
+    bases,
+    files,
+    loading,
+    searchQuery,
+    showCreateModal,
+    newBaseName,
+    newBaseLabel,
+    newBaseIcon,
+    createStatus,
+    editingBase,
+    editLabel,
+    compileStatus,
+    compileMessage,
+    sortBy,
+    selectedCategory,
+    selectedSource,
+    selectedFileIds,
+    showBatchTagModal,
+    batchTagInput,
+    batchTagStatus,
+    total,
+    page,
+    pageSize,
   } = state;
 
   const bgClass = isDark ? "bg-gray-800" : "bg-gray-50";
@@ -221,7 +259,11 @@ function KnowledgeBaseList({
 
   async function loadFiles() {
     try {
-      const data = await knowledgeService.listFiles(selectedBase || undefined, page * pageSize, pageSize);
+      const data = await knowledgeService.listFiles(
+        selectedBase || undefined,
+        page * pageSize,
+        pageSize,
+      );
       dispatch({ type: "SET_FILES", files: data.items });
       dispatch({ type: "SET_PAGE", page, total: data.total });
     } catch (err) {
@@ -242,14 +284,19 @@ function KnowledgeBaseList({
       const result = await knowledgeService.triggerCompile(false);
       dispatch({ type: "SET_COMPILE_STATUS", status: "success" });
       const msg = `编译完成: ${result.compiled} 个成功, ${result.skipped} 个跳过`;
-      dispatch({ type: "SET_COMPILE_MESSAGE", message:
-        result.errors?.length ? `${msg}, ${result.errors.length} 个错误` : msg,
+      dispatch({
+        type: "SET_COMPILE_MESSAGE",
+        message: result.errors?.length
+          ? `${msg}, ${result.errors.length} 个错误`
+          : msg,
       });
       loadFiles();
     } catch (err) {
       dispatch({ type: "SET_COMPILE_STATUS", status: "error" });
-      dispatch({ type: "SET_COMPILE_MESSAGE", message:
-        "编译失败: " + (err instanceof Error ? err.message : "未知错误"),
+      dispatch({
+        type: "SET_COMPILE_MESSAGE",
+        message:
+          "编译失败: " + (err instanceof Error ? err.message : "未知错误"),
       });
     }
     setTimeout(() => {
@@ -276,7 +323,8 @@ function KnowledgeBaseList({
       dispatch({ type: "CLOSE_CREATE_MODAL" });
       dispatch({ type: "SET_CREATE_STATUS", status: "idle" });
       await loadBases();
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "components:knowledge:KnowledgeBaseList", action: "handleCreateBase" });
       dispatch({ type: "SET_CREATE_STATUS", status: "error" });
     }
   }
@@ -482,7 +530,11 @@ function KnowledgeBaseList({
                   }
                 }}
                 onDoubleClick={() => {
-                  dispatch({ type: "START_EDIT_BASE", name: base.name, label: base.label });
+                  dispatch({
+                    type: "START_EDIT_BASE",
+                    name: base.name,
+                    label: base.label,
+                  });
                 }}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                   selectedBase === base.name
@@ -496,11 +548,17 @@ function KnowledgeBaseList({
                   <input
                     type="text"
                     value={editLabel}
-                    onChange={(e) => dispatch({ type: "SET_EDIT_LABEL", label: e.target.value })}
+                    onChange={(e) =>
+                      dispatch({
+                        type: "SET_EDIT_LABEL",
+                        label: e.target.value,
+                      })
+                    }
                     onBlur={() => handleRenameBase(base.name)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleRenameBase(base.name);
-                      if (e.key === "Escape") dispatch({ type: "CANCEL_EDIT_BASE" });
+                      if (e.key === "Escape")
+                        dispatch({ type: "CANCEL_EDIT_BASE" });
                     }}
                     className="w-16 bg-transparent border-b border-current outline-none text-center"
                     autoFocus
@@ -539,7 +597,9 @@ function KnowledgeBaseList({
         <input
           type="text"
           value={searchQuery}
-          onChange={(e) => dispatch({ type: "SET_SEARCH_QUERY", query: e.target.value })}
+          onChange={(e) =>
+            dispatch({ type: "SET_SEARCH_QUERY", query: e.target.value })
+          }
           placeholder="搜索知识文档..."
           className={`w-full px-3 py-1.5 rounded-md text-xs border ${inputBg} focus:outline-none focus:ring-1 focus:ring-blue-500`}
         />
@@ -552,7 +612,12 @@ function KnowledgeBaseList({
           </span>
           <select
             value={sortBy}
-            onChange={(e) => dispatch({ type: "SET_SORT_BY", sortBy: e.target.value as "updated" | "title" | "created" })}
+            onChange={(e) =>
+              dispatch({
+                type: "SET_SORT_BY",
+                sortBy: e.target.value as "updated" | "title" | "created",
+              })
+            }
             className={`text-[10px] px-1.5 py-0.5 rounded border ${inputBg} focus:outline-none cursor-pointer`}
           >
             <option value="updated">最近更新</option>
@@ -563,7 +628,10 @@ function KnowledgeBaseList({
             value={selectedSource || "all"}
             onChange={(e) => {
               const val = e.target.value;
-              dispatch({ type: "SET_SOURCE", source: val === "all" ? null : val });
+              dispatch({
+                type: "SET_SOURCE",
+                source: val === "all" ? null : val,
+              });
             }}
             className={`text-[10px] px-1.5 py-0.5 rounded border ${inputBg} focus:outline-none cursor-pointer`}
           >
@@ -593,7 +661,10 @@ function KnowledgeBaseList({
               <button
                 key={cat}
                 onClick={() =>
-                  dispatch({ type: "SET_CATEGORY", category: cat === selectedCategory ? null : cat })
+                  dispatch({
+                    type: "SET_CATEGORY",
+                    category: cat === selectedCategory ? null : cat,
+                  })
                 }
                 className={`flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
                   selectedCategory === cat
@@ -612,7 +683,8 @@ function KnowledgeBaseList({
         {total > pageSize && (
           <div className="flex items-center justify-between px-2 py-1.5 border-t border-gray-200 dark:border-gray-700">
             <span className="text-[10px] text-gray-400">
-              {page * pageSize + 1}-{Math.min((page + 1) * pageSize, total)} / {total}
+              {page * pageSize + 1}-{Math.min((page + 1) * pageSize, total)} /{" "}
+              {total}
             </span>
             <div className="flex items-center gap-1">
               <button
@@ -714,7 +786,9 @@ function KnowledgeBaseList({
                   (e.target as HTMLSelectElement).value = "";
                   // 移动文档到目标知识库
                   for (const id of selectedFileIds) {
-                    await knowledgeService.updateDoc(id, "", undefined, { base: target });
+                    await knowledgeService.updateDoc(id, "", undefined, {
+                      base: target,
+                    });
                   }
                   clearSelection();
                   loadFiles();
@@ -726,9 +800,13 @@ function KnowledgeBaseList({
                 } border focus:outline-none cursor-pointer`}
               >
                 <option value="">移至...</option>
-                {bases.filter((b) => b.name !== selectedBase).map((b) => (
-                  <option key={b.name} value={b.name}>{b.name}</option>
-                ))}
+                {bases
+                  .filter((b) => b.name !== selectedBase)
+                  .map((b) => (
+                    <option key={b.name} value={b.name}>
+                      {b.name}
+                    </option>
+                  ))}
               </select>
               <button
                 onClick={handleBatchDelete}
@@ -879,7 +957,9 @@ function KnowledgeBaseList({
             <input
               type="text"
               value={batchTagInput}
-              onChange={(e) => dispatch({ type: "SET_BATCH_TAG_INPUT", input: e.target.value })}
+              onChange={(e) =>
+                dispatch({ type: "SET_BATCH_TAG_INPUT", input: e.target.value })
+              }
               placeholder="输入标签，用逗号分隔"
               className={`w-full px-3 py-2 text-sm border rounded-md ${inputBg} focus:outline-none focus:ring-2 focus:ring-blue-500`}
               onKeyDown={(e) => {
@@ -887,7 +967,8 @@ function KnowledgeBaseList({
                   e.preventDefault();
                   handleBatchTag();
                 }
-                if (e.key === "Escape") dispatch({ type: "CLOSE_BATCH_TAG_MODAL" });
+                if (e.key === "Escape")
+                  dispatch({ type: "CLOSE_BATCH_TAG_MODAL" });
               }}
               autoFocus
             />
@@ -937,7 +1018,13 @@ function KnowledgeBaseList({
                 <input
                   type="text"
                   value={newBaseName}
-                  onChange={(e) => dispatch({ type: "SET_NEW_BASE", field: "name", value: e.target.value })}
+                  onChange={(e) =>
+                    dispatch({
+                      type: "SET_NEW_BASE",
+                      field: "name",
+                      value: e.target.value,
+                    })
+                  }
                   placeholder="如: my-knowledge"
                   className={`w-full px-3 py-2 border rounded-md text-sm ${
                     isDark
@@ -955,7 +1042,13 @@ function KnowledgeBaseList({
                 <input
                   type="text"
                   value={newBaseLabel}
-                  onChange={(e) => dispatch({ type: "SET_NEW_BASE", field: "label", value: e.target.value })}
+                  onChange={(e) =>
+                    dispatch({
+                      type: "SET_NEW_BASE",
+                      field: "label",
+                      value: e.target.value,
+                    })
+                  }
                   placeholder="如: 我的知识库"
                   className={`w-full px-3 py-2 border rounded-md text-sm ${
                     isDark
@@ -973,7 +1066,13 @@ function KnowledgeBaseList({
                 <input
                   type="text"
                   value={newBaseIcon}
-                  onChange={(e) => dispatch({ type: "SET_NEW_BASE", field: "icon", value: e.target.value })}
+                  onChange={(e) =>
+                    dispatch({
+                      type: "SET_NEW_BASE",
+                      field: "icon",
+                      value: e.target.value,
+                    })
+                  }
                   placeholder="如: 📚"
                   className={`w-full px-3 py-2 border rounded-md text-sm ${
                     isDark

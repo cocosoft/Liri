@@ -1,6 +1,11 @@
 import { useState, useCallback, useRef } from "react";
 import { useProjectStore } from "../../stores/projectStore";
-import type { ProjectNode, ProjectViewMode, ProjectPriority, ProjectStatus } from "../../types/work";
+import type {
+  ProjectNode,
+  ProjectViewMode,
+  ProjectPriority,
+  ProjectStatus,
+} from "../../types/work";
 
 /** 优先级颜色映射 */
 const PRIORITY_COLORS: Record<ProjectPriority, string> = {
@@ -37,7 +42,13 @@ const TYPE_ICONS: Record<string, string> = {
 };
 
 /** 看板列配置：按状态分组，显示所有有节点的状态列 */
-const BOARD_COLUMNS: ProjectStatus[] = ["planning", "active", "paused", "completed", "archived"];
+const BOARD_COLUMNS: ProjectStatus[] = [
+  "planning",
+  "active",
+  "paused",
+  "completed",
+  "archived",
+];
 
 /** 看板列背景色 */
 const COLUMN_BG: Record<string, string> = {
@@ -104,7 +115,9 @@ function DraggableCard({
       <div className="px-3 py-2.5">
         {/* 顶部:类型图标 + 标题 + 优先级 */}
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-base flex-shrink-0">{TYPE_ICONS[node.type]}</span>
+          <span className="text-base flex-shrink-0">
+            {TYPE_ICONS[node.type]}
+          </span>
           <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate flex-1">
             {node.title}
           </span>
@@ -131,8 +144,8 @@ function DraggableCard({
                   node.progress === 100
                     ? "bg-green-500"
                     : node.progress > 0
-                    ? "bg-blue-500"
-                    : "bg-gray-300 dark:bg-gray-600"
+                      ? "bg-blue-500"
+                      : "bg-gray-300 dark:bg-gray-600"
                 }`}
                 style={{ width: `${node.progress}%` }}
               />
@@ -141,8 +154,12 @@ function DraggableCard({
           </div>
           {/* 依赖数 */}
           {node.dependsOn.length > 0 && (
-            <span className="text-gray-400" title={`依赖 ${node.dependsOn.length} 个前置节点`}>
-              {"\u{1F517}"}{node.dependsOn.length}
+            <span
+              className="text-gray-400"
+              title={`依赖 ${node.dependsOn.length} 个前置节点`}
+            >
+              {"\u{1F517}"}
+              {node.dependsOn.length}
             </span>
           )}
         </div>
@@ -304,7 +321,12 @@ function ListView({
   return (
     <div className="max-w-2xl mx-auto space-y-4">
       {rootNodes.map((node) => (
-        <NodeTree key={node.id} node={node} nodesMap={nodesMap} onClick={onNodeClick} />
+        <NodeTree
+          key={node.id}
+          node={node}
+          nodesMap={nodesMap}
+          onClick={onNodeClick}
+        />
       ))}
     </div>
   );
@@ -330,7 +352,9 @@ function NodeCard({
       <div className="px-3 py-2.5">
         {/* 顶部:类型图标 + 标题 + 优先级 */}
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-base flex-shrink-0">{TYPE_ICONS[node.type]}</span>
+          <span className="text-base flex-shrink-0">
+            {TYPE_ICONS[node.type]}
+          </span>
           <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate flex-1">
             {node.title}
           </span>
@@ -350,7 +374,10 @@ function NodeCard({
 
         {/* 底部:状态 + 进度 + 标签 */}
         <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
-          <span>{STATUS_ICONS[node.status]} {STATUS_LABELS[node.status] || node.status}</span>
+          <span>
+            {STATUS_ICONS[node.status]}{" "}
+            {STATUS_LABELS[node.status] || node.status}
+          </span>
           <span className="flex-1" />
           <div className="flex items-center gap-1.5">
             <div className="w-16 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
@@ -359,8 +386,8 @@ function NodeCard({
                   node.progress === 100
                     ? "bg-green-500"
                     : node.progress > 0
-                    ? "bg-blue-500"
-                    : "bg-gray-300 dark:bg-gray-600"
+                      ? "bg-blue-500"
+                      : "bg-gray-300 dark:bg-gray-600"
                 }`}
                 style={{ width: `${node.progress}%` }}
               />
@@ -462,7 +489,10 @@ function DagView({
                   /** 计算依赖在左侧的起始位置，用于画连接线 */
                   const hasDeps = node.dependsOn.length > 0;
                   return (
-                    <div key={node.id} className="flex flex-col items-center relative">
+                    <div
+                      key={node.id}
+                      className="flex flex-col items-center relative"
+                    >
                       {/* 如果有依赖，从上方连线 */}
                       {hasDeps && layerIdx > 0 && (
                         <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
@@ -479,7 +509,9 @@ function DagView({
                             <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate flex-1">
                               {node.title}
                             </span>
-                            <span className={`text-xs px-1 rounded font-medium ${PRIORITY_COLORS[node.priority]}`}>
+                            <span
+                              className={`text-xs px-1 rounded font-medium ${PRIORITY_COLORS[node.priority]}`}
+                            >
                               {node.priority}
                             </span>
                           </div>
@@ -497,8 +529,19 @@ function DagView({
               {/* 层间连接线 */}
               {layerIdx < layers.length - 1 && (
                 <div className="flex justify-center mt-2">
-                  <svg width="20" height="20" className="text-gray-300 dark:text-gray-600">
-                    <line x1="10" y1="0" x2="10" y2="20" stroke="currentColor" strokeWidth="2" />
+                  <svg
+                    width="20"
+                    height="20"
+                    className="text-gray-300 dark:text-gray-600"
+                  >
+                    <line
+                      x1="10"
+                      y1="0"
+                      x2="10"
+                      y2="20"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    />
                     <polygon points="6,16 10,20 14,16" fill="currentColor" />
                   </svg>
                 </div>
@@ -637,15 +680,24 @@ function ProgressBar({ nodes }: { nodes: ProjectNode[] }) {
   const pausedCount = nodes.filter((n) => n.status === "paused").length;
   const planningCount = nodes.filter((n) => n.status === "planning").length;
   const archivedCount = nodes.filter((n) => n.status === "archived").length;
-  const completionRate = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+  const completionRate =
+    total > 0 ? Math.round((completedCount / total) * 100) : 0;
 
   /** 计算各状态占比（最小保留 1% 显示） */
   const barParts = [
-    { count: planningCount, color: "bg-gray-300 dark:bg-gray-600", label: "待办" },
+    {
+      count: planningCount,
+      color: "bg-gray-300 dark:bg-gray-600",
+      label: "待办",
+    },
     { count: activeCount, color: "bg-blue-500", label: "进行中" },
     { count: pausedCount, color: "bg-amber-400", label: "暂停" },
     { count: completedCount, color: "bg-green-500", label: "已完成" },
-    { count: archivedCount, color: "bg-gray-400 dark:bg-gray-500", label: "已归档" },
+    {
+      count: archivedCount,
+      color: "bg-gray-400 dark:bg-gray-500",
+      label: "已归档",
+    },
   ].filter((p) => p.count > 0);
 
   return (
@@ -654,7 +706,14 @@ function ProgressBar({ nodes }: { nodes: ProjectNode[] }) {
       <div className="flex h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
         {barParts.map((part) => {
           const pct = Math.max(1, Math.round((part.count / total) * 100));
-          return <div key={part.label} className={part.color} style={{ width: `${pct}%` }} title={`${part.label}: ${part.count}`} />;
+          return (
+            <div
+              key={part.label}
+              className={part.color}
+              style={{ width: `${pct}%` }}
+              title={`${part.label}: ${part.count}`}
+            />
+          );
         })}
       </div>
 
@@ -663,7 +722,9 @@ function ProgressBar({ nodes }: { nodes: ProjectNode[] }) {
         <div className="flex gap-3 text-xs text-gray-500">
           {barParts.map((part) => (
             <span key={part.label} className="flex items-center gap-1">
-              <span className={`inline-block w-2 h-2 rounded-full ${part.color}`} />
+              <span
+                className={`inline-block w-2 h-2 rounded-full ${part.color}`}
+              />
               {part.label} {part.count}
             </span>
           ))}
@@ -695,9 +756,15 @@ export function WorkBoardView({
   const allNodes = project ? Object.values(project.nodes) : [];
 
   const handleImport = async (text: string) => {
-    const { projectDecomposer } = await import("../../services/projectDecomposer");
+    const { projectDecomposer } =
+      await import("../../services/projectDecomposer");
     const nodes = await projectDecomposer.decompose(text, { projectId });
-    importNodesDirect("default", projectId === "default" ? "项目" : projectId, text, nodes);
+    importNodesDirect(
+      "default",
+      projectId === "default" ? "项目" : projectId,
+      text,
+      nodes,
+    );
     setShowImport(false);
   };
 
@@ -753,7 +820,11 @@ export function WorkBoardView({
                 }`}
                 onClick={() => setViewMode(mode)}
               >
-                {mode === "board" ? "\u{1F4CB} 看板" : mode === "list" ? "\u{1F4C4} 列表" : "\u{1F517} 依赖图"}
+                {mode === "board"
+                  ? "\u{1F4CB} 看板"
+                  : mode === "list"
+                    ? "\u{1F4C4} 列表"
+                    : "\u{1F517} 依赖图"}
               </button>
             ))}
           </div>

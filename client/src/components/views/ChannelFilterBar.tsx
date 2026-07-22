@@ -5,11 +5,7 @@
  */
 
 type StatusFilter =
-  | "all"
-  | "connected"
-  | "disconnected"
-  | "enabled"
-  | "disabled";
+  "all" | "connected" | "disconnected" | "enabled" | "disabled";
 
 interface ChannelFilters {
   search: string;

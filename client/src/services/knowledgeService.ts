@@ -5,14 +5,19 @@ import type {
   KnowledgeFile,
 } from "../types";
 import { httpLegacy as http, HTTPClientError } from "./httpClient";
+import { handleClientError } from "../utils/handleError";
+import { getOTelTracing } from "../monitoring/otel";
 
-const isTauri = typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
+const isTauri =
+  typeof window !== "undefined" &&
+  ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
 
 async function getTauriCore() {
   if (!isTauri) return null;
   try {
     return await import("@tauri-apps/api/core");
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "services:knowledge", action: "getTauriCore" });
     return null;
   }
 }
@@ -25,7 +30,8 @@ async function tryTauri<T>(
   if (!core) return null;
   try {
     return await core.invoke<T>(method, args);
-  } catch {
+  } catch (e) {
+    handleClientError(e, { module: "services:knowledge", action: "tryTauri" });
     return null;
   }
 }
@@ -91,21 +97,27 @@ function createMemoryKnowledgeService() {
 }
 
 export const knowledgeService = {
-  list: async (): Promise<KnowledgeItem[]> => {
-    try {
-      const data = await http.get<{ items: KnowledgeItem[]; total: number }>("/v1/knowledge");
-      return Array.isArray(data) ? data : (data.items || []);
-    } catch {
-      const result = await tryTauri<KnowledgeItem[]>("list_knowledge");
-      if (result) return result;
-      return createMemoryKnowledgeService().list();
-    }
+  list: (): Promise<KnowledgeItem[]> => {
+    return getOTelTracing().asyncWrap("services:knowledge:list", async () => {
+      try {
+        const data = await http.get<{ items: KnowledgeItem[]; total: number }>(
+          "/v1/knowledge",
+        );
+        return Array.isArray(data) ? data : data.items || [];
+      } catch (e) {
+        handleClientError(e, { module: "services:knowledge", action: "list" });
+        const result = await tryTauri<KnowledgeItem[]>("list_knowledge");
+        if (result) return result;
+        return createMemoryKnowledgeService().list();
+      }
+    });
   },
 
   get: async (id: string): Promise<KnowledgeItem | null> => {
     try {
       return await http.get<KnowledgeItem | null>(`/v1/knowledge/${id}`);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "get" });
       const result = await tryTauri<KnowledgeItem | null>("get_knowledge", {
         id,
       });
@@ -119,7 +131,8 @@ export const knowledgeService = {
   ): Promise<KnowledgeItem> => {
     try {
       return await http.post<KnowledgeItem>("/v1/knowledge", item);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "create" });
       const result = await tryTauri<KnowledgeItem>("create_knowledge", {
         item,
       });
@@ -134,7 +147,8 @@ export const knowledgeService = {
   ): Promise<KnowledgeItem> => {
     try {
       return await http.put<KnowledgeItem>(`/v1/knowledge/${id}`, updates);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "update" });
       const result = await tryTauri<KnowledgeItem>("update_knowledge", {
         id,
         updates,
@@ -147,25 +161,29 @@ export const knowledgeService = {
   delete: async (id: string): Promise<void> => {
     try {
       await http.delete<void>(`/v1/knowledge/${id}`);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "delete" });
       const result = await tryTauri<void>("delete_knowledge", { id });
       if (result !== null) return;
       return createMemoryKnowledgeService().delete(id);
     }
   },
 
-  search: async (query: string): Promise<KnowledgeItem[]> => {
-    try {
-      return await http.post<KnowledgeItem[]>("/v1/knowledge/search", {
-        query,
-      });
-    } catch {
-      const result = await tryTauri<KnowledgeItem[]>("search_knowledge", {
-        query,
-      });
-      if (result) return result;
-      return createMemoryKnowledgeService().search(query);
-    }
+  search: (query: string): Promise<KnowledgeItem[]> => {
+    return getOTelTracing().asyncWrap("services:knowledge:search", async () => {
+      try {
+        return await http.post<KnowledgeItem[]>("/v1/knowledge/search", {
+          query,
+        });
+      } catch (e) {
+        handleClientError(e, { module: "services:knowledge", action: "search" });
+        const result = await tryTauri<KnowledgeItem[]>("search_knowledge", {
+          query,
+        });
+        if (result) return result;
+        return createMemoryKnowledgeService().search(query);
+      }
+    });
   },
 
   hybridSearch: async (
@@ -180,7 +198,8 @@ export const knowledgeService = {
       const qs = params.toString();
       const url = qs ? `/v1/knowledge/search?${qs}` : "/v1/knowledge/search";
       return await http.post<KnowledgeSearchResult[]>(url, { query });
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "hybridSearch" });
       const result = await tryTauri<KnowledgeSearchResult[]>(
         "search_knowledge",
         { query },
@@ -196,7 +215,7 @@ export const knowledgeService = {
   listFiles: async (
     base?: string,
     offset?: number,
-    limit?: number
+    limit?: number,
   ): Promise<{ items: KnowledgeFile[]; total: number }> => {
     try {
       const params = new URLSearchParams();
@@ -205,15 +224,19 @@ export const knowledgeService = {
       if (limit !== undefined) params.set("limit", String(limit));
       const qs = params.toString();
       const url = qs ? `/v1/knowledge?${qs}` : "/v1/knowledge";
-      const data = await http.get<{ items: KnowledgeFile[]; total: number }>(url);
+      const data = await http.get<{ items: KnowledgeFile[]; total: number }>(
+        url,
+      );
       return data;
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "listFiles" });
       const result = await tryTauri<KnowledgeFile[]>(
         "list_knowledge",
         base ? { base } : {},
       );
       if (result) return { items: result, total: result.length };
-      const mem = createMemoryKnowledgeService().list() as unknown as KnowledgeFile[];
+      const mem =
+        createMemoryKnowledgeService().list() as unknown as KnowledgeFile[];
       return { items: mem, total: mem.length };
     }
   },
@@ -221,7 +244,8 @@ export const knowledgeService = {
   listBases: async (): Promise<KnowledgeBase[]> => {
     try {
       return await http.get<KnowledgeBase[]>("/v1/knowledge/bases");
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "listBases" });
       const result = await tryTauri<KnowledgeBase[]>("list_knowledge_bases");
       if (result) return result;
       return [];
@@ -239,7 +263,8 @@ export const knowledgeService = {
         label,
         icon,
       });
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "createBase" });
       const result = await tryTauri<KnowledgeBase>("create_knowledge_base", {
         name,
         label,
@@ -259,7 +284,8 @@ export const knowledgeService = {
         `/v1/knowledge/bases/${encodeURIComponent(name)}`,
         updates,
       );
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "updateBase" });
       const result = await tryTauri<KnowledgeBase>("update_knowledge_base", {
         name,
         updates,
@@ -274,7 +300,8 @@ export const knowledgeService = {
       await http.delete<void>(
         `/v1/knowledge/bases/${encodeURIComponent(name)}`,
       );
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "deleteBase" });
       const result = await tryTauri<void>("delete_knowledge_base", { name });
       if (result !== undefined) return;
       throw new Error("deleteBase failed");
@@ -289,7 +316,8 @@ export const knowledgeService = {
   }): Promise<{ success: boolean; docPath: string; title: string }> => {
     try {
       return await http.post("/v1/knowledge/save-from-chat", params);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "saveFromChat" });
       const result = await tryTauri("save_from_chat", params);
       if (result) return result as any;
       throw new Error("saveFromChat failed");
@@ -313,7 +341,8 @@ export const knowledgeService = {
   }> => {
     try {
       return await http.get("/v1/knowledge/raw-files");
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "getRawFiles" });
       const result = await tryTauri("knowledge_raw_files", {});
       if (result) return result as any;
       return { files: [], totalCount: 0 };
@@ -339,7 +368,8 @@ export const knowledgeService = {
     if (extra?.base !== undefined) body.base = extra.base;
     try {
       return await http.put("/v1/knowledge/docs", body);
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "updateDoc" });
       const result = await tryTauri("knowledge_update_doc", body);
       if (result) return result as any;
       throw new Error("updateDoc failed");
@@ -352,29 +382,32 @@ export const knowledgeService = {
    * @param file 文件信息：name（文件名）、data（base64 编码的内容）
    * @param tags 可选标签列表
    */
-  uploadToBase: async (
+  uploadToBase: (
     baseName: string,
     file: { name: string; data: string },
     tags?: string[],
   ): Promise<{ docPath: string; title: string; size: number }> => {
-    try {
-      return await http.post("/v1/knowledge/upload", {
-        baseName,
-        ...file,
-        tags,
-      });
-    } catch (err) {
-      if (err instanceof HTTPClientError) {
-        throw err;
+    return getOTelTracing().asyncWrap("services:knowledge:upload", async () => {
+      try {
+        return await http.post("/v1/knowledge/upload", {
+          baseName,
+          ...file,
+          tags,
+        });
+      } catch (err) {
+        handleClientError(err, { module: "services:knowledge", action: "uploadToBase" });
+        if (err instanceof HTTPClientError) {
+          throw err;
+        }
+        const result = await tryTauri("knowledge_upload", {
+          baseName,
+          file,
+          tags,
+        });
+        if (result) return result as any;
+        throw new Error("uploadToBase failed");
       }
-      const result = await tryTauri("knowledge_upload", {
-        baseName,
-        file,
-        tags,
-      });
-      if (result) return result as any;
-      throw new Error("uploadToBase failed");
-    }
+    });
   },
 
   /**
@@ -386,7 +419,8 @@ export const knowledgeService = {
   ): Promise<{ compiled: number; skipped: number; errors: string[] }> => {
     try {
       return await http.post("/v1/knowledge/compile", { force });
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "triggerCompile" });
       const result = await tryTauri("knowledge_compile", { force });
       if (result) return result as any;
       throw new Error("triggerCompile failed");
@@ -407,7 +441,8 @@ export const knowledgeService = {
         docPath,
         title,
       });
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "exportToNotebook" });
       const result = await tryTauri("knowledge_export_notebook", {
         docPath,
         title,
@@ -434,7 +469,8 @@ export const knowledgeService = {
         baseName,
         tags,
       });
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "importFromFile" });
       const result = await tryTauri("knowledge_import_file", {
         filePath,
         baseName,
@@ -452,7 +488,8 @@ export const knowledgeService = {
   batchDelete: async (ids: string[]): Promise<{ deleted: number }> => {
     try {
       return await http.post("/v1/knowledge/batch-delete", { ids });
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "batchDelete" });
       const result = await tryTauri("knowledge_batch_delete", { ids });
       if (result) return result as any;
       throw new Error("batchDelete failed");
@@ -470,7 +507,8 @@ export const knowledgeService = {
   ): Promise<{ updated: number }> => {
     try {
       return await http.post("/v1/knowledge/batch-tag", { ids, tags });
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "batchTag" });
       const result = await tryTauri("knowledge_batch_tag", { ids, tags });
       if (result) return result as any;
       throw new Error("batchTag failed");
@@ -483,10 +521,11 @@ export const knowledgeService = {
   listSnapshots: async (title: string): Promise<string[]> => {
     try {
       const data = await http.get<{ snapshots: string[] }>(
-        `/v1/knowledge/snapshots?title=${encodeURIComponent(title)}`
+        `/v1/knowledge/snapshots?title=${encodeURIComponent(title)}`,
       );
       return data.snapshots;
     } catch (err) {
+      handleClientError(err, { module: "services:knowledge", action: "listSnapshots" });
       if (err instanceof HTTPClientError && err.status === 400) return [];
       throw err;
     }
@@ -497,15 +536,16 @@ export const knowledgeService = {
    */
   restoreSnapshot: async (
     title: string,
-    snapshot: string
+    snapshot: string,
   ): Promise<boolean> => {
     try {
       const data = await http.post<{ restored: boolean }>(
         "/v1/knowledge/restore",
-        { title, snapshot }
+        { title, snapshot },
       );
       return data.restored;
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "restoreSnapshot" });
       return false;
     }
   },
@@ -533,7 +573,8 @@ export const knowledgeService = {
     try {
       await http.post("/v1/knowledge/trash", { docPath });
       return true;
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "trash" });
       return false;
     }
   },
@@ -545,7 +586,8 @@ export const knowledgeService = {
     try {
       await http.post("/v1/knowledge/restore-trash", { docPath });
       return true;
-    } catch {
+    } catch (e) {
+      handleClientError(e, { module: "services:knowledge", action: "restoreTrash" });
       return false;
     }
   },

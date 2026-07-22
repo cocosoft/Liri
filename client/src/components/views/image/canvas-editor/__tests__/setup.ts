@@ -31,8 +31,12 @@ class MockWorker {
 
 // Mock OffscreenCanvas
 class MockOffscreenCanvas {
-  width: number; height: number;
-  constructor(w: number, h: number) { this.width = w; this.height = h; }
+  width: number;
+  height: number;
+  constructor(w: number, h: number) {
+    this.width = w;
+    this.height = h;
+  }
   getContext(_type: string) {
     return {
       putImageData: jest.fn(),
@@ -44,7 +48,9 @@ class MockOffscreenCanvas {
       lineWidth: 1,
     };
   }
-  convertToBlob() { return Promise.resolve(new Blob()); }
+  convertToBlob() {
+    return Promise.resolve(new Blob());
+  }
 }
 
 (globalThis as Record<string, unknown>).OffscreenCanvas = MockOffscreenCanvas;

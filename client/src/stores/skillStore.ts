@@ -61,7 +61,11 @@ interface UnifiedSkillStore {
   setSelectedSkill: (skill: Skill | null) => void;
 
   // ── 技能市场操作 ──
-  searchMarket: (query: string, category?: string, source?: string) => Promise<void>;
+  searchMarket: (
+    query: string,
+    category?: string,
+    source?: string,
+  ) => Promise<void>;
   loadMarketInstalled: () => Promise<void>;
   loadRecommended: () => Promise<void>;
   loadMarketCategories: () => Promise<void>;
@@ -267,7 +271,12 @@ export const useSkillStore = create<UnifiedSkillStore>((set, get) => ({
     try {
       const cat = category && category !== "all" ? category : undefined;
       const src = source || get().marketSource || undefined;
-      const results = await skillService.searchMarket(query, cat, undefined, src);
+      const results = await skillService.searchMarket(
+        query,
+        cat,
+        undefined,
+        src,
+      );
       set({ searchResults: results, page: 1 });
     } catch (e) {
       set({
@@ -430,7 +439,8 @@ export const useSkillStore = create<UnifiedSkillStore>((set, get) => ({
 
   // ── 查询方法 ──
 
-  isMarketInstalled: (id) => get().marketInstalled.some((s) => s.meta.id === id),
+  isMarketInstalled: (id) =>
+    get().marketInstalled.some((s) => s.meta.id === id),
 
   isMarketEnabled: (id) => {
     const skill = get().marketInstalled.find((s) => s.meta.id === id);

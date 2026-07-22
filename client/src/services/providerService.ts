@@ -75,13 +75,16 @@ export const providerService = {
       pageSize?: number;
       search?: string;
     },
-  ): Promise<{
-    models: FetchedModel[];
-    usedUrl: string;
-    total: number;
-    page: number;
-    pageSize: number;
-  } | { error: string }> {
+  ): Promise<
+    | {
+        models: FetchedModel[];
+        usedUrl: string;
+        total: number;
+        page: number;
+        pageSize: number;
+      }
+    | { error: string }
+  > {
     const params = new URLSearchParams();
     if (options?.page) params.set("page", String(options.page));
     if (options?.pageSize) params.set("pageSize", String(options.pageSize));

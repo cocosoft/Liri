@@ -68,7 +68,7 @@ export const TeamView: React.FC = () => {
     if (!workspaceId) return;
     setLoading(true);
     try {
-      const data = await workspaceService.getTeams(workspaceId) as Team[];
+      const data = (await workspaceService.getTeams(workspaceId)) as Team[];
       setTeams(data);
     } catch (err) {
       logger.error("加载团队列表失败:", err);
@@ -143,9 +143,18 @@ export const TeamView: React.FC = () => {
   };
 
   /** 更新成员角色 */
-  const handleRoleChange = async (teamId: string, memberId: string, newRole: string) => {
+  const handleRoleChange = async (
+    teamId: string,
+    memberId: string,
+    newRole: string,
+  ) => {
     try {
-      await workspaceService.updateMemberRole(workspaceId, teamId, memberId, newRole);
+      await workspaceService.updateMemberRole(
+        workspaceId,
+        teamId,
+        memberId,
+        newRole,
+      );
       loadTeams();
     } catch (err) {
       logger.error("更新角色失败:", err);
@@ -161,7 +170,9 @@ export const TeamView: React.FC = () => {
       {/* 团队列表 */}
       <div className="w-64 border-r border-gray-200 p-4 overflow-y-auto">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-700">{t("workspace.members")}</h3>
+          <h3 className="font-semibold text-gray-700">
+            {t("workspace.members")}
+          </h3>
           <button
             onClick={() => setShowCreate(true)}
             className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
@@ -236,7 +247,9 @@ export const TeamView: React.FC = () => {
               <div>
                 <h2 className="text-lg font-semibold">{selectedTeam.name}</h2>
                 {selectedTeam.description && (
-                  <p className="text-sm text-gray-500 mt-1">{selectedTeam.description}</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {selectedTeam.description}
+                  </p>
                 )}
               </div>
               <div className="flex gap-2">
@@ -259,7 +272,10 @@ export const TeamView: React.FC = () => {
             {selectedTeam.tags && selectedTeam.tags.length > 0 && (
               <div className="flex gap-1 mb-4">
                 {selectedTeam.tags.map((tag) => (
-                  <span key={tag} className="px-2 py-0.5 text-xs bg-gray-100 rounded">
+                  <span
+                    key={tag}
+                    className="px-2 py-0.5 text-xs bg-gray-100 rounded"
+                  >
                     {tag}
                   </span>
                 ))}
@@ -284,21 +300,33 @@ export const TeamView: React.FC = () => {
                       </span>
                     )}
                     {member.model && (
-                      <span className="text-xs text-gray-400">{member.model}</span>
+                      <span className="text-xs text-gray-400">
+                        {member.model}
+                      </span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
                     <select
                       value={member.role}
-                      onChange={(e) => handleRoleChange(selectedTeam.id, member.id, e.target.value)}
+                      onChange={(e) =>
+                        handleRoleChange(
+                          selectedTeam.id,
+                          member.id,
+                          e.target.value,
+                        )
+                      }
                       className={`text-xs px-2 py-0.5 rounded ${ROLE_COLORS[member.role] || ""}`}
                     >
                       {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>{t(label)}</option>
+                        <option key={value} value={value}>
+                          {t(label)}
+                        </option>
                       ))}
                     </select>
                     <button
-                      onClick={() => handleRemoveMember(selectedTeam.id, member.id)}
+                      onClick={() =>
+                        handleRemoveMember(selectedTeam.id, member.id)
+                      }
                       className="text-xs text-red-500 hover:text-red-700"
                     >
                       移除
@@ -331,7 +359,9 @@ export const TeamView: React.FC = () => {
                     onChange={(e) => setNewMemberRole(e.target.value)}
                   >
                     {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
                     ))}
                   </select>
                   <label className="flex items-center gap-2 text-sm">

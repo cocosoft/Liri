@@ -13,7 +13,11 @@ interface IconProps {
   color?: string;
 }
 
-type IconComponent = ComponentType<{ className?: string; size?: number; color?: string }>;
+type IconComponent = ComponentType<{
+  className?: string;
+  size?: number;
+  color?: string;
+}>;
 
 // 分类加载缓存（按模块 chunk 分离，不会一次性加载所有图标）
 const categoryCache: Record<string, Record<string, IconComponent>> = {};
@@ -25,13 +29,18 @@ const iconCache: Record<string, IconComponent> = {};
 const missingIcons = new Set<string>();
 
 /** 按分类动态加载图标模块 chunk（显式导入，Vite 可静态分析） */
-const categoryImporters: Record<string, () => Promise<Record<string, IconComponent>>> = {
+const categoryImporters: Record<
+  string,
+  () => Promise<Record<string, IconComponent>>
+> = {
   navigation: () => import("./navigation.tsx"),
   actions: () => import("./actions.tsx"),
   status: () => import("./status.tsx"),
 };
 
-async function loadCategory(category: string): Promise<Record<string, IconComponent>> {
+async function loadCategory(
+  category: string,
+): Promise<Record<string, IconComponent>> {
   if (categoryCache[category]) return categoryCache[category];
   const importer = categoryImporters[category];
   if (!importer) return {};
@@ -67,7 +76,12 @@ async function resolveIcon(lowerName: string): Promise<IconComponent | null> {
   return null;
 }
 
-export default function Icon({ name, className = "", size = 24, color = "currentColor" }: IconProps) {
+export default function Icon({
+  name,
+  className = "",
+  size = 24,
+  color = "currentColor",
+}: IconProps) {
   const lowerName = name.toLowerCase();
   const [Component, setComponent] = useState<IconComponent | null>(null);
 
@@ -76,7 +90,9 @@ export default function Icon({ name, className = "", size = 24, color = "current
     resolveIcon(lowerName).then((comp) => {
       if (!cancelled) setComponent(() => comp);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [lowerName]);
 
   if (!Component) return null;

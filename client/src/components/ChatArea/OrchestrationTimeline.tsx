@@ -159,7 +159,10 @@ function createSummary(eventType: string, data: unknown): string {
 }
 
 /** 模块配置 */
-const MODULE_CONFIG: Record<TimelineGroup["module"], { title: string; icon: string }> = {
+const MODULE_CONFIG: Record<
+  TimelineGroup["module"],
+  { title: string; icon: string }
+> = {
   council: { title: "理事会辩论", icon: "🏛️" },
   dag: { title: "DAG 编排", icon: "🔀" },
   plan: { title: "Plan 执行", icon: "📋" },
@@ -203,16 +206,21 @@ function OrchestrationTimeline({
   const [autoScroll, setAutoScroll] = useState(true);
 
   /** Agent 状态映射（agentId -> 状态） */
-  const [agentStates, setAgentStates] = useState<Record<string, {
-    agentId: string;
-    agentName: string;
-    status: AgentExecStatus;
-    thinkingContent?: string;
-    delta?: string;
-    currentToolCall?: ToolCallState;
-    output?: string;
-    durationMs?: number;
-  }>>({});
+  const [agentStates, setAgentStates] = useState<
+    Record<
+      string,
+      {
+        agentId: string;
+        agentName: string;
+        status: AgentExecStatus;
+        thinkingContent?: string;
+        delta?: string;
+        currentToolCall?: ToolCallState;
+        output?: string;
+        durationMs?: number;
+      }
+    >
+  >({});
 
   /** Council 状态 */
   const [councilState, setCouncilState] = useState<{
@@ -245,173 +253,174 @@ function OrchestrationTimeline({
 
   // ── 处理 SSE 事件 ──
 
-  const handleSSEEvent = useCallback((
-    eventType: string,
-    rawData: SSETimelineEvent,
-  ) => {
-    const data = rawData.data as Record<string, unknown>;
-    const eventId = `live_${eventType}_${rawData.timestamp}_${Math.random().toString(36).slice(2, 8)}`;
+  const handleSSEEvent = useCallback(
+    (eventType: string, rawData: SSETimelineEvent) => {
+      const data = rawData.data as Record<string, unknown>;
+      const eventId = `live_${eventType}_${rawData.timestamp}_${Math.random().toString(36).slice(2, 8)}`;
 
-    // 统一时间线条目
-    const timelineEvent: TimelineEvent = {
-      eventId,
-      type: eventType,
-      data: rawData.data,
-      timestamp: rawData.timestamp,
-      source: "live",
-    };
-    addEntry(timelineEvent);
+      // 统一时间线条目
+      const timelineEvent: TimelineEvent = {
+        eventId,
+        type: eventType,
+        data: rawData.data,
+        timestamp: rawData.timestamp,
+        source: "live",
+      };
+      addEntry(timelineEvent);
 
-    // ── 更新 Agent 状态 ──
-    if (eventType.startsWith("agent:")) {
-      // 从 data 中提取 agent 信息（可能嵌套在 data.event 的 data 里或者直接在顶层）
-      const agentData = data as Record<string, unknown>;
-      const agentId = (agentData.agentId as string) || "unknown";
-      const agentName = (agentData.agentName as string) || agentId;
+      // ── 更新 Agent 状态 ──
+      if (eventType.startsWith("agent:")) {
+        // 从 data 中提取 agent 信息（可能嵌套在 data.event 的 data 里或者直接在顶层）
+        const agentData = data as Record<string, unknown>;
+        const agentId = (agentData.agentId as string) || "unknown";
+        const agentName = (agentData.agentName as string) || agentId;
 
-      switch (eventType) {
-        case "agent:thinking:start":
-          setAgentStates((prev) => ({
-            ...prev,
-            [agentId]: {
-              ...prev[agentId],
-              agentId,
-              agentName,
-              status: "thinking",
-              thinkingContent: "",
-              delta: "",
-            },
-          }));
-          break;
-        case "agent:thinking:delta":
-          setAgentStates((prev) => {
-            const current = prev[agentId];
-            const newDelta = (agentData.delta as string) || "";
-            return {
+        switch (eventType) {
+          case "agent:thinking:start":
+            setAgentStates((prev) => ({
               ...prev,
               [agentId]: {
-                ...current,
-                delta: (current?.delta || "") + newDelta,
-              },
-            };
-          });
-          break;
-        case "agent:thinking:end":
-          setAgentStates((prev) => ({
-            ...prev,
-            [agentId]: {
-              ...prev[agentId],
-              status: "completed",
-              output: (agentData.content as string) || prev[agentId]?.delta,
-              durationMs: (agentData.durationMs as number) || undefined,
-              delta: undefined,
-            },
-          }));
-          break;
-        case "agent:tool_call:start":
-          setAgentStates((prev) => ({
-            ...prev,
-            [agentId]: {
-              ...prev[agentId],
-              status: "tool_call",
-              currentToolCall: {
-                toolName: (agentData.toolName as string) || "",
-                args: (agentData.args as Record<string, unknown>) || {},
-                startTime: rawData.timestamp,
-                status: "running",
-              },
-            },
-          }));
-          break;
-        case "agent:tool_call:end":
-          setAgentStates((prev) => {
-            const current = prev[agentId];
-            if (!current?.currentToolCall) return prev;
-            return {
-              ...prev,
-              [agentId]: {
-                ...current,
+                ...prev[agentId],
+                agentId,
+                agentName,
                 status: "thinking",
+                thinkingContent: "",
+                delta: "",
+              },
+            }));
+            break;
+          case "agent:thinking:delta":
+            setAgentStates((prev) => {
+              const current = prev[agentId];
+              const newDelta = (agentData.delta as string) || "";
+              return {
+                ...prev,
+                [agentId]: {
+                  ...current,
+                  delta: (current?.delta || "") + newDelta,
+                },
+              };
+            });
+            break;
+          case "agent:thinking:end":
+            setAgentStates((prev) => ({
+              ...prev,
+              [agentId]: {
+                ...prev[agentId],
+                status: "completed",
+                output: (agentData.content as string) || prev[agentId]?.delta,
+                durationMs: (agentData.durationMs as number) || undefined,
+                delta: undefined,
+              },
+            }));
+            break;
+          case "agent:tool_call:start":
+            setAgentStates((prev) => ({
+              ...prev,
+              [agentId]: {
+                ...prev[agentId],
+                status: "tool_call",
                 currentToolCall: {
-                  ...current.currentToolCall,
-                  result: (agentData.result as string) || "",
-                  endTime: rawData.timestamp,
-                  status: "completed",
+                  toolName: (agentData.toolName as string) || "",
+                  args: (agentData.args as Record<string, unknown>) || {},
+                  startTime: rawData.timestamp,
+                  status: "running",
                 },
               },
-            };
-          });
-          break;
+            }));
+            break;
+          case "agent:tool_call:end":
+            setAgentStates((prev) => {
+              const current = prev[agentId];
+              if (!current?.currentToolCall) return prev;
+              return {
+                ...prev,
+                [agentId]: {
+                  ...current,
+                  status: "thinking",
+                  currentToolCall: {
+                    ...current.currentToolCall,
+                    result: (agentData.result as string) || "",
+                    endTime: rawData.timestamp,
+                    status: "completed",
+                  },
+                },
+              };
+            });
+            break;
+        }
       }
-    }
 
-    // ── 更新 Council 状态 ──
-    if (eventType.startsWith("council:")) {
-      switch (eventType) {
-        case "council:start": {
-          const d = rawData.data as unknown as CouncilStartData;
-          setCouncilState((prev) => ({
-            ...prev,
-            startData: d,
-            maxRounds: d.maxRounds,
-          }));
-          break;
-        }
-        case "council:agent:speaking": {
-          const d = rawData.data as unknown as CouncilAgentSpeakingData;
-          const statement: StatementRecord = {
-            id: `stmt_${d.agentId}_${d.round}_${d.statementType}_${rawData.timestamp}`,
-            agentId: d.agentId,
-            agentName: d.agentName,
-            round: d.round,
-            type: d.statementType,
-            content: d.content,
-            keyPoints: d.keyPoints || [],
-            timestamp: rawData.timestamp,
-          };
-          setCouncilState((prev) => ({
-            ...prev,
-            currentRound: d.round,
-            speakingAgentId: d.agentId,
-            statements: [...prev.statements, statement],
-          }));
-          break;
-        }
-        case "council:agent:delta": {
-          const d = rawData.data as Record<string, unknown>;
-          const agentId = d.agentId as string;
-          const delta = d.delta as string;
-          setCouncilState((prev) => ({
-            ...prev,
-            speakingAgentId: agentId,
-            streamingDeltas: {
-              ...prev.streamingDeltas,
-              [agentId]: (prev.streamingDeltas?.[agentId] || "") + delta,
-            },
-          }));
-          break;
-        }
-        case "council:round":
-          setCouncilState((prev) => ({
-            ...prev,
-            currentRound: (rawData.data as Record<string, unknown>).round as number,
-            speakingAgentId: undefined,
-            streamingDeltas: undefined,
-          }));
-          break;
-        case "council:end": {
-          const d = rawData.data as unknown as CouncilEndData;
-          setCouncilState((prev) => ({
-            ...prev,
-            endData: d,
-            speakingAgentId: undefined,
-            streamingDeltas: undefined,
-          }));
-          break;
+      // ── 更新 Council 状态 ──
+      if (eventType.startsWith("council:")) {
+        switch (eventType) {
+          case "council:start": {
+            const d = rawData.data as unknown as CouncilStartData;
+            setCouncilState((prev) => ({
+              ...prev,
+              startData: d,
+              maxRounds: d.maxRounds,
+            }));
+            break;
+          }
+          case "council:agent:speaking": {
+            const d = rawData.data as unknown as CouncilAgentSpeakingData;
+            const statement: StatementRecord = {
+              id: `stmt_${d.agentId}_${d.round}_${d.statementType}_${rawData.timestamp}`,
+              agentId: d.agentId,
+              agentName: d.agentName,
+              round: d.round,
+              type: d.statementType,
+              content: d.content,
+              keyPoints: d.keyPoints || [],
+              timestamp: rawData.timestamp,
+            };
+            setCouncilState((prev) => ({
+              ...prev,
+              currentRound: d.round,
+              speakingAgentId: d.agentId,
+              statements: [...prev.statements, statement],
+            }));
+            break;
+          }
+          case "council:agent:delta": {
+            const d = rawData.data as Record<string, unknown>;
+            const agentId = d.agentId as string;
+            const delta = d.delta as string;
+            setCouncilState((prev) => ({
+              ...prev,
+              speakingAgentId: agentId,
+              streamingDeltas: {
+                ...prev.streamingDeltas,
+                [agentId]: (prev.streamingDeltas?.[agentId] || "") + delta,
+              },
+            }));
+            break;
+          }
+          case "council:round":
+            setCouncilState((prev) => ({
+              ...prev,
+              currentRound: (rawData.data as Record<string, unknown>)
+                .round as number,
+              speakingAgentId: undefined,
+              streamingDeltas: undefined,
+            }));
+            break;
+          case "council:end": {
+            const d = rawData.data as unknown as CouncilEndData;
+            setCouncilState((prev) => ({
+              ...prev,
+              endData: d,
+              speakingAgentId: undefined,
+              streamingDeltas: undefined,
+            }));
+            break;
+          }
         }
       }
-    }
-  }, [addEntry]);
+    },
+    [addEntry],
+  );
 
   // ── 加载历史回放 ──
 
@@ -449,7 +458,8 @@ function OrchestrationTimeline({
               setCouncilState((prev) => ({
                 ...prev,
                 startData: record.payload as unknown as CouncilStartData,
-                maxRounds: (record.payload as unknown as CouncilStartData).maxRounds,
+                maxRounds: (record.payload as unknown as CouncilStartData)
+                  .maxRounds,
               }));
               break;
             case "council:agent:speaking": {
@@ -542,14 +552,35 @@ function OrchestrationTimeline({
 
     // 处理所有编排事件
     const eventTypes = [
-      "council:start", "council:round:start", "council:agent:speaking",
-      "council:agent:delta", "council:round", "council:end", "council:detail",
-      "dag:start", "dag:task:start", "dag:task:progress", "dag:task:end", "dag:end",
-      "plan:start", "plan:step:start", "plan:step:completed", "plan:progress", "plan:completed",
-      "chain:start", "chain:step", "chain:end",
-      "swarm:dispatch", "swarm:agent:status", "swarm:complete",
-      "agent:thinking:start", "agent:thinking:delta", "agent:thinking:end",
-      "agent:tool_call:start", "agent:tool_call:delta", "agent:tool_call:end",
+      "council:start",
+      "council:round:start",
+      "council:agent:speaking",
+      "council:agent:delta",
+      "council:round",
+      "council:end",
+      "council:detail",
+      "dag:start",
+      "dag:task:start",
+      "dag:task:progress",
+      "dag:task:end",
+      "dag:end",
+      "plan:start",
+      "plan:step:start",
+      "plan:step:completed",
+      "plan:progress",
+      "plan:completed",
+      "chain:start",
+      "chain:step",
+      "chain:end",
+      "swarm:dispatch",
+      "swarm:agent:status",
+      "swarm:complete",
+      "agent:thinking:start",
+      "agent:thinking:delta",
+      "agent:thinking:end",
+      "agent:tool_call:start",
+      "agent:tool_call:delta",
+      "agent:tool_call:end",
     ];
 
     for (const et of eventTypes) {
@@ -613,24 +644,29 @@ function OrchestrationTimeline({
   const timelineGroups = groups();
 
   return (
-    <div className={`rounded-lg border ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+    <div
+      className={`rounded-lg border ${isDark ? "border-gray-700" : "border-gray-200"}`}
+    >
       {/* 头部 */}
-      <div className={`flex items-center justify-between p-3 border-b ${
-        isDark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-50"
-      }`}>
+      <div
+        className={`flex items-center justify-between p-3 border-b ${
+          isDark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-50"
+        }`}
+      >
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold">编排时间线</h3>
-          <span className={`w-2 h-2 rounded-full ${
-            connected ? "bg-green-500" : "bg-red-500"
-          }`} title={connected ? "已连接" : "已断开"} />
+          <span
+            className={`w-2 h-2 rounded-full ${
+              connected ? "bg-green-500" : "bg-red-500"
+            }`}
+            title={connected ? "已连接" : "已断开"}
+          />
         </div>
         <div className="flex items-center gap-3">
           {historyLoading && (
             <span className="text-xs text-gray-500">加载历史中...</span>
           )}
-          <span className="text-xs text-gray-500">
-            {entries.length} 个事件
-          </span>
+          <span className="text-xs text-gray-500">{entries.length} 个事件</span>
           <button
             onClick={() => setAutoScroll(!autoScroll)}
             className={`text-xs px-2 py-0.5 rounded ${
@@ -655,14 +691,21 @@ function OrchestrationTimeline({
         style={{ maxHeight: "600px" }}
         onScroll={() => {
           if (!containerRef.current) return;
-          const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-          setAutoScroll(scrollHeight - scrollTop - clientHeight < AUTO_SCROLL_THRESHOLD);
+          const { scrollTop, scrollHeight, clientHeight } =
+            containerRef.current;
+          setAutoScroll(
+            scrollHeight - scrollTop - clientHeight < AUTO_SCROLL_THRESHOLD,
+          );
         }}
       >
         {/* Agent 进度面板 */}
         {Object.keys(agentStates).length > 0 && (
-          <div className={`p-3 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}>
-            <div className="text-xs text-gray-500 mb-2 font-medium">Agent 进度</div>
+          <div
+            className={`p-3 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}
+          >
+            <div className="text-xs text-gray-500 mb-2 font-medium">
+              Agent 进度
+            </div>
             <div className="space-y-2">
               {Object.values(agentStates).map((as) => (
                 <AgentProgressBlock
@@ -684,7 +727,9 @@ function OrchestrationTimeline({
 
         {/* Council 面板 */}
         {councilState.startData && (
-          <div className={`p-3 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+          <div
+            className={`p-3 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}
+          >
             <CouncilPanel
               startData={councilState.startData}
               currentRound={councilState.currentRound}
@@ -725,13 +770,17 @@ function OrchestrationTimeline({
                     >
                       {/* 时间线圆点 */}
                       <div className="flex flex-col items-center mt-1">
-                        <div className={`w-2 h-2 rounded-full ${
-                          entry.event.source === "history"
-                            ? "bg-gray-400"
-                            : "bg-blue-500"
-                        }`} />
+                        <div
+                          className={`w-2 h-2 rounded-full ${
+                            entry.event.source === "history"
+                              ? "bg-gray-400"
+                              : "bg-blue-500"
+                          }`}
+                        />
                         {i < group.entries.length - 1 && (
-                          <div className={`w-0.5 h-4 ${isDark ? "bg-gray-700" : "bg-gray-200"}`} />
+                          <div
+                            className={`w-0.5 h-4 ${isDark ? "bg-gray-700" : "bg-gray-200"}`}
+                          />
                         )}
                       </div>
 
@@ -745,7 +794,9 @@ function OrchestrationTimeline({
                             {entry.time.toLocaleTimeString()}
                           </span>
                           {entry.event.source === "history" && (
-                            <span className="text-gray-400 shrink-0">[历史]</span>
+                            <span className="text-gray-400 shrink-0">
+                              [历史]
+                            </span>
                           )}
                         </div>
                       </div>
@@ -757,9 +808,11 @@ function OrchestrationTimeline({
           </div>
         ) : (
           !historyLoading && (
-            <div className={`p-6 text-center text-sm ${
-              isDark ? "text-gray-500" : "text-gray-400"
-            }`}>
+            <div
+              className={`p-6 text-center text-sm ${
+                isDark ? "text-gray-500" : "text-gray-400"
+              }`}
+            >
               {connected ? "等待编排事件..." : "正在连接..."}
             </div>
           )
@@ -774,9 +827,11 @@ function OrchestrationTimeline({
 
       {/* 回到底部按钮 */}
       {!autoScroll && entries.length > 0 && (
-        <div className={`p-2 text-center border-t ${
-          isDark ? "border-gray-700" : "border-gray-200"
-        }`}>
+        <div
+          className={`p-2 text-center border-t ${
+            isDark ? "border-gray-700" : "border-gray-200"
+          }`}
+        >
           <button
             onClick={() => {
               setAutoScroll(true);

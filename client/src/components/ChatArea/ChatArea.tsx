@@ -26,7 +26,8 @@ function ChatArea() {
   const backendRunning = useBackendStore((s) => s.status.running);
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
-  const { interimText, finalText, audioLevel, subtitleStatus } = useVoiceStore();
+  const { interimText, finalText, audioLevel, subtitleStatus } =
+    useVoiceStore();
 
   /** 模块上下文同步：保存/恢复 ChatSessionContext */
   useSessionContextSync("chat", {
@@ -41,25 +42,26 @@ function ChatArea() {
   });
 
   /** 统一滚动状态：isUserScrolledUp 和 scrollToBottom 均由 useAutoScroll 管理 */
-  const { containerRef, isUserScrolledUp, scrollToBottom, distanceFromBottom } = useAutoScroll({
-    messageCount: messages.length,
-    isStreaming,
-    sessionId: currentSession?.id,
-  });
+  const { containerRef, isUserScrolledUp, scrollToBottom, distanceFromBottom } =
+    useAutoScroll({
+      messageCount: messages.length,
+      isStreaming,
+      sessionId: currentSession?.id,
+    });
 
   const handleDismissError = () => {
     useChatStore.setState({ error: null });
   };
 
   const handleCreateSession = () => {
-    createSession(t('chat.newSession'));
+    createSession(t("chat.newSession"));
   };
 
   /** 点击入门提示卡片时发送预设消息 */
   const handleSendMessage = async (text: string) => {
     let sessionId = currentSession?.id;
     if (!sessionId) {
-      const newSession = await createSession(t('chat.newSession'));
+      const newSession = await createSession(t("chat.newSession"));
       sessionId = newSession.id;
     }
     const { streamMessage } = useChatStore.getState();
@@ -90,12 +92,15 @@ function ChatArea() {
         voiceService
           .synthesizeSpeech(content)
           .then((audioUrl) => playResponse(audioUrl))
-          .catch((err) =>
-            logger.warn("自动 TTS 播放失败:", err),
-          );
+          .catch((err) => logger.warn("自动 TTS 播放失败:", err));
       }
     }
-  }, [messages.length, isStreaming, voiceSettings?.config?.autoPlayTTS, playResponse]);
+  }, [
+    messages.length,
+    isStreaming,
+    voiceSettings?.config?.autoPlayTTS,
+    playResponse,
+  ]);
 
   const displayError =
     error &&
@@ -105,7 +110,7 @@ function ChatArea() {
       error.includes("NetworkError") ||
       error.includes("typo") ||
       error.includes("url or port"))
-      ? t('chat.backendNotRunning')
+      ? t("chat.backendNotRunning")
       : error;
 
   // 缓存 sessionUsage 计算，仅 messages 变化时重算 O(n)
@@ -127,7 +132,14 @@ function ChatArea() {
       }
     }
     return totalTokens > 0
-      ? { inputTokens, outputTokens, totalTokens, estimatedCostUsd, cacheReadTokens, cacheCreationTokens }
+      ? {
+          inputTokens,
+          outputTokens,
+          totalTokens,
+          estimatedCostUsd,
+          cacheReadTokens,
+          cacheCreationTokens,
+        }
       : undefined;
   }, [messages]);
 
@@ -154,20 +166,20 @@ function ChatArea() {
                     onClick={() => useBackendStore.getState().checkStatus()}
                     className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
                   >
-                    🔄 {t('common.retry')}
+                    🔄 {t("common.retry")}
                   </button>
                   <button
                     onClick={() => navigator.clipboard.writeText(displayError)}
                     className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
                   >
-                    📋 {t('chat.copyMessage')}
+                    📋 {t("chat.copyMessage")}
                   </button>
                 </div>
               </div>
               <button
                 onClick={handleDismissError}
                 className="text-red-400 hover:text-red-600 dark:hover:text-red-200 flex-shrink-0"
-                title={t('common.close')}
+                title={t("common.close")}
               >
                 ✕
               </button>
@@ -178,12 +190,14 @@ function ChatArea() {
             fallback={
               <div className="flex items-center justify-center min-h-[400px] p-8">
                 <div className="text-center">
-                  <p className="text-gray-500 mb-4">{t('chat.messageListLoadError')}</p>
+                  <p className="text-gray-500 mb-4">
+                    {t("chat.messageListLoadError")}
+                  </p>
                   <button
                     onClick={() => window.location.reload()}
                     className="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
                   >
-                    {t('chat.refreshPage')}
+                    {t("chat.refreshPage")}
                   </button>
                 </div>
               </div>
@@ -205,13 +219,23 @@ function ChatArea() {
         {isUserScrolledUp && distanceFromBottom > 200 && (
           <button
             onClick={scrollToBottom}
-            aria-label={t('chat.scrollToBottom')}
+            aria-label={t("chat.scrollToBottom")}
             role="button"
             className="absolute bottom-28 right-6 z-10 w-10 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-all max-md:bottom-32 opacity-80 hover:opacity-100"
-            title={t('chat.scrollToBottom')}
+            title={t("chat.scrollToBottom")}
           >
-            <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            <svg
+              className="w-5 h-5 text-gray-500 dark:text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 14l-7 7m0 0l-7-7m7 7V3"
+              />
             </svg>
           </button>
         )}
@@ -239,20 +263,20 @@ function ChatArea() {
                     onClick={() => useBackendStore.getState().checkStatus()}
                     className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
                   >
-                    🔄 {t('common.retry')}
+                    🔄 {t("common.retry")}
                   </button>
                   <button
                     onClick={() => navigator.clipboard.writeText(displayError)}
                     className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
                   >
-                    📋 {t('chat.copyMessage')}
+                    📋 {t("chat.copyMessage")}
                   </button>
                 </div>
               </div>
               <button
                 onClick={handleDismissError}
                 className="text-red-400 hover:text-red-600 dark:hover:text-red-200 flex-shrink-0"
-                title={t('common.close')}
+                title={t("common.close")}
               >
                 ✕
               </button>

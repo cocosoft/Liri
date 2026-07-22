@@ -23,7 +23,7 @@ export function useOfficeHotkeys() {
       if (event.ctrlKey && event.key === "n") {
         event.preventDefault();
         const chatInput = document.querySelector<HTMLTextAreaElement>(
-          '[data-office-chat-input]',
+          "[data-office-chat-input]",
         );
         chatInput?.focus();
         return;

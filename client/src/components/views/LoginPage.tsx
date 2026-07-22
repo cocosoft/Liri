@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../../stores/authStore";
 import { useConfigStore } from "../../stores/configStore";
+import { handleClientError } from "../../utils/handleError";
 
 function LoginPage() {
   const { t } = useTranslation();
@@ -47,12 +48,16 @@ function LoginPage() {
       try {
         await register(username, password, email || undefined);
         navigate("/");
-      } catch {}
+      } catch (e) {
+        handleClientError(e, { module: "components:views:Login", action: "register" });
+      }
     } else {
       try {
         await login(username, password);
         navigate("/");
-      } catch {}
+      } catch (e) {
+        handleClientError(e, { module: "components:views:Login", action: "login" });
+      }
     }
   };
 
@@ -97,9 +102,7 @@ function LoginPage() {
           <p
             className={`mt-2 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
           >
-            {isRegisterMode
-              ? t("user.registerHint")
-              : t("user.loginHint")}
+            {isRegisterMode ? t("user.registerHint") : t("user.loginHint")}
           </p>
         </div>
 
@@ -203,7 +206,11 @@ function LoginPage() {
                   : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            {isLoading ? t("user.processing") : isRegisterMode ? t("user.register") : t("user.login")}
+            {isLoading
+              ? t("user.processing")
+              : isRegisterMode
+                ? t("user.register")
+                : t("user.login")}
           </button>
         </form>
 

@@ -28,7 +28,7 @@ function AgentStrategySelector({
       <h2
         className={`text-lg font-medium mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
       >
-        {t('selectAgentStrategy')}
+        {t("selectAgentStrategy")}
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {displayStrategies.map((strategy) => (

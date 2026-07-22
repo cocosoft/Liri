@@ -14,22 +14,38 @@ interface BlockContentProps {
   block: RenderedBlock;
   isStreaming?: boolean;
   renderText: (text: string, autoDetectFormula?: boolean) => JSX.Element[];
-  renderHeading: (content: string, level: number, key: string) => React.ReactElement;
+  renderHeading: (
+    content: string,
+    level: number,
+    key: string,
+  ) => React.ReactElement;
   renderList: (content: string, key: string) => React.ReactElement;
-  renderTable: (content: string, autoDetectFormula?: boolean) => React.ReactElement | null;
+  renderTable: (
+    content: string,
+    autoDetectFormula?: boolean,
+  ) => React.ReactElement | null;
 }
 
 const BlockContent = React.memo(
-  function BlockContent({ block, isStreaming, renderText, renderHeading, renderList, renderTable }: BlockContentProps) {
+  function BlockContent({
+    block,
+    isStreaming,
+    renderText,
+    renderHeading,
+    renderList,
+    renderTable,
+  }: BlockContentProps) {
     switch (block.type) {
-      case 'code':
+      case "code":
         return <CodeBlock code={block.content} language={block.language} />;
-      case 'math': {
+      case "math": {
         let renderedFormula: string;
         try {
-          renderedFormula = katex.renderToString(block.content, { displayMode: true });
+          renderedFormula = katex.renderToString(block.content, {
+            displayMode: true,
+          });
         } catch {
-          renderedFormula = '';
+          renderedFormula = "";
         }
         if (renderedFormula) {
           return (
@@ -47,24 +63,32 @@ const BlockContent = React.memo(
           </div>
         );
       }
-      case 'mermaid':
+      case "mermaid":
         return (
           <div
             className="mermaid my-4"
-            style={{ backgroundColor: '#1a1a1a', padding: '1rem', borderRadius: '8px' }}
+            style={{
+              backgroundColor: "#1a1a1a",
+              padding: "1rem",
+              borderRadius: "8px",
+            }}
           >
             {block.content}
           </div>
         );
-      case 'table':
-        return <div className="overflow-x-auto">{renderTable(block.content, !isStreaming)}</div>;
-      case 'heading':
+      case "table":
+        return (
+          <div className="overflow-x-auto">
+            {renderTable(block.content, !isStreaming)}
+          </div>
+        );
+      case "heading":
         return renderHeading(block.content, block.level || 1, String(block.id));
-      case 'list':
+      case "list":
         return renderList(block.content, String(block.id));
-      case 'hr':
+      case "hr":
         return <hr className="my-4 border-gray-300 dark:border-gray-600" />;
-      case 'image':
+      case "image":
         return (
           <div className="my-2">
             <img
@@ -75,7 +99,7 @@ const BlockContent = React.memo(
             />
           </div>
         );
-      case 'text':
+      case "text":
         return (
           <p className="my-2 whitespace-pre-wrap">
             {renderText(block.content, !isStreaming)}
@@ -88,9 +112,9 @@ const BlockContent = React.memo(
   (prevProps, nextProps) =>
     prevProps.block.content === nextProps.block.content &&
     prevProps.block.type === nextProps.block.type &&
-    prevProps.isStreaming === nextProps.isStreaming
+    prevProps.isStreaming === nextProps.isStreaming,
 );
 
-BlockContent.displayName = 'BlockContent';
+BlockContent.displayName = "BlockContent";
 
 export default BlockContent;

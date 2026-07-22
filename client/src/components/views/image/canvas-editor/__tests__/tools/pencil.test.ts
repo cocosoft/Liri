@@ -6,7 +6,8 @@ import { ToolContext } from "../../tools/base";
 // 最小可用 ToolContext mock（pixelmatch 基线留待 CI 阶段）
 function makeMockCtx(): ToolContext {
   const bufferCanvas = {
-    width: 200, height: 200,
+    width: 200,
+    height: 200,
     getContext: vi.fn(),
     getImageData: vi.fn(() => new ImageData(200, 200)),
     putImageData: vi.fn(),
@@ -34,18 +35,26 @@ function makeMockCtx(): ToolContext {
   return {
     buffer: bufferCanvas,
     transform: {
-      zoom: 1, offsetX: 0, offsetY: 0, dpr: 1,
+      zoom: 1,
+      offsetX: 0,
+      offsetY: 0,
+      dpr: 1,
       logicalToPixel: (x: number, y: number) => [x, y] as [number, number],
       clientToLogical: (x: number, y: number) => [x, y] as [number, number],
       applyTransform: vi.fn(),
       setZoom: vi.fn(),
     },
     state: {
-      width: 200, height: 200,
-      zoom: 1, offsetX: 0, offsetY: 0, fitToWindow: false,
+      width: 200,
+      height: 200,
+      zoom: 1,
+      offsetX: 0,
+      offsetY: 0,
+      fitToWindow: false,
       activeTool: "pencil",
       strokeWidth: 2,
-      fgColor: "#000000", bgColor: "#ffffff",
+      fgColor: "#000000",
+      bgColor: "#ffffff",
       toolParams: {},
     },
     commands: {
@@ -76,7 +85,18 @@ describe("PencilTool", () => {
     const { getTool } = await import("../../tools/index");
     const ctx = makeMockCtx();
     const tool = getTool("pencil");
-    tool?.onPointerDown({ x: 10, y: 10, button: 0, shiftKey: false, ctrlKey: false, altKey: false, pressure: 1 }, ctx);
+    tool?.onPointerDown(
+      {
+        x: 10,
+        y: 10,
+        button: 0,
+        shiftKey: false,
+        ctrlKey: false,
+        altKey: false,
+        pressure: 1,
+      },
+      ctx,
+    );
     // 不抛异常即通过
   });
 
@@ -84,7 +104,15 @@ describe("PencilTool", () => {
     const { getTool } = await import("../../tools/index");
     const ctx = makeMockCtx();
     const tool = getTool("pencil");
-    const pe = { x: 0, y: 0, button: 0, shiftKey: false, ctrlKey: false, altKey: false, pressure: 1 };
+    const pe = {
+      x: 0,
+      y: 0,
+      button: 0,
+      shiftKey: false,
+      ctrlKey: false,
+      altKey: false,
+      pressure: 1,
+    };
     tool?.onPointerDown(pe, ctx);
     tool?.onPointerMove({ ...pe, x: 50, y: 50 }, ctx);
     tool?.onPointerUp(pe, ctx);

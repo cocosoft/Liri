@@ -54,7 +54,9 @@ const CachedImage: React.FC<{
       if (!cancelled) setImgSrc(dataUrl);
     });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [src]);
 
   return (
@@ -108,7 +110,7 @@ export const MasonryGallery: React.FC<Props> = ({
           onLoadMore();
         }
       },
-      { root: sentinel.parentElement, rootMargin: "200px" }
+      { root: sentinel.parentElement, rootMargin: "200px" },
     );
 
     observer.observe(sentinel);
@@ -133,16 +135,18 @@ export const MasonryGallery: React.FC<Props> = ({
               onMouseLeave={() => setHoveredId(null)}
               className="group relative mb-2 cursor-pointer overflow-hidden rounded-lg border-2 transition-all"
               style={{
-                 breakInside: "avoid" as any,
-                 contentVisibility: "auto",
-                 containIntrinsicSize: "auto 200px",
-                 borderColor: selected
-                   ? "#3b82f6"
-                   : hovered
-                     ? isDark ? "#93c5fd" : "#93c5fd"
-                     : "transparent",
-                 boxShadow: selected ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
-               }}
+                breakInside: "avoid" as any,
+                contentVisibility: "auto",
+                containIntrinsicSize: "auto 200px",
+                borderColor: selected
+                  ? "#3b82f6"
+                  : hovered
+                    ? isDark
+                      ? "#93c5fd"
+                      : "#93c5fd"
+                    : "transparent",
+                boxShadow: selected ? "0 2px 8px rgba(59,130,246,0.3)" : "none",
+              }}
             >
               {/* 媒体容器：padding-bottom 保持原生比例 */}
               <div className="relative w-full overflow-hidden bg-gray-100 dark:bg-gray-800">

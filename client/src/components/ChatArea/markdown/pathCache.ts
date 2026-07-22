@@ -31,26 +31,31 @@ export function getCacheKey(sessionId: string, filePath: string): string {
  * 多级 fallback 文件路径匹配
  * 按优先级依次尝试：精确匹配 → 不区分大小写 → 无扩展名匹配 → 后缀包含匹配
  */
-export function matchFilePath(mention: string, knownPaths: string[]): string | null {
+export function matchFilePath(
+  mention: string,
+  knownPaths: string[],
+): string | null {
   // 1. 精确匹配
-  const exact = knownPaths.find(p => p === mention);
+  const exact = knownPaths.find((p) => p === mention);
   if (exact) return exact;
 
   // 2. 不区分大小写匹配（处理 Windows 大小写不敏感问题）
   const mentionLower = mention.toLowerCase();
-  const caseInsensitive = knownPaths.find(p => p.toLowerCase() === mentionLower);
+  const caseInsensitive = knownPaths.find(
+    (p) => p.toLowerCase() === mentionLower,
+  );
   if (caseInsensitive) return caseInsensitive;
 
   // 3. 无扩展名匹配（用户提及 app/src/main 但真实路径为 app/src/main.ts）
-  const mentionNoExt = mentionLower.replace(/\.\w+$/, '');
-  const extMatch = knownPaths.find(p =>
-    p.replace(/\.\w+$/, '').toLowerCase() === mentionNoExt
+  const mentionNoExt = mentionLower.replace(/\.\w+$/, "");
+  const extMatch = knownPaths.find(
+    (p) => p.replace(/\.\w+$/, "").toLowerCase() === mentionNoExt,
   );
   if (extMatch) return extMatch;
 
   // 4. 路径后缀匹配（处理 LLM 截断：提及 src/main.ts 但真实路径为 app/src/main.ts）
-  const tailMatch = knownPaths.find(p =>
-    p.toLowerCase().endsWith(mentionLower)
+  const tailMatch = knownPaths.find((p) =>
+    p.toLowerCase().endsWith(mentionLower),
   );
   if (tailMatch) return tailMatch;
 
@@ -83,16 +88,20 @@ export function clearSessionPathCache(sessionId: string): void {
  * @param key 缓存 key（原始路径）
  * @param canonical 规范路径
  */
-export function setPathCache(sessionId: string, key: string, canonical: string): void {
+export function setPathCache(
+  sessionId: string,
+  key: string,
+  canonical: string,
+): void {
   const sessionKey = getCacheKey(sessionId, key);
   const aliases = new Set<string>();
   aliases.add(canonical.toLowerCase());
   // 无扩展名别名
-  const noExt = canonical.replace(/\.\w+$/, '');
+  const noExt = canonical.replace(/\.\w+$/, "");
   if (noExt !== canonical) aliases.add(noExt.toLowerCase());
   // 路径后缀别名（逐级回退）
-  const parts = canonical.replace(/[\\/]/g, '/').split('/');
-  let suffix = '';
+  const parts = canonical.replace(/[\\/]/g, "/").split("/");
+  let suffix = "";
   for (let i = parts.length - 1; i >= 0; i--) {
     suffix = suffix ? `${parts[i]}/${suffix}` : parts[i];
     aliases.add(suffix.toLowerCase());
@@ -102,7 +111,10 @@ export function setPathCache(sessionId: string, key: string, canonical: string):
   // 同时用所有别名索引该条目，使后续查询能通过别名直接命中
   for (const alias of aliases) {
     const aliasKey = getCacheKey(sessionId, alias);
-    if (!pathResolveCache.has(aliasKey) || pathResolveCache.get(aliasKey)!.canonical !== canonical) {
+    if (
+      !pathResolveCache.has(aliasKey) ||
+      pathResolveCache.get(aliasKey)!.canonical !== canonical
+    ) {
       pathResolveCache.set(aliasKey, { canonical, aliases });
     }
   }

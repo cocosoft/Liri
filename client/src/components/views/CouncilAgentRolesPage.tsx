@@ -205,8 +205,9 @@ function CouncilAgentRolesPage() {
             <p
               className={`mt-1 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              管理 Agent Council 辩论的专家角色，支持新增、编辑、删除和启用/禁用。
-              默认包含 5 个专家角色（架构师、安全专家、性能专家、前端专家、后端专家）。
+              管理 Agent Council
+              辩论的专家角色，支持新增、编辑、删除和启用/禁用。 默认包含 5
+              个专家角色（架构师、安全专家、性能专家、前端专家、后端专家）。
             </p>
           </div>
           <button
@@ -432,9 +433,7 @@ function CouncilAgentRolesPage() {
                     placeholder="如：architect"
                   />
                   {editingId && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      创建后不可修改
-                    </p>
+                    <p className="text-xs text-gray-400 mt-1">创建后不可修改</p>
                   )}
                 </div>
 
@@ -448,9 +447,7 @@ function CouncilAgentRolesPage() {
                   <input
                     type="text"
                     value={form.name}
-                    onChange={(e) =>
-                      setForm({ ...form, name: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
                     className={`w-full px-3 py-2 text-sm rounded border ${
                       isDark
                         ? "bg-gray-700 border-gray-600 text-gray-200"
@@ -470,9 +467,7 @@ function CouncilAgentRolesPage() {
                   <input
                     type="text"
                     value={form.icon}
-                    onChange={(e) =>
-                      setForm({ ...form, icon: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, icon: e.target.value })}
                     className={`w-full px-3 py-2 text-sm rounded border ${
                       isDark
                         ? "bg-gray-700 border-gray-600 text-gray-200"
@@ -641,8 +636,8 @@ function CouncilAgentRolesPage() {
               <p
                 className={`text-sm mb-4 ${isDark ? "text-gray-400" : "text-gray-600"}`}
               >
-                确定要删除角色 "<strong>{deleteTarget.name}</strong> ({deleteTarget.agentId})"吗？
-                此操作不可恢复。
+                确定要删除角色 "<strong>{deleteTarget.name}</strong> (
+                {deleteTarget.agentId})"吗？ 此操作不可恢复。
               </p>
               <div className="flex justify-end gap-2">
                 <button

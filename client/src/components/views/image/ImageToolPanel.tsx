@@ -18,12 +18,21 @@ interface Props {
   selectedPath?: string | null;
 }
 
-export default function ImageToolPanel({ activeTool, onActiveToolChange, onExecute, loading, selectedPath }: Props) {
+export default function ImageToolPanel({
+  activeTool,
+  onActiveToolChange,
+  onExecute,
+  loading,
+  selectedPath,
+}: Props) {
   const { t } = useTranslation();
 
-  const handleSelect = useCallback((toolName: string) => {
-    onActiveToolChange(activeTool === toolName ? null : toolName);
-  }, [activeTool, onActiveToolChange]);
+  const handleSelect = useCallback(
+    (toolName: string) => {
+      onActiveToolChange(activeTool === toolName ? null : toolName);
+    },
+    [activeTool, onActiveToolChange],
+  );
 
   const handleSubmit = useCallback(
     (args: Record<string, unknown>) => {
@@ -31,7 +40,7 @@ export default function ImageToolPanel({ activeTool, onActiveToolChange, onExecu
         onExecute(activeTool, args);
       }
     },
-    [activeTool, onExecute]
+    [activeTool, onExecute],
   );
 
   const categoryLabels: Record<string, string> = {
@@ -42,12 +51,19 @@ export default function ImageToolPanel({ activeTool, onActiveToolChange, onExecu
   };
 
   // 按分类分组工具
-  const groupedTools = useMemo(() => TOOL_ENTRIES.reduce((acc, tool) => {
-    const cat = tool.category || "other";
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(tool);
-    return acc;
-  }, {} as Record<string, typeof TOOL_ENTRIES>), []);
+  const groupedTools = useMemo(
+    () =>
+      TOOL_ENTRIES.reduce(
+        (acc, tool) => {
+          const cat = tool.category || "other";
+          if (!acc[cat]) acc[cat] = [];
+          acc[cat].push(tool);
+          return acc;
+        },
+        {} as Record<string, typeof TOOL_ENTRIES>,
+      ),
+    [],
+  );
 
   return (
     <div className="space-y-3">

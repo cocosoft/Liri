@@ -4,7 +4,11 @@
  */
 
 import { create } from "zustand";
-import type { DocItem, MergedCalendarResponse, EventSource } from "../types/office";
+import type {
+  DocItem,
+  MergedCalendarResponse,
+  EventSource,
+} from "../types/office";
 import { officeApi } from "../services/officeApi";
 
 /** 预览缓存条目 */
@@ -78,10 +82,7 @@ export interface OfficeState {
   selectFile: (file: FileInfo | null) => void;
   setSearchQuery: (q: string) => void;
   setFilterType: (type: string) => void;
-  setPreviewState: (
-    state: OfficeState["previewState"],
-    error?: string,
-  ) => void;
+  setPreviewState: (state: OfficeState["previewState"], error?: string) => void;
   setPreviewZoom: (zoom: number) => void;
   setGenerationStatus: (status: OfficeState["generationStatus"]) => void;
   setPendingMessage: (msg: string | null) => void;
@@ -100,7 +101,11 @@ export interface OfficeState {
   restoreChatMessages: (msgs: ChatMessage[]) => void;
 
   // --- 邮件/日历（保留兼容） ---
-  setDocStatus: (s: string | null, templates?: string[], docs?: DocItem[]) => void;
+  setDocStatus: (
+    s: string | null,
+    templates?: string[],
+    docs?: DocItem[],
+  ) => void;
   setMailConfigured: (v: boolean) => void;
   setMailList: (m: import("../types/office").MailItem[]) => void;
   setMailSentList: (m: import("../types/office").MailItem[]) => void;
@@ -159,7 +164,8 @@ export const useOfficeStore = create<OfficeState>((set, get) => ({
   setPreviewState: (state, error) =>
     set({ previewState: state, previewError: error ?? null }),
 
-  setPreviewZoom: (zoom) => set({ previewZoom: Math.max(25, Math.min(200, zoom)) }),
+  setPreviewZoom: (zoom) =>
+    set({ previewZoom: Math.max(25, Math.min(200, zoom)) }),
 
   setGenerationStatus: (status) => set({ generationStatus: status }),
 
@@ -233,18 +239,20 @@ export const useOfficeStore = create<OfficeState>((set, get) => ({
   setCalendarEvents: (e) => set({ calendarEvents: e }),
 
   // --- 日历三源 Actions ---
-  setMergedCalendar: (data) => set({
-    mergedCalendar: data,
-    mergedErrors: data?.errors ?? [],
-    calendarLoading: false,
-  }),
+  setMergedCalendar: (data) =>
+    set({
+      mergedCalendar: data,
+      mergedErrors: data?.errors ?? [],
+      calendarLoading: false,
+    }),
 
   setCalendarLoading: (loading) => set({ calendarLoading: loading }),
 
-  toggleVisibleSource: (source) => set((s) => ({
-    visibleSources: {
-      ...s.visibleSources,
-      [source]: !s.visibleSources[source],
-    },
-  })),
+  toggleVisibleSource: (source) =>
+    set((s) => ({
+      visibleSources: {
+        ...s.visibleSources,
+        [source]: !s.visibleSources[source],
+      },
+    })),
 }));

@@ -15,22 +15,22 @@ const logger = createLogger("SessionSliceList");
 
 /** 模块类型 → 图标和中文标签映射 */
 const MODULE_META: Record<string, { icon: string; label: string }> = {
-  chat:        { icon: "💬", label: "对话" },
-  media:       { icon: "🎨", label: "媒体" },
-  office:      { icon: "📄", label: "办公" },
-  calendar:    { icon: "📅", label: "日历" },
+  chat: { icon: "💬", label: "对话" },
+  media: { icon: "🎨", label: "媒体" },
+  office: { icon: "📄", label: "办公" },
+  calendar: { icon: "📅", label: "日历" },
   translation: { icon: "🌐", label: "翻译" },
-  knowledge:   { icon: "📚", label: "知识库" },
+  knowledge: { icon: "📚", label: "知识库" },
 };
 
 /** 模块类型 → 导航路径映射（session 切换时跳转） */
 const MODULE_PATH: Record<string, string> = {
-  chat:        "/chat",
-  media:       "/media",
-  office:      "/office",
-  calendar:    "/calendar",
+  chat: "/chat",
+  media: "/media",
+  office: "/office",
+  calendar: "/calendar",
   translation: "/translate",
-  knowledge:   "/knowledge",
+  knowledge: "/knowledge",
 };
 
 export interface SessionSliceListProps {
@@ -78,6 +78,14 @@ export function SessionSliceList({
     return counts;
   }, [sessions]);
 
+  /** 可用的模块类型列表（只显示有会话的模块） */
+  const availableModuleTypes = useMemo(() => {
+    return [
+      "all",
+      ...Object.keys(MODULE_META).filter((t) => moduleCounts[t] > 0),
+    ];
+  }, [moduleCounts]);
+
   if (!currentWorktreeId || sessions.length === 0) {
     return null;
   }
@@ -94,11 +102,6 @@ export function SessionSliceList({
     }
     logger.debug("SessionHub 会话切换", { sessionId, moduleType });
   };
-
-  /** 可用的模块类型列表（只显示有会话的模块） */
-  const availableModuleTypes = useMemo(() => {
-    return ["all", ...Object.keys(MODULE_META).filter((t) => moduleCounts[t] > 0)];
-  }, [moduleCounts]);
 
   return (
     <div className="flex flex-col h-full">
@@ -118,7 +121,7 @@ export function SessionSliceList({
                   ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium"
                   : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50"
               }`}
-              title={type === "all" ? "全部模块" : meta?.label ?? type}
+              title={type === "all" ? "全部模块" : (meta?.label ?? type)}
             >
               {type === "all" ? (
                 <>全部</>
@@ -129,7 +132,9 @@ export function SessionSliceList({
                 </>
               )}
               {count > 0 && (
-                <span className={`text-[10px] ml-0.5 ${isActive ? "text-blue-500" : "text-gray-400"}`}>
+                <span
+                  className={`text-[10px] ml-0.5 ${isActive ? "text-blue-500" : "text-gray-400"}`}
+                >
                   {count}
                 </span>
               )}
@@ -142,7 +147,9 @@ export function SessionSliceList({
       <div className="flex-1 overflow-y-auto">
         {displaySessions.length === 0 ? (
           <div className="px-4 py-8 text-center text-xs text-gray-400 dark:text-gray-500">
-            {filterModule === "all" ? "暂无会话" : `暂无${MODULE_META[filterModule]?.label ?? filterModule}会话`}
+            {filterModule === "all"
+              ? "暂无会话"
+              : `暂无${MODULE_META[filterModule]?.label ?? filterModule}会话`}
           </div>
         ) : (
           displaySessions.map((s) => {
@@ -191,8 +198,7 @@ export function SessionSliceList({
       <div className="px-3 py-1.5 border-t border-gray-200 dark:border-gray-700 text-[10px] text-gray-400 dark:text-gray-500">
         {filterModule === "all"
           ? `共 ${sessions.length} 个会话`
-          : `${MODULE_META[filterModule]?.label ?? filterModule} · ${filteredSessions.length} 个会话`
-        }
+          : `${MODULE_META[filterModule]?.label ?? filterModule} · ${filteredSessions.length} 个会话`}
       </div>
     </div>
   );

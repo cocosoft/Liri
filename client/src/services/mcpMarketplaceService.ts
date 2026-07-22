@@ -134,9 +134,7 @@ class MCPMarketplaceService {
   /**
    * 验证服务器连接
    */
-  async verifyServer(
-    serverId: string,
-  ): Promise<{
+  async verifyServer(serverId: string): Promise<{
     success: boolean;
     connected: boolean;
     status: string;

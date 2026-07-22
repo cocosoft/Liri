@@ -4,6 +4,7 @@ import { useSessionStore } from "../../stores/sessionStore";
 import { useNavigationStore } from "../../stores/navigationStore";
 import { fileService } from "../../services/fileService";
 import { knowledgeService } from "../../services/knowledgeService";
+import { handleClientError } from "../../utils/handleError";
 import type { Session } from "../../types";
 import type { FileRegistryRecord } from "../../types/file";
 import type { KnowledgeItem } from "../../types/knowledge";
@@ -24,7 +25,11 @@ interface GlobalSearchModalProps {
  * 快捷键：Ctrl+K / Cmd+K 唤起，Escape 关闭。
  * 搜索结果分组展示，点击会话/文件/知识库导航到对应页面。
  */
-export default function GlobalSearchModal({ isOpen, onClose, isDark: _isDark }: GlobalSearchModalProps) {
+export default function GlobalSearchModal({
+  isOpen,
+  onClose,
+  isDark: _isDark,
+}: GlobalSearchModalProps) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -61,8 +66,8 @@ export default function GlobalSearchModal({ isOpen, onClose, isDark: _isDark }: 
       const q = query.toLowerCase();
 
       // 1. 客户端过滤会话标题
-      const matchedSessions = sessions.filter(
-        (s) => s.title?.toLowerCase().includes(q),
+      const matchedSessions = sessions.filter((s) =>
+        s.title?.toLowerCase().includes(q),
       );
       setSessionResults(matchedSessions.slice(0, 5));
 
@@ -70,7 +75,8 @@ export default function GlobalSearchModal({ isOpen, onClose, isDark: _isDark }: 
       try {
         const fileRes = await fileService.searchFiles({ query: q, limit: 5 });
         setFileResults(fileRes.items.slice(0, 5));
-      } catch {
+      } catch (e) {
+        handleClientError(e, { module: "components:chat:GlobalSearch", action: "searchFiles" });
         setFileResults([]);
       }
 
@@ -78,7 +84,8 @@ export default function GlobalSearchModal({ isOpen, onClose, isDark: _isDark }: 
       try {
         const kbRes = await knowledgeService.search(q);
         setKnowledgeResults((kbRes as KnowledgeItem[]).slice(0, 5));
-      } catch {
+      } catch (e) {
+        handleClientError(e, { module: "components:chat:GlobalSearch", action: "searchKnowledge" });
         setKnowledgeResults([]);
       }
 
@@ -120,21 +127,36 @@ export default function GlobalSearchModal({ isOpen, onClose, isDark: _isDark }: 
   if (!isOpen) return null;
 
   const hasResults =
-    sessionResults.length > 0 || fileResults.length > 0 || knowledgeResults.length > 0;
+    sessionResults.length > 0 ||
+    fileResults.length > 0 ||
+    knowledgeResults.length > 0;
   const noResults = !searching && query && !hasResults;
 
   return (
     <>
       {/* 遮罩 */}
-      <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
 
       {/* 搜索弹窗 */}
       <div className="fixed inset-x-0 top-[15%] z-50 mx-auto max-w-xl">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           {/* 搜索输入 */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-            <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <svg
+              className="w-5 h-5 text-gray-400 shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
             </svg>
             <input
               ref={inputRef}
@@ -245,15 +267,21 @@ export default function GlobalSearchModal({ isOpen, onClose, isDark: _isDark }: 
           {/* 底部提示 */}
           <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-700 flex items-center gap-4 text-[10px] text-gray-400">
             <span>
-              <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded font-mono text-[10px]">↑↓</kbd>{" "}
+              <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded font-mono text-[10px]">
+                ↑↓
+              </kbd>{" "}
               {t("chat.navigateHint")}
             </span>
             <span>
-              <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded font-mono text-[10px]">Enter</kbd>{" "}
+              <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded font-mono text-[10px]">
+                Enter
+              </kbd>{" "}
               {t("chat.openHint")}
             </span>
             <span>
-              <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded font-mono text-[10px]">Esc</kbd>{" "}
+              <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded font-mono text-[10px]">
+                Esc
+              </kbd>{" "}
               {t("chat.closeHint")}
             </span>
           </div>

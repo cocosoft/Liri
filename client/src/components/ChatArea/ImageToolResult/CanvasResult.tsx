@@ -35,7 +35,9 @@ export default function CanvasResultView({ data }: Props) {
       ) : (
         <div className="bg-gray-800/50 rounded p-3 flex items-center justify-center text-gray-500 text-xs">
           <div className="text-center space-y-1">
-            <div>{width} x {height}</div>
+            <div>
+              {width} x {height}
+            </div>
             <div>{elementCount} elements</div>
             <div className="text-[10px]">{t("image.noExport")}</div>
           </div>
@@ -44,10 +46,26 @@ export default function CanvasResultView({ data }: Props) {
 
       {/* 画布信息 */}
       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-400">
-        <span>ID: <span className="text-gray-300 font-mono">{canvasId.slice(0, 16)}...</span></span>
-        <span>{t("image.size")}: <span className="text-gray-300">{width}x{height}</span></span>
-        <span>{t("image.elements")}: <span className="text-gray-300">{elementCount}</span></span>
-        <span>{t("image.outputFormat")}: <span className="text-gray-300">{format}</span></span>
+        <span>
+          ID:{" "}
+          <span className="text-gray-300 font-mono">
+            {canvasId.slice(0, 16)}...
+          </span>
+        </span>
+        <span>
+          {t("image.size")}:{" "}
+          <span className="text-gray-300">
+            {width}x{height}
+          </span>
+        </span>
+        <span>
+          {t("image.elements")}:{" "}
+          <span className="text-gray-300">{elementCount}</span>
+        </span>
+        <span>
+          {t("image.outputFormat")}:{" "}
+          <span className="text-gray-300">{format}</span>
+        </span>
       </div>
 
       {/* 下载按钮 */}

@@ -53,7 +53,8 @@ const STEP_TYPE_COLORS: Record<string, string> = {
 
 export const WorkflowTemplateView: React.FC = () => {
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<WorkflowTemplate | null>(null);
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<WorkflowTemplate | null>(null);
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
@@ -64,7 +65,8 @@ export const WorkflowTemplateView: React.FC = () => {
   const loadTemplates = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await workspaceService.getWorkflowTemplates() as WorkflowTemplate[];
+      const data =
+        (await workspaceService.getWorkflowTemplates()) as WorkflowTemplate[];
       setTemplates(data);
     } catch (err) {
       logger.error("加载工作流模板失败:", err);
@@ -153,12 +155,16 @@ export const WorkflowTemplateView: React.FC = () => {
                   )}
                 </div>
                 <div className="text-xs text-gray-400 mt-1">
-                  {CATEGORY_LABELS[tpl.category] || tpl.category} · {tpl.steps.length} 步骤
+                  {CATEGORY_LABELS[tpl.category] || tpl.category} ·{" "}
+                  {tpl.steps.length} 步骤
                 </div>
                 {tpl.tags && tpl.tags.length > 0 && (
                   <div className="flex gap-1 mt-1">
                     {tpl.tags.map((tag) => (
-                      <span key={tag} className="px-1.5 py-0.5 text-xs bg-gray-50 rounded">
+                      <span
+                        key={tag}
+                        className="px-1.5 py-0.5 text-xs bg-gray-50 rounded"
+                      >
                         {tag}
                       </span>
                     ))}
@@ -190,7 +196,9 @@ export const WorkflowTemplateView: React.FC = () => {
               onChange={(e) => setNewCategory(e.target.value)}
             >
               {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
+                <option key={value} value={value}>
+                  {label}
+                </option>
               ))}
             </select>
             <div className="flex gap-2">
@@ -218,14 +226,18 @@ export const WorkflowTemplateView: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-semibold">{selectedTemplate.name}</h2>
+                  <h2 className="text-lg font-semibold">
+                    {selectedTemplate.name}
+                  </h2>
                   {selectedTemplate.id.startsWith("builtin:") && (
                     <span className="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
                       内建
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-gray-500 mt-1">{selectedTemplate.description}</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {selectedTemplate.description}
+                </p>
               </div>
               {!selectedTemplate.id.startsWith("builtin:") && (
                 <button
@@ -240,9 +252,16 @@ export const WorkflowTemplateView: React.FC = () => {
             {/* 元信息 */}
             <div className="flex gap-4 text-xs text-gray-400 mb-4">
               <span>作者: {selectedTemplate.author}</span>
-              <span>分类: {CATEGORY_LABELS[selectedTemplate.category] || selectedTemplate.category}</span>
+              <span>
+                分类:{" "}
+                {CATEGORY_LABELS[selectedTemplate.category] ||
+                  selectedTemplate.category}
+              </span>
               <span>使用次数: {selectedTemplate.usageCount}</span>
-              <span>创建: {new Date(selectedTemplate.createdAt).toLocaleDateString()}</span>
+              <span>
+                创建:{" "}
+                {new Date(selectedTemplate.createdAt).toLocaleDateString()}
+              </span>
             </div>
 
             {/* 工作流步骤 */}
@@ -251,18 +270,25 @@ export const WorkflowTemplateView: React.FC = () => {
             </h3>
             <div className="space-y-3">
               {selectedTemplate.steps.map((step, idx) => (
-                <div key={step.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded">
+                <div
+                  key={step.id}
+                  className="flex items-start gap-3 p-3 bg-gray-50 rounded"
+                >
                   <div className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
                     {idx + 1}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm">{step.name}</span>
-                      <span className={`px-1.5 py-0.5 text-xs rounded ${STEP_TYPE_COLORS[step.type] || ""}`}>
+                      <span
+                        className={`px-1.5 py-0.5 text-xs rounded ${STEP_TYPE_COLORS[step.type] || ""}`}
+                      >
                         {STEP_TYPE_LABELS[step.type] || step.type}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">{step.description}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {step.description}
+                    </p>
                     <div className="flex gap-2 mt-1">
                       {step.dependsOn && step.dependsOn.length > 0 && (
                         <span className="text-xs text-gray-400">

@@ -1,14 +1,14 @@
-import React, { useEffect, useRef, useMemo } from 'react';
-import katex from 'katex';
-import 'katex/dist/katex.min.css';
-import mermaid from 'mermaid';
-import { InlineCodeLink } from './markdown/InlineCodeLink';
-import BlockContent from './BlockContent';
-import HeadingRenderer from './HeadingRenderer';
-import ListRenderer from './ListRenderer';
-import TableBlock from './TableBlock';
-import { parseMarkdown } from '../../utils/markdownParser';
-import { isLatexFormula } from '../../utils/latexDetector';
+import React, { useEffect, useRef, useMemo } from "react";
+import katex from "katex";
+import "katex/dist/katex.min.css";
+import mermaid from "mermaid";
+import { InlineCodeLink } from "./markdown/InlineCodeLink";
+import BlockContent from "./BlockContent";
+import HeadingRenderer from "./HeadingRenderer";
+import ListRenderer from "./ListRenderer";
+import TableBlock from "./TableBlock";
+import { parseMarkdown } from "../../utils/markdownParser";
+import { isLatexFormula } from "../../utils/latexDetector";
 
 interface MarkdownRendererProps {
   content: string;
@@ -17,7 +17,12 @@ interface MarkdownRendererProps {
   knownFilePaths?: string[];
 }
 
-function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths }: MarkdownRendererProps) {
+function MarkdownRenderer({
+  content,
+  isStreaming,
+  onPreviewFile,
+  knownFilePaths,
+}: MarkdownRendererProps) {
   const blockIdRef = useRef(0);
 
   const blocks = useMemo(() => {
@@ -26,22 +31,27 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
 
   useEffect(() => {
     mermaid.initialize({ startOnLoad: false });
-    const mermaidElements = document.querySelectorAll('.mermaid');
+    const mermaidElements = document.querySelectorAll(".mermaid");
     mermaidElements.forEach(async (el) => {
-      if (!el.classList.contains('rendered')) {
+      if (!el.classList.contains("rendered")) {
         const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        const code = (el as HTMLElement).textContent || '';
+        const code = (el as HTMLElement).textContent || "";
         const { svg } = await mermaid.render(id, code);
         (el as HTMLElement).innerHTML = svg;
-        el.classList.add('rendered');
+        el.classList.add("rendered");
       }
     });
   }, [blocks]);
 
-
-
   const renderHeading = (content: string, level: number, key: string) => {
-    return <HeadingRenderer key={key} content={content} level={level} renderText={renderText} />;
+    return (
+      <HeadingRenderer
+        key={key}
+        content={content}
+        level={level}
+        renderText={renderText}
+      />
+    );
   };
 
   const renderList = (content: string, key: string) => {
@@ -52,7 +62,10 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
    * 将纯文本中的裸 URL 转换为可点击链接
    * 对标 cline remarkUrlToLink
    */
-  const renderPlainTextWithUrls = (text: string, startKey: number): JSX.Element[] => {
+  const renderPlainTextWithUrls = (
+    text: string,
+    startKey: number,
+  ): JSX.Element[] => {
     const urlRegex = /(https?:\/\/[^\s<>)\]]+)/;
     const parts: JSX.Element[] = [];
     let remaining = text;
@@ -71,7 +84,7 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
           className="text-blue-500 hover:underline"
         >
           {match[1]}
-        </a>
+        </a>,
       );
       remaining = remaining.slice(match.index + match[1].length);
     }
@@ -87,21 +100,25 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
     let key = 0;
 
     const patterns = [
-      { regex: /\*\*(.+?)\*\*/g, tag: 'strong' as const },
-      { regex: /\*(.+?)\*/g, tag: 'em' as const },
-      { regex: /~~(.+?)~~/g, tag: 'del' as const },
-      { regex: /`([^`]+)`/g, tag: 'code' as const },
+      { regex: /\*\*(.+?)\*\*/g, tag: "strong" as const },
+      { regex: /\*(.+?)\*/g, tag: "em" as const },
+      { regex: /~~(.+?)~~/g, tag: "del" as const },
+      { regex: /`([^`]+)`/g, tag: "code" as const },
       // 图片 pattern 必须放在链接 pattern 之前，确保 ![alt](url) 被优先匹配为图片
-      { regex: /!\[([^\]]*)\]\(([^)]+)\)/g, tag: 'image' as const },
-      { regex: /\[([^\]]+)\]\(([^)]+)\)/g, tag: 'link' as const },
-      { regex: /\$([^$]+)\$/g, tag: 'math' as const },
-      { regex: /https?:\/\/[^\s<>)\]]+/g, tag: 'url' as const },
+      { regex: /!\[([^\]]*)\]\(([^)]+)\)/g, tag: "image" as const },
+      { regex: /\[([^\]]+)\]\(([^)]+)\)/g, tag: "link" as const },
+      { regex: /\$([^$]+)\$/g, tag: "math" as const },
+      { regex: /https?:\/\/[^\s<>)\]]+/g, tag: "url" as const },
     ];
 
     let hasMatch = true;
     while (hasMatch) {
       hasMatch = false;
-      let earliestMatch: { index: number; pattern: typeof patterns[0]; match: RegExpExecArray } | null = null;
+      let earliestMatch: {
+        index: number;
+        pattern: (typeof patterns)[0];
+        match: RegExpExecArray;
+      } | null = null;
 
       for (const pattern of patterns) {
         pattern.regex.lastIndex = 0;
@@ -119,9 +136,11 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
           if (autoDetectFormula && isLatexFormula(beforeText)) {
             let renderedFormula: string;
             try {
-              renderedFormula = katex.renderToString(beforeText, { displayMode: false });
+              renderedFormula = katex.renderToString(beforeText, {
+                displayMode: false,
+              });
             } catch {
-              renderedFormula = '';
+              renderedFormula = "";
             }
             if (renderedFormula) {
               parts.push(
@@ -129,7 +148,7 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
                   key={key++}
                   className="inline-block"
                   dangerouslySetInnerHTML={{ __html: renderedFormula }}
-                />
+                />,
               );
             } else {
               parts.push(<span key={key++}>{beforeText}</span>);
@@ -138,14 +157,14 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
             parts.push(<span key={key++}>{beforeText}</span>);
           }
         }
-        if (pattern.tag === 'image') {
+        if (pattern.tag === "image") {
           // 清理 AI 可能生成的异常包装如 ${"/path/to/image.png"} → /path/to/image.png
           let imgSrc = match[2];
           const stripped = imgSrc.match(/^\$\{?["']([^"']+)["']\}?$/);
           if (stripped) {
             imgSrc = stripped[1];
           }
-          const imgAlt = match[1] || '';
+          const imgAlt = match[1] || "";
           parts.push(
             <img
               key={key++}
@@ -156,11 +175,11 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
               onClick={() => onPreviewFile?.(imgSrc)}
               onError={(e) => {
                 // 加载失败时显示为链接文本
-                (e.target as HTMLImageElement).style.display = 'none';
+                (e.target as HTMLImageElement).style.display = "none";
               }}
-            />
+            />,
           );
-        } else if (pattern.tag === 'link') {
+        } else if (pattern.tag === "link") {
           parts.push(
             <a
               key={key++}
@@ -170,9 +189,9 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
               className="text-blue-500 hover:underline"
             >
               {match[1]}
-            </a>
+            </a>,
           );
-        } else if (pattern.tag === 'url') {
+        } else if (pattern.tag === "url") {
           const url = match[0];
           parts.push(
             <a
@@ -183,14 +202,16 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
               className="text-blue-500 hover:underline"
             >
               {url}
-            </a>
+            </a>,
           );
-        } else if (pattern.tag === 'math') {
+        } else if (pattern.tag === "math") {
           let renderedFormula: string;
           try {
-            renderedFormula = katex.renderToString(match[1], { displayMode: false });
+            renderedFormula = katex.renderToString(match[1], {
+              displayMode: false,
+            });
           } catch {
-            renderedFormula = '';
+            renderedFormula = "";
           }
           if (renderedFormula) {
             parts.push(
@@ -198,32 +219,35 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
                 key={key++}
                 className="inline-block"
                 dangerouslySetInnerHTML={{ __html: renderedFormula }}
-              />
+              />,
             );
           } else {
             parts.push(<span key={key++}>{`$${match[1]}$`}</span>);
           }
-        } else if (pattern.tag === 'code') {
+        } else if (pattern.tag === "code") {
           parts.push(
             <InlineCodeLink
               key={key++}
               codeContent={match[1]}
               knownFilePaths={knownFilePaths}
               onPreviewFile={onPreviewFile}
-            />
+            />,
           );
-        } else if (pattern.tag === 'strong') {
+        } else if (pattern.tag === "strong") {
           const remainderAfterStrong = remaining.slice(index + match[0].length);
-          if (/^[a-zA-Z0-9_-]+$/.test(match[1]) && /^\.[a-zA-Z0-9]+/.test(remainderAfterStrong)) {
+          if (
+            /^[a-zA-Z0-9_-]+$/.test(match[1]) &&
+            /^\.[a-zA-Z0-9]+/.test(remainderAfterStrong)
+          ) {
             parts.push(<span key={key++}>**{match[1]}**</span>);
           } else {
-            parts.push(React.createElement('strong', { key: key++ }, match[1]));
+            parts.push(React.createElement("strong", { key: key++ }, match[1]));
           }
-        } else if (pattern.tag === 'del') {
-          parts.push(React.createElement('del', { key: key++ }, match[1]));
+        } else if (pattern.tag === "del") {
+          parts.push(React.createElement("del", { key: key++ }, match[1]));
         } else {
           parts.push(
-            React.createElement(pattern.tag, { key: key++ }, match[1])
+            React.createElement(pattern.tag, { key: key++ }, match[1]),
           );
         }
         remaining = remaining.slice(index + match[0].length);
@@ -234,9 +258,11 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
       if (autoDetectFormula && isLatexFormula(remaining)) {
         let renderedFormula: string;
         try {
-          renderedFormula = katex.renderToString(remaining, { displayMode: false });
+          renderedFormula = katex.renderToString(remaining, {
+            displayMode: false,
+          });
         } catch {
-          renderedFormula = '';
+          renderedFormula = "";
         }
         if (renderedFormula) {
           parts.push(
@@ -244,7 +270,7 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
               key={key}
               className="inline-block"
               dangerouslySetInnerHTML={{ __html: renderedFormula }}
-            />
+            />,
           );
         } else {
           parts.push(...renderPlainTextWithUrls(remaining, key));
@@ -258,7 +284,8 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
   };
 
   const renderTable = (content: string, autoDetectFormula: boolean = true) => {
-    const wrappedRenderText = (text: string) => renderText(text, autoDetectFormula);
+    const wrappedRenderText = (text: string) =>
+      renderText(text, autoDetectFormula);
     return <TableBlock content={content} renderText={wrappedRenderText} />;
   };
 
@@ -275,9 +302,7 @@ function MarkdownRenderer({ content, isStreaming, onPreviewFile, knownFilePaths 
           renderTable={renderTable}
         />
       ))}
-      {isStreaming && (
-        <span className="animate-pulse">▌</span>
-      )}
+      {isStreaming && <span className="animate-pulse">▌</span>}
     </div>
   );
 }

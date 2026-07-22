@@ -39,7 +39,10 @@ export async function syncGitStatus(): Promise<SyncGitResult> {
 
   try {
     await useGitStore.getState().refreshStatus(wtId);
-    logger.debug("Git 同步完成", { worktreeId: wtId, repoPath: wt.gitRepo.path });
+    logger.debug("Git 同步完成", {
+      worktreeId: wtId,
+      repoPath: wt.gitRepo.path,
+    });
     return { worktreeId: wtId, status: "ok" };
   } catch (err) {
     const msg = String(err);

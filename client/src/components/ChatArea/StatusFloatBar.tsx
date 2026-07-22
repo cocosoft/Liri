@@ -3,27 +3,27 @@ import { useChatStore } from "../../stores/chatStore";
 import type { TaskCardData } from "../../types";
 
 const PHASE_LABELS: Record<string, string> = {
-  analyzing:    "正在分析代码...",
-  designing:    "正在设计方案...",
+  analyzing: "正在分析代码...",
+  designing: "正在设计方案...",
   implementing: "正在实施变更...",
-  verifying:    "正在验证结果...",
-  presenting:   "正在生成报告...",
+  verifying: "正在验证结果...",
+  presenting: "正在生成报告...",
 };
 
 const STATUS_ICONS: Record<string, string> = {
-  pending:     "◌",
+  pending: "◌",
   in_progress: "→",
-  completed:   "✓",
-  failed:      "✗",
-  blocked:     "⊘",
+  completed: "✓",
+  failed: "✗",
+  blocked: "⊘",
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  pending:     "text-gray-400",
+  pending: "text-gray-400",
   in_progress: "text-blue-500",
-  completed:   "text-green-500",
-  failed:      "text-red-500",
-  blocked:     "text-yellow-500",
+  completed: "text-green-500",
+  failed: "text-red-500",
+  blocked: "text-yellow-500",
 };
 
 /**
@@ -55,11 +55,7 @@ function TaskProgress({ data }: { data: TaskCardData }) {
   return (
     <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
       {completed}/{total} 任务已完成
-      {failed > 0 && (
-        <span className="text-red-500 ml-1">
-          | {failed} 失败
-        </span>
-      )}
+      {failed > 0 && <span className="text-red-500 ml-1">| {failed} 失败</span>}
     </span>
   );
 }
@@ -75,7 +71,10 @@ function TaskMiniPanel({
   onClose: () => void;
 }) {
   return (
-    <div className="absolute bottom-full left-0 right-0 px-3 pb-1" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="absolute bottom-full left-0 right-0 px-3 pb-1"
+      onClick={(e) => e.stopPropagation()}
+    >
       <div className="max-w-3xl mx-auto">
         <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-md p-3 space-y-1.5">
           <div className="flex items-center justify-between">
@@ -87,25 +86,37 @@ function TaskMiniPanel({
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
               aria-label="收起"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 15l7-7 7 7"
+                />
               </svg>
             </button>
           </div>
 
           {data.tasks.map((task) => (
-            <div
-              key={task.id}
-              className="flex items-center gap-2 text-xs"
-            >
-              <span className={`${STATUS_COLORS[task.status] || "text-gray-400"} font-mono w-4 text-center`}>
+            <div key={task.id} className="flex items-center gap-2 text-xs">
+              <span
+                className={`${STATUS_COLORS[task.status] || "text-gray-400"} font-mono w-4 text-center`}
+              >
                 {STATUS_ICONS[task.status] || "?"}
               </span>
               <span className="text-gray-600 dark:text-gray-300 flex-1 truncate">
                 {task.name}
               </span>
               {task.status === "failed" && task.result && (
-                <span className="text-red-400 truncate max-w-[120px]" title={task.result}>
+                <span
+                  className="text-red-400 truncate max-w-[120px]"
+                  title={task.result}
+                >
                   {task.result}
                 </span>
               )}
@@ -178,7 +189,8 @@ export default function StatusFloatBar() {
     if (isUploading) return "正在上传文件...";
     if (isSending && !isStreaming) return "正在发送...";
     if (executionPhase?.phase) {
-      const phaseLabel = PHASE_LABELS[executionPhase.phase] || executionPhase.phase;
+      const phaseLabel =
+        PHASE_LABELS[executionPhase.phase] || executionPhase.phase;
       return executionPhase.description
         ? `${phaseLabel} ${executionPhase.description}`
         : phaseLabel;
@@ -190,7 +202,7 @@ export default function StatusFloatBar() {
   return (
     <div className="w-full relative">
       <div
-        className={`w-full px-3 transition-opacity duration-1000 ease-in-out ${fadingOut ? 'opacity-0' : 'opacity-100'}`}
+        className={`w-full px-3 transition-opacity duration-1000 ease-in-out ${fadingOut ? "opacity-0" : "opacity-100"}`}
         onClick={() => setShowTaskPanel(!showTaskPanel)}
       >
         <div className="max-w-3xl mx-auto">
@@ -219,7 +231,12 @@ export default function StatusFloatBar() {
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
               </svg>
             )}
 
@@ -234,7 +251,11 @@ export default function StatusFloatBar() {
                 className="flex items-center gap-1 px-2.5 py-1 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
                 title="停止 AI 回复"
               >
-                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <rect x="4" y="4" width="16" height="16" rx="2" />
                 </svg>
                 <span>停止</span>
@@ -246,7 +267,10 @@ export default function StatusFloatBar() {
 
       {/* 展开的 Mini 面板 */}
       {showTaskPanel && taskCard && (
-        <TaskMiniPanel data={taskCard} onClose={() => setShowTaskPanel(false)} />
+        <TaskMiniPanel
+          data={taskCard}
+          onClose={() => setShowTaskPanel(false)}
+        />
       )}
     </div>
   );

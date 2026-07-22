@@ -205,10 +205,27 @@ export async function handleError(
     // OTel 不可用时不中断主流程
   }
 
-  // 5. EventBus publish 不在 handleError 内做
-  //    原因：①消除对 core/events 的硬依赖 ②避免循环依赖
-  //    替代：setupEventBridges 可订阅 handleError 的内存追踪记录后转发
-  //    参见 channels/events/setupEventBridges.ts
+  // 5. CRITICAL/HIGH 错误发布到 EventBus，供告警系统响应
+  if (
+    appError.severity === ErrorSeverity.CRITICAL ||
+    appError.severity === ErrorSeverity.HIGH
+  ) {
+    try {
+      const { globalEventBus } = await import('../core/events/EventBus.js');
+      globalEventBus.publish('error:occurred', {
+        errorId: appError.errorId,
+        category: appError.category,
+        severity: appError.severity,
+        code: appError.code,
+        message: appError.message,
+        module: options.module,
+        action: options.action,
+        timestamp: Date.now(),
+      });
+    } catch {
+      // globalEventBus 不可用时静默跳过（启动早期可能尚未初始化）
+    }
+  }
 
   // 6. 可选重新抛出
   if (options.rethrow) {
@@ -216,4 +233,38 @@ export async function handleError(
   }
 
   return appError;
+}
+
+/**
+ * P3-2.11: 获取后端错误统计快照
+ * 供 GET /v1/monitoring/errors 端点使用
+ */
+export function getErrorStats(): {
+  total: number;
+  byCategory: Record<string, number>;
+  bySeverity: Record<string, number>;
+  recent: Array<{
+    module: string;
+    action: string;
+    category: string;
+    severity: string;
+    code: string;
+    message: string;
+    timestamp: number;
+  }>;
+} {
+  return {
+    total: errorStats.total,
+    byCategory: { ...errorStats.byCategory },
+    bySeverity: { ...errorStats.bySeverity },
+    recent: errorStats.recent.slice(0, 20).map((e) => ({
+      module: (e.context?.module as string) || 'unknown',
+      action: (e.context?.action as string) || 'unknown',
+      category: e.error.category,
+      severity: e.error.severity,
+      code: e.error.code || 'UNHANDLED_ERROR',
+      message: e.error.message,
+      timestamp: e.timestamp,
+    })),
+  };
 }

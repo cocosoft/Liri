@@ -23,10 +23,7 @@ function SkillMarketModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col">
       {/* 背景遮罩 */}
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* 弹窗内容 */}
       <div
@@ -37,7 +34,9 @@ function SkillMarketModal({ onClose }: { onClose: () => void }) {
         {/* 顶部栏 */}
         <div
           className={`flex items-center justify-between px-4 py-3 border-b shrink-0 ${
-            isDark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-50"
+            isDark
+              ? "border-gray-700 bg-gray-800"
+              : "border-gray-200 bg-gray-50"
           }`}
         >
           <button
@@ -48,8 +47,18 @@ function SkillMarketModal({ onClose }: { onClose: () => void }) {
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
             {t("skill.backToManage")}
           </button>

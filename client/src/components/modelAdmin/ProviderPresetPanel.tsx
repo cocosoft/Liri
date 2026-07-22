@@ -4,7 +4,10 @@
  */
 
 import { useMemo } from "react";
-import { getPresetsByCategory, CATEGORY_LABELS } from "../../config/providerPresets";
+import {
+  getPresetsByCategory,
+  CATEGORY_LABELS,
+} from "../../config/providerPresets";
 import type { ProviderFormData } from "../../types";
 
 interface ProviderPresetPanelProps {
@@ -14,14 +17,20 @@ interface ProviderPresetPanelProps {
 
 const TYPE_COLORS: Record<string, string> = {
   official: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  aggregator: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+  aggregator:
+    "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
   third_party: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
-  cn_official: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+  cn_official:
+    "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
 };
 
-const DEFAULT_COLOR = "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
+const DEFAULT_COLOR =
+  "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
 
-export default function ProviderPresetPanel({ onSelect, onClose }: ProviderPresetPanelProps) {
+export default function ProviderPresetPanel({
+  onSelect,
+  onClose,
+}: ProviderPresetPanelProps) {
   const grouped = useMemo(() => getPresetsByCategory(), []);
 
   return (

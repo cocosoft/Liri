@@ -21,7 +21,11 @@ interface AuthState {
   error: string | null;
 
   login: (username: string, password: string) => Promise<void>;
-  register: (username: string, password: string, email?: string) => Promise<void>;
+  register: (
+    username: string,
+    password: string,
+    email?: string,
+  ) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   clearError: () => void;
@@ -45,7 +49,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         isLoading: false,
       });
     } catch (e) {
-      handleClientError(e, { module: 'stores:authStore', action: 'login' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:authStore", action: "login" },
+        "warn",
+      );
       set({
         error: e instanceof Error ? e.message : "登录失败",
         isLoading: false,
@@ -57,7 +65,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   register: async (username: string, password: string, email?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await authService.register({ username, password, email });
+      const response = await authService.register({
+        username,
+        password,
+        email,
+      });
       set({
         user: response.user,
         token: response.token,
@@ -65,7 +77,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         isLoading: false,
       });
     } catch (e) {
-      handleClientError(e, { module: 'stores:authStore', action: 'register' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:authStore", action: "register" },
+        "warn",
+      );
       set({
         error: e instanceof Error ? e.message : "注册失败",
         isLoading: false,
@@ -102,7 +118,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         isLoading: false,
       });
     } catch (e) {
-      handleClientError(e, { module: 'stores:authStore', action: 'checkAuth' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:authStore", action: "checkAuth" },
+        "warn",
+      );
       set({
         user: null,
         isAuthenticated: false,
@@ -124,7 +144,11 @@ interface ApiKeyState {
   error: string | null;
 
   loadApiKeys: () => Promise<void>;
-  createApiKey: (name: string, permissions: string[], expiresInDays?: number) => Promise<string>;
+  createApiKey: (
+    name: string,
+    permissions: string[],
+    expiresInDays?: number,
+  ) => Promise<string>;
   deleteApiKey: (id: string) => Promise<void>;
 }
 
@@ -139,7 +163,11 @@ export const useApiKeyStore = create<ApiKeyState>((set) => ({
       const apiKeys = await authService.listApiKeys();
       set({ apiKeys, isLoading: false });
     } catch (e) {
-      handleClientError(e, { module: 'stores:apiKeyStore', action: 'loadApiKeys' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:apiKeyStore", action: "loadApiKeys" },
+        "warn",
+      );
       set({
         error: e instanceof Error ? e.message : "获取API密钥列表失败",
         isLoading: false,
@@ -147,17 +175,29 @@ export const useApiKeyStore = create<ApiKeyState>((set) => ({
     }
   },
 
-  createApiKey: async (name: string, permissions: string[], expiresInDays?: number) => {
+  createApiKey: async (
+    name: string,
+    permissions: string[],
+    expiresInDays?: number,
+  ) => {
     set({ isLoading: true, error: null });
     try {
-      const result = await authService.createApiKey(name, permissions, expiresInDays);
+      const result = await authService.createApiKey(
+        name,
+        permissions,
+        expiresInDays,
+      );
       set((state) => ({
         apiKeys: [...state.apiKeys, { ...result, key: undefined } as ApiKey],
         isLoading: false,
       }));
       return result.key;
     } catch (e) {
-      handleClientError(e, { module: 'stores:apiKeyStore', action: 'createApiKey' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:apiKeyStore", action: "createApiKey" },
+        "warn",
+      );
       set({
         error: e instanceof Error ? e.message : "创建API密钥失败",
         isLoading: false,
@@ -175,7 +215,11 @@ export const useApiKeyStore = create<ApiKeyState>((set) => ({
         isLoading: false,
       }));
     } catch (e) {
-      handleClientError(e, { module: 'stores:apiKeyStore', action: 'deleteApiKey' }, 'warn');
+      handleClientError(
+        e,
+        { module: "stores:apiKeyStore", action: "deleteApiKey" },
+        "warn",
+      );
       set({
         error: e instanceof Error ? e.message : "删除API密钥失败",
         isLoading: false,

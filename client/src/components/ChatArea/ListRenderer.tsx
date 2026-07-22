@@ -33,6 +33,7 @@ function ListRenderer({ content, renderText }: ListRendererProps) {
         >
           <input
             type="checkbox"
+            id={`list-item-checkbox-${idx}`}
             checked={checked}
             readOnly
             className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-500 focus:ring-blue-500 cursor-default"

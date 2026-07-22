@@ -152,6 +152,7 @@ const FileAttachmentBar = forwardRef<
       {/* 隐藏的文件选择输入（由父组件统一「+」菜单触发） */}
       <input
         ref={fileInputRef}
+        id="file-attachment-input"
         type="file"
         multiple
         className="hidden"

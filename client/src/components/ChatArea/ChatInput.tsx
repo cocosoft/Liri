@@ -899,6 +899,7 @@ function ChatInput() {
                 <label className="flex items-center gap-2 mt-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none">
                   <input
                     type="checkbox"
+                    id="branch-on-edit"
                     checked={branchOnEdit}
                     onChange={(e) => setBranchOnEdit(e.target.checked)}
                     className="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600 text-amber-500 focus:ring-amber-500"
@@ -968,6 +969,7 @@ function ChatInput() {
               <div className="flex items-center gap-0.5">
                 <input
                   ref={imageInputRef}
+                  id="image-upload-input"
                   type="file"
                   accept="image/*"
                   multiple

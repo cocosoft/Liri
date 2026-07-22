@@ -301,6 +301,7 @@ export default function ImageViewer({
           {/* 缩放滑块 */}
           <input
             type="range"
+            id="image-zoom-slider"
             min="25"
             max="400"
             value={Math.round(transform.scale * 100)}

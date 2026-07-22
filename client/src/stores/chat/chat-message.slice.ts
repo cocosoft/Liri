@@ -203,7 +203,7 @@ export const createMessageSlice: StateCreator<
       set({ messages: newMessages, isSending: false, isInputBlocked: false });
 
       // 再执行自动重命名（不阻塞 UI 状态）
-      if (shouldAutoRename(sessionId)) {
+      if (await shouldAutoRename(sessionId)) {
         doAutoRename(sessionId!, content, (response as Message).content).catch(
           (e) =>
             handleClientError(
@@ -773,7 +773,7 @@ export const createMessageSlice: StateCreator<
       }
 
       // 再执行自动重命名（不阻塞 UI 状态）
-      if (shouldAutoRename(sessionId)) {
+      if (await shouldAutoRename(sessionId)) {
         const finalMsgs = get().messages;
         const finalMI = finalMsgs.findIndex((m) => m.id === assistantId);
         const assistantResponse =

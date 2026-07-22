@@ -8,6 +8,7 @@ import type {
   SessionSummary,
   SessionDetail,
 } from "../../services/monitorService";
+import { logStore, type FrontendLogEntry } from "../../utils/logStore";
 import SearchInput from "../common/SearchInput";
 import LogViewer from "../common/LogViewer";
 import { OTELSpanViewer } from "../common/OTELSpanViewer";
@@ -18,7 +19,7 @@ const logger = createLogger("components:logViewer");
 
 const ENABLE_TRACE_REDESIGN = true;
 
-type TabType = "logs" | "sessions" | "cost" | "otel";
+type TabType = "logs" | "frontend" | "sessions" | "cost" | "otel";
 
 function LogViewerPage() {
   const { t, i18n } = useTranslation();
@@ -51,6 +52,15 @@ function LogViewerPage() {
   const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
   const [isLoadingCost, setIsLoadingCost] = useState(false);
   const [costError, setCostError] = useState<string | null>(null);
+
+  // 前端日志相关状态
+  const [frontendLogs, setFrontendLogs] = useState<FrontendLogEntry[]>([]);
+  const [frontendLogsTotal, setFrontendLogsTotal] = useState(0);
+  const [frontendLevelFilter, setFrontendLevelFilter] = useState<string>("all");
+  const [frontendModuleFilter, setFrontendModuleFilter] = useState<string>("");
+  const [frontendSearchQuery, setFrontendSearchQuery] = useState("");
+  const [frontendOffset, setFrontendOffset] = useState(0);
+  const frontendLimit = 50;
 
   const fetchLogs = useCallback(
     async (resetOffset = false) => {
@@ -135,9 +145,38 @@ function LogViewerPage() {
     }
   }, []);
 
+  const fetchFrontendLogs = useCallback(
+    (resetOffset = false) => {
+      const params = {
+        level:
+          frontendLevelFilter !== "all"
+            ? (frontendLevelFilter as FrontendLogEntry["level"])
+            : undefined,
+        module: frontendModuleFilter || undefined,
+        search: frontendSearchQuery || undefined,
+        limit: frontendLimit,
+        offset: resetOffset ? 0 : frontendOffset,
+      };
+
+      const result = logStore.query(params);
+
+      if (resetOffset) {
+        setFrontendLogs(result.logs);
+        setFrontendOffset(frontendLimit);
+      } else {
+        setFrontendLogs((prev) => [...prev, ...result.logs]);
+        setFrontendOffset((prev) => prev + frontendLimit);
+      }
+      setFrontendLogsTotal(result.total);
+    },
+    [frontendLevelFilter, frontendModuleFilter, frontendSearchQuery, frontendOffset],
+  );
+
   useEffect(() => {
     if (activeTab === "logs") {
       fetchLogs(true);
+    } else if (activeTab === "frontend") {
+      fetchFrontendLogs(true);
     } else if (activeTab === "sessions") {
       fetchSessions();
     } else if (activeTab === "cost") {
@@ -150,6 +189,37 @@ function LogViewerPage() {
       fetchLogs(true);
     }
   }, [levelFilter, sourceFilter, searchQuery]);
+
+  useEffect(() => {
+    if (activeTab === "frontend") {
+      fetchFrontendLogs(true);
+    }
+  }, [frontendLevelFilter, frontendModuleFilter, frontendSearchQuery]);
+
+  const handleFrontendSearch = () => {
+    fetchFrontendLogs(true);
+  };
+
+  const handleLoadMoreFrontendLogs = () => {
+    fetchFrontendLogs(false);
+  };
+
+  const handleClearFrontendLogs = () => {
+    logStore.clear();
+    fetchFrontendLogs(true);
+  };
+
+  const formatFrontendDate = (timestamp: number): string => {
+    const date = new Date(timestamp);
+    const locale = i18n.language === "en" ? "en-US" : "zh-CN";
+    return date.toLocaleString(locale, {
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  };
 
   const handleSearch = () => {
     fetchLogs(true);
@@ -214,9 +284,10 @@ function LogViewerPage() {
 
   const tabs = [
     { key: "logs" as TabType, label: t("settings.logViewerTabLogs") },
+    { key: "frontend" as TabType, label: t("settings.logViewerTabFrontend") },
     { key: "sessions" as TabType, label: t("settings.logViewerTabSessions") },
     { key: "cost" as TabType, label: t("settings.logViewerTabCost") },
-    { key: "otel" as TabType, label: "OTEL 追踪" },
+    { key: "otel" as TabType, label: t("settings.logViewerTabOtel") },
   ];
 
   return (
@@ -366,6 +437,175 @@ function LogViewerPage() {
               onLoadMore={handleLoadMoreLogs}
               hasMore={logs.length < logsTotal}
             />
+          </>
+        )}
+
+        {/* 前端日志标签 */}
+        {activeTab === "frontend" && (
+          <>
+            <div
+              className={`rounded-lg border p-4 mb-6 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+            >
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex-1 min-w-[200px]">
+                  <SearchInput
+                    value={frontendSearchQuery}
+                    onChange={setFrontendSearchQuery}
+                    onSearch={handleFrontendSearch}
+                    placeholder="搜索前端日志"
+                    isDark={isDark}
+                  />
+                </div>
+                <select
+                  value={frontendLevelFilter}
+                  onChange={(e) => setFrontendLevelFilter(e.target.value)}
+                  className={`px-3 py-2 text-sm rounded-lg border ${
+                    isDark
+                      ? "bg-gray-700 border-gray-600 text-gray-300"
+                      : "bg-white border-gray-300 text-gray-700"
+                  } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                >
+                  <option value="all">全部级别</option>
+                  <option value="debug">Debug</option>
+                  <option value="info">Info</option>
+                  <option value="warn">Warning</option>
+                  <option value="error">Error</option>
+                </select>
+                <input
+                  type="text"
+                  value={frontendModuleFilter}
+                  onChange={(e) => setFrontendModuleFilter(e.target.value)}
+                  placeholder="模块名称"
+                  className={`px-3 py-2 text-sm rounded-lg border flex-1 min-w-[150px] ${
+                    isDark
+                      ? "bg-gray-700 border-gray-600 text-gray-300 placeholder-gray-500"
+                      : "bg-white border-gray-300 text-gray-700 placeholder-gray-400"
+                  } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                />
+                <button
+                  onClick={() => fetchFrontendLogs(true)}
+                  className={`px-4 py-2 text-sm rounded-lg font-medium ${
+                    isDark
+                      ? "bg-blue-600 hover:bg-blue-700 text-white"
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                  }`}
+                >
+                  刷新
+                </button>
+                <button
+                  onClick={handleClearFrontendLogs}
+                  className={`px-4 py-2 text-sm rounded-lg font-medium ${
+                    isDark
+                      ? "bg-red-600 hover:bg-red-700 text-white"
+                      : "bg-red-600 hover:bg-red-700 text-white"
+                  }`}
+                >
+                  清空
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-4 mt-3 text-xs">
+                <span className={isDark ? "text-gray-400" : "text-gray-500"}>
+                  共 {frontendLogsTotal} 条日志
+                </span>
+                <span className="text-gray-400">|</span>
+                <span className="text-gray-400">
+                  Debug: <span className="text-gray-300">{logStore.countByLevel("debug")}</span>
+                </span>
+                <span className="text-gray-400">
+                  Info: <span className="text-blue-400">{logStore.countByLevel("info")}</span>
+                </span>
+                <span className="text-gray-400">
+                  Warn: <span className="text-yellow-400">{logStore.countByLevel("warn")}</span>
+                </span>
+                <span className="text-gray-400">
+                  Error: <span className="text-red-400">{logStore.countByLevel("error")}</span>
+                </span>
+              </div>
+            </div>
+
+            {frontendLogs.length === 0 ? (
+              <div
+                className={`text-center py-12 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+              >
+                <p>暂无前端日志</p>
+              </div>
+            ) : (
+              <>
+                <div
+                  className={`space-y-2 ${isDark ? "bg-gray-900" : "bg-white"} rounded-lg border ${isDark ? "border-gray-700" : "border-gray-200"} overflow-hidden`}
+                >
+                  {frontendLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className={`p-3 border-b ${isDark ? "border-gray-800 hover:bg-gray-800" : "border-gray-100 hover:bg-gray-50"} last:border-b-0`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span
+                          className={`px-2 py-0.5 text-xs rounded font-medium whitespace-nowrap ${
+                            log.level === "debug"
+                              ? isDark
+                                ? "bg-gray-700 text-gray-300"
+                                : "bg-gray-100 text-gray-600"
+                              : log.level === "info"
+                              ? isDark
+                                ? "bg-blue-900/50 text-blue-400"
+                                : "bg-blue-50 text-blue-600"
+                              : log.level === "warn"
+                              ? isDark
+                                ? "bg-yellow-900/50 text-yellow-400"
+                                : "bg-yellow-50 text-yellow-600"
+                              : isDark
+                              ? "bg-red-900/50 text-red-400"
+                              : "bg-red-50 text-red-600"
+                          }`}
+                        >
+                          {log.level.toUpperCase()}
+                        </span>
+                        <span
+                          className={`text-xs font-medium ${isDark ? "text-purple-400" : "text-purple-600"}`}
+                        >
+                          {log.module}
+                        </span>
+                        <span
+                          className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
+                        >
+                          {formatFrontendDate(log.timestamp)}
+                        </span>
+                      </div>
+                      <div
+                        className={`mt-1 text-sm ${isDark ? "text-gray-200" : "text-gray-800"}`}
+                      >
+                        {log.message}
+                      </div>
+                      {log.data !== undefined && log.data !== null && (
+                        <pre
+                          className={`mt-2 p-2 text-xs rounded overflow-x-auto ${isDark ? "bg-gray-800 text-gray-300" : "bg-gray-50 text-gray-600"}`}
+                        >
+                          {typeof log.data === "object"
+                            ? JSON.stringify(log.data, null, 2)
+                            : String(log.data)}
+                        </pre>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {frontendLogs.length < frontendLogsTotal && (
+                  <div className="flex justify-center mt-4">
+                    <button
+                      onClick={handleLoadMoreFrontendLogs}
+                      className={`px-6 py-2 text-sm rounded-lg font-medium ${
+                        isDark
+                          ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                          : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                      }`}
+                    >
+                      加载更多
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </>
         )}
 

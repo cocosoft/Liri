@@ -21,7 +21,6 @@ export default defineConfig({
       'zustand',
       'react-markdown',
       'rehype-highlight',
-      'recharts',
       'react-i18next',
       'i18next',
       '@tauri-apps/api/core',

@@ -1,4 +1,5 @@
 import { httpLegacy as http } from "./httpClient";
+import { getBackendBaseUrl } from "./backendUrl";
 
 export type MemoryType =
   | "user_preference"
@@ -110,7 +111,7 @@ const memoryService = {
   async list(
     params?: MemoryListParams,
   ): Promise<{ memories: Memory[]; total: number }> {
-    const url = new URL("/v1/memory", "http://localhost");
+    const url = new URL("/v1/memory", getBackendBaseUrl());
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
@@ -167,7 +168,7 @@ const memoryService = {
   async search(
     params: MemorySearchParams,
   ): Promise<{ results: MemorySearchResult[]; total: number }> {
-    const url = new URL("/v1/memory/search", "http://localhost");
+    const url = new URL("/v1/memory/search", getBackendBaseUrl());
     if (params.query) url.searchParams.set("query", params.query);
     if (params.type) url.searchParams.set("type", params.type);
     if (params.limit) url.searchParams.set("limit", String(params.limit));

@@ -1369,6 +1369,20 @@ export async function dispatchRoute(
     return true;
   }
 
+  // ---- Global Cost Summary (前端 Footer 使用) ----
+  if (method === 'GET' && url === '/api/cost/summary') {
+    await self['handleGlobalCostSummary'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/api/cost/records') {
+    await self['handleGlobalCostRecords'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/api/cost/range') {
+    await self['handleGlobalCostRange'](req, res);
+    return true;
+  }
+
   // ---- Work Item Search ----
   if (
     method === 'POST' &&

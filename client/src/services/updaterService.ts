@@ -17,10 +17,25 @@ export interface UpdateCheckResult {
 }
 
 /**
+ * 检查是否在 Tauri 环境中
+ */
+function isTauri(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    ("__TAURI__" in window || "__TAURI_INTERNALS__" in window)
+  );
+}
+
+/**
  * 检查更新
  * @returns 更新检查结果
  */
 export async function checkForUpdate(): Promise<UpdateCheckResult> {
+  // 浏览器模式下直接返回无更新，不上报错误
+  if (!isTauri()) {
+    return { available: false, currentVersion: "" };
+  }
+
   try {
     const update = await check();
     if (!update) {

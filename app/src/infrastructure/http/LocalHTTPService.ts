@@ -347,6 +347,14 @@ export class LocalHTTPService {
       });
     });
 
+    // 配置长连接超时，支持 SSE 流式请求
+    // server.timeout: 0 表示禁用请求超时（SSE 流式请求可能持续很长时间）
+    // keepAliveTimeout: 服务器在发送最后一个响应后等待更多数据的时间
+    // headersTimeout: 服务器等待客户端发送完整请求头的时间
+    this.server.timeout = 0; // 禁用请求超时，支持长时间 SSE 流
+    this.server.keepAliveTimeout = 60000 * 5; // 5分钟
+    this.server.headersTimeout = 60000 * 6; // 6分钟（必须大于 keepAliveTimeout）
+
     return new Promise((resolve, reject) => {
       this.server!.listen(this.config.port, this.config.host, () => {
         this._isRunning = true;
@@ -1593,6 +1601,150 @@ export class LocalHTTPService {
     workspaceId: string
   ): Promise<void> {
     return handleWorkspaceBudgetStatus(this._handlerCtx, req, res, workspaceId);
+  }
+
+  /**
+   * 全局成本摘要（前端 Footer 使用）
+   * GET /api/cost/summary
+   */
+  private async handleGlobalCostSummary(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { costTracker } = await import('@modules/cost/CostTracker');
+      
+      const modelUsage = costTracker.getModelUsage();
+      const providers: Record<string, { cost: number; inputTokens: number; outputTokens: number; totalTokens: number; requests: number }> = {};
+      
+      for (const [model, usage] of Object.entries(modelUsage)) {
+        // 使用模型名作为 provider
+        providers[model] = {
+          cost: usage.costUSD,
+          inputTokens: usage.inputTokens || 0,
+          outputTokens: usage.outputTokens || 0,
+          totalTokens: (usage.inputTokens || 0) + (usage.outputTokens || 0),
+          requests: 1,
+        };
+      }
+      
+      const topProviders = Object.entries(providers)
+        .map(([provider, data]) => ({
+          provider,
+          ...data,
+          percentage: 0,
+        }))
+        .sort((a, b) => b.cost - a.cost)
+        .slice(0, 5);
+      
+      // 计算总百分比
+      const totalCost = topProviders.reduce((sum, p) => sum + p.cost, 0);
+      topProviders.forEach(p => {
+        p.percentage = totalCost > 0 ? (p.cost / totalCost) * 100 : 0;
+      });
+      
+      const totalInputTokens = costTracker.getTotalInputTokens();
+      const totalOutputTokens = costTracker.getTotalOutputTokens();
+      
+      const response = {
+        totalSessions: 0,
+        todayCost: costTracker.getTotalCostUSD(),
+        weeklyCost: costTracker.getTotalCostUSD(),
+        monthlyCost: costTracker.getTotalCostUSD(),
+        yearlyCost: costTracker.getTotalCostUSD(),
+        todayTokens: totalInputTokens + totalOutputTokens,
+        monthlyTokens: totalInputTokens + totalOutputTokens,
+        totalInputTokens,
+        totalOutputTokens,
+        totalTokens: totalInputTokens + totalOutputTokens,
+        totalCacheReadTokens: costTracker.getTotalCacheReadInputTokens(),
+        totalCacheCreationTokens: costTracker.getTotalCacheCreationInputTokens(),
+        totalRequests: Object.keys(modelUsage).length,
+        sessionCost: costTracker.getTotalCostUSD(),
+        sessionInputTokens: totalInputTokens,
+        sessionOutputTokens: totalOutputTokens,
+        sessionTokens: totalInputTokens + totalOutputTokens,
+        topProviders,
+        dailyBreakdown: [],
+      };
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(response));
+    } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'global_cost_summary' });
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '获取成本摘要失败' } }));
+    }
+  }
+
+  /**
+   * 全局成本记录列表
+   * GET /api/cost/records?page=&limit=
+   */
+  private async handleGlobalCostRecords(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { costTracker } = await import('@modules/cost/CostTracker');
+      const modelUsage = costTracker.getModelUsage();
+      
+      const records = Object.entries(modelUsage).map(([model, usage], index) => ({
+        id: `cost-${index}`,
+        date: new Date().toISOString().split('T')[0],
+        provider: model,
+        model,
+        promptTokens: usage.inputTokens || 0,
+        completionTokens: usage.outputTokens || 0,
+        totalTokens: (usage.inputTokens || 0) + (usage.outputTokens || 0),
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+        cost: usage.costUSD,
+        currency: 'USD',
+      }));
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ records, total: records.length }));
+    } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'global_cost_records' });
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '获取成本记录失败' } }));
+    }
+  }
+
+  /**
+   * 按日期范围查询成本
+   * GET /api/cost/range?startDate=&endDate=
+   */
+  private async handleGlobalCostRange(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { costTracker } = await import('@modules/cost/CostTracker');
+      const modelUsage = costTracker.getModelUsage();
+      
+      const records = Object.entries(modelUsage).map(([model, usage], index) => ({
+        id: `cost-${index}`,
+        date: new Date().toISOString().split('T')[0],
+        provider: model,
+        model,
+        promptTokens: usage.inputTokens || 0,
+        completionTokens: usage.outputTokens || 0,
+        totalTokens: (usage.inputTokens || 0) + (usage.outputTokens || 0),
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+        cost: usage.costUSD,
+        currency: 'USD',
+      }));
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(records));
+    } catch (err) {
+      await handleError(err, { module: 'infra:http', action: 'global_cost_range' });
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '获取成本范围数据失败' } }));
+    }
   }
 
   // ========== Work Item Search Handlers ==========

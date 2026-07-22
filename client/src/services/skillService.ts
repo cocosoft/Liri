@@ -1,5 +1,6 @@
 import { httpLegacy as http } from "./httpClient";
 import { handleClientError } from "../utils/handleError";
+import { getBackendBaseUrl } from "./backendUrl";
 
 export type SkillStatus = "enabled" | "disabled" | "draft";
 
@@ -154,7 +155,7 @@ const skillService = {
   async list(
     params?: SkillListParams,
   ): Promise<{ skills: Skill[]; total: number }> {
-    const url = new URL("/v1/skills/system", "http://localhost");
+    const url = new URL("/v1/skills/system", getBackendBaseUrl());
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {

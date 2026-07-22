@@ -478,3 +478,25 @@ export function ensureThinkResponseTags(content: string): string {
   // 无法找到分隔点 → 整体包裹为 <response>（宁可漏过不可错杀）
   return `<response>${content}</response>`;
 }
+
+/**
+ * 剥离 think/response 标签
+ * - think 标签：移除标签及其内容（内部推理，用户不可见）
+ * - response 标签：仅移除标签，保留内容（用户可见的最终回答）
+ */
+export function stripThinkResponseTags(content: string): string {
+  if (!content?.trim()) return content;
+
+  let result = content;
+
+  // 移除 <think>...</think> 及变体标签（连同内容一起删除）
+  // \1 反向引用匹配对应的结束标签名
+  const thinkPattern = /<(think|thinking|reasoning|thought|reflection|analysis|internal)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
+  result = result.replace(thinkPattern, '');
+
+  // 移除 <response>...</response> 标签（仅移除标签，保留内容）
+  result = result.replace(/<response\b[^>]*>/gi, '');
+  result = result.replace(/<\/response\s*>/gi, '');
+
+  return result.trim();
+}

@@ -64,6 +64,7 @@ function SessionListItem({
         {isEditing ? (
           <input
             type="text"
+            id={`session-title-edit-${session.id}`}
             value={editTitle}
             onChange={(e) => onEditTitleChange(e.target.value)}
             onBlur={onEditBlur}

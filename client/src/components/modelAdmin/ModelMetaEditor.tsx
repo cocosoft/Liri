@@ -121,7 +121,7 @@ function ModelMetaEditor({
         // 如果表单中没有设置能力，使用默认能力
         setForm((prev) => {
           if (prev.capabilities.length === 0) {
-            const defaultCaps = result
+            const defaultCaps = (result || [])
               .filter((c) => c.isDefault)
               .map((c) => c.key);
             return {

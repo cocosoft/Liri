@@ -109,14 +109,17 @@ export const capabilityService = {
       url.searchParams.set("enabled", String(params.enabled));
     }
 
-    const data = await http.get<{
-      capabilities: ModelCapabilityDefinition[];
-      categories: CapabilityCategoryDefinition[];
-      version: string;
-      lastModified: string;
+    const res = await http.get<{
+      data: {
+        capabilities: ModelCapabilityDefinition[];
+        categories: CapabilityCategoryDefinition[];
+        version: string;
+        lastModified: string;
+      };
     }>(url.pathname + url.search);
 
-    // 更新缓存
+    const data = res.data;
+
     cache = {
       capabilities: data.capabilities,
       categories: data.categories,
@@ -134,9 +137,10 @@ export const capabilityService = {
    */
   async get(key: string): Promise<ModelCapabilityDefinition | null> {
     try {
-      return await http.get<ModelCapabilityDefinition>(
+      const res = await http.get<{ data: ModelCapabilityDefinition }>(
         `/v1/models/capabilities/${encodeURIComponent(key)}`,
       );
+      return res.data;
     } catch (e) {
       handleClientError(e, { module: "services:capability", action: "get" });
       return null;
@@ -197,9 +201,10 @@ export const capabilityService = {
    * @returns 任务映射列表
    */
   async getTaskMappings(): Promise<TaskCapabilityMapping[]> {
-    return await http.get<TaskCapabilityMapping[]>(
+    const res = await http.get<{ data: TaskCapabilityMapping[] }>(
       "/v1/models/capabilities/task-mappings",
     );
+    return res.data;
   },
 
   /**
@@ -215,9 +220,10 @@ export const capabilityService = {
    * @returns 分类列表
    */
   async getCategories(): Promise<CapabilityCategoryDefinition[]> {
-    return await http.get<CapabilityCategoryDefinition[]>(
+    const res = await http.get<{ data: CapabilityCategoryDefinition[] }>(
       "/v1/models/capabilities/categories",
     );
+    return res.data;
   },
 
   /**
@@ -230,13 +236,14 @@ export const capabilityService = {
     taskType: string,
     modelCapabilities: string[],
   ): Promise<{ valid: boolean; issues: ValidationIssue[] }> {
-    return await http.post<{ valid: boolean; issues: ValidationIssue[] }>(
+    const res = await http.post<{ data: { valid: boolean; issues: ValidationIssue[] } }>(
       "/v1/models/capabilities/validate",
       {
         taskType,
         modelCapabilities,
       },
     );
+    return res.data;
   },
 
   /**
@@ -247,15 +254,13 @@ export const capabilityService = {
   async getCapabilitiesCached(
     forceRefresh = false,
   ): Promise<ModelCapabilityDefinition[]> {
-    // 如果有有效缓存且不强制刷新，直接返回缓存
     const cached = getCachedCapabilities();
     if (cached.length > 0 && !forceRefresh) {
       return cached;
     }
 
-    // 否则从服务器获取
     const result = await this.getAll();
-    return result.capabilities;
+    return result?.capabilities || [];
   },
 
   /**

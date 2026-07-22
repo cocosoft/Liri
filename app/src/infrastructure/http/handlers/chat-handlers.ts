@@ -267,7 +267,11 @@ async function handleStreamingChat(
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
     'X-Accel-Buffering': 'no',
+    'Transfer-Encoding': 'chunked',
   });
+
+  // 禁用响应缓冲，确保 SSE 数据立即发送
+  (res as unknown as { flush: () => void }).flush?.();
 
   const responseId = `chatcmpl-${randomUUID().slice(0, 8)}`;
   const created = Math.floor(Date.now() / 1000);
@@ -285,6 +289,7 @@ async function handleStreamingChat(
       ],
     })}\n\n`
   );
+  (res as unknown as { flush: () => void }).flush?.();
 
   res.write(
     `data: ${JSON.stringify({
@@ -302,6 +307,7 @@ async function handleStreamingChat(
       ],
     })}\n\n`
   );
+  (res as unknown as { flush: () => void }).flush?.();
 
   /** 生图完成事件 → SSE 转发（含结构化 resultData 用于前端渲染） */
   const onToolCompleted = (evt: { type: string; data: unknown }) => {
@@ -390,6 +396,7 @@ async function handleStreamingChat(
                 ],
               })}\n\n`
             );
+            (res as unknown as { flush: () => void }).flush?.();
           }
           break;
         case 'thinking':
@@ -411,6 +418,7 @@ async function handleStreamingChat(
                 ],
               })}\n\n`
             );
+            (res as unknown as { flush: () => void }).flush?.();
           }
           break;
         case 'error':
@@ -431,6 +439,7 @@ async function handleStreamingChat(
                 ],
               })}\n\n`
             );
+            (res as unknown as { flush: () => void }).flush?.();
           }
           break;
         case 'tool_call':
@@ -464,6 +473,7 @@ async function handleStreamingChat(
                 ],
               })}\n\n`
             );
+            (res as unknown as { flush: () => void }).flush?.();
           }
           break;
         case 'question':
@@ -486,6 +496,7 @@ async function handleStreamingChat(
                 ],
               })}\n\n`
             );
+            (res as unknown as { flush: () => void }).flush?.();
           }
           break;
         case 'todo':
@@ -503,6 +514,7 @@ async function handleStreamingChat(
                 ],
               })}\n\n`
             );
+            (res as unknown as { flush: () => void }).flush?.();
           }
           break;
         case 'done':
@@ -540,6 +552,7 @@ async function handleStreamingChat(
           choices: [{ index: 0, delta: {}, finish_reason: finalFinishReason }],
         })}\n\n`
       );
+      (res as unknown as { flush: () => void }).flush?.();
     } else {
       res.write(
         `data: ${JSON.stringify({
@@ -550,9 +563,11 @@ async function handleStreamingChat(
           choices: [{ index: 0, delta: {}, finish_reason: finalFinishReason }],
         })}\n\n`
       );
+      (res as unknown as { flush: () => void }).flush?.();
     }
 
     res.write('data: [DONE]\n\n');
+    (res as unknown as { flush: () => void }).flush?.();
     eventNotificationService.off('tool:completed', onToolCompleted);
     logger.info('Stream chat completed', {
       model,
@@ -582,7 +597,9 @@ async function handleStreamingChat(
         ],
       })}\n\n`
     );
+    (res as unknown as { flush: () => void }).flush?.();
     res.write('data: [DONE]\n\n');
+    (res as unknown as { flush: () => void }).flush?.();
     res.end();
   }
 }

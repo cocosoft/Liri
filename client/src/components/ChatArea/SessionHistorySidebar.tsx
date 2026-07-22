@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useRootStore } from "../../stores/root-store";
 import { sessionService } from "../../services/sessionService";
+import { getOTelTracing } from "../../monitoring/otel/OTelTracing";
+import { handleClientError } from "../../utils/handleError";
 import ConfirmDialog from "../common/ConfirmDialog";
 import SessionContextMenu from "./SessionContextMenu";
 import SessionListItem from "./SessionListItem";
@@ -295,9 +297,47 @@ function SessionHistorySidebar() {
     navigate("/chat");
   };
 
-  const handleSwitchSession = (id: string) => {
-    switchSession(id);
-    navigate("/chat");
+  const handleSwitchSession = async (id: string) => {
+    const otel = getOTelTracing();
+    const span = otel.startSpan("session.switch", {
+      sessionId: id,
+      prevSessionId: currentSession?.id ?? "none",
+    });
+
+    try {
+      console.info("[SessionSwitch] 开始切换会话", {
+        sessionId: id,
+        prevSessionId: currentSession?.id ?? "none",
+        timestamp: Date.now(),
+      });
+
+      await switchSession(id);
+
+      console.info("[SessionSwitch] 会话切换成功", {
+        sessionId: id,
+        timestamp: Date.now(),
+      });
+
+      span.setAttribute("status", "success");
+      navigate("/chat");
+    } catch (error) {
+      console.error("[SessionSwitch] 会话切换失败", {
+        sessionId: id,
+        prevSessionId: currentSession?.id ?? "none",
+        error: String(error),
+        stack: (error as Error)?.stack,
+        timestamp: Date.now(),
+      });
+
+      span.setAttribute("status", "error");
+      handleClientError(error, {
+        module: "components:chat:SessionHistorySidebar",
+        action: "handleSwitchSession",
+        meta: { sessionId: id, prevSessionId: currentSession?.id ?? "none" },
+      });
+    } finally {
+      otel.endSpan(span);
+    }
   };
 
   const handleDeleteSession = (e: React.MouseEvent, id: string) => {
@@ -461,6 +501,7 @@ function SessionHistorySidebar() {
       <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700">
         <input
           type="text"
+          id="sidebar-search-input"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={t("chat.searchSessions")}

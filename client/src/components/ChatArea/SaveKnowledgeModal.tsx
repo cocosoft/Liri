@@ -74,6 +74,8 @@ function SaveKnowledgeModal({
             </label>
             <input
               type="text"
+              id="save-title-input"
+              name="saveTitle"
               value={saveTitle}
               onChange={(e) => setSaveTitle(e.target.value)}
               placeholder="文档标题"
@@ -88,6 +90,8 @@ function SaveKnowledgeModal({
             </label>
             <input
               type="text"
+              id="save-base-input"
+              name="saveBase"
               list="base-options"
               value={saveBase}
               onChange={(e) => setSaveBase(e.target.value)}

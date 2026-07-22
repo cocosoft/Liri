@@ -4,6 +4,7 @@ import { useSessionStore } from "../../stores/sessionStore";
 import { useNavigationStore } from "../../stores/navigationStore";
 import { fileService } from "../../services/fileService";
 import { knowledgeService } from "../../services/knowledgeService";
+import { getOTelTracing } from "../../monitoring/otel/OTelTracing";
 import { handleClientError } from "../../utils/handleError";
 import type { Session } from "../../types";
 import type { FileRegistryRecord } from "../../types/file";
@@ -98,9 +99,47 @@ export default function GlobalSearchModal({
   /** 点击会话结果：切换到该会话 */
   const handleSessionClick = useCallback(
     async (session: Session) => {
-      await switchSession(session.id);
-      setActivePage("chat");
-      onClose();
+      const otel = getOTelTracing();
+      const span = otel.startSpan("session.switch.globalSearch", {
+        sessionId: session.id,
+        sessionTitle: session.title,
+      });
+
+      try {
+        console.info("[SessionSwitch] 全局搜索切换会话", {
+          sessionId: session.id,
+          sessionTitle: session.title,
+          timestamp: Date.now(),
+        });
+
+        await switchSession(session.id);
+
+        console.info("[SessionSwitch] 全局搜索切换会话成功", {
+          sessionId: session.id,
+          timestamp: Date.now(),
+        });
+
+        span.setAttribute("status", "success");
+        setActivePage("chat");
+        onClose();
+      } catch (error) {
+        console.error("[SessionSwitch] 全局搜索切换会话失败", {
+          sessionId: session.id,
+          sessionTitle: session.title,
+          error: String(error),
+          stack: (error as Error)?.stack,
+          timestamp: Date.now(),
+        });
+
+        span.setAttribute("status", "error");
+        handleClientError(error, {
+          module: "components:chat:GlobalSearchModal",
+          action: "handleSessionClick",
+          meta: { sessionId: session.id, sessionTitle: session.title },
+        });
+      } finally {
+        otel.endSpan(span);
+      }
     },
     [switchSession, setActivePage, onClose],
   );
@@ -160,6 +199,7 @@ export default function GlobalSearchModal({
             </svg>
             <input
               ref={inputRef}
+              id="global-search-input"
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}

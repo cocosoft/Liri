@@ -482,8 +482,10 @@ const en = {
     logViewerDesc:
       "Browse system logs, LLM session records, and cost statistics",
     logViewerTabLogs: "System Logs",
+    logViewerTabFrontend: "Frontend Logs",
     logViewerTabSessions: "LLM Sessions",
     logViewerTabCost: "Cost Stats",
+    logViewerTabOtel: "OTEL Traces",
     logViewerSearchPlaceholder: "Search logs...",
     logViewerLevelAll: "All Levels",
     logViewerSourceAll: "All Sources",

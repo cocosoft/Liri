@@ -99,6 +99,7 @@ export function ImageCompareView({
           {/* 滑块拖拽区域 */}
           <input
             type="range"
+            id="image-compare-slider"
             min={0}
             max={100}
             value={sliderPos}

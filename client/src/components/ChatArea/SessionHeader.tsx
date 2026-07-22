@@ -166,6 +166,7 @@ function SessionHeader() {
               {isEditing ? (
                 <input
                   type="text"
+                  id="session-title-input"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
                   onBlur={handleBlur}

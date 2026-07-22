@@ -1,9 +1,11 @@
 /**
- * 简单前端 Logger
+ * 前端 Logger
  *
  * 统一日志格式，生产环境可抑制 DEBUG 级别日志。
- * 不引入第三方依赖，基于 console 标准化输出。
+ * 日志同时输出到 console 和 localStorage（持久化）。
  */
+
+import { logStore } from "./logStore";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -28,21 +30,25 @@ export function createLogger(module: string) {
     debug: (msg: string, data?: unknown) => {
       if (!shouldLog("debug")) return;
       console.debug(prefix, msg, data ?? "");
+      logStore.add("debug", module, msg, data);
     },
 
     info: (msg: string, data?: unknown) => {
       if (!shouldLog("info")) return;
       console.info(prefix, msg, data ?? "");
+      logStore.add("info", module, msg, data);
     },
 
     warn: (msg: string, data?: unknown) => {
       if (!shouldLog("warn")) return;
       console.warn(prefix, msg, data ?? "");
+      logStore.add("warn", module, msg, data);
     },
 
     error: (msg: string, data?: unknown) => {
       if (!shouldLog("error")) return;
       console.error(prefix, msg, data ?? "");
+      logStore.add("error", module, msg, data);
     },
   };
 }

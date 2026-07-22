@@ -12,10 +12,10 @@ const isTauri =
 
 function defaultConfig(): AppConfig {
   // 解析用户主目录，优先级：
-  // 1. USERPROFILE 环境变量
-  // 2. HOMEDRIVE + HOMEPATH 组合
-  // 3. 抛出明确错误（绝不回退到 C:\Users\Default，那是系统保护的模板目录，不可写）
-  let homeDir: string;
+  // 1. USERPROFILE 环境变量（Node.js / Tauri 环境）
+  // 2. HOMEDRIVE + HOMEPATH 组合（Node.js / Tauri 环境）
+  // 3. 浏览器环境下使用空字符串（前端不需要知道用户主目录路径）
+  let homeDir = "";
   if (typeof process !== "undefined" && process.env?.USERPROFILE) {
     homeDir = process.env.USERPROFILE;
   } else if (
@@ -24,14 +24,10 @@ function defaultConfig(): AppConfig {
     process.env?.HOMEPATH
   ) {
     homeDir = process.env.HOMEDRIVE + process.env.HOMEPATH;
-  } else {
-    throw new Error(
-      "无法解析用户主目录。请设置 USERPROFILE 或 HOMEDRIVE+HOMEPATH 环境变量。",
-    );
   }
 
   return {
-    dataDir: `${homeDir}\\.pyapp`,
+    dataDir: homeDir ? `${homeDir}\\.pyapp` : "",
     httpPort: 7890,
     firstRunCompleted: false,
   };
@@ -50,6 +46,11 @@ async function invoke<T>(
 
 export const appConfigService = {
   async get(): Promise<AppConfig> {
+    // 浏览器模式下直接返回默认配置，不上报错误
+    if (!isTauri) {
+      return defaultConfig();
+    }
+
     try {
       const config = await invoke<AppConfig>("get_app_config");
 

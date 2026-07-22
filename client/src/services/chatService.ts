@@ -488,6 +488,18 @@ export const chatService = {
           yield { type: "error", content: "请求已取消" };
           return;
         }
+        // 处理连接意外关闭的情况
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        if (
+          errorMessage.includes("socket connection was closed unexpectedly") ||
+          errorMessage.includes("ERR_CONNECTION_RESET") ||
+          errorMessage.includes("net::ERR_INCOMPLETE_CHUNKED_ENCODING")
+        ) {
+          yield { type: "error", content: "连接已断开，请重试" };
+          return;
+        }
+        // 其他网络错误
+        yield { type: "error", content: `网络错误: ${errorMessage}` };
       } finally {
         reader.releaseLock();
       }

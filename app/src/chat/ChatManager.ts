@@ -51,6 +51,7 @@ import {
   truncateApiMessages,
   assembleContextualSystemPrompt,
   ensureThinkResponseTags,
+  stripThinkResponseTags,
 } from './services/MessageContextPipeline';
 import { SessionAccessFacade } from './services/SessionAccessFacade';
 import { TaskFacade } from './facades/TaskFacade';
@@ -1457,6 +1458,9 @@ export class ChatManagerImpl implements ChatManager {
     // 修复 AI 可能拼错的图片 URL，统一为 /v1/images/static/media/ 格式
     let assistantMessageContent = repairImageUrls(rawContent);
 
+    // 剥离 think/response 标签，返回干净的用户可见内容
+    assistantMessageContent = stripThinkResponseTags(assistantMessageContent);
+
     // 方案 1: 路径幻觉事后校验（dry-run 模式，只记录不修改文本）
     const pathGuardResult = await validatePathsInOutput(
       assistantMessageContent,
@@ -2232,11 +2236,14 @@ export class ChatManagerImpl implements ChatManager {
     finalResponse = result.value as unknown as ChatResponse;
 
     // 攒够完整响应后统一修复图片 URL，再一次性发出，避免 AI 拼错 URL
+    // ensureThinkResponseTags 用于内部处理，最终输出时剥离标签
     const repairedContent = ensureThinkResponseTags(
       repairImageUrls(accumulatedContent)
     );
-    options?.onStream?.(repairedContent);
-    yield repairedContent;
+    // 剥离 think/response 标签，返回干净的用户可见内容
+    const strippedContent = stripThinkResponseTags(repairedContent);
+    options?.onStream?.(strippedContent);
+    yield strippedContent;
 
     this.recordChatResponseUsage(session.id, finalResponse?.usage);
 

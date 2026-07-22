@@ -135,6 +135,7 @@ function SearchBar({
       </svg>
       <input
         ref={inputRef}
+        id="message-search-input"
         type="text"
         value={query}
         onChange={(e) => onQueryChange(e.target.value)}

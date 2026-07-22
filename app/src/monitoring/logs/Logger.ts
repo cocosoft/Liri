@@ -217,6 +217,7 @@ export class Logger {
   private format: 'text' | 'json';
   private colorize: boolean;
   private otelTraceEnabled: boolean;
+  protected logSource: LogSource = 'logger';
 
   constructor(config: LoggerConfig = {}) {
     // 合并全局配置提供者的默认值
@@ -264,7 +265,7 @@ export class Logger {
     return `[${timestamp}] [${level.toUpperCase()}] [${this.module}] ${message}${metaStr}`;
   }
 
-  private write(level: LogLevel, message: string, meta?: unknown): void {
+  protected write(level: LogLevel, message: string, meta?: unknown): void {
     if (!this.shouldLog(level)) return;
 
     // LogFilter 子系统过滤
@@ -285,7 +286,7 @@ export class Logger {
             ? (meta as Record<string, unknown>)
             : { meta }
           : undefined,
-      source: 'logger' as LogSource,
+      source: this.logSource,
     };
     appendLogEntry(logEntry);
 

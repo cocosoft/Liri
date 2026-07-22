@@ -126,7 +126,7 @@ export class OTelLoggerAdapter {
       filteredData = rest;
     }
 
-    this.logger.structured(level, message, filteredData, error);
+    this.logger.structured(level, message, filteredData, error, 'otel');
   }
 
   /** 重置日志器的 trace 状态 */

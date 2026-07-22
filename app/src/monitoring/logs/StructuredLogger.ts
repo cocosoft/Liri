@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 结构化日志系统
  * JSON 格式输出，含 traceId/spanId
  * 对齐 OpenClaw logging subsystem
@@ -11,6 +11,7 @@ import {
   clearLogMemory,
   getLogMemoryCount,
   type StructuredLogEntry,
+  type LogSource,
 } from './LogMemory.js';
 import { logRedact } from './redact/LogRedact.js';
 
@@ -37,6 +38,7 @@ export class StructuredLogger extends Logger {
     this.moduleName = config.module;
     this.traceEnabled = config.traceEnabled ?? false;
     this.jsonOutput = config.jsonOutput ?? false;
+    this.logSource = 'structured';
   }
 
   startTrace(id?: string): string {
@@ -61,7 +63,8 @@ export class StructuredLogger extends Logger {
     level: LogLevel,
     message: string,
     data?: Record<string, unknown>,
-    error?: Error
+    error?: Error,
+    source?: LogSource
   ): void {
     const entry: StructuredLogEntry = {
       timestamp: new Date().toISOString(),
@@ -77,7 +80,7 @@ export class StructuredLogger extends Logger {
       error: error
         ? { name: error.name, message: error.message, stack: error.stack }
         : undefined,
-      source: 'structured',
+      source: source || this.logSource,
     };
 
     // 统一写入内存一次（通过 writeToOutputs 复用父类输出管线，避免重复）

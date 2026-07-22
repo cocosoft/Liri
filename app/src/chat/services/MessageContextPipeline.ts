@@ -491,7 +491,8 @@ export function stripThinkResponseTags(content: string): string {
 
   // 移除 <think>...</think> 及变体标签（连同内容一起删除）
   // \1 反向引用匹配对应的结束标签名
-  const thinkPattern = /<(think|thinking|reasoning|thought|reflection|analysis|internal)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
+  const thinkPattern =
+    /<(think|thinking|reasoning|thought|reflection|analysis|internal)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
   result = result.replace(thinkPattern, '');
 
   // 移除 <response>...</response> 标签（仅移除标签，保留内容）

@@ -46,7 +46,7 @@ function buildTagPatterns(): {
 } {
   const thinkTagNames = THINK_TAG_NAMES.join('|');
   const responseTagNames = RESPONSE_TAG_NAMES.join('|');
-  
+
   return {
     thinkOpenPattern: new RegExp(`<(${thinkTagNames})\\b[^>]*>`, 'i'),
     thinkClosePattern: new RegExp(`</(${thinkTagNames})\\s*>`, 'i'),
@@ -58,7 +58,10 @@ function buildTagPatterns(): {
 /**
  * 检查是否为不完整的标签开始
  */
-function isIncompleteOpenTag(remaining: string, tagNames: readonly string[]): boolean {
+function isIncompleteOpenTag(
+  remaining: string,
+  tagNames: readonly string[]
+): boolean {
   for (const tagName of tagNames) {
     if (remaining.startsWith(`<${tagName}`) && !remaining.includes('>')) {
       return true;
@@ -70,7 +73,10 @@ function isIncompleteOpenTag(remaining: string, tagNames: readonly string[]): bo
 /**
  * 检查是否为不完整的标签结束
  */
-function isIncompleteCloseTag(remaining: string, tagNames: readonly string[]): boolean {
+function isIncompleteCloseTag(
+  remaining: string,
+  tagNames: readonly string[]
+): boolean {
   for (const tagName of tagNames) {
     if (remaining.startsWith(`</${tagName}`) && !remaining.includes('>')) {
       return true;
@@ -117,7 +123,8 @@ export class StreamingThinkScrubber {
     }
 
     // 合并上次未完成的标签缓冲区（可能是不完整的开始标签或结束标签）
-    let content = this.state.openTagBuffer + this.state.closeTagBuffer + chunk.content;
+    let content =
+      this.state.openTagBuffer + this.state.closeTagBuffer + chunk.content;
     this.state.openTagBuffer = '';
     this.state.closeTagBuffer = '';
 
@@ -147,7 +154,12 @@ export class StreamingThinkScrubber {
 
         // 检查不完整的标签开始
         if (remaining[0] === '<') {
-          if (isIncompleteOpenTag(remaining, [...THINK_TAG_NAMES, ...RESPONSE_TAG_NAMES])) {
+          if (
+            isIncompleteOpenTag(remaining, [
+              ...THINK_TAG_NAMES,
+              ...RESPONSE_TAG_NAMES,
+            ])
+          ) {
             this.state.openTagBuffer = remaining;
             return {
               ...chunk,

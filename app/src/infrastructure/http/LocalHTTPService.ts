@@ -1613,10 +1613,19 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const { costTracker } = await import('@modules/cost/CostTracker');
-      
+
       const modelUsage = costTracker.getModelUsage();
-      const providers: Record<string, { cost: number; inputTokens: number; outputTokens: number; totalTokens: number; requests: number }> = {};
-      
+      const providers: Record<
+        string,
+        {
+          cost: number;
+          inputTokens: number;
+          outputTokens: number;
+          totalTokens: number;
+          requests: number;
+        }
+      > = {};
+
       for (const [model, usage] of Object.entries(modelUsage)) {
         // 使用模型名作为 provider
         providers[model] = {
@@ -1627,7 +1636,7 @@ export class LocalHTTPService {
           requests: 1,
         };
       }
-      
+
       const topProviders = Object.entries(providers)
         .map(([provider, data]) => ({
           provider,
@@ -1636,16 +1645,16 @@ export class LocalHTTPService {
         }))
         .sort((a, b) => b.cost - a.cost)
         .slice(0, 5);
-      
+
       // 计算总百分比
       const totalCost = topProviders.reduce((sum, p) => sum + p.cost, 0);
-      topProviders.forEach(p => {
+      topProviders.forEach((p) => {
         p.percentage = totalCost > 0 ? (p.cost / totalCost) * 100 : 0;
       });
-      
+
       const totalInputTokens = costTracker.getTotalInputTokens();
       const totalOutputTokens = costTracker.getTotalOutputTokens();
-      
+
       const response = {
         totalSessions: 0,
         todayCost: costTracker.getTotalCostUSD(),
@@ -1658,7 +1667,8 @@ export class LocalHTTPService {
         totalOutputTokens,
         totalTokens: totalInputTokens + totalOutputTokens,
         totalCacheReadTokens: costTracker.getTotalCacheReadInputTokens(),
-        totalCacheCreationTokens: costTracker.getTotalCacheCreationInputTokens(),
+        totalCacheCreationTokens:
+          costTracker.getTotalCacheCreationInputTokens(),
         totalRequests: Object.keys(modelUsage).length,
         sessionCost: costTracker.getTotalCostUSD(),
         sessionInputTokens: totalInputTokens,
@@ -1667,11 +1677,14 @@ export class LocalHTTPService {
         topProviders,
         dailyBreakdown: [],
       };
-      
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(response));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'global_cost_summary' });
+      await handleError(err, {
+        module: 'infra:http',
+        action: 'global_cost_summary',
+      });
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: '获取成本摘要失败' } }));
     }
@@ -1688,25 +1701,30 @@ export class LocalHTTPService {
     try {
       const { costTracker } = await import('@modules/cost/CostTracker');
       const modelUsage = costTracker.getModelUsage();
-      
-      const records = Object.entries(modelUsage).map(([model, usage], index) => ({
-        id: `cost-${index}`,
-        date: new Date().toISOString().split('T')[0],
-        provider: model,
-        model,
-        promptTokens: usage.inputTokens || 0,
-        completionTokens: usage.outputTokens || 0,
-        totalTokens: (usage.inputTokens || 0) + (usage.outputTokens || 0),
-        cacheReadTokens: 0,
-        cacheCreationTokens: 0,
-        cost: usage.costUSD,
-        currency: 'USD',
-      }));
-      
+
+      const records = Object.entries(modelUsage).map(
+        ([model, usage], index) => ({
+          id: `cost-${index}`,
+          date: new Date().toISOString().split('T')[0],
+          provider: model,
+          model,
+          promptTokens: usage.inputTokens || 0,
+          completionTokens: usage.outputTokens || 0,
+          totalTokens: (usage.inputTokens || 0) + (usage.outputTokens || 0),
+          cacheReadTokens: 0,
+          cacheCreationTokens: 0,
+          cost: usage.costUSD,
+          currency: 'USD',
+        })
+      );
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ records, total: records.length }));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'global_cost_records' });
+      await handleError(err, {
+        module: 'infra:http',
+        action: 'global_cost_records',
+      });
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: '获取成本记录失败' } }));
     }
@@ -1723,25 +1741,30 @@ export class LocalHTTPService {
     try {
       const { costTracker } = await import('@modules/cost/CostTracker');
       const modelUsage = costTracker.getModelUsage();
-      
-      const records = Object.entries(modelUsage).map(([model, usage], index) => ({
-        id: `cost-${index}`,
-        date: new Date().toISOString().split('T')[0],
-        provider: model,
-        model,
-        promptTokens: usage.inputTokens || 0,
-        completionTokens: usage.outputTokens || 0,
-        totalTokens: (usage.inputTokens || 0) + (usage.outputTokens || 0),
-        cacheReadTokens: 0,
-        cacheCreationTokens: 0,
-        cost: usage.costUSD,
-        currency: 'USD',
-      }));
-      
+
+      const records = Object.entries(modelUsage).map(
+        ([model, usage], index) => ({
+          id: `cost-${index}`,
+          date: new Date().toISOString().split('T')[0],
+          provider: model,
+          model,
+          promptTokens: usage.inputTokens || 0,
+          completionTokens: usage.outputTokens || 0,
+          totalTokens: (usage.inputTokens || 0) + (usage.outputTokens || 0),
+          cacheReadTokens: 0,
+          cacheCreationTokens: 0,
+          cost: usage.costUSD,
+          currency: 'USD',
+        })
+      );
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(records));
     } catch (err) {
-      await handleError(err, { module: 'infra:http', action: 'global_cost_range' });
+      await handleError(err, {
+        module: 'infra:http',
+        action: 'global_cost_range',
+      });
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: '获取成本范围数据失败' } }));
     }

@@ -410,6 +410,7 @@ const zh = {
     maxTokens: "最大词元",
     mcp: "MCP 市场",
     media: "媒体管理",
+    memory: "记忆管理",
     memoryUsage: "内存使用率",
     modelCapabilities: "模型能力",
     modelId: "模型 ID",

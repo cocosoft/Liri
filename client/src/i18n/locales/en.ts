@@ -415,6 +415,7 @@ const en = {
     maxTokens: "Max Tokens",
     mcp: "MCP Market",
     media: "Media Manager",
+    memory: "Memory Manager",
     memoryUsage: "Memory Usage",
     modelCapabilities: "Model Capabilities",
     modelId: "Model ID",

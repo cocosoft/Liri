@@ -24,6 +24,7 @@ import MCPMarketPage from "../views/MCPMarketPage";
 import SkillMarketPage from "../views/SkillMarketPage";
 import FileExplorerPage from "../views/FileExplorerPage";
 import CostPage from "../views/CostPage";
+import MemoryPage from "../views/MemoryPage";
 import PermissionPage from "../views/PermissionPage";
 import OAuthPage from "../views/OAuthPage";
 import SandboxPage from "../views/SandboxPage";
@@ -133,6 +134,7 @@ const NAV_GROUPS: NavGroup[] = [
       },
       { id: "soul", labelKey: "settings.soul", icon: BookOpenIcon, zone: "ai" },
       { id: "user", labelKey: "settings.user", icon: UserIcon, zone: "ai" },
+      { id: "memory", labelKey: "settings.memory", icon: BookOpenIcon, zone: "ai" },
     ],
   },
   {
@@ -786,6 +788,8 @@ function SettingsPage() {
         return <CostStatisticsContent isDark={isDark} />;
       case "sandbox":
         return <SandboxManagementContent isDark={isDark} />;
+      case "memory":
+        return <MemoryPage />;
       default:
         return null;
     }

@@ -12,6 +12,7 @@ import {
 } from './IContextEngine';
 import { SummaryTemplate, StructuredSummary } from './SummaryTemplate';
 import { JsonTruncator } from './JsonTruncator';
+import { estimateMessagesTokens, IMAGE_TOKEN_ESTIMATE } from '../../ai/tokenizer/TokenEstimator';
 
 /**
  * 默认上下文引擎
@@ -24,7 +25,8 @@ export class DefaultContextEngine implements IContextEngine {
   private jsonTruncator: JsonTruncator;
 
   static readonly IMAGE_CHAR_EQUIVALENT = 6400;
-  static readonly IMAGE_TOKEN_ESTIMATE = 1600;
+  /** @deprecated 使用 IMAGE_TOKEN_ESTIMATE from TokenEstimator */
+  static readonly IMAGE_TOKEN_ESTIMATE = IMAGE_TOKEN_ESTIMATE;
 
   /**
    * 构造函数
@@ -133,26 +135,10 @@ export class DefaultContextEngine implements IContextEngine {
   }
 
   /**
-   * 估算消息列表的 Token 数（含多模态支持）
+   * 估算消息列表的 Token 数（委托统一估算器 + CJK 感知）
    */
   estimateTokens(messages: ChatMessage[]): number {
-    let total = 0;
-
-    for (const m of messages) {
-      if (typeof m.content === 'string') {
-        total += Math.ceil(m.content.length / 4);
-      } else if (Array.isArray(m.content)) {
-        for (const part of m.content as Array<Record<string, unknown>>) {
-          if (part['type'] === 'text' && typeof part['text'] === 'string') {
-            total += Math.ceil((part['text'] as string).length / 4);
-          } else if (part['type'] === 'image' || part['type'] === 'image_url') {
-            total += DefaultContextEngine.IMAGE_TOKEN_ESTIMATE;
-          }
-        }
-      }
-    }
-
-    return total;
+    return estimateMessagesTokens(messages);
   }
 
   /**

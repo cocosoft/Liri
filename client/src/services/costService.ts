@@ -23,6 +23,7 @@ export interface ProviderBreakdown {
   cacheReadTokens: number;
   cacheCreationTokens: number;
   requests: number;
+  avgLatencyMs: number;
   percentage: number;
 }
 
@@ -46,6 +47,7 @@ export interface CostSummary {
   totalCacheReadTokens: number;
   totalCacheCreationTokens: number;
   totalRequests: number;
+  successRate: number;
   sessionCost: number;
   sessionInputTokens: number;
   sessionOutputTokens: number;

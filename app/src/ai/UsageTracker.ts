@@ -33,6 +33,7 @@
 
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger.js';
 import { LogLevel } from '@modules/monitoring';
+import { extractUsage } from './tokenizer/UsageExtractor.js';
 
 const logger = new OTelAwareLogger({
   module: 'ai:usageTracker',
@@ -85,10 +86,23 @@ export async function trackUsage(
     const { usageStatsService } = await import('./models/UsageStatsService.js');
     await usageStatsService.initialize();
 
-    // 兼容两种 usage 字段名：OpenAI 标准 (prompt_tokens/completion_tokens) 和 ChatManager (inputTokens/outputTokens)
+    // Phase 5+: 多格式 Token 直接提取（OpenAI/Anthropic/Gemini）
+    // 优先从 API 响应中提取精确 usage，回退到兼容字段名
+    const rawUsage = extractUsage(response as Record<string, unknown>);
     const usage = response.usage;
-    const inputTokens = usage?.prompt_tokens ?? usage?.inputTokens ?? 0;
-    const outputTokens = usage?.completion_tokens ?? usage?.outputTokens ?? 0;
+    let inputTokens: number;
+    let outputTokens: number;
+    let tokenSource: string;
+
+    if (rawUsage && rawUsage.totalTokens > 0) {
+      inputTokens = rawUsage.inputTokens;
+      outputTokens = rawUsage.outputTokens;
+      tokenSource = rawUsage.source;
+    } else {
+      inputTokens = usage?.prompt_tokens ?? usage?.inputTokens ?? 0;
+      outputTokens = usage?.completion_tokens ?? usage?.outputTokens ?? 0;
+      tokenSource = (inputTokens > 0 || outputTokens > 0) ? 'api' : 'estimated';
+    }
     const cacheReadTokens = usage?.cache_read_input_tokens ?? 0;
     const cacheCreationTokens = usage?.cache_creation_input_tokens ?? 0;
 
@@ -164,6 +178,7 @@ export async function trackUsage(
         outputTokens,
         cacheReadTokens,
         cacheCreationTokens,
+        tokenSource,
         costUSD,
         latencyMs: params.latencyMs,
         statusCode,

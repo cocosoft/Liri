@@ -9,11 +9,9 @@
  */
 
 import { Logger } from '@modules/monitoring';
-import { TokenBudgetManagerImpl, TokenBudgetStatus } from './TokenBudget.js';
+import { TokenBudgetController, TokenBudgetStatus, type TokenBudgetState } from '../core/tokenBudget/TokenBudgetController.js';
 import type {
   TokenBudgetConfig,
-  TokenBudgetManager,
-  TokenBudgetState,
 } from './TokenBudget.js';
 import { StopHookManager, DEFAULT_STOP_HOOK_PRIORITIES } from './StopHooks.js';
 import type { StopHook, StopHookContext, StopHookReason } from './StopHooks.js';
@@ -213,7 +211,7 @@ export class MemoryCheckpointStorage implements CheckpointStorage {
 
 export class TAORLoop {
   private queryEngine: QueryEngine;
-  private tokenBudget: TokenBudgetManager;
+  private tokenBudget: TokenBudgetController;
   private stopHookManager: StopHookManager;
   private config: Required<Omit<TAORLoopConfig, 'contextEngineRegistry'>>;
   private abortController: AbortController;
@@ -266,7 +264,15 @@ export class TAORLoop {
       verifierConfig: config.verifierConfig ?? {},
     };
     this.contextEngineRegistry = config.contextEngineRegistry;
-    this.tokenBudget = new TokenBudgetManagerImpl(this.config.budgetConfig);
+    this.tokenBudget = new TokenBudgetController(
+      this.config.budgetConfig.modelName || 'default',
+      {
+        total: this.config.budgetConfig.maxTokens || 200_000,
+        remaining: this.config.budgetConfig.maxTokens || 200_000,
+        maxOutputTokens: this.config.budgetConfig.maxOutputTokens,
+      },
+      this.config.budgetConfig.maxTokens
+    );
     this.stopHookManager = new StopHookManager();
     this.abortController = new AbortController();
     this.phaseCallbacks = phaseCallbacks;
@@ -408,7 +414,7 @@ export class TAORLoop {
     this.stopHookManager.registerHook(hook);
   }
 
-  getTokenBudget(): TokenBudgetManager {
+  getTokenBudget(): TokenBudgetController {
     return this.tokenBudget;
   }
 
@@ -1005,11 +1011,15 @@ export class TAORLoop {
     this.resumedCheckpointId = checkpoint.id;
 
     // 恢复 Token 预算状态
-    this.tokenBudget = new TokenBudgetManagerImpl({
-      maxTokens: checkpoint.budgetState.maxTokens,
-      maxOutputTokens: checkpoint.budgetState.maxOutputTokens,
-      modelName: checkpoint.budgetState.modelName,
-    });
+    this.tokenBudget = new TokenBudgetController(
+      checkpoint.budgetState.modelName,
+      {
+        total: checkpoint.budgetState.maxTokens,
+        remaining: checkpoint.budgetState.maxTokens,
+        maxOutputTokens: checkpoint.budgetState.maxOutputTokens,
+      },
+      checkpoint.budgetState.maxTokens
+    );
     // 恢复当前使用量
     this.tokenBudget.consumeTokens(checkpoint.budgetState.currentTokens);
 

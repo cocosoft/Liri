@@ -26,6 +26,7 @@
 
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { usageStatsService } from '@modules/ai';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -236,6 +237,10 @@ const usagestatsCommand = {
           };
       }
     } catch (error) {
+      await handleError(error, {
+        module: 'commands:usagestats',
+        action: 'execute',
+      });
       return {
         success: false,
         message: `查询失败: ${error instanceof Error ? error.message : String(error)}`,

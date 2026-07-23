@@ -92,6 +92,7 @@ export function getCacheEfficiency(
       totalSavings = fullCost - cacheCost;
     } catch (err) {
       // ignore
+      // @ignore-catch: non-critical fallback
 
       logger.debug('Operation skipped', {
         context: 'ignore',
@@ -120,6 +121,7 @@ export function estimateSavings(
       (cacheReadTokens / 1_000_000) * priceResult.pricing.cacheReadPer1M;
     return fullCost - cacheCost;
   } catch {
+    // @ignore-catch: calculation fallback
     return 0;
   }
 }

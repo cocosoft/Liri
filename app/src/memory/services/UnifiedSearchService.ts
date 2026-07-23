@@ -117,6 +117,47 @@ export class UnifiedSearchService {
     }
   }
 
+  /**
+   * Phase 4: 计算实际相关性得分（替代硬编码 0.5/0.3）
+   */
+  private computeRelevanceScore(memory: Memory, query: string): number {
+    let score = 0;
+
+    // 1) 关键词匹配（权重 0.5）：query tokens 在 content 中的命中率
+    if (query && memory.content) {
+      const queryTokens = query
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((t) => t.length > 1);
+      const contentLower = memory.content.toLowerCase();
+      if (queryTokens.length > 0) {
+        let hits = 0;
+        for (const token of queryTokens) {
+          if (contentLower.includes(token)) hits++;
+        }
+        score += 0.5 * (hits / queryTokens.length);
+      }
+    }
+
+    // 2) 优先级（权重 0.3）：priority 0-10 归一化
+    const priority = memory.metadata?.priority ?? 5;
+    score += 0.3 * (priority / 10);
+
+    // 3) 时效性（权重 0.2）：最近 7 天内满分，30 天后线性衰减
+    const now = Date.now();
+    const updatedAt =
+      memory.updatedAt?.getTime() ?? memory.createdAt?.getTime() ?? now;
+    const ageDays = (now - updatedAt) / (1000 * 60 * 60 * 24);
+    if (ageDays <= 7) {
+      score += 0.2;
+    } else if (ageDays < 30) {
+      score += 0.2 * (1 - (ageDays - 7) / 23);
+    }
+    // > 30 天不加分
+
+    return Math.round(score * 100) / 100;
+  }
+
   private async searchMemory(
     query: string,
     limit: number
@@ -129,7 +170,7 @@ export class UnifiedSearchService {
 
       return memories.map((memory: Memory) => ({
         type: 'memory' as const,
-        score: memory.metadata?.priority ? 0.5 : 0.3,
+        score: this.computeRelevanceScore(memory, query),
         title: memory.metadata?.name || memory.id,
         content: memory.content,
         snippet:

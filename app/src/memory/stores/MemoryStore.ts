@@ -1,4 +1,4 @@
-﻿import { promises as fs, constants } from 'fs';
+import { promises as fs, constants } from 'fs';
 import fsExtra from 'fs-extra';
 import { join, dirname, basename, resolve, normalize } from 'path';
 import matter from 'gray-matter';
@@ -10,7 +10,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveMemoryDir, resolveDbPath } from '@modules/core';
 import { Database } from '@modules/core/external/sqlite3';
 
-const storeLogger = new Logger({ level: LogLevel.INFO });
+const storeLogger = new Logger({
+  module: 'memory:stores',
+  level: LogLevel.INFO,
+});
 
 /** memory_vectors 表名 */
 const MEMORY_VECTORS_TABLE = 'memory_vectors';

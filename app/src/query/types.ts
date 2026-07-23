@@ -2,7 +2,7 @@
  * query 模块共享类型和枚举
  * 从 TAORLoop.ts 提取，打破 FileCheckpointStorage ↔ TAORLoop 循环依赖
  */
-import type { TokenBudgetState } from './TokenBudget.js';
+import type { TokenBudgetState } from '../core/tokenBudget/TokenBudgetController.js';
 
 /** TAOR 循环阶段枚举 */
 export enum TAORPhase {

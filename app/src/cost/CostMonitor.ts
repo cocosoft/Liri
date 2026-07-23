@@ -6,6 +6,7 @@
 
 import { logForDebugging } from '../utils/debug.js';
 import { formatCost } from './ModelPricing.js';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({ module: 'cost:CostMonitor', level: LogLevel.INFO });
@@ -379,10 +380,11 @@ export class CostMonitor {
       try {
         listener(alert);
       } catch (error) {
-        logForDebugging(
-          `告警监听器执行失败: ${error instanceof Error ? error.message : String(error)}`,
+        void handleError(
+          error instanceof Error ? error : new Error(String(error)),
           {
-            level: 'error',
+            module: 'cost:monitor',
+            action: 'alert_listener',
           }
         );
       }

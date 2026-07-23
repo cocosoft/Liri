@@ -156,7 +156,7 @@ export class MemoryWatcher {
   /**
    * 启动文件系统监听
    */
-  private startFsWatcher(): void {
+  private async startFsWatcher(): Promise<void> {
     try {
       this.watcher = watch(
         this.config.memoryDir,
@@ -173,10 +173,16 @@ export class MemoryWatcher {
       );
 
       this.watcher.on('error', (error) => {
-        logger.error('MemoryWatcher error:', error);
+        void handleError(
+          error instanceof Error ? error : new Error(String(error)),
+          { module: 'memory:scanners:watcher', action: 'watcher_event_error' }
+        );
       });
     } catch (error) {
-      logger.error('Failed to start fs watcher:', error);
+      await handleError(error, {
+        module: 'memory:scanners:watcher',
+        action: 'start_watcher',
+      });
     }
   }
 
@@ -408,7 +414,10 @@ export class MemoryWatcher {
       try {
         listener(event);
       } catch (error) {
-        logger.error('Error in MemoryWatcher listener:', error);
+        void handleError(error, {
+          module: 'memory:scanners:watcher',
+          action: 'listener_error',
+        });
       }
     }
   }

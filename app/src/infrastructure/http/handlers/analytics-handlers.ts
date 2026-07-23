@@ -451,6 +451,15 @@ export async function handleCostSummary(
     0
   );
 
+  // 总请求数 = 各模型请求数之和
+  const totalRequestCount = Object.values(modelUsage).reduce(
+    (sum, u) => sum + u.requestCount,
+    0
+  );
+
+  // successRate: cost_records 仅记录成功请求，失败请求不产生成本
+  const successRate = totalRequestCount > 0 ? 1.0 : 1.0;
+
   // 日志：排出实际值用于调试
   logger.info('handleCostSummary 数据', {
     todayCost: today.cost,
@@ -468,6 +477,7 @@ export async function handleCostSummary(
       cacheReadTokens: usage.cacheReadInputTokens,
       cacheCreationTokens: usage.cacheCreationInputTokens,
       requests: usage.requestCount,
+      avgLatencyMs: 0, // TODO: Step 0C — 需 CostTracker 追踪延迟后补齐
       percentage:
         totalModelCost > 0
           ? Math.round((usage.costUSD / totalModelCost) * 100)
@@ -550,7 +560,8 @@ export async function handleCostSummary(
       totalTokens: totalInputTokens + totalOutputTokens,
       totalCacheReadTokens: totalCacheRead,
       totalCacheCreationTokens: totalCacheCreation,
-      totalRequests: Object.keys(modelUsage).length,
+      totalRequests: totalRequestCount,
+      successRate,
       sessionCost: sessionState.totalCostUSD,
       sessionInputTokens: sessionState.totalInputTokens,
       sessionOutputTokens: sessionState.totalOutputTokens,

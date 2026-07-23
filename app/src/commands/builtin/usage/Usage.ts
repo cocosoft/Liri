@@ -8,6 +8,7 @@
 
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { getCommandManager as getCmdMgr } from '@modules/commands';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -51,6 +52,7 @@ const usageCommand = {
         return handleOverallUsage();
       }
     } catch (error) {
+      await handleError(error, { module: 'commands:usage', action: 'execute' });
       return {
         success: false,
         message: `获取使用统计失败: ${error instanceof Error ? error.message : '未知错误'}`,
@@ -174,6 +176,7 @@ function getUsageStats() {
     } = require('../../../commands/builtin/usage/UsageTracker.js');
     return fetchStats();
   } catch {
+    // @ignore-catch: return zero on error
     return {
       totalTokens: 0,
       inputTokens: 0,

@@ -68,7 +68,10 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
     try {
       // 确保目录存在
       await this.ensureDirectoryExists(dirname(filePath));
-      await fs.writeFile(filePath, content, 'utf-8');
+      // 原子写入：先写临时文件再 rename，避免写入过程中崩溃导致文件损坏
+      const tempPath = filePath + '.tmp.' + Date.now();
+      await fs.writeFile(tempPath, content, 'utf-8');
+      await fs.rename(tempPath, filePath);
     } catch (error) {
       await handleError(error, {
         module: 'memory:fs',
@@ -108,7 +111,8 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
     try {
       await fs.stat(filePath);
       return true;
-    } catch (error) {
+    } catch {
+      // @ignore-catch: stat failure means file doesn't exist
       return false;
     }
   }
@@ -160,7 +164,8 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
     try {
       const stats = await fs.stat(directory);
       return stats.isDirectory();
-    } catch (error) {
+    } catch {
+      // @ignore-catch: stat failure means directory doesn't exist
       return false;
     }
   }
@@ -177,10 +182,11 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
         await fs.rm(directory, { recursive, force: true });
       }
     } catch (error) {
-      logger.error(
-        `Error deleting directory ${directory}`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, {
+        module: 'memory:adapters:fs',
+        action: 'delete_directory',
+        context: { directory },
+      });
       throw error;
     }
   }
@@ -196,10 +202,11 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
       await this.ensureDirectoryExists(dirname(destination));
       await fs.copyFile(source, destination);
     } catch (error) {
-      logger.error(
-        `Error copying file from ${source} to ${destination}`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, {
+        module: 'memory:adapters:fs',
+        action: 'copy_file',
+        context: { source, destination },
+      });
       throw error;
     }
   }

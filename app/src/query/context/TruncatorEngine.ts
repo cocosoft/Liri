@@ -5,25 +5,13 @@ import {
   CompressionResult,
   DEFAULT_COMPRESSION_CONFIG,
 } from './IContextEngine';
+import { estimateMessagesTokens, IMAGE_TOKEN_ESTIMATE } from '../../ai/tokenizer/TokenEstimator';
 
-const IMAGE_TOKEN_ESTIMATE = 1600;
-
+/**
+ * @deprecated 使用 estimateMessagesTokens() 替代，保留兼容
+ */
 function estimateTokens(messages: ChatMessage[]): number {
-  let total = 0;
-  for (const m of messages) {
-    if (typeof m.content === 'string') {
-      total += Math.ceil(m.content.length / 4);
-    } else if (Array.isArray(m.content)) {
-      for (const part of m.content as Array<Record<string, unknown>>) {
-        if (part['type'] === 'text' && typeof part['text'] === 'string') {
-          total += Math.ceil((part['text'] as string).length / 4);
-        } else if (part['type'] === 'image' || part['type'] === 'image_url') {
-          total += IMAGE_TOKEN_ESTIMATE;
-        }
-      }
-    }
-  }
-  return total;
+  return estimateMessagesTokens(messages);
 }
 
 export class TruncatorEngine implements IContextEngine {

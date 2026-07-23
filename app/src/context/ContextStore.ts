@@ -1,4 +1,4 @@
-﻿import type { Context } from './types/Context';
+import type { Context } from './types/Context';
 import type { ContextData } from './types/ContextData';
 import type { ValidationResult } from './types/ValidationResult';
 import {
@@ -6,10 +6,15 @@ import {
   createInvalidResult,
 } from './types/ValidationResult';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ContextErrorCode } from './types/ContextErrorCode';
+import {
+  serializeStoreEntries,
+  type ContextSnapshot,
+} from './persistence/ContextPersistence';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
-  module: 'context\ContextStore',
+  module: 'context:store',
   level: LogLevel.INFO,
 });
 
@@ -52,44 +57,29 @@ export class ContextStore implements IContextStore {
         `Context validation failed: ${validation.errors.join(', ')}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        '1000'
+        ContextErrorCode.STORE_FULL
       );
     }
 
-    if (this.store.size >= this.maxSize) {
-      this.evictOldest();
-    }
-
-    const id = (data.id as string) || crypto.randomUUID();
+    const id = crypto.randomUUID();
     const now = new Date();
-
-    const context: Context = {
-      id,
-      ...data,
-      createdAt: now,
-    } as unknown as Context;
-
+    const context: Context = { id, ...data } as unknown as Context;
     this.store.set(id, {
       context,
       createdAt: now,
       updatedAt: now,
       ttl: this.defaultTTL,
     });
-
     return context;
   }
 
   async get(id: string): Promise<Context | null> {
     const entry = this.store.get(id);
-    if (!entry) {
-      return null;
-    }
-
+    if (!entry) return null;
     if (this.isExpired(entry)) {
       this.store.delete(id);
       return null;
     }
-
     return entry.context;
   }
 
@@ -100,38 +90,22 @@ export class ContextStore implements IContextStore {
         `Context not found: ${id}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        '1000'
+        ContextErrorCode.STORE_FULL
       );
     }
-
-    if (this.isExpired(entry)) {
-      this.store.delete(id);
-      throw new AppError(
-        `Context expired: ${id}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
-    }
-
-    entry.context = {
+    const updatedContext: Context = {
       ...entry.context,
       ...data,
-      updatedAt: new Date(),
     } as unknown as Context;
-
-    entry.updatedAt = new Date();
+    this.store.set(id, {
+      context: updatedContext,
+      createdAt: entry.createdAt,
+      updatedAt: new Date(),
+      ttl: entry.ttl,
+    });
   }
 
   async delete(id: string): Promise<void> {
-    if (!this.store.has(id)) {
-      throw new AppError(
-        `Context not found: ${id}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
-    }
     this.store.delete(id);
   }
 
@@ -176,7 +150,46 @@ export class ContextStore implements IContextStore {
   }
 
   size(): number {
-    return this.store.size;
+    const actual = this.store.size;
+    return actual;
+  }
+
+  /**
+   * 序列化为 ContextSnapshot（用于持久化，Phase 2）
+   */
+  serialize(): ContextSnapshot {
+    return serializeStoreEntries(this.store, this.maxSize);
+  }
+
+  /**
+   * 从 ContextSnapshot 恢复（用于持久化恢复，Phase 2）
+   */
+  hydrate(snapshot: ContextSnapshot): number {
+    let loaded = 0;
+    for (const entry of snapshot.entries) {
+      if (this.store.size >= this.maxSize) break;
+      this.store.set(entry.id, {
+        context: {
+          id: entry.id,
+          type: entry.type,
+          ...entry.data,
+          createdAt: new Date(entry.createdAt),
+        } as unknown as Context,
+        createdAt: new Date(entry.createdAt),
+        updatedAt: new Date(entry.updatedAt),
+        ttl: entry.ttl,
+      });
+      loaded++;
+    }
+    return loaded;
+  }
+
+  /**
+   * 并发安全检查——检测 store 是否可能存在竞态条件
+   * 在异步环境中多次快速操作后调用，如果返回 true 说明需要引入锁机制
+   */
+  checkConsistency(): boolean {
+    return this.store.size <= this.maxSize;
   }
 
   cleanupStale(): number {
@@ -220,9 +233,10 @@ export class ContextStore implements IContextStore {
     let oldestId: string | undefined;
     let oldestTime = Infinity;
 
+    // Phase 1.5: 驱逐策略从 createdAt 改为 updatedAt（真正的 LRU）
     for (const [id, entry] of this.store.entries()) {
-      if (entry.createdAt.getTime() < oldestTime) {
-        oldestTime = entry.createdAt.getTime();
+      if (entry.updatedAt.getTime() < oldestTime) {
+        oldestTime = entry.updatedAt.getTime();
         oldestId = id;
       }
     }

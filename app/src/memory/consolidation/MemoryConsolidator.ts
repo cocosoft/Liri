@@ -64,26 +64,47 @@ const DEFAULT_CONFIG: ConsolidationConfig = {
   enabled: true,
 };
 
-function jaccardSimilarity(a: string, b: string): number {
-  const aWords = new Set(
-    a
-      .toLowerCase()
-      .split(/\s+/)
-      .filter((w) => w.length > 2)
-  );
-  const bWords = new Set(
-    b
-      .toLowerCase()
-      .split(/\s+/)
-      .filter((w) => w.length > 2)
-  );
-  if (aWords.size === 0 && bWords.size === 0) return 1;
-  if (aWords.size === 0 || bWords.size === 0) return 0;
-  let intersection = 0;
-  for (const w of aWords) {
-    if (bWords.has(w)) intersection++;
+/** Phase 2: CJK bigram tokenizer for Jaccard similarity */
+function tokenize(text: string): string[] {
+  const lower = text.toLowerCase().trim();
+  if (!lower) return [];
+
+  // 检测是否主要为 CJK 文本
+  const cjkCount = [...lower].filter((c) =>
+    /\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Hangul}/u.test(
+      c
+    )
+  ).length;
+  const isCJK = cjkCount > lower.length * 0.3;
+
+  if (isCJK) {
+    const chars = [...lower];
+    // 短文本 (≤3 字符) 用 unigram
+    if (chars.length <= 3) {
+      return chars;
+    }
+    // 长文本用 bigram
+    const bigrams: string[] = [];
+    for (let i = 0; i < chars.length - 1; i++) {
+      bigrams.push(chars[i] + chars[i + 1]);
+    }
+    return bigrams;
   }
-  const union = aWords.size + bWords.size - intersection;
+
+  // 非 CJK：保持原单词分词
+  return lower.split(/\s+/).filter((w) => w.length > 1);
+}
+
+function jaccardSimilarity(a: string, b: string): number {
+  const aTokens = new Set(tokenize(a));
+  const bTokens = new Set(tokenize(b));
+  if (aTokens.size === 0 && bTokens.size === 0) return 1;
+  if (aTokens.size === 0 || bTokens.size === 0) return 0;
+  let intersection = 0;
+  for (const w of aTokens) {
+    if (bTokens.has(w)) intersection++;
+  }
+  const union = aTokens.size + bTokens.size - intersection;
   return union === 0 ? 0 : intersection / union;
 }
 

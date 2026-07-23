@@ -6,6 +6,7 @@ import type { TokenUsage } from './types';
 import { metrics } from '@opentelemetry/api';
 import type { ObservableGauge } from '@opentelemetry/api';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'cost:metrics-bridge',
@@ -112,6 +113,7 @@ export class CostMetricsBridge {
           const totalCost = this.records.reduce((sum, r) => sum + r.costUSD, 0);
           result.observe(totalCost, { currency: 'USD' });
         } catch {
+          // @ignore-catch: metric observe fallback
           result.observe(0, { currency: 'USD' });
         }
       });
@@ -133,6 +135,7 @@ export class CostMetricsBridge {
           result.observe(totalInput, { type: 'input' });
           result.observe(totalOutput, { type: 'output' });
         } catch {
+          // @ignore-catch: metric observe fallback
           result.observe(0, { type: 'input' });
           result.observe(0, { type: 'output' });
         }
@@ -141,12 +144,7 @@ export class CostMetricsBridge {
       this.otelInitialized = true;
       logger.info('CostMetricsBridge OTel 指标注册完成');
     } catch (err) {
-      logger.warn(
-        'CostMetricsBridge OTel 指标注册失败（MeterProvider 可能未配置）',
-        {
-          error: String(err),
-        }
-      );
+      void handleError(err, { module: 'cost:metrics', action: 'register' });
     }
   }
 

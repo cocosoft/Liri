@@ -5,6 +5,7 @@
 import { CostTracker } from './CostTracker';
 import { CostMetricsBridge, getCostMetricsBridge } from './CostMetricsBridge';
 import { canViewBillingCosts } from './BillingAccessControl';
+import { handleError } from '@modules/error';
 import {
   DepartmentCostReporter,
   getDepartmentCostReporter,
@@ -87,7 +88,9 @@ export class CostReportEndpoint {
    * @param request 报告请求
    * @returns 报告响应
    */
-  handleReport(request: CostReportRequest = {}): CostReportResponse {
+  async handleReport(
+    request: CostReportRequest = {}
+  ): Promise<CostReportResponse> {
     try {
       const data = this.buildReportData(request);
 
@@ -97,6 +100,7 @@ export class CostReportEndpoint {
         data,
       };
     } catch (err) {
+      await handleError(err, { module: 'cost:report', action: 'generate' });
       return {
         success: false,
         generatedAt: Date.now(),
@@ -168,7 +172,7 @@ export class CostReportEndpoint {
    * @param request 请求
    * @returns 格式化文本或 JSON
    */
-  handle(request: CostReportRequest): string {
+  async handle(request: CostReportRequest): Promise<string> {
     switch (request.format) {
       case 'prometheus':
         return this.handlePrometheusReport();
@@ -178,7 +182,7 @@ export class CostReportEndpoint {
         return this.handleCSVReport(request);
       case 'json':
       default:
-        return JSON.stringify(this.handleReport(request), null, 2);
+        return JSON.stringify(await this.handleReport(request), null, 2);
     }
   }
 

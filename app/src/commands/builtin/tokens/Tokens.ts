@@ -3,6 +3,7 @@
  * 显示基于真实数据的 Token 使用统计
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -321,6 +322,7 @@ const tokensCommand = {
         logEvent('tengu_tokens_view');
       } catch (err) {
         // analytics 非关键
+        // @ignore-catch: non-critical fallback
 
         logger.debug('Operation skipped', {
           context: 'analytics 非关键',
@@ -330,6 +332,10 @@ const tokensCommand = {
 
       return await handleOverview();
     } catch (error) {
+      await handleError(error, {
+        module: 'commands:tokens',
+        action: 'execute',
+      });
       return {
         success: false,
         message: error instanceof Error ? error.message : String(error),

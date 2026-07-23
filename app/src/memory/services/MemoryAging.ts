@@ -115,6 +115,7 @@ export class MemoryAgingService {
   private config: AgingConfig;
   private memoryEntries: Map<string, MemoryEntry> = new Map();
   private securityIntegration: SecurityIntegration | null = null;
+  private isEvicting = false;
 
   constructor(config: Partial<AgingConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -268,68 +269,96 @@ export class MemoryAgingService {
    * @returns 被淘汰的记忆ID列表
    */
   evict(): AgingResult {
-    const beforeCount = this.memoryEntries.size;
-    const beforeSize = this.totalSize();
-    const evicted: string[] = [];
-    const kept: string[] = [];
-    const reason: Record<string, string> = {};
-
-    const candidates = Array.from(this.memoryEntries.entries());
-
-    candidates.sort((a, b) => {
-      const scoreA = this.calculateEvictionScore(a[1]);
-      const scoreB = this.calculateEvictionScore(b[1]);
-      return scoreB - scoreA;
-    });
-
-    for (const [id, entry] of candidates) {
-      const score = this.calculateEvictionScore(entry);
-
-      if (score < 0.3) {
-        kept.push(id);
-        continue;
-      }
-
-      const ageMs = Date.now() - entry.memory.createdAt.getTime();
-      const ageDays = ageMs / (1000 * 60 * 60 * 24);
-
-      let evictionReason = '';
-      if (ageDays > this.config.maxAgeDays) {
-        evictionReason = `age:${ageDays.toFixed(1)}d`;
-      } else if (entry.accessCount < this.config.accessThreshold) {
-        evictionReason = `low_access:${entry.accessCount}`;
-      } else if (
-        this.config.enableCountCheck &&
-        this.memoryEntries.size > this.config.maxEntries
-      ) {
-        evictionReason = 'count_overflow';
-      } else if (
-        this.config.enableSizeCheck &&
-        this.totalSize() > this.config.maxTotalSize
-      ) {
-        evictionReason = 'size_overflow';
-      } else {
-        evictionReason = `score:${score.toFixed(2)}`;
-      }
-
-      this.memoryEntries.delete(id);
-      evicted.push(id);
-      reason[id] = evictionReason;
+    // 互斥锁：防止并发 evict
+    if (this.isEvicting) {
+      return {
+        evicted: [],
+        kept: [],
+        reason: {},
+        stats: {
+          beforeCount: this.memoryEntries.size,
+          afterCount: this.memoryEntries.size,
+          beforeSize: this.totalSize(),
+          afterSize: this.totalSize(),
+          evictedCount: 0,
+          evictedSize: 0,
+        },
+      };
     }
+    this.isEvicting = true;
 
-    return {
-      evicted,
-      kept,
-      reason,
-      stats: {
-        beforeCount,
-        afterCount: this.memoryEntries.size,
-        beforeSize,
-        afterSize: this.totalSize(),
-        evictedCount: evicted.length,
-        evictedSize: beforeSize - this.totalSize(),
-      },
-    };
+    try {
+      const beforeCount = this.memoryEntries.size;
+      const beforeSize = this.totalSize();
+      const evicted: string[] = [];
+      const kept: string[] = [];
+      const reason: Record<string, string> = {};
+
+      // 预计算：在排序前先计算每条记忆的淘汰分数并缓存
+      const scoreCache = new Map<string, number>();
+      for (const [id, entry] of this.memoryEntries) {
+        scoreCache.set(id, this.calculateEvictionScore(entry));
+      }
+
+      const candidates = Array.from(this.memoryEntries.entries());
+
+      candidates.sort((a, b) => {
+        const scoreA = scoreCache.get(a[0]) ?? 0;
+        const scoreB = scoreCache.get(b[0]) ?? 0;
+        return scoreB - scoreA;
+      });
+
+      for (const [id, entry] of candidates) {
+        const score = scoreCache.get(id) ?? this.calculateEvictionScore(entry);
+
+        if (score < 0.3) {
+          kept.push(id);
+          continue;
+        }
+
+        const ageMs = Date.now() - entry.memory.createdAt.getTime();
+        const ageDays = ageMs / (1000 * 60 * 60 * 24);
+
+        let evictionReason = '';
+        if (ageDays > this.config.maxAgeDays) {
+          evictionReason = `age:${ageDays.toFixed(1)}d`;
+        } else if (entry.accessCount < this.config.accessThreshold) {
+          evictionReason = `low_access:${entry.accessCount}`;
+        } else if (
+          this.config.enableCountCheck &&
+          this.memoryEntries.size > this.config.maxEntries
+        ) {
+          evictionReason = 'count_overflow';
+        } else if (
+          this.config.enableSizeCheck &&
+          this.totalSize() > this.config.maxTotalSize
+        ) {
+          evictionReason = 'size_overflow';
+        } else {
+          evictionReason = `score:${score.toFixed(2)}`;
+        }
+
+        this.memoryEntries.delete(id);
+        evicted.push(id);
+        reason[id] = evictionReason;
+      }
+
+      return {
+        evicted,
+        kept,
+        reason,
+        stats: {
+          beforeCount,
+          afterCount: this.memoryEntries.size,
+          beforeSize,
+          afterSize: this.totalSize(),
+          evictedCount: evicted.length,
+          evictedSize: beforeSize - this.totalSize(),
+        },
+      };
+    } finally {
+      this.isEvicting = false;
+    }
   }
 
   /**

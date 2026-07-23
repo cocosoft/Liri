@@ -90,7 +90,10 @@ export class AutoMemoryService {
       useLLM: false,
       ...config,
     };
-    this.logger = new Logger({ level: LogLevel.INFO });
+    this.logger = new Logger({
+      module: 'memory:services:autoMemory',
+      level: LogLevel.INFO,
+    });
   }
 
   /**

@@ -141,6 +141,7 @@ export class ModelContextCache {
         listener();
       } catch (err) {
         // 忽略单个监听器异常，确保其他监听器继续执行
+        // @ignore-catch: non-critical fallback
 
         logger.debug('Operation skipped', {
           context: '忽略单个监听器异常，确保其他监听器继续执行',
@@ -185,6 +186,7 @@ export class ModelContextCache {
         count++;
       } catch (err) {
         // 模型未在 PriceManager 中注册，跳过
+        // @ignore-catch: non-critical fallback
 
         logger.debug('Operation skipped', {
           context: '模型未在 PriceManager 中注册，跳过',

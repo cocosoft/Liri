@@ -1,10 +1,24 @@
 /**
  * Cost Analytics Tracker
- * 跟踪模型使用成本
- * */
+ *
+ * @deprecated Phase 4 架构收敛：已转为 COST_RECORDED 事件的只读消费者。
+ * modelCosts 数据通过订阅 globalEventBus 的 COST_RECORDED 事件自动同步，
+ * 不再由外部直接调用 trackModelUsage() 写入。
+ *
+ * 迁移路径：
+ *   Phase 4: ✅ trackModelUsage() 已移除独立成本累加，改为订阅 globalEventBus
+ *   Phase 5: 删除此文件，所有分析能力迁移到 CostReportEndpoint
+ *
+ * 见 ADR-001: CostTracker 单写入者 + 多只读消费者架构
+ */
 
 import { AnalyticsEventQueue } from './AnalyticsEventQueue';
 import { calculateModelCost } from '../cost/ModelPricing.js';
+import { globalEventBus, SystemEvents } from '../core/events/EventBus';
+import type { CostRecordedEvent } from '../core/events/EventBus';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({ module: 'analytics:CostAnalyticsTracker', level: LogLevel.WARN });
 
 export interface TokenUsage {
   inputTokens: number;
@@ -67,8 +81,38 @@ export class CostAnalyticsTracker {
       trackSlowRequests: config?.trackSlowRequests ?? true,
       slowRequestThresholdMs: config?.slowRequestThresholdMs ?? 30000,
     };
+
+    // Phase 4: 订阅 COST_RECORDED 事件，被动同步 CostTracker 数据
+    this.subscribeToCostEvents();
   }
 
+  /**
+   * 订阅 CostTracker 的 COST_RECORDED 事件，被动同步 modelCosts
+   * [ADR-001] 单写入者 + 多只读消费者架构
+   */
+  private subscribeToCostEvents(): void {
+    globalEventBus.subscribe(SystemEvents.COST_RECORDED, (event: CostRecordedEvent) => {
+      const modelCost = this.getOrCreateModelCost(event.model);
+      modelCost.totalCost += event.costUSD;
+      modelCost.totalTokens += event.inputTokens + event.outputTokens;
+      modelCost.requestCount++;
+      modelCost.inputTokens += event.inputTokens;
+      modelCost.outputTokens += event.outputTokens;
+      this.totalRequests++;
+
+      logger.debug('CostAnalyticsTracker: synced from COST_RECORDED', {
+        model: event.model,
+        costUSD: event.costUSD,
+        tokens: event.inputTokens + event.outputTokens,
+      });
+    });
+  }
+
+  /**
+   * [ADR-001] trackModelUsage 已迁移为只读消费者。
+   * 不再独立累加 modelCosts，数据通过 COST_RECORDED 事件自动同步。
+   * 调用方应使用 costTracker.addCost() 作为唯一写入入口。
+   */
   trackModelUsage(
     model: string,
     usage: TokenUsage,
@@ -76,15 +120,7 @@ export class CostAnalyticsTracker {
   ): void {
     const cost = this.calculateCost(model, usage);
 
-    const modelCost = this.getOrCreateModelCost(model);
-    modelCost.totalCost += cost;
-    modelCost.totalTokens += usage.totalTokens;
-    modelCost.requestCount++;
-    modelCost.inputTokens += usage.inputTokens;
-    modelCost.outputTokens += usage.outputTokens;
-
-    this.totalRequests++;
-
+    // 仅记录分析日志（JSONL），不再独立累加 modelCosts
     this.analytics.logEvent('model_usage', {
       model,
       input_tokens: usage.inputTokens,

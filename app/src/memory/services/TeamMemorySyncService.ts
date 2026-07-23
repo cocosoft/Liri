@@ -319,7 +319,10 @@ export class TeamMemorySyncService {
         this.updateEtagCache(memories, etag);
       }
     } catch (error) {
-      logger.error('Failed to fetch remote memories:', error);
+      await handleError(error, {
+        module: 'memory:services:teamSync',
+        action: 'fetch_remote',
+      });
     }
 
     return memories;

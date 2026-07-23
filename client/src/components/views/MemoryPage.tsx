@@ -16,14 +16,17 @@ function MemoryPage() {
     memories,
     total,
     weights,
-    syncStatus,
+    systemStats,
     selectedMemory,
+    isCleaning,
+    isConsolidating,
     error,
     loadMemories,
     searchMemories,
     loadWeights,
-    loadSyncStatus,
-    triggerSync,
+    loadSystemStats,
+    triggerCleanup,
+    triggerConsolidate,
     deleteMemory,
     setSelectedMemory,
     updateMemory,
@@ -41,15 +44,15 @@ function MemoryPage() {
   useEffect(() => {
     loadMemories({ sortBy, sortOrder });
     loadWeights();
-    loadSyncStatus();
-  }, [loadMemories, loadWeights, loadSyncStatus, sortBy, sortOrder]);
+    loadSystemStats();
+  }, [loadMemories, loadWeights, loadSystemStats, sortBy, sortOrder]);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      loadSyncStatus();
-    }, 5000);
+      loadSystemStats();
+    }, 30000);  // v1.2: 5s → 30s，stats 端点为 O(n) 计算
     return () => clearInterval(interval);
-  }, [loadSyncStatus]);
+  }, [loadSystemStats]);
 
   const handleSearch = (query: string, type: MemoryType | undefined) => {
     if (query.trim()) {
@@ -231,9 +234,12 @@ function MemoryPage() {
           <div className="space-y-4">
             <MemoryWeightChart weights={weights} isDark={isDark} />
             <MemorySyncingStatus
-              status={syncStatus}
+              stats={systemStats}
               isDark={isDark}
-              onTriggerSync={triggerSync}
+              isCleaning={isCleaning}
+              isConsolidating={isConsolidating}
+              onCleanup={triggerCleanup}
+              onConsolidate={triggerConsolidate}
             />
           </div>
         </div>

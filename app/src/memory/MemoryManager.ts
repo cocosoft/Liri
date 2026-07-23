@@ -39,6 +39,7 @@ import { memoryRelationGraph } from './utils/MemoryRelationGraph';
 import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { createHash } from 'crypto';
 
 const logger = new Logger({
   module: 'memory:memoryManager',
@@ -198,6 +199,9 @@ export class MemoryManagerImpl {
    */
   private isCleaning = false;
 
+  /** v1.2: 最近一次 cleanupExpiredMemories 完成时间戳（供 stats 端点使用） */
+  private lastCleanupAt: number | null = null;
+
   /**
    * 记忆去重合并器，在 createMemory 时自动检测内容重复
    */
@@ -323,29 +327,62 @@ export class MemoryManagerImpl {
     // 持久化关联图
     await this.saveRelationGraph();
 
-    // 去重检测：检查新记忆是否与已有记忆内容重复
+    // 去重检测：先用 contentHash 在缓存中做 O(1) 精确去重，避免全量 I/O
     try {
-      const allMemories = await this.getAllMemories();
-      const dupCheck = this.consolidator.findDuplicates(
-        allMemories.map((m) => ({
-          id: m.id,
-          content: m.content,
-          createdAt: m.createdAt.getTime(),
-        }))
-      );
-      if (dupCheck.totalRemoved > 0) {
-        logger.info(`去重检测：发现 ${dupCheck.totalRemoved} 条重复记忆`, {
-          newMemoryId: newMemory.id,
-        });
-        // 删除重复记忆（保留每组第一条）
-        for (const group of dupCheck.duplicates) {
-          // group[0] 是保留的，group[1..] 是待删除的
-          for (let i = 1; i < group.length; i++) {
-            await this.store.deleteMemory(group[i]);
-            this.retriever.removeFromIndex(group[i]);
+      const contentHash = createHash('sha256')
+        .update(newMemory.content)
+        .digest('hex');
+      let exactDuplicateFound = false;
+
+      // 先用最近摘要缓存做 O(1)/O(n) 快速检查
+      if (this.recentSummaryCache?.memories) {
+        for (const existing of this.recentSummaryCache.memories) {
+          if (existing.id === newMemory.id) continue;
+          const existingHash = createHash('sha256')
+            .update(existing.content)
+            .digest('hex');
+          if (existingHash === contentHash) {
+            exactDuplicateFound = true;
+            logger.info(
+              `contentHash 精确去重：发现与 ${existing.id} 完全相同的记忆，跳过全量去重`,
+              {
+                newMemoryId: newMemory.id,
+                existingMemoryId: existing.id,
+              }
+            );
+            // 删除刚创建的新记忆（保留已有记忆）
+            await this.store.deleteMemory(newMemory.id);
+            this.retriever.removeFromIndex(newMemory.id);
+            await this.retriever.saveIndex();
+            return existing;
           }
         }
-        await this.retriever.saveIndex();
+      }
+
+      // 如果缓存中未命中，执行全量去重
+      if (!exactDuplicateFound) {
+        const allMemories = await this.getAllMemories();
+        const dupCheck = this.consolidator.findDuplicates(
+          allMemories.map((m) => ({
+            id: m.id,
+            content: m.content,
+            createdAt: m.createdAt.getTime(),
+          }))
+        );
+        if (dupCheck.totalRemoved > 0) {
+          logger.info(`去重检测：发现 ${dupCheck.totalRemoved} 条重复记忆`, {
+            newMemoryId: newMemory.id,
+          });
+          // 删除重复记忆（保留每组第一条）
+          for (const group of dupCheck.duplicates) {
+            // group[0] 是保留的，group[1..] 是待删除的
+            for (let i = 1; i < group.length; i++) {
+              await this.store.deleteMemory(group[i]);
+              this.retriever.removeFromIndex(group[i]);
+            }
+          }
+          await this.retriever.saveIndex();
+        }
       }
     } catch (err) {
       // 去重失败不阻塞主流程
@@ -356,6 +393,49 @@ export class MemoryManagerImpl {
     this.refreshSummaryCache().catch(() => {});
 
     return newMemory;
+  }
+
+  /**
+   * 处理对话并提取记忆（接口方法，匹配 MemoryManager.processConversation 签名）
+   * 内部委托 AutoMemoryService 进行 LLM 提取和去重
+   */
+  async processConversation(
+    conversationId: string,
+    messages: Array<{ role: string; content: string; timestamp: Date }>
+  ): Promise<Memory[]> {
+    return this.autoMemoryService.processConversation(conversationId, messages);
+  }
+
+  /**
+   * Phase 0: 委派对话处理（向后兼容旧系统 BuiltinMemoryTool）
+   * @deprecated 请使用 processConversation() 替代
+   */
+  async delegateProcessConversation(
+    conversationId: string,
+    messages: Array<{ role: string; content: string; timestamp: Date }>
+  ): Promise<Memory[]> {
+    return this.processConversation(conversationId, messages);
+  }
+
+  /**
+   * v1.2: 获取即将过期的记忆列表（age > 80% TTL）
+   * 供 HTTP handler stats 端点使用
+   */
+  async getExpiringMemories(): Promise<Memory[]> {
+    const allMemories = await this.getAllMemories();
+    const now = Date.now();
+    return allMemories.filter((m) => {
+      const ageMs = now - m.createdAt.getTime();
+      const ttlMs = this.getMemoryTTL(m);
+      return ageMs > ttlMs * 0.8;
+    });
+  }
+
+  /**
+   * v1.2: 获取最近一次清理时间戳（供 stats 端点使用）
+   */
+  getLastCleanupAt(): number | null {
+    return this.lastCleanupAt;
   }
 
   /**
@@ -657,6 +737,7 @@ export class MemoryManagerImpl {
       return expired.length;
     } finally {
       this.isCleaning = false;
+      this.lastCleanupAt = Date.now();
     }
   }
 

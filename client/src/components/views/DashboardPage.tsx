@@ -24,49 +24,9 @@ import { sseService } from "../../services/sseService";
 const ENABLE_TRACE_REDESIGN = true;
 import { useConfigStore } from "../../stores/configStore";
 import MetricsChart from "../common/MetricsChart";
-
-interface StatCardProps {
-  label: string;
-  value: number | string;
-  icon: string;
-  trend?: "up" | "down" | "stable";
-}
-
-const StatCard = memo(function StatCard({
-  label,
-  value,
-  icon,
-  trend,
-}: StatCardProps) {
-  const trendIcon = trend === "up" ? "↑" : trend === "down" ? "↓" : "→";
-  const trendColor =
-    trend === "up"
-      ? "text-green-500"
-      : trend === "down"
-        ? "text-red-500"
-        : "text-gray-400";
-
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-            {value}
-          </p>
-          {trend && (
-            <span
-              className={`text-xs mt-0.5 inline-flex items-center gap-0.5 ${trendColor}`}
-            >
-              {trendIcon} 较昨日
-            </span>
-          )}
-        </div>
-        <span className="text-3xl">{icon}</span>
-      </div>
-    </div>
-  );
-});
+import { formatCost, getCurrencyFromTimezone } from "../../utils/format";
+import { DashboardStatCard } from "../common/DashboardStatCard";
+import { CacheBenefitPanel } from "../common/CacheBenefitPanel";
 
 const BuddyCard = memo(function BuddyCard({
   buddy,
@@ -119,6 +79,8 @@ function formatUptime(seconds: number): string {
 
 function DashboardPage() {
   const config = useConfigStore((s) => s.config);
+  const timezone = (config.timezone as string) || 'Asia/Shanghai';
+  const currency = getCurrencyFromTimezone(timezone);
   const isDark = config.theme === "dark";
   const navigate = useNavigate();
 
@@ -269,18 +231,18 @@ function DashboardPage() {
                 <span>📈</span> 数据概览
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <StatCard label="模型" value={stats.models} icon="🤖" />
-                <StatCard label="工具" value={stats.tools} icon="🔧" />
-                <StatCard label="会话" value={stats.sessions} icon="💬" />
-                <StatCard label="知识条目" value={stats.knowledge} icon="📚" />
-                <StatCard label="定时任务" value={stats.cronTasks} icon="⏰" />
-                <StatCard label="消息渠道" value={stats.channels} icon="📡" />
-                <StatCard
+                <DashboardStatCard label="模型" value={stats.models} icon="🤖" />
+                <DashboardStatCard label="工具" value={stats.tools} icon="🔧" />
+                <DashboardStatCard label="会话" value={stats.sessions} icon="💬" />
+                <DashboardStatCard label="知识条目" value={stats.knowledge} icon="📚" />
+                <DashboardStatCard label="定时任务" value={stats.cronTasks} icon="⏰" />
+                <DashboardStatCard label="消息渠道" value={stats.channels} icon="📡" />
+                <DashboardStatCard
                   label="Agent 任务"
                   value={stats.agentTasks}
                   icon="⚙️"
                 />
-                <StatCard
+                <DashboardStatCard
                   label="伙伴等级"
                   value={stats.buddy?.level ?? "-"}
                   icon="🌟"
@@ -344,30 +306,38 @@ function DashboardPage() {
                   <span>💰</span> 今日概览
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <StatCard
+                  <DashboardStatCard
                     label="今日成本"
-                    value={`$${costSummary.todayCost.toFixed(4)}`}
+                    value={formatCost(costSummary.todayCost, currency)}
                     icon="💵"
-                    trend={costSummary.todayCost > 0 ? "up" : "stable"}
+                    trendDirection={costSummary.todayCost > 0 ? "up" : "stable"}
                   />
-                  <StatCard
+                  <DashboardStatCard
                     label="本周成本"
-                    value={`$${costSummary.weeklyCost.toFixed(4)}`}
+                    value={formatCost(costSummary.weeklyCost, currency)}
                     icon="📊"
-                    trend={costSummary.weeklyCost > 0 ? "up" : "stable"}
+                    trendDirection={costSummary.weeklyCost > 0 ? "up" : "stable"}
                   />
-                  <StatCard
+                  <DashboardStatCard
                     label="本月成本"
-                    value={`$${costSummary.monthlyCost.toFixed(4)}`}
+                    value={formatCost(costSummary.monthlyCost, currency)}
                     icon="📈"
-                    trend={costSummary.monthlyCost > 0 ? "up" : "stable"}
+                    trendDirection={costSummary.monthlyCost > 0 ? "up" : "stable"}
                   />
-                  <StatCard
+                  <DashboardStatCard
                     label="总 Tokens"
                     value={costSummary.totalTokens.toLocaleString()}
                     icon="🪙"
-                    trend={costSummary.totalTokens > 0 ? "up" : "stable"}
+                    trendDirection={costSummary.totalTokens > 0 ? "up" : "stable"}
                   />
+                </div>
+                <div className="mt-3 text-right">
+                  <button
+                    onClick={() => navigate("/cost")}
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    查看完整报告 →
+                  </button>
                 </div>
               </div>
             )}
@@ -587,7 +557,7 @@ function DashboardPage() {
                             <div
                               key={idx}
                               className="flex-1 flex flex-col items-center gap-1"
-                              title={`${day.date} - $${day.cost.toFixed(4)} (${day.tokens.toLocaleString()} tokens)`}
+                              title={`${day.date} - ${formatCost(day.cost, currency)} (${day.tokens.toLocaleString()} tokens)`}
                             >
                               <div className="flex-1 w-full flex items-end justify-center">
                                 <div
@@ -651,7 +621,7 @@ function DashboardPage() {
                               {provider.percentage}%
                             </span>
                             <span className="text-xs text-gray-400 dark:text-gray-500 w-20 text-right">
-                              ${provider.cost.toFixed(4)}
+                              ${formatCost(provider.cost, currency)}
                             </span>
                           </div>
                         ))}
@@ -664,86 +634,10 @@ function DashboardPage() {
                 {costSummary &&
                   (costSummary.totalCacheReadTokens > 0 ||
                     costSummary.totalCacheCreationTokens > 0) && (
-                    <div
-                      className={`rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
-                    >
-                      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                        <h2
-                          className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                        >
-                          ⚡ 缓存效益
-                        </h2>
-                      </div>
-                      <div className="p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div
-                            className={`p-3 rounded-lg border text-center ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-200"}`}
-                          >
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                              缓存读取
-                            </p>
-                            <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                              {costSummary.totalCacheReadTokens.toLocaleString()}
-                            </p>
-                            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-                              tokens
-                            </p>
-                          </div>
-                          <div
-                            className={`p-3 rounded-lg border text-center ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-200"}`}
-                          >
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                              缓存创建
-                            </p>
-                            <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
-                              {costSummary.totalCacheCreationTokens.toLocaleString()}
-                            </p>
-                            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-                              tokens
-                            </p>
-                          </div>
-                          <div
-                            className={`p-3 rounded-lg border text-center ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-200"}`}
-                          >
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                              缓存命中率
-                            </p>
-                            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                              {costSummary.totalCacheReadTokens +
-                                costSummary.totalCacheCreationTokens >
-                              0
-                                ? `${((costSummary.totalCacheReadTokens / (costSummary.totalCacheReadTokens + costSummary.totalCacheCreationTokens)) * 100).toFixed(1)}%`
-                                : "0%"}
-                            </p>
-                            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-                              read / total
-                            </p>
-                          </div>
-                        </div>
-                        {costSummary.totalCacheCreationTokens > 0 && (
-                          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 h-3 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full rounded-full bg-gradient-to-r from-blue-400 to-emerald-400"
-                                  style={{
-                                    width: `${Math.min((costSummary.totalCacheReadTokens / (costSummary.totalCacheCreationTokens || 1)) * 100, 100)}%`,
-                                  }}
-                                />
-                              </div>
-                              <span className="text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                                {costSummary.totalCacheReadTokens.toLocaleString()}{" "}
-                                /{" "}
-                                {costSummary.totalCacheCreationTokens.toLocaleString()}
-                              </span>
-                            </div>
-                            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 text-right">
-                              读取 / 创建 比率
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <CacheBenefitPanel
+                      totalCacheReadTokens={costSummary.totalCacheReadTokens}
+                      totalCacheCreationTokens={costSummary.totalCacheCreationTokens}
+                    />
                   )}
 
                 <div
@@ -1008,7 +902,7 @@ function DashboardPage() {
                                   累计成本 (USD)
                                 </p>
                                 <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
-                                  ${analytics.cost.totalCostUSD.toFixed(4)}
+                                  {formatCost(analytics.cost.totalCostUSD, currency)}
                                 </p>
                               </div>
                             </div>

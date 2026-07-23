@@ -55,6 +55,8 @@ const COLUMN_MAP: Record<string, string> = {
   output_price: 'outputCostPerMillion',
   cache_read_price: 'cacheReadCostPerMillion',
   cache_write_price: 'cacheWriteCostPerMillion',
+  cost_multiplier: 'costMultiplier',
+  pricing_source: 'pricingSource',
   is_custom: 'isCustom',
   provider_id: 'providerId',
   provider_mappings: 'providerMappings',
@@ -76,6 +78,8 @@ export interface ModelPricingRecord {
   outputCostPerMillion: number;
   cacheReadCostPerMillion: number;
   cacheWriteCostPerMillion: number;
+  costMultiplier: number;
+  pricingSource: string;
   isCustom: boolean;
   providerId: string;
   enabled: boolean;
@@ -95,6 +99,8 @@ export interface UpsertPricingParams {
   outputCostPerMillion: number;
   cacheReadCostPerMillion?: number;
   cacheWriteCostPerMillion?: number;
+  costMultiplier?: number;
+  pricingSource?: string;
   providerId?: string;
   enabled?: boolean;
 }
@@ -129,6 +135,8 @@ function rowToRecord(row: Record<string, unknown>): ModelPricingRecord {
     outputCostPerMillion: (row.output_price as number) || 0,
     cacheReadCostPerMillion: (row.cache_read_price as number) || 0,
     cacheWriteCostPerMillion: (row.cache_write_price as number) || 0,
+    costMultiplier: (row.cost_multiplier as number) ?? 1.0,
+    pricingSource: (row.pricing_source as string) || 'default',
     isCustom: (row.is_custom as number) === 1,
     providerId: (row.provider_id as string) || '',
     enabled: (row.enabled as number) !== 0,
@@ -221,6 +229,8 @@ export class ModelPricingService {
           output_price       REAL NOT NULL DEFAULT 0,
           cache_read_price   REAL NOT NULL DEFAULT 0,
           cache_write_price  REAL NOT NULL DEFAULT 0,
+          cost_multiplier    REAL NOT NULL DEFAULT 1.0,
+          pricing_source     TEXT NOT NULL DEFAULT 'default',
           provider_id        TEXT NOT NULL DEFAULT '',
           enabled            INTEGER NOT NULL DEFAULT 1,
           is_custom          INTEGER NOT NULL DEFAULT 0,
@@ -246,6 +256,22 @@ export class ModelPricingService {
     await new Promise<void>((resolve) => {
       this.db!.run(
         `ALTER TABLE ${REGISTRY_TABLE} ADD COLUMN id TEXT NOT NULL DEFAULT ''`,
+        () => resolve()
+      );
+    });
+
+    // 兼容旧列：尝试添加可能缺失的 cost_multiplier 列（已存在的库）
+    await new Promise<void>((resolve) => {
+      this.db!.run(
+        `ALTER TABLE ${REGISTRY_TABLE} ADD COLUMN cost_multiplier REAL NOT NULL DEFAULT 1.0`,
+        () => resolve()
+      );
+    });
+
+    // 兼容旧列：尝试添加可能缺失的 pricing_source 列（已存在的库）
+    await new Promise<void>((resolve) => {
+      this.db!.run(
+        `ALTER TABLE ${REGISTRY_TABLE} ADD COLUMN pricing_source TEXT NOT NULL DEFAULT 'default'`,
         () => resolve()
       );
     });
@@ -552,6 +578,7 @@ export class ModelPricingService {
            capabilities = ?, provider_mappings = ?,
            input_price = ?, output_price = ?,
            cache_read_price = ?, cache_write_price = ?,
+           cost_multiplier = ?, pricing_source = ?,
            provider_id = ?, updated_at = ?
            WHERE model_id = ?`,
           [
@@ -565,6 +592,8 @@ export class ModelPricingService {
             params.cacheReadCostPerMillion ?? existing.cacheReadCostPerMillion,
             params.cacheWriteCostPerMillion ??
               existing.cacheWriteCostPerMillion,
+            params.costMultiplier ?? existing.costMultiplier ?? 1.0,
+            params.pricingSource || existing.pricingSource || 'default',
             params.providerId || existing.providerId || '',
             now,
             params.modelId,
@@ -590,8 +619,9 @@ export class ModelPricingService {
            (id, model_id, display_name, context_window, max_output_tokens,
             capabilities, provider_mappings,
             input_price, output_price, cache_read_price, cache_write_price,
+            cost_multiplier, pricing_source,
             provider_id, enabled, is_custom, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
           [
             id,
             params.modelId,
@@ -604,6 +634,8 @@ export class ModelPricingService {
             params.outputCostPerMillion,
             params.cacheReadCostPerMillion || 0,
             params.cacheWriteCostPerMillion || 0,
+            params.costMultiplier ?? 1.0,
+            params.pricingSource || 'default',
             params.providerId || '',
             params.enabled !== false ? 1 : 0,
             now,

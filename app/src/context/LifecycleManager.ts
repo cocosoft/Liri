@@ -1,9 +1,10 @@
-﻿import type { Context } from './types/Context';
+import type { Context } from './types/Context';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ContextErrorCode } from './types/ContextErrorCode';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
-  module: 'context\LifecycleManager',
+  module: 'context:lifecycle',
   level: LogLevel.INFO,
 });
 
@@ -91,7 +92,7 @@ export class LifecycleManager {
         `Context not found: ${id}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        '1000'
+        ContextErrorCode.LIFECYCLE_INVALID
       );
     }
 
@@ -112,7 +113,7 @@ export class LifecycleManager {
         `Context not found: ${id}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        '1000'
+        ContextErrorCode.LIFECYCLE_INVALID
       );
     }
 
@@ -129,12 +130,8 @@ export class LifecycleManager {
     const entry = this.entries.get(id);
 
     if (!entry) {
-      throw new AppError(
-        `Context not found: ${id}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
+      // 已清理，静默跳过——非错误场景
+      return;
     }
 
     if (entry.hooks.onDestroy) {
@@ -147,10 +144,14 @@ export class LifecycleManager {
   }
 
   async destroyAll(): Promise<void> {
-    const destroyPromises = Array.from(this.entries.values()).map((entry) =>
-      this.destroy(entry.context)
+    const entries = Array.from(this.entries.entries());
+    const results = await Promise.allSettled(
+      entries.map(([, entry]) => this.destroy(entry.context))
     );
-    await Promise.all(destroyPromises);
+    const failures = results.filter((r) => r.status === 'rejected');
+    if (failures.length > 0) {
+      logger.warn('destroyAll 部分失败', { count: failures.length });
+    }
   }
 
   getState(context: Context): LifecycleState {

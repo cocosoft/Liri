@@ -70,7 +70,6 @@ import { getToolManager } from '@modules/tools/ToolManager';
 import { getTitleGenerator } from '@modules/agent/TitleGenerator';
 
 import { costTracker } from '@modules/cost/CostTracker.js';
-import { getCostAnalyticsTracker } from '@modules/analytics/CostAnalyticsTracker.js';
 import { recordCost } from '@modules/cost/CostMonitor.js';
 import { getCostMetricsBridge } from '@modules/cost/CostMetricsBridge.js';
 import { eventNotificationService } from '@modules/chat/services/EventNotificationService';
@@ -492,18 +491,8 @@ export class CoreAPIImpl implements CoreAPI {
             usage.estimatedCostUsd ?? 0
           );
 
-          // 记录分析日志到 JSONL
-          getCostAnalyticsTracker().trackModelUsage(
-            this._modelName,
-            {
-              inputTokens: usage.inputTokens,
-              outputTokens: usage.outputTokens,
-              totalTokens: usage.totalTokens,
-              cacheReadInputTokens: usage.cacheReadInputTokens,
-              cacheCreationInputTokens: usage.cacheCreationInputTokens,
-            },
-            { sessionId: finalSessionId }
-          );
+          // [ADR-001] CostAnalyticsTracker 已迁移为 COST_RECORDED 事件只读消费者
+          // 不再直接调用 trackModelUsage()，成本数据通过 costTracker.addCost → COST_RECORDED 事件同步
         },
         onToolCall: (phase, toolName, toolCallId, detail) => {
           if (phase === 'start') {

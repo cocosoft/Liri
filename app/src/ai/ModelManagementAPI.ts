@@ -732,6 +732,8 @@ async function handleUpsertPricing(
       cacheWriteCostPerMillion: body.cacheWriteCostPerMillion as
         | number
         | undefined,
+      costMultiplier: body.costMultiplier as number | undefined,
+      pricingSource: body.pricingSource as string | undefined,
     });
     // 刷新 ModelRegistry 定价缓存
     const { ModelRegistry } = await import('./models/ModelRegistry.js');

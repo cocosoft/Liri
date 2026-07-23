@@ -7,6 +7,7 @@
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -83,6 +84,7 @@ const costCommand = {
         return handleTotalCost();
       }
     } catch (error) {
+      await handleError(error, { module: 'commands:cost', action: 'execute' });
       return {
         success: false,
         message: `获取成本统计失败: ${error instanceof Error ? error.message : '未知错误'}`,

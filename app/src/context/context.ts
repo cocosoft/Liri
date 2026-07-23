@@ -8,6 +8,7 @@
  * @returns {Promise<Object>} 系统上下文信息
  */
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({ module: 'context:context', level: LogLevel.INFO });
 
 export async function getSystemContext() {
@@ -43,12 +44,18 @@ export async function getSystemContext() {
       };
     } catch (error) {
       // Git信息获取失败，忽略
-      console.error('获取Git信息失败:', error);
+      await handleError(error, {
+        module: 'context:context',
+        action: 'git_info',
+      });
     }
 
     return systemInfo;
   } catch (error) {
-    console.error('获取系统上下文失败:', error);
+    await handleError(error, {
+      module: 'context:context',
+      action: 'system_context',
+    });
     return {};
   }
 }
@@ -68,7 +75,10 @@ export async function getUserContext() {
 
     return userInfo;
   } catch (error) {
-    console.error('获取用户上下文失败:', error);
+    await handleError(error, {
+      module: 'context:context',
+      action: 'user_context',
+    });
     return {};
   }
 }

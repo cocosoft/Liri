@@ -1,10 +1,11 @@
-﻿import { contextIsolator } from './ContextIsolator';
+import { contextIsolator } from './ContextIsolator';
 import type { Context } from './types/Context';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ContextErrorCode } from './types/ContextErrorCode';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
-  module: 'context\ContextSharingManager',
+  module: 'context:sharing',
   level: LogLevel.INFO,
 });
 
@@ -45,7 +46,7 @@ export class ContextSharingManager {
         `Target scope not found: ${targetScopeId}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        '1000'
+        ContextErrorCode.CONTEXT_NOT_FOUND
       );
     }
 
@@ -59,7 +60,7 @@ export class ContextSharingManager {
         `Maximum shares per scope reached: ${this.maxSharesPerScope}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        '1000'
+        ContextErrorCode.CONTEXT_NOT_FOUND
       );
     }
 

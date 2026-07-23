@@ -6,6 +6,25 @@
  * - Cache-aware Token 追踪
  * - 上下文分类统计
  * - 多供应商/多模型支持
+ *
+ * === Phase 2.9 TokenBudget 收敛迁移计划 ===
+ *
+ * 当前状态（v9.3）:
+ *   ┌─ TokenBudgetManager         (services/)  — @deprecated → QueryEngine.ts 使用
+ *   ├─ TokenBudgetManagerImpl      (query/)     — @deprecated → ChatManager/TAORLoop 使用
+ *   └─ TokenBudgetController      (core/)       — ★ 迁移目标，零活跃调用方
+ *
+ * 缺失能力（迁移前需补齐）:
+ *   1. CJK 感知估算 — 当前仅 chars/4+Rust原生，需集成 ai/tokenizer/TokenEstimator
+ *   2. checkDecliningReturn() — query/TokenBudget 独有，检测压缩收益递减
+ *   3. graceCall() — query/TokenBudget 独有，紧急追加调用
+ *   4. shouldCompact() 阈值 — services/TokenBudgetManager 的 70%/85% 警告体系
+ *
+ * 迁移路径:
+ *   Phase A: 补齐缺失能力 + 单元测试
+ *   Phase B: QueryEngine → 切到 TokenBudgetController
+ *   Phase C: ChatManager + TAORLoop → 切到 TokenBudgetController
+ *   Phase D: 删除 services/TokenBudgetManager + query/TokenBudgetManagerImpl
  */
 
 import { priceManager } from './PriceManager';
@@ -24,6 +43,37 @@ import type {
   ContextStats,
   TokenUsage,
 } from './types';
+import { estimateTokens } from '../../ai/tokenizer/TokenEstimator';
+
+/** Phase 2.9: 统一 TokenBudgetStatus 枚举 */
+export enum TokenBudgetStatus {
+  NORMAL = 'normal',
+  WARNING = 'warning',
+  CRITICAL = 'critical',
+  EXCEEDED = 'exceeded',
+}
+
+/** Phase 2.9: 统一 TokenBudgetState 接口（兼容 QueryEngine + TAORLoop） */
+export interface TokenBudgetState {
+  status: TokenBudgetStatus;
+  currentTokens: number;
+  maxTokens: number;
+  maxOutputTokens: number;
+  percentUsed: number;
+  isWarning: boolean;
+  isCritical: boolean;
+  remainingTokens: number;
+  remainingOutputTokens: number;
+  resetAt: number;
+  totalTokensUsed: number;
+  totalCacheReadTokens: number;
+  totalCacheCreationTokens: number;
+  totalOutputTokensUsed: number;
+  messagesProcessed: number;
+  shouldCompact: boolean;
+  modelName: string;
+  warningMessage?: string;
+}
 
 let nativeEstimateTokens: ((text: string, model?: string) => number) | null =
   null;
@@ -39,6 +89,7 @@ function lazyInitNative() {
         nativeEstimateTokens = null;
       }
     } catch {
+      // @ignore-catch: native estimate unavailable
       nativeEstimateTokens = null;
     }
   }
@@ -66,6 +117,21 @@ export class TokenBudgetController {
   private contextWindow: number;
   private provider: APIProviderType;
   private contextStats: ContextStatsCollector;
+
+  // Phase 2.9: 统一能力
+  private totalTokensUsed: number = 0;
+  private totalOutputTokensUsed: number = 0;
+  private totalCacheReadTokens: number = 0;
+  private totalCacheCreationTokens: number = 0;
+  private messagesProcessed: number = 0;
+  private resetAt: number = Date.now();
+  private readonly WARNING_THRESHOLD = 0.7;
+  private readonly CRITICAL_THRESHOLD = 0.85;
+  // Declining return detection
+  private recentTurnTokenUsage: number[] = [];
+  private readonly DECLINING_RETURN_WINDOW = 3;
+  private graceCallsUsed: number = 0;
+  private readonly MAX_GRACE_CALLS = 3;
 
   constructor(
     model: string,
@@ -104,6 +170,7 @@ export class TokenBudgetController {
       const priceResult = priceManager.getPriceSync(model);
       return priceResult.contextWindow;
     } catch {
+      // @ignore-catch: estimation fallback
       return 200_000;
     }
   }
@@ -217,6 +284,12 @@ export class TokenBudgetController {
 
   resetBudget(): void {
     this.spent = 0;
+    this.totalTokensUsed = 0;
+    this.totalOutputTokensUsed = 0;
+    this.messagesProcessed = 0;
+    this.recentTurnTokenUsage = [];
+    this.graceCallsUsed = 0;
+    this.resetAt = Date.now();
     this.budget.remaining = this.budget.total;
     if (this.budget.used !== undefined) {
       this.budget.used = 0;
@@ -255,6 +328,135 @@ export class TokenBudgetController {
   isBudgetCritical(): boolean {
     return this.getBudgetPercentage() < 10;
   }
+
+  // ==========================================
+  // Phase 2.9: 统一接口（兼容 QueryEngine + ChatManager + TAORLoop）
+  // ==========================================
+
+  /** 简单 token 消耗（ChatManager path） */
+  consumeTokens(tokens: number): void {
+    this.spent += tokens;
+    this.totalTokensUsed += tokens;
+    this.messagesProcessed++;
+    this.budget.remaining = Math.max(0, this.budget.total - this.spent);
+  }
+
+  /** 输出 token 消耗 */
+  consumeOutputTokens(tokens: number): void {
+    this.totalOutputTokensUsed += tokens;
+  }
+
+  /** 预算状态检查 */
+  checkBudget(): TokenBudgetStatus {
+    const pct = this.getBudgetPercentage();
+    if (this.budget.remaining <= 0) return TokenBudgetStatus.EXCEEDED;
+    if (pct < 10) return TokenBudgetStatus.CRITICAL;
+    if (pct < 20) return TokenBudgetStatus.WARNING;
+    return TokenBudgetStatus.NORMAL;
+  }
+
+  /** 获取完整预算状态 */
+  getCurrentBudgetState(): TokenBudgetState {
+    const remaining = this.getRemainingBudget();
+    const percentUsed =
+      this.budget.total > 0 ? this.spent / this.budget.total : 0;
+    const isWarning = remaining / this.budget.total <= this.WARNING_THRESHOLD;
+    const isCritical = remaining / this.budget.total <= this.CRITICAL_THRESHOLD;
+    const status = this.checkBudget();
+
+    return {
+      status,
+      currentTokens: this.spent,
+      maxTokens: this.budget.total,
+      maxOutputTokens:
+        this.budget.maxOutputTokens ?? Math.floor(this.budget.total * 0.2),
+      percentUsed,
+      isWarning,
+      isCritical,
+      remainingTokens: remaining,
+      remainingOutputTokens: Math.max(
+        0,
+        (this.budget.maxOutputTokens ?? 0) - this.totalOutputTokensUsed
+      ),
+      resetAt: this.resetAt,
+      totalTokensUsed: this.totalTokensUsed,
+      totalCacheReadTokens: this.totalCacheReadTokens,
+      totalCacheCreationTokens: this.totalCacheCreationTokens,
+      totalOutputTokensUsed: this.totalOutputTokensUsed,
+      messagesProcessed: this.messagesProcessed,
+      shouldCompact: isWarning || isCritical,
+      modelName: this.model,
+    };
+  }
+
+  /** 更新模型 */
+  setModel(modelName: string): void {
+    this.model = modelName;
+    this.provider = this.detectProvider(modelName);
+    this.contextWindow = this.getContextWindowForModel(modelName);
+  }
+
+  /** 估算消息 token */
+  estimateMessageTokens(content: string): number {
+    return estimateTokens(content);
+  }
+
+  /** 是否可以发送消息 */
+  canSendMessage(content: string): boolean {
+    const estimated = this.estimateMessageTokens(content);
+    return estimated <= this.budget.remaining;
+  }
+
+  /** 是否可以输出指定 token */
+  canSendOutput(tokens: number): boolean {
+    return (
+      tokens <= (this.budget.maxOutputTokens ?? 0) - this.totalOutputTokensUsed
+    );
+  }
+
+  /** 压缩等级（0=无需, 1=轻度, 2=中度, 3=重度） */
+  getCompressionLevel(): 0 | 1 | 2 | 3 {
+    const pct =
+      this.budget.total > 0 ? (this.spent / this.budget.total) * 100 : 0;
+    if (pct >= 90) return 3;
+    if (pct >= 70) return 2;
+    if (pct >= 50) return 1;
+    return 0;
+  }
+
+  /** 获取模型名 */
+  getModelName(): string {
+    return this.model;
+  }
+
+  /** Phase 3: 递减回报检测 */
+  checkDecliningReturn(): {
+    isDeclining: boolean;
+    consecutiveLowTurns: number;
+  } {
+    let consecutiveLowTurns = 0;
+    for (let i = this.recentTurnTokenUsage.length - 1; i >= 0; i--) {
+      if (this.recentTurnTokenUsage[i] < 100) {
+        consecutiveLowTurns++;
+      } else {
+        break;
+      }
+    }
+    return {
+      isDeclining: consecutiveLowTurns >= this.DECLINING_RETURN_WINDOW,
+      consecutiveLowTurns,
+    };
+  }
+
+  /** 是否允许 grace call */
+  canUseGraceCall(): boolean {
+    return this.graceCallsUsed < this.MAX_GRACE_CALLS;
+  }
+
+  /** 使用一次 grace call */
+  useGraceCall(): void {
+    this.graceCallsUsed++;
+  }
 }
 
 export function getContextWindowForModel(model: string): number {
@@ -265,6 +467,7 @@ export function getContextWindowForModel(model: string): number {
     const priceResult = priceManager.getPriceSync(model);
     return priceResult.contextWindow;
   } catch {
+    // @ignore-catch: estimation fallback
     return 200_000;
   }
 }

@@ -6,7 +6,12 @@
 
 import type { CostData, CostCategory, CostPeriod } from './types.js';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 const logger = new Logger({
   module: 'cost:costPredictor',
@@ -82,7 +87,10 @@ export class CostPredictor {
           predictions.push(prediction);
           validAlgorithms.push(algorithm);
         } catch (error) {
-          logger.warning(`算法 ${algorithm.name} 预测失败:`, { error });
+          await handleError(error, {
+            module: 'cost:predictor',
+            action: 'predict',
+          });
         }
       }
     }

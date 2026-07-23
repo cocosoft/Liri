@@ -646,7 +646,7 @@ export class LocalHTTPService {
     const period = urlObj.searchParams.get('period') || 'all';
 
     const endpoint = new CostReportEndpoint(costTracker);
-    const result = endpoint.handle({
+    const result = await endpoint.handle({
       format: format as 'json' | 'text' | 'csv' | 'prometheus',
       period: period as 'today' | 'week' | 'month' | 'custom',
     });
@@ -5681,13 +5681,36 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
+      const mm = await this.getMemoryManager();
+      const allMemories = await mm.getAllMemories();
+
+      // v1.2: 单次遍历，按后端类型分组累加
+      const countMap: Record<string, number> = {};
+      const weightMap: Record<string, number> = {};
+      const TYPE_MAP: Record<string, string> = {
+        user_fact: 'conversation',
+        user_preference: 'user_preference',
+        project_knowledge: 'project_context',
+        code_pattern: 'system',
+        decision: 'knowledge',
+      };
+      for (const m of allMemories) {
+        const backendType = m.metadata?.type || 'unknown';
+        const ft = TYPE_MAP[backendType] || backendType;
+        countMap[ft] = (countMap[ft] || 0) + 1;
+        weightMap[ft] = (weightMap[ft] || 0) + Math.max(1, m.metadata?.priority || 0);
+      }
+
+      const weights = Object.keys(countMap).map((ft) => ({
+        type: ft,
+        count: countMap[ft],
+        totalWeight: weightMap[ft] || 0,
+        averageWeight: countMap[ft] > 0 ? (weightMap[ft] || 0) / countMap[ft] : 0,
+      }));
+      weights.sort((a, b) => b.count - a.count);
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          success: true,
-          weights: { semantic: 0.4, recency: 0.3, frequency: 0.3 },
-        })
-      );
+      res.end(JSON.stringify({ success: true, weights, totalMemories: allMemories.length }));
     } catch (err) {
       this.sendError(res, err);
     }
@@ -5697,19 +5720,52 @@ export class LocalHTTPService {
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
+    // v1.2: 旧端点已废弃，返回 410 Gone
+    res.writeHead(410, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      error: { message: 'This endpoint has been removed. Use GET /v1/memory/stats instead.' },
+    }));
+  }
+
+  private async handleGetStats(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
     try {
+      const mm = await this.getMemoryManager();
+      const allMemories = await mm.getAllMemories();
+      const now = Date.now();
+      const TYPE_MAP: Record<string, string> = {
+        user_fact: 'conversation', user_preference: 'user_preference',
+        project_knowledge: 'project_context', code_pattern: 'system', decision: 'knowledge',
+      };
+
+      const withVectors = allMemories.filter((m: any) => !!m.metadata?.vectorId).length;
+      const byType: Record<string, number> = {};
+      for (const m of allMemories) {
+        const ft = TYPE_MAP[m.metadata?.type || 'unknown'] || m.metadata?.type || 'unknown';
+        byType[ft] = (byType[ft] || 0) + 1;
+      }
+      const recentCount = allMemories.filter(
+        (m: any) => (now - new Date(m.createdAt).getTime()) < 7 * 24 * 60 * 60 * 1000
+      ).length;
+
+      const expiring = await mm.getExpiringMemories();
+      const oldestMs = allMemories.length > 0
+        ? Math.min(...allMemories.map((m: any) => new Date(m.createdAt).getTime()))
+        : now;
+      const oldestMemoryAge = Math.floor((now - oldestMs) / (24 * 60 * 60 * 1000));
+
+      const indexedCount = mm.getRetriever().getIndexSize();
+      const vectorCacheSize = allMemories.filter((m: any) => !!m.metadata?.vectorId).length;
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          success: true,
-          status: {
-            lastSync: null,
-            pendingSync: [],
-            failedSync: [],
-            syncCount: 0,
-          },
-        })
-      );
+      res.end(JSON.stringify({
+        success: true,
+        stats: { totalMemories: allMemories.length, withVectors, byType, recentCount },
+        aging: { expiringCount: expiring.length, oldestMemoryAge, lastCleanupAt: mm.getLastCleanupAt() },
+        index: { indexedCount, vectorCacheSize },
+      }));
     } catch (err) {
       this.sendError(res, err);
     }
@@ -5720,13 +5776,16 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
+      const mm = await this.getMemoryManager();
+      const cleanedCount = await mm.cleanupExpiredMemories();
+      await mm.buildMemoryIndex();
+      const remainingCount = (await mm.getAllMemories()).length;
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          success: true,
-          message: 'Sync not yet implemented',
-        })
-      );
+      res.end(JSON.stringify({
+        success: true,
+        result: { cleanedCount, remainingCount, reindexed: true },
+      }));
     } catch (err) {
       this.sendError(res, err);
     }
@@ -5737,13 +5796,37 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          success: true,
-          message: 'Consolidation not yet implemented',
-        })
+      const mm = await this.getMemoryManager();
+      const allMemories = await mm.getAllMemories();
+
+      const { MemoryConsolidator } = await import('../../../src/memory/consolidation/MemoryConsolidator');
+      const consolidator = new MemoryConsolidator({ similarityThreshold: 0.85 });
+      const dedupResult = consolidator.findDuplicates(
+        allMemories.map((m: any) => ({ id: m.id, content: m.content, createdAt: new Date(m.createdAt).getTime() }))
       );
+
+      const removedIds: string[] = [];
+      try {
+        for (const group of dedupResult.duplicates) {
+          for (let i = 1; i < group.length; i++) {
+            await mm.deleteMemory(group[i]);
+            removedIds.push(group[i]);
+          }
+        }
+      } finally {
+        await mm.buildMemoryIndex();
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        result: {
+          duplicateGroups: dedupResult.duplicates.length,
+          totalRemoved: dedupResult.totalRemoved,
+          spaceSaved: dedupResult.spaceSaved,
+          removedIds,
+        },
+      }));
     } catch (err) {
       this.sendError(res, err);
     }

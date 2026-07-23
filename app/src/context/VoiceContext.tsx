@@ -90,6 +90,7 @@ export const VoiceProvider = ({ children }: { children: ReactNode }) => {
     getVoiceRecorder()
       .speak({ text })
       .catch(() => {
+        // @ignore-catch: voice state reset
         setState('idle');
       });
   }, []);

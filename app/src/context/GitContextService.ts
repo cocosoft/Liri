@@ -8,6 +8,7 @@ import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
 
 const logger = new Logger({ module: 'context:git', level: LogLevel.INFO });
@@ -57,6 +58,7 @@ export class GitContextService {
       });
       return true;
     } catch {
+      // @ignore-catch: git check failure
       return false;
     }
   }
@@ -71,6 +73,7 @@ export class GitContextService {
       });
       return stdout.trim() || 'HEAD';
     } catch {
+      // @ignore-catch: git command failure
       return null;
     }
   }
@@ -100,6 +103,7 @@ export class GitContextService {
       }
       return 'main';
     } catch {
+      // @ignore-catch: branch detection failure
       return 'main';
     }
   }
@@ -117,6 +121,7 @@ export class GitContextService {
       );
       return stdout.trim();
     } catch {
+      // @ignore-catch: git command failure
       return '';
     }
   }
@@ -134,6 +139,7 @@ export class GitContextService {
       );
       return stdout.trim();
     } catch {
+      // @ignore-catch: git command failure
       return '';
     }
   }
@@ -148,6 +154,7 @@ export class GitContextService {
       });
       return stdout.trim() || null;
     } catch {
+      // @ignore-catch: git command failure
       return null;
     }
   }
@@ -184,7 +191,7 @@ export class GitContextService {
         userName,
       };
     } catch (error) {
-      logger.error('Failed to get git status:', { error });
+      await handleError(error, { module: 'context:git', action: 'get_status' });
       return null;
     }
   }

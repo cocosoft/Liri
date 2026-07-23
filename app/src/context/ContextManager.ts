@@ -58,7 +58,24 @@ export interface ContextManagerOptions {
 }
 
 /**
+ * 上下文管理器依赖注入选项（Phase 4: 构造参数注入）
+ */
+export interface ContextManagerDependencies {
+  gitService?: GitContextService;
+  userService?: UserContextService;
+  cacheService?: ContextCacheService;
+  store?: ContextStore;
+  injector?: ContextInjector;
+  lifecycle?: LifecycleManager;
+  isolator?: ContextIsolator;
+  sharingManager?: ContextSharingManager;
+}
+
+/**
  * 上下文管理器
+ *
+ * Phase 4: 支持构造参数注入（createContextManager），替代原有 Singleton 模式。
+ * 测试时可通过 createContextManager({ store: new MockStore() }) 创建 mock 实例。
  */
 export class ContextManager {
   private static instance: ContextManager;
@@ -72,7 +89,10 @@ export class ContextManager {
   private isolator: ContextIsolator;
   private sharingManager: ContextSharingManager;
 
-  private constructor(options: ContextManagerOptions = {}) {
+  private constructor(
+    options: ContextManagerOptions = {},
+    deps?: ContextManagerDependencies
+  ) {
     this.options = {
       enableGitStatus: options.enableGitStatus ?? true,
       enableUserContext: options.enableUserContext ?? true,
@@ -80,14 +100,15 @@ export class ContextManager {
       watchFileChanges: options.watchFileChanges ?? true,
     };
 
-    this.gitService = getGitContextService();
-    this.userService = getUserContextService();
-    this.cacheService = getContextCacheService();
-    this.store = contextStore;
-    this.injector = contextInjector;
-    this.lifecycle = lifecycleManager;
-    this.isolator = contextIsolator;
-    this.sharingManager = contextSharingManager;
+    // Phase 4: 支持依赖注入，默认使用单例
+    this.gitService = deps?.gitService ?? getGitContextService();
+    this.userService = deps?.userService ?? getUserContextService();
+    this.cacheService = deps?.cacheService ?? getContextCacheService();
+    this.store = deps?.store ?? contextStore;
+    this.injector = deps?.injector ?? contextInjector;
+    this.lifecycle = deps?.lifecycle ?? lifecycleManager;
+    this.isolator = deps?.isolator ?? contextIsolator;
+    this.sharingManager = deps?.sharingManager ?? contextSharingManager;
 
     this.cacheService.setDefaultTTL(this.options.cacheTTL);
 
@@ -109,6 +130,17 @@ export class ContextManager {
       ContextManager.instance = new ContextManager(options);
     }
     return ContextManager.instance;
+  }
+
+  /**
+   * 创建新实例（支持依赖注入，用于测试）
+   * Phase 4: 创建非单例实例，绕过 getInstance 缓存
+   */
+  static create(
+    options?: ContextManagerOptions,
+    deps?: ContextManagerDependencies
+  ): ContextManager {
+    return new ContextManager(options, deps);
   }
 
   private setupFileWatchers(): void {
@@ -352,6 +384,40 @@ export class ContextManager {
   getContextSharingManager(): ContextSharingManager {
     return this.sharingManager;
   }
+
+  /**
+   * prepareForModel — 统一上下文装配接口（对标 PilotDeck ContextRuntime.prepareForModel）
+   *
+   * 为模型调用装配完整的上下文，返回可直接注入 LLM 请求的上下文对象。
+   * 聚合：系统提示 → Git 状态 → 用户上下文 → 记忆 → 共享上下文
+   */
+  async prepareForModel(sessionId?: string): Promise<{
+    systemPrompt: string;
+    gitStatus?: string;
+    userContext?: string;
+    memoryContext?: string;
+    sharedContexts: Record<string, unknown>;
+  }> {
+    const [gitStatus, userContextObj] = await Promise.all([
+      this.getGitStatus().catch(
+        () => undefined /* @ignore-catch: git status optional */
+      ),
+      this.getUserContext().catch(
+        () => undefined /* @ignore-catch: user context optional */
+      ),
+    ]);
+
+    const systemPrompt = await this.formatSystemPrompt();
+
+    return {
+      systemPrompt,
+      gitStatus: gitStatus ?? undefined,
+      userContext: userContextObj
+        ? `User Context:\n${userContextObj.userContext ?? ''}\nCurrent Date: ${userContextObj.currentDate}`
+        : undefined,
+      sharedContexts: {},
+    };
+  }
 }
 
 export function getContextManager(
@@ -371,3 +437,14 @@ export async function fetchFormattedSystemPrompt(): Promise<string> {
 }
 
 export const contextManager = ContextManager.getInstance();
+
+/**
+ * 创建 ContextManager（支持依赖注入，用于测试）
+ * Phase 4: 替代 Singleton 模式，生产环境仍用 contextManager 单例
+ */
+export function createContextManager(
+  options?: ContextManagerOptions,
+  deps?: ContextManagerDependencies
+): ContextManager {
+  return ContextManager.create(options, deps);
+}

@@ -35,13 +35,12 @@ export {
   calculateTokenEstimateFromUsage,
 } from './TokenCounter';
 
+// Phase 2.9: Re-export from core for backward compatibility
 export {
-  TokenBudgetManager,
+  TokenBudgetController as TokenBudgetManager,
   TokenBudgetStatus,
-  DEFAULT_TOKEN_BUDGET_CONFIG,
-} from './TokenBudgetManager';
-
-export type { TokenBudgetConfig, TokenBudgetState } from './TokenBudgetManager';
+} from '../../core/tokenBudget/TokenBudgetController';
+export type { TokenBudgetState } from '../../core/tokenBudget/TokenBudgetController';
 
 export type { ModelSpecificTokenEstimator } from './TokenEstimator';
 

@@ -40,6 +40,23 @@ export interface MemorySyncStatus {
   syncProgress: number;
 }
 
+/** v1.2: 记忆系统运行状态（替代 MemorySyncStatus） */
+export interface MemorySystemStats {
+  totalMemories: number;
+  withVectors: number;
+  byType: Record<string, number>;
+  recentCount: number;
+  aging: {
+    expiringCount: number;
+    oldestMemoryAge: number;
+    lastCleanupAt: number | null;
+  };
+  index: {
+    indexedCount: number;
+    vectorCacheSize: number;
+  };
+}
+
 export interface MemorySearchParams {
   query: string;
   type?: MemoryType;
@@ -53,19 +70,6 @@ export interface MemoryListParams {
   sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
-}
-
-interface BackendMemoryWeight {
-  semantic: number;
-  recency: number;
-  frequency: number;
-}
-
-interface BackendSyncStatus {
-  lastSync: string | null;
-  pendingSync: string[];
-  failedSync: string[];
-  syncCount: number;
 }
 
 interface BackendSummary {
@@ -85,6 +89,7 @@ interface BackendMemory {
     description: string;
     type: string;
     tags: string[];
+    priority?: number;
     createdAt: string;
     updatedAt: string;
   };
@@ -99,7 +104,7 @@ function toClientMemory(m: BackendMemory): Memory {
     content: m.content,
     summary:
       m.content.length > 100 ? m.content.slice(0, 100) + "..." : m.content,
-    weight: 0,
+    weight: typeof m.metadata.priority === 'number' ? Math.max(1, m.metadata.priority) : 1,
     createdAt: new Date(m.createdAt).getTime(),
     updatedAt: new Date(m.updatedAt).getTime(),
     tags: m.metadata.tags || [],
@@ -199,52 +204,33 @@ const memoryService = {
   async getWeights(): Promise<MemoryWeight[]> {
     const response = await http.get<{
       success: boolean;
-      weights: BackendMemoryWeight;
+      weights: MemoryWeight[];
     }>("/v1/memory/weights");
-    const w = response.weights;
-    const weights: MemoryWeight[] = [
-      {
-        type: "user_preference",
-        count: 0,
-        totalWeight: w.semantic,
-        averageWeight: w.semantic,
-      },
-      {
-        type: "conversation",
-        count: 0,
-        totalWeight: w.recency,
-        averageWeight: w.recency,
-      },
-      {
-        type: "knowledge",
-        count: 0,
-        totalWeight: w.frequency,
-        averageWeight: w.frequency,
-      },
-    ];
-    return weights;
+    return response.weights || [];
   },
 
-  async getSyncStatus(): Promise<MemorySyncStatus> {
+  async getStats(): Promise<MemorySystemStats> {
     const response = await http.get<{
       success: boolean;
-      status: BackendSyncStatus;
-    }>("/v1/memory/sync-status");
-    const s = response.status;
-    return {
-      isSyncing: s.pendingSync.length > 0,
-      lastSyncTime: s.lastSync ? new Date(s.lastSync).getTime() : null,
-      pendingChanges: s.pendingSync.length,
-      syncProgress: s.syncCount > 0 ? 1 : 0,
-    };
+      stats: MemorySystemStats;
+    }>("/v1/memory/stats");
+    return response.stats;
   },
 
-  async triggerSync(): Promise<void> {
-    await http.post("/v1/memory/sync");
+  async triggerCleanup(): Promise<{ cleanedCount: number; remainingCount: number }> {
+    const response = await http.post<{
+      success: boolean;
+      result: { cleanedCount: number; remainingCount: number; reindexed: boolean };
+    }>("/v1/memory/sync");
+    return { cleanedCount: response.result.cleanedCount, remainingCount: response.result.remainingCount };
   },
 
-  async consolidate(): Promise<void> {
-    await http.post("/v1/memory/consolidate");
+  async triggerConsolidate(): Promise<{ duplicateGroups: number; totalRemoved: number; removedIds: string[] }> {
+    const response = await http.post<{
+      success: boolean;
+      result: { duplicateGroups: number; totalRemoved: number; spaceSaved: number; removedIds: string[] };
+    }>("/v1/memory/consolidate");
+    return { duplicateGroups: response.result.duplicateGroups, totalRemoved: response.result.totalRemoved, removedIds: response.result.removedIds };
   },
 };
 

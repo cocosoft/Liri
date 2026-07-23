@@ -5,6 +5,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'cost:useCostSummary',
@@ -106,7 +107,7 @@ export function useCostSummary(): UseCostSummaryResult {
         const report = formatCostReport(true);
         logger.info(report);
       } catch (error) {
-        logger.error('输出成本摘要失败:', { error });
+        void handleError(error, { module: 'cost:summary', action: 'output' });
       }
     };
 

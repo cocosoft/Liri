@@ -8,6 +8,7 @@ import { readFile, access } from 'fs/promises';
 import { join } from 'path';
 import { constants } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 import { configManager } from '@modules/config';
 
@@ -58,6 +59,7 @@ export class UserContextService {
       await access(filePath, constants.R_OK);
       return true;
     } catch {
+      // @ignore-catch: file stat failure
       return false;
     }
   }
@@ -75,7 +77,7 @@ export class UserContextService {
       const content = await readFile(filePath, 'utf-8');
       return content.trim();
     } catch (error) {
-      logger.error(`Failed to read file ${filePath}:`, { error });
+      await handleError(error, { module: 'context:user', action: 'read_file' });
       return null;
     }
   }

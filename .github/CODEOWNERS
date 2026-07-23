@@ -1,0 +1,8 @@
+# Context & Token Management Module
+app/src/context/**/*.ts @csdnc
+app/src/ai/tokenizer/**/*.ts @csdnc
+app/src/core/tokenBudget/**/*.ts @csdnc
+app/src/services/tokenManagement/**/*.ts @csdnc
+app/src/query/context/**/*.ts @csdnc
+app/src/analytics/CostAnalyticsTracker.ts @csdnc
+app/src/ai/ModelManagementAPI.ts @csdnc

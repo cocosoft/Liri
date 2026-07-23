@@ -5,71 +5,12 @@ import {
   CompressionResult,
   DEFAULT_COMPRESSION_CONFIG,
 } from './IContextEngine';
+import { estimateMessagesTokens, IMAGE_TOKEN_ESTIMATE } from '../../ai/tokenizer/TokenEstimator';
+import { generateStructuredSummary } from './SummaryGenerator';
 
-const IMAGE_TOKEN_ESTIMATE = 1600;
-
+/** @deprecated 使用 estimateMessagesTokens() 替代 */
 function estimateTokens(messages: ChatMessage[]): number {
-  let total = 0;
-  for (const m of messages) {
-    if (typeof m.content === 'string') {
-      total += Math.ceil(m.content.length / 4);
-    } else if (Array.isArray(m.content)) {
-      for (const part of m.content as Array<Record<string, unknown>>) {
-        if (part['type'] === 'text' && typeof part['text'] === 'string') {
-          total += Math.ceil((part['text'] as string).length / 4);
-        } else if (part['type'] === 'image' || part['type'] === 'image_url') {
-          total += IMAGE_TOKEN_ESTIMATE;
-        }
-      }
-    }
-  }
-  return total;
-}
-
-function generateSummaryText(truncatedMessages: ChatMessage[]): string {
-  if (truncatedMessages.length === 0) return '';
-
-  const userMessages = truncatedMessages.filter((m) => m.role === 'user');
-  const assistantMessages = truncatedMessages.filter(
-    (m) => m.role === 'assistant'
-  );
-  const toolMessages = truncatedMessages.filter((m) => m.role === 'tool');
-
-  const lines: string[] = [];
-
-  lines.push('[历史上下文摘要]');
-  lines.push(`被压缩的消息数: ${truncatedMessages.length}`);
-  lines.push(`  用户消息: ${userMessages.length}`);
-  lines.push(`  助手响应: ${assistantMessages.length}`);
-  lines.push(`  工具调用结果: ${toolMessages.length}`);
-  lines.push('');
-
-  const userContent = userMessages
-    .map((m) => (typeof m.content === 'string' ? m.content.slice(0, 200) : ''))
-    .filter((c) => c.trim().length > 0);
-  if (userContent.length > 0) {
-    lines.push('主要讨论内容:');
-    for (const content of userContent.slice(-5)) {
-      lines.push(`  - ${content}`);
-    }
-    lines.push('');
-  }
-
-  if (toolMessages.length > 0) {
-    lines.push('工具使用摘要:');
-    for (const msg of toolMessages.slice(-5)) {
-      const truncated =
-        typeof msg.content === 'string'
-          ? msg.content.slice(0, 200)
-          : '[结构化内容]';
-      if (truncated.length > 0) {
-        lines.push(`  - 工具返回: ${truncated}`);
-      }
-    }
-    lines.push('');
-  }
-
-  return lines.join('\n');
+  return estimateMessagesTokens(messages);
 }
 
 export class SummarizerEngine implements IContextEngine {
@@ -133,7 +74,7 @@ export class SummarizerEngine implements IContextEngine {
       }
     }
 
-    const summaryText = generateSummaryText(truncatedMessages);
+    const summaryText = generateStructuredSummary(truncatedMessages);
 
     if (summaryText) {
       keptMessages.splice(protectFirst, 0, {

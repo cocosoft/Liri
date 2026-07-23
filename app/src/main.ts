@@ -64,6 +64,7 @@ import {
 import { modelRouter } from '@modules/ai';
 import { configManager } from './config/index.js';
 import { isOfflineMode, setOfflineMode } from './entrypoints/shared-state.js';
+import { hydrateOnStartup, serializeOnShutdownSync } from './context/persistence/ContextPersistenceLifecycle.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({ module: 'main', level: LogLevel.INFO });
@@ -529,6 +530,8 @@ function checkSingletonInstance(): void {
 
   process.on('exit', () => {
     cleanup();
+    // Phase 2.7: 同步持久化 ContextStore（exit 事件不支持 async）
+    serializeOnShutdownSync();
     // 同步 exit 事件不支持 async，fire-and-forget flush
     flush().catch(() => {});
   });
@@ -957,6 +960,11 @@ export async function launch(options: LaunchOptions): Promise<void> {
 
     profilePhaseEnd('T1_module_init');
     profileCheckpoint('module_init_end');
+
+    // Phase 2.7: 从 JSONL 恢复 ContextStore 持久化数据
+    hydrateOnStartup().catch(() => {
+      // 恢复失败不阻塞启动
+    });
 
     // T1.2: 读取 LIRI_TRUSTED_WORKSPACE 环境变量，映射到 permission.trustedWorkspaces
     // 仅在 config.json 中无 trustedWorkspaces 配置时注入

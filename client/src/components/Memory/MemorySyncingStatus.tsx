@@ -1,125 +1,141 @@
-import type { MemorySyncStatus } from "../../services/memoryService";
+import type { MemorySystemStats } from "../../services/memoryService";
 
 interface MemorySyncingStatusProps {
-  status: MemorySyncStatus;
+  stats: MemorySystemStats | null;
   isDark: boolean;
-  onTriggerSync: () => void;
+  isCleaning: boolean;
+  isConsolidating: boolean;
+  onCleanup: () => void;
+  onConsolidate: () => void;
+}
+
+function formatAge(timestamp: number | null): string {
+  if (!timestamp) return "从未";
+  const diffMs = Date.now() - timestamp;
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 60) return `${mins}分钟前`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}小时前`;
+  const days = Math.floor(hours / 24);
+  return `${days}天前`;
 }
 
 function MemorySyncingStatus({
-  status,
+  stats,
   isDark,
-  onTriggerSync,
+  isCleaning,
+  isConsolidating,
+  onCleanup,
+  onConsolidate,
 }: MemorySyncingStatusProps) {
-  const formatLastSyncTime = (timestamp: number | null) => {
-    if (!timestamp) return "从未同步";
-    return new Date(timestamp).toLocaleString("zh-CN", {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  if (!stats) {
+    return (
+      <div
+        className={`p-4 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+      >
+        <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+          加载中...
+        </p>
+      </div>
+    );
+  }
+
+  const vectorPercent = stats.totalMemories > 0
+    ? Math.round((stats.withVectors / stats.totalMemories) * 100)
+    : 0;
 
   return (
     <div
       className={`p-4 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
     >
-      <div className="flex items-center justify-between mb-3">
-        <h3
-          className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}
-        >
-          🔄 同步状态
-        </h3>
-        <button
-          onClick={onTriggerSync}
-          disabled={status.isSyncing}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            status.isSyncing
-              ? "opacity-50 cursor-not-allowed"
-              : isDark
-                ? "bg-blue-600 hover:bg-blue-700 text-white"
-                : "bg-blue-600 hover:bg-blue-700 text-white"
-          }`}
-        >
-          {status.isSyncing ? "同步中..." : "立即同步"}
-        </button>
+      <h3
+        className={`text-sm font-medium mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}
+      >
+        记忆系统状态
+      </h3>
+
+      <div className="space-y-2 text-sm">
+        <div className="flex items-center justify-between">
+          <span className={isDark ? "text-gray-400" : "text-gray-600"}>记忆总数</span>
+          <span className={isDark ? "text-gray-200" : "text-gray-800"}>{stats.totalMemories}</span>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className={isDark ? "text-gray-400" : "text-gray-600"}>向量覆盖</span>
+          <span className={isDark ? "text-gray-200" : "text-gray-800"}>
+            {vectorPercent}% ({stats.withVectors}/{stats.totalMemories})
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className={isDark ? "text-gray-400" : "text-gray-600"}>7 天新增</span>
+          <span className={isDark ? "text-gray-200" : "text-gray-800"}>{stats.recentCount}</span>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className={isDark ? "text-gray-400" : "text-gray-600"}>即将过期</span>
+          <span
+            className={
+              stats.aging.expiringCount > 0
+                ? "text-yellow-400 font-medium"
+                : isDark
+                  ? "text-gray-200"
+                  : "text-gray-800"
+            }
+          >
+            {stats.aging.expiringCount}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className={isDark ? "text-gray-400" : "text-gray-600"}>最旧记忆</span>
+          <span className={isDark ? "text-gray-200" : "text-gray-800"}>
+            {stats.aging.oldestMemoryAge} 天前
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className={isDark ? "text-gray-400" : "text-gray-600"}>上次清理</span>
+          <span className={isDark ? "text-gray-200" : "text-gray-800"}>
+            {formatAge(stats.aging.lastCleanupAt)}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className={isDark ? "text-gray-400" : "text-gray-600"}>索引/缓存</span>
+          <span className={isDark ? "text-gray-200" : "text-gray-800"}>
+            {stats.index.indexedCount}/{stats.index.vectorCacheSize}
+          </span>
+        </div>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-            同步状态
-          </span>
-          <div className="flex items-center gap-2">
-            {status.isSyncing ? (
-              <>
-                <div
-                  className={`w-2 h-2 rounded-full animate-pulse ${isDark ? "bg-blue-500" : "bg-blue-500"}`}
-                />
-                <span
-                  className={`text-sm ${isDark ? "text-blue-400" : "text-blue-600"}`}
-                >
-                  同步中
-                </span>
-              </>
-            ) : (
-              <>
-                <div
-                  className={`w-2 h-2 rounded-full ${isDark ? "bg-green-500" : "bg-green-500"}`}
-                />
-                <span
-                  className={`text-sm ${isDark ? "text-green-400" : "text-green-600"}`}
-                >
-                  已同步
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-
-        {status.isSyncing && status.syncProgress > 0 && (
-          <div>
-            <div className="flex items-center justify-between text-sm mb-1">
-              <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-                同步进度
-              </span>
-              <span className={isDark ? "text-gray-300" : "text-gray-700"}>
-                {status.syncProgress}%
-              </span>
-            </div>
-            <div
-              className={`h-1.5 rounded-full overflow-hidden ${isDark ? "bg-gray-700" : "bg-gray-200"}`}
-            >
-              <div
-                className="h-full rounded-full bg-blue-500 transition-all duration-300"
-                style={{ width: `${status.syncProgress}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between">
-          <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-            上次同步
-          </span>
-          <span className={isDark ? "text-gray-300" : "text-gray-700"}>
-            {formatLastSyncTime(status.lastSyncTime)}
-          </span>
-        </div>
-
-        {status.pendingChanges > 0 && (
-          <div className="flex items-center justify-between">
-            <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-              待同步更改
-            </span>
-            <span
-              className={`text-sm font-medium ${isDark ? "text-yellow-400" : "text-yellow-600"}`}
-            >
-              {status.pendingChanges} 项
-            </span>
-          </div>
-        )}
+      <div className="flex gap-2 mt-4">
+        <button
+          onClick={onCleanup}
+          disabled={isCleaning}
+          className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            isCleaning
+              ? "opacity-50 cursor-not-allowed bg-gray-500 text-white"
+              : isDark
+                ? "bg-orange-700 hover:bg-orange-600 text-white"
+                : "bg-orange-500 hover:bg-orange-600 text-white"
+          }`}
+        >
+          {isCleaning ? "清理中..." : "清理过期记忆"}
+        </button>
+        <button
+          onClick={onConsolidate}
+          disabled={isConsolidating}
+          className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            isConsolidating
+              ? "opacity-50 cursor-not-allowed bg-gray-500 text-white"
+              : isDark
+                ? "bg-purple-700 hover:bg-purple-600 text-white"
+                : "bg-purple-500 hover:bg-purple-600 text-white"
+          }`}
+        >
+          {isConsolidating ? "合并中..." : "合并重复记忆"}
+        </button>
       </div>
     </div>
   );

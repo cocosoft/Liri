@@ -5,6 +5,7 @@
 
 import fs from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 
 const logger = new Logger({
@@ -94,7 +95,10 @@ export class ContextCacheService {
       });
       this.fileWatchers.set(filePath, watcher);
     } catch (error) {
-      logger.error(`Failed to watch file: ${filePath}`, { error });
+      void handleError(error, {
+        module: 'context:cache',
+        action: 'watch_file',
+      });
     }
   }
 
@@ -124,7 +128,7 @@ export class ContextCacheService {
       );
       this.fileWatchers.set(dirPath, watcher);
     } catch (error) {
-      logger.error(`Failed to watch directory: ${dirPath}`, { error });
+      void handleError(error, { module: 'context:cache', action: 'watch_dir' });
     }
   }
 

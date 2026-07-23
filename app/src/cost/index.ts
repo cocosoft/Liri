@@ -111,6 +111,7 @@ export type {
 import { Logger } from '../monitoring/logs/Logger.js';
 import { globalEventBus, SystemEvents } from '@modules/core';
 import type { CostRecordedEvent } from '@modules/core';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'cost:index' });
 
@@ -156,11 +157,7 @@ export async function initializeCostTrackingSystem(): Promise<void> {
             sessionId: event.sessionId,
           });
         } catch (error) {
-          logger.error('事件驱动持久化成本记录失败', {
-            error: error instanceof Error ? error.message : String(error),
-            model: event.model,
-            costUSD: event.costUSD,
-          });
+          await handleError(error, { module: 'cost:index', action: 'persist' });
         }
       }
     );
@@ -209,10 +206,7 @@ export async function initializeCostTrackingSystem(): Promise<void> {
 
     logger.info('成本跟踪系统初始化完成');
   } catch (error) {
-    logger.error(
-      '成本跟踪系统初始化失败',
-      error instanceof Error ? error : new Error(String(error))
-    );
+    await handleError(error, { module: 'cost:index', action: 'init' });
   }
 }
 
@@ -231,9 +225,6 @@ export async function shutdownCostTrackingSystem(): Promise<void> {
 
     logger.info('成本跟踪系统已关闭');
   } catch (error) {
-    logger.error(
-      '成本跟踪系统关闭失败',
-      error instanceof Error ? error : new Error(String(error))
-    );
+    await handleError(error, { module: 'cost:index', action: 'shutdown' });
   }
 }

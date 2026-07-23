@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 查询依赖管理（参考CC源码 cc_code/query/deps.ts）
  * 统一管理QueryEngine所需的依赖项
  */
@@ -7,7 +7,7 @@ import type { ChatManager } from '../chat/ChatManager';
 import type { AnalyticsService } from '../analytics';
 import type { CostAnalyticsTracker } from '../analytics/CostAnalyticsTracker';
 import type { PostSamplingHookManager } from '../hooks/managers/PostSamplingHookManager';
-import type { TokenBudgetManager } from './TokenBudget';
+import type { TokenBudgetController } from '../core/tokenBudget/TokenBudgetController.js';
 import type { StopHookManager } from './StopHooks';
 import type { QueryConfigManager } from './config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
@@ -20,7 +20,7 @@ export interface QueryDependencies {
   analyticsService: AnalyticsService;
   costTracker: CostAnalyticsTracker;
   postSamplingHookManager: PostSamplingHookManager;
-  tokenBudgetManager: TokenBudgetManager;
+  tokenBudgetManager: TokenBudgetController;
   stopHookManager: StopHookManager;
   configManager: QueryConfigManager;
 }

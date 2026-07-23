@@ -13,6 +13,8 @@ export interface ModelPricingRecord {
   outputCostPerMillion: number;
   cacheReadCostPerMillion: number;
   cacheWriteCostPerMillion: number;
+  costMultiplier: number;
+  pricingSource: string;
   isCustom: boolean;
 }
 
@@ -29,6 +31,8 @@ export const pricingService = {
     outputCostPerMillion: number;
     cacheReadCostPerMillion?: number;
     cacheWriteCostPerMillion?: number;
+    costMultiplier?: number;
+    pricingSource?: string;
   }): Promise<ModelPricingRecord> {
     const resp = await http.post<{ data: ModelPricingRecord }>(
       "/v1/pricing",

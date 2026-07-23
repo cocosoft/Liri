@@ -7,6 +7,7 @@ import { globalEmbeddingManager } from '@modules/ai';
 import { existsSync, readFileSync } from 'fs';
 import { MemoryPrefetchQueue } from '../services/MemoryPrefetchQueue';
 import { resolveDataDir, resolvePyappHome } from '@modules/core';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ module: 'memory:retriever', level: LogLevel.INFO });
 
@@ -914,10 +915,10 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
       await fs.writeFile(tmpPath, JSON.stringify(indexData, null, 2), 'utf8');
       await fs.rename(tmpPath, this.indexFilePath);
     } catch (error) {
-      logger.error(
-        'Error saving memory index',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, {
+        module: 'memory:retriever',
+        action: 'save_index',
+      });
     }
   }
 
@@ -959,10 +960,10 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
         this.indexLoaded = true;
       }
     } catch (error) {
-      logger.error(
-        'Error loading memory index',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, {
+        module: 'memory:retriever',
+        action: 'load_index',
+      });
       this.indexLoaded = false;
     }
   }
@@ -1012,9 +1013,20 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     const minScore = threshold ?? this.searchConfig.query.minScore;
     const queryEmb = await globalEmbeddingManager.embedOne(query);
     const currentModel = await this.getEmbeddingModelName();
+
+    // Phase 3: 关键词预筛选 — 先用关键词评分筛选 top-30，减少 embedding API 调用量
+    const PRESCREEN_LIMIT = 30;
+    const allItems = Array.from(this.memoryIndex.values());
+    const scoredItems = allItems.map((item) => ({
+      item,
+      kwScore: this.calculateRelevanceScore(item, query),
+    }));
+    scoredItems.sort((a, b) => b.kwScore - a.kwScore);
+    const prescreenedItems = scoredItems.slice(0, PRESCREEN_LIMIT);
+
     const results: SimilarMemoryResult[] = [];
 
-    for (const item of this.memoryIndex.values()) {
+    for (const { item } of prescreenedItems) {
       const memory = this.indexItemToMemory(item);
       const textToEmbed =
         `${item.name} ${item.description} ${item.content}`.substring(0, 8000);
@@ -1022,7 +1034,6 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
       let vector: number[];
       const cached = this.vectorCache.get(item.id);
       if (cached && cached.model === currentModel) {
-        // 仅当缓存向量来自同一模型时复用，否则重新嵌入
         vector = cached.vector;
       } else {
         vector = await globalEmbeddingManager.embedOne(textToEmbed);
@@ -1036,6 +1047,29 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     }
 
     results.sort((a, b) => b.similarity - a.similarity);
+
+    // 召回 fallback：如果 embedding 返回不足 top-K，用关键词评分补足
+    if (results.length < resultLimit) {
+      const resultIds = new Set(results.map((r) => r.memory.id));
+      // 从预筛选之外的项目中补充
+      const remaining = scoredItems.slice(PRESCREEN_LIMIT);
+      // 也检查预筛选中被 embedding 过滤掉的
+      const preselectedButNotInResults = prescreenedItems.filter(
+        ({ item }) => !resultIds.has(item.id)
+      );
+      const allFallbackCandidates = [
+        ...preselectedButNotInResults,
+        ...remaining,
+      ].sort((a, b) => b.kwScore - a.kwScore);
+
+      for (const { item } of allFallbackCandidates) {
+        if (results.length >= resultLimit) break;
+        if (resultIds.has(item.id)) continue;
+        const memory = this.indexItemToMemory(item);
+        results.push({ memory, similarity: minScore * 0.8 }); // 标记为 fallback 结果
+        resultIds.add(item.id);
+      }
+    }
 
     // 触发后台预取：为未缓存的记忆项入队向量嵌入任务
     if (this.prefetchQueue) {

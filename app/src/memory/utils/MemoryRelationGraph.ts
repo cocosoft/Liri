@@ -367,12 +367,20 @@ export class MemoryRelationGraph {
 
   /**
    * 序列化
+   * 反向关联边去重：如果同一对节点在两个方向都有边（A→B 和 B→A），只保留一条
    */
   serialize(): MemoryRelation[] {
     const result: MemoryRelation[] = [];
+    const seen = new Set<string>();
     const relationValues = Array.from(this.relations.values());
     for (const relations of relationValues) {
-      result.push(...relations);
+      for (const rel of relations) {
+        const key1 = `${rel.sourceId}||${rel.targetId}`;
+        const key2 = `${rel.targetId}||${rel.sourceId}`;
+        if (seen.has(key1) || seen.has(key2)) continue;
+        seen.add(key1);
+        result.push(rel);
+      }
     }
     return result;
   }

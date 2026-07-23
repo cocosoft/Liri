@@ -116,12 +116,14 @@ import {
   createQueryEngine,
   type QueryEngineConfig,
 } from '../query/QueryEngine.js';
-import type { TokenBudgetManager } from '../query/TokenBudget.js';
 import {
-  createTokenBudgetManager,
+  TokenBudgetController,
   TokenBudgetStatus,
-} from '../query/TokenBudget.js';
+  type TokenBudgetParams,
+} from '../core/tokenBudget/TokenBudgetController.js';
 import { ContextTracker } from '../query/context/ContextTracker.js';
+import { autoCompactionPolicy } from '../context/compaction/AutoCompactionPolicy.js';
+import { memoryManager } from '../context/memory/MemoryManager.js';
 import { FileCheckpointStorage } from '../query/FileCheckpointStorage.js';
 import {
   StopHookManager,
@@ -293,7 +295,7 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * Token 预算管理器（仅累计，不做循环控制——循环控制由 Phase 2 的 StopHookManager 负责）
    */
-  private tokenBudget: TokenBudgetManager;
+  private tokenBudget: TokenBudgetController;
 
   /**
    * 上下文压缩追踪器（记录压缩前后 token 数、压缩比等指标）
@@ -390,11 +392,11 @@ export class ChatManagerImpl implements ChatManager {
     this._checkpointService = createCheckpointService(
       new FileCheckpointStorage()
     );
-    this.tokenBudget = createTokenBudgetManager({
-      maxTokens: 200_000,
-      warningThreshold: 0.7,
-      criticalThreshold: 0.85,
-    });
+    this.tokenBudget = new TokenBudgetController(
+      'default',
+      { total: 200_000, remaining: 200_000 },
+      200_000
+    );
     this.stopHookManager = createStopHookManager();
     this._registerStopHooks();
   }
@@ -1021,6 +1023,11 @@ export class ChatManagerImpl implements ChatManager {
       );
     }
 
+    // Phase 5+: 初始化记忆管理器（异步，不阻塞消息处理）
+    memoryManager.initialize(session.id).catch((err) => {
+      logger.debug('Memory init failed (non-critical)', { error: String(err) });
+    });
+
     // 触发 ChatPreMessage Hook
     const preMsgResult = await this.hookChainManager.execute('chat', {
       event: 'chat.pre-message',
@@ -1331,9 +1338,19 @@ export class ChatManagerImpl implements ChatManager {
     }
 
     // ─────────────────────────────────────────────────────────
-    // 上下文长度保护：超限则尝试 AI 压缩，失败则截断旧消息
+    // 上下文长度保护：分级压缩策略评估 + 超限截断
     // ─────────────────────────────────────────────────────────
     const maxCtx = resolveMaxContextTokens(options?.model);
+    const compactionDecision = autoCompactionPolicy.evaluate(apiMessages, options?.model || '');
+    if (compactionDecision.decision !== 'skip') {
+      logger.info('compaction:policy_evaluated', {
+        decision: compactionDecision.decision,
+        ratio: Number(compactionDecision.snapshot.ratio.toFixed(3)),
+        tokens: compactionDecision.snapshot.tokens,
+        maxTokens: compactionDecision.snapshot.maxTokens,
+        reason: compactionDecision.reason,
+      });
+    }
     await this._truncateApiMessages(apiMessages, maxCtx, session.id);
 
     // 通知进度：开始 LLM 分析
@@ -1397,6 +1414,12 @@ export class ChatManagerImpl implements ChatManager {
       logger.warn('用量记录失败', {
         error: err instanceof Error ? err.message : String(err),
       });
+    });
+
+    // Phase 5+: 同步本轮对话到记忆（sendMessage 非流式路径）
+    const assistantContentNM = typeof response.content === 'string' ? response.content : '';
+    memoryManager.syncAll(content, assistantContentNM, session.id).catch((err) => {
+      logger.debug('Memory sync failed (non-critical)', { error: String(err) });
     });
 
     // Phase 2: Telemetry + Trajectory THINK 完成
@@ -1905,6 +1928,11 @@ export class ChatManagerImpl implements ChatManager {
       );
     }
 
+    // Phase 5+: 初始化记忆管理器（异步，不阻塞消息处理）
+    memoryManager.initialize(session.id).catch((err) => {
+      logger.debug('Memory init failed (non-critical)', { error: String(err) });
+    });
+
     // 触发 ChatPreMessage Hook
     const preMsgResult = await this.hookChainManager.execute('chat', {
       event: 'chat.pre-message',
@@ -2174,8 +2202,18 @@ export class ChatManagerImpl implements ChatManager {
 
     const activeClient = this.getClientForModel(options?.model);
 
-    // 上下文长度保护：超限则尝试 AI 压缩，失败则截断旧消息
+    // 上下文长度保护：分级压缩策略评估 + 超限截断
     const maxCtx = resolveMaxContextTokens(options?.model);
+    const compactionDecision = autoCompactionPolicy.evaluate(apiMessages, options?.model || '');
+    if (compactionDecision.decision !== 'skip') {
+      logger.info('compaction:policy_evaluated', {
+        decision: compactionDecision.decision,
+        ratio: Number(compactionDecision.snapshot.ratio.toFixed(3)),
+        tokens: compactionDecision.snapshot.tokens,
+        maxTokens: compactionDecision.snapshot.maxTokens,
+        reason: compactionDecision.reason,
+      });
+    }
     await this._truncateApiMessages(apiMessages, maxCtx, session.id);
 
     // Phase 2: Telemetry + Trajectory THINK 开始
@@ -2259,6 +2297,12 @@ export class ChatManagerImpl implements ChatManager {
       logger.warn('用量记录失败', {
         error: err instanceof Error ? err.message : String(err),
       });
+    });
+
+    // Phase 5+: 同步本轮对话到记忆（streamMessage 流式路径）
+    const assistantContentSM = accumulatedContent || '';
+    memoryManager.syncAll(content, assistantContentSM, session.id).catch((err) => {
+      logger.debug('Memory sync failed (non-critical)', { error: String(err) });
     });
 
     // Phase 2: Telemetry + Trajectory THINK 完成

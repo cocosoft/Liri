@@ -96,6 +96,15 @@ const MODEL_FAMILY_HEURISTICS: Record<string, number> = {
   gpt: 3.5,
 };
 
+/**
+ * Token Budget Manager — 查询层实现（冗余）
+ *
+ * @deprecated Phase 4 架构收敛：迁移到核心层 TokenBudgetController（329行，最成熟实现）。
+ * 避免查询层重复实现 token 预算控制。
+ *
+ * 迁移路径：
+ *   所有 TokenBudgetManagerImpl 调用改为直接使用 TokenBudgetController
+ */
 export class TokenBudgetManagerImpl implements TokenBudgetManager {
   private config: TokenBudgetConfig;
   private currentUsage: number;

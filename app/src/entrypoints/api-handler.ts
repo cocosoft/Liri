@@ -311,6 +311,7 @@ function handleCostSummary(): Promise<Response> {
       totalCacheReadTokens: 0,
       totalCacheCreationTokens: 0,
       totalRequests: 0,
+      successRate: 1.0,
       sessionCost: 0,
       sessionInputTokens: 0,
       sessionOutputTokens: 0,

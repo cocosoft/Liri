@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 价格管理器
  * 统一管理多个价格提供者，使用 ModelRegistry 作为默认回退
  */
@@ -81,6 +81,7 @@ export class PriceManager {
       }
     } catch (err) {
       // ModelRegistry 不可用时忽略
+      // @ignore-catch: non-critical fallback
 
       logger.debug('Operation skipped', {
         context: 'ModelRegistry 不可用时忽略',

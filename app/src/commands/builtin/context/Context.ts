@@ -2,6 +2,10 @@
  * 上下文管理命令实现
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
+import { compactionMetricsTracker } from '../../../context/compaction/CompactionMetrics';
+import { estimateMessagesTokens } from '../../../ai/tokenizer/TokenEstimator';
+import { autoCompactionPolicy } from '../../../context/compaction/AutoCompactionPolicy';
+import type { ContextSnapshot } from '../../../context/compaction/CompactionMetrics';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -39,6 +43,12 @@ export default {
         return this.handleInfo(context);
       case 'trim':
         return this.handleTrim(options, context);
+      case 'history':
+        return this.handleHistory(options);
+      case 'snapshot':
+        return this.handleSnapshot(context);
+      case 'debug':
+        return this.handleDebug();
       default:
         return this.handleHelp();
     }
@@ -209,6 +219,81 @@ export default {
   },
 
   /**
+   * 显示压缩历史（/context history [N]）
+   * Phase 5: 诊断命令 — 最近 N 次压缩记录
+   */
+  async handleHistory(options: string[]): Promise<CommandResult> {
+    const n = parseInt(options[0]) || 10;
+    const history = compactionMetricsTracker.formatHistory(n);
+
+    return {
+      success: true,
+      type: 'text',
+      message: history,
+      data: compactionMetricsTracker.getHistory(n),
+    };
+  },
+
+  /**
+   * 显示当前上下文快照（/context snapshot）
+   * Phase 5: 诊断命令 — 当前上下文状态
+   */
+  async handleSnapshot(context: CommandContext): Promise<CommandResult> {
+    const summary = compactionMetricsTracker.getSummary();
+    const messagesContextInfo = await this.tryGetContextInfo(context);
+
+    const snapshot: ContextSnapshot = {
+      sessionId: (context.sessionId as string) || 'unknown',
+      messageCount: messagesContextInfo?.messageCount || 0,
+      estimatedTokens: messagesContextInfo?.tokenCount || 0,
+      compressionTier: summary.byTier[3] > 0 ? 3 : summary.byTier[2] > 0 ? 2 : summary.byTier[1] > 0 ? 1 : 0,
+      memoryUsage: `${summary.total} compactions total`,
+      lastActivity: new Date().toISOString(),
+    };
+
+    return {
+      success: true,
+      type: 'text',
+      message: compactionMetricsTracker.formatSnapshot(snapshot),
+      data: snapshot,
+    };
+  },
+
+  /**
+   * 显示压缩决策树（/context debug）
+   * Phase 5: 诊断命令 — 压缩策略调试
+   */
+  async handleDebug(): Promise<CommandResult> {
+    const debugTree = compactionMetricsTracker.formatDebugTree();
+
+    return {
+      success: true,
+      type: 'text',
+      message: debugTree,
+      data: compactionMetricsTracker.getSummary(),
+    };
+  },
+
+  /**
+   * 安全获取上下文信息（不抛异常）
+   */
+  async tryGetContextInfo(context: CommandContext): Promise<{ messageCount: number; tokenCount: number } | null> {
+    try {
+      const cm = context.chatManager as ChatManagerLike | undefined;
+      if (cm) {
+        const info = await cm.getContextInfo();
+        return {
+          messageCount: (info.messageCount as number) || 0,
+          tokenCount: (info.tokenCount as number) || 0,
+        };
+      }
+    } catch {
+      // 静默回退
+    }
+    return null;
+  },
+
+  /**
    * 显示帮助信息
    */
   async handleHelp(): Promise<CommandResult> {
@@ -219,11 +304,17 @@ export default {
 /context compact   - 压缩上下文（使用LLM摘要）
 /context info      - 显示详细会话信息
 /context trim <n>  - 裁剪上下文到n tokens
+/context history [N] - 显示最近 N 次压缩历史（默认 10）
+/context snapshot  - 显示当前上下文快照
+/context debug     - 显示压缩决策树诊断
 
 示例:
   /context show
   /context clear
-  /context trim 2000`;
+  /context trim 2000
+  /context history 5
+  /context snapshot
+  /context debug`;
 
     return {
       success: true,

@@ -110,6 +110,8 @@ fn compress_messages_impl(messages_json: &str, config_json: &str) -> String {
                 kept
             }
         }
+        // "hybrid" 等其他策略：TypeScript 侧 HybridEngine 已实现完整的混合压缩逻辑，
+        // Rust 侧仅做透传。如需在 Rust 侧实现 hybrid，参照 HybridEngine 逻辑补全。
         _ => {
             messages.iter().collect()
         }
@@ -160,6 +162,15 @@ pub extern "C" fn py_compress_messages(
     let cfg_str = unsafe { CStr::from_ptr(config_json) }.to_str().unwrap_or("{}");
     let result = compress_messages_impl(msg_str, cfg_str);
     CString::new(result).unwrap_or_default().into_raw()
+}
+
+/// 释放由 py_compress_messages 返回的字符串内存
+/// 调用方必须在获取结果后调用此函数，否则会导致内存泄漏
+#[no_mangle]
+pub extern "C" fn py_free_string(ptr: *mut c_char) {
+    if !ptr.is_null() {
+        unsafe { let _ = CString::from_raw(ptr); }
+    }
 }
 
 #[no_mangle]

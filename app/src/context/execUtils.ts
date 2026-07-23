@@ -19,6 +19,7 @@ export async function execFileNoThrow(
     });
     return { stdout, stderr };
   } catch {
+    // @ignore-catch: exec failure returns null
     return null;
   }
 }

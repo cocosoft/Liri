@@ -139,6 +139,7 @@ export class ProjectRulesLoaderImpl implements ProjectRulesLoader {
       const rules = this.parseProjectRules(content);
       return { enabled: true, path: filePath, rules };
     } catch {
+      // @ignore-catch: file read failure
       return null;
     }
   }
@@ -324,6 +325,7 @@ export class ProjectRulesLoaderImpl implements ProjectRulesLoader {
         .map((f) => join(dir, f))
         .filter((f) => statSync(f).isFile());
     } catch {
+      // @ignore-catch: file read failure
       return [];
     }
   }
@@ -378,6 +380,7 @@ export class ProjectRulesLoaderImpl implements ProjectRulesLoader {
         rawContent: contentDiffersFromDisk ? rawContent : undefined,
       };
     } catch {
+      // @ignore-catch: file read failure
       return null;
     }
   }

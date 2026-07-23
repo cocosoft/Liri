@@ -69,6 +69,7 @@ export class ContextStatsCollector {
       maxTokens = priceResult.contextWindow;
     } catch (err) {
       // use default
+      // @ignore-catch: non-critical fallback
 
       logger.debug('Operation skipped', {
         context: 'use default',

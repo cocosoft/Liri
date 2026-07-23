@@ -7,6 +7,7 @@
 import { logForDebugging } from '../utils/debug.js';
 import { ModelPricing } from './ModelPricing.js';
 import { ModelRegistry } from '@modules/ai';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -130,6 +131,7 @@ export class PricingManager {
       }
     } catch (err) {
       // ModelRegistry 不可用时忽略
+      // @ignore-catch: non-critical fallback
 
       logger.debug('Operation skipped', {
         context: 'ModelRegistry 不可用时忽略',
@@ -266,9 +268,12 @@ export class PricingManager {
       try {
         listener(version);
       } catch (error) {
-        logForDebugging(
-          `定价变更监听器执行失败: ${error instanceof Error ? error.message : String(error)}`,
-          { level: 'error' }
+        void handleError(
+          error instanceof Error ? error : new Error(String(error)),
+          {
+            module: 'cost:pricing',
+            action: 'change_listener',
+          }
         );
       }
     }
@@ -298,7 +303,7 @@ export class PricingManager {
   /**
    * 导入定价配置
    */
-  importPricing(json: string, description: string): boolean {
+  async importPricing(json: string, description: string): Promise<boolean> {
     try {
       const data = JSON.parse(json);
       if (!data.pricing || typeof data.pricing !== 'object') {
@@ -309,10 +314,10 @@ export class PricingManager {
       this.updatePricing(data.pricing, description);
       return true;
     } catch (error) {
-      logForDebugging(
-        `导入定价配置失败: ${error instanceof Error ? error.message : String(error)}`,
-        { level: 'error' }
-      );
+      await handleError(error, {
+        module: 'cost:pricing',
+        action: 'import_config',
+      });
       return false;
     }
   }
@@ -405,6 +410,9 @@ export function exportPricing(): string {
 /**
  * 导入定价配置
  */
-export function importPricing(json: string, description: string): boolean {
+export async function importPricing(
+  json: string,
+  description: string
+): Promise<boolean> {
   return pricingManager.importPricing(json, description);
 }

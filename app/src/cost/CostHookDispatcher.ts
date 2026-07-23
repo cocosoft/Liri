@@ -7,6 +7,7 @@
 import { costMonitor, AlertLevel, type AlertRecord } from './CostMonitor';
 import { HookChainManager } from '@modules/hooks/core/HookChainManager';
 import { Logger, LogLevel } from '../monitoring/logs/Logger';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'cost:costHookDispatcher',
@@ -91,9 +92,7 @@ export class CostHookDispatcher {
         });
       }
     } catch (error) {
-      logger.error(
-        `Failed to dispatch cost hook for alert ${alert.id}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      await handleError(error, { module: 'cost:hooks', action: 'dispatch' });
     }
   }
 

@@ -31,6 +31,16 @@ export interface TokenBudgetState {
   warningMessage: string | null;
 }
 
+/**
+ * Token Budget Manager — 服务层实现（冗余）
+ *
+ * @deprecated Phase 4 架构收敛：迁移到核心层 TokenBudgetController（329行，最成熟实现）。
+ * TokenBudgetManager 将被吸收到 TokenBudgetController。
+ *
+ * 迁移路径：
+ *   Phase 4: TokenBudgetManager 转为 TokenBudgetController 的包装器（委托模式）
+ *   Phase 5: 删除此文件，所有调用方改为 import TokenBudgetController
+ */
 export class TokenBudgetManager {
   private config: TokenBudgetConfig;
   private accumulatedInputTokens: number = 0;

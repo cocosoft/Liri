@@ -16,8 +16,21 @@ export class AsyncContextStorage {
     return this.storage.getStore() !== undefined;
   }
 
+  /**
+   * @deprecated 使用 resetStore() 替代。clearStore() 语义有误——AsyncLocalStorage.run({}, fn)
+   * 仅创建新的作用域快照，不影响当前调用链中 getStore() 的返回值。
+   * resetStore() 使用 enterWith({})（Node.js 20+）立即覆盖当前 store。
+   */
   clearStore(): void {
     this.storage.run({}, () => {});
+  }
+
+  /**
+   * 重置当前 store 为空。使用 enterWith({}) 确保同一 async 链中后续 getStore() 返回空。
+   * 需要 Node.js 20+。
+   */
+  resetStore(): void {
+    this.storage.enterWith({});
   }
 }
 

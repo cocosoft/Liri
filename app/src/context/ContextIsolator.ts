@@ -1,10 +1,11 @@
-﻿import { asyncContextStorage } from './AsyncContextStorage';
+import { asyncContextStorage } from './AsyncContextStorage';
 import type { Context } from './types/Context';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { ContextErrorCode } from './types/ContextErrorCode';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
-  module: 'context\ContextIsolator',
+  module: 'context:isolator',
   level: LogLevel.INFO,
 });
 
@@ -52,7 +53,7 @@ export class ContextIsolator {
         `Scope already exists: ${id}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        '1000'
+        ContextErrorCode.ISOLATION_VIOLATED
       );
     }
 
@@ -61,7 +62,7 @@ export class ContextIsolator {
         `Parent scope not found: ${parentId}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        '1000'
+        ContextErrorCode.ISOLATION_VIOLATED
       );
     }
 
@@ -70,7 +71,7 @@ export class ContextIsolator {
         `Maximum number of scopes reached: ${this.maxScopes}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        '1000'
+        ContextErrorCode.ISOLATION_VIOLATED
       );
     }
 
@@ -128,7 +129,7 @@ export class ContextIsolator {
         `Maximum stack depth reached: ${this.maxStackDepth}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        '1000'
+        ContextErrorCode.ISOLATION_VIOLATED
       );
     }
 
@@ -138,7 +139,7 @@ export class ContextIsolator {
         `Scope not found: ${scopeId}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        '1000'
+        ContextErrorCode.ISOLATION_VIOLATED
       );
     }
 
@@ -176,7 +177,7 @@ export class ContextIsolator {
         `Scope not found: ${scopeId}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        '1000'
+        ContextErrorCode.ISOLATION_VIOLATED
       );
     }
 
@@ -185,7 +186,7 @@ export class ContextIsolator {
         `Maximum number of snapshots reached: ${this.maxSnapshots}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        '1000'
+        ContextErrorCode.ISOLATION_VIOLATED
       );
     }
 
@@ -202,7 +203,7 @@ export class ContextIsolator {
         `Snapshot not found for scope: ${scopeId}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        '1000'
+        ContextErrorCode.ISOLATION_VIOLATED
       );
     }
 

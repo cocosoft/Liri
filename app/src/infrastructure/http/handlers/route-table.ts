@@ -778,6 +778,10 @@ export async function dispatchRoute(
     await self['handleGetSyncStatus'](req, res);
     return true;
   }
+  if (method === 'GET' && url === '/v1/memory/stats') {
+    await self['handleGetStats'](req, res);
+    return true;
+  }
   if (method === 'GET' && url.match(/^\/v1\/memory\/(.+)\/summary$/)) {
     await self['handleGetMemorySummary'](
       req,

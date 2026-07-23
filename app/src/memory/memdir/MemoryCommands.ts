@@ -7,6 +7,7 @@ import { join } from 'path';
 import { mkdir, writeFile, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { resolvePyappHome } from '@modules/core';
 import {
   type MemoryFile,
@@ -446,10 +447,10 @@ Add your memory content here...
         `Kept ${keptMemories.length} memories.`
       );
     } catch (error) {
-      logger.error(
-        'Auto memory update failed',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, {
+        module: 'memory:memdir:commands',
+        action: 'auto_update',
+      });
     }
   }
 

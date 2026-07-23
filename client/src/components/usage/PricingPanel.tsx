@@ -13,6 +13,8 @@ interface FormData {
   outputCost: string;
   cacheReadCost: string;
   cacheWriteCost: string;
+  costMultiplier: string;
+  pricingSource: string;
 }
 
 const emptyForm: FormData = {
@@ -22,6 +24,8 @@ const emptyForm: FormData = {
   outputCost: "",
   cacheReadCost: "",
   cacheWriteCost: "",
+  costMultiplier: "1.0",
+  pricingSource: "custom",
 };
 
 function PricingPanel() {
@@ -67,6 +71,8 @@ function PricingPanel() {
         outputCostPerMillion: outputPerM,
         cacheReadCostPerMillion: parseFloat(form.cacheReadCost) || 0,
         cacheWriteCostPerMillion: parseFloat(form.cacheWriteCost) || 0,
+        costMultiplier: parseFloat(form.costMultiplier) || 1.0,
+        pricingSource: form.pricingSource || 'custom',
       });
       setForm(emptyForm);
       setShowForm(false);
@@ -98,6 +104,8 @@ function PricingPanel() {
       outputCost: String(r.outputCostPerMillion),
       cacheReadCost: String(r.cacheReadCostPerMillion || ""),
       cacheWriteCost: String(r.cacheWriteCostPerMillion || ""),
+      costMultiplier: String(r.costMultiplier ?? 1.0),
+      pricingSource: r.pricingSource ?? "custom",
     });
     setShowForm(true);
   };
@@ -234,6 +242,19 @@ function PricingPanel() {
                 className={`w-full px-2 py-1.5 rounded border text-sm ${isDark ? "bg-gray-700 border-gray-600 text-gray-200" : "bg-white border-gray-300 text-gray-900"}`}
               />
             </div>
+            <div>
+              <label className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                成本倍率
+              </label>
+              <input
+                value={form.costMultiplier}
+                onChange={(e) => setForm({ ...form, costMultiplier: e.target.value })}
+                placeholder="1.0"
+                type="number"
+                step="0.1"
+                className={`w-full px-2 py-1.5 rounded border text-sm ${isDark ? "bg-gray-700 border-gray-600 text-gray-200" : "bg-white border-gray-300 text-gray-900"}`}
+              />
+            </div>
           </div>
           <button
             onClick={handleSave}
@@ -274,6 +295,9 @@ function PricingPanel() {
                   缓存写 $/1M
                 </th>
                 <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">
+                  倍率
+                </th>
+                <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">
                   自定义
                 </th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -310,6 +334,9 @@ function PricingPanel() {
                     {r.cacheWriteCostPerMillion > 0
                       ? `$${r.cacheWriteCostPerMillion}`
                       : "-"}
+                  </td>
+                  <td className="px-3 py-2 text-center text-xs text-gray-500 dark:text-gray-400">
+                    {r.costMultiplier != null ? `×${r.costMultiplier}` : '×1.0'}
                   </td>
                   <td className="px-3 py-2 text-center">
                     {r.isCustom ? (

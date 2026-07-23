@@ -8,6 +8,8 @@ import { useTranslation } from "react-i18next";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { workspaceService } from "@/services/workspaceService";
 import { createLogger } from "@/utils/logger";
+import { formatCost, formatTokens, getCurrencyFromTimezone } from "@/utils/format";
+import { useConfigStore } from "@/stores/configStore";
 
 const logger = createLogger("components:costView");
 
@@ -40,6 +42,9 @@ export const CostView: React.FC = () => {
   const { t } = useTranslation();
   const { currentWorkspace } = useWorkspaceStore();
   const workspaceId = currentWorkspace?.id || "";
+  const config = useConfigStore((s) => s.config);
+  const timezone = (config.timezone as string) || 'Asia/Shanghai';
+  const currency = getCurrencyFromTimezone(timezone);
 
   const [report, setReport] = useState<CostReport | null>(null);
   const [budget, setBudget] = useState<BudgetStatus | null>(null);
@@ -66,14 +71,6 @@ export const CostView: React.FC = () => {
   useEffect(() => {
     loadCostData();
   }, [loadCostData]);
-
-  /** 格式化金额 */
-  const formatUSD = (val: number) => `$${val.toFixed(4)}`;
-  const formatTokens = (val: number) => {
-    if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
-    if (val >= 1_000) return `${(val / 1_000).toFixed(1)}K`;
-    return val.toString();
-  };
 
   if (!workspaceId) {
     return (
@@ -102,7 +99,7 @@ export const CostView: React.FC = () => {
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-gray-500">{t("workspace.cost")}</span>
                 <span className="font-medium">
-                  {formatUSD(budget.currentCost)} / {formatUSD(budget.limit)}
+                  {formatCost(budget.currentCost, currency)} / {formatCost(budget.limit, currency)}
                 </span>
               </div>
               <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -141,7 +138,7 @@ export const CostView: React.FC = () => {
           </div>
           {budget.remaining > 0 && (
             <div className="text-xs text-gray-400 mt-2">
-              {t("workspace.cost")}: {formatUSD(budget.remaining)}
+              {t("workspace.cost")}: {formatCost(budget.remaining, currency)}
             </div>
           )}
         </div>
@@ -153,7 +150,7 @@ export const CostView: React.FC = () => {
           <div className="grid grid-cols-3 gap-3">
             <div className="p-3 bg-white rounded-lg border text-center">
               <div className="text-2xl font-bold text-blue-600">
-                {formatUSD(report.totalCostUSD)}
+                {formatCost(report.totalCostUSD, currency)}
               </div>
               <div className="text-xs text-gray-500 mt-1">总费用</div>
             </div>
@@ -240,7 +237,7 @@ export const CostView: React.FC = () => {
                       </div>
                       <div className="text-sm text-right min-w-[80px]">
                         <div className="font-medium">
-                          {formatUSD(model.costUSD)}
+                          {formatCost(model.costUSD, currency)}
                         </div>
                         <div className="text-xs text-gray-400">
                           {formatTokens(model.tokens)} tokens /{" "}

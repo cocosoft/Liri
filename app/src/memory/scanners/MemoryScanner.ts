@@ -5,6 +5,7 @@ import type { Memory } from '../types/Memory';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
 import { isValidMemoryType } from '../types/MemoryType';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'memory:scanners:memoryScanner',
@@ -70,10 +71,10 @@ export class MemoryScannerImpl implements MemoryScanner {
         }
       }
     } catch (error) {
-      logger.error(
-        'Error scanning memory directory',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, {
+        module: 'memory:scanners:scanner',
+        action: 'scan_directory',
+      });
     }
 
     return memories;
@@ -125,10 +126,11 @@ export class MemoryScannerImpl implements MemoryScanner {
 
       return memory;
     } catch (error) {
-      logger.error(
-        `Error parsing memory file ${filePath}`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, {
+        module: 'memory:scanners:scanner',
+        action: 'parse_memory_file',
+        context: { filePath },
+      });
       return null;
     }
   }
@@ -182,15 +184,15 @@ export class MemoryScannerImpl implements MemoryScanner {
    * @param content 文件内容
    * @returns 元数据对象
    */
-  extractMetadata(content: string): any {
+  async extractMetadata(content: string): Promise<any> {
     try {
       const { data } = matter(content);
       return data;
     } catch (error) {
-      logger.error(
-        'Error extracting metadata',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, {
+        module: 'memory:scanners:scanner',
+        action: 'extract_metadata',
+      });
       return {};
     }
   }

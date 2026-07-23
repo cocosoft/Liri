@@ -27,6 +27,7 @@ function safeReadFile(filePath: string): string | null {
     }
     return content;
   } catch {
+    // @ignore-catch: file read failure
     return null;
   }
 }

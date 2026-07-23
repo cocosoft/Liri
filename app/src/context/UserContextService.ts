@@ -6,6 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { resolveProjectRoot } from '@modules/core';
 
 const logger = new Logger({
@@ -81,7 +82,10 @@ export class UserContextService {
       const content = fs.readFileSync(filePath, 'utf-8');
       return content;
     } catch (error) {
-      logger.error(`Failed to read context file ${filePath}:`, { error });
+      await handleError(error, {
+        module: 'context:user',
+        action: 'read_context',
+      });
       return null;
     }
   }

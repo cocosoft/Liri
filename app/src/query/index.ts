@@ -91,14 +91,18 @@ export type {
   ReactiveCompactor,
   ApiResponseInfo,
 } from './ReactiveCompact.js';
+// Phase 2.9: Re-export from core for backward compatibility
 export {
-  TokenBudgetManagerImpl,
-  createTokenBudgetManager,
+  TokenBudgetController as TokenBudgetManagerImpl,
   TokenBudgetStatus,
-} from './TokenBudget.js';
+} from '../core/tokenBudget/TokenBudgetController.js';
+export type {
+  TokenBudgetState,
+} from '../core/tokenBudget/TokenBudgetController.js';
+
+// Legacy type re-exports (keep query/TokenBudget types for config compatibility)
 export type {
   TokenBudgetConfig,
-  TokenBudgetState,
   TokenBudgetManager,
 } from './TokenBudget.js';
 export {

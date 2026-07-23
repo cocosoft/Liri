@@ -17,6 +17,7 @@ import { CostReporter } from './CostReporter.js';
 import { CostMonitor } from './CostMonitor.js';
 import { PricingManager } from './PricingManager.js';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'cost:enhancedCostManager',
@@ -226,7 +227,10 @@ export class EnhancedCostManager {
         ),
       };
     } catch (error) {
-      logger.error(`预测类别 ${category} 成本失败:`, { error });
+      await handleError(error, {
+        module: 'cost:enhanced',
+        action: 'predict_category',
+      });
       return null;
     }
   }

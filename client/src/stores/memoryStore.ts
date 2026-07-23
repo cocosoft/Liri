@@ -4,7 +4,7 @@ import {
   type Memory,
   type MemorySearchResult,
   type MemoryWeight,
-  type MemorySyncStatus,
+  type MemorySystemStats,
   type MemorySearchParams,
   type MemoryListParams,
 } from "../services/memoryService";
@@ -16,8 +16,10 @@ interface MemoryStore {
   searchResults: MemorySearchResult[];
   searchTotal: number;
   weights: MemoryWeight[];
-  syncStatus: MemorySyncStatus;
+  systemStats: MemorySystemStats | null;
   selectedMemory: Memory | null;
+  isCleaning: boolean;
+  isConsolidating: boolean;
   isLoading: boolean;
   error: string | null;
 
@@ -31,25 +33,23 @@ interface MemoryStore {
   deleteMemory: (id: string) => Promise<void>;
   deleteAllMemories: () => Promise<number>;
   loadWeights: () => Promise<void>;
-  loadSyncStatus: () => Promise<void>;
-  triggerSync: () => Promise<void>;
+  loadSystemStats: () => Promise<void>;
+  triggerCleanup: () => Promise<{ cleanedCount: number; remainingCount: number }>;
+  triggerConsolidate: () => Promise<{ duplicateGroups: number; totalRemoved: number; removedIds: string[] }>;
   setSelectedMemory: (memory: Memory | null) => void;
   clearError: () => void;
 }
 
-export const useMemoryStore = create<MemoryStore>((set) => ({
+export const useMemoryStore = create<MemoryStore>((set, get) => ({
   memories: [],
   total: 0,
   searchResults: [],
   searchTotal: 0,
   weights: [],
-  syncStatus: {
-    isSyncing: false,
-    lastSyncTime: null,
-    pendingChanges: 0,
-    syncProgress: 0,
-  },
+  systemStats: null,
   selectedMemory: null,
+  isCleaning: false,
+  isConsolidating: false,
   isLoading: false,
   error: null,
 
@@ -153,26 +153,44 @@ export const useMemoryStore = create<MemoryStore>((set) => ({
     }
   },
 
-  loadSyncStatus: async () => {
+  loadSystemStats: async () => {
     try {
-      const status = await memoryService.getSyncStatus();
-      set({ syncStatus: status });
+      const stats = await memoryService.getStats();
+      set({ systemStats: stats });
     } catch (e) {
-      handleClientError(e, { module: "stores:memory", action: "loadSyncStatus" });
-      set({ error: e instanceof Error ? e.message : "获取同步状态失败" });
+      handleClientError(e, { module: "stores:memory", action: "loadSystemStats" });
+      set({ error: e instanceof Error ? e.message : "获取系统状态失败" });
     }
   },
 
-  triggerSync: async () => {
-    set({ isLoading: true, error: null });
+  triggerCleanup: async () => {
+    set({ isCleaning: true, error: null });
     try {
-      await memoryService.triggerSync();
-      await memoryService.getSyncStatus();
+      const result = await memoryService.triggerCleanup();
+      // v1.2: 修复遗留 bug — 清理后刷新 stats
+      await get().loadSystemStats();
+      return result;
     } catch (e) {
-      handleClientError(e, { module: "stores:memory", action: "triggerSync" });
-      set({ error: e instanceof Error ? e.message : "触发同步失败" });
+      handleClientError(e, { module: "stores:memory", action: "triggerCleanup" });
+      set({ error: e instanceof Error ? e.message : "清理过期记忆失败" });
+      return { cleanedCount: 0, remainingCount: 0 };
     } finally {
-      set({ isLoading: false });
+      set({ isCleaning: false });
+    }
+  },
+
+  triggerConsolidate: async () => {
+    set({ isConsolidating: true, error: null });
+    try {
+      const result = await memoryService.triggerConsolidate();
+      await get().loadSystemStats();
+      return result;
+    } catch (e) {
+      handleClientError(e, { module: "stores:memory", action: "triggerConsolidate" });
+      set({ error: e instanceof Error ? e.message : "合并重复记忆失败" });
+      return { duplicateGroups: 0, totalRemoved: 0, removedIds: [] };
+    } finally {
+      set({ isConsolidating: false });
     }
   },
 

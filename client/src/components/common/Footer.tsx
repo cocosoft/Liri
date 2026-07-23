@@ -11,12 +11,17 @@ import {
 import { costService, type CostSummary } from "../../services/costService";
 import ModelSwitcher from "../modelAdmin/ModelSwitcher";
 import { createLogger } from "@/utils/logger";
+import { formatCost, formatTokens, getCurrencyFromTimezone } from "../../utils/format";
+import { useConfigStore } from "../../stores/configStore";
 
 const logger = createLogger("components:footer");
 
 function Footer() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const config = useConfigStore((s) => s.config);
+  const timezone = (config.timezone as string) || 'Asia/Shanghai';
+  const currency = getCurrencyFromTimezone(timezone);
   const { status, checkStatus, startBackend, stopBackend, error } =
     useBackendStore();
   const { currentModelName, routerTier, routingMode, loadCurrent } =
@@ -102,12 +107,6 @@ function Footer() {
     if (percent > 80) return "text-red-500";
     if (percent > 60) return "text-yellow-500";
     return "text-gray-600 dark:text-gray-400";
-  };
-
-  const formatTokens = (tokens: number) => {
-    if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(2)}M`;
-    if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}k`;
-    return String(tokens);
   };
 
   /** 复制模型名称到剪贴板 */
@@ -248,14 +247,14 @@ function Footer() {
                 Out:{formatTokens(costSummary.sessionOutputTokens)}
               </span>
               <span className="text-red-500">
-                ${costSummary.sessionCost.toFixed(4)}
+                {formatCost(costSummary.sessionCost, '$')}
               </span>
             </button>
 
             {/* 今日消费 */}
             {costSummary.todayCost > 0 && (
               <span className="text-orange-500">
-                {t("footer.today")}: ¥{costSummary.todayCost.toFixed(4)}
+                {t("footer.today")}: {formatCost(costSummary.todayCost, currency)}
               </span>
             )}
           </>
@@ -329,7 +328,7 @@ function Footer() {
                 {t("footer.todayCost")}
               </span>
               <span className="text-orange-500 font-medium">
-                ${costSummary.todayCost.toFixed(4)}
+                {formatCost(costSummary.todayCost, currency)}
               </span>
             </div>
             <div className="flex justify-between">
@@ -337,7 +336,7 @@ function Footer() {
                 {t("footer.sessionCost")}
               </span>
               <span className="text-red-500 font-medium">
-                ${costSummary.sessionCost.toFixed(4)}
+                {formatCost(costSummary.sessionCost, '$')}
               </span>
             </div>
           </div>
@@ -454,7 +453,7 @@ function Footer() {
                     {t("footer.today")}
                   </span>
                   <span className="text-orange-500 font-medium">
-                    ¥{costSummary.todayCost.toFixed(4)} /{" "}
+                    {formatCost(costSummary.todayCost, currency)} /{" "}
                     {costSummary.todayTokens.toLocaleString()} tokens
                   </span>
                 </div>
@@ -463,7 +462,7 @@ function Footer() {
                     {t("footer.thisWeek")}
                   </span>
                   <span className="text-gray-900 dark:text-gray-100">
-                    ¥{costSummary.weeklyCost.toFixed(4)}
+                    {formatCost(costSummary.weeklyCost, currency)}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -471,7 +470,7 @@ function Footer() {
                     {t("footer.thisMonth")}
                   </span>
                   <span className="text-gray-900 dark:text-gray-100">
-                    ¥{costSummary.monthlyCost.toFixed(4)}
+                    {formatCost(costSummary.monthlyCost, currency)}
                   </span>
                 </div>
               </>

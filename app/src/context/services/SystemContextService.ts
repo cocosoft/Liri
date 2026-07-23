@@ -7,6 +7,7 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 import { configManager } from '@modules/config';
 
@@ -164,7 +165,10 @@ export class SystemContextService {
         truncated,
       };
     } catch (error) {
-      logger.error('Failed to get git status:', { error });
+      await handleError(error, {
+        module: 'context:system',
+        action: 'get_git_status',
+      });
       return null;
     }
   }

@@ -54,6 +54,7 @@ function getPricingFromRegistry(modelName: string): ModelPricing | null {
     }
   } catch (err) {
     // ModelRegistry 不可用时忽略
+    // @ignore-catch: non-critical fallback
 
     logger.debug('Operation skipped', {
       context: 'ModelRegistry 不可用时忽略',
@@ -69,6 +70,7 @@ export function getCanonicalModelName(modelName: string): string {
     if (config?.firstParty) return config.firstParty;
   } catch (err) {
     // 忽略
+    // @ignore-catch: non-critical fallback
 
     logger.debug('Operation skipped', {
       context: '忽略',

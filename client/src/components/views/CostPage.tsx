@@ -5,27 +5,21 @@ import {
   type CostSummary,
   type CostRecord,
 } from "../../services/costService";
+import { formatCost, formatTokens, getCurrencyFromTimezone } from "../../utils/format";
+import { MetricCard } from "../common/MetricCard";
+import { TokenGrid } from "../common/TokenGrid";
+import { PieChart } from "../common/PieChart";
+import { sseService } from "../../services/sseService";
+import { balanceService } from "../../services/balanceService";
+import type { BalanceRecord } from "../../types";
 
-const UsageStatsPanel = lazy(() => import("../usage/UsageStatsPanel"));
 const PricingPanel = lazy(() => import("../usage/PricingPanel"));
-
-function formatCost(value: number | undefined | null): string {
-  if (value == null) return "$0.00";
-  if (value >= 1) return `$${value.toFixed(2)}`;
-  if (value >= 0.001) return `$${value.toFixed(4)}`;
-  return `$${value.toFixed(6)}`;
-}
-
-function formatTokens(value: number | undefined | null): string {
-  if (value == null) return "0";
-  if (value >= 1000000) return `${(value / 1000000).toFixed(2)}M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
-  return value.toString();
-}
 
 function CostPage() {
   const { config, loadConfig } = useConfigStore();
   const isDark = config.theme === "dark";
+  const timezone = (config.timezone as string) || 'Asia/Shanghai';
+  const currency = getCurrencyFromTimezone(timezone);
 
   const [summary, setSummary] = useState<CostSummary | null>(null);
   const [records, setRecords] = useState<CostRecord[]>([]);
@@ -34,34 +28,68 @@ function CostPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<
     "daily" | "weekly" | "monthly"
   >("weekly");
-  const [activeTab, setActiveTab] = useState<"cost" | "usage" | "pricing">(
+  const [activeTab, setActiveTab] = useState<"cost" | "pricing">(
     "cost",
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [balances, setBalances] = useState<BalanceRecord[]>([]);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  // 错误隔离：cost / balance / records 各自独立获取
+  const fetchCostData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
-      const [summaryData, recordsData] = await Promise.all([
-        costService.getCostSummary(),
-        costService.getCostRecords(recordsPage, 20),
-      ]);
+      const summaryData = await costService.getCostSummary();
       setSummary(summaryData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "加载成本数据失败");
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, []);
+
+  const fetchRecords = useCallback(async () => {
+    try {
+      const recordsData = await costService.getCostRecords(recordsPage, 20);
       setRecords(recordsData.records);
       setRecordsTotal(recordsData.total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "加载数据失败");
-    } finally {
-      setLoading(false);
+    } catch {
+      // 记录加载失败不影响主视图
     }
   }, [recordsPage]);
 
+  const fetchBalances = useCallback(async () => {
+    try {
+      const b = await balanceService.batchCheck();
+      setBalances(b);
+    } catch {
+      // 余额加载失败不阻塞其他数据
+    }
+  }, []);
+
+  const refreshAll = useCallback(async (silent = false) => {
+    // 并行拉取，各自处理错误，不互相阻塞
+    await fetchCostData(silent);
+    fetchBalances();
+    fetchRecords();
+  }, [fetchCostData, fetchBalances, fetchRecords]);
+
   useEffect(() => {
     loadConfig();
-    fetchData();
-  }, [loadConfig, fetchData]);
+    refreshAll();
+  }, [loadConfig, refreshAll]);
+
+  // SSE heartbeat 驱动自动刷新 + 60s setInterval 兜底（与 DashboardPage 一致）
+  useEffect(() => {
+    const handler = () => { refreshAll(true); };
+    sseService.on("heartbeat", handler);
+    const interval = setInterval(() => refreshAll(true), 60_000);
+    return () => {
+      sseService.off("heartbeat", handler);
+      clearInterval(interval);
+    };
+  }, [refreshAll]);
 
   const handlePageChange = (page: number) => {
     setRecordsPage(page);
@@ -110,16 +138,6 @@ function CostPage() {
     1,
   );
   const totalPages = Math.ceil(recordsTotal / 20);
-  const pieColors = [
-    "#3B82F6",
-    "#8B5CF6",
-    "#06B6D4",
-    "#F59E0B",
-    "#EF4444",
-    "#10B981",
-    "#EC4899",
-    "#6366F1",
-  ];
 
   return (
     <div
@@ -145,13 +163,7 @@ function CostPage() {
               onClick={() => setActiveTab("cost")}
               className={`px-3 py-1.5 text-sm rounded-md transition-colors ${activeTab === "cost" ? "bg-white dark:bg-gray-700 shadow-sm font-medium" : "text-gray-600 dark:text-gray-400"}`}
             >
-              成本监控
-            </button>
-            <button
-              onClick={() => setActiveTab("usage")}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${activeTab === "usage" ? "bg-white dark:bg-gray-700 shadow-sm font-medium" : "text-gray-600 dark:text-gray-400"}`}
-            >
-              使用量统计
+              成本总览
             </button>
             <button
               onClick={() => setActiveTab("pricing")}
@@ -162,17 +174,7 @@ function CostPage() {
           </div>
         </div>
 
-        {activeTab === "usage" ? (
-          <Suspense
-            fallback={
-              <div className="h-64 flex items-center justify-center text-gray-400">
-                加载中...
-              </div>
-            }
-          >
-            <UsageStatsPanel />
-          </Suspense>
-        ) : activeTab === "pricing" ? (
+        {activeTab === "pricing" ? (
           <Suspense
             fallback={
               <div className="h-64 flex items-center justify-center text-gray-400">
@@ -208,138 +210,84 @@ function CostPage() {
 
             {/* 成本统计卡片 */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              <div
-                className={`rounded-lg border p-4 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
-              >
-                <p
-                  className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                >
-                  今日成本
-                </p>
-                <p
-                  className={`text-xl font-bold mt-1 ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                >
-                  {formatCost(summary.todayCost)}
-                </p>
-                <p
-                  className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}
-                >
-                  {formatTokens(summary.todayTokens)} tokens
-                </p>
-              </div>
-              <div
-                className={`rounded-lg border p-4 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
-              >
-                <p
-                  className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                >
-                  本周成本
-                </p>
-                <p
-                  className={`text-xl font-bold mt-1 ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                >
-                  {formatCost(summary.weeklyCost)}
-                </p>
-              </div>
-              <div
-                className={`rounded-lg border p-4 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
-              >
-                <p
-                  className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                >
-                  本月成本
-                </p>
-                <p
-                  className={`text-xl font-bold mt-1 ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                >
-                  {formatCost(summary.monthlyCost)}
-                </p>
-                <p
-                  className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}
-                >
-                  {formatTokens(summary.monthlyTokens)} tokens
-                </p>
-              </div>
-              <div
-                className={`rounded-lg border p-4 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
-              >
-                <p
-                  className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                >
-                  当前会话
-                </p>
-                <p
-                  className={`text-xl font-bold mt-1 ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                >
-                  {formatCost(summary.sessionCost)}
-                </p>
-                <p
-                  className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}
-                >
-                  {formatTokens(summary.sessionTokens)} tokens
-                </p>
-              </div>
+              <MetricCard
+                label="今日成本"
+                value={formatCost(summary.todayCost, currency)}
+                sublabel={`${formatTokens(summary.todayTokens)} tokens`}
+              />
+              <MetricCard
+                label="本周成本"
+                value={formatCost(summary.weeklyCost, currency)}
+              />
+              <MetricCard
+                label="本月成本"
+                value={formatCost(summary.monthlyCost, currency)}
+                sublabel={`${formatTokens(summary.monthlyTokens)} tokens`}
+              />
+              <MetricCard
+                label="当前会话"
+                value={formatCost(summary.sessionCost, '$')}
+                sublabel={`${formatTokens(summary.sessionTokens)} tokens`}
+              />
             </div>
 
             {/* Token 明细 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div
-                className={`rounded-lg border p-4 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
-              >
-                <p
-                  className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                >
-                  累计输入 Tokens
-                </p>
-                <p
-                  className={`text-xl font-bold mt-1 ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                >
-                  {formatTokens(summary.totalInputTokens)}
-                </p>
+            <TokenGrid
+              inputTokens={summary.totalInputTokens}
+              outputTokens={summary.totalOutputTokens}
+              cacheReadTokens={summary.totalCacheReadTokens}
+              totalRequests={summary.totalRequests}
+            />
+
+            {/* 余额概览 */}
+            {balances.length > 0 && (
+              <div className={`rounded-lg border mb-6 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+                <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                  <h3 className={`text-lg font-medium ${isDark ? "text-gray-100" : "text-gray-900"}`}>
+                    余额概览
+                  </h3>
+                </div>
+                <div className="p-4 space-y-2">
+                  {balances.map((b) => (
+                    <div key={b.providerId} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className={`font-medium ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                          {b.providerName}
+                        </span>
+                        <span className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+                          {b.providerType}
+                        </span>
+                        {b.belowThreshold && (
+                          <span className="text-xs px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">
+                            余额不足
+                          </span>
+                        )}
+                        {!b.supported && (
+                          <span className="text-xs px-1.5 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded">
+                            不支持余额查询
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {b.remaining !== null ? (
+                          <span className={`font-mono ${b.belowThreshold ? "text-red-600 dark:text-red-400" : isDark ? "text-gray-300" : "text-gray-700"}`}>
+                            {b.remaining.toFixed(2)} {b.unit}
+                            {b.total !== null ? ` / ${b.total.toFixed(2)} ${b.unit}` : ""}
+                          </span>
+                        ) : (
+                          <span className={isDark ? "text-gray-500" : "text-gray-400"}>--</span>
+                        )}
+                        {b.queriedAt && (
+                          <span className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+                            {new Date(b.queriedAt * 1000).toLocaleTimeString("zh-CN")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div
-                className={`rounded-lg border p-4 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
-              >
-                <p
-                  className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                >
-                  累计输出 Tokens
-                </p>
-                <p
-                  className={`text-xl font-bold mt-1 ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                >
-                  {formatTokens(summary.totalOutputTokens)}
-                </p>
-              </div>
-              <div
-                className={`rounded-lg border p-4 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
-              >
-                <p
-                  className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                >
-                  缓存读取 Tokens
-                </p>
-                <p
-                  className={`text-xl font-bold mt-1 ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                >
-                  {formatTokens(summary.totalCacheReadTokens)}
-                </p>
-              </div>
-              <div
-                className={`rounded-lg border p-4 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
-              >
-                <p
-                  className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                >
-                  总请求数
-                </p>
-                <p
-                  className={`text-xl font-bold mt-1 ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                >
-                  {summary.totalRequests}
-                </p>
-              </div>
-            </div>
+            )}
 
             {/* 图表 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -351,96 +299,15 @@ function CostPage() {
                 >
                   模型成本分布
                 </h3>
-                <div className="flex items-start gap-6">
-                  <div className="flex-shrink-0">
-                    <svg viewBox="0 0 200 200" className="w-44 h-44">
-                      {(() => {
-                        let cumulativeAngle = 0;
-                        return summary.topProviders
-                          .slice(0, 6)
-                          .map((provider, index) => {
-                            const startAngle = cumulativeAngle;
-                            const angle = (provider.percentage / 100) * 360;
-                            cumulativeAngle += angle;
-                            if (angle <= 0) return null;
-                            const startRad =
-                              ((startAngle - 90) * Math.PI) / 180;
-                            const endRad =
-                              ((startAngle + angle - 90) * Math.PI) / 180;
-                            const x1 = 100 + 80 * Math.cos(startRad);
-                            const y1 = 100 + 80 * Math.sin(startRad);
-                            const x2 = 100 + 80 * Math.cos(endRad);
-                            const y2 = 100 + 80 * Math.sin(endRad);
-                            const largeArcFlag = angle > 180 ? 1 : 0;
-                            return (
-                              <path
-                                key={provider.provider}
-                                d={`M 100 100 L ${x1} ${y1} A 80 80 0 ${largeArcFlag} 1 ${x2} ${y2} Z`}
-                                fill={pieColors[index % pieColors.length]}
-                                className="transition-opacity hover:opacity-75"
-                              />
-                            );
-                          });
-                      })()}
-                      <circle
-                        cx="100"
-                        cy="100"
-                        r="50"
-                        fill={isDark ? "#1F2937" : "#FFFFFF"}
-                      />
-                      <text
-                        x="100"
-                        y="95"
-                        textAnchor="middle"
-                        className="fill-gray-400 text-xs"
-                      >
-                        月成本
-                      </text>
-                      <text
-                        x="100"
-                        y="112"
-                        textAnchor="middle"
-                        className="fill-gray-300 text-sm font-bold"
-                      >
-                        {formatCost(summary.monthlyCost)}
-                      </text>
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-2">
-                    {summary.topProviders.slice(0, 6).map((provider, index) => (
-                      <div
-                        key={provider.provider}
-                        className="flex items-center gap-2"
-                      >
-                        <span
-                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                          style={{
-                            backgroundColor:
-                              pieColors[index % pieColors.length],
-                          }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div
-                            className={`text-sm truncate ${isDark ? "text-gray-300" : "text-gray-700"}`}
-                          >
-                            {provider.provider}
-                          </div>
-                          <div
-                            className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
-                          >
-                            {formatTokens(provider.totalTokens)} tokens ·{" "}
-                            {formatCost(provider.cost)}
-                          </div>
-                        </div>
-                        <div
-                          className={`text-xs font-medium flex-shrink-0 ${isDark ? "text-gray-300" : "text-gray-700"}`}
-                        >
-                          {provider.percentage}%
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <PieChart
+                  data={summary.topProviders.slice(0, 6).map((p, i) => ({
+                    label: p.provider,
+                    value: p.cost,
+                    color: ['#3B82F6', '#8B5CF6', '#06B6D4', '#F59E0B', '#EF4444', '#10B981'][i % 6],
+                  }))}
+                  centerLabel="月成本"
+                  centerValue={formatCost(summary.monthlyCost, currency)}
+                />
               </div>
               <div
                 className={`rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} p-4`}
@@ -459,7 +326,7 @@ function CostPage() {
                       <span
                         className={`text-[10px] mb-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}
                       >
-                        {formatCost(day.cost)}
+                        {formatCost(day.cost, currency)}
                       </span>
                       <div
                         className="w-full flex gap-0.5 items-end justify-center"
@@ -559,7 +426,7 @@ function CostPage() {
                           {provider.requests}
                         </td>
                         <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-gray-100">
-                          {formatCost(provider.cost)}
+                          {formatCost(provider.cost, currency)}
                         </td>
                         <td className="px-4 py-3 text-sm text-right text-gray-500 dark:text-gray-400">
                           {provider.percentage}%
@@ -641,7 +508,7 @@ function CostPage() {
                             : "-"}
                         </td>
                         <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-gray-100">
-                          {formatCost(record.cost)}
+                          {formatCost(record.cost, currency)}
                         </td>
                       </tr>
                     ))}

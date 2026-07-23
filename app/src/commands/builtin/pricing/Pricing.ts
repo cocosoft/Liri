@@ -6,6 +6,7 @@
 
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { modelManager } from '@modules/ai';
+import { handleError } from '@modules/error';
 import {
   readFileSync,
   writeFileSync,
@@ -201,6 +202,7 @@ async function handleSync(commandArgs: string): Promise<CommandResult> {
       message: `YAML 数据重新同步完成，已更新 ${count} 个模型`,
     };
   } catch (e) {
+    await handleError(e, { module: 'commands:pricing', action: 'execute' });
     return {
       success: false,
       message: `同步失败: ${e instanceof Error ? e.message : String(e)}`,

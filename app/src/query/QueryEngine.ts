@@ -57,9 +57,9 @@ import {
   type ProcessedInput,
 } from './processUserInput.js';
 import {
-  TokenBudgetManager,
+  TokenBudgetController,
   TokenBudgetStatus,
-} from '../services/tokenManagement/TokenBudgetManager.js';
+} from '../core/tokenBudget/TokenBudgetController.js';
 import { getTokenCountFromUsage } from '../services/tokenManagement/TokenCounter.js';
 import type { TokenUsage } from '../services/tokenManagement/TokenCounter.js';
 import {
@@ -337,7 +337,7 @@ export class QueryEngine {
   /**
    * Token 预算管理器
    */
-  private tokenBudgetManager: TokenBudgetManager;
+  private tokenBudgetManager: TokenBudgetController;
 
   /**
    * 进度监听器
@@ -393,9 +393,11 @@ export class QueryEngine {
     this.costTracker = createCostAnalyticsTracker(analyticsQueue);
     setCostAnalyticsTracker(this.costTracker);
     this.config = config;
-    this.tokenBudgetManager = new TokenBudgetManager({
-      maxContextTokens: config.taskBudget?.total || 200_000,
-    });
+    this.tokenBudgetManager = new TokenBudgetController(
+      'default',
+      { total: config.taskBudget?.total || 200_000, remaining: config.taskBudget?.total || 200_000 },
+      config.taskBudget?.total || 200_000
+    );
     this.stopHookManager = createStopHookManager();
   }
 
@@ -668,13 +670,10 @@ export class QueryEngine {
 
       // 记录 Token 使用并检查预算
       if (response.usage) {
-        this.tokenBudgetManager.recordUsage({
-          inputTokens: response.usage.inputTokens,
-          outputTokens: response.usage.outputTokens,
-          totalTokens: response.usage.totalTokens,
-          cacheReadInputTokens: 0,
-          cacheCreationInputTokens: 0,
-        });
+        this.tokenBudgetManager.recordUsage(
+          response.usage.inputTokens || 0,
+          response.usage.outputTokens || 0
+        );
 
         const budgetState = this.tokenBudgetManager.getCurrentBudgetState();
         if (
@@ -1748,7 +1747,7 @@ export class QueryEngine {
     await this.executeStopHooks('aborted');
   }
 
-  getTokenBudgetManager(): TokenBudgetManager {
+  getTokenBudgetManager(): TokenBudgetController {
     return this.tokenBudgetManager;
   }
 

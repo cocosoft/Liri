@@ -18,6 +18,7 @@ import { globalEventBus, SystemEvents } from '@modules/core';
 import type { CostRecordedEvent } from '@modules/core';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({ module: 'cost:CostTracker', level: LogLevel.INFO });
 
 /**
@@ -195,10 +196,7 @@ export class CostTracker {
         sessionId: this.currentSessionId || undefined,
       });
     } catch (error) {
-      this.otelLogger.warn('成本持久化失败', {
-        error: error instanceof Error ? error.message : String(error),
-        totalCostUSD: this.totalCostUSD,
-      });
+      await handleError(error, { module: 'cost:tracker', action: 'persist' });
     }
   }
 

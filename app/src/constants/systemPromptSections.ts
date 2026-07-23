@@ -132,6 +132,18 @@ export function DANGEROUS_uncachedSystemPromptSection(
   return { name, compute, cacheBreak: true };
 }
 
+/** Phase 2: 简单字符串 hash（djb2，用于内容缓存保护） */
+function hashString(s: string): string {
+  let hash = 5381;
+  for (let i = 0; i < s.length; i++) {
+    hash = ((hash << 5) + hash + s.charCodeAt(i)) | 0;
+  }
+  return hash.toString(36);
+}
+
+/** Phase 2: 记忆内容 hash 缓存（保护 LLM 提示缓存） */
+let memoryContentHash = '';
+
 /** 默认注册的所有段落 */
 const DEFAULT_SECTIONS: SystemPromptSection[] = [
   systemPromptSection('identity', () => {
@@ -249,6 +261,13 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
       const summaries = result.summaries
         .map((s, i) => `${i + 1}. ${s}`)
         .join('\n');
+
+      // Phase 2: hash-based 缓存保护 — 内容未变时跳过重建
+      const currentHash = hashString(summaries);
+      if (currentHash === memoryContentHash && sectionCache.has('memoryContext')) {
+        return sectionCache.get('memoryContext') ?? null;
+      }
+      memoryContentHash = currentHash;
 
       const truncated = truncateMemoryContent(summaries);
       const memoryBlock = buildMemoryContextBlock(
@@ -395,6 +414,7 @@ export async function resolveSystemPromptSections(
  */
 export function clearSystemPromptSections(): void {
   sectionCache.clear();
+  memoryContentHash = '';
   clearSoulCache();
   clearUserCache();
   clearWorkspaceCache();

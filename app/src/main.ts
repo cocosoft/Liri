@@ -64,7 +64,10 @@ import {
 import { modelRouter } from '@modules/ai';
 import { configManager } from './config/index.js';
 import { isOfflineMode, setOfflineMode } from './entrypoints/shared-state.js';
-import { hydrateOnStartup, serializeOnShutdownSync } from './context/persistence/ContextPersistenceLifecycle.js';
+import {
+  hydrateOnStartup,
+  serializeOnShutdownSync,
+} from './context/persistence/ContextPersistenceLifecycle.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({ module: 'main', level: LogLevel.INFO });

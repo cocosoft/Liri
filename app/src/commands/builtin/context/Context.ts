@@ -246,7 +246,14 @@ export default {
       sessionId: (context.sessionId as string) || 'unknown',
       messageCount: messagesContextInfo?.messageCount || 0,
       estimatedTokens: messagesContextInfo?.tokenCount || 0,
-      compressionTier: summary.byTier[3] > 0 ? 3 : summary.byTier[2] > 0 ? 2 : summary.byTier[1] > 0 ? 1 : 0,
+      compressionTier:
+        summary.byTier[3] > 0
+          ? 3
+          : summary.byTier[2] > 0
+            ? 2
+            : summary.byTier[1] > 0
+              ? 1
+              : 0,
       memoryUsage: `${summary.total} compactions total`,
       lastActivity: new Date().toISOString(),
     };
@@ -277,7 +284,9 @@ export default {
   /**
    * 安全获取上下文信息（不抛异常）
    */
-  async tryGetContextInfo(context: CommandContext): Promise<{ messageCount: number; tokenCount: number } | null> {
+  async tryGetContextInfo(
+    context: CommandContext
+  ): Promise<{ messageCount: number; tokenCount: number } | null> {
     try {
       const cm = context.chatManager as ChatManagerLike | undefined;
       if (cm) {

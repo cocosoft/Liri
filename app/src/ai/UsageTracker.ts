@@ -101,7 +101,7 @@ export async function trackUsage(
     } else {
       inputTokens = usage?.prompt_tokens ?? usage?.inputTokens ?? 0;
       outputTokens = usage?.completion_tokens ?? usage?.outputTokens ?? 0;
-      tokenSource = (inputTokens > 0 || outputTokens > 0) ? 'api' : 'estimated';
+      tokenSource = inputTokens > 0 || outputTokens > 0 ? 'api' : 'estimated';
     }
     const cacheReadTokens = usage?.cache_read_input_tokens ?? 0;
     const cacheCreationTokens = usage?.cache_creation_input_tokens ?? 0;

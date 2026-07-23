@@ -395,7 +395,10 @@ export class QueryEngine {
     this.config = config;
     this.tokenBudgetManager = new TokenBudgetController(
       'default',
-      { total: config.taskBudget?.total || 200_000, remaining: config.taskBudget?.total || 200_000 },
+      {
+        total: config.taskBudget?.total || 200_000,
+        remaining: config.taskBudget?.total || 200_000,
+      },
       config.taskBudget?.total || 200_000
     );
     this.stopHookManager = createStopHookManager();

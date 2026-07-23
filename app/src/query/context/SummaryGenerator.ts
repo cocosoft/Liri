@@ -13,7 +13,10 @@ export interface SummaryOptions {
  * 生成结构化摘要
  * 对标 DefaultContextEngine.generateSummaryText()
  */
-export function generateStructuredSummary(messages: ChatMessage[], options?: SummaryOptions): string {
+export function generateStructuredSummary(
+  messages: ChatMessage[],
+  options?: SummaryOptions
+): string {
   if (!messages || messages.length === 0) return '';
 
   const userMsgs = messages.filter((m) => m.role === 'user');
@@ -25,7 +28,8 @@ export function generateStructuredSummary(messages: ChatMessage[], options?: Sum
   if (userMsgs.length > 0) {
     summary += `**User queries (${userMsgs.length}):**\n`;
     for (const m of userMsgs.slice(-5)) {
-      const preview = typeof m.content === 'string' ? m.content.slice(0, 200) : '(non-text)';
+      const preview =
+        typeof m.content === 'string' ? m.content.slice(0, 200) : '(non-text)';
       summary += `- ${preview}\n`;
     }
   }
@@ -33,7 +37,10 @@ export function generateStructuredSummary(messages: ChatMessage[], options?: Sum
   if (assistantMsgs.length > 0) {
     summary += `\n**Assistant responses (${assistantMsgs.length}):**\n`;
     for (const m of assistantMsgs.slice(-3)) {
-      const preview = typeof m.content === 'string' ? m.content.slice(0, 200) : '(tool calls)';
+      const preview =
+        typeof m.content === 'string'
+          ? m.content.slice(0, 200)
+          : '(tool calls)';
       summary += `- ${preview}\n`;
     }
   }
@@ -65,8 +72,10 @@ export function generateFallbackSummary(messages: ChatMessage[]): string {
   const first = messages[0];
   const last = messages[messages.length - 1];
 
-  const firstPreview = typeof first.content === 'string' ? first.content.slice(0, 150) : '';
-  const lastPreview = typeof last.content === 'string' ? last.content.slice(0, 150) : '';
+  const firstPreview =
+    typeof first.content === 'string' ? first.content.slice(0, 150) : '';
+  const lastPreview =
+    typeof last.content === 'string' ? last.content.slice(0, 150) : '';
 
   return `[${messages.length} messages] ${first.role}: ${firstPreview} ... ${last.role}: ${lastPreview}`;
 }

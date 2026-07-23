@@ -1341,7 +1341,10 @@ export class ChatManagerImpl implements ChatManager {
     // 上下文长度保护：分级压缩策略评估 + 超限截断
     // ─────────────────────────────────────────────────────────
     const maxCtx = resolveMaxContextTokens(options?.model);
-    const compactionDecision = autoCompactionPolicy.evaluate(apiMessages, options?.model || '');
+    const compactionDecision = autoCompactionPolicy.evaluate(
+      apiMessages,
+      options?.model || ''
+    );
     if (compactionDecision.decision !== 'skip') {
       logger.info('compaction:policy_evaluated', {
         decision: compactionDecision.decision,
@@ -1417,10 +1420,15 @@ export class ChatManagerImpl implements ChatManager {
     });
 
     // Phase 5+: 同步本轮对话到记忆（sendMessage 非流式路径）
-    const assistantContentNM = typeof response.content === 'string' ? response.content : '';
-    memoryManager.syncAll(content, assistantContentNM, session.id).catch((err) => {
-      logger.debug('Memory sync failed (non-critical)', { error: String(err) });
-    });
+    const assistantContentNM =
+      typeof response.content === 'string' ? response.content : '';
+    memoryManager
+      .syncAll(content, assistantContentNM, session.id)
+      .catch((err) => {
+        logger.debug('Memory sync failed (non-critical)', {
+          error: String(err),
+        });
+      });
 
     // Phase 2: Telemetry + Trajectory THINK 完成
     const llmDuration = Date.now() - llmStartTime;
@@ -2204,7 +2212,10 @@ export class ChatManagerImpl implements ChatManager {
 
     // 上下文长度保护：分级压缩策略评估 + 超限截断
     const maxCtx = resolveMaxContextTokens(options?.model);
-    const compactionDecision = autoCompactionPolicy.evaluate(apiMessages, options?.model || '');
+    const compactionDecision = autoCompactionPolicy.evaluate(
+      apiMessages,
+      options?.model || ''
+    );
     if (compactionDecision.decision !== 'skip') {
       logger.info('compaction:policy_evaluated', {
         decision: compactionDecision.decision,
@@ -2301,9 +2312,13 @@ export class ChatManagerImpl implements ChatManager {
 
     // Phase 5+: 同步本轮对话到记忆（streamMessage 流式路径）
     const assistantContentSM = accumulatedContent || '';
-    memoryManager.syncAll(content, assistantContentSM, session.id).catch((err) => {
-      logger.debug('Memory sync failed (non-critical)', { error: String(err) });
-    });
+    memoryManager
+      .syncAll(content, assistantContentSM, session.id)
+      .catch((err) => {
+        logger.debug('Memory sync failed (non-critical)', {
+          error: String(err),
+        });
+      });
 
     // Phase 2: Telemetry + Trajectory THINK 完成
     const streamLlmDuration = Date.now() - streamLlmStartTime;

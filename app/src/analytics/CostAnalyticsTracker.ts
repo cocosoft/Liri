@@ -18,7 +18,10 @@ import { globalEventBus, SystemEvents } from '../core/events/EventBus';
 import type { CostRecordedEvent } from '../core/events/EventBus';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ module: 'analytics:CostAnalyticsTracker', level: LogLevel.WARN });
+const logger = new Logger({
+  module: 'analytics:CostAnalyticsTracker',
+  level: LogLevel.WARN,
+});
 
 export interface TokenUsage {
   inputTokens: number;
@@ -91,21 +94,24 @@ export class CostAnalyticsTracker {
    * [ADR-001] 单写入者 + 多只读消费者架构
    */
   private subscribeToCostEvents(): void {
-    globalEventBus.subscribe(SystemEvents.COST_RECORDED, (event: CostRecordedEvent) => {
-      const modelCost = this.getOrCreateModelCost(event.model);
-      modelCost.totalCost += event.costUSD;
-      modelCost.totalTokens += event.inputTokens + event.outputTokens;
-      modelCost.requestCount++;
-      modelCost.inputTokens += event.inputTokens;
-      modelCost.outputTokens += event.outputTokens;
-      this.totalRequests++;
+    globalEventBus.subscribe(
+      SystemEvents.COST_RECORDED,
+      (event: CostRecordedEvent) => {
+        const modelCost = this.getOrCreateModelCost(event.model);
+        modelCost.totalCost += event.costUSD;
+        modelCost.totalTokens += event.inputTokens + event.outputTokens;
+        modelCost.requestCount++;
+        modelCost.inputTokens += event.inputTokens;
+        modelCost.outputTokens += event.outputTokens;
+        this.totalRequests++;
 
-      logger.debug('CostAnalyticsTracker: synced from COST_RECORDED', {
-        model: event.model,
-        costUSD: event.costUSD,
-        tokens: event.inputTokens + event.outputTokens,
-      });
-    });
+        logger.debug('CostAnalyticsTracker: synced from COST_RECORDED', {
+          model: event.model,
+          costUSD: event.costUSD,
+          tokens: event.inputTokens + event.outputTokens,
+        });
+      }
+    );
   }
 
   /**

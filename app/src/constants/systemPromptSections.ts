@@ -264,7 +264,10 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
 
       // Phase 2: hash-based 缓存保护 — 内容未变时跳过重建
       const currentHash = hashString(summaries);
-      if (currentHash === memoryContentHash && sectionCache.has('memoryContext')) {
+      if (
+        currentHash === memoryContentHash &&
+        sectionCache.has('memoryContext')
+      ) {
         return sectionCache.get('memoryContext') ?? null;
       }
       memoryContentHash = currentHash;

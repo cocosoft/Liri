@@ -9,10 +9,12 @@
  */
 
 import { Logger } from '@modules/monitoring';
-import { TokenBudgetController, TokenBudgetStatus, type TokenBudgetState } from '../core/tokenBudget/TokenBudgetController.js';
-import type {
-  TokenBudgetConfig,
-} from './TokenBudget.js';
+import {
+  TokenBudgetController,
+  TokenBudgetStatus,
+  type TokenBudgetState,
+} from '../core/tokenBudget/TokenBudgetController.js';
+import type { TokenBudgetConfig } from './TokenBudget.js';
 import { StopHookManager, DEFAULT_STOP_HOOK_PRIORITIES } from './StopHooks.js';
 import type { StopHook, StopHookContext, StopHookReason } from './StopHooks.js';
 import type { QueryEngine } from './QueryEngine.js';

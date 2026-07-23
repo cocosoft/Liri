@@ -5,7 +5,10 @@ import {
   CompressionResult,
   DEFAULT_COMPRESSION_CONFIG,
 } from './IContextEngine';
-import { estimateMessagesTokens, IMAGE_TOKEN_ESTIMATE } from '../../ai/tokenizer/TokenEstimator';
+import {
+  estimateMessagesTokens,
+  IMAGE_TOKEN_ESTIMATE,
+} from '../../ai/tokenizer/TokenEstimator';
 import { generateStructuredSummary } from './SummaryGenerator';
 
 /** @deprecated 使用 estimateMessagesTokens() 替代 */

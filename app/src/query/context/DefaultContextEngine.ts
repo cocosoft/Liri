@@ -12,7 +12,10 @@ import {
 } from './IContextEngine';
 import { SummaryTemplate, StructuredSummary } from './SummaryTemplate';
 import { JsonTruncator } from './JsonTruncator';
-import { estimateMessagesTokens, IMAGE_TOKEN_ESTIMATE } from '../../ai/tokenizer/TokenEstimator';
+import {
+  estimateMessagesTokens,
+  IMAGE_TOKEN_ESTIMATE,
+} from '../../ai/tokenizer/TokenEstimator';
 
 /**
  * 默认上下文引擎

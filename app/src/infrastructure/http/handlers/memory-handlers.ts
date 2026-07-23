@@ -22,11 +22,11 @@ const logger = new Logger({
 
 /** v1.2: 后端 MemoryType → 前端类型名映射 */
 const MEMORY_TYPE_TO_FRONTEND: Record<string, string> = {
-  user_fact:          'conversation',
-  user_preference:    'user_preference',
-  project_knowledge:  'project_context',
-  code_pattern:       'system',
-  decision:           'knowledge',
+  user_fact: 'conversation',
+  user_preference: 'user_preference',
+  project_knowledge: 'project_context',
+  code_pattern: 'system',
+  decision: 'knowledge',
 };
 
 // ---- Memory Manager Singleton ----
@@ -310,7 +310,8 @@ export async function handleGetMemoryWeights(
     for (const m of allMemories) {
       const type = m.metadata?.type || 'unknown';
       countMap[type] = (countMap[type] || 0) + 1;
-      weightMap[type] = (weightMap[type] || 0) + Math.max(1, m.metadata?.priority || 0);
+      weightMap[type] =
+        (weightMap[type] || 0) + Math.max(1, m.metadata?.priority || 0);
     }
 
     // 映射为前端类型名，构建 weights 数组
@@ -329,7 +330,13 @@ export async function handleGetMemoryWeights(
     weights.sort((a, b) => b.count - a.count);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, weights, totalMemories: allMemories.length }));
+    res.end(
+      JSON.stringify({
+        success: true,
+        weights,
+        totalMemories: allMemories.length,
+      })
+    );
   } catch (err) {
     sendError(res, err);
   }
@@ -341,9 +348,14 @@ export async function handleGetSyncStatus(
 ): Promise<void> {
   // v1.2: 旧端点已废弃，返回 410 Gone
   res.writeHead(410, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({
-    error: { message: 'This endpoint has been removed. Use GET /v1/memory/stats instead.' },
-  }));
+  res.end(
+    JSON.stringify({
+      error: {
+        message:
+          'This endpoint has been removed. Use GET /v1/memory/stats instead.',
+      },
+    })
+  );
 }
 
 export async function handleGetStats(
@@ -356,7 +368,9 @@ export async function handleGetStats(
     const now = Date.now();
 
     // stats: 统计信息
-    const withVectors = allMemories.filter((m) => !!(m.metadata as unknown as Record<string, unknown>).vectorId).length;
+    const withVectors = allMemories.filter(
+      (m) => !!(m.metadata as unknown as Record<string, unknown>).vectorId
+    ).length;
     const byType: Record<string, number> = {};
     for (const m of allMemories) {
       const backendType = m.metadata?.type || 'unknown';
@@ -364,15 +378,18 @@ export async function handleGetStats(
       byType[frontendType] = (byType[frontendType] || 0) + 1;
     }
     const recentCount = allMemories.filter(
-      (m) => (now - m.createdAt.getTime()) < 7 * 24 * 60 * 60 * 1000
+      (m) => now - m.createdAt.getTime() < 7 * 24 * 60 * 60 * 1000
     ).length;
 
     // aging: 陈化信息
     const expiring = await mm.getExpiringMemories();
-    const oldestMemoryMs = allMemories.length > 0
-      ? Math.min(...allMemories.map((m) => m.createdAt.getTime()))
-      : now;
-    const oldestMemoryAge = Math.floor((now - oldestMemoryMs) / (24 * 60 * 60 * 1000));
+    const oldestMemoryMs =
+      allMemories.length > 0
+        ? Math.min(...allMemories.map((m) => m.createdAt.getTime()))
+        : now;
+    const oldestMemoryAge = Math.floor(
+      (now - oldestMemoryMs) / (24 * 60 * 60 * 1000)
+    );
 
     // index: 索引信息
     const indexedCount = mm.getRetriever().getIndexSize();
@@ -381,24 +398,26 @@ export async function handleGetStats(
     ).length;
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      success: true,
-      stats: {
-        totalMemories: allMemories.length,
-        withVectors,
-        byType,
-        recentCount,
-      },
-      aging: {
-        expiringCount: expiring.length,
-        oldestMemoryAge,
-        lastCleanupAt: mm.getLastCleanupAt(),
-      },
-      index: {
-        indexedCount,
-        vectorCacheSize,
-      },
-    }));
+    res.end(
+      JSON.stringify({
+        success: true,
+        stats: {
+          totalMemories: allMemories.length,
+          withVectors,
+          byType,
+          recentCount,
+        },
+        aging: {
+          expiringCount: expiring.length,
+          oldestMemoryAge,
+          lastCleanupAt: mm.getLastCleanupAt(),
+        },
+        index: {
+          indexedCount,
+          vectorCacheSize,
+        },
+      })
+    );
   } catch (err) {
     sendError(res, err);
   }
@@ -415,14 +434,16 @@ export async function handleSyncMemories(
     const remainingCount = (await mm.getAllMemories()).length;
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      success: true,
-      result: {
-        cleanedCount,
-        remainingCount,
-        reindexed: true,
-      },
-    }));
+    res.end(
+      JSON.stringify({
+        success: true,
+        result: {
+          cleanedCount,
+          remainingCount,
+          reindexed: true,
+        },
+      })
+    );
   } catch (err) {
     sendError(res, err);
   }
@@ -436,10 +457,15 @@ export async function handleConsolidateMemories(
     const mm = await getMemoryManager();
     const allMemories = await mm.getAllMemories();
 
-    const { MemoryConsolidator } = await import('@modules/memory/consolidation/MemoryConsolidator');
+    const { MemoryConsolidator } =
+      await import('@modules/memory/consolidation/MemoryConsolidator');
     const consolidator = new MemoryConsolidator({ similarityThreshold: 0.85 });
     const dedupResult = consolidator.findDuplicates(
-      allMemories.map((m) => ({ id: m.id, content: m.content, createdAt: m.createdAt.getTime() }))
+      allMemories.map((m) => ({
+        id: m.id,
+        content: m.content,
+        createdAt: m.createdAt.getTime(),
+      }))
     );
 
     // 对每组重复：保留第一条，删除其余
@@ -457,15 +483,17 @@ export async function handleConsolidateMemories(
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      success: true,
-      result: {
-        duplicateGroups: dedupResult.duplicates.length,
-        totalRemoved: dedupResult.totalRemoved,
-        spaceSaved: dedupResult.spaceSaved,
-        removedIds,
-      },
-    }));
+    res.end(
+      JSON.stringify({
+        success: true,
+        result: {
+          duplicateGroups: dedupResult.duplicates.length,
+          totalRemoved: dedupResult.totalRemoved,
+          spaceSaved: dedupResult.spaceSaved,
+          removedIds,
+        },
+      })
+    );
   } catch (err) {
     sendError(res, err);
   }

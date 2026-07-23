@@ -5698,19 +5698,27 @@ export class LocalHTTPService {
         const backendType = m.metadata?.type || 'unknown';
         const ft = TYPE_MAP[backendType] || backendType;
         countMap[ft] = (countMap[ft] || 0) + 1;
-        weightMap[ft] = (weightMap[ft] || 0) + Math.max(1, m.metadata?.priority || 0);
+        weightMap[ft] =
+          (weightMap[ft] || 0) + Math.max(1, m.metadata?.priority || 0);
       }
 
       const weights = Object.keys(countMap).map((ft) => ({
         type: ft,
         count: countMap[ft],
         totalWeight: weightMap[ft] || 0,
-        averageWeight: countMap[ft] > 0 ? (weightMap[ft] || 0) / countMap[ft] : 0,
+        averageWeight:
+          countMap[ft] > 0 ? (weightMap[ft] || 0) / countMap[ft] : 0,
       }));
       weights.sort((a, b) => b.count - a.count);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, weights, totalMemories: allMemories.length }));
+      res.end(
+        JSON.stringify({
+          success: true,
+          weights,
+          totalMemories: allMemories.length,
+        })
+      );
     } catch (err) {
       this.sendError(res, err);
     }
@@ -5722,9 +5730,14 @@ export class LocalHTTPService {
   ): Promise<void> {
     // v1.2: 旧端点已废弃，返回 410 Gone
     res.writeHead(410, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      error: { message: 'This endpoint has been removed. Use GET /v1/memory/stats instead.' },
-    }));
+    res.end(
+      JSON.stringify({
+        error: {
+          message:
+            'This endpoint has been removed. Use GET /v1/memory/stats instead.',
+        },
+      })
+    );
   }
 
   private async handleGetStats(
@@ -5736,36 +5749,63 @@ export class LocalHTTPService {
       const allMemories = await mm.getAllMemories();
       const now = Date.now();
       const TYPE_MAP: Record<string, string> = {
-        user_fact: 'conversation', user_preference: 'user_preference',
-        project_knowledge: 'project_context', code_pattern: 'system', decision: 'knowledge',
+        user_fact: 'conversation',
+        user_preference: 'user_preference',
+        project_knowledge: 'project_context',
+        code_pattern: 'system',
+        decision: 'knowledge',
       };
 
-      const withVectors = allMemories.filter((m: any) => !!m.metadata?.vectorId).length;
+      const withVectors = allMemories.filter(
+        (m: any) => !!m.metadata?.vectorId
+      ).length;
       const byType: Record<string, number> = {};
       for (const m of allMemories) {
-        const ft = TYPE_MAP[m.metadata?.type || 'unknown'] || m.metadata?.type || 'unknown';
+        const ft =
+          TYPE_MAP[m.metadata?.type || 'unknown'] ||
+          m.metadata?.type ||
+          'unknown';
         byType[ft] = (byType[ft] || 0) + 1;
       }
       const recentCount = allMemories.filter(
-        (m: any) => (now - new Date(m.createdAt).getTime()) < 7 * 24 * 60 * 60 * 1000
+        (m: any) =>
+          now - new Date(m.createdAt).getTime() < 7 * 24 * 60 * 60 * 1000
       ).length;
 
       const expiring = await mm.getExpiringMemories();
-      const oldestMs = allMemories.length > 0
-        ? Math.min(...allMemories.map((m: any) => new Date(m.createdAt).getTime()))
-        : now;
-      const oldestMemoryAge = Math.floor((now - oldestMs) / (24 * 60 * 60 * 1000));
+      const oldestMs =
+        allMemories.length > 0
+          ? Math.min(
+              ...allMemories.map((m: any) => new Date(m.createdAt).getTime())
+            )
+          : now;
+      const oldestMemoryAge = Math.floor(
+        (now - oldestMs) / (24 * 60 * 60 * 1000)
+      );
 
       const indexedCount = mm.getRetriever().getIndexSize();
-      const vectorCacheSize = allMemories.filter((m: any) => !!m.metadata?.vectorId).length;
+      const vectorCacheSize = allMemories.filter(
+        (m: any) => !!m.metadata?.vectorId
+      ).length;
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        success: true,
-        stats: { totalMemories: allMemories.length, withVectors, byType, recentCount },
-        aging: { expiringCount: expiring.length, oldestMemoryAge, lastCleanupAt: mm.getLastCleanupAt() },
-        index: { indexedCount, vectorCacheSize },
-      }));
+      res.end(
+        JSON.stringify({
+          success: true,
+          stats: {
+            totalMemories: allMemories.length,
+            withVectors,
+            byType,
+            recentCount,
+          },
+          aging: {
+            expiringCount: expiring.length,
+            oldestMemoryAge,
+            lastCleanupAt: mm.getLastCleanupAt(),
+          },
+          index: { indexedCount, vectorCacheSize },
+        })
+      );
     } catch (err) {
       this.sendError(res, err);
     }
@@ -5782,10 +5822,12 @@ export class LocalHTTPService {
       const remainingCount = (await mm.getAllMemories()).length;
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        success: true,
-        result: { cleanedCount, remainingCount, reindexed: true },
-      }));
+      res.end(
+        JSON.stringify({
+          success: true,
+          result: { cleanedCount, remainingCount, reindexed: true },
+        })
+      );
     } catch (err) {
       this.sendError(res, err);
     }
@@ -5799,10 +5841,17 @@ export class LocalHTTPService {
       const mm = await this.getMemoryManager();
       const allMemories = await mm.getAllMemories();
 
-      const { MemoryConsolidator } = await import('../../../src/memory/consolidation/MemoryConsolidator');
-      const consolidator = new MemoryConsolidator({ similarityThreshold: 0.85 });
+      const { MemoryConsolidator } =
+        await import('../../../src/memory/consolidation/MemoryConsolidator');
+      const consolidator = new MemoryConsolidator({
+        similarityThreshold: 0.85,
+      });
       const dedupResult = consolidator.findDuplicates(
-        allMemories.map((m: any) => ({ id: m.id, content: m.content, createdAt: new Date(m.createdAt).getTime() }))
+        allMemories.map((m: any) => ({
+          id: m.id,
+          content: m.content,
+          createdAt: new Date(m.createdAt).getTime(),
+        }))
       );
 
       const removedIds: string[] = [];
@@ -5818,15 +5867,17 @@ export class LocalHTTPService {
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        success: true,
-        result: {
-          duplicateGroups: dedupResult.duplicates.length,
-          totalRemoved: dedupResult.totalRemoved,
-          spaceSaved: dedupResult.spaceSaved,
-          removedIds,
-        },
-      }));
+      res.end(
+        JSON.stringify({
+          success: true,
+          result: {
+            duplicateGroups: dedupResult.duplicates.length,
+            totalRemoved: dedupResult.totalRemoved,
+            spaceSaved: dedupResult.spaceSaved,
+            removedIds,
+          },
+        })
+      );
     } catch (err) {
       this.sendError(res, err);
     }

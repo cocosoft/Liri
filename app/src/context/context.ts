@@ -32,11 +32,11 @@ export async function getSystemContext() {
       const { execSync } = await import('child_process');
       const gitBranch = execSync('git branch --show-current', {
         encoding: 'utf8',
-        stdio: 'ignore',
+        stdio: 'pipe',
       }).trim();
       const gitCommit = execSync('git rev-parse HEAD', {
         encoding: 'utf8',
-        stdio: 'ignore',
+        stdio: 'pipe',
       }).trim();
       systemInfo.git = {
         branch: gitBranch,

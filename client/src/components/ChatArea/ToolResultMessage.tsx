@@ -1,6 +1,6 @@
 import type { Message } from "../../types";
 import MarkdownRenderer from "./MarkdownRenderer";
-import { useChatStore } from "../../stores/chatStore";
+import { useChatStore } from "../../stores/chat";
 
 interface ToolResultMessageProps {
   message: Message;

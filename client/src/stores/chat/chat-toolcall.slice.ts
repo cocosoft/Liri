@@ -579,7 +579,7 @@ export function rebuildBlocksFromContent(
   msg: Message & { tool_calls?: ToolCall[] },
 ): MessageBlock[] {
   // 守卫：如果消息已有 blocks，直接返回，不再重建
-  if (msg.blocks && msg.blocks.length > 0) {
+  if (Array.isArray(msg.blocks) && msg.blocks.length > 0) {
     return msg.blocks.map((b: MessageBlock) => ({ ...b, isStreaming: false }));
   }
 

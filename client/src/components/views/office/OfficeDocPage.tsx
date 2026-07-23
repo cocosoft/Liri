@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { DocIcon } from "../../../assets/icons/navigation";
 import { officeService } from "../../../services/officeService";
 import { useOfficeStore } from "../../../stores/officeStore";
-import { useChatStore } from "../../../stores/chatStore";
+import { useChatStore } from "../../../stores/chat";
 import CreateDocModal from "./CreateDocModal";
 
 interface TemplateDef {

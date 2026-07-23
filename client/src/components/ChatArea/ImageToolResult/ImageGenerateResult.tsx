@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { useChatStore } from "../../../stores/chatStore";
+import { useChatStore } from "../../../stores/chat";
 import ImageViewer from "../ImageViewer/ImageViewer";
 
 interface Props {

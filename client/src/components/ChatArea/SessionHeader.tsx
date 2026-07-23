@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessionStore } from "../../stores/sessionStore";
-import { useChatStore } from "../../stores/chatStore";
+import { useChatStore } from "../../stores/chat";
 import type { Message } from "../../types";
 
 /** 格式化日期为 yyyy-MM-dd HH:mm */

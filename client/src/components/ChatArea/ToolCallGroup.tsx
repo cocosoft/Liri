@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 import type { ToolCall } from "../../types";
 import MarkdownRenderer from "./MarkdownRenderer";
 import ImageToolResult from "./ImageToolResult/ImageToolResult";
-import { useChatStore } from "../../stores/chatStore";
+import { useChatStore } from "../../stores/chat";
 import { getToolResultFull } from "../../stores/chat/chat-message.slice";
 import {
   getToolDisplayName,

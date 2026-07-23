@@ -23,7 +23,7 @@ import TaskCard from "./TaskCard";
 import ProgressCard from "./ProgressCard";
 import DeliverableCard from "./DeliverableCard";
 import DiffBlock from "./DiffBlock";
-import { useChatStore } from "../../stores/chatStore";
+import { useChatStore } from "../../stores/chat";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 
 interface BlockRendererProps {

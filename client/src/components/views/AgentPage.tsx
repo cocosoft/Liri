@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useAgentStore } from "../../stores/agentStore";
+import { useAgentStore } from "../../stores/agent";
 import { useNavigationStore } from "../../stores/navigationStore";
 import { SkeletonCard } from "../common/Skeleton";
 

@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useState } from "react";
-import { useChatStore } from "../stores/chatStore";
+import { useChatStore } from "../stores/chat";
 import { useSessionStore } from "../stores/sessionStore";
 import { useTranslation } from "react-i18next";
 import { createLogger } from "@/utils/logger";

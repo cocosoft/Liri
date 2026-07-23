@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useChatStore } from "../../stores/chatStore";
+import { useChatStore } from "../../stores/chat";
 
 interface ReEntryBannerProps {
   sessionId: string;

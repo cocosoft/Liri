@@ -350,9 +350,20 @@ export default function ChatMessageList({
       const blockContent = m.blocks?.reduce((s, b) => s + (b.content?.length || 0), 0) || 0;
       return sum + content.length + blockContent;
     }, 0);
-    console.log("[ChatMessageList:diag] 渲染", {
+    const totalBlocks = messages.reduce((s, m) => s + (Array.isArray(m.blocks) ? m.blocks.length : 0), 0);
+    const roles = messages.reduce((acc, m) => { acc[m.role] = (acc[m.role] || 0) + 1; return acc; }, {} as Record<string, number>);
+    // KaTeX 诊断（动态 import 避免循环依赖）
+    import("@/components/ChatArea/MarkdownRenderer").then(({ getKatexDiag }) => {
+      const k = getKatexDiag();
+      if (k.calls > 0 || k.chineseBlocks > 0) {
+        console.info("[Diag:render] KaTeX 统计", k);
+      }
+    }).catch(() => {});
+    console.log("[Diag:render] ChatMessageList 渲染", {
       count: messages.length,
       totalChars,
+      totalBlocks,
+      roles,
       switching,
       hasSession,
       timestamp: performance.now(),
@@ -538,12 +549,6 @@ export default function ChatMessageList({
                     ? "bg-yellow-50/40 dark:bg-yellow-900/10 border-l-2 border-yellow-400 dark:border-yellow-500"
                     : "border-l-2 border-transparent"
                 } ${isCurrentMatch ? "bg-yellow-100/60 dark:bg-yellow-900/20 ring-1 ring-yellow-400/30" : ""}`}
-                style={
-                  {
-                    contentVisibility: "auto",
-                    containIntrinsicSize: "auto 200px",
-                  } as React.CSSProperties
-                }
               >
                 <ErrorBoundary fallback={<MessageErrorFallback error={null} />}>
                   <ChatMessage

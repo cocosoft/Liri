@@ -1,6 +1,6 @@
 import { useMemo, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { useChatStore } from "../../stores/chatStore";
+import { useChatStore } from "../../stores/chat";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useBackendStore } from "../../stores/backendStore";
 import { useVoiceStore } from "../../stores/voiceStore";
@@ -26,6 +26,11 @@ function ChatArea() {
   const backendRunning = useBackendStore((s) => s.status.running);
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
+
+  /** 诊断：会话变化时记录 */
+  useEffect(() => {
+    console.info("[Diag:chatArea] 会话变更", { sessionId: currentSession?.id, title: currentSession?.title, msgCount: messages.length });
+  }, [currentSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const { interimText, finalText, audioLevel, subtitleStatus } =
     useVoiceStore();
 

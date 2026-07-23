@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from "react";
-import { useChatStore } from "../stores/chatStore";
+import { useChatStore } from "../stores/chat";
 import { useSessionStore } from "../stores/sessionStore";
 import { useNavigationStore } from "../stores/navigationStore";
 

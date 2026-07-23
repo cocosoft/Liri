@@ -7,7 +7,7 @@
 import { useEffect, useCallback, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useOfficeStore } from "../../../stores/officeStore";
-import { useChatStore } from "../../../stores/chatStore";
+import { useChatStore } from "../../../stores/chat";
 import { useSessionStore } from "../../../stores/sessionStore";
 import { officeService } from "../../../services/officeService";
 import { useOfficeHotkeys } from "../../../hooks/useOfficeHotkeys";

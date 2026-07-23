@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { MessageBlock } from "../../types";
 import ToolCallGroup from "./ToolCallGroup";
 import MarkdownRenderer from "./MarkdownRenderer";
-import { useChatStore } from "../../stores/chatStore";
+import { useChatStore } from "../../stores/chat";
 import {
   getToolDisplayName,
   getToolHumanSummary,

@@ -11,7 +11,9 @@ export default function ChatPageLayout() {
       <SessionHistorySidebar />
       <main className="flex-1 flex flex-col min-w-0 bg-gray-50 dark:bg-gray-900">
         <SessionHeader />
-        <ChatArea />
+        <ErrorBoundary>
+          <ChatArea />
+        </ErrorBoundary>
       </main>
       <ErrorBoundary fallback={null}>
         <ChatInspector />

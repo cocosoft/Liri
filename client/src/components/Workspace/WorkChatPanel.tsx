@@ -1,4 +1,4 @@
-import { useChatStore } from "../../stores/chatStore";
+import { useChatStore } from "../../stores/chat";
 import { useWorkStore } from "../../stores/workStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import PlanDoToggle from "./PlanDoToggle";

@@ -18,6 +18,7 @@ import {
   readFileSync,
   existsSync,
   mkdirSync,
+  unlinkSync,
 } from 'fs';
 import { AIModelType } from '@modules/ai';
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -196,8 +197,7 @@ export class ChatServiceImpl implements ChatService {
     const sessionPath = join(this.config.storagePath, `${sessionId}.json`);
     try {
       if (existsSync(sessionPath)) {
-        const fs = require('fs');
-        fs.unlinkSync(sessionPath);
+        unlinkSync(sessionPath);
       }
     } catch (error) {
       logger.error(

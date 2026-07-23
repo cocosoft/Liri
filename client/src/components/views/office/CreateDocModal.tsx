@@ -9,7 +9,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { officeService } from "../../../services/officeService";
-import { useChatStore } from "../../../stores/chatStore";
+import { useChatStore } from "../../../stores/chat";
 
 interface CreateDocModalProps {
   /** 默认文档类型 */

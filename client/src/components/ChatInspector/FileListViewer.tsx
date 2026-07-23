@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect } from "react";
-import { useChatStore } from "../../stores/chatStore";
+import { useChatStore } from "../../stores/chat";
 import { useShallow } from "zustand/shallow";
 import FilePreviewContent from "../ChatArea/FilePreviewContent";
 import FileTypeBadge from "../ChatArea/FileTypeBadge";

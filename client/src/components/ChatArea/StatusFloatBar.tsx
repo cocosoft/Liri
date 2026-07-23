@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useChatStore } from "../../stores/chatStore";
+import { useChatStore } from "../../stores/chat";
 import type { TaskCardData } from "../../types";
 
 const PHASE_LABELS: Record<string, string> = {

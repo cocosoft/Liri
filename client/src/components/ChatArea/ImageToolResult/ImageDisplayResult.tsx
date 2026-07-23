@@ -3,7 +3,7 @@
  * 图片预览结果渲染 — 多图缩略图网格 + 点击放大 + 引用/下载
  */
 import { useState } from "react";
-import { useChatStore } from "../../../stores/chatStore";
+import { useChatStore } from "../../../stores/chat";
 import ImageViewer from "../ImageViewer/ImageViewer";
 
 interface DisplayImage {

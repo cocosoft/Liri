@@ -841,6 +841,7 @@ export class CoreAPIImpl implements CoreAPI {
             id: m.id,
             role: m.role.toLowerCase(),
             content: typeof m.content === 'string' ? m.content : '',
+            session_id: sessionId,
             timestamp: m.timestamp,
             tool_calls: m.metadata?.tool_calls as
               | Array<Record<string, unknown>>
@@ -895,6 +896,7 @@ export class CoreAPIImpl implements CoreAPI {
         id: msg.id,
         role: msg.role.toLowerCase(),
         content,
+        session_id: sessionId,
         timestamp:
           msg.createdAt instanceof Date ? msg.createdAt.getTime() : Date.now(),
         tool_calls: msg.tool_calls as

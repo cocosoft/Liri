@@ -3,8 +3,14 @@
  */
 
 import React from "react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useChatStore } from "../../stores/chat";
+import type { ToolCall } from "../../types";
+import {
+  getToolDisplayName,
+  getToolHumanSummary,
+} from "../../utils/toolHumanSummary";
+import { getToolResultFull } from "../../stores/chat/chat-message.slice";
 
 interface ToolCallRecord {
   id: string;
@@ -14,6 +20,7 @@ interface ToolCallRecord {
   status: "running" | "completed" | "failed";
   messageId?: string;
   error?: string;
+  _hasFullResult?: boolean;
 }
 
 function extractToolCalls(messages: ReturnType<typeof useChatStore.getState>["messages"]): ToolCallRecord[] {
@@ -21,6 +28,7 @@ function extractToolCalls(messages: ReturnType<typeof useChatStore.getState>["me
   const records: ToolCallRecord[] = [];
 
   for (const msg of messages) {
+    // 路径 1：消息级 tool_calls
     if (msg.tool_calls) {
       for (const tc of msg.tool_calls) {
         if (seen.has(tc.id)) continue;
@@ -32,9 +40,11 @@ function extractToolCalls(messages: ReturnType<typeof useChatStore.getState>["me
           result: tc.result,
           status: tc.status || "completed",
           messageId: msg.id,
+          _hasFullResult: !!(tc as { _hasFullResult?: boolean })._hasFullResult,
         });
       }
     }
+    // 路径 2：blocks 中的 tool_call
     if (msg.blocks) {
       for (const block of msg.blocks) {
         if (block.type === "tool_call" && block.toolCall) {
@@ -48,13 +58,15 @@ function extractToolCalls(messages: ReturnType<typeof useChatStore.getState>["me
             result: tc.result,
             status: tc.status || (block.isStreaming ? "running" : "completed"),
             messageId: msg.id,
+            _hasFullResult: !!(tc as { _hasFullResult?: boolean })._hasFullResult,
           });
         }
       }
     }
+    // 路径 3：tool 角色消息补充结果
     if (msg.role === "tool" && msg.toolCallId) {
       const existing = records.find((r) => r.id === msg.toolCallId);
-      if (existing) {
+      if (existing && existing.result === undefined) {
         existing.result = msg.content;
         existing.status = "completed";
       }
@@ -65,6 +77,11 @@ function extractToolCalls(messages: ReturnType<typeof useChatStore.getState>["me
 }
 
 function ToolCallCardImpl({ record }: { record: ToolCallRecord }) {
+  const [expanded, setExpanded] = useState(false);
+  const displayName = getToolDisplayName(record.name);
+  const humanSummary = getToolHumanSummary({ name: record.name, arguments: record.arguments, id: record.id } as ToolCall);
+  const hasArgs = record.arguments && Object.keys(record.arguments).length > 0;
+
   const statusIcon =
     record.status === "running" ? "🔄" : record.status === "completed" ? "✅" : "❌";
   const statusColor =
@@ -75,37 +92,76 @@ function ToolCallCardImpl({ record }: { record: ToolCallRecord }) {
         : "border-l-red-500";
 
   const handleCopy = () => {
-    const text =
-      typeof record.result === "string"
+    let text: string;
+    if (record._hasFullResult) {
+      const full = getToolResultFull(record.id);
+      text = typeof full === "string" ? full : JSON.stringify(full, null, 2);
+    } else {
+      text = typeof record.result === "string"
         ? record.result
         : JSON.stringify(record.result, null, 2);
+    }
     navigator.clipboard.writeText(text).catch(() => {});
   };
 
+  /** 从 result 中提取错误信息 */
+  const errorText = extractError(record);
+
   return (
     <div className={`p-2.5 rounded bg-gray-50 dark:bg-gray-800 border-l-2 ${statusColor} text-xs`}>
+      {/* 标题行：图标 + 工具名 + 状态 */}
       <div className="flex items-center gap-1.5 mb-1">
         <span>{statusIcon}</span>
-        <span className="font-medium text-gray-700 dark:text-gray-300 truncate">{record.name}</span>
+        <span className="font-medium text-gray-700 dark:text-gray-300 truncate">
+          {displayName}
+        </span>
         {record.status === "running" && (
-          <span className="ml-auto text-blue-500 animate-pulse">进行中</span>
+          <span className="ml-auto text-blue-500 animate-pulse shrink-0">进行中</span>
         )}
       </div>
-      {record.arguments && Object.keys(record.arguments).length > 0 && (
-        <p className="text-gray-400 dark:text-gray-500 mb-1 truncate">
-          {JSON.stringify(record.arguments).slice(0, 80)}
+
+      {/* 人话摘要 */}
+      {humanSummary && (
+        <p className="text-gray-500 dark:text-gray-400 mb-1 line-clamp-2">
+          {humanSummary}
         </p>
       )}
+
+      {/* 参数（折叠显示） */}
+      {hasArgs && !humanSummary && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="text-gray-400 dark:text-gray-500 mb-1 hover:text-gray-600 dark:hover:text-gray-300 transition-colors text-left"
+        >
+          {expanded ? "收起参数 ▲" : `展开参数 (${Object.keys(record.arguments).length} 项) ▼`}
+        </button>
+      )}
+      {expanded && hasArgs && (
+        <pre className="text-gray-400 dark:text-gray-500 mb-1 text-[10px] overflow-auto max-h-32 bg-gray-100 dark:bg-gray-900 rounded p-1.5">
+          {JSON.stringify(record.arguments, null, 2)}
+        </pre>
+      )}
+
+      {/* 结果摘要 */}
       {record.status === "completed" && record.result !== undefined && (
-        <p className="text-gray-600 dark:text-gray-400 mb-1.5 truncate">
-          {typeof record.result === "string"
-            ? record.result.slice(0, 100)
-            : JSON.stringify(record.result).slice(0, 100)}
-        </p>
+        <div>
+          <p className="text-gray-600 dark:text-gray-400 mb-1 line-clamp-3">
+            {typeof record.result === "string"
+              ? record.result
+              : JSON.stringify(record.result)}
+          </p>
+          {record._hasFullResult && (
+            <span className="text-blue-400 text-[10px]">（结果已截断，点击复制获取完整内容）</span>
+          )}
+        </div>
       )}
-      {record.status === "failed" && record.error && (
-        <p className="text-red-500 dark:text-red-400 mb-1.5 truncate">{record.error.slice(0, 100)}</p>
+
+      {/* 错误信息 */}
+      {errorText && (
+        <p className="text-red-500 dark:text-red-400 mb-1 line-clamp-3">{errorText}</p>
       )}
+
+      {/* 操作按钮 */}
       <div className="flex gap-1 mt-1">
         {record.status === "completed" && (
           <button
@@ -129,6 +185,22 @@ function ToolCallCardImpl({ record }: { record: ToolCallRecord }) {
   );
 }
 const ToolCallCard = React.memo(ToolCallCardImpl);
+
+/** 从 result 中提取错误信息 */
+function extractError(record: ToolCallRecord): string | null {
+  if (record.error) return record.error;
+  if (record.status !== "failed") return null;
+  if (!record.result) return "未知错误";
+  if (typeof record.result === "string") return record.result.slice(0, 200);
+  if (typeof record.result === "object" && record.result !== null) {
+    const r = record.result as Record<string, unknown>;
+    if (typeof r.error === "string") return r.error;
+    if (typeof r.message === "string") return r.message;
+    if (typeof r.detail === "string") return r.detail;
+    return JSON.stringify(r).slice(0, 200);
+  }
+  return String(record.result).slice(0, 200);
+}
 
 function ToolsTab() {
   const messages = useChatStore((s) => s.messages);

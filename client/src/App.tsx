@@ -13,7 +13,7 @@ import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { TooltipProvider } from "./components/ui/tooltip";
 import routes from "./routes";
 import { useConfigStore } from "./stores/configStore";
-import { useChatStore } from "./stores/chatStore";
+import { useChatStore } from "./stores/chat";
 import { useSessionStore } from "./stores/sessionStore";
 import { useNavigationStore } from "./stores/navigationStore";
 import { useRootStore } from "./stores/root-store";

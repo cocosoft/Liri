@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useAgentStore } from "../../stores/agentStore";
+import { useAgentStore } from "../../stores/agent";
 import type { AgentTaskTemplate } from "../../types";
 import { agentService } from "../../services/agentService";
 import { httpLegacy as http } from "../../services/httpClient";

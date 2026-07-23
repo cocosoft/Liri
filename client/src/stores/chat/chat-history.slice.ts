@@ -14,7 +14,6 @@ import type { MessageBlock } from "../../types";
 // 会话消息缓存：避免快速切换时重复 fetch
 const _sessionMessageCache = new Map<string, Message[]>();
 const MAX_CACHED_SESSIONS = 5;
-const MAX_CACHED_MESSAGES_PER_SESSION = 100;
 
 /** 导出供 sessionStore 使用：获取缓存的会话消息 */
 export function _getCachedMessages(sessionId: string): Message[] | null {
@@ -35,10 +34,7 @@ export function setSessionCache(sessionId: string, messages: Message[]): void {
     const oldest = _sessionMessageCache.keys().next().value;
     if (oldest) _sessionMessageCache.delete(oldest);
   }
-  _sessionMessageCache.set(
-    sessionId,
-    messages.slice(0, MAX_CACHED_MESSAGES_PER_SESSION),
-  );
+  _sessionMessageCache.set(sessionId, messages);
 }
 
 // 防抖保存 blocks：流式传输中实时持久化，避免用户切换会话时丢失

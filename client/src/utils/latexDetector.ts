@@ -16,6 +16,12 @@
  */
 export function isLatexFormula(text: string): boolean {
   const hasChineseChars = /[\u4e00-\u9fa5]/.test(text);
+
+  // 纯中文文本不可能是 LaTeX 公式，提前短路避免 80+ 正则扫描
+  if (hasChineseChars) {
+    return false;
+  }
+
   const hasStraightQuotes = /(?<!\\)"./.test(text) || /(?<!\\)"$/.test(text);
 
   if (hasStraightQuotes) {
@@ -154,10 +160,6 @@ export function isLatexFormula(text: string): boolean {
 
   if (hasLatexPattern) {
     return true;
-  }
-
-  if (hasChineseChars) {
-    return false;
   }
 
   const simpleMathPattern = /^[a-zA-Z]\s*=\s*[a-zA-Z0-9^+\-*/()\s]+$/;

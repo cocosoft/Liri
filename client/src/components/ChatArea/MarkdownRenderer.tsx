@@ -2,6 +2,19 @@ import React, { useEffect, useRef, useMemo } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import mermaid from "mermaid";
+
+/** 检测文本是否包含中文字符，含中文的 $...$ 内容不应走 KaTeX 解析 */
+const CONTAINS_CHINESE_RE = /[\u4e00-\u9fa5]/;
+
+/** 诊断：统计 KaTeX 调用次数和中文拦截次数 */
+let _diagKatexCalls = 0;
+let _diagChineseBlocks = 0;
+let _diagKatexMs = 0;
+export function getKatexDiag() {
+  const r = { calls: _diagKatexCalls, chineseBlocks: _diagChineseBlocks, ms: _diagKatexMs };
+  _diagKatexCalls = 0; _diagChineseBlocks = 0; _diagKatexMs = 0;
+  return r;
+}
 import { InlineCodeLink } from "./markdown/InlineCodeLink";
 import BlockContent from "./BlockContent";
 import HeadingRenderer from "./HeadingRenderer";
@@ -141,12 +154,13 @@ function MarkdownRenderer({
         const { index, pattern, match } = earliestMatch;
         if (index > 0) {
           const beforeText = remaining.slice(0, index);
-          if (autoDetectFormula && isLatexFormula(beforeText)) {
+          if (autoDetectFormula && isLatexFormula(beforeText) && !CONTAINS_CHINESE_RE.test(beforeText)) {
             let renderedFormula: string;
             try {
-              renderedFormula = katex.renderToString(beforeText, {
-                displayMode: false,
-              });
+              const tk = performance.now();
+              renderedFormula = katex.renderToString(beforeText, { displayMode: false, strict: false });
+              _diagKatexMs += performance.now() - tk;
+              _diagKatexCalls++;
             } catch {
               renderedFormula = "";
             }
@@ -213,24 +227,31 @@ function MarkdownRenderer({
             </a>,
           );
         } else if (pattern.tag === "math") {
-          let renderedFormula: string;
-          try {
-            renderedFormula = katex.renderToString(match[1], {
-              displayMode: false,
-            });
-          } catch {
-            renderedFormula = "";
-          }
-          if (renderedFormula) {
-            parts.push(
-              <span
-                key={key++}
-                className="inline-block"
-                dangerouslySetInnerHTML={{ __html: renderedFormula }}
-              />,
-            );
-          } else {
+          // 预检：含中文内容跳过 KaTeX 解析，直接当普通文本渲染
+          if (CONTAINS_CHINESE_RE.test(match[1])) {
+            _diagChineseBlocks++;
             parts.push(<span key={key++}>{`$${match[1]}$`}</span>);
+          } else {
+            let renderedFormula: string;
+            try {
+              const tk = performance.now();
+              renderedFormula = katex.renderToString(match[1], { displayMode: false, strict: false });
+              _diagKatexMs += performance.now() - tk;
+              _diagKatexCalls++;
+            } catch {
+              renderedFormula = "";
+            }
+            if (renderedFormula) {
+              parts.push(
+                <span
+                  key={key++}
+                  className="inline-block"
+                  dangerouslySetInnerHTML={{ __html: renderedFormula }}
+                />,
+              );
+            } else {
+              parts.push(<span key={key++}>{`$${match[1]}$`}</span>);
+            }
           }
         } else if (pattern.tag === "code") {
           parts.push(
@@ -263,12 +284,13 @@ function MarkdownRenderer({
     }
 
     if (remaining) {
-      if (autoDetectFormula && isLatexFormula(remaining)) {
+      if (autoDetectFormula && isLatexFormula(remaining) && !CONTAINS_CHINESE_RE.test(remaining)) {
         let renderedFormula: string;
         try {
-          renderedFormula = katex.renderToString(remaining, {
-            displayMode: false,
-          });
+          const tk = performance.now();
+          renderedFormula = katex.renderToString(remaining, { displayMode: false, strict: false });
+          _diagKatexMs += performance.now() - tk;
+          _diagKatexCalls++;
         } catch {
           renderedFormula = "";
         }

@@ -590,6 +590,30 @@ export function rebuildBlocksFromContent(
   const fullText = typeof msg.content === "string" ? msg.content : "";
   let remainingText = fullText;
 
+  // 超长内容保护：content 超过 50000 字符时不做文本解析重建，直接包装为 text block
+  // 避免无 blocks 的旧数据在大会话中触发 O(n²) 字符串扫描导致浏览器无响应
+  if (fullText.length > 50000) {
+    const gid = generateGroupId();
+    newBlocks.push({
+      id: generateBlockId(),
+      type: "text",
+      content: fullText,
+      isStreaming: false,
+      groupId: gid,
+    });
+    for (const tc of toolCalls) {
+      newBlocks.push({
+        id: generateBlockId(),
+        type: "tool_call",
+        content: tc.name || "Tool Call",
+        toolCall: { ...tc, status: "completed" as const },
+        isStreaming: false,
+        groupId: gid,
+      });
+    }
+    return newBlocks;
+  }
+
   // 从 content 中提取 <think> 标签内容作为 thinking 块（切换会话后还原流式思考过程）
   const thinkMatch = remainingText.match(/<think>([\s\S]*?)<\/think>/);
   if (thinkMatch) {

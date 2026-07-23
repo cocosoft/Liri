@@ -142,6 +142,8 @@ export interface ToolCall {
   arguments: Record<string, unknown>;
   result?: unknown;
   status?: "running" | "completed" | "failed";
+  /** 标记 result 为截断摘要，全量结果通过 getToolResultFull(id) 获取 */
+  _hasFullResult?: boolean;
 }
 
 // ============================================================

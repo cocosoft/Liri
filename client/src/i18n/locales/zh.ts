@@ -80,6 +80,8 @@ const zh = {
     toolResult: "工具结果",
     parameters: "参数",
     result: "结果",
+    expandFullResult: "展开完整结果",
+    collapse: "收起",
     stopGeneration: "停止生成",
     queueSend: "排队发送消息",
     cancelReply: "取消回复",

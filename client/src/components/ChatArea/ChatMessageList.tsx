@@ -343,6 +343,22 @@ export default function ChatMessageList({
     setCurrentMatchIndex(0);
   }, [searchQuery]);
 
+  /** 诊断：跟踪消息列表渲染 */
+  useEffect(() => {
+    const totalChars = messages.reduce((sum, m) => {
+      const content = typeof m.content === "string" ? m.content : "";
+      const blockContent = m.blocks?.reduce((s, b) => s + (b.content?.length || 0), 0) || 0;
+      return sum + content.length + blockContent;
+    }, 0);
+    console.log("[ChatMessageList:diag] 渲染", {
+      count: messages.length,
+      totalChars,
+      switching,
+      hasSession,
+      timestamp: performance.now(),
+    });
+  }, [messages.length, switching, hasSession]);
+
   /** 匹配集用于高亮标记 */
   const matchedSet = useMemo(() => new Set(matchedIds), [matchedIds]);
 

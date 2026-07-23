@@ -78,6 +78,8 @@ const en = {
     toolResult: "Tool Result",
     parameters: "Parameters",
     result: "Result",
+    expandFullResult: "Show Full Result",
+    collapse: "Collapse",
     stopGeneration: "Stop Generating",
     queueSend: "Queued Send",
     cancelReply: "Cancel Reply",

@@ -4,6 +4,7 @@ import { useCronStore } from "../../stores/cronStore";
 import { SkeletonCard } from "../common/Skeleton";
 import CronExecutionHistory from "../Cron/CronExecutionHistory";
 import CronRetryConfig from "../Cron/CronRetryConfig";
+import RunningTasksCard from "../RunningTasksCard";
 import type { ScheduleMode } from "../../types";
 import { cronTemplates } from "../../config/cronTemplates";
 
@@ -298,6 +299,11 @@ function CronPage() {
       )}
 
       <div className="max-w-5xl mx-auto p-6">
+        {/* 运行中任务卡片 */}
+        <div className="mb-4">
+          <RunningTasksCard />
+        </div>
+
         {/* 调度器状态栏 */}
         <div
           className={`mb-4 px-4 py-2 rounded-lg border text-sm flex items-center gap-3 ${

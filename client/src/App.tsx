@@ -4,7 +4,6 @@ import "./components/ChatArea/markdown-theme.css";
 import Sidebar, { MobileBottomNav } from "./components/Sidebar/Sidebar";
 import Header from "./components/common/Header";
 import Footer from "./components/common/Footer";
-import { RightPanelRouter } from "./components/common/RightPanelRouter";
 import ConfigPanel from "./components/ConfigPanel/ConfigPanel";
 import ToastContainer from "./components/common/ToastContainer";
 import KeyboardShortcutsHelp from "./components/common/KeyboardShortcutsHelp";
@@ -164,8 +163,6 @@ function App() {
               <Suspense fallback={null}>{routeElement}</Suspense>
             </ErrorBoundary>
           </div>
-          {/* 右侧面板：配置驱动 */}
-          <RightPanelRouter />
         </div>
         <Footer />
         <MobileBottomNav />

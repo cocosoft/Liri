@@ -47,6 +47,31 @@ let _pendingSwitchChunks: Array<{
   blocks: MessageBlock[];
 }> = [];
 
+/**
+ * 工具调用全量结果缓存。
+ * 设计原则：block 中只存截断摘要（≤2000 字符），全量结果存此处。
+ * 渲染时按需通过 toolCallId 获取，避免大内容（grep 全量匹配、file_read 整个文件）撑爆 DOM。
+ */
+const _toolResultFullCache = new Map<string, string>();
+
+/** block 内联结果最大长度，超出部分截断 */
+const MAX_INLINE_RESULT_LENGTH = 2000;
+
+/** 截断工具结果字符串：保留前 N 字符 + 截断提示 */
+function truncateResult(raw: string): string {
+  if (raw.length <= MAX_INLINE_RESULT_LENGTH) return raw;
+  const truncated = raw.slice(0, MAX_INLINE_RESULT_LENGTH);
+  const lastNewline = truncated.lastIndexOf("\n");
+  // 尽量在换行处截断，避免截断在行中间
+  const cutPoint = lastNewline > MAX_INLINE_RESULT_LENGTH * 0.7 ? lastNewline : MAX_INLINE_RESULT_LENGTH;
+  return raw.slice(0, cutPoint) + `\n...（共 ${raw.length.toLocaleString()} 字符，已截断，点击展开查看完整结果）`;
+}
+
+/** 获取工具调用的全量结果（用于渲染层按需展开） */
+export function getToolResultFull(toolCallId: string): string | undefined {
+  return _toolResultFullCache.get(toolCallId);
+}
+
 /** Message Slice 状态和操作 */
 export interface MessageSlice {
   messages: Message[];
@@ -1070,12 +1095,16 @@ export const createMessageSlice: StateCreator<
 
     // Phase 1: 收集 tool 角色消息，建立 toolCallId → content 映射
     // 这些工具结果在后端作为独立消息持久化，前端需合并回 assistant 消息的 blocks 中
+    // 同时缓存全量结果到 _toolResultFullCache，block 中只存截断摘要
     const toolResultsByCallId = new Map<string, string>();
     const filteredMessages: Message[] = [];
 
     for (const msg of messages) {
       if (msg.role === "tool" && msg.toolCallId) {
-        toolResultsByCallId.set(msg.toolCallId, msg.content);
+        const rawContent = typeof msg.content === "string" ? msg.content : "";
+        toolResultsByCallId.set(msg.toolCallId, rawContent);
+        // 全量结果存入独立缓存，不在 block 中内联
+        _toolResultFullCache.set(msg.toolCallId, rawContent);
       } else {
         filteredMessages.push(msg);
       }
@@ -1126,9 +1155,14 @@ export const createMessageSlice: StateCreator<
             block.toolCall?.id &&
             toolResultsByCallId.has(block.toolCall.id)
           ) {
-            const resultContent = toolResultsByCallId.get(block.toolCall.id)!;
+            const fullResult = toolResultsByCallId.get(block.toolCall.id)!;
             hasMergedResult = true;
-            block.toolCall = { ...block.toolCall, result: resultContent };
+            // 只注入截断摘要到 block，全量结果通过 getToolResultFull() 按需获取
+            block.toolCall = {
+              ...block.toolCall,
+              result: truncateResult(fullResult),
+              _hasFullResult: fullResult.length > MAX_INLINE_RESULT_LENGTH || undefined,
+            };
           }
           return block;
         });

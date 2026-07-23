@@ -8,6 +8,7 @@ import PdcaPipeline from "../Agent/PdcaPipeline";
 import KanbanBoard from "../Agent/KanbanBoard";
 import { SkeletonCard } from "../common/Skeleton";
 import PlansPanel from "./PlansPanel";
+import RunningTasksCard from "../RunningTasksCard";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("components:taskCenter");
@@ -638,6 +639,11 @@ function TaskCenterPage() {
         </div>
       )}
       <div className="max-w-5xl mx-auto p-6">
+        {/* 运行中任务卡片 */}
+        <div className="mb-4">
+          <RunningTasksCard />
+        </div>
+
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             任务中心

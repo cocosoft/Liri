@@ -12,6 +12,7 @@ import type { ToolCall } from "../../types";
 import MarkdownRenderer from "./MarkdownRenderer";
 import ImageToolResult from "./ImageToolResult/ImageToolResult";
 import { useChatStore } from "../../stores/chatStore";
+import { getToolResultFull } from "../../stores/chat/chat-message.slice";
 import {
   getToolDisplayName,
   getToolHumanSummary,
@@ -81,6 +82,37 @@ function formatArgumentsNatural(
   });
 }
 
+/** JSON 结果安全截断上限 */
+const MAX_RESULT_JSON_LENGTH = 50000;
+
+/**
+ * 安全渲染工具调用 JSON 结果
+ * 超长时截断，避免渲染巨大 JSON 字符串导致浏览器 OOM
+ */
+function ToolResultJson({ result }: { result: unknown }) {
+  const jsonStr = JSON.stringify(result, null, 2);
+  if (jsonStr.length <= MAX_RESULT_JSON_LENGTH) {
+    return (
+      <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-[#a9b1d6] font-mono bg-black/15 p-1 rounded max-h-[200px] overflow-y-auto">
+        {jsonStr}
+      </pre>
+    );
+  }
+  return (
+    <div className="text-[10px]">
+      <div className="text-amber-400 mb-1">
+        ⚠️ 结果过大（{(jsonStr.length / 1024).toFixed(0)} KB），截断显示
+      </div>
+      <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-[#a9b1d6] font-mono bg-black/15 p-1 rounded max-h-[200px] overflow-y-auto">
+        {jsonStr.slice(0, 3000)}
+      </pre>
+      <div className="text-amber-500 mt-1">
+        ... 剩余 {(jsonStr.length - 3000).toLocaleString()} 字符未显示 ...
+      </div>
+    </div>
+  );
+}
+
 function ToolCallGroup({
   toolCall,
   isStreaming,
@@ -95,6 +127,7 @@ function ToolCallGroup({
       toolCall.name === "video_display" ||
       toolCall.name === "audio_play",
   );
+  const [showFullResult, setShowFullResult] = useState(false);
   const prevStreaming = useRef(isStreaming);
   const readFileToPreview = useChatStore((s) => s.readFileToPreview);
 
@@ -155,15 +188,38 @@ function ToolCallGroup({
           </div>
           {isMediaTool ? (
             <ImageToolResult toolCall={toolCall} />
+          ) : showFullResult && toolCall._hasFullResult ? (
+            <div>
+              <div className="text-[10px] text-amber-400 mb-1">
+                ✅ 已展开完整结果（{typeof toolCall.result === "string" ? (toolCall.result.length + getToolResultFull(toolCall.id)!.length).toLocaleString() : "?"} 字符）
+              </div>
+              <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-[#a9b1d6] font-mono bg-black/15 p-2 rounded max-h-[400px] overflow-y-auto">
+                {typeof toolCall.result === "string" ? toolCall.result + "\n\n" + (getToolResultFull(toolCall.id) || "") : JSON.stringify(toolCall.result, null, 2)}
+              </pre>
+              <button
+                onClick={() => setShowFullResult(false)}
+                className="mt-1 text-[10px] text-amber-400 hover:text-amber-300 underline"
+              >
+                ▲ {t("chat.collapse")}
+              </button>
+            </div>
           ) : typeof toolCall.result === "string" ? (
-            <MarkdownRenderer
-              content={toolCall.result}
-              onPreviewFile={readFileToPreview}
-            />
+            <div>
+              <MarkdownRenderer
+                content={toolCall.result}
+                onPreviewFile={readFileToPreview}
+              />
+              {toolCall._hasFullResult && (
+                <button
+                  onClick={() => setShowFullResult(true)}
+                  className="mt-1 text-[10px] text-amber-400 hover:text-amber-300 underline"
+                >
+                  ▼ {t("chat.expandFullResult")}
+                </button>
+              )}
+            </div>
           ) : (
-            <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-[#a9b1d6] font-mono bg-black/15 p-1 rounded max-h-[200px] overflow-y-auto">
-              {JSON.stringify(toolCall.result, null, 2)}
-            </pre>
+            <ToolResultJson result={toolCall.result} />
           )}
         </div>
       )}

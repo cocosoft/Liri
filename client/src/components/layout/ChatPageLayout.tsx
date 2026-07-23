@@ -1,8 +1,10 @@
 import SessionHistorySidebar from "../ChatArea/SessionHistorySidebar";
 import SessionHeader from "../ChatArea/SessionHeader";
 import ChatArea from "../ChatArea/ChatArea";
+import { ChatInspector } from "../ChatInspector";
+import { ErrorBoundary } from "../common/ErrorBoundary";
 
-/** 聊天页面布局：从 App.tsx 内联 JSX 提取 */
+/** 聊天页面布局：左侧会话历史 + 中间聊天区 + 右侧 ChatInspector */
 export default function ChatPageLayout() {
   return (
     <div className="flex flex-1 page-transition-enter overflow-hidden">
@@ -11,6 +13,9 @@ export default function ChatPageLayout() {
         <SessionHeader />
         <ChatArea />
       </main>
+      <ErrorBoundary fallback={null}>
+        <ChatInspector />
+      </ErrorBoundary>
     </div>
   );
 }

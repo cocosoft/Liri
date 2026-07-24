@@ -158,114 +158,12 @@ function ChatArea() {
   }, [messages]);
 
   return (
-    <div className="flex-1 relative bg-gray-50 dark:bg-gray-900 flex">
-      {/* 消息区域 */}
-      <div className="flex-1 relative min-w-0 flex flex-col">
-        <div ref={containerRef} className="flex-1 overflow-y-auto">
-          <div ref={contentRef}>
-            {/* 错误提示 */}
-            {displayError && (
-              <div className="m-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
-                <span className="text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5">
-                  ⚠
-                </span>
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm text-red-700 dark:text-red-300 block">
-                    {displayError}
-                  </span>
-                  <div className="flex items-center gap-2 mt-2">
-                    <button
-                      onClick={() => useBackendStore.getState().checkStatus()}
-                      className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
-                    >
-                      🔄 {t("common.retry")}
-                    </button>
-                    <button
-                      onClick={() =>
-                        navigator.clipboard.writeText(displayError)
-                      }
-                      className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
-                    >
-                      📋 {t("chat.copyMessage")}
-                    </button>
-                  </div>
-                </div>
-                <button
-                  onClick={handleDismissError}
-                  className="text-red-400 hover:text-red-600 dark:hover:text-red-200 flex-shrink-0"
-                  title={t("common.close")}
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-
-            <ErrorBoundary
-              fallback={
-                <div className="flex items-center justify-center min-h-[400px] p-8">
-                  <div className="text-center">
-                    <p className="text-gray-500 mb-4">
-                      {t("chat.messageListLoadError")}
-                    </p>
-                    <button
-                      onClick={() => window.location.reload()}
-                      className="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                    >
-                      {t("chat.refreshPage")}
-                    </button>
-                  </div>
-                </div>
-              }
-            >
-              <ChatMessageList
-                messages={messages}
-                isStreaming={isStreaming}
-                sessionUsage={sessionUsage}
-                hasSession={!!currentSession}
-                sessionTitle={currentSession?.title}
-                onCreateSession={handleCreateSession}
-                onSendMessage={handleSendMessage}
-              />
-            </ErrorBoundary>
-          </div>
-        </div>
-
-        {/* 回到底部按钮：复用已有样式，检测 isUserScrolledUp 后渐显，移动端避开 MobileBottomNav */}
-        {isUserScrolledUp && distanceFromBottom > 200 && (
-          <button
-            onClick={scrollToBottom}
-            aria-label={t("chat.scrollToBottom")}
-            role="button"
-            className="absolute bottom-28 right-6 z-10 w-10 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-all max-md:bottom-32 opacity-80 hover:opacity-100"
-            title={t("chat.scrollToBottom")}
-          >
-            <svg
-              className="w-5 h-5 text-gray-500 dark:text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 14l-7 7m0 0l-7-7m7 7V3"
-              />
-            </svg>
-          </button>
-        )}
-
-        {/* 轮次导航器 */}
-        <RoundNavigator
-          messages={messages}
-          isStreaming={isStreaming}
-          containerRef={containerRef}
-        />
-
-        {/* 错误提示 */}
-        {displayError && (
-          <div className="absolute bottom-[140px] left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 z-20 pointer-events-none">
-            <div className="p-4 bg-red-50 dark:bg-red-900/50 backdrop-blur-xl border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3 shadow-lg pointer-events-auto">
+    <div className="flex-1 relative bg-gray-50 dark:bg-gray-900 flex flex-col min-h-0">
+      <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto">
+        <div ref={contentRef}>
+          {/* 错误提示 */}
+          {displayError && (
+            <div className="m-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
               <span className="text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5">
                 ⚠
               </span>
@@ -296,25 +194,122 @@ function ChatArea() {
                 ✕
               </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* 底部区域：AI 状态栏 + 输入区（flex-col，StatusFloatBar 自然贴着输入区上方） */}
-        <div className="shrink-0 flex flex-col">
-          <StatusFloatBar />
-
-          {/* 语音字幕覆盖层 */}
-          <VoiceSubtitleOverlay
-            interimText={interimText}
-            finalText={finalText}
-            audioLevel={audioLevel}
-            status={subtitleStatus}
-            isDark={isDark}
-            position="bottom"
-          />
-
-          <ChatInput />
+          <ErrorBoundary
+            fallback={
+              <div className="flex items-center justify-center min-h-[400px] p-8">
+                <div className="text-center">
+                  <p className="text-gray-500 mb-4">
+                    {t("chat.messageListLoadError")}
+                  </p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                  >
+                    {t("chat.refreshPage")}
+                  </button>
+                </div>
+              </div>
+            }
+          >
+            <ChatMessageList
+              messages={messages}
+              isStreaming={isStreaming}
+              sessionUsage={sessionUsage}
+              hasSession={!!currentSession}
+              sessionTitle={currentSession?.title}
+              onCreateSession={handleCreateSession}
+              onSendMessage={handleSendMessage}
+            />
+          </ErrorBoundary>
         </div>
+      </div>
+
+      {/* 回到底部按钮：复用已有样式，检测 isUserScrolledUp 后渐显，移动端避开 MobileBottomNav */}
+      {isUserScrolledUp && distanceFromBottom > 200 && (
+        <button
+          onClick={scrollToBottom}
+          aria-label={t("chat.scrollToBottom")}
+          role="button"
+          className="absolute bottom-28 right-6 z-10 w-10 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-all max-md:bottom-32 opacity-80 hover:opacity-100"
+          title={t("chat.scrollToBottom")}
+        >
+          <svg
+            className="w-5 h-5 text-gray-500 dark:text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 14l-7 7m0 0l-7-7m7 7V3"
+            />
+          </svg>
+        </button>
+      )}
+
+      {/* 轮次导航器 */}
+      <RoundNavigator
+        messages={messages}
+        isStreaming={isStreaming}
+        containerRef={containerRef}
+      />
+
+      {/* 错误提示 */}
+      {displayError && (
+        <div className="absolute bottom-[140px] left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 z-20 pointer-events-none">
+          <div className="p-4 bg-red-50 dark:bg-red-900/50 backdrop-blur-xl border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3 shadow-lg pointer-events-auto">
+            <span className="text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5">
+              ⚠
+            </span>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm text-red-700 dark:text-red-300 block">
+                {displayError}
+              </span>
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  onClick={() => useBackendStore.getState().checkStatus()}
+                  className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
+                >
+                  🔄 {t("common.retry")}
+                </button>
+                <button
+                  onClick={() => navigator.clipboard.writeText(displayError)}
+                  className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
+                >
+                  📋 {t("chat.copyMessage")}
+                </button>
+              </div>
+            </div>
+            <button
+              onClick={handleDismissError}
+              className="text-red-400 hover:text-red-600 dark:hover:text-red-200 flex-shrink-0"
+              title={t("common.close")}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 底部区域：AI 状态栏 + 输入区（flex-col，StatusFloatBar 自然贴着输入区上方） */}
+      <div className="shrink-0 flex flex-col">
+        <StatusFloatBar />
+
+        {/* 语音字幕覆盖层 */}
+        <VoiceSubtitleOverlay
+          interimText={interimText}
+          finalText={finalText}
+          audioLevel={audioLevel}
+          status={subtitleStatus}
+          isDark={isDark}
+          position="bottom"
+        />
+
+        <ChatInput />
       </div>
     </div>
   );

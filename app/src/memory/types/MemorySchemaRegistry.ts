@@ -33,11 +33,32 @@ import { CURRENT_SCHEMA_VERSION } from './MemoryMetadata';
  */
 const schemaRegistry = {
   versions: {
-    1: ['name', 'description', 'type', 'createdAt', 'updatedAt', 'tags',
-        'priority', 'expiresAt', 'author', 'source', 'importance', 'isPinned',
-        'accessLevel', 'encrypted', 'sessionId'],
-    2: ['dreamProcessedAt', 'dreamSource', 'dreamRefined', 'schemaVersion',
-        'deprecatedBy', 'deprecatedAt', 'supersedes'],
+    1: [
+      'name',
+      'description',
+      'type',
+      'createdAt',
+      'updatedAt',
+      'tags',
+      'priority',
+      'expiresAt',
+      'author',
+      'source',
+      'importance',
+      'isPinned',
+      'accessLevel',
+      'encrypted',
+      'sessionId',
+    ],
+    2: [
+      'dreamProcessedAt',
+      'dreamSource',
+      'dreamRefined',
+      'schemaVersion',
+      'deprecatedBy',
+      'deprecatedAt',
+      'supersedes',
+    ],
   },
 };
 

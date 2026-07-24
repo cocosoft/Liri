@@ -3,7 +3,11 @@ import { Text, Box } from '../../../components/ink.js';
 
 function parseOutput(output: any): any {
   if (typeof output === 'string') {
-    try { return JSON.parse(output); } catch { return {}; }
+    try {
+      return JSON.parse(output);
+    } catch {
+      return {};
+    }
   }
   return output || {};
 }

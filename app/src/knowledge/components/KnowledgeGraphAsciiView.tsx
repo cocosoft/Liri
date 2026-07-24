@@ -72,7 +72,11 @@ export function KnowledgeGraphAsciiView({
   const rootId = centerEntity || entities[0]!.id;
   const visited = new Set<string>();
 
-  function renderNode(entityId: string, depth: number, prefix: string): React.ReactNode[] {
+  function renderNode(
+    entityId: string,
+    depth: number,
+    prefix: string
+  ): React.ReactNode[] {
     if (depth > maxDepth || visited.has(entityId)) return [];
     visited.add(entityId);
 
@@ -94,18 +98,25 @@ export function KnowledgeGraphAsciiView({
     for (let i = 0; i < children.length; i++) {
       const child = children[i]!;
       const isLast = i === children.length - 1;
-      const childPrefix = prefix.replace(/├──$/, '│  ').replace(/└──$/, '   ') + (isLast ? '└──' : '├──');
+      const childPrefix =
+        prefix.replace(/├──$/, '│  ').replace(/└──$/, '   ') +
+        (isLast ? '└──' : '├──');
       const edgeLabel = `─${child.type}─ `;
 
       result.push(
         <Box key={`${entityId}-edge-${i}`} flexDirection="row">
-          <Text dimColor>{childPrefix}{edgeLabel}</Text>
+          <Text dimColor>
+            {childPrefix}
+            {edgeLabel}
+          </Text>
           <Text>{child.target.label}</Text>
         </Box>
       );
 
       // 递归子节点
-      const childNodePrefix = prefix.replace(/├──$/, '│  ').replace(/└──$/, '   ') + (isLast ? '   ' : '│  ');
+      const childNodePrefix =
+        prefix.replace(/├──$/, '│  ').replace(/└──$/, '   ') +
+        (isLast ? '   ' : '│  ');
       result.push(...renderNode(child.target.id, depth + 1, childNodePrefix));
     }
 
@@ -116,7 +127,10 @@ export function KnowledgeGraphAsciiView({
     <Box flexDirection="column">
       <Box marginBottom={1}>
         <Text bold>知识图谱</Text>
-        <Text dimColor> ({entities.length} entities, {edges.length} edges)</Text>
+        <Text dimColor>
+          {' '}
+          ({entities.length} entities, {edges.length} edges)
+        </Text>
       </Box>
       <Box flexDirection="column" marginLeft={1}>
         {renderNode(rootId, 1, '● ')}

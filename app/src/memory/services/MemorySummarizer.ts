@@ -52,7 +52,9 @@ export class MemorySummarizer {
 
     // 缓存不存在时回退全量 I/O
     const allMemories = await this.memoryManager.getAllMemories();
-    let candidates = allMemories.filter((m) => !(m.metadata as any)?.deprecatedBy);
+    let candidates = allMemories.filter(
+      (m) => !(m.metadata as any)?.deprecatedBy
+    );
 
     this.sortCandidates(candidates, sessionContext, prioritizeDreamRefined);
 

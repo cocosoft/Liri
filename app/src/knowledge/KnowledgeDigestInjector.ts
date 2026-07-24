@@ -56,9 +56,10 @@ export async function generateDigestContext(
 
     const lines = ['## 知识库参考'];
     for (const doc of sorted) {
-      const snippet = doc.summary.length > 80
-        ? doc.summary.slice(0, 80) + '...'
-        : doc.summary;
+      const snippet =
+        doc.summary.length > 80
+          ? doc.summary.slice(0, 80) + '...'
+          : doc.summary;
       lines.push(`- [${doc.title}] ${snippet}`);
     }
 

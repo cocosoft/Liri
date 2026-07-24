@@ -57,7 +57,12 @@ export class KnowledgeScanner {
 
   constructor() {
     this.knowledgeRoot = join(resolvePyappHome(), 'knowledge');
-    this.deltaDir = join(resolvePyappHome(), 'data', 'dream', 'knowledge_delta');
+    this.deltaDir = join(
+      resolvePyappHome(),
+      'data',
+      'dream',
+      'knowledge_delta'
+    );
   }
 
   /**
@@ -86,7 +91,7 @@ export class KnowledgeScanner {
     const { readdir } = await import('fs/promises');
     let entries: { name: string; isDirectory: () => boolean }[];
     try {
-      entries = await readdir(dir, { withFileTypes: true }) as any;
+      entries = (await readdir(dir, { withFileTypes: true })) as any;
     } catch {
       return;
     }
@@ -117,17 +122,16 @@ export class KnowledgeScanner {
         };
 
         // 检查是否可以只返回 diff
-        const delta = await this.computeDelta(
-          scanned.fileName,
-          content
-        );
+        const delta = await this.computeDelta(scanned.fileName, content);
         if (delta) {
           scanned.isDelta = true;
           scanned.delta = delta;
         }
 
         results.push(scanned);
-      } catch { /* skip unreadable files */ }
+      } catch {
+        /* skip unreadable files */
+      }
     }
   }
 
@@ -139,14 +143,19 @@ export class KnowledgeScanner {
     fileName: string,
     currentContent: string
   ): Promise<KnowledgeDelta | null> {
-    const deltaPath = join(this.deltaDir, `${fileName.replace(/[/\\]/g, '_')}.json`);
+    const deltaPath = join(
+      this.deltaDir,
+      `${fileName.replace(/[/\\]/g, '_')}.json`
+    );
     const currentHash = this.sha256(currentContent);
 
     let previous: KnowledgeDelta | null = null;
     try {
       const data = await readFile(deltaPath, 'utf-8');
       previous = JSON.parse(data) as KnowledgeDelta;
-    } catch { /* first time scanning */ }
+    } catch {
+      /* first time scanning */
+    }
 
     if (!previous) {
       // 首次扫描，存储基线
@@ -197,8 +206,10 @@ export class KnowledgeScanner {
     });
 
     // 小变更：只返回 diff
-    if (totalChanges < SMALL_CHANGE_LINES &&
-        totalChanges / totalLines < LARGE_CHANGE_RATIO) {
+    if (
+      totalChanges < SMALL_CHANGE_LINES &&
+      totalChanges / totalLines < LARGE_CHANGE_RATIO
+    ) {
       return {
         fileName,
         baseSnapshot: previous.baseSnapshot,

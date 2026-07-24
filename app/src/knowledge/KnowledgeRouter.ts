@@ -135,7 +135,10 @@ export class KnowledgeRouter implements IKnowledgeSearch {
   private indexCachePath: string;
 
   /** 搜索缓存：queryKey → { result, expiresAt } */
-  private searchCache: Map<string, { result: KnowledgeRoute[]; expiresAt: number }> = new Map();
+  private searchCache: Map<
+    string,
+    { result: KnowledgeRoute[]; expiresAt: number }
+  > = new Map();
 
   constructor(
     providers: FileDocsProvider | FileDocsProvider[],
@@ -156,11 +159,13 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     const configSearch = knowledgeConfig?.search;
     this.hybridConfig = {
       ...DEFAULT_HYBRID_CONFIG,
-      ...(configSearch ? {
-        keywordWeight: configSearch.keywordWeight,
-        semanticWeight: configSearch.semanticWeight,
-        semanticThreshold: configSearch.semanticThreshold,
-      } : {}),
+      ...(configSearch
+        ? {
+            keywordWeight: configSearch.keywordWeight,
+            semanticWeight: configSearch.semanticWeight,
+            semanticThreshold: configSearch.semanticThreshold,
+          }
+        : {}),
     };
     this.indexCachePath = join(
       resolveDataSubDir(''),
@@ -235,7 +240,11 @@ export class KnowledgeRouter implements IKnowledgeSearch {
       const tokens = this.tokenize(doc.title + ' ' + truncatedContent);
       for (const token of tokens) {
         const set = this.tokenIndex.get(token);
-        if (set) { set.add(i); } else { this.tokenIndex.set(token, new Set([i])); }
+        if (set) {
+          set.add(i);
+        } else {
+          this.tokenIndex.set(token, new Set([i]));
+        }
       }
 
       // 缓存条目（含 content hash 用于变更检测）
@@ -302,7 +311,11 @@ export class KnowledgeRouter implements IKnowledgeSearch {
         this.titleIndex.set(doc.title.toLowerCase(), doc);
         for (const token of c.tokens) {
           const set = this.tokenIndex.get(token);
-          if (set) { set.add(i); } else { this.tokenIndex.set(token, new Set([i])); }
+          if (set) {
+            set.add(i);
+          } else {
+            this.tokenIndex.set(token, new Set([i]));
+          }
         }
       }
       this.initialized = true;
@@ -707,7 +720,11 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     const cacheKey = `${query}||${maxResults}||${minScore}||${offset}||${options?.domain ?? ''}`;
     const cached = this.searchCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
-      knowledgeMonitor.record('knowledge.search.latency_ms', performance.now() - startTime, { cache: 'hit' }).catch(() => {});
+      knowledgeMonitor
+        .record('knowledge.search.latency_ms', performance.now() - startTime, {
+          cache: 'hit',
+        })
+        .catch(() => {});
       return cached.result;
     }
 
@@ -755,7 +772,11 @@ export class KnowledgeRouter implements IKnowledgeSearch {
       expiresAt: Date.now() + SEARCH_CACHE_TTL_MS,
     });
 
-    knowledgeMonitor.record('knowledge.search.latency_ms', performance.now() - startTime, { cache: 'miss' }).catch(() => {});
+    knowledgeMonitor
+      .record('knowledge.search.latency_ms', performance.now() - startTime, {
+        cache: 'miss',
+      })
+      .catch(() => {});
     return result;
   }
 

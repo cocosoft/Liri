@@ -73,7 +73,10 @@ function renderToolCall(toolCall: ToolCallInfo): React.ReactNode {
   );
 }
 
-function renderToolResult(toolResult: ToolResultInfo, verbose: boolean = false): React.ReactNode {
+function renderToolResult(
+  toolResult: ToolResultInfo,
+  verbose: boolean = false
+): React.ReactNode {
   // 终端兼容性：非 TTY 或无颜色支持时降级为纯文本
   const isPlain = !process.stdout.isTTY;
 
@@ -81,7 +84,9 @@ function renderToolResult(toolResult: ToolResultInfo, verbose: boolean = false):
   const ui = getToolUI(toolResult.toolName);
   if (ui?.renderToolResultMessage) {
     try {
-      return ui.renderToolResultMessage(toolResult.result, [], { verbose: verbose && !isPlain });
+      return ui.renderToolResultMessage(toolResult.result, [], {
+        verbose: verbose && !isPlain,
+      });
     } catch {
       // 专用渲染器异常时降级到通用渲染
     }

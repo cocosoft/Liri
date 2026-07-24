@@ -89,11 +89,7 @@ export async function readMetrics(): Promise<DreamMetricsData> {
  */
 async function writeMetrics(metrics: DreamMetricsData): Promise<void> {
   await mkdir(join(resolveDataSubDir('dream')), { recursive: true });
-  await writeFile(
-    getMetricsPath(),
-    JSON.stringify(metrics, null, 2),
-    'utf-8'
-  );
+  await writeFile(getMetricsPath(), JSON.stringify(metrics, null, 2), 'utf-8');
 }
 
 /**

@@ -84,9 +84,9 @@ export function renderToolResultMessage(
           <Box marginTop={1} flexDirection="column">
             <Text dimColor>知识库当前为空。添加知识的方法：</Text>
             <Box marginLeft={2}>
-              <Text dimColor>  1. 使用 knowledge_write 工具写入</Text>
-              <Text dimColor>  2. 将 .md 文件放入 ~/.pyapp/knowledge/ 目录</Text>
-              <Text dimColor>  3. 使用 knowledge_import 批量导入</Text>
+              <Text dimColor> 1. 使用 knowledge_write 工具写入</Text>
+              <Text dimColor> 2. 将 .md 文件放入 ~/.pyapp/knowledge/ 目录</Text>
+              <Text dimColor> 3. 使用 knowledge_import 批量导入</Text>
             </Box>
           </Box>
         )}
@@ -102,12 +102,11 @@ export function renderToolResultMessage(
           <Text> results</Text>
           {parsed.query && (
             <Text>
-              {' '}for <Text italic>{parsed.query}</Text>
+              {' '}
+              for <Text italic>{parsed.query}</Text>
             </Text>
           )}
-          {parsed.tookMs != null && (
-            <Text dimColor> ({parsed.tookMs}ms)</Text>
-          )}
+          {parsed.tookMs != null && <Text dimColor> ({parsed.tookMs}ms)</Text>}
         </Box>
         <Box marginTop={1} marginLeft={2} flexDirection="column">
           {items.slice(0, 10).map((item, i) => (
@@ -115,11 +114,10 @@ export function renderToolResultMessage(
               <Box flexDirection="row">
                 <Text bold>{item.title}</Text>
                 <Text color={scoreColor(item.score)}>
-                  {' '}[{item.score.toFixed(2)}]
+                  {' '}
+                  [{item.score.toFixed(2)}]
                 </Text>
-                {item.category && (
-                  <Text dimColor> {item.category}</Text>
-                )}
+                {item.category && <Text dimColor> {item.category}</Text>}
               </Box>
               <Text dimColor>{item.snippet?.slice(0, 200)}</Text>
             </Box>
@@ -136,7 +134,8 @@ export function renderToolResultMessage(
         <Text> knowledge results</Text>
         {parsed.query && (
           <Text>
-            {' '}for <Text italic>{parsed.query}</Text>
+            {' '}
+            for <Text italic>{parsed.query}</Text>
           </Text>
         )}
       </Box>
@@ -146,15 +145,14 @@ export function renderToolResultMessage(
             <Box flexDirection="row">
               <Text bold>{item.title}</Text>
               <Text color={scoreColor(item.score)}>
-                {' '}[{item.score.toFixed(2)}]
+                {' '}
+                [{item.score.toFixed(2)}]
               </Text>
             </Box>
             <Text dimColor>{item.snippet?.slice(0, 120)}</Text>
           </Box>
         ))}
-        {total > 5 && (
-          <Text dimColor>... {total - 5} more results</Text>
-        )}
+        {total > 5 && <Text dimColor>... {total - 5} more results</Text>}
       </Box>
     </Box>
   );

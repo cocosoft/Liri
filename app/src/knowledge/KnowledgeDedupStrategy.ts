@@ -39,21 +39,29 @@ export class KnowledgeDedupStrategy {
   private enableFuzzy: boolean;
   private fuzzyThreshold: number;
 
-  constructor(baseDir: string, options?: { enableFuzzy?: boolean; fuzzyThreshold?: number }) {
+  constructor(
+    baseDir: string,
+    options?: { enableFuzzy?: boolean; fuzzyThreshold?: number }
+  ) {
     this.baseDir = baseDir;
     this.enableFuzzy = options?.enableFuzzy ?? false;
     this.fuzzyThreshold = options?.fuzzyThreshold ?? 0.85;
   }
 
   /** 从文件系统加载已有文件的 hash 索引 */
-  async loadIndex(docFiles: Iterable<{ title: string; filePath: string }>): Promise<void> {
+  async loadIndex(
+    docFiles: Iterable<{ title: string; filePath: string }>
+  ): Promise<void> {
     this.entries.clear();
     for (const doc of docFiles) {
       try {
         const fullPath = join(this.baseDir, doc.filePath);
         if (!existsSync(fullPath)) continue;
         const content = await readFile(fullPath, 'utf-8');
-        const hash = createHash('sha256').update(content).digest('hex').slice(0, 16);
+        const hash = createHash('sha256')
+          .update(content)
+          .digest('hex')
+          .slice(0, 16);
         this.entries.set(hash, {
           contentHash: hash,
           filePath: doc.filePath,
@@ -69,7 +77,10 @@ export class KnowledgeDedupStrategy {
   /** 检测内容是否与已有文档重复 */
   async check(title: string, content: string): Promise<DedupResult> {
     // 1. 精确去重
-    const contentHash = createHash('sha256').update(content).digest('hex').slice(0, 16);
+    const contentHash = createHash('sha256')
+      .update(content)
+      .digest('hex')
+      .slice(0, 16);
     const exactMatch = this.entries.get(contentHash);
     if (exactMatch) {
       return {
@@ -84,7 +95,10 @@ export class KnowledgeDedupStrategy {
     if (this.enableFuzzy) {
       const lowerTitle = title.toLowerCase().trim();
       for (const [, entry] of this.entries) {
-        const sim = this.titleSimilarity(lowerTitle, entry.title.toLowerCase().trim());
+        const sim = this.titleSimilarity(
+          lowerTitle,
+          entry.title.toLowerCase().trim()
+        );
         if (sim >= this.fuzzyThreshold) {
           return {
             isDuplicate: true,
@@ -101,7 +115,10 @@ export class KnowledgeDedupStrategy {
 
   /** 将新写入的文档注册到去重索引 */
   register(title: string, filePath: string, content: string): void {
-    const hash = createHash('sha256').update(content).digest('hex').slice(0, 16);
+    const hash = createHash('sha256')
+      .update(content)
+      .digest('hex')
+      .slice(0, 16);
     this.entries.set(hash, { contentHash: hash, filePath, title });
   }
 

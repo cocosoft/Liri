@@ -20,7 +20,7 @@ const logger = new Logger({
 });
 
 interface HourlyTracker {
-  hour: number;   // Unix hour (floor)
+  hour: number; // Unix hour (floor)
   used: number;
 }
 
@@ -33,8 +33,12 @@ export class KnowledgeLLMBudget {
   private hourlyTracker: HourlyTracker = { hour: -1, used: 0 };
 
   constructor(dailyBudget?: number, hourlyBudget?: number) {
-    this.dailyBudget = dailyBudget ?? parseInt(process.env['KNOWLEDGE_LLM_DAILY_BUDGET'] || '100000', 10);
-    this.hourlyBudget = hourlyBudget ?? parseInt(process.env['KNOWLEDGE_LLM_HOURLY_BUDGET'] || '20000', 10);
+    this.dailyBudget =
+      dailyBudget ??
+      parseInt(process.env['KNOWLEDGE_LLM_DAILY_BUDGET'] || '100000', 10);
+    this.hourlyBudget =
+      hourlyBudget ??
+      parseInt(process.env['KNOWLEDGE_LLM_HOURLY_BUDGET'] || '20000', 10);
     this.perCallWarningThreshold = 500;
     this.resetIfNeeded();
   }
@@ -42,7 +46,10 @@ export class KnowledgeLLMBudget {
   /** 检查是否有剩余预算 */
   hasRemaining(): boolean {
     this.resetIfNeeded();
-    return this.dailyUsed < this.dailyBudget && this.hourlyTracker.used < this.hourlyBudget;
+    return (
+      this.dailyUsed < this.dailyBudget &&
+      this.hourlyTracker.used < this.hourlyBudget
+    );
   }
 
   /** 消费 token */

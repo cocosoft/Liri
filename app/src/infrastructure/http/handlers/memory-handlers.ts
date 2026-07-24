@@ -508,9 +508,8 @@ export async function handleDreamMemories(
 ): Promise<void> {
   try {
     const mm = await getMemoryManager();
-    const { runMemoryDream } = await import(
-      '@modules/memory/consolidation/MemoryDreamService'
-    );
+    const { runMemoryDream } =
+      await import('@modules/memory/consolidation/MemoryDreamService');
     const result = await runMemoryDream(mm);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, result }));
@@ -531,7 +530,8 @@ export async function handleDreamCyclesList(
       req.url!,
       `http://${req.headers.host || 'localhost'}`
     );
-    const { DreamPersistence } = await import('../../../../src/dream/DreamPersistence');
+    const { DreamPersistence } =
+      await import('../../../../src/dream/DreamPersistence');
     const persistence = new DreamPersistence();
 
     const result = await persistence.listCycles({
@@ -545,7 +545,8 @@ export async function handleDreamCyclesList(
       endTime: parsedUrl.searchParams.get('endTime')
         ? parseInt(parsedUrl.searchParams.get('endTime')!)
         : undefined,
-      sortOrder: (parsedUrl.searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc',
+      sortOrder:
+        (parsedUrl.searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc',
     });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -564,13 +565,16 @@ export async function handleDreamCycleDetail(
   cycleId: string
 ): Promise<void> {
   try {
-    const { DreamPersistence } = await import('../../../../src/dream/DreamPersistence');
+    const { DreamPersistence } =
+      await import('../../../../src/dream/DreamPersistence');
     const persistence = new DreamPersistence();
     const cycle = await persistence.getCycle(cycleId);
 
     if (!cycle) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Dream cycle not found', cycleId } }));
+      res.end(
+        JSON.stringify({ error: { message: 'Dream cycle not found', cycleId } })
+      );
       return;
     }
 

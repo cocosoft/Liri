@@ -83,9 +83,7 @@ export type {
   SchedulerState,
 } from './KnowledgeCompileScheduler';
 
-export {
-  getCompileProgress,
-} from './CompileProgressTracker';
+export { getCompileProgress } from './CompileProgressTracker';
 export type { CompileProgress } from './CompileProgressTracker';
 
 // ─── v7.9+ 新架构模块 ─────────────────────────
@@ -151,13 +149,19 @@ export { KnowledgeDedupStrategy } from './KnowledgeDedupStrategy';
 export type { DedupResult } from './KnowledgeDedupStrategy';
 
 export { generateDigestContext } from './KnowledgeDigestInjector';
-export type { DigestInjectConfig, DigestSelectionStrategy } from './KnowledgeDigestInjector';
+export type {
+  DigestInjectConfig,
+  DigestSelectionStrategy,
+} from './KnowledgeDigestInjector';
 
 export { KnowledgeMonitor, knowledgeMonitor } from './KnowledgeMonitor';
 
 export { KnowledgeLLMBudget } from './KnowledgeLLMBudget';
 
-export { migrateKnowledgeSchema, migrateDirectory } from './KnowledgeSchemaMigration';
+export {
+  migrateKnowledgeSchema,
+  migrateDirectory,
+} from './KnowledgeSchemaMigration';
 
 export { QueryFeedbackPipeline } from './QueryFeedbackPipeline';
 export type { FeedbackResult } from './QueryFeedbackPipeline';

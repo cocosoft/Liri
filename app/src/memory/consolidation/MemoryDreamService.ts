@@ -14,7 +14,14 @@ import { providerRegistry } from '@modules/ai';
 import { ToolAwareClient } from '@modules/ai';
 import { resolvePyappHome } from '@modules/core';
 import { join } from 'path';
-import { readdirSync, readFileSync, existsSync, statSync, writeFileSync, mkdirSync } from 'fs';
+import {
+  readdirSync,
+  readFileSync,
+  existsSync,
+  statSync,
+  writeFileSync,
+  mkdirSync,
+} from 'fs';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
 import type { MemoryManagerImpl } from '../MemoryManager';
 
@@ -45,7 +52,9 @@ function getLastSyncTime(): number {
     if (existsSync(path)) {
       return parseInt(readFileSync(path, 'utf-8').trim(), 10) || 0;
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return 0;
 }
 
@@ -70,11 +79,23 @@ function parseFrontmatter(content: string): {
     if (!kv) continue;
     const key = kv[1];
     let value: unknown = kv[2].trim();
-    if (typeof value === 'string' && value.startsWith('"') && value.endsWith('"')) {
+    if (
+      typeof value === 'string' &&
+      value.startsWith('"') &&
+      value.endsWith('"')
+    ) {
       value = value.slice(1, -1);
     }
-    if (typeof value === 'string' && value.startsWith('[') && value.endsWith(']')) {
-      try { value = JSON.parse(value); } catch { /* keep as string */ }
+    if (
+      typeof value === 'string' &&
+      value.startsWith('[') &&
+      value.endsWith(']')
+    ) {
+      try {
+        value = JSON.parse(value);
+      } catch {
+        /* keep as string */
+      }
     }
     fm[key] = value;
   }
@@ -104,7 +125,9 @@ async function syncKnowledgeFiles(
   if (!existsSync(knowledgeDir)) return 0;
 
   const lastSync = getLastSyncTime();
-  const files = readdirSync(knowledgeDir).filter((f) => f.endsWith('.md') && f !== 'index.md');
+  const files = readdirSync(knowledgeDir).filter(
+    (f) => f.endsWith('.md') && f !== 'index.md'
+  );
 
   let syncedCount = 0;
   for (const file of files) {
@@ -152,7 +175,10 @@ function buildDreamPrompt(
   memories: Array<{ id: string; content: string; tags: string[] }>
 ): string {
   const memoryList = memories
-    .map((m, i) => `[${i}] ${m.content}${m.tags.length ? ` (标签: ${m.tags.join(', ')})` : ''}`)
+    .map(
+      (m, i) =>
+        `[${i}] ${m.content}${m.tags.length ? ` (标签: ${m.tags.join(', ')})` : ''}`
+    )
     .join('\n');
 
   return `你是一个记忆系统精炼器。请审视以下${typeName}类型的记忆条目，完成合并和精炼：
@@ -188,7 +214,13 @@ export async function runMemoryDream(
   const allMemories = await memoryManager.getAllMemories();
 
   if (allMemories.length < 2) {
-    return { groupsProcessed: 0, originalCount: 0, refinedCount: 0, knowledgeSynced, details: [] };
+    return {
+      groupsProcessed: 0,
+      originalCount: 0,
+      refinedCount: 0,
+      knowledgeSynced,
+      details: [],
+    };
   }
 
   const groups = new Map<string, typeof allMemories>();
@@ -201,7 +233,13 @@ export async function runMemoryDream(
   const provider = providerRegistry.getDefaultProvider();
   if (!provider) {
     logger.warn('MemoryDream: 无可用 AI Provider');
-    return { groupsProcessed: 0, originalCount: 0, refinedCount: 0, knowledgeSynced, details: [] };
+    return {
+      groupsProcessed: 0,
+      originalCount: 0,
+      refinedCount: 0,
+      knowledgeSynced,
+      details: [],
+    };
   }
 
   const client = new ToolAwareClient(provider, null, null);
@@ -224,22 +262,44 @@ export async function runMemoryDream(
 
     try {
       const response = await client.sendMessage(
-        [{ role: 'user', content: buildDreamPrompt(typeName, batch.map((m) => ({
-          id: m.id, content: m.content, tags: m.metadata?.tags || [],
-        }))) } as any],
+        [
+          {
+            role: 'user',
+            content: buildDreamPrompt(
+              typeName,
+              batch.map((m) => ({
+                id: m.id,
+                content: m.content,
+                tags: m.metadata?.tags || [],
+              }))
+            ),
+          } as any,
+        ],
         { temperature: 0.3, maxTokens: 4096 }
       );
 
       const jsonMatch = response.content.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
-        details.push({ type: typeName, original: batch.length, refined: batch.length, mergedPairs: 0 });
+        details.push({
+          type: typeName,
+          original: batch.length,
+          refined: batch.length,
+          mergedPairs: 0,
+        });
         totalRefined += batch.length;
         continue;
       }
 
-      const refined: Array<{ content: string; tags?: string[] }> = JSON.parse(jsonMatch[0]);
+      const refined: Array<{ content: string; tags?: string[] }> = JSON.parse(
+        jsonMatch[0]
+      );
       if (!Array.isArray(refined) || refined.length === 0) {
-        details.push({ type: typeName, original: batch.length, refined: batch.length, mergedPairs: 0 });
+        details.push({
+          type: typeName,
+          original: batch.length,
+          refined: batch.length,
+          mergedPairs: 0,
+        });
         totalRefined += batch.length;
         continue;
       }
@@ -262,13 +322,28 @@ export async function runMemoryDream(
       }
 
       const mergedPairs = batch.length - refined.length;
-      details.push({ type: typeName, original: batch.length, refined: refined.length, mergedPairs: Math.max(0, mergedPairs) });
+      details.push({
+        type: typeName,
+        original: batch.length,
+        refined: refined.length,
+        mergedPairs: Math.max(0, mergedPairs),
+      });
       totalRefined += refined.length;
 
-      logger.info(`Dream精炼: ${typeName}`, { original: batch.length, refined: refined.length });
+      logger.info(`Dream精炼: ${typeName}`, {
+        original: batch.length,
+        refined: refined.length,
+      });
     } catch (err) {
-      logger.error(`Dream精炼失败: ${typeName}`, { error: (err as Error).message });
-      details.push({ type: typeName, original: batch.length, refined: batch.length, mergedPairs: 0 });
+      logger.error(`Dream精炼失败: ${typeName}`, {
+        error: (err as Error).message,
+      });
+      details.push({
+        type: typeName,
+        original: batch.length,
+        refined: batch.length,
+        mergedPairs: 0,
+      });
       totalRefined += batch.length;
     }
   }

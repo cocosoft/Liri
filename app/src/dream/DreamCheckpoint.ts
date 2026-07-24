@@ -127,11 +127,12 @@ export async function recoverCheckpoints(): Promise<{
       try {
         await unlink(checkpointPath);
         cleaned++;
-      } catch { /* ignore */ }
-      logger.warn(
-        `[DreamCheckpoint] 损坏的检查点文件已删除: ${file}`,
-        { error: String(e) }
-      );
+      } catch {
+        /* ignore */
+      }
+      logger.warn(`[DreamCheckpoint] 损坏的检查点文件已删除: ${file}`, {
+        error: String(e),
+      });
     }
   }
 
@@ -171,9 +172,7 @@ async function markCycleFailed(
     processedKnowledgeFiles: [],
     memoryCount: 0,
     insights: [],
-    errors: [
-      `周期中断于阶段: ${checkpoint.phase}，由启动恢复标记为 failed`,
-    ],
+    errors: [`周期中断于阶段: ${checkpoint.phase}，由启动恢复标记为 failed`],
     soulConflicts: 0,
     userConflicts: 0,
   };

@@ -96,23 +96,33 @@ export async function migrateKnowledgeSchema(
       .join('\n');
     const newContent = `---\n${fmStr}\n---\n\n${body}\n`;
     await writeFile(filePath, newContent, 'utf-8');
-    logger.info('Schema 迁移：更新版本', { filePath, from: frontmatter.schema_version, to: CURRENT_SCHEMA_VERSION });
+    logger.info('Schema 迁移：更新版本', {
+      filePath,
+      from: frontmatter.schema_version,
+      to: CURRENT_SCHEMA_VERSION,
+    });
     return { migrated: true };
   } catch (err) {
-    return { migrated: false, error: err instanceof Error ? err.message : String(err) };
+    return {
+      migrated: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 
 /**
  * 批量迁移目录下的所有 .md 文件
  */
-export async function migrateDirectory(dirPath: string): Promise<{ migrated: number; errors: string[] }> {
+export async function migrateDirectory(
+  dirPath: string
+): Promise<{ migrated: number; errors: string[] }> {
   const { readdir } = await import('fs/promises');
   let migrated = 0;
   const errors: string[] = [];
 
   try {
-    if (!existsSync(dirPath)) return { migrated: 0, errors: [`目录不存在: ${dirPath}`] };
+    if (!existsSync(dirPath))
+      return { migrated: 0, errors: [`目录不存在: ${dirPath}`] };
 
     const entries = await readdir(dirPath, { recursive: true });
     for (const entry of entries) {

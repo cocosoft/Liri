@@ -292,8 +292,7 @@ export async function initAutoDream(): Promise<void> {
     });
 
     const memoryRoot =
-      configManager.env('AUTO_MEM_PATH') ||
-      resolveKnowledgeDir();
+      configManager.env('AUTO_MEM_PATH') || resolveKnowledgeDir();
     const transcriptDir = process.cwd();
 
     const extra = `

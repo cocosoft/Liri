@@ -90,7 +90,9 @@ export class UnifiedDreamCycle {
 
   // ──── 内部实现 ────
 
-  private async _doExecute(source: DreamTriggerSource): Promise<DreamCycleRecord> {
+  private async _doExecute(
+    source: DreamTriggerSource
+  ): Promise<DreamCycleRecord> {
     const cycleId = `dream_${Date.now()}`;
     const snapshotTime = Date.now();
     const startedAt = Date.now();
@@ -117,14 +119,23 @@ export class UnifiedDreamCycle {
     // ──── 检查点 ────
     const checkpointDir = join(resolveDataSubDir('dream'), 'checkpoints');
     const checkpointPath = join(checkpointDir, `checkpoint_${cycleId}.json`);
-    let checkpointPhase: 'gathered' | 'analyzed' | 'generated' | 'written_all' = 'gathered';
+    let checkpointPhase: 'gathered' | 'analyzed' | 'generated' | 'written_all' =
+      'gathered';
 
     try {
       // ── 阶段 0: Gather ──
-      await this.writeCheckpoint(checkpointPath, { cycleId, phase: 'gathered', timestamp: Date.now(), snapshotTime });
+      await this.writeCheckpoint(checkpointPath, {
+        cycleId,
+        phase: 'gathered',
+        timestamp: Date.now(),
+        snapshotTime,
+      });
 
       const lastAt = this.persistence.getLastCompletedAt();
-      const sinceMs = lastAt > 0 ? lastAt : snapshotTime - INITIAL_BACKTRACK_DAYS * 24 * 60 * 60 * 1000;
+      const sinceMs =
+        lastAt > 0
+          ? lastAt
+          : snapshotTime - INITIAL_BACKTRACK_DAYS * 24 * 60 * 60 * 1000;
 
       // 扫描挂起会话
       const pendingDir = join(resolveDataSubDir('dream'), 'pending_sessions');
@@ -141,10 +152,13 @@ export class UnifiedDreamCycle {
 
       for (const digest of highValueDigests) {
         try {
-          const content = await this.gatherer.readSessionContent(digest.sessionId, {
-            strategy: 'recent',
-            maxTokens: 8192,
-          });
+          const content = await this.gatherer.readSessionContent(
+            digest.sessionId,
+            {
+              strategy: 'recent',
+              maxTokens: 8192,
+            }
+          );
           if (content) {
             sessionContents.push(content);
             processedSessionIds.push(digest.sessionId);
@@ -179,7 +193,12 @@ export class UnifiedDreamCycle {
 
       // ── 阶段 1-2: Analyze + Generate (委托给 AutoDream) ──
       checkpointPhase = 'analyzed';
-      await this.writeCheckpoint(checkpointPath, { cycleId, phase: 'analyzed', timestamp: Date.now(), snapshotTime });
+      await this.writeCheckpoint(checkpointPath, {
+        cycleId,
+        phase: 'analyzed',
+        timestamp: Date.now(),
+        snapshotTime,
+      });
 
       try {
         await executeAutoDream();
@@ -187,21 +206,50 @@ export class UnifiedDreamCycle {
         errors.push(`AutoDream 执行失败: ${String(e)}`);
         status = errors.length > 0 ? 'partial' : 'failed';
         if (status === 'failed') {
-          return this.buildRecord(cycleId, source, status, snapshotTime, startedAt, Date.now(),
-            sessionsScanned, sessionsProcessed, knowledgeFilesProcessed,
-            memoriesCreated, memoriesRefined, knowledgeFilesUpdated,
-            soulUpdated, userProfileUpdated, soulConflicts, userConflicts,
-            processedSessionIds, processedKnowledgeFiles, insights, errors);
+          return this.buildRecord(
+            cycleId,
+            source,
+            status,
+            snapshotTime,
+            startedAt,
+            Date.now(),
+            sessionsScanned,
+            sessionsProcessed,
+            knowledgeFilesProcessed,
+            memoriesCreated,
+            memoriesRefined,
+            knowledgeFilesUpdated,
+            soulUpdated,
+            userProfileUpdated,
+            soulConflicts,
+            userConflicts,
+            processedSessionIds,
+            processedKnowledgeFiles,
+            insights,
+            errors
+          );
         }
       }
 
       checkpointPhase = 'generated';
-      await this.writeCheckpoint(checkpointPath, { cycleId, phase: 'generated', timestamp: Date.now(), snapshotTime });
+      await this.writeCheckpoint(checkpointPath, {
+        cycleId,
+        phase: 'generated',
+        timestamp: Date.now(),
+        snapshotTime,
+      });
 
       // ── 阶段 3: Write ──
       // SOUL/USER 纠偏
-      const soulAnalysis = this.reflector.analyzeSoulAlignment(soulContent, '{}');
-      if (soulAnalysis.needsUpdate && soulAnalysis.confidence >= 0.8 && soulAnalysis.suggestedPatch) {
+      const soulAnalysis = this.reflector.analyzeSoulAlignment(
+        soulContent,
+        '{}'
+      );
+      if (
+        soulAnalysis.needsUpdate &&
+        soulAnalysis.confidence >= 0.8 &&
+        soulAnalysis.suggestedPatch
+      ) {
         const result = await this.reflector.writeSoulPatch(
           soulAnalysis.suggestedPatch,
           soulAnalysis.reason || '梦境纠偏'
@@ -220,8 +268,15 @@ export class UnifiedDreamCycle {
         );
       }
 
-      const userAnalysis = this.reflector.analyzeUserProfileChanges(userContent, '{}');
-      if (userAnalysis.needsUpdate && userAnalysis.confidence >= 0.8 && userAnalysis.suggestedPatch) {
+      const userAnalysis = this.reflector.analyzeUserProfileChanges(
+        userContent,
+        '{}'
+      );
+      if (
+        userAnalysis.needsUpdate &&
+        userAnalysis.confidence >= 0.8 &&
+        userAnalysis.suggestedPatch
+      ) {
         const result = await this.reflector.writeUserPatch(
           userAnalysis.suggestedPatch,
           userAnalysis.reason || '梦境纠偏'
@@ -287,7 +342,12 @@ export class UnifiedDreamCycle {
       }
 
       // Write checkpoint
-      await this.writeCheckpoint(checkpointPath, { cycleId, phase: 'written_all', timestamp: Date.now(), snapshotTime });
+      await this.writeCheckpoint(checkpointPath, {
+        cycleId,
+        phase: 'written_all',
+        timestamp: Date.now(),
+        snapshotTime,
+      });
 
       // 发布事件
       globalEventBus.publish(SystemEvents.USER_INTERACTION, {
@@ -296,21 +356,44 @@ export class UnifiedDreamCycle {
         success: status === 'completed',
       });
 
-      logger.info(`梦境周期完成: ${cycleId}`, { status, sessionsProcessed, memoriesCreated });
-
+      logger.info(`梦境周期完成: ${cycleId}`, {
+        status,
+        sessionsProcessed,
+        memoriesCreated,
+      });
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);
       errors.push(`梦境周期异常: ${errMsg}`);
       status = 'failed';
-      logger.error(`梦境周期失败: ${cycleId}`, e instanceof Error ? e : new Error(errMsg));
+      logger.error(
+        `梦境周期失败: ${cycleId}`,
+        e instanceof Error ? e : new Error(errMsg)
+      );
     }
 
     const completedAt = Date.now();
-    const record = this.buildRecord(cycleId, source, status, snapshotTime, startedAt, completedAt,
-      sessionsScanned, sessionsProcessed, knowledgeFilesProcessed,
-      memoriesCreated, memoriesRefined, knowledgeFilesUpdated,
-      soulUpdated, userProfileUpdated, soulConflicts, userConflicts,
-      processedSessionIds, processedKnowledgeFiles, insights, errors);
+    const record = this.buildRecord(
+      cycleId,
+      source,
+      status,
+      snapshotTime,
+      startedAt,
+      completedAt,
+      sessionsScanned,
+      sessionsProcessed,
+      knowledgeFilesProcessed,
+      memoriesCreated,
+      memoriesRefined,
+      knowledgeFilesUpdated,
+      soulUpdated,
+      userProfileUpdated,
+      soulConflicts,
+      userConflicts,
+      processedSessionIds,
+      processedKnowledgeFiles,
+      insights,
+      errors
+    );
 
     // 持久化
     await this.persistence.saveCycle(record);
@@ -332,21 +415,34 @@ export class UnifiedDreamCycle {
     // 清理检查点
     try {
       await unlink(checkpointPath);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     return record;
   }
 
   private buildRecord(
-    cycleId: string, source: DreamTriggerSource, status: 'completed' | 'partial' | 'failed',
-    snapshotTime: number, startedAt: number, completedAt: number,
-    sessionsScanned: number, sessionsProcessed: number,
-    knowledgeFilesProcessed: number, memoriesCreated: number,
-    memoriesRefined: number, knowledgeFilesUpdated: number,
-    soulUpdated: boolean, userProfileUpdated: boolean,
-    soulConflicts: number, userConflicts: number,
-    processedSessionIds: string[], processedKnowledgeFiles: string[],
-    insights: string[], errors: string[]
+    cycleId: string,
+    source: DreamTriggerSource,
+    status: 'completed' | 'partial' | 'failed',
+    snapshotTime: number,
+    startedAt: number,
+    completedAt: number,
+    sessionsScanned: number,
+    sessionsProcessed: number,
+    knowledgeFilesProcessed: number,
+    memoriesCreated: number,
+    memoriesRefined: number,
+    knowledgeFilesUpdated: number,
+    soulUpdated: boolean,
+    userProfileUpdated: boolean,
+    soulConflicts: number,
+    userConflicts: number,
+    processedSessionIds: string[],
+    processedKnowledgeFiles: string[],
+    insights: string[],
+    errors: string[]
   ): DreamCycleRecord {
     return {
       cycleId,
@@ -375,13 +471,23 @@ export class UnifiedDreamCycle {
 
   private async writeCheckpoint(
     path: string,
-    checkpoint: { cycleId: string; phase: string; timestamp: number; snapshotTime: number }
+    checkpoint: {
+      cycleId: string;
+      phase: string;
+      timestamp: number;
+      snapshotTime: number;
+    }
   ): Promise<void> {
-    await mkdir(join(resolveDataSubDir('dream'), 'checkpoints'), { recursive: true });
+    await mkdir(join(resolveDataSubDir('dream'), 'checkpoints'), {
+      recursive: true,
+    });
     await writeFile(path, JSON.stringify(checkpoint), 'utf-8');
   }
 
-  private async cleanupPendingSessions(dir: string, processed: string[]): Promise<void> {
+  private async cleanupPendingSessions(
+    dir: string,
+    processed: string[]
+  ): Promise<void> {
     try {
       const { readdir } = await import('fs/promises');
       const files = await readdir(dir);
@@ -391,7 +497,9 @@ export class UnifiedDreamCycle {
           await unlink(join(dir, file));
         }
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   /** 自动触发记忆回写 (AutoDream → MemoryDreamService) */
@@ -399,7 +507,8 @@ export class UnifiedDreamCycle {
     try {
       const { MemoryManagerImpl } = await import('../memory/MemoryManager');
       const mm = new MemoryManagerImpl();
-      const { runMemoryDream } = await import('../memory/consolidation/MemoryDreamService');
+      const { runMemoryDream } =
+        await import('../memory/consolidation/MemoryDreamService');
       await runMemoryDream(mm);
       logger.info('梦境后记忆回写完成');
     } catch (e) {

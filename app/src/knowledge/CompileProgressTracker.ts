@@ -6,7 +6,7 @@
  */
 export interface CompileProgress {
   /** 当前状态：idle / compiling / done */
-  status: "idle" | "compiling" | "done";
+  status: 'idle' | 'compiling' | 'done';
   /** 当前已编译/跳过的文件数 */
   current: number;
   /** 总文件数 */
@@ -18,7 +18,7 @@ export interface CompileProgress {
 }
 
 let currentProgress: CompileProgress = {
-  status: "idle",
+  status: 'idle',
   current: 0,
   total: 0,
   startedAt: 0,
@@ -28,7 +28,7 @@ let currentProgress: CompileProgress = {
 /** 开始新一轮编译 */
 export function startCompileProgress(total: number): void {
   currentProgress = {
-    status: "compiling",
+    status: 'compiling',
     current: 0,
     total,
     startedAt: Date.now(),
@@ -44,12 +44,12 @@ export function updateCompileProgress(current: number, error?: string): void {
 
 /** 编译完成 */
 export function finishCompileProgress(): void {
-  currentProgress.status = "done";
+  currentProgress.status = 'done';
   // 30 秒后重置为 idle
   setTimeout(() => {
-    if (currentProgress.status === "done") {
+    if (currentProgress.status === 'done') {
       currentProgress = {
-        status: "idle",
+        status: 'idle',
         current: 0,
         total: 0,
         startedAt: 0,
@@ -61,7 +61,7 @@ export function finishCompileProgress(): void {
 
 /** 编译异常中止 */
 export function abortCompileProgress(error: string): void {
-  currentProgress.status = "done";
+  currentProgress.status = 'done';
   currentProgress.lastError = error;
 }
 

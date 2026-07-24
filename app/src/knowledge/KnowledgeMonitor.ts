@@ -31,11 +31,19 @@ export class KnowledgeMonitor {
   private metricsPath: string;
 
   constructor() {
-    this.metricsPath = join(resolveDataSubDir(''), 'knowledge', 'metrics.jsonl');
+    this.metricsPath = join(
+      resolveDataSubDir(''),
+      'knowledge',
+      'metrics.jsonl'
+    );
   }
 
   /** 记录一个指标事件 */
-  async record(name: string, value: number, tags?: Record<string, string>): Promise<void> {
+  async record(
+    name: string,
+    value: number,
+    tags?: Record<string, string>
+  ): Promise<void> {
     try {
       await this.ensureDir();
       const event: MetricEvent = {
@@ -53,7 +61,11 @@ export class KnowledgeMonitor {
   }
 
   /** 计时并记录 */
-  async time(name: string, fn: () => Promise<void>, tags?: Record<string, string>): Promise<void> {
+  async time(
+    name: string,
+    fn: () => Promise<void>,
+    tags?: Record<string, string>
+  ): Promise<void> {
     const start = performance.now();
     try {
       await fn();

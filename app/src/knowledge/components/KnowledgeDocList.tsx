@@ -26,7 +26,11 @@ interface Props {
   title?: string;
 }
 
-export function KnowledgeDocList({ docs, total, title }: Props): React.ReactNode {
+export function KnowledgeDocList({
+  docs,
+  total,
+  title,
+}: Props): React.ReactNode {
   if (docs.length === 0) {
     return (
       <Box flexDirection="column" paddingY={1}>

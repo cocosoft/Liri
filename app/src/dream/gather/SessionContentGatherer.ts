@@ -47,7 +47,10 @@ export class SessionContentGatherer {
    * @param sinceMs 上次梦境完成时间戳
    * @param pendingDir 挂起会话目录（会话关闭时写入的标记文件）
    */
-  async scanNewSessions(sinceMs: number, pendingDir?: string): Promise<SessionDigest[]> {
+  async scanNewSessions(
+    sinceMs: number,
+    pendingDir?: string
+  ): Promise<SessionDigest[]> {
     const sessionsDir = resolveSessionsDir();
     const digests: SessionDigest[] = [];
     const seen = new Set<string>();
@@ -64,9 +67,13 @@ export class SessionContentGatherer {
             if (pending.sessionId) {
               seen.add(pending.sessionId);
             }
-          } catch { /* skip corrupted */ }
+          } catch {
+            /* skip corrupted */
+          }
         }
-      } catch { /* pending dir not exists */ }
+      } catch {
+        /* pending dir not exists */
+      }
     }
 
     // 扫描 sessions 目录
@@ -80,9 +87,13 @@ export class SessionContentGatherer {
 
           const digest = await this.buildDigest(sessionId, sessionPath);
           if (digest) digests.push(digest);
-        } catch { /* skip */ }
+        } catch {
+          /* skip */
+        }
       }
-    } catch { /* sessions dir not exists */ }
+    } catch {
+      /* sessions dir not exists */
+    }
 
     return digests;
   }
@@ -118,13 +129,20 @@ export class SessionContentGatherer {
             if (msg.tool_calls || msg.toolCalls) {
               digest.hasToolCalls = true;
             }
-            if (typeof msg.content === 'string' && msg.content.includes('```')) {
+            if (
+              typeof msg.content === 'string' &&
+              msg.content.includes('```')
+            ) {
               digest.hasCodeBlocks = true;
             }
             if (digest.hasToolCalls && digest.hasCodeBlocks) break;
-          } catch { /* skip malformed lines */ }
+          } catch {
+            /* skip malformed lines */
+          }
         }
-      } catch { /* no messages file */ }
+      } catch {
+        /* no messages file */
+      }
 
       return digest;
     } catch {
@@ -150,7 +168,11 @@ export class SessionContentGatherer {
       const lines = content.split('\n').filter((l) => l.trim());
       const messages = lines
         .map((l) => {
-          try { return JSON.parse(l); } catch { return null; }
+          try {
+            return JSON.parse(l);
+          } catch {
+            return null;
+          }
         })
         .filter((m): m is Record<string, unknown> => m !== null);
 
@@ -173,7 +195,7 @@ export class SessionContentGatherer {
         let result = '=== 对话开头 ===\n';
         result += this.formatMessages(head, Math.floor(maxTokens / 3));
         result += '\n=== ... (中间省略) ... ===\n';
-        result += this.formatMessages(tail, Math.floor(maxTokens * 2 / 3));
+        result += this.formatMessages(tail, Math.floor((maxTokens * 2) / 3));
         return result;
       }
 

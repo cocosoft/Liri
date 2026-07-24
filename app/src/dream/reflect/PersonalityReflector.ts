@@ -26,7 +26,11 @@
  */
 
 import { readFile, writeFile, stat, copyFile, mkdir } from 'fs/promises';
-import { resolveSoulPath, resolveUserProfilePath, resolvePyappHome } from '@modules/core';
+import {
+  resolveSoulPath,
+  resolveUserProfilePath,
+  resolvePyappHome,
+} from '@modules/core';
 import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 
@@ -144,9 +148,14 @@ export class PersonalityReflector {
     reason: string
   ): Promise<{ written: boolean; conflict: boolean }> {
     try {
-      const currentMtime = (await stat(this.soulPath).catch(() => ({ mtimeMs: 0 }))).mtimeMs;
+      const currentMtime = (
+        await stat(this.soulPath).catch(() => ({ mtimeMs: 0 }))
+      ).mtimeMs;
 
-      if (this.soulSnapshotMtime > 0 && currentMtime !== this.soulSnapshotMtime) {
+      if (
+        this.soulSnapshotMtime > 0 &&
+        currentMtime !== this.soulSnapshotMtime
+      ) {
         // 乐观锁：用户在梦境周期期间编辑了文件
         const conflictPath = join(
           resolvePyappHome(),
@@ -154,7 +163,9 @@ export class PersonalityReflector {
           'raw',
           `soul_conflict_${Date.now()}.md`
         );
-        await mkdir(join(resolvePyappHome(), 'knowledge', 'raw'), { recursive: true });
+        await mkdir(join(resolvePyappHome(), 'knowledge', 'raw'), {
+          recursive: true,
+        });
         await writeFile(
           conflictPath,
           `# SOUL.md 冲突\n\n用户手动编辑与梦境纠偏冲突。\n\n## 建议变更\n${suggestedPatch}\n\n## 原因\n${reason}\n`,
@@ -168,11 +179,15 @@ export class PersonalityReflector {
       const backupPath = `${this.soulPath}.bak.${Date.now()}`;
       try {
         await copyFile(this.soulPath, backupPath);
-      } catch { /* no existing file to backup */ }
+      } catch {
+        /* no existing file to backup */
+      }
 
       // 追加变更
       const current = await readFile(this.soulPath, 'utf-8').catch(() => '');
-      const updated = current + `\n\n<!-- 梦境纠偏 (${new Date().toISOString()}) -->\n${suggestedPatch}`;
+      const updated =
+        current +
+        `\n\n<!-- 梦境纠偏 (${new Date().toISOString()}) -->\n${suggestedPatch}`;
       await writeFile(this.soulPath, updated, 'utf-8');
 
       logger.info('SOUL.md 已更新', { reason });
@@ -191,16 +206,23 @@ export class PersonalityReflector {
     reason: string
   ): Promise<{ written: boolean; conflict: boolean }> {
     try {
-      const currentMtime = (await stat(this.userPath).catch(() => ({ mtimeMs: 0 }))).mtimeMs;
+      const currentMtime = (
+        await stat(this.userPath).catch(() => ({ mtimeMs: 0 }))
+      ).mtimeMs;
 
-      if (this.userSnapshotMtime > 0 && currentMtime !== this.userSnapshotMtime) {
+      if (
+        this.userSnapshotMtime > 0 &&
+        currentMtime !== this.userSnapshotMtime
+      ) {
         const conflictPath = join(
           resolvePyappHome(),
           'knowledge',
           'raw',
           `user_conflict_${Date.now()}.md`
         );
-        await mkdir(join(resolvePyappHome(), 'knowledge', 'raw'), { recursive: true });
+        await mkdir(join(resolvePyappHome(), 'knowledge', 'raw'), {
+          recursive: true,
+        });
         await writeFile(
           conflictPath,
           `# USER.md 冲突\n\n用户手动编辑与梦境纠偏冲突。\n\n## 建议变更\n${suggestedPatch}\n\n## 原因\n${reason}\n`,
@@ -213,10 +235,14 @@ export class PersonalityReflector {
       const backupPath = `${this.userPath}.bak.${Date.now()}`;
       try {
         await copyFile(this.userPath, backupPath);
-      } catch { /* no existing file to backup */ }
+      } catch {
+        /* no existing file to backup */
+      }
 
       const current = await readFile(this.userPath, 'utf-8').catch(() => '');
-      const updated = current + `\n\n<!-- 梦境纠偏 (${new Date().toISOString()}) -->\n${suggestedPatch}`;
+      const updated =
+        current +
+        `\n\n<!-- 梦境纠偏 (${new Date().toISOString()}) -->\n${suggestedPatch}`;
       await writeFile(this.userPath, updated, 'utf-8');
 
       logger.info('USER.md 已更新', { reason });
@@ -238,7 +264,9 @@ export class PersonalityReflector {
       'raw',
       `personality_suggestions_${type}_${Date.now()}.md`
     );
-    await mkdir(join(resolvePyappHome(), 'knowledge', 'raw'), { recursive: true });
+    await mkdir(join(resolvePyappHome(), 'knowledge', 'raw'), {
+      recursive: true,
+    });
     await writeFile(suggestionsPath, suggestions, 'utf-8');
     logger.info(`低置信度 ${type} 建议已写入`, { path: suggestionsPath });
   }
@@ -254,7 +282,9 @@ export class PersonalityReflector {
       if (match) {
         try {
           return JSON.parse(match[1].trim());
-        } catch { /* fall through */ }
+        } catch {
+          /* fall through */
+        }
       }
     }
     return {};

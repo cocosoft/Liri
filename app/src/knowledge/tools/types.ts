@@ -38,7 +38,12 @@ export interface KnowledgeDeleteOutput {
   title?: string;
   filePath?: string;
   docPath?: string;
-  candidates?: Array<{ title: string; docPath?: string; filePath?: string; category?: string }>;
+  candidates?: Array<{
+    title: string;
+    docPath?: string;
+    filePath?: string;
+    category?: string;
+  }>;
 }
 
 /** 知识导入输出 */

@@ -23,7 +23,10 @@ interface LintPanelProps {
   totalDocs?: number;
 }
 
-export function KnowledgeLintPanel({ issues, totalDocs }: LintPanelProps): React.ReactNode {
+export function KnowledgeLintPanel({
+  issues,
+  totalDocs,
+}: LintPanelProps): React.ReactNode {
   if (issues.length === 0) {
     return (
       <Box flexDirection="row">
@@ -112,7 +115,10 @@ export function KnowledgeCompileBadge({
       </Box>
       {status === 'compiling' && compiled != null && total != null && (
         <Box marginTop={1}>
-          <ProgressBar percent={compiled && total ? (compiled / total) * 100 : 0} width={30} />
+          <ProgressBar
+            percent={compiled && total ? (compiled / total) * 100 : 0}
+            width={30}
+          />
         </Box>
       )}
     </Box>

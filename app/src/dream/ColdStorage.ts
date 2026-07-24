@@ -55,10 +55,7 @@ export class ColdStorage {
   private storagePath: string;
 
   constructor() {
-    this.storagePath = join(
-      resolveDataSubDir('dream'),
-      'cold_memories.json'
-    );
+    this.storagePath = join(resolveDataSubDir('dream'), 'cold_memories.json');
   }
 
   /** 归档单条记忆 */
@@ -132,7 +129,11 @@ export class ColdStorage {
 
   private async writeAll(memories: ArchivedMemory[]): Promise<void> {
     await mkdir(join(resolveDataSubDir('dream')), { recursive: true });
-    await writeFile(this.storagePath, JSON.stringify(memories, null, 2), 'utf-8');
+    await writeFile(
+      this.storagePath,
+      JSON.stringify(memories, null, 2),
+      'utf-8'
+    );
   }
 }
 
@@ -141,21 +142,19 @@ export class ColdStorage {
  * @param memoryManager MemoryManager 实例
  * @returns 归档的记忆数量
  */
-export async function pruneOldMemories(
-  memoryManager: {
-    getAllMemories(): Promise<
-      Array<{
-        id: string;
-        content: string;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        metadata: any;
-        createdAt: Date;
-        updatedAt: Date;
-      }>
-    >;
-    deleteMemory(id: string): Promise<void>;
-  }
-): Promise<number> {
+export async function pruneOldMemories(memoryManager: {
+  getAllMemories(): Promise<
+    Array<{
+      id: string;
+      content: string;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      metadata: any;
+      createdAt: Date;
+      updatedAt: Date;
+    }>
+  >;
+  deleteMemory(id: string): Promise<void>;
+}): Promise<number> {
   const all = await memoryManager.getAllMemories();
   const now = Date.now();
   const coldStorage = new ColdStorage();
@@ -211,9 +210,7 @@ export async function pruneOldMemories(
   }
 
   if (deletedCount > 0) {
-    logger.info(
-      `[ColdStorage] 已将 ${deletedCount} 条旧记忆归档到冷存储`
-    );
+    logger.info(`[ColdStorage] 已将 ${deletedCount} 条旧记忆归档到冷存储`);
   }
 
   return deletedCount;

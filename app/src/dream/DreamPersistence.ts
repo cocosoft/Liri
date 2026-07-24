@@ -169,7 +169,9 @@ export class DreamPersistence {
     // 过滤
     let filtered = cycles;
     if (opts?.triggerSource) {
-      filtered = filtered.filter((c) => c.triggerSource === opts!.triggerSource);
+      filtered = filtered.filter(
+        (c) => c.triggerSource === opts!.triggerSource
+      );
     }
     if (opts?.status) {
       filtered = filtered.filter((c) => c.status === opts!.status);
@@ -238,7 +240,9 @@ export class DreamPersistence {
         // 损坏文件直接删除
         try {
           await unlink(join(cyclesDir, file));
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
     }
 
@@ -265,11 +269,15 @@ export class DreamPersistence {
     for (const file of toDelete) {
       try {
         await unlink(join(cyclesDir, file));
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
 
     if (toDelete.length > 0) {
-      logger.info(`[DreamPersistence] 清理 ${toDelete.length} 条旧梦境周期记录`);
+      logger.info(
+        `[DreamPersistence] 清理 ${toDelete.length} 条旧梦境周期记录`
+      );
     }
     return toDelete.length;
   }

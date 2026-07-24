@@ -3,7 +3,11 @@ import { Text, Box } from '../../../components/ink.js';
 
 function parseOutput(output: any): any {
   if (typeof output === 'string') {
-    try { return JSON.parse(output); } catch { return {}; }
+    try {
+      return JSON.parse(output);
+    } catch {
+      return {};
+    }
   }
   return output || {};
 }
@@ -54,7 +58,12 @@ export function renderToolResultMessage(
         <Box flexDirection="row">
           <Text bold>{snapshots.length}</Text>
           <Text> snapshots</Text>
-          {title && <Text> for <Text italic>{title}</Text></Text>}
+          {title && (
+            <Text>
+              {' '}
+              for <Text italic>{title}</Text>
+            </Text>
+          )}
         </Box>
         <Box marginTop={1} marginLeft={2} flexDirection="column">
           {snapshots.slice(0, 10).map((s: any, i: number) => (
@@ -77,7 +86,12 @@ export function renderToolResultMessage(
       <Box flexDirection="row">
         <Text bold>{snapshots.length}</Text>
         <Text> snapshots</Text>
-        {title && <Text> for <Text bold>{title}</Text></Text>}
+        {title && (
+          <Text>
+            {' '}
+            for <Text bold>{title}</Text>
+          </Text>
+        )}
       </Box>
       <Box marginTop={1} marginLeft={2} flexDirection="column">
         {snapshots.slice(0, 5).map((s: any, i: number) => (

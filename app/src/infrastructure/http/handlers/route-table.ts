@@ -818,8 +818,8 @@ export async function dispatchRoute(
     await self['handleDreamCyclesList'](req, res);
     return true;
   }
-  const cycleDetailMatch = method === 'GET' &&
-    url.match(/^\/v1\/memory\/dream\/cycles\/(dream_\d+)$/);
+  const cycleDetailMatch =
+    method === 'GET' && url.match(/^\/v1\/memory\/dream\/cycles\/(dream_\d+)$/);
   if (cycleDetailMatch) {
     await self['handleDreamCycleDetail'](req, res, cycleDetailMatch[1]);
     return true;
@@ -2221,13 +2221,16 @@ export async function dispatchRoute(
   if (method === 'GET' && url === '/health') {
     let dream;
     try {
-      const { readMetrics } = await import('../../../../src/dream/DreamMetrics');
+      const { readMetrics } =
+        await import('../../../../src/dream/DreamMetrics');
       dream = await readMetrics();
     } catch {
       // 指标文件不存在或读取失败，不影响健康检查
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok', service: 'LocalHTTPService', dream }));
+    res.end(
+      JSON.stringify({ status: 'ok', service: 'LocalHTTPService', dream })
+    );
     return true;
   }
 

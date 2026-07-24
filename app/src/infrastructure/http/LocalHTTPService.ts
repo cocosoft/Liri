@@ -5900,9 +5900,8 @@ export class LocalHTTPService {
   ): Promise<void> {
     try {
       const mm = await this.getMemoryManager();
-      const { runMemoryDream } = await import(
-        '../../../src/memory/consolidation/MemoryDreamService'
-      );
+      const { runMemoryDream } =
+        await import('../../../src/memory/consolidation/MemoryDreamService');
       const result = await runMemoryDream(mm);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, result }));
@@ -5920,16 +5919,14 @@ export class LocalHTTPService {
         req.url!,
         `http://${req.headers.host || 'localhost'}`
       );
-      const { DreamPersistence } = await import(
-        '../../../src/dream/DreamPersistence'
-      );
+      const { DreamPersistence } =
+        await import('../../../src/dream/DreamPersistence');
       const persistence = new DreamPersistence();
 
       const result = await persistence.listCycles({
         page: parseInt(parsedUrl.searchParams.get('page') || '1'),
         pageSize: parseInt(parsedUrl.searchParams.get('pageSize') || '20'),
-        triggerSource:
-          parsedUrl.searchParams.get('triggerSource') || undefined,
+        triggerSource: parsedUrl.searchParams.get('triggerSource') || undefined,
         status: parsedUrl.searchParams.get('status') || undefined,
         startTime: parsedUrl.searchParams.get('startTime')
           ? parseInt(parsedUrl.searchParams.get('startTime')!)
@@ -5938,8 +5935,7 @@ export class LocalHTTPService {
           ? parseInt(parsedUrl.searchParams.get('endTime')!)
           : undefined,
         sortOrder:
-          (parsedUrl.searchParams.get('sortOrder') as 'asc' | 'desc') ||
-          'desc',
+          (parsedUrl.searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc',
       });
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -5955,9 +5951,8 @@ export class LocalHTTPService {
     cycleId: string
   ): Promise<void> {
     try {
-      const { DreamPersistence } = await import(
-        '../../../src/dream/DreamPersistence'
-      );
+      const { DreamPersistence } =
+        await import('../../../src/dream/DreamPersistence');
       const persistence = new DreamPersistence();
       const cycle = await persistence.getCycle(cycleId);
 

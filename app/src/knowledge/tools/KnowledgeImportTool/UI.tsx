@@ -3,7 +3,11 @@ import { Text, Box } from '../../../components/ink.js';
 
 function parseOutput(output: any): any {
   if (typeof output === 'string') {
-    try { return JSON.parse(output); } catch { return {}; }
+    try {
+      return JSON.parse(output);
+    } catch {
+      return {};
+    }
   }
   return output || {};
 }
@@ -52,7 +56,9 @@ export function renderToolResultMessage(
         </Box>
         <Box marginTop={1} marginLeft={2} flexDirection="column">
           {parsed.files.slice(0, 10).map((f: string, i: number) => (
-            <Text key={i} dimColor>{f}</Text>
+            <Text key={i} dimColor>
+              {f}
+            </Text>
           ))}
           {parsed.files.length > 10 && (
             <Text dimColor>... {parsed.files.length - 10} more files</Text>

@@ -296,7 +296,7 @@ function ChatArea() {
       )}
 
       {/* 底部区域：AI 状态栏 + 输入区（flex-col，StatusFloatBar 自然贴着输入区上方） */}
-      <div className="shrink-0 flex flex-col">
+      <div className="shrink-0 flex flex-col bg-gray-50 dark:bg-gray-900">
         <StatusFloatBar />
 
         {/* 语音字幕覆盖层 */}

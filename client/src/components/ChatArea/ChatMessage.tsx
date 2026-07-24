@@ -355,13 +355,22 @@ const ChatMessageMemo = memo(
 
               {/* 用户消息：编辑常驻 */}
               {isUser && (
-                <button
-                  onClick={() => setEditTarget(message)}
-                  className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                  aria-label={t("chat.editMessage")}
-                >
-                  ✏️ {t("chat.editMessage")}
-                </button>
+                <>
+                  <button
+                    onClick={(e) => handleCopy(!e.shiftKey)}
+                    className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    aria-label={t("chat.copyMessage")}
+                  >
+                    📋 {t("chat.copyMessage")}
+                  </button>
+                  <button
+                    onClick={() => setEditTarget(message)}
+                    className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    aria-label={t("chat.editMessage")}
+                  >
+                    ✏️ {t("chat.editMessage")}
+                  </button>
+                </>
               )}
 
               {/* AI 消息：复制常驻（Shift+Click 复制纯文本） */}

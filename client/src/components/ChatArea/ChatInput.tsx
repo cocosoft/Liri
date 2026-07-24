@@ -759,7 +759,7 @@ function ChatInput() {
       onDrop={handleDrop}
     >
       <div className="max-w-3xl mx-auto">
-        <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg p-2">
+        <div className="rounded-2xl bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 shadow-lg p-2">
           {/* 图片缩略图预览条 */}
           {imageItems.length > 0 && (
             <div className="mb-2 flex items-center gap-2 flex-wrap">

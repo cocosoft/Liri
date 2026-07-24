@@ -206,7 +206,7 @@ export default function StatusFloatBar() {
         onClick={() => setShowTaskPanel(!showTaskPanel)}
       >
         <div className="max-w-3xl mx-auto">
-          <div className="flex items-center gap-2.5 px-4 py-2.5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-md cursor-pointer hover:bg-white/90 dark:hover:bg-gray-800/90 transition-colors">
+          <div className="flex items-center gap-2.5 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             {/* 状态指示点：绿色脉冲 = 运行中 */}
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />

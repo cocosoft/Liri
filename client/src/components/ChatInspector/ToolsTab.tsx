@@ -23,7 +23,9 @@ interface ToolCallRecord {
   _hasFullResult?: boolean;
 }
 
-function extractToolCalls(messages: ReturnType<typeof useChatStore.getState>["messages"]): ToolCallRecord[] {
+function extractToolCalls(
+  messages: ReturnType<typeof useChatStore.getState>["messages"],
+): ToolCallRecord[] {
   const seen = new Set<string>();
   const records: ToolCallRecord[] = [];
 
@@ -58,7 +60,8 @@ function extractToolCalls(messages: ReturnType<typeof useChatStore.getState>["me
             result: tc.result,
             status: tc.status || (block.isStreaming ? "running" : "completed"),
             messageId: msg.id,
-            _hasFullResult: !!(tc as { _hasFullResult?: boolean })._hasFullResult,
+            _hasFullResult: !!(tc as { _hasFullResult?: boolean })
+              ._hasFullResult,
           });
         }
       }
@@ -79,11 +82,19 @@ function extractToolCalls(messages: ReturnType<typeof useChatStore.getState>["me
 function ToolCallCardImpl({ record }: { record: ToolCallRecord }) {
   const [expanded, setExpanded] = useState(false);
   const displayName = getToolDisplayName(record.name);
-  const humanSummary = getToolHumanSummary({ name: record.name, arguments: record.arguments, id: record.id } as ToolCall);
+  const humanSummary = getToolHumanSummary({
+    name: record.name,
+    arguments: record.arguments,
+    id: record.id,
+  } as ToolCall);
   const hasArgs = record.arguments && Object.keys(record.arguments).length > 0;
 
   const statusIcon =
-    record.status === "running" ? "🔄" : record.status === "completed" ? "✅" : "❌";
+    record.status === "running"
+      ? "🔄"
+      : record.status === "completed"
+        ? "✅"
+        : "❌";
   const statusColor =
     record.status === "running"
       ? "border-l-blue-500"
@@ -97,9 +108,10 @@ function ToolCallCardImpl({ record }: { record: ToolCallRecord }) {
       const full = getToolResultFull(record.id);
       text = typeof full === "string" ? full : JSON.stringify(full, null, 2);
     } else {
-      text = typeof record.result === "string"
-        ? record.result
-        : JSON.stringify(record.result, null, 2);
+      text =
+        typeof record.result === "string"
+          ? record.result
+          : JSON.stringify(record.result, null, 2);
     }
     navigator.clipboard.writeText(text).catch(() => {});
   };
@@ -108,7 +120,9 @@ function ToolCallCardImpl({ record }: { record: ToolCallRecord }) {
   const errorText = extractError(record);
 
   return (
-    <div className={`p-2.5 rounded bg-gray-50 dark:bg-gray-800 border-l-2 ${statusColor} text-xs`}>
+    <div
+      className={`p-2.5 rounded bg-gray-50 dark:bg-gray-800 border-l-2 ${statusColor} text-xs`}
+    >
       {/* 标题行：图标 + 工具名 + 状态 */}
       <div className="flex items-center gap-1.5 mb-1">
         <span>{statusIcon}</span>
@@ -116,7 +130,9 @@ function ToolCallCardImpl({ record }: { record: ToolCallRecord }) {
           {displayName}
         </span>
         {record.status === "running" && (
-          <span className="ml-auto text-blue-500 animate-pulse shrink-0">进行中</span>
+          <span className="ml-auto text-blue-500 animate-pulse shrink-0">
+            进行中
+          </span>
         )}
       </div>
 
@@ -133,7 +149,9 @@ function ToolCallCardImpl({ record }: { record: ToolCallRecord }) {
           onClick={() => setExpanded(!expanded)}
           className="text-gray-400 dark:text-gray-500 mb-1 hover:text-gray-600 dark:hover:text-gray-300 transition-colors text-left"
         >
-          {expanded ? "收起参数 ▲" : `展开参数 (${Object.keys(record.arguments).length} 项) ▼`}
+          {expanded
+            ? "收起参数 ▲"
+            : `展开参数 (${Object.keys(record.arguments).length} 项) ▼`}
         </button>
       )}
       {expanded && hasArgs && (
@@ -151,14 +169,18 @@ function ToolCallCardImpl({ record }: { record: ToolCallRecord }) {
               : JSON.stringify(record.result)}
           </p>
           {record._hasFullResult && (
-            <span className="text-blue-400 text-[10px]">（结果已截断，点击复制获取完整内容）</span>
+            <span className="text-blue-400 text-[10px]">
+              （结果已截断，点击复制获取完整内容）
+            </span>
           )}
         </div>
       )}
 
       {/* 错误信息 */}
       {errorText && (
-        <p className="text-red-500 dark:text-red-400 mb-1 line-clamp-3">{errorText}</p>
+        <p className="text-red-500 dark:text-red-400 mb-1 line-clamp-3">
+          {errorText}
+        </p>
       )}
 
       {/* 操作按钮 */}
@@ -232,7 +254,9 @@ function ToolsTab() {
             进行中 ({running.length})
           </h4>
           <div className="space-y-1.5">
-            {running.map((tc) => <ToolCallCard key={tc.id} record={tc} />)}
+            {running.map((tc) => (
+              <ToolCallCard key={tc.id} record={tc} />
+            ))}
           </div>
         </div>
       )}
@@ -242,7 +266,9 @@ function ToolsTab() {
             已完成 ({completed.length})
           </h4>
           <div className="space-y-1.5">
-            {completed.map((tc) => <ToolCallCard key={tc.id} record={tc} />)}
+            {completed.map((tc) => (
+              <ToolCallCard key={tc.id} record={tc} />
+            ))}
           </div>
         </div>
       )}
@@ -252,7 +278,9 @@ function ToolsTab() {
             失败 ({failed.length})
           </h4>
           <div className="space-y-1.5">
-            {failed.map((tc) => <ToolCallCard key={tc.id} record={tc} />)}
+            {failed.map((tc) => (
+              <ToolCallCard key={tc.id} record={tc} />
+            ))}
           </div>
         </div>
       )}

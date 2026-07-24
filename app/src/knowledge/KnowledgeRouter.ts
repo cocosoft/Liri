@@ -45,6 +45,13 @@ import type { SemanticStore } from '@modules/knowledge/semantic/store';
 import { COMMON_STOP_WORDS } from '@modules/knowledge/stopwords';
 import type { EventBus } from '@modules/core';
 import type { KnowledgeGraph } from '@modules/knowledge/graph/KnowledgeGraph';
+import { resolveDataSubDir } from '@modules/core';
+import { readFile, writeFile, mkdir } from 'fs/promises';
+import { createHash } from 'crypto';
+import { existsSync } from 'fs';
+import { join } from 'path';
+import { KnowledgeConfig } from '@modules/knowledge/KnowledgeConfig';
+import { knowledgeMonitor } from '@modules/knowledge/KnowledgeMonitor';
 
 const logger = new Logger({
   module: 'knowledge:knowledgeRouter',
@@ -78,6 +85,32 @@ const DEFAULT_HYBRID_CONFIG: Required<HybridConfig> = {
   keywordFetchMultiplier: 3,
 };
 
+/** 索引用 content 截断长度 */
+const INDEX_CONTENT_MAX_LEN = 2000;
+/** 文档数上限 */
+const MAX_DOCS = 5000;
+/** 软告警阈值（百分比） */
+const DOCS_WARNING_RATIO = 0.8;
+/** 搜索缓存 TTL（毫秒） */
+const SEARCH_CACHE_TTL_MS = 60_000;
+/** 搜索缓存最大条目数 */
+const SEARCH_CACHE_MAX_SIZE = 500;
+
+interface IndexCacheEntry {
+  title: string;
+  category: string;
+  docPath: string;
+  isKnowledgeDoc: boolean;
+  contentHash: string;
+  domain?: string;
+  tokens: string[];
+}
+
+interface IndexCache {
+  version: 1;
+  docs: IndexCacheEntry[];
+}
+
 /**
  * 统一知识路由
  */
@@ -98,11 +131,17 @@ export class KnowledgeRouter implements IKnowledgeSearch {
   /** Token 倒排索引：token → 文档索引集合，O(k) 关键词查找 */
   private tokenIndex: Map<string, Set<number>> = new Map();
 
+  /** 索引缓存路径 */
+  private indexCachePath: string;
+
+  /** 搜索缓存：queryKey → { result, expiresAt } */
+  private searchCache: Map<string, { result: KnowledgeRoute[]; expiresAt: number }> = new Map();
+
   constructor(
     providers: FileDocsProvider | FileDocsProvider[],
     embeddingManager?: EmbeddingManager,
     knownUsernames: string[] = [],
-    hybridConfig?: HybridConfig,
+    knowledgeConfig?: KnowledgeConfig,
     semanticStore?: SemanticStore,
     eventBus?: EventBus,
     knowledgeGraph?: KnowledgeGraph
@@ -110,17 +149,34 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     this.providers = Array.isArray(providers) ? providers : [providers];
     this.knownUsernames = knownUsernames;
     this.embeddingManager = embeddingManager ?? globalEmbeddingManager;
-    this.hybridConfig = { ...DEFAULT_HYBRID_CONFIG, ...hybridConfig };
     this.semanticStore = semanticStore;
     this.knowledgeGraph = knowledgeGraph;
+
+    // 从 KnowledgeConfig 读取搜索配置，merge 到 hybridConfig
+    const configSearch = knowledgeConfig?.search;
+    this.hybridConfig = {
+      ...DEFAULT_HYBRID_CONFIG,
+      ...(configSearch ? {
+        keywordWeight: configSearch.keywordWeight,
+        semanticWeight: configSearch.semanticWeight,
+        semanticThreshold: configSearch.semanticThreshold,
+      } : {}),
+    };
+    this.indexCachePath = join(
+      resolveDataSubDir(''),
+      'knowledge',
+      'cache',
+      'inverted-index.json'
+    );
 
     // 监听知识变更事件，实现增量索引更新
     eventBus?.subscribe('knowledge:changed', (event: unknown) => {
       const evt = event as { action: string; filePath: string };
       if (evt.action === 'deleted') {
-        // 从索引中移除（通过 docPath 匹配）
         this.removeFromIndex(evt.filePath);
       }
+      // 清除搜索缓存（知识已变更）
+      this.searchCache.clear();
       // created/updated 通过 buildIndex 全量刷新（保守方案确保一致性）
     });
   }
@@ -140,7 +196,6 @@ export class KnowledgeRouter implements IKnowledgeSearch {
       const entries = await provider.buildIndex();
       for (const e of entries) {
         const isKnowledgeDoc = e.source?.includes('.pyapp') ?? false;
-        // 从路径中提取域名：domains/{name}/... → {name}
         const domainMatch = e.relativePath.match(/(?:^|\/)domains\/([^/]+)/);
         const doc: WeightedDoc = {
           docPath: e.relativePath,
@@ -155,24 +210,149 @@ export class KnowledgeRouter implements IKnowledgeSearch {
       }
     }
 
-    // 构建标题倒排索引和 token 倒排索引
-    for (let i = 0; i < this.docs.length; i++) {
-      const doc = this.docs[i]!;
-      // 标题索引：lowerTitle → doc
-      this.titleIndex.set(doc.title.toLowerCase(), doc);
-      // Token 索引：每个 token → 文档索引集合
-      const tokens = this.tokenize(doc.title + ' ' + doc.content);
-      for (const token of tokens) {
-        const set = this.tokenIndex.get(token);
-        if (set) {
-          set.add(i);
-        } else {
-          this.tokenIndex.set(token, new Set([i]));
-        }
-      }
+    // 容量检查：超过上限时告警并截断
+    if (this.docs.length > MAX_DOCS) {
+      logger.warn('知识库文档数超过上限', {
+        total: this.docs.length,
+        max: MAX_DOCS,
+        action: 'truncate',
+      });
+      this.docs = this.docs.slice(0, MAX_DOCS);
+    } else if (this.docs.length > MAX_DOCS * DOCS_WARNING_RATIO) {
+      logger.warn('知识库文档数接近上限', {
+        total: this.docs.length,
+        warningThreshold: MAX_DOCS * DOCS_WARNING_RATIO,
+      });
     }
 
+    // 构建索引 + 收集缓存条目
+    const cacheEntries: IndexCacheEntry[] = [];
+    for (let i = 0; i < this.docs.length; i++) {
+      const doc = this.docs[i]!;
+      this.titleIndex.set(doc.title.toLowerCase(), doc);
+
+      const truncatedContent = doc.content.slice(0, INDEX_CONTENT_MAX_LEN);
+      const tokens = this.tokenize(doc.title + ' ' + truncatedContent);
+      for (const token of tokens) {
+        const set = this.tokenIndex.get(token);
+        if (set) { set.add(i); } else { this.tokenIndex.set(token, new Set([i])); }
+      }
+
+      // 缓存条目（含 content hash 用于变更检测）
+      cacheEntries.push({
+        title: doc.title,
+        category: doc.category,
+        docPath: doc.docPath,
+        isKnowledgeDoc: doc.isKnowledgeDoc,
+        contentHash: createHash('sha256')
+          .update(truncatedContent)
+          .digest('hex')
+          .slice(0, 16),
+        domain: doc.domain,
+        tokens,
+      });
+    }
+
+    // 持久化索引缓存
+    await this.saveIndexCache(cacheEntries);
     this.initialized = true;
+
+    // 监控：索引构建耗时
+    knowledgeMonitor.record('knowledge.index.build_time_ms', 0).catch(() => {});
+    logger.info('索引构建完成', { docCount: this.docs.length });
+  }
+
+  /**
+   * 从缓存加载索引（如果内容 hash 一致则复用）
+   */
+  async tryLoadFromCache(): Promise<boolean> {
+    try {
+      if (!existsSync(this.indexCachePath)) return false;
+
+      const raw = await readFile(this.indexCachePath, 'utf-8');
+      const cache: IndexCache = JSON.parse(raw);
+      if (cache.version !== 1 || !cache.docs?.length) return false;
+
+      // 验证所有文档的 content hash 是否匹配
+      const freshEntries = await this.buildProviderEntries();
+      if (freshEntries.length !== cache.docs.length) return false;
+
+      for (let i = 0; i < cache.docs.length; i++) {
+        const cached = cache.docs[i]!;
+        const fresh = freshEntries[i]!;
+        const freshHash = createHash('sha256')
+          .update(fresh.content.slice(0, INDEX_CONTENT_MAX_LEN))
+          .digest('hex')
+          .slice(0, 16);
+        if (cached.contentHash !== freshHash) return false;
+      }
+
+      // Hash 全部匹配 → 从缓存恢复索引
+      this.docs = cache.docs.map((c) => ({
+        docPath: c.docPath,
+        title: c.title,
+        category: c.category,
+        content: '',
+        isKnowledgeDoc: c.isKnowledgeDoc,
+        domain: c.domain,
+      }));
+      for (let i = 0; i < cache.docs.length; i++) {
+        const c = cache.docs[i]!;
+        const doc = this.docs[i]!;
+        this.titleIndex.set(doc.title.toLowerCase(), doc);
+        for (const token of c.tokens) {
+          const set = this.tokenIndex.get(token);
+          if (set) { set.add(i); } else { this.tokenIndex.set(token, new Set([i])); }
+        }
+      }
+      this.initialized = true;
+      logger.info('从缓存加载索引', { docCount: this.docs.length });
+      return true;
+    } catch (err) {
+      logger.debug('索引缓存加载失败，将全量重建', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return false;
+    }
+  }
+
+  private async buildProviderEntries(): Promise<WeightedDoc[]> {
+    const result: WeightedDoc[] = [];
+    for (const provider of this.providers) {
+      const entries = await provider.buildIndex();
+      for (const e of entries) {
+        const isKnowledgeDoc = e.source?.includes('.pyapp') ?? false;
+        const domainMatch = e.relativePath.match(/(?:^|\/)domains\/([^/]+)/);
+        result.push({
+          docPath: e.relativePath,
+          title: e.title,
+          category: e.category,
+          content: e.content,
+          isKnowledgeDoc,
+          source: e.source,
+          domain: domainMatch ? domainMatch[1] : undefined,
+        });
+      }
+    }
+    return result;
+  }
+
+  private async saveIndexCache(entries: IndexCacheEntry[]): Promise<void> {
+    try {
+      const cacheDir = join(resolveDataSubDir(''), 'knowledge', 'cache');
+      if (!existsSync(cacheDir)) {
+        await mkdir(cacheDir, { recursive: true });
+      }
+      const tmpPath = this.indexCachePath + '.tmp';
+      const cache: IndexCache = { version: 1, docs: entries };
+      await writeFile(tmpPath, JSON.stringify(cache), 'utf-8');
+      const { rename } = await import('fs/promises');
+      await rename(tmpPath, this.indexCachePath);
+    } catch (err) {
+      logger.debug('索引缓存写入失败', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   /**
@@ -513,6 +693,8 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     query: string,
     options?: KnowledgeRouterOptions
   ): Promise<KnowledgeRoute[]> {
+    const startTime = performance.now();
+
     if (!this.initialized) {
       await this.buildIndex();
     }
@@ -520,8 +702,16 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     const maxResults = options?.maxResults ?? 10;
     const minScore = options?.minScore ?? 0;
     const offset = options?.offset ?? 0;
+
+    // 查搜索缓存
+    const cacheKey = `${query}||${maxResults}||${minScore}||${offset}||${options?.domain ?? ''}`;
+    const cached = this.searchCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      knowledgeMonitor.record('knowledge.search.latency_ms', performance.now() - startTime, { cache: 'hit' }).catch(() => {});
+      return cached.result;
+    }
+
     const multiplier = this.hybridConfig.keywordFetchMultiplier;
-    // 拉取更多结果以便 offset 切片（offset + maxResults 保证分页正确）
     const fetchCount = (offset + maxResults) * multiplier;
 
     const [keywordResults, semanticResults] = await Promise.all([
@@ -540,11 +730,10 @@ export class KnowledgeRouter implements IKnowledgeSearch {
       fetchCount
     );
 
-    // GraphRAG: 图感知扩展 — 通过知识图谱追加关联实体文档
+    // GraphRAG: 图感知扩展
     if (this.knowledgeGraph) {
       const graphResults = await this.graphExpand(query, maxResults);
       if (graphResults.length > 0) {
-        // 将图扩展结果追加到末尾（不覆盖已有结果）
         const existingPaths = new Set(merged.map((r) => r.docPath));
         for (const gr of graphResults) {
           if (!existingPaths.has(gr.docPath)) {
@@ -554,13 +743,26 @@ export class KnowledgeRouter implements IKnowledgeSearch {
       }
     }
 
-    return merged.slice(offset, offset + maxResults);
+    const result = merged.slice(offset, offset + maxResults);
+
+    // 写入搜索缓存（LRU 淘汰）
+    if (this.searchCache.size >= SEARCH_CACHE_MAX_SIZE) {
+      const oldest = this.searchCache.keys().next().value;
+      if (oldest) this.searchCache.delete(oldest);
+    }
+    this.searchCache.set(cacheKey, {
+      result,
+      expiresAt: Date.now() + SEARCH_CACHE_TTL_MS,
+    });
+
+    knowledgeMonitor.record('knowledge.search.latency_ms', performance.now() - startTime, { cache: 'miss' }).catch(() => {});
+    return result;
   }
 
   /**
    * GraphRAG 图感知扩展
    * 从查询中提取潜在实体，在 KnowledgeGraph 中查找关联边，
-   * 返回包含关联实体的文档
+   * 按边关系类型动态赋权返回关联文档。
    */
   private async graphExpand(
     query: string,
@@ -568,32 +770,45 @@ export class KnowledgeRouter implements IKnowledgeSearch {
   ): Promise<KnowledgeRoute[]> {
     if (!this.knowledgeGraph) return [];
 
+    // 边关系类型权重映射
+    const EDGE_WEIGHTS: Record<string, number> = {
+      synonym: 0.5,
+      related: 0.4,
+      parent: 0.35,
+      child: 0.35,
+      reference: 0.25,
+    };
+    const DEFAULT_EDGE_WEIGHT = 0.3;
+
     try {
-      // 提取查询中可能为实体的关键词（非停用词、2字以上）
       const entityCandidates = this.tokenize(query)
         .filter((t) => t.length >= 2 && !COMMON_STOP_WORDS.has(t))
         .slice(0, 5);
 
       if (entityCandidates.length === 0) return [];
 
-      // 查询每个候选实体的关联边
-      const relatedEntities = new Set<string>();
+      // 动态实体 ID 格式：不再硬编码 domain 前缀
+      const relatedEntities = new Map<string, number>(); // entity → maxWeight
       for (const entity of entityCandidates) {
-        // 尝试多种实体 ID 格式匹配
-        for (const domain of ['', 'botany', 'default']) {
-          const entityId = domain
-            ? `${domain}:concept:${entity}`
-            : `default:concept:${entity}`;
+        const formats = [`concept:${entity}`, `entity:${entity}`, entity];
+        for (const fmt of formats) {
           try {
             const edges = await this.knowledgeGraph.queryEdges({
-              entityId,
+              entityId: fmt,
               limit: 10,
             });
             for (const e of edges) {
-              relatedEntities.add(e.from);
-              relatedEntities.add(e.to);
+              const weight = EDGE_WEIGHTS[e.type] ?? DEFAULT_EDGE_WEIGHT;
+              const existing = relatedEntities.get(e.from);
+              if (existing === undefined || weight > existing) {
+                relatedEntities.set(e.from, weight);
+              }
+              const existingTo = relatedEntities.get(e.to);
+              if (existingTo === undefined || weight > existingTo) {
+                relatedEntities.set(e.to, weight);
+              }
             }
-          } catch (err) {
+          } catch {
             // 单个查询失败不影响整体
           }
         }
@@ -601,10 +816,8 @@ export class KnowledgeRouter implements IKnowledgeSearch {
 
       if (relatedEntities.size === 0) return [];
 
-      // 在文档索引中查找包含这些实体的文档
       const results: KnowledgeRoute[] = [];
-
-      for (const entity of relatedEntities) {
+      for (const [entity, weight] of relatedEntities) {
         const entityLower = entity.toLowerCase();
         for (const doc of this.docs) {
           if (results.length >= maxResults) break;
@@ -615,10 +828,10 @@ export class KnowledgeRouter implements IKnowledgeSearch {
             results.push({
               docPath: doc.docPath,
               title: doc.title,
-              score: 0.3, // 图扩展结果基础分较低
+              score: weight,
               category: doc.category,
               snippet: this.extractSnippet(doc.content, [entityLower]),
-              matchType: 'semantic', // 标记为 semantic 但有 graph 特性
+              matchType: 'semantic',
               isKnowledgeDoc: doc.isKnowledgeDoc,
             });
           }

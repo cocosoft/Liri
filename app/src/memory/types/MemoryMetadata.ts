@@ -9,6 +9,27 @@ export type MemoryAccessLevel =
   | 'protected'
   | 'admin';
 
+/** 梦境来源类型 */
+export type DreamSourceType =
+  | 'conversation'
+  | 'knowledge_file'
+  | 'user_profile'
+  | 'soul'
+  | 'manual';
+
+/** 梦境来源追踪：产生此记忆的原始数据源 */
+export interface DreamSource {
+  /** 来源类型 */
+  type: DreamSourceType;
+  /** 来源 ID 列表（sessionId / 知识文件路径 / 等） */
+  ids: string[];
+  /** 梦境周期 ID */
+  dreamCycleId: string;
+}
+
+/** 当前 schema 版本号 */
+export const CURRENT_SCHEMA_VERSION = 2;
+
 /**
  * 记忆元数据
  */
@@ -90,6 +111,42 @@ export interface MemoryMetadata {
    * 无值时存储在 global/ 目录下
    */
   sessionId?: string;
+
+  /**
+   * Schema 版本号，用于未来 schema 演进时的兼容性判断
+   * 默认值 1（旧记忆），新记忆使用 CURRENT_SCHEMA_VERSION
+   */
+  schemaVersion?: number;
+
+  /**
+   * 上次梦境处理时间戳（毫秒），null 表示未被梦境处理过
+   */
+  dreamProcessedAt?: number | null;
+
+  /**
+   * 梦境来源追踪：产生此记忆的原始数据源
+   */
+  dreamSource?: DreamSource;
+
+  /**
+   * 是否已被梦境精炼过（与 dreamProcessedAt 配合使用）
+   */
+  dreamRefined?: boolean;
+
+  /**
+   * 软删除标记：被哪条记忆取代（精炼合并时设置）
+   */
+  deprecatedBy?: string;
+
+  /**
+   * 软删除时间戳
+   */
+  deprecatedAt?: number;
+
+  /**
+   * 取代的旧记忆 ID（新记忆设置）
+   */
+  supersedes?: string;
 }
 
 /**
@@ -117,5 +174,12 @@ export function createMemoryMetadata(
     encrypted: data.encrypted || false,
     isPinned: data.isPinned || false,
     sessionId: data.sessionId,
+    schemaVersion: data.schemaVersion ?? CURRENT_SCHEMA_VERSION,
+    dreamProcessedAt: data.dreamProcessedAt ?? null,
+    dreamSource: data.dreamSource,
+    dreamRefined: data.dreamRefined ?? false,
+    deprecatedBy: data.deprecatedBy,
+    deprecatedAt: data.deprecatedAt,
+    supersedes: data.supersedes,
   };
 }

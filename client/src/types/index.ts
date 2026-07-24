@@ -91,7 +91,14 @@ export type {
 } from "./channel";
 
 // ─── 梦境日志 ───
-export type { DreamLogEntry, DreamLogResponse } from "./dream";
+export type {
+  DreamLogEntry,
+  DreamLogResponse,
+  DreamCycleSummary,
+  DreamCycleListResponse,
+  DreamCycleDetail,
+  DreamCycleDetailResponse,
+} from "./dream";
 
 // ─── 用户与权限 ───
 export type { User, ApiKey, Permission } from "./user";

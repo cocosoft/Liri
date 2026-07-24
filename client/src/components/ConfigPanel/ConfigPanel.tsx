@@ -84,7 +84,10 @@ function BackendControl() {
       setBackendStatus(status);
       setError(null);
     } catch (e) {
-      handleClientError(e, { module: "components:config:ConfigPanel", action: "checkBackendStatus" });
+      handleClientError(e, {
+        module: "components:config:ConfigPanel",
+        action: "checkBackendStatus",
+      });
       setBackendStatus({ running: false, port: null });
     }
   };

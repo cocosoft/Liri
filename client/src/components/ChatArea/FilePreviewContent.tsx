@@ -219,7 +219,10 @@ function PrettyJson({ content }: { content: string }) {
   try {
     parsed = JSON.parse(content);
   } catch (e) {
-    handleClientError(e, { module: "components:chat:FilePreview", action: "parseJson" });
+    handleClientError(e, {
+      module: "components:chat:FilePreview",
+      action: "parseJson",
+    });
     return <code>{content}</code>;
   }
 

@@ -96,7 +96,10 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
           });
         }
       } catch (e) {
-        handleClientError(e, { module: "components:modelAdmin:ModelSwitcher", action: "handleSwitch" });
+        handleClientError(e, {
+          module: "components:modelAdmin:ModelSwitcher",
+          action: "handleSwitch",
+        });
         // 静默降级
       }
 

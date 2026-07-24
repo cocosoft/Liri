@@ -62,7 +62,10 @@ export const useModelAdminStore = create<ModelAdminState>((set) => ({
       const providers = await providerService.list();
       set({ providers, isLoading: false });
     } catch (e) {
-      handleClientError(e, { module: "stores:modelAdmin", action: "loadProviders" });
+      handleClientError(e, {
+        module: "stores:modelAdmin",
+        action: "loadProviders",
+      });
       set({
         error: e instanceof Error ? e.message : "获取 Provider 列表失败",
         isLoading: false,
@@ -77,7 +80,10 @@ export const useModelAdminStore = create<ModelAdminState>((set) => ({
       const providers = await providerService.list();
       set({ providers, savingId: null });
     } catch (e) {
-      handleClientError(e, { module: "stores:modelAdmin", action: "createProvider" });
+      handleClientError(e, {
+        module: "stores:modelAdmin",
+        action: "createProvider",
+      });
       set({
         error: e instanceof Error ? e.message : "创建 Provider 失败",
         savingId: null,
@@ -92,7 +98,10 @@ export const useModelAdminStore = create<ModelAdminState>((set) => ({
       const providers = await providerService.list();
       set({ providers, savingId: null });
     } catch (e) {
-      handleClientError(e, { module: "stores:modelAdmin", action: "updateProvider" });
+      handleClientError(e, {
+        module: "stores:modelAdmin",
+        action: "updateProvider",
+      });
       set({
         error: e instanceof Error ? e.message : "更新 Provider 失败",
         savingId: null,
@@ -107,7 +116,10 @@ export const useModelAdminStore = create<ModelAdminState>((set) => ({
       const providers = await providerService.list();
       set({ providers, savingId: null });
     } catch (e) {
-      handleClientError(e, { module: "stores:modelAdmin", action: "deleteProvider" });
+      handleClientError(e, {
+        module: "stores:modelAdmin",
+        action: "deleteProvider",
+      });
       set({
         error: e instanceof Error ? e.message : "删除 Provider 失败",
         savingId: null,
@@ -122,7 +134,10 @@ export const useModelAdminStore = create<ModelAdminState>((set) => ({
       const providers = await providerService.list();
       set({ providers, savingId: null });
     } catch (e) {
-      handleClientError(e, { module: "stores:modelAdmin", action: "toggleProvider" });
+      handleClientError(e, {
+        module: "stores:modelAdmin",
+        action: "toggleProvider",
+      });
       set({
         error: e instanceof Error ? e.message : "切换状态失败",
         savingId: null,
@@ -141,7 +156,10 @@ export const useModelAdminStore = create<ModelAdminState>((set) => ({
         latencyMs: first?.latency,
       };
     } catch (e) {
-      handleClientError(e, { module: "stores:modelAdmin", action: "testConnection" });
+      handleClientError(e, {
+        module: "stores:modelAdmin",
+        action: "testConnection",
+      });
       return {
         success: false,
         error: e instanceof Error ? e.message : "连接测试失败",
@@ -161,7 +179,10 @@ export const useModelAdminStore = create<ModelAdminState>((set) => ({
       const providers = await providerService.list();
       set({ providers, savingId: null });
     } catch (e) {
-      handleClientError(e, { module: "stores:modelAdmin", action: "createModel" });
+      handleClientError(e, {
+        module: "stores:modelAdmin",
+        action: "createModel",
+      });
       set({
         error: e instanceof Error ? e.message : "创建模型失败",
         savingId: null,

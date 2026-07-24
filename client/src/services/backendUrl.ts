@@ -31,7 +31,10 @@ export async function initBackendUrlFromConfig(): Promise<void> {
     const config = await appConfigService.get();
     setBackendPort(config.httpPort);
   } catch (e) {
-      handleClientError(e, { module: "services:backendUrl", action: "initBackendUrlFromConfig" });
-      // 使用默认值 7890
-    }
+    handleClientError(e, {
+      module: "services:backendUrl",
+      action: "initBackendUrlFromConfig",
+    });
+    // 使用默认值 7890
+  }
 }

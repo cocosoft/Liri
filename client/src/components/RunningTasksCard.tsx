@@ -71,31 +71,32 @@ function RunningTasksList({ tasks }: { tasks: CronTask[] }) {
             <span className="text-gray-600 dark:text-gray-400 truncate">
               {task.name}
             </span>
-            <span className="ml-auto text-xs text-gray-400">
-              运行中
-            </span>
+            <span className="ml-auto text-xs text-gray-400">运行中</span>
           </div>
         ))
       ) : (
         <div className="flex flex-col gap-1">
-          {tasks.filter((t) => t.enabled).slice(0, 5).map((task) => (
-            <div
-              key={task.id}
-              className="flex items-center gap-2 px-2 py-1.5 rounded text-sm"
-            >
-              <span
-                className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                  task.status === "error" ? "bg-red-500" : "bg-yellow-400"
-                }`}
-              />
-              <span className="text-gray-600 dark:text-gray-400 truncate">
-                {task.name}
-              </span>
-              <span className="ml-auto text-xs text-gray-400">
-                {task.status === "error" ? "错误" : "待命"}
-              </span>
-            </div>
-          ))}
+          {tasks
+            .filter((t) => t.enabled)
+            .slice(0, 5)
+            .map((task) => (
+              <div
+                key={task.id}
+                className="flex items-center gap-2 px-2 py-1.5 rounded text-sm"
+              >
+                <span
+                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                    task.status === "error" ? "bg-red-500" : "bg-yellow-400"
+                  }`}
+                />
+                <span className="text-gray-600 dark:text-gray-400 truncate">
+                  {task.name}
+                </span>
+                <span className="ml-auto text-xs text-gray-400">
+                  {task.status === "error" ? "错误" : "待命"}
+                </span>
+              </div>
+            ))}
         </div>
       )}
     </div>
@@ -140,9 +141,11 @@ export default function RunningTasksCard() {
       <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
           运行中的任务
-          {tasks.filter((t) => t.enabled && t.status === "running").length > 0 && (
+          {tasks.filter((t) => t.enabled && t.status === "running").length >
+            0 && (
             <span className="ml-2 text-xs text-blue-500">
-              ({tasks.filter((t) => t.enabled && t.status === "running").length})
+              ({tasks.filter((t) => t.enabled && t.status === "running").length}
+              )
             </span>
           )}
         </h3>

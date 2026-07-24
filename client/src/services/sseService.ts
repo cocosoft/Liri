@@ -4,9 +4,9 @@ import { getOTelTracing } from "../monitoring/otel/OTelTracing";
 /** 构建 W3C traceparent 查询参数 */
 function buildTraceparentParam(): string {
   const span = getOTelTracing().getActiveSpan();
-  if (!span) return '';
+  if (!span) return "";
   const ctx = span.spanContext();
-  if (!ctx.traceId) return '';
+  if (!ctx.traceId) return "";
   return `traceparent=00-${ctx.traceId}-${ctx.spanId}-0${ctx.traceFlags}`;
 }
 
@@ -77,7 +77,7 @@ class SSEService {
     try {
       // P1-2.16: 注入 traceparent 查询参数，实现跨进程 TraceContext 传递
       const tp = buildTraceparentParam();
-      const sseUrl = `${getBackendBaseUrl()}/v1/events${tp ? `?${tp}` : ''}`;
+      const sseUrl = `${getBackendBaseUrl()}/v1/events${tp ? `?${tp}` : ""}`;
       this.eventSource = new EventSource(sseUrl);
 
       this.eventSource.onopen = () => {

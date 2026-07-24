@@ -79,7 +79,7 @@ function formatUptime(seconds: number): string {
 
 function DashboardPage() {
   const config = useConfigStore((s) => s.config);
-  const timezone = (config.timezone as string) || 'Asia/Shanghai';
+  const timezone = (config.timezone as string) || "Asia/Shanghai";
   const currency = getCurrencyFromTimezone(timezone);
   const isDark = config.theme === "dark";
   const navigate = useNavigate();
@@ -231,12 +231,32 @@ function DashboardPage() {
                 <span>📈</span> 数据概览
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <DashboardStatCard label="模型" value={stats.models} icon="🤖" />
+                <DashboardStatCard
+                  label="模型"
+                  value={stats.models}
+                  icon="🤖"
+                />
                 <DashboardStatCard label="工具" value={stats.tools} icon="🔧" />
-                <DashboardStatCard label="会话" value={stats.sessions} icon="💬" />
-                <DashboardStatCard label="知识条目" value={stats.knowledge} icon="📚" />
-                <DashboardStatCard label="定时任务" value={stats.cronTasks} icon="⏰" />
-                <DashboardStatCard label="消息渠道" value={stats.channels} icon="📡" />
+                <DashboardStatCard
+                  label="会话"
+                  value={stats.sessions}
+                  icon="💬"
+                />
+                <DashboardStatCard
+                  label="知识条目"
+                  value={stats.knowledge}
+                  icon="📚"
+                />
+                <DashboardStatCard
+                  label="定时任务"
+                  value={stats.cronTasks}
+                  icon="⏰"
+                />
+                <DashboardStatCard
+                  label="消息渠道"
+                  value={stats.channels}
+                  icon="📡"
+                />
                 <DashboardStatCard
                   label="Agent 任务"
                   value={stats.agentTasks}
@@ -316,19 +336,25 @@ function DashboardPage() {
                     label="本周成本"
                     value={formatCost(costSummary.weeklyCost, currency)}
                     icon="📊"
-                    trendDirection={costSummary.weeklyCost > 0 ? "up" : "stable"}
+                    trendDirection={
+                      costSummary.weeklyCost > 0 ? "up" : "stable"
+                    }
                   />
                   <DashboardStatCard
                     label="本月成本"
                     value={formatCost(costSummary.monthlyCost, currency)}
                     icon="📈"
-                    trendDirection={costSummary.monthlyCost > 0 ? "up" : "stable"}
+                    trendDirection={
+                      costSummary.monthlyCost > 0 ? "up" : "stable"
+                    }
                   />
                   <DashboardStatCard
                     label="总 Tokens"
                     value={costSummary.totalTokens.toLocaleString()}
                     icon="🪙"
-                    trendDirection={costSummary.totalTokens > 0 ? "up" : "stable"}
+                    trendDirection={
+                      costSummary.totalTokens > 0 ? "up" : "stable"
+                    }
                   />
                 </div>
                 <div className="mt-3 text-right">
@@ -636,7 +662,9 @@ function DashboardPage() {
                     costSummary.totalCacheCreationTokens > 0) && (
                     <CacheBenefitPanel
                       totalCacheReadTokens={costSummary.totalCacheReadTokens}
-                      totalCacheCreationTokens={costSummary.totalCacheCreationTokens}
+                      totalCacheCreationTokens={
+                        costSummary.totalCacheCreationTokens
+                      }
                     />
                   )}
 
@@ -902,7 +930,10 @@ function DashboardPage() {
                                   累计成本 (USD)
                                 </p>
                                 <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
-                                  {formatCost(analytics.cost.totalCostUSD, currency)}
+                                  {formatCost(
+                                    analytics.cost.totalCostUSD,
+                                    currency,
+                                  )}
                                 </p>
                               </div>
                             </div>

@@ -83,6 +83,11 @@ export type {
   SchedulerState,
 } from './KnowledgeCompileScheduler';
 
+export {
+  getCompileProgress,
+} from './CompileProgressTracker';
+export type { CompileProgress } from './CompileProgressTracker';
+
 // ─── v7.9+ 新架构模块 ─────────────────────────
 
 export { KnowledgeGraph } from './graph';
@@ -133,6 +138,27 @@ export type {
 export { KnowledgeSummarizer } from './KnowledgeSummarizer';
 export type { KnowledgeQueryResult } from './KnowledgeSummarizer';
 
+export { KnowledgeConfig } from './KnowledgeConfig';
+export type {
+  KnowledgeSearchConfig,
+  KnowledgeLinterConfig,
+  KnowledgeSchedulerConfig,
+  KnowledgeCompilerConfig,
+  KnowledgeConfigData,
+} from './KnowledgeConfig';
+
+export { KnowledgeDedupStrategy } from './KnowledgeDedupStrategy';
+export type { DedupResult } from './KnowledgeDedupStrategy';
+
+export { generateDigestContext } from './KnowledgeDigestInjector';
+export type { DigestInjectConfig, DigestSelectionStrategy } from './KnowledgeDigestInjector';
+
+export { KnowledgeMonitor, knowledgeMonitor } from './KnowledgeMonitor';
+
+export { KnowledgeLLMBudget } from './KnowledgeLLMBudget';
+
+export { migrateKnowledgeSchema, migrateDirectory } from './KnowledgeSchemaMigration';
+
 export { QueryFeedbackPipeline } from './QueryFeedbackPipeline';
 export type { FeedbackResult } from './QueryFeedbackPipeline';
 
@@ -148,6 +174,22 @@ export {
   KnowledgeDeleteTool,
   createKnowledgeDeleteTool,
 } from './tools/KnowledgeDeleteTool';
+export {
+  KnowledgeImportTool,
+  createKnowledgeImportTool,
+} from './tools/KnowledgeImportTool';
+export {
+  KnowledgeExportTool,
+  createKnowledgeExportTool,
+} from './tools/KnowledgeExportTool';
+export {
+  KnowledgeSnapshotsTool,
+  createKnowledgeSnapshotsTool,
+} from './tools/KnowledgeSnapshotsTool';
+export {
+  KnowledgeRestoreTool,
+  createKnowledgeRestoreTool,
+} from './tools/KnowledgeRestoreTool';
 
 export {
   UnifiedSearchService,

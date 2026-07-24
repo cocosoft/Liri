@@ -29,7 +29,11 @@ function ChatArea() {
 
   /** 诊断：会话变化时记录 */
   useEffect(() => {
-    console.info("[Diag:chatArea] 会话变更", { sessionId: currentSession?.id, title: currentSession?.title, msgCount: messages.length });
+    console.info("[Diag:chatArea] 会话变更", {
+      sessionId: currentSession?.id,
+      title: currentSession?.title,
+      msgCount: messages.length,
+    });
   }, [currentSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const { interimText, finalText, audioLevel, subtitleStatus } =
     useVoiceStore();
@@ -47,12 +51,17 @@ function ChatArea() {
   });
 
   /** 统一滚动状态：isUserScrolledUp 和 scrollToBottom 均由 useAutoScroll 管理 */
-  const { containerRef, isUserScrolledUp, scrollToBottom, distanceFromBottom } =
-    useAutoScroll({
-      messageCount: messages.length,
-      isStreaming,
-      sessionId: currentSession?.id,
-    });
+  const {
+    containerRef,
+    contentRef,
+    isUserScrolledUp,
+    scrollToBottom,
+    distanceFromBottom,
+  } = useAutoScroll({
+    messageCount: messages.length,
+    isStreaming,
+    sessionId: currentSession?.id,
+  });
 
   const handleDismissError = () => {
     useChatStore.setState({ error: null });
@@ -151,73 +160,74 @@ function ChatArea() {
   return (
     <div className="flex-1 relative bg-gray-50 dark:bg-gray-900 flex">
       {/* 消息区域 */}
-      <div className="flex-1 relative min-w-0">
-        <div
-          ref={containerRef}
-          className="absolute inset-0 overflow-y-auto pb-36"
-        >
-          {/* 错误提示 */}
-          {displayError && (
-            <div className="m-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
-              <span className="text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5">
-                ⚠
-              </span>
-              <div className="flex-1 min-w-0">
-                <span className="text-sm text-red-700 dark:text-red-300 block">
-                  {displayError}
+      <div className="flex-1 relative min-w-0 flex flex-col">
+        <div ref={containerRef} className="flex-1 overflow-y-auto">
+          <div ref={contentRef}>
+            {/* 错误提示 */}
+            {displayError && (
+              <div className="m-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
+                <span className="text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5">
+                  ⚠
                 </span>
-                <div className="flex items-center gap-2 mt-2">
-                  <button
-                    onClick={() => useBackendStore.getState().checkStatus()}
-                    className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
-                  >
-                    🔄 {t("common.retry")}
-                  </button>
-                  <button
-                    onClick={() => navigator.clipboard.writeText(displayError)}
-                    className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
-                  >
-                    📋 {t("chat.copyMessage")}
-                  </button>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm text-red-700 dark:text-red-300 block">
+                    {displayError}
+                  </span>
+                  <div className="flex items-center gap-2 mt-2">
+                    <button
+                      onClick={() => useBackendStore.getState().checkStatus()}
+                      className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
+                    >
+                      🔄 {t("common.retry")}
+                    </button>
+                    <button
+                      onClick={() =>
+                        navigator.clipboard.writeText(displayError)
+                      }
+                      className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
+                    >
+                      📋 {t("chat.copyMessage")}
+                    </button>
+                  </div>
                 </div>
+                <button
+                  onClick={handleDismissError}
+                  className="text-red-400 hover:text-red-600 dark:hover:text-red-200 flex-shrink-0"
+                  title={t("common.close")}
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                onClick={handleDismissError}
-                className="text-red-400 hover:text-red-600 dark:hover:text-red-200 flex-shrink-0"
-                title={t("common.close")}
-              >
-                ✕
-              </button>
-            </div>
-          )}
+            )}
 
-          <ErrorBoundary
-            fallback={
-              <div className="flex items-center justify-center min-h-[400px] p-8">
-                <div className="text-center">
-                  <p className="text-gray-500 mb-4">
-                    {t("chat.messageListLoadError")}
-                  </p>
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                  >
-                    {t("chat.refreshPage")}
-                  </button>
+            <ErrorBoundary
+              fallback={
+                <div className="flex items-center justify-center min-h-[400px] p-8">
+                  <div className="text-center">
+                    <p className="text-gray-500 mb-4">
+                      {t("chat.messageListLoadError")}
+                    </p>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                    >
+                      {t("chat.refreshPage")}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            }
-          >
-            <ChatMessageList
-              messages={messages}
-              isStreaming={isStreaming}
-              sessionUsage={sessionUsage}
-              hasSession={!!currentSession}
-              sessionTitle={currentSession?.title}
-              onCreateSession={handleCreateSession}
-              onSendMessage={handleSendMessage}
-            />
-          </ErrorBoundary>
+              }
+            >
+              <ChatMessageList
+                messages={messages}
+                isStreaming={isStreaming}
+                sessionUsage={sessionUsage}
+                hasSession={!!currentSession}
+                sessionTitle={currentSession?.title}
+                onCreateSession={handleCreateSession}
+                onSendMessage={handleSendMessage}
+              />
+            </ErrorBoundary>
+          </div>
         </div>
 
         {/* 回到底部按钮：复用已有样式，检测 isUserScrolledUp 后渐显，移动端避开 MobileBottomNav */}
@@ -290,7 +300,7 @@ function ChatArea() {
         )}
 
         {/* 底部区域：AI 状态栏 + 输入区（flex-col，StatusFloatBar 自然贴着输入区上方） */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-col">
+        <div className="shrink-0 flex flex-col">
           <StatusFloatBar />
 
           {/* 语音字幕覆盖层 */}

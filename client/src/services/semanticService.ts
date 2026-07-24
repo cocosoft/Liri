@@ -44,7 +44,10 @@ export const semanticService = {
         chunkCount: 0,
       }) as SemanticIndexStatus;
     } catch (e) {
-      handleClientError(e, { module: "services:semantic", action: "getStatus" });
+      handleClientError(e, {
+        module: "services:semantic",
+        action: "getStatus",
+      });
       return { exists: false, docCount: 0, chunkCount: 0 };
     }
   },
@@ -58,7 +61,10 @@ export const semanticService = {
       });
       return (res ?? null) as IndexBuildResult | null;
     } catch (e) {
-      handleClientError(e, { module: "services:semantic", action: "buildIndex" });
+      handleClientError(e, {
+        module: "services:semantic",
+        action: "buildIndex",
+      });
       return null;
     }
   },
@@ -69,7 +75,10 @@ export const semanticService = {
       await http.delete("/v1/semantic/index");
       return true;
     } catch (e) {
-      handleClientError(e, { module: "services:semantic", action: "clearIndex" });
+      handleClientError(e, {
+        module: "services:semantic",
+        action: "clearIndex",
+      });
       return false;
     }
   },

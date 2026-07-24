@@ -55,19 +55,9 @@ function VersionHistory({
 
   async function handleSelectSnapshot(name: string) {
     setSelectedSnapshot(name);
-    // 从文件名提取时间戳作为显示
     try {
-      const snapDir = `.knowledge-snapshots/${title}/${name}`;
-      // 通过读取 snapshot 内容来展示 diff（简化：用 fetch 获取）
-      const resp = await fetch(
-        `/api/files/read?path=${encodeURIComponent(snapDir)}`,
-      );
-      if (resp.ok) {
-        const data = await resp.json();
-        setSnapshotContent(data.content || "");
-      } else {
-        setSnapshotContent(null);
-      }
+      const content = await knowledgeService.getSnapshotContent(title, name);
+      setSnapshotContent(content);
     } catch {
       setSnapshotContent(null);
     }

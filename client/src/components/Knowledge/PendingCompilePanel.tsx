@@ -60,10 +60,19 @@ function PendingCompilePanel({
     setCompiling(true);
     setCompileProgress(0);
     setCompileResult(null);
-    // 模拟进度更新（编译期间每 300ms 增加进度直到 90%）
-    const progressTimer = setInterval(() => {
-      setCompileProgress((prev) => Math.min(prev + Math.random() * 30, 90));
-    }, 300);
+
+    // W9: 轮询真实编译进度（每 500ms 查询一次）
+    const progressTimer = setInterval(async () => {
+      try {
+        const status = await knowledgeService.getCompileStatus();
+        if (status.total > 0) {
+          setCompileProgress(Math.round((status.current / status.total) * 100));
+        }
+      } catch {
+        // 轮询失败静默忽略
+      }
+    }, 500);
+
     try {
       const result = await knowledgeService.triggerCompile(false);
       clearInterval(progressTimer);
@@ -78,6 +87,7 @@ function PendingCompilePanel({
       await loadRawFiles();
       onCompileComplete?.();
     } catch (err) {
+      clearInterval(progressTimer);
       setCompileResult({
         message:
           "编译失败: " + (err instanceof Error ? err.message : "未知错误"),
@@ -148,7 +158,10 @@ function PendingCompilePanel({
             </div>
           ) : rawFiles.length === 0 ? (
             <div className={`text-center py-3 ${textMuted}`}>
-              <span className="text-xs">暂无待处理的文件</span>
+              <p className="text-xs">暂无待处理的文件</p>
+              <p className="text-[10px] mt-1 opacity-60">
+                上传 .md .txt .pdf 等文件后将自动进入编译队列
+              </p>
             </div>
           ) : (
             <div className="space-y-1 max-h-40 overflow-y-auto">

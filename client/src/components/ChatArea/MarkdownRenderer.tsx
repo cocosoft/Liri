@@ -11,8 +11,14 @@ let _diagKatexCalls = 0;
 let _diagChineseBlocks = 0;
 let _diagKatexMs = 0;
 export function getKatexDiag() {
-  const r = { calls: _diagKatexCalls, chineseBlocks: _diagChineseBlocks, ms: _diagKatexMs };
-  _diagKatexCalls = 0; _diagChineseBlocks = 0; _diagKatexMs = 0;
+  const r = {
+    calls: _diagKatexCalls,
+    chineseBlocks: _diagChineseBlocks,
+    ms: _diagKatexMs,
+  };
+  _diagKatexCalls = 0;
+  _diagChineseBlocks = 0;
+  _diagKatexMs = 0;
   return r;
 }
 import { InlineCodeLink } from "./markdown/InlineCodeLink";
@@ -154,11 +160,18 @@ function MarkdownRenderer({
         const { index, pattern, match } = earliestMatch;
         if (index > 0) {
           const beforeText = remaining.slice(0, index);
-          if (autoDetectFormula && isLatexFormula(beforeText) && !CONTAINS_CHINESE_RE.test(beforeText)) {
+          if (
+            autoDetectFormula &&
+            isLatexFormula(beforeText) &&
+            !CONTAINS_CHINESE_RE.test(beforeText)
+          ) {
             let renderedFormula: string;
             try {
               const tk = performance.now();
-              renderedFormula = katex.renderToString(beforeText, { displayMode: false, strict: false });
+              renderedFormula = katex.renderToString(beforeText, {
+                displayMode: false,
+                strict: false,
+              });
               _diagKatexMs += performance.now() - tk;
               _diagKatexCalls++;
             } catch {
@@ -235,7 +248,10 @@ function MarkdownRenderer({
             let renderedFormula: string;
             try {
               const tk = performance.now();
-              renderedFormula = katex.renderToString(match[1], { displayMode: false, strict: false });
+              renderedFormula = katex.renderToString(match[1], {
+                displayMode: false,
+                strict: false,
+              });
               _diagKatexMs += performance.now() - tk;
               _diagKatexCalls++;
             } catch {
@@ -284,11 +300,18 @@ function MarkdownRenderer({
     }
 
     if (remaining) {
-      if (autoDetectFormula && isLatexFormula(remaining) && !CONTAINS_CHINESE_RE.test(remaining)) {
+      if (
+        autoDetectFormula &&
+        isLatexFormula(remaining) &&
+        !CONTAINS_CHINESE_RE.test(remaining)
+      ) {
         let renderedFormula: string;
         try {
           const tk = performance.now();
-          renderedFormula = katex.renderToString(remaining, { displayMode: false, strict: false });
+          renderedFormula = katex.renderToString(remaining, {
+            displayMode: false,
+            strict: false,
+          });
           _diagKatexMs += performance.now() - tk;
           _diagKatexCalls++;
         } catch {
@@ -324,7 +347,8 @@ function MarkdownRenderer({
       <div className="prose prose-sm max-w-none">
         <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-xs">
           <p className="text-amber-600 dark:text-amber-400 font-medium mb-1">
-            ⚠️ 内容过长（{(content.length / 1024).toFixed(0)} KB），已截断显示前 5000 字符
+            ⚠️ 内容过长（{(content.length / 1024).toFixed(0)} KB），已截断显示前
+            5000 字符
           </p>
           <pre className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-gray-700 dark:text-gray-300 overflow-auto max-h-96 whitespace-pre-wrap text-[11px] leading-relaxed">
             {safeContent}

@@ -211,7 +211,6 @@ describe('KnowledgeRouter', () => {
 
   describe('removeFromIndex', () => {
     it('should remove doc and make it unfindable', async () => {
-      // 先加一个临时文档
       const tmpProvider = new MockDocsProvider([
         {
           title: '临时文档删除测试',
@@ -226,6 +225,21 @@ describe('KnowledgeRouter', () => {
 
       tmpRouter.removeFromIndex('docs/临时文档删除测试.md');
       expect(tmpRouter.findByTitle('临时文档删除测试')).toBeUndefined();
+    });
+  });
+
+  describe('search cache (v1.5)', () => {
+    it('should return search results', async () => {
+      const results = await router.search('Python', { maxResults: 3 });
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0]!.score).toBeGreaterThan(0);
+    });
+
+    it('should return results with sorted scores', async () => {
+      const results = await router.search('学', { maxResults: 10 });
+      for (let i = 1; i < results.length; i++) {
+        expect(results[i]!.score).toBeLessThanOrEqual(results[i - 1]!.score);
+      }
     });
   });
 });

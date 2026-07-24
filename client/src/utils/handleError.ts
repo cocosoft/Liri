@@ -155,7 +155,7 @@ function reportToBackend(entry: TrackedEntry): void {
 export function handleClientError(
   error: unknown,
   options: HandleErrorOptions,
-  _severity?: "warn" | "error" // 保留签名兼容性
+  _severity?: "warn" | "error", // 保留签名兼容性
 ): AppError {
   // 1. 转为 AppError（标准化）
   const appError =
@@ -198,9 +198,7 @@ export function handleClientError(
 
   if (appError.severity === ErrorSeverity.CRITICAL) {
     console.error(`[${module}] ${appError.message}`, logMeta, appError.stack);
-  } else if (
-    appError.severity === ErrorSeverity.HIGH
-  ) {
+  } else if (appError.severity === ErrorSeverity.HIGH) {
     console.warn(`[${module}] ${appError.message}`, logMeta);
   } else {
     console.log(`[${module}] ${appError.message}`, logMeta);

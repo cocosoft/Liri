@@ -115,7 +115,10 @@ function ImpactPanel() {
       );
       setResult(res as ImpactResult);
     } catch (e) {
-      handleClientError(e, { module: "components:workspace:OrchIntelligence", action: "analyzeImpact" });
+      handleClientError(e, {
+        module: "components:workspace:OrchIntelligence",
+        action: "analyzeImpact",
+      });
       logger.error("影响评估失败", e);
     } finally {
       setLoading(false);
@@ -224,7 +227,10 @@ function RiskPanel() {
       setRisks(data.risks);
       setSummary(data.summary);
     } catch (e) {
-      handleClientError(e, { module: "components:workspace:OrchIntelligence", action: "detectRisks" });
+      handleClientError(e, {
+        module: "components:workspace:OrchIntelligence",
+        action: "detectRisks",
+      });
       logger.error("风险识别失败", e);
     } finally {
       setLoading(false);
@@ -322,7 +328,10 @@ function DecisionPanel() {
       );
       setResult(res as DecisionResult);
     } catch (e) {
-      handleClientError(e, { module: "components:workspace:OrchIntelligence", action: "classifyDecision" });
+      handleClientError(e, {
+        module: "components:workspace:OrchIntelligence",
+        action: "classifyDecision",
+      });
       logger.error("决策分级失败", e);
     } finally {
       setLoading(false);
@@ -415,7 +424,10 @@ function EscalationsPanel() {
       );
       setEscalations(res as EscalationItem[]);
     } catch (e) {
-      handleClientError(e, { module: "components:workspace:OrchIntelligence", action: "getEscalations" });
+      handleClientError(e, {
+        module: "components:workspace:OrchIntelligence",
+        action: "getEscalations",
+      });
       logger.error("获取异常列表失败", e);
     } finally {
       setLoading(false);
@@ -481,7 +493,10 @@ function ResourcesPanel() {
       );
       setResources(res as ResourceStatus[]);
     } catch (e) {
-      handleClientError(e, { module: "components:workspace:OrchIntelligence", action: "getResources" });
+      handleClientError(e, {
+        module: "components:workspace:OrchIntelligence",
+        action: "getResources",
+      });
       logger.error("获取资源状态失败", e);
     } finally {
       setLoading(false);

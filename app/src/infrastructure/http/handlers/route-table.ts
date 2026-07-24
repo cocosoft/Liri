@@ -810,6 +810,20 @@ export async function dispatchRoute(
     await self['handleConsolidateMemories'](req, res);
     return true;
   }
+  if (method === 'POST' && url === '/v1/memory/dream') {
+    await self['handleDreamMemories'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/memory/dream/cycles') {
+    await self['handleDreamCyclesList'](req, res);
+    return true;
+  }
+  const cycleDetailMatch = method === 'GET' &&
+    url.match(/^\/v1\/memory\/dream\/cycles\/(dream_\d+)$/);
+  if (cycleDetailMatch) {
+    await self['handleDreamCycleDetail'](req, res, cycleDetailMatch[1]);
+    return true;
+  }
   if (method === 'PUT' && url.match(/^\/v1\/memory\/(.+)$/)) {
     await self['handleUpdateMemory'](
       req,
@@ -1210,6 +1224,10 @@ export async function dispatchRoute(
   }
   if (method === 'POST' && url === '/v1/knowledge/compile') {
     await self['handleKnowledgeCompile'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/knowledge/compile-status') {
+    await self['handleKnowledgeCompileStatus'](req, res);
     return true;
   }
   if (method === 'GET' && url === '/v1/knowledge/raw-files') {
@@ -2201,8 +2219,15 @@ export async function dispatchRoute(
 
   // ---- Health ----
   if (method === 'GET' && url === '/health') {
+    let dream;
+    try {
+      const { readMetrics } = await import('../../../../src/dream/DreamMetrics');
+      dream = await readMetrics();
+    } catch {
+      // 指标文件不存在或读取失败，不影响健康检查
+    }
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok', service: 'LocalHTTPService' }));
+    res.end(JSON.stringify({ status: 'ok', service: 'LocalHTTPService', dream }));
     return true;
   }
 

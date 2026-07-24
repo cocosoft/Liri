@@ -24,7 +24,10 @@ export const useConfigStore = create<ConfigStore>()(
           const config = await configService.list();
           set({ config, isLoading: false });
         } catch (error) {
-          handleClientError(error, { module: "stores:config", action: "loadConfig" });
+          handleClientError(error, {
+            module: "stores:config",
+            action: "loadConfig",
+          });
           set({ error: String(error), isLoading: false });
         }
       },
@@ -38,7 +41,10 @@ export const useConfigStore = create<ConfigStore>()(
             isLoading: false,
           });
         } catch (error) {
-          handleClientError(error, { module: "stores:config", action: "setConfig" });
+          handleClientError(error, {
+            module: "stores:config",
+            action: "setConfig",
+          });
           set({ error: String(error), isLoading: false });
         }
       },

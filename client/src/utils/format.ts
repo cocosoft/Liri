@@ -12,7 +12,7 @@
  */
 export function formatCost(
   value: number | undefined | null,
-  currency = '$',
+  currency = "$",
   decimals?: number,
 ): string {
   if (value == null) return `${currency}0.00`;
@@ -25,12 +25,15 @@ export function formatCost(
 /**
  * 统一 Token 数量格式化。locale='zh' 时使用万/千单位。
  */
-export function formatTokens(value: number | undefined | null, locale?: 'en' | 'zh'): string {
-  if (value == null) return '0';
-  if (locale === 'zh') {
+export function formatTokens(
+  value: number | undefined | null,
+  locale?: "en" | "zh",
+): string {
+  if (value == null) return "0";
+  if (locale === "zh") {
     if (value >= 10_000) return `${(value / 10_000).toFixed(1)}万`;
     if (value >= 1_000) return `${(value / 1_000).toFixed(1)}千`;
-    return value.toLocaleString('zh-CN');
+    return value.toLocaleString("zh-CN");
   }
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
@@ -47,23 +50,23 @@ export function formatPercent(value: number): string {
 // ── 时区 → 货币符号映射 ──
 
 const TIMEZONE_CURRENCY_MAP: Record<string, string> = {
-  'Asia/Shanghai': '¥',
-  'Asia/Tokyo': '¥',
-  'Asia/Seoul': '₩',
-  'Asia/Singapore': 'S$',
-  'Asia/Kolkata': '₹',
-  'Asia/Dubai': 'د.إ',
-  'Europe/London': '£',
-  'Europe/Paris': '€',
-  'Europe/Berlin': '€',
-  'Europe/Moscow': '₽',
-  'America/New_York': '$',
-  'America/Chicago': '$',
-  'America/Los_Angeles': '$',
-  'America/Sao_Paulo': 'R$',
-  'Australia/Sydney': 'A$',
-  'Pacific/Auckland': 'NZ$',
-  'UTC': '$',
+  "Asia/Shanghai": "¥",
+  "Asia/Tokyo": "¥",
+  "Asia/Seoul": "₩",
+  "Asia/Singapore": "S$",
+  "Asia/Kolkata": "₹",
+  "Asia/Dubai": "د.إ",
+  "Europe/London": "£",
+  "Europe/Paris": "€",
+  "Europe/Berlin": "€",
+  "Europe/Moscow": "₽",
+  "America/New_York": "$",
+  "America/Chicago": "$",
+  "America/Los_Angeles": "$",
+  "America/Sao_Paulo": "R$",
+  "Australia/Sydney": "A$",
+  "Pacific/Auckland": "NZ$",
+  UTC: "$",
 };
 
 /**
@@ -71,5 +74,5 @@ const TIMEZONE_CURRENCY_MAP: Record<string, string> = {
  * 仅覆盖 Settings 中 TIMEZONE_OPTIONS 的 17 个时区，未覆盖返回 '$'。
  */
 export function getCurrencyFromTimezone(timezone: string): string {
-  return TIMEZONE_CURRENCY_MAP[timezone] || '$';
+  return TIMEZONE_CURRENCY_MAP[timezone] || "$";
 }

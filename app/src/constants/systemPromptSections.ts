@@ -24,6 +24,7 @@ import {
   getKnowledgeQueryProvider,
   getCurrentKnowledgeQuery,
 } from '@modules/services/prompt/KnowledgePromptProvider';
+import { generateDigestContext } from '@modules/knowledge/KnowledgeDigestInjector';
 import { truncateMemoryContent } from '@modules/memory/MemoryTruncation';
 import { getGitInfo } from '@modules/context/GitDetector';
 import { readProjectFiles } from '@modules/context/ProjectFileReader';
@@ -255,7 +256,7 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
       const provider = getMemoryQueryProvider();
       if (!provider) return null;
 
-      const result = await provider.getMemorySummaries(5);
+      const result = await provider.getMemorySummaries(10);
       if (result.summaries.length === 0) return null;
 
       const summaries = result.summaries
@@ -367,6 +368,14 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
       return parts.join('\n');
     },
     'Knowledge relevance depends on current conversation context'
+  ),
+
+  DANGEROUS_uncachedSystemPromptSection(
+    'knowledgeDigest',
+    async () => {
+      return await generateDigestContext({ maxCount: 3, strategy: 'combined' });
+    },
+    'Knowledge digest updated periodically, cache 5min'
   ),
 ];
 

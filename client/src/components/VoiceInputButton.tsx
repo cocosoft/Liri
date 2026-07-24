@@ -222,7 +222,10 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
             try {
               recognition.start();
             } catch (e) {
-              handleClientError(e, { module: "components:voice:VoiceInput", action: "recognitionRestart" });
+              handleClientError(e, {
+                module: "components:voice:VoiceInput",
+                action: "recognitionRestart",
+              });
               // 忽略重启失败
             }
           }
@@ -231,7 +234,10 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
         recognition.start();
         recognitionRef.current = recognition;
       } catch (e) {
-        handleClientError(e, { module: "components:voice:VoiceInput", action: "startSubtitleRecognition" });
+        handleClientError(e, {
+          module: "components:voice:VoiceInput",
+          action: "startSubtitleRecognition",
+        });
         // SpeechRecognition 初始化失败，静默降级
         useVoiceStore.setState({ subtitleStatus: "idle" });
       }
@@ -245,7 +251,10 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
         try {
           recognitionRef.current.stop();
         } catch (e) {
-          handleClientError(e, { module: "components:voice:VoiceInput", action: "stopSubtitleRecognition" });
+          handleClientError(e, {
+            module: "components:voice:VoiceInput",
+            action: "stopSubtitleRecognition",
+          });
           // 忽略停止错误
         }
         recognitionRef.current = null;

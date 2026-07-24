@@ -144,7 +144,7 @@ export function connectWakeWordWebSocket(): Promise<void> {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     // P1-2.16: 注入 traceparent 查询参数
     const span = getOTelTracing().getActiveSpan();
-    let tpParam = '';
+    let tpParam = "";
     if (span) {
       const ctx = span.spanContext();
       if (ctx.traceId) {
@@ -266,7 +266,7 @@ export function connectVoiceWebSocket(): Promise<void> {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     // P1-2.16: 注入 traceparent 查询参数，实现跨进程 TraceContext 传递
     const span = getOTelTracing().getActiveSpan();
-    let tpParam = '';
+    let tpParam = "";
     if (span) {
       const ctx = span.spanContext();
       if (ctx.traceId) {
@@ -395,33 +395,42 @@ const voiceService = {
     sessionId: string,
     audioBlob: Blob,
   ): Promise<{ transcript: string; audioUrl?: string }> {
-    return getOTelTracing().asyncWrap("services:voice:uploadAudio", async () => {
-      const formData = new FormData();
-      formData.append("audio", audioBlob, "recording.webm");
-      formData.append("sessionId", sessionId);
+    return getOTelTracing().asyncWrap(
+      "services:voice:uploadAudio",
+      async () => {
+        const formData = new FormData();
+        formData.append("audio", audioBlob, "recording.webm");
+        formData.append("sessionId", sessionId);
 
-      const response = await fetch(`${window.location.origin}/v1/voice/upload`, {
-        method: "POST",
-        body: formData,
-      });
+        const response = await fetch(
+          `${window.location.origin}/v1/voice/upload`,
+          {
+            method: "POST",
+            body: formData,
+          },
+        );
 
-      if (!response.ok) {
-        throw new Error("Failed to upload audio");
-      }
+        if (!response.ok) {
+          throw new Error("Failed to upload audio");
+        }
 
-      return response.json();
-    });
+        return response.json();
+      },
+    );
   },
 
   async getAudioStream(sessionId: string): Promise<MediaStream> {
-    return getOTelTracing().asyncWrap("services:voice:getAudioStream", async () => {
-      const response = await fetch(`/v1/voice/stream/${sessionId}`);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audio.play();
-      return new MediaStream();
-    });
+    return getOTelTracing().asyncWrap(
+      "services:voice:getAudioStream",
+      async () => {
+        const response = await fetch(`/v1/voice/stream/${sessionId}`);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.play();
+        return new MediaStream();
+      },
+    );
   },
 
   async synthesizeSpeech(text: string, voiceId?: string): Promise<string> {
@@ -507,12 +516,15 @@ const voiceService = {
           reader.onload = async () => {
             try {
               const base64 = (reader.result as string).split(",")[1];
-              const result = await http.post<STTResult>("/v1/voice/transcribe", {
-                audioData: base64,
-                providerId: options?.providerId,
-                language: options?.language,
-                keyterms: options?.keyterms,
-              });
+              const result = await http.post<STTResult>(
+                "/v1/voice/transcribe",
+                {
+                  audioData: base64,
+                  providerId: options?.providerId,
+                  language: options?.language,
+                  keyterms: options?.keyterms,
+                },
+              );
               resolve(result);
             } catch (err) {
               reject(err);

@@ -26,6 +26,12 @@ import { FileSource } from '@modules/services/file/types';
 import { IndexManager } from './IndexManager';
 import { WikiLinter, defaultRules } from './lint/WikiLinter';
 import { providerRegistry } from '@modules/ai';
+import {
+  startCompileProgress,
+  updateCompileProgress,
+  finishCompileProgress,
+  abortCompileProgress,
+} from './CompileProgressTracker';
 
 const logger = new Logger({
   module: 'knowledge:knowledgeCompiler',
@@ -77,6 +83,15 @@ export interface CompileResult {
   totalFound: number;
   /** many-to-many: 实际生成的 wiki 页面总数（一条源文件可生成多页） */
   pagesCreated: number;
+  /** 编译质量信息（v1.5 新增） */
+  quality?: {
+    /** 0-100，基于 lint 问题数计算 */
+    lintScore: number;
+    /** 是否有告警 */
+    hasWarnings: boolean;
+    /** 编译失败次数（用于回滚阈值判断） */
+    consecutiveFails: number;
+  };
 }
 
 /**
@@ -125,6 +140,9 @@ export class KnowledgeCompiler {
 
     if (rawFiles.length === 0) return result;
 
+    // W9: 开始编译进度追踪
+    startCompileProgress(rawFiles.length);
+
     // 加载编译状态快照，用于跳过无变更文件
     const compileState = await this.loadCompileState();
     const newState: CompileState = { lastCompileAt: Date.now(), docs: {} };
@@ -144,6 +162,7 @@ export class KnowledgeCompiler {
         '未找到可用供应商，跳过编译。请通过 /provider 命令配置供应商（如 deepseek/openai）。';
       logger.error('知识编译失败', { error: errMsg });
       result.errors.push(errMsg);
+      abortCompileProgress(errMsg);
       return result;
     }
 
@@ -159,6 +178,7 @@ export class KnowledgeCompiler {
             // mtime 完全一致，且已有编译产物，可以安全跳过
             result.skipped++;
             newState.docs[rawFile] = prevState;
+            updateCompileProgress(result.compiled + result.skipped);
             continue;
           }
           // mtime 变更了但 needsRecompile 返回 false（可能编译产物仍更新）
@@ -178,6 +198,7 @@ export class KnowledgeCompiler {
             // stat 失败忽略
           }
           result.skipped++;
+          updateCompileProgress(result.compiled + result.skipped);
           continue;
         }
 
@@ -196,13 +217,19 @@ export class KnowledgeCompiler {
           // stat 失败忽略
         }
 
+        updateCompileProgress(result.compiled + result.skipped);
         logger.info('文件编译完成', { file: rawFile, pages: pages.length });
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : String(error);
         result.errors.push(`${rawFile}: ${errMsg}`);
+        result.skipped++;
+        updateCompileProgress(result.compiled + result.skipped, errMsg);
         logger.error('文件编译失败', { file: rawFile, error: errMsg });
       }
     }
+
+    // W9: 编译完成
+    finishCompileProgress();
 
     // 持久化编译状态快照
     await this.saveCompileState(newState);

@@ -48,7 +48,10 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
       body: update.body,
     };
   } catch (e) {
-    handleClientError(e, { module: "services:updater", action: "checkForUpdate" });
+    handleClientError(e, {
+      module: "services:updater",
+      action: "checkForUpdate",
+    });
     return { available: false, currentVersion: "" };
   }
 }

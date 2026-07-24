@@ -7,10 +7,11 @@
  */
 
 import { join } from 'path';
-import { readFile, writeFile, mkdir, readdir } from 'fs/promises';
+import { readFile, writeFile, mkdir, readdir, rename } from 'fs/promises';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolvePyappHome } from '@modules/core';
+import { SimpleMutex } from '@modules/core/SimpleMutex';
 
 export interface KnowledgeBaseMeta {
   label: string;
@@ -47,6 +48,7 @@ export class KnowledgeBaseRegistry {
   private knowledgeRoot: string;
   private registryPath: string;
   private data: RegistryData | null = null;
+  private writeMutex = new SimpleMutex();
 
   constructor() {
     this.knowledgeRoot = join(resolvePyappHome(), 'knowledge');
@@ -129,11 +131,15 @@ export class KnowledgeBaseRegistry {
   private async persist(): Promise<void> {
     if (!this.data) return;
     await this.ensureRoot();
-    await writeFile(
-      this.registryPath,
-      JSON.stringify(this.data, null, 2),
-      'utf-8'
-    );
+    await this.writeMutex.acquire();
+    try {
+      // 原子写入：先写 .tmp，再 rename 替换
+      const tmpPath = this.registryPath + '.tmp';
+      await writeFile(tmpPath, JSON.stringify(this.data, null, 2), 'utf-8');
+      await rename(tmpPath, this.registryPath);
+    } finally {
+      this.writeMutex.release();
+    }
   }
 
   /**

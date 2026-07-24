@@ -155,6 +155,9 @@ export interface MemoryStore {
 
   // 获取已注册的后端列表
   getRegisteredBackends(): string[];
+
+  // 按来源 ID 查找记忆（用于去重查询和级联清理）
+  findBySourceId(sourceId: string): Promise<Memory[]>;
 }
 
 /**
@@ -258,6 +261,21 @@ export class MemoryStoreImpl implements MemoryStore {
         if (memory.metadata.source) frontmatter.source = memory.metadata.source;
         if (memory.metadata.sessionId)
           frontmatter.sessionId = memory.metadata.sessionId;
+
+        // 新字段: 梦境追踪
+        frontmatter.schemaVersion = memory.metadata.schemaVersion;
+        if (memory.metadata.dreamProcessedAt !== undefined)
+          frontmatter.dreamProcessedAt = memory.metadata.dreamProcessedAt;
+        if (memory.metadata.dreamSource)
+          frontmatter.dreamSource = memory.metadata.dreamSource;
+        if (memory.metadata.dreamRefined !== undefined)
+          frontmatter.dreamRefined = memory.metadata.dreamRefined;
+        if (memory.metadata.deprecatedBy)
+          frontmatter.deprecatedBy = memory.metadata.deprecatedBy;
+        if (memory.metadata.deprecatedAt !== undefined)
+          frontmatter.deprecatedAt = memory.metadata.deprecatedAt;
+        if (memory.metadata.supersedes)
+          frontmatter.supersedes = memory.metadata.supersedes;
 
         const validatedContent = this.validateMarkdownContent(memory.content);
         const content = matter.stringify(validatedContent, frontmatter);
@@ -728,6 +746,13 @@ export class MemoryStoreImpl implements MemoryStore {
           author: data.author,
           source: data.source,
           sessionId: data.sessionId,
+          schemaVersion: data.schemaVersion ?? 1,
+          dreamProcessedAt: data.dreamProcessedAt ?? null,
+          dreamSource: data.dreamSource,
+          dreamRefined: data.dreamRefined ?? false,
+          deprecatedBy: data.deprecatedBy,
+          deprecatedAt: data.deprecatedAt,
+          supersedes: data.supersedes,
         }),
         createdAt: new Date(data.createdAt),
         updatedAt: new Date(data.updatedAt),
@@ -1048,5 +1073,35 @@ export class MemoryStoreImpl implements MemoryStore {
     preview += `## Content\n${memory.content}\n`;
 
     return preview;
+  }
+
+  /**
+   * 按来源 ID 查找记忆
+   * 扫描所有记忆，检查 dreamSource.ids 或 sessionId 是否匹配
+   * @param sourceId 来源 ID（sessionId 或知识文件路径）
+   * @returns 匹配的记忆列表
+   */
+  async findBySourceId(sourceId: string): Promise<Memory[]> {
+    const allIds = await this.listMemories();
+    const results: Memory[] = [];
+
+    for (const id of allIds) {
+      const memory = await this.readMemory(id);
+      if (!memory) continue;
+
+      // 检查 dreamSource.ids
+      if (memory.metadata.dreamSource?.ids?.includes(sourceId)) {
+        results.push(memory);
+        continue;
+      }
+
+      // 检查 sessionId
+      if (memory.metadata.sessionId === sourceId) {
+        results.push(memory);
+        continue;
+      }
+    }
+
+    return results;
   }
 }

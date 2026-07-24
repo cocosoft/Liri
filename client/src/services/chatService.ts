@@ -19,7 +19,10 @@ async function getWorkspacePath(): Promise<string | undefined> {
     const { useSessionStore } = await import("../stores/sessionStore");
     return useSessionStore.getState().currentSession?.workspacePath;
   } catch (e) {
-    handleClientError(e, { module: "services:chat", action: "getWorkspacePath" });
+    handleClientError(e, {
+      module: "services:chat",
+      action: "getWorkspacePath",
+    });
     return undefined;
   }
 }
@@ -41,7 +44,10 @@ async function ensureSessionModelSync(sessionId?: string): Promise<void> {
       await modelSwitchService.switch(session.modelId);
     }
   } catch (e) {
-    handleClientError(e, { module: "services:chat", action: "ensureSessionModelSync" });
+    handleClientError(e, {
+      module: "services:chat",
+      action: "ensureSessionModelSync",
+    });
     // 模型同步失败不阻断消息发送，使用当前模型
   }
 }
@@ -182,7 +188,10 @@ export const chatService = {
         const secret = await core.invoke<string | null>("get_backend_secret");
         if (secret) setApiSecret(secret);
       } catch (e) {
-        handleClientError(e, { module: "services:chat", action: "startBackend-getSecret" });
+        handleClientError(e, {
+          module: "services:chat",
+          action: "startBackend-getSecret",
+        });
         /* Tauri 旧版本不支持此命令时忽略 */
       }
       const healthy = await pollHealth();
@@ -307,14 +316,17 @@ export const chatService = {
       if (options?.images && options.images.length > 0)
         body.images = options.images;
 
-      const response = await fetch(`${getBackendBaseUrl()}/v1/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${getBackendBaseUrl()}/v1/chat/completions`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+          signal,
         },
-        body: JSON.stringify(body),
-        signal,
-      });
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -366,10 +378,12 @@ export const chatService = {
                   // 生图完成事件 → 通知图库刷新 + 传递结构化数据给 chatStore 渲染
                   logger.debug("tool_completed SSE", {
                     tool_name: chunk.tool_name,
-                    tool_call_id: (chunk as Record<string, unknown>).tool_call_id,
+                    tool_call_id: (chunk as Record<string, unknown>)
+                      .tool_call_id,
                     hasResultData: !!(chunk as Record<string, unknown>)
                       .result_data,
-                    resultDataKeys: (chunk as Record<string, unknown>).result_data
+                    resultDataKeys: (chunk as Record<string, unknown>)
+                      .result_data
                       ? Object.keys(
                           (chunk as Record<string, unknown>)
                             .result_data as Record<string, unknown>,
@@ -410,7 +424,10 @@ export const chatService = {
                           ? JSON.parse(rawArgs || "{}")
                           : rawArgs || {};
                     } catch (e) {
-                      handleClientError(e, { module: "services:chat", action: "streamMessage-parseArgs" });
+                      handleClientError(e, {
+                        module: "services:chat",
+                        action: "streamMessage-parseArgs",
+                      });
                       // JSON 解析失败使用空对象，不阻塞流
                     }
                     yield {
@@ -437,7 +454,8 @@ export const chatService = {
                       cacheCreationTokens:
                         chunk.usage.cache_creation_input_tokens,
                     },
-                    finishReason: chunk.choices?.[0]?.finish_reason || undefined,
+                    finishReason:
+                      chunk.choices?.[0]?.finish_reason || undefined,
                   };
                 } else if (chunk.choices?.[0]?.finish_reason === "error") {
                   // error 必须在通用 finish_reason 之前检测，否则被通用分支拦截
@@ -476,14 +494,20 @@ export const chatService = {
                   };
                 }
               } catch (e) {
-                handleClientError(e, { module: "services:chat", action: "streamMessage-parseChunk" });
+                handleClientError(e, {
+                  module: "services:chat",
+                  action: "streamMessage-parseChunk",
+                });
                 // streaming 解析异常跳过当前 chunk
               }
             }
           }
         }
       } catch (e) {
-        handleClientError(e, { module: "services:chat", action: "streamMessage-readerLoop" });
+        handleClientError(e, {
+          module: "services:chat",
+          action: "streamMessage-readerLoop",
+        });
         if (e instanceof DOMException && e.name === "AbortError") {
           yield { type: "error", content: "请求已取消" };
           return;
@@ -504,7 +528,10 @@ export const chatService = {
         reader.releaseLock();
       }
     } catch (e) {
-      handleClientError(e, { module: "services:chat", action: "streamMessage-outer" });
+      handleClientError(e, {
+        module: "services:chat",
+        action: "streamMessage-outer",
+      });
       otel.recordError(span, e);
       throw e;
     } finally {
@@ -526,9 +553,12 @@ export const chatService = {
           provider: m.owned_by || "pyapp",
         }));
       } catch (e) {
-          handleClientError(e, { module: "services:chat", action: "fetchModels" });
-          return [];
-        }
+        handleClientError(e, {
+          module: "services:chat",
+          action: "fetchModels",
+        });
+        return [];
+      }
     });
   },
 
@@ -551,21 +581,27 @@ export const chatService = {
     answers: string[],
     sessionId?: string,
   ): Promise<{ success: boolean; content?: string }> => {
-    return getOTelTracing().asyncWrap("services:chat:submitQuestionAnswer", async () => {
-      try {
-        const response = await fetchJSON<{ success: boolean; content?: string }>(
-          `${getBackendBaseUrl()}/v1/chat/question-answer`,
-          {
+    return getOTelTracing().asyncWrap(
+      "services:chat:submitQuestionAnswer",
+      async () => {
+        try {
+          const response = await fetchJSON<{
+            success: boolean;
+            content?: string;
+          }>(`${getBackendBaseUrl()}/v1/chat/question-answer`, {
             method: "POST",
             body: JSON.stringify({ questionId, answers, sessionId }),
-          },
-        );
-        return response;
-      } catch (err) {
-        handleClientError(err, { module: "services:chat", action: "submitQuestionAnswer" });
-        logger.warn("提交回答失败", err);
-        return { success: false };
-      }
-    });
+          });
+          return response;
+        } catch (err) {
+          handleClientError(err, {
+            module: "services:chat",
+            action: "submitQuestionAnswer",
+          });
+          logger.warn("提交回答失败", err);
+          return { success: false };
+        }
+      },
+    );
   },
 };

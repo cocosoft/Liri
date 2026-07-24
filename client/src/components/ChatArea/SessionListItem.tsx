@@ -22,6 +22,7 @@ interface SessionListItemProps {
   isEditing: boolean;
   editTitle: string;
   pinned: boolean;
+  isDreamProcessed: boolean;
   getSourceLabel: (source?: string) => string;
   onSwitch: (id: string) => void;
   onDoubleClick: (id: string, title: string) => void;
@@ -37,6 +38,8 @@ function SessionListItem({
   isActive,
   isEditing,
   editTitle,
+  pinned: _pinned,
+  isDreamProcessed,
   getSourceLabel,
   onSwitch,
   onDoubleClick,
@@ -75,7 +78,15 @@ function SessionListItem({
           />
         ) : (
           <div className="flex-1 min-w-0">
-            <div className="truncate">{session.title || "未命名会话"}</div>
+            <div className="truncate flex items-center gap-1">
+              {isDreamProcessed && (
+                <span
+                  className="inline-block w-2 h-2 rounded-full bg-green-400 dark:bg-green-500 flex-shrink-0"
+                  title="已被梦境凝练"
+                />
+              )}
+              {session.title || "未命名会话"}
+            </div>
             <div className="text-xs text-gray-400 dark:text-gray-500 truncate">
               {session.source ? (
                 <span className="font-medium text-gray-400 dark:text-gray-500 mr-1">

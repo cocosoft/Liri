@@ -8,12 +8,7 @@
  * - OTLP HTTP 导出（可选，默认 console 导出）
  */
 
-import {
-  trace,
-  Span,
-  SpanStatusCode,
-  context,
-} from "@opentelemetry/api";
+import { trace, Span, SpanStatusCode, context } from "@opentelemetry/api";
 import {
   WebTracerProvider,
   BatchSpanProcessor,
@@ -21,9 +16,7 @@ import {
 } from "@opentelemetry/sdk-trace-web";
 import type { SpanProcessor } from "@opentelemetry/sdk-trace-web";
 import { SpanCollector } from "./SpanCollector";
-import {
-  OTLPTraceExporter,
-} from "@opentelemetry/exporter-trace-otlp-http";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { ZoneContextManager } from "@opentelemetry/context-zone";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
@@ -91,8 +84,8 @@ export class OTelTracing {
       if (this.config.otlpEndpoint) {
         spanProcessors.push(
           new BatchSpanProcessor(
-            new OTLPTraceExporter({ url: this.config.otlpEndpoint })
-          )
+            new OTLPTraceExporter({ url: this.config.otlpEndpoint }),
+          ),
         );
         _logger.info(`OTel OTLP exporter: ${this.config.otlpEndpoint}`);
       }
@@ -119,7 +112,10 @@ export class OTelTracing {
   }
 
   /** 开始一个 Span */
-  startSpan(name: string, attributes?: Record<string, string | number | boolean>): Span {
+  startSpan(
+    name: string,
+    attributes?: Record<string, string | number | boolean>,
+  ): Span {
     const tracer = this.getTracer();
     const span = tracer.startSpan(name, { attributes });
 
@@ -159,7 +155,7 @@ export class OTelTracing {
   async asyncWrap<T>(
     name: string,
     fn: () => Promise<T>,
-    attributes?: Record<string, string | number | boolean>
+    attributes?: Record<string, string | number | boolean>,
   ): Promise<T> {
     const span = this.startSpan(name, attributes);
     try {

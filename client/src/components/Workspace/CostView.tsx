@@ -8,7 +8,11 @@ import { useTranslation } from "react-i18next";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { workspaceService } from "@/services/workspaceService";
 import { createLogger } from "@/utils/logger";
-import { formatCost, formatTokens, getCurrencyFromTimezone } from "@/utils/format";
+import {
+  formatCost,
+  formatTokens,
+  getCurrencyFromTimezone,
+} from "@/utils/format";
 import { useConfigStore } from "@/stores/configStore";
 
 const logger = createLogger("components:costView");
@@ -43,7 +47,7 @@ export const CostView: React.FC = () => {
   const { currentWorkspace } = useWorkspaceStore();
   const workspaceId = currentWorkspace?.id || "";
   const config = useConfigStore((s) => s.config);
-  const timezone = (config.timezone as string) || 'Asia/Shanghai';
+  const timezone = (config.timezone as string) || "Asia/Shanghai";
   const currency = getCurrencyFromTimezone(timezone);
 
   const [report, setReport] = useState<CostReport | null>(null);
@@ -99,7 +103,8 @@ export const CostView: React.FC = () => {
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-gray-500">{t("workspace.cost")}</span>
                 <span className="font-medium">
-                  {formatCost(budget.currentCost, currency)} / {formatCost(budget.limit, currency)}
+                  {formatCost(budget.currentCost, currency)} /{" "}
+                  {formatCost(budget.limit, currency)}
                 </span>
               </div>
               <div className="h-2 bg-gray-200 rounded-full overflow-hidden">

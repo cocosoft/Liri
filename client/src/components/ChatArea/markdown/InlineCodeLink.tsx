@@ -17,6 +17,7 @@ import {
   pathResolvePending,
   setPathCache,
   getCacheKey,
+  getCacheEntry,
 } from "./pathCache";
 import { useSessionStore } from "../../../stores/sessionStore";
 
@@ -56,8 +57,8 @@ export function InlineCodeLink({
         ? getCacheKey(sessionId, codeContent)
         : codeContent;
 
-      // 先查缓存（含别名匹配），命中则直接使用
-      const cached = pathResolveCache.get(cacheKey);
+      // 先查缓存（含别名匹配 + TTL 过期检查），命中则直接使用
+      const cached = getCacheEntry(cacheKey);
       if (cached) {
         setConfirmedPath(cached.canonical);
         return;
@@ -83,21 +84,33 @@ export function InlineCodeLink({
               setPathCache(sessionId, codeContent, resolved);
             } else {
               // 无 sessionId 时退化为全局缓存
+              const now = Date.now();
               pathResolveCache.set(cacheKey, {
                 canonical: resolved,
                 aliases: new Set(),
+                createdAt: now,
+                isNegative: false,
               });
             }
             setConfirmedPath(resolved);
           } else {
+            const now = Date.now();
             pathResolveCache.set(cacheKey, {
               canonical: "",
               aliases: new Set(),
+              createdAt: now,
+              isNegative: true,
             });
           }
         })
         .catch(() => {
-          pathResolveCache.set(cacheKey, { canonical: "", aliases: new Set() });
+          const now = Date.now();
+          pathResolveCache.set(cacheKey, {
+            canonical: "",
+            aliases: new Set(),
+            createdAt: now,
+            isNegative: true,
+          });
         })
         .finally(() => {
           pathResolvePending.delete(cacheKey);

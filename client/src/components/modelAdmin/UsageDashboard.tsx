@@ -29,9 +29,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { balanceService } from "../../services/balanceService";
 import { handleClientError } from "../../utils/handleError";
-import type {
-  BalanceRecord,
-} from "../../types";
+import type { BalanceRecord } from "../../types";
 
 /**
  * 用量仪表盘
@@ -47,7 +45,10 @@ export default function UsageDashboard() {
       const b = await balanceService.batchCheck();
       setBalances(b);
     } catch (e) {
-      handleClientError(e, { module: "components:modelAdmin:UsageDashboard", action: "loadData" });
+      handleClientError(e, {
+        module: "components:modelAdmin:UsageDashboard",
+        action: "loadData",
+      });
     } finally {
       setLoading(false);
     }
@@ -73,7 +74,7 @@ export default function UsageDashboard() {
           完整的成本监控和 Token 使用统计已迁移至独立页面。
         </p>
         <button
-          onClick={() => navigate('/cost')}
+          onClick={() => navigate("/cost")}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
         >
           查看完整报告 →

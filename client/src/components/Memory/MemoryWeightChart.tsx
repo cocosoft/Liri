@@ -1,26 +1,11 @@
 import { useMemo } from "react";
-import type { MemoryWeight, MemoryType } from "../../services/memoryService";
+import type { MemoryWeight } from "../../services/memoryService";
+import { TYPE_LABELS, TYPE_CHART_COLORS } from "./memoryConstants";
 
 interface MemoryWeightChartProps {
   weights: MemoryWeight[];
   isDark: boolean;
 }
-
-const TYPE_COLORS: Record<MemoryType, string> = {
-  user_preference: "#3B82F6",
-  project_context: "#10B981",
-  conversation: "#8B5CF6",
-  knowledge: "#F59E0B",
-  system: "#6B7280",
-};
-
-const TYPE_LABELS: Record<MemoryType, string> = {
-  user_preference: "用户偏好",
-  project_context: "项目上下文",
-  conversation: "对话记录",
-  knowledge: "知识库",
-  system: "系统",
-};
 
 function MemoryWeightChart({ weights, isDark }: MemoryWeightChartProps) {
   const maxWeight = useMemo(() => {
@@ -94,7 +79,7 @@ function MemoryWeightChart({ weights, isDark }: MemoryWeightChartProps) {
                   className="h-full rounded-full transition-all duration-500"
                   style={{
                     width: `${percentage}%`,
-                    backgroundColor: TYPE_COLORS[weight.type],
+                    backgroundColor: TYPE_CHART_COLORS[weight.type],
                   }}
                 />
               </div>

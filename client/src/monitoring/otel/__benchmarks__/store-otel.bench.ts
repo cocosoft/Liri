@@ -99,8 +99,12 @@ async function benchmarkStoreWrap(): Promise<BenchResult> {
   const avgRaw = avg(timesRaw);
   const avgWrapped = avg(timesWrapped);
 
-  console.log(`[BENCH] 原始平均: ${avgRaw.toFixed(3)}ms, 包装平均: ${avgWrapped.toFixed(3)}ms`);
-  console.log(`[BENCH] 额外开销: ${(avgWrapped - avgRaw).toFixed(3)}ms/次 (阈值 < 5ms)`);
+  console.log(
+    `[BENCH] 原始平均: ${avgRaw.toFixed(3)}ms, 包装平均: ${avgWrapped.toFixed(3)}ms`,
+  );
+  console.log(
+    `[BENCH] 额外开销: ${(avgWrapped - avgRaw).toFixed(3)}ms/次 (阈值 < 5ms)`,
+  );
 
   return summarize("store-async-wrap", timesWrapped);
 }

@@ -20,12 +20,12 @@ const logger = new Logger({
   level: LogLevel.INFO,
 });
 
-/** v1.2: 后端 MemoryType → 前端类型名映射 */
+/** v1.3: 后端 MemoryType → 前端类型名映射 */
 const MEMORY_TYPE_TO_FRONTEND: Record<string, string> = {
-  user_fact: 'conversation',
+  user_fact: 'user_identity',
   user_preference: 'user_preference',
   project_knowledge: 'project_context',
-  code_pattern: 'system',
+  code_pattern: 'system_instruction',
   decision: 'knowledge',
 };
 
@@ -494,6 +494,88 @@ export async function handleConsolidateMemories(
         },
       })
     );
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * POST /v1/memory/dream — 触发 LLM 驱动的记忆精炼
+ */
+export async function handleDreamMemories(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const mm = await getMemoryManager();
+    const { runMemoryDream } = await import(
+      '@modules/memory/consolidation/MemoryDreamService'
+    );
+    const result = await runMemoryDream(mm);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, result }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * GET /v1/memory/dream/cycles — 梦境周期列表
+ */
+export async function handleDreamCyclesList(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const parsedUrl = new URL(
+      req.url!,
+      `http://${req.headers.host || 'localhost'}`
+    );
+    const { DreamPersistence } = await import('../../../../src/dream/DreamPersistence');
+    const persistence = new DreamPersistence();
+
+    const result = await persistence.listCycles({
+      page: parseInt(parsedUrl.searchParams.get('page') || '1'),
+      pageSize: parseInt(parsedUrl.searchParams.get('pageSize') || '20'),
+      triggerSource: parsedUrl.searchParams.get('triggerSource') || undefined,
+      status: parsedUrl.searchParams.get('status') || undefined,
+      startTime: parsedUrl.searchParams.get('startTime')
+        ? parseInt(parsedUrl.searchParams.get('startTime')!)
+        : undefined,
+      endTime: parsedUrl.searchParams.get('endTime')
+        ? parseInt(parsedUrl.searchParams.get('endTime')!)
+        : undefined,
+      sortOrder: (parsedUrl.searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc',
+    });
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, ...result }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * GET /v1/memory/dream/cycles/:cycleId — 梦境周期详情
+ */
+export async function handleDreamCycleDetail(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  cycleId: string
+): Promise<void> {
+  try {
+    const { DreamPersistence } = await import('../../../../src/dream/DreamPersistence');
+    const persistence = new DreamPersistence();
+    const cycle = await persistence.getCycle(cycleId);
+
+    if (!cycle) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Dream cycle not found', cycleId } }));
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, cycle }));
   } catch (err) {
     sendError(res, err);
   }

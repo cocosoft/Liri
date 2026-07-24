@@ -226,7 +226,10 @@ export const useFileStore = create<FileStore>((set, get) => ({
     try {
       await fileService.saveToKnowledge(filePath);
     } catch (e) {
-      handleClientError(e, { module: "stores:file", action: "saveToKnowledge" });
+      handleClientError(e, {
+        module: "stores:file",
+        action: "saveToKnowledge",
+      });
       set({ error: String(e) });
     }
   },
@@ -283,7 +286,10 @@ export const useFileStore = create<FileStore>((set, get) => ({
         registryLoading: false,
       });
     } catch (e) {
-      handleClientError(e, { module: "stores:file", action: "loadMoreRegistry" });
+      handleClientError(e, {
+        module: "stores:file",
+        action: "loadMoreRegistry",
+      });
       set({ error: String(e), registryLoading: false });
     }
   },

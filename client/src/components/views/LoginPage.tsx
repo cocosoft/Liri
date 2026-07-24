@@ -49,14 +49,20 @@ function LoginPage() {
         await register(username, password, email || undefined);
         navigate("/");
       } catch (e) {
-        handleClientError(e, { module: "components:views:Login", action: "register" });
+        handleClientError(e, {
+          module: "components:views:Login",
+          action: "register",
+        });
       }
     } else {
       try {
         await login(username, password);
         navigate("/");
       } catch (e) {
-        handleClientError(e, { module: "components:views:Login", action: "login" });
+        handleClientError(e, {
+          module: "components:views:Login",
+          action: "login",
+        });
       }
     }
   };

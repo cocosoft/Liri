@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,6 +34,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolvePyappHome } from '@modules/core';
 import type { EventBus } from '@modules/core';
+import { KnowledgeDedupStrategy } from '@modules/knowledge/KnowledgeDedupStrategy';
 
 export interface KnowledgeBaseEntry {
   title: string;
@@ -54,6 +55,7 @@ export class KnowledgeBaseWriter {
   private baseDir: string;
   private logger: Logger;
   private eventBus?: EventBus;
+  private dedup?: KnowledgeDedupStrategy;
   /** 每个文档保留的最大快照数 */
   private maxSnapshots: number;
 
@@ -66,6 +68,11 @@ export class KnowledgeBaseWriter {
     this.logger = new Logger({ level: LogLevel.INFO });
     this.eventBus = eventBus;
     this.maxSnapshots = maxSnapshots;
+  }
+
+  /** 设置去重策略（可选） */
+  setDedup(dedup: KnowledgeDedupStrategy): void {
+    this.dedup = dedup;
   }
 
   async writeEntry(entry: KnowledgeBaseEntry): Promise<WriteResult> {
@@ -88,6 +95,19 @@ export class KnowledgeBaseWriter {
 
       const exists = existsSync(filePath);
       let action: WriteResult['action'] = 'skipped';
+
+      // 去重检查：写入新文件时检测是否与已有文档重复
+      if (!exists && this.dedup) {
+        const dedupResult = await this.dedup.check(entry.title, entry.content);
+        if (dedupResult.isDuplicate) {
+          return {
+            success: false,
+            filePath,
+            action: 'skipped',
+            error: `内容与已有文档 "${dedupResult.existingTitle}" 重复 (相似度: ${(dedupResult.similarity * 100).toFixed(0)}%)`,
+          };
+        }
+      }
 
       if (exists) {
         const existing = await readFile(filePath, 'utf-8');

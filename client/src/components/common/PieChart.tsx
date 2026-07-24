@@ -20,7 +20,13 @@ export interface PieChartProps {
   maxSlices?: number;
 }
 
-export function PieChart({ data, centerLabel, centerValue, size = 200, maxSlices = 6 }: PieChartProps) {
+export function PieChart({
+  data,
+  centerLabel,
+  centerValue,
+  size = 200,
+  maxSlices = 6,
+}: PieChartProps) {
   const total = data.reduce((sum, d) => sum + d.value, 0) || 1;
   const slices = data.slice(0, maxSlices);
   const radius = size * 0.4;
@@ -54,14 +60,30 @@ export function PieChart({ data, centerLabel, centerValue, size = 200, maxSlices
               />
             );
           })}
-          <circle cx={cx} cy={cy} r={size * 0.25} fill="var(--tw-bg, #FFFFFF)" className="fill-white dark:fill-gray-800" />
+          <circle
+            cx={cx}
+            cy={cy}
+            r={size * 0.25}
+            fill="var(--tw-bg, #FFFFFF)"
+            className="fill-white dark:fill-gray-800"
+          />
           {centerLabel && (
-            <text x={cx} y={cy - 6} textAnchor="middle" className="fill-gray-400 text-xs">
+            <text
+              x={cx}
+              y={cy - 6}
+              textAnchor="middle"
+              className="fill-gray-400 text-xs"
+            >
               {centerLabel}
             </text>
           )}
           {centerValue && (
-            <text x={cx} y={cy + 8} textAnchor="middle" className="fill-gray-300 text-sm font-bold">
+            <text
+              x={cx}
+              y={cy + 8}
+              textAnchor="middle"
+              className="fill-gray-300 text-sm font-bold"
+            >
               {centerValue}
             </text>
           )}
@@ -72,9 +94,14 @@ export function PieChart({ data, centerLabel, centerValue, size = 200, maxSlices
           const pct = ((slice.value / total) * 100).toFixed(0);
           return (
             <div key={slice.label} className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: slice.color }} />
+              <span
+                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                style={{ backgroundColor: slice.color }}
+              />
               <div className="flex-1 min-w-0">
-                <div className="text-sm truncate text-gray-700 dark:text-gray-300">{slice.label}</div>
+                <div className="text-sm truncate text-gray-700 dark:text-gray-300">
+                  {slice.label}
+                </div>
               </div>
               <div className="text-xs font-medium flex-shrink-0 text-gray-700 dark:text-gray-300">
                 {pct}%

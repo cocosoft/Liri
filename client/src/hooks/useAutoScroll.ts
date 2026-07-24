@@ -15,6 +15,7 @@ export function useAutoScroll(deps: {
   sessionId?: string;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const prevMessageCountRef = useRef(0);
   const isNearBottomRef = useRef(true);
 
@@ -99,12 +100,12 @@ export function useAutoScroll(deps: {
     }
   }, [deps.messageCount, scrollToBottom]);
 
-  // 流式输出期间：ResizeObserver 监听尺寸变化，仅在内容增长且用户在底部时滚动
+  // 流式输出期间：ResizeObserver 监听内容区尺寸变化（而非滚动容器），仅在用户在底部时滚动
   useEffect(() => {
     if (!deps.isStreaming) return;
 
-    const container = containerRef.current;
-    if (!container) return;
+    const content = contentRef.current;
+    if (!content) return;
 
     let rafPending = false;
     const observer = new ResizeObserver(() => {
@@ -117,12 +118,18 @@ export function useAutoScroll(deps: {
       }
     });
 
-    observer.observe(container);
+    observer.observe(content);
 
     return () => {
       observer.disconnect();
     };
   }, [deps.isStreaming, scrollToBottom]);
 
-  return { containerRef, isUserScrolledUp, scrollToBottom, distanceFromBottom };
+  return {
+    containerRef,
+    contentRef,
+    isUserScrolledUp,
+    scrollToBottom,
+    distanceFromBottom,
+  };
 }

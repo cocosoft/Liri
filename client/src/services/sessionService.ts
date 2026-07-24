@@ -23,7 +23,10 @@ async function getTauriCore() {
   try {
     return await import("@tauri-apps/api/core");
   } catch (e) {
-    handleClientError(e, { module: "services:session", action: "getTauriCore" });
+    handleClientError(e, {
+      module: "services:session",
+      action: "getTauriCore",
+    });
     return null;
   }
 }
@@ -133,83 +136,108 @@ export const sessionService = {
       workspacePath?: string;
     },
   ): Promise<Session> => {
-    return getOTelTracing().asyncWrap("services:session:createSession", async () => {
-      try {
-        const body: Record<string, unknown> = { title };
-        if (options?.modelId) body.model = options.modelId;
-        if (options?.workspaceId) body.workspaceId = options.workspaceId;
-        if (options?.workspacePath) body.workspace_path = options.workspacePath;
-        const res = await apiHttp.post<Session>("/v1/sessions", body);
-        if (res.ok) {
-          _isUsingFallback = false;
-          return flattenSession(res.data as Session);
+    return getOTelTracing().asyncWrap(
+      "services:session:createSession",
+      async () => {
+        try {
+          const body: Record<string, unknown> = { title };
+          if (options?.modelId) body.model = options.modelId;
+          if (options?.workspaceId) body.workspaceId = options.workspaceId;
+          if (options?.workspacePath)
+            body.workspace_path = options.workspacePath;
+          const res = await apiHttp.post<Session>("/v1/sessions", body);
+          if (res.ok) {
+            _isUsingFallback = false;
+            return flattenSession(res.data as Session);
+          }
+          logger.warn("创建会话失败", { error: res.error });
+        } catch (e) {
+          handleClientError(e, {
+            module: "services:session",
+            action: "create",
+          });
+          // 网络错误
         }
-        logger.warn("创建会话失败", { error: res.error });
-      } catch (e) {
-        handleClientError(e, { module: "services:session", action: "create" });
-        // 网络错误
-      }
-      const result = await tryTauri<Session>("create_session", { title });
-      if (result) return flattenSession(result);
-      return createMemorySessionService().create(title);
-    });
+        const result = await tryTauri<Session>("create_session", { title });
+        if (result) return flattenSession(result);
+        return createMemorySessionService().create(title);
+      },
+    );
   },
 
   switch: (id: string): Promise<Session> => {
-    return getOTelTracing().asyncWrap("services:session:switchSession", async () => {
-      try {
-        const res = await apiHttp.post<Session>(`/v1/sessions/${id}/switch`);
-        if (res.ok) {
-          _isUsingFallback = false;
-          return flattenSession(res.data as Session);
+    return getOTelTracing().asyncWrap(
+      "services:session:switchSession",
+      async () => {
+        try {
+          const res = await apiHttp.post<Session>(`/v1/sessions/${id}/switch`);
+          if (res.ok) {
+            _isUsingFallback = false;
+            return flattenSession(res.data as Session);
+          }
+          logger.warn("切换会话失败", { id, error: res.error });
+        } catch (e) {
+          handleClientError(e, {
+            module: "services:session",
+            action: "switch",
+          });
+          // 网络错误
         }
-        logger.warn("切换会话失败", { id, error: res.error });
-      } catch (e) {
-        handleClientError(e, { module: "services:session", action: "switch" });
-        // 网络错误
-      }
-      const result = await tryTauri<Session>("switch_session", { id });
-      if (result) return flattenSession(result);
-      return createMemorySessionService().switch(id);
-    });
+        const result = await tryTauri<Session>("switch_session", { id });
+        if (result) return flattenSession(result);
+        return createMemorySessionService().switch(id);
+      },
+    );
   },
 
   delete: (id: string): Promise<void> => {
-    return getOTelTracing().asyncWrap("services:session:deleteSession", async () => {
-      try {
-        const res = await apiHttp.delete<void>(`/v1/sessions/${id}`);
-        if (res.ok) {
-          _isUsingFallback = false;
-          return;
+    return getOTelTracing().asyncWrap(
+      "services:session:deleteSession",
+      async () => {
+        try {
+          const res = await apiHttp.delete<void>(`/v1/sessions/${id}`);
+          if (res.ok) {
+            _isUsingFallback = false;
+            return;
+          }
+          logger.warn("删除会话失败", { id, error: res.error });
+        } catch (e) {
+          handleClientError(e, {
+            module: "services:session",
+            action: "delete",
+          });
+          // 网络错误
         }
-        logger.warn("删除会话失败", { id, error: res.error });
-      } catch (e) {
-        handleClientError(e, { module: "services:session", action: "delete" });
-        // 网络错误
-      }
-      const result = await tryTauri<void>("delete_session", { id });
-      if (result !== null) return;
-      return createMemorySessionService().delete(id);
-    });
+        const result = await tryTauri<void>("delete_session", { id });
+        if (result !== null) return;
+        return createMemorySessionService().delete(id);
+      },
+    );
   },
 
   rename: (id: string, title: string): Promise<void> => {
-    return getOTelTracing().asyncWrap("services:session:renameSession", async () => {
-      try {
-        const res = await apiHttp.put<void>(`/v1/sessions/${id}`, { title });
-        if (res.ok) {
-          _isUsingFallback = false;
-          return;
+    return getOTelTracing().asyncWrap(
+      "services:session:renameSession",
+      async () => {
+        try {
+          const res = await apiHttp.put<void>(`/v1/sessions/${id}`, { title });
+          if (res.ok) {
+            _isUsingFallback = false;
+            return;
+          }
+          logger.warn("重命名会话失败", { id, error: res.error });
+        } catch (e) {
+          handleClientError(e, {
+            module: "services:session",
+            action: "rename",
+          });
+          // 网络错误
         }
-        logger.warn("重命名会话失败", { id, error: res.error });
-      } catch (e) {
-        handleClientError(e, { module: "services:session", action: "rename" });
-        // 网络错误
-      }
-      const result = await tryTauri<void>("rename_session", { id, title });
-      if (result !== null) return;
-      return createMemorySessionService().rename(id, title);
-    });
+        const result = await tryTauri<void>("rename_session", { id, title });
+        if (result !== null) return;
+        return createMemorySessionService().rename(id, title);
+      },
+    );
   },
 
   generateTitle: async (
@@ -228,7 +256,10 @@ export const sessionService = {
       }
       logger.debug("generateTitle 静默降级", { sessionId, error: res.error });
     } catch (e) {
-      handleClientError(e, { module: "services:session", action: "generateTitle" });
+      handleClientError(e, {
+        module: "services:session",
+        action: "generateTitle",
+      });
       // 网络错误
     }
     const result = await tryTauri<{ title: string | null }>(
@@ -247,7 +278,10 @@ export const sessionService = {
       }
       logger.warn("获取当前会话失败", { error: res.error });
     } catch (e) {
-      handleClientError(e, { module: "services:session", action: "getCurrent" });
+      handleClientError(e, {
+        module: "services:session",
+        action: "getCurrent",
+      });
       // 网络错误
     }
     const result = await tryTauri<Session | null>("get_current_session");
@@ -275,26 +309,32 @@ export const sessionService = {
   },
 
   getMessages: (sessionId: string): Promise<Message[]> => {
-    return getOTelTracing().asyncWrap("services:session:getMessages", async () => {
-      try {
-        const res = await apiHttp.get<Message[]>(
-          `/v1/sessions/${sessionId}/messages`,
-        );
-        if (res.ok) {
-          _isUsingFallback = false;
-          return res.data ?? [];
+    return getOTelTracing().asyncWrap(
+      "services:session:getMessages",
+      async () => {
+        try {
+          const res = await apiHttp.get<Message[]>(
+            `/v1/sessions/${sessionId}/messages`,
+          );
+          if (res.ok) {
+            _isUsingFallback = false;
+            return res.data ?? [];
+          }
+          logger.warn("获取会话消息失败", { sessionId, error: res.error });
+        } catch (e) {
+          handleClientError(e, {
+            module: "services:session",
+            action: "getMessages",
+          });
+          // 网络错误
         }
-        logger.warn("获取会话消息失败", { sessionId, error: res.error });
-      } catch (e) {
-        handleClientError(e, { module: "services:session", action: "getMessages" });
-        // 网络错误
-      }
-      const result = await tryTauri<Message[]>("get_session_messages", {
-        sessionId,
-      });
-      if (result) return result;
-      return [];
-    });
+        const result = await tryTauri<Message[]>("get_session_messages", {
+          sessionId,
+        });
+        if (result) return result;
+        return [];
+      },
+    );
   },
 
   clearAll: async (): Promise<void> => {
@@ -339,7 +379,10 @@ export const sessionService = {
         return true;
       }
     } catch (e) {
-      handleClientError(e, { module: "services:session", action: "updateSessionMeta" });
+      handleClientError(e, {
+        module: "services:session",
+        action: "updateSessionMeta",
+      });
       // 网络错误
     }
     logger.debug("updateSessionMeta 静默降级：PATCH API 不可用", { sessionId });
@@ -416,7 +459,10 @@ export const sessionService = {
         return res.data ?? null;
       }
     } catch (e) {
-      handleClientError(e, { module: "services:session", action: "getArtifacts" });
+      handleClientError(e, {
+        module: "services:session",
+        action: "getArtifacts",
+      });
       // 网络错误
     }
     logger.debug("getArtifacts 静默降级：API 不可用", { sessionId });
@@ -435,7 +481,10 @@ export const sessionService = {
         return true;
       }
     } catch (e) {
-      handleClientError(e, { module: "services:session", action: "batchDelete" });
+      handleClientError(e, {
+        module: "services:session",
+        action: "batchDelete",
+      });
       // 网络错误
     }
     logger.debug("batchDelete 静默降级：API 不可用", { ids });

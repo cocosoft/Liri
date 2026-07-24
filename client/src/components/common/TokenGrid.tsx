@@ -6,7 +6,7 @@
  * 替换 CostPage.tsx L285-342 的 ~60 行重复 JSX。
  * Props: { inputTokens, outputTokens, cacheReadTokens, totalRequests }
  */
-import { formatTokens } from '../../utils/format';
+import { formatTokens } from "../../utils/format";
 
 export interface TokenGridProps {
   inputTokens: number;
@@ -15,12 +15,17 @@ export interface TokenGridProps {
   totalRequests: number;
 }
 
-export function TokenGrid({ inputTokens, outputTokens, cacheReadTokens, totalRequests }: TokenGridProps) {
+export function TokenGrid({
+  inputTokens,
+  outputTokens,
+  cacheReadTokens,
+  totalRequests,
+}: TokenGridProps) {
   const cards: { label: string; value: string }[] = [
-    { label: '累计输入 Tokens', value: formatTokens(inputTokens) },
-    { label: '累计输出 Tokens', value: formatTokens(outputTokens) },
-    { label: '缓存读取 Tokens', value: formatTokens(cacheReadTokens) },
-    { label: '总请求数', value: totalRequests.toLocaleString() },
+    { label: "累计输入 Tokens", value: formatTokens(inputTokens) },
+    { label: "累计输出 Tokens", value: formatTokens(outputTokens) },
+    { label: "缓存读取 Tokens", value: formatTokens(cacheReadTokens) },
+    { label: "总请求数", value: totalRequests.toLocaleString() },
   ];
 
   return (
@@ -30,7 +35,9 @@ export function TokenGrid({ inputTokens, outputTokens, cacheReadTokens, totalReq
           key={card.label}
           className="rounded-lg border p-4 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
         >
-          <p className="text-sm text-gray-500 dark:text-gray-400">{card.label}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {card.label}
+          </p>
           <p className="text-xl font-bold mt-1 text-gray-900 dark:text-gray-100">
             {card.value}
           </p>

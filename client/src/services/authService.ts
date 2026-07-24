@@ -123,7 +123,10 @@ export const authService = {
       setStoredUser(user);
       return user;
     } catch (e) {
-      handleClientError(e, { module: "services:auth", action: "getCurrentUser" });
+      handleClientError(e, {
+        module: "services:auth",
+        action: "getCurrentUser",
+      });
       removeStoredToken();
       removeStoredUser();
       return null;

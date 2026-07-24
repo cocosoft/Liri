@@ -11,7 +11,11 @@ import {
 import { costService, type CostSummary } from "../../services/costService";
 import ModelSwitcher from "../modelAdmin/ModelSwitcher";
 import { createLogger } from "@/utils/logger";
-import { formatCost, formatTokens, getCurrencyFromTimezone } from "../../utils/format";
+import {
+  formatCost,
+  formatTokens,
+  getCurrencyFromTimezone,
+} from "../../utils/format";
 import { useConfigStore } from "../../stores/configStore";
 
 const logger = createLogger("components:footer");
@@ -20,7 +24,7 @@ function Footer() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const config = useConfigStore((s) => s.config);
-  const timezone = (config.timezone as string) || 'Asia/Shanghai';
+  const timezone = (config.timezone as string) || "Asia/Shanghai";
   const currency = getCurrencyFromTimezone(timezone);
   const { status, checkStatus, startBackend, stopBackend, error } =
     useBackendStore();
@@ -114,7 +118,10 @@ function Footer() {
     try {
       await navigator.clipboard.writeText(currentModelName);
     } catch (e) {
-      handleClientError(e, { module: "components:common:Footer", action: "copyModelName" });
+      handleClientError(e, {
+        module: "components:common:Footer",
+        action: "copyModelName",
+      });
       // 静默失败
     }
   };
@@ -247,14 +254,15 @@ function Footer() {
                 Out:{formatTokens(costSummary.sessionOutputTokens)}
               </span>
               <span className="text-red-500">
-                {formatCost(costSummary.sessionCost, '$')}
+                {formatCost(costSummary.sessionCost, "$")}
               </span>
             </button>
 
             {/* 今日消费 */}
             {costSummary.todayCost > 0 && (
               <span className="text-orange-500">
-                {t("footer.today")}: {formatCost(costSummary.todayCost, currency)}
+                {t("footer.today")}:{" "}
+                {formatCost(costSummary.todayCost, currency)}
               </span>
             )}
           </>
@@ -336,7 +344,7 @@ function Footer() {
                 {t("footer.sessionCost")}
               </span>
               <span className="text-red-500 font-medium">
-                {formatCost(costSummary.sessionCost, '$')}
+                {formatCost(costSummary.sessionCost, "$")}
               </span>
             </div>
           </div>

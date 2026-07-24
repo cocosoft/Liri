@@ -191,10 +191,21 @@ function ToolCallGroup({
           ) : showFullResult && toolCall._hasFullResult ? (
             <div>
               <div className="text-[10px] text-amber-400 mb-1">
-                ✅ 已展开完整结果（{typeof toolCall.result === "string" ? (toolCall.result.length + getToolResultFull(toolCall.id)!.length).toLocaleString() : "?"} 字符）
+                ✅ 已展开完整结果（
+                {typeof toolCall.result === "string"
+                  ? (
+                      toolCall.result.length +
+                      getToolResultFull(toolCall.id)!.length
+                    ).toLocaleString()
+                  : "?"}{" "}
+                字符）
               </div>
               <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-[#a9b1d6] font-mono bg-black/15 p-2 rounded max-h-[400px] overflow-y-auto">
-                {typeof toolCall.result === "string" ? toolCall.result + "\n\n" + (getToolResultFull(toolCall.id) || "") : JSON.stringify(toolCall.result, null, 2)}
+                {typeof toolCall.result === "string"
+                  ? toolCall.result +
+                    "\n\n" +
+                    (getToolResultFull(toolCall.id) || "")
+                  : JSON.stringify(toolCall.result, null, 2)}
               </pre>
               <button
                 onClick={() => setShowFullResult(false)}

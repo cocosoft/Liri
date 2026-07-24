@@ -38,7 +38,10 @@ export function formatDateLabel(timestamp: number): string {
 
     return `${year}-${month}-${day}`;
   } catch (e) {
-    handleClientError(e, { module: "components:chat:dateUtils", action: "formatDateLabel" });
+    handleClientError(e, {
+      module: "components:chat:dateUtils",
+      action: "formatDateLabel",
+    });
     // 异常时返回空字符串，由调用方跳过日期分隔线
     return "";
   }
@@ -81,7 +84,10 @@ export function shouldShowDateSeparator(
 
     return currentDay !== prevDay;
   } catch (e) {
-    handleClientError(e, { module: "components:chat:dateUtils", action: "shouldShowDateSeparator" });
+    handleClientError(e, {
+      module: "components:chat:dateUtils",
+      action: "shouldShowDateSeparator",
+    });
     return false;
   }
 }

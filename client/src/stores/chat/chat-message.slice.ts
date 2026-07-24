@@ -63,8 +63,14 @@ function truncateResult(raw: string): string {
   const truncated = raw.slice(0, MAX_INLINE_RESULT_LENGTH);
   const lastNewline = truncated.lastIndexOf("\n");
   // 尽量在换行处截断，避免截断在行中间
-  const cutPoint = lastNewline > MAX_INLINE_RESULT_LENGTH * 0.7 ? lastNewline : MAX_INLINE_RESULT_LENGTH;
-  return raw.slice(0, cutPoint) + `\n...（共 ${raw.length.toLocaleString()} 字符，已截断，点击展开查看完整结果）`;
+  const cutPoint =
+    lastNewline > MAX_INLINE_RESULT_LENGTH * 0.7
+      ? lastNewline
+      : MAX_INLINE_RESULT_LENGTH;
+  return (
+    raw.slice(0, cutPoint) +
+    `\n...（共 ${raw.length.toLocaleString()} 字符，已截断，点击展开查看完整结果）`
+  );
 }
 
 /** 获取工具调用的全量结果（用于渲染层按需展开） */
@@ -230,13 +236,22 @@ export const createMessageSlice: StateCreator<
       // 非流式路径也持久化 blocks，避免下次全量加载时重建丢失结构
       const assistantMsg = response as Message;
       if (assistantMsg.role === "assistant" && assistantMsg.blocks?.length) {
-        chatService.updateMessageBlocks(
-          sessionId || "default",
-          assistantMsg.id,
-          assistantMsg.blocks as unknown as Array<Record<string, unknown>>,
-        ).catch((err) =>
-          handleClientError(err, { module: "stores:chat:message", action: "sendMessage:saveBlocks" }, "warn")
-        );
+        chatService
+          .updateMessageBlocks(
+            sessionId || "default",
+            assistantMsg.id,
+            assistantMsg.blocks as unknown as Array<Record<string, unknown>>,
+          )
+          .catch((err) =>
+            handleClientError(
+              err,
+              {
+                module: "stores:chat:message",
+                action: "sendMessage:saveBlocks",
+              },
+              "warn",
+            ),
+          );
       }
 
       // 再执行自动重命名（不阻塞 UI 状态）
@@ -1098,9 +1113,19 @@ export const createMessageSlice: StateCreator<
    */
   setMessages: (messages: Message[]) => {
     const t0 = performance.now();
-    const inputBlocks = messages.reduce((c, m) => c + (Array.isArray(m.blocks) ? m.blocks.length : 0), 0);
-    const inputChars = messages.reduce((c, m) => c + (typeof m.content === "string" ? m.content.length : 0), 0);
-    console.info("[Diag:setMsg] ═══ 开始处理消息", { count: messages.length, totalBlocks: inputBlocks, totalChars: inputChars });
+    const inputBlocks = messages.reduce(
+      (c, m) => c + (Array.isArray(m.blocks) ? m.blocks.length : 0),
+      0,
+    );
+    const inputChars = messages.reduce(
+      (c, m) => c + (typeof m.content === "string" ? m.content.length : 0),
+      0,
+    );
+    console.info("[Diag:setMsg] ═══ 开始处理消息", {
+      count: messages.length,
+      totalBlocks: inputBlocks,
+      totalChars: inputChars,
+    });
 
     // 会话切换锁：挂起流式写入，防止 loadSessions 覆盖流式数据
     _sessionSwitchLock = true;
@@ -1130,7 +1155,11 @@ export const createMessageSlice: StateCreator<
           filteredMessages.push(msg);
         }
       }
-      console.info("[Diag:setMsg] Phase1 过滤tool消息", { ms: (performance.now() - tP1).toFixed(1), toolResults: toolResultsByCallId.size, remaining: filteredMessages.length });
+      console.info("[Diag:setMsg] Phase1 过滤tool消息", {
+        ms: (performance.now() - tP1).toFixed(1),
+        toolResults: toolResultsByCallId.size,
+        remaining: filteredMessages.length,
+      });
 
       // Phase 2: 合并连续的 assistant 消息
       // 多轮工具调用时，后端将每轮 LLM 回复存为独立 assistant 消息，
@@ -1154,7 +1183,10 @@ export const createMessageSlice: StateCreator<
             timestamp: lastMsg.timestamp || msg.timestamp,
             blocks: [
               ...(lastMsg.blocks || []),
-              ...(Array.isArray(msg.blocks) ? msg.blocks : []).map((b) => ({ ...b, isStreaming: false })),
+              ...(Array.isArray(msg.blocks) ? msg.blocks : []).map((b) => ({
+                ...b,
+                isStreaming: false,
+              })),
             ],
             tool_calls: [
               ...(lastMsg.tool_calls || []),
@@ -1165,7 +1197,11 @@ export const createMessageSlice: StateCreator<
           mergedMessages.push({ ...msg });
         }
       }
-      console.info("[Diag:setMsg] Phase2 合并assistant消息", { ms: (performance.now() - tP2).toFixed(1), merged: mergedCount, resultCount: mergedMessages.length });
+      console.info("[Diag:setMsg] Phase2 合并assistant消息", {
+        ms: (performance.now() - tP2).toFixed(1),
+        merged: mergedCount,
+        resultCount: mergedMessages.length,
+      });
 
       // Phase 3: 处理合并后的消息，将工具结果合并到对应 assistant 消息的 tool_call 块中
       const tP3 = performance.now();
@@ -1188,7 +1224,8 @@ export const createMessageSlice: StateCreator<
               block.toolCall = {
                 ...block.toolCall,
                 result: truncateResult(fullResult),
-                _hasFullResult: fullResult.length > MAX_INLINE_RESULT_LENGTH || undefined,
+                _hasFullResult:
+                  fullResult.length > MAX_INLINE_RESULT_LENGTH || undefined,
               };
             }
             return block;
@@ -1222,8 +1259,14 @@ export const createMessageSlice: StateCreator<
         const newBlocks = rebuildBlocksFromContent(msg);
         return { ...msg, blocks: newBlocks, tool_calls: undefined };
       });
-      const outBlocks = enhancedMessages.reduce((c, m) => c + (Array.isArray(m.blocks) ? m.blocks.length : 0), 0);
-      console.info("[Diag:setMsg] Phase3 重建blocks+合并工具结果", { ms: (performance.now() - tP3).toFixed(1), outputBlocks: outBlocks });
+      const outBlocks = enhancedMessages.reduce(
+        (c, m) => c + (Array.isArray(m.blocks) ? m.blocks.length : 0),
+        0,
+      );
+      console.info("[Diag:setMsg] Phase3 重建blocks+合并工具结果", {
+        ms: (performance.now() - tP3).toFixed(1),
+        outputBlocks: outBlocks,
+      });
 
       // Phase 4: 从历史消息中的 tool_call 块中提取文件路径（仅同步收集，不做异步路径解析）
       const tP4 = performance.now();
@@ -1246,7 +1289,10 @@ export const createMessageSlice: StateCreator<
           );
         }
       }
-      console.info("[Diag:setMsg] Phase4 提取文件路径", { ms: (performance.now() - tP4).toFixed(1), filesFound: sessionFilesList.length });
+      console.info("[Diag:setMsg] Phase4 提取文件路径", {
+        ms: (performance.now() - tP4).toFixed(1),
+        filesFound: sessionFilesList.length,
+      });
 
       // 检测是否有待用户回答的 question 块
       const hasQuestion = enhancedMessages.some((m) =>
@@ -1290,9 +1336,14 @@ export const createMessageSlice: StateCreator<
         setHasPendingSave(true);
         _pendingSwitchChunks = [];
       }
-      console.info("[Diag:setMsg] ✅ 处理完成", { totalMs: (performance.now() - t0).toFixed(1) });
+      console.info("[Diag:setMsg] ✅ 处理完成", {
+        totalMs: (performance.now() - t0).toFixed(1),
+      });
     } catch (e) {
-      console.error("[Diag:setMsg] ❌ 处理失败", { error: String(e), totalMs: (performance.now() - t0).toFixed(1) });
+      console.error("[Diag:setMsg] ❌ 处理失败", {
+        error: String(e),
+        totalMs: (performance.now() - t0).toFixed(1),
+      });
       // 确保会话切换锁一定释放，防止锁泄漏导致后续流式输出永久阻塞
       _sessionSwitchLock = false;
       _pendingSwitchChunks = [];

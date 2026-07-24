@@ -77,7 +77,10 @@ export const appConfigService = {
       const config = await this.get();
       return !config.firstRunCompleted;
     } catch (e) {
-      handleClientError(e, { module: "services:appConfig", action: "isFirstRun" });
+      handleClientError(e, {
+        module: "services:appConfig",
+        action: "isFirstRun",
+      });
       return true;
     }
   },

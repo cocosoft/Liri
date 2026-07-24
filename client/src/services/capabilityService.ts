@@ -236,13 +236,12 @@ export const capabilityService = {
     taskType: string,
     modelCapabilities: string[],
   ): Promise<{ valid: boolean; issues: ValidationIssue[] }> {
-    const res = await http.post<{ data: { valid: boolean; issues: ValidationIssue[] } }>(
-      "/v1/models/capabilities/validate",
-      {
-        taskType,
-        modelCapabilities,
-      },
-    );
+    const res = await http.post<{
+      data: { valid: boolean; issues: ValidationIssue[] };
+    }>("/v1/models/capabilities/validate", {
+      taskType,
+      modelCapabilities,
+    });
     return res.data;
   },
 

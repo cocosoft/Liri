@@ -75,58 +75,72 @@ function FileUploadZone({
       return;
     }
 
+    // 捕获 non-null baseName 供内部函数使用
+    const targetBase = baseName;
+
     setUploadState({ status: "uploading", message: "上传中...", progress: 0 });
 
-    let successCount = 0;
-    let errorCount = 0;
-    let lastErrorMessage = "";
-
-    // 过滤出可接受的文件并开始读取
+    // 过滤出可接受的文件
     const validFiles = fileArray.filter((file) => {
       const ext = "." + file.name.split(".").pop()?.toLowerCase();
       if (!ACCEPTED_TYPES.includes(ext)) {
-        errorCount++;
         return false;
       }
       return true;
     });
 
-    // 并发上传（最多 5 个并发）
-    const CONCURRENCY = 5;
-    for (let i = 0; i < validFiles.length; i += CONCURRENCY) {
-      const batch = validFiles.slice(i, i + CONCURRENCY);
-      const promises = batch.map(async (file) => {
-        try {
-          const data = await readFileAsBase64(file);
-          await knowledgeService.uploadToBase(baseName, {
-            name: file.name,
-            data,
-          });
-          return { success: true } as const;
-        } catch (err) {
-          handleClientError(err, { module: "components:knowledge:FileUploadZone", action: "uploadFile" });
-          if (err instanceof HTTPClientError) {
-            lastErrorMessage = err.message;
-          } else if (err instanceof Error) {
-            lastErrorMessage = err.message;
-          }
-          return { success: false } as const;
-        }
-      });
+    // W8: 滑动窗口并发上传（替代串行批次）
+    async function uploadWithConcurrency(
+      files: File[],
+      concurrency = 5,
+    ): Promise<{
+      successCount: number;
+      errorCount: number;
+      lastErrorMessage: string;
+    }> {
+      let successCount = 0;
+      let errorCount = 0;
+      let lastErrorMessage = "";
+      const queue = [...files];
 
-      const results = await Promise.allSettled(promises);
-      for (const r of results) {
-        if (r.status === "fulfilled" && r.value.success) successCount++;
-        else errorCount++;
+      async function worker() {
+        while (queue.length > 0) {
+          const file = queue.shift()!;
+          try {
+            const data = await readFileAsBase64(file);
+            await knowledgeService.uploadToBase(targetBase, {
+              name: file.name,
+              data,
+            });
+            successCount++;
+          } catch (err) {
+            handleClientError(err, {
+              module: "components:knowledge:FileUploadZone",
+              action: "uploadFile",
+            });
+            errorCount++;
+            if (err instanceof HTTPClientError) {
+              lastErrorMessage = err.message;
+            } else if (err instanceof Error) {
+              lastErrorMessage = err.message;
+            }
+          }
+          // 更新进度
+          const done = successCount + errorCount;
+          setUploadState({
+            status: "uploading",
+            message: `上传中... (${done}/${files.length})`,
+            progress: Math.round((done / files.length) * 100),
+          });
+        }
       }
 
-      const done = Math.min(i + CONCURRENCY, validFiles.length);
-      setUploadState({
-        status: "uploading",
-        message: `上传中... (${done}/${validFiles.length})`,
-        progress: Math.round((done / validFiles.length) * 100),
-      });
+      await Promise.all(Array.from({ length: concurrency }, () => worker()));
+      return { successCount, errorCount, lastErrorMessage };
     }
+
+    const { successCount, errorCount, lastErrorMessage } =
+      await uploadWithConcurrency(validFiles, 5);
 
     if (successCount > 0) {
       setUploadState({
@@ -191,9 +205,9 @@ function FileUploadZone({
         onDrop={handleDrop}
         onClick={openFileDialog}
         className={`
-          relative border-2 border-dashed rounded-lg p-4
-          transition-colors cursor-pointer
+          relative border-2 border-dashed rounded-lg transition-all cursor-pointer
           ${borderDragClass} ${bgHover}
+          ${isDragOver ? "p-4" : "py-1.5 px-3"}
           ${isUploading ? "pointer-events-none opacity-70" : ""}
         `}
       >
@@ -233,29 +247,47 @@ function FileUploadZone({
           </div>
         )}
 
-        {uploadState.status === "idle" && (
-          <div className="text-center">
-            <svg
-              className={`w-6 h-6 mx-auto mb-1 ${textMuted}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-              />
-            </svg>
-            <p className={`text-xs ${textMuted}`}>
-              拖拽文件到此处，或点击选择文件
-            </p>
-            <p className={`text-[10px] ${textMuted} mt-0.5`}>
-              支持 Markdown、文本、Office、PDF 等常见文件格式
-            </p>
-          </div>
-        )}
+        {uploadState.status === "idle" &&
+          (isDragOver ? (
+            <div className="text-center">
+              <svg
+                className={`w-6 h-6 mx-auto mb-1 ${textMuted}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                />
+              </svg>
+              <p className={`text-xs ${textMuted}`}>
+                拖拽文件到此处，或点击选择文件
+              </p>
+              <p className={`text-[10px] ${textMuted} mt-0.5`}>
+                支持 Markdown、文本、Office、PDF 等常见文件格式
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2">
+              <svg
+                className={`w-4 h-4 ${textMuted}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                />
+              </svg>
+              <span className={`text-xs ${textMuted}`}>拖拽文件上传</span>
+            </div>
+          ))}
 
         {isUploading &&
           uploadState.progress > 0 &&

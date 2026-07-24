@@ -276,7 +276,10 @@ const skillService = {
       );
       return res.skill || null;
     } catch (e) {
-      handleClientError(e, { module: "services:skill", action: "getMarketDetail" });
+      handleClientError(e, {
+        module: "services:skill",
+        action: "getMarketDetail",
+      });
       return null;
     }
   },

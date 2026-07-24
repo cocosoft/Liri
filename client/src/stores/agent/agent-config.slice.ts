@@ -46,7 +46,10 @@ export const useAgentDetailStore = create<AgentDetailSlice>((set, get) => ({
       set({ taskLogs: logs });
       logger.debug("任务日志加载完成", { taskId: id, logCount: logs.length });
     } catch (e) {
-      handleClientError(e, { module: "stores:agent:config", action: "getTaskLogs" });
+      handleClientError(e, {
+        module: "stores:agent:config",
+        action: "getTaskLogs",
+      });
       logger.error("任务日志加载失败", { taskId: id, error: String(e) });
     }
   },

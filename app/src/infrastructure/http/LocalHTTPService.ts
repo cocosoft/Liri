@@ -212,6 +212,7 @@ import {
   handleSaveFromChat,
   handleKnowledgeUpload,
   handleKnowledgeCompile,
+  handleKnowledgeCompileStatus,
   handleGetRawFiles,
   handleKnowledgeHealth,
   handleExportToNotebook,
@@ -2119,6 +2120,16 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     return handleKnowledgeCompile(req, res);
+  }
+
+  /**
+   * W9: 处理编译进度查询（委派到 knowledge-handlers）
+   */
+  private async handleKnowledgeCompileStatus(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleKnowledgeCompileStatus(req, res);
   }
 
   /**
@@ -5883,6 +5894,90 @@ export class LocalHTTPService {
     }
   }
 
+  private async handleDreamMemories(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const mm = await this.getMemoryManager();
+      const { runMemoryDream } = await import(
+        '../../../src/memory/consolidation/MemoryDreamService'
+      );
+      const result = await runMemoryDream(mm);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, result }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleDreamCyclesList(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const parsedUrl = new URL(
+        req.url!,
+        `http://${req.headers.host || 'localhost'}`
+      );
+      const { DreamPersistence } = await import(
+        '../../../src/dream/DreamPersistence'
+      );
+      const persistence = new DreamPersistence();
+
+      const result = await persistence.listCycles({
+        page: parseInt(parsedUrl.searchParams.get('page') || '1'),
+        pageSize: parseInt(parsedUrl.searchParams.get('pageSize') || '20'),
+        triggerSource:
+          parsedUrl.searchParams.get('triggerSource') || undefined,
+        status: parsedUrl.searchParams.get('status') || undefined,
+        startTime: parsedUrl.searchParams.get('startTime')
+          ? parseInt(parsedUrl.searchParams.get('startTime')!)
+          : undefined,
+        endTime: parsedUrl.searchParams.get('endTime')
+          ? parseInt(parsedUrl.searchParams.get('endTime')!)
+          : undefined,
+        sortOrder:
+          (parsedUrl.searchParams.get('sortOrder') as 'asc' | 'desc') ||
+          'desc',
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, ...result }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  private async handleDreamCycleDetail(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    cycleId: string
+  ): Promise<void> {
+    try {
+      const { DreamPersistence } = await import(
+        '../../../src/dream/DreamPersistence'
+      );
+      const persistence = new DreamPersistence();
+      const cycle = await persistence.getCycle(cycleId);
+
+      if (!cycle) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: { message: 'Dream cycle not found', cycleId },
+          })
+        );
+        return;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, cycle }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
   /**
    * 处理文件打开请求
    * GET /api/file/open?path=<encoded_path>
@@ -6195,6 +6290,28 @@ export class LocalHTTPService {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ resolvedPath: rawPath, exists: true }));
           return;
+        }
+        // 绝对路径不存在时，提取文件名尝试在基础目录中搜索
+        // 处理文件被移动/重命名的情况
+        const fileName = path.basename(rawPath);
+        const projectRoot = resolveProjectRoot();
+        const baseDirs = [
+          projectRoot,
+          resolvePyappHome(),
+          resolveOutputDir(),
+          resolveDownloadsDir(),
+          resolveDataDir(),
+          resolveDocsDir(),
+          path.join(projectRoot, 'app'),
+          path.join(projectRoot, 'client'),
+        ];
+        for (const baseDir of baseDirs) {
+          const candidate = path.join(baseDir, fileName);
+          if (fs.existsSync(candidate)) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ resolvedPath: candidate, exists: true }));
+            return;
+          }
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ resolvedPath: rawPath, exists: false }));

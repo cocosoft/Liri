@@ -86,7 +86,10 @@ function CodeBlock({ code, language }: CodeBlockProps) {
       try {
         return hljs.highlight(code, { language: lang }).value;
       } catch (e) {
-        handleClientError(e, { module: "components:chat:CodeBlock", action: "highlight" });
+        handleClientError(e, {
+          module: "components:chat:CodeBlock",
+          action: "highlight",
+        });
         // 高亮失败时降级为自动检测
       }
     }
@@ -95,7 +98,10 @@ function CodeBlock({ code, language }: CodeBlockProps) {
     try {
       return hljs.highlightAuto(code).value;
     } catch (e) {
-      handleClientError(e, { module: "components:chat:CodeBlock", action: "highlightAuto" });
+      handleClientError(e, {
+        module: "components:chat:CodeBlock",
+        action: "highlightAuto",
+      });
       return escapeHtml(code);
     }
   }, [code, language]);
@@ -110,7 +116,10 @@ function CodeBlock({ code, language }: CodeBlockProps) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (e) {
-      handleClientError(e, { module: "components:chat:CodeBlock", action: "copyToClipboard" });
+      handleClientError(e, {
+        module: "components:chat:CodeBlock",
+        action: "copyToClipboard",
+      });
       // 忽略复制失败
     }
   };

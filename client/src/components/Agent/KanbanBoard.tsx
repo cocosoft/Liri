@@ -66,7 +66,10 @@ export default function KanbanBoard() {
       const res = await http.get<KanbanCard[]>("/v1/kanban");
       if (Array.isArray(res)) setCards(res);
     } catch (e) {
-      handleClientError(e, { module: "components:agent:KanbanBoard", action: "load" });
+      handleClientError(e, {
+        module: "components:agent:KanbanBoard",
+        action: "load",
+      });
       /* */
     }
     setLoading(false);
@@ -90,7 +93,10 @@ export default function KanbanBoard() {
       setShowCreate(false);
       load();
     } catch (e) {
-      handleClientError(e, { module: "components:agent:KanbanBoard", action: "create" });
+      handleClientError(e, {
+        module: "components:agent:KanbanBoard",
+        action: "create",
+      });
       /* */
     }
   };
@@ -100,7 +106,10 @@ export default function KanbanBoard() {
       await http.delete(`/v1/kanban/${id}`);
       load();
     } catch (e) {
-      handleClientError(e, { module: "components:agent:KanbanBoard", action: "del" });
+      handleClientError(e, {
+        module: "components:agent:KanbanBoard",
+        action: "del",
+      });
       /* */
     }
   };
@@ -131,7 +140,10 @@ export default function KanbanBoard() {
       });
       load();
     } catch (e) {
-      handleClientError(e, { module: "components:agent:KanbanBoard", action: "onDrop" });
+      handleClientError(e, {
+        module: "components:agent:KanbanBoard",
+        action: "onDrop",
+      });
       /* */
     }
     setDragOverCol("");

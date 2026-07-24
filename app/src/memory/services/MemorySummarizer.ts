@@ -23,29 +23,23 @@ export class MemorySummarizer {
    * 获取最新记忆摘要
    * @param limit 最大返回条数
    * @param sessionContext 会话上下文（可选），传入时提升同一会话内记忆的优先级
+   * @param prioritizeDreamRefined 是否优先梦境精炼过的记忆（默认 true）
    */
   async getSummaries(
     limit: number = 5,
-    sessionContext?: SessionContext
+    sessionContext?: SessionContext,
+    prioritizeDreamRefined: boolean = true
   ): Promise<MemoryQueryResult> {
     // 优先从缓存读取，避免全量 I/O
-    // 无论是否有 sessionContext 都使用缓存的 Memory[] 对象做重排序
     if (this.memoryManager.recentSummaryCache) {
       const cache = this.memoryManager.recentSummaryCache;
-      // 拷贝一份避免 sort 变异原数组
       let candidates = [...cache.memories];
-      candidates.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
-      // 如果提供了会话上下文，将会话内记忆移到前面
-      if (sessionContext) {
-        candidates.sort((a, b) => {
-          const aInSession = this.belongsToSession(a, sessionContext);
-          const bInSession = this.belongsToSession(b, sessionContext);
-          if (aInSession && !bInSession) return -1;
-          if (!aInSession && bInSession) return 1;
-          return b.updatedAt.getTime() - a.updatedAt.getTime();
-        });
-      }
+      // 过滤掉已弃用的记忆 (deprecatedBy 不为空)
+      candidates = candidates.filter((m) => !(m.metadata as any)?.deprecatedBy);
+
+      // 综合排序：会话内 → 梦境精炼 → 优先级 → 更新时间
+      this.sortCandidates(candidates, sessionContext, prioritizeDreamRefined);
 
       const summaries = candidates
         .slice(0, limit)
@@ -58,23 +52,12 @@ export class MemorySummarizer {
 
     // 缓存不存在时回退全量 I/O
     const allMemories = await this.memoryManager.getAllMemories();
-    allMemories.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    let candidates = allMemories.filter((m) => !(m.metadata as any)?.deprecatedBy);
 
-    // 取最近 limit 条
-    let candidates = allMemories.slice(0, limit);
+    this.sortCandidates(candidates, sessionContext, prioritizeDreamRefined);
 
-    // 如果提供了会话上下文，将会话内记忆移到前面
-    if (sessionContext) {
-      candidates.sort((a, b) => {
-        const aInSession = this.belongsToSession(a, sessionContext);
-        const bInSession = this.belongsToSession(b, sessionContext);
-        if (aInSession && !bInSession) return -1;
-        if (!aInSession && bInSession) return 1;
-        return b.updatedAt.getTime() - a.updatedAt.getTime();
-      });
-    }
-
-    const summaries = candidates.map((m) => this.toSummary(m));
+    const topCandidates = candidates.slice(0, limit);
+    const summaries = topCandidates.map((m) => this.toSummary(m));
     const result = { summaries, totalCount: allMemories.length };
 
     // 回写缓存供后续使用
@@ -85,6 +68,41 @@ export class MemorySummarizer {
     };
 
     return result;
+  }
+
+  /**
+   * 综合排序：会话内 > 梦境精炼 > 优先级 > 更新时间
+   */
+  private sortCandidates(
+    candidates: Memory[],
+    sessionContext?: SessionContext,
+    prioritizeDreamRefined: boolean = true
+  ): void {
+    candidates.sort((a, b) => {
+      // 1. 会话内记忆优先
+      if (sessionContext) {
+        const aInSession = this.belongsToSession(a, sessionContext);
+        const bInSession = this.belongsToSession(b, sessionContext);
+        if (aInSession && !bInSession) return -1;
+        if (!aInSession && bInSession) return 1;
+      }
+
+      // 2. 梦境精炼过的记忆优先
+      if (prioritizeDreamRefined) {
+        const aRefined = (a.metadata as any)?.dreamRefined === true;
+        const bRefined = (b.metadata as any)?.dreamRefined === true;
+        if (aRefined && !bRefined) return -1;
+        if (!aRefined && bRefined) return 1;
+      }
+
+      // 3. 优先级高的在前
+      const aPriority = a.metadata?.priority ?? 0;
+      const bPriority = b.metadata?.priority ?? 0;
+      if (aPriority !== bPriority) return bPriority - aPriority;
+
+      // 4. 最近更新的在前
+      return b.updatedAt.getTime() - a.updatedAt.getTime();
+    });
   }
 
   /**

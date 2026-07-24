@@ -74,7 +74,10 @@ export default function CapabilitySelector({
           setCategories(result.categories);
         }
       } catch (err) {
-        handleClientError(err, { module: "components:common:CapabilitySelector", action: "loadCapabilities" });
+        handleClientError(err, {
+          module: "components:common:CapabilitySelector",
+          action: "loadCapabilities",
+        });
         // 使用基础 fallback 列表
         setCapabilities([
           {

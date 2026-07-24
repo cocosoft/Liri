@@ -136,7 +136,10 @@ function createTauriFileService() {
         });
         return result;
       } catch (e) {
-        handleClientError(e, { module: "services:file", action: "readFileDetail" });
+        handleClientError(e, {
+          module: "services:file",
+          action: "readFileDetail",
+        });
         throw new Error("无法读取文件");
       }
     },
@@ -152,7 +155,10 @@ function createTauriFileService() {
       try {
         return await http.get<WorkspaceInfo[]>("/v1/workspaces");
       } catch (e) {
-        handleClientError(e, { module: "services:file", action: "listWorkspaces" });
+        handleClientError(e, {
+          module: "services:file",
+          action: "listWorkspaces",
+        });
         return [];
       }
     },

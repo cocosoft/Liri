@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, Box } from '../ink.js';
 import { MarkdownRenderer } from './markdown.js';
 import { LoadingDots } from './LoadingDots.js';
+import { getToolUI } from './ToolUIRegistry.js';
 
 export type MessageSender = 'user' | 'assistant' | 'system';
 
@@ -72,7 +73,33 @@ function renderToolCall(toolCall: ToolCallInfo): React.ReactNode {
   );
 }
 
-function renderToolResult(toolResult: ToolResultInfo): React.ReactNode {
+function renderToolResult(toolResult: ToolResultInfo, verbose: boolean = false): React.ReactNode {
+  // 终端兼容性：非 TTY 或无颜色支持时降级为纯文本
+  const isPlain = !process.stdout.isTTY;
+
+  // 优先使用 ToolUIRegistry 注册的专用渲染器
+  const ui = getToolUI(toolResult.toolName);
+  if (ui?.renderToolResultMessage) {
+    try {
+      return ui.renderToolResultMessage(toolResult.result, [], { verbose: verbose && !isPlain });
+    } catch {
+      // 专用渲染器异常时降级到通用渲染
+    }
+  }
+
+  // plain 模式：纯文本，无 ANSI 颜色
+  if (isPlain) {
+    return (
+      <Box flexDirection="column" marginTop={1} marginLeft={2}>
+        <Text dimColor>
+          [{toolResult.success ? 'OK' : 'ERR'}] {toolResult.toolName}
+          {toolResult.result ? `: ${toolResult.result.slice(0, 500)}` : ''}
+        </Text>
+      </Box>
+    );
+  }
+
+  // 通用渲染 fallback
   const color = toolResult.success ? 'green' : 'red';
   const icon = toolResult.success ? '✓' : '✗';
   return (
@@ -149,7 +176,7 @@ export function ChatMessage({
         )}
 
         {toolCall && renderToolCall(toolCall)}
-        {toolResult && renderToolResult(toolResult)}
+        {toolResult && renderToolResult(toolResult, verbose)}
       </Box>
     </Box>
   );

@@ -51,12 +51,7 @@ export const logStore = {
   /**
    * 添加日志条目
    */
-  add(
-    level: LogLevel,
-    module: string,
-    message: string,
-    data?: unknown,
-  ): void {
+  add(level: LogLevel, module: string, message: string, data?: unknown): void {
     const logs = getStoredLogs();
     const entry: FrontendLogEntry = {
       id: generateId(),
@@ -73,13 +68,15 @@ export const logStore = {
   /**
    * 查询日志
    */
-  query(options: {
-    level?: LogLevel;
-    module?: string;
-    search?: string;
-    limit?: number;
-    offset?: number;
-  } = {}): { logs: FrontendLogEntry[]; total: number } {
+  query(
+    options: {
+      level?: LogLevel;
+      module?: string;
+      search?: string;
+      limit?: number;
+      offset?: number;
+    } = {},
+  ): { logs: FrontendLogEntry[]; total: number } {
     let logs = getStoredLogs();
 
     // 按级别过滤
@@ -90,7 +87,9 @@ export const logStore = {
     // 按模块过滤（支持模糊匹配）
     if (options.module) {
       const moduleLower = options.module.toLowerCase();
-      logs = logs.filter((log) => log.module.toLowerCase().includes(moduleLower));
+      logs = logs.filter((log) =>
+        log.module.toLowerCase().includes(moduleLower),
+      );
     }
 
     // 按搜索词过滤（匹配消息和模块）

@@ -1,63 +1,99 @@
-import { useState, useEffect, useCallback } from "react";
+/**
+ * KnowledgePage — 知识库主页面
+ *
+ * W2: store 驱动，display 控制 Tab
+ * W4: 统一 useToast 通知
+ * U1: 砍掉检索 Tab，侧边栏搜索结果在右侧展示
+ */
+import { useEffect, useState, useRef } from "react";
 import { useKnowledgeStore } from "../../stores/knowledgeStore";
 import { useConfigStore } from "../../stores/configStore";
 import { knowledgeService } from "../../services/knowledgeService";
-import type { KnowledgeFile, KnowledgeSearchResult } from "../../types";
+import type { KnowledgeFile } from "../../types";
 import { createLogger } from "@/utils/logger";
+import { useToast, ToastContainer } from "../../hooks/useToast";
 
 const logger = createLogger("components:knowledge");
+
 import KnowledgeBaseList from "../Knowledge/KnowledgeBaseList";
 import KnowledgeEditor from "../Knowledge/KnowledgeEditor";
-import PendingCompilePanel from "../Knowledge/PendingCompilePanel";
 import SemanticIndexPage from "./SemanticIndexPage";
 import { formatFileSize, formatDateTime } from "../Knowledge/shared/utils";
 import { sourceLabels } from "../Knowledge/shared/constants";
-import SearchPanel from "../Knowledge/SearchPanel";
 import StatsPanel from "../Knowledge/StatsPanel";
 import VersionHistory from "../Knowledge/VersionHistory";
 import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
 import { useSessionContextSync } from "../../hooks/useSessionContextSync";
 
-type ActiveTab = "knowledge" | "search-demo" | "stats" | "semantic";
+function KnowledgePageSkeleton() {
+  return (
+    <div className="flex-1 overflow-hidden bg-gray-50 dark:bg-gray-900 animate-pulse">
+      <div className="h-full flex flex-col">
+        <div className="flex items-center px-6 py-3 border-b border-gray-200 dark:border-gray-700 gap-6">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="w-16 h-4 bg-gray-200 dark:bg-gray-700 rounded"
+            />
+          ))}
+        </div>
+        <div className="flex-1 flex">
+          <div className="w-80 lg:w-96 border-r border-gray-200 dark:border-gray-700 p-4 space-y-3">
+            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded" />
+            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded" />
+            <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded" />
+          </div>
+          <div className="flex-1 flex items-center justify-center">
+            <div className="w-16 h-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded-full" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function KnowledgePage() {
-  const items = useKnowledgeStore((s) => s.items);
-  const loadItems = useKnowledgeStore((s) => s.loadItems);
-  const { config } = useConfigStore();
+  const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>("knowledge");
-  const [selectedBase, setSelectedBase] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<KnowledgeFile | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState("");
-  const [editContent, setEditContent] = useState("");
+  const view = useKnowledgeStore((s) => s.view);
+  const setView = useKnowledgeStore((s) => s.setView);
+  const editor = useKnowledgeStore((s) => s.editor);
+  const setEditor = useKnowledgeStore((s) => s.setEditor);
+  const search = useKnowledgeStore((s) => s.search);
+  const setSearch = useKnowledgeStore((s) => s.setSearch);
+  const clearSearch = useKnowledgeStore((s) => s.clearSearch);
+  const loadItems = useKnowledgeStore((s) => s.loadItems);
+  const items = useKnowledgeStore((s) => s.items);
 
-  const [demoQuery, setDemoQuery] = useState("");
-  const [demoResults, setDemoResults] = useState<KnowledgeSearchResult[]>([]);
-  const [isDemoSearching, setIsDemoSearching] = useState(false);
-  const [demoSearchDone, setDemoSearchDone] = useState(false);
-  const [editingTags, setEditingTags] = useState(false);
-  const [editTagsInput, setEditTagsInput] = useState("");
-  const [notification, setNotification] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
+  const { toasts, show: showToast, dismiss } = useToast(3000);
+  const [showStats, setShowStats] = useState(false);
 
-  /** 模块上下文同步：保存/恢复 KnowledgeSessionContext */
+  const { activeTab, selectedBase, selectedFile, isInitialLoading } = view;
+
   useSessionContextSync("knowledge", {
     save: () => ({
       moduleType: "knowledge" as const,
-      query: searchQuery || undefined,
+      query: search.query || undefined,
       selectedDocIds: selectedFile ? [selectedFile.id] : undefined,
     }),
     restore: (ctx) => {
       if (ctx.moduleType !== "knowledge") return;
-      if (ctx.query) setSearchQuery(ctx.query);
-      // selectedDocIds 恢复需要完整的 KnowledgeFile 数据，仅恢复查询
+      if (ctx.query) setSearch({ query: ctx.query });
     },
   });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const bases = await knowledgeService.listBases();
+        if (bases.length > 0 && !selectedBase)
+          setView({ selectedBase: bases[0].name });
+      } finally {
+        setView({ isInitialLoading: false });
+      }
+    })();
+  }, []);
 
   const bgClass = isDark ? "bg-gray-900" : "bg-gray-50";
   const textPrimary = isDark ? "text-gray-100" : "text-gray-900";
@@ -67,68 +103,33 @@ function KnowledgePage() {
     : "bg-white border-gray-300 text-gray-900 placeholder-gray-400";
   const borderColor = isDark ? "border-gray-700" : "border-gray-200";
 
-  // 仅在 stats Tab 激活时加载统计所需数据
-  useEffect(() => {
-    if (activeTab === "stats") {
-      loadItems();
-    }
-  }, [activeTab, loadItems]);
-
   function handleSelectBase(baseName: string | null) {
-    setSelectedBase(baseName);
-    setSelectedFile(null);
-    setIsEditing(false);
+    setView({ selectedBase: baseName, selectedFile: null });
+    setEditor({ isEditing: false });
   }
 
   function handleSelectFile(file: KnowledgeFile) {
     if (selectedFile?.id === file.id) return;
-    setSelectedFile(file);
-    setIsEditing(false);
-    setEditTitle(file.title);
-    setEditContent(file.content);
-  }
-
-  function handleSearchResultClick(result: {
-    id: string;
-    title: string;
-    content: string;
-    category?: string;
-  }) {
-    const file: KnowledgeFile = {
-      id: result.id,
-      title: result.title,
-      content: result.content,
-      category: result.category || "知识库",
-      tags: [],
-      docPath: "",
-      base: "",
-      size: 0,
-      source: "manual" as const,
-      created_at: Date.now(),
-      updated_at: Date.now(),
-    };
-    setActiveTab("knowledge");
-    setSelectedFile(file);
-    setIsEditing(false);
-    setEditTitle(result.title);
-    setEditContent(result.content);
-    // 延迟滚动到编辑器（等 DOM 渲染）
-    setTimeout(() => {
-      const el = document.querySelector("[data-editor-textarea]");
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 100);
+    setView({ selectedFile: file });
+    setEditor({
+      isEditing: false,
+      editTitle: file.title,
+      editContent: file.content,
+    });
   }
 
   function startEditing() {
     if (!selectedFile) return;
-    setIsEditing(true);
-    setEditTitle(selectedFile.title);
-    setEditContent(selectedFile.content);
+    setEditor({
+      isEditing: true,
+      editTitle: selectedFile.title,
+      editContent: selectedFile.content,
+    });
   }
 
   async function handleSaveTags() {
     if (!selectedFile) return;
-    const tags = editTagsInput
+    const tags = editor.editTagsInput
       .split(/[,\n]/)
       .map((t) => t.trim())
       .filter(Boolean);
@@ -139,8 +140,8 @@ function KnowledgePage() {
         selectedFile.title,
         { tags },
       );
-      setSelectedFile({ ...selectedFile, tags });
-      setEditingTags(false);
+      setView({ selectedFile: { ...selectedFile, tags } });
+      setEditor({ editingTags: false });
     } catch (err) {
       logger.error("保存标签失败", err);
     }
@@ -153,39 +154,36 @@ function KnowledgePage() {
         selectedFile.docPath || selectedFile.id,
         selectedFile.title,
       );
-      setNotification({
-        type: "success",
-        message: `已导出到 Notebook: ${result.fileName}`,
-      });
-      setTimeout(() => setNotification(null), 3000);
+      showToast("success", `已导出到 Notebook: ${result.fileName}`);
     } catch (err) {
-      setNotification({
-        type: "error",
-        message: `导出失败: ${err instanceof Error ? err.message : String(err)}`,
-      });
-      setTimeout(() => setNotification(null), 3000);
+      showToast(
+        "error",
+        `导出失败: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
   function startEditTags() {
     if (!selectedFile) return;
-    setEditTagsInput(selectedFile.tags?.join(", ") || "");
-    setEditingTags(true);
+    setEditor({
+      editTagsInput: selectedFile.tags?.join(", ") || "",
+      editingTags: true,
+    });
   }
 
   async function handleSaveEdit(title: string, content: string) {
     if (!selectedFile) return;
-
-    const docPath = selectedFile.id;
     try {
-      await knowledgeService.updateDoc(docPath, content, title);
-      setSelectedFile({
-        ...selectedFile,
-        title,
-        content,
-        updated_at: Date.now(),
+      await knowledgeService.updateDoc(selectedFile.id, content, title);
+      setView({
+        selectedFile: {
+          ...selectedFile,
+          title,
+          content,
+          updated_at: Date.now(),
+        },
       });
-      setIsEditing(false);
+      setEditor({ isEditing: false });
     } catch (err) {
       logger.error("保存失败", err);
     }
@@ -193,56 +191,41 @@ function KnowledgePage() {
 
   async function handleDeleteFile() {
     if (!selectedFile) return;
-    const docPath = selectedFile.id;
     try {
-      await knowledgeService.delete(docPath);
-      setSelectedFile(null);
-      setIsEditing(false);
+      await knowledgeService.delete(selectedFile.id);
+      setView({ selectedFile: null });
+      setEditor({ isEditing: false });
     } catch (err) {
       logger.error("删除失败", err);
     }
   }
 
   function cancelEditing() {
-    setIsEditing(false);
-    if (selectedFile) {
-      setEditTitle(selectedFile.title);
-      setEditContent(selectedFile.content);
-    }
+    setEditor({ isEditing: false });
+    if (selectedFile)
+      setEditor({
+        editTitle: selectedFile.title,
+        editContent: selectedFile.content,
+      });
   }
 
-  const handleDemoSearch = useCallback(
-    async (domain?: string) => {
-      if (!demoQuery.trim()) return;
-      setIsDemoSearching(true);
-      setDemoSearchDone(false);
-      try {
-        const results = await knowledgeService.hybridSearch(
-          demoQuery.trim(),
-          selectedBase || undefined,
-          domain,
-        );
-        setDemoResults(results);
-      } catch {
-        setDemoResults([]);
-      }
-      setIsDemoSearching(false);
-      setDemoSearchDone(true);
-    },
-    [demoQuery, selectedBase],
-  );
+  // ── U1: 搜索结果计算 ──
+  const isSearchActive = search.query.trim().length > 0;
+  const searchResults = search.listResults;
 
-  const tabs: { key: ActiveTab; label: string }[] = [
-    { key: "knowledge", label: "知识库" },
-    { key: "search-demo", label: "检索演示" },
-    { key: "semantic", label: "语义索引" },
-    { key: "stats", label: "知识统计" },
+  const tabs = [
+    { key: "knowledge" as const, label: "知识库" },
+    { key: "semantic" as const, label: "语义索引" },
   ];
+
+  if (isInitialLoading) return <KnowledgePageSkeleton />;
 
   return (
     <div className={`flex-1 overflow-y-auto ${bgClass}`}>
       <div className="h-full flex flex-col">
-        {/* 标签导航 */}
+        <ToastContainer toasts={toasts} dismiss={dismiss} isDark={isDark} />
+
+        {/* Tab 导航 + 统计徽章 */}
         <div
           className={`flex items-center justify-between px-6 py-3 border-b ${borderColor} flex-shrink-0`}
         >
@@ -250,7 +233,7 @@ function KnowledgePage() {
             {tabs.map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => setView({ activeTab: tab.key })}
                 className={`text-sm font-medium transition-colors pb-1 border-b-2 ${
                   activeTab === tab.key
                     ? "border-blue-500 text-blue-500"
@@ -261,34 +244,168 @@ function KnowledgePage() {
               </button>
             ))}
           </div>
+          {/* U4: 统计徽章 */}
+          <button
+            onClick={() => {
+              loadItems();
+              setShowStats(true);
+            }}
+            className={`text-xs ${textSecondary} hover:text-blue-500 dark:hover:text-blue-400 transition-colors flex items-center gap-1`}
+            title="知识统计"
+          >
+            📊 {items.length > 0 ? items.length : ""}
+          </button>
         </div>
 
-        {/* ========== 标签1: 知识库（双栏工作台） ========== */}
-        {activeTab === "knowledge" && (
+        {/* U4: 统计 Modal */}
+        {showStats && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            onClick={() => setShowStats(false)}
+          >
+            <div
+              className="w-full max-w-3xl max-h-[80vh] overflow-y-auto m-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl">
+                <button
+                  onClick={() => setShowStats(false)}
+                  className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-lg"
+                >
+                  ✕
+                </button>
+                <StatsPanel
+                  isDark={isDark}
+                  items={items}
+                  demoSearchDone={false}
+                  demoResultCount={0}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── 知识库 Tab ── */}
+        <div
+          style={{ display: activeTab === "knowledge" ? "flex" : "none" }}
+          className="flex-1 overflow-hidden"
+        >
           <div className="flex-1 flex overflow-hidden">
-            {/* 左侧：知识库列表 */}
             <div className="w-80 lg:w-96 flex-shrink-0 border-r ${borderColor} flex flex-col overflow-hidden">
-              <div className="overflow-y-auto flex-1">
+              <div className="overflow-hidden flex-1">
                 <KnowledgeBaseList
                   isDark={isDark}
                   selectedBase={selectedBase}
                   onSelectBase={handleSelectBase}
                   onSelectFile={handleSelectFile}
                   selectedFileId={selectedFile?.id || null}
-                  externalSearchQuery={searchQuery}
+                  externalSearchQuery={search.query}
                 />
               </div>
-              <PendingCompilePanel
-                isDark={isDark}
-                onCompileComplete={() => {
-                  loadItems();
-                }}
-              />
             </div>
 
-            {/* 右侧：文件预览/编辑 */}
             <div className="flex-1 overflow-y-auto">
-              {!selectedFile ? (
+              {/* U1: 搜索激活 → 展示搜索结果 */}
+              {isSearchActive ? (
+                <div className="p-6 max-w-3xl mx-auto">
+                  {/* 匹配类型分布条 */}
+                  {searchResults.length > 0 && (
+                    <div className="mb-4 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                        匹配类型分布
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-green-600 dark:text-green-400 w-12">
+                          关键词
+                        </span>
+                        <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-green-400 dark:bg-green-600 rounded-full transition-all"
+                            style={{ width: "100%" }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-purple-600 dark:text-purple-400 w-12 text-right">
+                          语义
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {search.isListSearching ? (
+                    <div className="text-center py-8 text-gray-400">
+                      <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2" />
+                      <span className="text-xs">搜索中...</span>
+                    </div>
+                  ) : searchResults.length === 0 ? (
+                    <div className="text-center py-16 text-gray-400">
+                      <svg
+                        className="w-12 h-12 mx-auto mb-3 opacity-40"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+                      <p className="text-sm">未找到匹配文档</p>
+                      <p className="text-xs mt-1 opacity-60">
+                        试试缩短关键词、调整分类筛选
+                      </p>
+                      <button
+                        onClick={clearSearch}
+                        className="mt-2 text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400"
+                      >
+                        清除搜索
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          共 {searchResults.length} 条结果
+                        </span>
+                        <button
+                          onClick={clearSearch}
+                          className="text-[10px] text-blue-500 hover:text-blue-600 dark:text-blue-400"
+                        >
+                          清除搜索
+                        </button>
+                      </div>
+                      {searchResults.map((result, idx) => (
+                        <div
+                          key={result.id}
+                          className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 cursor-pointer transition-colors"
+                          onClick={() => handleSelectFile(result)}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <h4
+                              className={`text-sm font-medium ${textPrimary} truncate`}
+                            >
+                              #{idx + 1} {result.title || "未命名文档"}
+                            </h4>
+                          </div>
+                          <p
+                            className={`text-xs ${textSecondary} line-clamp-2`}
+                          >
+                            {result.content?.slice(0, 200) || "无内容"}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            {result.category && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                                {result.category}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : !selectedFile ? (
                 <div
                   className={`flex items-center justify-center h-full ${textSecondary}`}
                 >
@@ -312,12 +429,6 @@ function KnowledgePage() {
                     </p>
                     <div className="flex items-center justify-center gap-3 mt-4">
                       <button
-                        onClick={() => setActiveTab("search-demo")}
-                        className="px-3 py-1.5 text-xs border rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                      >
-                        检索知识
-                      </button>
-                      <button
                         onClick={() => {
                           const el = document.querySelector<HTMLButtonElement>(
                             '[data-testid="file-upload-trigger"]',
@@ -329,7 +440,10 @@ function KnowledgePage() {
                         上传文档
                       </button>
                       <button
-                        onClick={() => setActiveTab("stats")}
+                        onClick={() => {
+                          loadItems();
+                          setShowStats(true);
+                        }}
                         className="px-3 py-1.5 text-xs border rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
                         查看统计
@@ -337,28 +451,18 @@ function KnowledgePage() {
                     </div>
                   </div>
                 </div>
-              ) : isEditing ? (
+              ) : editor.isEditing && selectedFile ? (
                 <KnowledgeEditor
-                  title={editTitle}
-                  content={editContent}
+                  file={selectedFile}
                   isDark={isDark}
                   onSave={handleSaveEdit}
                   onCancel={cancelEditing}
+                  onFileCreated={(newFile) => {
+                    handleSelectFile(newFile);
+                  }}
                 />
               ) : (
                 <div className="p-6 max-w-3xl mx-auto">
-                  {/* 操作通知 */}
-                  {notification && (
-                    <div
-                      className={`mb-4 px-4 py-2 rounded-md text-sm ${
-                        notification.type === "success"
-                          ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800"
-                          : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800"
-                      }`}
-                    >
-                      {notification.message}
-                    </div>
-                  )}
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex-1 min-w-0">
                       <h2
@@ -375,11 +479,7 @@ function KnowledgePage() {
                         </span>
                         {selectedFile.source && (
                           <span
-                            className={`text-xs px-2 py-0.5 rounded-full ${
-                              isDark
-                                ? "bg-gray-700 text-gray-300"
-                                : "bg-gray-100 text-gray-600"
-                            }`}
+                            className={`text-xs px-2 py-0.5 rounded-full ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"}`}
                           >
                             {sourceLabels[selectedFile.source] ||
                               selectedFile.source}
@@ -387,86 +487,49 @@ function KnowledgePage() {
                         )}
                         {selectedFile.base && (
                           <span
-                            className={`text-xs px-2 py-0.5 rounded-full ${
-                              isDark
-                                ? "bg-blue-900/30 text-blue-400"
-                                : "bg-blue-50 text-blue-600"
-                            }`}
+                            className={`text-xs px-2 py-0.5 rounded-full ${isDark ? "bg-blue-900/30 text-blue-400" : "bg-blue-50 text-blue-600"}`}
                           >
                             {selectedFile.base}
                           </span>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 ml-4 flex-shrink-0">
-                      <button
-                        onClick={() => {
-                          if (!selectedFile) return;
-                          // 将选中文档内容作为系统消息发送到当前对话
-                          const event = new CustomEvent(
-                            "liri:append-knowledge",
-                            {
-                              detail: {
-                                title: selectedFile.title,
-                                content: selectedFile.content,
-                              },
+
+                    {/* ── U3: 操作按钮区分 pri/sec ── */}
+                    <DetailsMenu
+                      isDark={isDark}
+                      onStartEdit={startEditing}
+                      onSendToChat={() => {
+                        if (!selectedFile) return;
+                        window.dispatchEvent(
+                          new CustomEvent("liri:append-knowledge", {
+                            detail: {
+                              title: selectedFile.title,
+                              content: selectedFile.content,
                             },
-                          );
-                          window.dispatchEvent(event);
-                        }}
-                        title="将文档内容发送到当前对话"
-                        className="px-3 py-1.5 text-sm text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
-                      >
-                        发送到对话
-                      </button>
-                      <button
-                        onClick={handleExportToNotebook}
-                        title="导出为 Notebook 兼容的 Markdown 文件"
-                        className="px-3 py-1.5 text-sm text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-md hover:bg-green-50 dark:hover:bg-green-900/30"
-                      >
-                        导出到 Notebook
-                      </button>
-                      <button
-                        onClick={() => {
-                          const base = selectedBase || "all";
-                          window.open(
-                            `/v1/knowledge/export?base=${encodeURIComponent(base)}`,
-                            "_blank",
-                          );
-                        }}
-                        title="ZIP 打包导出知识库"
-                        className="px-3 py-1.5 text-sm text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 rounded-md hover:bg-purple-50 dark:hover:bg-purple-900/30"
-                      >
-                        ZIP导出
-                      </button>
-                      <button
-                        onClick={startEditing}
-                        className="px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/30"
-                      >
-                        编辑
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (!selectedFile) return;
-                          const ok = await knowledgeService.trash(
-                            selectedFile.id,
-                          );
-                          if (ok) {
-                            setSelectedFile(null);
-                            setIsEditing(false);
-                          }
-                        }}
-                        className="px-3 py-1.5 text-sm text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800 rounded-md hover:bg-orange-50 dark:hover:bg-orange-900/30"
-                      >
-                        回收
-                      </button>
-                      <button
-                        onClick={handleDeleteFile}
-                        className="px-3 py-1.5 text-sm text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30"
-                      >
-                        删除
-                      </button>
-                    </div>
+                          }),
+                        );
+                      }}
+                      onExportNotebook={handleExportToNotebook}
+                      onZipExport={() =>
+                        window.open(
+                          `/v1/knowledge/export?base=${encodeURIComponent(selectedBase || "all")}`,
+                          "_blank",
+                        )
+                      }
+                      onVersionHistory={() => {}} // VersionHistory rendered inline below
+                      onTrash={async () => {
+                        if (!selectedFile) return;
+                        const ok = await knowledgeService.trash(
+                          selectedFile.id,
+                        );
+                        if (ok) {
+                          setView({ selectedFile: null });
+                          setEditor({ isEditing: false });
+                        }
+                      }}
+                      onDelete={handleDeleteFile}
+                    />
                   </div>
 
                   <div className="prose prose-sm max-w-none dark:prose-invert">
@@ -482,11 +545,12 @@ function KnowledgePage() {
                       isDark={isDark}
                       title={selectedFile.title}
                       currentContent={selectedFile.content}
-                      onRestored={() => {
-                        // 恢复后重新加载选中文档
-                        setEditTitle(selectedFile.title);
-                        setEditContent(selectedFile.content);
-                      }}
+                      onRestored={() =>
+                        setEditor({
+                          editTitle: selectedFile.title,
+                          editContent: selectedFile.content,
+                        })
+                      }
                     />
                   )}
 
@@ -521,24 +585,26 @@ function KnowledgePage() {
                         >
                           标签
                         </span>
-                        {!editingTags &&
+                        {!editor.editingTags &&
                           selectedFile.tags &&
                           selectedFile.tags.length > 0 && (
                             <button
                               onClick={startEditTags}
-                              className={`text-[10px] ${textSecondary} hover:${isDark ? "text-gray-300" : "text-gray-700"}`}
+                              className={`text-[10px] ${textSecondary} hover:text-gray-700 dark:hover:text-gray-300`}
                             >
                               编辑
                             </button>
                           )}
                       </div>
 
-                      {editingTags ? (
+                      {editor.editingTags ? (
                         <div className="space-y-1.5">
                           <input
                             type="text"
-                            value={editTagsInput}
-                            onChange={(e) => setEditTagsInput(e.target.value)}
+                            value={editor.editTagsInput}
+                            onChange={(e) =>
+                              setEditor({ editTagsInput: e.target.value })
+                            }
                             placeholder="输入标签，用逗号分隔"
                             className={`w-full px-2 py-1 text-xs border rounded ${inputBg} focus:outline-none focus:ring-1 focus:ring-blue-500`}
                             onKeyDown={(e) => {
@@ -546,7 +612,8 @@ function KnowledgePage() {
                                 e.preventDefault();
                                 handleSaveTags();
                               }
-                              if (e.key === "Escape") setEditingTags(false);
+                              if (e.key === "Escape")
+                                setEditor({ editingTags: false });
                             }}
                             autoFocus
                           />
@@ -558,8 +625,8 @@ function KnowledgePage() {
                               保存
                             </button>
                             <button
-                              onClick={() => setEditingTags(false)}
-                              className={`px-2 py-0.5 text-[10px] ${textSecondary} hover:${isDark ? "text-gray-300" : "text-gray-700"}`}
+                              onClick={() => setEditor({ editingTags: false })}
+                              className={`px-2 py-0.5 text-[10px] ${textSecondary} hover:text-gray-700 dark:hover:text-gray-300`}
                             >
                               取消
                             </button>
@@ -572,11 +639,9 @@ function KnowledgePage() {
                               <button
                                 key={idx}
                                 onClick={() => {
-                                  setActiveTab("knowledge");
-                                  // 通过 searchQuery 传递标签筛选
-                                  setSearchQuery(tag);
+                                  setSearch({ query: tag });
                                 }}
-                                title={`点击筛选标签: ${tag}`}
+                                title={`点击筛选: ${tag}`}
                                 className={`px-2 py-0.5 text-[10px] rounded-full cursor-pointer transition-colors ${
                                   isDark
                                     ? "bg-blue-900/30 text-blue-400 hover:bg-blue-800/40"
@@ -602,39 +667,92 @@ function KnowledgePage() {
               )}
             </div>
           </div>
-        )}
+        </div>
 
-        {/* ========== 标签2: 检索演示 ========== */}
-        {activeTab === "search-demo" && (
-          <SearchPanel
-            isDark={isDark}
-            demoQuery={demoQuery}
-            onQueryChange={setDemoQuery}
-            onSearch={handleDemoSearch}
-            isSearching={isDemoSearching}
-            results={demoResults}
-            searchDone={demoSearchDone}
-            onResultClick={handleSearchResultClick}
-          />
-        )}
-
-        {/* ========== 语义索引 ========== */}
-        {activeTab === "semantic" && (
+        {/* ── 语义索引 Tab ── */}
+        <div
+          style={{ display: activeTab === "semantic" ? "flex" : "none" }}
+          className="flex-1 overflow-hidden"
+        >
           <div className="flex-1 overflow-y-auto">
             <SemanticIndexPage />
           </div>
-        )}
-
-        {/* ========== 标签3: 知识统计 ========== */}
-        {activeTab === "stats" && (
-          <StatsPanel
-            isDark={isDark}
-            items={items}
-            demoSearchDone={demoSearchDone}
-            demoResultCount={demoResults.length}
-          />
-        )}
+        </div>
       </div>
+    </div>
+  );
+}
+
+// ── U3: MoreMenu 下拉组件 ──
+
+interface DetailsMenuProps {
+  isDark: boolean;
+  onStartEdit: () => void;
+  onSendToChat: () => void;
+  onExportNotebook: () => void;
+  onZipExport: () => void;
+  onVersionHistory: () => void;
+  onTrash: () => void;
+  onDelete: () => void;
+}
+
+function DetailsMenu(props: DetailsMenuProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
+    };
+    if (open) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const itemClass =
+    "block w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors";
+  const btnClass =
+    "px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors";
+
+  function item(onClick: () => void, label: string, className = "") {
+    return (
+      <button
+        onClick={() => {
+          onClick();
+          setOpen(false);
+        }}
+        className={`${itemClass} ${className}`}
+      >
+        {label}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      ref={ref}
+      className="relative flex items-center gap-2 ml-4 flex-shrink-0"
+    >
+      <button
+        onClick={props.onStartEdit}
+        className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+      >
+        编辑
+      </button>
+      <button onClick={() => setOpen(!open)} className={btnClass}>
+        更多 ▾
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 py-1">
+          {item(props.onSendToChat, "发送到对话")}
+          {item(props.onExportNotebook, "导出到 Notebook")}
+          {item(props.onZipExport, "ZIP 导出")}
+          {item(props.onVersionHistory, "历史版本")}
+          <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+          {item(props.onTrash, "回收", "text-orange-600 dark:text-orange-400")}
+          {item(props.onDelete, "删除", "text-red-600 dark:text-red-400")}
+        </div>
+      )}
     </div>
   );
 }

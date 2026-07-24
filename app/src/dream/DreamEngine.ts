@@ -28,19 +28,20 @@
 import { DreamScheduler } from './DreamScheduler';
 import { DreamPhaseManager } from './DreamPhaseManager';
 import { DreamPersistence } from './DreamPersistence';
+import { UnifiedDreamCycle } from './UnifiedDreamCycle';
 import type {
   DreamSchedulerConfig,
-  DreamPhase,
   DreamTriggerSource,
+  DreamCycleRecord,
 } from './types';
 import {
   initAutoDream,
-  executeAutoDream,
   abortAutoDream,
   isAutoDreamRunning,
 } from '../chronos/autoDream/AutoDream';
 import { globalEventBus, SystemEvents } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = new Logger({
   module: 'dream:dreamEngine',
@@ -51,12 +52,14 @@ export class DreamEngine {
   private scheduler: DreamScheduler;
   private phaseManager: DreamPhaseManager;
   private persistence: DreamPersistence;
+  private cycle: UnifiedDreamCycle;
   private started = false;
 
   constructor(config?: Partial<DreamSchedulerConfig>) {
     this.scheduler = new DreamScheduler(config);
     this.phaseManager = new DreamPhaseManager();
     this.persistence = this.scheduler.getPersistence();
+    this.cycle = new UnifiedDreamCycle(this.persistence);
 
     // 注册触发回调
     this.scheduler.setTriggerCallback((source: DreamTriggerSource) =>
@@ -68,6 +71,16 @@ export class DreamEngine {
   async start(): Promise<void> {
     if (this.started) return;
     this.started = true;
+
+    // 恢复未完成的检查点
+    const { recoverCheckpoints } = await import('./DreamCheckpoint');
+    const recovery = await recoverCheckpoints();
+    if (recovery.recovered > 0 || recovery.cleaned > 0) {
+      logger.info(
+        `[DreamEngine] 检查点恢复: ${recovery.recovered} 已恢复, ${recovery.cleaned} 已清理`
+      );
+    }
+
     await initAutoDream();
     await this.scheduler.start();
     logger.info('[DreamEngine] 梦境引擎已启动');
@@ -106,48 +119,55 @@ export class DreamEngine {
   }
 
   /**
-   * 执行完整梦境周期（单阶段执行）
-   * 委托给 AutoDream 执行实际整合逻辑，
-   * 完成后记录持久化状态并触发知识雨。
+   * 执行完整梦境周期（五阶段管线）
+   * 通过 UnifiedDreamCycle 统一编排 Gather → Analyze → Generate → Write → Index。
    */
   private async executeDreamCycle(source: DreamTriggerSource): Promise<void> {
-    if (isAutoDreamRunning()) {
-      logger.info('[DreamEngine] 已有梦境正在运行，跳过');
+    if (this.cycle.isRunning) {
+      logger.info('[DreamEngine] 梦境周期正在进行中，跳过');
       return;
     }
 
     const startTime = Date.now();
     let success = false;
-    let error: string | undefined;
+    let record: DreamCycleRecord | undefined;
 
     try {
-      await executeAutoDream();
-      success = true;
+      record = await this.cycle.execute(source);
+      success = record!.status !== 'failed';
     } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
+      const errMsg = e instanceof Error ? e.message : String(e);
+
+      // 409: 并发冲突
+      if (errMsg === 'DREAM_CYCLE_BUSY') {
+        logger.info('[DreamEngine] 梦境周期已在运行，拒绝触发');
+        return;
+      }
+
       logger.error(
-        `[DreamEngine] 梦境执行失败: ${error}`,
-        e instanceof Error ? e : new Error(error)
+        `[DreamEngine] 梦境执行失败: ${errMsg}`,
+        e instanceof Error ? e : new Error(errMsg)
       );
     }
 
-    const record = {
+    // 保存兼容 DreamRecord
+    const legacyRecord = {
       id: `dream_${startTime}`,
       startedAt: startTime,
       completedAt: Date.now(),
       triggerSource: source,
-      phase: 'deep' as DreamPhase,
-      sessionsCount: 0,
-      insightsGenerated: 0,
+      phase: 'deep' as const,
+      sessionsCount: record?.sessionsProcessed || 0,
+      insightsGenerated: record?.memoriesCreated || 0,
       success,
-      error,
+      error: record?.errors?.[0],
     };
+    await this.persistence.save(legacyRecord);
 
-    await this.persistence.save(record);
-
-    // 发布用户交互事件，将梦境完成视为一次系统活动
+    // 发布用户交互事件
     globalEventBus.publish(SystemEvents.USER_INTERACTION, {
       source: 'dream:completed',
+      cycleId: record?.cycleId,
       success,
     });
   }

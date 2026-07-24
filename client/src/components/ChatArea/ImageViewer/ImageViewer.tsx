@@ -167,7 +167,10 @@ export default function ImageViewer({
         isFullscreenRef.current = true;
         setIsFullscreen(true);
       } catch (e) {
-        handleClientError(e, { module: "components:chat:ImageViewer", action: "toggleFullscreen" });
+        handleClientError(e, {
+          module: "components:chat:ImageViewer",
+          action: "toggleFullscreen",
+        });
         // 浏览器拒绝全屏（如 iframe 限制等），忽略
       }
     }

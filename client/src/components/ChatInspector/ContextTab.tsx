@@ -58,7 +58,11 @@ function buildRoundSummaries(messages: Message[]): Array<{
     assistantMsg: string;
     timestamp: number;
   }> = [];
-  let currentRound: { userMsg: string; assistantMsg: string; timestamp: number } | null = null;
+  let currentRound: {
+    userMsg: string;
+    assistantMsg: string;
+    timestamp: number;
+  } | null = null;
 
   // 从尾部往前取最近的消息，构建轮次摘要
   const recentMessages = messages.slice(-MAX_ROUNDS * 2); // 每轮约 2 条(user+assistant)
@@ -69,7 +73,7 @@ function buildRoundSummaries(messages: Message[]): Array<{
         rounds.push({ ...currentRound, roundIndex: rounds.length + 1 });
       }
       currentRound = {
-        userMsg: (content.slice(0, 60).replace(/\n/g, " ") || "用户消息"),
+        userMsg: content.slice(0, 60).replace(/\n/g, " ") || "用户消息",
         assistantMsg: "",
         timestamp: msg.timestamp,
       };
@@ -79,7 +83,8 @@ function buildRoundSummaries(messages: Message[]): Array<{
           ?.filter((b) => b.type === "text")
           .map((b) => b.content)
           .join(" ") || content;
-      currentRound.assistantMsg = (textBlocks.slice(0, 60).replace(/\n/g, " ") || "AI 回复");
+      currentRound.assistantMsg =
+        textBlocks.slice(0, 60).replace(/\n/g, " ") || "AI 回复";
     }
   }
 
@@ -108,7 +113,11 @@ function ContextWindowBarImpl({
   cacheRead: number;
 }) {
   const barColor =
-    percentage > 80 ? "bg-red-500" : percentage > 50 ? "bg-yellow-500" : "bg-blue-500";
+    percentage > 80
+      ? "bg-red-500"
+      : percentage > 50
+        ? "bg-yellow-500"
+        : "bg-blue-500";
 
   return (
     <div className="space-y-2">
@@ -123,7 +132,9 @@ function ContextWindowBarImpl({
       </div>
       <p className="text-xs text-gray-600 dark:text-gray-400">
         {used.toLocaleString()} / {contextLength.toLocaleString()} tokens
-        <span className={`ml-2 font-medium ${percentage > 80 ? "text-red-500" : ""}`}>
+        <span
+          className={`ml-2 font-medium ${percentage > 80 ? "text-red-500" : ""}`}
+        >
           ({percentage.toFixed(1)}%)
         </span>
       </p>
@@ -185,9 +196,11 @@ function MessageSummaryListImpl({
             <span className="text-gray-600 dark:text-gray-300 truncate">
               {round.userMsg}
             </span>
-            {!round.assistantMsg && streaming && rounds.indexOf(round) === rounds.length - 1 && (
-              <span className="text-blue-500 ml-1">进行中...</span>
-            )}
+            {!round.assistantMsg &&
+              streaming &&
+              rounds.indexOf(round) === rounds.length - 1 && (
+                <span className="text-blue-500 ml-1">进行中...</span>
+              )}
           </button>
         ))}
       </div>
@@ -230,23 +243,33 @@ function SessionStatsImpl({
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
           <span className="text-gray-400">创建</span>
-          <p className="font-medium text-gray-700 dark:text-gray-300">{createdTime}</p>
+          <p className="font-medium text-gray-700 dark:text-gray-300">
+            {createdTime}
+          </p>
         </div>
         <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
           <span className="text-gray-400">轮次</span>
-          <p className="font-medium text-gray-700 dark:text-gray-300">{roundCount}</p>
+          <p className="font-medium text-gray-700 dark:text-gray-300">
+            {roundCount}
+          </p>
         </div>
         <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
           <span className="text-gray-400">消息</span>
-          <p className="font-medium text-gray-700 dark:text-gray-300">{messageCount}</p>
+          <p className="font-medium text-gray-700 dark:text-gray-300">
+            {messageCount}
+          </p>
         </div>
         <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
           <span className="text-gray-400">工具调用</span>
-          <p className="font-medium text-gray-700 dark:text-gray-300">{toolCallCount}</p>
+          <p className="font-medium text-gray-700 dark:text-gray-300">
+            {toolCallCount}
+          </p>
         </div>
         <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
           <span className="text-gray-400">文件</span>
-          <p className="font-medium text-gray-700 dark:text-gray-300">{fileCount}</p>
+          <p className="font-medium text-gray-700 dark:text-gray-300">
+            {fileCount}
+          </p>
         </div>
         <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
           <span className="text-gray-400">成本估算</span>
@@ -268,15 +291,18 @@ function ContextTab() {
   const currentSession = useSessionStore((s) => s.currentSession);
   const currentModelName = useModelSwitchStore((s) => s.currentModelName);
   const setActiveTab = useChatInspectorStore((s) => s.setActiveTab);
-  const setHighlightedRoundId = useChatInspectorStore((s) => s.setHighlightedRoundId);
+  const setHighlightedRoundId = useChatInspectorStore(
+    (s) => s.setHighlightedRoundId,
+  );
 
-  const tokenStats = useMemo(() => aggregateTokens(messages), [
-    messages.length,
-    messages[messages.length - 1]?.usage,
-  ]);
+  const tokenStats = useMemo(
+    () => aggregateTokens(messages),
+    [messages.length, messages[messages.length - 1]?.usage],
+  );
 
   const contextLength = DEFAULT_CONTEXT;
-  const percentage = contextLength > 0 ? (tokenStats.totalTokens / contextLength) * 100 : 0;
+  const percentage =
+    contextLength > 0 ? (tokenStats.totalTokens / contextLength) * 100 : 0;
 
   const rounds = useMemo(() => buildRoundSummaries(messages), [messages]);
 
@@ -287,7 +313,8 @@ function ContextTab() {
   }, [messages]);
 
   const toolCallCount = useMemo(
-    () => messages.filter((m) => m.role === "tool" || m.tool_calls?.length).length,
+    () =>
+      messages.filter((m) => m.role === "tool" || m.tool_calls?.length).length,
     [messages.length],
   );
 
@@ -299,7 +326,11 @@ function ContextTab() {
           ?.filter((b) => b.type === "text")
           .map((b) => b.content)
           .join(" ");
-        return text?.includes("/output/") || text?.includes(".py") || text?.includes(".ts");
+        return (
+          text?.includes("/output/") ||
+          text?.includes(".py") ||
+          text?.includes(".ts")
+        );
       }).length,
     [messages.length],
   );
@@ -335,9 +366,14 @@ function ContextTab() {
             {hasModel ? "开始第一次对话" : "请先在设置 Tab 中选择模型"}
           </p>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-            <div className="bg-blue-500 h-2.5 rounded-full" style={{ width: "0%" }} />
+            <div
+              className="bg-blue-500 h-2.5 rounded-full"
+              style={{ width: "0%" }}
+            />
           </div>
-          <p className="mt-1 text-xs">0 / {contextLength.toLocaleString()} tokens</p>
+          <p className="mt-1 text-xs">
+            0 / {contextLength.toLocaleString()} tokens
+          </p>
           {!hasModel && (
             <button
               onClick={() => setActiveTab("settings")}
@@ -367,7 +403,9 @@ function ContextTab() {
       <div className="space-y-1.5">
         <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
           系统提示词
-          <span className="ml-1 text-gray-400 text-[10px] font-normal">(只读)</span>
+          <span className="ml-1 text-gray-400 text-[10px] font-normal">
+            (只读)
+          </span>
         </h4>
         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-2.5">
           <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-3 whitespace-pre-wrap">
@@ -394,7 +432,11 @@ function ContextTab() {
       </div>
       <hr className="border-gray-200 dark:border-gray-700" />
 
-      <MessageSummaryList rounds={rounds} streaming={isStreaming} onRoundClick={handleRoundClick} />
+      <MessageSummaryList
+        rounds={rounds}
+        streaming={isStreaming}
+        onRoundClick={handleRoundClick}
+      />
       <hr className="border-gray-200 dark:border-gray-700" />
       <SessionStats
         roundCount={currentSession?.roundCount || rounds.length}

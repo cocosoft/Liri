@@ -347,18 +347,30 @@ export default function ChatMessageList({
   useEffect(() => {
     const totalChars = messages.reduce((sum, m) => {
       const content = typeof m.content === "string" ? m.content : "";
-      const blockContent = m.blocks?.reduce((s, b) => s + (b.content?.length || 0), 0) || 0;
+      const blockContent =
+        m.blocks?.reduce((s, b) => s + (b.content?.length || 0), 0) || 0;
       return sum + content.length + blockContent;
     }, 0);
-    const totalBlocks = messages.reduce((s, m) => s + (Array.isArray(m.blocks) ? m.blocks.length : 0), 0);
-    const roles = messages.reduce((acc, m) => { acc[m.role] = (acc[m.role] || 0) + 1; return acc; }, {} as Record<string, number>);
+    const totalBlocks = messages.reduce(
+      (s, m) => s + (Array.isArray(m.blocks) ? m.blocks.length : 0),
+      0,
+    );
+    const roles = messages.reduce(
+      (acc, m) => {
+        acc[m.role] = (acc[m.role] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
     // KaTeX 诊断（动态 import 避免循环依赖）
-    import("@/components/ChatArea/MarkdownRenderer").then(({ getKatexDiag }) => {
-      const k = getKatexDiag();
-      if (k.calls > 0 || k.chineseBlocks > 0) {
-        console.info("[Diag:render] KaTeX 统计", k);
-      }
-    }).catch(() => {});
+    import("@/components/ChatArea/MarkdownRenderer")
+      .then(({ getKatexDiag }) => {
+        const k = getKatexDiag();
+        if (k.calls > 0 || k.chineseBlocks > 0) {
+          console.info("[Diag:render] KaTeX 统计", k);
+        }
+      })
+      .catch(() => {});
     console.log("[Diag:render] ChatMessageList 渲染", {
       count: messages.length,
       totalChars,

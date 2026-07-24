@@ -5,7 +5,11 @@ import {
   type CostSummary,
   type CostRecord,
 } from "../../services/costService";
-import { formatCost, formatTokens, getCurrencyFromTimezone } from "../../utils/format";
+import {
+  formatCost,
+  formatTokens,
+  getCurrencyFromTimezone,
+} from "../../utils/format";
 import { MetricCard } from "../common/MetricCard";
 import { TokenGrid } from "../common/TokenGrid";
 import { PieChart } from "../common/PieChart";
@@ -18,7 +22,7 @@ const PricingPanel = lazy(() => import("../usage/PricingPanel"));
 function CostPage() {
   const { config, loadConfig } = useConfigStore();
   const isDark = config.theme === "dark";
-  const timezone = (config.timezone as string) || 'Asia/Shanghai';
+  const timezone = (config.timezone as string) || "Asia/Shanghai";
   const currency = getCurrencyFromTimezone(timezone);
 
   const [summary, setSummary] = useState<CostSummary | null>(null);
@@ -28,9 +32,7 @@ function CostPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<
     "daily" | "weekly" | "monthly"
   >("weekly");
-  const [activeTab, setActiveTab] = useState<"cost" | "pricing">(
-    "cost",
-  );
+  const [activeTab, setActiveTab] = useState<"cost" | "pricing">("cost");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [balances, setBalances] = useState<BalanceRecord[]>([]);
@@ -68,12 +70,15 @@ function CostPage() {
     }
   }, []);
 
-  const refreshAll = useCallback(async (silent = false) => {
-    // 并行拉取，各自处理错误，不互相阻塞
-    await fetchCostData(silent);
-    fetchBalances();
-    fetchRecords();
-  }, [fetchCostData, fetchBalances, fetchRecords]);
+  const refreshAll = useCallback(
+    async (silent = false) => {
+      // 并行拉取，各自处理错误，不互相阻塞
+      await fetchCostData(silent);
+      fetchBalances();
+      fetchRecords();
+    },
+    [fetchCostData, fetchBalances, fetchRecords],
+  );
 
   useEffect(() => {
     loadConfig();
@@ -82,7 +87,9 @@ function CostPage() {
 
   // SSE heartbeat 驱动自动刷新 + 60s setInterval 兜底（与 DashboardPage 一致）
   useEffect(() => {
-    const handler = () => { refreshAll(true); };
+    const handler = () => {
+      refreshAll(true);
+    };
     sseService.on("heartbeat", handler);
     const interval = setInterval(() => refreshAll(true), 60_000);
     return () => {
@@ -226,7 +233,7 @@ function CostPage() {
               />
               <MetricCard
                 label="当前会话"
-                value={formatCost(summary.sessionCost, '$')}
+                value={formatCost(summary.sessionCost, "$")}
                 sublabel={`${formatTokens(summary.sessionTokens)} tokens`}
               />
             </div>
@@ -241,20 +248,31 @@ function CostPage() {
 
             {/* 余额概览 */}
             {balances.length > 0 && (
-              <div className={`rounded-lg border mb-6 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+              <div
+                className={`rounded-lg border mb-6 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+              >
                 <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                  <h3 className={`text-lg font-medium ${isDark ? "text-gray-100" : "text-gray-900"}`}>
+                  <h3
+                    className={`text-lg font-medium ${isDark ? "text-gray-100" : "text-gray-900"}`}
+                  >
                     余额概览
                   </h3>
                 </div>
                 <div className="p-4 space-y-2">
                   {balances.map((b) => (
-                    <div key={b.providerId} className="flex items-center justify-between text-sm">
+                    <div
+                      key={b.providerId}
+                      className="flex items-center justify-between text-sm"
+                    >
                       <div className="flex items-center gap-2">
-                        <span className={`font-medium ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                        <span
+                          className={`font-medium ${isDark ? "text-gray-200" : "text-gray-800"}`}
+                        >
                           {b.providerName}
                         </span>
-                        <span className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+                        <span
+                          className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
+                        >
                           {b.providerType}
                         </span>
                         {b.belowThreshold && (
@@ -270,16 +288,30 @@ function CostPage() {
                       </div>
                       <div className="flex items-center gap-3">
                         {b.remaining !== null ? (
-                          <span className={`font-mono ${b.belowThreshold ? "text-red-600 dark:text-red-400" : isDark ? "text-gray-300" : "text-gray-700"}`}>
+                          <span
+                            className={`font-mono ${b.belowThreshold ? "text-red-600 dark:text-red-400" : isDark ? "text-gray-300" : "text-gray-700"}`}
+                          >
                             {b.remaining.toFixed(2)} {b.unit}
-                            {b.total !== null ? ` / ${b.total.toFixed(2)} ${b.unit}` : ""}
+                            {b.total !== null
+                              ? ` / ${b.total.toFixed(2)} ${b.unit}`
+                              : ""}
                           </span>
                         ) : (
-                          <span className={isDark ? "text-gray-500" : "text-gray-400"}>--</span>
+                          <span
+                            className={
+                              isDark ? "text-gray-500" : "text-gray-400"
+                            }
+                          >
+                            --
+                          </span>
                         )}
                         {b.queriedAt && (
-                          <span className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-                            {new Date(b.queriedAt * 1000).toLocaleTimeString("zh-CN")}
+                          <span
+                            className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
+                          >
+                            {new Date(b.queriedAt * 1000).toLocaleTimeString(
+                              "zh-CN",
+                            )}
                           </span>
                         )}
                       </div>
@@ -303,7 +335,14 @@ function CostPage() {
                   data={summary.topProviders.slice(0, 6).map((p, i) => ({
                     label: p.provider,
                     value: p.cost,
-                    color: ['#3B82F6', '#8B5CF6', '#06B6D4', '#F59E0B', '#EF4444', '#10B981'][i % 6],
+                    color: [
+                      "#3B82F6",
+                      "#8B5CF6",
+                      "#06B6D4",
+                      "#F59E0B",
+                      "#EF4444",
+                      "#10B981",
+                    ][i % 6],
                   }))}
                   centerLabel="月成本"
                   centerValue={formatCost(summary.monthlyCost, currency)}

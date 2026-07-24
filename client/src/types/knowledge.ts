@@ -3,6 +3,7 @@ export interface KnowledgeItem {
   title: string;
   content: string;
   tags: string[];
+  source?: KnowledgeSource;
   created_at: number;
   updated_at: number;
 }

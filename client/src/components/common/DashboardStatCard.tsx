@@ -9,17 +9,23 @@ export interface DashboardStatCardProps {
   label: string;
   value: string | number;
   icon?: string;
-  trendDirection?: 'up' | 'down' | 'stable';
+  trendDirection?: "up" | "down" | "stable";
 }
 
-export function DashboardStatCard({ label, value, icon, trendDirection }: DashboardStatCardProps) {
-  const trendIcon = trendDirection === 'up' ? '↑' : trendDirection === 'down' ? '↓' : '→';
+export function DashboardStatCard({
+  label,
+  value,
+  icon,
+  trendDirection,
+}: DashboardStatCardProps) {
+  const trendIcon =
+    trendDirection === "up" ? "↑" : trendDirection === "down" ? "↓" : "→";
   const trendColor =
-    trendDirection === 'up'
-      ? 'text-green-500'
-      : trendDirection === 'down'
-        ? 'text-red-500'
-        : 'text-gray-400';
+    trendDirection === "up"
+      ? "text-green-500"
+      : trendDirection === "down"
+        ? "text-red-500"
+        : "text-gray-400";
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
@@ -30,7 +36,9 @@ export function DashboardStatCard({ label, value, icon, trendDirection }: Dashbo
             {value}
           </p>
           {trendDirection && (
-            <span className={`text-xs mt-0.5 inline-flex items-center gap-0.5 ${trendColor}`}>
+            <span
+              className={`text-xs mt-0.5 inline-flex items-center gap-0.5 ${trendColor}`}
+            >
               {trendIcon} 较昨日
             </span>
           )}

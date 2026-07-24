@@ -142,22 +142,28 @@ export const agentService = {
     name: string,
     params?: Record<string, unknown>,
   ): Promise<AgentTask> => {
-    return getOTelTracing().asyncWrap("services:agent:executeTask", async () => {
-      try {
-        return await http.post<AgentTask>("/v1/agents/tasks/execute", {
-          name,
-          ...params,
-        });
-      } catch (e) {
-        handleClientError(e, { module: "services:agent", action: "executeTask" });
-        const result = await tryTauri<AgentTask>("execute_agent_task", {
-          name,
-          params,
-        });
-        if (result) return result;
-        return createMemoryAgentService().executeTask(name, params);
-      }
-    });
+    return getOTelTracing().asyncWrap(
+      "services:agent:executeTask",
+      async () => {
+        try {
+          return await http.post<AgentTask>("/v1/agents/tasks/execute", {
+            name,
+            ...params,
+          });
+        } catch (e) {
+          handleClientError(e, {
+            module: "services:agent",
+            action: "executeTask",
+          });
+          const result = await tryTauri<AgentTask>("execute_agent_task", {
+            name,
+            params,
+          });
+          if (result) return result;
+          return createMemoryAgentService().executeTask(name, params);
+        }
+      },
+    );
   },
 
   updateTask: async (
@@ -204,7 +210,10 @@ export const agentService = {
     try {
       return await http.get<AgentTask[]>("/v1/agents/tasks/history");
     } catch (e) {
-      handleClientError(e, { module: "services:agent", action: "listTaskHistory" });
+      handleClientError(e, {
+        module: "services:agent",
+        action: "listTaskHistory",
+      });
       const result = await tryTauri<AgentTask[]>("list_agent_task_history");
       if (result) return result;
       return [];
@@ -226,7 +235,10 @@ export const agentService = {
     try {
       return await http.get(`/v1/agents/tasks/${taskId}/audit`);
     } catch (e) {
-      handleClientError(e, { module: "services:agent", action: "getTaskAuditLogs" });
+      handleClientError(e, {
+        module: "services:agent",
+        action: "getTaskAuditLogs",
+      });
       const result = await tryTauri("get_task_audit_logs", { taskId });
       if (result) return result as any[];
       return [];
@@ -265,7 +277,10 @@ export const agentService = {
     try {
       return await http.get(`/v1/agents/tasks/${taskId}/state`);
     } catch (e) {
-      handleClientError(e, { module: "services:agent", action: "getTaskState" });
+      handleClientError(e, {
+        module: "services:agent",
+        action: "getTaskState",
+      });
       const result = await tryTauri("get_task_state", { taskId });
       return (result as any) || null;
     }
@@ -276,7 +291,10 @@ export const agentService = {
     try {
       return await http.get<string>(`/v1/agents/tasks/${taskId}/output`);
     } catch (e) {
-      handleClientError(e, { module: "services:agent", action: "getTaskOutput" });
+      handleClientError(e, {
+        module: "services:agent",
+        action: "getTaskOutput",
+      });
       const result = await tryTauri<string>("get_task_output", { taskId });
       return result || "";
     }
@@ -289,7 +307,10 @@ export const agentService = {
         message,
       });
     } catch (e) {
-      handleClientError(e, { module: "services:agent", action: "sendChatMessage" });
+      handleClientError(e, {
+        module: "services:agent",
+        action: "sendChatMessage",
+      });
       const result = await tryTauri<string>("agent_task_chat", {
         taskId,
         message,

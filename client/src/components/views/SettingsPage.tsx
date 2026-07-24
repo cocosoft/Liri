@@ -134,7 +134,12 @@ const NAV_GROUPS: NavGroup[] = [
       },
       { id: "soul", labelKey: "settings.soul", icon: BookOpenIcon, zone: "ai" },
       { id: "user", labelKey: "settings.user", icon: UserIcon, zone: "ai" },
-      { id: "memory", labelKey: "settings.memory", icon: BookOpenIcon, zone: "ai" },
+      {
+        id: "memory",
+        labelKey: "settings.memory",
+        icon: BookOpenIcon,
+        zone: "ai",
+      },
     ],
   },
   {
@@ -1113,7 +1118,10 @@ function ApiKeyContent() {
     try {
       await deleteApiKey(id);
     } catch (e) {
-      handleClientError(e, { module: "components:views:Settings", action: "deleteApiKey" });
+      handleClientError(e, {
+        module: "components:views:Settings",
+        action: "deleteApiKey",
+      });
     }
   };
 
@@ -1124,7 +1132,10 @@ function ApiKeyContent() {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } catch (e) {
-        handleClientError(e, { module: "components:views:Settings", action: "copyKey" });
+        handleClientError(e, {
+          module: "components:views:Settings",
+          action: "copyKey",
+        });
       }
     }
   };

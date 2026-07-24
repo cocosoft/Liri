@@ -348,12 +348,12 @@ export class AutoMemoryService {
     const lastAssistantReply = assistantReplies[assistantReplies.length - 1];
 
     return {
-      content: `用户更正：${message.content}\n\n原回复：${lastAssistantReply.content}`,
-      title: '用户更正',
-      type: MemoryType.USER_PREFERENCE,
+      content: `用户对AI行为的要求：${message.content}\n\n上下文：${lastAssistantReply.content}`,
+      title: '系统指令',
+      type: MemoryType.CODE_PATTERN,
       confidence: 0.85,
       trigger: AutoMemoryTriggerType.USER_CORRECTION,
-      tags: ['correction', 'feedback', 'user'],
+      tags: ['instruction', 'system', 'behavior'],
     };
   }
 
@@ -447,10 +447,10 @@ export class AutoMemoryService {
     return {
       content: message.content,
       title: '用户偏好',
-      type: MemoryType.USER_FACT,
+      type: MemoryType.USER_PREFERENCE,
       confidence: 0.8,
       trigger: AutoMemoryTriggerType.PREFERENCE_STATEMENT,
-      tags: ['preference', 'user', 'preference'],
+      tags: ['preference', 'user', 'habit'],
     };
   }
 
@@ -547,11 +547,11 @@ export class AutoMemoryService {
 
     return {
       content: text,
-      title: '用户信息',
+      title: '用户身份信息',
       type: MemoryType.USER_FACT,
       confidence: 0.85,
       trigger: AutoMemoryTriggerType.USER_FACT,
-      tags: ['user_info', 'personal', 'fact'],
+      tags: ['identity', 'personal', 'profile'],
     };
   }
 
@@ -635,8 +635,8 @@ export class AutoMemoryService {
 
     return {
       content: message.content,
-      title: '明确记忆请求',
-      type: MemoryType.USER_FACT,
+      title: '用户明确要求记忆',
+      type: MemoryType.USER_PREFERENCE,
       confidence: 0.9,
       trigger: AutoMemoryTriggerType.EXPLICIT_REQUEST,
       tags: ['request', 'user', 'explicit'],

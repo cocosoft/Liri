@@ -1,27 +1,15 @@
 import { useState } from "react";
-import type { MemoryType } from "../../services/memoryService";
 
 interface MemorySearchProps {
   isDark: boolean;
-  onSearch: (query: string, type: MemoryType | undefined) => void;
+  onSearch: (query: string) => void;
 }
-
-const TYPE_OPTIONS: { value: MemoryType | "all"; label: string }[] = [
-  { value: "all", label: "全部类型" },
-  { value: "user_preference", label: "用户偏好" },
-  { value: "project_context", label: "项目上下文" },
-  { value: "conversation", label: "对话记录" },
-  { value: "knowledge", label: "知识库" },
-  { value: "system", label: "系统" },
-];
 
 function MemorySearch({ isDark, onSearch }: MemorySearchProps) {
   const [query, setQuery] = useState("");
-  const [selectedType, setSelectedType] = useState<MemoryType | "all">("all");
 
   const handleSearch = () => {
-    const type = selectedType === "all" ? undefined : selectedType;
-    onSearch(query, type);
+    onSearch(query);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -32,7 +20,7 @@ function MemorySearch({ isDark, onSearch }: MemorySearchProps) {
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <div className={`relative flex-1 min-w-[200px] max-w-[400px]`}>
+      <div className={`relative flex-1 min-w-[200px] max-w-[500px]`}>
         <svg
           className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${
             isDark ? "text-gray-500" : "text-gray-400"
@@ -83,22 +71,6 @@ function MemorySearch({ isDark, onSearch }: MemorySearchProps) {
           </svg>
         </button>
       </div>
-
-      <select
-        value={selectedType}
-        onChange={(e) => setSelectedType(e.target.value as MemoryType | "all")}
-        className={`px-3 py-2 rounded-lg text-sm border ${
-          isDark
-            ? "bg-gray-700 border-gray-600 text-white"
-            : "bg-white border-gray-300 text-gray-700"
-        } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-      >
-        {TYPE_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
     </div>
   );
 }

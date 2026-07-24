@@ -59,7 +59,10 @@ function SoulPanel({ isDark }: SoulPanelProps) {
       setContent(data);
       setOriginalContent(data);
     } catch (e) {
-      handleClientError(e, { module: "components:settings:Soul", action: "loadSoul" });
+      handleClientError(e, {
+        module: "components:settings:Soul",
+        action: "loadSoul",
+      });
       setMessage({ type: "error", text: "加载人格定义失败" });
     }
   };
@@ -78,7 +81,10 @@ function SoulPanel({ isDark }: SoulPanelProps) {
       setMessage({ type: "success", text: "人格定义已保存" });
       setTimeout(() => setMessage(null), 3000);
     } catch (e) {
-      handleClientError(e, { module: "components:settings:Soul", action: "handleSave" });
+      handleClientError(e, {
+        module: "components:settings:Soul",
+        action: "handleSave",
+      });
       setMessage({ type: "error", text: "保存失败，请重试" });
     } finally {
       setSaving(false);

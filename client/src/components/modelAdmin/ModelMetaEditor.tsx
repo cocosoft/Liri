@@ -102,7 +102,10 @@ function ModelMetaEditor({
           }));
         }
       } catch (e) {
-        handleClientError(e, { module: "components:modelAdmin:ModelMetaEditor", action: "loadOverrides" });
+        handleClientError(e, {
+          module: "components:modelAdmin:ModelMetaEditor",
+          action: "loadOverrides",
+        });
         // 加载失败使用默认值
       } finally {
         setLoaded(true);
@@ -135,7 +138,10 @@ function ModelMetaEditor({
           return prev;
         });
       } catch (e) {
-        handleClientError(e, { module: "components:modelAdmin:ModelMetaEditor", action: "loadCapabilities" });
+        handleClientError(e, {
+          module: "components:modelAdmin:ModelMetaEditor",
+          action: "loadCapabilities",
+        });
         // 加载失败使用基础能力列表作为 fallback
         setCapabilities([
           {

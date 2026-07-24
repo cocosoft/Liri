@@ -77,7 +77,10 @@ export default function GlobalSearchModal({
         const fileRes = await fileService.searchFiles({ query: q, limit: 5 });
         setFileResults(fileRes.items.slice(0, 5));
       } catch (e) {
-        handleClientError(e, { module: "components:chat:GlobalSearch", action: "searchFiles" });
+        handleClientError(e, {
+          module: "components:chat:GlobalSearch",
+          action: "searchFiles",
+        });
         setFileResults([]);
       }
 
@@ -86,7 +89,10 @@ export default function GlobalSearchModal({
         const kbRes = await knowledgeService.search(q);
         setKnowledgeResults((kbRes as KnowledgeItem[]).slice(0, 5));
       } catch (e) {
-        handleClientError(e, { module: "components:chat:GlobalSearch", action: "searchKnowledge" });
+        handleClientError(e, {
+          module: "components:chat:GlobalSearch",
+          action: "searchKnowledge",
+        });
         setKnowledgeResults([]);
       }
 

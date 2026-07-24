@@ -102,7 +102,8 @@ async function request<T>(
     `http:${method}:${path}`,
     async () => {
       const url = buildUrl(path);
-      const timeout = config?.timeout ?? globalConfig.timeout ?? DEFAULT_TIMEOUT;
+      const timeout =
+        config?.timeout ?? globalConfig.timeout ?? DEFAULT_TIMEOUT;
       const headers = buildHeaders(config?.headers);
 
       const controller = new AbortController();
@@ -134,7 +135,10 @@ async function request<T>(
         const data = await res.json().catch(() => null);
         return { ok: true, data: data as T };
       } catch (err) {
-        handleClientError(err, { module: "services:httpClient", action: "request" });
+        handleClientError(err, {
+          module: "services:httpClient",
+          action: "request",
+        });
         if (err instanceof DOMException && err.name === "AbortError") {
           return {
             ok: false,

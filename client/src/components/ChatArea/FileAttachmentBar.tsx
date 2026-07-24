@@ -81,7 +81,10 @@ const FileAttachmentBar = forwardRef<
           const data = await readFileAsBase64(file);
           newAttachments.push({ name: file.name, size: file.size, data });
         } catch (e) {
-          handleClientError(e, { module: "components:chat:FileAttachmentBar", action: "handleFileSelect" });
+          handleClientError(e, {
+            module: "components:chat:FileAttachmentBar",
+            action: "handleFileSelect",
+          });
           alert(`读取文件 "${file.name}" 失败`);
         }
       }
@@ -122,7 +125,10 @@ const FileAttachmentBar = forwardRef<
             const data = await readFileAsBase64(file);
             newAttachments.push({ name: file.name, size: file.size, data });
           } catch (e) {
-            handleClientError(e, { module: "components:chat:FileAttachmentBar", action: "handleFileDrop" });
+            handleClientError(e, {
+              module: "components:chat:FileAttachmentBar",
+              action: "handleFileDrop",
+            });
             alert(`读取文件 "${file.name}" 失败`);
           }
         }

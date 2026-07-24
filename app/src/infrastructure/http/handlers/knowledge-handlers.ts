@@ -728,6 +728,27 @@ export async function handleKnowledgeCompile(
 }
 
 /**
+ * W9: 获取编译进度 GET /v1/knowledge/compile-status
+ *
+ * 返回 KnowledgeCompiler.compile() 的实时进度
+ */
+export async function handleKnowledgeCompileStatus(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { getCompileProgress } =
+      await import('@modules/knowledge/CompileProgressTracker');
+    const progress = getCompileProgress();
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(progress));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
  * 获取待编译的 raw 文件列表 GET /v1/knowledge/raw-files
  *
  * 返回 raw/ 目录中所有未编译文件的详细信息（文件名、大小、修改时间、元数据）

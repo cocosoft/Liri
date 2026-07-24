@@ -257,7 +257,10 @@ function ChatInput() {
           const data = await readFileAsBase64(file);
           newAttachments.push({ name: file.name, size: file.size, data });
         } catch (e) {
-          handleClientError(e, { module: "components:chat:ChatInput", action: "handleFileAttachments" });
+          handleClientError(e, {
+            module: "components:chat:ChatInput",
+            action: "handleFileAttachments",
+          });
           alert(t("chat.fileReadFailed", { name: file.name }));
         }
       }
@@ -292,7 +295,10 @@ function ChatInput() {
             otherFiles.push(file);
           }
         } catch (e) {
-          handleClientError(e, { module: "components:chat:ChatInput", action: "handlePaste" });
+          handleClientError(e, {
+            module: "components:chat:ChatInput",
+            action: "handlePaste",
+          });
           // NotAllowedError: 非 HTTPS 环境剪贴板权限不足，弹出文件选择作为回退
           (e as Event).preventDefault();
           fileBarRef.current?.triggerFileInput();
@@ -391,7 +397,10 @@ function ChatInput() {
               size: item.file.size,
             };
           } catch (e) {
-            handleClientError(e, { module: "components:chat:ChatInput", action: "uploadImages" });
+            handleClientError(e, {
+              module: "components:chat:ChatInput",
+              action: "uploadImages",
+            });
             setImageItems((prev) =>
               prev.map((p) =>
                 p.file === item.file ? { ...p, status: "error" as const } : p,
@@ -543,7 +552,10 @@ function ChatInput() {
       setShowCommands(false);
       useChatStore.getState().setReplyMessage(null);
     } catch (err) {
-      handleClientError(err, { module: "components:chat:ChatInput", action: "handleSubmit" });
+      handleClientError(err, {
+        module: "components:chat:ChatInput",
+        action: "handleSubmit",
+      });
       const errorMsg = err instanceof Error ? err.message : String(err);
       alert(t("chat.fileUploadFailed", { errorMsg }));
       useChatStore.setState({ isUploading: false });
@@ -741,13 +753,13 @@ function ChatInput() {
 
   return (
     <div
-      className={`absolute bottom-0 left-0 right-0 px-3 py-3 bg-transparent transition-colors`}
+      className={`px-3 py-2 bg-transparent transition-colors`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       <div className="max-w-3xl mx-auto">
-        <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg p-3">
+        <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg p-2">
           {/* 图片缩略图预览条 */}
           {imageItems.length > 0 && (
             <div className="mb-2 flex items-center gap-2 flex-wrap">
@@ -909,7 +921,7 @@ function ChatInput() {
               </div>
             )}
             {/* 模式选择器 + 上传/表情 — 输入框上方 */}
-            <div className="flex items-center gap-1 mb-1">
+            <div className="flex items-center gap-1 mb-0.5">
               <div className="relative">
                 <button
                   onClick={() => setShowModeMenu(!showModeMenu)}
@@ -1074,7 +1086,7 @@ function ChatInput() {
               </div>
             </div>
             {/* 输入框 + 按钮 — textarea 独占整行，按钮在下方右对齐 */}
-            <div className="flex flex-col gap-1.5 bg-gray-100 dark:bg-gray-700 rounded-2xl p-1.5 ring-1 ring-transparent focus-within:ring-blue-500/40 dark:focus-within:ring-blue-400/30 focus-within:shadow-md transition-all duration-200">
+            <div className="flex flex-col gap-1 bg-gray-100 dark:bg-gray-700 rounded-2xl p-1 ring-1 ring-transparent focus-within:ring-blue-500/40 dark:focus-within:ring-blue-400/30 focus-within:shadow-md transition-all duration-200">
               {/* 文本输入 */}
               <div className="flex-1 relative">
                 <textarea

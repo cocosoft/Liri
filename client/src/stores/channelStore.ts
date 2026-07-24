@@ -180,7 +180,10 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
       const channels = await channelService.list();
       set({ channels, isLoading: false });
     } catch (e) {
-      handleClientError(e, { module: "stores:channel", action: "loadChannels" });
+      handleClientError(e, {
+        module: "stores:channel",
+        action: "loadChannels",
+      });
       set({ error: String(e), isLoading: false });
     }
   },
@@ -191,7 +194,10 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
       const channels = await channelService.list();
       set({ channels, isRefreshing: false });
     } catch (e) {
-      handleClientError(e, { module: "stores:channel", action: "refreshChannels" });
+      handleClientError(e, {
+        module: "stores:channel",
+        action: "refreshChannels",
+      });
       set({ error: String(e), isRefreshing: false });
     }
   },
@@ -207,7 +213,10 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
         ),
       });
     } catch (e) {
-      handleClientError(e, { module: "stores:channel", action: "toggleChannel" });
+      handleClientError(e, {
+        module: "stores:channel",
+        action: "toggleChannel",
+      });
       set({ error: String(e) });
     }
   },
@@ -220,7 +229,10 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
         confirmDeleteId: null,
       });
     } catch (e) {
-      handleClientError(e, { module: "stores:channel", action: "deleteChannel" });
+      handleClientError(e, {
+        module: "stores:channel",
+        action: "deleteChannel",
+      });
       set({ error: String(e) });
     }
   },
@@ -271,7 +283,10 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
       try {
         await channelService.applyConfig();
       } catch (e) {
-        handleClientError(e, { module: "stores:channel", action: "saveAndApplyChannel:applyConfig" });
+        handleClientError(e, {
+          module: "stores:channel",
+          action: "saveAndApplyChannel:applyConfig",
+        });
         // apply 可能触发连接重置，忽略连接错误
       }
       // 等待 Gateway 重连后刷新
@@ -279,7 +294,10 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
       await get().refreshChannels();
       set({ showFormModal: false, editingChannel: null });
     } catch (e) {
-      handleClientError(e, { module: "stores:channel", action: "saveAndApplyChannel" });
+      handleClientError(e, {
+        module: "stores:channel",
+        action: "saveAndApplyChannel",
+      });
       set({ error: String(e) });
     } finally {
       set({ isSaving: false, isApplying: false });
@@ -305,7 +323,10 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
         installedPlugins: plugins.filter((p) => p.installed).map((p) => p.name),
       });
     } catch (e) {
-      handleClientError(e, { module: "stores:channel", action: "refreshPlugins" });
+      handleClientError(e, {
+        module: "stores:channel",
+        action: "refreshPlugins",
+      });
       // 后端可能不支持，静默失败
     }
   },
@@ -346,7 +367,10 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
           }
           lastError = result.name || pkg;
         } catch (e) {
-          handleClientError(e, { module: "stores:channel", action: "installChannelPlugin:tryInstall" });
+          handleClientError(e, {
+            module: "stores:channel",
+            action: "installChannelPlugin:tryInstall",
+          });
           // 继续尝试下一个
         }
       }
@@ -356,7 +380,10 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
           : "插件安装失败，请手动执行 npm install",
       });
     } catch (e) {
-      handleClientError(e, { module: "stores:channel", action: "installChannelPlugin" });
+      handleClientError(e, {
+        module: "stores:channel",
+        action: "installChannelPlugin",
+      });
       set({ error: String(e) });
     } finally {
       set({ isInstallingPlugin: false });
@@ -372,7 +399,10 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
         set({ wechatCliStatus: result.data });
       }
     } catch (e) {
-      handleClientError(e, { module: "stores:channel", action: "fetchWechatCliStatus" });
+      handleClientError(e, {
+        module: "stores:channel",
+        action: "fetchWechatCliStatus",
+      });
       // 服务可能暂未支持，静默失败
     }
   },

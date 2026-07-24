@@ -5,7 +5,7 @@
  * ProviderRankTable — 供应商排名表（供应商名 + 请求数 + Tokens + 成本 + 成功率 + 延迟）
  * Props: { stats: ProviderRankEntry[], currency?, maxRows? }
  */
-import { formatCost, formatTokens } from '../../utils/format';
+import { formatCost, formatTokens } from "../../utils/format";
 
 export interface ProviderRankEntry {
   providerId: string;
@@ -23,8 +23,14 @@ export interface ProviderRankTableProps {
   maxRows?: number;
 }
 
-export function ProviderRankTable({ stats, currency = '$', maxRows = 10 }: ProviderRankTableProps) {
-  const sorted = [...stats].sort((a, b) => b.totalCost - a.totalCost).slice(0, maxRows);
+export function ProviderRankTable({
+  stats,
+  currency = "$",
+  maxRows = 10,
+}: ProviderRankTableProps) {
+  const sorted = [...stats]
+    .sort((a, b) => b.totalCost - a.totalCost)
+    .slice(0, maxRows);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
@@ -36,9 +42,14 @@ export function ProviderRankTable({ stats, currency = '$', maxRows = 10 }: Provi
       ) : (
         <div className="space-y-2">
           {sorted.map((p) => (
-            <div key={p.providerId} className="flex items-center justify-between text-sm">
+            <div
+              key={p.providerId}
+              className="flex items-center justify-between text-sm"
+            >
               <div className="flex items-center gap-2 min-w-0 flex-1">
-                <span className="text-gray-800 dark:text-gray-200">{p.providerName}</span>
+                <span className="text-gray-800 dark:text-gray-200">
+                  {p.providerName}
+                </span>
                 {p.successRate != null && p.successRate < 1 && (
                   <span className="text-xs text-gray-400">
                     {(p.successRate * 100).toFixed(0)}%

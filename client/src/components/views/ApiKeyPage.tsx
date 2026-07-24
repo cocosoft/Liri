@@ -45,7 +45,10 @@ function ApiKeyPage() {
     try {
       await deleteApiKey(id);
     } catch (e) {
-      handleClientError(e, { module: "components:views:ApiKey", action: "deleteApiKey" });
+      handleClientError(e, {
+        module: "components:views:ApiKey",
+        action: "deleteApiKey",
+      });
     }
   };
 
@@ -56,7 +59,10 @@ function ApiKeyPage() {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } catch (e) {
-        handleClientError(e, { module: "components:views:ApiKey", action: "copyKey" });
+        handleClientError(e, {
+          module: "components:views:ApiKey",
+          action: "copyKey",
+        });
       }
     }
   };

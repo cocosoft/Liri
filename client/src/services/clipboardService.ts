@@ -53,7 +53,10 @@ export async function readImageFromClipboard(): Promise<ClipboardImageResult | n
       size: base64.length,
     };
   } catch (err) {
-    handleClientError(err, { module: "services:clipboard", action: "readImageFromClipboard" });
+    handleClientError(err, {
+      module: "services:clipboard",
+      action: "readImageFromClipboard",
+    });
     logger.warn("剪贴板读取失败:", err);
     return null;
   }
@@ -104,7 +107,10 @@ async function readFromWindows(): Promise<string | null> {
     }
     return null;
   } catch (e) {
-    handleClientError(e, { module: "services:clipboard", action: "readFromWindows" });
+    handleClientError(e, {
+      module: "services:clipboard",
+      action: "readFromWindows",
+    });
     return null;
   }
 }
@@ -135,13 +141,19 @@ async function readFromMacOS(): Promise<string | null> {
         return pngResult.trim();
       }
     } catch (e) {
-      handleClientError(e, { module: "services:clipboard", action: "readFromMacOS-pngpaste" });
+      handleClientError(e, {
+        module: "services:clipboard",
+        action: "readFromMacOS-pngpaste",
+      });
       // pngpaste 不可用，忽略
     }
 
     return null;
   } catch (e) {
-    handleClientError(e, { module: "services:clipboard", action: "readFromMacOS" });
+    handleClientError(e, {
+      module: "services:clipboard",
+      action: "readFromMacOS",
+    });
     return null;
   }
 }
@@ -157,7 +169,10 @@ async function readFromLinux(): Promise<string | null> {
       return waylandResult.trim();
     }
   } catch (e) {
-    handleClientError(e, { module: "services:clipboard", action: "readFromLinux-wayland" });
+    handleClientError(e, {
+      module: "services:clipboard",
+      action: "readFromLinux-wayland",
+    });
     // Wayland 不可用
   }
 
@@ -170,7 +185,10 @@ async function readFromLinux(): Promise<string | null> {
       return xResult.trim();
     }
   } catch (e) {
-    handleClientError(e, { module: "services:clipboard", action: "readFromLinux-xclip" });
+    handleClientError(e, {
+      module: "services:clipboard",
+      action: "readFromLinux-xclip",
+    });
     // xclip 不可用
   }
 
@@ -191,7 +209,10 @@ async function execCommand(cmd: string): Promise<string> {
       return (await invoke("exec_command", { command: cmd })) as string;
     }
   } catch (e) {
-    handleClientError(e, { module: "services:clipboard", action: "execCommand-tauri" });
+    handleClientError(e, {
+      module: "services:clipboard",
+      action: "execCommand-tauri",
+    });
     // 非 Tauri 环境
   }
 
@@ -207,7 +228,10 @@ async function execCommand(cmd: string): Promise<string> {
       return data.output || "";
     }
   } catch (e) {
-    handleClientError(e, { module: "services:clipboard", action: "execCommand-fetch" });
+    handleClientError(e, {
+      module: "services:clipboard",
+      action: "execCommand-fetch",
+    });
     // API 不可用
   }
 

@@ -9,6 +9,7 @@ import { handleClientError } from "../../utils/handleError";
 import ConfirmDialog from "../common/ConfirmDialog";
 import SessionContextMenu from "./SessionContextMenu";
 import SessionListItem from "./SessionListItem";
+import { useDreamSessionIds } from "./useDreamSessionIds";
 
 /**
  * 会话来源渠道 → 显示名称映射
@@ -65,6 +66,9 @@ function SessionHistorySidebar() {
   // 从 rootStore SessionHub 获取 moduleType，用于过滤非 chat 会话
   const rootSessions = useRootStore((s) => s.sessions);
   const currentWorktreeId = useRootStore((s) => s.currentWorktreeId);
+
+  // 已被梦境处理的会话 ID 集合
+  const dreamProcessedIds = useDreamSessionIds();
 
   // 从 localStorage 恢复折叠状态，默认展开
   const [isExpanded, setIsExpanded] = useState(() => {
@@ -590,6 +594,7 @@ function SessionHistorySidebar() {
                   isEditing={editingId === session.id}
                   editTitle={editTitle}
                   pinned={isPinned(session.id)}
+                  isDreamProcessed={dreamProcessedIds.has(session.id)}
                   getSourceLabel={getSourceLabel}
                   onSwitch={handleSwitchSession}
                   onDoubleClick={handleDoubleClick}

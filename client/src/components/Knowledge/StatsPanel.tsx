@@ -51,11 +51,11 @@ function StatsPanel({
     .sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0))
     .slice(0, 10);
 
-  // 来源分布统计
+  // 来源分布统计 (W7: 使用类型安全的 source 字段)
   const sourceDistribution = (() => {
     const dist: Record<string, number> = {};
     for (const item of items) {
-      const s = (item as any)["source"] || "unknown";
+      const s = item.source ?? "unknown";
       dist[s] = (dist[s] || 0) + 1;
     }
     return Object.entries(dist).sort(([, a], [, b]) => b - a);

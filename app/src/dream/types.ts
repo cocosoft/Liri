@@ -60,3 +60,92 @@ export const DEFAULT_DREAM_SCHEDULER_CONFIG: DreamSchedulerConfig = {
   cronTrigger: '0 2 * * *',
   idleCheckIntervalMs: 60_000, // 每分钟检查一次
 };
+
+/** 梦境周期状态 */
+export type DreamCycleStatus = 'completed' | 'partial' | 'failed';
+
+/** 会话摘要（用于 Gather 阶段筛选高价值会话） */
+export interface SessionDigest {
+  sessionId: string;
+  title: string;
+  messageCount: number;
+  firstMessageAt: number;
+  lastMessageAt: number;
+  /** 是否包含工具调用（高价值信号） */
+  hasToolCalls: boolean;
+  /** 是否包含代码块（高价值信号） */
+  hasCodeBlocks: boolean;
+}
+
+/** 梦境周期完整记录 */
+export interface DreamCycleRecord {
+  cycleId: string;
+  startedAt: number;
+  completedAt: number;
+  triggerSource: DreamTriggerSource;
+  status: DreamCycleStatus;
+  /** 快照时间锚点（Gather 阶段设置），后续阶段只处理此时间点之前的数据 */
+  snapshotTime: number;
+
+  // 处理统计
+  sessionsScanned: number;
+  sessionsProcessed: number;
+  knowledgeFilesProcessed: number;
+  memoriesCreated: number;
+  memoriesRefined: number;
+  knowledgeFilesUpdated: number;
+  soulUpdated: boolean;
+  userProfileUpdated: boolean;
+
+  // 来源追踪
+  processedSessionIds: string[];
+  processedKnowledgeFiles: string[];
+  memoryCount: number;
+
+  // LLM 分析摘要
+  insights: string[];
+  errors: string[];
+
+  // SOUL/USER 纠偏结果
+  soulConflicts?: number;
+  userConflicts?: number;
+}
+
+/** 梦境周期摘要（列表接口使用，不含完整 detail） */
+export interface DreamCycleSummary {
+  cycleId: string;
+  startedAt: number;
+  completedAt: number;
+  triggerSource: string;
+  status: string;
+  sessionsScanned: number;
+  sessionsProcessed: number;
+  memoriesCreated: number;
+  memoriesRefined: number;
+  knowledgeFilesUpdated: number;
+  soulUpdated: boolean;
+  userProfileUpdated: boolean;
+  insights: string[];
+  errors: string[];
+  /** 已处理的会话 ID 列表（前端用于判断"已凝练"状态） */
+  processedSessionIds: string[];
+}
+
+/** 来源索引条目 */
+export interface SourceIndexEntry {
+  sourceType: string;
+  sourceIds: string[];
+  dreamCycleId: string;
+}
+
+/** 知识文件变更增量 */
+export interface KnowledgeDelta {
+  fileName: string;
+  /** sha256 of previous version */
+  baseSnapshot: string;
+  /** 新增的行 */
+  additions: string[];
+  /** 删除的行 */
+  removals: string[];
+  lastCheckedAt: number;
+}

@@ -155,13 +155,19 @@ export const translateService = {
                 onError(chunk.message, true);
               }
             } catch (e) {
-              handleClientError(e, { module: "services:translate", action: "streamTranslate-parseLine" });
+              handleClientError(e, {
+                module: "services:translate",
+                action: "streamTranslate-parseLine",
+              });
               // 跳过无法解析的行
             }
           }
         }
       } catch (err) {
-        handleClientError(err, { module: "services:translate", action: "streamTranslate-fetch" });
+        handleClientError(err, {
+          module: "services:translate",
+          action: "streamTranslate-fetch",
+        });
         if ((err as Error).name === "AbortError") return;
 
         // 自动重试 1 次

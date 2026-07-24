@@ -2,11 +2,11 @@ import { httpLegacy as http } from "./httpClient";
 import { getBackendBaseUrl } from "./backendUrl";
 
 export type MemoryType =
+  | "user_identity"
   | "user_preference"
   | "project_context"
-  | "conversation"
   | "knowledge"
-  | "system";
+  | "system_instruction";
 
 export interface Memory {
   id: string;
@@ -104,7 +104,10 @@ function toClientMemory(m: BackendMemory): Memory {
     content: m.content,
     summary:
       m.content.length > 100 ? m.content.slice(0, 100) + "..." : m.content,
-    weight: typeof m.metadata.priority === 'number' ? Math.max(1, m.metadata.priority) : 1,
+    weight:
+      typeof m.metadata.priority === "number"
+        ? Math.max(1, m.metadata.priority)
+        : 1,
     createdAt: new Date(m.createdAt).getTime(),
     updatedAt: new Date(m.updatedAt).getTime(),
     tags: m.metadata.tags || [],
@@ -217,20 +220,213 @@ const memoryService = {
     return response.stats;
   },
 
-  async triggerCleanup(): Promise<{ cleanedCount: number; remainingCount: number }> {
+  async triggerCleanup(): Promise<{
+    cleanedCount: number;
+    remainingCount: number;
+  }> {
     const response = await http.post<{
       success: boolean;
-      result: { cleanedCount: number; remainingCount: number; reindexed: boolean };
+      result: {
+        cleanedCount: number;
+        remainingCount: number;
+        reindexed: boolean;
+      };
     }>("/v1/memory/sync");
-    return { cleanedCount: response.result.cleanedCount, remainingCount: response.result.remainingCount };
+    return {
+      cleanedCount: response.result.cleanedCount,
+      remainingCount: response.result.remainingCount,
+    };
   },
 
-  async triggerConsolidate(): Promise<{ duplicateGroups: number; totalRemoved: number; removedIds: string[] }> {
+  async triggerConsolidate(): Promise<{
+    duplicateGroups: number;
+    totalRemoved: number;
+    removedIds: string[];
+  }> {
     const response = await http.post<{
       success: boolean;
-      result: { duplicateGroups: number; totalRemoved: number; spaceSaved: number; removedIds: string[] };
+      result: {
+        duplicateGroups: number;
+        totalRemoved: number;
+        spaceSaved: number;
+        removedIds: string[];
+      };
     }>("/v1/memory/consolidate");
-    return { duplicateGroups: response.result.duplicateGroups, totalRemoved: response.result.totalRemoved, removedIds: response.result.removedIds };
+    return {
+      duplicateGroups: response.result.duplicateGroups,
+      totalRemoved: response.result.totalRemoved,
+      removedIds: response.result.removedIds,
+    };
+  },
+
+  /** 从文件创建记忆 */
+  async createFromFile(
+    filePath: string,
+    name?: string,
+    tags?: string[],
+  ): Promise<Memory> {
+    const response = await http.post<{
+      success: boolean;
+      memory: BackendMemory;
+    }>("/v1/memory/create-from-file", { filePath, name, tags });
+    return toClientMemory(response.memory);
+  },
+
+  /** 客户端导出为 JSON 文件 */
+  async exportAllAsJson(): Promise<void> {
+    const { memories } = await this.list();
+    const json = JSON.stringify(memories, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `memory-export-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  /** 触发 LLM 记忆精炼 (Dream) */
+  async triggerDream(): Promise<{
+    groupsProcessed: number;
+    originalCount: number;
+    refinedCount: number;
+    details: Array<{
+      type: string;
+      original: number;
+      refined: number;
+      mergedPairs: number;
+    }>;
+  }> {
+    const response = await http.post<{
+      success: boolean;
+      result: {
+        groupsProcessed: number;
+        originalCount: number;
+        refinedCount: number;
+        details: Array<{
+          type: string;
+          original: number;
+          refined: number;
+          mergedPairs: number;
+        }>;
+      };
+    }>("/v1/memory/dream");
+    return response.result;
+  },
+
+  /** 获取梦境周期列表 */
+  async getDreamCycles(params?: {
+    page?: number;
+    pageSize?: number;
+    triggerSource?: string;
+    status?: string;
+    sortOrder?: string;
+  }): Promise<{
+    cycles: Array<{
+      cycleId: string;
+      startedAt: number;
+      completedAt: number;
+      triggerSource: string;
+      status: string;
+      sessionsScanned: number;
+      sessionsProcessed: number;
+      memoriesCreated: number;
+      memoriesRefined: number;
+      knowledgeFilesUpdated: number;
+      soulUpdated: boolean;
+      userProfileUpdated: boolean;
+      insights: string[];
+      errors: string[];
+      processedSessionIds: string[];
+    }>;
+    total: number;
+  }> {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.pageSize) searchParams.set("pageSize", String(params.pageSize));
+    if (params?.triggerSource)
+      searchParams.set("triggerSource", params.triggerSource);
+    if (params?.status) searchParams.set("status", params.status);
+    if (params?.sortOrder) searchParams.set("sortOrder", params.sortOrder);
+
+    const query = searchParams.toString();
+    const url = `/v1/memory/dream/cycles${query ? `?${query}` : ""}`;
+
+    const response = await http.get<{
+      success: boolean;
+      cycles: Array<{
+        cycleId: string;
+        startedAt: number;
+        completedAt: number;
+        triggerSource: string;
+        status: string;
+        sessionsScanned: number;
+        sessionsProcessed: number;
+        memoriesCreated: number;
+        memoriesRefined: number;
+        knowledgeFilesUpdated: number;
+        soulUpdated: boolean;
+        userProfileUpdated: boolean;
+        insights: string[];
+        errors: string[];
+        processedSessionIds: string[];
+      }>;
+      total: number;
+    }>(url);
+    return { cycles: response.cycles, total: response.total };
+  },
+
+  /** 获取梦境周期详情 */
+  async getDreamCycle(cycleId: string): Promise<{
+    cycleId: string;
+    startedAt: number;
+    completedAt: number;
+    triggerSource: string;
+    status: string;
+    snapshotTime: number;
+    sessionsScanned: number;
+    sessionsProcessed: number;
+    knowledgeFilesProcessed: number;
+    memoriesCreated: number;
+    memoriesRefined: number;
+    knowledgeFilesUpdated: number;
+    soulUpdated: boolean;
+    userProfileUpdated: boolean;
+    processedSessionIds: string[];
+    processedKnowledgeFiles: string[];
+    memoryCount: number;
+    insights: string[];
+    errors: string[];
+    soulConflicts: number;
+    userConflicts: number;
+  }> {
+    const response = await http.get<{
+      success: boolean;
+      cycle: {
+        cycleId: string;
+        startedAt: number;
+        completedAt: number;
+        triggerSource: string;
+        status: string;
+        snapshotTime: number;
+        sessionsScanned: number;
+        sessionsProcessed: number;
+        knowledgeFilesProcessed: number;
+        memoriesCreated: number;
+        memoriesRefined: number;
+        knowledgeFilesUpdated: number;
+        soulUpdated: boolean;
+        userProfileUpdated: boolean;
+        processedSessionIds: string[];
+        processedKnowledgeFiles: string[];
+        memoryCount: number;
+        insights: string[];
+        errors: string[];
+        soulConflicts: number;
+        userConflicts: number;
+      };
+    }>(`/v1/memory/dream/cycles/${cycleId}`);
+    return response.cycle;
   },
 };
 

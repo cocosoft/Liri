@@ -85,7 +85,10 @@ export default function DiffBlock({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      handleClientError(err, { module: "components:chat:DiffBlock", action: "applyDiff" });
+      handleClientError(err, {
+        module: "components:chat:DiffBlock",
+        action: "applyDiff",
+      });
       logger.error("复制失败", err);
     } finally {
       setApplying(false);

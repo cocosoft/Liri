@@ -5,7 +5,7 @@
  * ModelRankTable — 模型排名表（圆点色标 + 名称 + 详情 + 费用 + 百分比 布局）
  * Props: { stats: ModelRankEntry[], currency?, maxRows? }
  */
-import { formatCost, formatTokens } from '../../utils/format';
+import { formatCost, formatTokens } from "../../utils/format";
 
 export interface ModelRankEntry {
   modelName: string;
@@ -22,10 +22,25 @@ export interface ModelRankTableProps {
   maxRows?: number;
 }
 
-const PIE_COLORS = ['#3B82F6', '#8B5CF6', '#06B6D4', '#F59E0B', '#EF4444', '#10B981', '#EC4899', '#6366F1'];
+const PIE_COLORS = [
+  "#3B82F6",
+  "#8B5CF6",
+  "#06B6D4",
+  "#F59E0B",
+  "#EF4444",
+  "#10B981",
+  "#EC4899",
+  "#6366F1",
+];
 
-export function ModelRankTable({ stats, currency = '$', maxRows = 10 }: ModelRankTableProps) {
-  const sorted = [...stats].sort((a, b) => b.totalCost - a.totalCost).slice(0, maxRows);
+export function ModelRankTable({
+  stats,
+  currency = "$",
+  maxRows = 10,
+}: ModelRankTableProps) {
+  const sorted = [...stats]
+    .sort((a, b) => b.totalCost - a.totalCost)
+    .slice(0, maxRows);
   const maxCost = sorted[0]?.totalCost || 1;
 
   return (
@@ -44,10 +59,13 @@ export function ModelRankTable({ stats, currency = '$', maxRows = 10 }: ModelRan
                 style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
               />
               <div className="flex-1 min-w-0">
-                <div className="text-gray-800 dark:text-gray-200 truncate">{m.modelName}</div>
+                <div className="text-gray-800 dark:text-gray-200 truncate">
+                  {m.modelName}
+                </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {formatTokens(m.totalTokens)} tokens · {m.requestCount.toLocaleString()} 次
-                  {m.avgLatencyMs != null ? ` · ${m.avgLatencyMs}ms` : ''}
+                  {formatTokens(m.totalTokens)} tokens ·{" "}
+                  {m.requestCount.toLocaleString()} 次
+                  {m.avgLatencyMs != null ? ` · ${m.avgLatencyMs}ms` : ""}
                 </div>
               </div>
               <div className="text-xs font-medium text-gray-700 dark:text-gray-300 flex-shrink-0 w-24 text-right">

@@ -163,7 +163,10 @@ const ChatMessageMemo = memo(
         setCopyToast("copied");
         setTimeout(() => setCopyToast(null), 2000);
       } catch (e) {
-        handleClientError(e, { module: "components:chat:ChatMessage", action: "handleCopy" });
+        handleClientError(e, {
+          module: "components:chat:ChatMessage",
+          action: "handleCopy",
+        });
         setCopyToast("failed");
         setTimeout(() => setCopyToast(null), 2000);
       }
@@ -193,7 +196,10 @@ const ChatMessageMemo = memo(
         const session = await createSession(branchTitle);
         await switchSession(session.id);
       } catch (err) {
-        handleClientError(err, { module: "components:chat:ChatMessage", action: "handleBranch" });
+        handleClientError(err, {
+          module: "components:chat:ChatMessage",
+          action: "handleBranch",
+        });
         logger.error("创建分支失败", err);
       } finally {
         setBranching(false);

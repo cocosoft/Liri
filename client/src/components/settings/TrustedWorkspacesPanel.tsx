@@ -53,7 +53,10 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
         setPermission(res.value);
       }
     } catch (e) {
-      handleClientError(e, { module: "components:settings:TrustedWorkspaces", action: "loadConfig" });
+      handleClientError(e, {
+        module: "components:settings:TrustedWorkspaces",
+        action: "loadConfig",
+      });
       setError("加载权限配置失败");
     }
   };
@@ -68,7 +71,10 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e) {
-      handleClientError(e, { module: "components:settings:TrustedWorkspaces", action: "saveConfig" });
+      handleClientError(e, {
+        module: "components:settings:TrustedWorkspaces",
+        action: "saveConfig",
+      });
       setError("保存失败");
     } finally {
       setLoading(false);

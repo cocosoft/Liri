@@ -170,7 +170,10 @@ const EmptyState: React.FC = () => {
           throw new Error("无可用角色");
         }
       } catch (e) {
-        handleClientError(e, { module: "components:workspace:Council", action: "initializeAgents" });
+        handleClientError(e, {
+          module: "components:workspace:Council",
+          action: "initializeAgents",
+        });
         // 回退到硬编码默认值
         agents = [
           {

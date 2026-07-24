@@ -169,7 +169,12 @@ function LogViewerPage() {
       }
       setFrontendLogsTotal(result.total);
     },
-    [frontendLevelFilter, frontendModuleFilter, frontendSearchQuery, frontendOffset],
+    [
+      frontendLevelFilter,
+      frontendModuleFilter,
+      frontendSearchQuery,
+      frontendOffset,
+    ],
   );
 
   useEffect(() => {
@@ -509,16 +514,28 @@ function LogViewerPage() {
                 </span>
                 <span className="text-gray-400">|</span>
                 <span className="text-gray-400">
-                  Debug: <span className="text-gray-300">{logStore.countByLevel("debug")}</span>
+                  Debug:{" "}
+                  <span className="text-gray-300">
+                    {logStore.countByLevel("debug")}
+                  </span>
                 </span>
                 <span className="text-gray-400">
-                  Info: <span className="text-blue-400">{logStore.countByLevel("info")}</span>
+                  Info:{" "}
+                  <span className="text-blue-400">
+                    {logStore.countByLevel("info")}
+                  </span>
                 </span>
                 <span className="text-gray-400">
-                  Warn: <span className="text-yellow-400">{logStore.countByLevel("warn")}</span>
+                  Warn:{" "}
+                  <span className="text-yellow-400">
+                    {logStore.countByLevel("warn")}
+                  </span>
                 </span>
                 <span className="text-gray-400">
-                  Error: <span className="text-red-400">{logStore.countByLevel("error")}</span>
+                  Error:{" "}
+                  <span className="text-red-400">
+                    {logStore.countByLevel("error")}
+                  </span>
                 </span>
               </div>
             </div>
@@ -547,16 +564,16 @@ function LogViewerPage() {
                                 ? "bg-gray-700 text-gray-300"
                                 : "bg-gray-100 text-gray-600"
                               : log.level === "info"
-                              ? isDark
-                                ? "bg-blue-900/50 text-blue-400"
-                                : "bg-blue-50 text-blue-600"
-                              : log.level === "warn"
-                              ? isDark
-                                ? "bg-yellow-900/50 text-yellow-400"
-                                : "bg-yellow-50 text-yellow-600"
-                              : isDark
-                              ? "bg-red-900/50 text-red-400"
-                              : "bg-red-50 text-red-600"
+                                ? isDark
+                                  ? "bg-blue-900/50 text-blue-400"
+                                  : "bg-blue-50 text-blue-600"
+                                : log.level === "warn"
+                                  ? isDark
+                                    ? "bg-yellow-900/50 text-yellow-400"
+                                    : "bg-yellow-50 text-yellow-600"
+                                  : isDark
+                                    ? "bg-red-900/50 text-red-400"
+                                    : "bg-red-50 text-red-600"
                           }`}
                         >
                           {log.level.toUpperCase()}

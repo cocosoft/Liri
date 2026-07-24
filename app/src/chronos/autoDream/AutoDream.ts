@@ -293,7 +293,7 @@ export async function initAutoDream(): Promise<void> {
 
     const memoryRoot =
       configManager.env('AUTO_MEM_PATH') ||
-      join(resolveKnowledgeDir(), 'default');
+      resolveKnowledgeDir();
     const transcriptDir = process.cwd();
 
     const extra = `

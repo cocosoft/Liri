@@ -49,7 +49,10 @@ function UserPanel({ isDark }: UserPanelProps) {
       setContent(data);
       setOriginalContent(data);
     } catch (e) {
-      handleClientError(e, { module: "components:settings:User", action: "loadUser" });
+      handleClientError(e, {
+        module: "components:settings:User",
+        action: "loadUser",
+      });
       setMessage({ type: "error", text: "加载用户身份失败" });
     }
   };
@@ -68,7 +71,10 @@ function UserPanel({ isDark }: UserPanelProps) {
       setMessage({ type: "success", text: "用户身份已保存" });
       setTimeout(() => setMessage(null), 3000);
     } catch (e) {
-      handleClientError(e, { module: "components:settings:User", action: "handleSave" });
+      handleClientError(e, {
+        module: "components:settings:User",
+        action: "handleSave",
+      });
       setMessage({ type: "error", text: "保存失败，请重试" });
     } finally {
       setSaving(false);

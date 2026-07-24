@@ -78,7 +78,10 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
         });
       }
     } catch (e) {
-      handleClientError(e, { module: "components:settings:CustomRules", action: "loadConfig" });
+      handleClientError(e, {
+        module: "components:settings:CustomRules",
+        action: "loadConfig",
+      });
       setError("加载自定义规则失败");
     }
   };
@@ -99,7 +102,10 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e) {
-      handleClientError(e, { module: "components:settings:CustomRules", action: "saveConfig" });
+      handleClientError(e, {
+        module: "components:settings:CustomRules",
+        action: "saveConfig",
+      });
       setError("保存失败");
     } finally {
       setLoading(false);

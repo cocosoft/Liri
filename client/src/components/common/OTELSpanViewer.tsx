@@ -56,7 +56,9 @@ const SpanRow = memo(function SpanRow({ span }: SpanRowProps) {
         <span className="truncate text-gray-700 dark:text-gray-300 flex-1">
           {span.name}
         </span>
-        <span className="shrink-0 text-gray-500">{formatDuration(span.durationMs)}</span>
+        <span className="shrink-0 text-gray-500">
+          {formatDuration(span.durationMs)}
+        </span>
         <span className="shrink-0 text-gray-400 text-[10px]">
           {formatTime(span.startTime)}
         </span>
@@ -171,7 +173,9 @@ export function OTELSpanViewer({ compact }: { compact?: boolean }) {
         </div>
         <div className="flex items-center justify-between">
           <span className="text-gray-500">错误</span>
-          <span className={`font-mono font-medium ${errorCount > 0 ? "text-red-500" : "text-gray-700 dark:text-gray-300"}`}>
+          <span
+            className={`font-mono font-medium ${errorCount > 0 ? "text-red-500" : "text-gray-700 dark:text-gray-300"}`}
+          >
             {errorCount}
           </span>
         </div>
@@ -242,8 +246,7 @@ export function OTELSpanViewer({ compact }: { compact?: boolean }) {
           </span>
         </span>
         <span>
-          Error:{" "}
-          <span className="text-red-500 font-medium">{errorCount}</span>
+          Error: <span className="text-red-500 font-medium">{errorCount}</span>
         </span>
         <span>
           Unset:{" "}

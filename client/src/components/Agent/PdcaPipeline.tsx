@@ -122,7 +122,10 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
         setNotFound(false);
       }
     } catch (e) {
-      handleClientError(e, { module: "components:agent:PdcaPipeline", action: "load" });
+      handleClientError(e, {
+        module: "components:agent:PdcaPipeline",
+        action: "load",
+      });
       // 404/500 — 无 PDCA 任务关联，停止轮询
       setNotFound(true);
     } finally {
@@ -147,7 +150,10 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
       await http.post(`/v1/pdca/${taskId}/step/${stepId}/review`);
       load();
     } catch (e) {
-      handleClientError(e, { module: "components:agent:PdcaPipeline", action: "handleReview" });
+      handleClientError(e, {
+        module: "components:agent:PdcaPipeline",
+        action: "handleReview",
+      });
     } finally {
       setActionLoading(null);
     }
@@ -159,7 +165,10 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
       await http.post(`/v1/pdca/${taskId}/step/${stepId}/decide`, { decision });
       load();
     } catch (e) {
-      handleClientError(e, { module: "components:agent:PdcaPipeline", action: "handleDecide" });
+      handleClientError(e, {
+        module: "components:agent:PdcaPipeline",
+        action: "handleDecide",
+      });
     } finally {
       setActionLoading(null);
     }

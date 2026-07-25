@@ -167,6 +167,11 @@ export function InboxPanel() {
                         >
                           {TYPE_LABELS[item.type]}
                         </span>
+                        {item.source && item.source !== "" && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">
+                            {item.source}
+                          </span>
+                        )}
                         <span
                           className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
                         >

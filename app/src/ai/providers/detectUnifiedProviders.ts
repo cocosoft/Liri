@@ -91,6 +91,12 @@ const LEGACY_KEYS: Record<string, LegacyMapping> = {
     providerType: 'custom',
     defaultUrl: 'https://api.siliconflow.cn/v1',
   },
+  // Phase 3: Ollama local model support (VerifierAgent offline-friendly)
+  OLLAMA_BASE_URL: {
+    name: 'ollama',
+    providerType: 'custom',
+    defaultUrl: 'http://localhost:11434/v1',
+  },
 };
 
 /** 专用 URL 后缀 → 对应的 KEY 环境变量 */

@@ -604,4 +604,12 @@ export const chatService = {
       },
     );
   },
+
+  /** Phase 3: Steering API — 在任务执行中注入指导消息 */
+  steerSession: async (sessionId: string, message: string): Promise<{ queued: boolean }> => {
+    return getOTelTracing().asyncWrap("services:chat:steerSession", async () => {
+      const res = await httpClient.post(`/v1/sessions/${sessionId}/steer`, { message });
+      return res.data as { queued: boolean };
+    });
+  },
 };

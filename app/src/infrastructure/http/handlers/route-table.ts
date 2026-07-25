@@ -1273,9 +1273,23 @@ export async function dispatchRoute(
     await self['handleKnowledgeHealth'](req, res);
     return true;
   }
+  if (method === 'GET' && url === '/v1/knowledge/config') {
+    const { handleGetKnowledgeConfig } = await import('@modules/infrastructure/http/handlers/knowledge-handlers');
+    await handleGetKnowledgeConfig(req, res);
+    return true;
+  }
+  if (method === 'PUT' && url === '/v1/knowledge/config') {
+    const { handleUpdateKnowledgeConfig } = await import('@modules/infrastructure/http/handlers/knowledge-handlers');
+    await handleUpdateKnowledgeConfig(req, res);
+    return true;
+  }
   if (method === 'GET' && url.startsWith('/v1/knowledge/graph')) {
-    const { handleListGraphEdges, handleGraphStats } = await import('@modules/infrastructure/http/handlers/graph-handlers');
-    if (url === '/v1/knowledge/graph/edges' || url.startsWith('/v1/knowledge/graph/edges?')) {
+    const { handleListGraphEdges, handleGraphStats } =
+      await import('@modules/infrastructure/http/handlers/graph-handlers');
+    if (
+      url === '/v1/knowledge/graph/edges' ||
+      url.startsWith('/v1/knowledge/graph/edges?')
+    ) {
       await handleListGraphEdges(req, res);
     } else {
       await handleGraphStats(req, res);

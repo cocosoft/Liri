@@ -1578,3 +1578,41 @@ export async function handleExportKnowledge(
 }
 
 // ========== Buddy Handlers ==========
+
+// ========== 知识库配置 ==========
+
+/** GET /v1/knowledge/config — 获取知识库配置 */
+export async function handleGetKnowledgeConfig(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { KnowledgeConfig } = await import('@modules/knowledge/KnowledgeConfig');
+    const config = await KnowledgeConfig.load();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(config.toJSON()));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/** PUT /v1/knowledge/config — 更新知识库配置 */
+export async function handleUpdateKnowledgeConfig(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const partial = JSON.parse(body);
+
+    const { KnowledgeConfig } = await import('@modules/knowledge/KnowledgeConfig');
+    const config = await KnowledgeConfig.load();
+    const updated = config.update(partial);
+    await config.save();
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(updated));
+  } catch (err) {
+    sendError(res, err);
+  }
+}

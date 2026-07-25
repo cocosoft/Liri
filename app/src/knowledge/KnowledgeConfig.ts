@@ -193,4 +193,38 @@ export class KnowledgeConfig {
       `compiler.maxPagesPerFile: ${c.maxPagesPerFile}`,
     ].join('\n');
   }
+
+  /** 获取原始配置数据 */
+  toJSON(): KnowledgeConfigData {
+    return { ...this.data };
+  }
+
+  /** 更新配置并持久化 */
+  update(partial: Partial<KnowledgeConfigData>): KnowledgeConfigData {
+    if (partial.search) {
+      this.data.search = { ...this.data.search, ...partial.search };
+    }
+    if (partial.linter) {
+      this.data.linter = { ...this.data.linter, ...partial.linter };
+    }
+    if (partial.scheduler) {
+      this.data.scheduler = { ...this.data.scheduler, ...partial.scheduler };
+    }
+    if (partial.compiler) {
+      this.data.compiler = { ...this.data.compiler, ...partial.compiler };
+    }
+    if (partial.vectorStore !== undefined) {
+      this.data.vectorStore = partial.vectorStore ? { ...partial.vectorStore } : undefined;
+    }
+    return this.data;
+  }
+
+  /** 持久化配置到磁盘 */
+  async save(): Promise<void> {
+    const { mkdir, writeFile } = await import('fs/promises');
+    const { dirname } = await import('path');
+    await mkdir(dirname(CONFIG_PATH), { recursive: true });
+    await writeFile(CONFIG_PATH, JSON.stringify(this.data, null, 2), 'utf-8');
+    logger.info('知识库配置已保存', { path: CONFIG_PATH });
+  }
 }

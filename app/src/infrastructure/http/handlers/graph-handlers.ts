@@ -9,13 +9,13 @@
  *   GET  /v1/knowledge/graph/stats → 图统计信息
  */
 
-import type http from "http";
-import { sendError } from "./handler-utils";
-import { LogLevel } from "@modules/monitoring";
-import { OTelAwareLogger } from "@modules/monitoring/logs/OTelAwareLogger";
+import type http from 'http';
+import { sendError } from './handler-utils';
+import { LogLevel } from '@modules/monitoring';
+import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 
 const logger = new OTelAwareLogger({
-  module: "http:graph-handlers",
+  module: 'http:graph-handlers',
   level: LogLevel.INFO,
 });
 
@@ -25,27 +25,33 @@ export async function handleListGraphEdges(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { KnowledgeGraph } = await import(
-      "@modules/knowledge/graph/KnowledgeGraph"
-    );
+    const { KnowledgeGraph } =
+      await import('@modules/knowledge/graph/KnowledgeGraph');
     const graph = new KnowledgeGraph();
-    await graph["init"]();
+    await graph['init']();
 
-    const url = new URL(req.url!, `http://${req.headers.host ?? "localhost"}`);
-    const domain = url.searchParams.get("domain") ?? undefined;
-    const entityId = url.searchParams.get("entityId") ?? undefined;
-    const type = url.searchParams.get("type") ?? undefined;
-    const limit = parseInt(url.searchParams.get("limit") ?? "200", 10);
+    const url = new URL(req.url!, `http://${req.headers.host ?? 'localhost'}`);
+    const domain = url.searchParams.get('domain') ?? undefined;
+    const entityId = url.searchParams.get('entityId') ?? undefined;
+    const type = url.searchParams.get('type') ?? undefined;
+    const limit = parseInt(url.searchParams.get('limit') ?? '200', 10);
 
     const edges = await graph.queryEdges({ domain, entityId, type, limit });
     const stats = await graph.getStats();
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
-      JSON.stringify({ edges, stats: { totalEdges: stats.totalEdges, byType: stats.byType, totalEntities: stats.totalEntities } })
+      JSON.stringify({
+        edges,
+        stats: {
+          totalEdges: stats.totalEdges,
+          byType: stats.byType,
+          totalEntities: stats.totalEntities,
+        },
+      })
     );
   } catch (err) {
-    logger.error("获取图谱边失败", { error: (err as Error).message });
+    logger.error('获取图谱边失败', { error: (err as Error).message });
     sendError(res, (err as Error).message, 500);
   }
 }
@@ -56,18 +62,17 @@ export async function handleGraphStats(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { KnowledgeGraph } = await import(
-      "@modules/knowledge/graph/KnowledgeGraph"
-    );
+    const { KnowledgeGraph } =
+      await import('@modules/knowledge/graph/KnowledgeGraph');
     const graph = new KnowledgeGraph();
-    await graph["init"]();
+    await graph['init']();
 
     const stats = await graph.getStats();
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(stats));
   } catch (err) {
-    logger.error("获取图谱统计失败", { error: (err as Error).message });
+    logger.error('获取图谱统计失败', { error: (err as Error).message });
     sendError(res, (err as Error).message, 500);
   }
 }

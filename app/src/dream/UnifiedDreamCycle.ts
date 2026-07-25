@@ -397,7 +397,8 @@ export class UnifiedDreamCycle {
         success: status === 'completed',
       });
       try {
-        const xpGained = sessionsProcessed * 10 + memoriesCreated * 5 + insights.length * 3;
+        const xpGained =
+          sessionsProcessed * 10 + memoriesCreated * 5 + insights.length * 3;
         broadcastEvent('dream:cycle:completed', {
           cycleId,
           status,

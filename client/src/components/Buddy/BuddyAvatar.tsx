@@ -5,6 +5,7 @@ import {
   RARITY_COLORS,
   RARITY_LABELS,
 } from "./buddySprites";
+import BuddySVG from "./BuddySVG";
 import type {
   BuddySpecies,
   BuddyRarity,
@@ -76,30 +77,33 @@ function BuddyAvatar({
   return (
     <div
       onClick={onClick}
-      className={`relative inline-flex flex-col items-center justify-center cursor-pointer transition-transform hover:scale-110 ${sizes.container} ${onClick ? "cursor-pointer" : "cursor-default"}`}
-      style={{ filter: shiny ? "brightness(1.2) saturate(1.3)" : undefined }}
+      className={`relative inline-flex flex-col items-center justify-center transition-transform hover:scale-110 ${sizes.container} ${onClick ? "cursor-pointer" : "cursor-default"}`}
       title={`${speciesInfo.description} (${rarityLabel})`}
     >
-      {hatEmoji && (
-        <span
-          className={`absolute select-none z-10 ${sizes.hatOffset}`}
-          style={{
-            fontSize:
-              size === "sm" ? "0.75rem" : size === "md" ? "1.25rem" : "1.75rem",
-          }}
-        >
-          {hatEmoji}
-        </span>
+      {(size === "md" || size === "lg") ? (
+        <BuddySVG
+          species={species}
+          rarity={rarity}
+          eye={displayEye}
+          hat={hat}
+          shiny={shiny}
+          size={size === "md" ? 80 : 112}
+        />
+      ) : (
+        <>
+          {hatEmoji && (
+            <span
+              className={`absolute select-none z-10 ${sizes.hatOffset}`}
+              style={{ fontSize: "0.75rem" }}
+            >
+              {hatEmoji}
+            </span>
+          )}
+          <span className="select-none leading-none text-2xl">
+            {speciesInfo.emoji}
+          </span>
+        </>
       )}
-      <span className={`select-none leading-none ${sizes.emoji}`}>
-        {speciesInfo.emoji}
-      </span>
-      <span
-        className={`select-none mt-0.5 font-bold ${sizes.eye}`}
-        style={{ color: rarityColor }}
-      >
-        {displayEye}
-      </span>
       {showName && name && (
         <span className="text-xs text-gray-600 dark:text-gray-400 mt-1 truncate max-w-full">
           {name}

@@ -647,6 +647,9 @@ export class KnowledgeRouter implements IKnowledgeSearch {
           snippet: hit.entry.text.slice(0, 120),
           matchType: 'semantic' as const,
           isKnowledgeDoc: doc?.isKnowledgeDoc ?? true,
+          startLine: hit.entry.startLine,
+          endLine: hit.entry.endLine,
+          semanticScore: Math.round(hit.score * 100) / 100,
         };
       });
     }
@@ -668,6 +671,9 @@ export class KnowledgeRouter implements IKnowledgeSearch {
         snippet: hit.entry.text.slice(0, 120),
         matchType: 'semantic' as const,
         isKnowledgeDoc: doc?.isKnowledgeDoc ?? true,
+        startLine: hit.entry.startLine,
+        endLine: hit.entry.endLine,
+        semanticScore: Math.round(hit.score * 100) / 100,
       };
     });
   }
@@ -868,7 +874,10 @@ export class KnowledgeRouter implements IKnowledgeSearch {
         }
       }
 
-      const result = reranked.slice(offset, offset + maxResults);
+      // 上下文富化（O6）
+      const enriched = await this.enrichContext(reranked);
+
+      const result = enriched.slice(offset, offset + maxResults);
 
       // 写入搜索缓存（LRU 淘汰）
       if (this.searchCache.size >= SEARCH_CACHE_MAX_SIZE) {
@@ -1001,6 +1010,71 @@ export class KnowledgeRouter implements IKnowledgeSearch {
       categories.forEach((c) => allCategories.add(c));
     }
     return Array.from(allCategories).sort();
+  }
+
+  /**
+   * 上下文富化：对融合后的检索结果附加前后块和父块内容
+   * 依赖 IVectorStore 的 getById 能力获取关联分块
+   */
+  private async enrichContext(
+    routes: KnowledgeRoute[],
+    maxContextChars: number = 2000,
+  ): Promise<KnowledgeRoute[]> {
+    if (!this.vectorStore || routes.length === 0) return routes;
+
+    return Promise.all(
+      routes.map(async (route) => {
+        const chunkId = `${route.docPath}#L${route.startLine ?? 1}-L${route.endLine ?? 1}`;
+        try {
+          const chunk = await this.vectorStore!.getById(chunkId);
+          if (!chunk) return route;
+
+          const contextParts: string[] = [];
+
+          if (chunk.contextHeader) {
+            contextParts.push(`[上下文] ${chunk.contextHeader}`);
+          }
+
+          if (chunk.parentChunkId) {
+            try {
+              const parent = await this.vectorStore!.getById(chunk.parentChunkId);
+              if (parent) {
+                contextParts.push(`[摘要] ${parent.text.slice(0, maxContextChars)}`);
+              }
+            } catch { /* 父块不可用则跳过 */ }
+          }
+
+          if (chunk.preChunkId) {
+            try {
+              const pre = await this.vectorStore!.getById(chunk.preChunkId);
+              if (pre) {
+                contextParts.push(`[上文] ${pre.text.slice(-500)}`);
+              }
+            } catch { /* 前块不可用则跳过 */ }
+          }
+
+          if (chunk.nextChunkId) {
+            try {
+              const next = await this.vectorStore!.getById(chunk.nextChunkId);
+              if (next) {
+                contextParts.push(`[下文] ${next.text.slice(0, 500)}`);
+              }
+            } catch { /* 后块不可用则跳过 */ }
+          }
+
+          if (contextParts.length > 0) {
+            return {
+              ...route,
+              snippet: `${route.snippet}\n\n${contextParts.join('\n---\n')}`,
+            };
+          }
+
+          return route;
+        } catch {
+          return route;
+        }
+      }),
+    );
   }
 }
 

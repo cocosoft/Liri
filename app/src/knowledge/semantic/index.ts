@@ -38,6 +38,7 @@ export {
   chunkDirectory,
   headingAwareChunk,
   autoChunk,
+  parentChildChunk,
 } from './chunker';
 export type { CodeChunk, ChunkOptions, SkipReason } from './chunker';
 

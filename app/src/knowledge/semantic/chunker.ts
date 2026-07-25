@@ -406,7 +406,6 @@ export function headingAwareChunk(
 
   // 设置 preChunkId/nextChunkId 链
   for (let i = 0; i < chunks.length; i++) {
-    const cid = `${filePath}#L${chunks[i]!.startLine}-L${chunks[i]!.endLine}`;
     if (i > 0) {
       chunks[i]!.preChunkId =
         `${filePath}#L${chunks[i - 1]!.startLine}-L${chunks[i - 1]!.endLine}`;
@@ -439,7 +438,63 @@ export function autoChunk(
   const hasHeadings = /^#{1,6}\s/m.test(text);
 
   if (hasHeadings) {
-    return headingAwareChunk(text, filePath, windowLines, maxChunkChars);
+    return parentChildChunk(text, filePath, windowLines, maxChunkChars);
   }
   return chunkText(text, filePath, windowLines, overlap, maxChunkChars);
+}
+
+/**
+ * 父子分块
+ *
+ * 先做标题感知分块得子块，再按标题层级合并生成父块（摘要块）。
+ * 子块通过 parentChunkId 指向父块，实现分层检索。
+ */
+export function parentChildChunk(
+  text: string,
+  filePath: string,
+  windowLines: number = 60,
+  maxChunkChars: number = 4000
+): CodeChunk[] {
+  const childChunks = headingAwareChunk(text, filePath, windowLines, maxChunkChars);
+  const parentChunks: CodeChunk[] = [];
+
+  // 按标题层级分组：连续同层级（或更深）的块共享同一父块
+  let currentParent: CodeChunk | null = null;
+
+  for (let i = 0; i < childChunks.length; i++) {
+    const child = childChunks[i]!;
+    const header = child.contextHeader?.split(" > ").pop() ?? "";
+    const isH2 = child.contextHeader?.startsWith("# ") ?? false;
+
+    // 遇到 H1/H2 标题，开新父块
+    if (isH2 || !currentParent) {
+      if (currentParent && currentParent.text.length > 0) {
+        parentChunks.push(currentParent);
+      }
+
+      const parentId = `${filePath}#parent-L${child.startLine}`;
+      currentParent = {
+        path: filePath,
+        startLine: child.startLine,
+        endLine: child.endLine,
+        text: `[摘要] ${header}: ${child.text.slice(0, 800)}`,
+        contextHeader: child.contextHeader,
+      };
+
+      // 为所有子块分配相同 parentId（稍后补）
+      currentParent.preChunkId = parentId;
+    }
+
+    // 子块指向父块
+    child.parentChunkId = currentParent?.preChunkId;
+    if (currentParent) {
+      currentParent.endLine = Math.max(currentParent.endLine, child.endLine);
+    }
+  }
+
+  if (currentParent && currentParent.text.length > 0) {
+    parentChunks.push(currentParent);
+  }
+
+  return [...childChunks, ...parentChunks];
 }

@@ -41,6 +41,12 @@ export interface KnowledgeRoute {
     | 'directory'
     | 'semantic';
   isKnowledgeDoc: boolean;
+  /** 分块起始行（用于上下文富化时定位关联块） */
+  startLine?: number;
+  /** 分块结束行（用于上下文富化时定位关联块） */
+  endLine?: number;
+  /** 匹配得分（语义搜索时设置） */
+  semanticScore?: number;
 }
 
 /** 知识路由搜索选项 */

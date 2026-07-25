@@ -11,21 +11,24 @@
  *   POST   /v1/knowledge/datasources/:type/sync → 手动触发同步
  */
 
-import type http from "http";
-import { sendError, readRequestBody } from "./handler-utils";
-import { LogLevel } from "@modules/monitoring";
-import { OTelAwareLogger } from "@modules/monitoring/logs/OTelAwareLogger";
-import { readFile, writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { resolveDataSubDir } from "@modules/core";
-import { existsSync } from "fs";
+import type http from 'http';
+import { sendError, readRequestBody } from './handler-utils';
+import { LogLevel } from '@modules/monitoring';
+import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
+import { readFile, writeFile, mkdir } from 'fs/promises';
+import { join } from 'path';
+import { resolveDataSubDir } from '@modules/core';
+import { existsSync } from 'fs';
 
 const logger = new OTelAwareLogger({
-  module: "http:datasource-handlers",
+  module: 'http:datasource-handlers',
   level: LogLevel.INFO,
 });
 
-const DS_CONFIG_PATH = join(resolveDataSubDir(""), "knowledge-datasources.json");
+const DS_CONFIG_PATH = join(
+  resolveDataSubDir(''),
+  'knowledge-datasources.json'
+);
 
 interface DataSourceEntry {
   type: string;
@@ -40,7 +43,7 @@ interface DataSourceEntry {
 async function loadConfigs(): Promise<DataSourceEntry[]> {
   try {
     if (!existsSync(DS_CONFIG_PATH)) return [];
-    const raw = await readFile(DS_CONFIG_PATH, "utf-8");
+    const raw = await readFile(DS_CONFIG_PATH, 'utf-8');
     return JSON.parse(raw);
   } catch {
     return [];
@@ -48,9 +51,9 @@ async function loadConfigs(): Promise<DataSourceEntry[]> {
 }
 
 async function saveConfigs(configs: DataSourceEntry[]): Promise<void> {
-  const dir = join(DS_CONFIG_PATH, "..");
+  const dir = join(DS_CONFIG_PATH, '..');
   await mkdir(dir, { recursive: true });
-  await writeFile(DS_CONFIG_PATH, JSON.stringify(configs, null, 2), "utf-8");
+  await writeFile(DS_CONFIG_PATH, JSON.stringify(configs, null, 2), 'utf-8');
 }
 
 /** GET /v1/knowledge/datasources */
@@ -60,10 +63,10 @@ export async function handleListDataSources(
 ): Promise<void> {
   try {
     const configs = await loadConfigs();
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(configs));
   } catch (err) {
-    logger.error("获取数据源列表失败", { error: (err as Error).message });
+    logger.error('获取数据源列表失败', { error: (err as Error).message });
     sendError(res, (err as Error).message, 500);
   }
 }
@@ -78,24 +81,28 @@ export async function handleCreateDataSource(
     const entry: DataSourceEntry = JSON.parse(body);
 
     if (!entry.type || !entry.url) {
-      sendError(res, "缺少必填字段: type, url", 400);
+      sendError(res, '缺少必填字段: type, url', 400);
       return;
     }
 
     const configs = await loadConfigs();
     const idx = configs.findIndex((c) => c.type === entry.type);
     if (idx >= 0) {
-      configs[idx] = { ...configs[idx], ...entry, createdAt: configs[idx]!.createdAt };
+      configs[idx] = {
+        ...configs[idx],
+        ...entry,
+        createdAt: configs[idx]!.createdAt,
+      };
     } else {
       configs.push({ ...entry, createdAt: Date.now() });
     }
 
     await saveConfigs(configs);
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(entry));
   } catch (err) {
-    logger.error("创建数据源失败", { error: (err as Error).message });
+    logger.error('创建数据源失败', { error: (err as Error).message });
     sendError(res, (err as Error).message, 500);
   }
 }
@@ -106,12 +113,12 @@ export async function handleDeleteDataSource(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host ?? "localhost"}`);
-    const segs = url.pathname.split("/");
+    const url = new URL(req.url!, `http://${req.headers.host ?? 'localhost'}`);
+    const segs = url.pathname.split('/');
     const dsType = segs[segs.length - 1];
 
     if (!dsType) {
-      sendError(res, "缺少数据源类型", 400);
+      sendError(res, '缺少数据源类型', 400);
       return;
     }
 
@@ -119,10 +126,10 @@ export async function handleDeleteDataSource(
     const filtered = configs.filter((c) => c.type !== dsType);
     await saveConfigs(filtered);
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ deleted: true }));
   } catch (err) {
-    logger.error("删除数据源失败", { error: (err as Error).message });
+    logger.error('删除数据源失败', { error: (err as Error).message });
     sendError(res, (err as Error).message, 500);
   }
 }
@@ -133,12 +140,12 @@ export async function handleSyncDataSource(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host ?? "localhost"}`);
-    const segs = url.pathname.split("/");
+    const url = new URL(req.url!, `http://${req.headers.host ?? 'localhost'}`);
+    const segs = url.pathname.split('/');
     const dsType = segs[segs.length - 2];
 
     if (!dsType) {
-      sendError(res, "缺少数据源类型", 400);
+      sendError(res, '缺少数据源类型', 400);
       return;
     }
 
@@ -151,12 +158,11 @@ export async function handleSyncDataSource(
 
     // 根据类型创建对应连接器并同步
     let result;
-    if (dsType === "rss") {
-      const { RSSConnector } = await import(
-        "@modules/knowledge/datasource/RSSConnector"
-      );
+    if (dsType === 'rss') {
+      const { RSSConnector } =
+        await import('@modules/knowledge/datasource/RSSConnector');
       const connector = new RSSConnector({
-        type: "rss",
+        type: 'rss',
         enabled: true,
         intervalMs: config.intervalMs || 3600000,
         url: config.url,
@@ -168,10 +174,10 @@ export async function handleSyncDataSource(
       return;
     }
 
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
   } catch (err) {
-    logger.error("同步数据源失败", { error: (err as Error).message });
+    logger.error('同步数据源失败', { error: (err as Error).message });
     sendError(res, (err as Error).message, 500);
   }
 }

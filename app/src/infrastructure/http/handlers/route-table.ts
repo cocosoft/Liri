@@ -1280,13 +1280,19 @@ export async function dispatchRoute(
     return true;
   }
   if (method === 'PUT' && url === '/v1/knowledge/config') {
-    const { handleUpdateKnowledgeConfig } = await import('@modules/infrastructure/http/handlers/knowledge-handlers');
+    const { handleUpdateKnowledgeConfig } =
+      await import('@modules/infrastructure/http/handlers/knowledge-handlers');
     await handleUpdateKnowledgeConfig(req, res);
     return true;
   }
   // 数据源管理
   if (url.startsWith('/v1/knowledge/datasources')) {
-    const { handleListDataSources, handleCreateDataSource, handleDeleteDataSource, handleSyncDataSource } =
+    const {
+      handleListDataSources,
+      handleCreateDataSource,
+      handleDeleteDataSource,
+      handleSyncDataSource,
+    } =
       await import('@modules/infrastructure/http/handlers/datasource-handlers');
     if (method === 'GET' && url === '/v1/knowledge/datasources') {
       await handleListDataSources(req, res);

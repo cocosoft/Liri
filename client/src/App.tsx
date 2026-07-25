@@ -156,6 +156,7 @@ function App() {
       <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
         <Header />
         <OperationStatusBar />
+        <ToastContainer />
         <div className="flex flex-1 overflow-hidden">
           <div className="hidden lg:block">
             <Sidebar />
@@ -169,7 +170,6 @@ function App() {
         <Footer />
         <MobileBottomNav />
         <ConfigPanel />
-        <ToastContainer />
         <KeyboardShortcutsHelp />
         {initState.phase === "first_run_wizard" && (
           <FirstRunWizard onComplete={completeWizard} />

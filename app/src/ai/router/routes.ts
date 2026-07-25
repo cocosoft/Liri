@@ -42,6 +42,10 @@ export const RouteKey = {
   SCHEDULED: 'scheduled',
   TRANSLATION: 'translation',
   CODING: 'coding',
+  /** Goal-based Loop 执行器 */
+  GOAL_EXECUTOR: 'goal_executor',
+  /** Goal-based Loop 审查器 */
+  GOAL_REVIEWER: 'goal_reviewer',
 } as const;
 
 export type RouteKey = (typeof RouteKey)[keyof typeof RouteKey];
@@ -65,6 +69,8 @@ export const ROUTE_TO_TASK: Record<RouteKey, TaskType> = {
   [RouteKey.SCHEDULED]: 'scheduled',
   [RouteKey.TRANSLATION]: 'translation',
   [RouteKey.CODING]: 'coding',
+  [RouteKey.GOAL_EXECUTOR]: 'agent',
+  [RouteKey.GOAL_REVIEWER]: 'agent',
 };
 
 /** 需要 LLM Judge 分级的 RouteKey（chat 类） */
@@ -74,6 +80,8 @@ export const JUDGE_ROUTES: RouteKey[] = [
   RouteKey.TRANSLATION,
   RouteKey.AGENT,
   RouteKey.SCHEDULED,
+  RouteKey.GOAL_EXECUTOR,
+  RouteKey.GOAL_REVIEWER,
 ];
 
 /** 按能力路由的 RouteKey（不需要 Judge，直接按 task 分工取模型） */

@@ -119,7 +119,7 @@ export default function OfficeCalendarPage() {
   /** 窄屏侧栏折叠状态 */
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const [saving, setSaving] = useState(false);
+  const [, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -1140,7 +1140,7 @@ export default function OfficeCalendarPage() {
                 dateStr={selectedDate}
                 events={unifiedEvents.filter((ev) => ev.date === selectedDate)}
                 onBack={() => setViewMode("month")}
-                onAddEvent={(dateStr, startHour) => {
+                onAddEvent={() => {
                   setShowAddDialog(true);
                 }}
                 onUpdateStatus={handleUpdateEventStatus}

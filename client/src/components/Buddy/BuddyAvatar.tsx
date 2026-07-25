@@ -1,10 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  SPECIES_MAP,
-  HAT_MAP,
-  RARITY_COLORS,
-  RARITY_LABELS,
-} from "./buddySprites";
+import { SPECIES_MAP, HAT_MAP, RARITY_LABELS } from "./buddySprites";
 import BuddySVG from "./BuddySVG";
 import type {
   BuddySpecies,
@@ -64,7 +59,6 @@ function BuddyAvatar({
   const [displayEye, setDisplayEye] = useState(eye);
   const sizes = sizeMap[size];
   const speciesInfo = SPECIES_MAP[species];
-  const rarityColor = RARITY_COLORS[rarity];
   const hatEmoji = HAT_MAP[hat];
   const rarityLabel = RARITY_LABELS[rarity];
 
@@ -80,7 +74,7 @@ function BuddyAvatar({
       className={`relative inline-flex flex-col items-center justify-center transition-transform hover:scale-110 ${sizes.container} ${onClick ? "cursor-pointer" : "cursor-default"}`}
       title={`${speciesInfo.description} (${rarityLabel})`}
     >
-      {(size === "md" || size === "lg") ? (
+      {size === "md" || size === "lg" ? (
         <BuddySVG
           species={species}
           rarity={rarity}

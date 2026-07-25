@@ -23,6 +23,23 @@ export interface TAORCheckpoint {
   lastPrompt: string;
   createdAt: number;
   type: 'auto' | 'manual' | 'before_abort';
+  /** 断路器状态（用于检查点恢复） */
+  breakerState?: {
+    state: string;
+    failureCount: number;
+    consecutiveSameErrorCount: number;
+    lastError: string | null;
+    totalFailures: number;
+    totalSuccesses: number;
+    trippedAt: number;
+  };
+  /** 循环检测器状态 */
+  loopDetectorState?: { noToolCallStreak: number };
+  /** 错误恢复管理器状态 */
+  errorRecoveryState?: {
+    attempts: Array<[string, { type: string; retryCount: number }]>;
+    compactAttempted?: boolean;
+  };
 }
 
 /** 检查点存储接口 */

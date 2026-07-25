@@ -9,6 +9,9 @@
  */
 
 import { Logger } from '@modules/monitoring';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 import {
   TokenBudgetController,
   TokenBudgetStatus,
@@ -44,6 +47,7 @@ import {
 } from './DailyBudgetManager.js';
 import { VerifierAgent, createVerifierAgent } from './VerifierAgent.js';
 import type { VerifierAgentConfig } from './VerifierAgent.js';
+import { FileTAORCheckpointStorage } from './FileTAORCheckpointStorage.js';
 import type { ChatMessage } from '../ai/models/types';
 
 const logger = new Logger({ module: 'query:taorLoop' });
@@ -88,7 +92,10 @@ export interface TAORLoopDeps {
   >;
 
   /** 消息持久化 */
-  persistMessages: (messages: ChatMessage[]) => Promise<void>;
+  persistMessages: (
+    messages: ChatMessage[],
+    signal?: AbortSignal
+  ) => Promise<void>;
 
   /** 流式 chunk 透传 */
   onStreamChunk?: (chunk: unknown) => void;
@@ -144,10 +151,20 @@ export interface TAORLoopConfig {
   checkpointStorage?: CheckpointStorage;
   /** 上下文引擎注册中心（启用可插拔引擎选择与追踪） */
   contextEngineRegistry?: ContextEngineRegistry;
-  /** 是否启用验证器代理（Phase 4），默认 false */
+  /** 是否启用验证器代理（Phase 4），默认 true */
   enableVerifier?: boolean;
   /** 验证器配置 */
   verifierConfig?: Partial<VerifierAgentConfig>;
+  /** 验证策略（Phase 2b）：AND/OR/TOOL_FIRST */
+  verifyStrategy?: 'AND' | 'OR' | 'TOOL_FIRST';
+  /** 是否启用自动 verify skill（Phase 2），默认 false */
+  enableAutoVerify?: boolean;
+  /** 自动验证最大重试次数，默认 3 */
+  autoVerifyMaxRetries?: number;
+  /** 自动验证超时 ms，默认 15000 */
+  autoVerifyTimeoutMs?: number;
+  /** Steering 消息队列（mid-turn 注入，不中断当前工具执行） */
+  steeringMessages?: string[];
 }
 
 export interface TAORLoopResult {
@@ -247,6 +264,8 @@ export class TAORLoop {
   private dailyBudget: DailyBudgetManager;
   // Phase 4: 验证器代理（制造者/检查者分离）
   private verifier: VerifierAgent;
+  // Steering 消息队列（mid-turn 注入）
+  private steeringQueue: string[] = [];
 
   constructor(
     queryEngine: QueryEngine,
@@ -261,10 +280,16 @@ export class TAORLoop {
       enableCheckpoint: config.enableCheckpoint !== false,
       checkpointInterval: config.checkpointInterval || 5,
       checkpointStorage:
-        config.checkpointStorage || new MemoryCheckpointStorage(),
-      enableVerifier: config.enableVerifier ?? false,
+        config.checkpointStorage || new FileTAORCheckpointStorage(),
+      enableVerifier: config.enableVerifier !== false,
       verifierConfig: config.verifierConfig ?? {},
+      verifyStrategy: config.verifyStrategy ?? 'AND',
+      enableAutoVerify: config.enableAutoVerify ?? false,
+      autoVerifyMaxRetries: config.autoVerifyMaxRetries ?? 3,
+      autoVerifyTimeoutMs: config.autoVerifyTimeoutMs ?? 15000,
+      steeringMessages: config.steeringMessages ?? [],
     };
+    this.steeringQueue = config.steeringMessages ?? [];
     this.contextEngineRegistry = config.contextEngineRegistry;
     this.tokenBudget = new TokenBudgetController(
       this.config.budgetConfig.modelName || 'default',
@@ -292,14 +317,11 @@ export class TAORLoop {
     this.fileIOLoopDetector = createFileIOLoopDetector();
     // Phase 3: 日预算管理
     this.dailyBudget = createDailyBudgetManager();
-    // Phase 4: 验证器代理（默认关闭，通过 enableVerifier 启用）
-    this.verifier = createVerifierAgent(config.verifierConfig);
-    if (!config.enableVerifier) {
-      this.verifier = createVerifierAgent({
-        ...config.verifierConfig,
-        enabled: false,
-      });
-    }
+    // Phase 4: 验证器代理（默认启用，可通过 config.set verifier.enabled=false 关闭）
+    this.verifier = createVerifierAgent({
+      ...config.verifierConfig,
+      enabled: config.enableVerifier !== false,
+    });
 
     this.registerDefaultStopHooks();
   }
@@ -438,19 +460,44 @@ export class TAORLoop {
     arg1: string | ChatMessage[],
     arg2?: TAORLoopDeps
   ): Promise<TAORLoopResult> {
-    if (typeof arg1 === 'string') {
-      const messages: ChatMessage[] = [{ role: 'user', content: arg1 }];
-      // 旧路径：构造默认 deps（使用 queryEngine 兜底）
-      const deps = createTAORLoopDeps({
-        callModel: async function* () {
-          /* queryEngine 兜底 */
-        },
-        executeTools: async () => [],
-        persistMessages: async () => {},
+    const otel = getOTelTracing();
+    const span = otel.startSpan('taor.run', {
+      'session.id': this.config.sessionId,
+    });
+
+    try {
+      let result: TAORLoopResult;
+
+      if (typeof arg1 === 'string') {
+        const messages: ChatMessage[] = [{ role: 'user', content: arg1 }];
+        // 旧路径：构造默认 deps（使用 queryEngine 兜底）
+        const deps = createTAORLoopDeps({
+          callModel: async function* () {
+            /* queryEngine 兜底 */
+          },
+          executeTools: async () => [],
+          persistMessages: async () => {},
+        });
+        result = await this._runModern(messages, deps);
+      } else {
+        result = await this._runModern(arg1, arg2!);
+      }
+
+      span.setAttribute('taor.turns', result.turnCount);
+      span.setAttribute('taor.tokens', result.totalTokens);
+      span.setAttribute('taor.duration_ms', result.durationMs);
+      otel.endSpan(span, SpanStatusCode.OK);
+      return result;
+    } catch (e) {
+      await handleError(e, {
+        module: 'query:taorLoop',
+        action: 'run',
+        context: { sessionId: this.config.sessionId },
       });
-      return this._runModern(messages, deps);
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR, String(e));
+      throw e;
     }
-    return this._runModern(arg1, arg2!);
   }
 
   /**
@@ -486,6 +533,7 @@ export class TAORLoop {
       // —— PRE-FLIGHT ——
       if (this.config.enableCheckpoint && this.shouldSaveAutoCheckpoint()) {
         await this.saveCheckpoint('auto');
+        if (this.abortController.signal.aborted) break; // 中断保护
       }
 
       // 断路器硬上限检查
@@ -520,6 +568,22 @@ export class TAORLoop {
       this.emitPhase(TAORPhase.THINK, this.turnCount, 'Sending to LLM');
       if (this.shouldStop()) break;
 
+      // Steering: 注入 mid-turn 消息（不中断当前工具执行，仅影响下一轮 THINK）
+      if (this.steeringQueue.length > 0) {
+        const steeringMessages = this.steeringQueue.splice(0);
+        for (const sm of steeringMessages) {
+          messages.push({
+            role: 'user',
+            content: `[STEERING] ${sm}`,
+          });
+        }
+        logger.info('Steering messages injected', {
+          sessionId: this.config.sessionId,
+          count: steeringMessages.length,
+          turnCount: this.turnCount,
+        });
+      }
+
       let response: Record<string, unknown>;
       try {
         const chunks: Array<Record<string, unknown>> = [];
@@ -541,6 +605,14 @@ export class TAORLoop {
           ...lastChunk,
         };
       } catch (error) {
+        await handleError(error, {
+          module: 'query:taorLoop',
+          action: 'callModel',
+          context: {
+            turnCount: this.turnCount,
+            sessionId: this.config.sessionId,
+          },
+        });
         const recovery = this.errorRecovery.assess(error as Error, {
           turnCount: this.turnCount,
           tokenUsage: this.tokenBudget.getCurrentBudgetState().currentTokens,
@@ -705,6 +777,69 @@ export class TAORLoop {
         }
         if (this.stopped) break;
 
+        // Phase 2: Auto-verify skill（工具验证：编译/测试/TODO扫描）
+        let toolVerifyPassed = true;
+        if (this.config.enableAutoVerify) {
+          try {
+            // 异步 + 超时保护
+            const verifyPromise = import('../skills/builtin/verify.js').then(
+              (m) =>
+                m.default.impl?.kind === 'executable'
+                  ? m.default.impl.execute([])
+                  : Promise.resolve('')
+            );
+            const verifyResult = await Promise.race([
+              verifyPromise,
+              new Promise<string>((_, reject) =>
+                setTimeout(
+                  () => reject(new Error('verify_timeout')),
+                  this.config.autoVerifyTimeoutMs
+                )
+              ),
+            ]).catch((err) => {
+              logger.warn('Auto-verify skipped', { reason: err.message });
+              return 'SKIPPED';
+            });
+
+            if (
+              verifyResult !== 'SKIPPED' &&
+              typeof verifyResult === 'string'
+            ) {
+              toolVerifyPassed =
+                verifyResult.includes('✅') && !verifyResult.includes('❌');
+              logger.info('Auto-verify result', {
+                passed: toolVerifyPassed,
+                phases: this.config.verifyStrategy,
+              });
+            }
+          } catch (verifyErr) {
+            logger.warn('Auto-verify failed', { error: String(verifyErr) });
+            toolVerifyPassed = true; // 异常时跳过，不阻塞
+          }
+        }
+
+        // Phase 2b: VerifyStrategy 仲裁
+        if (this.config.verifyStrategy === 'AND') {
+          if (!toolVerifyPassed) {
+            logger.warn(
+              'VerifyStrategy=AND: tool verify failed, skipping VerifierAgent'
+            );
+            messages.push({
+              role: 'user',
+              content:
+                '[SYSTEM] 自动验证未通过（编译/测试失败），请修复后重新执行。',
+            } as ChatMessage);
+            continue; // 回到 THINK 阶段
+          }
+        } else if (this.config.verifyStrategy === 'TOOL_FIRST') {
+          if (toolVerifyPassed) {
+            // Tool verify 通过，跳过 VerifierAgent（省钱）
+            continue; // 跳过 VerifierAgent，直接到下一轮或结束
+          }
+          // Tool verify 失败，继续走 VerifierAgent
+        }
+        // OR 模式：任一通过即可，继续走 VerifierAgent
+
         // Phase 4: 验证器代理（制造者/检查者分离）
         if (this.verifier) {
           const verificationInput = {
@@ -801,8 +936,8 @@ export class TAORLoop {
         const percentUsed = currentBudgetState.percentUsed || 0;
         this.phaseCallbacks.onBudgetWarning?.(percentUsed);
 
-        // 触发上下文压缩
-        if (this.config.sessionId) {
+        // 触发上下文压缩（中断保护）
+        if (this.config.sessionId && !this.abortController.signal.aborted) {
           await this.queryEngine.compactIfNeeded(this.config.sessionId);
         }
       }
@@ -832,14 +967,30 @@ export class TAORLoop {
         break;
       }
 
-      // 消息持久化（带重试）
+      // 消息持久化（带重试 + 中断保护）
       try {
-        await deps.persistMessages(messages);
+        await deps.persistMessages(messages, this.abortController.signal);
       } catch (e) {
+        await handleError(e, {
+          module: 'query:taorLoop',
+          action: 'persistMessages_first',
+          context: {
+            sessionId: this.config.sessionId,
+            turnCount: this.turnCount,
+          },
+        });
         logger.warn('persist failed, retrying once', { error: String(e) });
         try {
-          await deps.persistMessages(messages);
+          await deps.persistMessages(messages, this.abortController.signal);
         } catch (e2) {
+          await handleError(e2, {
+            module: 'query:taorLoop',
+            action: 'persistMessages_retry',
+            context: {
+              sessionId: this.config.sessionId,
+              turnCount: this.turnCount,
+            },
+          });
           logger.error('persist failed after retry', { error: String(e2) });
         }
       }
@@ -851,6 +1002,21 @@ export class TAORLoop {
 
     this.currentPhase = TAORPhase.COMPLETED;
     this.emitPhase(TAORPhase.COMPLETED, this.turnCount, this.stopReason);
+
+    // Durable Resume: 非正常完成时自动保存检查点
+    if (this.config.enableCheckpoint && this.stopReason !== 'completed') {
+      try {
+        await this.saveCheckpoint('before_abort');
+        logger.info('Durable checkpoint saved on stop', {
+          sessionId: this.config.sessionId,
+          stopReason: this.stopReason,
+          turnCount: this.turnCount,
+        });
+      } catch (e) {
+        // 检查点保存失败不阻塞主流程（非关键路径）
+        logger.warn('Durable checkpoint save failed', { error: String(e) });
+      }
+    }
 
     await this.stopHookManager.executeHooks({
       sessionId: this.config.sessionId,
@@ -962,6 +1128,9 @@ export class TAORLoop {
       lastPrompt: this.lastPrompt,
       createdAt: Date.now(),
       type,
+      breakerState: this.circuitBreaker.getState(),
+      loopDetectorState: this.loopDetector.getState(),
+      errorRecoveryState: this.errorRecovery.serialize(),
     };
 
     const id = await this.checkpointStorage.save(checkpoint);
@@ -1012,18 +1181,42 @@ export class TAORLoop {
     this.resumedFromCheckpoint = true;
     this.resumedCheckpointId = checkpoint.id;
 
-    // 恢复 Token 预算状态
+    // 恢复 Token 预算状态（向后兼容：旧 checkpoint 可能无 currentTokens 字段）
+    const currentTokens = checkpoint.budgetState.currentTokens ?? 0;
+    const actualRemaining = Math.max(
+      0,
+      checkpoint.budgetState.maxTokens - currentTokens
+    );
     this.tokenBudget = new TokenBudgetController(
       checkpoint.budgetState.modelName,
       {
         total: checkpoint.budgetState.maxTokens,
-        remaining: checkpoint.budgetState.maxTokens,
+        remaining: actualRemaining,
         maxOutputTokens: checkpoint.budgetState.maxOutputTokens,
       },
       checkpoint.budgetState.maxTokens
     );
-    // 恢复当前使用量
-    this.tokenBudget.consumeTokens(checkpoint.budgetState.currentTokens);
+
+    // 恢复断路器状态
+    if (checkpoint.breakerState) {
+      this.circuitBreaker.restoreState(
+        checkpoint.breakerState as ReturnType<
+          typeof this.circuitBreaker.getState
+        >
+      );
+    }
+    // 恢复循环检测器状态
+    if (checkpoint.loopDetectorState) {
+      this.loopDetector.restoreState(checkpoint.loopDetectorState);
+    }
+    // 恢复错误恢复管理器状态
+    if (checkpoint.errorRecoveryState) {
+      this.errorRecovery.restore(
+        checkpoint.errorRecoveryState as Parameters<
+          typeof this.errorRecovery.restore
+        >[0]
+      );
+    }
 
     logger.info('Resumed from checkpoint', {
       checkpointId: checkpoint.id,
@@ -1143,6 +1336,18 @@ export class TAORLoop {
   }
 
   /**
+   * Steering 注入：在运行中向 Agent 发送新指令
+   * 不中断当前工具执行，消息将在下一轮 THINK 阶段注入
+   */
+  injectSteering(message: string): void {
+    this.steeringQueue.push(message);
+    logger.info('Steering message queued', {
+      sessionId: this.config.sessionId,
+      queueLength: this.steeringQueue.length,
+    });
+  }
+
+  /**
    * 重置循环状态
    */
   reset(): void {
@@ -1157,6 +1362,7 @@ export class TAORLoop {
     this.conversationSummary = '';
     this.resumedFromCheckpoint = false;
     this.resumedCheckpointId = null;
+    this.steeringQueue = [];
     logger.info('TAOR loop reset');
   }
 }

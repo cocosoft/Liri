@@ -51,6 +51,9 @@ class SSEService {
   /** 当前重连延迟（指数退避） */
   private reconnectDelay = INITIAL_RECONNECT_DELAY;
 
+  /** 连续重连失败次数（达到阈值后显示 toast） */
+  private reconnectFailCount = 0;
+
   /** 心跳保活定时器（HEAD 请求防代理超时） */
   private pingTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -82,7 +85,9 @@ class SSEService {
 
       this.eventSource.onopen = () => {
         // 连接成功：重置重连间隔，启动心跳，停止轮询
+        const wasReconnecting = this.reconnectFailCount > 0;
         this.reconnectDelay = INITIAL_RECONNECT_DELAY;
+        this.reconnectFailCount = 0;
         this.startHeartbeat();
         this.stopPolling();
 
@@ -90,10 +95,29 @@ class SSEService {
           clearTimeout(this.reconnectTimer);
           this.reconnectTimer = null;
         }
+        // 如果之前曾断开过，提示连接已恢复
+        if (wasReconnecting) {
+          import("../stores/toastStore").then(({ toastInfo }) => {
+            toastInfo("实时连接已恢复");
+          });
+        }
       };
 
       this.eventSource.onerror = () => {
         this.disconnect();
+        this.reconnectFailCount++;
+        // 首次断开：即时提示正在重连
+        if (this.reconnectFailCount === 1) {
+          import("../stores/toastStore").then(({ toastWarning }) => {
+            toastWarning("实时连接已断开，正在重连...");
+          });
+        }
+        // 连续失败 3 次后显示详细错误
+        if (this.reconnectFailCount === 3) {
+          import("../stores/toastStore").then(({ toastError }) => {
+            toastError(new Error("Failed to fetch"));
+          });
+        }
         // 断开时启动轮询兜底 + 调度重连
         this.startPolling();
         this.scheduleReconnect();

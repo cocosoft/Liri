@@ -37,6 +37,9 @@ import {
   LOOP_NO_TOOL_CALL_WARNING,
   LOOP_NO_TOOL_CALL_CRITICAL,
 } from './loop-config.js';
+import { Logger } from '@modules/monitoring';
+
+const logger = new Logger({ module: 'query:loopDetector' });
 
 /** 检测器类型 */
 type DetectorKind =
@@ -359,13 +362,19 @@ export class LoopDetector {
     // 0. Unknown Tool Repeat Detection（优先级最高）
     if (this.config.detectors.unknownToolRepeat) {
       const result = this._detectUnknownToolRepeat(toolName);
-      if (result.stuck) return result;
+      if (result.stuck) {
+        this.logDetection(result);
+        return result;
+      }
     }
 
     // 0.1. Unknown Tool Aggregate Detection（交替假工具场景）
     if (this.config.detectors.unknownToolAggregate) {
       const aggResult = this._detectUnknownToolAggregate();
-      if (aggResult.stuck) return aggResult;
+      if (aggResult.stuck) {
+        this.logDetection(aggResult);
+        return aggResult;
+      }
     }
 
     // 工具名快速预检：该工具不足 2 次出现，不可能触发阈值
@@ -377,13 +386,19 @@ export class LoopDetector {
     // 1. Generic Repeat Detection
     if (this.config.detectors.genericRepeat) {
       const result = this._detectGenericRepeat(toolName, argsHash);
-      if (result.stuck) return result;
+      if (result.stuck) {
+        this.logDetection(result);
+        return result;
+      }
     }
 
     // 2. Ping-Pong Detection
     if (this.config.detectors.pingPong) {
       const result = this._detectPingPong(toolName, argsHash);
-      if (result.stuck) return result;
+      if (result.stuck) {
+        this.logDetection(result);
+        return result;
+      }
     }
 
     return { stuck: false };
@@ -395,24 +410,45 @@ export class LoopDetector {
    */
   detectNoToolCallLoop(): LoopDetectionResult {
     if (this.noToolCallStreak >= this.NO_TOOL_CALL_CRITICAL) {
-      return {
+      const result: LoopDetectionResult = {
         stuck: true,
         level: 'critical',
         detector: 'no_tool_call',
         count: this.noToolCallStreak,
         message: `连续 ${this.noToolCallStreak} 轮无工具调用，可能陷入纯文本死循环，已阻断`,
       };
+      this.logDetection(result);
+      return result;
     }
     if (this.noToolCallStreak >= this.NO_TOOL_CALL_WARNING) {
-      return {
+      const result: LoopDetectionResult = {
         stuck: true,
         level: 'warning',
         detector: 'no_tool_call',
         count: this.noToolCallStreak,
         message: `连续 ${this.noToolCallStreak} 轮无工具调用（警告）`,
       };
+      this.logDetection(result);
+      return result;
     }
     return { stuck: false };
+  }
+
+  /**
+   * 记录检测结果日志
+   */
+  private logDetection(result: LoopDetectionResult & { stuck: true }): void {
+    const logData = {
+      detector: result.detector,
+      level: result.level,
+      count: result.count,
+      message: result.message,
+    };
+    if (result.level === 'critical') {
+      logger.error('Loop detected (critical)', logData);
+    } else {
+      logger.warn('Loop detected (warning)', logData);
+    }
   }
 
   /**
@@ -649,6 +685,20 @@ export class LoopDetector {
   reset(): void {
     this.history = [];
     this.noToolCallStreak = 0;
+  }
+
+  /**
+   * 获取可序列化的状态（用于检查点持久化）
+   */
+  getState(): { noToolCallStreak: number } {
+    return { noToolCallStreak: this.noToolCallStreak };
+  }
+
+  /**
+   * 从检查点恢复状态
+   */
+  restoreState(s: ReturnType<LoopDetector['getState']>): void {
+    this.noToolCallStreak = s.noToolCallStreak;
   }
 }
 

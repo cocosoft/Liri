@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Plus, FileInput, Trash2 } from "lucide-react";
 import { faqService } from "../../../services/faqService";
 import type { FAQEntry, FAQImportReport } from "../../../types/faq";
@@ -113,7 +113,7 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
     [base, load],
   );
 
-  const handleRetryEmbed = useCallback(async (id: string) => {
+  const handleRetryEmbed = useCallback(async (_id: string) => {
     // 待后端补充 re-embed 端点后实现
   }, []);
 

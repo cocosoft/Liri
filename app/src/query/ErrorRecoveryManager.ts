@@ -26,6 +26,10 @@
  * 在 LLM API 调用失败时判断恢复策略：retry / abort / compact_and_retry。
  */
 
+import { Logger } from '@modules/monitoring';
+
+const logger = new Logger({ module: 'query:errorRecovery' });
+
 /** 恢复类型 */
 type RecoveryType =
   | 'empty_response'
@@ -119,6 +123,10 @@ export class ErrorRecoveryManager {
 
     if (!type) {
       // 无法分类的错误 → 不恢复，直接中止
+      logger.warn('Unclassifiable error, aborting', {
+        error: error.message,
+        turnCount: context.turnCount,
+      });
       return { recovered: false, action: 'abort' };
     }
 
@@ -129,6 +137,9 @@ export class ErrorRecoveryManager {
 
     // 单次尝试守卫：压缩只能尝试一次
     if (type === 'context_overflow' && this._compactAttempted) {
+      logger.warn('Context overflow compact already attempted, aborting', {
+        turnCount: context.turnCount,
+      });
       return {
         recovered: false,
         action: 'abort',
@@ -140,12 +151,26 @@ export class ErrorRecoveryManager {
     attempt.retryCount++;
 
     if (attempt.retryCount > attempt.maxRetries) {
+      logger.warn('Recovery retry max exceeded', {
+        type,
+        retryCount: attempt.retryCount,
+        maxRetries: attempt.maxRetries,
+        turnCount: context.turnCount,
+      });
       return {
         recovered: false,
         action: 'abort',
         message: `恢复尝试已超过最大次数 (${attempt.maxRetries})`,
       };
     }
+
+    logger.info('Recovery action decided', {
+      type,
+      action: type === 'context_overflow' ? 'compact_and_retry' : 'retry',
+      retryCount: attempt.retryCount,
+      maxRetries: attempt.maxRetries,
+      turnCount: context.turnCount,
+    });
 
     switch (type) {
       case 'context_overflow':

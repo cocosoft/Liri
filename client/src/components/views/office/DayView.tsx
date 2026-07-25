@@ -3,7 +3,7 @@
  * 单击空白区域选择时段，双击空白区域添加日程
  */
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import type {
   UnifiedCalendarEvent,
   EventSource,
@@ -55,8 +55,6 @@ export default function DayView({
   events,
   onBack,
   onAddEvent,
-  onUpdateStatus,
-  onDeleteEvent,
   onContextMenu,
 }: DayViewProps) {
   const now = new Date();

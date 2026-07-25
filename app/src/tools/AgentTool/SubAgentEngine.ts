@@ -25,10 +25,26 @@ import { globalEventBus } from '../../core/events/EventBus.js';
 import { AgentEventType } from '../../agent/events/types.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { SpanStatusCode } from '@opentelemetry/api';
 const logger = new Logger({
   module: 'tools:AgentTool:SubAgentEngine',
   level: LogLevel.INFO,
 });
+
+/**
+ * 安全发布 EventBus 事件：失败时记录区分事件类型的日志，不阻塞主流程
+ */
+function safePublish(event: string, payload: Record<string, unknown>): void {
+  try {
+    globalEventBus.publish(event as any, payload);
+  } catch (err) {
+    logger.warn('EventBus publish failed', {
+      event,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
 
 /**
  * 子代理进度事件类型
@@ -162,27 +178,34 @@ export class SubAgentEngine {
 
     this.activeAgents.set(agentId, { abortController, startTime });
 
+    // 整体超时保护：超时后自动 abort，防止子代理永久挂起
+    const timeoutMs = this.config.timeoutMs;
+    const timeoutTimer = setTimeout(() => {
+      if (!abortController.signal.aborted) {
+        logger.warn('SubAgent 执行超时，自动中止', { agentId, timeoutMs });
+        abortController.abort();
+      }
+    }, timeoutMs);
+
     const maxTurns = request.maxTurns || this.config.defaultMaxTurns;
     let toolCallCount = 0;
     let totalPromptTokens = 0;
     let totalCompletionTokens = 0;
 
-    // 发射 Agent 开始执行事件
-    try {
-      globalEventBus.publish(AgentEventType.EXECUTE_START, {
-        agentId,
-        turn: 0,
-        maxTurns,
-        message: `子代理 ${agentId} 开始执行`,
-      });
-    } catch (err) {
-      // EventBus 发射失败不阻塞主流程
+    const otel = getOTelTracing();
+    const execSpan = otel.startSpan('subAgent.execute', {
+      'agent.id': agentId,
+      'max.turns': maxTurns,
+      'tools.count': request.tools.length,
+    });
 
-      logger.warn('Operation skipped', {
-        context: 'EventBus 发射失败不阻塞主流程',
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
+    // 发射 Agent 开始执行事件
+    safePublish(AgentEventType.EXECUTE_START, {
+      agentId,
+      turn: 0,
+      maxTurns,
+      message: `子代理 ${agentId} 开始执行`,
+    });
 
     try {
       const agentModel = await resolveModelRoute(RouteKey.AGENT);
@@ -206,24 +229,17 @@ export class SubAgentEngine {
       for (let turn = 0; turn < maxTurns; turn++) {
         if (abortController.signal.aborted) {
           // 发射执行结束事件（被中断）
-          try {
-            globalEventBus.publish(AgentEventType.EXECUTE_END, {
-              agentId,
-              completed: false,
-              toolCallCount,
-              turnsUsed: turn,
-              durationMs: Date.now() - startTime,
-              error: 'Execution aborted by user',
-            });
-          } catch (err) {
-            // EventBus 发射失败不阻塞主流程
+          safePublish(AgentEventType.EXECUTE_END, {
+            agentId,
+            completed: false,
+            toolCallCount,
+            turnsUsed: turn,
+            durationMs: Date.now() - startTime,
+            error: 'Execution aborted by user',
+          });
 
-            logger.warn('Operation skipped', {
-              context: 'EventBus 发射失败不阻塞主流程',
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
-
+          clearTimeout(timeoutTimer);
+          otel.endSpan(execSpan, SpanStatusCode.ERROR, 'aborted');
           return this.buildResult(agentId, startTime, {
             completed: false,
             output: '子代理执行被中断',
@@ -239,20 +255,11 @@ export class SubAgentEngine {
         }
 
         // 发射思考开始事件
-        try {
-          globalEventBus.publish(AgentEventType.THINKING_START, {
-            agentId,
-            turn,
-            message: `子代理第 ${turn + 1}/${maxTurns} 轮思考`,
-          });
-        } catch (err) {
-          // EventBus 发射失败不阻塞主流程
-
-          logger.warn('Operation skipped', {
-            context: 'EventBus 发射失败不阻塞主流程',
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
+        safePublish(AgentEventType.THINKING_START, {
+          agentId,
+          turn,
+          message: `子代理第 ${turn + 1}/${maxTurns} 轮思考`,
+        });
 
         onProgress?.({
           agentId,
@@ -275,37 +282,19 @@ export class SubAgentEngine {
         }
 
         // 发射思考增量事件（将 LLM 响应内容作为思考块推送）
-        try {
-          if (response.content) {
-            globalEventBus.publish(AgentEventType.THINKING_DELTA, {
-              agentId,
-              content: response.content,
-              turn,
-            });
-          }
-        } catch (err) {
-          // EventBus 发射失败不阻塞主流程
-
-          logger.warn('Operation skipped', {
-            context: 'EventBus 发射失败不阻塞主流程',
-            error: err instanceof Error ? err.message : String(err),
+        if (response.content) {
+          safePublish(AgentEventType.THINKING_DELTA, {
+            agentId,
+            content: response.content,
+            turn,
           });
         }
 
         // 发射思考结束事件
-        try {
-          globalEventBus.publish(AgentEventType.THINKING_END, {
-            agentId,
-            turn,
-          });
-        } catch (err) {
-          // EventBus 发射失败不阻塞主流程
-
-          logger.warn('Operation skipped', {
-            context: 'EventBus 发射失败不阻塞主流程',
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
+        safePublish(AgentEventType.THINKING_END, {
+          agentId,
+          turn,
+        });
 
         if (response.tool_calls && response.tool_calls.length > 0) {
           const assistantMsg: ChatMessage = {
@@ -327,21 +316,12 @@ export class SubAgentEngine {
 
             toolCallCount++;
             // 发射工具调用开始事件
-            try {
-              globalEventBus.publish(AgentEventType.TOOL_CALL_START, {
-                agentId,
-                toolName: toolCall.name,
-                toolUseId: toolCall.id,
-                turn,
-              });
-            } catch (err) {
-              // EventBus 发射失败不阻塞主流程
-
-              logger.warn('Operation skipped', {
-                context: 'EventBus 发射失败不阻塞主流程',
-                error: err instanceof Error ? err.message : String(err),
-              });
-            }
+            safePublish(AgentEventType.TOOL_CALL_START, {
+              agentId,
+              toolName: toolCall.name,
+              toolUseId: toolCall.id,
+              turn,
+            });
 
             onProgress?.({
               agentId,
@@ -368,43 +348,25 @@ export class SubAgentEngine {
             });
 
             // 发射工具调用增量事件
-            try {
-              globalEventBus.publish(AgentEventType.TOOL_CALL_DELTA, {
-                agentId,
-                toolName: toolCall.name,
-                toolUseId: toolCall.id,
-                content:
-                  typeof toolResult === 'string'
-                    ? toolResult
-                    : JSON.stringify(toolResult),
-                turn,
-              });
-            } catch (err) {
-              // EventBus 发射失败不阻塞主流程
-
-              logger.warn('Operation skipped', {
-                context: 'EventBus 发射失败不阻塞主流程',
-                error: err instanceof Error ? err.message : String(err),
-              });
-            }
+            safePublish(AgentEventType.TOOL_CALL_DELTA, {
+              agentId,
+              toolName: toolCall.name,
+              toolUseId: toolCall.id,
+              content:
+                typeof toolResult === 'string'
+                  ? toolResult
+                  : JSON.stringify(toolResult),
+              turn,
+            });
 
             // 发射工具调用结束事件
-            try {
-              globalEventBus.publish(AgentEventType.TOOL_CALL_END, {
-                agentId,
-                toolName: toolCall.name,
-                toolUseId: toolCall.id,
-                status: 'completed',
-                turn,
-              });
-            } catch (err) {
-              // EventBus 发射失败不阻塞主流程
-
-              logger.warn('Operation skipped', {
-                context: 'EventBus 发射失败不阻塞主流程',
-                error: err instanceof Error ? err.message : String(err),
-              });
-            }
+            safePublish(AgentEventType.TOOL_CALL_END, {
+              agentId,
+              toolName: toolCall.name,
+              toolUseId: toolCall.id,
+              status: 'completed',
+              turn,
+            });
 
             onProgress?.({
               agentId,
@@ -421,6 +383,7 @@ export class SubAgentEngine {
           const durationMs = Date.now() - startTime;
 
           this.activeAgents.delete(agentId);
+          clearTimeout(timeoutTimer);
 
           onProgress?.({
             agentId,
@@ -429,23 +392,15 @@ export class SubAgentEngine {
           });
 
           // 发射执行结束事件
-          try {
-            globalEventBus.publish(AgentEventType.EXECUTE_END, {
-              agentId,
-              completed: true,
-              toolCallCount,
-              turnsUsed: turn + 1,
-              durationMs,
-            });
-          } catch (err) {
-            // EventBus 发射失败不阻塞主流程
+          safePublish(AgentEventType.EXECUTE_END, {
+            agentId,
+            completed: true,
+            toolCallCount,
+            turnsUsed: turn + 1,
+            durationMs,
+          });
 
-            logger.warn('Operation skipped', {
-              context: 'EventBus 发射失败不阻塞主流程',
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
-
+          otel.endSpan(execSpan, SpanStatusCode.OK);
           return {
             agentId,
             completed: true,
@@ -463,26 +418,19 @@ export class SubAgentEngine {
       }
 
       this.activeAgents.delete(agentId);
+      clearTimeout(timeoutTimer);
 
       // 发射执行结束事件（达到最大轮次）
-      try {
-        globalEventBus.publish(AgentEventType.EXECUTE_END, {
-          agentId,
-          completed: false,
-          toolCallCount,
-          turnsUsed: maxTurns,
-          durationMs: Date.now() - startTime,
-          error: `Max turns (${maxTurns}) reached without completion`,
-        });
-      } catch (err) {
-        // EventBus 发射失败不阻塞主流程
+      safePublish(AgentEventType.EXECUTE_END, {
+        agentId,
+        completed: false,
+        toolCallCount,
+        turnsUsed: maxTurns,
+        durationMs: Date.now() - startTime,
+        error: `Max turns (${maxTurns}) reached without completion`,
+      });
 
-        logger.warn('Operation skipped', {
-          context: 'EventBus 发射失败不阻塞主流程',
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-
+      otel.endSpan(execSpan, SpanStatusCode.ERROR, 'max_turns');
       return this.buildResult(agentId, startTime, {
         completed: false,
         output: '子代理执行达到最大轮次限制',
@@ -496,26 +444,24 @@ export class SubAgentEngine {
         error: `Max turns (${maxTurns}) reached without completion`,
       });
     } catch (error) {
+      clearTimeout(timeoutTimer);
       this.activeAgents.delete(agentId);
 
       const errorMessage =
         error instanceof Error ? error.message : String(error);
 
-      // 发射执行错误事件
-      try {
-        globalEventBus.publish(AgentEventType.EXECUTE_ERROR, {
-          agentId,
-          error: errorMessage,
-          toolCallCount,
-        });
-      } catch (err) {
-        // EventBus 发射失败不阻塞主流程
+      otel.recordError(
+        execSpan,
+        error instanceof Error ? error : new Error(errorMessage)
+      );
+      otel.endSpan(execSpan, SpanStatusCode.ERROR, errorMessage);
 
-        logger.warn('Operation skipped', {
-          context: 'EventBus 发射失败不阻塞主流程',
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
+      // 发射执行错误事件
+      safePublish(AgentEventType.EXECUTE_ERROR, {
+        agentId,
+        error: errorMessage,
+        toolCallCount,
+      });
 
       onProgress?.({
         agentId,
@@ -578,14 +524,29 @@ export class SubAgentEngine {
       this.config.defaultModel ||
       (await resolveModelRoute(RouteKey.AGENT));
 
-    return withRetry(
-      () =>
-        client.chat(messages, {
-          tools: tools.length > 0 ? tools : undefined,
-          model: resolvedModel,
-        }),
-      { maxRetries: 2 }
-    );
+    const otel = getOTelTracing();
+    const span = otel.startSpan('subAgent.callLLM', {
+      model: resolvedModel,
+      'messages.count': messages.length,
+      'tools.count': tools.length,
+    });
+
+    try {
+      const result = await withRetry(
+        () =>
+          client.chat(messages, {
+            tools: tools.length > 0 ? tools : undefined,
+            model: resolvedModel,
+          }),
+        { maxRetries: 2 }
+      );
+      otel.endSpan(span, SpanStatusCode.OK);
+      return result;
+    } catch (e) {
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR, String(e));
+      throw e;
+    }
   }
 
   /**

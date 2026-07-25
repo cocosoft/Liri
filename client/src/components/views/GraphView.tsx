@@ -2,7 +2,8 @@ import { useTheme } from "../../hooks/useTheme";
 import { GraphPage } from "../Knowledge/Graph/GraphPage";
 
 export function GraphView() {
-  const { isDark } = useTheme();
+  const theme = useTheme();
+  const isDark = theme === "dark";
 
   return (
     <div className="flex flex-col h-full">
@@ -26,3 +27,5 @@ export function GraphView() {
     </div>
   );
 }
+
+export default GraphView;

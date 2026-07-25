@@ -6,6 +6,9 @@
  */
 
 import { TaskStatus } from './types';
+import { Logger } from '@modules/monitoring';
+
+const logger = new Logger({ module: 'tasks:lifecycle' });
 
 /** 生命周期阶段 */
 export type LifecyclePhase =
@@ -49,6 +52,12 @@ export class LifecycleTracker {
   record(phase: LifecyclePhase, status: TaskStatus, detail?: string): void {
     this.events.push({ phase, status, timestamp: Date.now(), detail });
     this.currentPhase = phase;
+    logger.info('Lifecycle phase transition', {
+      phase,
+      status,
+      detail,
+      totalEvents: this.events.length,
+    });
   }
 
   getHistory(): LifecycleEvent[] {
@@ -57,6 +66,12 @@ export class LifecycleTracker {
 
   getCurrentPhase(): LifecyclePhase {
     return this.currentPhase;
+  }
+
+  /** 清理所有追踪事件（用于 dispose） */
+  clear(): void {
+    this.events = [];
+    this.currentPhase = 'created';
   }
 
   /** 计算总耗时（从 created 到 finalized） */

@@ -19,6 +19,7 @@ import type {
 } from './types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({ module: 'tasks:BaseTask', level: LogLevel.INFO });
 
 export abstract class BaseTask extends EventEmitter {
@@ -84,13 +85,21 @@ export abstract class BaseTask extends EventEmitter {
   }
 
   getProgress(): AgentProgress {
+    // 优先使用内存 ProgressTracker，重启后回退到 TaskState 持久化数据
+    const activities =
+      this.progressTracker.recentActivities.length > 0
+        ? this.progressTracker.recentActivities.slice(0, 5)
+        : this.state.toolActivities || [];
     return {
-      toolUseCount: this.progressTracker.toolUseCount,
+      toolUseCount:
+        this.progressTracker.toolUseCount || this.state.toolUseCount || 0,
       tokenCount:
         this.progressTracker.latestInputTokens +
-        this.progressTracker.cumulativeOutputTokens,
-      lastActivity: this.progressTracker.recentActivities[0],
-      recentActivities: this.progressTracker.recentActivities.slice(0, 5),
+          this.progressTracker.cumulativeOutputTokens ||
+        this.state.tokenCount ||
+        0,
+      lastActivity: activities[0],
+      recentActivities: activities,
     };
   }
 
@@ -121,6 +130,11 @@ export abstract class BaseTask extends EventEmitter {
     if (this.progressTracker.recentActivities.length > 10) {
       this.progressTracker.recentActivities.pop();
     }
+    // 持久化最近活动到 TaskState，支持进度恢复
+    this.state.toolActivities = this.progressTracker.recentActivities.slice(
+      0,
+      5
+    );
   }
 
   protected setStatus(status: TaskStatus, error?: string): void {
@@ -146,10 +160,9 @@ export abstract class BaseTask extends EventEmitter {
       this.state.outputOffset += Buffer.byteLength(chunk, 'utf-8');
     } catch (err) {
       // 写入失败时不抛出异常，仅跳过本次写入
-
-      logger.warn('Operation skipped', {
-        context: '写入失败时不抛出异常，仅跳过本次写入',
-        error: err instanceof Error ? err.message : String(err),
+      void handleError(err, {
+        module: 'tasks:BaseTask',
+        action: 'writeOutput',
       });
     }
   }
@@ -159,7 +172,11 @@ export abstract class BaseTask extends EventEmitter {
     try {
       const content = await fs.readFile(this.state.outputFile, 'utf-8');
       return content;
-    } catch {
+    } catch (err) {
+      void handleError(err, {
+        module: 'tasks:BaseTask',
+        action: 'readOutput',
+      });
       return '';
     }
   }
@@ -171,10 +188,9 @@ export abstract class BaseTask extends EventEmitter {
       this.state.outputOffset = 0;
     } catch (err) {
       // 清空失败时不抛出异常，仅跳过
-
-      logger.warn('Operation skipped', {
-        context: '清空失败时不抛出异常，仅跳过',
-        error: err instanceof Error ? err.message : String(err),
+      void handleError(err, {
+        module: 'tasks:BaseTask',
+        action: 'clearOutput',
       });
     }
     if (this.taskContext?.getAppState) {

@@ -93,6 +93,43 @@ CREATE TABLE IF NOT EXISTS task_runs (
 
 CREATE INDEX IF NOT EXISTS idx_task_runs_task_id ON task_runs(task_id);
 CREATE INDEX IF NOT EXISTS idx_task_runs_status ON task_runs(status);
+
+-- Usage records (Loop Phase 6: /usage 用量统计持久化)
+CREATE TABLE IF NOT EXISTS usage_records (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  date TEXT NOT NULL,
+  total_tokens INTEGER NOT NULL DEFAULT 0,
+  by_model_json TEXT,
+  tool_calls_json TEXT,
+  sub_agents_json TEXT,
+  cost_estimated REAL NOT NULL DEFAULT 0,
+  duration_ms INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_usage_session ON usage_records(session_id);
+CREATE INDEX IF NOT EXISTS idx_usage_date ON usage_records(date);
+
+-- goal_metrics: PDCA 循环关键指标（Loop Phase 6: 基准度量）
+CREATE TABLE IF NOT EXISTS goal_metrics (
+  id TEXT PRIMARY KEY,
+  goal_id TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  total_turns INTEGER NOT NULL DEFAULT 0,
+  total_tokens INTEGER NOT NULL DEFAULT 0,
+  total_cost_usd REAL NOT NULL DEFAULT 0,
+  auto_verify_count INTEGER NOT NULL DEFAULT 0,
+  auto_verify_pass_count INTEGER NOT NULL DEFAULT 0,
+  user_intervention_count INTEGER NOT NULL DEFAULT 0,
+  user_satisfaction_rating REAL,
+  duration_ms INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (goal_id) REFERENCES task_states(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_goal_metrics_goal_id ON goal_metrics(goal_id);
+CREATE INDEX IF NOT EXISTS idx_goal_metrics_session_id ON goal_metrics(session_id);
 `;
 
 export const TABLE_NAMES = {
@@ -101,6 +138,8 @@ export const TABLE_NAMES = {
   TASK_DELIVERY: 'task_delivery',
   TASK_FLOW: 'task_flow',
   TASK_RUNS: 'task_runs',
+  USAGE_RECORDS: 'usage_records',
+  GOAL_METRICS: 'goal_metrics',
 };
 
 // FTS5 schema (单独导出，允许运行时降级)

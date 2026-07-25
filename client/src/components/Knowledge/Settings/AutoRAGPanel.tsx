@@ -10,7 +10,7 @@ interface AutoRAGPanelProps {
 export const AutoRAGPanel = memo(function AutoRAGPanel({
   isDark,
 }: AutoRAGPanelProps) {
-  const [config, setConfig] = useState<KnowledgeConfigData | null>(null);
+  const [_config, setConfig] = useState<KnowledgeConfigData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [edited, setEdited] = useState<KnowledgeConfigData | null>(null);

@@ -2,6 +2,8 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { randomBytes } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { SpanStatusCode } from '@opentelemetry/api';
 import type { SqliteTaskStore } from './db/SqliteTaskStore';
 
 const logger = new Logger({ module: 'tasks:registry', level: LogLevel.INFO });
@@ -142,63 +144,164 @@ export class TaskRegistry {
 
   /** 保存所有任务状态到磁盘 */
   async saveTasks(): Promise<void> {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('taskRegistry.save', {
+      'task.count': this.tasks.size,
+    });
+
     if (this.sqliteStore) {
       try {
         const states = Array.from(this.tasks.entries()).map(
           ([id, task]) => task.taskState
         );
         await this.sqliteStore.saveTaskStates(states);
+        otel.endSpan(span, SpanStatusCode.OK);
         return;
       } catch (error) {
         logger.error(
           'Failed to persist tasks via SQLite',
           error instanceof Error ? error : new Error(String(error))
         );
+        otel.endSpan(span, SpanStatusCode.ERROR, String(error));
         return;
       }
     }
 
     const filePath = this.persistFilePath;
-    if (!filePath) return;
+    if (!filePath) {
+      otel.endSpan(span, SpanStatusCode.OK);
+      return;
+    }
     try {
       await fs.mkdir(this.persistDir!, { recursive: true });
       const tasksData = Array.from(this.tasks.entries()).map(
         ([id, task]) => task.taskState
       );
       await fs.writeFile(filePath, JSON.stringify(tasksData, null, 2), 'utf-8');
+      otel.endSpan(span, SpanStatusCode.OK);
     } catch (error) {
       logger.error(
         'Failed to persist tasks',
         error instanceof Error ? error : new Error(String(error))
       );
+      otel.endSpan(span, SpanStatusCode.ERROR, String(error));
     }
   }
 
-  /** 从磁盘加载任务状态 */
-  async loadTasks(): Promise<TaskState[]> {
+  /**
+   * 从磁盘加载任务状态
+   * @param skipTaskIds 已由 PersistentTaskQueue 恢复的任务 ID，跳过 LOST 标记
+   */
+  async loadTasks(skipTaskIds?: Set<string>): Promise<TaskState[]> {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('taskRegistry.load', {});
+
     if (this.sqliteStore) {
       try {
         const states = await this.sqliteStore.loadTaskStates();
         this.stateHistory = states;
-        return states;
+        // 重启后自动将 RUNNING 任务标记为 LOST（跳过已由队列恢复的任务）
+        await this.recoverRunningTasksAfterRestart(states, skipTaskIds);
+        span.setAttribute('task.count', states.length);
+        otel.endSpan(span, SpanStatusCode.OK);
+        return this.stateHistory;
       } catch (error) {
         logger.error(
           'Failed to load tasks via SQLite',
           error instanceof Error ? error : new Error(String(error))
         );
+        otel.endSpan(span, SpanStatusCode.ERROR, String(error));
         return [];
       }
     }
 
     const filePath = this.persistFilePath;
-    if (!filePath) return [];
+    if (!filePath) {
+      otel.endSpan(span, SpanStatusCode.OK);
+      return [];
+    }
     try {
       const content = await fs.readFile(filePath, 'utf-8');
       const tasksData: TaskState[] = JSON.parse(content);
       this.stateHistory = tasksData;
-      return tasksData;
+      // 重启后自动将 RUNNING 任务标记为 LOST（跳过已由队列恢复的任务）
+      await this.recoverRunningTasksAfterRestart(tasksData, skipTaskIds);
+      span.setAttribute('task.count', tasksData.length);
+      otel.endSpan(span, SpanStatusCode.OK);
+      return this.stateHistory;
     } catch (err) {
+      otel.endSpan(span, SpanStatusCode.ERROR, String(err));
       return [];
+    }
+  }
+
+  /**
+   * 重启后恢复：将持久化的 RUNNING 任务标记为 LOST。
+   * 进程重启意味着所有运行中的任务都已丢失，需要标记为 LOST 以便人工确认。
+   * @param states 加载的任务状态
+   * @param skipTaskIds 已由 PersistentTaskQueue 恢复的任务 ID，跳过不标记 LOST
+   */
+  private async recoverRunningTasksAfterRestart(
+    states: TaskState[],
+    skipTaskIds?: Set<string>
+  ): Promise<void> {
+    let changed = false;
+    const now = Date.now();
+
+    for (const state of states) {
+      if (state.status === TaskStatus.RUNNING) {
+        // 跳过已由 PersistentTaskQueue 恢复为 queued 的任务
+        if (skipTaskIds?.has(state.id)) {
+          logger.info('重启后恢复：跳过已由队列恢复的任务', {
+            taskId: state.id,
+            type: state.type,
+          });
+          continue;
+        }
+        state.status = TaskStatus.LOST;
+        state.endTime = now;
+        state.error =
+          state.error || 'Task lost: process restarted while task was running';
+        changed = true;
+        logger.warn('重启后恢复：将运行中任务标记为 LOST', {
+          taskId: state.id,
+          type: state.type,
+          description: state.description,
+        });
+      }
+    }
+
+    if (changed) {
+      await this.saveLoadedStates(states);
+    }
+  }
+
+  /**
+   * 将已加载的状态写回持久化存储（仅用于重启恢复场景）
+   */
+  private async saveLoadedStates(states: TaskState[]): Promise<void> {
+    if (this.sqliteStore) {
+      try {
+        await this.sqliteStore.saveTaskStates(states);
+      } catch (error) {
+        logger.error(
+          'Failed to save recovered task states via SQLite',
+          error instanceof Error ? error : new Error(String(error))
+        );
+      }
+      return;
+    }
+
+    const filePath = this.persistFilePath;
+    if (!filePath) return;
+    try {
+      await fs.mkdir(this.persistDir!, { recursive: true });
+      await fs.writeFile(filePath, JSON.stringify(states, null, 2), 'utf-8');
+    } catch (error) {
+      logger.error(
+        'Failed to save recovered task states',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 

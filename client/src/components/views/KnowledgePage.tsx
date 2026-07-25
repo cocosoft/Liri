@@ -6,6 +6,7 @@
  * U1: 砍掉检索 Tab，侧边栏搜索结果在右侧展示
  */
 import { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useKnowledgeStore } from "../../stores/knowledgeStore";
 import { useConfigStore } from "../../stores/configStore";
 import { knowledgeService } from "../../services/knowledgeService";
@@ -55,6 +56,7 @@ function KnowledgePageSkeleton() {
 function KnowledgePage() {
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
+  const navigate = useNavigate();
 
   const view = useKnowledgeStore((s) => s.view);
   const setView = useKnowledgeStore((s) => s.setView);
@@ -216,6 +218,7 @@ function KnowledgePage() {
   const tabs = [
     { key: "knowledge" as const, label: "知识库" },
     { key: "semantic" as const, label: "语义索引" },
+    { key: "faq" as const, label: "FAQ" },
   ];
 
   if (isInitialLoading) return <KnowledgePageSkeleton />;
@@ -233,7 +236,14 @@ function KnowledgePage() {
             {tabs.map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setView({ activeTab: tab.key })}
+                onClick={() => {
+                  if (tab.key === "faq") {
+                    setView({ activeTab: "faq" });
+                    navigate("/knowledge/faq");
+                  } else {
+                    setView({ activeTab: tab.key });
+                  }
+                }}
                 className={`text-sm font-medium transition-colors pb-1 border-b-2 ${
                   activeTab === tab.key
                     ? "border-blue-500 text-blue-500"

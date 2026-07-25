@@ -33,10 +33,28 @@ import { OrchestrationEventType as OrchEvent } from '../agent/events/Orchestrati
 import type { PlanProgressData } from '../agent/events/OrchestrationEvents.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'tasks:TaskOrchestrator',
   level: LogLevel.INFO,
 });
+
+/**
+ * 安全发布 EventBus 事件：失败时记录区分事件类型的日志，不阻塞主流程
+ */
+function safePublish(event: string, payload: Record<string, unknown>): void {
+  try {
+    globalEventBus.publish(event as any, payload);
+  } catch (err) {
+    void handleError(err, {
+      module: 'tasks:TaskOrchestrator',
+      action: 'safePublish',
+      context: { event },
+    });
+  }
+}
 
 export interface PlanStep {
   id: string;
@@ -87,6 +105,10 @@ const PLANS_DIR = resolveDataSubDir('plans');
 export class TaskOrchestrator {
   private plans: Map<string, Plan> = new Map();
   private initialized = false;
+  /** stepId → Plan 索引，O(1) 查找替代 O(n²) 遍历 */
+  private stepIndex: Map<string, Plan> = new Map();
+  /** 进度事件节流：记录每个 plan 上次发射时间，防止事件风暴 */
+  private lastProgressEmit: Map<string, number> = new Map();
 
   /**
    * 从磁盘加载已持久化的计划
@@ -104,7 +126,11 @@ export class TaskOrchestrator {
     let files: string[];
     try {
       files = await readdir(PLANS_DIR);
-    } catch {
+    } catch (e) {
+      await handleError(e, {
+        module: 'tasks:TaskOrchestrator',
+        action: 'readPlansDir',
+      });
       return;
     }
 
@@ -115,12 +141,13 @@ export class TaskOrchestrator {
         const data = readFileSync(filePath, 'utf-8');
         const plan = JSON.parse(data) as Plan;
         this.plans.set(plan.id, plan);
+        this.buildStepIndex(plan);
       } catch (err) {
-        // 跳过损坏的文件
-
-        logger.debug('Operation skipped', {
-          context: '跳过损坏的文件',
-          error: err instanceof Error ? err.message : String(err),
+        // 跳过损坏的文件（非关键路径）
+        await handleError(err, {
+          module: 'tasks:TaskOrchestrator',
+          action: 'parsePlanFile',
+          context: { file },
         });
       }
     }
@@ -130,22 +157,35 @@ export class TaskOrchestrator {
     return join(PLANS_DIR, `plan_${planId}.json`);
   }
 
+  /** 构建 stepId → Plan 索引 */
+  private buildStepIndex(plan: Plan): void {
+    for (const step of plan.steps) {
+      this.stepIndex.set(step.id, plan);
+    }
+  }
+
+  /** O(1) 通过 stepId 查找所属 Plan */
+  private getPlanByStepId(stepId: string): Plan | undefined {
+    return this.stepIndex.get(stepId);
+  }
+
   private savePlan(plan: Plan): void {
     if (!existsSync(PLANS_DIR)) {
       mkdirSync(PLANS_DIR, { recursive: true });
     }
+    const filePath = this.getPlanFilePath(plan.id);
+    const tmpPath = filePath + '.tmp';
     try {
-      writeFileSync(
-        this.getPlanFilePath(plan.id),
-        JSON.stringify(plan, null, 2),
-        'utf-8'
-      );
+      // 原子写入：先写临时文件，再重命名，防止写一半时进程崩溃导致文件损坏
+      writeFileSync(tmpPath, JSON.stringify(plan, null, 2), 'utf-8');
+      const { renameSync } = require('fs');
+      renameSync(tmpPath, filePath);
     } catch (err) {
       // 持久化失败不应阻塞主流程
-
-      logger.warn('Operation skipped', {
-        context: '持久化失败不应阻塞主流程',
-        error: err instanceof Error ? err.message : String(err),
+      void handleError(err, {
+        module: 'tasks:TaskOrchestrator',
+        action: 'savePlan',
+        context: { planId: plan.id },
       });
     }
   }
@@ -158,10 +198,10 @@ export class TaskOrchestrator {
       }
     } catch (err) {
       // 忽略清理失败
-
-      logger.warn('Operation skipped', {
-        context: '忽略清理失败',
-        error: err instanceof Error ? err.message : String(err),
+      void handleError(err, {
+        module: 'tasks:TaskOrchestrator',
+        action: 'deletePlanFile',
+        context: { planId },
       });
     }
   }
@@ -186,6 +226,13 @@ export class TaskOrchestrator {
     void this.initialize();
 
     const planId = `plan_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+
+    const otel = getOTelTracing();
+    const span = otel.startSpan('plan.create', {
+      'plan.id': planId,
+      'session.id': sessionId,
+      'plan.steps': stepDescriptions.length,
+    });
 
     const steps: PlanStep[] = stepDescriptions.map((desc, i) => {
       const taskId =
@@ -215,21 +262,13 @@ export class TaskOrchestrator {
     this.savePlan(plan);
 
     // 发射计划开始事件
-    try {
-      globalEventBus.publish(OrchEvent.PLAN_START, {
-        planId,
-        description,
-        totalSteps: steps.length,
-      });
-    } catch (err) {
-      // EventBus 发射失败不阻塞主流程
+    safePublish(OrchEvent.PLAN_START, {
+      planId,
+      description,
+      totalSteps: steps.length,
+    });
 
-      logger.warn('Operation skipped', {
-        context: 'EventBus 发射失败不阻塞主流程',
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-
+    otel.endSpan(span, SpanStatusCode.OK);
     return plan;
   }
 
@@ -305,158 +344,122 @@ export class TaskOrchestrator {
    * 标记步骤为运行中，同步更新 TaskRegistry 中对应任务状态
    */
   markStepRunning(stepId: string): PlanStep | undefined {
-    for (const plan of this.plans.values()) {
-      const step = plan.steps.find((s) => s.id === stepId);
-      if (!step) continue;
+    const plan = this.getPlanByStepId(stepId);
+    if (!plan) return undefined;
 
-      step.status = 'running';
-      plan.status = 'running';
+    const step = plan.steps.find((s) => s.id === stepId);
+    if (!step) return undefined;
 
-      const task = taskRegistry.getTask(step.taskId);
-      if (task && task instanceof NoteTask) {
-        task.setStatusDirect(TaskStatus.RUNNING);
-      }
+    step.status = 'running';
+    plan.status = 'running';
 
-      this.savePlan(plan);
-
-      // 发射步骤开始事件
-      try {
-        globalEventBus.publish(OrchEvent.PLAN_STEP_START, {
-          planId: plan.id,
-          stepIndex: plan.steps.indexOf(step),
-          stepName: step.description,
-          description: step.description,
-        });
-      } catch (err) {
-        // EventBus 发射失败不阻塞
-
-        logger.warn('Operation skipped', {
-          context: 'EventBus 发射失败不阻塞',
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-
-      return step;
+    const task = taskRegistry.getTask(step.taskId);
+    if (task && task instanceof NoteTask) {
+      task.setStatusDirect(TaskStatus.RUNNING);
     }
-    return undefined;
+
+    this.savePlan(plan);
+
+    // 发射步骤开始事件
+    safePublish(OrchEvent.PLAN_STEP_START, {
+      planId: plan.id,
+      stepIndex: plan.steps.indexOf(step),
+      stepName: step.description,
+      description: step.description,
+    });
+
+    return step;
   }
 
   /**
    * 标记步骤为已完成，同步更新 TaskRegistry 中对应任务状态
    */
   markStepCompleted(stepId: string, result?: string): PlanStep | undefined {
-    for (const plan of this.plans.values()) {
-      const step = plan.steps.find((s) => s.id === stepId);
-      if (!step) continue;
+    const plan = this.getPlanByStepId(stepId);
+    if (!plan) return undefined;
 
-      step.status = 'completed';
-      step.result = result;
+    const step = plan.steps.find((s) => s.id === stepId);
+    if (!step) return undefined;
 
-      const task = taskRegistry.getTask(step.taskId);
-      if (task && task instanceof NoteTask) {
-        task.setStatusDirect(TaskStatus.COMPLETED);
-      }
+    step.status = 'completed';
+    step.result = result;
 
-      // 检查是否所有步骤都已完成
-      const allDone = plan.steps.every(
-        (s) =>
-          s.status === 'completed' ||
-          s.status === 'failed' ||
-          s.status === 'cancelled'
-      );
-      if (allDone) {
-        plan.status = 'completed';
-        plan.completedAt = new Date().toISOString();
-      }
-
-      this.savePlan(plan);
-
-      // 发射步骤完成事件
-      try {
-        globalEventBus.publish(OrchEvent.PLAN_STEP_COMPLETED, {
-          planId: plan.id,
-          stepIndex: plan.steps.indexOf(step),
-          result,
-        });
-      } catch (err) {
-        // EventBus 发射失败不阻塞
-
-        logger.warn('Operation skipped', {
-          context: 'EventBus 发射失败不阻塞',
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-
-      // 发射进度更新事件
-      this.emitPlanProgress(plan);
-
-      // 检查是否所有步骤都已完成并发射完成事件
-      if (allDone) {
-        this.emitPlanCompleted(plan);
-      }
-
-      return step;
+    const task = taskRegistry.getTask(step.taskId);
+    if (task && task instanceof NoteTask) {
+      task.setStatusDirect(TaskStatus.COMPLETED);
     }
-    return undefined;
+
+    // 检查是否所有步骤都已完成
+    const allDone = plan.steps.every(
+      (s) =>
+        s.status === 'completed' ||
+        s.status === 'failed' ||
+        s.status === 'cancelled'
+    );
+    if (allDone) {
+      plan.status = 'completed';
+      plan.completedAt = new Date().toISOString();
+    }
+
+    this.savePlan(plan);
+
+    safePublish(OrchEvent.PLAN_STEP_COMPLETED, {
+      planId: plan.id,
+      stepIndex: plan.steps.indexOf(step),
+      result,
+    });
+
+    this.emitPlanProgress(plan);
+    if (allDone) {
+      this.emitPlanCompleted(plan);
+    }
+
+    return step;
   }
 
   /**
    * 标记步骤为失败，同步更新 TaskRegistry 中对应任务状态
    */
   markStepFailed(stepId: string, error?: string): PlanStep | undefined {
-    for (const plan of this.plans.values()) {
-      const step = plan.steps.find((s) => s.id === stepId);
-      if (!step) continue;
+    const plan = this.getPlanByStepId(stepId);
+    if (!plan) return undefined;
 
-      step.status = 'failed';
-      step.error = error;
+    const step = plan.steps.find((s) => s.id === stepId);
+    if (!step) return undefined;
 
-      const task = taskRegistry.getTask(step.taskId);
-      if (task && task instanceof NoteTask) {
-        task.setStatusDirect(TaskStatus.FAILED, error);
-      }
+    step.status = 'failed';
+    step.error = error;
 
-      // 检查是否所有步骤都已终态
-      const allDone = plan.steps.every(
-        (s) =>
-          s.status === 'completed' ||
-          s.status === 'failed' ||
-          s.status === 'cancelled'
-      );
-      if (allDone) {
-        plan.status = 'completed';
-        plan.completedAt = new Date().toISOString();
-      }
-
-      this.savePlan(plan);
-
-      // 发射步骤完成事件（失败）
-      try {
-        globalEventBus.publish(OrchEvent.PLAN_STEP_COMPLETED, {
-          planId: plan.id,
-          stepIndex: plan.steps.indexOf(step),
-          result: error,
-        });
-      } catch (err) {
-        // EventBus 发射失败不阻塞
-
-        logger.warn('Operation skipped', {
-          context: 'EventBus 发射失败不阻塞',
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-
-      // 发射进度更新事件
-      this.emitPlanProgress(plan);
-
-      // 检查是否所有步骤都已完成并发射完成事件
-      if (allDone) {
-        this.emitPlanCompleted(plan);
-      }
-
-      return step;
+    const task = taskRegistry.getTask(step.taskId);
+    if (task && task instanceof NoteTask) {
+      task.setStatusDirect(TaskStatus.FAILED, error);
     }
-    return undefined;
+
+    const allDone = plan.steps.every(
+      (s) =>
+        s.status === 'completed' ||
+        s.status === 'failed' ||
+        s.status === 'cancelled'
+    );
+    if (allDone) {
+      plan.status = 'completed';
+      plan.completedAt = new Date().toISOString();
+    }
+
+    this.savePlan(plan);
+
+    safePublish(OrchEvent.PLAN_STEP_COMPLETED, {
+      planId: plan.id,
+      stepIndex: plan.steps.indexOf(step),
+      result: error,
+    });
+
+    this.emitPlanProgress(plan);
+    if (allDone) {
+      this.emitPlanCompleted(plan);
+    }
+
+    return step;
   }
 
   /**
@@ -474,7 +477,13 @@ export class TaskOrchestrator {
         if (task && task instanceof NoteTask) {
           task.setStatusDirect(TaskStatus.KILLED);
         } else if (task) {
-          await task.kill().catch(() => {});
+          await task.kill().catch((e) => {
+            void handleError(e, {
+              module: 'tasks:TaskOrchestrator',
+              action: 'abort_killTask',
+              context: { stepId: step.id, taskId: step.taskId },
+            });
+          });
         }
       }
 
@@ -488,51 +497,40 @@ export class TaskOrchestrator {
   }
 
   /**
-   * 发射计划进度事件
+   * 发射计划进度事件（节流：同一 plan ≥ 200ms 间隔，防止事件风暴）
    */
   private emitPlanProgress(plan: Plan): void {
-    try {
-      const progress = this.getPlanProgress(plan.id);
-      if (!progress) return;
+    const now = Date.now();
+    const last = this.lastProgressEmit.get(plan.id) ?? 0;
+    if (now - last < 200) return; // 节流
 
-      const payload: PlanProgressData = {
-        planId: plan.id,
-        completedSteps: progress.completed,
-        totalSteps: progress.total,
-        percentage: progress.percent,
-      };
-      globalEventBus.publish(OrchEvent.PLAN_PROGRESS, payload);
-    } catch (err) {
-      // EventBus 发射失败不阻塞
+    const progress = this.getPlanProgress(plan.id);
+    if (!progress) return;
 
-      logger.warn('Operation skipped', {
-        context: 'EventBus 发射失败不阻塞',
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
+    this.lastProgressEmit.set(plan.id, now);
+    const payload: PlanProgressData = {
+      planId: plan.id,
+      completedSteps: progress.completed,
+      totalSteps: progress.total,
+      percentage: progress.percent,
+    };
+    safePublish(
+      OrchEvent.PLAN_PROGRESS,
+      payload as unknown as Record<string, unknown>
+    );
   }
 
   /**
    * 发射计划完成事件
    */
   private emitPlanCompleted(plan: Plan): void {
-    try {
-      globalEventBus.publish(OrchEvent.PLAN_COMPLETED, {
-        planId: plan.id,
-        totalSteps: plan.steps.length,
-        completedSteps: plan.steps.filter((s) => s.status === 'completed')
-          .length,
-        failedSteps: plan.steps.filter((s) => s.status === 'failed').length,
-        status: plan.status,
-      });
-    } catch (err) {
-      // EventBus 发射失败不阻塞
-
-      logger.warn('Operation skipped', {
-        context: 'EventBus 发射失败不阻塞',
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
+    safePublish(OrchEvent.PLAN_COMPLETED, {
+      planId: plan.id,
+      totalSteps: plan.steps.length,
+      completedSteps: plan.steps.filter((s) => s.status === 'completed').length,
+      failedSteps: plan.steps.filter((s) => s.status === 'failed').length,
+      status: plan.status,
+    });
   }
 
   /**

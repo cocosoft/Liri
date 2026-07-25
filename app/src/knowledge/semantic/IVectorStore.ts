@@ -30,6 +30,16 @@ export interface VectorEntry {
   mtimeMs: number;
   /** 扩展元数据 */
   metadata?: Record<string, unknown>;
+  /** 智能分块：上下文标题（如 markdown heading） */
+  contextHeader?: string;
+  /** 智能分块：父块 ID（上下文丰富） */
+  parentChunkId?: string;
+  /** 智能分块：前一个块的 ID */
+  preChunkId?: string;
+  /** 智能分块：后一个块的 ID */
+  nextChunkId?: string;
+  /** 标签（用于搜索过滤） */
+  tags?: string[];
 }
 
 /** 搜索结果 */

@@ -32,6 +32,7 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
     intervalMs: 3600000,
     maxItems: 20,
     knowledgeBase: "",
+    enabled: true,
   });
 
   const load = useCallback(async () => {

@@ -10,17 +10,6 @@ interface GraphPageProps {
   isDark: boolean;
 }
 
-const DOMAIN_COLORS = [
-  "bg-blue-500",
-  "bg-purple-500",
-  "bg-emerald-500",
-  "bg-amber-500",
-  "bg-pink-500",
-  "bg-cyan-500",
-  "bg-red-500",
-  "bg-indigo-500",
-];
-
 export function GraphPage({ isDark }: GraphPageProps) {
   const [edges, setEdges] = useState<GraphEdge[]>([]);
   const [stats, setStats] = useState<GraphStats | null>(null);

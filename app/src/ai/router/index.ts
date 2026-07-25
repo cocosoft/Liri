@@ -59,3 +59,12 @@ export type {
 } from './types.js';
 export { ALL_ROUTER_TIERS } from './types.js';
 export { resolveModelRoute, RouteKey } from './resolveModelRoute.js';
+export {
+  classifyComplexity,
+  transitionComplexity,
+  getConfidenceThreshold,
+} from './TaskComplexityClassifier.js';
+export type {
+  Complexity,
+  ClassifyContext,
+} from './TaskComplexityClassifier.js';

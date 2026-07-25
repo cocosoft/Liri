@@ -62,6 +62,8 @@ export type {
 // ─── FAQ ───
 export type { FAQEntry, FAQImportReport } from "./faq";
 
+export type { InboxItem, InboxItemType, InboxItemStatus } from "./inbox";
+
 // ─── 知识图谱 ───
 export type { GraphEdge, GraphStats, GraphEdgesResponse } from "./graph";
 
@@ -130,7 +132,7 @@ export type {
 } from "./usage";
 
 // ─── 配置 ───
-export type { Config, BackendStatus } from "./config";
+export type { BackendStatus } from "../api/types/config";
 
 // ─── 工作模块类型 ─
 export type {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import BuddyAvatar from "../Buddy/BuddyAvatar";
 import DreamLogTab from "../Buddy/DreamLogTab";
 import BuddyGame from "../Buddy/BuddyGame";
@@ -47,6 +48,7 @@ function LiriPage() {
   const dreamPhasesDone = useOperationProgressStore((s) => s.dreamPhasesDone);
   const _init = useOperationProgressStore((s) => s._init);
   const setActivePage = useNavigationStore((s) => s.setActivePage);
+  const navigate = useNavigate();
   const [message, setMessage] = useState("");
   const [triggering, setTriggering] = useState(false);
   const [activeTab, setActiveTab] = useState<
@@ -67,7 +69,9 @@ function LiriPage() {
     setTriggering(true);
     try {
       await memoryService.triggerDream();
-    } catch { /* 已由 memoryStore 处理 */ }
+    } catch {
+      /* 已由 memoryStore 处理 */
+    }
     setTriggering(false);
   };
 
@@ -89,9 +93,157 @@ function LiriPage() {
   if (!companion) {
     return (
       <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-        <div className="max-w-4xl mx-auto p-6">
-          <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-            尚未孵化伙伴
+        <div className="max-w-2xl mx-auto p-6">
+          <div className="text-center py-16">
+            {/* 孵蛋动画 SVG */}
+            <div className="mb-8">
+              <svg viewBox="0 0 140 160" className="w-32 h-36 mx-auto">
+                <defs>
+                  <radialGradient id="eggGlow" cx="50%" cy="40%" r="50%">
+                    <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+                  </radialGradient>
+                  <linearGradient
+                    id="eggBody"
+                    x1="0%"
+                    y1="0%"
+                    x2="0%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" stopColor="#c4b5fd" />
+                    <stop offset="100%" stopColor="#8b5cf6" />
+                  </linearGradient>
+                </defs>
+                {/* 光晕 */}
+                <ellipse cx="70" cy="85" rx="60" ry="70" fill="url(#eggGlow)">
+                  <animate
+                    attributeName="rx"
+                    values="60;65;60"
+                    dur="3s"
+                    repeatCount="indefinite"
+                  />
+                  <animate
+                    attributeName="ry"
+                    values="70;75;70"
+                    dur="3s"
+                    repeatCount="indefinite"
+                  />
+                  <animate
+                    attributeName="opacity"
+                    values="0.6;1;0.6"
+                    dur="3s"
+                    repeatCount="indefinite"
+                  />
+                </ellipse>
+                {/* 蛋体 */}
+                <ellipse
+                  cx="70"
+                  cy="85"
+                  rx="32"
+                  ry="42"
+                  fill="url(#eggBody)"
+                  stroke="#7c3aed"
+                  strokeWidth="1.5"
+                >
+                  <animate
+                    attributeName="ry"
+                    values="42;40;42"
+                    dur="2s"
+                    repeatCount="indefinite"
+                  />
+                </ellipse>
+                {/* 蛋壳纹理 */}
+                <path
+                  d="M54 70 Q58 55 70 50 Q82 55 86 70"
+                  fill="none"
+                  stroke="#a78bfa"
+                  strokeWidth="0.8"
+                  opacity="0.4"
+                />
+                <path
+                  d="M50 85 Q55 75 65 72"
+                  fill="none"
+                  stroke="#a78bfa"
+                  strokeWidth="0.6"
+                  opacity="0.3"
+                />
+                <path
+                  d="M90 85 Q85 75 75 72"
+                  fill="none"
+                  stroke="#a78bfa"
+                  strokeWidth="0.6"
+                  opacity="0.3"
+                />
+                {/* 心跳线 */}
+                <path
+                  d="M58 95 L64 95 L66 88 L68 102 L70 90 L72 95 L82 95"
+                  fill="none"
+                  stroke="#7c3aed"
+                  strokeWidth="1"
+                  opacity="0.5"
+                >
+                  <animate
+                    attributeName="opacity"
+                    values="0.3;0.6;0.3"
+                    dur="1.5s"
+                    repeatCount="indefinite"
+                  />
+                </path>
+              </svg>
+            </div>
+
+            <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2">
+              等待你的第一个伙伴
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto leading-relaxed mb-8">
+              Liri 会在你与它对话时自动孵化出一个独一无二的伙伴。
+              每次做梦、每次交互，它都会成长。
+            </p>
+
+            {/* 五阶段预览卡片 */}
+            <div className="inline-flex gap-2 mb-8">
+              {[
+                { emoji: "💬", label: "交谈", desc: "与 Liri 对话" },
+                { emoji: "🌙", label: "做梦", desc: "自动编织记忆" },
+                { emoji: "⚡", label: "进化", desc: "获得经验成长" },
+                { emoji: "🎨", label: "蜕变", desc: "解锁稀有形态" },
+              ].map((step, _i) => (
+                <div
+                  key={step.label}
+                  className="flex flex-col items-center gap-1 w-16"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800/30 flex items-center justify-center text-lg">
+                    {step.emoji}
+                  </div>
+                  <span className="text-[10px] font-medium text-gray-600 dark:text-gray-400">
+                    {step.label}
+                  </span>
+                  <span className="text-[9px] text-gray-400 dark:text-gray-500 leading-tight text-center">
+                    {step.desc}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => navigate("/chat")}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                />
+              </svg>
+              去聊天，孵化你的伙伴
+            </button>
           </div>
         </div>
       </div>
@@ -121,26 +273,33 @@ function LiriPage() {
             </div>
             {/* 五阶段管线 */}
             <div className="flex items-center gap-1">
-              {(["gather", "analyze", "generate", "write", "index"] as const).map((phase, i) => {
+              {(
+                ["gather", "analyze", "generate", "write", "index"] as const
+              ).map((phase, i) => {
                 const done = dreamPhasesDone.includes(phase);
                 const active = dreamPhase === phase;
                 return (
                   <div key={phase} className="flex-1 flex items-center">
-                    <div className={`flex-1 flex flex-col items-center ${active ? "scale-105" : ""} transition-transform`}>
+                    <div
+                      className={`flex-1 flex flex-col items-center ${active ? "scale-105" : ""} transition-transform`}
+                    >
                       <div
                         className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
                           ${done ? "bg-indigo-500 text-white" : active ? "bg-indigo-400 text-white ring-2 ring-indigo-300" : "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500"}`}
                       >
                         {done ? "✓" : i + 1}
                       </div>
-                      <span className={`text-[9px] mt-1 text-center leading-tight
+                      <span
+                        className={`text-[9px] mt-1 text-center leading-tight
                         ${active ? "text-indigo-600 dark:text-indigo-400 font-semibold" : done ? "text-indigo-500 dark:text-indigo-400" : "text-gray-400"}`}
                       >
                         {PHASE_LABELS[phase]}
                       </span>
                     </div>
                     {i < 4 && (
-                      <div className={`w-4 h-0.5 -mt-3 ${dreamPhasesDone.includes(phase) ? "bg-indigo-400" : "bg-gray-200 dark:bg-gray-700"}`} />
+                      <div
+                        className={`w-4 h-0.5 -mt-3 ${dreamPhasesDone.includes(phase) ? "bg-indigo-400" : "bg-gray-200 dark:bg-gray-700"}`}
+                      />
                     )}
                   </div>
                 );
@@ -152,7 +311,9 @@ function LiriPage() {
         {/* 梦境完成横幅 */}
         {!dreamPhase && dreamOp && dreamOp.progress === 1 && (
           <div className="bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-900/50 p-3 mb-4">
-            <span className="text-sm text-green-700 dark:text-green-300">{dreamOp.label}</span>
+            <span className="text-sm text-green-700 dark:text-green-300">
+              {dreamOp.label}
+            </span>
           </div>
         )}
 
@@ -323,7 +484,11 @@ function LiriPage() {
                   disabled={triggering || !!dreamPhase}
                   className="flex-1 px-3 py-2 text-sm bg-indigo-100 dark:bg-indigo-900/30 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded transition-colors disabled:opacity-50"
                 >
-                  {triggering ? "触发中..." : dreamPhase ? "梦境进行中" : "🌙 手动触发梦境"}
+                  {triggering
+                    ? "触发中..."
+                    : dreamPhase
+                      ? "梦境进行中"
+                      : "🌙 手动触发梦境"}
                 </button>
                 <button
                   onClick={() => setActivePage("agent")}

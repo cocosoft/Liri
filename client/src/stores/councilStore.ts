@@ -145,7 +145,7 @@ export const useCouncilStore = create<CouncilState>((set, get) => ({
         .addToast(
           "info",
           `\u{1F3DB}\uFE0F 理事会已达成共识："${get().topic}"`,
-          5000,
+          String(5000),
         );
       es.close();
       set({ eventSource: null });

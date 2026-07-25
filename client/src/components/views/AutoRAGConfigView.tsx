@@ -2,7 +2,8 @@ import { useTheme } from "../../hooks/useTheme";
 import { AutoRAGPanel } from "../Knowledge/Settings/AutoRAGPanel";
 
 export function AutoRAGConfigView() {
-  const { isDark } = useTheme();
+  const theme = useTheme();
+  const isDark = theme === "dark";
 
   return (
     <div className="flex flex-col h-full">
@@ -26,3 +27,5 @@ export function AutoRAGConfigView() {
     </div>
   );
 }
+
+export default AutoRAGConfigView;

@@ -482,6 +482,43 @@ data: {"type":"done","result":{...}}
 
 ---
 
+### 3.15 Inbox API（v2.2 新增）
+
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| **GET** | `/v1/inbox` | 列出 Inbox 项（支持 ?sessionId=&status=&type=&limit=&offset=） |
+| **GET** | `/v1/inbox/count` | 获取待处理数量（支持 ?sessionId=） |
+| **GET** | `/v1/inbox/:id` | 获取单个 Inbox 项 |
+| **POST** | `/v1/inbox/:id/reply` | 回复 Inbox 项（body: { reply, selectedOption? }） |
+
+**InboxItem 数据结构**：
+```json
+{
+  "id": "uuid",
+  "sessionId": "abc123",
+  "type": "approval|question|authorization",
+  "title": "PDCA 计划审批",
+  "message": "目标描述...",
+  "status": "pending|replied|expired|dismissed",
+  "reply": "批准",
+  "options": ["approve", "reject", "modify"],
+  "offlineCapable": true,
+  "source": "pdca",
+  "metadata": {},
+  "createdAt": 1720000000,
+  "updatedAt": 1720000000,
+  "repliedAt": 1720000100
+}
+```
+
+### 3.16 Usage API
+
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| **GET** | `/v1/usage` | 获取用量统计（支持 ?range=today\|7d\|30d&sessionId=） |
+
+---
+
 ## §4 前端服务 → 后端接口映射表（三级降级全景）
 
 | 前端服务 | 方法 | HTTP 路径 | Tauri IPC 命令 | IPC 状态 |
@@ -561,6 +598,10 @@ data: {"type":"done","result":{...}}
 | **routerService** | `getConfig` | `GET /v1/router/config` ✅ | — | ✅ (New) |
 | | `updateConfig` | `PUT /v1/router/config` ✅ | — | ✅ (New) |
 | **usageService** | 全部 5 个方法 | 全部 ✅ | — | ✅ (HTTP only) |
+| **inboxService** | `list` | `GET /v1/inbox` ✅ | — | ✅ (v2.2 新增) |
+|  | `get` | `GET /v1/inbox/:id` ✅ | — | ✅ |
+|  | `count` | `GET /v1/inbox/count` ✅ | — | ✅ |
+|  | `reply` | `POST /v1/inbox/:id/reply` ✅ | — | ✅ |
 | **pricingService** | 全部 3 个方法 | 全部 ✅ | — | ✅ (HTTP only) |
 | **balanceService** | `check` | `POST /v1/balance` ✅ | — | ✅ (HTTP only) |
 | | `batchCheck` | `GET /v1/balances` ✅ **新增** | — | ✅ (HTTP only) |
@@ -667,5 +708,6 @@ data: {"type":"done","result":{...}}
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| 2.2.0 | 2026-07-26 | 新增 §3.15 Inbox API（4 个端点） + §3.16 Usage API；§4 新增 inboxService 映射 |
 | 2.0.0 | 2026-06-03 | 全量扫描：新增 11 个 HTTP 路由缺口标记（Agent 5个 + Channel 2个 + Skills 4个）；新增 §5.3 预留接口清单（10个模块）；新增 §5.4 非标准调用标记（4处）；完善 25 个 IPC 缺口计数；所有状态标记 ✅/❌ |
 | 1.0.0 | 2026-06-03 | 初始版本 |

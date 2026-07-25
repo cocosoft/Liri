@@ -13,10 +13,18 @@
  */
 
 import { Logger } from '@modules/monitoring';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { configManager } from '@modules/config';
 import { taskOrchestrator } from './TaskOrchestrator';
 import type { Plan, PlanStep, PlanProgress } from './TaskOrchestrator';
 import { TaskStatus } from './types';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { LifecycleTracker } from './LifecycleTracker';
 import type { LifecycleEvent } from './LifecycleTracker';
 import { createAgentIsolation, throwIfAborted } from '../agent/AgentIsolation';
@@ -31,11 +39,21 @@ import {
 import type { PlanReview, ReviewDecision } from './PlanReview';
 import { TAORLoop, createTAORLoopDeps } from '../query/TAORLoop.js';
 import type { TAORLoopDeps } from '../query/TAORLoop.js';
+import { VerifierAgent, createVerifierAgent } from '../query/VerifierAgent.js';
+import type { VerificationResult } from '../query/VerifierAgent.js';
+import { FileLockManager, fileLockManager } from './FileLockManager.js';
+import { inboxManager } from '@modules/runtime/InboxManager.js';
 
 const logger = new Logger({ module: 'tasks:longRunning' });
 
 /** PDCA 阶段 */
-export type PdcaPhase = 'plan' | 'execute' | 'review' | 'decide' | 'completed';
+export type PdcaPhase =
+  | 'plan'
+  | 'plan_pending'
+  | 'execute'
+  | 'review'
+  | 'decide'
+  | 'completed';
 
 /** PDCA 状态快照（前端查询用） */
 export interface PdcaStatus {
@@ -49,6 +67,28 @@ export interface PdcaStatus {
   decisionPrompt?: string;
   audit?: AuditReport;
   lifecycle: LifecycleEvent[];
+}
+
+/** PDCA 监控指标 */
+export interface PdcaMetrics {
+  /** 总 PDCA 循环次数 */
+  totalCycles: number;
+  /** 总步骤数 */
+  totalSteps: number;
+  /** 完成步骤数 */
+  completedSteps: number;
+  /** 失败步骤数 */
+  failedSteps: number;
+  /** 平均每步耗时（ms） */
+  avgStepDurationMs: number;
+  /** 平均 Review 分数（0-100） */
+  avgReviewScore: number;
+  /** Review 通过率 */
+  reviewPassRate: number;
+  /** 工具调用失败导致步骤失败数 */
+  toolFailureSteps: number;
+  /** 中断率（aborted / total） */
+  abortRate: number;
 }
 
 /** 子 Agent 执行句柄 */
@@ -114,12 +154,22 @@ export class LongRunningTaskOrchestrator {
    * Phase 2: TAORLoop 统一编排器（ENABLE_LOOP_V8_PHASE2 时注入）
    */
   private taorLoop?: TAORLoop;
+  /**
+   * Phase 4: VerifierAgent（双指标验证：CheckPassRate + Confidence）
+   */
+  private verifier: VerifierAgent;
+  /**
+   * Phase 6: 文件级并发锁（多会话冲突保护）
+   */
+  readonly fileLockManager: FileLockManager;
 
   constructor(taskId: string, executor?: ExecutorFn) {
     this.taskId = taskId;
     this.lifecycle = new LifecycleTracker();
     this.isolation = createAgentIsolation(taskId);
     this.lifecycle.record('created', TaskStatus.PENDING);
+    this.verifier = createVerifierAgent({ enabled: true });
+    this.fileLockManager = fileLockManager;
 
     // 默认 executor：通过 AI 服务执行
     this.executor =
@@ -171,8 +221,15 @@ export class LongRunningTaskOrchestrator {
     this.phase = 'plan';
     this.lifecycle.record('started', TaskStatus.RUNNING, 'Plan phase started');
 
-    // 让 Planner 分析并输出步骤
-    const planPrompt = `请分析以下任务并输出 JSON 格式的执行计划：
+    const otel = getOTelTracing();
+    const span = otel.startSpan('pdca.plan', {
+      'task.id': this.taskId,
+      'session.id': sessionId,
+    });
+
+    try {
+      // 让 Planner 分析并输出步骤
+      const planPrompt = `请分析以下任务并输出 JSON 格式的执行计划：
 任务描述: ${description}
 
 输出格式：
@@ -181,46 +238,62 @@ export class LongRunningTaskOrchestrator {
   "acceptanceCriteria": ["步骤1的验收标准", "步骤2的验收标准"]
 }`;
 
-    const planText = await this.executor({
-      systemPrompt: PLANNER_ROLE.systemPrompt,
-      userPrompt: planPrompt,
-      tools: computeToolNames(PLANNER_ROLE.toolsets),
-      isolation: this.isolation,
-    });
+      const planText = await this.executor({
+        systemPrompt: PLANNER_ROLE.systemPrompt,
+        userPrompt: planPrompt,
+        tools: computeToolNames(PLANNER_ROLE.toolsets),
+        isolation: this.isolation,
+      });
 
-    // 解析 Planner 输出
-    let steps: string[] = [description];
-    let acceptance: string[] = [];
+      // 解析 Planner 输出
+      let steps: string[] = [description];
+      let acceptance: string[] = [];
 
-    try {
-      const parsed = JSON.parse(planText);
-      steps = parsed.steps || [description];
-      acceptance = parsed.acceptanceCriteria || [];
-    } catch (err) {
-      // 非 JSON 输出，按行分割
-      const lines = planText.split('\n').filter((l) => l.trim());
-      if (lines.length > 1) {
-        steps = lines.slice(0, 10);
+      try {
+        const parsed = JSON.parse(planText);
+        steps = parsed.steps || [description];
+        acceptance = parsed.acceptanceCriteria || [];
+      } catch (err) {
+        // 非 JSON 输出，按行分割（非关键路径，无需 handleError）
+        const lines = planText.split('\n').filter((l) => l.trim());
+        if (lines.length > 1) {
+          steps = lines.slice(0, 10);
+        }
+        logger.debug('Plan output is not JSON, splitting by lines', {
+          error: String(err),
+        });
       }
+
+      // 创建 Plan
+      const plan = taskOrchestrator.createPlan(
+        description,
+        steps,
+        sessionId,
+        undefined,
+        acceptance
+      );
+
+      this.planId = plan.id;
+      this.lifecycle.record(
+        'progress',
+        TaskStatus.RUNNING,
+        `Plan created with ${steps.length} steps`
+      );
+
+      span.setAttribute('plan.id', plan.id);
+      span.setAttribute('plan.steps', steps.length);
+      otel.endSpan(span, SpanStatusCode.OK);
+      return plan;
+    } catch (e) {
+      await handleError(e, {
+        module: 'tasks:longRunning',
+        action: 'executePlanPhase',
+        context: { taskId: this.taskId },
+      });
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR, String(e));
+      throw e;
     }
-
-    // 创建 Plan
-    const plan = taskOrchestrator.createPlan(
-      description,
-      steps,
-      sessionId,
-      undefined,
-      acceptance
-    );
-
-    this.planId = plan.id;
-    this.lifecycle.record(
-      'progress',
-      TaskStatus.RUNNING,
-      `Plan created with ${steps.length} steps`
-    );
-
-    return plan;
   }
 
   // ─── Phase 2: EXECUTE ──────────────────────────────
@@ -279,20 +352,76 @@ export class LongRunningTaskOrchestrator {
         const executor = this.executor;
         (this.taorLoop as any).config.sessionId = this.taskId;
 
+        // 持久化缓冲区（PDCA 模式下保持消息上下文）
+        const persistedMessages: any[] = [];
+
         const deps = createTAORLoopDeps({
           callModel: async function* (msgs: any[], signal: AbortSignal) {
-            const lastMsg = (msgs[msgs.length - 1]?.content as string) ?? '';
+            // 构建完整对话上下文（修复：之前只取最后一条消息）
+            const conversationContext = msgs
+              .map((m) =>
+                typeof m.content === 'string'
+                  ? `[${m.role}] ${m.content}`
+                  : `[${m.role}] ${JSON.stringify(m.content)}`
+              )
+              .join('\n\n');
             const result = await executor({
               systemPrompt: EXECUTOR_ROLE.systemPrompt,
-              userPrompt: execPrompt + '\n\n' + lastMsg,
+              userPrompt: execPrompt + '\n\n' + conversationContext,
               tools: computeToolNames(EXECUTOR_ROLE.toolsets),
               isolation,
             });
             yield { type: 'text', content: result };
             yield { type: 'done' };
           },
-          executeTools: async () => [] as any[],
-          persistMessages: async () => {},
+          executeTools: async (
+            toolCalls: Array<{
+              id: string;
+              name: string;
+              arguments: Record<string, unknown>;
+            }>,
+            _signal: AbortSignal
+          ) => {
+            // 为每个 tool call 调用 executor，获取工具执行结果
+            const results: Array<{
+              toolCallId?: string;
+              toolName?: string;
+              result?: unknown;
+              error?: string;
+            }> = [];
+            for (const tc of toolCalls) {
+              try {
+                const toolPrompt = `执行工具调用:\n工具名: ${tc.name}\n参数: ${JSON.stringify(tc.arguments, null, 2)}`;
+                const toolResult = await executor({
+                  systemPrompt: EXECUTOR_ROLE.systemPrompt,
+                  userPrompt: execPrompt + '\n\n' + toolPrompt,
+                  tools: computeToolNames(EXECUTOR_ROLE.toolsets),
+                  isolation,
+                });
+                results.push({
+                  toolCallId: tc.id,
+                  toolName: tc.name,
+                  result: toolResult,
+                });
+              } catch (e) {
+                await handleError(e, {
+                  module: 'tasks:longRunning',
+                  action: 'executeTools',
+                  context: { toolName: tc.name, stepId: step.id },
+                });
+                results.push({
+                  toolCallId: tc.id,
+                  toolName: tc.name,
+                  error: String(e),
+                });
+              }
+            }
+            return results;
+          },
+          persistMessages: async (msgs: any[], _signal?: AbortSignal) => {
+            // 缓存消息到内存，PDCA 完成后统一持久化
+            persistedMessages.push(...msgs);
+          },
         });
 
         const messages: any[] = [{ role: 'user', content: execPrompt }];
@@ -311,6 +440,11 @@ export class LongRunningTaskOrchestrator {
         if (dur) dur.endMs = Date.now();
         return;
       } catch (e) {
+        await handleError(e, {
+          module: 'tasks:longRunning',
+          action: 'taorLoop_delegation',
+          context: { stepId: step.id },
+        });
         logger.warn(
           'TAORLoop delegation failed for step, falling back to direct executor',
           {
@@ -340,6 +474,11 @@ export class LongRunningTaskOrchestrator {
         `Step completed: ${step.description}`
       );
     } catch (e) {
+      await handleError(e, {
+        module: 'tasks:longRunning',
+        action: 'executor',
+        context: { stepId: step.id },
+      });
       const errMsg = e instanceof Error ? e.message : String(e);
       taskOrchestrator.markStepFailed(step.id, errMsg);
       const dur = this.stepDurations.get(step.id);
@@ -363,31 +502,99 @@ export class LongRunningTaskOrchestrator {
     const step = plan.steps.find((s) => s.id === stepId);
     if (!step) throw new Error(`Step not found: ${stepId}`);
 
-    const reviewPrompt = [
-      `审查以下步骤的执行结果：`,
-      `步骤: ${step.description}`,
-      step.acceptanceCriteria ? `验收标准: ${step.acceptanceCriteria}` : '',
-      `实际输出: ${step.result || '(无输出)'}`,
-      `请输出 JSON 审查结果: {"pass":bool,"score":0-100,"issues":[{"severity":"critical|major|minor","description":"..."}],"summary":"..."}`,
-    ].join('\n');
-
-    const reviewText = await this.executor({
-      systemPrompt: REVIEWER_ROLE.systemPrompt,
-      userPrompt: reviewPrompt,
-      tools: computeToolNames(REVIEWER_ROLE.toolsets),
-      isolation: this.isolation,
+    const otel = getOTelTracing();
+    const span = otel.startSpan('pdca.review', {
+      'task.id': this.taskId,
+      'plan.id': this.planId,
+      'step.id': stepId,
     });
 
-    const review = parseReviewFromText(reviewText, stepId);
-    step.reviewResult = review;
+    try {
+      const reviewPrompt = [
+        `审查以下步骤的执行结果：`,
+        `步骤: ${step.description}`,
+        step.acceptanceCriteria ? `验收标准: ${step.acceptanceCriteria}` : '',
+        `实际输出: ${step.result || '(无输出)'}`,
+        `请输出 JSON 审查结果: {"pass":bool,"score":0-100,"issues":[{"severity":"critical|major|minor","description":"..."}],"summary":"..."}`,
+      ].join('\n');
 
-    this.lifecycle.record(
-      'progress',
-      TaskStatus.RUNNING,
-      `Review: ${formatReviewSummary(review)}`
-    );
+      const reviewText = await this.executor({
+        systemPrompt: REVIEWER_ROLE.systemPrompt,
+        userPrompt: reviewPrompt,
+        tools: computeToolNames(REVIEWER_ROLE.toolsets),
+        isolation: this.isolation,
+      });
 
-    return review;
+      const review = parseReviewFromText(reviewText, stepId);
+      step.reviewResult = review;
+
+      // Phase 4: VerifierAgent 双指标验证
+      try {
+        const verifyResult = await this.verifier.verify(
+          {
+            messages: [
+              { role: 'system', content: REVIEWER_ROLE.systemPrompt },
+              { role: 'user', content: reviewPrompt },
+              { role: 'assistant', content: reviewText },
+            ],
+            toolResults: [],
+            turnCount: 0,
+            sessionId: this.taskId,
+          },
+          this.isolation.abortController.signal
+        );
+
+        const { passed, confidence, verdict } = verifyResult;
+
+        // VerifierAgent 判定集成到 Review
+        if (!passed) {
+          if (verdict === 'REJECT') {
+            review.pass = false;
+            review.issues.push({
+              severity: 'major',
+              description: `VerifierAgent REJECT: confidence=${confidence.toFixed(2)}`,
+            });
+          } else if (verdict === 'ESCALATE') {
+            review.pass = false;
+            review.issues.push({
+              severity: 'critical',
+              description: `VerifierAgent ESCALATE: confidence=${confidence.toFixed(2)}，需人工介入。反馈：${verifyResult.feedback || '无'}`,
+            });
+          }
+        }
+        // APPROVE 时保持 Reviewer 原有评分
+
+        span.setAttribute('review.verifierVerdict', verdict);
+        span.setAttribute('review.verifierConfidence', confidence);
+      } catch (verifyErr) {
+        logger.warn(
+          'VerifierAgent failed in reviewStep, continuing with Reviewer score only',
+          {
+            error: String(verifyErr),
+          }
+        );
+      }
+
+      this.lifecycle.record(
+        'progress',
+        TaskStatus.RUNNING,
+        `Review: ${formatReviewSummary(review)}`
+      );
+
+      span.setAttribute('review.pass', review.pass);
+      span.setAttribute('review.score', review.score);
+      otel.endSpan(span, SpanStatusCode.OK);
+      return review;
+    } catch (e) {
+      await handleError(e, {
+        module: 'tasks:longRunning',
+        action: 'reviewStep',
+        context: { taskId: this.taskId, stepId },
+      });
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR, String(e));
+      throw e;
+    }
   }
 
   async reviewAllSteps(): Promise<PlanReview[]> {
@@ -416,63 +623,84 @@ export class LongRunningTaskOrchestrator {
     const step = plan.steps.find((s) => s.id === stepId);
     if (!step) throw new Error(`Step not found: ${stepId}`);
 
-    step.decision = decision;
+    const otel = getOTelTracing();
+    const span = otel.startSpan('pdca.decide', {
+      'task.id': this.taskId,
+      'plan.id': this.planId,
+      'step.id': stepId,
+      decision: decision,
+    });
 
-    switch (decision) {
-      case 'approved':
-        // 已完成，无需更多操作
-        this.lifecycle.record(
-          'progress',
-          TaskStatus.RUNNING,
-          `Approved: ${step.description}`
-        );
-        break;
+    try {
+      step.decision = decision;
 
-      case 'retry': {
-        const maxRetries = step.maxRetries ?? 3;
-        if (step.retryCount >= maxRetries) {
-          // 超过重试上限
-          step.decision = 'escalate';
-          step.status = 'failed';
-          step.error = `Exceeded max retries (${maxRetries})`;
+      switch (decision) {
+        case 'approved':
+          // 已完成，无需更多操作
           this.lifecycle.record(
             'progress',
             TaskStatus.RUNNING,
-            `Retry limit exceeded for: ${step.description}`
+            `Approved: ${step.description}`
+          );
+          break;
+
+        case 'retry': {
+          const maxRetries = step.maxRetries ?? 3;
+          if (step.retryCount >= maxRetries) {
+            // 超过重试上限
+            step.decision = 'escalate';
+            step.status = 'failed';
+            step.error = `Exceeded max retries (${maxRetries})`;
+            this.lifecycle.record(
+              'progress',
+              TaskStatus.RUNNING,
+              `Retry limit exceeded for: ${step.description}`
+            );
+            break;
+          }
+
+          // 重置状态准备重试
+          step.status = 'pending';
+          step.retryCount++;
+          step.decision = undefined;
+          step.reviewResult = undefined;
+          this.lifecycle.record(
+            'progress',
+            TaskStatus.RUNNING,
+            `Retry #${step.retryCount} for: ${step.description}`
           );
           break;
         }
 
-        // 重置状态准备重试
-        step.status = 'pending';
-        step.retryCount++;
-        step.decision = undefined;
-        step.reviewResult = undefined;
-        this.lifecycle.record(
-          'progress',
-          TaskStatus.RUNNING,
-          `Retry #${step.retryCount} for: ${step.description}`
-        );
-        break;
+        case 'skip':
+          step.status = 'cancelled';
+          this.lifecycle.record(
+            'progress',
+            TaskStatus.RUNNING,
+            `Skipped: ${step.description}`
+          );
+          break;
+
+        case 'escalate':
+          step.status = 'failed';
+          this.lifecycle.record(
+            'progress',
+            TaskStatus.RUNNING,
+            `Escalated: ${step.description}`
+          );
+          break;
       }
 
-      case 'skip':
-        step.status = 'cancelled';
-        this.lifecycle.record(
-          'progress',
-          TaskStatus.RUNNING,
-          `Skipped: ${step.description}`
-        );
-        break;
-
-      case 'escalate':
-        step.status = 'failed';
-        this.lifecycle.record(
-          'progress',
-          TaskStatus.RUNNING,
-          `Escalated: ${step.description}`
-        );
-        break;
+      otel.endSpan(span, SpanStatusCode.OK);
+    } catch (e) {
+      await handleError(e, {
+        module: 'tasks:longRunning',
+        action: 'decideStep',
+        context: { taskId: this.taskId, stepId },
+      });
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR, String(e));
+      throw e;
     }
   }
 
@@ -516,42 +744,110 @@ export class LongRunningTaskOrchestrator {
    */
   async runFullPdca(
     description: string,
-    sessionId: string
+    sessionId: string,
+    opts?: { requirePlanApproval?: boolean }
   ): Promise<PdcaStatus> {
+    const requireApproval = opts?.requirePlanApproval ?? false;
+
     // Plan
     const plan = await this.executePlanPhase(description, sessionId);
+    this.phase = 'plan';
+
+    // 计划前置审批：在 EXECUTE 前插入审批断点
+    if (requireApproval) {
+      this.phase = 'plan_pending';
+
+      // 提交到 Inbox
+      const planSummary = plan.steps
+        .map((s, i) => `  ${i + 1}. ${s.description}`)
+        .join('\n');
+      const inboxItem = await inboxManager.submit({
+        sessionId,
+        type: 'approval',
+        title: `PDCA 计划审批: ${description.substring(0, 50)}`,
+        message: `目标: ${description}\n\n步骤:\n${planSummary}\n\n共 ${plan.steps.length} 步`,
+        options: ['approve', 'reject', 'modify'],
+        offlineCapable: true,
+        source: 'pdca',
+        metadata: { planId: this.planId, taskId: this.taskId, description },
+      });
+
+      logger.info('Plan submitted for approval', {
+        taskId: this.taskId,
+        planId: this.planId,
+        inboxId: inboxItem.id,
+      });
+
+      return {
+        taskId: this.taskId,
+        planId: this.planId!,
+        phase: 'plan_pending',
+        plan,
+        awaitUserDecision: true,
+        decisionPrompt: `计划已生成，等待审批。\n\n用 /goal approve ${this.taskId} 批准，或 /goal reject ${this.taskId} 拒绝。\nInbox ID: ${inboxItem.id}`,
+        lifecycle: this.lifecycle.getHistory(),
+      };
+    }
 
     let allDone = false;
-    while (!allDone) {
+    let iterations = 0;
+    // 动态上限：步骤数 * 5，最少 20，防止长任务被误杀
+    const maxIterations = Math.max(20, plan.steps.length * 5);
+
+    while (!allDone && iterations < maxIterations) {
+      iterations++;
       // Execute
       await this.executeAllSteps();
 
       // Review + Decide
-      const updatedPlan = taskOrchestrator.getPlan(this.planId!)!;
+      const updatedPlan = this.requirePlan();
       for (const step of updatedPlan.steps) {
         if (step.status === 'completed' && !step.decision) {
           await this.autoDecideStep(step.id);
         }
       }
 
-      // 重新执行 retry 步骤
-      const latestPlan = taskOrchestrator.getPlan(this.planId!)!;
-      const hasRetry = latestPlan.steps.some(
-        (s) => s.status === 'pending' && s.decision === undefined
-      );
-      const hasEscalated = latestPlan.steps.some(
-        (s) => s.decision === 'escalate'
+      // 重新检查状态：所有步骤是否都为终态
+      const latestPlan = this.requirePlan();
+      const terminalStatuses = ['completed', 'failed', 'cancelled'] as const;
+      allDone = latestPlan.steps.every((s) =>
+        (terminalStatuses as readonly string[]).includes(s.status)
       );
 
-      if (!hasRetry) {
-        allDone = true;
-        if (hasEscalated) {
+      if (!allDone) {
+        // 有步骤需要重试
+        const hasRetry = latestPlan.steps.some(
+          (s) => s.status === 'pending' && s.decision === undefined
+        );
+        if (!hasRetry && iterations >= maxIterations) {
+          // 超过上限：保存现场后强制退出
           latestPlan.status = 'failed';
-        } else {
-          latestPlan.status = 'completed';
           latestPlan.completedAt = new Date().toISOString();
+          taskOrchestrator['savePlan']?.(latestPlan);
+          logger.error('PDCA exceeded max iterations, forced abort', {
+            taskId: this.taskId,
+            planId: this.planId,
+            iterations,
+            maxIterations,
+            steps: latestPlan.steps.map((s) => ({
+              id: s.id,
+              status: s.status,
+              decision: s.decision,
+            })),
+          });
+          break;
         }
       }
+    }
+
+    // 标记终态
+    if (allDone) {
+      const finalPlan = this.requirePlan();
+      const hasEscalated = finalPlan.steps.some(
+        (s) => s.decision === 'escalate'
+      );
+      finalPlan.status = hasEscalated ? 'failed' : 'completed';
+      finalPlan.completedAt = new Date().toISOString();
     }
 
     // 生成审计报告
@@ -614,6 +910,167 @@ export class LongRunningTaskOrchestrator {
     };
   }
 
+  /** 获取 PDCA 监控指标 */
+  getMetrics(): PdcaMetrics {
+    const plan = this.planId
+      ? taskOrchestrator.getPlan(this.planId)
+      : undefined;
+    const steps = plan?.steps ?? [];
+    const lifecycle = this.lifecycle.getHistory();
+
+    const totalSteps = steps.length;
+    const completedSteps = steps.filter((s) => s.status === 'completed').length;
+    const failedSteps = steps.filter((s) => s.status === 'failed').length;
+
+    // 平均每步耗时
+    const durations = Array.from(this.stepDurations.values())
+      .filter((d) => d.endMs)
+      .map((d) => d.endMs! - d.startMs);
+    const avgStepDurationMs =
+      durations.length > 0
+        ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+        : 0;
+
+    // Review 指标
+    const reviewedSteps = steps.filter(
+      (s) => s.reviewResult?.score !== undefined
+    );
+    const avgReviewScore =
+      reviewedSteps.length > 0
+        ? Math.round(
+            reviewedSteps.reduce(
+              (sum, s) => sum + (s.reviewResult?.score ?? 0),
+              0
+            ) / reviewedSteps.length
+          )
+        : 0;
+    const passedReviews = reviewedSteps.filter(
+      (s) => s.reviewResult?.pass
+    ).length;
+    const reviewPassRate =
+      reviewedSteps.length > 0
+        ? Math.round((passedReviews / reviewedSteps.length) * 100)
+        : 100;
+
+    // 工具调用失败
+    const toolFailureSteps = steps.filter(
+      (s) => s.error && s.error.includes('tool')
+    ).length;
+
+    // 中断率
+    const abortedEvents = lifecycle.filter(
+      (e) => e.phase === 'finalized' && e.status === TaskStatus.FAILED
+    ).length;
+    const abortRate =
+      lifecycle.length > 0
+        ? Math.round((abortedEvents / lifecycle.length) * 100)
+        : 0;
+
+    return {
+      totalCycles: lifecycle.filter((e) => e.phase === 'progress').length,
+      totalSteps,
+      completedSteps,
+      failedSteps,
+      avgStepDurationMs,
+      avgReviewScore,
+      reviewPassRate,
+      toolFailureSteps,
+      abortRate,
+    };
+  }
+
+  /**
+   * 审批通过后从 plan_pending 阶段恢复执行
+   * 继续 PDCA 的 EXECUTE → REVIEW → DECIDE 循环
+   */
+  async resumeAfterApproval(sessionId: string): Promise<PdcaStatus> {
+    if (this.phase !== 'plan_pending') {
+      throw new AppError(
+        'Orchestrator is not in plan_pending phase',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'PDCA_NOT_PENDING'
+      );
+    }
+
+    this.phase = 'execute';
+    logger.info('Plan approved, resuming PDCA execution', {
+      taskId: this.taskId,
+      planId: this.planId,
+    });
+
+    // 继续 EXECUTE → REVIEW → DECIDE 循环（与 runFullPdca 的后半段相同）
+    let allDone = false;
+    let iterations = 0;
+    const plan = this.requirePlan();
+    const maxIterations = Math.max(20, plan.steps.length * 5);
+
+    while (!allDone && iterations < maxIterations) {
+      iterations++;
+      await this.executeAllSteps();
+
+      const updatedPlan = this.requirePlan();
+      for (const step of updatedPlan.steps) {
+        if (step.status === 'completed' && !step.decision) {
+          await this.autoDecideStep(step.id);
+        }
+      }
+
+      const latestPlan = this.requirePlan();
+      const terminalStatuses = ['completed', 'failed', 'cancelled'] as const;
+      allDone = latestPlan.steps.every((s) =>
+        (terminalStatuses as readonly string[]).includes(s.status)
+      );
+
+      if (!allDone) {
+        const hasRetry = latestPlan.steps.some(
+          (s) => s.status === 'pending' && s.decision === undefined
+        );
+        if (!hasRetry && iterations >= maxIterations) {
+          latestPlan.status = 'failed';
+          latestPlan.completedAt = new Date().toISOString();
+          taskOrchestrator['savePlan']?.(latestPlan);
+          logger.error('PDCA exceeded max iterations after approval', {
+            taskId: this.taskId,
+            iterations,
+            maxIterations,
+          });
+        }
+      }
+    }
+
+    this.phase = 'completed';
+    this.auditReport = this.generateReport();
+    this.lifecycle.record('finalized', TaskStatus.COMPLETED, 'PDCA completed');
+    return this.getStatus();
+  }
+
+  /**
+   * 获取 Plan，若已被外部删除则自动 dispose 并抛错
+   */
+  private requirePlan(): Plan {
+    if (!this.planId) {
+      throw new AppError(
+        'No plan associated with this orchestrator',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'PDCA_NO_PLAN'
+      );
+    }
+    const plan = taskOrchestrator.getPlan(this.planId);
+    if (!plan) {
+      // Plan 已被删除，清理自身
+      this.dispose();
+      throw new AppError(
+        `Plan ${this.planId} no longer exists, orchestrator disposed`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'PDCA_PLAN_DELETED'
+      );
+    }
+    return plan;
+  }
+
   // ─── 生命周期 ───────────────────────────────────────
 
   async abort(): Promise<void> {
@@ -622,12 +1079,77 @@ export class LongRunningTaskOrchestrator {
   }
 
   async shutdown(): Promise<void> {
-    this.isolation.cleanup();
+    this.dispose();
   }
+
+  /**
+   * 清理资源，从活跃列表移除（幂等）
+   */
+  dispose(): void {
+    if (this._disposed) return;
+    this._disposed = true;
+
+    // 1. 中止所有异步操作
+    this.isolation.abort('Orchestrator disposed');
+
+    // 2. 清理 TAORLoop 实例
+    if (this.taorLoop) {
+      try {
+        (this.taorLoop as any).dispose?.();
+      } catch {
+        // dispose 清理失败不影响主流程（非关键路径）
+      }
+    }
+
+    // 3. 清理 LifecycleTracker
+    this.lifecycle.clear();
+
+    // 4. 释放所有文件锁
+    const released = this.fileLockManager.releaseAll(this.taskId);
+    if (released > 0) {
+      logger.info('File locks released on dispose', {
+        taskId: this.taskId,
+        count: released,
+      });
+    }
+
+    // 5. 从活跃列表移除
+    activeOrchestrators.delete(this.taskId);
+
+    logger.info('LongRunningTaskOrchestrator disposed', {
+      taskId: this.taskId,
+      planId: this.planId,
+    });
+  }
+
+  private _disposed = false;
 }
 
 /** 活跃的 PDCA 编排器实例 */
 const activeOrchestrators = new Map<string, LongRunningTaskOrchestrator>();
+
+/** 编排器最大存活时间（24h），超时自动清理 */
+const ORCHESTRATOR_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/** 定时清理过期编排器（每 30 分钟） */
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [taskId, orchestrator] of activeOrchestrators) {
+      const lifecycle = (orchestrator as any).lifecycle;
+      const lastActivity = lifecycle?.getLastActivityTime?.();
+      if (lastActivity && now - lastActivity > ORCHESTRATOR_MAX_AGE_MS) {
+        logger.warn('Orchestrator exceeded max age, auto-disposing', {
+          taskId,
+          lastActivity,
+          ageMs: now - lastActivity,
+        });
+        orchestrator.dispose();
+      }
+    }
+  },
+  30 * 60 * 1000
+).unref();
 
 export function getOrCreateOrchestrator(
   taskId: string

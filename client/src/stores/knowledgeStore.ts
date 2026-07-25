@@ -15,7 +15,7 @@ export type { KnowledgeItem };
 // ── 子状态接口 ──────────────────────────────────────────
 
 interface ViewState {
-  activeTab: "knowledge" | "semantic";
+  activeTab: "knowledge" | "semantic" | "faq";
   selectedBase: string | null;
   selectedFile: KnowledgeFile | null;
   isInitialLoading: boolean;

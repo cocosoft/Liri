@@ -66,6 +66,8 @@ export interface TaskState {
   outputOffset: number;
   notified: boolean;
   error?: string;
+  /** 最近工具活动（用于进度恢复） */
+  toolActivities?: ToolActivity[];
   /** 额外元数据（如 TaskTool 的 owner/priority/activeForm/metadata） */
   metadata?: Record<string, unknown>;
 }

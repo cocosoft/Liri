@@ -126,6 +126,9 @@ export { createChatManagerTAORDeps } from './ChatManagerTAORAdapter.js';
 export type { ChatManagerTAORContext } from './ChatManagerTAORAdapter.js';
 export { TAORPhase } from './types.js';
 export { FileCheckpointStorage } from './FileCheckpointStorage.js';
+export { FileTAORCheckpointStorage } from './FileTAORCheckpointStorage.js';
+export { ResumeManager, resumeManager } from './ResumeManager.js';
+export type { ResumeCandidate } from './ResumeManager.js';
 export { PathGuard, createPathGuard } from './PathGuard.js';
 export type { PathGuardConfig, PathCheckResult } from './PathGuard.js';
 export {

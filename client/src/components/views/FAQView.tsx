@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useKnowledgeStore } from "../../stores/knowledgeStore";
 import { knowledgeService } from "../../services/knowledgeService";
 import { useTheme } from "../../hooks/useTheme";
 import { FAQPage } from "../Knowledge/FAQ/FAQPage";
@@ -7,7 +6,8 @@ import { Loader2 } from "lucide-react";
 import type { KnowledgeBase } from "../../types";
 
 export function FAQView() {
-  const { isDark } = useTheme();
+  const theme = useTheme();
+  const isDark = theme === "dark";
   const [bases, setBases] = useState<KnowledgeBase[]>([]);
   const [selectedBase, setSelectedBase] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -76,3 +76,5 @@ export function FAQView() {
     </div>
   );
 }
+
+export default FAQView;

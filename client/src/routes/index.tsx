@@ -31,6 +31,9 @@ const CouncilAgentRolesPage = lazy(
 const CronPage = lazy(() => import("../components/views/CronPage"));
 const DreamPage = lazy(() => import("../components/views/DreamPage"));
 const LiriPage = lazy(() => import("../components/views/LiriPage"));
+const LoopPanel = lazy(() => import("../components/views/LoopPanel"));
+const UsagePanel = lazy(() => import("../components/views/UsagePanel"));
+const InboxPanel = lazy(() => import("../components/views/InboxPanel"));
 const TaskCenterPage = lazy(() => import("../components/views/TaskCenterPage"));
 const WorkPageLayout = lazy(
   () => import("../components/Workspace/WorkPageLayout"),
@@ -328,6 +331,36 @@ export const routes: RouteObject[] = [
     element: (
       <AuthGuard>
         <LiriPage />
+      </AuthGuard>
+    ),
+  },
+
+  // Loop 管理中心
+  {
+    path: "/loops",
+    element: (
+      <AuthGuard>
+        <LoopPanel />
+      </AuthGuard>
+    ),
+  },
+
+  // 用量统计
+  {
+    path: "/usage",
+    element: (
+      <AuthGuard>
+        <UsagePanel />
+      </AuthGuard>
+    ),
+  },
+
+  // Inbox
+  {
+    path: "/inbox",
+    element: (
+      <AuthGuard>
+        <InboxPanel />
       </AuthGuard>
     ),
   },

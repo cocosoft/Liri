@@ -21,16 +21,28 @@ const logger = new Logger({ module: 'query:verifierAgent' });
 
 // ─── 类型定义 ──────────────────────────────────────────
 
+/** 单个检查项 */
+export interface CheckItem {
+  /** 检查项名称 */
+  item: string;
+  /** 是否通过 */
+  passed: boolean;
+}
+
 /** 验证结果 */
 export interface VerificationResult {
   /** 是否通过验证 */
   passed: boolean;
-  /** 验证置信度 (0-1) */
+  /** 验证置信度 (0-1) — LLM 自评，仅作参考 */
   confidence: number;
   /** 未通过时的反馈消息（给制造者用于修复） */
   feedback?: string;
   /** 验证类型 */
   verdict: VerdictType;
+  /** 子检查项列表（Phase 2b: 双指标验证） */
+  checks?: CheckItem[];
+  /** 检查项通过率 = passedChecks / totalChecks（客观指标） */
+  checkPassRate?: number;
 }
 
 /** 验证判定类型 */
@@ -119,13 +131,20 @@ function buildVerificationPrompt(input: VerificationInput): string {
     '',
     '## 输出格式',
     '',
-    '请用以下 JSON 格式输出（仅输出 JSON，不要有其他内容）：',
+    '请用以下 JSON 格式输出（仅输出 JSON，不要有其他内容）。必须包含 checks 数组，每项对应一个检查维度：',
     '',
     '```json',
     '{',
     '  "verdict": "APPROVE" | "REJECT" | "ESCALATE",',
     '  "confidence": 0.0-1.0,',
-    '  "feedback": "如果 REJECT 或 ESCALATE，提供具体的修复建议"',
+    '  "feedback": "如果 REJECT 或 ESCALATE，提供具体的修复建议",',
+    '  "checks": [',
+    '    {"item": "修改是否完成目标", "passed": true},',
+    '    {"item": "是否引入新错误", "passed": false},',
+    '    {"item": "是否破坏已有功能", "passed": true},',
+    '    {"item": "是否遵循编码规范", "passed": true},',
+    '    {"item": "是否遗漏边界情况", "passed": true}',
+    '  ]',
     '}',
     '```',
     '',
@@ -265,7 +284,7 @@ export class VerifierAgent {
   }
 
   /**
-   * 解析验证模型的 JSON 响应
+   * 解析验证模型的 JSON 响应（Phase 2b: 双指标判定）
    */
   private _parseResponse(text: string): VerificationResult {
     // 尝试提取 JSON 块
@@ -286,13 +305,63 @@ export class VerifierAgent {
           ? Math.max(0, Math.min(1, parsed.confidence))
           : 0.5;
 
-      const passed =
-        verdict === 'APPROVE' && confidence >= this.config.confidenceThreshold;
+      // Phase 2b: 解析 checks[] 数组并计算 CheckPassRate
+      const checks: CheckItem[] = Array.isArray(parsed.checks)
+        ? parsed.checks.map((c: { item: string; passed: boolean }) => ({
+            item: c.item || '未知检查项',
+            passed: Boolean(c.passed),
+          }))
+        : [];
+
+      const totalChecks = checks.length;
+      const passedChecks = checks.filter((c) => c.passed).length;
+      const checkPassRate = totalChecks > 0 ? passedChecks / totalChecks : null;
+
+      // 双指标判定逻辑：
+      // 1. CheckPassRate < 0.5 → 直接 REJECT（不看 confidence）
+      // 2. CheckPassRate >= 0.8 && confidence >= 0.6 → APPROVE
+      // 3. CheckPassRate >= 0.5 && confidence < 0.6 → ESCALATE
+      // 4. 其他 → REJECT（安全违约）
+      let passed: boolean;
+      let finalVerdict: VerdictType = verdict;
+
+      if (checkPassRate !== null) {
+        if (checkPassRate < 0.5) {
+          finalVerdict = 'REJECT';
+          passed = false;
+        } else if (checkPassRate >= 0.8 && confidence >= 0.6) {
+          finalVerdict = 'APPROVE';
+          passed = true;
+        } else if (checkPassRate >= 0.5 && confidence < 0.6) {
+          finalVerdict = 'ESCALATE';
+          passed = false;
+        } else {
+          finalVerdict = 'REJECT';
+          passed = false;
+        }
+      } else {
+        // 无 checks 数据 → 退回到单指标判定（兼容旧格式）
+        passed =
+          verdict === 'APPROVE' &&
+          confidence >= this.config.confidenceThreshold;
+        finalVerdict = verdict;
+      }
+
+      logger.info('验证解析完成（双指标）', {
+        verdict: finalVerdict,
+        confidence,
+        checkPassRate:
+          checkPassRate !== null ? checkPassRate.toFixed(2) : 'N/A',
+        totalChecks,
+        passedChecks,
+      });
 
       return {
         passed,
         confidence,
-        verdict,
+        verdict: finalVerdict,
+        checks: checks.length > 0 ? checks : undefined,
+        checkPassRate: checkPassRate ?? undefined,
         feedback:
           verdict !== 'APPROVE'
             ? (parsed.feedback as string) || '未提供具体反馈'

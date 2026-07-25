@@ -8,6 +8,7 @@
  */
 
 import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { ToolCall, ToolResult } from '../chat/types/tool.js';
 import type { ChatMessage } from '../ai/models/types';
 import type { TAORLoopDeps, TAORLoopResult } from './TAORLoop.js';
@@ -108,6 +109,10 @@ export function createChatManagerTAORDeps(
         };
         yield { type: 'done' };
       } catch (error) {
+        await handleError(error, {
+          module: 'query:taorAdapter',
+          action: 'callModel',
+        });
         logger.error('TAORAdapter callModel failed', { error: String(error) });
         throw error;
       }

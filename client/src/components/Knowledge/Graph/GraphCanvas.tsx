@@ -83,7 +83,6 @@ export const GraphCanvas = memo(function GraphCanvas({
 
     // Run force simulation (simple n-body)
     const nodesArr = Array.from(nodeMap.values());
-    const focusId = focusNode;
     const runSim = () => {
       const repulsion = 500;
       const attraction = 0.01;

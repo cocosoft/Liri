@@ -54,6 +54,17 @@ import {
   handleCronRuns,
 } from './cron-handlers';
 
+// Usage handlers
+import { handleGetUsage } from './usage-handlers';
+
+// Inbox handlers
+import {
+  handleListInbox,
+  handleInboxCount,
+  handleGetInbox,
+  handleReplyInbox,
+} from './inbox-handlers';
+
 // Channel handlers（直接函数调用，部分需要 broadcastEvent 回调）
 import {
   handleListChannels,
@@ -806,11 +817,11 @@ export async function dispatchRoute(
     );
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/memory\/(.+)$/)) {
+  if (method === 'GET' && url.match(/^\/v1\/memory\/([^/]+)$/)) {
     await self['handleGetMemory'](
       req,
       res,
-      url.match(/^\/v1\/memory\/(.+)$/)![1]
+      url.match(/^\/v1\/memory\/([^/]+)$/)![1]
     );
     return true;
   }
@@ -1942,6 +1953,33 @@ export async function dispatchRoute(
     await self['handleSessionsSummary'](req, res);
     return true;
   }
+
+  // ---- Usage Stats ----
+  if (method === 'GET' && url.startsWith('/v1/usage')) {
+    await handleGetUsage(req, res, handlerCtx);
+    return true;
+  }
+
+  // ---- Inbox ----
+  if (url === '/v1/inbox' && method === 'GET') {
+    await handleListInbox(req, res, handlerCtx);
+    return true;
+  }
+  if (url === '/v1/inbox/count' && method === 'GET') {
+    await handleInboxCount(req, res, handlerCtx);
+    return true;
+  }
+  if (url.startsWith('/v1/inbox/') && url !== '/v1/inbox/count') {
+    if (url.endsWith('/reply') && method === 'POST') {
+      await handleReplyInbox(req, res, handlerCtx);
+      return true;
+    }
+    if (method === 'GET') {
+      await handleGetInbox(req, res, handlerCtx);
+      return true;
+    }
+  }
+
   if (method === 'GET' && url === '/v1/monitor/otel/metrics') {
     await self['handleOTelMetrics'](req, res);
     return true;

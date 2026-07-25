@@ -54,6 +54,18 @@ export const FEATURE_FLAGS = {
   /** 主动模式 */
   PROACTIVE: false,
 
+  // ───── Loop 系统（Phase 1-6）─────
+  /** Goal-based Loop (/goal 命令) */
+  LOOP_GOAL: true,
+  /** Auto Verify Skill 集成 */
+  LOOP_AUTO_VERIFY: true,
+  /** Time-based Loop (/loop 命令) */
+  LOOP_TIME: true,
+  /** 模型路由自动选择 */
+  LOOP_MODEL_ROUTING: true,
+  /** Proactive Loop (Webhook) */
+  LOOP_PROACTIVE: false,
+
   // ───── 系统模式 ─────
   /** 桥接模式 */
   BRIDGE_MODE: false,
@@ -71,6 +83,8 @@ export const FEATURE_FLAGS = {
   KAIROS_PUSH_NOTIFICATION: false,
   /** 沙箱模式 */
   SANDBOX: true,
+  /** 离线/无人值守模式：所有交互降级为 Inbox 排队，计划自动审批 */
+  UNATTENDED_MODE: false,
 
   // ───── 功能系统 ─────
   /** 插件系统 */

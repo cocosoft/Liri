@@ -22,12 +22,15 @@ interface BuddySVGProps {
 }
 
 /** 稀有度对应的视觉效果 */
-const RARITY_EFFECTS: Record<BuddyRarity, {
-  glow: string;
-  ring: string;
-  border: string;
-  bgGradient: [string, string];
-}> = {
+const RARITY_EFFECTS: Record<
+  BuddyRarity,
+  {
+    glow: string;
+    ring: string;
+    border: string;
+    bgGradient: [string, string];
+  }
+> = {
   common: {
     glow: "none",
     ring: "none",

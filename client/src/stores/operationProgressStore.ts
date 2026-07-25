@@ -43,10 +43,15 @@ export const useOperationProgressStore = create<OperationProgressState>(
       sseService.on("dream:phase:changed", (data) => {
         const phase = data.phase as string;
         const label =
-          phase === "gather" ? "收集数据" :
-          phase === "analyze" ? "分析中" :
-          phase === "write" ? "写入记忆" :
-          phase === "index" ? "刷新索引" : "处理中";
+          phase === "gather"
+            ? "收集数据"
+            : phase === "analyze"
+              ? "分析中"
+              : phase === "write"
+                ? "写入记忆"
+                : phase === "index"
+                  ? "刷新索引"
+                  : "处理中";
         set((s) => ({
           dreamPhase: phase,
           dreamPhasesDone: [...new Set([...s.dreamPhasesDone, phase])],

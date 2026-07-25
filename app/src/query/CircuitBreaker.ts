@@ -323,6 +323,19 @@ export class CircuitBreaker {
       trippedAt: this.trippedAt,
     };
   }
+
+  /**
+   * 从检查点恢复状态
+   */
+  restoreState(s: ReturnType<CircuitBreaker['getState']>): void {
+    this.state = s.state;
+    this.failureCount = s.failureCount;
+    this.consecutiveSameErrorCount = s.consecutiveSameErrorCount;
+    this.lastError = s.lastError;
+    this.totalFailures = s.totalFailures;
+    this.totalSuccesses = s.totalSuccesses;
+    this.trippedAt = s.trippedAt;
+  }
 }
 
 /** 工厂函数 */

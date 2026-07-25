@@ -19,6 +19,7 @@ import {
   CouncilIcon,
   OfficeIcon,
   CalendarIcon,
+  MailIcon,
   BuddyIcon,
 } from "../../assets/icons";
 
@@ -33,7 +34,6 @@ interface MenuItem {
 const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
   { id: "home", label: "首页", icon: HomeIcon, path: "/" },
   { id: "chat", label: "聊天", icon: ChatIcon, path: "/chat" },
-  { id: "liri", label: "Liri", icon: BuddyIcon, path: "/liri" },
   { id: "calendar", label: "日历", icon: CalendarIcon, path: "/calendar" },
   { id: "office", label: "办公", icon: OfficeIcon, path: "/office" },
   { id: "media", label: "媒体", icon: ImageIcon, path: "/media" },
@@ -75,6 +75,10 @@ const MANAGEMENT_ITEMS: MenuItem[] = [
 ];
 
 const SYSTEM_ITEMS: MenuItem[] = [
+  { id: "liri", label: "Liri", icon: BuddyIcon, path: "/liri" },
+  { id: "inbox", label: "Inbox", icon: MailIcon, path: "/inbox" },
+  { id: "loops", label: "Loops", icon: BuddyIcon, path: "/loops" },
+  { id: "usage", label: "用量", icon: BuddyIcon, path: "/usage" },
   { id: "theme", label: "主题", icon: ThemeIcon },
   { id: "settings", label: "设置", icon: SettingsIcon, path: "/settings" },
 ];

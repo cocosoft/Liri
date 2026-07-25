@@ -5,6 +5,7 @@
  */
 import { create } from "zustand";
 import { buddyService } from "../services/buddyService";
+import { sseService } from "../services/sseService";
 import { handleClientError } from "@/utils/handleError";
 import type { BuddyCompanion, BuddyInteractionResult } from "../types";
 
@@ -83,3 +84,37 @@ export const useBuddyStore = create<BuddyStore>((set) => ({
     }
   },
 }));
+
+// ── 梦境完成 → 伙伴经验自动增长 ──
+sseService.on("dream:cycle:completed", (data) => {
+  const xp = (data.xp as number) ?? 0;
+  if (xp <= 0) return;
+  const state = useBuddyStore.getState();
+  const companion = state.companion;
+  const stats = state.stats;
+  if (!companion) return;
+
+  // 更新伙伴经验
+  const newExp = companion.experience + xp;
+  let newLevel = companion.level;
+  let remainingExp = companion.experienceToNext - xp;
+  while (remainingExp <= 0) {
+    newLevel++;
+    remainingExp += companion.experienceToNext * 2;
+  }
+  useBuddyStore.setState({
+    companion: {
+      ...companion,
+      experience: newExp,
+      level: newLevel,
+      experienceToNext: companion.experienceToNext,
+    },
+    stats: stats
+      ? {
+          ...stats,
+          dreamsCompleted: stats.dreamsCompleted + 1,
+          totalXp: stats.totalXp + xp,
+        }
+      : stats,
+  });
+});

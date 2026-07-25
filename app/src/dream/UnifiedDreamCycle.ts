@@ -397,12 +397,14 @@ export class UnifiedDreamCycle {
         success: status === 'completed',
       });
       try {
+        const xpGained = sessionsProcessed * 10 + memoriesCreated * 5 + insights.length * 3;
         broadcastEvent('dream:cycle:completed', {
           cycleId,
           status,
           sessionsProcessed,
           memoriesCreated,
           insights: insights.slice(0, 5),
+          xp: xpGained,
         });
       } catch {
         /* SSE 不可用 */

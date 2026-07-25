@@ -6,6 +6,7 @@ import BuddyEvolution from "../Buddy/BuddyEvolution";
 import BuddyDreamDetail from "../Buddy/BuddyDreamDetail";
 import { useBuddyStore } from "../../stores/buddyStore";
 import { useOperationProgressStore } from "../../stores/operationProgressStore";
+import { memoryService } from "../../services/memoryService";
 import {
   STAT_LABELS,
   SPECIES_MAP,
@@ -47,6 +48,7 @@ function LiriPage() {
   const _init = useOperationProgressStore((s) => s._init);
   const setActivePage = useNavigationStore((s) => s.setActivePage);
   const [message, setMessage] = useState("");
+  const [triggering, setTriggering] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "overview" | "dreams" | "game" | "evolution" | "dreamDetail"
   >("overview");
@@ -59,6 +61,14 @@ function LiriPage() {
 
   const handleInteract = async (action: string) => {
     await interact(action);
+  };
+
+  const handleTriggerDream = async () => {
+    setTriggering(true);
+    try {
+      await memoryService.triggerDream();
+    } catch { /* 已由 memoryStore 处理 */ }
+    setTriggering(false);
   };
 
   // 梦境实时状态
@@ -307,12 +317,21 @@ function LiriPage() {
                   {stats?.interactions ?? 0} 次
                 </div>
               </div>
-              <button
-                onClick={() => setActivePage("agent")}
-                className="mt-3 w-full px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition-colors"
-              >
-                查看 Agent 任务
-              </button>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={handleTriggerDream}
+                  disabled={triggering || !!dreamPhase}
+                  className="flex-1 px-3 py-2 text-sm bg-indigo-100 dark:bg-indigo-900/30 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded transition-colors disabled:opacity-50"
+                >
+                  {triggering ? "触发中..." : dreamPhase ? "梦境进行中" : "🌙 手动触发梦境"}
+                </button>
+                <button
+                  onClick={() => setActivePage("agent")}
+                  className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition-colors"
+                >
+                  Agent
+                </button>
+              </div>
             </div>
 
             {/* 互动区 */}

@@ -1018,7 +1018,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
    */
   private async enrichContext(
     routes: KnowledgeRoute[],
-    maxContextChars: number = 2000,
+    maxContextChars: number = 2000
   ): Promise<KnowledgeRoute[]> {
     if (!this.vectorStore || routes.length === 0) return routes;
 
@@ -1037,11 +1037,17 @@ export class KnowledgeRouter implements IKnowledgeSearch {
 
           if (chunk.parentChunkId) {
             try {
-              const parent = await this.vectorStore!.getById(chunk.parentChunkId);
+              const parent = await this.vectorStore!.getById(
+                chunk.parentChunkId
+              );
               if (parent) {
-                contextParts.push(`[摘要] ${parent.text.slice(0, maxContextChars)}`);
+                contextParts.push(
+                  `[摘要] ${parent.text.slice(0, maxContextChars)}`
+                );
               }
-            } catch { /* 父块不可用则跳过 */ }
+            } catch {
+              /* 父块不可用则跳过 */
+            }
           }
 
           if (chunk.preChunkId) {
@@ -1050,7 +1056,9 @@ export class KnowledgeRouter implements IKnowledgeSearch {
               if (pre) {
                 contextParts.push(`[上文] ${pre.text.slice(-500)}`);
               }
-            } catch { /* 前块不可用则跳过 */ }
+            } catch {
+              /* 前块不可用则跳过 */
+            }
           }
 
           if (chunk.nextChunkId) {
@@ -1059,7 +1067,9 @@ export class KnowledgeRouter implements IKnowledgeSearch {
               if (next) {
                 contextParts.push(`[下文] ${next.text.slice(0, 500)}`);
               }
-            } catch { /* 后块不可用则跳过 */ }
+            } catch {
+              /* 后块不可用则跳过 */
+            }
           }
 
           if (contextParts.length > 0) {
@@ -1073,7 +1083,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
         } catch {
           return route;
         }
-      }),
+      })
     );
   }
 }

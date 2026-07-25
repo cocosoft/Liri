@@ -455,7 +455,12 @@ export function parentChildChunk(
   windowLines: number = 60,
   maxChunkChars: number = 4000
 ): CodeChunk[] {
-  const childChunks = headingAwareChunk(text, filePath, windowLines, maxChunkChars);
+  const childChunks = headingAwareChunk(
+    text,
+    filePath,
+    windowLines,
+    maxChunkChars
+  );
   const parentChunks: CodeChunk[] = [];
 
   // 按标题层级分组：连续同层级（或更深）的块共享同一父块
@@ -463,8 +468,8 @@ export function parentChildChunk(
 
   for (let i = 0; i < childChunks.length; i++) {
     const child = childChunks[i]!;
-    const header = child.contextHeader?.split(" > ").pop() ?? "";
-    const isH2 = child.contextHeader?.startsWith("# ") ?? false;
+    const header = child.contextHeader?.split(' > ').pop() ?? '';
+    const isH2 = child.contextHeader?.startsWith('# ') ?? false;
 
     // 遇到 H1/H2 标题，开新父块
     if (isH2 || !currentParent) {

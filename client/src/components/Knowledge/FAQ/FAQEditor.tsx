@@ -66,7 +66,16 @@ export const FAQEditor = memo(function FAQEditor({
     } finally {
       setSaving(false);
     }
-  }, [question, answer, similarText, tags, category, recommended, onSave, onClose]);
+  }, [
+    question,
+    answer,
+    similarText,
+    tags,
+    category,
+    recommended,
+    onSave,
+    onClose,
+  ]);
 
   const addTag = useCallback(() => {
     const t = tagsInput.trim();
@@ -82,19 +91,31 @@ export const FAQEditor = memo(function FAQEditor({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onClose}
+    >
       <div
         className={`w-full max-w-2xl max-h-[90vh] rounded-xl shadow-xl flex flex-col overflow-hidden ${
-          isDark ? "bg-gray-900 border border-gray-700" : "bg-white border border-gray-200"
+          isDark
+            ? "bg-gray-900 border border-gray-700"
+            : "bg-white border border-gray-200"
         }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className={`flex items-center justify-between px-4 py-3 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}>
-          <h2 className={`text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+        <div
+          className={`flex items-center justify-between px-4 py-3 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}
+        >
+          <h2
+            className={`text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}
+          >
             {entry ? "编辑 FAQ" : "新建 FAQ"}
           </h2>
-          <button onClick={onClose} className={`p-1 rounded hover:bg-gray-700/50 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+          <button
+            onClick={onClose}
+            className={`p-1 rounded hover:bg-gray-700/50 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+          >
             <X size={16} />
           </button>
         </div>
@@ -102,12 +123,18 @@ export const FAQEditor = memo(function FAQEditor({
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {error && (
-            <div className="text-xs text-red-500 bg-red-500/10 rounded px-3 py-2">{error}</div>
+            <div className="text-xs text-red-500 bg-red-500/10 rounded px-3 py-2">
+              {error}
+            </div>
           )}
 
           {/* 问题 */}
           <label className="block">
-            <span className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>问题</span>
+            <span
+              className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}
+            >
+              问题
+            </span>
             <input
               type="text"
               value={question}
@@ -124,14 +151,22 @@ export const FAQEditor = memo(function FAQEditor({
           {/* 答案 — Markdown 双栏 */}
           <label className="block">
             <div className="flex items-center justify-between mb-1">
-              <span className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>答案 (Markdown)</span>
-              <div className={`flex rounded-lg overflow-hidden border text-[10px] ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+              <span
+                className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}
+              >
+                答案 (Markdown)
+              </span>
+              <div
+                className={`flex rounded-lg overflow-hidden border text-[10px] ${isDark ? "border-gray-700" : "border-gray-200"}`}
+              >
                 <button
                   onClick={() => setPreviewTab("edit")}
                   className={`flex items-center gap-1 px-2 py-1 ${
                     previewTab === "edit"
                       ? "bg-blue-500/20 text-blue-500"
-                      : isDark ? "text-gray-500" : "text-gray-400"
+                      : isDark
+                        ? "text-gray-500"
+                        : "text-gray-400"
                   }`}
                 >
                   <Edit3 size={10} /> 编辑
@@ -141,7 +176,9 @@ export const FAQEditor = memo(function FAQEditor({
                   className={`flex items-center gap-1 px-2 py-1 ${
                     previewTab === "preview"
                       ? "bg-blue-500/20 text-blue-500"
-                      : isDark ? "text-gray-500" : "text-gray-400"
+                      : isDark
+                        ? "text-gray-500"
+                        : "text-gray-400"
                   }`}
                 >
                   <Eye size={10} /> 预览
@@ -163,17 +200,25 @@ export const FAQEditor = memo(function FAQEditor({
             ) : (
               <div
                 className={`mt-1 text-sm px-3 py-2 rounded-lg border min-h-[200px] whitespace-pre-wrap ${
-                  isDark ? "bg-gray-800 border-gray-700 text-gray-300" : "bg-gray-50 border-gray-200 text-gray-700"
+                  isDark
+                    ? "bg-gray-800 border-gray-700 text-gray-300"
+                    : "bg-gray-50 border-gray-200 text-gray-700"
                 }`}
               >
-                {answer || <span className={isDark ? "text-gray-600" : "text-gray-400"}>无内容</span>}
+                {answer || (
+                  <span className={isDark ? "text-gray-600" : "text-gray-400"}>
+                    无内容
+                  </span>
+                )}
               </div>
             )}
           </label>
 
           {/* 相似问题 — 批量粘贴 */}
           <label className="block">
-            <span className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+            <span
+              className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}
+            >
               相似问题（每行一个，支持批量粘贴）
             </span>
             <textarea
@@ -191,14 +236,21 @@ export const FAQEditor = memo(function FAQEditor({
 
           {/* 标签 */}
           <div>
-            <span className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>标签</span>
+            <span
+              className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}
+            >
+              标签
+            </span>
             <div className="flex items-center gap-1.5 mt-1">
               <input
                 type="text"
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") { e.preventDefault(); addTag(); }
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addTag();
+                  }
                 }}
                 placeholder="输入后回车添加"
                 className={`text-xs px-2 py-1.5 rounded-lg border outline-none w-32 ${
@@ -211,7 +263,9 @@ export const FAQEditor = memo(function FAQEditor({
                 type="button"
                 onClick={addTag}
                 className={`text-[10px] px-2 py-1 rounded ${
-                  isDark ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  isDark
+                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >
                 +
@@ -221,11 +275,18 @@ export const FAQEditor = memo(function FAQEditor({
                   <span
                     key={t}
                     className={`text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1 ${
-                      isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-700"
+                      isDark
+                        ? "bg-blue-500/20 text-blue-400"
+                        : "bg-blue-100 text-blue-700"
                     }`}
                   >
                     {t}
-                    <button onClick={() => removeTag(t)} className="hover:text-red-400">×</button>
+                    <button
+                      onClick={() => removeTag(t)}
+                      className="hover:text-red-400"
+                    >
+                      ×
+                    </button>
                   </span>
                 ))}
               </div>
@@ -234,7 +295,11 @@ export const FAQEditor = memo(function FAQEditor({
 
           {/* 分类 */}
           <label className="block">
-            <span className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>分类</span>
+            <span
+              className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}
+            >
+              分类
+            </span>
             <input
               type="text"
               value={category}
@@ -249,7 +314,9 @@ export const FAQEditor = memo(function FAQEditor({
           </label>
 
           {/* 推荐 */}
-          <label className={`flex items-center gap-2 cursor-pointer ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+          <label
+            className={`flex items-center gap-2 cursor-pointer ${isDark ? "text-gray-300" : "text-gray-700"}`}
+          >
             <input
               type="checkbox"
               checked={recommended}
@@ -261,11 +328,15 @@ export const FAQEditor = memo(function FAQEditor({
         </div>
 
         {/* Footer */}
-        <div className={`flex items-center justify-end gap-2 px-4 py-3 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+        <div
+          className={`flex items-center justify-end gap-2 px-4 py-3 border-t ${isDark ? "border-gray-700" : "border-gray-200"}`}
+        >
           <button
             onClick={onClose}
             className={`text-xs px-3 py-1.5 rounded-lg ${
-              isDark ? "text-gray-400 hover:bg-gray-800" : "text-gray-500 hover:bg-gray-100"
+              isDark
+                ? "text-gray-400 hover:bg-gray-800"
+                : "text-gray-500 hover:bg-gray-100"
             }`}
           >
             取消

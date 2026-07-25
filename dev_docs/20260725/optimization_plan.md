@@ -4,7 +4,7 @@
 > 遵循模型管理体系：所有模型使用通过 `ModelRouter.resolve(taskType)` + 任务分工配置
 > v2 变更：整合 10 条审查意见 + 补充 OTel/Logger/HandlerError/Token&Cost 监测
 >
-> **执行状态更新: 2026-07-25** | 总体进度: 12/14 完成 (86%)
+> **执行状态更新: 2026-07-25** | 总体进度: 14/14 完成 (100%)
 
 ### 执行状态概览
 
@@ -19,8 +19,8 @@
 | O3 | FAQ 知识类型 | ✅ | FAQService + 8 HTTP 端点 + 前端管理 UI |
 | O4+O6 | 智能分块与上下文丰富 | ✅ | autoChunk + parentChildChunk + enrichContext |
 | O5 | LLM 图谱提取 | ✅ | GraphExtractor + KnowledgeGraph + 前端可视化 |
-| O7 | 嵌入模型扩展 | ⬜ | 配置型任务，通过 UI 注册 Provider + 模型即可 |
-| O8 | 搜索作用域 SearchTarget | ⬜ | 需新增接口，约 1-2 周 |
+| O7 | 嵌入模型扩展 | ✅ | 配置型任务，通过 UI 注册 Provider + 模型即可 |
+| O8 | 搜索作用域 SearchTarget | ✅ | SearchTargetFilter + 标签过滤前后端联通 |
 | O9 | 异步任务队列 | ✅ | TaskQueue 实现 |
 | O10 | 外部数据源连接器 | ✅ | DataSourceConnector + RSSConnector + 前端管理 |
 | O11 | KB 克隆/复制 | ✅ | KnowledgeBaseRegistry.cloneBase/duplicateConfig + KBaseSelector 按钮 |
@@ -36,15 +36,12 @@
 | P2.1 | GraphRAG 可视化 | ✅ | `/knowledge/graph` |
 | P2.2 | AutoRAG 配置 UI | ✅ | `/knowledge/config` |
 | P3.1 | 外部数据源管理 | ✅ | `/knowledge/datasources` |
-| P3.2 | 健康仪表盘增强 | ⬜ | 现有 StatsPanel 已覆盖基础指标 |
+| P3.2 | 健康仪表盘增强 | ✅ | StatsPanel 新增 lintScore 环形图 + 编译质量卡片 |
 | P3.3 | 克隆/复制知识库 | ✅ | KBaseSelector 按钮 |
 
 ### 待完成项
 
-| 编号 | 项 | 预计工时 | 阻塞 |
-|------|---|:---:|------|
-| O7 | 嵌入模型扩展 | 0（配置型） | 无阻塞，通过 UI 注册即可 |
-| O8 | 搜索作用域 SearchTarget | 1-2 周 | 需新设计接口 |
+所有优化项已完成。
 
 ---
 

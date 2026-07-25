@@ -36,7 +36,9 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
         const result = await faqService.search(base, searchQuery);
         setEntries(result.entries);
       } else {
-        const result = await faqService.list(base, { category: category || undefined });
+        const result = await faqService.list(base, {
+          category: category || undefined,
+        });
         setEntries(result.entries);
       }
     } catch {
@@ -46,35 +48,54 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
     }
   }, [base, searchQuery, category]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const handleCreate = useCallback(async (data: {
-    question: string; answer: string; similarQuestions: string[];
-    tags: string[]; category: string; recommended: boolean;
-  }) => {
-    await faqService.create(base, data);
-    await load();
-  }, [base, load]);
+  const handleCreate = useCallback(
+    async (data: {
+      question: string;
+      answer: string;
+      similarQuestions: string[];
+      tags: string[];
+      category: string;
+      recommended: boolean;
+    }) => {
+      await faqService.create(base, data);
+      await load();
+    },
+    [base, load],
+  );
 
-  const handleUpdate = useCallback(async (data: {
-    question: string; answer: string; similarQuestions: string[];
-    tags: string[]; category: string; recommended: boolean;
-  }) => {
-    if (!editingEntry) return;
-    await faqService.update(base, editingEntry.id, data);
-    setEditingEntry(undefined);
-    await load();
-  }, [base, editingEntry, load]);
+  const handleUpdate = useCallback(
+    async (data: {
+      question: string;
+      answer: string;
+      similarQuestions: string[];
+      tags: string[];
+      category: string;
+      recommended: boolean;
+    }) => {
+      if (!editingEntry) return;
+      await faqService.update(base, editingEntry.id, data);
+      setEditingEntry(undefined);
+      await load();
+    },
+    [base, editingEntry, load],
+  );
 
-  const handleDelete = useCallback(async (id: string) => {
-    await faqService.delete(base, id);
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
-    await load();
-  }, [base, load]);
+  const handleDelete = useCallback(
+    async (id: string) => {
+      await faqService.delete(base, id);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      await load();
+    },
+    [base, load],
+  );
 
   const handleBatchDelete = useCallback(async () => {
     if (selectedIds.size === 0) return;
@@ -83,11 +104,14 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
     await load();
   }, [base, selectedIds, load]);
 
-  const handleImport = useCallback(async (format: "csv" | "json", data: string): Promise<FAQImportReport> => {
-    const report = await faqService.import(base, format, data);
-    await load();
-    return report;
-  }, [base, load]);
+  const handleImport = useCallback(
+    async (format: "csv" | "json", data: string): Promise<FAQImportReport> => {
+      const report = await faqService.import(base, format, data);
+      await load();
+      return report;
+    },
+    [base, load],
+  );
 
   const handleRetryEmbed = useCallback(async (id: string) => {
     // 待后端补充 re-embed 端点后实现
@@ -113,7 +137,9 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
   return (
     <div className="flex h-full">
       {/* 左侧分类过滤 */}
-      <div className={`w-40 shrink-0 p-3 border-r ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+      <div
+        className={`w-40 shrink-0 p-3 border-r ${isDark ? "border-gray-700" : "border-gray-200"}`}
+      >
         <FAQCategoryFilter
           categories={categories}
           selected={category}
@@ -125,11 +151,15 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
       {/* 右侧主区域 */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* 工具栏 */}
-        <div className={`flex items-center justify-between px-4 py-2.5 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+        <div
+          className={`flex items-center justify-between px-4 py-2.5 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}
+        >
           <div className="flex items-center gap-2">
             <FAQSearchBar onSearch={setSearchQuery} isDark={isDark} />
             {searchQuery && (
-              <span className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+              <span
+                className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
+              >
                 {entries.length} 条结果
               </span>
             )}
@@ -160,7 +190,10 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
               导入
             </button>
             <button
-              onClick={() => { setEditingEntry(undefined); setShowEditor(true); }}
+              onClick={() => {
+                setEditingEntry(undefined);
+                setShowEditor(true);
+              }}
               className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
             >
               <Plus size={12} />
@@ -172,7 +205,9 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
         {/* 列表 */}
         <div className="flex-1 overflow-y-auto px-3 py-2">
           {loading ? (
-            <div className={`text-center py-12 text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+            <div
+              className={`text-center py-12 text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}
+            >
               加载中...
             </div>
           ) : (
@@ -181,7 +216,10 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
               selectedIds={selectedIds}
               onToggleSelect={toggleSelect}
               onToggleAll={toggleAll}
-              onEdit={(e) => { setEditingEntry(e); setShowEditor(true); }}
+              onEdit={(e) => {
+                setEditingEntry(e);
+                setShowEditor(true);
+              }}
               onDelete={handleDelete}
               onRetryEmbed={handleRetryEmbed}
               isDark={isDark}
@@ -197,7 +235,10 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
           base={base}
           entry={editingEntry}
           onSave={editingEntry ? handleUpdate : handleCreate}
-          onClose={() => { setShowEditor(false); setEditingEntry(undefined); }}
+          onClose={() => {
+            setShowEditor(false);
+            setEditingEntry(undefined);
+          }}
         />
       )}
 

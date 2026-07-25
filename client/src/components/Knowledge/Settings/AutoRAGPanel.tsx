@@ -17,8 +17,12 @@ export const AutoRAGPanel = memo(function AutoRAGPanel({
   const [error, setError] = useState("");
 
   useEffect(() => {
-    knowledgeConfigService.get()
-      .then((c) => { setConfig(c); setEdited(c); })
+    knowledgeConfigService
+      .get()
+      .then((c) => {
+        setConfig(c);
+        setEdited(c);
+      })
       .catch((e) => setError(e instanceof Error ? e.message : "加载失败"))
       .finally(() => setLoading(false));
   }, []);
@@ -63,17 +67,25 @@ export const AutoRAGPanel = memo(function AutoRAGPanel({
   return (
     <div className="space-y-5 p-1">
       {error && (
-        <div className="text-xs text-red-500 bg-red-500/10 rounded px-3 py-2">{error}</div>
+        <div className="text-xs text-red-500 bg-red-500/10 rounded px-3 py-2">
+          {error}
+        </div>
       )}
 
       {/* 搜索权重 */}
       <fieldset>
-        <legend className={`text-xs font-semibold mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+        <legend
+          className={`text-xs font-semibold mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
+        >
           检索通道权重
         </legend>
         <div className="space-y-3">
           <label className="flex items-center justify-between">
-            <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>关键词权重</span>
+            <span
+              className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+            >
+              关键词权重
+            </span>
             <div className="flex items-center gap-2">
               <input
                 type="range"
@@ -81,16 +93,24 @@ export const AutoRAGPanel = memo(function AutoRAGPanel({
                 max="1"
                 step="0.05"
                 value={s?.keywordWeight ?? 0.4}
-                onChange={(e) => updateSearch("keywordWeight", parseFloat(e.target.value))}
+                onChange={(e) =>
+                  updateSearch("keywordWeight", parseFloat(e.target.value))
+                }
                 className="w-24"
               />
-              <span className={`text-xs w-8 text-right font-mono ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+              <span
+                className={`text-xs w-8 text-right font-mono ${isDark ? "text-gray-300" : "text-gray-600"}`}
+              >
                 {s?.keywordWeight ?? 0.4}
               </span>
             </div>
           </label>
           <label className="flex items-center justify-between">
-            <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>语义权重</span>
+            <span
+              className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+            >
+              语义权重
+            </span>
             <div className="flex items-center gap-2">
               <input
                 type="range"
@@ -98,16 +118,24 @@ export const AutoRAGPanel = memo(function AutoRAGPanel({
                 max="1"
                 step="0.05"
                 value={s?.semanticWeight ?? 0.6}
-                onChange={(e) => updateSearch("semanticWeight", parseFloat(e.target.value))}
+                onChange={(e) =>
+                  updateSearch("semanticWeight", parseFloat(e.target.value))
+                }
                 className="w-24"
               />
-              <span className={`text-xs w-8 text-right font-mono ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+              <span
+                className={`text-xs w-8 text-right font-mono ${isDark ? "text-gray-300" : "text-gray-600"}`}
+              >
                 {s?.semanticWeight ?? 0.6}
               </span>
             </div>
           </label>
           <label className="flex items-center justify-between">
-            <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>语义相似度阈值</span>
+            <span
+              className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+            >
+              语义相似度阈值
+            </span>
             <div className="flex items-center gap-2">
               <input
                 type="range"
@@ -115,16 +143,24 @@ export const AutoRAGPanel = memo(function AutoRAGPanel({
                 max="1"
                 step="0.05"
                 value={s?.semanticThreshold ?? 0.3}
-                onChange={(e) => updateSearch("semanticThreshold", parseFloat(e.target.value))}
+                onChange={(e) =>
+                  updateSearch("semanticThreshold", parseFloat(e.target.value))
+                }
                 className="w-24"
               />
-              <span className={`text-xs w-8 text-right font-mono ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+              <span
+                className={`text-xs w-8 text-right font-mono ${isDark ? "text-gray-300" : "text-gray-600"}`}
+              >
                 {s?.semanticThreshold ?? 0.3}
               </span>
             </div>
           </label>
           <label className="flex items-center justify-between">
-            <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>知识文档加成</span>
+            <span
+              className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+            >
+              知识文档加成
+            </span>
             <div className="flex items-center gap-2">
               <input
                 type="range"
@@ -132,10 +168,14 @@ export const AutoRAGPanel = memo(function AutoRAGPanel({
                 max="1"
                 step="0.05"
                 value={s?.knowledgeDocBoost ?? 0.5}
-                onChange={(e) => updateSearch("knowledgeDocBoost", parseFloat(e.target.value))}
+                onChange={(e) =>
+                  updateSearch("knowledgeDocBoost", parseFloat(e.target.value))
+                }
                 className="w-24"
               />
-              <span className={`text-xs w-8 text-right font-mono ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+              <span
+                className={`text-xs w-8 text-right font-mono ${isDark ? "text-gray-300" : "text-gray-600"}`}
+              >
                 {s?.knowledgeDocBoost ?? 0.5}
               </span>
             </div>
@@ -145,30 +185,64 @@ export const AutoRAGPanel = memo(function AutoRAGPanel({
 
       {/* 向量存储 */}
       <fieldset>
-        <legend className={`text-xs font-semibold mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+        <legend
+          className={`text-xs font-semibold mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
+        >
           向量存储
         </legend>
         <div className="space-y-3">
           <label className="flex items-center justify-between">
-            <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Top-K</span>
+            <span
+              className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+            >
+              Top-K
+            </span>
             <input
               type="number"
               min={1}
               max={50}
               value={vs?.topK ?? 10}
-              onChange={(e) => setEdited(edited ? { ...edited, vectorStore: { ...vs ?? { type: "jsonl", topK: 10, minScore: 0.3 }, topK: parseInt(e.target.value) || 10 } } : null)}
+              onChange={(e) =>
+                setEdited(
+                  edited
+                    ? {
+                        ...edited,
+                        vectorStore: {
+                          ...(vs ?? { type: "jsonl", topK: 10, minScore: 0.3 }),
+                          topK: parseInt(e.target.value) || 10,
+                        },
+                      }
+                    : null,
+                )
+              }
               className={`text-xs w-16 px-2 py-1 rounded border text-right ${isDark ? "bg-gray-800 border-gray-700 text-gray-200" : "bg-white border-gray-200"}`}
             />
           </label>
           <label className="flex items-center justify-between">
-            <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>最低相似度</span>
+            <span
+              className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+            >
+              最低相似度
+            </span>
             <input
               type="number"
               min={0}
               max={1}
               step={0.05}
               value={vs?.minScore ?? 0.3}
-              onChange={(e) => setEdited(edited ? { ...edited, vectorStore: { ...vs ?? { type: "jsonl", topK: 10, minScore: 0.3 }, minScore: parseFloat(e.target.value) || 0.3 } } : null)}
+              onChange={(e) =>
+                setEdited(
+                  edited
+                    ? {
+                        ...edited,
+                        vectorStore: {
+                          ...(vs ?? { type: "jsonl", topK: 10, minScore: 0.3 }),
+                          minScore: parseFloat(e.target.value) || 0.3,
+                        },
+                      }
+                    : null,
+                )
+              }
               className={`text-xs w-16 px-2 py-1 rounded border text-right ${isDark ? "bg-gray-800 border-gray-700 text-gray-200" : "bg-white border-gray-200"}`}
             />
           </label>
@@ -177,17 +251,35 @@ export const AutoRAGPanel = memo(function AutoRAGPanel({
 
       {/* 编译 */}
       <fieldset>
-        <legend className={`text-xs font-semibold mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+        <legend
+          className={`text-xs font-semibold mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
+        >
           编译
         </legend>
         <label className="flex items-center justify-between">
-          <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>每文件最大页数</span>
+          <span
+            className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+          >
+            每文件最大页数
+          </span>
           <input
             type="number"
             min={1}
             max={20}
             value={edited?.compiler.maxPagesPerFile ?? 8}
-            onChange={(e) => setEdited(edited ? { ...edited, compiler: { ...edited.compiler, maxPagesPerFile: parseInt(e.target.value) || 8 } } : null)}
+            onChange={(e) =>
+              setEdited(
+                edited
+                  ? {
+                      ...edited,
+                      compiler: {
+                        ...edited.compiler,
+                        maxPagesPerFile: parseInt(e.target.value) || 8,
+                      },
+                    }
+                  : null,
+              )
+            }
             className={`text-xs w-16 px-2 py-1 rounded border text-right ${isDark ? "bg-gray-800 border-gray-700 text-gray-200" : "bg-white border-gray-200"}`}
           />
         </label>

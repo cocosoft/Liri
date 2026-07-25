@@ -19,6 +19,7 @@ import {
   CouncilIcon,
   OfficeIcon,
   CalendarIcon,
+  BuddyIcon,
 } from "../../assets/icons";
 
 interface MenuItem {
@@ -32,6 +33,7 @@ interface MenuItem {
 const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
   { id: "home", label: "首页", icon: HomeIcon, path: "/" },
   { id: "chat", label: "聊天", icon: ChatIcon, path: "/chat" },
+  { id: "liri", label: "Liri", icon: BuddyIcon, path: "/liri" },
   { id: "calendar", label: "日历", icon: CalendarIcon, path: "/calendar" },
   { id: "office", label: "办公", icon: OfficeIcon, path: "/office" },
   { id: "media", label: "媒体", icon: ImageIcon, path: "/media" },

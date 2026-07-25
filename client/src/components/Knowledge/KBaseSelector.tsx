@@ -102,7 +102,10 @@ function KBaseSelector({
               <div className="absolute -top-1 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 {onCloneBase && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); onCloneBase(base.name); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCloneBase(base.name);
+                    }}
                     className="w-4 h-4 rounded-full bg-green-500 text-white text-[10px] flex items-center justify-center"
                     title="克隆知识库（含文档）"
                   >
@@ -111,7 +114,10 @@ function KBaseSelector({
                 )}
                 {onDuplicateBase && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); onDuplicateBase(base.name); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDuplicateBase(base.name);
+                    }}
                     className="w-4 h-4 rounded-full bg-blue-500 text-white text-[10px] flex items-center justify-center"
                     title="复制配置（仅配置）"
                   >

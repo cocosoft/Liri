@@ -107,6 +107,24 @@ class SSEService {
         const msg = e as MessageEvent;
         this.dispatch("heartbeat", this.parse(msg.data));
       });
+
+      // ── 后台操作进度事件 ──
+      const progressEvents = [
+        "dream:phase:changed",
+        "dream:cycle:completed",
+        "dream:cycle:failed",
+        "knowledge:compile:started",
+        "knowledge:compile:progress",
+        "knowledge:compile:completed",
+        "knowledge:compile:aborted",
+        "task:queue:progress",
+      ];
+      for (const evt of progressEvents) {
+        this.eventSource.addEventListener(evt, (e: Event) => {
+          const msg = e as MessageEvent;
+          this.dispatch(evt, this.parse(msg.data));
+        });
+      }
     } catch {
       // 创建 EventSource 失败，直接进入重连
       this.scheduleReconnect();

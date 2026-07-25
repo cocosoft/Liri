@@ -39,6 +39,7 @@ export interface ListState {
   batchTagStatus: "idle" | "saving" | "error";
   compileStatus: "idle" | "compiling" | "success" | "error";
   compileMessage: string;
+  searchTags: string[];
   total: number;
   page: number;
   pageSize: number;
@@ -73,6 +74,7 @@ export type ListAction =
     }
   | { type: "SET_COMPILE_MESSAGE"; message: string }
   | { type: "CLEAR_COMPILE" }
+  | { type: "SET_SEARCH_TAGS"; tags: string[] }
   | { type: "SET_PAGE"; page: number };
 
 function listReducer(state: ListState, action: ListAction): ListState {
@@ -155,6 +157,8 @@ function listReducer(state: ListState, action: ListAction): ListState {
       return { ...state, compileMessage: action.message };
     case "CLEAR_COMPILE":
       return { ...state, compileStatus: "idle", compileMessage: "" };
+    case "SET_SEARCH_TAGS":
+      return { ...state, searchTags: action.tags };
     case "SET_PAGE":
       return { ...state, page: action.page };
     default:
@@ -198,6 +202,7 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
     batchTagStatus: "idle",
     compileStatus: "idle",
     compileMessage: "",
+    searchTags: [],
     total: 0,
     page: 0,
     pageSize: 50,
@@ -226,6 +231,7 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
     batchTagStatus,
     compileStatus,
     compileMessage,
+    searchTags,
     total,
     page,
     pageSize,
@@ -278,28 +284,19 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
 
   // ── W3: 服务端搜索 + U1: 结果写入 store ──
   const handleSearch = useCallback(
-    async (query: string, base: string | null) => {
+    async (query: string, base: string | null, searchTags?: string[]) => {
       if (!query.trim()) return;
       dispatch({ type: "SET_SEARCHING", searching: true });
-      // UX U1: 同步写入 store 供 KnowledgePage 右侧面板展示
       useKnowledgeStore.getState().setListSearch([], query.trim(), true);
       try {
-        const results = await knowledgeService.hybridSearch(
+        const hits = await knowledgeService.hybridSearch(
           query.trim(),
           base || undefined,
+          undefined, // domain
+          searchTags,
         );
-        const mapped: KnowledgeFile[] = results.map((r) => ({
-          id: r.id,
-          title: r.title,
-          content: r.content,
-          category: r.category,
-          tags: [],
-          docPath: r.docPath || r.id,
-          base: base || "",
-          size: 0,
-          source: "manual" as const,
-          created_at: Date.now(),
-          updated_at: Date.now(),
+        const mapped: KnowledgeFile[] = hits.map((hit) => ({
+          ...hit.file,
         }));
         dispatch({ type: "SET_SEARCH_RESULTS", results: mapped });
         useKnowledgeStore.getState().setListSearch(mapped, query.trim(), false);
@@ -379,7 +376,10 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
   }
 
   async function handleCloneBase(name: string) {
-    const newName = prompt("请输入新知识库名称（克隆含文档和索引）:", `${name}-clone`);
+    const newName = prompt(
+      "请输入新知识库名称（克隆含文档和索引）:",
+      `${name}-clone`,
+    );
     if (!newName?.trim()) return;
     try {
       await knowledgeService.cloneBase(name, newName.trim());
@@ -391,7 +391,10 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
   }
 
   async function handleDuplicateBase(name: string) {
-    const newName = prompt("请输入新知识库名称（仅复制配置，不含文档）:", `${name}-copy`);
+    const newName = prompt(
+      "请输入新知识库名称（仅复制配置，不含文档）:",
+      `${name}-copy`,
+    );
     if (!newName?.trim()) return;
     try {
       await knowledgeService.duplicateBase(name, newName.trim());
@@ -462,6 +465,7 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
     batchTagStatus,
     compileStatus,
     compileMessage,
+    searchTags,
     total,
     page,
     pageSize,

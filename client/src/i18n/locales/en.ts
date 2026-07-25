@@ -137,11 +137,13 @@ const en = {
     deleteMessage: "Delete Message",
     confirmDeleteMessage: "Delete this message?",
     rollback: "Rollback",
-    confirmRollback: "Rollback to before this message? All subsequent replies will be removed.",
+    confirmRollback:
+      "Rollback to before this message? All subsequent replies will be removed.",
     rollbackLimitReached: "Rollback limit reached (max 5)",
     remainingRollbacks: "{{n}} rollbacks remaining",
     rollbackDone: "Rolled back",
-    rollbackUndoFailed: "⚠️ File operations for {{count}} round(s) could not be rolled back",
+    rollbackUndoFailed:
+      "⚠️ File operations for {{count}} round(s) could not be rolled back",
     reply: "Reply",
     pinned: "Pinned",
     unpin: "Unpin",

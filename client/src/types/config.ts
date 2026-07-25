@@ -19,6 +19,10 @@ export interface KnowledgeConfigData {
   search: KnowledgeSearchConfig;
   linter: { staleDays: number; maxIssues: number };
   scheduler: { intervalMs: number; runOnStart: boolean };
-  compiler: { maxPagesPerFile: number; minPagesPerFile: number; qualityLintThreshold: number };
+  compiler: {
+    maxPagesPerFile: number;
+    minPagesPerFile: number;
+    qualityLintThreshold: number;
+  };
   vectorStore?: VectorStoreConfig;
 }

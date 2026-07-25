@@ -11,9 +11,14 @@ interface GraphPageProps {
 }
 
 const DOMAIN_COLORS = [
-  "bg-blue-500", "bg-purple-500", "bg-emerald-500",
-  "bg-amber-500", "bg-pink-500", "bg-cyan-500",
-  "bg-red-500", "bg-indigo-500",
+  "bg-blue-500",
+  "bg-purple-500",
+  "bg-emerald-500",
+  "bg-amber-500",
+  "bg-pink-500",
+  "bg-cyan-500",
+  "bg-red-500",
+  "bg-indigo-500",
 ];
 
 export function GraphPage({ isDark }: GraphPageProps) {
@@ -43,12 +48,15 @@ export function GraphPage({ isDark }: GraphPageProps) {
     }
   }, [selectedDomain, selectedType]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const filteredEdges = useMemo(() => {
     let result = edges;
     if (selectedType) result = result.filter((e) => e.type === selectedType);
-    if (selectedDomain) result = result.filter((e) => e.domain === selectedDomain);
+    if (selectedDomain)
+      result = result.filter((e) => e.domain === selectedDomain);
     return result;
   }, [edges, selectedType, selectedDomain]);
 
@@ -60,7 +68,9 @@ export function GraphPage({ isDark }: GraphPageProps) {
   return (
     <div className="flex h-full">
       {/* 左侧面板：统计 + 过滤 */}
-      <div className={`w-48 shrink-0 p-3 border-r overflow-y-auto ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+      <div
+        className={`w-48 shrink-0 p-3 border-r overflow-y-auto ${isDark ? "border-gray-700" : "border-gray-200"}`}
+      >
         <GraphFilterPanel
           stats={stats}
           selectedType={selectedType}
@@ -73,10 +83,18 @@ export function GraphPage({ isDark }: GraphPageProps) {
 
       {/* 中间：SVG 图谱 + 边列表 */}
       <div className="flex-1 flex flex-col min-w-0">
-        <div className={`flex items-center justify-between px-4 py-2 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}>
-          <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+        <div
+          className={`flex items-center justify-between px-4 py-2 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}
+        >
+          <span
+            className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
+          >
             {filteredEdges.length} 条边
-            {focusNode && <span className="ml-1 text-blue-400">| 聚焦: {focusNode.slice(0, 30)}</span>}
+            {focusNode && (
+              <span className="ml-1 text-blue-400">
+                | 聚焦: {focusNode.slice(0, 30)}
+              </span>
+            )}
           </span>
           <button
             onClick={load}
@@ -89,15 +107,21 @@ export function GraphPage({ isDark }: GraphPageProps) {
         </div>
 
         {error && (
-          <div className="text-xs text-red-500 px-4 py-2 bg-red-500/10">{error}</div>
+          <div className="text-xs text-red-500 px-4 py-2 bg-red-500/10">
+            {error}
+          </div>
         )}
 
         {/* SVG 图谱画布 */}
         <div className="flex-1 min-h-0">
           {loading ? (
-            <div className="flex items-center justify-center h-full text-sm text-gray-500">加载中...</div>
+            <div className="flex items-center justify-center h-full text-sm text-gray-500">
+              加载中...
+            </div>
           ) : edges.length === 0 ? (
-            <div className={`flex items-center justify-center h-full text-sm ${isDark ? "text-gray-600" : "text-gray-400"}`}>
+            <div
+              className={`flex items-center justify-center h-full text-sm ${isDark ? "text-gray-600" : "text-gray-400"}`}
+            >
               暂无图谱数据。编译知识库后自动生成。
             </div>
           ) : (
@@ -113,7 +137,9 @@ export function GraphPage({ isDark }: GraphPageProps) {
 
       {/* 右侧：节点详情面板 */}
       {focusNode && (
-        <div className={`w-56 shrink-0 p-3 border-l overflow-y-auto ${isDark ? "border-gray-700" : "border-gray-200"}`}>
+        <div
+          className={`w-56 shrink-0 p-3 border-l overflow-y-auto ${isDark ? "border-gray-700" : "border-gray-200"}`}
+        >
           <GraphNodeDetail
             edges={focusEdges}
             focusNode={focusNode}

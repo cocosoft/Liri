@@ -54,8 +54,7 @@ sseService.on("messages:deleted", (data: Record<string, unknown>) => {
   const state = useChatStore.getState();
   // 从消息中推断当前会话（消息携带 session_id）
   const hasMessagesFromSession =
-    sessionId != null &&
-    state.messages.some((m) => m.session_id === sessionId);
+    sessionId != null && state.messages.some((m) => m.session_id === sessionId);
   if (!hasMessagesFromSession) return;
 
   const deletedSet = new Set(messageIds);

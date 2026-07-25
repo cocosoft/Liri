@@ -10,6 +10,7 @@ import KeyboardShortcutsHelp from "./components/common/KeyboardShortcutsHelp";
 import { FirstRunWizard } from "./components/views/FirstRunWizard";
 import { LLMSetupGuide } from "./components/views/LLMSetupGuide";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
+import { OperationStatusBar } from "./components/common/OperationStatusBar";
 import { TooltipProvider } from "./components/ui/tooltip";
 import routes from "./routes";
 import { useConfigStore } from "./stores/configStore";
@@ -154,6 +155,7 @@ function App() {
     <TooltipProvider>
       <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
         <Header />
+        <OperationStatusBar />
         <div className="flex flex-1 overflow-hidden">
           <div className="hidden lg:block">
             <Sidebar />

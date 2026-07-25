@@ -16,6 +16,7 @@ export interface KnowledgeSearchResult {
   score: number;
   matchType: string;
   docPath: string;
+  tags?: string[];
 }
 
 export type KnowledgeSource =

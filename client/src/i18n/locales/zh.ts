@@ -142,7 +142,8 @@ const zh = {
     rollbackLimitReached: "回退次数已用完（最多 5 次）",
     remainingRollbacks: "剩余 {{n}} 次回退",
     rollbackDone: "已回退",
-    rollbackUndoFailed: "⚠️ {{count}} 个轮次的文件操作未能回退，文件可能未完全恢复",
+    rollbackUndoFailed:
+      "⚠️ {{count}} 个轮次的文件操作未能回退，文件可能未完全恢复",
     reply: "回复",
     pinned: "已固定",
     unpin: "取消固定",

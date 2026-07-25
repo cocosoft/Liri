@@ -16,6 +16,7 @@ interface HealthMetrics {
   structureErrors: number;
   consistencyWarnings: number;
   qualityIssues: number;
+  lintScore: number;
 }
 
 interface StatsPanelProps {
@@ -66,7 +67,7 @@ function StatsPanel({
     <div className="flex-1 overflow-y-auto p-6">
       <div className="max-w-3xl mx-auto space-y-4">
         {/* 概览指标 */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div className={`${cardBg} rounded-lg p-4`}>
             <h3 className={`text-sm font-semibold ${textPrimary} mb-3`}>
               知识库概览
@@ -92,6 +93,60 @@ function StatsPanel({
               </div>
             </div>
           </div>
+
+          {/* 编译质量卡片 */}
+          {health && (
+            <div className={`${cardBg} rounded-lg p-4`}>
+              <h3 className={`text-sm font-semibold ${textPrimary} mb-3`}>
+                编译质量
+              </h3>
+              <div className="flex flex-col items-center">
+                <div
+                  className="relative w-20 h-20 mb-2"
+                  title={`Lint 分数: ${health.lintScore}/100`}
+                >
+                  <svg className="w-20 h-20 -rotate-90" viewBox="0 0 36 36">
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="15.5"
+                      fill="none"
+                      stroke={isDark ? "#374151" : "#e5e7eb"}
+                      strokeWidth="3"
+                    />
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="15.5"
+                      fill="none"
+                      stroke={
+                        health.lintScore >= 80
+                          ? "#22c55e"
+                          : health.lintScore >= 50
+                            ? "#eab308"
+                            : "#ef4444"
+                      }
+                      strokeWidth="3"
+                      strokeDasharray={`${health.lintScore} ${100 - health.lintScore}`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span
+                    className={`absolute inset-0 flex items-center justify-center text-lg font-bold ${textPrimary}`}
+                  >
+                    {health.lintScore}
+                  </span>
+                </div>
+                <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                  {health.lintScore >= 80
+                    ? "优秀"
+                    : health.lintScore >= 50
+                      ? "中等"
+                      : "待改善"}
+                </span>
+              </div>
+            </div>
+          )}
 
           <div className={`${cardBg} rounded-lg p-4`}>
             <h3 className={`text-sm font-semibold ${textPrimary} mb-3`}>

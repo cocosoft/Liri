@@ -12,7 +12,10 @@
  *   - 进度回调
  *   - 任务状态追踪（pending/running/done/failed/cancelled）
  *   - 支持取消所有待执行任务
+ *   - v1.1: queueId → SSE 实时推送进度
  */
+
+import { broadcastEvent } from '@modules/infrastructure/http/LocalHTTPServiceSSE.js';
 
 export type TaskStatus =
   | 'pending'
@@ -47,6 +50,8 @@ export interface TaskQueueOptions {
   onProgress?: (state: QueueState) => void;
   /** 单个任务完成回调 */
   onTaskDone?: (task: QueueTask) => void;
+  /** 队列标识（设置后启用 SSE 进度推送） */
+  queueId?: string;
 }
 
 export interface QueueState {
@@ -66,11 +71,13 @@ export class TaskQueue {
   private onTaskDone?: (task: QueueTask) => void;
   private cancelled = false;
   private runningCount = 0;
+  private queueId?: string;
 
   constructor(options: TaskQueueOptions = {}) {
     this.concurrency = options.concurrency ?? 1;
     this.onProgress = options.onProgress;
     this.onTaskDone = options.onTaskDone;
+    this.queueId = options.queueId;
   }
 
   /** 添加任务 */
@@ -194,6 +201,14 @@ export class TaskQueue {
   }
 
   private notifyProgress(): void {
-    this.onProgress?.(this.getState());
+    const state = this.getState();
+    this.onProgress?.(state);
+    if (this.queueId) {
+      try {
+        broadcastEvent('task:queue:progress', { queueId: this.queueId, state });
+      } catch {
+        /* SSE 不可用 */
+      }
+    }
   }
 }

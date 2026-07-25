@@ -432,7 +432,11 @@ const ChatMessageMemo = memo(
                     disabled={storeIsStreaming || remainingRollbacks <= 0}
                     className={`${storeIsStreaming || remainingRollbacks <= 0 ? "cursor-not-allowed text-gray-300 dark:text-gray-600" : "hover:text-gray-600 dark:hover:text-gray-300"} transition-colors`}
                     aria-label={t("chat.rollback")}
-                    title={remainingRollbacks <= 0 ? t("chat.rollbackLimitReached") : undefined}
+                    title={
+                      remainingRollbacks <= 0
+                        ? t("chat.rollbackLimitReached")
+                        : undefined
+                    }
                   >
                     ↩️ {t("chat.rollback")}
                   </button>
@@ -442,7 +446,9 @@ const ChatMessageMemo = memo(
                     className={`${storeIsStreaming ? "cursor-not-allowed text-gray-300 dark:text-gray-600" : "hover:text-gray-600 dark:hover:text-gray-300"} transition-colors disabled:opacity-50`}
                     aria-label={t("chat.branch")}
                   >
-                    {branching ? "🌿 " + t("chat.branching") : "🌿 " + t("chat.branch")}
+                    {branching
+                      ? "🌿 " + t("chat.branching")
+                      : "🌿 " + t("chat.branch")}
                   </button>
                 </>
               )}

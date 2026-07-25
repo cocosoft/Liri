@@ -40,6 +40,7 @@ import {
 import { resolvePyappHome, resolveDataSubDir } from '@modules/core';
 import { globalEventBus, SystemEvents } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { broadcastEvent } from '@modules/infrastructure/http/LocalHTTPServiceSSE.js';
 import { join } from 'path';
 import { mkdir, writeFile, unlink } from 'fs/promises';
 
@@ -124,6 +125,16 @@ export class UnifiedDreamCycle {
 
     try {
       // ── 阶段 0: Gather ──
+      try {
+        broadcastEvent('dream:phase:changed', {
+          cycleId,
+          phase: 'gather',
+          progress: 0.1,
+        });
+      } catch {
+        /* SSE 不可用 */
+      }
+
       await this.writeCheckpoint(checkpointPath, {
         cycleId,
         phase: 'gathered',
@@ -192,6 +203,16 @@ export class UnifiedDreamCycle {
       }
 
       // ── 阶段 1-2: Analyze + Generate (委托给 AutoDream) ──
+      try {
+        broadcastEvent('dream:phase:changed', {
+          cycleId,
+          phase: 'analyze',
+          progress: 0.3,
+        });
+      } catch {
+        /* SSE 不可用 */
+      }
+
       checkpointPhase = 'analyzed';
       await this.writeCheckpoint(checkpointPath, {
         cycleId,
@@ -240,6 +261,16 @@ export class UnifiedDreamCycle {
       });
 
       // ── 阶段 3: Write ──
+      try {
+        broadcastEvent('dream:phase:changed', {
+          cycleId,
+          phase: 'write',
+          progress: 0.6,
+        });
+      } catch {
+        /* SSE 不可用 */
+      }
+
       // SOUL/USER 纠偏
       const soulAnalysis = this.reflector.analyzeSoulAlignment(
         soulContent,
@@ -299,6 +330,16 @@ export class UnifiedDreamCycle {
       await this.cleanupPendingSessions(pendingDir, processedSessionIds);
 
       // ── 阶段 4: Write_All Checkpoint + Index ──
+      try {
+        broadcastEvent('dream:phase:changed', {
+          cycleId,
+          phase: 'index',
+          progress: 0.85,
+        });
+      } catch {
+        /* SSE 不可用 */
+      }
+
       checkpointPhase = 'written_all';
 
       // 运行知识雨
@@ -355,6 +396,17 @@ export class UnifiedDreamCycle {
         cycleId,
         success: status === 'completed',
       });
+      try {
+        broadcastEvent('dream:cycle:completed', {
+          cycleId,
+          status,
+          sessionsProcessed,
+          memoriesCreated,
+          insights: insights.slice(0, 5),
+        });
+      } catch {
+        /* SSE 不可用 */
+      }
 
       logger.info(`梦境周期完成: ${cycleId}`, {
         status,
@@ -365,6 +417,11 @@ export class UnifiedDreamCycle {
       const errMsg = e instanceof Error ? e.message : String(e);
       errors.push(`梦境周期异常: ${errMsg}`);
       status = 'failed';
+      try {
+        broadcastEvent('dream:cycle:failed', { cycleId, error: errMsg });
+      } catch {
+        /* SSE 不可用 */
+      }
       logger.error(
         `梦境周期失败: ${cycleId}`,
         e instanceof Error ? e : new Error(errMsg)

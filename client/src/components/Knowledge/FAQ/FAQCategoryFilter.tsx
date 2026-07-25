@@ -15,7 +15,9 @@ export const FAQCategoryFilter = memo(function FAQCategoryFilter({
 }: FAQCategoryFilterProps) {
   return (
     <div className="flex flex-col gap-1">
-      <span className={`text-[10px] uppercase font-semibold px-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+      <span
+        className={`text-[10px] uppercase font-semibold px-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}
+      >
         分类
       </span>
       <button

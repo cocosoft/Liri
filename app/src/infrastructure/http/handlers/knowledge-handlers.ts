@@ -131,20 +131,35 @@ export async function handleSearchKnowledge(
 ): Promise<void> {
   try {
     const body = await readRequestBody(req);
-    const { query } = JSON.parse(body);
+    const { query, tags } = JSON.parse(body);
     if (!query) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify([]));
       return;
     }
+
+    // 解析 URL 查询参数（base, domain, tags 等）
+    const url = new URL(req.url!, `http://${req.headers.host ?? 'localhost'}`);
+    const base = url.searchParams.get('base') ?? undefined;
+    const domain = url.searchParams.get('domain') ?? undefined;
+    const urlTags = url.searchParams
+      .get('tags')
+      ?.split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+    const filterTags = tags ?? urlTags;
+
     const { KnowledgeRouter } =
       await import('@modules/knowledge/KnowledgeRouter');
     const { knowledgeDocsProvider } =
       await import('@modules/docs/FileDocsProvider');
     const router = new KnowledgeRouter(knowledgeDocsProvider);
-    const routes = await router.search(query, { maxResults: 20 });
+    const routes = await router.search(query, {
+      maxResults: 20,
+      ...(domain ? ({ domain } as any) : {}),
+    });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = routes.map((route: any) => ({
+    let result = routes.map((route: any) => ({
       id: `knowledge-${route.docPath}`,
       title: route.title,
       content: route.snippet || '',
@@ -152,7 +167,16 @@ export async function handleSearchKnowledge(
       score: route.score,
       matchType: route.matchType,
       docPath: route.docPath,
+      tags: route.tags ?? [],
     }));
+
+    // 按标签过滤（SearchTarget）
+    if (filterTags && filterTags.length > 0) {
+      result = result.filter((r: any) =>
+        filterTags.some((t: string) => r.tags?.includes(t))
+      );
+    }
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
   } catch (err) {
@@ -1382,6 +1406,14 @@ export async function handleKnowledgeHealth(
     const lintResult = await runKnowledgeLint();
     const { summary } = lintResult;
 
+    // 计算综合 lint 分数 (0-100)
+    const lintScore = Math.max(
+      0,
+      Math.round(
+        100 - (summary.totalIssues / Math.max(1, lintResult.totalDocs)) * 100
+      )
+    );
+
     const metrics = {
       totalDocs: lintResult.totalDocs,
       totalIssues: summary.totalIssues,
@@ -1391,6 +1423,7 @@ export async function handleKnowledgeHealth(
       structureErrors: summary.byCategory['structure'] ?? 0,
       consistencyWarnings: summary.byCategory['consistency'] ?? 0,
       qualityIssues: summary.byCategory['quality'] ?? 0,
+      lintScore,
       lastLintAt: new Date().toISOString(),
     };
 

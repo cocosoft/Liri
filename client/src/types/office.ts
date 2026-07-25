@@ -82,11 +82,7 @@ export type EventSource = "manual" | "cron" | "ai";
 
 /** 事件状态类型 */
 export type EventStatus =
-  | "pending"
-  | "in_progress"
-  | "completed"
-  | "cancelled"
-  | "overdue";
+  "pending" | "in_progress" | "completed" | "cancelled" | "overdue";
 
 /** 统一日历事件（来自 /v1/calendar/merged） */
 export interface UnifiedCalendarEvent {

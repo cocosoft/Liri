@@ -10,9 +10,12 @@ const MATCH_TYPE_LABELS: Record<KnowledgeSearchHit["matchType"], string> = {
 
 const MATCH_TYPE_COLORS: Record<KnowledgeSearchHit["matchType"], string> = {
   keyword: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  semantic: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
-  graph_rag: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-  knowledge: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  semantic:
+    "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+  graph_rag:
+    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  knowledge:
+    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
 };
 
 function scoreColor(score: number): string {
@@ -61,7 +64,9 @@ export const SearchHitCard = memo(function SearchHitCard({
         <span className="text-sm font-medium truncate flex-1">
           {hit.file.title}
         </span>
-        <span className={`text-xs font-mono font-semibold ${scoreColor(hit.score)}`}>
+        <span
+          className={`text-xs font-mono font-semibold ${scoreColor(hit.score)}`}
+        >
           {percent}%
         </span>
         <span

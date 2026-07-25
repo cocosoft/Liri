@@ -4,6 +4,7 @@
  * W3: 搜索改为调用服务端 hybridSearch，来源/分类筛选独立于搜索（正交）。
  */
 import { useCallback } from "react";
+import { SearchTargetFilter } from "./SearchTargetFilter";
 
 export type SortBy = "updated" | "title" | "created";
 
@@ -17,10 +18,12 @@ interface DocFilterBarProps {
   docCount: number;
   selectedBase: string | null;
   onSearchQueryChange: (query: string) => void;
-  onSearch: (query: string, base: string | null) => void;
+  onSearch: (query: string, base: string | null, searchTags?: string[]) => void;
   onSortByChange: (sortBy: SortBy) => void;
   onSourceChange: (source: string | null) => void;
   onCategoryChange: (category: string | null) => void;
+  onSearchTagsChange?: (tags: string[]) => void;
+  searchTags?: string[];
 }
 
 function DocFilterBar({
@@ -37,6 +40,8 @@ function DocFilterBar({
   onSortByChange,
   onSourceChange,
   onCategoryChange,
+  onSearchTagsChange,
+  searchTags,
 }: DocFilterBarProps) {
   const textMuted = isDark ? "text-gray-500" : "text-gray-400";
   const inputBg = isDark
@@ -46,10 +51,10 @@ function DocFilterBar({
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter") {
-        onSearch(searchQuery, selectedBase);
+        onSearch(searchQuery, selectedBase, searchTags);
       }
     },
-    [searchQuery, selectedBase, onSearch],
+    [searchQuery, selectedBase, searchTags, onSearch],
   );
 
   return (
@@ -65,13 +70,24 @@ function DocFilterBar({
           className={`flex-1 px-3 py-1.5 rounded-md text-xs border ${inputBg} focus:outline-none focus:ring-1 focus:ring-blue-500`}
         />
         <button
-          onClick={() => onSearch(searchQuery, selectedBase)}
+          onClick={() => onSearch(searchQuery, selectedBase, searchTags)}
           disabled={!searchQuery.trim()}
           className="px-2 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-md"
         >
           搜索
         </button>
       </div>
+
+      {/* 标签过滤 (SearchTarget) */}
+      {onSearchTagsChange && (
+        <div className="py-0.5">
+          <SearchTargetFilter
+            onTagsChange={onSearchTagsChange}
+            isDark={isDark}
+            tags={searchTags}
+          />
+        </div>
+      )}
 
       {/* 排序 + 来源筛选 */}
       <div className="flex items-center justify-between">

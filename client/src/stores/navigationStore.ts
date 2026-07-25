@@ -23,6 +23,7 @@ export type AppPage =
   | "channels"
   | "settings"
   | "buddy"
+  | "liri"
   | "plans"
   | "tts"
   | "semantic"

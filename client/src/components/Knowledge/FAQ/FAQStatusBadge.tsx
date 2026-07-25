@@ -19,7 +19,10 @@ export const FAQStatusBadge = memo(function FAQStatusBadge({
       );
     case "pending":
       return (
-        <span title="嵌入中..." className="text-xs animate-spin inline-block cursor-default">
+        <span
+          title="嵌入中..."
+          className="text-xs animate-spin inline-block cursor-default"
+        >
           ⏳
         </span>
       );

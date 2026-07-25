@@ -12,7 +12,10 @@ import { getOTelTracing } from "../monitoring/otel";
 // ─── 工具 ────────────────────────────────────────────────
 
 /** 从 ApiResponse 解包，失败时抛 Error（服务层职责边界） */
-function unwrap<T>(res: { ok: boolean; data?: T; error?: { code: number; message: string } }, action: string): T {
+function unwrap<T>(
+  res: { ok: boolean; data?: T; error?: { code: number; message: string } },
+  action: string,
+): T {
   if (!res.ok) {
     throw new Error(`[${action}] ${res.error?.message ?? "未知错误"}`);
   }
@@ -24,9 +27,11 @@ function unwrap<T>(res: { ok: boolean; data?: T; error?: { code: number; message
 export const knowledgeService = {
   list: (): Promise<KnowledgeItem[]> => {
     return getOTelTracing().asyncWrap("services:knowledge:list", async () => {
-      const res = await http.get<{ items: KnowledgeItem[]; total: number }>("/v1/knowledge");
+      const res = await http.get<{ items: KnowledgeItem[]; total: number }>(
+        "/v1/knowledge",
+      );
       const data = unwrap(res, "KNOWLEDGE_LIST");
-      return Array.isArray(data) ? data : data.items ?? [];
+      return Array.isArray(data) ? data : (data.items ?? []);
     });
   },
 
@@ -35,12 +40,17 @@ export const knowledgeService = {
     return unwrap(res, "KNOWLEDGE_GET");
   },
 
-  create: async (item: Omit<KnowledgeItem, "id" | "created_at" | "updated_at">): Promise<KnowledgeItem> => {
+  create: async (
+    item: Omit<KnowledgeItem, "id" | "created_at" | "updated_at">,
+  ): Promise<KnowledgeItem> => {
     const res = await http.post<KnowledgeItem>("/v1/knowledge", item);
     return unwrap(res, "KNOWLEDGE_CREATE");
   },
 
-  update: async (id: string, updates: Partial<KnowledgeItem>): Promise<KnowledgeItem> => {
+  update: async (
+    id: string,
+    updates: Partial<KnowledgeItem>,
+  ): Promise<KnowledgeItem> => {
     const res = await http.put<KnowledgeItem>(`/v1/knowledge/${id}`, updates);
     return unwrap(res, "KNOWLEDGE_UPDATE");
   },
@@ -52,25 +62,33 @@ export const knowledgeService = {
 
   search: (query: string): Promise<KnowledgeItem[]> => {
     return getOTelTracing().asyncWrap("services:knowledge:search", async () => {
-      const res = await http.post<KnowledgeItem[]>("/v1/knowledge/search", { query });
+      const res = await http.post<KnowledgeItem[]>("/v1/knowledge/search", {
+        query,
+      });
       return unwrap(res, "KNOWLEDGE_SEARCH");
     });
   },
 
-  hybridSearch: async (query: string, base?: string, domain?: string): Promise<KnowledgeSearchHit[]> => {
+  hybridSearch: async (
+    query: string,
+    base?: string,
+    domain?: string,
+    tags?: string[],
+  ): Promise<KnowledgeSearchHit[]> => {
     const params = new URLSearchParams();
     if (base) params.set("base", base);
     if (domain) params.set("domain", domain);
+    if (tags && tags.length > 0) params.set("tags", tags.join(","));
     const qs = params.toString();
     const url = qs ? `/v1/knowledge/search?${qs}` : "/v1/knowledge/search";
-    const res = await http.post<KnowledgeSearchResult[]>(url, { query });
+    const res = await http.post<KnowledgeSearchResult[]>(url, { query, tags });
     const results = unwrap(res, "KNOWLEDGE_HYBRID_SEARCH");
     return results.map((r) => ({
       file: {
         id: r.id,
         title: r.title,
         content: r.content,
-        tags: [],
+        tags: r.tags ?? [],
         category: r.category,
         docPath: r.docPath,
         size: 0,
@@ -86,7 +104,11 @@ export const knowledgeService = {
   },
 
   /** 获取增强知识列表（支持按知识库过滤，返回完整文件元数据） */
-  listFiles: async (base?: string, offset?: number, limit?: number): Promise<{ items: KnowledgeFile[]; total: number }> => {
+  listFiles: async (
+    base?: string,
+    offset?: number,
+    limit?: number,
+  ): Promise<{ items: KnowledgeFile[]; total: number }> => {
     const params = new URLSearchParams();
     if (base) params.set("base", base);
     if (offset !== undefined) params.set("offset", String(offset));
@@ -102,30 +124,55 @@ export const knowledgeService = {
     return unwrap(res, "KNOWLEDGE_LIST_BASES");
   },
 
-  createBase: async (name: string, label: string, icon?: string): Promise<KnowledgeBase> => {
-    const res = await http.post<KnowledgeBase>("/v1/knowledge/bases", { name, label, icon });
+  createBase: async (
+    name: string,
+    label: string,
+    icon?: string,
+  ): Promise<KnowledgeBase> => {
+    const res = await http.post<KnowledgeBase>("/v1/knowledge/bases", {
+      name,
+      label,
+      icon,
+    });
     return unwrap(res, "KNOWLEDGE_CREATE_BASE");
   },
 
-  updateBase: async (name: string, updates: Partial<KnowledgeBase>): Promise<KnowledgeBase> => {
-    const res = await http.put<KnowledgeBase>(`/v1/knowledge/bases/${encodeURIComponent(name)}`, updates);
+  updateBase: async (
+    name: string,
+    updates: Partial<KnowledgeBase>,
+  ): Promise<KnowledgeBase> => {
+    const res = await http.put<KnowledgeBase>(
+      `/v1/knowledge/bases/${encodeURIComponent(name)}`,
+      updates,
+    );
     return unwrap(res, "KNOWLEDGE_UPDATE_BASE");
   },
 
   deleteBase: async (name: string): Promise<void> => {
-    const res = await http.delete<unknown>(`/v1/knowledge/bases/${encodeURIComponent(name)}`);
+    const res = await http.delete<unknown>(
+      `/v1/knowledge/bases/${encodeURIComponent(name)}`,
+    );
     unwrap(res, "KNOWLEDGE_DELETE_BASE");
   },
 
   /** 克隆知识库（深拷贝，含文档和索引） */
   cloneBase: async (name: string, newName: string): Promise<KnowledgeBase> => {
-    const res = await http.post<KnowledgeBase>(`/v1/knowledge/bases/${encodeURIComponent(name)}/clone`, { newName });
+    const res = await http.post<KnowledgeBase>(
+      `/v1/knowledge/bases/${encodeURIComponent(name)}/clone`,
+      { newName },
+    );
     return unwrap(res, "KNOWLEDGE_CLONE_BASE");
   },
 
   /** 复制知识库配置（浅拷贝，仅配置不含文档） */
-  duplicateBase: async (name: string, newName: string): Promise<KnowledgeBase> => {
-    const res = await http.post<KnowledgeBase>(`/v1/knowledge/bases/${encodeURIComponent(name)}/duplicate`, { newName });
+  duplicateBase: async (
+    name: string,
+    newName: string,
+  ): Promise<KnowledgeBase> => {
+    const res = await http.post<KnowledgeBase>(
+      `/v1/knowledge/bases/${encodeURIComponent(name)}/duplicate`,
+      { newName },
+    );
     return unwrap(res, "KNOWLEDGE_DUPLICATE_BASE");
   },
 
@@ -135,7 +182,11 @@ export const knowledgeService = {
     content: string;
     sessionId?: string;
   }): Promise<{ success: boolean; docPath: string; title: string }> => {
-    const res = await http.post<{ success: boolean; docPath: string; title: string }>("/v1/knowledge/save-from-chat", params);
+    const res = await http.post<{
+      success: boolean;
+      docPath: string;
+      title: string;
+    }>("/v1/knowledge/save-from-chat", params);
     return unwrap(res, "KNOWLEDGE_SAVE_FROM_CHAT");
   },
 
@@ -179,7 +230,10 @@ export const knowledgeService = {
     if (extra?.tags !== undefined) body.tags = extra.tags;
     if (extra?.category !== undefined) body.category = extra.category;
     if (extra?.base !== undefined) body.base = extra.base;
-    const res = await http.put<{ docPath: string; updatedAt: string }>("/v1/knowledge/docs", body);
+    const res = await http.put<{ docPath: string; updatedAt: string }>(
+      "/v1/knowledge/docs",
+      body,
+    );
     return unwrap(res, "KNOWLEDGE_UPDATE_DOC");
   },
 
@@ -191,22 +245,35 @@ export const knowledgeService = {
   ): Promise<{ docPath: string; title: string; size: number }> => {
     return getOTelTracing().asyncWrap("services:knowledge:upload", async () => {
       try {
-        const res = await http.post<{ docPath: string; title: string; size: number }>("/v1/knowledge/upload", {
+        const res = await http.post<{
+          docPath: string;
+          title: string;
+          size: number;
+        }>("/v1/knowledge/upload", {
           baseName,
           ...file,
           tags,
         });
         return unwrap(res, "KNOWLEDGE_UPLOAD");
       } catch (err) {
-        handleClientError(err, { module: "services:knowledge", action: "uploadToBase" });
+        handleClientError(err, {
+          module: "services:knowledge",
+          action: "uploadToBase",
+        });
         throw err;
       }
     });
   },
 
   /** 触发知识库编译 */
-  triggerCompile: async (force?: boolean): Promise<{ compiled: number; skipped: number; errors: string[] }> => {
-    const res = await http.post<{ compiled: number; skipped: number; errors: string[] }>("/v1/knowledge/compile", { force });
+  triggerCompile: async (
+    force?: boolean,
+  ): Promise<{ compiled: number; skipped: number; errors: string[] }> => {
+    const res = await http.post<{
+      compiled: number;
+      skipped: number;
+      errors: string[];
+    }>("/v1/knowledge/compile", { force });
     return unwrap(res, "KNOWLEDGE_COMPILE");
   },
 
@@ -229,8 +296,15 @@ export const knowledgeService = {
   },
 
   /** 将知识文档导出到 Notebook 兼容格式 */
-  exportToNotebook: async (docPath: string, title?: string): Promise<{ exportPath: string; fileName: string; size: number }> => {
-    const res = await http.post<{ exportPath: string; fileName: string; size: number }>("/v1/knowledge/export-to-notebook", {
+  exportToNotebook: async (
+    docPath: string,
+    title?: string,
+  ): Promise<{ exportPath: string; fileName: string; size: number }> => {
+    const res = await http.post<{
+      exportPath: string;
+      fileName: string;
+      size: number;
+    }>("/v1/knowledge/export-to-notebook", {
       docPath,
       title,
     });
@@ -238,8 +312,16 @@ export const knowledgeService = {
   },
 
   /** 从外部文件导入知识文档 */
-  importFromFile: async (filePath: string, baseName?: string, tags?: string[]): Promise<{ docPath: string; title: string; size: number }> => {
-    const res = await http.post<{ docPath: string; title: string; size: number }>("/v1/knowledge/import-from-file", {
+  importFromFile: async (
+    filePath: string,
+    baseName?: string,
+    tags?: string[],
+  ): Promise<{ docPath: string; title: string; size: number }> => {
+    const res = await http.post<{
+      docPath: string;
+      title: string;
+      size: number;
+    }>("/v1/knowledge/import-from-file", {
       filePath,
       baseName,
       tags,
@@ -249,13 +331,22 @@ export const knowledgeService = {
 
   /** 批量删除知识文档 */
   batchDelete: async (ids: string[]): Promise<{ deleted: number }> => {
-    const res = await http.post<{ deleted: number }>("/v1/knowledge/batch-delete", { ids });
+    const res = await http.post<{ deleted: number }>(
+      "/v1/knowledge/batch-delete",
+      { ids },
+    );
     return unwrap(res, "KNOWLEDGE_BATCH_DELETE");
   },
 
   /** 批量添加标签到知识文档 */
-  batchTag: async (ids: string[], tags: string[]): Promise<{ updated: number }> => {
-    const res = await http.post<{ updated: number }>("/v1/knowledge/batch-tag", { ids, tags });
+  batchTag: async (
+    ids: string[],
+    tags: string[],
+  ): Promise<{ updated: number }> => {
+    const res = await http.post<{ updated: number }>(
+      "/v1/knowledge/batch-tag",
+      { ids, tags },
+    );
     return unwrap(res, "KNOWLEDGE_BATCH_TAG");
   },
 
@@ -267,13 +358,18 @@ export const knowledgeService = {
     if (!res.ok) {
       // 400 表示无快照，返回空数组
       if (res.error?.code === 400) return [];
-      throw new Error(`[KNOWLEDGE_SNAPSHOTS] ${res.error?.message ?? "未知错误"}`);
+      throw new Error(
+        `[KNOWLEDGE_SNAPSHOTS] ${res.error?.message ?? "未知错误"}`,
+      );
     }
     return res.data.snapshots;
   },
 
   /** W6: 获取快照内容 */
-  getSnapshotContent: async (title: string, snapshot: string): Promise<string | null> => {
+  getSnapshotContent: async (
+    title: string,
+    snapshot: string,
+  ): Promise<string | null> => {
     const snapDir = `.knowledge-snapshots/${title}/${snapshot}`;
     const res = await http.get<{ content: string }>(
       `/api/files/read?path=${encodeURIComponent(snapDir)}`,
@@ -282,8 +378,14 @@ export const knowledgeService = {
   },
 
   /** 从快照恢复文档 */
-  restoreSnapshot: async (title: string, snapshot: string): Promise<boolean> => {
-    const res = await http.post<{ restored: boolean }>("/v1/knowledge/restore", { title, snapshot });
+  restoreSnapshot: async (
+    title: string,
+    snapshot: string,
+  ): Promise<boolean> => {
+    const res = await http.post<{ restored: boolean }>(
+      "/v1/knowledge/restore",
+      { title, snapshot },
+    );
     return res.ok ? res.data.restored : false;
   },
 
@@ -297,6 +399,7 @@ export const knowledgeService = {
     structureErrors: number;
     consistencyWarnings: number;
     qualityIssues: number;
+    lintScore: number;
   }> => {
     const res = await http.get<{
       totalDocs: number;
@@ -315,21 +418,31 @@ export const knowledgeService = {
   trash: async (docPath: string): Promise<boolean> => {
     const res = await http.post<unknown>("/v1/knowledge/trash", { docPath });
     if (res.ok) return true;
-    handleClientError(new Error(res.error?.message ?? "trash failed"), { module: "services:knowledge", action: "trash" });
+    handleClientError(new Error(res.error?.message ?? "trash failed"), {
+      module: "services:knowledge",
+      action: "trash",
+    });
     return false;
   },
 
   /** 从回收站恢复文档 */
   restoreTrash: async (docPath: string): Promise<boolean> => {
-    const res = await http.post<unknown>("/v1/knowledge/restore-trash", { docPath });
+    const res = await http.post<unknown>("/v1/knowledge/restore-trash", {
+      docPath,
+    });
     if (res.ok) return true;
-    handleClientError(new Error(res.error?.message ?? "restoreTrash failed"), { module: "services:knowledge", action: "restoreTrash" });
+    handleClientError(new Error(res.error?.message ?? "restoreTrash failed"), {
+      module: "services:knowledge",
+      action: "restoreTrash",
+    });
     return false;
   },
 
   /** W11: 获取语义索引状态 */
   getSemanticIndex: async (): Promise<Record<string, unknown>> => {
-    const res = await http.get<Record<string, unknown>>("/v1/knowledge/semantic-index");
+    const res = await http.get<Record<string, unknown>>(
+      "/v1/knowledge/semantic-index",
+    );
     return unwrap(res, "KNOWLEDGE_SEMANTIC_INDEX");
   },
 };

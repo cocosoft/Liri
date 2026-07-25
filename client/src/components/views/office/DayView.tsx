@@ -4,7 +4,11 @@
  */
 
 import { useState, useMemo } from "react";
-import type { UnifiedCalendarEvent, EventSource, EventStatus } from "../../../types/office";
+import type {
+  UnifiedCalendarEvent,
+  EventSource,
+  EventStatus,
+} from "../../../types/office";
 import StatusBadge from "./StatusBadge";
 
 /** 事件来源颜色映射 */
@@ -58,15 +62,15 @@ export default function DayView({
   const now = new Date();
   const currentHour = now.getHours();
   const currentMinute = now.getMinutes();
-  const isToday = dateStr === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const isToday =
+    dateStr ===
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
   /** 按小时分组的事件（考虑重叠用列布局） */
   const eventsByHour = useMemo(() => {
     const grouped = new Map<number, UnifiedCalendarEvent[]>();
     for (const ev of events) {
-      const startHour = ev.time
-        ? parseInt(ev.time.split(":")[0], 10)
-        : 0;
+      const startHour = ev.time ? parseInt(ev.time.split(":")[0], 10) : 0;
       if (!grouped.has(startHour)) grouped.set(startHour, []);
       grouped.get(startHour)!.push(ev);
     }
@@ -75,7 +79,13 @@ export default function DayView({
 
   /** 统计信息 */
   const stats = useMemo(() => {
-    const count = { pending: 0, in_progress: 0, completed: 0, cancelled: 0, overdue: 0 };
+    const count = {
+      pending: 0,
+      in_progress: 0,
+      completed: 0,
+      cancelled: 0,
+      overdue: 0,
+    };
     for (const ev of events) {
       if (ev.status && ev.status in count) {
         count[ev.status as keyof typeof count]++;
@@ -121,9 +131,7 @@ export default function DayView({
         <h2 className="text-base font-semibold text-gray-900 dark:text-white">
           {dateLabel}
           {isToday && (
-            <span className="ml-2 text-sm text-blue-500 font-normal">
-              今天
-            </span>
+            <span className="ml-2 text-sm text-blue-500 font-normal">今天</span>
           )}
         </h2>
         <button
@@ -231,9 +239,7 @@ export default function DayView({
             </span>
           </>
         )}
-        <span className="ml-auto">
-          共 {events.length} 项
-        </span>
+        <span className="ml-auto">共 {events.length} 项</span>
       </div>
     </div>
   );

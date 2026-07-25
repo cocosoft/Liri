@@ -14,7 +14,9 @@ const CostPage = lazy(() => import("../components/views/CostPage"));
 const KnowledgePage = lazy(() => import("../components/views/KnowledgePage"));
 const FAQView = lazy(() => import("../components/views/FAQView"));
 const GraphView = lazy(() => import("../components/views/GraphView"));
-const AutoRAGConfigView = lazy(() => import("../components/views/AutoRAGConfigView"));
+const AutoRAGConfigView = lazy(
+  () => import("../components/views/AutoRAGConfigView"),
+);
 const DataSourceView = lazy(() => import("../components/views/DataSourceView"));
 const DevPage = lazy(() => import("../components/views/DevPage"));
 const MemoryPage = lazy(() => import("../components/views/MemoryPage"));
@@ -28,6 +30,7 @@ const CouncilAgentRolesPage = lazy(
 );
 const CronPage = lazy(() => import("../components/views/CronPage"));
 const DreamPage = lazy(() => import("../components/views/DreamPage"));
+const LiriPage = lazy(() => import("../components/views/LiriPage"));
 const TaskCenterPage = lazy(() => import("../components/views/TaskCenterPage"));
 const WorkPageLayout = lazy(
   () => import("../components/Workspace/WorkPageLayout"),
@@ -309,12 +312,22 @@ export const routes: RouteObject[] = [
     ),
   },
 
-  // 梦境模块
+  // 梦境模块 — 已合并到 Liri 页面，保留重定向
   {
     path: "/dream",
     element: (
       <AuthGuard>
         <DreamPage />
+      </AuthGuard>
+    ),
+  },
+
+  // Liri 统一人格页（替代独立的 /dream 和 /buddy）
+  {
+    path: "/liri",
+    element: (
+      <AuthGuard>
+        <LiriPage />
       </AuthGuard>
     ),
   },

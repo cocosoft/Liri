@@ -354,19 +354,21 @@ export default function OfficeCalendarPage() {
   }
 
   /** 更新事件状态 */
-  async function handleUpdateEventStatus(
-    id: string,
-    status: EventStatus,
-  ) {
+  async function handleUpdateEventStatus(id: string, status: EventStatus) {
     try {
       const res = await officeService.updateCalendarEventStatus(id, status);
-      const wrapped = res as unknown as { ok?: boolean; error?: { message?: string } };
+      const wrapped = res as unknown as {
+        ok?: boolean;
+        error?: { message?: string };
+      };
       if (wrapped.ok === false) {
         throw new Error(wrapped.error?.message ?? "未知错误");
       }
       refreshMerged();
     } catch (err) {
-      setError(`状态更新失败：${err instanceof Error ? err.message : String(err)}`);
+      setError(
+        `状态更新失败：${err instanceof Error ? err.message : String(err)}`,
+      );
       setTimeout(() => setError(null), 4000);
     }
   }
@@ -834,35 +836,41 @@ export default function OfficeCalendarPage() {
 
           {/* 状态筛选 */}
           <div className="px-2 pb-2 border-t border-gray-200 dark:border-gray-700 pt-2">
-            <div className="text-[10px] text-gray-400 mb-1 px-1">
-              状态筛选
-            </div>
+            <div className="text-[10px] text-gray-400 mb-1 px-1">状态筛选</div>
             <div className="flex flex-wrap gap-1">
-              {(["all", "pending", "in_progress", "completed", "cancelled", "overdue"] as Array<EventStatus | "all">).map(
-                (s) => {
-                  const labelMap: Record<string, string> = {
-                    all: "全部",
-                    pending: "待办",
-                    in_progress: "进行中",
-                    completed: "已完成",
-                    cancelled: "已取消",
-                    overdue: "超时",
-                  };
-                  return (
-                    <button
-                      key={s}
-                      onClick={() => setStatusFilter(s)}
-                      className={`text-[10px] px-1.5 py-0.5 rounded-full transition-colors
-                      ${statusFilter === s
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+              {(
+                [
+                  "all",
+                  "pending",
+                  "in_progress",
+                  "completed",
+                  "cancelled",
+                  "overdue",
+                ] as Array<EventStatus | "all">
+              ).map((s) => {
+                const labelMap: Record<string, string> = {
+                  all: "全部",
+                  pending: "待办",
+                  in_progress: "进行中",
+                  completed: "已完成",
+                  cancelled: "已取消",
+                  overdue: "超时",
+                };
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setStatusFilter(s)}
+                    className={`text-[10px] px-1.5 py-0.5 rounded-full transition-colors
+                      ${
+                        statusFilter === s
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                       }`}
-                    >
-                      {labelMap[s]}
-                    </button>
-                  );
-                },
-              )}
+                  >
+                    {labelMap[s]}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -1226,7 +1234,10 @@ export default function OfficeCalendarPage() {
                                     {ev.summary}
                                     {ev.status && (
                                       <span className="ml-0.5 inline-block align-middle">
-                                        <StatusBadge status={ev.status} dotOnly />
+                                        <StatusBadge
+                                          status={ev.status}
+                                          dotOnly
+                                        />
                                       </span>
                                     )}
                                   </div>
@@ -1406,17 +1417,17 @@ export default function OfficeCalendarPage() {
                 🔵 {contextMenu.event.summary}
                 {contextMenu.event.status && (
                   <span className="ml-1">
-                    <StatusBadge
-                      status={contextMenu.event.status}
-                      dotOnly
-                    />
+                    <StatusBadge status={contextMenu.event.status} dotOnly />
                   </span>
                 )}
               </div>
               {contextMenu.event.status !== "completed" && (
                 <button
                   onClick={() => {
-                    handleUpdateEventStatus(contextMenu.event.sourceId, "completed");
+                    handleUpdateEventStatus(
+                      contextMenu.event.sourceId,
+                      "completed",
+                    );
                     closeContextMenu();
                   }}
                   className="w-full text-left px-3 py-1.5 text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950 transition-colors"
@@ -1427,7 +1438,10 @@ export default function OfficeCalendarPage() {
               {contextMenu.event.status !== "in_progress" && (
                 <button
                   onClick={() => {
-                    handleUpdateEventStatus(contextMenu.event.sourceId, "in_progress");
+                    handleUpdateEventStatus(
+                      contextMenu.event.sourceId,
+                      "in_progress",
+                    );
                     closeContextMenu();
                   }}
                   className="w-full text-left px-3 py-1.5 text-sm text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-950 transition-colors"
@@ -1438,7 +1452,10 @@ export default function OfficeCalendarPage() {
               {contextMenu.event.status !== "pending" && (
                 <button
                   onClick={() => {
-                    handleUpdateEventStatus(contextMenu.event.sourceId, "pending");
+                    handleUpdateEventStatus(
+                      contextMenu.event.sourceId,
+                      "pending",
+                    );
                     closeContextMenu();
                   }}
                   className="w-full text-left px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors"
@@ -1449,7 +1466,10 @@ export default function OfficeCalendarPage() {
               {contextMenu.event.status !== "cancelled" && (
                 <button
                   onClick={() => {
-                    handleUpdateEventStatus(contextMenu.event.sourceId, "cancelled");
+                    handleUpdateEventStatus(
+                      contextMenu.event.sourceId,
+                      "cancelled",
+                    );
                     closeContextMenu();
                   }}
                   className="w-full text-left px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"

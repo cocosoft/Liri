@@ -32,24 +32,36 @@ export const GraphFilterPanel = memo(function GraphFilterPanel({
   return (
     <div className="space-y-3">
       {stats && (
-        <div className={`text-xs grid grid-cols-3 gap-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-          <div className={`text-center px-2 py-1.5 rounded ${isDark ? "bg-gray-800" : "bg-gray-100"}`}>
+        <div
+          className={`text-xs grid grid-cols-3 gap-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+        >
+          <div
+            className={`text-center px-2 py-1.5 rounded ${isDark ? "bg-gray-800" : "bg-gray-100"}`}
+          >
             <div className="text-sm font-semibold">{stats.totalEdges}</div>
             <div className="text-[10px]">边</div>
           </div>
-          <div className={`text-center px-2 py-1.5 rounded ${isDark ? "bg-gray-800" : "bg-gray-100"}`}>
+          <div
+            className={`text-center px-2 py-1.5 rounded ${isDark ? "bg-gray-800" : "bg-gray-100"}`}
+          >
             <div className="text-sm font-semibold">{stats.totalEntities}</div>
             <div className="text-[10px]">实体</div>
           </div>
-          <div className={`text-center px-2 py-1.5 rounded ${isDark ? "bg-gray-800" : "bg-gray-100"}`}>
-            <div className="text-sm font-semibold">{Object.keys(stats.byType).length}</div>
+          <div
+            className={`text-center px-2 py-1.5 rounded ${isDark ? "bg-gray-800" : "bg-gray-100"}`}
+          >
+            <div className="text-sm font-semibold">
+              {Object.keys(stats.byType).length}
+            </div>
             <div className="text-[10px]">关系类型</div>
           </div>
         </div>
       )}
 
       <div>
-        <span className={`text-[10px] font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+        <span
+          className={`text-[10px] font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}
+        >
           关系类型
         </span>
         <div className="flex flex-wrap gap-1 mt-1">
@@ -58,7 +70,9 @@ export const GraphFilterPanel = memo(function GraphFilterPanel({
             className={`text-[10px] px-1.5 py-0.5 rounded-full transition-colors ${
               selectedType === ""
                 ? "bg-blue-500/30 text-blue-400"
-                : isDark ? "bg-gray-800 text-gray-400 hover:bg-gray-700" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                : isDark
+                  ? "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
             }`}
           >
             全部
@@ -69,8 +83,11 @@ export const GraphFilterPanel = memo(function GraphFilterPanel({
               onClick={() => onSelectType(type)}
               className={`text-[10px] px-1.5 py-0.5 rounded-full transition-colors ${
                 selectedType === type
-                  ? TYPE_COLORS[i % TYPE_COLORS.length] + " ring-1 ring-offset-0"
-                  : isDark ? "bg-gray-800 text-gray-400 hover:bg-gray-700" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  ? TYPE_COLORS[i % TYPE_COLORS.length] +
+                    " ring-1 ring-offset-0"
+                  : isDark
+                    ? "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
               }`}
             >
               {type} ({count})

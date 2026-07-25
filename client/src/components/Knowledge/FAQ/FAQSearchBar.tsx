@@ -29,9 +29,7 @@ export const FAQSearchBar = memo(function FAQSearchBar({
     <form onSubmit={handleSubmit} className="flex items-center gap-1.5">
       <div
         className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border flex-1 max-w-xs ${
-          isDark
-            ? "border-gray-700 bg-gray-800"
-            : "border-gray-200 bg-white"
+          isDark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"
         }`}
       >
         <Search
@@ -44,7 +42,9 @@ export const FAQSearchBar = memo(function FAQSearchBar({
           onChange={(e) => setValue(e.target.value)}
           placeholder="搜索 FAQ..."
           className={`text-xs bg-transparent outline-none flex-1 ${
-            isDark ? "text-gray-300 placeholder:text-gray-600" : "text-gray-700 placeholder:text-gray-400"
+            isDark
+              ? "text-gray-300 placeholder:text-gray-600"
+              : "text-gray-700 placeholder:text-gray-400"
           }`}
         />
         {value && (

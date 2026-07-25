@@ -20,9 +20,14 @@ interface LayoutNode {
 const NODE_RADIUS = 8;
 const PADDING = 50;
 const DOMAIN_COLORS = [
-  "#3b82f6", "#a855f7", "#10b981",
-  "#f59e0b", "#ec4899", "#06b6d4",
-  "#ef4444", "#6366f1",
+  "#3b82f6",
+  "#a855f7",
+  "#10b981",
+  "#f59e0b",
+  "#ec4899",
+  "#06b6d4",
+  "#ef4444",
+  "#6366f1",
 ];
 
 export const GraphCanvas = memo(function GraphCanvas({
@@ -59,7 +64,8 @@ export const GraphCanvas = memo(function GraphCanvas({
           id: e.from,
           x: Math.random() * (dim.w - PADDING * 2) + PADDING,
           y: Math.random() * (dim.h - PADDING * 2) + PADDING,
-          vx: 0, vy: 0,
+          vx: 0,
+          vy: 0,
           domain: e.domain,
         });
       }
@@ -68,7 +74,8 @@ export const GraphCanvas = memo(function GraphCanvas({
           id: e.to,
           x: Math.random() * (dim.w - PADDING * 2) + PADDING,
           y: Math.random() * (dim.h - PADDING * 2) + PADDING,
-          vx: 0, vy: 0,
+          vx: 0,
+          vy: 0,
           domain: e.domain,
         });
       }
@@ -94,8 +101,10 @@ export const GraphCanvas = memo(function GraphCanvas({
             const force = repulsion / (dist * dist);
             const fx = (dx / dist) * force;
             const fy = (dy / dist) * force;
-            a.vx -= fx; a.vy -= fy;
-            b.vx += fx; b.vy += fy;
+            a.vx -= fx;
+            a.vy -= fy;
+            b.vx += fx;
+            b.vy += fy;
           }
         }
 
@@ -147,7 +156,10 @@ export const GraphCanvas = memo(function GraphCanvas({
   let colorIdx = 0;
   for (const n of nodes) {
     if (n.domain && !domainColors.has(n.domain)) {
-      domainColors.set(n.domain, DOMAIN_COLORS[colorIdx % DOMAIN_COLORS.length]!);
+      domainColors.set(
+        n.domain,
+        DOMAIN_COLORS[colorIdx % DOMAIN_COLORS.length]!,
+      );
       colorIdx++;
     }
   }
@@ -194,7 +206,7 @@ export const GraphCanvas = memo(function GraphCanvas({
       {nodes.map((n) => {
         const isFocus = n.id === focusNode;
         const color = n.domain
-          ? domainColors.get(n.domain) ?? "#6b7280"
+          ? (domainColors.get(n.domain) ?? "#6b7280")
           : "#6b7280";
         return (
           <g

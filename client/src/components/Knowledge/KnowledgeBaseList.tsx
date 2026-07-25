@@ -58,6 +58,7 @@ function KnowledgeBaseList({
     batchTagStatus,
     compileStatus,
     compileMessage,
+    searchTags,
     total,
     page,
     pageSize,
@@ -215,6 +216,10 @@ function KnowledgeBaseList({
         onCategoryChange={(c) =>
           dispatch({ type: "SET_CATEGORY", category: c })
         }
+        onSearchTagsChange={(tags) =>
+          dispatch({ type: "SET_SEARCH_TAGS", tags })
+        }
+        searchTags={searchTags}
       />
 
       {/* 编译状态 */}

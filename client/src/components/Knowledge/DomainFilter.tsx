@@ -17,9 +17,7 @@ export const DomainFilter = memo(function DomainFilter({
 
   return (
     <div className="flex items-center gap-1.5">
-      <span
-        className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
-      >
+      <span className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>
         域:
       </span>
       <select

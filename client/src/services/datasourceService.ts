@@ -1,7 +1,11 @@
 import { http } from "./httpClient";
 
-function unwrap<T>(res: { ok: boolean; data?: T; error?: { code: number; message: string } }, action: string): T {
-  if (!res.ok) throw new Error(`[${action}] ${res.error?.message ?? "未知错误"}`);
+function unwrap<T>(
+  res: { ok: boolean; data?: T; error?: { code: number; message: string } },
+  action: string,
+): T {
+  if (!res.ok)
+    throw new Error(`[${action}] ${res.error?.message ?? "未知错误"}`);
   return res.data as T;
 }
 
@@ -31,8 +35,13 @@ export const datasourceService = {
     return unwrap(res, "DS_LIST");
   },
 
-  create: async (entry: Omit<DataSourceConfig, "createdAt">): Promise<DataSourceConfig> => {
-    const res = await http.post<DataSourceConfig>("/v1/knowledge/datasources", entry);
+  create: async (
+    entry: Omit<DataSourceConfig, "createdAt">,
+  ): Promise<DataSourceConfig> => {
+    const res = await http.post<DataSourceConfig>(
+      "/v1/knowledge/datasources",
+      entry,
+    );
     return unwrap(res, "DS_CREATE");
   },
 
@@ -42,7 +51,9 @@ export const datasourceService = {
   },
 
   sync: async (type: string): Promise<SyncResult> => {
-    const res = await http.post<SyncResult>(`/v1/knowledge/datasources/${type}/sync`);
+    const res = await http.post<SyncResult>(
+      `/v1/knowledge/datasources/${type}/sync`,
+    );
     return unwrap(res, "DS_SYNC");
   },
 };

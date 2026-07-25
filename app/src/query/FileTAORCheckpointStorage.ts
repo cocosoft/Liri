@@ -23,6 +23,15 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/** 跳过临时文件 */
+function isStableFile(filename: string): boolean {
+  return (
+    filename.startsWith('taor-') &&
+    filename.endsWith('.json') &&
+    !filename.endsWith('.tmp')
+  );
+}
+
 export class FileTAORCheckpointStorage implements CheckpointStorage {
   private storageDir: string;
 
@@ -44,13 +53,25 @@ export class FileTAORCheckpointStorage implements CheckpointStorage {
     );
   }
 
+  /**
+   * 保存检查点（两阶段写入，防止崩溃损坏）
+   *
+   * 流程: 写 .tmp → fsync → 重命名为 .json
+   */
   async save(checkpoint: TAORCheckpoint): Promise<string> {
     if (!fs.existsSync(this.storageDir)) {
       fs.mkdirSync(this.storageDir, { recursive: true });
     }
-    const fp = this.filePath(checkpoint);
+    const finalPath = this.filePath(checkpoint);
+    const tmpPath = finalPath + '.tmp';
     const data = JSON.stringify(checkpoint, null, 2);
-    await fs.promises.writeFile(fp, data, 'utf-8');
+
+    await fs.promises.writeFile(tmpPath, data, 'utf-8');
+    const fd = await fs.promises.open(tmpPath, 'r+');
+    await fd.sync();
+    await fd.close();
+    await fs.promises.rename(tmpPath, finalPath);
+
     logger.info('TAOR checkpoint saved', {
       id: checkpoint.id,
       sessionId: checkpoint.sessionId,
@@ -107,18 +128,40 @@ export class FileTAORCheckpointStorage implements CheckpointStorage {
     return checkpoints[0];
   }
 
-  /** 获取所有有未完成检查点的 session ID 列表 */
+  /** 获取所有有未完成检查点的 session ID 列表（跳过 .tmp 文件） */
   async getPendingSessions(): Promise<string[]> {
     try {
       const files = await fs.promises.readdir(this.storageDir);
       const sessionIds = new Set<string>();
       for (const file of files) {
+        if (!isStableFile(file)) continue;
         const match = file.match(/^taor-(.+)-.+\.json$/);
         if (match) sessionIds.add(match[1]);
       }
       return Array.from(sessionIds);
     } catch {
       return [];
+    }
+  }
+
+  /** 清理崩溃残留的 .tmp 文件 */
+  async cleanOrphanedTmp(): Promise<number> {
+    try {
+      const files = await fs.promises.readdir(this.storageDir);
+      let count = 0;
+      for (const file of files) {
+        if (!file.endsWith('.tmp')) continue;
+        try {
+          await fs.promises.unlink(path.join(this.storageDir, file));
+          count++;
+          logger.info('Cleaned orphaned checkpoint tmp file', { file });
+        } catch {
+          continue;
+        }
+      }
+      return count;
+    } catch {
+      return 0;
     }
   }
 

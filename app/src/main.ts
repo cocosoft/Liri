@@ -1110,6 +1110,15 @@ export async function launch(options: LaunchOptions): Promise<void> {
       }
     }
 
+    // Phase 3: Connection Registry — 验证关键组件连接
+    try {
+      const { connectionRegistry } =
+        await import('./core/connections/ConnectionRegistry.js');
+      connectionRegistry.verifyAll();
+    } catch (e) {
+      logger.warning('ConnectionRegistry 验证失败（非致命）', e as Error);
+    }
+
     // T2: 模式分发 + 后台延迟加载
     profileCheckpoint('T2_dispatch_start');
     profilePhaseStart('T2_dispatch');

@@ -116,3 +116,11 @@ export {
   checkProcessOperationPermission,
   PermissionPolicyManager,
 } from './PermissionPolicies';
+
+// Risk classification (Phase 3: OpenWorker-style)
+export {
+  RiskClass,
+  inferRiskClass,
+  detectChainedCommand,
+} from './types/RiskClass';
+export type { RiskOverrides } from './types/RiskClass';

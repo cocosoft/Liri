@@ -64,6 +64,10 @@ import {
   handleGetInbox,
   handleReplyInbox,
 } from './inbox-handlers';
+import { handleUndoApproval } from './inbox-handlers';
+
+// Steering handler (Phase 3)
+import { handleSteerSession } from './steer-handlers';
 
 // Channel handlers（直接函数调用，部分需要 broadcastEvent 回调）
 import {
@@ -276,6 +280,13 @@ export async function dispatchRoute(
   }
   if (method === 'DELETE' && url === '/v1/sessions') {
     await self['handleClearAllSessions'](req, res);
+    return true;
+  }
+
+  // ---- Steering (Phase 3) ----
+  if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/steer$/)) {
+    const sid = url.match(/^\/v1\/sessions\/(.+)\/steer$/)![1];
+    await handleSteerSession(req, res, handlerCtx, sid);
     return true;
   }
 
@@ -1972,6 +1983,10 @@ export async function dispatchRoute(
   if (url.startsWith('/v1/inbox/') && url !== '/v1/inbox/count') {
     if (url.endsWith('/reply') && method === 'POST') {
       await handleReplyInbox(req, res, handlerCtx);
+      return true;
+    }
+    if (url.endsWith('/undo') && method === 'POST') {
+      await handleUndoApproval(req, res, handlerCtx);
       return true;
     }
     if (method === 'GET') {

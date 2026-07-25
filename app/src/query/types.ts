@@ -40,6 +40,35 @@ export interface TAORCheckpoint {
     attempts: Array<[string, { type: string; retryCount: number }]>;
     compactAttempted?: boolean;
   };
+  /** Phase 3: 检查点保存时未完成的工具调用 */
+  pendingToolCalls?: Array<{
+    toolCallId: string;
+    toolName: string;
+    args?: unknown;
+  }>;
+  /** Phase 3: 检查点保存时的消息历史计数 */
+  messageCount?: number;
+  /** Phase 3: 检查点关联的 Inbox 状态 */
+  inboxState?: CheckpointInboxState;
+}
+
+/** 检查点时关联的 Inbox 待审批项 */
+export interface CheckpointInboxState {
+  pendingInboxItems: Array<{
+    itemId: string;
+    source: 'permission' | 'pdca' | 'agent_question';
+    status: 'pending' | 'approved' | 'rejected';
+    toolCallId?: string;
+    toolName?: string;
+  }>;
+}
+
+/** 检查点完整性校验结果 */
+export interface CheckpointIntegrity {
+  phase: TAORPhase;
+  pendingToolCalls: number;
+  tokenConsistency: boolean;
+  messageCountMatch: boolean;
 }
 
 /** 检查点存储接口 */

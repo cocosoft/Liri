@@ -48,6 +48,35 @@ export class ACPPermissionHandler {
       };
     }
 
+    // Phase 3: 无人值守模式下自动降级
+    try {
+      // Dynamic import to avoid circular dependency
+
+      const { unattendedMode } =
+        require('@modules/runtime/UnattendedModeManager.js') as {
+          unattendedMode: {
+            isUnattended: () => boolean;
+            shouldAutoApprove: () => boolean;
+          };
+        };
+      if (unattendedMode?.isUnattended?.()) {
+        if (request.risk === 'medium' && unattendedMode.shouldAutoApprove()) {
+          this.cacheDecision(key, ACPPermissionDecision.ALLOW);
+          return {
+            decision: ACPPermissionDecision.ALLOW,
+            reason: 'unattended: auto-approve medium risk',
+          };
+        }
+        // 高风险 → DEFER（等待人工审批，进 Inbox）
+        return {
+          decision: ACPPermissionDecision.DEFER,
+          reason: 'unattended: deferring high-risk operation',
+        };
+      }
+    } catch {
+      // UnattendedModeManager not available — fall through
+    }
+
     this.pending.set(key, request);
 
     return {

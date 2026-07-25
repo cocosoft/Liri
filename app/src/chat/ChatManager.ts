@@ -341,6 +341,8 @@ export class ChatManagerImpl implements ChatManager {
    * TAORLoop 统一编排器实例（懒初始化，仅在 ENABLE_LOOP_V8_PHASE2 时创建）
    */
   private _taorLoop?: TAORLoop;
+  /** Resume 熔断计数 */
+  private _resumeFailCount: number = 0;
 
   /**
    * 回滚集成（按会话 ID 索引）
@@ -682,6 +684,109 @@ export class ChatManagerImpl implements ChatManager {
         action: 'rollback:onAppStart',
       }).catch(() => {});
     });
+
+    // Phase 3: Durable Resume — 扫描并恢复中断的会话
+    await this._resumePendingSessions().catch((err) => {
+      logger.warn('Durable Resume 扫描失败', { error: String(err) });
+      // 熔断：连续 3 次失败后跳过自动恢复
+      this._resumeFailCount = (this._resumeFailCount ?? 0) + 1;
+      if (this._resumeFailCount >= 3) {
+        logger.warn('Durable Resume 已熔断 — 跳过后续自动恢复（需手动触发）', {
+          failCount: this._resumeFailCount,
+        });
+      }
+    });
+    // 熔断恢复：启动 1 小时后重置失败计数
+    if (this._resumeFailCount && this._resumeFailCount < 3) {
+      setTimeout(() => {
+        this._resumeFailCount = 0;
+      }, 3600_000);
+    }
+  }
+
+  /**
+   * Durable Resume: 扫描文件系统上的 TAOR 检查点，恢复中断的会话。
+   */
+  private async _resumePendingSessions(): Promise<void> {
+    try {
+      const { resumeManager } = await import('../query/ResumeManager.js');
+      const candidates = await resumeManager.scanPending();
+      if (candidates.length === 0) {
+        logger.info('Durable Resume: 无待恢复会话');
+        return;
+      }
+
+      logger.info('Durable Resume: 发现待恢复会话', {
+        count: candidates.length,
+        sessions: candidates.map((c) => c.sessionId),
+      });
+
+      for (const candidate of candidates) {
+        try {
+          const cp = candidate.checkpoint;
+          logger.info('Durable Resume: 恢复会话', {
+            sessionId: cp.sessionId,
+            checkpointId: cp.id,
+            turnCount: cp.turnCount,
+            phase: cp.phase,
+            age: candidate.age,
+          });
+
+          // Phase 3: 进度事件
+          resumeManager.emitProgress({
+            phase: 'validating',
+            sessionId: cp.sessionId,
+            detail: `校验检查点 ${cp.id}...`,
+          });
+          const msgs = await this.messageService.getMessages(cp.sessionId);
+          const integrity = resumeManager.validateCheckpointIntegrity(
+            cp,
+            msgs.length,
+            this.tokenBudget.getConsumed()
+          );
+          const strategy = resumeManager.getRestoreStrategy(integrity);
+
+          logger.info('Durable Resume: 完整性校验完成', {
+            sessionId: cp.sessionId,
+            ...strategy,
+          });
+
+          // 创建 TAORLoop 并从检查点恢复
+          const taorLoop = this._getOrCreateTAORLoop(cp.sessionId);
+          taorLoop.resumeFromCheckpoint(cp);
+
+          // 注入恢复摘要 steering 消息
+          const summary = [
+            '[系统] 会话已从断点恢复。',
+            `- 恢复时间点: ${new Date(cp.createdAt).toISOString()}`,
+            `- 恢复阶段: ${cp.phase}（消息历史第 ${cp.turnCount} 轮）`,
+            `- 恢复策略: ${strategy.reason}`,
+            cp.inboxState
+              ? `- Inbox 关联: ${cp.inboxState.pendingInboxItems.length} 项审批待处理`
+              : '',
+          ]
+            .filter(Boolean)
+            .join('\n');
+          taorLoop.injectSteering(summary);
+
+          logger.info('Durable Resume: 会话恢复完成', {
+            sessionId: cp.sessionId,
+            phase: cp.phase,
+          });
+        } catch (sessionErr) {
+          logger.warn('Durable Resume: 单个会话恢复失败', {
+            sessionId: candidate.sessionId,
+            error: String(sessionErr),
+          });
+          // 不阻塞其他会话的恢复
+        }
+      }
+    } catch (e) {
+      logger.error('Durable Resume: scanPending 失败', {
+        error: String(e),
+      });
+      throw e;
+    }
   }
 
   private async _loadSessionsFromGateway(): Promise<void> {

@@ -166,6 +166,25 @@ export async function handleReplyInbox(
       return;
     }
 
+    // ── 幂等保护 #1: 状态检查 ──
+    const current = await inboxManager.get(id);
+    if (!current) {
+      otel.endSpan(span, SpanStatusCode.ERROR, 'not_found');
+      sendError(res, 'Inbox item not found', 404);
+      return;
+    }
+    if (current.status !== 'pending') {
+      span.setAttribute('inbox.id', id);
+      span.setAttribute('inbox.status', current.status);
+      otel.endSpan(span, SpanStatusCode.OK);
+      sendJSON(res, 200, {
+        id,
+        status: 'already_processed',
+        previousReply: current.reply,
+      });
+      return;
+    }
+
     const bodyStr = await readRequestBody(req);
     const body = bodyStr ? JSON.parse(bodyStr) : {};
     const reply = body.reply as string | undefined;
@@ -177,14 +196,68 @@ export async function handleReplyInbox(
       return;
     }
 
+    // ── 幂等保护 #2: CAS 原子操作 ──
+    const locked = await inboxManager.tryUpdateStatus(
+      id,
+      'pending',
+      'processing'
+    );
+    if (!locked) {
+      span.setAttribute('inbox.id', id);
+      otel.endSpan(span, SpanStatusCode.OK);
+      sendJSON(res, 200, { id, status: 'concurrent_conflict' });
+      return;
+    }
+
+    // ── 执行回复 ──
     const updated = await inboxManager.reply(id, reply, selectedOption);
     if (!updated) {
-      otel.endSpan(span, SpanStatusCode.ERROR, 'not_found');
-      sendError(res, 'Inbox item not found or already replied', 404);
+      otel.endSpan(span, SpanStatusCode.ERROR, 'update_failed');
+      sendError(res, 'Failed to update inbox item', 500);
       return;
     }
 
     span.setAttribute('inbox.id', id);
+    span.setAttribute('inbox.reply', reply);
+
+    // ── PDCA 审批恢复：检测 source === 'pdca' 的审批回复 ──
+    if (current.source === 'pdca' && current.metadata) {
+      const taskId = current.metadata.taskId as string | undefined;
+      const sessionId = current.sessionId;
+      if (taskId && sessionId) {
+        try {
+          const { getOrCreateOrchestrator } =
+            await import('@modules/tasks/LongRunningTaskOrchestrator.js');
+          const orchestrator = getOrCreateOrchestrator(taskId);
+          if (orchestrator) {
+            if (reply === 'approve' || selectedOption === 'approve') {
+              const result = await orchestrator.resumeAfterApproval(sessionId);
+              logger.info('PDCA resumed after Inbox approval', {
+                inboxId: id,
+                taskId,
+                phase: result.phase,
+              });
+              span.setAttribute('pdca.resumed', true);
+              span.setAttribute('pdca.phase', result.phase);
+            } else {
+              logger.info('PDCA plan rejected via Inbox', {
+                inboxId: id,
+                taskId,
+              });
+              span.setAttribute('pdca.rejected', true);
+            }
+          }
+        } catch (pdcaErr) {
+          // PDCA 恢复失败不阻塞 Inbox 回复
+          logger.warn('PDCA resume after Inbox approval failed', {
+            inboxId: id,
+            taskId,
+            error: String(pdcaErr),
+          });
+        }
+      }
+    }
+
     otel.endSpan(span, SpanStatusCode.OK);
     sendJSON(res, 200, updated);
   } catch (e) {
@@ -194,6 +267,89 @@ export async function handleReplyInbox(
     sendError(
       res,
       `Inbox reply failed: ${e instanceof Error ? e.message : String(e)}`,
+      500
+    );
+  }
+}
+
+/** POST /v1/inbox/:id/undo — 撤销审批（冷却窗口内可操作） */
+export async function handleUndoApproval(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _ctx: HandlerCtx
+): Promise<void> {
+  const COOL_OFF_MS = 30_000; // 30 秒冷却窗口
+
+  try {
+    const url = new URL(req.url || '/', 'http://localhost');
+    const segments = url.pathname.split('/');
+    const undoIdx = segments.indexOf('undo');
+    const id = undoIdx > 0 ? segments[undoIdx - 1] : '';
+
+    if (!id) {
+      sendError(res, 'Missing inbox item id', 400);
+      return;
+    }
+
+    const item = await inboxManager.get(id);
+    if (!item) {
+      sendError(res, 'Inbox item not found', 404);
+      return;
+    }
+
+    if (item.status !== 'replied' || !item.repliedAt) {
+      sendJSON(res, 200, { success: false, reason: 'not_replied' });
+      return;
+    }
+
+    const elapsed = Date.now() - item.repliedAt;
+    if (elapsed > COOL_OFF_MS) {
+      sendJSON(res, 200, {
+        success: false,
+        reason: 'cool_off_expired',
+        elapsed,
+        limitMs: COOL_OFF_MS,
+      });
+      return;
+    }
+
+    // 如果 PDCA 审批已被触发恢复，尝试暂停
+    if (item.source === 'pdca' && item.metadata?.taskId) {
+      try {
+        const { getOrCreateOrchestrator } =
+          await import('@modules/tasks/LongRunningTaskOrchestrator.js');
+        const orch = getOrCreateOrchestrator(item.metadata.taskId as string);
+        if (orch) {
+          await orch.abort();
+          logger.info('PDCA orchestrator aborted due to approval undo', {
+            inboxId: id,
+            taskId: item.metadata.taskId,
+          });
+        }
+      } catch {
+        // 暂停失败不阻塞撤销
+      }
+    }
+
+    await inboxManager.resetStatus(id, 'pending');
+    logger.info('Approval undone', {
+      inboxId: id,
+      elapsed,
+      remainingWindow: COOL_OFF_MS - elapsed,
+    });
+
+    sendJSON(res, 200, {
+      success: true,
+      remainingWindow: COOL_OFF_MS - elapsed,
+    });
+  } catch (e) {
+    await handleError(e, {
+      module: 'http:inbox',
+      action: 'handleUndoApproval',
+    });
+    sendError(
+      res,
+      `Undo approval failed: ${e instanceof Error ? e.message : String(e)}`,
       500
     );
   }

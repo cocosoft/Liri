@@ -155,6 +155,13 @@ export interface TAORLoopConfig {
   enableVerifier?: boolean;
   /** 验证器配置 */
   verifierConfig?: Partial<VerifierAgentConfig>;
+  /** Phase 3: VerifierAgent 专用模型调用函数（为 null 则共享主模型） */
+  verifierModel?:
+    | ((
+        messages: Array<{ role: string; content: string }>,
+        signal: AbortSignal
+      ) => AsyncGenerator<{ content?: string }>)
+    | null;
   /** 验证策略（Phase 2b）：AND/OR/TOOL_FIRST */
   verifyStrategy?: 'AND' | 'OR' | 'TOOL_FIRST';
   /** 是否启用自动 verify skill（Phase 2），默认 false */
@@ -266,6 +273,20 @@ export class TAORLoop {
   private verifier: VerifierAgent;
   // Steering 消息队列（mid-turn 注入）
   private steeringQueue: string[] = [];
+  /** Phase 3: 待审批的 Inbox 项列表（保存到 checkpoint） */
+  private _pendingInboxItems: Array<{
+    itemId: string;
+    source: 'permission' | 'pdca' | 'agent_question';
+    toolCallId?: string;
+    toolName?: string;
+  }> = [];
+  /** Phase 3: 从 checkpoint 恢复时已预审批的 tool call ID */
+  private _preApprovedToolCalls: string[] = [];
+  /** Phase 3: Steering 安全过滤器 */
+  private readonly _steeringFilter = {
+    maxLength: 2000,
+    blockedPatterns: [/system:\s*/i, /<\|im_start\|>/i],
+  };
 
   constructor(
     queryEngine: QueryEngine,
@@ -513,14 +534,17 @@ export class TAORLoop {
     this.stopped = false;
     this.stopReason = 'completed';
 
-    // Phase 4: 注入 callModel 到验证器
-    if (this.verifier && deps.callModel) {
-      this.verifier.setCallModel(
-        deps.callModel as (
-          messages: Array<{ role: string; content: string }>,
-          signal: AbortSignal
-        ) => AsyncGenerator<{ content?: string }>
-      );
+    // Phase 4: 注入 callModel 到验证器（支持独立 local 模型）
+    if (this.verifier) {
+      const modelFn = this.config.verifierModel ?? deps.callModel ?? null;
+      if (modelFn) {
+        this.verifier.setCallModel(
+          modelFn as (
+            messages: Array<{ role: string; content: string }>,
+            signal: AbortSignal
+          ) => AsyncGenerator<{ content?: string }>
+        );
+      }
     }
     this.verifier.reset();
 
@@ -1131,7 +1155,27 @@ export class TAORLoop {
       breakerState: this.circuitBreaker.getState(),
       loopDetectorState: this.loopDetector.getState(),
       errorRecoveryState: this.errorRecovery.serialize(),
+      // Phase 3: 检查点扩展字段
+      pendingToolCalls: this.pendingToolCalls?.map((tc) => ({
+        toolCallId: tc.id || tc.toolCallId || '',
+        toolName: tc.name || tc.function?.name || '',
+        args: tc.arguments || tc.function?.arguments,
+      })),
+      messageCount: this.messages.length,
     };
+
+    // Phase 3: 检查点关联的 Inbox 状态
+    if (this._pendingInboxItems && this._pendingInboxItems.length > 0) {
+      checkpoint.inboxState = {
+        pendingInboxItems: this._pendingInboxItems.map((item) => ({
+          itemId: item.itemId,
+          source: item.source,
+          status: 'pending' as const,
+          toolCallId: item.toolCallId,
+          toolName: item.toolName,
+        })),
+      };
+    }
 
     const id = await this.checkpointStorage.save(checkpoint);
     this.lastCheckpointId = id;
@@ -1216,6 +1260,41 @@ export class TAORLoop {
           typeof this.errorRecovery.restore
         >[0]
       );
+    }
+
+    // Phase 3: 恢复 Inbox 联动状态 — 检查已审批的项
+    if (
+      checkpoint.inboxState &&
+      checkpoint.inboxState.pendingInboxItems.length > 0
+    ) {
+      try {
+        const { inboxManager } =
+          await import('@modules/runtime/InboxManager.js');
+        const approvedToolCalls: string[] = [];
+        for (const item of checkpoint.inboxState.pendingInboxItems) {
+          const current = await inboxManager.get(item.itemId);
+          if (
+            current &&
+            current.status === 'replied' &&
+            current.reply === 'approve'
+          ) {
+            logger.info('Resumed with pre-approved inbox item', {
+              itemId: item.itemId,
+              toolName: item.toolName,
+            });
+            if (item.toolCallId) {
+              approvedToolCalls.push(item.toolCallId);
+            }
+          }
+        }
+        if (approvedToolCalls.length > 0) {
+          this._preApprovedToolCalls = approvedToolCalls;
+        }
+      } catch (inboxErr) {
+        logger.warn('Failed to check inbox status during resume', {
+          error: String(inboxErr),
+        });
+      }
     }
 
     logger.info('Resumed from checkpoint', {
@@ -1340,10 +1419,45 @@ export class TAORLoop {
    * 不中断当前工具执行，消息将在下一轮 THINK 阶段注入
    */
   injectSteering(message: string): void {
-    this.steeringQueue.push(message);
+    // 安全检查
+    if (message.length > this._steeringFilter.maxLength) {
+      logger.warn('Steering message rejected: too long', {
+        length: message.length,
+      });
+      return;
+    }
+    for (const pattern of this._steeringFilter.blockedPatterns) {
+      if (pattern.test(message)) {
+        logger.warn('Steering message rejected: blocked content', {
+          pattern: pattern.source,
+        });
+        return;
+      }
+    }
+
+    // 标记为 steering role（区分系统注入和正常对话）
+    const marked = `[steering]\n${message}`;
+    this.steeringQueue.push(marked);
     logger.info('Steering message queued', {
       sessionId: this.config.sessionId,
       queueLength: this.steeringQueue.length,
+    });
+  }
+
+  /**
+   * 注册待审批的 Inbox 项（Phase 3: Resume+Inbox 联动）
+   * 工具审批提交到 Inbox 时调用，用于 checkpoint 保存和恢复联动
+   */
+  addPendingInboxItem(item: {
+    itemId: string;
+    source: 'permission' | 'pdca' | 'agent_question';
+    toolCallId?: string;
+    toolName?: string;
+  }): void {
+    this._pendingInboxItems.push(item);
+    logger.debug('Pending inbox item registered', {
+      itemId: item.itemId,
+      source: item.source,
     });
   }
 

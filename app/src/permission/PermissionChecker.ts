@@ -12,6 +12,11 @@ import {
 } from './types/PermissionDecision';
 import { PermissionContext } from './types/PermissionContext';
 import { PermissionBehavior, isRuleMatch } from './types/PermissionRule';
+import {
+  RiskClass,
+  inferRiskClass,
+  detectChainedCommand,
+} from './types/RiskClass';
 import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({
@@ -215,7 +220,132 @@ export class PermissionChecker {
     }
 
     // 默认返回询问
-    return createAskDecision('No specific permission rule found');
+    return this._handleDefaultAsk(toolName, input, context);
+  }
+
+  /**
+   * 提交审批项到 Inbox（风险感知）
+   * 根据 RiskClass 决定是自动放行、弹窗确认还是进 Inbox 排队
+   */
+  private async _handleDefaultAsk(
+    toolName: string,
+    input: Record<string, unknown>,
+    context: PermissionContext
+  ): Promise<PermissionDecision> {
+    const risk = inferRiskClass(toolName);
+
+    // Shell 链式操作检测：提升风险等级
+    if (
+      risk === RiskClass.SHELL &&
+      typeof input.command === 'string' &&
+      detectChainedCommand(input.command)
+    ) {
+      logger.warn('Shell chain operation detected, elevating risk', {
+        toolName,
+        command: input.command,
+      });
+    }
+
+    // 无人值守模式下的降级策略
+    try {
+      const { unattendedMode } =
+        await import('@modules/runtime/UnattendedModeManager.js');
+      if (unattendedMode.isUnattended()) {
+        switch (risk) {
+          case RiskClass.READ:
+          case RiskClass.DISCUSS:
+            return createAllowDecision(
+              'Unattended: auto-allow low-risk operation'
+            );
+          case RiskClass.WRITE_LOCAL:
+          case RiskClass.EXTERNAL:
+            if (unattendedMode.shouldAutoApprove()) {
+              return createAllowDecision('Unattended: auto-approve write');
+            }
+            return this._submitToInbox(toolName, input, context, risk);
+          case RiskClass.SHELL:
+            // Shell 在无人值守下不自动放行，进 Inbox
+            return this._submitToInbox(toolName, input, context, risk);
+        }
+      }
+    } catch {
+      // UnattendedModeManager 不可用时静默降级
+    }
+
+    // 非无人值守：按风险等级处理
+    switch (risk) {
+      case RiskClass.READ:
+      case RiskClass.DISCUSS:
+        return createAllowDecision('Low risk: auto-allow');
+      case RiskClass.WRITE_LOCAL:
+      case RiskClass.EXTERNAL:
+      case RiskClass.SHELL:
+      default:
+        return createAskDecision(
+          `'${toolName}' requires approval (risk: ${risk})`
+        );
+    }
+  }
+
+  /**
+   * 提交审批项到 Inbox
+   */
+  private async _submitToInbox(
+    toolName: string,
+    input: Record<string, unknown>,
+    context: PermissionContext,
+    risk: RiskClass
+  ): Promise<PermissionDecision> {
+    try {
+      const { inboxManager } = await import('@modules/runtime/InboxManager.js');
+      const sessionId = (context as Record<string, unknown>)?.sessionId as
+        | string
+        | undefined;
+      if (!sessionId) {
+        return createAskDecision(`Inbox: no session context for ${toolName}`);
+      }
+
+      const taskId = (context as Record<string, unknown>)?.taskId as
+        | string
+        | undefined;
+
+      await inboxManager.submit({
+        sessionId,
+        type: 'approval',
+        title: `工具审批: ${toolName}`,
+        message: `工具 '${toolName}' 请求执行（风险等级: ${risk}）\n参数: ${JSON.stringify(input).slice(0, 500)}`,
+        options:
+          risk === RiskClass.EXTERNAL
+            ? ['approve', 'deny', 'standing_rule']
+            : ['approve', 'deny'],
+        offlineCapable: true,
+        source: 'permission',
+        metadata: {
+          toolName,
+          risk,
+          taskId,
+          inputPreview: JSON.stringify(input).slice(0, 200),
+        },
+      });
+
+      logger.info('Tool approval submitted to Inbox', {
+        toolName,
+        risk,
+        sessionId,
+      });
+
+      return createAskDecision(
+        `'${toolName}' queued in Inbox (risk: ${risk}). Awaiting approval.`
+      );
+    } catch (err) {
+      logger.warn('Failed to submit to Inbox, falling back to ask', {
+        toolName,
+        error: String(err),
+      });
+      return createAskDecision(
+        `'${toolName}' requires approval (Inbox unavailable)`
+      );
+    }
   }
 
   /**

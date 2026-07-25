@@ -130,6 +130,18 @@ CREATE TABLE IF NOT EXISTS goal_metrics (
 
 CREATE INDEX IF NOT EXISTS idx_goal_metrics_goal_id ON goal_metrics(goal_id);
 CREATE INDEX IF NOT EXISTS idx_goal_metrics_session_id ON goal_metrics(session_id);
+
+-- Phase 3: 审批去重表（幂等保护）
+CREATE TABLE IF NOT EXISTS approval_dedup (
+  session_id TEXT NOT NULL,
+  approval_type TEXT NOT NULL,
+  task_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'processing',
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (session_id, approval_type, task_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_approval_dedup_status ON approval_dedup(status);
 `;
 
 export const TABLE_NAMES = {

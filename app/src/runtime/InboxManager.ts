@@ -61,7 +61,7 @@ export class InboxManager {
     return this.db;
   }
 
-  private _createTable(): Promise<void> {
+  private async _createTable(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       this.db!.exec(
         `
@@ -91,6 +91,28 @@ export class InboxManager {
             logger.info('InboxManager initialized');
             resolve();
           }
+        }
+      );
+    });
+
+    // Phase 3: 创建审批审计日志表
+    await new Promise<void>((resolve, reject) => {
+      this.db!.exec(
+        `CREATE TABLE IF NOT EXISTS approval_audit_log (
+          id TEXT PRIMARY KEY,
+          item_id TEXT NOT NULL,
+          session_id TEXT NOT NULL,
+          event TEXT NOT NULL,
+          actor TEXT NOT NULL,
+          detail TEXT,
+          metadata TEXT,
+          created_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_audit_item ON approval_audit_log(item_id);
+        CREATE INDEX IF NOT EXISTS idx_audit_session ON approval_audit_log(session_id);`,
+        (err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
         }
       );
     });
@@ -151,6 +173,12 @@ export class InboxManager {
       });
       span.setAttribute('inbox.id', id);
       otel.endSpan(span, SpanStatusCode.OK);
+      void this._auditLog(
+        id,
+        'submitted',
+        'system',
+        `Inbox item submitted: ${item.title}`
+      );
       return full;
     } catch (e) {
       void handleError(e, {
@@ -203,6 +231,9 @@ export class InboxManager {
       item.repliedAt = now;
 
       otel.endSpan(span, SpanStatusCode.OK);
+      void this._auditLog(id, 'replied', 'user', `Reply: ${reply}`, {
+        selectedOption: _selectedOption,
+      });
       return item;
     } catch (e) {
       void handleError(e, {
@@ -326,6 +357,86 @@ export class InboxManager {
         }
       );
     });
+  }
+
+  /**
+   * CAS 状态更新（幂等性保护）
+   * 仅当当前状态为 expected 时更新为 target
+   * @returns true 表示更新成功，false 表示状态已变更（并发冲突）
+   */
+  async tryUpdateStatus(
+    id: string,
+    expected: InboxItemStatus,
+    target: InboxItemStatus
+  ): Promise<boolean> {
+    const db = await this.getDb();
+    return new Promise<boolean>((resolve, reject) => {
+      db.run(
+        `UPDATE inbox_items SET status = ?, updated_at = ? WHERE id = ? AND status = ?`,
+        [target, Date.now(), id, expected],
+        function (this: { changes: number }, err: Error | null) {
+          if (err) reject(err);
+          else resolve(this.changes > 0);
+        }
+      );
+    });
+  }
+
+  /** 重置审批项状态为 pending（用于审批撤销） */
+  async resetStatus(id: string, status: InboxItemStatus): Promise<boolean> {
+    const db = await this.getDb();
+    return new Promise<boolean>((resolve, reject) => {
+      db.run(
+        `UPDATE inbox_items SET status = ?, reply = NULL, replied_at = NULL, updated_at = ? WHERE id = ?`,
+        [status, Date.now(), id],
+        function (this: { changes: number }, err: Error | null) {
+          if (err) reject(err);
+          else resolve(this.changes > 0);
+        }
+      );
+    }).then(async (result) => {
+      if (result) {
+        await this._auditLog(id, 'undone', 'user:web', 'Approval undone');
+      }
+      return result;
+    });
+  }
+
+  /** 写入审批审计日志 */
+  private async _auditLog(
+    itemId: string,
+    event: string,
+    actor: string,
+    detail?: string,
+    meta?: Record<string, unknown>
+  ): Promise<void> {
+    try {
+      const db = await this.getDb();
+      const item = await this.get(itemId);
+      const id = randomUUID();
+      await new Promise<void>((resolve, reject) => {
+        db.run(
+          `INSERT INTO approval_audit_log (id, item_id, session_id, event, actor, detail, metadata, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            id,
+            itemId,
+            item?.sessionId ?? '',
+            event,
+            actor,
+            detail ?? null,
+            meta ? JSON.stringify(meta) : null,
+            Date.now(),
+          ],
+          (err: Error | null) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+    } catch {
+      // 审计日志失败不阻塞主流程
+    }
   }
 
   private _mapRow(row: Record<string, unknown>): InboxItem {

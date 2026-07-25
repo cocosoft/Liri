@@ -214,7 +214,9 @@ export class KnowledgeConfig {
       this.data.compiler = { ...this.data.compiler, ...partial.compiler };
     }
     if (partial.vectorStore !== undefined) {
-      this.data.vectorStore = partial.vectorStore ? { ...partial.vectorStore } : undefined;
+      this.data.vectorStore = partial.vectorStore
+        ? { ...partial.vectorStore }
+        : undefined;
     }
     return this.data;
   }

@@ -1587,7 +1587,8 @@ export async function handleGetKnowledgeConfig(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { KnowledgeConfig } = await import('@modules/knowledge/KnowledgeConfig');
+    const { KnowledgeConfig } =
+      await import('@modules/knowledge/KnowledgeConfig');
     const config = await KnowledgeConfig.load();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(config.toJSON()));
@@ -1605,7 +1606,8 @@ export async function handleUpdateKnowledgeConfig(
     const body = await readRequestBody(req);
     const partial = JSON.parse(body);
 
-    const { KnowledgeConfig } = await import('@modules/knowledge/KnowledgeConfig');
+    const { KnowledgeConfig } =
+      await import('@modules/knowledge/KnowledgeConfig');
     const config = await KnowledgeConfig.load();
     const updated = config.update(partial);
     await config.save();

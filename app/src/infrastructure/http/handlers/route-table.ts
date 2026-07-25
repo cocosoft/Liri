@@ -1274,13 +1274,32 @@ export async function dispatchRoute(
     return true;
   }
   if (method === 'GET' && url === '/v1/knowledge/config') {
-    const { handleGetKnowledgeConfig } = await import('@modules/infrastructure/http/handlers/knowledge-handlers');
+    const { handleGetKnowledgeConfig } =
+      await import('@modules/infrastructure/http/handlers/knowledge-handlers');
     await handleGetKnowledgeConfig(req, res);
     return true;
   }
   if (method === 'PUT' && url === '/v1/knowledge/config') {
     const { handleUpdateKnowledgeConfig } = await import('@modules/infrastructure/http/handlers/knowledge-handlers');
     await handleUpdateKnowledgeConfig(req, res);
+    return true;
+  }
+  // 数据源管理
+  if (url.startsWith('/v1/knowledge/datasources')) {
+    const { handleListDataSources, handleCreateDataSource, handleDeleteDataSource, handleSyncDataSource } =
+      await import('@modules/infrastructure/http/handlers/datasource-handlers');
+    if (method === 'GET' && url === '/v1/knowledge/datasources') {
+      await handleListDataSources(req, res);
+    } else if (method === 'POST' && url === '/v1/knowledge/datasources') {
+      await handleCreateDataSource(req, res);
+    } else if (method === 'DELETE') {
+      await handleDeleteDataSource(req, res);
+    } else if (method === 'POST' && url.endsWith('/sync')) {
+      await handleSyncDataSource(req, res);
+    } else {
+      res.writeHead(405);
+      res.end('Method not allowed');
+    }
     return true;
   }
   if (method === 'GET' && url.startsWith('/v1/knowledge/graph')) {

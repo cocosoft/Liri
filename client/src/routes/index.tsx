@@ -15,6 +15,7 @@ const KnowledgePage = lazy(() => import("../components/views/KnowledgePage"));
 const FAQView = lazy(() => import("../components/views/FAQView"));
 const GraphView = lazy(() => import("../components/views/GraphView"));
 const AutoRAGConfigView = lazy(() => import("../components/views/AutoRAGConfigView"));
+const DataSourceView = lazy(() => import("../components/views/DataSourceView"));
 const DevPage = lazy(() => import("../components/views/DevPage"));
 const MemoryPage = lazy(() => import("../components/views/MemoryPage"));
 const SkillPage = lazy(() => import("../components/views/SkillPage"));
@@ -150,6 +151,16 @@ export const routes: RouteObject[] = [
     element: (
       <AuthGuard>
         <AutoRAGConfigView />
+      </AuthGuard>
+    ),
+  },
+
+  // 外部数据源
+  {
+    path: "/knowledge/datasources",
+    element: (
+      <AuthGuard>
+        <DataSourceView />
       </AuthGuard>
     ),
   },

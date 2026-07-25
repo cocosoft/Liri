@@ -1,6 +1,5 @@
 import { useState, useRef } from "react";
 import { knowledgeService } from "../../services/knowledgeService";
-import { HTTPClientError } from "../../services/httpClient";
 import { readFileAsBase64 } from "../../utils/fileUtils";
 import { handleClientError } from "../../utils/handleError";
 
@@ -119,9 +118,7 @@ function FileUploadZone({
               action: "uploadFile",
             });
             errorCount++;
-            if (err instanceof HTTPClientError) {
-              lastErrorMessage = err.message;
-            } else if (err instanceof Error) {
+            if (err instanceof Error) {
               lastErrorMessage = err.message;
             }
           }

@@ -53,10 +53,14 @@ export type {
 export type {
   KnowledgeItem,
   KnowledgeSearchResult,
+  KnowledgeSearchHit,
   KnowledgeSource,
   KnowledgeBase,
   KnowledgeFile,
 } from "./knowledge";
+
+// ─── FAQ ───
+export type { FAQEntry, FAQImportReport } from "./faq";
 
 // ─── 智能体 ───
 export type { AgentTask, AgentTaskTemplate, AgentProgress } from "./agent";

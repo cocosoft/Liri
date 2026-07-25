@@ -44,3 +44,12 @@ export interface KnowledgeFile {
   source: KnowledgeSource;
   base: string;
 }
+
+/** 搜索结果（瞬态，与持久化 KnowledgeFile 分离） */
+export interface KnowledgeSearchHit {
+  file: KnowledgeFile;
+  score: number;
+  matchType: "keyword" | "semantic" | "graph_rag" | "knowledge";
+  domain?: string;
+  snippet?: string;
+}

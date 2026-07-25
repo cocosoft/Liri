@@ -42,6 +42,8 @@ function LiriPage() {
     loadStats,
   } = useBuddyStore();
   const operations = useOperationProgressStore((s) => s.operations);
+  const dreamPhase = useOperationProgressStore((s) => s.dreamPhase);
+  const dreamPhasesDone = useOperationProgressStore((s) => s.dreamPhasesDone);
   const _init = useOperationProgressStore((s) => s._init);
   const setActivePage = useNavigationStore((s) => s.setActivePage);
   const [message, setMessage] = useState("");
@@ -98,35 +100,49 @@ function LiriPage() {
           </h2>
         </div>
 
-        {/* 梦境实时管线状态 */}
-        {dreamOp && (
-          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 rounded-lg border border-indigo-100 dark:border-indigo-900/50 p-3 mb-4">
-            <div className="flex items-center gap-3">
-              <span className="text-lg">🌙</span>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
-                  {dreamOp.label}
-                </div>
-                {dreamOp.progress !== undefined && (
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <div className="flex-1 h-1.5 bg-indigo-200 dark:bg-indigo-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-indigo-500 rounded-full transition-all duration-700"
-                        style={{
-                          width: `${Math.round(dreamOp.progress * 100)}%`,
-                        }}
-                      />
-                    </div>
-                    <span className="text-[10px] text-indigo-500 dark:text-indigo-400">
-                      {Math.round(dreamOp.progress * 100)}%
-                    </span>
-                  </div>
-                )}
-              </div>
-              {dreamOp.progress !== undefined && dreamOp.progress < 1 && (
-                <span className="inline-block w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-              )}
+        {/* 梦境实时管线可视化 */}
+        {dreamPhase && (
+          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 rounded-lg border border-indigo-100 dark:border-indigo-900/50 p-4 mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
+                🌙 Liri 正在做梦...
+              </span>
+              <span className="inline-block w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
             </div>
+            {/* 五阶段管线 */}
+            <div className="flex items-center gap-1">
+              {(["gather", "analyze", "generate", "write", "index"] as const).map((phase, i) => {
+                const done = dreamPhasesDone.includes(phase);
+                const active = dreamPhase === phase;
+                return (
+                  <div key={phase} className="flex-1 flex items-center">
+                    <div className={`flex-1 flex flex-col items-center ${active ? "scale-105" : ""} transition-transform`}>
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+                          ${done ? "bg-indigo-500 text-white" : active ? "bg-indigo-400 text-white ring-2 ring-indigo-300" : "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500"}`}
+                      >
+                        {done ? "✓" : i + 1}
+                      </div>
+                      <span className={`text-[9px] mt-1 text-center leading-tight
+                        ${active ? "text-indigo-600 dark:text-indigo-400 font-semibold" : done ? "text-indigo-500 dark:text-indigo-400" : "text-gray-400"}`}
+                      >
+                        {PHASE_LABELS[phase]}
+                      </span>
+                    </div>
+                    {i < 4 && (
+                      <div className={`w-4 h-0.5 -mt-3 ${dreamPhasesDone.includes(phase) ? "bg-indigo-400" : "bg-gray-200 dark:bg-gray-700"}`} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 梦境完成横幅 */}
+        {!dreamPhase && dreamOp && dreamOp.progress === 1 && (
+          <div className="bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-900/50 p-3 mb-4">
+            <span className="text-sm text-green-700 dark:text-green-300">{dreamOp.label}</span>
           </div>
         )}
 

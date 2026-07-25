@@ -21,6 +21,10 @@ export interface ActiveOperation {
 interface OperationProgressState {
   /** 当前活跃的操作列表 */
   operations: ActiveOperation[];
+  /** 梦境当前阶段 */
+  dreamPhase: string | null;
+  /** 已完成的梦境阶段 */
+  dreamPhasesDone: string[];
   /** 注册事件监听 */
   _init: () => void;
 }
@@ -31,22 +35,21 @@ const STALE_TIMEOUT_MS = 30000;
 export const useOperationProgressStore = create<OperationProgressState>(
   (set) => ({
     operations: [],
+    dreamPhase: null,
+    dreamPhasesDone: [],
 
     _init: () => {
       // 梦境阶段变化
       sseService.on("dream:phase:changed", (data) => {
         const phase = data.phase as string;
         const label =
-          phase === "gather"
-            ? "收集数据"
-            : phase === "analyze"
-              ? "分析中"
-              : phase === "write"
-                ? "写入记忆"
-                : phase === "index"
-                  ? "刷新索引"
-                  : "处理中";
+          phase === "gather" ? "收集数据" :
+          phase === "analyze" ? "分析中" :
+          phase === "write" ? "写入记忆" :
+          phase === "index" ? "刷新索引" : "处理中";
         set((s) => ({
+          dreamPhase: phase,
+          dreamPhasesDone: [...new Set([...s.dreamPhasesDone, phase])],
           operations: upsertOp(s.operations, "dream", `🌙 梦境: ${label}`, {
             progress: (data.progress as number) ?? undefined,
           }),
@@ -56,6 +59,8 @@ export const useOperationProgressStore = create<OperationProgressState>(
       sseService.on("dream:cycle:completed", (data) => {
         const status = data.status as string;
         set((s) => ({
+          dreamPhase: null,
+          dreamPhasesDone: [],
           operations: upsertOp(
             s.operations,
             "dream",
@@ -75,6 +80,8 @@ export const useOperationProgressStore = create<OperationProgressState>(
 
       sseService.on("dream:cycle:failed", (_data) => {
         set((s) => ({
+          dreamPhase: null,
+          dreamPhasesDone: [],
           operations: upsertOp(s.operations, "dream", "🌙 梦境失败", {
             progress: 1,
           }),

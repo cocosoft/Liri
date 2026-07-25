@@ -1273,6 +1273,15 @@ export async function dispatchRoute(
     await self['handleKnowledgeHealth'](req, res);
     return true;
   }
+  if (method === 'GET' && url.startsWith('/v1/knowledge/graph')) {
+    const { handleListGraphEdges, handleGraphStats } = await import('@modules/infrastructure/http/handlers/graph-handlers');
+    if (url === '/v1/knowledge/graph/edges' || url.startsWith('/v1/knowledge/graph/edges?')) {
+      await handleListGraphEdges(req, res);
+    } else {
+      await handleGraphStats(req, res);
+    }
+    return true;
+  }
   if (method === 'GET' && url.startsWith('/v1/knowledge/snapshots')) {
     await self['handleListSnapshots'](req, res);
     return true;

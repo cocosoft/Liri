@@ -62,6 +62,9 @@ export type {
 // ─── FAQ ───
 export type { FAQEntry, FAQImportReport } from "./faq";
 
+// ─── 知识图谱 ───
+export type { GraphEdge, GraphStats, GraphEdgesResponse } from "./graph";
+
 // ─── 智能体 ───
 export type { AgentTask, AgentTaskTemplate, AgentProgress } from "./agent";
 

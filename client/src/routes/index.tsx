@@ -13,6 +13,7 @@ const FileExplorerPage = lazy(
 const CostPage = lazy(() => import("../components/views/CostPage"));
 const KnowledgePage = lazy(() => import("../components/views/KnowledgePage"));
 const FAQView = lazy(() => import("../components/views/FAQView"));
+const GraphView = lazy(() => import("../components/views/GraphView"));
 const DevPage = lazy(() => import("../components/views/DevPage"));
 const MemoryPage = lazy(() => import("../components/views/MemoryPage"));
 const SkillPage = lazy(() => import("../components/views/SkillPage"));
@@ -128,6 +129,16 @@ export const routes: RouteObject[] = [
     element: (
       <AuthGuard>
         <FAQView />
+      </AuthGuard>
+    ),
+  },
+
+  // 知识图谱
+  {
+    path: "/knowledge/graph",
+    element: (
+      <AuthGuard>
+        <GraphView />
       </AuthGuard>
     ),
   },

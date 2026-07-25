@@ -117,6 +117,18 @@ export const knowledgeService = {
     unwrap(res, "KNOWLEDGE_DELETE_BASE");
   },
 
+  /** 克隆知识库（深拷贝，含文档和索引） */
+  cloneBase: async (name: string, newName: string): Promise<KnowledgeBase> => {
+    const res = await http.post<KnowledgeBase>(`/v1/knowledge/bases/${encodeURIComponent(name)}/clone`, { newName });
+    return unwrap(res, "KNOWLEDGE_CLONE_BASE");
+  },
+
+  /** 复制知识库配置（浅拷贝，仅配置不含文档） */
+  duplicateBase: async (name: string, newName: string): Promise<KnowledgeBase> => {
+    const res = await http.post<KnowledgeBase>(`/v1/knowledge/bases/${encodeURIComponent(name)}/duplicate`, { newName });
+    return unwrap(res, "KNOWLEDGE_DUPLICATE_BASE");
+  },
+
   saveFromChat: async (params: {
     base?: string;
     title: string;

@@ -378,6 +378,30 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
     }
   }
 
+  async function handleCloneBase(name: string) {
+    const newName = prompt("请输入新知识库名称（克隆含文档和索引）:", `${name}-clone`);
+    if (!newName?.trim()) return;
+    try {
+      await knowledgeService.cloneBase(name, newName.trim());
+      await loadBases();
+    } catch (err) {
+      logger.error("克隆知识库失败", err);
+      alert(`克隆失败: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  async function handleDuplicateBase(name: string) {
+    const newName = prompt("请输入新知识库名称（仅复制配置，不含文档）:", `${name}-copy`);
+    if (!newName?.trim()) return;
+    try {
+      await knowledgeService.duplicateBase(name, newName.trim());
+      await loadBases();
+    } catch (err) {
+      logger.error("复制知识库配置失败", err);
+      alert(`复制失败: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
   async function handleRenameBase(name: string) {
     const label = editLabel.trim();
     if (!label || label === bases.find((b) => b.name === name)?.label) {
@@ -450,6 +474,8 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
     handleCompile,
     handleCreateBase,
     handleDeleteBase,
+    handleCloneBase,
+    handleDuplicateBase,
     handleRenameBase,
     handleBatchTag,
   };

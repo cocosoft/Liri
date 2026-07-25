@@ -68,6 +68,8 @@ function KnowledgeBaseList({
     handleCompile,
     handleCreateBase,
     handleDeleteBase,
+    handleCloneBase,
+    handleDuplicateBase,
     handleRenameBase,
     handleBatchTag,
   } = useKnowledgeBaseList({
@@ -190,6 +192,8 @@ function KnowledgeBaseList({
         onRenameBase={handleRenameBase}
         onCancelEdit={() => dispatch({ type: "CANCEL_EDIT_BASE" })}
         onDeleteBase={handleDeleteBase}
+        onCloneBase={handleCloneBase}
+        onDuplicateBase={handleDuplicateBase}
       />
 
       {/* 搜索筛选 */}

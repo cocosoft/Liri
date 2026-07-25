@@ -17,6 +17,8 @@ interface KBaseSelectorProps {
   onRenameBase: (name: string) => void;
   onCancelEdit: () => void;
   onDeleteBase: (name: string) => void;
+  onCloneBase?: (name: string) => void;
+  onDuplicateBase?: (name: string) => void;
 }
 
 function KBaseSelector({
@@ -31,6 +33,8 @@ function KBaseSelector({
   onRenameBase,
   onCancelEdit,
   onDeleteBase,
+  onCloneBase,
+  onDuplicateBase,
 }: KBaseSelectorProps) {
   const textMuted = isDark ? "text-gray-500" : "text-gray-400";
 
@@ -95,16 +99,36 @@ function KBaseSelector({
               )}
             </button>
             {base.source === "user" && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeleteBase(base.name);
-                }}
-                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                title="删除知识库"
-              >
-                ✕
-              </button>
+              <div className="absolute -top-1 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                {onCloneBase && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onCloneBase(base.name); }}
+                    className="w-4 h-4 rounded-full bg-green-500 text-white text-[10px] flex items-center justify-center"
+                    title="克隆知识库（含文档）"
+                  >
+                    +
+                  </button>
+                )}
+                {onDuplicateBase && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDuplicateBase(base.name); }}
+                    className="w-4 h-4 rounded-full bg-blue-500 text-white text-[10px] flex items-center justify-center"
+                    title="复制配置（仅配置）"
+                  >
+                    ⎘
+                  </button>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteBase(base.name);
+                  }}
+                  className="w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center"
+                  title="删除知识库"
+                >
+                  ✕
+                </button>
+              </div>
             )}
           </div>
         ))}

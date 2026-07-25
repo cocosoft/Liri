@@ -217,6 +217,16 @@ export interface DataSessionMetadata {
   totalTokens?: number;
   /** 总成本 */
   totalCost?: number;
+  /** 对话轮次数（用户消息数） */
+  roundCount?: number;
+  /** 是否正在流式输出 */
+  isStreaming?: boolean;
+  /** 已使用回退次数 */
+  rollbackCount?: number;
+  /** 消息ID → 轮次ID 映射（用于文件回滚） */
+  roundIndex?: Record<string, number>;
+  /** 轮次计数器 */
+  roundCounter?: number;
   /** 自定义扩展字段 */
   [key: string]: unknown;
 }

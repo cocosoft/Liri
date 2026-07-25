@@ -37,6 +37,7 @@
 
 import { stat, readdir, readFile } from 'fs/promises';
 import { join, resolve } from 'path';
+import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { xxHash, encodeFilePath } from './xxHash';
 import type { FileChange, FileChangeType, FileStat, ScanStatus } from './types';
@@ -55,6 +56,9 @@ export class FileOperationTracker {
 
   /** 扫描是否超时（部分结果） */
   private timedOut: boolean = false;
+
+  /** 轮次开始时扫描的路径列表（用于 detectShellSideEffects 检测新文件） */
+  private scanPaths: string[] = [];
 
   /**
    * 路径 1：在 AI 执行文件工具调用前调用
@@ -124,6 +128,7 @@ export class FileOperationTracker {
 
     this.roundStartSnapshot.clear();
     this.timedOut = false;
+    this.scanPaths = scanPaths;
 
     const startTime = Date.now();
     const TIMEOUT_MS = 10_000; // 10 秒超时
@@ -253,6 +258,61 @@ export class FileOperationTracker {
       }
     }
 
+    // === P1: Shell 新文件追踪 ===
+    // 重新扫描 scanPaths，检测在 roundStartSnapshot 中不存在的文件
+    if (this.scanPaths.length > 0) {
+      const newFiles = new Set<string>();
+      const startTime = Date.now();
+      const TIMEOUT_MS = 5_000;
+
+      const collectNewFiles = async (dirPath: string): Promise<void> => {
+        if (Date.now() - startTime > TIMEOUT_MS) return;
+        try {
+          const entries = await readdir(dirPath, { withFileTypes: true });
+          for (const entry of entries) {
+            if (Date.now() - startTime > TIMEOUT_MS) return;
+            const fullPath = join(dirPath, entry.name);
+            if (entry.isDirectory()) {
+              if (
+                entry.name === 'node_modules' ||
+                entry.name === '.git' ||
+                entry.name === '__pycache__' ||
+                entry.name === '.venv'
+              )
+                continue;
+              await collectNewFiles(fullPath);
+            } else {
+              newFiles.add(fullPath);
+            }
+          }
+        } catch {
+          // 目录不可读
+        }
+      };
+
+      for (const scanPath of this.scanPaths) {
+        await collectNewFiles(scanPath);
+      }
+
+      for (const filePath of newFiles) {
+        if (
+          !this.roundStartSnapshot.has(filePath) &&
+          !this.roundChanges.has(filePath)
+        ) {
+          try {
+            await stat(filePath);
+            this.roundChanges.set(filePath, {
+              path: filePath,
+              type: 'created',
+              originalSize: 0,
+            });
+          } catch {
+            // 文件在扫描后被删除
+          }
+        }
+      }
+    }
+
     return { scanStatus: this.timedOut ? 'partial' : 'complete' };
   }
 
@@ -270,6 +330,59 @@ export class FileOperationTracker {
    */
   getChanges(): FileChange[] {
     return [...this.roundChanges.values()];
+  }
+
+  /**
+   * 解析 AI 回复中的 [FILE_OPERATION] 声明
+   *
+   * 格式：[FILE_OPERATION] <create|modify|delete> <文件路径>
+   * 示例：
+   *   [FILE_OPERATION] create src/utils.ts
+   *   [FILE_OPERATION] modify package.json
+   *   [FILE_OPERATION] delete temp.log
+   *
+   * @param text AI 回复文本
+   * @param projectRoot 项目根目录（用于解析相对路径）
+   * @returns 解析出的文件操作声明列表
+   */
+  static parseFileOperationDeclarations(
+    text: string,
+    projectRoot: string
+  ): Array<{ type: FileChangeType; path: string }> {
+    const declarations: Array<{ type: FileChangeType; path: string }> = [];
+    const regex =
+      /\[FILE_OPERATION\]\s+(create|modify|delete)\s+(.+?)(?:\n|$)/gi;
+
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(text)) !== null) {
+      const type = match[1]!.toLowerCase() as FileChangeType;
+      const rawPath = match[2]!.trim();
+
+      // 解析为绝对路径
+      const absPath = resolve(projectRoot, rawPath);
+
+      declarations.push({ type, path: absPath });
+    }
+
+    return declarations;
+  }
+
+  /**
+   * 合并外部变更记录到当前轮次
+   *
+   * 用于子 Agent 操作继承：子 Agent 的 Shell 副作用检测结果（file_create / file_delete）
+   * 合并到父会话的 FileOperationTracker 中，确保父会话回退时撤消子 Agent 文件操作。
+   *
+   * 合并规则：若同路径已存在记录，保留已有（父会话的直接操作优先于子 Agent 继承）。
+   *
+   * @param externalChanges 外部变更记录（来自子 Agent 的 tracker）
+   */
+  mergeChanges(externalChanges: FileChange[]): void {
+    for (const change of externalChanges) {
+      if (!this.roundChanges.has(change.path)) {
+        this.roundChanges.set(change.path, change);
+      }
+    }
   }
 
   /**
@@ -293,6 +406,7 @@ export class FileOperationTracker {
     this.roundChanges.clear();
     this.roundStartSnapshot.clear();
     this.timedOut = false;
+    this.scanPaths = [];
   }
 }
 

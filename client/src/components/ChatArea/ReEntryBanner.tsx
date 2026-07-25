@@ -12,8 +12,8 @@ interface ReEntryBannerProps {
   sessionId: string;
   sessionTitle: string;
   leaveTimestamp: number;
-  /** 切走前的消息数量 */
-  prevMessageCount: number;
+  /** 切走前最后一条消息的 ID */
+  lastMessageId: string | null;
   onScrollToLatest: () => void;
   onDismiss: () => void;
 }
@@ -21,7 +21,7 @@ interface ReEntryBannerProps {
 export default function ReEntryBanner({
   sessionTitle,
   leaveTimestamp,
-  prevMessageCount,
+  lastMessageId,
   onScrollToLatest,
   onDismiss,
 }: ReEntryBannerProps) {
@@ -31,7 +31,13 @@ export default function ReEntryBanner({
 
   const awayMs = Date.now() - leaveTimestamp;
   const awayMinutes = Math.round(awayMs / 60000);
-  const newMessageCount = Math.max(0, messages.length - prevMessageCount);
+  // 从 lastMessageId 计算新消息数量（避免删除导致计数不准）
+  const newMessageCount = lastMessageId
+    ? (() => {
+        const idx = messages.findIndex((m) => m.id === lastMessageId);
+        return idx >= 0 ? Math.max(0, messages.length - idx - 1) : 0;
+      })()
+    : Math.max(0, messages.length);
 
   const handleDismiss = useCallback(() => {
     setVisible(false);
@@ -103,22 +109,22 @@ export default function ReEntryBanner({
 
 /** 模块级存储：记录每个会话的离开时间戳 */
 const _sessionLeaveTimes = new Map<string, number>();
-/** 模块级存储：记录每个会话切走前的消息数量 */
-const _sessionMessageCounts = new Map<string, number>();
+/** 模块级存储：记录每个会话切走前最后一条消息的 ID */
+const _sessionLastMessageIds = new Map<string, string | null>();
 
-/** 切走时调用，记录离开时间 */
+/** 切走时调用，记录离开时间和最后一条消息 ID */
 export function recordSessionLeave(
   sessionId: string,
-  messageCount: number,
+  lastMessageId: string | null,
 ): void {
   _sessionLeaveTimes.set(sessionId, Date.now());
-  _sessionMessageCounts.set(sessionId, messageCount);
+  _sessionLastMessageIds.set(sessionId, lastMessageId);
 }
 
 /** 切回时调用，返回离开信息；若离开<30秒或首次进入返回 null */
 export function getSessionReentry(
   sessionId: string,
-): { leaveTimestamp: number; prevMessageCount: number } | null {
+): { leaveTimestamp: number; lastMessageId: string | null } | null {
   const leaveTs = _sessionLeaveTimes.get(sessionId);
   if (!leaveTs) return null;
 
@@ -126,12 +132,13 @@ export function getSessionReentry(
   if (elapsed < 30000) {
     // 离开不超30秒，不算回切
     _sessionLeaveTimes.delete(sessionId);
+    _sessionLastMessageIds.delete(sessionId);
     return null;
   }
 
-  const prevCount = _sessionMessageCounts.get(sessionId) ?? 0;
+  const lastId = _sessionLastMessageIds.get(sessionId) ?? null;
   // 消费后清除
   _sessionLeaveTimes.delete(sessionId);
-  _sessionMessageCounts.delete(sessionId);
-  return { leaveTimestamp: leaveTs, prevMessageCount: prevCount };
+  _sessionLastMessageIds.delete(sessionId);
+  return { leaveTimestamp: leaveTs, lastMessageId: lastId };
 }

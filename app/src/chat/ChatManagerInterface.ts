@@ -143,6 +143,16 @@ export interface ChatManager {
   ): Promise<void>;
 
   /**
+   * 执行文件回滚 — 撤消指定轮次之后的文件操作
+   */
+  undoRoundsSince(
+    sessionId: string,
+    sinceRoundId: number,
+    maxRound: number,
+    roundIndex: Record<string, number>
+  ): Promise<Array<{ roundId: number; success: boolean; error?: string }>>;
+
+  /**
    * 搜索消息
    * @param query 搜索查询
    * @param sessionId 会话ID（可选）

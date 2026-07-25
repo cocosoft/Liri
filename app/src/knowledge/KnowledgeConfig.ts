@@ -44,12 +44,22 @@ export interface KnowledgeCompilerConfig {
   qualityLintThreshold: number;
 }
 
+export interface VectorStoreConfig {
+  /** 向量存储类型：jsonl | sqlite_vec */
+  type: 'jsonl' | 'sqlite_vec';
+  /** 语义搜索返回条数 */
+  topK: number;
+  /** 相似度最低阈值 */
+  minScore: number;
+}
+
 export interface KnowledgeConfigData {
   version: 1;
   search: KnowledgeSearchConfig;
   linter: KnowledgeLinterConfig;
   scheduler: KnowledgeSchedulerConfig;
   compiler: KnowledgeCompilerConfig;
+  vectorStore?: VectorStoreConfig;
 }
 
 const DEFAULTS: KnowledgeConfigData = {
@@ -162,6 +172,10 @@ export class KnowledgeConfig {
 
   get compiler(): KnowledgeCompilerConfig {
     return { ...this.data.compiler };
+  }
+
+  get vectorStore(): VectorStoreConfig | undefined {
+    return this.data.vectorStore ? { ...this.data.vectorStore } : undefined;
   }
 
   /** 获取配置摘要（用于 CLI 回显） */

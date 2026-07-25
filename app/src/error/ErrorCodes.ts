@@ -253,6 +253,43 @@ export const ErrorCodes = {
     message: '检测到危险配置项',
     level: 'WARN' as const,
   },
+
+  // ---- 知识库 (1200-1299) ----
+  KNOWLEDGE_INDEX_EMPTY: {
+    code: 1200,
+    message: '知识库索引为空，请先构建索引',
+    level: 'WARN' as const,
+  },
+  KNOWLEDGE_VECTOR_STORE_ERROR: {
+    code: 1201,
+    message: '向量存储操作失败',
+    level: 'ERROR' as const,
+  },
+  KNOWLEDGE_RERANK_FAILED: {
+    code: 1202,
+    message: '重排序调用失败',
+    level: 'WARN' as const,
+  },
+  KNOWLEDGE_EMBEDDING_FAILED: {
+    code: 1203,
+    message: '嵌入生成失败',
+    level: 'ERROR' as const,
+  },
+  KNOWLEDGE_GRAPH_EXTRACT_FAILED: {
+    code: 1204,
+    message: '知识图谱提取失败',
+    level: 'WARN' as const,
+  },
+  KNOWLEDGE_FAQ_DUPLICATE: {
+    code: 1205,
+    message: 'FAQ 条目重复',
+    level: 'WARN' as const,
+  },
+  KNOWLEDGE_MIGRATION_FAILED: {
+    code: 1206,
+    message: '知识库数据迁移失败',
+    level: 'ERROR' as const,
+  },
 } as const;
 
 export type ErrorCodeKey = keyof typeof ErrorCodes;

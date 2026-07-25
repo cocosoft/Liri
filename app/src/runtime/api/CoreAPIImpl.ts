@@ -813,7 +813,8 @@ export class CoreAPIImpl implements CoreAPI {
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
       messageCount: countConversationMessages(session.messages),
-      roundCount: countUserMessages(session.messages),
+      roundCount:
+        session.metadata.roundCount ?? countUserMessages(session.messages),
       source: this._resolveSessionSource(session),
       metadata: session.metadata,
     };
@@ -916,6 +917,196 @@ export class CoreAPIImpl implements CoreAPI {
     blocks: Array<Record<string, unknown>>
   ): Promise<void> {
     await this.chatManager.updateMessageBlocks(sessionId, messageId, blocks);
+  }
+
+  /**
+   * 删除单条消息（软删除）
+   */
+  async deleteMessage(
+    sessionId: string,
+    messageId: string
+  ): Promise<{ success: boolean; messages: Array<Record<string, unknown>> }> {
+    const gateway = this.chatManager.getSessionGateway();
+    if (!gateway) {
+      throw new Error('SessionGateway not available');
+    }
+
+    // 并发防护：检查是否正在流式输出
+    const session = this.sessionManager.getSession(sessionId);
+    if (session?.metadata?.isStreaming) {
+      const err = new Error('Cannot delete message while streaming');
+      (err as any).statusCode = 409;
+      throw err;
+    }
+
+    // 校验消息存在且是 user 消息
+    const messages = await gateway.getMessages(sessionId);
+    const targetMsg = messages.find((m) => m.id === messageId);
+    if (!targetMsg) {
+      const err = new Error('Message not found');
+      (err as any).statusCode = 404;
+      throw err;
+    }
+    if (targetMsg.role !== 'user') {
+      const err = new Error('Only user messages can be deleted');
+      (err as any).statusCode = 400;
+      throw err;
+    }
+
+    // 软删除消息
+    await gateway.deleteMessage(sessionId, messageId);
+
+    // 附件清理（引用计数归零时删除文件）
+    this.cleanupOrphanAttachments(sessionId, [messageId]).catch((err) => {
+      logger.debug('附件清理失败（非关键）', { error: String(err) });
+    });
+
+    // 审计日志
+    logger.info('Message deleted', {
+      module: 'audit:message',
+      sessionId,
+      messageId,
+      timestamp: new Date().toISOString(),
+    });
+
+    // 返回更新后的消息列表
+    const updatedMessages = await gateway.getMessages(sessionId);
+    return {
+      success: true,
+      messages: updatedMessages.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: typeof m.content === 'string' ? m.content : '',
+        timestamp: m.timestamp,
+      })),
+    };
+  }
+
+  /**
+   * 截断消息（回退到指定消息之前）
+   */
+  async truncateMessages(
+    sessionId: string,
+    beforeMessageId: string
+  ): Promise<{
+    success: boolean;
+    messages: Array<Record<string, unknown>>;
+    remainingRollbacks: number;
+    deletedMessageIds: string[];
+    undoResults: Array<{ roundId: number; success: boolean; error?: string }>;
+  }> {
+    const gateway = this.chatManager.getSessionGateway();
+    if (!gateway) {
+      throw new Error('SessionGateway not available');
+    }
+
+    // 并发防护：检查是否正在流式输出
+    const session = this.sessionManager.getSession(sessionId);
+    if (session?.metadata?.isStreaming) {
+      const err = new Error('Cannot rollback while streaming');
+      (err as any).statusCode = 409;
+      throw err;
+    }
+
+    // 回退次数限制检查
+    const rollbackCount: number =
+      (session?.metadata?.rollbackCount as number) ?? 0;
+    const MAX_ROLLBACKS = 5;
+    if (rollbackCount >= MAX_ROLLBACKS) {
+      const err = new Error('Rollback limit reached (max 5)');
+      (err as any).statusCode = 429;
+      throw err;
+    }
+
+    // 收集要删除的消息 ID（beforeMessageId 及之后的所有消息）
+    const messages = await gateway.getMessages(sessionId);
+    const targetIndex = messages.findIndex((m) => m.id === beforeMessageId);
+    if (targetIndex === -1) {
+      const err = new Error('Target message not found');
+      (err as any).statusCode = 404;
+      throw err;
+    }
+    if (messages[targetIndex].role !== 'user') {
+      const err = new Error('Can only rollback to a user message');
+      (err as any).statusCode = 400;
+      throw err;
+    }
+
+    const messagesToDelete = messages.slice(targetIndex);
+    const deletedMessageIds = messagesToDelete.map((m) => m.id);
+
+    // === 文件回滚（核心新增） ===
+    let undoResults: Array<{
+      roundId: number;
+      success: boolean;
+      error?: string;
+    }> = [];
+    const roundIndex = session?.metadata?.roundIndex;
+    if (roundIndex && beforeMessageId in roundIndex) {
+      const targetRoundId = roundIndex[beforeMessageId];
+      const maxRound =
+        (session?.metadata?.roundCounter as number) ?? targetRoundId;
+      try {
+        undoResults = await this.chatManager.undoRoundsSince(
+          sessionId,
+          targetRoundId,
+          maxRound,
+          roundIndex
+        );
+        logger.info('File rollback completed', {
+          sessionId,
+          targetRoundId,
+          undoCount: undoResults.length,
+          failedCount: undoResults.filter((r) => !r.success).length,
+        });
+      } catch (err) {
+        logger.warn('File rollback failed, continuing with message deletion', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    // 批量软删除
+    await gateway.deleteMessages(sessionId, deletedMessageIds);
+
+    // 附件清理（引用计数归零时删除文件）
+    this.cleanupOrphanAttachments(sessionId, deletedMessageIds).catch((err) => {
+      logger.debug('附件清理失败（非关键）', { error: String(err) });
+    });
+
+    // 审计日志
+    logger.info('Messages truncated (rollback)', {
+      module: 'audit:message',
+      sessionId,
+      beforeMessageId,
+      deletedMessageIds,
+      undoResults: undoResults.map((r) => ({
+        roundId: r.roundId,
+        success: r.success,
+      })),
+      timestamp: new Date().toISOString(),
+    });
+
+    // 递增回退计数
+    if (session) {
+      session.metadata.rollbackCount = rollbackCount + 1;
+      this.sessionManager.updateSession?.(session);
+    }
+
+    // 返回更新后的消息列表
+    const updatedMessages = await gateway.getMessages(sessionId);
+    return {
+      success: true,
+      messages: updatedMessages.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: typeof m.content === 'string' ? m.content : '',
+        timestamp: m.timestamp,
+      })),
+      remainingRollbacks: MAX_ROLLBACKS - (rollbackCount + 1),
+      deletedMessageIds,
+      undoResults,
+    };
   }
 
   /**
@@ -1342,6 +1533,97 @@ export class CoreAPIImpl implements CoreAPI {
         messageId: '',
         finishReason: 'error',
       };
+    }
+  }
+
+  /**
+   * P0: 附件清理 — 删除消息后清理孤儿附件文件
+   * 检查引用计数，仅当附件不被任何未删除消息引用时才删除文件
+   */
+  private async cleanupOrphanAttachments(
+    sessionId: string,
+    deletedMessageIds: string[]
+  ): Promise<void> {
+    try {
+      const session = this.sessionManager.getSession(sessionId);
+      if (!session) return;
+
+      const allMessages = session.messages || [];
+      const deletedSet = new Set(deletedMessageIds);
+
+      // 收集被删消息的附件 URL 列表
+      const deletedAttachments = new Map<
+        string,
+        { name: string; url: string }
+      >();
+      for (const msg of allMessages) {
+        if (deletedSet.has(msg.id)) {
+          const attachments = (msg as any).attachments as
+            | Array<{ name: string; url: string }>
+            | undefined;
+          if (attachments) {
+            for (const att of attachments) {
+              if (att.url) {
+                deletedAttachments.set(att.url, att);
+              }
+            }
+          }
+        }
+      }
+
+      if (deletedAttachments.size === 0) return;
+
+      // 检查剩余消息是否引用相同的附件（引用计数）
+      const remainingRefs = new Set<string>();
+      for (const msg of allMessages) {
+        if (!deletedSet.has(msg.id)) {
+          const attachments = (msg as any).attachments as
+            | Array<{ url: string }>
+            | undefined;
+          if (attachments) {
+            for (const att of attachments) {
+              if (att.url) {
+                remainingRefs.add(att.url);
+              }
+            }
+          }
+        }
+      }
+
+      // 清理零引用附件
+      const { unlink } = await import('fs/promises');
+      let cleanedCount = 0;
+      for (const [url, att] of deletedAttachments) {
+        if (!remainingRefs.has(url)) {
+          try {
+            // 尝试从 URL 解析文件路径
+            // URL 格式可能是 file:///path 或绝对路径
+            let filePath = url;
+            if (url.startsWith('file://')) {
+              filePath = url.slice(7);
+            }
+            if (filePath.includes('attachments')) {
+              await unlink(filePath);
+              cleanedCount++;
+            }
+          } catch {
+            // 文件不存在或无法删除，跳过
+          }
+        }
+      }
+
+      if (cleanedCount > 0) {
+        logger.info('附件清理完成', {
+          sessionId,
+          deletedMessageCount: deletedMessageIds.length,
+          cleanedAttachments: cleanedCount,
+        });
+      }
+    } catch (err) {
+      // 非关键路径，失败不影响主流程
+      logger.debug('附件清理异常', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 }

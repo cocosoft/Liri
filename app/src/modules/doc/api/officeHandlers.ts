@@ -746,6 +746,9 @@ export async function handleCalendarAdd(
       end: body.end || '',
       description: body.description,
       location: body.location,
+      status: body.status,
+      priority: body.priority,
+      tags: body.tags,
       reminder: body.minutesBefore
         ? { minutesBefore: Number(body.minutesBefore), method: 'push' as const }
         : undefined,
@@ -994,6 +997,142 @@ export async function handleCalendarExport(
     });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ code: 500, message: '导出失败' }));
+  }
+}
+
+/**
+ * 处理 PATCH /v1/calendar/events/:id/status
+ * 更新日程状态（pending → completed/cancelled/in_progress 等）
+ */
+export async function handleCalendarUpdateStatus(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const id = req.url!.split('/v1/calendar/events/')[1].split('/status')[0];
+    const body = JSON.parse(await readBody(req));
+
+    if (!body.status) {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ code: 400, message: '缺少 status 参数' }));
+      return;
+    }
+
+    const validStatuses = [
+      'pending',
+      'in_progress',
+      'completed',
+      'cancelled',
+      'overdue',
+    ];
+    if (!validStatuses.includes(body.status)) {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({ code: 400, message: `无效的状态值：${body.status}` })
+      );
+      return;
+    }
+
+    const { CalendarTool } =
+      await import('../../../../packages/office/calendar/CalendarTool');
+    const { EventStatus } = await import('../../../modules/calendar/types');
+    const cal = new CalendarTool();
+    const event = await cal.updateStatus(
+      id,
+      body.status as (typeof EventStatus)[keyof typeof EventStatus]
+    );
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(
+      JSON.stringify({ code: 200, message: '状态已更新', data: { event } })
+    );
+  } catch (err) {
+    await handleError(err, {
+      module: 'calendar:api',
+      action: 'calendar_update_status',
+    });
+    const msg = (err as Error).message || '';
+    const code = msg.includes('不存在') ? 404 : 500;
+    res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ code, message: `更新状态失败：${msg}` }));
+  }
+}
+
+/**
+ * 处理 POST /v1/calendar/events/batch-status
+ * 批量更新日程状态
+ */
+export async function handleCalendarBatchStatus(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = JSON.parse(await readBody(req));
+
+    if (!body.ids || !Array.isArray(body.ids) || !body.status) {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({ code: 400, message: '缺少 ids 数组或 status 参数' })
+      );
+      return;
+    }
+
+    const { CalendarTool } =
+      await import('../../../../packages/office/calendar/CalendarTool');
+    const { EventStatus } = await import('../../../modules/calendar/types');
+    const cal = new CalendarTool();
+    const count = await cal.batchUpdateStatus(
+      body.ids,
+      body.status as (typeof EventStatus)[keyof typeof EventStatus]
+    );
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(
+      JSON.stringify({
+        code: 200,
+        message: '批量状态更新完成',
+        data: { updated: count, total: body.ids.length },
+      })
+    );
+  } catch (err) {
+    await handleError(err, {
+      module: 'calendar:api',
+      action: 'calendar_batch_status',
+    });
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ code: 500, message: '批量更新状态失败' }));
+  }
+}
+
+/**
+ * 处理 GET /v1/calendar/overdue-check
+ * 触发超时检测，将过期的 pending 事件标记为 overdue
+ */
+export async function handleCalendarOverdueCheck(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { CalendarTool } =
+      await import('../../../../packages/office/calendar/CalendarTool');
+    const cal = new CalendarTool();
+    const overdueIds = await cal.checkOverdue();
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(
+      JSON.stringify({
+        code: 200,
+        message: '超时检测完成',
+        data: { overdueCount: overdueIds.length, overdueIds },
+      })
+    );
+  } catch (err) {
+    await handleError(err, {
+      module: 'calendar:api',
+      action: 'calendar_overdue_check',
+    });
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ code: 500, message: '超时检测失败' }));
   }
 }
 

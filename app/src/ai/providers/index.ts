@@ -24,6 +24,8 @@ export type {
   ProviderValidationResult,
   ChatOptions,
   ThinkingProviderChunk,
+  RerankRequest,
+  RerankResult,
 } from './AIProvider';
 export { ProviderRegistry, providerRegistry } from './ProviderRegistry';
 export { AnthropicProvider } from './AnthropicProvider';

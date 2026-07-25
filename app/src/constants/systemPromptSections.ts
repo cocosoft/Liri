@@ -186,6 +186,10 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
     return `## 工具使用\n\n你可以使用一系列工具与用户的系统进行交互。\n使用这些工具帮助用户完成任务。\n\n修改文件时：\n- 使用可用工具先读取文件再编辑\n- 做精准、最小化的修改\n- 除非明确要求，否则不添加注释\n\n执行命令时：\n- 先说明你要做什么\n- 必要时等待用户确认\n- 清晰地报告结果`;
   }),
 
+  systemPromptSection('shellDeclaration', () => {
+    return `## Shell 文件操作声明\n\n在执行 Shell/PowerShell 命令之前，如果该命令会创建、修改或删除文件，请先在回复中用以下格式声明：\n\n\`\`\`declaration\n[FILE_OPERATION] <create|modify|delete> <文件路径>\n\`\`\`\n\n示例：\n\`\`\`declaration\n[FILE_OPERATION] create src/utils.ts\n[FILE_OPERATION] modify package.json\n\`\`\`\n\n此声明仅用于追踪文件变更，不影响命令执行。`;
+  }),
+
   systemPromptSection('taskNegotiation', () => {
     return `## 复杂任务处理
 

@@ -378,6 +378,18 @@ export class RollbackIntegration {
   }
 
   /**
+   * 合并外部变更记录到当前轮次（子 Agent 操作继承）
+   *
+   * 子 Agent 的 Shell 副作用检测结果合并到父会话的 FileOperationTracker，
+   * 确保父会话回退时一并撤消子 Agent 创建/删除的文件。
+   *
+   * @param externalChanges 外部变更记录
+   */
+  mergeChanges(externalChanges: FileChange[]): void {
+    this.tracker.mergeChanges(externalChanges);
+  }
+
+  /**
    * 获取无法精确恢复的文件列表
    *
    * @returns 无法恢复的文件列表

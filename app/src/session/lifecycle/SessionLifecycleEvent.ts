@@ -20,7 +20,8 @@ export type SessionEventType =
   | 'session:token_threshold'
   | 'session:error'
   | 'message:created'
-  | 'message:deleted';
+  | 'message:deleted'
+  | 'messages:deleted';
 
 export interface SessionLifecycleEvent {
   type: SessionEventType;

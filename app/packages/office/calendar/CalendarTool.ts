@@ -13,6 +13,7 @@ import {
   CalendarEvents,
 } from '@modules/calendar/CalendarEventBus';
 
+import { EventStatus } from '@modules/calendar/types';
 import type { CalendarEvent, CalendarAddArgs } from '@modules/calendar/types';
 
 const logger = new Logger({
@@ -66,6 +67,11 @@ export class CalendarTool {
       end: args.end,
       description: args.description,
       location: args.location,
+      status: args.status ?? EventStatus.PENDING,
+      statusUpdatedAt: new Date().toISOString(),
+      priority: args.priority,
+      tags: args.tags,
+      reminderMinutes: args.reminderMinutes,
     };
 
     // 写入 .ics 文件
@@ -190,6 +196,89 @@ export class CalendarTool {
       fs.unlinkSync(filePath);
     }
     logger.info('日程已删除', { id });
+  }
+
+  /**
+   * 更新事件状态
+   * @param id 事件 ID
+   * @param status 新状态
+   */
+  async updateStatus(id: string, status: EventStatus): Promise<CalendarEvent> {
+    const filePath = path.join(getCalendarDir(), `${id}.ics`);
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`日程 ${id} 不存在`);
+    }
+
+    // 读取该文件中的所有事件（与 update() 保持一致）
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const events = this.parser.parse(content);
+    const idx = events.findIndex((e) => e.id === id || (e as any).uid === id);
+    if (idx === -1) {
+      throw new Error(`日程 ${id} 不存在于 .ics 文件中`);
+    }
+
+    const now = new Date().toISOString();
+    events[idx].status = status;
+    events[idx].statusUpdatedAt = now;
+    if (status === EventStatus.COMPLETED) {
+      events[idx].completedAt = now;
+    }
+
+    // 写回该文件中的所有事件
+    const icsContent = this.parser.export(events);
+    fs.writeFileSync(filePath, icsContent, 'utf-8');
+
+    logger.info('日程状态已更新', { id, status });
+    return events[idx];
+  }
+
+  /**
+   * 批量更新事件状态
+   * @param ids 事件 ID 列表
+   * @param status 新状态
+   */
+  async batchUpdateStatus(ids: string[], status: EventStatus): Promise<number> {
+    let count = 0;
+    for (const id of ids) {
+      try {
+        await this.updateStatus(id, status);
+        count++;
+      } catch (err) {
+        logger.warn('批量更新状态跳过', { id, error: String(err) });
+      }
+    }
+    logger.info('批量状态更新完成', { total: ids.length, updated: count, status });
+    return count;
+  }
+
+  /**
+   * 超时检测：扫描所有 pending 事件，结束时间已过的自动标记为 overdue
+   * @returns 被标记为超时的事件 ID 列表
+   */
+  async checkOverdue(): Promise<string[]> {
+    const events = await this.list();
+    const now = new Date().toISOString();
+    const overdueIds: string[] = [];
+
+    for (const ev of events) {
+      if (ev.status === EventStatus.PENDING && ev.end < now) {
+        await this.updateStatus(ev.id, EventStatus.OVERDUE);
+        overdueIds.push(ev.id);
+      }
+    }
+
+    if (overdueIds.length > 0) {
+      logger.info('超时检测完成', { overdueCount: overdueIds.length });
+    }
+    return overdueIds;
+  }
+
+  /**
+   * 按状态查询事件
+   */
+  async listByStatus(status: EventStatus): Promise<CalendarEvent[]> {
+    const events = await this.list();
+    return events.filter((e) => e.status === status);
   }
 
   /**

@@ -314,6 +314,27 @@ export interface CoreAPI {
     blocks: Array<Record<string, unknown>>
   ): Promise<void>;
 
+  /** 删除单条消息（软删除） */
+  deleteMessage(
+    sessionId: string,
+    messageId: string
+  ): Promise<{
+    success: boolean;
+    messages: Array<Record<string, unknown>>;
+  }>;
+
+  /** 截断消息（回退到指定消息之前） */
+  truncateMessages(
+    sessionId: string,
+    beforeMessageId: string
+  ): Promise<{
+    success: boolean;
+    messages: Array<Record<string, unknown>>;
+    remainingRollbacks: number;
+    deletedMessageIds: string[];
+    undoResults: Array<{ roundId: number; success: boolean; error?: string }>;
+  }>;
+
   /** 列出所有会话 */
   listSessions(): Promise<SessionInfo[]>;
 

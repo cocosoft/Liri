@@ -2,6 +2,15 @@
  * calendar 模块类型定义
  */
 
+/** 事件状态枚举 */
+export enum EventStatus {
+  PENDING = 'pending',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+  OVERDUE = 'overdue',
+}
+
 /** 日历事件 */
 export interface CalendarEvent {
   id: string;
@@ -18,6 +27,18 @@ export interface CalendarEvent {
     minutes?: string;
     actionItems?: string[];
   };
+  /** 事件状态（默认 pending） */
+  status: EventStatus;
+  /** 状态变更时间（ISO 8601） */
+  statusUpdatedAt?: string;
+  /** 完成时间（从 pending → completed 时设置） */
+  completedAt?: string;
+  /** 优先级 1-5 */
+  priority?: number;
+  /** 标签 */
+  tags?: string[];
+  /** 提醒分钟数数组 */
+  reminderMinutes?: number[];
 }
 
 /** 日历添加参数 */
@@ -39,6 +60,12 @@ export interface CalendarAddArgs {
   sessionId?: string;
   /** 工具调用 ID */
   toolCallId?: string;
+  /** 事件状态（默认 pending） */
+  status?: EventStatus;
+  /** 优先级 1-5 */
+  priority?: number;
+  /** 标签 */
+  tags?: string[];
 }
 
 /** 日历模块状态 */

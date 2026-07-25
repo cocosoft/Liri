@@ -33,7 +33,12 @@
  * 借鉴: DeepSeek-Reasonix src/index/semantic/
  */
 
-export { chunkText, chunkDirectory } from './chunker';
+export {
+  chunkText,
+  chunkDirectory,
+  headingAwareChunk,
+  autoChunk,
+} from './chunker';
 export type { CodeChunk, ChunkOptions, SkipReason } from './chunker';
 
 export { SemanticStore, readIndexMeta, wipeStoreFiles } from './store';
@@ -41,3 +46,11 @@ export type { IndexEntry, SearchHit, IndexMeta, IndexIdentity } from './store';
 
 export { IndexBuilder, indexBuilder } from './builder';
 export type { BuildConfig, BuildResult } from './builder';
+
+// IVectorStore 抽象层
+export type { IVectorStore, VectorEntry } from './IVectorStore';
+export type { SearchHit as VectorSearchHit } from './IVectorStore';
+export { JsonlVectorStore } from './JsonlVectorStore';
+export { SqliteVecStore } from './SqliteVecStore';
+export { createVectorStore } from './VectorStoreFactory';
+export type { VectorStoreType } from './VectorStoreFactory';

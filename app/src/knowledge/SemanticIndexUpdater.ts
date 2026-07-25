@@ -29,16 +29,19 @@
 import { readFile, stat } from 'fs/promises';
 import { relative, resolve } from 'path';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { LogLevel } from '@modules/monitoring';
+import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import { handleError } from '@modules/error';
 import type { EventBus } from '@modules/core';
 import type { EmbeddingManager } from '@modules/ai';
-import { chunkText } from '@modules/knowledge/semantic/chunker';
-import { SemanticStore } from '@modules/knowledge/semantic/store';
+import { chunkText, autoChunk } from '@modules/knowledge/semantic/chunker';
 import type { IndexEntry } from '@modules/knowledge/semantic/store';
+import type { IVectorStore } from '@modules/knowledge/semantic/IVectorStore';
+import { createVectorStore } from '@modules/knowledge/semantic/VectorStoreFactory';
+import { JsonlVectorStore } from '@modules/knowledge/semantic/JsonlVectorStore';
 
-const logger = new Logger({
-  module: 'knowledge:semanticIndexUpdater',
+const logger = new OTelAwareLogger({
+  module: 'knowledge:semantic:updater',
   level: LogLevel.INFO,
 });
 
@@ -69,7 +72,7 @@ export interface SemanticIndexUpdaterOptions {
  * 删除事件被忽略（由全量重建或定期 GC 清理）。
  */
 export class SemanticIndexUpdater {
-  private store: SemanticStore;
+  private store: IVectorStore;
   private embeddingManager: EmbeddingManager;
   private options: Required<SemanticIndexUpdaterOptions>;
   private initialized = false;
@@ -88,7 +91,8 @@ export class SemanticIndexUpdater {
       ...options,
     };
 
-    this.store = new SemanticStore(this.options.indexDir, {
+    // 使用工厂创建向量存储（根据 VECTOR_STORE 环境变量选择实现）
+    this.store = createVectorStore(this.options.indexDir, {
       provider: this.options.embedProvider,
       model: this.options.embedModel,
     });
@@ -112,7 +116,9 @@ export class SemanticIndexUpdater {
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
-    await this.store.load();
+    if (this.store instanceof JsonlVectorStore) {
+      await this.store.initialize();
+    }
     this.initialized = true;
   }
 
@@ -132,13 +138,11 @@ export class SemanticIndexUpdater {
       const indexParent = resolve(this.options.indexDir, '..');
       const relPath = relative(indexParent, filePath).replace(/\\/g, '/');
 
-      // 分块
-      const chunks = chunkText(
-        content,
-        relPath,
-        this.options.windowLines,
-        this.options.overlap
-      );
+      // 分块（使用自适应策略：标题感知 → 行窗口 fallback）
+      const chunks = autoChunk(content, relPath, {
+        windowLines: this.options.windowLines,
+        overlap: this.options.overlap,
+      });
 
       if (chunks.length === 0) return;
 
@@ -168,7 +172,19 @@ export class SemanticIndexUpdater {
       }
 
       if (entries.length > 0) {
-        await this.store.add(entries);
+        // 先删除旧索引，再写入新索引
+        await this.store.deleteByPath(relPath);
+        await this.store.upsert(
+          entries.map((e) => ({
+            id: `${e.path}#L${e.startLine}-L${e.endLine}`,
+            path: e.path,
+            startLine: e.startLine,
+            endLine: e.endLine,
+            text: e.text,
+            embedding: e.embedding,
+            mtimeMs: e.mtimeMs,
+          }))
+        );
         logger.info('语义索引增量更新完成', {
           filePath,
           entriesAdded: entries.length,

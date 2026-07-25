@@ -401,6 +401,9 @@ export class SessionGateway {
     await this.rebuildFTSIndex();
     this.startFTSIndexPersistence();
 
+    // 迁移：为已有 session 计算 roundCount（幂等）
+    await this.migrateRoundCount();
+
     if (this.eventBus) {
       this.eventBus.on('message:created', (event: SessionLifecycleEvent) => {
         const { messageId, type, role, content, sessionKey } =
@@ -431,6 +434,16 @@ export class SessionGateway {
             engine.remove(`msg_${msg.id}`);
           }
         });
+      });
+
+      // 单条/批量消息删除时的 FTS5 索引清理
+      this.eventBus.on('messages:deleted', (event: SessionLifecycleEvent) => {
+        const messageIds: string[] =
+          (event.metadata?.messageIds as string[]) ?? [];
+        const engine = getFTS5SearchEngine();
+        for (const msgId of messageIds) {
+          engine.remove(`msg_${msgId}`);
+        }
       });
     }
 
@@ -731,6 +744,36 @@ export class SessionGateway {
   }
 
   /**
+   * 迁移：为已有 session 计算 roundCount（幂等）
+   * 仅当 metadata.roundCount 不存在时计算
+   */
+  private async migrateRoundCount(): Promise<void> {
+    try {
+      const sessions = await this.storage.listSessions();
+      let migratedCount = 0;
+
+      for (const s of sessions) {
+        const metadata = s.metadata as Record<string, unknown> | undefined;
+        if (metadata && metadata.roundCount == null) {
+          const messages = await this.storage.getMessages(s.id);
+          const userMsgCount = messages.filter((m) => m.role === 'user').length;
+          metadata.roundCount = userMsgCount;
+          await (this.storage as any).saveSession?.(s);
+          migratedCount++;
+        }
+      }
+
+      if (migratedCount > 0) {
+        logger.info('roundCount 迁移完成', { migratedCount });
+      }
+    } catch (err) {
+      logger.warn('roundCount 迁移失败（非致命）', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /**
    * 获取 FTS5 索引持久化路径
    */
   private getFTSIndexPath(): string {
@@ -771,6 +814,32 @@ export class SessionGateway {
     message: UnifiedMessage
   ): Promise<void> {
     await this.storage.updateMessage(sessionId, messageId, message);
+  }
+
+  /**
+   * 软删除单条消息 + 发布事件
+   */
+  async deleteMessage(sessionId: string, messageId: string): Promise<void> {
+    await this.storage.deleteMessage(sessionId, messageId);
+    this.eventBus?.emit(
+      createSessionLifecycleEvent('messages:deleted', sessionId, {
+        metadata: { messageIds: [messageId] },
+      })
+    );
+  }
+
+  /**
+   * 批量软删除消息 + 发布事件
+   */
+  async deleteMessages(sessionId: string, messageIds: string[]): Promise<void> {
+    await this.storage.deleteMessages(sessionId, messageIds);
+    if (messageIds.length > 0) {
+      this.eventBus?.emit(
+        createSessionLifecycleEvent('messages:deleted', sessionId, {
+          metadata: { messageIds },
+        })
+      );
+    }
   }
 
   /**

@@ -168,6 +168,22 @@ export async function dispatchRoute(
     return true;
   }
   if (
+    method === 'DELETE' &&
+    url.match(/^\/v1\/sessions\/(.+)\/messages\/(.+)$/)
+  ) {
+    const match = url.match(/^\/v1\/sessions\/(.+)\/messages\/(.+)$/);
+    await self['handleDeleteMessage'](req, res, match![1], match![2]);
+    return true;
+  }
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/sessions\/(.+)\/messages\/truncate$/)
+  ) {
+    const match = url.match(/^\/v1\/sessions\/(.+)\/messages\/truncate$/);
+    await self['handleTruncateMessages'](req, res, match![1]);
+    return true;
+  }
+  if (
     method === 'PUT' &&
     url.match(/^\/api\/session\/(.+)\/message\/(.+)\/blocks$/)
   ) {
@@ -1214,6 +1230,25 @@ export async function dispatchRoute(
     );
     return true;
   }
+  if (method === 'POST' && url.match(/^\/v1\/knowledge\/bases\/(.+)\/clone$/)) {
+    await self['handleCloneKnowledgeBase'](
+      req,
+      res,
+      url.match(/^\/v1\/knowledge\/bases\/(.+)\/clone$/)![1]
+    );
+    return true;
+  }
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/knowledge\/bases\/(.+)\/duplicate$/)
+  ) {
+    await self['handleDuplicateKnowledgeBase'](
+      req,
+      res,
+      url.match(/^\/v1\/knowledge\/bases\/(.+)\/duplicate$/)![1]
+    );
+    return true;
+  }
   if (method === 'POST' && url === '/v1/knowledge/save-from-chat') {
     await self['handleSaveFromChat'](req, res);
     return true;
@@ -1282,6 +1317,55 @@ export async function dispatchRoute(
     await self['handleBatchTagKnowledge'](req, res);
     return true;
   }
+  // ---- FAQ ----
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/knowledge\/([^/]+)\/faq\/categories$/)
+  ) {
+    await self['handleFAQCategories'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/knowledge\/([^/]+)\/faq\/search/)) {
+    await self['handleSearchFAQ'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/knowledge\/([^/]+)\/faq$/)) {
+    await self['handleListFAQ'](req, res);
+    return true;
+  }
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/knowledge\/([^/]+)\/faq\/import$/)
+  ) {
+    await self['handleImportFAQ'](req, res);
+    return true;
+  }
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/knowledge\/([^/]+)\/faq\/batch-delete$/)
+  ) {
+    await self['handleBatchDeleteFAQ'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/knowledge\/([^/]+)\/faq$/)) {
+    await self['handleCreateFAQ'](req, res);
+    return true;
+  }
+  if (
+    method === 'PUT' &&
+    url.match(/^\/v1\/knowledge\/([^/]+)\/faq\/([^/]+)$/)
+  ) {
+    await self['handleUpdateFAQ'](req, res);
+    return true;
+  }
+  if (
+    method === 'DELETE' &&
+    url.match(/^\/v1\/knowledge\/([^/]+)\/faq\/([^/]+)$/)
+  ) {
+    await self['handleDeleteFAQ'](req, res);
+    return true;
+  }
+  // ---- Knowledge (generic) ----
   if (method === 'PUT' && url.match(/^\/v1\/knowledge\/(?!bases|docs)(.+)$/)) {
     await self['handleUpdateKnowledge'](
       req,
@@ -2372,6 +2456,25 @@ export async function dispatchRoute(
   if (method === 'POST' && url === '/v1/calendar/events') {
     const { handleCalendarAdd } = await import('@modules/doc');
     await handleCalendarAdd(req, res);
+    return true;
+  }
+  // 新端点：状态更新和超时检测（必须在泛匹配 /v1/calendar/events/ 之前）
+  if (method === 'POST' && url === '/v1/calendar/events/batch-status') {
+    const { handleCalendarBatchStatus } = await import('@modules/doc');
+    await handleCalendarBatchStatus(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/calendar/overdue-check') {
+    const { handleCalendarOverdueCheck } = await import('@modules/doc');
+    await handleCalendarOverdueCheck(req, res);
+    return true;
+  }
+  if (
+    method === 'PATCH' &&
+    url.match(/^\/v1\/calendar\/events\/(.+)\/status$/)
+  ) {
+    const { handleCalendarUpdateStatus } = await import('@modules/doc');
+    await handleCalendarUpdateStatus(req, res);
     return true;
   }
   // 带参数匹配在后（export/:id 在 events/:id 之前避免 export 被 events 匹配）

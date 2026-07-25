@@ -40,8 +40,12 @@ import type {
   KnowledgeRouterOptions,
 } from '@modules/docs/knowledge-types';
 import type { FileDocsProvider } from '@modules/docs/FileDocsProvider';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { LogLevel } from '@modules/monitoring';
+import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
 import type { SemanticStore } from '@modules/knowledge/semantic/store';
+import type { IVectorStore } from '@modules/knowledge/semantic/IVectorStore';
+import type { RerankService } from '@modules/knowledge/RerankService';
 import { COMMON_STOP_WORDS } from '@modules/knowledge/stopwords';
 import type { EventBus } from '@modules/core';
 import type { KnowledgeGraph } from '@modules/knowledge/graph/KnowledgeGraph';
@@ -53,8 +57,8 @@ import { join } from 'path';
 import { KnowledgeConfig } from '@modules/knowledge/KnowledgeConfig';
 import { knowledgeMonitor } from '@modules/knowledge/KnowledgeMonitor';
 
-const logger = new Logger({
-  module: 'knowledge:knowledgeRouter',
+const logger = new OTelAwareLogger({
+  module: 'knowledge:router',
   level: LogLevel.INFO,
 });
 
@@ -121,9 +125,16 @@ export class KnowledgeRouter implements IKnowledgeSearch {
   private initialized: boolean = false;
   private embeddingManager: EmbeddingManager;
   private hybridConfig: Required<HybridConfig>;
+  /**
+   * @deprecated 使用 vectorStore 替代。保留以兼容旧调用方。
+   */
   private semanticStore?: SemanticStore;
+  /** 向量存储实例（IVectorStore 接口，优先于 semanticStore 使用） */
+  private vectorStore?: IVectorStore;
   /** 知识图谱实例（可选，用于 GraphRAG 增强） */
   private knowledgeGraph?: KnowledgeGraph;
+  /** 重排序服务（可选，用于检索结果精排） */
+  private rerankService?: RerankService;
 
   /** 标题倒排索引：lowerTitle → 文档，O(1) 精确查找 */
   private titleIndex: Map<string, WeightedDoc> = new Map();
@@ -147,13 +158,17 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     knowledgeConfig?: KnowledgeConfig,
     semanticStore?: SemanticStore,
     eventBus?: EventBus,
-    knowledgeGraph?: KnowledgeGraph
+    knowledgeGraph?: KnowledgeGraph,
+    vectorStore?: IVectorStore,
+    rerankService?: RerankService
   ) {
     this.providers = Array.isArray(providers) ? providers : [providers];
     this.knownUsernames = knownUsernames;
     this.embeddingManager = embeddingManager ?? globalEmbeddingManager;
     this.semanticStore = semanticStore;
+    this.vectorStore = vectorStore;
     this.knowledgeGraph = knowledgeGraph;
+    this.rerankService = rerankService;
 
     // 从 KnowledgeConfig 读取搜索配置，merge 到 hybridConfig
     const configSearch = knowledgeConfig?.search;
@@ -592,16 +607,19 @@ export class KnowledgeRouter implements IKnowledgeSearch {
   /**
    * 语义搜索通道
    *
-   * 优先使用 SemanticStore 持久化向量做快速检索。
-   * 当 SemanticStore 不可用时（未初始化或为空），
-   * 降级返回空结果——search() 中的 catch 兜底确保纯关键词搜索仍可用。
+   * 优先使用 IVectorStore（sqlite-vec 等专业存储），
+   * 不可用时回退到 SemanticStore（JSONL）。
+   * 两者均不可用时返回空——search() 中的 catch 兜底确保纯关键词搜索仍可用。
    */
   private async semanticSearch(
     query: string,
     maxResults: number
   ): Promise<KnowledgeRoute[]> {
-    // 没有可用的持久化语义存储，降级到纯关键词搜索
-    if (!this.semanticStore || this.semanticStore.empty) {
+    // 优先使用 vectorStore
+    if (this.vectorStore) {
+      const count = await this.vectorStore.count();
+      if (count === 0) return [];
+    } else if (!this.semanticStore || this.semanticStore.empty) {
       return [];
     }
 
@@ -610,15 +628,36 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     if (queryVec.length === 0) return [];
 
     const threshold = this.hybridConfig.semanticThreshold;
-    const hits = this.semanticStore.search(
+
+    // IVectorStore 路径（异步搜索）
+    if (this.vectorStore) {
+      const hits = await this.vectorStore.search(
+        new Float32Array(queryVec),
+        maxResults,
+        threshold
+      );
+      const docMap = new Map(this.docs.map((d) => [d.docPath, d]));
+      return hits.map((hit) => {
+        const doc = docMap.get(hit.entry.path);
+        return {
+          docPath: hit.entry.path,
+          title: doc?.title ?? hit.entry.path.replace(/\.md$/i, ''),
+          score: Math.round(hit.score * 100) / 100,
+          category: doc?.category ?? '',
+          snippet: hit.entry.text.slice(0, 120),
+          matchType: 'semantic' as const,
+          isKnowledgeDoc: doc?.isKnowledgeDoc ?? true,
+        };
+      });
+    }
+
+    // SemanticStore 回退路径（同步搜索）
+    const hits = this.semanticStore!.search(
       new Float32Array(queryVec),
       maxResults,
       threshold
     );
-
-    // 需要从 this.docs 中查找文档的 title/category 元数据
     const docMap = new Map(this.docs.map((d) => [d.docPath, d]));
-
     return hits.map((hit) => {
       const doc = docMap.get(hit.entry.path);
       return {
@@ -706,78 +745,155 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     query: string,
     options?: KnowledgeRouterOptions
   ): Promise<KnowledgeRoute[]> {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('knowledge.router.search', {
+      'knowledge.query': query.substring(0, 200),
+      'knowledge.max_results': options?.maxResults ?? 10,
+    });
     const startTime = performance.now();
 
-    if (!this.initialized) {
-      await this.buildIndex();
-    }
+    try {
+      if (!this.initialized) {
+        await this.buildIndex();
+      }
 
-    const maxResults = options?.maxResults ?? 10;
-    const minScore = options?.minScore ?? 0;
-    const offset = options?.offset ?? 0;
+      const maxResults = options?.maxResults ?? 10;
+      const minScore = options?.minScore ?? 0;
+      const offset = options?.offset ?? 0;
 
-    // 查搜索缓存
-    const cacheKey = `${query}||${maxResults}||${minScore}||${offset}||${options?.domain ?? ''}`;
-    const cached = this.searchCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      knowledgeMonitor
-        .record('knowledge.search.latency_ms', performance.now() - startTime, {
-          cache: 'hit',
-        })
-        .catch(() => {});
-      return cached.result;
-    }
+      // 查搜索缓存
+      const cacheKey = `${query}||${maxResults}||${minScore}||${offset}||${options?.domain ?? ''}`;
+      const cached = this.searchCache.get(cacheKey);
+      if (cached && cached.expiresAt > Date.now()) {
+        knowledgeMonitor
+          .record(
+            'knowledge.search.latency_ms',
+            performance.now() - startTime,
+            {
+              cache: 'hit',
+            }
+          )
+          .catch(() => {});
+        span.setAttribute('knowledge.cache', 'hit');
+        otel.endSpan(span);
+        return cached.result;
+      }
 
-    const multiplier = this.hybridConfig.keywordFetchMultiplier;
-    const fetchCount = (offset + maxResults) * multiplier;
+      const multiplier = this.hybridConfig.keywordFetchMultiplier;
+      const fetchCount = (offset + maxResults) * multiplier;
 
-    const [keywordResults, semanticResults] = await Promise.all([
-      this.keywordSearch(query, fetchCount, minScore, options),
-      this.semanticSearch(query, fetchCount).catch((err) => {
+      const keywordSpan = otel.startSpan('knowledge.router.keyword', {}, span);
+      let keywordResults: KnowledgeRoute[] = [];
+      try {
+        keywordResults = this.keywordSearch(
+          query,
+          fetchCount,
+          minScore,
+          options
+        );
+        keywordSpan.setAttribute(
+          'knowledge.keyword.count',
+          keywordResults.length
+        );
+      } finally {
+        otel.endSpan(keywordSpan);
+      }
+
+      const semanticSpan = otel.startSpan(
+        'knowledge.router.semantic',
+        {},
+        span
+      );
+      let semanticResults: KnowledgeRoute[] = [];
+      try {
+        semanticResults = await this.semanticSearch(query, fetchCount);
+        semanticSpan.setAttribute(
+          'knowledge.semantic.count',
+          semanticResults.length
+        );
+      } catch (err) {
         logger.warn('语义搜索不可用，降级为纯关键词搜索', {
           error: (err as Error).message,
         });
-        return [] as KnowledgeRoute[];
-      }),
-    ]);
+        otel.recordEvent(semanticSpan, 'semantic_search_fallback', {
+          error: (err as Error).message,
+        });
+      } finally {
+        otel.endSpan(semanticSpan);
+      }
 
-    const merged = this.mergeResults(
-      keywordResults,
-      semanticResults,
-      fetchCount
-    );
+      const merged = this.mergeResults(
+        keywordResults,
+        semanticResults,
+        fetchCount
+      );
 
-    // GraphRAG: 图感知扩展
-    if (this.knowledgeGraph) {
-      const graphResults = await this.graphExpand(query, maxResults);
-      if (graphResults.length > 0) {
-        const existingPaths = new Set(merged.map((r) => r.docPath));
-        for (const gr of graphResults) {
-          if (!existingPaths.has(gr.docPath)) {
-            merged.push(gr);
+      // GraphRAG: 图感知扩展
+      if (this.knowledgeGraph) {
+        const graphResults = await this.graphExpand(query, maxResults);
+        if (graphResults.length > 0) {
+          const existingPaths = new Set(merged.map((r) => r.docPath));
+          for (const gr of graphResults) {
+            if (!existingPaths.has(gr.docPath)) {
+              merged.push(gr);
+            }
           }
         }
       }
+
+      // 重排序（如果配置了 rerankService）
+      let reranked: KnowledgeRoute[] = merged;
+      if (this.rerankService && merged.length > 1) {
+        try {
+          const rerankDocs = merged.map((r) => ({
+            id: r.docPath,
+            content: r.snippet,
+            score: r.score,
+          }));
+          const result = await this.rerankService.rerank(
+            query,
+            rerankDocs,
+            fetchCount
+          );
+          reranked = result
+            .map((rr) => {
+              const original = merged.find((m) => m.docPath === rr.id);
+              return original ? { ...original, score: rr.score } : null;
+            })
+            .filter((r): r is KnowledgeRoute => r !== null);
+        } catch (err) {
+          logger.warn('重排序失败，使用原始融合结果', {
+            error: (err as Error).message,
+          });
+        }
+      }
+
+      const result = reranked.slice(offset, offset + maxResults);
+
+      // 写入搜索缓存（LRU 淘汰）
+      if (this.searchCache.size >= SEARCH_CACHE_MAX_SIZE) {
+        const oldest = this.searchCache.keys().next().value;
+        if (oldest) this.searchCache.delete(oldest);
+      }
+      this.searchCache.set(cacheKey, {
+        result,
+        expiresAt: Date.now() + SEARCH_CACHE_TTL_MS,
+      });
+
+      span.setAttribute('knowledge.cache', 'miss');
+      span.setAttribute('knowledge.result.count', result.length);
+      knowledgeMonitor
+        .record('knowledge.search.latency_ms', performance.now() - startTime, {
+          cache: 'miss',
+        })
+        .catch(() => {});
+      return result;
+    } catch (err) {
+      otel.recordError(span, err as Error);
+      throw err;
+    } finally {
+      otel.endSpan(span);
     }
-
-    const result = merged.slice(offset, offset + maxResults);
-
-    // 写入搜索缓存（LRU 淘汰）
-    if (this.searchCache.size >= SEARCH_CACHE_MAX_SIZE) {
-      const oldest = this.searchCache.keys().next().value;
-      if (oldest) this.searchCache.delete(oldest);
-    }
-    this.searchCache.set(cacheKey, {
-      result,
-      expiresAt: Date.now() + SEARCH_CACHE_TTL_MS,
-    });
-
-    knowledgeMonitor
-      .record('knowledge.search.latency_ms', performance.now() - startTime, {
-        cache: 'miss',
-      })
-      .catch(() => {});
-    return result;
   }
 
   /**

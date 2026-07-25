@@ -96,4 +96,24 @@ export const officeService = {
       `/v1/calendar/merged?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&timezone=${encodeURIComponent(tz)}`,
     );
   },
+
+  /** 更新日程状态 */
+  updateCalendarEventStatus: (id: string, status: string) =>
+    http.patch<ApiEnvelope<{ event: CalendarEventItem }>>(
+      `/v1/calendar/events/${id}/status`,
+      { status },
+    ),
+
+  /** 批量更新日程状态 */
+  batchUpdateCalendarEventStatus: (ids: string[], status: string) =>
+    http.post<ApiEnvelope<{ updated: number; total: number }>>(
+      "/v1/calendar/events/batch-status",
+      { ids, status },
+    ),
+
+  /** 触发超时检测 */
+  checkCalendarOverdue: () =>
+    http.get<ApiEnvelope<{ overdueCount: number; overdueIds: string[] }>>(
+      "/v1/calendar/overdue-check",
+    ),
 };

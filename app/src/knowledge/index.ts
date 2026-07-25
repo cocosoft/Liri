@@ -200,3 +200,44 @@ export {
   createUnifiedSearchService,
 } from './search/UnifiedSearchService';
 export type { UnifiedSearchResult } from './search/UnifiedSearchService';
+
+// ─── v8.0+ 新模块（对标 WeKnora 优化） ─────────────────────────
+
+export { RerankService } from './RerankService';
+export type { RerankDocument } from './RerankService';
+
+export { migrate, needsMigration } from './MigrationService';
+export type {
+  MigrationProgress,
+  MigrationReport,
+  MigrationCallback,
+} from './MigrationService';
+
+export type { VectorStoreConfig } from './KnowledgeConfig';
+
+export { FAQService, getFAQService } from './faq/FAQService';
+export type {
+  FAQEntry,
+  FAQConfig,
+  FAQSearchParams,
+  FAQImportReport,
+} from './faq/types';
+
+export { GraphExtractor, extractGraph } from './graph/GraphExtractor';
+export type { ExtractionResult } from './graph/GraphExtractor';
+
+export { TaskQueue } from './TaskQueue';
+export type {
+  QueueTask,
+  TaskQueueOptions,
+  QueueState,
+  TaskStatus,
+} from './TaskQueue';
+
+export type {
+  DataSourceConnector,
+  DataSourceConfig,
+  DataSourceItem,
+  SyncResult,
+} from './datasource/DataSourceConnector';
+export { RSSConnector } from './datasource/RSSConnector';

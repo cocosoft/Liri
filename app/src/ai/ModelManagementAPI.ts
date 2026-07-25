@@ -1177,12 +1177,14 @@ async function handleListModels(
         ? 'image'
         : caps.includes(ModelCapability.VIDEO_GENERATION)
           ? 'video'
-          : caps.includes(ModelCapability.EMBEDDING)
-            ? 'embedding'
-            : caps.includes(ModelCapability.TEXT_TO_SPEECH) ||
-                caps.includes(ModelCapability.SPEECH_RECOGNITION)
-              ? 'voice'
-              : 'chat';
+          : caps.includes(ModelCapability.RERANKING)
+            ? 'reranking'
+            : caps.includes(ModelCapability.EMBEDDING)
+              ? 'embedding'
+              : caps.includes(ModelCapability.TEXT_TO_SPEECH) ||
+                  caps.includes(ModelCapability.SPEECH_RECOGNITION)
+                ? 'voice'
+                : 'chat';
 
       // 仅当定价记录有匹配的活跃供应商时才纳入模型列表
       // 避免 YAML 种子数据在不配置供应商时被当作可用模型展示

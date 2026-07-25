@@ -15,10 +15,16 @@ import type {
   CalendarEventItem,
   UnifiedCalendarEvent,
   EventSource,
+  EventStatus,
 } from "../../../types/office";
 import type { CronTask } from "../../../types/schedule";
 import { solarToLunar } from "../../../utils/lunarCalendar";
 import { useSessionContextSync } from "../../../hooks/useSessionContextSync";
+import CalendarAddDialog, {
+  type CalendarAddFormData,
+} from "./CalendarAddDialog";
+import StatusBadge from "./StatusBadge";
+import DayView from "./DayView";
 
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 const WEEKDAYS_FULL = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
@@ -36,7 +42,7 @@ const MONTH_NAMES = [
   "11月",
   "12月",
 ];
-type ViewMode = "month" | "week" | "year";
+type ViewMode = "month" | "week" | "year" | "day";
 
 /** 响应式布局 Hook */
 function useCalendarLayout() {
@@ -98,9 +104,11 @@ export default function OfficeCalendarPage() {
     mergedCalendar,
     mergedErrors,
     visibleSources,
+    statusFilter,
     setMergedCalendar,
     setCalendarLoading,
     toggleVisibleSource,
+    setStatusFilter,
     setCalendarEvents,
   } = useOfficeStore();
 
@@ -115,7 +123,7 @@ export default function OfficeCalendarPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [showAddDialog, setShowAddDialog] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("month");
 
   const today = new Date();
@@ -124,12 +132,6 @@ export default function OfficeCalendarPage() {
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   /** 周视图偏移量（0=当前周，-1=上周，1=下周） */
   const [weekOffset, setWeekOffset] = useState(0);
-
-  const [summary, setSummary] = useState("");
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
-  const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
 
   /** 右键菜单状态 */
   const [contextMenu, setContextMenu] = useState<{
@@ -267,6 +269,7 @@ export default function OfficeCalendarPage() {
     // 手动日程
     for (const ev of mergedCalendar.data.calendarEvents ?? []) {
       if (!visibleSources.manual) continue;
+      if (statusFilter !== "all" && ev.status !== statusFilter) continue;
       const dateStr = ev.start.slice(0, 10);
       const timeStr = ev.start.slice(11, 16);
       events.push({
@@ -277,6 +280,10 @@ export default function OfficeCalendarPage() {
         sourceId: ev.id,
         draggable: true,
         action: { type: "edit", label: "编辑日程", payload: { id: ev.id } },
+        status: ev.status,
+        priority: ev.priority,
+        tags: ev.tags,
+        completedAt: ev.completedAt,
       });
     }
 
@@ -322,31 +329,45 @@ export default function OfficeCalendarPage() {
     }
 
     return events;
-  }, [mergedCalendar, visibleSources]);
+  }, [mergedCalendar, visibleSources, statusFilter]);
 
-  async function handleAddEvent() {
-    if (!summary || !start) return;
+  async function handleSaveEvent(data: CalendarAddFormData) {
     setSaving(true);
     setError(null);
     try {
       await officeService.addCalendarEvent({
-        summary,
-        start: new Date(start).toISOString(),
-        end: end ? new Date(end).toISOString() : new Date(start).toISOString(),
-        description: description || undefined,
-        location: location || undefined,
+        summary: data.summary,
+        start: data.start,
+        end: data.end,
+        description: data.description,
+        location: data.location,
+        status: data.status,
+        priority: data.priority,
+        tags: data.tags ? data.tags.split(",").map((s) => s.trim()) : undefined,
       });
-      setShowAddForm(false);
-      setSummary("");
-      setStart("");
-      setEnd("");
-      setDescription("");
-      setLocation("");
       refreshMerged();
     } catch {
       setError(t("office.calAddError", "添加日程失败"));
     } finally {
       setSaving(false);
+    }
+  }
+
+  /** 更新事件状态 */
+  async function handleUpdateEventStatus(
+    id: string,
+    status: EventStatus,
+  ) {
+    try {
+      const res = await officeService.updateCalendarEventStatus(id, status);
+      const wrapped = res as unknown as { ok?: boolean; error?: { message?: string } };
+      if (wrapped.ok === false) {
+        throw new Error(wrapped.error?.message ?? "未知错误");
+      }
+      refreshMerged();
+    } catch (err) {
+      setError(`状态更新失败：${err instanceof Error ? err.message : String(err)}`);
+      setTimeout(() => setError(null), 4000);
     }
   }
 
@@ -640,10 +661,12 @@ export default function OfficeCalendarPage() {
   };
   const handleDayClick = (dateStr: string) => {
     setSelectedDate(dateStr === selectedDate ? null : dateStr);
-    if (dateStr !== selectedDate) {
-      setStart(`${dateStr}T09:00`);
-      setEnd(`${dateStr}T10:00`);
-    }
+  };
+
+  /** 双击某天 → 打开日视图 */
+  const handleDayDoubleClick = (dateStr: string) => {
+    setSelectedDate(dateStr);
+    setViewMode("day");
   };
 
   return (
@@ -715,6 +738,9 @@ export default function OfficeCalendarPage() {
                 <div
                   key={i}
                   onClick={() => cell.dateStr && handleDayClick(cell.dateStr)}
+                  onDoubleClick={() =>
+                    cell.dateStr && handleDayDoubleClick(cell.dateStr)
+                  }
                   className={`aspect-square flex items-center justify-center text-xs rounded-full relative
                   ${cell.day === null ? "" : "cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900"}
                   ${isToday ? "bg-blue-600 text-white font-bold" : ""}
@@ -741,7 +767,7 @@ export default function OfficeCalendarPage() {
           <div className="px-2 py-2 space-y-1 border-t border-gray-200 dark:border-gray-700">
             <button
               onClick={() => {
-                setShowAddForm(!showAddForm);
+                setShowAddDialog(true);
                 if (!selectedDate) setSelectedDate(todayStr);
               }}
               className="w-full px-2 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -804,6 +830,40 @@ export default function OfficeCalendarPage() {
                 </div>
               );
             })}
+          </div>
+
+          {/* 状态筛选 */}
+          <div className="px-2 pb-2 border-t border-gray-200 dark:border-gray-700 pt-2">
+            <div className="text-[10px] text-gray-400 mb-1 px-1">
+              状态筛选
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {(["all", "pending", "in_progress", "completed", "cancelled", "overdue"] as Array<EventStatus | "all">).map(
+                (s) => {
+                  const labelMap: Record<string, string> = {
+                    all: "全部",
+                    pending: "待办",
+                    in_progress: "进行中",
+                    completed: "已完成",
+                    cancelled: "已取消",
+                    overdue: "超时",
+                  };
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => setStatusFilter(s)}
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full transition-colors
+                      ${statusFilter === s
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      {labelMap[s]}
+                    </button>
+                  );
+                },
+              )}
+            </div>
           </div>
 
           {/* 定时任务面板 */}
@@ -921,7 +981,14 @@ export default function OfficeCalendarPage() {
                       key={`${ev.source}-${ev.sourceId}`}
                       className={`px-2 py-1.5 rounded-lg text-xs ${stateColors ?? `${colors.bg} ${colors.text}`}`}
                     >
-                      <div className="font-medium truncate">{ev.summary}</div>
+                      <div className="font-medium truncate">
+                        {ev.summary}
+                        {ev.status && (
+                          <span className="ml-1">
+                            <StatusBadge status={ev.status} />
+                          </span>
+                        )}
+                      </div>
                       <div className="text-gray-400">
                         {ev.time ? `${ev.time}` : ""}{" "}
                         {ev.details ? `· ${ev.details}` : ""}
@@ -961,80 +1028,13 @@ export default function OfficeCalendarPage() {
             </div>
           )}
 
-          {showAddForm && (
-            <div className="border-b border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-900">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  {t("office.calAdd", "添加日程")}
-                  {selectedDate && (
-                    <span className="text-gray-400 ml-2 text-xs">
-                      — {selectedDate}
-                    </span>
-                  )}
-                </h3>
-                <button
-                  onClick={() => setShowAddForm(false)}
-                  className="text-gray-400 hover:text-gray-600 text-lg leading-none"
-                >
-                  ×
-                </button>
-              </div>
-              <div className="space-y-2">
-                <input
-                  value={summary}
-                  onChange={(e) => setSummary(e.target.value)}
-                  placeholder={t("office.calSummaryPlaceholder", "日程标题")}
-                  autoFocus
-                  className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="datetime-local"
-                    value={start}
-                    onChange={(e) => setStart(e.target.value)}
-                    className="border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                  />
-                  <input
-                    type="datetime-local"
-                    value={end}
-                    onChange={(e) => setEnd(e.target.value)}
-                    className="border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                  />
-                </div>
-                <input
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder={t("office.calDescPlaceholder", "描述（可选）")}
-                  className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                />
-                <input
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder={t(
-                    "office.calLocationPlaceholder",
-                    "地点（可选）",
-                  )}
-                  className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleAddEvent}
-                    disabled={saving}
-                    className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {saving
-                      ? t("office.calAdding", "添加中...")
-                      : t("office.calAdd", "添加日程")}
-                  </button>
-                  <button
-                    onClick={() => setShowAddForm(false)}
-                    className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
-                  >
-                    {t("office.cancel", "取消")}
-                  </button>
-                </div>
-              </div>
-            </div>
+          {showAddDialog && (
+            <CalendarAddDialog
+              open={showAddDialog}
+              onClose={() => setShowAddDialog(false)}
+              defaultDate={selectedDate ?? undefined}
+              onSave={handleSaveEvent}
+            />
           )}
 
           {/* 月/周/年 切换面板 */}
@@ -1126,6 +1126,21 @@ export default function OfficeCalendarPage() {
               <div className="w-[104px]" /> {/* spacer for balance */}
             </div>
 
+            {/* ========== 日视图 ========== */}
+            {viewMode === "day" && selectedDate && (
+              <DayView
+                dateStr={selectedDate}
+                events={unifiedEvents.filter((ev) => ev.date === selectedDate)}
+                onBack={() => setViewMode("month")}
+                onAddEvent={(dateStr, startHour) => {
+                  setShowAddDialog(true);
+                }}
+                onUpdateStatus={handleUpdateEventStatus}
+                onDeleteEvent={handleDeleteEvent}
+                onContextMenu={handleContextMenu}
+              />
+            )}
+
             {/* ========== 月视图 ========== */}
             {viewMode === "month" && (
               <>
@@ -1150,6 +1165,10 @@ export default function OfficeCalendarPage() {
                           key={di}
                           onClick={() =>
                             cell.isCurrentMonth && handleDayClick(cell.dateStr)
+                          }
+                          onDoubleClick={() =>
+                            cell.isCurrentMonth &&
+                            handleDayDoubleClick(cell.dateStr)
                           }
                           className={`border-r border-gray-100 dark:border-gray-800 p-1 min-h-0 overflow-hidden
                           ${cell.isCurrentMonth ? "cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950" : "bg-gray-50 dark:bg-gray-900/50 opacity-50"}
@@ -1205,6 +1224,11 @@ export default function OfficeCalendarPage() {
                                       </span>
                                     ) : null}
                                     {ev.summary}
+                                    {ev.status && (
+                                      <span className="ml-0.5 inline-block align-middle">
+                                        <StatusBadge status={ev.status} dotOnly />
+                                      </span>
+                                    )}
                                   </div>
                                 );
                               })}
@@ -1261,6 +1285,7 @@ export default function OfficeCalendarPage() {
                     <div
                       key={wd.dateStr}
                       onClick={() => handleDayClick(wd.dateStr)}
+                      onDoubleClick={() => handleDayDoubleClick(wd.dateStr)}
                       className={`border-r border-gray-100 dark:border-gray-800 last:border-r-0 p-2 overflow-y-auto
                       cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900
                       ${wd.isToday ? "bg-blue-50/50 dark:bg-blue-950/50" : ""}
@@ -1287,6 +1312,11 @@ export default function OfficeCalendarPage() {
                               >
                                 <div className="font-medium truncate">
                                   {ev.summary}
+                                  {ev.status && (
+                                    <span className="ml-0.5 inline-block align-middle">
+                                      <StatusBadge status={ev.status} dotOnly />
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="mt-0.5 opacity-70">
                                   {ev.time ? `${ev.time}` : ""}
@@ -1374,7 +1404,60 @@ export default function OfficeCalendarPage() {
             <>
               <div className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
                 🔵 {contextMenu.event.summary}
+                {contextMenu.event.status && (
+                  <span className="ml-1">
+                    <StatusBadge
+                      status={contextMenu.event.status}
+                      dotOnly
+                    />
+                  </span>
+                )}
               </div>
+              {contextMenu.event.status !== "completed" && (
+                <button
+                  onClick={() => {
+                    handleUpdateEventStatus(contextMenu.event.sourceId, "completed");
+                    closeContextMenu();
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950 transition-colors"
+                >
+                  ✅ 标记为已完成
+                </button>
+              )}
+              {contextMenu.event.status !== "in_progress" && (
+                <button
+                  onClick={() => {
+                    handleUpdateEventStatus(contextMenu.event.sourceId, "in_progress");
+                    closeContextMenu();
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-950 transition-colors"
+                >
+                  🔄 标记为进行中
+                </button>
+              )}
+              {contextMenu.event.status !== "pending" && (
+                <button
+                  onClick={() => {
+                    handleUpdateEventStatus(contextMenu.event.sourceId, "pending");
+                    closeContextMenu();
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors"
+                >
+                  ⏸ 标记为待办
+                </button>
+              )}
+              {contextMenu.event.status !== "cancelled" && (
+                <button
+                  onClick={() => {
+                    handleUpdateEventStatus(contextMenu.event.sourceId, "cancelled");
+                    closeContextMenu();
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  ❌ 标记为已取消
+                </button>
+              )}
+              <div className="border-t border-gray-100 dark:border-gray-700 my-0.5" />
               <button
                 onClick={() => {
                   handleDeleteEvent(contextMenu.event.sourceId);
@@ -1382,7 +1465,7 @@ export default function OfficeCalendarPage() {
                 }}
                 className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
               >
-                {t("office.calDelete", "删除")}
+                🗑 {t("office.calDelete", "删除")}
               </button>
             </>
           )}

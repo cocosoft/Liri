@@ -21,6 +21,7 @@ const CORE_SECTION_NAMES = new Set([
   'personality',
   'userProfile',
   'toolUse',
+  'shellDeclaration',
 ]);
 
 const CONVERSATION_SECTION_NAMES = new Set([
@@ -28,6 +29,7 @@ const CONVERSATION_SECTION_NAMES = new Set([
   'personality',
   'userProfile',
   'toolUse',
+  'shellDeclaration',
   'taskNegotiation',
   'sessionContext',
 ]);

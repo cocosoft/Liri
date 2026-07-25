@@ -16,7 +16,10 @@
 import { readdir, readFile, writeFile, mkdir, stat } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { LogLevel } from '@modules/monitoring';
+import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
+import { LLMPerformanceMonitor } from '@modules/ai/utils/LLMPerformanceMonitor';
 import { handleError } from '@modules/error';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
@@ -26,6 +29,7 @@ import { FileSource } from '@modules/services/file/types';
 import { IndexManager } from './IndexManager';
 import { WikiLinter, defaultRules } from './lint/WikiLinter';
 import { providerRegistry } from '@modules/ai';
+import type { GraphExtractor } from './graph/GraphExtractor';
 import {
   startCompileProgress,
   updateCompileProgress,
@@ -33,8 +37,8 @@ import {
   abortCompileProgress,
 } from './CompileProgressTracker';
 
-const logger = new Logger({
-  module: 'knowledge:knowledgeCompiler',
+const logger = new OTelAwareLogger({
+  module: 'knowledge:compiler',
   level: LogLevel.INFO,
 });
 
@@ -83,6 +87,8 @@ export interface CompileResult {
   totalFound: number;
   /** many-to-many: 实际生成的 wiki 页面总数（一条源文件可生成多页） */
   pagesCreated: number;
+  /** 编译产出的文件路径列表（用于后续图谱提取） */
+  compiledFiles: string[];
   /** 编译质量信息（v1.5 新增） */
   quality?: {
     /** 0-100，基于 lint 问题数计算 */
@@ -105,11 +111,13 @@ export class KnowledgeCompiler {
   private rawDir: string;
   private aiService: AIService;
   private indexManager: IndexManager;
+  private graphExtractor?: GraphExtractor;
 
-  constructor(aiService: AIService) {
+  constructor(aiService: AIService, graphExtractor?: GraphExtractor) {
     this.knowledgeRoot = join(resolvePyappHome(), 'knowledge');
     this.rawDir = join(this.knowledgeRoot, 'raw');
     this.aiService = aiService;
+    this.graphExtractor = graphExtractor;
     this.indexManager = new IndexManager(this.knowledgeRoot);
   }
 
@@ -126,6 +134,7 @@ export class KnowledgeCompiler {
       errors: [],
       totalFound: 0,
       pagesCreated: 0,
+      compiledFiles: [],
     };
 
     if (!existsSync(this.rawDir)) {
@@ -205,6 +214,7 @@ export class KnowledgeCompiler {
         const pages = await this.compileFile(rawFile, model);
         result.compiled++;
         result.pagesCreated += pages.length;
+        result.compiledFiles.push(...pages);
 
         // 编译成功，记录到快照
         try {
@@ -272,6 +282,27 @@ export class KnowledgeCompiler {
         await handleError(lintError, {
           module: 'knowledge:compiler',
           action: 'post_lint',
+        });
+      }
+    }
+
+    // LLM 图谱自动提取（编译后）
+    if (this.graphExtractor && result.pagesCreated > 0) {
+      logger.info('开始图谱自动提取');
+      try {
+        // 对编译产出的页面进行图谱提取
+        for (const compiledFile of result.compiledFiles ?? []) {
+          try {
+            const content = await readFile(compiledFile, 'utf-8');
+            await this.graphExtractor.extract(content, 'knowledge');
+          } catch {
+            // 单个文件提取失败不阻塞
+          }
+        }
+      } catch (err) {
+        void handleError(err, {
+          module: 'knowledge:compiler',
+          action: 'graph_extract',
         });
       }
     }
@@ -554,8 +585,38 @@ summary: 概念简介
       },
     ];
 
-    const response = await this.aiService.generate(messages, model);
-    const rawOutput = response.content.trim();
+    const startTime = performance.now();
+    let rawOutput: string;
+    try {
+      const response = await this.aiService.generate(messages, model);
+      rawOutput = response.content.trim();
+
+      // 记录 LLM 调用性能
+      const latency = performance.now() - startTime;
+      const tokens = response.usage ?? {
+        prompt_tokens: 0,
+        completion_tokens: 0,
+      };
+      LLMPerformanceMonitor.getInstance().recordRequest({
+        model: model ?? 'knowledge-compiler',
+        inputTokens: tokens.prompt_tokens ?? 0,
+        outputTokens: tokens.completion_tokens ?? 0,
+        latency,
+        success: true,
+        cost: 0, // CostMonitor 通过 recordCost 单独计算
+      });
+    } catch (err) {
+      LLMPerformanceMonitor.getInstance().recordRequest({
+        model: model ?? 'knowledge-compiler',
+        inputTokens: 0,
+        outputTokens: 0,
+        latency: performance.now() - startTime,
+        success: false,
+        error: (err as Error).message,
+        cost: 0,
+      });
+      throw err;
+    }
 
     // 按 PAGE_BREAK 分隔为多个页面
     const blocks = rawOutput

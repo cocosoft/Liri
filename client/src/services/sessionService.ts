@@ -354,6 +354,74 @@ export const sessionService = {
   },
 
   /**
+   * 删除单条消息
+   */
+  deleteMessage: async (
+    sessionId: string,
+    messageId: string,
+  ): Promise<{ messages: Array<Record<string, unknown>> }> => {
+    try {
+      const res = await apiHttp.delete<{
+        success: boolean;
+        messages: Array<Record<string, unknown>>;
+      }>(`/v1/sessions/${sessionId}/messages/${messageId}`);
+      if (res.ok && res.data) {
+        _isUsingFallback = false;
+        return { messages: res.data.messages };
+      }
+    } catch (e) {
+      handleClientError(e, {
+        module: "services:session",
+        action: "deleteMessage",
+      });
+      throw e;
+    }
+    throw new Error("Delete message failed");
+  },
+
+  /**
+   * 截断消息（回退到指定消息之前）
+   */
+  truncateMessages: async (
+    sessionId: string,
+    beforeMessageId: string,
+  ): Promise<{
+    messages: Array<Record<string, unknown>>;
+    remainingRollbacks: number;
+    undoResults?: Array<{ roundId: number; success: boolean; error?: string }>;
+  }> => {
+    try {
+      const res = await apiHttp.post<{
+        success: boolean;
+        messages: Array<Record<string, unknown>>;
+        remainingRollbacks: number;
+        undoResults?: Array<{
+          roundId: number;
+          success: boolean;
+          error?: string;
+        }>;
+      }>(`/v1/sessions/${sessionId}/messages/truncate`, {
+        beforeMessageId,
+      });
+      if (res.ok && res.data) {
+        _isUsingFallback = false;
+        return {
+          messages: res.data.messages,
+          remainingRollbacks: res.data.remainingRollbacks,
+          undoResults: res.data.undoResults,
+        };
+      }
+    } catch (e) {
+      handleClientError(e, {
+        module: "services:session",
+        action: "truncateMessages",
+      });
+      throw e;
+    }
+    throw new Error("Truncate messages failed");
+  },
+
+  /**
    * 更新会话元数据（绑定模型、工作空间等）
    * 后端 PATCH API 不存在时静默降级
    */

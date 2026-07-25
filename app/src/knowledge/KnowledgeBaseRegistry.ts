@@ -7,7 +7,7 @@
  */
 
 import { join } from 'path';
-import { readFile, writeFile, mkdir, readdir, rename } from 'fs/promises';
+import { readFile, writeFile, mkdir, readdir, rename, cp } from 'fs/promises';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolvePyappHome } from '@modules/core';
@@ -333,6 +333,95 @@ export class KnowledgeBaseRegistry {
 
     result.sort((a, b) => a.createdAt - b.createdAt);
     return result;
+  }
+
+  /**
+   * 复制知识库配置（仅元数据，不含文件内容）
+   *
+   * @param source 源知识库名称
+   * @param target 目标知识库名称
+   */
+  async duplicateConfig(
+    source: string,
+    target: string
+  ): Promise<KnowledgeBase> {
+    const data = await this.load();
+
+    if (!data.bases[source]) {
+      throw new Error(`源知识库 "${source}" 不存在`);
+    }
+    if (data.bases[target]) {
+      throw new Error(`目标知识库 "${target}" 已存在`);
+    }
+
+    const sourceMeta = data.bases[source]!;
+    data.bases[target] = {
+      label: `${sourceMeta.label} (副本)`,
+      enabled: sourceMeta.enabled,
+      icon: sourceMeta.icon,
+      createdAt: Date.now(),
+      source: 'user',
+    };
+
+    await this.persist();
+    this.data = data;
+    await this.ensureDir(target);
+
+    logger.info('知识库配置复制完成', { source, target });
+    return (await this.getBase(target))!;
+  }
+
+  /**
+   * 完整克隆知识库（含所有知识文件）
+   *
+   * @param source 源知识库名称
+   * @param target 目标知识库名称
+   */
+  async cloneBase(source: string, target: string): Promise<KnowledgeBase> {
+    const data = await this.load();
+
+    if (!data.bases[source]) {
+      throw new Error(`源知识库 "${source}" 不存在`);
+    }
+    if (data.bases[target]) {
+      throw new Error(`目标知识库 "${target}" 已存在`);
+    }
+
+    const sourceDir = join(this.knowledgeRoot, source);
+    const targetDir = join(this.knowledgeRoot, target);
+
+    if (!existsSync(sourceDir)) {
+      throw new Error(`源知识库目录 "${sourceDir}" 不存在`);
+    }
+
+    // 复制目录及其全部内容
+    await cp(sourceDir, targetDir, { recursive: true });
+
+    // 注册新知识库
+    const sourceMeta = data.bases[source]!;
+    data.bases[target] = {
+      label: `${sourceMeta.label} (克隆)`,
+      enabled: sourceMeta.enabled,
+      icon: sourceMeta.icon,
+      createdAt: Date.now(),
+      source: 'user',
+    };
+
+    await this.persist();
+    this.data = data;
+
+    logger.info('知识库克隆完成', { source, target });
+    return (await this.getBase(target))!;
+  }
+
+  /**
+   * 确保知识库目录存在
+   */
+  private async ensureDir(baseName: string): Promise<void> {
+    const dir = join(this.knowledgeRoot, baseName);
+    if (!existsSync(dir)) {
+      await mkdir(dir, { recursive: true });
+    }
   }
 }
 

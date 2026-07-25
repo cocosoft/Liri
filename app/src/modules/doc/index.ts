@@ -64,6 +64,9 @@ export {
   handleCalendarDelete,
   handleCalendarExport,
   handleCalendarMerged,
+  handleCalendarUpdateStatus,
+  handleCalendarBatchStatus,
+  handleCalendarOverdueCheck,
 } from './api/officeHandlers';
 
 // 类型导出

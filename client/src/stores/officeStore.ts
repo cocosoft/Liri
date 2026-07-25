@@ -8,6 +8,7 @@ import type {
   DocItem,
   MergedCalendarResponse,
   EventSource,
+  EventStatus,
 } from "../types/office";
 import { officeApi } from "../services/officeApi";
 
@@ -78,6 +79,9 @@ export interface OfficeState {
   visibleSources: Record<EventSource, boolean>;
   calendarLoading: boolean;
 
+  /** 状态筛选 */
+  statusFilter: EventStatus | "all";
+
   // --- Actions ---
   selectFile: (file: FileInfo | null) => void;
   setSearchQuery: (q: string) => void;
@@ -115,6 +119,7 @@ export interface OfficeState {
   setMergedCalendar: (data: MergedCalendarResponse | null) => void;
   setCalendarLoading: (loading: boolean) => void;
   toggleVisibleSource: (source: EventSource) => void;
+  setStatusFilter: (filter: EventStatus | "all") => void;
 }
 
 /** LRU 缓存条目上限 */
@@ -153,6 +158,7 @@ export const useOfficeStore = create<OfficeState>((set, get) => ({
   mergedErrors: [],
   visibleSources: { manual: true, cron: true, ai: true },
   calendarLoading: false,
+  statusFilter: "all",
 
   selectFile: (file) => set({ selectedFile: file }),
 
@@ -255,4 +261,6 @@ export const useOfficeStore = create<OfficeState>((set, get) => ({
         [source]: !s.visibleSources[source],
       },
     })),
+
+  setStatusFilter: (filter) => set({ statusFilter: filter }),
 }));

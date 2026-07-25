@@ -176,8 +176,12 @@ import { roughTokenCountForMessages } from '../services/tokenManagement/TokenCou
 
 import { TaskStatus } from '@modules/tasks/types';
 
-import { RollbackIntegration, SensitiveErrorType } from '@modules/security';
-import type { FileOperation } from '@modules/security';
+import {
+  RollbackIntegration,
+  SensitiveErrorType,
+  FileOperationTracker,
+} from '@modules/security';
+import type { FileOperation, FileChange } from '@modules/security';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import { taskOrchestrator } from '@modules/tasks/TaskOrchestrator';
@@ -1067,6 +1071,9 @@ export class ChatManagerImpl implements ChatManager {
       sessionId: session.id,
       metadata: options?.metadata,
     });
+
+    // 持久化 roundCount（轮次数 = 用户消息数）
+    session.metadata.roundCount = (session.metadata.roundCount ?? 0) + 1;
 
     // 添加消息到会话
     this._addAndPersistMessage(session.id, userMessage);
@@ -1992,6 +1999,9 @@ export class ChatManagerImpl implements ChatManager {
       metadata: options?.metadata,
     });
 
+    // 持久化 roundCount（轮次数 = 用户消息数）
+    session.metadata.roundCount = (session.metadata.roundCount ?? 0) + 1;
+
     // 添加消息到会话
     this._addAndPersistMessage(session.id, userMessage);
 
@@ -2482,8 +2492,19 @@ export class ChatManagerImpl implements ChatManager {
       let currentToolCalls: ParsedToolCall[] = [...finalResponse.tool_calls];
       let currentAssistantMsg = assistantMessage;
 
+      // 保存首个助手消息内容，用于 Shell 声明-校验（解析 [FILE_OPERATION] 声明）
+      const firstAssistantContent = String(assistantMessage.content ?? '');
+
       // 注册表 + 回滚
       const rollbackRoundId = toolResultRegistry.nextRound(session.id);
+
+      // 记录 roundIndex 映射（消息ID → 轮次ID），用于回退时的文件回滚
+      if (!session.metadata.roundIndex) {
+        session.metadata.roundIndex = {};
+      }
+      session.metadata.roundIndex[userMessage.id] = rollbackRoundId;
+      session.metadata.roundCounter = rollbackRoundId;
+
       await this._startRollbackRound(session.id, rollbackRoundId).catch(
         (err) => {
           logger.warn('回滚轮次启动失败', { error: String(err) });
@@ -2753,7 +2774,11 @@ export class ChatManagerImpl implements ChatManager {
         }
       }
 
-      await this._endRollbackRound(session.id, content).catch((err) => {
+      await this._endRollbackRound(
+        session.id,
+        content,
+        firstAssistantContent
+      ).catch((err) => {
         logger.warn('回滚轮次结束失败', { error: String(err) });
         handleError(err, {
           module: 'chat:ChatManager',
@@ -3152,15 +3177,142 @@ export class ChatManagerImpl implements ChatManager {
    * 结束回滚轮次追踪并创建快照
    * @param sessionId 会话 ID
    * @param messageSummary 用户消息摘要
+   * @param assistantContent 本轮首个助手消息内容（用于解析 [FILE_OPERATION] 声明）
    */
   private async _endRollbackRound(
     sessionId: string,
-    messageSummary: string
+    messageSummary: string,
+    assistantContent?: string
   ): Promise<void> {
     const integration = this.rollbackIntegrations.get(sessionId);
     if (integration) {
-      await integration.onRoundEnd(messageSummary);
+      const snapshot = await integration.onRoundEnd(messageSummary);
+
+      // P1: Shell 声明-校验 — 解析 AI 的 [FILE_OPERATION] 声明，补录 detectShellSideEffects 漏掉的操作
+      if (snapshot && assistantContent) {
+        try {
+          const declarations =
+            FileOperationTracker.parseFileOperationDeclarations(
+              assistantContent,
+              resolveProjectRoot()
+            );
+          if (declarations.length > 0) {
+            // 将声明中未被 detectShellSideEffects 检测到的操作补充到变更列表
+            const existingPaths = new Set(
+              snapshot.changedFiles.map((c: { path: string }) => c.path)
+            );
+            const missedChanges: FileChange[] = [];
+
+            for (const decl of declarations) {
+              const absPath = decl.path;
+              if (!existingPaths.has(absPath)) {
+                // 声明但未检测到的文件操作
+                if (decl.type === 'created') {
+                  // 创建声明：文件可能已创建但不在扫描范围内
+                  missedChanges.push({ path: absPath, type: 'created' });
+                } else if (decl.type === 'deleted') {
+                  // 删除声明：文件可能已被删除
+                  missedChanges.push({ path: absPath, type: 'deleted' });
+                } else if (decl.type === 'modified') {
+                  missedChanges.push({ path: absPath, type: 'modified' });
+                }
+              }
+            }
+
+            if (missedChanges.length > 0) {
+              integration.mergeChanges(missedChanges);
+              logger.debug(
+                'Shell声明校验：补录detectShellSideEffects漏掉的操作',
+                {
+                  sessionId,
+                  declaredCount: declarations.length,
+                  missedCount: missedChanges.length,
+                }
+              );
+            }
+          }
+        } catch {
+          // 非关键路径
+        }
+      }
+
+      // P1: 子 Agent 操作继承 — 将子 Agent 的 Shell 副作用（file_create / file_delete）合并到父会话 tracker
+      if (snapshot && snapshot.changedFiles.length > 0) {
+        try {
+          const session = await this.sessionGateway.getSession(sessionId);
+          const parentSessionId = session?.metadata?.parentSessionId as
+            | string
+            | undefined;
+          if (parentSessionId) {
+            const parentIntegration =
+              this.rollbackIntegrations.get(parentSessionId);
+            if (parentIntegration) {
+              // 只合并 Shell 副作用产生的 created / deleted 类型变更
+              // modified 类型已通过 ChatManager 工具拦截（Write/Edit）直接转发
+              const shellChanges = snapshot.changedFiles.filter(
+                (c: { type: string }) =>
+                  c.type === 'created' || c.type === 'deleted'
+              );
+              if (shellChanges.length > 0) {
+                parentIntegration.mergeChanges(shellChanges);
+                logger.debug('子Agent操作继承：Shell副作用已合并到父会话', {
+                  childSessionId: sessionId,
+                  parentSessionId,
+                  changeCount: shellChanges.length,
+                });
+              }
+            }
+          }
+        } catch {
+          // 非关键路径，继承失败不影响子 Agent 自身的回滚
+        }
+      }
     }
+  }
+
+  /**
+   * 执行文件回滚 — 撤消指定轮次之后的文件操作
+   * 用于 truncateMessages（回退消息）时的文件系统级联回滚
+   * @param sessionId 会话 ID
+   * @param sinceRoundId 从该轮次之后开始撤消
+   * @param maxRound 最大轮次编号
+   * @param roundIndex 消息ID→轮次ID映射（用于清理）
+   * @returns 每个轮次的 undo 结果
+   */
+  async undoRoundsSince(
+    sessionId: string,
+    sinceRoundId: number,
+    maxRound: number,
+    roundIndex: Record<string, number>
+  ): Promise<Array<{ roundId: number; success: boolean; error?: string }>> {
+    const integration = this.rollbackIntegrations.get(sessionId);
+    if (!integration) return [];
+
+    const results: Array<{
+      roundId: number;
+      success: boolean;
+      error?: string;
+    }> = [];
+
+    // 倒序撤消（从最新轮次往最早）
+    for (let r = maxRound; r > sinceRoundId; r--) {
+      try {
+        await integration.undoRound(r);
+        results.push({ roundId: r, success: true });
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        results.push({ roundId: r, success: false, error: errorMsg });
+        // 失败不阻塞后续回滚
+      }
+      // 清理 roundIndex 中对应轮次的条目
+      for (const [msgId, rid] of Object.entries(roundIndex)) {
+        if (rid === r) {
+          delete roundIndex[msgId];
+        }
+      }
+    }
+
+    return results;
   }
 
   /**
@@ -3357,6 +3509,33 @@ export class ChatManagerImpl implements ChatManager {
             }).catch(() => {});
           });
         }
+
+        // P1: 子 Agent 操作继承 — 同时记录到父会话的 tracker
+        this.sessionGateway
+          .getSession(toolCall.sessionId)
+          .then((sess) => {
+            const parentId = sess?.metadata?.parentSessionId as
+              | string
+              | undefined;
+            if (parentId) {
+              const parentIntegration = this.rollbackIntegrations.get(parentId);
+              if (parentIntegration) {
+                const op: FileOperation = {
+                  path: filePath,
+                  type: 'modified',
+                };
+                parentIntegration.onToolBeforeExecute(op).catch((err) => {
+                  logger.debug('子Agent操作继承失败', {
+                    error: String(err),
+                    parentSessionId: parentId,
+                  });
+                });
+              }
+            }
+          })
+          .catch(() => {
+            // 非关键路径，获取会话失败不影响主流程
+          });
       }
     }
 

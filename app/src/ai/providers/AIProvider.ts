@@ -209,4 +209,45 @@ export interface AIProvider {
 
   /** 视觉分析（可选实现） */
   analyzeImage?(params: VisionAnalysisParams): Promise<VisionAnalysisResult>;
+
+  /** 重排序（可选实现）
+   *
+   * 调用方需通过 modelRouter.resolve('reranking') 获取用户配置的模型，
+   * 再通过 providerRegistry.getByModel() 获取 Provider 后调用此方法。
+   *
+   * 采用 OpenAI / Cohere 兼容的 rerank API 格式：
+   *   POST {baseUrl}/v1/rerank
+   *   { model, query, documents, top_n, return_documents }
+   */
+  rerank?(request: RerankRequest): Promise<RerankResult>;
+}
+
+/**
+ * 重排序请求参数
+ */
+export interface RerankRequest {
+  /** 查询文本 */
+  query: string;
+  /** 候选文档列表 */
+  documents: string[];
+  /** 返回条数 */
+  topN?: number;
+  /** 是否返回原文 */
+  returnDocuments?: boolean;
+}
+
+/**
+ * 重排序结果
+ */
+export interface RerankResult {
+  results: Array<{
+    /** 原始 documents 数组中的索引 */
+    index: number;
+    /** 原文（returnDocuments=true 时返回） */
+    document?: string;
+    /** 相关度分数 0-1 */
+    relevanceScore: number;
+  }>;
+  model: string;
+  usage?: { totalTokens: number };
 }

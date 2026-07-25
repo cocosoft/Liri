@@ -410,6 +410,74 @@ export async function handleDeleteKnowledgeBase(
 }
 
 /**
+ * 克隆知识库（含所有文件） POST /v1/knowledge/bases/:name/clone
+ */
+export async function handleCloneKnowledgeBase(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  baseName: string
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const { target } = JSON.parse(body);
+
+    if (!target) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '缺少 target 名称' } }));
+      return;
+    }
+
+    const { getDefaultKnowledgeBaseRegistry } =
+      await import('@modules/knowledge/KnowledgeBaseRegistry');
+    const registry = getDefaultKnowledgeBaseRegistry();
+    const result = await registry.cloneBase(baseName, target);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.writeHead(message.includes('不存在') ? 404 : 409, {
+      'Content-Type': 'application/json',
+    });
+    res.end(JSON.stringify({ error: { message } }));
+  }
+}
+
+/**
+ * 复制知识库配置 POST /v1/knowledge/bases/:name/duplicate
+ */
+export async function handleDuplicateKnowledgeBase(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  baseName: string
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const { target } = JSON.parse(body);
+
+    if (!target) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '缺少 target 名称' } }));
+      return;
+    }
+
+    const { getDefaultKnowledgeBaseRegistry } =
+      await import('@modules/knowledge/KnowledgeBaseRegistry');
+    const registry = getDefaultKnowledgeBaseRegistry();
+    const result = await registry.duplicateConfig(baseName, target);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.writeHead(message.includes('不存在') ? 404 : 409, {
+      'Content-Type': 'application/json',
+    });
+    res.end(JSON.stringify({ error: { message } }));
+  }
+}
+
+/**
  * 处理聊天保存到知识库请求 POST /v1/knowledge/save-from-chat
  */
 export async function handleSaveFromChat(

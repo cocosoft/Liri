@@ -9,6 +9,7 @@ import { Message, MessageBlock, AttachedImage } from "../../types";
 import type { FilePreview } from "../../types";
 import type { FileSlice } from "./chat-file.slice";
 import { chatService } from "../../services/chatService";
+import { sessionService } from "../../services/sessionService";
 import { useFeatureFlagStore } from "../featureFlags";
 import {
   playWarningSound,
@@ -135,6 +136,18 @@ export interface MessageSlice {
   /** 取消当前流式请求 */
   stopMessage: () => void;
   flushPendingSaves: () => Promise<void>;
+  /** 删除单条消息（乐观更新） */
+  deleteMessage: (messageId: string) => Promise<void>;
+  /** 回退到指定消息之前 */
+  rollbackToMessage: (messageId: string) => Promise<{
+    messages: Array<Record<string, unknown>>;
+    remainingRollbacks: number;
+    undoResults?: Array<{ roundId: number; success: boolean; error?: string }>;
+  }>;
+  /** 回退前快照（用于撤销回退） */
+  rollbackSnapshot: Message[] | null;
+  /** 撤销最近一次回退（恢复快照中的消息） */
+  restoreRollback: () => void;
 }
 
 /**
@@ -158,6 +171,7 @@ export const createMessageSlice: StateCreator<
   editTarget: null,
   abortController: null,
   messageQueue: [],
+  rollbackSnapshot: null,
   hasPendingQuestion: false,
 
   addMessage: (message: Message) => {
@@ -1097,6 +1111,102 @@ export const createMessageSlice: StateCreator<
         setIsFlushing(false);
       });
     }
+  },
+
+  /**
+   * 删除单条消息（乐观更新 + 失败回滚）
+   */
+  deleteMessage: async (messageId: string): Promise<void> => {
+    const { messages, isStreaming } = get();
+
+    if (isStreaming) {
+      logger.warn("deleteMessage: 流式输出中，忽略删除请求");
+      return;
+    }
+
+    const targetMsg = messages.find((m) => m.id === messageId);
+    if (!targetMsg || targetMsg.role !== "user") {
+      logger.warn("deleteMessage: 目标消息不存在或非用户消息");
+      return;
+    }
+
+    const sessionId = targetMsg.session_id;
+    if (!sessionId) {
+      logger.warn("deleteMessage: 消息缺少 session_id");
+      return;
+    }
+
+    // 快照用于失败回滚
+    const prev = [...messages];
+    set({ messages: messages.filter((m) => m.id !== messageId) });
+
+    try {
+      await sessionService.deleteMessage(sessionId, messageId);
+    } catch (err) {
+      handleClientError(
+        err,
+        { module: "stores:chat:message", action: "deleteMessage" },
+        "warn",
+      );
+      // 回滚 UI
+      set({ messages: prev });
+      throw err;
+    }
+  },
+
+  /**
+   * 回退到指定消息之前（截断此处及之后所有消息）
+   */
+  rollbackToMessage: async (messageId: string) => {
+    const { messages, isStreaming } = get();
+
+    if (isStreaming) {
+      logger.warn("rollbackToMessage: 流式输出中，忽略回退请求");
+      return { messages: [], remainingRollbacks: -1 };
+    }
+
+    const index = messages.findIndex((m) => m.id === messageId);
+    if (index === -1 || messages[index].role !== "user") {
+      logger.warn("rollbackToMessage: 目标消息不存在或非用户消息");
+      return { messages: [], remainingRollbacks: -1 };
+    }
+
+    const sessionId = messages[index].session_id;
+    if (!sessionId) {
+      logger.warn("rollbackToMessage: 消息缺少 session_id");
+      return { messages: [], remainingRollbacks: -1 };
+    }
+
+    // 快照用于失败回滚 + 撤销
+    const prev = [...messages];
+    set({ messages: messages.slice(0, index), rollbackSnapshot: prev });
+
+    try {
+      const res = await sessionService.truncateMessages(sessionId, messageId);
+      return {
+        messages: res.messages,
+        remainingRollbacks: res.remainingRollbacks,
+        undoResults: res.undoResults,
+      };
+    } catch (err) {
+      handleClientError(
+        err,
+        { module: "stores:chat:message", action: "rollbackToMessage" },
+        "warn",
+      );
+      // 回滚 UI
+      set({ messages: prev, rollbackSnapshot: null });
+      throw err;
+    }
+  },
+
+  /**
+   * 撤销最近一次回退（恢复快照中的消息）
+   */
+  restoreRollback: () => {
+    const snapshot = get().rollbackSnapshot;
+    if (!snapshot) return;
+    set({ messages: snapshot, rollbackSnapshot: null });
   },
 
   /**

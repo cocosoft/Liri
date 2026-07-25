@@ -101,16 +101,27 @@ const ChatMessageMemo = memo(
     const setEditTarget = useChatStore((s) => s.setEditTarget);
     const regenerateMessage = useChatStore((s) => s.regenerateMessage);
     const retryFromError = useChatStore((s) => s.retryFromError);
+    const deleteMessage = useChatStore((s) => s.deleteMessage);
+    const rollbackToMessage = useChatStore((s) => s.rollbackToMessage);
+    const restoreRollback = useChatStore((s) => s.restoreRollback);
+    const storeIsStreaming = useChatStore((s) => s.isStreaming);
     const messages = useChatStore((s) => s.messages);
+    const currentSession = useSessionStore((s) => s.currentSession);
+    const remainingRollbacks =
+      5 - ((currentSession?.metadata?.rollbackCount as number) ?? 0);
     const createSession = useSessionStore((s) => s.createSession);
     const switchSession = useSessionStore((s) => s.switchSession);
-    const currentSession = useSessionStore((s) => s.currentSession);
     const [showSaveModal, setShowSaveModal] = useState(false);
     const [branching, setBranching] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
+    const [confirmAction, setConfirmAction] = useState<
+      "delete" | "rollback" | null
+    >(null);
     const [copyToast, setCopyToast] = useState<"copied" | "failed" | null>(
       null,
     );
+    const [showUndo, setShowUndo] = useState(false);
+    const [undoWarning, setUndoWarning] = useState<string | null>(null);
     /** 移动端长按/右键菜单 */
     const [contextMenu, setContextMenu] = useState<{
       x: number;
@@ -204,6 +215,44 @@ const ChatMessageMemo = memo(
       } finally {
         setBranching(false);
       }
+    };
+
+    /** 确认删除 */
+    const handleConfirmDelete = async () => {
+      setConfirmAction(null);
+      try {
+        await deleteMessage(message.id);
+      } catch {
+        // 错误已在 store 中 toast
+      }
+    };
+
+    /** 确认回退 */
+    const handleConfirmRollback = async () => {
+      setConfirmAction(null);
+      try {
+        const result = await rollbackToMessage(message.id);
+        if (result.remainingRollbacks >= 0) {
+          setShowUndo(true);
+          setTimeout(() => setShowUndo(false), 3000);
+          // 检查是否有文件回滚失败
+          const failedUndos = result.undoResults?.filter((r) => !r.success);
+          if (failedUndos && failedUndos.length > 0) {
+            setUndoWarning(
+              t("chat.rollbackUndoFailed", { count: failedUndos.length }),
+            );
+            setTimeout(() => setUndoWarning(null), 8000);
+          }
+        }
+      } catch {
+        // 错误已在 store 中 toast
+      }
+    };
+
+    /** 撤销回退 */
+    const handleUndoRollback = () => {
+      restoreRollback();
+      setShowUndo(false);
     };
 
     const handleSaveToKnowledge = async (title: string, base: string) => {
@@ -353,7 +402,7 @@ const ChatMessageMemo = memo(
                 <span>{formatTime(message.timestamp)}</span>
               )}
 
-              {/* 用户消息：编辑常驻 */}
+              {/* 用户消息：操作按钮常驻 */}
               {isUser && (
                 <>
                   <button
@@ -369,6 +418,31 @@ const ChatMessageMemo = memo(
                     aria-label={t("chat.editMessage")}
                   >
                     ✏️ {t("chat.editMessage")}
+                  </button>
+                  <button
+                    onClick={() => setConfirmAction("delete")}
+                    disabled={storeIsStreaming}
+                    className={`${storeIsStreaming ? "cursor-not-allowed text-gray-300 dark:text-gray-600" : "hover:text-red-500 dark:hover:text-red-400"} transition-colors`}
+                    aria-label={t("chat.deleteMessage")}
+                  >
+                    🗑️ {t("chat.deleteMessage")}
+                  </button>
+                  <button
+                    onClick={() => setConfirmAction("rollback")}
+                    disabled={storeIsStreaming || remainingRollbacks <= 0}
+                    className={`${storeIsStreaming || remainingRollbacks <= 0 ? "cursor-not-allowed text-gray-300 dark:text-gray-600" : "hover:text-gray-600 dark:hover:text-gray-300"} transition-colors`}
+                    aria-label={t("chat.rollback")}
+                    title={remainingRollbacks <= 0 ? t("chat.rollbackLimitReached") : undefined}
+                  >
+                    ↩️ {t("chat.rollback")}
+                  </button>
+                  <button
+                    onClick={handleBranch}
+                    disabled={branching || storeIsStreaming}
+                    className={`${storeIsStreaming ? "cursor-not-allowed text-gray-300 dark:text-gray-600" : "hover:text-gray-600 dark:hover:text-gray-300"} transition-colors disabled:opacity-50`}
+                    aria-label={t("chat.branch")}
+                  >
+                    {branching ? "🌿 " + t("chat.branching") : "🌿 " + t("chat.branch")}
                   </button>
                 </>
               )}
@@ -428,16 +502,7 @@ const ChatMessageMemo = memo(
                 {menuOpen && (
                   <div className="absolute bottom-full left-0 mb-1 w-32 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-30">
                     {isUser ? (
-                      <>
-                        <button
-                          onClick={handleBranch}
-                          disabled={branching}
-                          className="w-full px-3 py-1.5 text-left text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
-                        >
-                          🌿{" "}
-                          {branching ? t("chat.branching") : t("chat.branch")}
-                        </button>
-                      </>
+                      <></>
                     ) : (
                       <>
                         <button
@@ -500,6 +565,62 @@ const ChatMessageMemo = memo(
                 onSave={handleSaveToKnowledge}
               />
             </Suspense>
+          )}
+
+          {/* 删除/回退确认弹窗 */}
+          {confirmAction && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-sm mx-4">
+                <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+                  {confirmAction === "delete"
+                    ? t("chat.confirmDeleteMessage")
+                    : t("chat.confirmRollback")}
+                </p>
+                {confirmAction === "rollback" && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                    {t("chat.remainingRollbacks", { n: remainingRollbacks })}
+                  </p>
+                )}
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setConfirmAction(null)}
+                    className="px-4 py-1.5 text-xs border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    {t("common.cancel")}
+                  </button>
+                  <button
+                    onClick={
+                      confirmAction === "delete"
+                        ? handleConfirmDelete
+                        : handleConfirmRollback
+                    }
+                    className="px-4 py-1.5 text-xs bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
+                  >
+                    {t("common.confirm")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 回退撤销 toast */}
+          {showUndo && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-800 text-white rounded-lg shadow-xl px-4 py-3 flex items-center gap-3 animate-message-enter">
+              <span className="text-sm">{t("chat.rollbackDone")}</span>
+              <button
+                onClick={handleUndoRollback}
+                className="text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors"
+              >
+                {t("common.undo")}
+              </button>
+            </div>
+          )}
+
+          {/* 回退不可逆操作警告 */}
+          {undoWarning && (
+            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-amber-600 text-white rounded-lg shadow-xl px-4 py-3 flex items-center gap-2 animate-message-enter">
+              <span className="text-sm">{undoWarning}</span>
+            </div>
           )}
         </div>
 
@@ -590,10 +711,30 @@ const ChatMessageMemo = memo(
                   </button>
                   <button
                     onClick={() => {
+                      setConfirmAction("delete");
+                      closeContextMenu();
+                    }}
+                    disabled={storeIsStreaming}
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 flex items-center gap-2"
+                  >
+                    🗑️ {t("chat.deleteMessage")}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setConfirmAction("rollback");
+                      closeContextMenu();
+                    }}
+                    disabled={storeIsStreaming || remainingRollbacks <= 0}
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 flex items-center gap-2"
+                  >
+                    ↩️ {t("chat.rollback")}
+                  </button>
+                  <button
+                    onClick={() => {
                       handleBranch();
                       closeContextMenu();
                     }}
-                    disabled={branching}
+                    disabled={branching || storeIsStreaming}
                     className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 flex items-center gap-2"
                   >
                     🌿 {branching ? t("chat.branching") : t("chat.branch")}

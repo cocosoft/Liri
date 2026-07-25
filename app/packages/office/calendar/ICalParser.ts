@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { EventStatus } from '@modules/calendar/types';
 import type { CalendarEvent } from '@modules/calendar/types';
 
 const logger = new Logger({
@@ -21,24 +22,13 @@ export class ICalParser {
    */
   parse(icsContent: string): CalendarEvent[] {
     try {
-      // 动态导入 ical.js
-      // const ICAL = await import('ical.js');
-      // const jcalData = ICAL.parse(icsContent);
-      // const comp = new ICAL.Component(jcalData);
-      // const vevents = comp.getAllSubcomponents('vevent');
-      // return vevents.map(vevent => {
-      //   const event = new ICAL.Event(vevent);
-      //   return { id: event.uid, summary: event.summary, start: event.startDate.toISOString(), end: event.endDate.toISOString(), description: event.description, location: event.location };
-      // });
-
-      // 当前：简单文本解析
       const events: CalendarEvent[] = [];
       let currentEvent: Partial<CalendarEvent> = {};
 
       for (const line of icsContent.split('\n')) {
         const trimmed = line.trim();
         if (trimmed === 'BEGIN:VEVENT') {
-          currentEvent = { id: `event-${Date.now()}` };
+          currentEvent = { id: `event-${Date.now()}`, status: EventStatus.PENDING };
         } else if (trimmed === 'END:VEVENT') {
           if (currentEvent.summary && currentEvent.start) {
             events.push(currentEvent as CalendarEvent);
@@ -55,6 +45,18 @@ export class ICalParser {
           currentEvent.location = trimmed.substring(9);
         } else if (trimmed.startsWith('UID:')) {
           currentEvent.id = trimmed.substring(4);
+        } else if (trimmed.startsWith('X-LIRI-STATUS:')) {
+          const val = trimmed.substring(14);
+          if (Object.values(EventStatus).includes(val as EventStatus)) {
+            currentEvent.status = val as EventStatus;
+          }
+        } else if (trimmed.startsWith('X-LIRI-COMPLETED-AT:')) {
+          currentEvent.completedAt = this.parseICalDate(trimmed.substring(21));
+        } else if (trimmed.startsWith('X-LIRI-PRIORITY:')) {
+          const p = parseInt(trimmed.substring(16), 10);
+          if (!isNaN(p)) currentEvent.priority = p;
+        } else if (trimmed.startsWith('X-LIRI-TAGS:')) {
+          currentEvent.tags = trimmed.substring(12).split(',');
         }
       }
 
@@ -83,6 +85,11 @@ export class ICalParser {
       if (event.description) lines.push(`DESCRIPTION:${event.description}`);
       if (event.location) lines.push(`LOCATION:${event.location}`);
       lines.push(`UID:${event.id}`);
+      // X-LIRI 自定义属性
+      lines.push(`X-LIRI-STATUS:${event.status}`);
+      if (event.completedAt) lines.push(`X-LIRI-COMPLETED-AT:${this.formatICalDate(event.completedAt)}`);
+      if (event.priority != null) lines.push(`X-LIRI-PRIORITY:${event.priority}`);
+      if (event.tags && event.tags.length > 0) lines.push(`X-LIRI-TAGS:${event.tags.join(',')}`);
       lines.push('END:VEVENT');
     }
 

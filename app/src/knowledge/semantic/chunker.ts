@@ -40,6 +40,14 @@ export interface CodeChunk {
   endLine: number;
   /** 分块文本内容 */
   text: string;
+  /** 前一个块的 ID（用于上下文富化） */
+  preChunkId?: string;
+  /** 后一个块的 ID（用于上下文富化） */
+  nextChunkId?: string;
+  /** 父块 ID（父子分块时，子块指向父块） */
+  parentChunkId?: string;
+  /** 标题上下文，如 "## 安装指南 > ### Docker 部署" */
+  contextHeader?: string;
 }
 
 /** 跳过原因 */
@@ -67,6 +75,8 @@ export interface ChunkOptions {
   maxFileSize?: number;
   /** 跳过回调 */
   onSkip?: (relPath: string, reason: SkipReason) => void;
+  /** 是否使用自适应分块策略（标题感知），默认 true */
+  useAutoChunk?: boolean;
 }
 
 /** 默认最大分块字符数 */
@@ -175,6 +185,7 @@ export async function chunkDirectory(
   const skipExts = opts.skipExtensions ?? DEFAULT_IGNORE_EXTS;
   const maxFileSize = opts.maxFileSize ?? 1_000_000; // 1MB
   const onSkip = opts.onSkip;
+  const useAutoChunk = opts.useAutoChunk ?? true; // 默认启用自适应分块
 
   const chunks: CodeChunk[] = [];
   const normalizedRoot = path.resolve(rootDir);
@@ -241,13 +252,9 @@ export async function chunkDirectory(
           continue;
         }
 
-        const fileChunks = chunkText(
-          content,
-          relPath,
-          windowLines,
-          overlap,
-          maxChunkChars
-        );
+        const fileChunks = useAutoChunk
+          ? autoChunk(content, relPath, opts)
+          : chunkText(content, relPath, windowLines, overlap, maxChunkChars);
         chunks.push(...fileChunks);
       }
     }
@@ -307,4 +314,132 @@ function isBinaryContent(content: string): boolean {
     if (sample.charCodeAt(i) === 0) nullCount++;
   }
   return nullCount > 0;
+}
+
+// ---- 智能分块（O4+O6） ----
+
+/**
+ * 标题感知分块
+ *
+ * 按 Markdown 标题（# ~ ######）分节，每节作为一个候选块。
+ * 若节超过 maxChunkChars，递归拆分。每个块携带标题上下文。
+ */
+export function headingAwareChunk(
+  text: string,
+  filePath: string,
+  windowLines: number = 60,
+  maxChunkChars: number = 4000
+): CodeChunk[] {
+  const lines = text.split('\n');
+  const sections: Array<{
+    heading: string;
+    startLine: number;
+    endLine: number;
+    sectionLines: string[];
+  }> = [];
+  let currentHeading = '';
+  let sectionStart = 1;
+  const sectionLines: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const headingMatch = lines[i]?.match(/^(#{1,6})\s+(.+)/);
+    if (headingMatch && sectionLines.length > 0) {
+      // 遇到新标题，保存当前节
+      sections.push({
+        heading: currentHeading || headingMatch[2],
+        startLine: sectionStart,
+        endLine: i,
+        sectionLines: [...sectionLines],
+      });
+      sectionLines.length = 0;
+      sectionStart = i + 1;
+    }
+    if (headingMatch) {
+      currentHeading = headingMatch[2];
+    }
+    sectionLines.push(lines[i] ?? '');
+  }
+
+  // 保存最后一节
+  if (sectionLines.length > 0) {
+    sections.push({
+      heading: currentHeading,
+      startLine: sectionStart,
+      endLine: lines.length,
+      sectionLines: [...sectionLines],
+    });
+  }
+
+  // 若无标题，回退到行窗口
+  if (sections.length <= 1 && !sections[0]?.heading) {
+    return chunkText(text, filePath, windowLines, 0, maxChunkChars);
+  }
+
+  const chunks: CodeChunk[] = [];
+  for (const sec of sections) {
+    const secText = sec.sectionLines.join('\n');
+    if (secText.length <= maxChunkChars) {
+      chunks.push({
+        path: filePath,
+        startLine: sec.startLine,
+        endLine: sec.endLine,
+        text: secText,
+        contextHeader: sec.heading || undefined,
+      });
+    } else {
+      // 节过大，递归行窗口分块
+      const subChunks = chunkText(
+        secText,
+        filePath,
+        windowLines,
+        0,
+        maxChunkChars
+      ).map((c) => ({
+        ...c,
+        startLine: c.startLine + sec.startLine - 1,
+        endLine: c.endLine + sec.startLine - 1,
+        contextHeader: sec.heading || undefined,
+      }));
+      chunks.push(...subChunks);
+    }
+  }
+
+  // 设置 preChunkId/nextChunkId 链
+  for (let i = 0; i < chunks.length; i++) {
+    const cid = `${filePath}#L${chunks[i]!.startLine}-L${chunks[i]!.endLine}`;
+    if (i > 0) {
+      chunks[i]!.preChunkId =
+        `${filePath}#L${chunks[i - 1]!.startLine}-L${chunks[i - 1]!.endLine}`;
+    }
+    if (i < chunks.length - 1) {
+      chunks[i]!.nextChunkId =
+        `${filePath}#L${chunks[i + 1]!.startLine}-L${chunks[i + 1]!.endLine}`;
+    }
+  }
+
+  return chunks;
+}
+
+/**
+ * 自适应分块策略
+ *
+ * 根据文档特征自动选择最优分块方式：
+ *   - 有 Markdown 标题 → 标题感知分块
+ *   - 短文档（< 10000 字符）→ 行窗口分块
+ *   - 长文档 → 行窗口分块（fallback）
+ */
+export function autoChunk(
+  text: string,
+  filePath: string,
+  options?: ChunkOptions
+): CodeChunk[] {
+  const windowLines = options?.windowLines ?? 60;
+  const overlap = options?.overlap ?? 12;
+  const maxChunkChars = options?.maxChunkChars ?? 4000;
+  const hasHeadings = /^#{1,6}\s/m.test(text);
+
+  if (hasHeadings) {
+    return headingAwareChunk(text, filePath, windowLines, maxChunkChars);
+  }
+  return chunkText(text, filePath, windowLines, overlap, maxChunkChars);
 }

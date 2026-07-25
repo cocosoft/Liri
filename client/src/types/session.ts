@@ -31,4 +31,15 @@ export interface Session {
 
   /** 该会话的任务分工覆盖（仅覆盖部分任务类型，未覆盖的走全局配置） */
   tasksOverride?: Partial<import("./model").TaskModelConfig>;
+
+  /** ===== 运行时元数据 ===== */
+
+  /** 会话元数据（后端 DataSessionMetadata 投影） */
+  metadata?: {
+    roundCount?: number;
+    rollbackCount?: number;
+    isStreaming?: boolean;
+    roundIndex?: Record<string, number>;
+    roundCounter?: number;
+  };
 }

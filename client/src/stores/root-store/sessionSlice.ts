@@ -388,9 +388,10 @@ export const createSessionSlice: StateCreator<
 
       // 记录离开当前会话（用于回切摘要）
       if (prevId) {
-        const prevMsgCount = useChatStore.getState().messages.length;
+        const msgs = useChatStore.getState().messages;
+        const lastMsgId = msgs.length > 0 ? msgs[msgs.length - 1].id : null;
         import("@/components/ChatArea/ReEntryBanner").then((m) =>
-          m.recordSessionLeave(prevId, prevMsgCount),
+          m.recordSessionLeave(prevId, lastMsgId),
         );
       }
 

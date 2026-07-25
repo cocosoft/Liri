@@ -4,3 +4,4 @@
 
 export { CalendarModule } from './CalendarModule';
 export type { CalendarEvent, CalendarAddArgs } from './types';
+export { EventStatus } from './types';

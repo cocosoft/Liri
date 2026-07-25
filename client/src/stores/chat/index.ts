@@ -7,6 +7,7 @@ import { create } from "zustand";
 import { createMessageSlice, type MessageSlice } from "./chat-message.slice";
 import { createFileSlice, type FileSlice } from "./chat-file.slice";
 import { withStoreLogging } from "../../utils/storeLogger";
+import { sseService } from "../../services/sseService";
 
 // Re-export toolcall utilities
 export {
@@ -41,6 +42,27 @@ export const useChatStore = create<ChatState>()((...a) => ({
   ...createMessageSlice(...a),
   ...createFileSlice(...a),
 }));
+
+// 跨 Tab 同步：监听其他 Tab 的消息删除/回退事件
+sseService.on("messages:deleted", (data: Record<string, unknown>) => {
+  const { sessionId, messageIds } = data as {
+    sessionId?: string;
+    messageIds?: string[];
+  };
+  if (!messageIds || messageIds.length === 0) return;
+
+  const state = useChatStore.getState();
+  // 从消息中推断当前会话（消息携带 session_id）
+  const hasMessagesFromSession =
+    sessionId != null &&
+    state.messages.some((m) => m.session_id === sessionId);
+  if (!hasMessagesFromSession) return;
+
+  const deletedSet = new Set(messageIds);
+  useChatStore.setState({
+    messages: state.messages.filter((m) => !deletedSet.has(m.id)),
+  });
+});
 
 // 状态变更日志（仅开发环境）
 withStoreLogging(useChatStore, "chatStore", []);

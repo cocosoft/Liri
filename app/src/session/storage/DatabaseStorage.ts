@@ -1,4 +1,4 @@
-﻿import { join } from 'path';
+import { join } from 'path';
 import { Database } from '@modules/core/external/sqlite3';
 import { Session } from '../models/Session';
 import { SessionMessage } from '../models/SessionMessage';
@@ -109,6 +109,7 @@ export class DatabaseStorage implements SessionStorage {
           createdAt TEXT,
           parentId TEXT,
           toolResult TEXT,
+          deleted_at TEXT,
           FOREIGN KEY (sessionId) REFERENCES sessions(id)
         )
       `,
@@ -118,6 +119,17 @@ export class DatabaseStorage implements SessionStorage {
           } else {
             resolve();
           }
+        }
+      );
+    });
+
+    // 迁移：为已有 messages 表添加 deleted_at 列（幂等）
+    await new Promise<void>((resolve) => {
+      this.db?.run(
+        `ALTER TABLE messages ADD COLUMN deleted_at TEXT`,
+        (err: any) => {
+          // 列已存在时报错是预期行为，忽略即可
+          resolve();
         }
       );
     });
@@ -272,7 +284,7 @@ export class DatabaseStorage implements SessionStorage {
       );
     }
 
-    let query = `SELECT * FROM messages WHERE sessionId = ?`;
+    let query = `SELECT * FROM messages WHERE sessionId = ? AND deleted_at IS NULL`;
     const params: any[] = [sessionId];
 
     // 应用过滤选项
@@ -550,6 +562,121 @@ export class DatabaseStorage implements SessionStorage {
   async compactSession(sessionId: string): Promise<void> {
     // 这里可以实现会话压缩逻辑
     // 例如，清理冗余数据，优化数据库表等
+  }
+
+  /**
+   * 获取单条消息（含已删除的，用于 softDelete 引用检查）
+   */
+  async getMessage(messageId: string): Promise<{
+    id: string;
+    sessionId: string;
+    type: string;
+    content: string;
+    createdAt: string;
+    parentId: string | null;
+    toolResult: string | null;
+    deleted_at: string | null;
+  } | null> {
+    await this.initDatabase();
+    if (!this.db) {
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+
+    return new Promise((resolve, reject) => {
+      this.db?.get(
+        `SELECT * FROM messages WHERE id = ?`,
+        [messageId],
+        (err: any, row: any) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(row || null);
+          }
+        }
+      );
+    });
+  }
+
+  /**
+   * 软删除单条消息
+   */
+  async softDeleteMessage(messageId: string): Promise<void> {
+    await this.initDatabase();
+    if (!this.db) {
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+
+    const now = new Date().toISOString();
+    await new Promise<void>((resolve, reject) => {
+      this.db?.run(
+        `UPDATE messages SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`,
+        [now, messageId],
+        (err: any) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        }
+      );
+    });
+  }
+
+  /**
+   * 批量软删除消息
+   */
+  async softDeleteMessages(messageIds: string[]): Promise<void> {
+    await this.initDatabase();
+    if (!this.db) {
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+
+    if (messageIds.length === 0) return;
+
+    const now = new Date().toISOString();
+    const placeholders = messageIds.map(() => '?').join(',');
+    await new Promise<void>((resolve, reject) => {
+      this.db?.run(
+        `UPDATE messages SET deleted_at = ? WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
+        [now, ...messageIds],
+        (err: any) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        }
+      );
+    });
+  }
+
+  /**
+   * 软删除单条消息 (UnifiedSessionStorage 接口)
+   */
+  async deleteMessage(sessionId: string, messageId: string): Promise<void> {
+    await this.softDeleteMessage(messageId);
+  }
+
+  /**
+   * 批量软删除消息 (UnifiedSessionStorage 接口)
+   */
+  async deleteMessages(sessionId: string, messageIds: string[]): Promise<void> {
+    await this.softDeleteMessages(messageIds);
   }
 
   /**

@@ -71,10 +71,22 @@ export interface CalendarEventItem {
   end: string;
   description?: string;
   location?: string;
+  status?: EventStatus;
+  priority?: number;
+  tags?: string[];
+  completedAt?: string;
 }
 
 /** 事件来源类型 */
 export type EventSource = "manual" | "cron" | "ai";
+
+/** 事件状态类型 */
+export type EventStatus =
+  | "pending"
+  | "in_progress"
+  | "completed"
+  | "cancelled"
+  | "overdue";
 
 /** 统一日历事件（来自 /v1/calendar/merged） */
 export interface UnifiedCalendarEvent {
@@ -91,6 +103,14 @@ export interface UnifiedCalendarEvent {
     label: string;
     payload: { id: string };
   };
+  /** 事件状态 */
+  status?: EventStatus;
+  /** 优先级 1-5 */
+  priority?: number;
+  /** 标签 */
+  tags?: string[];
+  /** 完成时间 */
+  completedAt?: string;
 }
 
 /** Cron 日历事件（merged 响应中的 cronEvents） */

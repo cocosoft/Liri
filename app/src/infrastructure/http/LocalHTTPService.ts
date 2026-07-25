@@ -87,6 +87,10 @@ import {
   handlePruneSession,
   handleGetSessionMemory,
 } from './handlers/session-handlers';
+import {
+  handleDeleteMessage,
+  handleTruncateMessages,
+} from './handlers/message-handlers';
 import { handleListTools, handleExecuteTool } from './handlers/tools-handlers';
 import {
   handleImageStatic,
@@ -209,6 +213,8 @@ import {
   handleCreateKnowledgeBase,
   handleUpdateKnowledgeBase,
   handleDeleteKnowledgeBase,
+  handleCloneKnowledgeBase,
+  handleDuplicateKnowledgeBase,
   handleSaveFromChat,
   handleKnowledgeUpload,
   handleKnowledgeCompile,
@@ -226,6 +232,16 @@ import {
   handleRestoreTrash,
   handleExportKnowledge,
 } from './handlers/knowledge-handlers';
+import {
+  handleListFAQ,
+  handleCreateFAQ,
+  handleUpdateFAQ,
+  handleDeleteFAQ,
+  handleBatchDeleteFAQ,
+  handleImportFAQ,
+  handleSearchFAQ,
+  handleFAQCategories,
+} from './handlers/faq-handlers';
 import {
   handleFileUpload,
   handleConvertFile,
@@ -424,7 +440,7 @@ export class LocalHTTPService {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader(
       'Access-Control-Allow-Methods',
-      'GET, POST, PUT, DELETE, OPTIONS'
+      'GET, POST, PUT, PATCH, DELETE, OPTIONS'
     );
     res.setHeader(
       'Access-Control-Allow-Headers',
@@ -705,6 +721,29 @@ export class LocalHTTPService {
     sessionId: string
   ): Promise<void> {
     return handleGetSessionMessages(this._handlerCtx, req, res, sessionId);
+  }
+
+  private async handleDeleteMessage(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sessionId: string,
+    messageId: string
+  ): Promise<void> {
+    return handleDeleteMessage(
+      this._handlerCtx,
+      req,
+      res,
+      sessionId,
+      messageId
+    );
+  }
+
+  private async handleTruncateMessages(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sessionId: string
+  ): Promise<void> {
+    return handleTruncateMessages(this._handlerCtx, req, res, sessionId);
   }
 
   private async handleUpdateMessageBlocks(
@@ -2092,6 +2131,22 @@ export class LocalHTTPService {
     return handleDeleteKnowledgeBase(req, res, baseName);
   }
 
+  private async handleCloneKnowledgeBase(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    baseName: string
+  ): Promise<void> {
+    return handleCloneKnowledgeBase(req, res, baseName);
+  }
+
+  private async handleDuplicateKnowledgeBase(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    baseName: string
+  ): Promise<void> {
+    return handleDuplicateKnowledgeBase(req, res, baseName);
+  }
+
   /**
    * 处理从聊天保存知识请求（委派到 knowledge-handlers）
    */
@@ -2250,6 +2305,64 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     return handleExportKnowledge(req, res);
+  }
+
+  // ---- FAQ Handlers ----
+
+  private async handleListFAQ(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleListFAQ(req, res);
+  }
+
+  private async handleCreateFAQ(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleCreateFAQ(req, res);
+  }
+
+  private async handleUpdateFAQ(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleUpdateFAQ(req, res);
+  }
+
+  private async handleDeleteFAQ(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleDeleteFAQ(req, res);
+  }
+
+  private async handleBatchDeleteFAQ(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleBatchDeleteFAQ(req, res);
+  }
+
+  private async handleImportFAQ(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleImportFAQ(req, res);
+  }
+
+  private async handleSearchFAQ(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleSearchFAQ(req, res);
+  }
+
+  private async handleFAQCategories(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleFAQCategories(req, res);
   }
 
   // ========== Buddy Handlers ==========

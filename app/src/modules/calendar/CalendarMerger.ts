@@ -13,6 +13,7 @@ import { CronJobStore } from '@modules/tasks/cron/CronJobStore';
 import { resolveDbPath } from '@modules/core';
 import { computeNextCronRunMs } from '@modules/tasks/cron/CronParser';
 import { AIScheduleIndex, type AIScheduleEvent } from './AIScheduleIndex';
+import { EventStatus } from './types';
 import type { CalendarEvent } from './types';
 
 const logger = new Logger({
@@ -103,6 +104,9 @@ export class CalendarMerger {
       params.end
     );
 
+    // 超时检测（内存中标记，不写回 .ics）
+    this.applyOverdueInMemory(filteredCalendarEvents);
+
     // Cron 任务：加载 + 实例展开
     let cronEvents: CronCalendarEvent[] = [];
     try {
@@ -169,6 +173,19 @@ export class CalendarMerger {
       // 事件与范围有交集
       return evStart < endMs && evEnd > startMs;
     });
+  }
+
+  /**
+   * 内存中的超时检测：pending 且 end 已过 → 标记为 overdue
+   * 只在内存中标记，不写回 .ics 文件
+   */
+  private applyOverdueInMemory(events: CalendarEvent[]): void {
+    const now = new Date().toISOString();
+    for (const ev of events) {
+      if (ev.status === EventStatus.PENDING && ev.end < now) {
+        ev.status = EventStatus.OVERDUE;
+      }
+    }
   }
 
   /**

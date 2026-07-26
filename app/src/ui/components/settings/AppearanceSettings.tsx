@@ -6,6 +6,7 @@
 import React from 'react';
 import { useSettings } from '@modules/hooks/useSettings';
 import { SettingRow } from './SettingRow';
+import { ButtonGroup } from './ButtonGroup';
 
 /**
  * 外观设置面板
@@ -40,24 +41,19 @@ export const AppearanceSettings: React.FC = () => {
   const verbose = settings.verbose === true;
 
   return (
+    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 px-1 pb-2">外观</h2>
     <div className="space-y-0 divide-y divide-gray-100 dark:divide-gray-700">
       {/* 主题 */}
       <SettingRow label="主题模式" hint="切换应用的亮色/暗色/跟随系统主题">
-        <div className="flex gap-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-          {(['light', 'dark', 'system'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => handleThemeChange(t)}
-              className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${
-                theme === t
-                  ? 'bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-              }`}
-            >
-              {t === 'light' ? '浅色' : t === 'dark' ? '深色' : '跟随系统'}
-            </button>
-          ))}
-        </div>
+        <ButtonGroup
+          options={[
+            { value: 'light', label: '浅色' },
+            { value: 'dark', label: '深色' },
+            { value: 'system', label: '跟随系统' },
+          ]}
+          value={theme as 'light' | 'dark' | 'system'}
+          onChange={handleThemeChange}
+        />
       </SettingRow>
 
       {/* 编辑器模式 */}

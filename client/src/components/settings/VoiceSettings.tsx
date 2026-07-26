@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useVoiceStore } from "../../stores/voiceStore";
 import type { VoiceProvider } from "../../services/voiceService";
 import { voiceService } from "../../services/voiceService";
+import { ConfigSection, ConfigItem, ToggleConfig } from "./ConfigComponents";
 
 interface VoiceSettingsProps {
   isDark: boolean;
@@ -149,7 +150,8 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <ConfigSection isDark={isDark}>
+      <div className="space-y-4">
       {error && (
         <div
           className={`p-3 rounded-lg text-sm ${isDark ? "bg-red-900/30 text-red-400" : "bg-red-50 text-red-600"}`}
@@ -279,37 +281,17 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
         </div>
       </div>
 
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <label
-              className={`block text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}
-            >
-              语音唤醒
-            </label>
-            <p
-              className={`text-xs mt-0.5 ${isDark ? "text-gray-500" : "text-gray-400"}`}
-            >
-              启用后可通过唤醒词激活语音输入
-            </p>
-          </div>
-          <button
-            onClick={toggleWakeWord}
-            className={`relative w-12 h-6 rounded-full transition-colors ${
-              wakeWordEnabled
-                ? "bg-blue-500"
-                : isDark
-                  ? "bg-gray-600"
-                  : "bg-gray-300"
-            }`}
-          >
-            <span
-              className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                wakeWordEnabled ? "left-7" : "left-1"
-              }`}
-            />
-          </button>
-        </div>
+      <ConfigItem
+        label="语音唤醒"
+        description="启用后可通过唤醒词激活语音输入"
+        isDark={isDark}
+      >
+        <ToggleConfig
+          isDark={isDark}
+          checked={wakeWordEnabled}
+          onChange={() => toggleWakeWord()}
+        />
+      </ConfigItem>
 
         {wakeWordEnabled && (
           <div className="space-y-3 border-l-2 border-blue-400 pl-4">
@@ -419,43 +401,23 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
             </div>
           </div>
         )}
-      </div>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <label
-            className={`block text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}
-          >
-            自动播放 TTS
-          </label>
-          <p
-            className={`text-xs mt-0.5 ${isDark ? "text-gray-500" : "text-gray-400"}`}
-          >
-            AI回复时自动朗读文本
-          </p>
-        </div>
-        <button
-          onClick={() =>
+      <ConfigItem
+        label="自动播放 TTS"
+        description="AI回复时自动朗读文本"
+        isDark={isDark}
+      >
+        <ToggleConfig
+          isDark={isDark}
+          checked={localConfig.autoPlayTTS}
+          onChange={() =>
             setLocalConfig({
               ...localConfig,
               autoPlayTTS: !localConfig.autoPlayTTS,
             })
           }
-          className={`relative w-12 h-6 rounded-full transition-colors ${
-            localConfig.autoPlayTTS
-              ? "bg-blue-500"
-              : isDark
-                ? "bg-gray-600"
-                : "bg-gray-300"
-          }`}
-        >
-          <span
-            className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-              localConfig.autoPlayTTS ? "left-7" : "left-1"
-            }`}
-          />
-        </button>
-      </div>
+        />
+      </ConfigItem>
 
       <div className="flex justify-end">
         <button
@@ -470,7 +432,8 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
           {isProcessing ? "保存中..." : t("settings.saveSettings")}
         </button>
       </div>
-    </div>
+      </div>
+    </ConfigSection>
   );
 }
 

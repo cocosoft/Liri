@@ -32,7 +32,7 @@ export const SettingRow: React.FC<SettingRowProps> = ({
   return (
     <div className={`setting-row ${compact ? 'setting-row-compact' : ''}`}>
       <div className="flex items-center justify-between py-2.5">
-        <div className="flex-1 mr-4">
+        <div className="flex-1 mr-4 min-w-0">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
             {label}
           </label>
@@ -42,7 +42,9 @@ export const SettingRow: React.FC<SettingRowProps> = ({
             </p>
           )}
         </div>
-        <div className="flex-shrink-0 flex items-center">{children}</div>
+        <div className="flex-shrink-0 w-48 flex items-center justify-end gap-2">
+          {children}
+        </div>
       </div>
     </div>
   );

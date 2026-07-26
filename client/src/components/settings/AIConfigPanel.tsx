@@ -16,9 +16,10 @@ interface AIConfigProps {
     openai?: { apiKey?: string; baseUrl?: string; model?: string };
   };
   onUpdate: (updates: Partial<AIConfigProps["config"]>) => void;
+  collapsible?: boolean;
 }
 
-function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
+function AIConfigPanel({ isDark, config, onUpdate, collapsible }: AIConfigProps) {
   const { t } = useTranslation();
 
   const handleProviderChange = (provider: string) => {
@@ -48,6 +49,7 @@ function AIConfigPanel({ isDark, config, onUpdate }: AIConfigProps) {
       title={t("settings.aiConfig")}
       description={t("settings.aiConfigDesc")}
       isDark={isDark}
+      collapsible={collapsible}
     >
       <div className="space-y-4">
         <ConfigItem label={t("settings.providers")} isDark={isDark}>

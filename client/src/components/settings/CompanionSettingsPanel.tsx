@@ -55,10 +55,11 @@ function CompanionSettingsPanel({
           description="定义助手的个性和行为风格（System Prompt）"
           isDark={isDark}
         >
+          <div className="w-48">
           <textarea
             value={companion.soul || ""}
             onChange={(e) => onUpdateCompanion({ soul: e.target.value })}
-            rows={4}
+            rows={2}
             placeholder="You are a helpful coding assistant..."
             className={`w-full px-3 py-2 text-sm border rounded font-mono resize-y ${
               isDark
@@ -66,6 +67,7 @@ function CompanionSettingsPanel({
                 : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
             }`}
           />
+          </div>
         </ConfigItem>
 
         {/* 静音 */}

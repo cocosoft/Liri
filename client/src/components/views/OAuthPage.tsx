@@ -123,21 +123,6 @@ function OAuthPage() {
       className={`flex-1 overflow-y-auto ${isDark ? "bg-gray-900" : "bg-gray-50"}`}
     >
       <div className="max-w-4xl mx-auto p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1
-              className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}
-            >
-              {t("oauth.title")}
-            </h1>
-            <p
-              className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
-            >
-              {t("oauth.manageDesc")}
-            </p>
-          </div>
-        </div>
-
         <div className="flex items-center gap-1 mb-6 border-b border-gray-200 dark:border-gray-700">
           <button
             onClick={() => setActiveTab("providers")}

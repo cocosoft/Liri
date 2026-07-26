@@ -6,27 +6,7 @@
 import React from 'react';
 import { useSettings } from '@modules/hooks/useSettings';
 import { SettingRow } from './SettingRow';
-
-/**
- * 开关按钮组件
- */
-const Toggle: React.FC<{
-  value: boolean;
-  onChange: (v: boolean) => void;
-}> = ({ value, onChange }) => (
-  <button
-    onClick={() => onChange(!value)}
-    className={`relative w-11 h-6 rounded-full transition-colors ${
-      value ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-    }`}
-  >
-    <span
-      className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-        value ? 'translate-x-[22px]' : 'translate-x-0.5'
-      }`}
-    />
-  </button>
-);
+import { Toggle } from './Toggle';
 
 /**
  * 功能开关设置面板
@@ -50,6 +30,7 @@ export const FeatureSettings: React.FC = () => {
   };
 
   return (
+    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 px-1 pb-2">功能开关</h2>
     <div className="space-y-0 divide-y divide-gray-100 dark:divide-gray-700">
       <SettingRow label="待办事项" hint="启用任务管理和待办事项功能">
         <Toggle

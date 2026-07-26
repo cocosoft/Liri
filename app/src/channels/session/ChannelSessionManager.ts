@@ -347,14 +347,9 @@ export class ChannelSessionManager extends EventEmitter {
   /**
    * 记录 Inbox 项与渠道会话的关联（委托给 InboxManager.linkSession）
    */
-  async linkInboxItem(
-    sessionId: string,
-    inboxItemId: string
-  ): Promise<void> {
+  async linkInboxItem(sessionId: string, inboxItemId: string): Promise<void> {
     try {
-      const { inboxManager } = await import(
-        '@modules/runtime/InboxManager.js'
-      );
+      const { inboxManager } = await import('@modules/runtime/InboxManager.js');
       await inboxManager.linkSession(sessionId, inboxItemId);
     } catch (err) {
       await handleError(err, {
@@ -370,9 +365,7 @@ export class ChannelSessionManager extends EventEmitter {
    */
   async getInboxItemIds(sessionId: string): Promise<string[]> {
     try {
-      const { inboxManager } = await import(
-        '@modules/runtime/InboxManager.js'
-      );
+      const { inboxManager } = await import('@modules/runtime/InboxManager.js');
       const items = await inboxManager.getBySession(sessionId);
       return items.map((i) => i.id);
     } catch (err) {

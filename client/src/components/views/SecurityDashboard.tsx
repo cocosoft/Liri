@@ -114,12 +114,6 @@ function SecurityDashboard() {
     <div
       className={`p-6 min-h-screen ${isDark ? "bg-gray-900" : "bg-gray-50"}`}
     >
-      {/* 页面标题 */}
-      <div className="mb-6">
-        <h1 className={`text-2xl font-bold ${textPrimary}`}>安全仪表盘</h1>
-        <p className={textSecondary}>安全规则状态、审计事件和风险概览</p>
-      </div>
-
       {/* 加载状态 */}
       {loading && (
         <div

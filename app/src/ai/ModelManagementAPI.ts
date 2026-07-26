@@ -2449,9 +2449,17 @@ const ROUTES: RouteEntry[] = [
   },
   { method: 'GET', pattern: /^\/v1\/usage\/logs$/, handler: handleUsageLogs },
 
-  // Balance
-  { method: 'GET', pattern: /^\/v1\/balances$/, handler: handleBatchBalances },
-  { method: 'POST', pattern: /^\/v1\/balance$/, handler: handleBalanceQuery },
+  // Balance (统一前缀)
+  {
+    method: 'GET',
+    pattern: /^\/v1\/usage\/balances$/,
+    handler: handleBatchBalances,
+  },
+  {
+    method: 'POST',
+    pattern: /^\/v1\/usage\/balance$/,
+    handler: handleBalanceQuery,
+  },
 
   // Pricing
   { method: 'GET', pattern: /^\/v1\/pricing$/, handler: handleListPricing },

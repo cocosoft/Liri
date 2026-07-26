@@ -86,12 +86,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         </div>
 
         {/* Tab 导航 */}
-        <div className="flex px-4 pt-3 gap-1 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+        <div className="flex px-4 pt-3 gap-0.5 border-b border-gray-200 dark:border-gray-700">
           {SETTINGS_TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-3 py-2 text-sm font-medium rounded-t-md transition-colors whitespace-nowrap border-b-2 -mb-[1px] ${
+              className={`px-2.5 py-1.5 text-xs font-medium rounded-t-md transition-colors whitespace-nowrap border-b-2 -mb-[1px] ${
                 activeTab === tab.id
                   ? 'text-blue-600 dark:text-blue-400 border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                   : 'text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'

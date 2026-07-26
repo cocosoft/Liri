@@ -23,9 +23,15 @@ const logger = new Logger({ module: 'media:tool:info', level: LogLevel.INFO });
 export function createMediaInfoTool(): Tool {
   return {
     name: 'media:info',
-    description: 'Get metadata of a media file (image/video/audio/pdf). Returns dimensions, format, duration, file size etc.',
+    description:
+      'Get metadata of a media file (image/video/audio/pdf). Returns dimensions, format, duration, file size etc.',
     params: [
-      { name: 'filePath', type: 'string', description: 'Path to the media file', required: true },
+      {
+        name: 'filePath',
+        type: 'string',
+        description: 'Path to the media file',
+        required: true,
+      },
     ],
     aliases: ['media_info', 'file_info'],
     searchTips: ['media', 'info', 'metadata', 'dimensions', 'size'],
@@ -34,7 +40,10 @@ export function createMediaInfoTool(): Tool {
     isDestructive: () => false,
     isConcurrencySafe: () => true,
 
-    async execute(input: Record<string, unknown>, _context: ToolUseContext): Promise<MediaToolResult> {
+    async execute(
+      input: Record<string, unknown>,
+      _context: ToolUseContext
+    ): Promise<MediaToolResult> {
       const startTime = Date.now();
       const filePath = input.filePath as string;
 
@@ -92,7 +101,10 @@ export function createMediaInfoTool(): Tool {
           metadata.dimensions = dimensions;
         }
 
-        logger.info('Media info retrieved', { filePath: safe.path, ...metadata });
+        logger.info('Media info retrieved', {
+          filePath: safe.path,
+          ...metadata,
+        });
 
         return {
           status: ToolExecutionStatus.SUCCESS,
@@ -134,7 +146,12 @@ export function createMediaInfoTool(): Tool {
         name: 'media:info',
         description: 'Get metadata of a media file',
         params: [
-          { name: 'filePath', type: 'string', description: 'Path to the media file', required: true },
+          {
+            name: 'filePath',
+            type: 'string',
+            description: 'Path to the media file',
+            required: true,
+          },
         ],
         aliases: ['media_info', 'file_info'],
         searchTips: ['media', 'info', 'metadata'],

@@ -8,7 +8,7 @@ import {
   monitorService,
   type MonitorSummary,
 } from "../../services/monitorService";
-import { costService, type CostSummary } from "../../services/costService";
+import { usageService, type CostSummary } from "../../services/usageService";
 import ModelSwitcher from "../modelAdmin/ModelSwitcher";
 import { createLogger } from "@/utils/logger";
 import {
@@ -64,18 +64,23 @@ function Footer() {
   }, []);
 
   useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined;
     const fetchCostSummary = async () => {
       try {
-        const data = await costService.getCostSummary();
+        const data = await usageService.getCostSummary();
         setCostSummary(data);
       } catch (err) {
         logger.error("获取成本摘要失败:", err);
       }
     };
+    // 初始加载
     fetchCostSummary();
-    const interval = setInterval(fetchCostSummary, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    // 弹窗展开时 5s 轮询，收起时停止
+    if (showCostDetail || isExpanded) {
+      interval = setInterval(fetchCostSummary, 5000);
+    }
+    return () => { if (interval) clearInterval(interval); };
+  }, [showCostDetail, isExpanded]);
 
   const getStatusDot = (running: boolean) => (
     <span
@@ -347,6 +352,13 @@ function Footer() {
                 {formatCost(costSummary.sessionCost, "$")}
               </span>
             </div>
+            <div className="border-t border-gray-200 dark:border-gray-700 my-1.5" />
+            <button
+              onClick={() => { setShowCostDetail(false); navigate("/usage"); }}
+              className="w-full text-center text-xs text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              查看完整用量分析 →
+            </button>
           </div>
         </div>
       )}

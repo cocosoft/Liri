@@ -136,19 +136,7 @@ function SandboxPage() {
       className={`flex-1 overflow-y-auto ${isDark ? "bg-gray-900" : "bg-gray-50"}`}
     >
       <div className="max-w-4xl mx-auto p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1
-              className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}
-            >
-              {t("sandbox.title")}
-            </h1>
-            <p
-              className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
-            >
-              {t("sandbox.subtitle")}
-            </p>
-          </div>
+        <div className="flex items-center justify-end mb-6">
           <button
             onClick={toggleSandbox}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${

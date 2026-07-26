@@ -18,12 +18,14 @@ interface AutoUpdatePanelProps {
   isDark: boolean;
   autoUpdate: AutoUpdateConfig;
   onUpdate: (updates: Partial<AutoUpdateConfig>) => void;
+  collapsible?: boolean;
 }
 
 function AutoUpdatePanel({
   isDark,
   autoUpdate,
   onUpdate,
+  collapsible,
 }: AutoUpdatePanelProps) {
   const { t } = useTranslation();
 
@@ -32,6 +34,7 @@ function AutoUpdatePanel({
       title={t("settings.autoUpdate")}
       description={t("settings.autoUpdateDesc")}
       isDark={isDark}
+      collapsible={collapsible}
     >
       <div className="space-y-4">
         <ConfigItem label={t("settings.autoUpdateEnable")} isDark={isDark}>

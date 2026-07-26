@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
-import i18n from "../../i18n";
 import { chatService } from "../../services/chatService";
 import { appConfigService } from "../../services/appConfigService";
 import { setBackendPort as setBackendUrlPort } from "../../services/backendUrl";
 import { httpLegacy as http } from "../../services/httpClient";
-import { handleClientError } from "../../utils/handleError";
 import AIConfigPanel from "../settings/AIConfigPanel";
 import AutoUpdatePanel from "../settings/AutoUpdatePanel";
 import FeatureFlagsPanel from "../settings/FeatureFlagsPanel";
@@ -17,28 +15,24 @@ import CustomRulesPanel from "../settings/CustomRulesPanel";
 import VoiceSettings from "../settings/VoiceSettings";
 import KnowledgeIngestPanel from "../settings/KnowledgeIngestPanel";
 import LogViewerPage from "../views/LogViewerPage";
-import ModelPage from "../views/ModelPage";
-import SkillPage from "../views/SkillPage";
-import ChannelsPage from "../views/ChannelsPage";
-import MCPMarketPage from "../views/MCPMarketPage";
-import SkillMarketPage from "../views/SkillMarketPage";
-import FileExplorerPage from "../views/FileExplorerPage";
-import CostPage from "../views/CostPage";
 import MemoryPage from "../views/MemoryPage";
 import PermissionPage from "../views/PermissionPage";
 import OAuthPage from "../views/OAuthPage";
 import SandboxPage from "../views/SandboxPage";
-import AutoReplyPage from "../views/AutoReplyPage";
 import SoulPanel from "../settings/SoulPanel";
 import UserPanel from "../settings/UserPanel";
+import AppearancePanel from "../settings/AppearancePanel";
+import ApiKeyContent from "../settings/ApiKeyContent";
+import BackendServicePanel from "../settings/BackendServicePanel";
+import DataStoragePanel from "../settings/DataStoragePanel";
 import SecurityDashboard from "../views/SecurityDashboard";
+import UsageCenterPage from "../views/UsageCenterPage";
 import {
   ConfigSection,
   ConfigItem,
   ToggleConfig,
 } from "../settings/ConfigComponents";
 import type { BackendStatus } from "../../types";
-import { useApiKeyStore } from "../../stores/authStore";
 import { routerService } from "../../services/routerService";
 import {
   SettingsIcon,
@@ -46,15 +40,9 @@ import {
   KeyIcon,
   FolderOpenIcon,
   BellIcon,
-  ModelIcon,
-  SkillIcon,
   ShieldIcon,
-  ChannelIcon,
-  McpIcon,
   DollarIcon,
   FileIcon,
-  CloudIcon,
-  ZapIcon,
   PlayIcon,
   LinkIcon,
   SlidersIcon,
@@ -114,18 +102,6 @@ const NAV_GROUPS: NavGroup[] = [
     badgeClass:
       "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
     items: [
-      {
-        id: "models",
-        labelKey: "settings.models",
-        icon: ModelIcon,
-        zone: "ai",
-      },
-      {
-        id: "skills",
-        labelKey: "settings.skills",
-        icon: SkillIcon,
-        zone: "ai",
-      },
       {
         id: "router",
         labelKey: "settings.router",
@@ -192,33 +168,9 @@ const NAV_GROUPS: NavGroup[] = [
       "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
     items: [
       {
-        id: "channels",
-        labelKey: "settings.channels",
-        icon: ChannelIcon,
-        zone: "integration",
-      },
-      {
         id: "voice",
         labelKey: "settings.voice",
         icon: MicIcon,
-        zone: "integration",
-      },
-      {
-        id: "mcp",
-        labelKey: "settings.mcp",
-        icon: McpIcon,
-        zone: "integration",
-      },
-      {
-        id: "skill-market",
-        labelKey: "settings.skillMarket",
-        icon: CloudIcon,
-        zone: "integration",
-      },
-      {
-        id: "autoreply",
-        labelKey: "settings.autoReply",
-        icon: ZapIcon,
         zone: "integration",
       },
     ],
@@ -233,12 +185,6 @@ const NAV_GROUPS: NavGroup[] = [
         id: "data-dir",
         labelKey: "settings.dataDir",
         icon: FolderOpenIcon,
-        zone: "storage",
-      },
-      {
-        id: "files",
-        labelKey: "settings.files",
-        icon: FileIcon,
         zone: "storage",
       },
       {
@@ -262,6 +208,28 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
 ];
+
+/** 页面描述映射（nav ID → 中文描述） */
+const PAGE_DESCRIPTIONS: Record<string, string> = {
+  config: "外观、后端服务、AI 模型、功能开关等通用配置",
+  notifications: "管理系统通知偏好和推送方式",
+  logs: "查看应用运行日志和诊断信息",
+  router: "配置 LLM Judge 智能路由和模型分级策略",
+  soul: "定义 AI 助手的人设和对话风格",
+  user: "设置用户身份信息，用于个性化对话",
+  memory: "管理持久化记忆和上下文信息",
+  apikeys: "创建和管理 API 访问密钥",
+  "trusted-workspaces": "管理可信任的工作区目录",
+  "custom-rules": "配置自定义安全规则和约束",
+  permissions: "管理权限策略和访问控制",
+  oauth: "配置 OAuth 第三方登录认证",
+  "security-dashboard": "安全状态概览和风险评估",
+  voice: "配置语音唤醒、识别和合成功能",
+  "data-dir": "配置数据文件和附件的存储位置",
+  ingest: "配置知识库摄入规则和来源",
+  cost: "查看 API 调用成本和用量统计",
+  sandbox: "管理代码执行沙箱和安全策略",
+};
 
 /** 获取所有导航项 */
 const ALL_NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
@@ -298,27 +266,6 @@ function getPersistedNav(fallback: string): string {
   }
   return fallback;
 }
-
-/** 时区选项 */
-const TIMEZONE_OPTIONS = [
-  { value: "Asia/Shanghai", label: "UTC+8 上海/北京" },
-  { value: "Asia/Tokyo", label: "UTC+9 东京" },
-  { value: "Asia/Seoul", label: "UTC+9 首尔" },
-  { value: "Asia/Singapore", label: "UTC+8 新加坡" },
-  { value: "Asia/Kolkata", label: "UTC+5:30 印度" },
-  { value: "Asia/Dubai", label: "UTC+4 迪拜" },
-  { value: "Europe/London", label: "UTC+0 伦敦" },
-  { value: "Europe/Paris", label: "UTC+1 巴黎" },
-  { value: "Europe/Berlin", label: "UTC+1 柏林" },
-  { value: "Europe/Moscow", label: "UTC+3 莫斯科" },
-  { value: "America/New_York", label: "UTC-5 纽约" },
-  { value: "America/Chicago", label: "UTC-6 芝加哥" },
-  { value: "America/Los_Angeles", label: "UTC-8 洛杉矶" },
-  { value: "America/Sao_Paulo", label: "UTC-3 圣保罗" },
-  { value: "Australia/Sydney", label: "UTC+10 悉尼" },
-  { value: "Pacific/Auckland", label: "UTC+12 奥克兰" },
-  { value: "UTC", label: "UTC+0 协调世界时" },
-];
 
 function SettingsPage() {
   const { t } = useTranslation();
@@ -523,9 +470,51 @@ function SettingsPage() {
         <nav className="pb-6">{renderSidebar()}</nav>
       </aside>
 
-      {/* ── 右侧主内容区（横向填满）── */}
+      {/* ── 右侧主内容区（居中显示）── */}
       <main className="flex-1 min-w-0 overflow-y-auto bg-white dark:bg-gray-800">
+        {/* 当前页面标题栏 */}
+        <div className="sticky top-0 z-10 px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm">
+          <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+            {t("settings.title")}
+            <span className="mx-1.5 text-gray-300 dark:text-gray-600">/</span>
+            <span className="text-gray-900 dark:text-gray-100">
+              {(() => {
+                for (const group of NAV_GROUPS) {
+                  const item = group.items.find((i) => i.id === activeNav);
+                  if (item) return t(item.labelKey as any);
+                }
+                return "";
+              })()}
+            </span>
+          </h2>
+        </div>
+        <div className="max-w-4xl mx-auto">
+        {/* 页面标题 */}
+        {(() => {
+          for (const group of NAV_GROUPS) {
+            const item = group.items.find((i) => i.id === activeNav);
+            if (item) {
+              return (
+                <div className="px-6 pt-6 pb-4">
+                  <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    {t(item.labelKey as any)}
+                  </h1>
+                  {(() => {
+                    const desc = PAGE_DESCRIPTIONS[activeNav];
+                    return desc ? (
+                      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        {desc}
+                      </p>
+                    ) : null;
+                  })()}
+                </div>
+              );
+            }
+          }
+          return null;
+        })()}
         {renderContent()}
+        </div>
       </main>
     </div>
   );
@@ -569,10 +558,30 @@ function SettingsPage() {
       case "config":
         return (
           <>
-            {renderAppearance()}
-            {renderBackendService()}
+            <AppearancePanel
+              isDark={isDark}
+              config={config}
+              setConfig={setConfig}
+              toggleTheme={toggleTheme}
+              collapsible
+            />
+            <BackendServicePanel
+              isDark={isDark}
+              backendStatus={backendStatus}
+              backendPort={backendPort}
+              setBackendPort={setBackendPort}
+              handleSavePort={handleSavePort}
+              portSaved={portSaved}
+              error={error}
+              loading={loading}
+              handleStopBackend={handleStopBackend}
+              handleStartBackend={handleStartBackend}
+              checkBackendStatus={checkBackendStatus}
+              collapsible
+            />
             <AIConfigPanel
               isDark={isDark}
+              collapsible
               config={(config.ai as Record<string, unknown>) || {}}
               onUpdate={(updates) =>
                 setConfig("ai", {
@@ -583,6 +592,7 @@ function SettingsPage() {
             />
             <FeatureFlagsPanel
               isDark={isDark}
+              collapsible
               features={
                 ((config.features as Record<string, unknown>) || {
                   autoCompact: true,
@@ -607,6 +617,7 @@ function SettingsPage() {
             />
             <LocalAgentPanel
               isDark={isDark}
+              collapsible
               localAgent={
                 (() => {
                   const raw = (config.ai as Record<string, unknown>)
@@ -676,6 +687,7 @@ function SettingsPage() {
             />
             <AutoUpdatePanel
               isDark={isDark}
+              collapsible
               autoUpdate={
                 (config.autoUpdate as {
                   enabled: boolean;
@@ -700,6 +712,7 @@ function SettingsPage() {
             />
             <NotificationsPanel
               isDark={isDark}
+              collapsible
               notifications={
                 ((config.notifications as Record<string, unknown>) || {
                   preferredChannel: "auto",
@@ -744,11 +757,7 @@ function SettingsPage() {
           />
         );
       case "logs":
-        return <LogViewerPage />;
-      case "models":
-        return <ModelManagementContent isDark={isDark} />;
-      case "skills":
-        return <SkillManagementContent isDark={isDark} />;
+        return <div className="p-6"><LogViewerPage /></div>;
       case "router":
         return (
           <RouterConfigContent
@@ -772,21 +781,29 @@ function SettingsPage() {
       case "oauth":
         return <OAuthManagementContent isDark={isDark} />;
       case "security-dashboard":
-        return <SecurityDashboard />;
-      case "channels":
-        return <ChannelsManagementContent isDark={isDark} />;
+        return <div className="p-6"><SecurityDashboard /></div>;
       case "voice":
         return <VoiceSettings isDark={isDark} />;
-      case "mcp":
-        return <MCPMarketContent isDark={isDark} />;
-      case "skill-market":
-        return <SkillMarketContent isDark={isDark} />;
-      case "autoreply":
-        return <AutoReplyManagementContent isDark={isDark} />;
       case "data-dir":
-        return renderDataStorage();
-      case "files":
-        return <FileManagementContent isDark={isDark} />;
+        return (
+          <DataStoragePanel
+            isDark={isDark}
+            configuredDirectory={configuredDirectory}
+            defaultDirectory={defaultDirectory}
+            dataDirectory={dataDirectory}
+            envLiriHome={envLiriHome}
+            envLiriDataDir={envLiriDataDir}
+            setDataDirectory={setDataDirectory}
+            dataDirError={dataDirError}
+            dataDirSaved={dataDirSaved}
+            migrateData={migrateData}
+            setMigrateData={setMigrateData}
+            migrating={migrating}
+            migrationResult={migrationResult}
+            handleSaveDataDirectory={handleSaveDataDirectory}
+            handleResetDataDirectory={handleResetDataDirectory}
+          />
+        );
       case "ingest":
         return <KnowledgeIngestPanel isDark={isDark} />;
       case "cost":
@@ -794,587 +811,14 @@ function SettingsPage() {
       case "sandbox":
         return <SandboxManagementContent isDark={isDark} />;
       case "memory":
-        return <MemoryPage />;
+        return <div className="p-6"><MemoryPage /></div>;
       default:
         return null;
     }
   }
-
-  function renderAppearance() {
-    const language =
-      (config.language as string) || navigator.language || "zh-CN";
-    const timezone =
-      (config.timezone as string) ||
-      Intl.DateTimeFormat().resolvedOptions().timeZone ||
-      "Asia/Shanghai";
-
-    /** 已支持的语言（有翻译文件） */
-    const SUPPORTED_LANGUAGES = [
-      { value: "zh-CN", label: "简体中文" },
-      { value: "en-US", label: "English (US)" },
-    ];
-
-    /** 计划中的语言（无翻译文件，切换后仍显示中文） */
-    const PLANNED_LANGUAGES = [
-      { value: "zh-TW", label: "繁體中文 (即將支援)" },
-      { value: "en-GB", label: "English (UK) (coming soon)" },
-      { value: "ja-JP", label: "日本語 (coming soon)" },
-      { value: "ko-KR", label: "한국어 (coming soon)" },
-      { value: "fr-FR", label: "Français (à venir)" },
-      { value: "de-DE", label: "Deutsch (demnächst)" },
-      { value: "es-ES", label: "Español (próximamente)" },
-      { value: "pt-BR", label: "Português (BR) (em breve)" },
-      { value: "ru-RU", label: "Русский (скоро)" },
-      { value: "ar-SA", label: "العربية (قريباً)" },
-    ];
-
-    const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const lang = e.target.value;
-      setConfig("language", lang);
-      // 立即切换 i18n 语言
-      const i18nLang = lang.startsWith("zh")
-        ? "zh"
-        : lang.startsWith("en")
-          ? "en"
-          : "zh";
-      i18n.changeLanguage(i18nLang);
-    };
-
-    const currentThemeLabel = isDark ? t("settings.dark") : t("settings.light");
-
-    return (
-      <ConfigSection
-        title={t("settings.appearance")}
-        description={t("settings.appearanceDesc")}
-        isDark={isDark}
-      >
-        <ConfigItem
-          label={t("settings.theme")}
-          description={`${t("settings.current")}: ${currentThemeLabel}`}
-          isDark={isDark}
-        >
-          <ToggleConfig
-            isDark={isDark}
-            checked={isDark}
-            onChange={toggleTheme}
-          />
-        </ConfigItem>
-        <ConfigItem label={t("settings.language")} isDark={isDark}>
-          <select
-            value={language}
-            onChange={handleLanguageChange}
-            className="w-full max-w-sm px-3 py-1.5 text-sm border rounded bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-          >
-            <optgroup label="---">
-              {SUPPORTED_LANGUAGES.map((l) => (
-                <option key={l.value} value={l.value}>
-                  {l.label}
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label={t("settings.comingSoon")}>
-              {PLANNED_LANGUAGES.map((l) => (
-                <option key={l.value} value={l.value} disabled>
-                  {l.label}
-                </option>
-              ))}
-            </optgroup>
-          </select>
-        </ConfigItem>
-        <ConfigItem label={t("settings.timezone")} isDark={isDark}>
-          <select
-            value={timezone}
-            onChange={(e) => setConfig("timezone", e.target.value)}
-            className="w-full max-w-sm px-3 py-1.5 text-sm border rounded bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-          >
-            {TIMEZONE_OPTIONS.map((tz) => (
-              <option key={tz.value} value={tz.value}>
-                {tz.label}
-              </option>
-            ))}
-          </select>
-        </ConfigItem>
-      </ConfigSection>
-    );
-  }
-
-  function renderBackendService() {
-    const statusText = backendStatus.running
-      ? `${t("settings.backendStatusRunning")} (${t("settings.backendPort")} ${backendStatus.port})`
-      : t("settings.backendStatusStopped");
-    return (
-      <ConfigSection
-        title={t("settings.backendService")}
-        description={t("settings.backendServiceDesc")}
-        isDark={isDark}
-      >
-        <ConfigItem
-          label={t("settings.backendStatus")}
-          description={statusText}
-          isDark={isDark}
-        >
-          <span
-            className={`inline-block w-2 h-2 rounded-full ${backendStatus.running ? "bg-green-500" : "bg-red-500"}`}
-          />
-        </ConfigItem>
-        <ConfigItem label={t("settings.backendPort")} isDark={isDark}>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              value={backendPort}
-              onChange={(e) => setBackendPort(e.target.value)}
-              disabled={backendStatus.running}
-              className="w-28 px-2 py-1 text-sm border rounded bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-            />
-            <button
-              onClick={handleSavePort}
-              disabled={backendStatus.running}
-              className="px-3 py-1.5 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {t("settings.applyPort")}
-            </button>
-            {portSaved && (
-              <span className="text-xs text-green-500">
-                {t("settings.portSaved")}
-              </span>
-            )}
-          </div>
-        </ConfigItem>
-        {error && (
-          <div className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded">
-            {error}
-          </div>
-        )}
-        <div className="flex gap-2 pt-2">
-          {backendStatus.running ? (
-            <button
-              onClick={handleStopBackend}
-              disabled={loading}
-              className="px-3 py-1.5 text-sm rounded bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? t("settings.processing") : t("settings.stop")}
-            </button>
-          ) : (
-            <button
-              onClick={handleStartBackend}
-              disabled={loading}
-              className="px-3 py-1.5 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? t("settings.processing") : t("settings.start")}
-            </button>
-          )}
-          <button
-            onClick={checkBackendStatus}
-            className="px-3 py-1.5 text-sm rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-50"
-          >
-            {t("settings.refreshStatus")}
-          </button>
-        </div>
-      </ConfigSection>
-    );
-  }
-
-  function renderDataStorage() {
-    // 构建生效目录信息行
-    const effectiveDir =
-      configuredDirectory || defaultDirectory || dataDirectory;
-    let envInfo: string | null = null;
-    if (
-      envLiriHome &&
-      configuredDirectory &&
-      envLiriHome !== configuredDirectory
-    ) {
-      envInfo = `环境变量 LIRI_HOME 已设置 → ${envLiriHome}（设置页保存的目录优先）`;
-    } else if (envLiriHome && !configuredDirectory) {
-      envInfo = `环境变量 LIRI_HOME 已设置 → ${envLiriHome}`;
-    } else if (envLiriDataDir) {
-      envInfo = `环境变量 LIRI_DATA_DIR 已设置 → ${envLiriDataDir}`;
-    }
-
-    return (
-      <ConfigSection
-        title="数据目录"
-        description="配置数据文件存储位置"
-        isDark={isDark}
-      >
-        {/* 当前生效目录提示行 */}
-        <div className="mb-3 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs">
-          <p className="text-blue-700 dark:text-blue-300">
-            <span className="font-medium">当前生效目录：</span>
-            <code className="ml-1">{effectiveDir}</code>
-          </p>
-          {envInfo && (
-            <p className="text-yellow-600 dark:text-yellow-400 mt-1">
-              ⚠️ {envInfo}
-            </p>
-          )}
-        </div>
-
-        <input
-          type="text"
-          value={dataDirectory}
-          onChange={(e) => setDataDirectory(e.target.value)}
-          placeholder="请输入数据目录路径"
-          className="w-full px-3 py-2 text-sm border rounded bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
-        />
-        {configuredDirectory && (
-          <p className="text-xs text-gray-500 mt-2">当前已配置自定义目录</p>
-        )}
-        {!configuredDirectory && defaultDirectory && (
-          <p className="text-xs text-gray-500 mt-2">
-            默认目录: {defaultDirectory}
-          </p>
-        )}
-        {dataDirError && (
-          <p className="text-xs text-red-500 mt-2">{dataDirError}</p>
-        )}
-        <div className="flex items-center gap-2 mt-3">
-          <input
-            type="checkbox"
-            id="migrateData"
-            checked={migrateData}
-            onChange={(e) => setMigrateData(e.target.checked)}
-            className="w-4 h-4"
-          />
-          <label
-            htmlFor="migrateData"
-            className="text-sm text-gray-700 dark:text-gray-300"
-          >
-            迁移现有数据
-          </label>
-        </div>
-
-        {/* 迁移进度指示 */}
-        {migrating && (
-          <div className="mt-3 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded">
-            <div className="flex items-center gap-2">
-              <span className="inline-block w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm text-amber-700 dark:text-amber-300">
-                正在迁移数据，请稍候...
-              </span>
-            </div>
-          </div>
-        )}
-
-        {migrationResult && <MigrationResult result={migrationResult} />}
-        <div className="flex gap-2 mt-3">
-          <button
-            onClick={handleSaveDataDirectory}
-            disabled={migrating}
-            className="px-3 py-1.5 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            应用
-          </button>
-          {configuredDirectory && (
-            <button
-              onClick={handleResetDataDirectory}
-              disabled={migrating}
-              className="px-3 py-1.5 text-sm rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              恢复默认
-            </button>
-          )}
-          {dataDirSaved && !migrationResult && (
-            <span className="text-xs text-green-500 self-center">已保存</span>
-          )}
-        </div>
-      </ConfigSection>
-    );
-  }
-}
-
-/* ── API 密钥嵌入组件 ── */
-
-function ApiKeyContent() {
-  const { apiKeys, isLoading, error, loadApiKeys, createApiKey, deleteApiKey } =
-    useApiKeyStore();
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newKeyName, setNewKeyName] = useState("");
-  const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    loadApiKeys();
-  }, [loadApiKeys]);
-
-  const handleCreate = async () => {
-    if (!newKeyName.trim()) {
-      setCreateError("请输入密钥名称");
-      return;
-    }
-    setCreateError(null);
-    try {
-      const key = await createApiKey(newKeyName, ["read"], 90);
-      setNewKeyValue(key);
-      setNewKeyName("");
-    } catch (e) {
-      setCreateError(e instanceof Error ? e.message : "创建失败");
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("确定要删除这个 API 密钥吗？此操作不可撤销。")) return;
-    try {
-      await deleteApiKey(id);
-    } catch (e) {
-      handleClientError(e, {
-        module: "components:views:Settings",
-        action: "deleteApiKey",
-      });
-    }
-  };
-
-  const handleCopy = async () => {
-    if (newKeyValue) {
-      try {
-        await navigator.clipboard.writeText(newKeyValue);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (e) {
-        handleClientError(e, {
-          module: "components:views:Settings",
-          action: "copyKey",
-        });
-      }
-    }
-  };
-
-  const formatDate = (timestamp: number) =>
-    new Date(timestamp).toLocaleString("zh-CN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-  return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            API 密钥管理
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            管理您的 API 密钥，用于程序化访问
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            setShowCreateModal(true);
-            setNewKeyValue(null);
-            setNewKeyName("");
-            setCreateError(null);
-          }}
-          className="px-4 py-2 rounded-lg font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors"
-        >
-          创建密钥
-        </button>
-      </div>
-
-      {(error || createError) && (
-        <div className="mb-4 p-3 rounded-lg text-sm bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800">
-          {error || createError}
-        </div>
-      )}
-
-      {isLoading && apiKeys.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">加载中...</div>
-      ) : apiKeys.length === 0 ? (
-        <div className="text-center py-12 rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-          <svg
-            className="w-12 h-12 mx-auto mb-4 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-            />
-          </svg>
-          <p className="text-gray-500">暂无 API 密钥</p>
-          <p className="mt-1 text-sm text-gray-400">
-            点击上方按钮创建一个新的 API 密钥
-          </p>
-        </div>
-      ) : (
-        <div className="rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-sm border-b border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400">
-                <th className="px-4 py-3 font-medium">名称</th>
-                <th className="px-4 py-3 font-medium">密钥</th>
-                <th className="px-4 py-3 font-medium">创建时间</th>
-                <th className="px-4 py-3 font-medium">最后使用</th>
-                <th className="px-4 py-3 font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {apiKeys.map((key) => (
-                <tr key={key.id} className="text-gray-700 dark:text-gray-300">
-                  <td className="px-4 py-3 font-medium">{key.name}</td>
-                  <td className="px-4 py-3 font-mono text-sm">
-                    {key.key_prefix}...****
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    {formatDate(key.created_at)}
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    {key.last_used_at
-                      ? formatDate(key.last_used_at)
-                      : "从未使用"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => handleDelete(key.id)}
-                      className="text-sm text-red-600 dark:text-red-400 hover:underline"
-                    >
-                      删除
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="max-w-md w-full mx-4 p-6 rounded-xl bg-white dark:bg-gray-800">
-            {newKeyValue ? (
-              <>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                  密钥已创建
-                </h3>
-                <div className="p-3 rounded bg-gray-50 dark:bg-gray-700">
-                  <code className="text-sm break-all text-gray-800 dark:text-gray-200">
-                    {newKeyValue}
-                  </code>
-                </div>
-                <p className="text-xs text-red-500 mt-2">
-                  请立即复制，关闭后将无法再次查看
-                </p>
-                <div className="flex gap-2 mt-4">
-                  <button
-                    onClick={handleCopy}
-                    className="flex-1 px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    {copied ? "已复制" : "复制密钥"}
-                  </button>
-                  <button
-                    onClick={() => setShowCreateModal(false)}
-                    className="px-4 py-2 text-sm rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
-                  >
-                    关闭
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                  创建新密钥
-                </h3>
-                <input
-                  type="text"
-                  value={newKeyName}
-                  onChange={(e) => setNewKeyName(e.target.value)}
-                  placeholder="密钥名称"
-                  className="w-full px-3 py-2 text-sm border rounded bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 mb-4"
-                  autoFocus
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleCreate}
-                    className="flex-1 px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    创建
-                  </button>
-                  <button
-                    onClick={() => setShowCreateModal(false)}
-                    className="px-4 py-2 text-sm rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
-                  >
-                    取消
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── 内部组件 ── */
-
-function MigrationResult({
-  result,
-}: {
-  result: {
-    copied: number;
-    skipped: number;
-    errors: string[];
-    cleaned?: number;
-    cleanedErrors?: string[];
-  };
-}) {
-  return (
-    <div
-      className={`mt-3 p-3 rounded ${
-        result.errors.length > 0
-          ? "bg-yellow-50 dark:bg-yellow-900/20"
-          : "bg-green-50 dark:bg-green-900/20"
-      }`}
-    >
-      <p className="text-sm text-gray-700 dark:text-gray-300">
-        迁移完成：<span className="font-medium">{result.copied}</span>{" "}
-        个已迁移，{result.skipped} 个已跳过
-      </p>
-      {result.cleaned !== undefined && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          旧目录已清理 {result.cleaned} 项，释放磁盘空间
-        </p>
-      )}
-      {result.errors.length > 0 && (
-        <div className="mt-2">
-          <p className="text-xs text-red-500">迁移错误:</p>
-          {result.errors.slice(0, 3).map((err, idx) => (
-            <p key={idx} className="text-xs text-red-500">
-              {err}
-            </p>
-          ))}
-        </div>
-      )}
-      {result.cleanedErrors && result.cleanedErrors.length > 0 && (
-        <div className="mt-2">
-          <p className="text-xs text-yellow-500">旧目录清理警告:</p>
-          {result.cleanedErrors.slice(0, 3).map((err, idx) => (
-            <p key={idx} className="text-xs text-yellow-500">
-              {err}
-            </p>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 /* ── 新增内容组件 ── */
-
-/** 模型管理内容 — 内联渲染完整模型管理页面 */
-function ModelManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return <ModelPage />;
-}
-
-/** 技能管理内容 */
-function SkillManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return <SkillPage />;
-}
 
 /** 智能路由配置内容 */
 function RouterConfigContent({
@@ -1422,16 +866,8 @@ function RouterConfigContent({
   };
 
   return (
-    <div className="p-6">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-        智能路由配置
-      </h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-        由 LLM Judge 自动分级调度模型
-      </p>
+    <div>
       <ConfigSection
-        title="SmartRouter"
-        description="根据任务复杂度自动选择合适的模型"
         isDark={isDark}
       >
         <ConfigItem label="启用 SmartRouter" isDark={isDark}>
@@ -1488,47 +924,22 @@ function RouterConfigContent({
 
 /** 权限管理内容 */
 function PermissionManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return <PermissionPage />;
+  return <div className="p-6"><PermissionPage /></div>;
 }
 
 /** OAuth 认证管理内容 */
 function OAuthManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return <OAuthPage />;
-}
-
-/** 消息渠道管理内容 */
-function ChannelsManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return <ChannelsPage />;
-}
-
-/** MCP 市场内容 */
-function MCPMarketContent({ isDark: _isDark }: { isDark: boolean }) {
-  return <MCPMarketPage />;
-}
-
-/** 技能市场内容 */
-function SkillMarketContent({ isDark: _isDark }: { isDark: boolean }) {
-  return <SkillMarketPage />;
-}
-
-/** 自动回复管理内容 */
-function AutoReplyManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return <AutoReplyPage />;
-}
-
-/** 文件管理内容 */
-function FileManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return <FileExplorerPage />;
+  return <div className="p-6"><OAuthPage /></div>;
 }
 
 /** 成本统计内容 */
 function CostStatisticsContent({ isDark: _isDark }: { isDark: boolean }) {
-  return <CostPage />;
+  return <div className="p-6"><UsageCenterPage /></div>;
 }
 
 /** 沙箱管理内容 */
 function SandboxManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return <SandboxPage />;
+  return <div className="p-6"><SandboxPage /></div>;
 }
 
 export default SettingsPage;

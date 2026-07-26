@@ -34,6 +34,7 @@ export const AISettings: React.FC = () => {
   const model = ai.model || '';
 
   return (
+    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 px-1 pb-2">AI 模型</h2>
     <div className="space-y-0 divide-y divide-gray-100 dark:divide-gray-700">
       {/* AI 提供商 */}
       <SettingRow label="AI 提供商" hint="选择默认的 AI 服务提供商">
@@ -62,7 +63,7 @@ export const AISettings: React.FC = () => {
           value={model}
           onChange={(e) => handleModelChange(e.target.value)}
           placeholder="如：gpt-4o"
-          className="px-3 py-1.5 w-64 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-3 py-1.5 w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </SettingRow>
     </div>

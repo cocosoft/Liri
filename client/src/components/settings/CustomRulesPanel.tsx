@@ -218,8 +218,6 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
 
   return (
     <ConfigSection
-      title={t("settings.customRules")}
-      description={t("settings.customRulesDesc")}
       isDark={isDark}
     >
       {/* 命令模式选择 */}

@@ -285,7 +285,8 @@ export async function routeChannelMessage(
     // 创建/复用渠道会话，为 Inbox 桥接提供 channelSessionId
     const channelSession = isBridgeEnabled()
       ? channelSessionManager.getOrCreate(
-          (message.channelId || channelName) as import('../types/IChannel').ChannelId,
+          (message.channelId ||
+            channelName) as import('../types/IChannel').ChannelId,
           message.conversationId ?? message.senderId,
           message.senderId,
           message.senderName
@@ -295,14 +296,16 @@ export async function routeChannelMessage(
     // ── 纯文本审批前置检查：如果当前会话有 pending Inbox 项，检测审批关键词 ──
     if (isBridgeEnabled() && channelSession && message.content) {
       try {
-        const { detectApprovalIntent, processTextApproval } = await import(
-          '../bridge/TextApprovalParser.js'
-        );
+        const { detectApprovalIntent, processTextApproval } =
+          await import('../bridge/TextApprovalParser.js');
         const intent = detectApprovalIntent(message.content);
         if (intent) {
-          const items = await channelSessionManager.getInboxItemIds(channelSession.id);
+          const items = await channelSessionManager.getInboxItemIds(
+            channelSession.id
+          );
           if (items.length > 0) {
-            const { inboxManager } = await import('@modules/runtime/InboxManager.js');
+            const { inboxManager } =
+              await import('@modules/runtime/InboxManager.js');
             for (const itemId of items) {
               const item = await inboxManager.get(itemId);
               if (item && item.status === 'pending') {
@@ -310,10 +313,14 @@ export async function routeChannelMessage(
                   // ── fail-closed: Inbox 写入失败时拒绝放行 ──
                   const processed = await processTextApproval(itemId, intent);
                   if (processed && onOutbound) {
-                    const replyText = intent === 'approve'
-                      ? `已批准「${item.title}」`
-                      : `已拒绝「${item.title}」`;
-                    await onOutbound(replyText, message.conversationId ?? message.senderId);
+                    const replyText =
+                      intent === 'approve'
+                        ? `已批准「${item.title}」`
+                        : `已拒绝「${item.title}」`;
+                    await onOutbound(
+                      replyText,
+                      message.conversationId ?? message.senderId
+                    );
                   }
                   return { valid: true, response: 'text_approval_processed' };
                 } catch (inboxErr) {
@@ -323,7 +330,10 @@ export async function routeChannelMessage(
                     context: { itemId, intent, traceId },
                   });
                   if (onOutbound) {
-                    await onOutbound('系统繁忙，请稍后再试', message.conversationId ?? message.senderId);
+                    await onOutbound(
+                      '系统繁忙，请稍后再试',
+                      message.conversationId ?? message.senderId
+                    );
                   }
                   return { valid: false, errorCode: 'INBOX_UNAVAILABLE' };
                 }

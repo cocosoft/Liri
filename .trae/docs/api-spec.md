@@ -141,8 +141,14 @@
 | GET | `/v1/usage/models` | ✅ | `usageService.modelStats` |
 | GET | `/v1/usage/providers` | ✅ | `usageService.providerStats` |
 | GET | `/v1/usage/logs` | ✅ | `usageService.logs` |
-| GET | `/v1/balances` | ✅ **新增** | `balanceService.batchCheck` |
-| POST | `/v1/balance` | ✅ | `balanceService.check` |
+| GET | `/v1/usage/cost/summary` | ✅ **v3 新增** | `usageService.getCostSummary` |
+| GET | `/v1/usage/cost/records` | ✅ **v3 新增** | `usageService.getCostRecords` |
+| GET | `/v1/usage/cost/range` | ✅ **v3 新增** | `usageService.getCostByDateRange` |
+| GET | `/v1/usage/cost/report` | ✅ **v3 新增** | — |
+| GET | `/v1/usage/balances` | ✅ **v3 新增** | `usageService.batchCheckBalance` |
+| POST | `/v1/usage/balance` | ✅ **v3 新增** | `usageService.checkBalance` |
+| GET | `/v1/balances` | ⚠️ 301→`/v1/usage/balances` | 旧路径，保留兼容 |
+| POST | `/v1/balance` | ⚠️ 301→`/v1/usage/balance` | 旧路径，保留兼容 |
 | GET | `/v1/pricing` | ✅ | `pricingService.list` |
 | POST | `/v1/pricing` | ✅ | `pricingService.upsert` |
 | DELETE | `/v1/pricing/{modelId}` | ✅ | `pricingService.remove` |
@@ -357,13 +363,14 @@
 |------|------|----------|-----------|
 | GET | `/v1/analytics/dashboard` | ✅ | `monitorService.getAnalyticsDashboard` |
 
-### §3.20 费用
+### §3.20 费用 (旧路径，301 → `/v1/usage/cost/*`)
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |
 |------|------|----------|-----------|
-| GET | `/api/cost/summary` | ✅ | 无前端调用方 |
-| GET | `/api/cost/records` | ✅ | 无前端调用方 |
-| GET | `/api/cost/range` | ✅ | 无前端调用方 |
+| GET | `/api/cost/summary` | ⚠️ 301→`/v1/usage/cost/summary` | 旧路径，保留兼容 |
+| GET | `/api/cost/records` | ⚠️ 301→`/v1/usage/cost/records` | 旧路径，保留兼容 |
+| GET | `/api/cost/range` | ⚠️ 301→`/v1/usage/cost/range` | 旧路径，保留兼容 |
+| GET | `/api/cost/report` | ⚠️ 301→`/v1/usage/cost/report` | 旧路径，保留兼容 |
 
 ### §3.21 命令
 

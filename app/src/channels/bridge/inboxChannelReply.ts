@@ -43,9 +43,7 @@ const logger = new Logger({ module: 'channels:inboxReply' });
  * 根据渠道能力降级选择通知方式：
  *   InteractiveCard（按钮审批） > Markdown > 纯文本
  */
-export async function relayReplyToChannel(
-  inboxItem: InboxItem
-): Promise<void> {
+export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
   if (!isReplyEnabled()) {
     return;
   }
@@ -97,7 +95,8 @@ export async function relayReplyToChannel(
       await regChannel.sendMessage(target, content);
     } else {
       const content = _formatReplyMessage(inboxItem);
-      const target = inboxItem.channelConversationId ?? inboxItem.channelSessionId;
+      const target =
+        inboxItem.channelConversationId ?? inboxItem.channelSessionId;
 
       // 优先使用 sendInteractive（支持按钮的渠道）
       if (typeof (outbound as any).sendInteractive === 'function') {
@@ -174,7 +173,8 @@ export async function notifyExpired(inboxItem: InboxItem): Promise<void> {
     const channelName = inboxItem.channelId;
     const plugin = channelBootstrapper.getPluginInstance(channelName);
     const outbound = plugin?.outbound;
-    const target = inboxItem.channelConversationId ?? inboxItem.channelSessionId;
+    const target =
+      inboxItem.channelConversationId ?? inboxItem.channelSessionId;
     const message = `审批「${inboxItem.title}」已因超时而失效。`;
 
     if (outbound?.sendText) {
@@ -205,14 +205,21 @@ export async function notifyExpired(inboxItem: InboxItem): Promise<void> {
 
 /** 格式化审批回复消息 */
 function _formatReplyMessage(inboxItem: InboxItem): string {
-  const status =
-    inboxItem.status === 'expired' ? '已过期' : '已完成';
+  const status = inboxItem.status === 'expired' ? '已过期' : '已完成';
   const verb =
-    inboxItem.reply === 'approve' ? '已批准' : inboxItem.reply === 'reject' ? '已拒绝' : '已处理';
+    inboxItem.reply === 'approve'
+      ? '已批准'
+      : inboxItem.reply === 'reject'
+        ? '已拒绝'
+        : '已处理';
 
   let msg = `${verb}：${inboxItem.title}`;
 
-  if (inboxItem.reply && inboxItem.reply !== 'approve' && inboxItem.reply !== 'reject') {
+  if (
+    inboxItem.reply &&
+    inboxItem.reply !== 'approve' &&
+    inboxItem.reply !== 'reject'
+  ) {
     msg += `\n回复：${inboxItem.reply}`;
   }
 
@@ -300,6 +307,9 @@ async function _writeDeadLetter(inboxItem: InboxItem): Promise<void> {
     });
     db.close();
   } catch (err) {
-    logger.warn('Failed to write dead letter', { inboxId: inboxItem.id, error: String(err) });
+    logger.warn('Failed to write dead letter', {
+      inboxId: inboxItem.id,
+      error: String(err),
+    });
   }
 }

@@ -14,14 +14,22 @@ import type { MediaToolResult } from './MediaToolResult';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'media:tool:deleteBatch', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'media:tool:deleteBatch',
+  level: LogLevel.INFO,
+});
 
 export function createMediaDeleteBatchTool(): Tool {
   return {
     name: 'media:deleteBatch',
     description: 'Batch delete multiple media files (requires approval)',
     params: [
-      { name: 'filePaths', type: 'string', description: 'JSON array of file paths to delete', required: true },
+      {
+        name: 'filePaths',
+        type: 'string',
+        description: 'JSON array of file paths to delete',
+        required: true,
+      },
     ],
     aliases: ['media_delete_batch', 'file_delete_batch'],
     searchTips: ['media', 'delete', 'batch', 'remove'],
@@ -30,7 +38,10 @@ export function createMediaDeleteBatchTool(): Tool {
     isDestructive: () => true,
     isConcurrencySafe: () => true,
 
-    async execute(input: Record<string, unknown>, _context: ToolUseContext): Promise<MediaToolResult> {
+    async execute(
+      input: Record<string, unknown>,
+      _context: ToolUseContext
+    ): Promise<MediaToolResult> {
       const startTime = Date.now();
       let paths: string[];
 
@@ -41,9 +52,13 @@ export function createMediaDeleteBatchTool(): Tool {
             status: ToolExecutionStatus.FAILURE,
             error: 'filePaths must be a non-empty JSON array of file paths',
             executionTime: Date.now() - startTime,
-            output: '', errorOutput: '',
-            progress: [], metadata: {},
-            executionId: `media_delete_batch_${Date.now()}`, toolName: 'media:deleteBatch', timestamp: Date.now(),
+            output: '',
+            errorOutput: '',
+            progress: [],
+            metadata: {},
+            executionId: `media_delete_batch_${Date.now()}`,
+            toolName: 'media:deleteBatch',
+            timestamp: Date.now(),
           };
         }
       } catch {
@@ -51,9 +66,13 @@ export function createMediaDeleteBatchTool(): Tool {
           status: ToolExecutionStatus.FAILURE,
           error: 'Invalid JSON for filePaths parameter',
           executionTime: Date.now() - startTime,
-          output: '', errorOutput: '',
-          progress: [], metadata: {},
-          executionId: `media_delete_batch_${Date.now()}`, toolName: 'media:deleteBatch', timestamp: Date.now(),
+          output: '',
+          errorOutput: '',
+          progress: [],
+          metadata: {},
+          executionId: `media_delete_batch_${Date.now()}`,
+          toolName: 'media:deleteBatch',
+          timestamp: Date.now(),
         };
       }
 
@@ -66,9 +85,16 @@ export function createMediaDeleteBatchTool(): Tool {
             status: ToolExecutionStatus.FAILURE,
             error: `Path rejected: ${p} — ${safe.error}`,
             executionTime: Date.now() - startTime,
-            output: '', errorOutput: safe.error!,
-            progress: [], metadata: { errorCode: MediaErrorCode.PATH_INSECURE, rejectedPath: p },
-            executionId: `media_delete_batch_${Date.now()}`, toolName: 'media:deleteBatch', timestamp: Date.now(),
+            output: '',
+            errorOutput: safe.error!,
+            progress: [],
+            metadata: {
+              errorCode: MediaErrorCode.PATH_INSECURE,
+              rejectedPath: p,
+            },
+            executionId: `media_delete_batch_${Date.now()}`,
+            toolName: 'media:deleteBatch',
+            timestamp: Date.now(),
           };
         }
         safePaths.push(safe.path!);
@@ -84,7 +110,11 @@ export function createMediaDeleteBatchTool(): Tool {
           output: `⚠ 将删除 ${safePaths.length} 个文件，需要审批确认。`,
           errorOutput: '',
           progress: [],
-          metadata: { filePaths: safePaths, count: safePaths.length, action: 'delete_batch_pending_approval' },
+          metadata: {
+            filePaths: safePaths,
+            count: safePaths.length,
+            action: 'delete_batch_pending_approval',
+          },
           executionId: `media_delete_batch_${Date.now()}`,
           toolName: 'media:deleteBatch',
           timestamp: Date.now(),
@@ -92,15 +122,21 @@ export function createMediaDeleteBatchTool(): Tool {
         };
       } catch (err) {
         await handleError(err, {
-          module: 'media:tool:deleteBatch', action: 'execute', context: { count: safePaths.length },
+          module: 'media:tool:deleteBatch',
+          action: 'execute',
+          context: { count: safePaths.length },
         });
         return {
           status: ToolExecutionStatus.FAILURE,
           error: err instanceof Error ? err.message : String(err),
           executionTime: Date.now() - startTime,
-          output: '', errorOutput: String(err),
-          progress: [], metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-          executionId: `media_delete_batch_${Date.now()}`, toolName: 'media:deleteBatch', timestamp: Date.now(),
+          output: '',
+          errorOutput: String(err),
+          progress: [],
+          metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
+          executionId: `media_delete_batch_${Date.now()}`,
+          toolName: 'media:deleteBatch',
+          timestamp: Date.now(),
         };
       }
     },
@@ -110,12 +146,22 @@ export function createMediaDeleteBatchTool(): Tool {
         name: 'media:deleteBatch',
         description: 'Batch delete media files (requires approval)',
         params: [
-          { name: 'filePaths', type: 'string', description: 'JSON array of file paths', required: true },
+          {
+            name: 'filePaths',
+            type: 'string',
+            description: 'JSON array of file paths',
+            required: true,
+          },
         ],
         aliases: ['media_delete_batch'],
         searchTips: ['media', 'delete', 'batch'],
-        enabled: true, readOnly: false, destructive: true, concurrencySafe: true,
-        deferred: false, alwaysLoad: false, interruptBehavior: 'block',
+        enabled: true,
+        readOnly: false,
+        destructive: true,
+        concurrencySafe: true,
+        deferred: false,
+        alwaysLoad: false,
+        interruptBehavior: 'block',
       };
     },
   };

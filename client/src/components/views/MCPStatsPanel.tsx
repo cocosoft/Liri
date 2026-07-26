@@ -45,17 +45,6 @@ function MCPStatsPanel({ stats }: MCPStatsPanelProps) {
 
   return (
     <div className="mb-4 p-5 rounded-xl bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40 border border-purple-100 dark:border-purple-900/30">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            {t("mcp.serverTitle")}
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            {t("mcp.serverDesc")}
-          </p>
-        </div>
-      </div>
-
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
           icon="🔌"

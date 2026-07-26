@@ -78,7 +78,6 @@ const SYSTEM_ITEMS: MenuItem[] = [
   { id: "liri", label: "Liri", icon: BuddyIcon, path: "/liri" },
   { id: "inbox", label: "Inbox", icon: MailIcon, path: "/inbox" },
   { id: "loops", label: "Loops", icon: BuddyIcon, path: "/loops" },
-  { id: "usage", label: "用量", icon: BuddyIcon, path: "/usage" },
   { id: "theme", label: "主题", icon: ThemeIcon },
   { id: "settings", label: "设置", icon: SettingsIcon, path: "/settings" },
 ];

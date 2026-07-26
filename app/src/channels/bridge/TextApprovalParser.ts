@@ -40,13 +40,32 @@ export type ApprovalIntent = 'approve' | 'reject' | null;
 
 /** 中文 + 英文审批关键词 */
 const APPROVE_KEYWORDS = [
-  '同意', '确认', '好的', '可以', '行', '批准',
-  'approve', 'yes', 'ok', 'accept', 'confirm', 'agree',
+  '同意',
+  '确认',
+  '好的',
+  '可以',
+  '行',
+  '批准',
+  'approve',
+  'yes',
+  'ok',
+  'accept',
+  'confirm',
+  'agree',
 ];
 
 const REJECT_KEYWORDS = [
-  '拒绝', '不同意', '不行', '取消', '驳回',
-  'reject', 'no', 'deny', 'cancel', 'decline', 'refuse',
+  '拒绝',
+  '不同意',
+  '不行',
+  '取消',
+  '驳回',
+  'reject',
+  'no',
+  'deny',
+  'cancel',
+  'decline',
+  'refuse',
 ];
 
 /**
@@ -60,13 +79,21 @@ export function detectApprovalIntent(content: string): ApprovalIntent {
 
   // 精确匹配优先（单字/短语完全一致）
   for (const kw of APPROVE_KEYWORDS) {
-    if (trimmed === kw || trimmed.startsWith(kw + ' ') || trimmed.startsWith(kw + '，')) {
+    if (
+      trimmed === kw ||
+      trimmed.startsWith(kw + ' ') ||
+      trimmed.startsWith(kw + '，')
+    ) {
       return 'approve';
     }
   }
 
   for (const kw of REJECT_KEYWORDS) {
-    if (trimmed === kw || trimmed.startsWith(kw + ' ') || trimmed.startsWith(kw + '，')) {
+    if (
+      trimmed === kw ||
+      trimmed.startsWith(kw + ' ') ||
+      trimmed.startsWith(kw + '，')
+    ) {
       return 'reject';
     }
   }
@@ -94,9 +121,7 @@ export async function processTextApproval(
   });
 
   try {
-    const { inboxManager } = await import(
-      '@modules/runtime/InboxManager.js'
-    );
+    const { inboxManager } = await import('@modules/runtime/InboxManager.js');
 
     const reply = intent === 'approve' ? 'approve' : 'reject';
     const result = await inboxManager.reply(inboxItemId, reply);

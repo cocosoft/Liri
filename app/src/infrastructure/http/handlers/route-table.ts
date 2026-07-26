@@ -6,6 +6,9 @@
 
 import type http from 'http';
 import { tryHandleRoute } from '@modules/ai';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({ module: 'http:route-table', level: LogLevel.INFO });
 
 // Voice handlers（直接函数调用，不使用 this.handleXxx）
 import {
@@ -53,9 +56,6 @@ import {
   handleCronStatus,
   handleCronRuns,
 } from './cron-handlers';
-
-// Usage handlers
-import { handleGetUsage } from './usage-handlers';
 
 // Inbox handlers
 import {
@@ -1545,17 +1545,53 @@ export async function dispatchRoute(
     return true;
   }
 
-  // ---- Global Cost Summary (前端 Footer 使用) ----
-  if (method === 'GET' && url === '/api/cost/summary') {
+  // ---- Unified Usage Cost Routes (v3 统一前缀 /v1/usage/cost/*) ----
+  if (method === 'GET' && url === '/v1/usage/cost/summary') {
     await self['handleGlobalCostSummary'](req, res);
     return true;
   }
-  if (method === 'GET' && url === '/api/cost/records') {
+  if (method === 'GET' && url === '/v1/usage/cost/records') {
     await self['handleGlobalCostRecords'](req, res);
     return true;
   }
-  if (method === 'GET' && url === '/api/cost/range') {
+  if (method === 'GET' && url === '/v1/usage/cost/range') {
     await self['handleGlobalCostRange'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/usage/cost/report') {
+    await self['handleCostReport'](req, res);
+    return true;
+  }
+
+  // ---- Legacy Cost Routes (301 → /v1/usage/cost/*) ----
+  if (method === 'GET' && url === '/api/cost/summary') {
+    logger.warning(
+      '已废弃路径访问 /api/cost/summary → 301 /v1/usage/cost/summary'
+    );
+    res.writeHead(301, { Location: '/v1/usage/cost/summary' });
+    res.end();
+    return true;
+  }
+  if (method === 'GET' && url === '/api/cost/records') {
+    logger.warning(
+      '已废弃路径访问 /api/cost/records → 301 /v1/usage/cost/records'
+    );
+    res.writeHead(301, { Location: '/v1/usage/cost/records' });
+    res.end();
+    return true;
+  }
+  if (method === 'GET' && url === '/api/cost/range') {
+    logger.warning('已废弃路径访问 /api/cost/range → 301 /v1/usage/cost/range');
+    res.writeHead(301, { Location: '/v1/usage/cost/range' });
+    res.end();
+    return true;
+  }
+  if (method === 'GET' && url === '/api/cost/report') {
+    logger.warning(
+      '已废弃路径访问 /api/cost/report → 301 /v1/usage/cost/report'
+    );
+    res.writeHead(301, { Location: '/v1/usage/cost/report' });
+    res.end();
     return true;
   }
 
@@ -1965,12 +2001,6 @@ export async function dispatchRoute(
     return true;
   }
 
-  // ---- Usage Stats ----
-  if (method === 'GET' && url.startsWith('/v1/usage')) {
-    await handleGetUsage(req, res, handlerCtx);
-    return true;
-  }
-
   // ---- Inbox ----
   if (url === '/v1/inbox' && method === 'GET') {
     await handleListInbox(req, res, handlerCtx);
@@ -2191,24 +2221,6 @@ export async function dispatchRoute(
     url.match(/^\/v1\/workspaces\/(.+)\/intelligence\/bottleneck$/)
   ) {
     await self['handleBottleneckAnalysis'](req, res);
-    return true;
-  }
-
-  // ---- Cost ----
-  if (method === 'GET' && url === '/api/cost/summary') {
-    await self['handleCostSummary'](req, res);
-    return true;
-  }
-  if (method === 'GET' && url === '/api/cost/records') {
-    await self['handleCostRecords'](req, res);
-    return true;
-  }
-  if (method === 'GET' && url === '/api/cost/range') {
-    await self['handleCostRange'](req, res);
-    return true;
-  }
-  if (method === 'GET' && url === '/api/cost/report') {
-    await self['handleCostReport'](req, res);
     return true;
   }
 

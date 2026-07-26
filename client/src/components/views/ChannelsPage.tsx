@@ -122,6 +122,16 @@ function ChannelsPage() {
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
       <div className="max-w-5xl mx-auto p-6">
+        {/* 页面标题 */}
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            渠道管理
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            管理消息渠道集成（QQ/微信/Discord 等）
+          </p>
+        </div>
+
         {/* 统计面板 */}
         <ChannelStatsPanel stats={stats} />
 

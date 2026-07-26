@@ -18,7 +18,6 @@ function MemoryPage() {
     memories,
     total,
     searchResults,
-    searchTotal,
     weights,
     systemStats,
     selectedMemory,
@@ -106,10 +105,6 @@ function MemoryPage() {
     } else {
       setIsSearching(false);
     }
-  };
-
-  const handleClearSearch = () => {
-    setIsSearching(false);
   };
 
   const handleTagClick = (tag: string) => {
@@ -229,7 +224,6 @@ function MemoryPage() {
         .filter((m) => typeFilter === "all" || m.type === typeFilter)
         .filter((m) => !tagFilter || m.tags.includes(tagFilter));
 
-  const displayTotal = isSearching ? searchTotal : displayMemories.length;
   const isFiltering = typeFilter !== "all" || tagFilter !== null;
 
   return (
@@ -255,47 +249,7 @@ function MemoryPage() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1
-              className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}
-            >
-              记忆管理器
-            </h1>
-            <p
-              className={`mt-1 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
-            >
-              {isSearching
-                ? `搜索结果: ${displayTotal} 条匹配`
-                : isFiltering
-                  ? `筛选结果: ${displayTotal} / ${total} 条记忆`
-                  : `管理和查看系统记忆，共 ${total} 条`}
-              {tagFilter && !isSearching && (
-                <span className="ml-2">
-                  — 标签筛选:{" "}
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 text-xs">
-                    {tagFilter}
-                    <button
-                      onClick={() => setTagFilter(null)}
-                      className="hover:text-white"
-                    >
-                      ×
-                    </button>
-                  </span>
-                </span>
-              )}
-              {isSearching && (
-                <button
-                  onClick={handleClearSearch}
-                  className="ml-2 text-blue-400 hover:text-blue-300 text-xs underline"
-                >
-                  清除搜索
-                </button>
-              )}
-            </p>
-          </div>
+      <div className="flex items-center justify-end mb-6">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowCreateDialog(true)}
@@ -378,7 +332,6 @@ function MemoryPage() {
             )}
           </div>
         </div>
-      </div>
 
       {error && (
         <div

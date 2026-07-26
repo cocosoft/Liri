@@ -1,8 +1,12 @@
+import React from "react";
+
 interface ConfigSectionProps {
-  title: string;
+  title?: string;
   description?: string;
   isDark: boolean;
   children: React.ReactNode;
+  /** 是否可折叠（默认 false），折叠状态下点击标题可展开/收起内容 */
+  collapsible?: boolean;
 }
 
 function ConfigSection({
@@ -10,12 +14,29 @@ function ConfigSection({
   description,
   isDark,
   children,
+  collapsible = false,
 }: ConfigSectionProps) {
+  const [collapsed, setCollapsed] = React.useState(collapsible);
+
+  const titleElement = title ? (
+    <h3
+      className={`text-base font-semibold mb-1 ${collapsible ? "cursor-pointer select-none hover:text-blue-600 dark:hover:text-blue-400 transition-colors" : ""}`}
+      onClick={collapsible ? () => setCollapsed(!collapsed) : undefined}
+    >
+      {collapsible && (
+        <span className="inline-block w-4 mr-1 text-xs transition-transform">
+          {collapsed ? "▶" : "▼"}
+        </span>
+      )}
+      {title}
+    </h3>
+  ) : null;
+
   return (
     <section
       className={`px-6 py-5 border-b border-gray-100 dark:border-gray-700 last:border-b-0 ${isDark ? "text-gray-100" : "text-gray-900"}`}
     >
-      <h3 className="text-base font-semibold mb-1">{title}</h3>
+      {titleElement}
       {description && (
         <p
           className={`text-xs mb-4 ${isDark ? "text-gray-400" : "text-gray-500"}`}
@@ -23,7 +44,7 @@ function ConfigSection({
           {description}
         </p>
       )}
-      {children}
+      {(!collapsible || !collapsed) && children}
     </section>
   );
 }
@@ -106,7 +127,7 @@ function TextConfig({
   placeholder,
   type = "text",
   disabled,
-  className = "w-64",
+  className = "w-48",
 }: TextConfigProps) {
   return (
     <input

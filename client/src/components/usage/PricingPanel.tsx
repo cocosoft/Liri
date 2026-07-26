@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useConfigStore } from "../../stores/configStore";
 import {
-  pricingService,
+  usageService,
   type ModelPricingRecord,
-} from "../../services/pricingService";
+} from "../../services/usageService";
 import { handleClientError } from "../../utils/handleError";
 
 interface FormData {
@@ -42,7 +42,7 @@ function PricingPanel() {
   const loadRecords = async () => {
     setLoading(true);
     try {
-      const data = await pricingService.list();
+      const data = await usageService.listPricing();
       setRecords(data);
     } catch (e) {
       handleClientError(e, {
@@ -67,7 +67,7 @@ function PricingPanel() {
 
     setSaving(true);
     try {
-      await pricingService.upsert({
+      await usageService.upsertPricing({
         modelId: form.modelId.trim(),
         displayName: form.displayName.trim() || undefined,
         inputCostPerMillion: inputPerM,
@@ -94,7 +94,7 @@ function PricingPanel() {
   const handleDelete = async (modelId: string) => {
     if (!window.confirm(`删除 "${modelId}" 的自定义定价？`)) return;
     try {
-      await pricingService.remove(modelId);
+      await usageService.removePricing(modelId);
       await loadRecords();
     } catch (e) {
       handleClientError(e, {

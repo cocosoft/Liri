@@ -9,7 +9,11 @@
  */
 
 import { resolve } from 'path';
-import { resolveMediaDir, resolveOutputDir, resolveAttachmentsDir } from '@modules/core/paths';
+import {
+  resolveMediaDir,
+  resolveOutputDir,
+  resolveAttachmentsDir,
+} from '@modules/core/paths';
 
 /** 允许的基础目录 */
 const ALLOWED_BASE_DIRS = [
@@ -20,11 +24,11 @@ const ALLOWED_BASE_DIRS = [
 
 /** 禁止的路径模式 */
 const FORBIDDEN_PATTERNS = [
-  /\.\./,                                    // 路径穿越
-  /^[A-Z]:\\(Windows|System32|Program Files)/i,  // Windows 系统目录
-  /\/etc\//,                                 // Unix 系统目录
-  /\/dev\//,                                 // Unix 设备
-  /\/proc\//,                                // Unix 进程
+  /\.\./, // 路径穿越
+  /^[A-Z]:\\(Windows|System32|Program Files)/i, // Windows 系统目录
+  /\/etc\//, // Unix 系统目录
+  /\/dev\//, // Unix 设备
+  /\/proc\//, // Unix 进程
 ];
 
 export interface PathCheckResult {

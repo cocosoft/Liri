@@ -241,21 +241,6 @@ function PermissionPage() {
       className={`flex-1 overflow-y-auto ${isDark ? "bg-gray-900" : "bg-gray-50"}`}
     >
       <div className="max-w-6xl mx-auto p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1
-              className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}
-            >
-              权限管理
-            </h1>
-            <p
-              className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
-            >
-              管理用户信任等级和系统权限
-            </p>
-          </div>
-        </div>
-
         <div className="flex gap-6">
           <div
             className={`w-80 flex-shrink-0 ${isDark ? "bg-gray-800" : "bg-white"} rounded-lg border ${isDark ? "border-gray-700" : "border-gray-200"} p-4`}

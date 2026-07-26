@@ -31,6 +31,7 @@ interface LocalAgentPanelProps {
   ollama?: OllamaConfig;
   onUpdateLocalAgent: (updates: Partial<LocalAgentConfig>) => void;
   onUpdateOllama: (updates: Partial<OllamaConfig>) => void;
+  collapsible?: boolean;
 }
 
 function LocalAgentPanel({
@@ -39,6 +40,7 @@ function LocalAgentPanel({
   ollama,
   onUpdateLocalAgent,
   onUpdateOllama,
+  collapsible,
 }: LocalAgentPanelProps) {
   const { t } = useTranslation();
 
@@ -47,6 +49,7 @@ function LocalAgentPanel({
       title={t("settings.localAgent")}
       description={t("settings.localAgentDesc")}
       isDark={isDark}
+      collapsible={collapsible}
     >
       <div className="space-y-4">
         <ConfigItem label={t("settings.localAgentEnable")} isDark={isDark}>

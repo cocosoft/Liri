@@ -15,14 +15,22 @@ import { mediaStore } from '../store/MediaStore';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'media:tool:delete', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'media:tool:delete',
+  level: LogLevel.INFO,
+});
 
 export function createMediaDeleteTool(): Tool {
   return {
     name: 'media:delete',
     description: 'Delete a media file (requires approval)',
     params: [
-      { name: 'filePath', type: 'string', description: 'Path to the file to delete', required: true },
+      {
+        name: 'filePath',
+        type: 'string',
+        description: 'Path to the file to delete',
+        required: true,
+      },
     ],
     aliases: ['media_delete', 'file_delete'],
     searchTips: ['media', 'delete', 'remove'],
@@ -31,7 +39,10 @@ export function createMediaDeleteTool(): Tool {
     isDestructive: () => true,
     isConcurrencySafe: () => true,
 
-    async execute(input: Record<string, unknown>, _context: ToolUseContext): Promise<MediaToolResult> {
+    async execute(
+      input: Record<string, unknown>,
+      _context: ToolUseContext
+    ): Promise<MediaToolResult> {
       const startTime = Date.now();
       const filePath = input.filePath as string;
 
@@ -41,9 +52,13 @@ export function createMediaDeleteTool(): Tool {
           status: ToolExecutionStatus.FAILURE,
           error: safe.error,
           executionTime: Date.now() - startTime,
-          output: '', errorOutput: safe.error!,
-          progress: [], metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
-          executionId: `media_delete_${Date.now()}`, toolName: 'media:delete', timestamp: Date.now(),
+          output: '',
+          errorOutput: safe.error!,
+          progress: [],
+          metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
+          executionId: `media_delete_${Date.now()}`,
+          toolName: 'media:delete',
+          timestamp: Date.now(),
         };
       }
 
@@ -65,15 +80,21 @@ export function createMediaDeleteTool(): Tool {
         };
       } catch (err) {
         await handleError(err, {
-          module: 'media:tool:delete', action: 'execute', context: { filePath: safe.path },
+          module: 'media:tool:delete',
+          action: 'execute',
+          context: { filePath: safe.path },
         });
         return {
           status: ToolExecutionStatus.FAILURE,
           error: err instanceof Error ? err.message : String(err),
           executionTime: Date.now() - startTime,
-          output: '', errorOutput: String(err),
-          progress: [], metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-          executionId: `media_delete_${Date.now()}`, toolName: 'media:delete', timestamp: Date.now(),
+          output: '',
+          errorOutput: String(err),
+          progress: [],
+          metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
+          executionId: `media_delete_${Date.now()}`,
+          toolName: 'media:delete',
+          timestamp: Date.now(),
         };
       }
     },
@@ -83,12 +104,22 @@ export function createMediaDeleteTool(): Tool {
         name: 'media:delete',
         description: 'Delete a media file (requires approval)',
         params: [
-          { name: 'filePath', type: 'string', description: 'Path to the file to delete', required: true },
+          {
+            name: 'filePath',
+            type: 'string',
+            description: 'Path to the file to delete',
+            required: true,
+          },
         ],
         aliases: ['media_delete'],
         searchTips: ['media', 'delete'],
-        enabled: true, readOnly: false, destructive: true, concurrencySafe: true,
-        deferred: false, alwaysLoad: false, interruptBehavior: 'block',
+        enabled: true,
+        readOnly: false,
+        destructive: true,
+        concurrencySafe: true,
+        deferred: false,
+        alwaysLoad: false,
+        interruptBehavior: 'block',
       };
     },
   };

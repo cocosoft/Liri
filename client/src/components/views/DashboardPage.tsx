@@ -7,7 +7,7 @@ import {
   type AnalyticsDashboardData,
   type MonitorSummary,
 } from "../../services/monitorService";
-import { costService, type CostSummary } from "../../services/costService";
+import { usageService, type CostSummary } from "../../services/usageService";
 import {
   infrastructureHealthService,
   type InfrastructureStatus,
@@ -24,9 +24,9 @@ import { sseService } from "../../services/sseService";
 const ENABLE_TRACE_REDESIGN = true;
 import { useConfigStore } from "../../stores/configStore";
 import MetricsChart from "../common/MetricsChart";
-import { formatCost, getCurrencyFromTimezone } from "../../utils/format";
+import { formatCost, formatTokens, getCurrencyFromTimezone } from "../../utils/format";
 import { DashboardStatCard } from "../common/DashboardStatCard";
-import { CacheBenefitPanel } from "../common/CacheBenefitPanel";
+
 
 const BuddyCard = memo(function BuddyCard({
   buddy,
@@ -145,7 +145,7 @@ function DashboardPage() {
           monitorService.getAnalyticsDashboard(),
           monitorService.getSummary(),
           infrastructureHealthService.getStatus(),
-          costService.getCostSummary(),
+          usageService.getCostSummary(),
         ]);
         setMetrics(metricsData);
         setAlerts(alertsData);
@@ -319,13 +319,13 @@ function DashboardPage() {
               </div>
             </div>
 
-            {/* 今日概览：成本与用量 */}
+            {/* 用量概览（精简 3 卡片） */}
             {costSummary && (
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                  <span>💰</span> 今日概览
+                  用量概览
                 </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <DashboardStatCard
                     label="今日成本"
                     value={formatCost(costSummary.todayCost, currency)}
@@ -333,36 +333,24 @@ function DashboardPage() {
                     trendDirection={costSummary.todayCost > 0 ? "up" : "stable"}
                   />
                   <DashboardStatCard
-                    label="本周成本"
-                    value={formatCost(costSummary.weeklyCost, currency)}
-                    icon="📊"
-                    trendDirection={
-                      costSummary.weeklyCost > 0 ? "up" : "stable"
-                    }
-                  />
-                  <DashboardStatCard
-                    label="本月成本"
-                    value={formatCost(costSummary.monthlyCost, currency)}
-                    icon="📈"
-                    trendDirection={
-                      costSummary.monthlyCost > 0 ? "up" : "stable"
-                    }
-                  />
-                  <DashboardStatCard
-                    label="总 Tokens"
-                    value={costSummary.totalTokens.toLocaleString()}
+                    label="本月 Token"
+                    value={formatTokens(costSummary.monthlyTokens)}
                     icon="🪙"
-                    trendDirection={
-                      costSummary.totalTokens > 0 ? "up" : "stable"
-                    }
+                    trendDirection={costSummary.monthlyTokens > 0 ? "up" : "stable"}
+                  />
+                  <DashboardStatCard
+                    label="活跃模型"
+                    value={String(costSummary.topProviders.length)}
+                    icon="🧩"
+                    trendDirection="stable"
                   />
                 </div>
                 <div className="mt-3 text-right">
                   <button
-                    onClick={() => navigate("/cost")}
+                    onClick={() => navigate("/usage?tab=cost")}
                     className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                   >
-                    查看完整报告 →
+                    查看完整用量分析 →
                   </button>
                 </div>
               </div>
@@ -558,115 +546,6 @@ function DashboardPage() {
                     isDark={isDark}
                   />
                 </div>
-
-                {/* 成本趋势（每日明细柱状图） */}
-                {costSummary && costSummary.dailyBreakdown.length > 0 && (
-                  <div
-                    className={`rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
-                  >
-                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                      <h2
-                        className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                      >
-                        📈 成本趋势（本周）
-                      </h2>
-                    </div>
-                    <div className="p-4">
-                      <div className="flex items-end gap-2 h-32">
-                        {costSummary.dailyBreakdown.map((day, idx) => {
-                          const maxCost = Math.max(
-                            ...costSummary.dailyBreakdown.map((d) => d.cost),
-                            0.0001,
-                          );
-                          const barHeight = (day.cost / maxCost) * 100;
-                          return (
-                            <div
-                              key={idx}
-                              className="flex-1 flex flex-col items-center gap-1"
-                              title={`${day.date} - ${formatCost(day.cost, currency)} (${day.tokens.toLocaleString()} tokens)`}
-                            >
-                              <div className="flex-1 w-full flex items-end justify-center">
-                                <div
-                                  className="w-full max-w-[32px] bg-blue-500 dark:bg-blue-400 rounded-t transition-all hover:bg-blue-600 dark:hover:bg-blue-300"
-                                  style={{
-                                    height: `${Math.max(barHeight, 2)}%`,
-                                  }}
-                                />
-                              </div>
-                              <span className="text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                                {day.date.slice(5)}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* 模型分布 Top Providers */}
-                {costSummary && costSummary.topProviders.length > 0 && (
-                  <div
-                    className={`rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
-                  >
-                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                      <h2
-                        className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                      >
-                        🏢 模型分布
-                      </h2>
-                    </div>
-                    <div className="p-4">
-                      <div className="space-y-2">
-                        {costSummary.topProviders.map((provider) => (
-                          <div
-                            key={provider.provider}
-                            className="flex items-center gap-3"
-                          >
-                            <span
-                              className="text-sm text-gray-700 dark:text-gray-300 w-24 truncate"
-                              title={provider.provider}
-                            >
-                              {provider.provider}
-                            </span>
-                            <div className="flex-1 h-5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                              <div
-                                className="h-full rounded-full transition-all"
-                                style={{
-                                  width: `${provider.percentage}%`,
-                                  background:
-                                    provider.percentage > 50
-                                      ? "#3B82F6"
-                                      : provider.percentage > 20
-                                        ? "#10B981"
-                                        : "#8B5CF6",
-                                }}
-                              />
-                            </div>
-                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-12 text-right">
-                              {provider.percentage}%
-                            </span>
-                            <span className="text-xs text-gray-400 dark:text-gray-500 w-20 text-right">
-                              ${formatCost(provider.cost, currency)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* 缓存效益面板 */}
-                {costSummary &&
-                  (costSummary.totalCacheReadTokens > 0 ||
-                    costSummary.totalCacheCreationTokens > 0) && (
-                    <CacheBenefitPanel
-                      totalCacheReadTokens={costSummary.totalCacheReadTokens}
-                      totalCacheCreationTokens={
-                        costSummary.totalCacheCreationTokens
-                      }
-                    />
-                  )}
 
                 <div
                   className={`rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}

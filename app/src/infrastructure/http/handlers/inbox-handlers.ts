@@ -270,9 +270,8 @@ export async function handleReplyInbox(
 
     // ── 渠道回传：异步执行，不阻塞 API 响应 ──
     if (updated.channelSessionId) {
-      const { relayReplyToChannel } = await import(
-        '@modules/channels/bridge/inboxChannelReply.js'
-      );
+      const { relayReplyToChannel } =
+        await import('@modules/channels/bridge/inboxChannelReply.js');
       // fire-and-forget: 先返回 API 响应给 InboxPanel，后台异步回传渠道
       relayReplyToChannel(updated).catch((bridgeErr: unknown) => {
         logger.warn('Inbox reply relay to channel failed (async)', {

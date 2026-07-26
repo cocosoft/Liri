@@ -224,7 +224,7 @@ function isMediaOnlyFile(filePath: string): boolean {
 
 /**
  * 文件自动摄取服务
- * 
+ *
  * @deprecated 审批职责已迁移至 KnowledgeImportTool，本服务保留用于后台自动摄取。
  *             对于用户主动触发的文件导入，请使用 KnowledgeImportTool（含 Inbox 审批）。
  */

@@ -197,6 +197,16 @@ function MCPMarketPage() {
       className={`flex-1 overflow-y-auto ${isDark ? "bg-gray-900" : "bg-gray-50"}`}
     >
       <div className="max-w-4xl mx-auto p-6">
+        {/* 页面标题 */}
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            {t("mcp.title")}
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {t("mcp.serverDesc")}
+          </p>
+        </div>
+
         {/* 统计面板 */}
         <MCPStatsPanel stats={stats} />
 
@@ -207,12 +217,7 @@ function MCPMarketPage() {
         <MCPToolsPanel />
 
         {/* 搜索栏 + 手动添加 */}
-        <div className="flex items-center justify-between mb-3">
-          <h2
-            className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
-          >
-            {t("mcp.title")}
-          </h2>
+        <div className="flex items-center justify-end mb-3">
           <button
             onClick={() => openConfigModal(null)}
             className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${

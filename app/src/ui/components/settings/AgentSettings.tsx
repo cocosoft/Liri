@@ -12,27 +12,7 @@ import type {
   RoutingConfig,
 } from '@modules/config/types';
 import { SettingRow } from './SettingRow';
-
-/**
- * 开关按钮
- */
-const Toggle: React.FC<{
-  value: boolean;
-  onChange: (v: boolean) => void;
-}> = ({ value, onChange }) => (
-  <button
-    onClick={() => onChange(!value)}
-    className={`relative w-11 h-6 rounded-full transition-colors ${
-      value ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-    }`}
-  >
-    <span
-      className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-        value ? 'translate-x-[22px]' : 'translate-x-0.5'
-      }`}
-    />
-  </button>
-);
+import { Toggle } from './Toggle';
 
 /**
  * Agent 设置面板
@@ -104,6 +84,7 @@ export const AgentSettings: React.FC = () => {
   const routing = (localAgent.routing || {}) as RoutingConfig;
 
   return (
+    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 px-1 pb-2">本地 Agent</h2>
     <div className="space-y-0 divide-y divide-gray-100 dark:divide-gray-700">
       {/* 本地 Agent 开关 */}
       <SettingRow
@@ -147,7 +128,7 @@ export const AgentSettings: React.FC = () => {
           value={ollama.baseUrl || 'http://localhost:11434'}
           onChange={(e) => handleOllamaChange('baseUrl', e.target.value)}
           placeholder="http://localhost:11434"
-          className="px-3 py-1.5 w-56 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-3 py-1.5 w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </SettingRow>
 
@@ -173,7 +154,7 @@ export const AgentSettings: React.FC = () => {
             }
             min={10000}
             step={10000}
-            className="px-3 py-1.5 w-28 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <span className="text-xs text-gray-500 dark:text-gray-400">毫秒</span>
         </div>

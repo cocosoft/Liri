@@ -100,15 +100,13 @@ function SoulPanel({ isDark }: SoulPanelProps) {
 
   return (
     <ConfigSection
-      title={t("settings.soul")}
-      description={t("settings.soulDesc")}
       isDark={isDark}
     >
       <div className="space-y-4">
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          className={`w-full h-80 px-4 py-3 text-sm font-mono border rounded ${
+          className={`w-full h-48 px-4 py-3 text-sm font-mono border rounded ${
             isDark
               ? "bg-gray-800 border-gray-600 text-gray-100 placeholder-gray-500"
               : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400"

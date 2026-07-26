@@ -10,7 +10,7 @@ const DashboardPage = lazy(() => import("../components/views/DashboardPage"));
 const FileExplorerPage = lazy(
   () => import("../components/views/FileExplorerPage"),
 );
-const CostPage = lazy(() => import("../components/views/CostPage"));
+const UsageCenterPage = lazy(() => import("../components/views/UsageCenterPage"));
 const KnowledgePage = lazy(() => import("../components/views/KnowledgePage"));
 const FAQView = lazy(() => import("../components/views/FAQView"));
 const GraphView = lazy(() => import("../components/views/GraphView"));
@@ -32,7 +32,7 @@ const CronPage = lazy(() => import("../components/views/CronPage"));
 const DreamPage = lazy(() => import("../components/views/DreamPage"));
 const LiriPage = lazy(() => import("../components/views/LiriPage"));
 const LoopPanel = lazy(() => import("../components/views/LoopPanel"));
-const UsagePanel = lazy(() => import("../components/views/UsagePanel"));
+
 const InboxPanel = lazy(() => import("../components/views/InboxPanel"));
 const TaskCenterPage = lazy(() => import("../components/views/TaskCenterPage"));
 const WorkPageLayout = lazy(
@@ -111,14 +111,10 @@ export const routes: RouteObject[] = [
     ),
   },
 
-  // 费用管理
+  // 费用管理 (301 → /usage?tab=cost)
   {
     path: "/cost",
-    element: (
-      <AuthGuard>
-        <CostPage />
-      </AuthGuard>
-    ),
+    element: <Navigate to="/usage?tab=cost" replace />,
   },
 
   // 知识库
@@ -345,12 +341,12 @@ export const routes: RouteObject[] = [
     ),
   },
 
-  // 用量统计
+  // 用量中心 (统一入口)
   {
     path: "/usage",
     element: (
       <AuthGuard>
-        <UsagePanel />
+        <UsageCenterPage />
       </AuthGuard>
     ),
   },

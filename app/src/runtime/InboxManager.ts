@@ -162,10 +162,22 @@ export class InboxManager {
     const existing = new Set(columns.map((c) => c.name));
 
     const migrations: [string, string][] = [
-      ['channel_id', "ALTER TABLE inbox_items ADD COLUMN channel_id TEXT DEFAULT ''"],
-      ['channel_session_id', "ALTER TABLE inbox_items ADD COLUMN channel_session_id TEXT DEFAULT ''"],
-      ['channel_conversation_id', "ALTER TABLE inbox_items ADD COLUMN channel_conversation_id TEXT DEFAULT ''"],
-      ['trace_id', "ALTER TABLE inbox_items ADD COLUMN trace_id TEXT DEFAULT ''"],
+      [
+        'channel_id',
+        "ALTER TABLE inbox_items ADD COLUMN channel_id TEXT DEFAULT ''",
+      ],
+      [
+        'channel_session_id',
+        "ALTER TABLE inbox_items ADD COLUMN channel_session_id TEXT DEFAULT ''",
+      ],
+      [
+        'channel_conversation_id',
+        "ALTER TABLE inbox_items ADD COLUMN channel_conversation_id TEXT DEFAULT ''",
+      ],
+      [
+        'trace_id',
+        "ALTER TABLE inbox_items ADD COLUMN trace_id TEXT DEFAULT ''",
+      ],
     ];
 
     for (const [col, sql] of migrations) {
@@ -495,9 +507,8 @@ export class InboxManager {
     for (const item of expiredItems) {
       if (item.channelSessionId) {
         try {
-          const { notifyExpired } = await import(
-            '@modules/channels/bridge/inboxChannelReply.js'
-          );
+          const { notifyExpired } =
+            await import('@modules/channels/bridge/inboxChannelReply.js');
           await notifyExpired(item);
         } catch (err) {
           logger.warn('Expired notification failed', {
@@ -625,7 +636,8 @@ export class InboxManager {
       repliedAt: row.replied_at as number | undefined,
       channelId: (row.channel_id as string) || undefined,
       channelSessionId: (row.channel_session_id as string) || undefined,
-      channelConversationId: (row.channel_conversation_id as string) || undefined,
+      channelConversationId:
+        (row.channel_conversation_id as string) || undefined,
       traceId: (row.trace_id as string) || undefined,
     };
   }
@@ -691,7 +703,11 @@ export class InboxManager {
           }
         );
       });
-      logger.info('Orphan repaired', { inboxItemId, channelId, traceId: item.traceId });
+      logger.info('Orphan repaired', {
+        inboxItemId,
+        channelId,
+        traceId: item.traceId,
+      });
       return true;
     } catch (err) {
       logger.warn('Orphan repair failed', { inboxItemId, error: String(err) });

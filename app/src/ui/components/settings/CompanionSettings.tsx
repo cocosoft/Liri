@@ -6,27 +6,7 @@
 import React from 'react';
 import { useSettings } from '@modules/hooks/useSettings';
 import { SettingRow } from './SettingRow';
-
-/**
- * 开关按钮
- */
-const Toggle: React.FC<{
-  value: boolean;
-  onChange: (v: boolean) => void;
-}> = ({ value, onChange }) => (
-  <button
-    onClick={() => onChange(!value)}
-    className={`relative w-11 h-6 rounded-full transition-colors ${
-      value ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-    }`}
-  >
-    <span
-      className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-        value ? 'translate-x-[22px]' : 'translate-x-0.5'
-      }`}
-    />
-  </button>
-);
+import { Toggle } from './Toggle';
 
 /**
  * 伙伴设置面板
@@ -50,6 +30,7 @@ export const CompanionSettings: React.FC = () => {
   };
 
   return (
+    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 px-1 pb-2">AI 伙伴</h2>
     <div className="space-y-0 divide-y divide-gray-100 dark:divide-gray-700">
       {/* 助手名称 */}
       <SettingRow label="助手名称" hint="设置 AI 助手在对话中的显示名称">
@@ -67,13 +48,15 @@ export const CompanionSettings: React.FC = () => {
         label="灵魂描述"
         hint="定义 AI 助手的个性和行为风格（英文 Prompt）"
       >
+        <div className="w-48">
         <textarea
           value={companion.soul || ''}
           onChange={(e) => handleCompanionChange('soul', e.target.value)}
-          rows={4}
+          rows={2}
           placeholder="如：You are a helpful coding assistant..."
           className="px-3 py-2 w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y font-mono"
         />
+        </div>
       </SettingRow>
 
       {/* 静音模式 */}

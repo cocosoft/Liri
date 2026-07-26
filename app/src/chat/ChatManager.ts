@@ -57,6 +57,7 @@ import { SessionAccessFacade } from './services/SessionAccessFacade';
 import { TaskFacade } from './facades/TaskFacade';
 
 const logger = new Logger({ module: 'chat:manager', level: LogLevel.INFO });
+import { SimpleMutex } from '@modules/core/SimpleMutex';
 
 import type { ChatManager } from './ChatManagerInterface.js';
 
@@ -226,6 +227,21 @@ export class ChatManagerImpl implements ChatManager {
    * 会话内存缓存
    */
   private _chatSessions: Map<string, ChatSession> = new Map();
+
+  /**
+   * 会话级互斥锁 — 防止同一会话并发流式请求（Bug Fix: 工具链被用户新消息打断）
+   */
+  private _sessionMutexes = new Map<string, SimpleMutex>();
+
+  /**
+   * 会话级中止控制器 — 新请求到达时中止旧流
+   */
+  private _sessionAbortControllers = new Map<string, AbortController>();
+
+  /**
+   * 传统工具循环最大轮次（防止无 TAORLoop 保护时的死循环）
+   */
+  private readonly MAX_TOOL_TURNS = 15;
 
   /**
    * 检查点服务
@@ -2077,6 +2093,16 @@ export class ChatManagerImpl implements ChatManager {
       );
     }
 
+    // Bug Fix: 新请求到达时中止同一会话的旧流（防止工具链被打断后永久丢失）
+    const existingAbort = this._sessionAbortControllers.get(session.id);
+    if (existingAbort) {
+      logger.info('中止同一会话的旧流式请求', { sessionId: session.id });
+      existingAbort.abort();
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    const streamAbortController = new AbortController();
+    this._sessionAbortControllers.set(session.id, streamAbortController);
+
     // Phase 5+: 初始化记忆管理器（异步，不阻塞消息处理）
     memoryManager.initialize(session.id).catch((err) => {
       logger.debug('Memory init failed (non-critical)', { error: String(err) });
@@ -2620,7 +2646,18 @@ export class ChatManagerImpl implements ChatManager {
         }
       );
 
+      let toolTurnCount = 0;
       while (currentToolCalls.length > 0) {
+        // Bug Fix: 传统工具循环最大轮次保护
+        toolTurnCount++;
+        if (toolTurnCount > this.MAX_TOOL_TURNS) {
+          logger.warn('工具循环达到最大轮次限制', {
+            sessionId: session.id,
+            maxTurns: this.MAX_TOOL_TURNS,
+          });
+          currentToolCalls = [];
+          break;
+        }
         const processedResults: Array<{
           normalizedToolCall: ToolCall;
           result: ToolResult;
@@ -2894,6 +2931,13 @@ export class ChatManagerImpl implements ChatManager {
 
     // 通知会话状态变化为空闲状态
     this.getSessionMachine(session.id).finish('工具执行完成');
+
+    // Bug Fix: 清理 AbortController（当前流已完成，允许新请求）
+    if (
+      this._sessionAbortControllers.get(session.id) === streamAbortController
+    ) {
+      this._sessionAbortControllers.delete(session.id);
+    }
 
     // 跨轮对话摘要：保存关键决策
     this._persistTurnSummary(session);

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useModelSwitchStore } from "../../stores/modelSwitchStore";
 import { modelService } from "../../services/modelService";
 import { modelSwitchService } from "../../services/modelSwitchService";
-import { balanceService } from "../../services/balanceService";
+import { usageService } from "../../services/usageService";
 import { useSessionStore } from "../../stores/sessionStore";
 import { handleClientError } from "../../utils/handleError";
 import type { ModelInfo, BalanceRecord } from "../../types";
@@ -43,8 +43,8 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
       .list()
       .then((all) => setModels(all.filter((m) => m.type === "chat")))
       .catch(() => {});
-    balanceService
-      .batchCheck()
+    usageService
+      .batchCheckBalance()
       .then(setBalances)
       .catch(() => {});
   }, []);

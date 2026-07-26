@@ -137,8 +137,6 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
 
   return (
     <ConfigSection
-      title={t("settings.trustedWorkspaces")}
-      description={t("settings.trustedWorkspacesDesc")}
       isDark={isDark}
     >
       {/* 权限模式 */}

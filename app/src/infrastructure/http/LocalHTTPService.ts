@@ -51,9 +51,6 @@ import {
 import {
   handleHealthReport,
   handleAnalyticsDashboard,
-  handleCostSummary,
-  handleCostRecords,
-  handleCostRange,
   setAnalyticsDependencies,
 } from './handlers/analytics-handlers';
 import { setupInfrastructureDiagnostics } from '@modules/diagnostics/infrastructure-diagnostics';
@@ -631,27 +628,6 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     return handleAnalyticsDashboard(this._handlerCtx, req, res);
-  }
-
-  private async handleCostSummary(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    return handleCostSummary(this._handlerCtx, req, res);
-  }
-
-  private async handleCostRecords(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    return handleCostRecords(this._handlerCtx, req, res);
-  }
-
-  private async handleCostRange(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    return handleCostRange(this._handlerCtx, req, res);
   }
 
   private async handleCostReport(

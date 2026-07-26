@@ -42,17 +42,6 @@ function StatCard({
 function ChannelStatsPanel({ stats }: ChannelStatsPanelProps) {
   return (
     <div className="mb-4 p-5 rounded-xl bg-gradient-to-br from-blue-50 to-green-50 dark:from-blue-950/40 dark:to-green-950/40 border border-blue-100 dark:border-blue-900/30">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            消息渠道
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            管理多平台消息通道
-          </p>
-        </div>
-      </div>
-
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
           icon="📡"

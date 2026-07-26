@@ -394,312 +394,301 @@ function FileExplorerPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900">
-      {/* ====== 顶部栏 ====== */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            文件枢纽
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {currentWorkspace
-              ? `工作空间: ${currentWorkspace.name}`
-              : "未选择工作空间"}
-          </p>
-        </div>
-        <div className="flex gap-3 items-center">
-          {/* 目录树切换 */}
-          <button
-            onClick={() => setShowTree(!showTree)}
-            className={`px-3 py-2 text-sm rounded-lg transition-colors ${
-              showTree
-                ? "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-            }`}
-            title={showTree ? "隐藏目录树" : "显示目录树"}
-          >
-            {showTree ? "📂" : "📁"}
-          </button>
-          {/* 视图切换：网格/列表 */}
-          <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+      <div className="max-w-6xl mx-auto p-6">
+        {/* ====== 页面标题 ====== */}
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              文件枢纽
+            </h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              {currentWorkspace
+                ? `工作空间: ${currentWorkspace.name}`
+                : "未选择工作空间"}
+            </p>
+          </div>
+          <div className="flex gap-3 items-center">
+            {/* 目录树切换 */}
             <button
-              onClick={() => setViewMode("grid")}
-              className={`px-3 py-1.5 text-sm transition-colors ${
-                viewMode === "grid"
-                  ? "bg-blue-600 text-white"
-                  : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+              onClick={() => setShowTree(!showTree)}
+              className={`px-3 py-2 text-sm rounded-lg transition-colors ${
+                showTree
+                  ? "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
               }`}
-              title="网格视图"
+              title={showTree ? "隐藏目录树" : "显示目录树"}
             >
-              ▦
+              {showTree ? "📂" : "📁"}
+            </button>
+            {/* 视图切换：网格/列表 */}
+            <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`px-3 py-1.5 text-sm transition-colors ${
+                  viewMode === "grid"
+                    ? "bg-blue-600 text-white"
+                    : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                }`}
+                title="网格视图"
+              >
+                ▦
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`px-3 py-1.5 text-sm transition-colors ${
+                  viewMode === "list"
+                    ? "bg-blue-600 text-white"
+                    : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                }`}
+                title="列表视图"
+              >
+                ☰
+              </button>
+            </div>
+            {/* 文件管理(Registry) */}
+            <button
+              onClick={() => {
+                setShowRegistry(!showRegistry);
+                if (!showRegistry) {
+                  fileService
+                    .getFileStats()
+                    .then(setFileStats)
+                    .catch(() => {});
+                }
+              }}
+              className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                showRegistry
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+              }`}
+            >
+              📋 文件管理
             </button>
             <button
-              onClick={() => setViewMode("list")}
-              className={`px-3 py-1.5 text-sm transition-colors ${
-                viewMode === "list"
-                  ? "bg-blue-600 text-white"
-                  : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
-              }`}
-              title="列表视图"
+              onClick={() => setActivePage("chat")}
+              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
             >
-              ☰
+              返回聊天
             </button>
           </div>
-          {/* 文件管理(Registry) */}
-          <button
-            onClick={() => {
-              setShowRegistry(!showRegistry);
-              if (!showRegistry) {
-                fileService
-                  .getFileStats()
-                  .then(setFileStats)
-                  .catch(() => {});
-              }
-            }}
-            className={`px-4 py-2 text-sm rounded-lg transition-colors ${
-              showRegistry
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-            }`}
-          >
-            📋 文件管理
-          </button>
-          <button
-            onClick={() => setActivePage("chat")}
-            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-          >
-            返回聊天
-          </button>
         </div>
-      </div>
 
-      {/* ====== 分类标签栏 ====== */}
-      <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-        {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
-          <button
-            key={key}
-            onClick={() => {
-              setCategory(key as FileCategory);
-              if (["inbound", "media", "artifact", "notebook"].includes(key)) {
-                setShowRegistry(true);
-                fileService
-                  .getFileStats()
-                  .then(setFileStats)
-                  .catch(() => {});
-              } else {
-                setShowRegistry(false);
-              }
-            }}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
-              currentCategory === key
-                ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20"
-                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800"
-            }`}
-          >
-            <span>{config.icon}</span>
-            <span>{config.label}</span>
-          </button>
-        ))}
-      </div>
+        {/* ====== 分类标签栏 ====== */}
+        <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto mb-4">
+          {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
+            <button
+              key={key}
+              onClick={() => {
+                setCategory(key as FileCategory);
+                if (["inbound", "media", "artifact", "notebook"].includes(key)) {
+                  setShowRegistry(true);
+                  fileService
+                    .getFileStats()
+                    .then(setFileStats)
+                    .catch(() => {});
+                } else {
+                  setShowRegistry(false);
+                }
+              }}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+                currentCategory === key
+                  ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
+            >
+              <span>{config.icon}</span>
+              <span>{config.label}</span>
+            </button>
+          ))}
+        </div>
 
-      {/* ====== 主内容区 ====== */}
-      <div className="flex-1 flex overflow-hidden">
-        {showRegistry ? (
-          /* 文件管理(Registry)视图 — 覆盖整个区域 */
-          <FileListView />
-        ) : (
-          <>
-            {/* 目录树侧边栏 */}
-            {showTree && (
-              <DirectoryTree
-                currentPath={currentPath}
-                onNavigate={handleTreeNavigate}
-                roots={TREE_ROOTS}
-                currentRoot={currentCategory}
-                onRootChange={handleRootChange}
-              />
-            )}
-
-            {/* 右侧文件内容区 */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* 统计概览 */}
-              {fileStats && !showRegistry && (
-                <div className="flex items-center gap-6 px-6 py-2 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/10 dark:to-purple-900/10">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    📁 文件总数:{" "}
-                    <strong className="text-gray-700 dark:text-gray-300">
-                      {fileStats.totalFiles}
-                    </strong>
-                  </span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    📦 总大小:{" "}
-                    <strong className="text-gray-700 dark:text-gray-300">
-                      {formatSize(fileStats.totalSize)}
-                    </strong>
-                  </span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    📤 今日入站:{" "}
-                    <strong className="text-gray-700 dark:text-gray-300">
-                      {fileStats.todayInbound}
-                    </strong>
-                  </span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    🔁 去重节省:{" "}
-                    <strong className="text-gray-700 dark:text-gray-300">
-                      {fileStats.dedupSaved} 次
-                    </strong>
-                    {fileStats.dedupSize > 0 && (
-                      <span className="text-gray-400 ml-1">
-                        ({formatSize(fileStats.dedupSize)})
-                      </span>
-                    )}
-                  </span>
-                </div>
+        {/* ====== 主内容区 ====== */}
+        <div className="min-h-[400px]">
+          {showRegistry ? (
+            <FileListView />
+          ) : (
+            <div className="flex gap-0">
+              {showTree && (
+                <DirectoryTree
+                  currentPath={currentPath}
+                  onNavigate={handleTreeNavigate}
+                  roots={TREE_ROOTS}
+                  currentRoot={currentCategory}
+                  onRootChange={handleRootChange}
+                />
               )}
-
-              {/* 工具栏 */}
-              <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-3">
-                  <SearchInput
-                    value={searchQuery}
-                    onChange={setSearchQuery}
-                    placeholder="过滤当前目录..."
-                    className="w-64"
-                  />
-                  {/* 工作空间选择 */}
-                  <div className="relative">
-                    <button
-                      onClick={() =>
-                        setActiveMenu(
-                          activeMenu === "workspace" ? null : "workspace",
-                        )
-                      }
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                    >
-                      <span>📁</span>
-                      <span>{currentWorkspace?.name || "选择工作空间"}</span>
-                      <span className="text-gray-400">▼</span>
-                    </button>
-                    {activeMenu === "workspace" && (
-                      <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
-                        {workspaces.map((ws) => (
-                          <button
-                            key={ws.id}
-                            onClick={() => {
-                              setWorkspace(ws);
-                              setActiveMenu(null);
-                            }}
-                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                              currentWorkspace?.id === ws.id
-                                ? "bg-blue-50 dark:bg-blue-900/20"
-                                : ""
-                            }`}
-                          >
-                            {ws.name}
-                          </button>
-                        ))}
-                        {workspaces.length === 0 && (
-                          <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-                            暂无工作空间
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={goUp}
-                    disabled={
-                      currentPath.split("/").filter(Boolean).length <= 1
-                    }
-                    className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    上级目录
-                  </button>
-                  <button
-                    onClick={handleUploadClick}
-                    disabled={uploading}
-                    className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50 transition-colors"
-                  >
-                    {uploading ? "上传中..." : "上传文件"}
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    multiple
-                  />
-                </div>
-              </div>
-
-              {/* 文件列表区域 */}
-              <div
-                className="flex-1 overflow-auto"
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                {/* 拖拽上传提示 */}
-                {isDragging && (
-                  <div className="m-6 p-8 border-2 border-dashed border-green-500 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
-                    <p className="text-lg font-medium text-green-600 dark:text-green-400">
-                      📁 释放文件以上传
-                    </p>
+              <div className="flex-1 min-w-0">
+                {/* 统计概览 */}
+                {fileStats && !showRegistry && (
+                  <div className="flex items-center gap-6 px-4 py-2 mb-3 border rounded-lg bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/10 dark:to-purple-900/10 border-gray-200 dark:border-gray-700">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      📁 文件总数:{" "}
+                      <strong className="text-gray-700 dark:text-gray-300">
+                        {fileStats.totalFiles}
+                      </strong>
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      📦 总大小:{" "}
+                      <strong className="text-gray-700 dark:text-gray-300">
+                        {formatSize(fileStats.totalSize)}
+                      </strong>
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      📤 今日入站:{" "}
+                      <strong className="text-gray-700 dark:text-gray-300">
+                        {fileStats.todayInbound}
+                      </strong>
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      🔁 去重节省:{" "}
+                      <strong className="text-gray-700 dark:text-gray-300">
+                        {fileStats.dedupSaved} 次
+                      </strong>
+                      {fileStats.dedupSize > 0 && (
+                        <span className="text-gray-400 ml-1">
+                          ({formatSize(fileStats.dedupSize)})
+                        </span>
+                      )}
+                    </span>
                   </div>
                 )}
 
-                {isLoading ? (
-                  <div className="p-6">
-                    <SkeletonTable />
+                {/* 工具栏 */}
+                <div className="flex items-center justify-between py-2 mb-3">
+                  <div className="flex items-center gap-3">
+                    <SearchInput
+                      value={searchQuery}
+                      onChange={setSearchQuery}
+                      placeholder="过滤当前目录..."
+                      className="w-64"
+                    />
+                    <div className="relative">
+                      <button
+                        onClick={() =>
+                          setActiveMenu(
+                            activeMenu === "workspace" ? null : "workspace",
+                          )
+                        }
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        <span>📁</span>
+                        <span>{currentWorkspace?.name || "选择工作空间"}</span>
+                        <span className="text-gray-400">▼</span>
+                      </button>
+                      {activeMenu === "workspace" && (
+                        <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
+                          {workspaces.map((ws) => (
+                            <button
+                              key={ws.id}
+                              onClick={() => {
+                                setWorkspace(ws);
+                                setActiveMenu(null);
+                              }}
+                              className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                                currentWorkspace?.id === ws.id
+                                  ? "bg-blue-50 dark:bg-blue-900/20"
+                                  : ""
+                              }`}
+                            >
+                              {ws.name}
+                            </button>
+                          ))}
+                          {workspaces.length === 0 && (
+                            <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                              暂无工作空间
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                ) : error ? (
-                  <div className="text-center py-12 px-6">
-                    <p className="text-red-500 dark:text-red-400 mb-2">
-                      {error}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                      请确认后端服务（Liri_coding）是否已正常启动
-                    </p>
+                  <div className="flex gap-2">
                     <button
-                      onClick={() => loadDir(currentPath)}
-                      className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                      onClick={goUp}
+                      disabled={
+                        currentPath.split("/").filter(Boolean).length <= 1
+                      }
+                      className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      重新加载
+                      上级目录
                     </button>
+                    <button
+                      onClick={handleUploadClick}
+                      disabled={uploading}
+                      className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50 transition-colors"
+                    >
+                      {uploading ? "上传中..." : "上传文件"}
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      multiple
+                    />
                   </div>
-                ) : sortedEntries.length === 0 ? (
-                  <div className="text-center py-12">
-                    <p className="text-gray-500 dark:text-gray-400">暂无文件</p>
-                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-                      {currentCategory === "all"
-                        ? "这是您的 Liri 数据目录（~/.pyapp/），子目录将在此展示"
-                        : currentCategory === "output"
-                          ? "AI 生成的输出文件将出现在此目录"
-                          : currentCategory === "downloads"
-                            ? "下载的材料将保存到此目录"
-                            : currentCategory === "attachments"
-                              ? "上传的文件将保存到此目录。拖拽文件到此处或点击「上传文件」按钮"
-                              : "拖拽文件到此处或点击上传按钮添加文件"}
-                    </p>
-                  </div>
-                ) : viewMode === "list" ? (
-                  /* 列表视图 */
-                  <DetailedFileList
-                    entries={sortedEntries}
-                    selectedFile={selectedFile}
-                    loading={isLoading}
-                    onItemClick={handleItemClick}
-                    onPreview={(entry) => handlePreview(entry)}
-                    onSendToAI={handleSendToAI}
-                    onSaveToKnowledge={handleSaveToKnowledge}
-                    onSaveToMemory={handleSaveToMemory}
-                  />
-                ) : (
-                  /* 网格视图（卡片） */
-                  <div className="p-6">
+                </div>
+
+                {/* 文件列表 */}
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  {isDragging && (
+                    <div className="p-8 border-2 border-dashed border-green-500 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
+                      <p className="text-lg font-medium text-green-600 dark:text-green-400">
+                        📁 释放文件以上传
+                      </p>
+                    </div>
+                  )}
+                  {isLoading ? (
+                    <div className="p-6">
+                      <SkeletonTable />
+                    </div>
+                  ) : error ? (
+                    <div className="text-center py-12">
+                      <p className="text-red-500 dark:text-red-400 mb-2">
+                        {error}
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                        请确认后端服务（Liri_coding）是否已正常启动
+                      </p>
+                      <button
+                        onClick={() => loadDir(currentPath)}
+                        className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                      >
+                        重新加载
+                      </button>
+                    </div>
+                  ) : sortedEntries.length === 0 ? (
+                    <div className="text-center py-12">
+                      <p className="text-gray-500 dark:text-gray-400">暂无文件</p>
+                      <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+                        {currentCategory === "all"
+                          ? "这是您的 Liri 数据目录（~/.pyapp/），子目录将在此展示"
+                          : currentCategory === "output"
+                            ? "AI 生成的输出文件将出现在此目录"
+                            : currentCategory === "downloads"
+                              ? "下载的材料将保存到此目录"
+                              : currentCategory === "attachments"
+                                ? "上传的文件将保存到此目录。拖拽文件到此处或点击「上传文件」按钮"
+                                : "拖拽文件到此处或点击上传按钮添加文件"}
+                      </p>
+                    </div>
+                  ) : viewMode === "list" ? (
+                    <DetailedFileList
+                      entries={sortedEntries}
+                      selectedFile={selectedFile}
+                      loading={isLoading}
+                      onItemClick={handleItemClick}
+                      onPreview={(entry) => handlePreview(entry)}
+                      onSendToAI={handleSendToAI}
+                      onSaveToKnowledge={handleSaveToKnowledge}
+                      onSaveToMemory={handleSaveToMemory}
+                    />
+                  ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       {sortedEntries.map((entry) => (
                         <div
@@ -779,23 +768,23 @@ function FileExplorerPage() {
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
-          </>
+          )}
+        </div>
+
+        {/* ====== 文件预览弹窗 ====== */}
+        {previewFile && (
+          <FilePreviewModal
+            preview={previewFile}
+            onClose={closePreview}
+            onSendToAI={handleSendToAI}
+            onSaveToKnowledge={handleSaveToKnowledge}
+          />
         )}
       </div>
-
-      {/* ====== 文件预览弹窗 ====== */}
-      {previewFile && (
-        <FilePreviewModal
-          preview={previewFile}
-          onClose={closePreview}
-          onSendToAI={handleSendToAI}
-          onSaveToKnowledge={handleSaveToKnowledge}
-        />
-      )}
     </div>
   );
 }

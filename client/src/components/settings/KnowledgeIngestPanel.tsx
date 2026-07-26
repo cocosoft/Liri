@@ -148,8 +148,6 @@ function KnowledgeIngestPanel({ isDark }: KnowledgeIngestPanelProps) {
 
   return (
     <ConfigSection
-      title={t("settings.knowledgeIngest")}
-      description={t("settings.knowledgeIngestDesc")}
       isDark={isDark}
     >
       {/* 内置规则说明 */}

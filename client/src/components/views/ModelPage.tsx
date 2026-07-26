@@ -6,13 +6,12 @@ import { useConfigStore } from "../../stores/configStore";
 import { SkeletonPulse } from "../common/Skeleton";
 import TaskAssignment from "../modelAdmin/TaskAssignment";
 import ModelMetaEditor from "../modelAdmin/ModelMetaEditor";
-import UsageDashboard from "../modelAdmin/UsageDashboard";
 import ProviderPresetPanel from "../modelAdmin/ProviderPresetPanel";
 import ProviderEditorModal from "../modelAdmin/ProviderEditorModal";
 import AddModelModal from "../modelAdmin/AddModelModal";
 import FetchedModelList from "../modelAdmin/FetchedModelList";
 import { PROVIDER_TYPE_LABELS } from "../../config/providerPresets";
-import { balanceService } from "../../services/balanceService";
+import { usageService } from "../../services/usageService";
 import { modelSwitchService } from "../../services/modelSwitchService";
 import type { ProviderInfo, ProviderFormData, FetchedModel } from "../../types";
 
@@ -49,7 +48,7 @@ function ProviderPage() {
   const isDark = config.theme === "dark";
 
   const [activeTab, setActiveTab] = useState<
-    "providers" | "models" | "tasks" | "usage"
+    "providers" | "models" | "tasks"
   >("providers");
   const [searchQuery, setSearchQuery] = useState("");
   const [showPresets, setShowPresets] = useState(false);
@@ -233,7 +232,7 @@ function ProviderPage() {
   const handleCheckBalance = useCallback(async (provider: ProviderInfo) => {
     setCheckingBalanceId(provider.id);
     try {
-      const result = await balanceService.check({ providerId: provider.id });
+      const result = await usageService.checkBalance({ providerId: provider.id });
       if (result.success) {
         const lines = result.data.map(
           (d) =>
@@ -310,7 +309,7 @@ function ProviderPage() {
 
         {/* Tab */}
         <div className="flex gap-1 mb-4 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg w-fit">
-          {(["providers", "models", "tasks", "usage"] as const).map((tab) => (
+          {(["providers", "models", "tasks"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -321,7 +320,6 @@ function ProviderPage() {
                   providers: t("settings.modelTabProviders"),
                   models: t("settings.modelTabModelList"),
                   tasks: t("settings.modelTabTasks"),
-                  usage: t("settings.modelTabUsage"),
                 }[tab]
               }
             </button>
@@ -518,13 +516,6 @@ function ProviderPage() {
         {activeTab === "tasks" && (
           <div className="max-w-3xl mx-auto">
             <TaskAssignment />
-          </div>
-        )}
-
-        {/* 用量 Tab */}
-        {activeTab === "usage" && (
-          <div className="max-w-6xl mx-auto">
-            <UsageDashboard />
           </div>
         )}
 

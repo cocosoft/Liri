@@ -19,6 +19,7 @@ interface NotificationsPanelProps {
   isDark: boolean;
   notifications: NotificationsConfig;
   onUpdate: (updates: Partial<NotificationsConfig>) => void;
+  collapsible?: boolean;
 }
 
 /** 请求浏览器通知权限（仅当未决定时） */
@@ -40,6 +41,7 @@ function NotificationsPanel({
   isDark,
   notifications,
   onUpdate,
+  collapsible,
 }: NotificationsPanelProps) {
   const { t } = useTranslation();
 
@@ -48,6 +50,7 @@ function NotificationsPanel({
       title={t("settings.notifications")}
       description={t("settings.notificationsDesc")}
       isDark={isDark}
+      collapsible={collapsible}
     >
       <div className="space-y-4">
         <ConfigItem label={t("settings.notificationsChannel")} isDark={isDark}>

@@ -625,7 +625,8 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     displayName: '媒体模块',
     version: '1.1.0',
     category: ModuleCategory.OTHER,
-    description: '媒体模块，提供图片编辑、视频处理、二维码、PDF提取等 15 个 AI 工具',
+    description:
+      '媒体模块，提供图片编辑、视频处理、二维码、PDF提取等 15 个 AI 工具',
     dependencies: ['core'],
     optionalDependencies: ['monitoring'],
   },

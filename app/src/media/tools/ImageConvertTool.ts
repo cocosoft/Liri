@@ -11,16 +11,34 @@ import { imageProcessor } from '../image/ImageProcessor';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'media:tool:convert', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'media:tool:convert',
+  level: LogLevel.INFO,
+});
 
 export function createImageConvertTool(): Tool {
   return {
     name: 'media:image:convert',
     description: 'Convert image format (e.g. PNG to JPEG, WebP to PNG)',
     params: [
-      { name: 'input', type: 'string', description: 'Input image path', required: true },
-      { name: 'output', type: 'string', description: 'Output image path', required: true },
-      { name: 'format', type: 'string', description: 'Target format (png, jpeg, webp, gif, bmp)', required: true },
+      {
+        name: 'input',
+        type: 'string',
+        description: 'Input image path',
+        required: true,
+      },
+      {
+        name: 'output',
+        type: 'string',
+        description: 'Output image path',
+        required: true,
+      },
+      {
+        name: 'format',
+        type: 'string',
+        description: 'Target format (png, jpeg, webp, gif, bmp)',
+        required: true,
+      },
     ],
     aliases: ['img_convert', 'image_convert'],
     searchTips: ['image', 'convert', 'format'],
@@ -29,7 +47,10 @@ export function createImageConvertTool(): Tool {
     isDestructive: () => false,
     isConcurrencySafe: () => true,
 
-    async execute(input: Record<string, unknown>, _context: ToolUseContext): Promise<MediaToolResult> {
+    async execute(
+      input: Record<string, unknown>,
+      _context: ToolUseContext
+    ): Promise<MediaToolResult> {
       const startTime = Date.now();
       const inPath = input.input as string;
       const outPath = input.output as string;
@@ -41,9 +62,13 @@ export function createImageConvertTool(): Tool {
           status: ToolExecutionStatus.FAILURE,
           error: safeInput.error,
           executionTime: Date.now() - startTime,
-          output: '', errorOutput: safeInput.error!,
-          progress: [], metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
-          executionId: `img_convert_${Date.now()}`, toolName: 'media:image:convert', timestamp: Date.now(),
+          output: '',
+          errorOutput: safeInput.error!,
+          progress: [],
+          metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
+          executionId: `img_convert_${Date.now()}`,
+          toolName: 'media:image:convert',
+          timestamp: Date.now(),
         };
       }
       const safeOutput = resolveSafePath(outPath);
@@ -52,47 +77,78 @@ export function createImageConvertTool(): Tool {
           status: ToolExecutionStatus.FAILURE,
           error: safeOutput.error,
           executionTime: Date.now() - startTime,
-          output: '', errorOutput: safeOutput.error!,
-          progress: [], metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
-          executionId: `img_convert_${Date.now()}`, toolName: 'media:image:convert', timestamp: Date.now(),
+          output: '',
+          errorOutput: safeOutput.error!,
+          progress: [],
+          metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
+          executionId: `img_convert_${Date.now()}`,
+          toolName: 'media:image:convert',
+          timestamp: Date.now(),
         };
       }
 
       try {
-        const result = await imageProcessor.convert(safeInput.path!, safeOutput.path!, format as any);
+        const result = await imageProcessor.convert(
+          safeInput.path!,
+          safeOutput.path!,
+          format as any
+        );
         if (!result.success) {
           return {
             status: ToolExecutionStatus.FAILURE,
             error: result.error || 'Conversion failed',
             executionTime: Date.now() - startTime,
-            output: '', errorOutput: result.error || '',
-            progress: [], metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-            executionId: `img_convert_${Date.now()}`, toolName: 'media:image:convert', timestamp: Date.now(),
+            output: '',
+            errorOutput: result.error || '',
+            progress: [],
+            metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
+            executionId: `img_convert_${Date.now()}`,
+            toolName: 'media:image:convert',
+            timestamp: Date.now(),
           };
         }
 
-        logger.info('Image converted', { input: safeInput.path, output: safeOutput.path, format });
+        logger.info('Image converted', {
+          input: safeInput.path,
+          output: safeOutput.path,
+          format,
+        });
         return {
           status: ToolExecutionStatus.SUCCESS,
           result,
           output: JSON.stringify(result),
-          errorOutput: '', progress: [],
-          metadata: { inputPath: safeInput.path, outputPath: safeOutput.path, format },
+          errorOutput: '',
+          progress: [],
+          metadata: {
+            inputPath: safeInput.path,
+            outputPath: safeOutput.path,
+            format,
+          },
           executionTime: Date.now() - startTime,
           outputPath: safeOutput.path,
           outputSize: result.processedSize,
-          executionId: `img_convert_${Date.now()}`, toolName: 'media:image:convert', timestamp: Date.now(),
+          executionId: `img_convert_${Date.now()}`,
+          toolName: 'media:image:convert',
+          timestamp: Date.now(),
           content: `图片已转换为 ${format}: ${safeOutput.path}`,
         };
       } catch (err) {
-        await handleError(err, { module: 'media:tool:convert', action: 'execute', context: { input: safeInput.path, format } });
+        await handleError(err, {
+          module: 'media:tool:convert',
+          action: 'execute',
+          context: { input: safeInput.path, format },
+        });
         return {
           status: ToolExecutionStatus.FAILURE,
           error: err instanceof Error ? err.message : String(err),
           executionTime: Date.now() - startTime,
-          output: '', errorOutput: String(err),
-          progress: [], metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-          executionId: `img_convert_${Date.now()}`, toolName: 'media:image:convert', timestamp: Date.now(),
+          output: '',
+          errorOutput: String(err),
+          progress: [],
+          metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
+          executionId: `img_convert_${Date.now()}`,
+          toolName: 'media:image:convert',
+          timestamp: Date.now(),
         };
       }
     },
@@ -102,14 +158,34 @@ export function createImageConvertTool(): Tool {
         name: 'media:image:convert',
         description: 'Convert image format',
         params: [
-          { name: 'input', type: 'string', description: 'Input image path', required: true },
-          { name: 'output', type: 'string', description: 'Output image path', required: true },
-          { name: 'format', type: 'string', description: 'Target format', required: true },
+          {
+            name: 'input',
+            type: 'string',
+            description: 'Input image path',
+            required: true,
+          },
+          {
+            name: 'output',
+            type: 'string',
+            description: 'Output image path',
+            required: true,
+          },
+          {
+            name: 'format',
+            type: 'string',
+            description: 'Target format',
+            required: true,
+          },
         ],
         aliases: ['img_convert'],
         searchTips: ['image', 'convert'],
-        enabled: true, readOnly: false, destructive: false, concurrencySafe: true,
-        deferred: false, alwaysLoad: false, interruptBehavior: 'block',
+        enabled: true,
+        readOnly: false,
+        destructive: false,
+        concurrencySafe: true,
+        deferred: false,
+        alwaysLoad: false,
+        interruptBehavior: 'block',
       };
     },
   };

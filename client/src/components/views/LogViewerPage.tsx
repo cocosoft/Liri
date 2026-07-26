@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { monitorService } from "../../services/monitorService";
-import { costService, type CostSummary } from "../../services/costService";
+import { usageService, type CostSummary } from "../../services/usageService";
 import type { LogEntry, LogSource } from "../../types";
 import type {
   SessionSummary,
@@ -125,7 +125,7 @@ function LogViewerPage() {
     setCostError(null);
 
     try {
-      const result = await costService.getCostSummary();
+      const result = await usageService.getCostSummary();
       setCostSummary(result);
     } catch (e) {
       setCostError(
@@ -300,19 +300,6 @@ function LogViewerPage() {
       className={`flex-1 overflow-hidden flex flex-col ${isDark ? "bg-gray-900" : "bg-gray-50"}`}
     >
       <div className="max-w-7xl mx-auto w-full p-6">
-        <div className="mb-6">
-          <h1
-            className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}
-          >
-            {t("settings.logViewerTitle")}
-          </h1>
-          <p
-            className={`mt-1 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
-          >
-            {t("settings.logViewerDesc")}
-          </p>
-        </div>
-
         {/* 标签页切换 */}
         <div className="flex gap-2 mb-6">
           {tabs.map((tab) => (

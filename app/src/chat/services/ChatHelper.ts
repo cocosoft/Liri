@@ -26,8 +26,8 @@ import { getAIModelManager } from '@modules/ai';
 
 const logger = new Logger({ module: 'chat:helper', level: LogLevel.INFO });
 
-/** 工具结果默认最大字符数 */
-export const TOOL_RESULT_MAX_LENGTH = 2000;
+/** 工具结果默认最大字符数（Bug Fix: 从 2000 提升至 8000，防止截断丢失关键上下文导致 LLM 误判任务完成） */
+export const TOOL_RESULT_MAX_LENGTH = 8000;
 
 /**
  * 将 Message 角色映射为 SessionMessageType

@@ -17,12 +17,14 @@ interface FeatureFlagsPanelProps {
   isDark: boolean;
   features: FeatureFlags;
   onUpdate: (updates: Partial<FeatureFlags>) => void;
+  collapsible?: boolean;
 }
 
 function FeatureFlagsPanel({
   isDark,
   features,
   onUpdate,
+  collapsible,
 }: FeatureFlagsPanelProps) {
   const { t } = useTranslation();
 
@@ -83,6 +85,7 @@ function FeatureFlagsPanel({
       title={t("settings.features")}
       description={t("settings.featuresDesc")}
       isDark={isDark}
+      collapsible={collapsible}
     >
       <div className="space-y-2">
         {featureList.map((feature) => (

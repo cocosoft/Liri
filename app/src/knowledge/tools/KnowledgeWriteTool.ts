@@ -34,6 +34,9 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { globalEventBus } from '@modules/core';
 import { writeAuditLog } from '../KnowledgeAuditLogger';
+import { existsSync } from 'fs';
+import { join } from 'path';
+import { resolvePyappHome } from '@modules/core';
 
 const logger = new Logger({
   module: 'knowledge:tools:knowledgeWriteTool',
@@ -132,6 +135,35 @@ export class KnowledgeWriteTool implements Tool {
         .split(',')
         .map((t) => t.trim())
         .filter((t) => t.length > 0);
+
+      // ── 审批检查：检测是否覆盖已有文档 ──
+      const sanitizedTitle = title.trim().replace(/[<>:"/\\|?*]/g, '_');
+      const knowledgeRoot = join(resolvePyappHome(), 'knowledge');
+      const targetPath = join(knowledgeRoot, `${sanitizedTitle}.md`);
+      const isOverwrite = existsSync(targetPath);
+
+      if (isOverwrite) {
+        const executionTime = Date.now() - startTime;
+        return {
+          status: ToolExecutionStatus.REQUIRES_APPROVAL,
+          requireApproval: true,
+          approvalReason: `将覆盖已有知识文档「${title.trim()}」`,
+          executionTime,
+          output: `⚠ 文档「${title.trim()}」已存在，需要审批确认后才能覆盖。`,
+          errorOutput: '',
+          progress: [],
+          metadata: {
+            title: title.trim(),
+            action: 'update_pending_approval',
+            targetPath,
+            category,
+          },
+          executionId: `knowledge_write_${Date.now()}`,
+          toolName: this.name,
+          timestamp: Date.now(),
+          content: `知识文档「${title.trim()}」已存在，等待审批确认覆盖。`,
+        };
+      }
 
       const result = await this.writer.writeEntry({
         title: title.trim(),

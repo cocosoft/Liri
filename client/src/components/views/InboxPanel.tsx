@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { inboxService } from "../../services/inboxService";
 import type { InboxItem, InboxItemStatus } from "../../types";
+import { getChannelLabel } from "../../types";
 
 const TYPE_ICONS: Record<InboxItem["type"], typeof Mail> = {
   approval: Shield,
@@ -170,6 +171,12 @@ export function InboxPanel() {
                         {item.source && item.source !== "" && (
                           <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">
                             {item.source}
+                          </span>
+                        )}
+                        {item.channelId && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400"
+                            title={`来源渠道: ${getChannelLabel(item.channelId)}`}>
+                            💬 {getChannelLabel(item.channelId)}
                           </span>
                         )}
                         <span

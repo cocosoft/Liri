@@ -121,6 +121,14 @@ export class MediaStore {
   }
 
   /**
+   * 批量删除文件
+   * @returns 各文件删除结果 { filePath: string, deleted: boolean }[]
+   */
+  deleteBatch(filePaths: string[]): { filePath: string; deleted: boolean }[] {
+    return filePaths.map((p) => ({ filePath: p, deleted: this.delete(p) }));
+  }
+
+  /**
    * 获取文件信息
    */
   getInfo(filePath: string): MediaFileInfo | null {

@@ -623,11 +623,11 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     id: 'media',
     name: 'media',
     displayName: '媒体模块',
-    version: '1.0.0',
+    version: '1.1.0',
     category: ModuleCategory.OTHER,
-    description: '媒体模块，提供图片、视频、二维码等媒体处理功能',
+    description: '媒体模块，提供图片编辑、视频处理、二维码、PDF提取等 15 个 AI 工具',
     dependencies: ['core'],
-    optionalDependencies: [],
+    optionalDependencies: ['monitoring'],
   },
 
   flows: {

@@ -63,6 +63,7 @@ export type {
 export type { FAQEntry, FAQImportReport } from "./faq";
 
 export type { InboxItem, InboxItemType, InboxItemStatus } from "./inbox";
+export { getChannelLabel, CHANNEL_LABELS } from "./inbox";
 
 // ─── 知识图谱 ───
 export type { GraphEdge, GraphStats, GraphEdgesResponse } from "./graph";

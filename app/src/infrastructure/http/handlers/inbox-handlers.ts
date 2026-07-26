@@ -177,11 +177,21 @@ export async function handleReplyInbox(
       span.setAttribute('inbox.id', id);
       span.setAttribute('inbox.status', current.status);
       otel.endSpan(span, SpanStatusCode.OK);
-      sendJSON(res, 200, {
-        id,
-        status: 'already_processed',
-        previousReply: current.reply,
-      });
+
+      // 区分过期和其他已处理状态
+      if (current.status === 'expired') {
+        sendJSON(res, 200, {
+          id,
+          status: 'expired',
+          message: '该审批已超时，无法处理',
+        });
+      } else {
+        sendJSON(res, 200, {
+          id,
+          status: 'already_processed',
+          previousReply: current.reply,
+        });
+      }
       return;
     }
 
@@ -256,6 +266,21 @@ export async function handleReplyInbox(
           });
         }
       }
+    }
+
+    // ── 渠道回传：异步执行，不阻塞 API 响应 ──
+    if (updated.channelSessionId) {
+      const { relayReplyToChannel } = await import(
+        '@modules/channels/bridge/inboxChannelReply.js'
+      );
+      // fire-and-forget: 先返回 API 响应给 InboxPanel，后台异步回传渠道
+      relayReplyToChannel(updated).catch((bridgeErr: unknown) => {
+        logger.warn('Inbox reply relay to channel failed (async)', {
+          inboxId: id,
+          channelSessionId: updated.channelSessionId,
+          error: String(bridgeErr),
+        });
+      });
     }
 
     otel.endSpan(span, SpanStatusCode.OK);

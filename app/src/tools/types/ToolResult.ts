@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 工具执行结果类型
  * 参考CC_CODE的ToolResult设计，适应backend现有架构
  */
@@ -8,6 +8,8 @@ export enum ToolExecutionStatus {
   SUCCESS = 'success',
   FAILURE = 'failure',
   PARTIAL = 'partial',
+  /** 需要用户审批才能继续执行 */
+  REQUIRES_APPROVAL = 'requires_approval',
 }
 
 /**
@@ -59,6 +61,10 @@ export interface ToolResult<T = unknown> {
   truncated?: boolean;
   /** 错误级别，用于区分错误严重程度 */
   errorLevel?: ErrorLevel;
+  /** 是否需要用户审批（工具执行层标记，供 TAORLoop 检测） */
+  requireApproval?: boolean;
+  /** 审批原因描述 */
+  approvalReason?: string;
 }
 
 export function createToolResult<T = unknown>(

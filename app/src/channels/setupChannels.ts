@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 通道自动注册集成函数
  * 将 channels/ 各平台实现自动注册到 ChannelRegistry
  * 优化：先检查环境变量配置，仅导入已启用的通道模块
@@ -15,6 +15,16 @@ import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'channels:setup' });
+
+// ─── Feature Flag: Inbox ↔ 渠道桥接开关 ───
+/** 渠道 ↔ Inbox 桥接总开关（默认关闭） */
+export function isBridgeEnabled(): boolean {
+  return process.env.INBOX_CHANNEL_BRIDGE_ENABLED === 'true';
+}
+/** 渠道 ← Inbox 回复回传开关（默认关闭） */
+export function isReplyEnabled(): boolean {
+  return process.env.INBOX_CHANNEL_REPLY_ENABLED === 'true';
+}
 
 /**
  * 全部支持的通道类型清单（含显示名称）

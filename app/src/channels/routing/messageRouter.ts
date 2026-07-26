@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -40,6 +40,8 @@ import {
 } from '../dedup/index';
 import type { MessageContext } from '../types/IChannel';
 import type { SessionSpanContext } from '../../ai/telemetry/SessionSpanTracer';
+import { channelSessionManager } from '../session/ChannelSessionManager';
+import { isBridgeEnabled } from '../setupChannels';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'channels:routing' });
 
@@ -173,7 +175,10 @@ export async function routeChannelMessage(
     hasOnOutbound: !!onOutbound,
   });
 
-  // [0] 端到端追踪开始
+  // [0] 生成全链路 traceId
+  const traceId = `ch_trc_${channelName}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+  // [0.5] 端到端追踪开始
   let traceSpanContext: SessionSpanContext | null = null;
   if (enableTracing) {
     try {
@@ -277,6 +282,65 @@ export async function routeChannelMessage(
       contentLength: message.content.length,
     });
 
+    // 创建/复用渠道会话，为 Inbox 桥接提供 channelSessionId
+    const channelSession = isBridgeEnabled()
+      ? channelSessionManager.getOrCreate(
+          (message.channelId || channelName) as import('../types/IChannel').ChannelId,
+          message.conversationId ?? message.senderId,
+          message.senderId,
+          message.senderName
+        )
+      : null;
+
+    // ── 纯文本审批前置检查：如果当前会话有 pending Inbox 项，检测审批关键词 ──
+    if (isBridgeEnabled() && channelSession && message.content) {
+      try {
+        const { detectApprovalIntent, processTextApproval } = await import(
+          '../bridge/TextApprovalParser.js'
+        );
+        const intent = detectApprovalIntent(message.content);
+        if (intent) {
+          const items = await channelSessionManager.getInboxItemIds(channelSession.id);
+          if (items.length > 0) {
+            const { inboxManager } = await import('@modules/runtime/InboxManager.js');
+            for (const itemId of items) {
+              const item = await inboxManager.get(itemId);
+              if (item && item.status === 'pending') {
+                try {
+                  // ── fail-closed: Inbox 写入失败时拒绝放行 ──
+                  const processed = await processTextApproval(itemId, intent);
+                  if (processed && onOutbound) {
+                    const replyText = intent === 'approve'
+                      ? `已批准「${item.title}」`
+                      : `已拒绝「${item.title}」`;
+                    await onOutbound(replyText, message.conversationId ?? message.senderId);
+                  }
+                  return { valid: true, response: 'text_approval_processed' };
+                } catch (inboxErr) {
+                  await handleError(inboxErr, {
+                    module: 'channels:routing',
+                    action: 'textApproval:inboxWrite',
+                    context: { itemId, intent, traceId },
+                  });
+                  if (onOutbound) {
+                    await onOutbound('系统繁忙，请稍后再试', message.conversationId ?? message.senderId);
+                  }
+                  return { valid: false, errorCode: 'INBOX_UNAVAILABLE' };
+                }
+              }
+            }
+          }
+        }
+      } catch (preCheckErr) {
+        // @ignore-catch: 审批预检失败（导入失败等非关键错误）不阻塞主路由
+        await handleError(preCheckErr, {
+          module: 'channels:routing',
+          action: 'textApproval:preCheck',
+          context: { channelName, messageId: message.messageId },
+        });
+      }
+    }
+
     const response = await coreAPI.chat({
       content: message.content,
       sessionId: message.conversationId ?? message.senderId,
@@ -285,6 +349,9 @@ export async function routeChannelMessage(
         sender: message.senderId,
         messageType: message.messageType,
         isDirectMessage: message.isDirectMessage,
+        traceId,
+        channelSessionId: channelSession?.id,
+        channelConversationId: channelSession?.conversationId,
         rawPayload: message.rawPayload,
       },
     });

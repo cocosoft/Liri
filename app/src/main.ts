@@ -685,6 +685,16 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
     logger.error('通道初始化失败', { error: String(err) });
   }
 
+  // 初始化 Media 模块（注册 15 个媒体工具）
+  try {
+    const { MediaModule } = await import('./media/MediaModule');
+    const mediaModule = new MediaModule();
+    await mediaModule.onReady();
+    logger.info('Media 模块工具注册完成');
+  } catch (err) {
+    logger.error('Media 模块初始化失败', { error: String(err) });
+  }
+
   const { launchRepl } = await import('./entrypoints/repl');
   await launchRepl({
     httpPort,

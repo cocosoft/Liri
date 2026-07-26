@@ -5,6 +5,10 @@ import { EventEmitter } from 'events';
 
 import type { ChannelId, MessageContext } from '../types/IChannel.js';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus.js';
+import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+
+const logger = new Logger({ module: 'channels:session' });
 
 /**
  * 通道会话状态
@@ -338,6 +342,47 @@ export class ChannelSessionManager extends EventEmitter {
       closed,
       byChannel,
     };
+  }
+
+  /**
+   * 记录 Inbox 项与渠道会话的关联（委托给 InboxManager.linkSession）
+   */
+  async linkInboxItem(
+    sessionId: string,
+    inboxItemId: string
+  ): Promise<void> {
+    try {
+      const { inboxManager } = await import(
+        '@modules/runtime/InboxManager.js'
+      );
+      await inboxManager.linkSession(sessionId, inboxItemId);
+    } catch (err) {
+      await handleError(err, {
+        module: 'channels:session',
+        action: 'linkInboxItem',
+        context: { sessionId, inboxItemId },
+      });
+    }
+  }
+
+  /**
+   * 查询某渠道会话关联的所有 Inbox 项 ID
+   */
+  async getInboxItemIds(sessionId: string): Promise<string[]> {
+    try {
+      const { inboxManager } = await import(
+        '@modules/runtime/InboxManager.js'
+      );
+      const items = await inboxManager.getBySession(sessionId);
+      return items.map((i) => i.id);
+    } catch (err) {
+      await handleError(err, {
+        module: 'channels:session',
+        action: 'getInboxItemIds',
+        context: { sessionId },
+      });
+      return [];
+    }
   }
 }
 

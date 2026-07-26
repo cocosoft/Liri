@@ -37,6 +37,14 @@ export interface InboxItem {
   createdAt: number;
   updatedAt: number;
   repliedAt?: number;
+  /** 来源渠道 ID（如 'qq', 'telegram'） */
+  channelId?: string;
+  /** 来源渠道会话 ID（ChannelSession.id） */
+  channelSessionId?: string;
+  /** 来源渠道会话的 conversationId（原始对话标识） */
+  channelConversationId?: string;
+  /** 全链路追踪 ID */
+  traceId?: string;
 }
 
 // ─── InboxManager ──────────────────────────────────────
@@ -116,6 +124,61 @@ export class InboxManager {
         }
       );
     });
+
+    // Phase 4: 幂等列迁移（channel_id, channel_session_id, channel_conversation_id）
+    await this._migrateSchema();
+
+    // Phase 5: 创建 session_inbox_map 关联表
+    await new Promise<void>((resolve, reject) => {
+      this.db!.exec(
+        `CREATE TABLE IF NOT EXISTS session_inbox_map (
+          session_id TEXT NOT NULL,
+          inbox_item_id TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (session_id, inbox_item_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_sim_inbox ON session_inbox_map(inbox_item_id);
+        CREATE INDEX IF NOT EXISTS idx_sim_session ON session_inbox_map(session_id);`,
+        (err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+  }
+
+  /** 幂等列迁移：通过 PRAGMA table_info 检测列是否存在，仅新增缺失列 */
+  private async _migrateSchema(): Promise<void> {
+    const db = this.db!;
+    const columns: { name: string }[] = await new Promise((resolve, reject) => {
+      db.all(
+        'PRAGMA table_info(inbox_items)',
+        (err: Error | null, rows: { name: string }[]) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
+    });
+    const existing = new Set(columns.map((c) => c.name));
+
+    const migrations: [string, string][] = [
+      ['channel_id', "ALTER TABLE inbox_items ADD COLUMN channel_id TEXT DEFAULT ''"],
+      ['channel_session_id', "ALTER TABLE inbox_items ADD COLUMN channel_session_id TEXT DEFAULT ''"],
+      ['channel_conversation_id', "ALTER TABLE inbox_items ADD COLUMN channel_conversation_id TEXT DEFAULT ''"],
+      ['trace_id', "ALTER TABLE inbox_items ADD COLUMN trace_id TEXT DEFAULT ''"],
+    ];
+
+    for (const [col, sql] of migrations) {
+      if (!existing.has(col)) {
+        await new Promise<void>((resolve, reject) => {
+          db.run(sql, (err: Error | null) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+        logger.info(`Schema migrated: added column ${col}`);
+      }
+    }
   }
 
   /** 提交 Inbox 项 */
@@ -130,6 +193,21 @@ export class InboxManager {
       'inbox.sessionId': item.sessionId,
     });
 
+    // ── channelSessionId 缺失告警（非 PDCA 来源的审批必须有来源追踪）──
+    if (
+      item.type === 'approval' &&
+      item.source !== 'pdca' &&
+      !item.channelSessionId &&
+      !item.metadata?.sourceModule
+    ) {
+      logger.warn('Inbox item missing source reference', {
+        type: item.type,
+        title: item.title,
+        source: item.source,
+      });
+      item.metadata = { ...item.metadata, _orphan: true };
+    }
+
     try {
       const now = Date.now();
       const id = randomUUID();
@@ -141,35 +219,77 @@ export class InboxManager {
         updatedAt: now,
       };
 
+      // BEGIN IMMEDIATE 事务保护并发写入
       await new Promise<void>((resolve, reject) => {
-        db.run(
-          `INSERT INTO inbox_items (id, session_id, type, title, message, status, options, offline_capable, source, metadata, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            full.id,
-            full.sessionId,
-            full.type,
-            full.title,
-            full.message,
-            full.status,
-            full.options ? JSON.stringify(full.options) : null,
-            full.offlineCapable ? 1 : 0,
-            full.source,
-            full.metadata ? JSON.stringify(full.metadata) : null,
-            full.createdAt,
-            full.updatedAt,
-          ],
-          (err: Error | null) => {
+        db.run('BEGIN IMMEDIATE', (err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      try {
+        await new Promise<void>((resolve, reject) => {
+          db.run(
+            `INSERT INTO inbox_items (id, session_id, type, title, message, status, options, offline_capable, source, metadata, channel_id, channel_session_id, channel_conversation_id, trace_id, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              full.id,
+              full.sessionId,
+              full.type,
+              full.title,
+              full.message,
+              full.status,
+              full.options ? JSON.stringify(full.options) : null,
+              full.offlineCapable ? 1 : 0,
+              full.source,
+              full.metadata ? JSON.stringify(full.metadata) : null,
+              full.channelId ?? null,
+              full.channelSessionId ?? null,
+              full.channelConversationId ?? null,
+              full.traceId ?? null,
+              full.createdAt,
+              full.updatedAt,
+            ],
+            (err: Error | null) => {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
+
+        // 自动写入 session_inbox_map 关联
+        if (full.channelSessionId) {
+          await new Promise<void>((resolve, reject) => {
+            db.run(
+              `INSERT OR IGNORE INTO session_inbox_map (session_id, inbox_item_id, created_at) VALUES (?, ?, ?)`,
+              [full.channelSessionId, full.id, now],
+              (err: Error | null) => {
+                if (err) reject(err);
+                else resolve();
+              }
+            );
+          });
+        }
+
+        await new Promise<void>((resolve, reject) => {
+          db.run('COMMIT', (err: Error | null) => {
             if (err) reject(err);
             else resolve();
-          }
-        );
-      });
+          });
+        });
+      } catch (innerErr) {
+        await new Promise<void>((resolve) => {
+          db.run('ROLLBACK', () => resolve());
+        });
+        throw innerErr;
+      }
 
       logger.info('Inbox item submitted', {
         id,
         type: item.type,
         title: item.title,
+        channelSessionId: item.channelSessionId,
+        traceId: item.traceId,
       });
       span.setAttribute('inbox.id', id);
       otel.endSpan(span, SpanStatusCode.OK);
@@ -343,7 +463,20 @@ export class InboxManager {
   async expireOlderThan(maxAgeMs: number): Promise<number> {
     const db = await this.getDb();
     const cutoff = Date.now() - maxAgeMs;
-    return new Promise<number>((resolve, reject) => {
+
+    // 先查询将要过期的项（获取 channelSessionId 用于通知）
+    const expiredItems = await new Promise<InboxItem[]>((resolve, reject) => {
+      db.all(
+        `SELECT * FROM inbox_items WHERE status = 'pending' AND created_at < ?`,
+        [cutoff],
+        (err: Error | null, rows: Record<string, unknown>[]) => {
+          if (err) reject(err);
+          else resolve(rows.map((r) => this._mapRow(r)));
+        }
+      );
+    });
+
+    const count = await new Promise<number>((resolve, reject) => {
       db.run(
         `UPDATE inbox_items SET status = 'expired', updated_at = ? WHERE status = 'pending' AND created_at < ?`,
         [Date.now(), cutoff],
@@ -357,6 +490,41 @@ export class InboxManager {
         }
       );
     });
+
+    // 通知渠道：已过期的审批项
+    for (const item of expiredItems) {
+      if (item.channelSessionId) {
+        try {
+          const { notifyExpired } = await import(
+            '@modules/channels/bridge/inboxChannelReply.js'
+          );
+          await notifyExpired(item);
+        } catch (err) {
+          logger.warn('Expired notification failed', {
+            inboxId: item.id,
+            channelSessionId: item.channelSessionId,
+            error: String(err),
+          });
+        }
+      }
+    }
+
+    // 清理已过期项的关联记录
+    try {
+      await new Promise<void>((resolve, reject) => {
+        db.run(
+          `DELETE FROM session_inbox_map WHERE inbox_item_id IN (SELECT id FROM inbox_items WHERE status = 'expired')`,
+          (err: Error | null) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+    } catch (err) {
+      logger.warn('session_inbox_map cleanup failed', { error: String(err) });
+    }
+
+    return count;
   }
 
   /**
@@ -455,7 +623,96 @@ export class InboxManager {
       createdAt: row.created_at as number,
       updatedAt: row.updated_at as number,
       repliedAt: row.replied_at as number | undefined,
+      channelId: (row.channel_id as string) || undefined,
+      channelSessionId: (row.channel_session_id as string) || undefined,
+      channelConversationId: (row.channel_conversation_id as string) || undefined,
+      traceId: (row.trace_id as string) || undefined,
     };
+  }
+
+  /** 记录 Inbox 项与渠道会话的关联 */
+  async linkSession(sessionId: string, inboxItemId: string): Promise<void> {
+    const db = await this.getDb();
+    await new Promise<void>((resolve, reject) => {
+      db.run(
+        `INSERT OR IGNORE INTO session_inbox_map (session_id, inbox_item_id, created_at) VALUES (?, ?, ?)`,
+        [sessionId, inboxItemId, Date.now()],
+        (err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+  }
+
+  /** 查询某渠道会话关联的所有 Inbox 项 */
+  async getBySession(sessionId: string): Promise<InboxItem[]> {
+    const db = await this.getDb();
+    const rows = await new Promise<Record<string, unknown>[]>(
+      (resolve, reject) => {
+        db.all(
+          `SELECT i.* FROM inbox_items i
+           JOIN session_inbox_map m ON i.id = m.inbox_item_id
+           WHERE m.session_id = ?
+           ORDER BY i.created_at DESC`,
+          [sessionId],
+          (err: Error | null, rows: Record<string, unknown>[]) => {
+            if (err) reject(err);
+            else resolve(rows);
+          }
+        );
+      }
+    );
+    return rows.map((r) => this._mapRow(r));
+  }
+
+  /**
+   * Orphan 补偿：根据 traceId 尝试回填 channelSessionId
+   * traceId 格式: ch_trc_{channelId}_{timestamp}_{random4}
+   */
+  async repairOrphan(inboxItemId: string): Promise<boolean> {
+    const item = await this.get(inboxItemId);
+    if (!item || !item.traceId) return false;
+
+    const parts = item.traceId.split('_');
+    if (parts.length < 3) return false;
+
+    const channelId = parts[2];
+    const db = await this.getDb();
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        db.run(
+          `UPDATE inbox_items SET channel_id = ? WHERE id = ?`,
+          [channelId, inboxItemId],
+          (err: Error | null) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+      logger.info('Orphan repaired', { inboxItemId, channelId, traceId: item.traceId });
+      return true;
+    } catch (err) {
+      logger.warn('Orphan repair failed', { inboxItemId, error: String(err) });
+      return false;
+    }
+  }
+
+  /**
+   * 清理 session_inbox_map 中的孤立记录（inbox 项不存在）
+   */
+  async cleanupOrphanMappings(): Promise<number> {
+    const db = await this.getDb();
+    return new Promise<number>((resolve, reject) => {
+      db.run(
+        `DELETE FROM session_inbox_map WHERE inbox_item_id NOT IN (SELECT id FROM inbox_items)`,
+        function (this: { changes: number }, err: Error | null) {
+          if (err) reject(err);
+          else resolve(this.changes);
+        }
+      );
+    });
   }
 }
 

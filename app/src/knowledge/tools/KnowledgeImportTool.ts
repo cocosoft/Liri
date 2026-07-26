@@ -31,7 +31,7 @@ import { ToolUseContext } from '../../tools/types/ToolUseContext';
 import { KnowledgeBaseWriter } from '../KnowledgeBaseWriter';
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, statSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { globalEventBus } from '@modules/core';
@@ -122,6 +122,27 @@ export class KnowledgeImportTool implements Tool {
       // 自动检测格式
       const detectedFormat =
         format || (source.endsWith('.json') ? 'json' : 'markdown');
+
+      // ── 审批检查：批量导入（目录模式）需要确认 ──
+      if (detectedFormat === 'markdown') {
+        const stats = statSync(source);
+        if (stats.isDirectory()) {
+          return {
+            status: ToolExecutionStatus.REQUIRES_APPROVAL,
+            requireApproval: true,
+            approvalReason: `将从目录「${source}」批量导入知识文档`,
+            executionTime: Date.now() - startTime,
+            output: `⚠ 将从目录「${source}」批量导入文档，需要审批确认。`,
+            errorOutput: '',
+            progress: [],
+            metadata: { source, format: detectedFormat },
+            executionId: `knowledge_import_${Date.now()}`,
+            toolName: this.name,
+            timestamp: Date.now(),
+            content: `知识批量导入等待审批：${source}`,
+          };
+        }
+      }
 
       if (detectedFormat === 'json') {
         return await this.importJson(source, startTime);

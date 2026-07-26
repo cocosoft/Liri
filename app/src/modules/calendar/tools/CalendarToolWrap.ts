@@ -405,20 +405,22 @@ export function createCalendarDeleteTool(): Tool {
         const { CalendarTool } =
           await import('../../../../packages/office/calendar/CalendarTool');
         const cal = new CalendarTool();
-        await cal.delete(id);
 
+        // ── 审批检查：删除日程前确认 ──
+        const executionTime = Date.now() - startTime;
         return {
-          status: ToolExecutionStatus.SUCCESS,
-          result: { id, deleted: true },
-          output: `日程 ${id} 已删除`,
+          status: ToolExecutionStatus.REQUIRES_APPROVAL,
+          requireApproval: true,
+          approvalReason: `将删除日程 ${id}`,
+          executionTime,
+          output: `⚠ 将删除日程 ${id}，需要审批确认。`,
           errorOutput: '',
           progress: [],
-          metadata: { id },
-          executionTime: Date.now() - startTime,
+          metadata: { id, action: 'delete_pending_approval' },
           executionId: `cal_delete_${Date.now()}`,
           toolName: 'calendar:delete',
           timestamp: Date.now(),
-          content: `日程已删除`,
+          content: `日程删除等待审批: ${id}`,
         };
       } catch (error) {
         logger.warn('日程删除失败', { error: String(error) });

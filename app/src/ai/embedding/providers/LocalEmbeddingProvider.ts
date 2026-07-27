@@ -35,6 +35,7 @@ import {
   EmbeddingResult,
 } from '../EmbeddingBase';
 import { configManager } from '@modules/config';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -181,6 +182,13 @@ export class LocalEmbeddingProvider extends EmbeddingBase {
         }
         embeddings.push(json.embedding);
         totalTokens += json.embedding.length;
+      } catch (err) {
+        await handleError(err, {
+          module: 'ai:embedding',
+          action: 'embedOllama_fetch',
+        });
+        // 单条失败不中断整体，注入零向量占位
+        embeddings.push(new Array(this.dimensions || 768).fill(0));
       } finally {
         clearTimeout((controller as any)._timer);
       }
@@ -247,6 +255,15 @@ export class LocalEmbeddingProvider extends EmbeddingBase {
 
         if (json.usage?.total_tokens) {
           totalTokens += json.usage.total_tokens;
+        }
+      } catch (err) {
+        await handleError(err, {
+          module: 'ai:embedding',
+          action: 'embedOpenAICompat_fetch',
+        });
+        // 批次失败不中断整体，为每个文本注入零向量占位
+        for (const _text of batch) {
+          embeddings.push(new Array(this.dimensions || 768).fill(0));
         }
       } finally {
         clearTimeout((controller as any)._timer);

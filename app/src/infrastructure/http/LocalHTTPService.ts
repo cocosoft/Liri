@@ -279,6 +279,8 @@ export class LocalHTTPService {
   private server: http.Server | null = null;
   private config: LocalHTTPConfig;
   private _isRunning = false;
+  /** 应用是否已完全就绪（launch 完成前前端请求返回 503） */
+  static _appReady = false;
   private readonly apiSecret: string;
   private compileScheduler: any = null;
   /** handler 上下文（提供 sendError, readRequestBody, broadcastEvent 等） */
@@ -458,6 +460,15 @@ export class LocalHTTPService {
     }
 
     const url = req.url?.split('?')[0] || '';
+
+    // 应用尚未完全就绪时，对业务请求返回 503
+    if (!LocalHTTPService._appReady && url !== '/v1/health/report') {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: 'Service starting, please retry' } })
+      );
+      return;
+    }
 
     logger.debug('收到请求', {
       method: req.method,

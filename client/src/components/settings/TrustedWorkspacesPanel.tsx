@@ -136,9 +136,7 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
   });
 
   return (
-    <ConfigSection
-      isDark={isDark}
-    >
+    <ConfigSection isDark={isDark}>
       {/* 权限模式 */}
       <ConfigItem label="默认权限模式" isDark={isDark}>
         <SelectConfig

@@ -288,6 +288,7 @@ export class SessionMemoryManager {
     writeFileSync(path, markdown, 'utf-8');
 
     // 异步触发向量化索引（不阻塞主流程）
+    // @ignore-catch — 异步向量化索引fire-and-forget，不阻塞主流程
     this.indexMemoryItems(memory.sessionId, newItems).catch(() => {});
 
     logger.info('记忆提炼完成', {

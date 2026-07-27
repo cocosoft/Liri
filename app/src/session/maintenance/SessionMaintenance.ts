@@ -60,6 +60,7 @@ export class SessionMaintenance {
     if (this.timer) return;
 
     this.timer = setInterval(() => {
+      // @ignore-catch — 定时清理回调fire-and-forget，失败由内部handleError处理
       this.cleanup().catch(() => {});
     }, this.config.cleanInterval);
   }

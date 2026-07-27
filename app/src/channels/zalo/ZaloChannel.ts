@@ -14,6 +14,7 @@ import type {
 import { BaseChannelPlugin } from '@modules/channels/base/BaseChannelPlugin';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'channels:zalo:ZaloChannel',
   level: LogLevel.INFO,
@@ -176,6 +177,11 @@ class ZaloChannelPlugin extends BaseChannelPlugin {
       await zaloChannel.sendMessage(target, content);
       return { success: true };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:zalo',
+        action: 'sendTextMessage',
+        context: { target },
+      });
       return { success: false, error: String(e) };
     }
   }

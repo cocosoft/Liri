@@ -37,6 +37,7 @@ export class ExploreAgentStrategy extends BaseAgentStrategy {
     const aiResponse = await aiService.generate(messages, context.model, {
       temperature: 0.5,
       max_tokens: context.maxTokens,
+      tools: this.buildToolDefinitions(context),
     });
 
     return {

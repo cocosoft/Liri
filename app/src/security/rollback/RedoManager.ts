@@ -245,6 +245,7 @@ export async function executeRedo(
   } catch (error) {
     logger.error('重做执行失败', { roundId, sessionId, error: String(error) });
     handleError(error, {
+      // @ignore-catch — handleError已处理，异步抛错无需再处理
       module: 'RedoManager',
       action: 'executeRedo',
       context: { roundId, sessionId, walId },

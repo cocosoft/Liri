@@ -147,9 +147,7 @@ function KnowledgeIngestPanel({ isDark }: KnowledgeIngestPanelProps) {
   );
 
   return (
-    <ConfigSection
-      isDark={isDark}
-    >
+    <ConfigSection isDark={isDark}>
       {/* 内置规则说明 */}
       <div
         className={`mb-4 p-3 rounded text-xs ${

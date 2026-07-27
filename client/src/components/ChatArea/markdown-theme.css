@@ -291,27 +291,44 @@
 
 /* ---- 流式脉冲光标动画（3 个圆点依次淡入淡出） ---- */
 .streaming-cursor {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  margin-left: 2px;
+  display: inline-block;
+  position: relative;
+  width: 26px;
+  height: 6px;
+  margin-left: 4px;
+  vertical-align: middle;
 }
 
-.streaming-cursor::before {
-  content: "●";
-  animation: pulse-dot 0.6s ease-in-out infinite alternate;
-  animation-delay: -0.4s;
-  font-size: 8px;
-  line-height: 1;
-}
-
+.streaming-cursor::before,
 .streaming-cursor::after {
-  content: "● ●";
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
   animation: pulse-dot 0.6s ease-in-out infinite alternate;
+}
+
+/* 中间的圆点（元素自身） */
+.streaming-cursor {
+  left: 10px;
+  background-color: currentColor;
+  animation: pulse-dot 0.6s ease-in-out infinite alternate;
+  animation-delay: 0s;
+}
+
+/* 左边的圆点 */
+.streaming-cursor::before {
+  left: 0;
+  animation-delay: -0.4s;
+}
+
+/* 右边的圆点 */
+.streaming-cursor::after {
+  left: 20px;
   animation-delay: -0.2s;
-  font-size: 8px;
-  line-height: 1;
-  letter-spacing: 2px;
 }
 
 @keyframes pulse-dot {

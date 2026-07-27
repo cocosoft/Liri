@@ -14,6 +14,7 @@ import type {
 import { BaseChannelPlugin } from '@modules/channels/base/BaseChannelPlugin';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'channels:yuanbao:YuanbaoChannel',
   level: LogLevel.INFO,
@@ -194,6 +195,11 @@ class YuanbaoChannelPlugin extends BaseChannelPlugin {
       await yuanbaoChannel.sendMessage(target, content);
       return { success: true };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:yuanbao',
+        action: 'sendTextMessage',
+        context: { target },
+      });
       return { success: false, error: String(e) };
     }
   }

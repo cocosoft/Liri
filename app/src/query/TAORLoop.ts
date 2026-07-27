@@ -246,6 +246,8 @@ export class TAORLoop {
   private startTime: number = 0;
   private stopped: boolean = false;
   private stopReason: StopHookReason = 'completed';
+  /** 上一轮工具执行是否有错误/空结果 — 用于防止静默完成 */
+  private _lastRoundHadToolErrors: boolean = false;
 
   // 检查点相关
   private checkpointStorage: CheckpointStorage;
@@ -305,6 +307,7 @@ export class TAORLoop {
       enableVerifier: config.enableVerifier !== false,
       verifierConfig: config.verifierConfig ?? {},
       verifyStrategy: config.verifyStrategy ?? 'AND',
+      verifierModel: config.verifierModel ?? null,
       enableAutoVerify: config.enableAutoVerify ?? false,
       autoVerifyMaxRetries: config.autoVerifyMaxRetries ?? 3,
       autoVerifyTimeoutMs: config.autoVerifyTimeoutMs ?? 15000,
@@ -609,6 +612,10 @@ export class TAORLoop {
       }
 
       let response: Record<string, unknown>;
+      const otel = getOTelTracing();
+      const callModelSpan = otel.startSpan('taor.callModel', {
+        turn: this.turnCount,
+      });
       try {
         const chunks: Array<Record<string, unknown>> = [];
         for await (const chunk of deps.callModel(
@@ -628,7 +635,13 @@ export class TAORLoop {
             .map((c) => c.toolCall) as Array<Record<string, unknown>>,
           ...lastChunk,
         };
+        callModelSpan.end();
       } catch (error) {
+        otel.recordError(
+          callModelSpan,
+          error instanceof Error ? error : new Error(String(error))
+        );
+        callModelSpan.end();
         await handleError(error, {
           module: 'query:taorLoop',
           action: 'callModel',
@@ -646,10 +659,31 @@ export class TAORLoop {
           this.stopped = true;
           break;
         }
+        if (recovery.action === 'compact_and_retry') {
+          logger.info('Context overflow detected, compacting before retry', {
+            sessionId: this.config.sessionId,
+            turnCount: this.turnCount,
+          });
+          if (this.config.sessionId) {
+            await this.queryEngine.compactIfNeeded(this.config.sessionId);
+          }
+          if (recovery.message) {
+            messages.push({ role: 'user', content: recovery.message });
+          }
+          continue;
+        }
         if (recovery.action === 'retry' && recovery.message) {
           messages.push({ role: 'user', content: recovery.message });
           continue;
         }
+        // 防御性兜底：未处理的 action
+        logger.error('Unhandled recovery action in TAORLoop', {
+          action: recovery.action,
+          sessionId: this.config.sessionId,
+          turnCount: this.turnCount,
+        });
+        this.stopReason = 'error';
+        this.stopped = true;
         break;
       }
 
@@ -738,15 +772,54 @@ export class TAORLoop {
         }
         if (this.stopped) break;
 
-        // 委托 deps 执行工具
-        const rawResults = await deps.executeTools(
-          toolCalls.map((tc) => ({
-            id: tc.id,
-            name: tc.name,
-            arguments: tc.arguments,
-          })),
-          this.abortController.signal
-        );
+        // 委托 deps 执行工具（带异常保护）
+        const otel = getOTelTracing();
+        const execSpan = otel.startSpan('taor.executeTools', {
+          turn: this.turnCount,
+          'tool.count': toolCalls.length,
+        });
+        let rawResults: Array<{
+          toolCallId?: string;
+          toolName?: string;
+          result?: unknown;
+          error?: string;
+        }>;
+        try {
+          rawResults = await deps.executeTools(
+            toolCalls.map((tc) => ({
+              id: tc.id,
+              name: tc.name,
+              arguments: tc.arguments,
+            })),
+            this.abortController.signal
+          );
+          execSpan.end();
+        } catch (execErr) {
+          otel.recordError(
+            execSpan,
+            execErr instanceof Error ? execErr : new Error(String(execErr))
+          );
+          await handleError(execErr, {
+            module: 'query:taorLoop',
+            action: 'executeTools_batch',
+            context: {
+              sessionId: this.config.sessionId,
+              turnCount: this.turnCount,
+              toolCount: toolCalls.length,
+            },
+          });
+          // 构造错误结果，不丢失工具调用信息
+          rawResults = toolCalls.map((tc) => ({
+            toolCallId: tc.id,
+            toolName: tc.name,
+            error: `工具执行异常: ${execErr instanceof Error ? execErr.message.slice(0, 300) : String(execErr).slice(0, 300)}`,
+          }));
+          // 注入系统提示，让 LLM 知道发生了什么
+          messages.push({
+            role: 'user',
+            content: `[SYSTEM] 上一轮 ${toolCalls.length} 个工具调用在执行阶段发生异常，请告知用户遇到了什么问题，并根据当前已完成的部分给出总结或建议下一步操作。`,
+          } as ChatMessage);
+        }
 
         // Loop 检测（工具执行后记录结果）
         for (let i = 0; i < toolCalls.length; i++) {
@@ -763,15 +836,34 @@ export class TAORLoop {
         }
 
         // 追加 tool 结果消息
+        let roundHadErrors = false;
         for (let i = 0; i < toolCalls.length; i++) {
           const tc = toolCalls[i];
           const r = rawResults[i];
+          const hasError = !r || r.error;
+          const isEmpty =
+            r && !r.error && (r.result === null || r.result === undefined);
+          if (hasError || isEmpty) {
+            roundHadErrors = true;
+          }
           messages.push({
             role: 'tool',
-            content: r ? JSON.stringify(r.result ?? r.error ?? '{}') : '{}',
+            content: r
+              ? JSON.stringify(
+                  r.result ??
+                    r.error ?? {
+                      _toolError: 'empty_result',
+                      hint: '工具未返回有效结果，请告知用户遇到了什么问题',
+                    }
+                )
+              : JSON.stringify({
+                  _toolError: 'no_result',
+                  hint: '工具调用失败，未获取到任何结果，请告知用户',
+                }),
             tool_call_id: tc.id,
           } as ChatMessage);
         }
+        this._lastRoundHadToolErrors = roundHadErrors;
 
         // 全局断路器记录（Phase 2）：同调用+同结果追踪
         for (let i = 0; i < toolCalls.length; i++) {
@@ -927,7 +1019,22 @@ export class TAORLoop {
           });
         }
       } else {
-        // 无 tool_use → 正常结束
+        // 无 tool_use → 检查上一轮是否有工具错误被静默吞掉
+        if (this._lastRoundHadToolErrors && this.turnCount > 1) {
+          logger.warn('TAOR: 工具错误后 LLM 尝试静默结束，注入提醒', {
+            sessionId: this.config.sessionId,
+            turnCount: this.turnCount,
+          });
+          messages.push({
+            role: 'user',
+            content:
+              '[系统提示] 上一轮工具调用返回了错误或空结果。如果你因工具失败无法继续任务，请明确告知用户遇到了什么问题、需要用户提供什么信息，不要直接结束对话。',
+          });
+          this._lastRoundHadToolErrors = false;
+          continue; // 再给 LLM 一次机会处理错误
+        }
+
+        // 正常结束
         this.stopped = true;
         this.stopReason = 'completed';
       }
@@ -1156,12 +1263,8 @@ export class TAORLoop {
       loopDetectorState: this.loopDetector.getState(),
       errorRecoveryState: this.errorRecovery.serialize(),
       // Phase 3: 检查点扩展字段
-      pendingToolCalls: this.pendingToolCalls?.map((tc) => ({
-        toolCallId: tc.id || tc.toolCallId || '',
-        toolName: tc.name || tc.function?.name || '',
-        args: tc.arguments || tc.function?.arguments,
-      })),
-      messageCount: this.messages.length,
+      pendingToolCalls: undefined,
+      messageCount: this.turnCount,
     };
 
     // Phase 3: 检查点关联的 Inbox 状态

@@ -15,7 +15,10 @@ import {
 } from '../models/types';
 import type { AIService } from '../models/types';
 import { providerRegistry } from '../providers/ProviderRegistry';
-import type { AIProvider } from '../providers/AIProvider';
+import type {
+  AIProvider,
+  ThinkingProviderChunk,
+} from '../providers/AIProvider';
 import { AppError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -142,7 +145,18 @@ export class AIServiceImpl implements AIService {
     while (!result.done) {
       const rawValue = result.value;
 
+      // 处理 ThinkingProviderChunk（推理/思考内容），不再丢弃
       if (typeof rawValue !== 'string') {
+        const thinkingChunk = rawValue as ThinkingProviderChunk;
+        if (thinkingChunk.type === 'thinking' && thinkingChunk.content) {
+          yield {
+            id: 'ai_' + Date.now(),
+            model,
+            content: thinkingChunk.content,
+            timestamp: Date.now(),
+            finish_reason: 'thinking',
+          };
+        }
         result = await gen.next();
         continue;
       }

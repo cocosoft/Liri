@@ -33,8 +33,7 @@ function AppearancePanel({
 }: AppearancePanelProps) {
   const { t, i18n } = useTranslation();
 
-  const language =
-    (config.language as string) || navigator.language || "zh-CN";
+  const language = (config.language as string) || navigator.language || "zh-CN";
   const timezone =
     (config.timezone as string) ||
     Intl.DateTimeFormat().resolvedOptions().timeZone ||
@@ -83,11 +82,7 @@ function AppearancePanel({
         description={`${t("settings.current")}: ${currentThemeLabel}`}
         isDark={isDark}
       >
-        <ToggleConfig
-          isDark={isDark}
-          checked={isDark}
-          onChange={toggleTheme}
-        />
+        <ToggleConfig isDark={isDark} checked={isDark} onChange={toggleTheme} />
       </ConfigItem>
       <ConfigItem label={t("settings.language")} isDark={isDark}>
         <select

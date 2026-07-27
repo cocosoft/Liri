@@ -8,6 +8,9 @@ import { ChannelRegistry, channelRegistry } from './registry/ChannelRegistry';
 import type { ChannelId } from './types/IChannel';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'channels:DeliveryRouter',
   level: LogLevel.INFO,
@@ -122,9 +125,17 @@ export class DeliveryRouter {
     target: DeliveryTarget,
     content: string
   ): Promise<DeliveryResult> {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('delivery.send', {
+      'delivery.platform': String(target.platform),
+      'delivery.chat_id': target.chatId,
+      'delivery.content_length': content.length,
+    });
+
     const channel = this.registry.get(target.platform);
 
     if (!channel) {
+      otel.endSpan(span, SpanStatusCode.ERROR, 'channel_not_registered');
       return {
         success: false,
         target,
@@ -133,6 +144,7 @@ export class DeliveryRouter {
     }
 
     if (!channel.enabled) {
+      otel.endSpan(span, SpanStatusCode.ERROR, 'channel_disabled');
       return {
         success: false,
         target,
@@ -145,6 +157,8 @@ export class DeliveryRouter {
     try {
       const success = await channel.sendMessage(target.chatId, content);
 
+      span.setAttribute('delivery.success', success);
+      otel.endSpan(span, SpanStatusCode.OK);
       return {
         success,
         target,
@@ -152,6 +166,16 @@ export class DeliveryRouter {
         error: success ? undefined : '发送失败',
       };
     } catch (err) {
+      await handleError(err, {
+        module: 'channels:delivery',
+        action: 'deliverToTarget',
+        context: { target: target.chatId, platform: target.platform },
+      });
+      otel.recordError(
+        span,
+        err instanceof Error ? err : new Error(String(err))
+      );
+      otel.endSpan(span, SpanStatusCode.ERROR, String(err));
       return {
         success: false,
         target,

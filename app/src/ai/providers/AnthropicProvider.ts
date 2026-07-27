@@ -2,7 +2,12 @@
  * Anthropic (Claude) 提供商
  * 使用 Messages API + fetch，取代 @anthropic-ai/sdk
  */
-import type { ChatMessage, ChatResponse, LLMConfig } from '../models/types';
+import type {
+  ChatMessage,
+  ChatResponse,
+  LLMConfig,
+  ParsedToolCall,
+} from '../models/types';
 import type {
   ProviderConfig,
   ProviderValidationResult,
@@ -132,97 +137,217 @@ export class AnthropicProvider extends BaseAIProvider {
       stream: true,
     });
 
-    // 使用带连接重试的 fetch，应对 Provider API 网关偶发断连
-    const response = await BaseAIProvider.fetchWithConnectionRetry(
-      `${baseUrl}/v1/messages`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify(requestBody),
-      }
-    );
-
-    if (!response.ok) {
-      throw new AppError(
-        `Anthropic API error: ${response.status} ${response.statusText}`,
-        ErrorCategory.API,
-        ErrorSeverity.HIGH,
-        'API_ERROR',
-        { status: response.status, statusText: response.statusText }
+    try {
+      // 使用带连接重试的 fetch，应对 Provider API 网关偶发断连
+      const response = await BaseAIProvider.fetchWithConnectionRetry(
+        `${baseUrl}/v1/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify(requestBody),
+          signal: AbortSignal.timeout(180000),
+        }
       );
-    }
 
-    const reader = response.body?.getReader();
-    if (!reader) {
+      if (!response.ok) {
+        throw new AppError(
+          `Anthropic API error: ${response.status} ${response.statusText}`,
+          ErrorCategory.API,
+          ErrorSeverity.HIGH,
+          'API_ERROR',
+          { status: response.status, statusText: response.statusText }
+        );
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new AppError(
+          'Anthropic stream: no response body',
+          ErrorCategory.API,
+          ErrorSeverity.HIGH,
+          'API_ERROR'
+        );
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let currentEvent = '';
+      let fullContent = '';
+      // 流式 tool_use 累积（按 index 合并分片）
+      const pendingToolCalls = new Map<
+        number,
+        { id: string; name: string; arguments: string }
+      >();
+      let stopReason: 'stop' | 'tool_calls' | 'max_tokens' = 'stop';
+      let toolCalls: ParsedToolCall[] = [];
+      let lastUsage: ChatResponse['usage'] | undefined;
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              currentEvent = line.slice(7).trim();
+            } else if (line.startsWith('data: ')) {
+              const data = line.slice(6).trim();
+              if (!data) continue;
+
+              try {
+                const parsed = JSON.parse(data) as Record<string, unknown>;
+                const type = parsed.type as string;
+
+                switch (type) {
+                  case 'content_block_start': {
+                    const contentBlock = (parsed.content_block || {}) as Record<
+                      string,
+                      unknown
+                    >;
+                    if (contentBlock.type === 'tool_use') {
+                      const idx = (parsed.index as number) || 0;
+                      pendingToolCalls.set(idx, {
+                        id: (contentBlock.id as string) || '',
+                        name: (contentBlock.name as string) || '',
+                        arguments: '',
+                      });
+                    }
+                    break;
+                  }
+
+                  case 'content_block_delta': {
+                    const delta = (parsed.delta || {}) as Record<
+                      string,
+                      unknown
+                    >;
+                    const deltaType = delta.type as string | undefined;
+
+                    if (deltaType === 'text_delta' && delta.text) {
+                      fullContent += delta.text as string;
+                      yield delta.text as string;
+                    } else if (
+                      deltaType === 'thinking_delta' &&
+                      delta.thinking
+                    ) {
+                      yield {
+                        type: 'thinking',
+                        content: delta.thinking as string,
+                      };
+                    } else if (
+                      deltaType === 'input_json_delta' &&
+                      delta.partial_json
+                    ) {
+                      // Anthropic tool_use 参数累积
+                      const idx = (parsed.index as number) || 0;
+                      const pending = pendingToolCalls.get(idx);
+                      if (pending) {
+                        pending.arguments += delta.partial_json as string;
+                      }
+                    }
+                    break;
+                  }
+
+                  case 'message_delta': {
+                    const delta = (parsed.delta || {}) as Record<
+                      string,
+                      unknown
+                    >;
+                    const msgStopReason = delta.stop_reason as
+                      | string
+                      | undefined;
+
+                    // tool_use 停止 → 组装 tool_calls
+                    if (
+                      msgStopReason === 'tool_use' &&
+                      pendingToolCalls.size > 0
+                    ) {
+                      stopReason = 'tool_calls';
+                      toolCalls = Array.from(pendingToolCalls.entries())
+                        .sort(([a], [b]) => a - b)
+                        .map(([_, tc]) => {
+                          try {
+                            return {
+                              id: tc.id,
+                              name: tc.name,
+                              arguments: JSON.parse(tc.arguments) as Record<
+                                string,
+                                unknown
+                              >,
+                            };
+                          } catch {
+                            return {
+                              id: tc.id,
+                              name: tc.name,
+                              arguments: { _raw: tc.arguments },
+                            };
+                          }
+                        });
+                    } else if (msgStopReason === 'max_tokens') {
+                      stopReason = 'max_tokens';
+                    }
+
+                    // 用量
+                    const usage = parsed.usage as
+                      | Record<string, number>
+                      | undefined;
+                    if (usage) {
+                      lastUsage = {
+                        prompt_tokens: usage.input_tokens || 0,
+                        completion_tokens: usage.output_tokens || 0,
+                        total_tokens:
+                          (usage.input_tokens || 0) +
+                          (usage.output_tokens || 0),
+                        cache_read_input_tokens:
+                          usage.cache_read_input_tokens || 0,
+                        cache_creation_input_tokens:
+                          usage.cache_creation_input_tokens || 0,
+                      };
+                    }
+                    break;
+                  }
+
+                  case 'message_stop':
+                    // 流结束标记，无需额外处理
+                    break;
+                }
+              } catch (err) {
+                // JSON 解析失败，跳过该行
+              }
+            }
+          }
+        }
+
+        return {
+          content: fullContent,
+          stop_reason: stopReason,
+          tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
+          usage: lastUsage || {
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            total_tokens: 0,
+            cache_read_input_tokens: 0,
+            cache_creation_input_tokens: 0,
+          },
+        };
+      } finally {
+        reader.releaseLock();
+      }
+    } catch (error) {
+      if (error instanceof AppError) throw error;
       throw new AppError(
-        'Anthropic stream: no response body',
+        `Anthropic stream failed: ${(error as Error).message}`,
         ErrorCategory.API,
         ErrorSeverity.HIGH,
         'API_ERROR'
       );
-    }
-
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let currentEvent = '';
-    let fullContent = '';
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (line.startsWith('event: ')) {
-            currentEvent = line.slice(7).trim();
-          } else if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim();
-            if (!data) continue;
-
-            try {
-              const parsed = JSON.parse(data) as Record<string, unknown>;
-              const type = parsed.type as string;
-
-              // content_block_delta → text 或 thinking
-              if (type === 'content_block_delta') {
-                const delta = (parsed.delta || {}) as Record<string, unknown>;
-                const deltaType = delta.type as string | undefined;
-
-                if (deltaType === 'text_delta' && delta.text) {
-                  fullContent += delta.text as string;
-                  yield delta.text as string;
-                } else if (deltaType === 'thinking_delta' && delta.thinking) {
-                  yield { type: 'thinking', content: delta.thinking as string };
-                }
-              }
-            } catch (err) {
-              // JSON 解析失败，跳过该行
-            }
-          }
-        }
-      }
-
-      return {
-        content: fullContent,
-        stop_reason: 'stop',
-        usage: {
-          prompt_tokens: 0,
-          cache_read_input_tokens: 0,
-          cache_creation_input_tokens: 0,
-          completion_tokens: 0,
-          total_tokens: 0,
-        },
-      };
-    } finally {
-      reader.releaseLock();
     }
   }
 

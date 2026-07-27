@@ -52,6 +52,7 @@ export class AtomicWriter {
       await fs.writeFile(tmpPath, data, 'utf-8');
       await fs.rename(tmpPath, targetPath);
     } catch (err) {
+      // @ignore-catch — 原子写入失败时清理临时文件，best-effort非关键
       await fs.unlink(tmpPath).catch(() => {});
       throw new AtomicWriteError('Atomic write failed', {
         path: targetPath,
@@ -88,6 +89,7 @@ export class AtomicWriter {
       await fs.writeFile(tmpPath, existing + data, 'utf-8');
       await fs.rename(tmpPath, targetPath);
     } catch (err) {
+      // @ignore-catch — 原子追加失败时清理临时文件，best-effort非关键
       await fs.unlink(tmpPath).catch(() => {});
       throw new AtomicWriteError('Atomic append failed', {
         path: targetPath,

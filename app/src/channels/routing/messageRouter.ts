@@ -32,6 +32,8 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { getOTelTracing } from '../../monitoring/otel/OTelTracing.js';
+import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '../../error/handleError';
 import {
   claimMessage,
@@ -166,6 +168,12 @@ export async function routeChannelMessage(
     enableTracing = false,
   } = options;
 
+  const otel = getOTelTracing();
+  const routeSpan = otel.startSpan('channel.routeMessage', {
+    'channel.name': channelName,
+    'message.id': message.messageId,
+  });
+
   logger.info('[TRACE] routeChannelMessage 入口', {
     channelName,
     messageId: message.messageId,
@@ -187,7 +195,10 @@ export async function routeChannelMessage(
       const result = tracer.traceInbound(message, message.content?.length || 0);
       traceSpanContext = result.spanContext;
     } catch (err) {
-      // 追踪不可用时静默降级
+      // @ignore-catch — 追踪不可用，静默降级（非关键路径）
+      logger.debug('GatewaySessionTracer inbound trace skipped', {
+        error: String(err),
+      });
     }
   }
 
@@ -402,18 +413,27 @@ export async function routeChannelMessage(
           response.content?.length || 0
         );
       } catch (err) {
-        // 追踪不可用时静默降级
+        // @ignore-catch — 追踪不可用，静默降级（非关键路径）
+        logger.debug('GatewaySessionTracer outbound trace skipped', {
+          error: String(err),
+        });
       }
     }
 
     // 标记消息处理完成
     finalizeMessage(message.messageId, true);
 
+    routeSpan.end();
     return { valid: true, response: response.content };
   } catch (error) {
     // 释放消息锁
     releaseProcessing(message.messageId);
 
+    otel.recordError(
+      routeSpan,
+      error instanceof Error ? error : new Error(String(error))
+    );
+    routeSpan.end();
     await handleError(error, {
       module: 'channels:routing',
       action: 'routeChannelMessage',

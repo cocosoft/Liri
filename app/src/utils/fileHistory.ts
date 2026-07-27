@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 文件历史追踪
  *
  * 追踪文件变更历史，创建快照和备份。
@@ -231,6 +231,7 @@ export async function fileHistoryMakeSnapshot(
         for (const backup of Object.values(removed.trackedFileBackups)) {
           if (backup.backupFileName) {
             const backupPath = join(BACKUP_DIR, backup.backupFileName);
+            // @ignore-catch — 清理被移除快照的备份文件，best-effort非关键
             unlink(backupPath).catch(() => {});
           }
         }

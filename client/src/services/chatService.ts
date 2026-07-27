@@ -606,12 +606,21 @@ export const chatService = {
   },
 
   /** Phase 3: Steering API — 在任务执行中注入指导消息 */
-  steerSession: async (sessionId: string, message: string): Promise<{ queued: boolean }> => {
-    return getOTelTracing().asyncWrap("services:chat:steerSession", async () => {
-      return fetchJSON<{ queued: boolean }>(`${getBackendBaseUrl()}/v1/sessions/${sessionId}/steer`, {
-        method: "POST",
-        body: JSON.stringify({ message }),
-      });
-    });
+  steerSession: async (
+    sessionId: string,
+    message: string,
+  ): Promise<{ queued: boolean }> => {
+    return getOTelTracing().asyncWrap(
+      "services:chat:steerSession",
+      async () => {
+        return fetchJSON<{ queued: boolean }>(
+          `${getBackendBaseUrl()}/v1/sessions/${sessionId}/steer`,
+          {
+            method: "POST",
+            body: JSON.stringify({ message }),
+          },
+        );
+      },
+    );
   },
 };

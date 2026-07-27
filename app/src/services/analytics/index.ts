@@ -57,6 +57,7 @@ export function attachAnalyticsSink(newSink: AnalyticsSink): void {
           if (event.async) {
             sink!
               .logEventAsync(event.eventName, event.metadata)
+              // @ignore-catch — 异步分析事件记录fire-and-forget，非关键路径
               .catch(() => {});
           } else {
             sink!.logEvent(event.eventName, event.metadata);

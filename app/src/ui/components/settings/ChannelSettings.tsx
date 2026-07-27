@@ -54,31 +54,35 @@ export const ChannelSettings: React.FC = () => {
   };
 
   return (
-    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 px-1 pb-2">渠道</h2>
-    <div className="space-y-0 divide-y divide-gray-100 dark:divide-gray-700">
-      {/* 网关总开关 */}
-      <SettingRow label="网关服务" hint="总开关，关闭后所有外部渠道均不可用">
-        <Toggle
-          value={gateway.enabled === true}
-          onChange={handleGatewayChange}
-        />
-      </SettingRow>
+    <>
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 px-1 pb-2">
+        渠道
+      </h2>
+      <div className="space-y-0 divide-y divide-gray-100 dark:divide-gray-700">
+        {/* 网关总开关 */}
+        <SettingRow label="网关服务" hint="总开关，关闭后所有外部渠道均不可用">
+          <Toggle
+            value={gateway.enabled === true}
+            onChange={handleGatewayChange}
+          />
+        </SettingRow>
 
-      {/* 各渠道开关 */}
-      {CHANNEL_ITEMS.map((ch) => {
-        const channel =
-          (channels as unknown as Record<string, { enabled?: boolean }>)[
-            ch.key
-          ] || {};
-        return (
-          <SettingRow key={ch.key} label={ch.label} hint={ch.desc}>
-            <Toggle
-              value={channel.enabled === true}
-              onChange={(v) => handleChannelChange(ch.key, v)}
-            />
-          </SettingRow>
-        );
-      })}
-    </div>
+        {/* 各渠道开关 */}
+        {CHANNEL_ITEMS.map((ch) => {
+          const channel =
+            (channels as unknown as Record<string, { enabled?: boolean }>)[
+              ch.key
+            ] || {};
+          return (
+            <SettingRow key={ch.key} label={ch.label} hint={ch.desc}>
+              <Toggle
+                value={channel.enabled === true}
+                onChange={(v) => handleChannelChange(ch.key, v)}
+              />
+            </SettingRow>
+          );
+        })}
+      </div>
+    </>
   );
 };

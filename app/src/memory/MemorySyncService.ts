@@ -178,8 +178,10 @@ export class MemorySyncService {
     this.syncTimer = setInterval(() => {
       this.syncAll()
         .then(() => {
+          // @ignore-catch — 同步完成后的预取是fire-and-forget优化，非关键路径
           this.prefetchAll().catch(() => {});
         })
+        // @ignore-catch — 后台定时同步失败不阻塞主流程
         .catch(() => {});
     }, this.config.prefetchIntervalMs);
   }

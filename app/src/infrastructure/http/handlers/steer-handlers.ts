@@ -93,8 +93,10 @@ export async function handleSteerSession(
 
     // 注入 steering 消息到 TAORLoop
     try {
-      const { chatManager } = await import('../../chat/ChatManager.js');
-      // Access private TAORLoop via duck-typing
+      const { createChatManager } = await import('@modules/chat/ChatManager');
+      // Note: 无法获取运行中的 ChatManager 单例，steering 注入当前不可用
+      // TODO: 通过 DI 容器获取 ChatManager 实例
+      const chatManager = createChatManager();
       const cm = chatManager as unknown as Record<string, unknown>;
       const taorLoop = cm['_taorLoop'] as
         | { injectSteering(msg: string): void }

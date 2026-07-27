@@ -202,6 +202,7 @@ class ConversationStore {
 
   set(conversationId: string, ref: Record<string, unknown>): void {
     this.refs.set(conversationId, ref);
+    // @ignore-catch — 异步持久化refs到DB，fire-and-forget非关键路径
     this.persist().catch(() => {});
   }
 

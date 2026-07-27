@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   IChannelPlugin,
   ChannelId,
   ChannelMeta,
@@ -23,6 +23,8 @@ import type {
   RegisterFileResult,
 } from '@modules/services/file/types';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
+import { SpanStatusCode } from '@opentelemetry/api';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import { MultiAccountManager } from '@modules/channels/accounts';
@@ -64,6 +66,67 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
 
   /** 默认消息发送目标（群 ID / 用户 ID），子类可在 onConnect 中设置 */
   homeChannelId = '';
+
+  // ─── Tracing ────────────────────────────────────────────
+  /** 是否启用 OTel tracing（子类可在构造函数中设为 true） */
+  protected _tracingEnabled = false;
+
+  /**
+   * 开启一个 tracing span
+   * tracing 失败不影响主流程
+   */
+  protected _startTracing(
+    name: string,
+    attributes?: Record<string, unknown>
+  ): unknown | null {
+    if (!this._tracingEnabled) return null;
+    try {
+      const otel = getOTelTracing();
+      const attrs: Record<string, string | number | boolean> = {
+        'channel.id': String(this.id),
+      };
+      if (attributes) {
+        for (const [k, v] of Object.entries(attributes)) {
+          if (
+            typeof v === 'string' ||
+            typeof v === 'number' ||
+            typeof v === 'boolean'
+          ) {
+            attrs[k] = v;
+          }
+        }
+      }
+      const span = otel.startSpan(name, attrs);
+      return span;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 结束 tracing span
+   */
+  protected _endTracing(span: unknown, error?: Error): void {
+    if (!span) return;
+    try {
+      const otel = getOTelTracing();
+      if (error) {
+        otel.recordError(span as Parameters<typeof otel.recordError>[0], error);
+        otel.endSpan(
+          span as Parameters<typeof otel.endSpan>[0],
+          SpanStatusCode.ERROR,
+          error.message
+        );
+      } else {
+        otel.endSpan(
+          span as Parameters<typeof otel.endSpan>[0],
+          SpanStatusCode.OK
+        );
+      }
+    } catch {
+      // tracing 失败不影响主流程
+    }
+  }
 
   // ─── 模型提示（渠道场景透传） ───────────────────────────
   private _modelHint = '';

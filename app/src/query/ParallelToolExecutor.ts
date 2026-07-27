@@ -8,6 +8,7 @@
 import { ToolCallPartitioner } from '../tools/orchestration/Partitioner.js';
 import type { ToolUseBlock } from '../chat/types/ToolUseBlock.js';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
   module: 'query:parallelToolExecutor',
@@ -264,6 +265,10 @@ export class ParallelToolExecutor {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
+      await handleError(error, {
+        module: 'query:parallelToolExecutor',
+        action: 'executeOne',
+      });
 
       logger.warning('Tool execution failed', {
         toolName: toolCall.name,

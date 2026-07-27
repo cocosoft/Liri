@@ -117,6 +117,7 @@ export class CronTaskTimer {
       }
 
       handle.nextRun = Date.now() + handle.interval;
+      // @ignore-catch — 定时任务回调fire-and-forget，失败由任务自身处理
       this.callback(taskId).catch(() => {});
     }, 60000);
 

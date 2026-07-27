@@ -129,6 +129,7 @@ export class SkillUsageTracker {
 
     // 异步持久化到 DB
     if (this.skillDB) {
+      // @ignore-catch — 异步持久化到DB，fire-and-forget非关键路径
       this.skillDB.insertUsage(full).catch(() => {});
     }
 

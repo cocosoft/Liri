@@ -225,6 +225,7 @@ export class McpReconnectManager {
         const drift = classifyToolListDrift(beforeTools, listed.tools);
 
         if (!isDriftAcceptable(drift.kind, this.config.acceptDrift)) {
+          // @ignore-catch — 关闭失败连接best-effort，连接已不可用
           await client.close().catch(() => {});
           return {
             ok: false,
@@ -309,6 +310,7 @@ export class McpReconnectManager {
       const drift = classifyToolListDrift(beforeTools, listed.tools);
 
       if (!isDriftAcceptable(drift.kind, this.config.acceptDrift)) {
+        // @ignore-catch — 关闭失败连接best-effort，连接已不可用
         await client.close().catch(() => {});
         return {
           ok: false,
@@ -319,6 +321,7 @@ export class McpReconnectManager {
         };
       }
 
+      // @ignore-catch — 重连成功后关闭旧连接best-effort，失败不影响已获取的新连接
       await client.close().catch(() => {});
       return {
         ok: true,

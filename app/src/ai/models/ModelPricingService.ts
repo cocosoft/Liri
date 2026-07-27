@@ -325,6 +325,7 @@ export class ModelPricingService {
       await this.runAsync('COMMIT');
       logger.info(`已完成 ${rows.length} 条模型记录 UUID 回填`);
     } catch (err) {
+      // @ignore-catch — ROLLBACK失败不影响已抛出的原始异常
       await this.runAsync('ROLLBACK').catch(() => {});
       throw err;
     }

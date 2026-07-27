@@ -165,7 +165,12 @@ export const usageService = {
   }> {
     return getOTelTracing().asyncWrap("services:usage:logs", async () => {
       const resp = await http.get<{
-        data: { data: unknown[]; total: number; page: number; pageSize: number };
+        data: {
+          data: unknown[];
+          total: number;
+          page: number;
+          pageSize: number;
+        };
       }>("/v1/usage/logs", { params: params as Record<string, unknown> });
       return resp.data;
     });

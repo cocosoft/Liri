@@ -13,6 +13,7 @@ import type {
 } from '@modules/channels/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'channels:nostr:NostrChannel',
   level: LogLevel.INFO,
@@ -198,6 +199,11 @@ class NostrChannelPlugin extends BaseChannelPlugin {
       await nostrChannel.sendDirectMessage(target, content);
       return { success: true };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:nostr',
+        action: 'sendTextMessage',
+        context: { target },
+      });
       return { success: false, error: String(e) };
     }
   }

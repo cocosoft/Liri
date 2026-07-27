@@ -23,6 +23,7 @@ import {
   generateGroupId,
   findLastToolCallId,
   rebuildBlocksFromContent,
+  stripStructuralTags,
 } from "./chat-toolcall.slice";
 import { addFilePathsFromBlocks } from "./chat-file.slice";
 import {
@@ -77,6 +78,11 @@ function truncateResult(raw: string): string {
 /** 获取工具调用的全量结果（用于渲染层按需展开） */
 export function getToolResultFull(toolCallId: string): string | undefined {
   return _toolResultFullCache.get(toolCallId);
+}
+
+/** 清理全量工具结果缓存（setMessages 加载新会话前调用，防止内存泄漏） */
+export function clearToolResultCache(): void {
+  _toolResultFullCache.clear();
 }
 
 /** Message Slice 状态和操作 */
@@ -544,7 +550,7 @@ export const createMessageSlice: StateCreator<
           blockBuilder.addText(chunk.content, true);
           updatedMsg = {
             ...msg,
-            content: msg.content + chunk.content,
+            content: msg.content + stripStructuralTags(chunk.content),
             blocks: blockBuilder.getBlocks(),
           };
         } else if (chunk.type === "status") {
@@ -606,7 +612,7 @@ export const createMessageSlice: StateCreator<
           blockBuilder.addStatus(`❌ ${chunk.content}`);
           updatedMsg = {
             ...msg,
-            content: msg.content + chunk.content,
+            content: msg.content + stripStructuralTags(chunk.content),
             blocks: blockBuilder.getBlocks(),
           };
           set({ error: chunk.content });
@@ -1034,7 +1040,22 @@ export const createMessageSlice: StateCreator<
     });
 
     try {
-      await get().streamMessage(content, sessionId || userMsg.session_id);
+      // 修复 BUG F3: 检测工作模式，传递给 streamMessage
+      let workMode: "plan" | "do" | undefined;
+      try {
+        const { useWorkStore } = await import("../workStore");
+        const workState = useWorkStore.getState();
+        if (workState.activeWorkItem) {
+          workMode = workState.mode;
+        }
+      } catch (_) {
+        // @ignore-catch — workStore 未加载，不阻塞重试
+      }
+      await get().streamMessage(
+        content,
+        sessionId || userMsg.session_id,
+        workMode,
+      );
     } catch (error) {
       handleClientError(
         error,
@@ -1222,6 +1243,8 @@ export const createMessageSlice: StateCreator<
    *   5. 兜底：当无法定位边界时，按等分方式拆分
    */
   setMessages: (messages: Message[]) => {
+    // BUG F2 修复: 每次加载新消息时清理旧缓存，防止内存无限增长
+    _toolResultFullCache.clear();
     const t0 = performance.now();
     const inputBlocks = messages.reduce(
       (c, m) => c + (Array.isArray(m.blocks) ? m.blocks.length : 0),

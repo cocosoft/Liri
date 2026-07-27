@@ -20,7 +20,12 @@ const logger = new Logger({ module: 'runtime:inbox' });
 // ─── 类型定义 ──────────────────────────────────────────
 
 export type InboxItemType = 'approval' | 'question' | 'authorization';
-export type InboxItemStatus = 'pending' | 'replied' | 'expired' | 'dismissed';
+export type InboxItemStatus =
+  | 'pending'
+  | 'processing'
+  | 'replied'
+  | 'expired'
+  | 'dismissed';
 
 export interface InboxItem {
   id: string;

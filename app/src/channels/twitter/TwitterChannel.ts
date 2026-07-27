@@ -8,6 +8,7 @@ import type {
 } from '@modules/channels/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'channels:twitter:TwitterChannel',
   level: LogLevel.INFO,
@@ -115,6 +116,11 @@ export class TwitterChannel extends BaseChannelPlugin {
       }
       return { success: true };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:twitter',
+        action: 'sendTextMessage',
+        context: { target },
+      });
       return { success: false, error: String(e) };
     }
   }
@@ -152,6 +158,7 @@ export class TwitterChannel extends BaseChannelPlugin {
       }
       return true;
     } catch (e) {
+      await handleError(e, { module: 'channels:twitter', action: 'sendTweet' });
       this.logger.warn(`Twitter sendTweet 失败: ${e}`);
       return false;
     }
@@ -176,6 +183,11 @@ export class TwitterChannel extends BaseChannelPlugin {
       }
       return true;
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:twitter',
+        action: 'replyToTweet',
+        context: { tweetId },
+      });
       this.logger.warn(`Twitter reply 失败: ${e}`);
       return false;
     }

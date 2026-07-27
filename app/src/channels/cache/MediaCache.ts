@@ -355,6 +355,7 @@ export class MediaCache {
     try {
       const files = await readdir(this.config.cacheDir);
       await Promise.all(
+        // @ignore-catch — 缓存清理best-effort，单个文件删除失败不阻塞其他
         files.map((f) => unlink(join(this.config.cacheDir, f)).catch(() => {}))
       );
     } catch (err) {

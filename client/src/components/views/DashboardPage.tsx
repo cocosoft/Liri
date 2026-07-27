@@ -24,9 +24,12 @@ import { sseService } from "../../services/sseService";
 const ENABLE_TRACE_REDESIGN = true;
 import { useConfigStore } from "../../stores/configStore";
 import MetricsChart from "../common/MetricsChart";
-import { formatCost, formatTokens, getCurrencyFromTimezone } from "../../utils/format";
+import {
+  formatCost,
+  formatTokens,
+  getCurrencyFromTimezone,
+} from "../../utils/format";
 import { DashboardStatCard } from "../common/DashboardStatCard";
-
 
 const BuddyCard = memo(function BuddyCard({
   buddy,
@@ -336,7 +339,9 @@ function DashboardPage() {
                     label="本月 Token"
                     value={formatTokens(costSummary.monthlyTokens)}
                     icon="🪙"
-                    trendDirection={costSummary.monthlyTokens > 0 ? "up" : "stable"}
+                    trendDirection={
+                      costSummary.monthlyTokens > 0 ? "up" : "stable"
+                    }
                   />
                   <DashboardStatCard
                     label="活跃模型"

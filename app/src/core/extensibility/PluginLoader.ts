@@ -343,6 +343,7 @@ export class PluginLoader {
    */
   async destroy(): Promise<void> {
     for (const [pluginId] of this.plugins) {
+      // @ignore-catch — 销毁时卸载插件best-effort，单个失败不阻塞其他
       await this.unloadPlugin(pluginId).catch(() => {});
     }
     this.plugins.clear();

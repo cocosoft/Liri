@@ -489,31 +489,31 @@ function SettingsPage() {
           </h2>
         </div>
         <div className="max-w-4xl mx-auto">
-        {/* 页面标题 */}
-        {(() => {
-          for (const group of NAV_GROUPS) {
-            const item = group.items.find((i) => i.id === activeNav);
-            if (item) {
-              return (
-                <div className="px-6 pt-6 pb-4">
-                  <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                    {t(item.labelKey as any)}
-                  </h1>
-                  {(() => {
-                    const desc = PAGE_DESCRIPTIONS[activeNav];
-                    return desc ? (
-                      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        {desc}
-                      </p>
-                    ) : null;
-                  })()}
-                </div>
-              );
+          {/* 页面标题 */}
+          {(() => {
+            for (const group of NAV_GROUPS) {
+              const item = group.items.find((i) => i.id === activeNav);
+              if (item) {
+                return (
+                  <div className="px-6 pt-6 pb-4">
+                    <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                      {t(item.labelKey as any)}
+                    </h1>
+                    {(() => {
+                      const desc = PAGE_DESCRIPTIONS[activeNav];
+                      return desc ? (
+                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                          {desc}
+                        </p>
+                      ) : null;
+                    })()}
+                  </div>
+                );
+              }
             }
-          }
-          return null;
-        })()}
-        {renderContent()}
+            return null;
+          })()}
+          {renderContent()}
         </div>
       </main>
     </div>
@@ -757,7 +757,11 @@ function SettingsPage() {
           />
         );
       case "logs":
-        return <div className="p-6"><LogViewerPage /></div>;
+        return (
+          <div className="p-6">
+            <LogViewerPage />
+          </div>
+        );
       case "router":
         return (
           <RouterConfigContent
@@ -781,7 +785,11 @@ function SettingsPage() {
       case "oauth":
         return <OAuthManagementContent isDark={isDark} />;
       case "security-dashboard":
-        return <div className="p-6"><SecurityDashboard /></div>;
+        return (
+          <div className="p-6">
+            <SecurityDashboard />
+          </div>
+        );
       case "voice":
         return <VoiceSettings isDark={isDark} />;
       case "data-dir":
@@ -811,7 +819,11 @@ function SettingsPage() {
       case "sandbox":
         return <SandboxManagementContent isDark={isDark} />;
       case "memory":
-        return <div className="p-6"><MemoryPage /></div>;
+        return (
+          <div className="p-6">
+            <MemoryPage />
+          </div>
+        );
       default:
         return null;
     }
@@ -867,9 +879,7 @@ function RouterConfigContent({
 
   return (
     <div>
-      <ConfigSection
-        isDark={isDark}
-      >
+      <ConfigSection isDark={isDark}>
         <ConfigItem label="启用 SmartRouter" isDark={isDark}>
           <ToggleConfig
             isDark={isDark}
@@ -924,22 +934,38 @@ function RouterConfigContent({
 
 /** 权限管理内容 */
 function PermissionManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return <div className="p-6"><PermissionPage /></div>;
+  return (
+    <div className="p-6">
+      <PermissionPage />
+    </div>
+  );
 }
 
 /** OAuth 认证管理内容 */
 function OAuthManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return <div className="p-6"><OAuthPage /></div>;
+  return (
+    <div className="p-6">
+      <OAuthPage />
+    </div>
+  );
 }
 
 /** 成本统计内容 */
 function CostStatisticsContent({ isDark: _isDark }: { isDark: boolean }) {
-  return <div className="p-6"><UsageCenterPage /></div>;
+  return (
+    <div className="p-6">
+      <UsageCenterPage />
+    </div>
+  );
 }
 
 /** 沙箱管理内容 */
 function SandboxManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return <div className="p-6"><SandboxPage /></div>;
+  return (
+    <div className="p-6">
+      <SandboxPage />
+    </div>
+  );
 }
 
 export default SettingsPage;

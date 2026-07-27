@@ -700,6 +700,7 @@ export async function executeUndo(
   } catch (error) {
     // 撤消过程中出错，尝试回滚 undoGuard
     logger.error('撤消失败，尝试回滚', { roundId, error: String(error) });
+    // @ignore-catch — handleError已处理，异步抛错无需再处理
     handleError(error, {
       module: 'UndoManager',
       action: 'executeUndo',
@@ -818,6 +819,7 @@ export async function recoverFromCrash(): Promise<void> {
                 path: item.path,
                 error: String(error),
               });
+              // @ignore-catch — handleError已处理，崩溃恢复回滚异步抛错无需再处理
               handleError(error, {
                 module: 'UndoManager',
                 action: 'recoverFromCrash:undoGuard',

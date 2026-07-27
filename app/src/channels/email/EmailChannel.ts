@@ -20,6 +20,7 @@ import type {
   InteractiveCard,
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error';
 import { setEmailRuntime, clearEmailRuntime } from './runtime';
 
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -763,6 +764,10 @@ class EmailChannelPlugin extends BaseChannelPlugin {
       try {
         await this.smtpClient.quit();
       } catch (err) {
+        await handleError(err, {
+          module: 'channels:email',
+          action: 'onDisconnect',
+        });
         // 忽略
 
         logger.debug('Operation skipped', {
@@ -810,6 +815,11 @@ class EmailChannelPlugin extends BaseChannelPlugin {
 
       return { success: true, messageId };
     } catch (err) {
+      await handleError(err, {
+        module: 'channels:email',
+        action: 'sendTextMessage',
+        context: { target },
+      });
       return { success: false, error: (err as Error).message };
     }
   }
@@ -843,6 +853,11 @@ class EmailChannelPlugin extends BaseChannelPlugin {
 
       return { success: true, messageId };
     } catch (err) {
+      await handleError(err, {
+        module: 'channels:email',
+        action: 'sendMarkdownMessage',
+        context: { target },
+      });
       return { success: false, error: (err as Error).message };
     }
   }
@@ -896,6 +911,11 @@ class EmailChannelPlugin extends BaseChannelPlugin {
 
       return { success: true, messageId };
     } catch (err) {
+      await handleError(err, {
+        module: 'channels:email',
+        action: 'sendImageMessage',
+        context: { target },
+      });
       return { success: false, error: (err as Error).message };
     }
   }
@@ -947,6 +967,11 @@ class EmailChannelPlugin extends BaseChannelPlugin {
 
       return { success: true, messageId };
     } catch (err) {
+      await handleError(err, {
+        module: 'channels:email',
+        action: 'sendFileMessage',
+        context: { target, filePath },
+      });
       return { success: false, error: (err as Error).message };
     }
   }
@@ -989,6 +1014,11 @@ class EmailChannelPlugin extends BaseChannelPlugin {
 
       return { success: true, messageId };
     } catch (err) {
+      await handleError(err, {
+        module: 'channels:email',
+        action: 'sendInteractiveMessage',
+        context: { target },
+      });
       return { success: false, error: (err as Error).message };
     }
   }

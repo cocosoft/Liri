@@ -279,6 +279,7 @@ export class SSHConnectionPool {
         if (entry.inUse) {
           const status = entry.connection.getStatus();
           if (status === SSHConnectionStatus.CONNECTED) {
+            // @ignore-catch — keepalive探测fire-and-forget，失败不影响连接池
             entry.connection.executeCommand('echo keepalive').catch(() => {});
           }
         }

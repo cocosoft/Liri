@@ -450,6 +450,7 @@ export class Recorder {
       const { readFile } = require('fs/promises');
       const data = await readFile(outputFile);
       onData(data);
+      // @ignore-catch — 录制失败时清理输出文件，best-effort非关键
       unlink(outputFile).catch(() => {});
       return true;
     } catch (err) {

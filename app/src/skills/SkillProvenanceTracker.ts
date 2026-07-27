@@ -144,6 +144,7 @@ export class SkillProvenanceTracker {
 
     // 异步持久化到 DB
     if (this.skillDB) {
+      // @ignore-catch — 异步持久化溯源到DB，fire-and-forget非关键路径
       this.skillDB.saveProvenance(entry).catch(() => {});
     }
   }
@@ -176,6 +177,7 @@ export class SkillProvenanceTracker {
     const removed = this.entries.delete(skillName);
 
     if (removed && this.skillDB) {
+      // @ignore-catch — 异步从DB删除溯源，fire-and-forget非关键路径
       this.skillDB.deleteProvenance(skillName).catch(() => {});
     }
 

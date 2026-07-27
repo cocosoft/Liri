@@ -152,146 +152,155 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
   return (
     <ConfigSection isDark={isDark}>
       <div className="space-y-4">
-      {error && (
-        <div
-          className={`p-3 rounded-lg text-sm ${isDark ? "bg-red-900/30 text-red-400" : "bg-red-50 text-red-600"}`}
-        >
-          {error}
-        </div>
-      )}
-
-      <div>
-        <h3
-          className={`text-lg font-medium mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
-        >
-          语音提供方
-        </h3>
-        <div className="grid grid-cols-3 gap-3">
-          {(["gemini", "openai", "webapi"] as VoiceProvider[]).map(
-            (provider) => (
-              <button
-                key={provider}
-                onClick={() => setLocalConfig({ ...localConfig, provider })}
-                className={`p-3 rounded-lg border text-center transition-colors ${
-                  localConfig.provider === provider
-                    ? isDark
-                      ? "bg-blue-900/30 border-blue-500 text-blue-400"
-                      : "bg-blue-50 border-blue-500 text-blue-600"
-                    : isDark
-                      ? "bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600"
-                      : "bg-white border-gray-200 text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                <span className="block text-sm font-medium">
-                  {PROVIDER_LABELS[provider]}
-                </span>
-              </button>
-            ),
-          )}
-        </div>
-      </div>
-
-      {/* STT 语音识别引擎选择 */}
-      <div>
-        <h3
-          className={`text-lg font-medium mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
-        >
-          STT 识别引擎
-        </h3>
-        <p
-          className={`text-xs mb-3 ${isDark ? "text-gray-500" : "text-gray-400"}`}
-        >
-          选择语音转文字使用的引擎
-        </p>
-        <div className="grid grid-cols-3 gap-3">
-          {sttProviders.map((providerId) => {
-            const label = STT_PROVIDER_LABELS[providerId] || providerId;
-            const isSelected = localConfig.sttProviderId === providerId;
-            return (
-              <button
-                key={providerId}
-                onClick={() =>
-                  setLocalConfig({ ...localConfig, sttProviderId: providerId })
-                }
-                className={`p-3 rounded-lg border text-center transition-colors ${
-                  isSelected
-                    ? isDark
-                      ? "bg-green-900/30 border-green-500 text-green-400"
-                      : "bg-green-50 border-green-500 text-green-600"
-                    : isDark
-                      ? "bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600"
-                      : "bg-white border-gray-200 text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                <span className="block text-sm font-medium">{label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label
-            className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
+        {error && (
+          <div
+            className={`p-3 rounded-lg text-sm ${isDark ? "bg-red-900/30 text-red-400" : "bg-red-50 text-red-600"}`}
           >
-            输入语言
-          </label>
-          <select
-            value={localConfig.inputLanguage}
-            onChange={(e) =>
-              setLocalConfig({ ...localConfig, inputLanguage: e.target.value })
-            }
-            className={`w-full px-3 py-2 rounded-lg border ${
-              isDark
-                ? "bg-gray-800 border-gray-700 text-white"
-                : "bg-white border-gray-300 text-gray-900"
-            } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-          >
-            <option value="auto">自动检测</option>
-            <option value="zh-CN">中文</option>
-            <option value="en-US">英语</option>
-            <option value="ja-JP">日语</option>
-            <option value="ko-KR">韩语</option>
-          </select>
-        </div>
+            {error}
+          </div>
+        )}
 
         <div>
-          <label
-            className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
+          <h3
+            className={`text-lg font-medium mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
           >
-            输出语言
-          </label>
-          <select
-            value={localConfig.outputLanguage}
-            onChange={(e) =>
-              setLocalConfig({ ...localConfig, outputLanguage: e.target.value })
-            }
-            className={`w-full px-3 py-2 rounded-lg border ${
-              isDark
-                ? "bg-gray-800 border-gray-700 text-white"
-                : "bg-white border-gray-300 text-gray-900"
-            } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-          >
-            <option value="zh-CN">中文</option>
-            <option value="en-US">英语</option>
-            <option value="ja-JP">日语</option>
-            <option value="ko-KR">韩语</option>
-          </select>
+            语音提供方
+          </h3>
+          <div className="grid grid-cols-3 gap-3">
+            {(["gemini", "openai", "webapi"] as VoiceProvider[]).map(
+              (provider) => (
+                <button
+                  key={provider}
+                  onClick={() => setLocalConfig({ ...localConfig, provider })}
+                  className={`p-3 rounded-lg border text-center transition-colors ${
+                    localConfig.provider === provider
+                      ? isDark
+                        ? "bg-blue-900/30 border-blue-500 text-blue-400"
+                        : "bg-blue-50 border-blue-500 text-blue-600"
+                      : isDark
+                        ? "bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600"
+                        : "bg-white border-gray-200 text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  <span className="block text-sm font-medium">
+                    {PROVIDER_LABELS[provider]}
+                  </span>
+                </button>
+              ),
+            )}
+          </div>
         </div>
-      </div>
 
-      <ConfigItem
-        label="语音唤醒"
-        description="启用后可通过唤醒词激活语音输入"
-        isDark={isDark}
-      >
-        <ToggleConfig
+        {/* STT 语音识别引擎选择 */}
+        <div>
+          <h3
+            className={`text-lg font-medium mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
+          >
+            STT 识别引擎
+          </h3>
+          <p
+            className={`text-xs mb-3 ${isDark ? "text-gray-500" : "text-gray-400"}`}
+          >
+            选择语音转文字使用的引擎
+          </p>
+          <div className="grid grid-cols-3 gap-3">
+            {sttProviders.map((providerId) => {
+              const label = STT_PROVIDER_LABELS[providerId] || providerId;
+              const isSelected = localConfig.sttProviderId === providerId;
+              return (
+                <button
+                  key={providerId}
+                  onClick={() =>
+                    setLocalConfig({
+                      ...localConfig,
+                      sttProviderId: providerId,
+                    })
+                  }
+                  className={`p-3 rounded-lg border text-center transition-colors ${
+                    isSelected
+                      ? isDark
+                        ? "bg-green-900/30 border-green-500 text-green-400"
+                        : "bg-green-50 border-green-500 text-green-600"
+                      : isDark
+                        ? "bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600"
+                        : "bg-white border-gray-200 text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  <span className="block text-sm font-medium">{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label
+              className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
+            >
+              输入语言
+            </label>
+            <select
+              value={localConfig.inputLanguage}
+              onChange={(e) =>
+                setLocalConfig({
+                  ...localConfig,
+                  inputLanguage: e.target.value,
+                })
+              }
+              className={`w-full px-3 py-2 rounded-lg border ${
+                isDark
+                  ? "bg-gray-800 border-gray-700 text-white"
+                  : "bg-white border-gray-300 text-gray-900"
+              } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            >
+              <option value="auto">自动检测</option>
+              <option value="zh-CN">中文</option>
+              <option value="en-US">英语</option>
+              <option value="ja-JP">日语</option>
+              <option value="ko-KR">韩语</option>
+            </select>
+          </div>
+
+          <div>
+            <label
+              className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
+            >
+              输出语言
+            </label>
+            <select
+              value={localConfig.outputLanguage}
+              onChange={(e) =>
+                setLocalConfig({
+                  ...localConfig,
+                  outputLanguage: e.target.value,
+                })
+              }
+              className={`w-full px-3 py-2 rounded-lg border ${
+                isDark
+                  ? "bg-gray-800 border-gray-700 text-white"
+                  : "bg-white border-gray-300 text-gray-900"
+              } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            >
+              <option value="zh-CN">中文</option>
+              <option value="en-US">英语</option>
+              <option value="ja-JP">日语</option>
+              <option value="ko-KR">韩语</option>
+            </select>
+          </div>
+        </div>
+
+        <ConfigItem
+          label="语音唤醒"
+          description="启用后可通过唤醒词激活语音输入"
           isDark={isDark}
-          checked={wakeWordEnabled}
-          onChange={() => toggleWakeWord()}
-        />
-      </ConfigItem>
+        >
+          <ToggleConfig
+            isDark={isDark}
+            checked={wakeWordEnabled}
+            onChange={() => toggleWakeWord()}
+          />
+        </ConfigItem>
 
         {wakeWordEnabled && (
           <div className="space-y-3 border-l-2 border-blue-400 pl-4">
@@ -402,36 +411,36 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
           </div>
         )}
 
-      <ConfigItem
-        label="自动播放 TTS"
-        description="AI回复时自动朗读文本"
-        isDark={isDark}
-      >
-        <ToggleConfig
+        <ConfigItem
+          label="自动播放 TTS"
+          description="AI回复时自动朗读文本"
           isDark={isDark}
-          checked={localConfig.autoPlayTTS}
-          onChange={() =>
-            setLocalConfig({
-              ...localConfig,
-              autoPlayTTS: !localConfig.autoPlayTTS,
-            })
-          }
-        />
-      </ConfigItem>
-
-      <div className="flex justify-end">
-        <button
-          onClick={handleSave}
-          disabled={isProcessing}
-          className={`px-4 py-2 rounded-lg font-medium ${
-            isDark
-              ? "bg-blue-600 hover:bg-blue-700 text-white"
-              : "bg-blue-600 hover:bg-blue-700 text-white"
-          } disabled:opacity-50`}
         >
-          {isProcessing ? "保存中..." : t("settings.saveSettings")}
-        </button>
-      </div>
+          <ToggleConfig
+            isDark={isDark}
+            checked={localConfig.autoPlayTTS}
+            onChange={() =>
+              setLocalConfig({
+                ...localConfig,
+                autoPlayTTS: !localConfig.autoPlayTTS,
+              })
+            }
+          />
+        </ConfigItem>
+
+        <div className="flex justify-end">
+          <button
+            onClick={handleSave}
+            disabled={isProcessing}
+            className={`px-4 py-2 rounded-lg font-medium ${
+              isDark
+                ? "bg-blue-600 hover:bg-blue-700 text-white"
+                : "bg-blue-600 hover:bg-blue-700 text-white"
+            } disabled:opacity-50`}
+          >
+            {isProcessing ? "保存中..." : t("settings.saveSettings")}
+          </button>
+        </div>
       </div>
     </ConfigSection>
   );

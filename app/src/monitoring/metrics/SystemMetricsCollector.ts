@@ -203,17 +203,17 @@ export function getDiskInfo(): DiskInfo {
 
   try {
     if (process.platform === 'win32') {
-      // 使用 wmic CSV 格式输出，避免 PowerShell 调用
+      // 使用 PowerShell Get-CimInstance 获取磁盘信息（wmic 已在 Win11 中弃用）
       const output = execSync(
-        'wmic logicaldisk where DriveType=3 get Size,FreeSpace /format:csv',
+        'powershell -NoProfile -Command "Get-CimInstance Win32_LogicalDisk -Filter \\"DriveType=3\\" | ForEach-Object { \\"$($_.Size),$($_.FreeSpace)\\" }"',
         { encoding: 'utf8', timeout: 5000 }
       );
-      const lines = output.trim().split('\n').slice(1); // 跳过 CSV 表头
+      const lines = output.trim().split('\n');
       for (const line of lines) {
-        const parts = line.split(',').map((s) => s.trim());
-        if (parts.length >= 3) {
-          const size = parseFloat(parts[1]);
-          const free = parseFloat(parts[2]);
+        const parts = line.split(',').map((s) => s.trim().replace(/"/g, ''));
+        if (parts.length >= 2) {
+          const size = parseFloat(parts[0]);
+          const free = parseFloat(parts[1]);
           if (!isNaN(size) && !isNaN(free) && size > 0) {
             totalBytes += size;
             freeBytes += free;

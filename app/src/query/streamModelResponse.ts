@@ -26,6 +26,7 @@
  */
 
 import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'query:streamModel' });
 
@@ -114,73 +115,81 @@ export async function* streamModelResponse(
   const readyIndices = new Set<number>();
 
   for await (const delta of deltas) {
-    if (signal?.aborted) break;
+    try {
+      if (signal?.aborted) break;
 
-    // 推理增量
-    if (delta.reasoningDelta) {
-      reasoningContent += delta.reasoningDelta;
-      yield {
-        turn,
-        role: 'assistant_delta',
-        content: '',
-        reasoningDelta: delta.reasoningDelta,
-      };
-    }
-
-    // 内容增量
-    if (delta.contentDelta) {
-      assistantContent += delta.contentDelta;
-      yield {
-        turn,
-        role: 'assistant_delta',
-        content: delta.contentDelta,
-      };
-    }
-
-    // 工具调用增量
-    if (delta.toolCallDelta) {
-      const d = delta.toolCallDelta;
-      const cur = callBuf.get(d.index) ?? {
-        id: d.id ?? '',
-        name: '',
-        arguments: '',
-      };
-      if (d.id) cur.id = d.id;
-      if (d.name) cur.name = (cur.name ?? '') + d.name;
-      if (d.argumentsDelta)
-        cur.arguments = (cur.arguments ?? '') + d.argumentsDelta;
-      callBuf.set(d.index, cur);
-
-      // 检测工具调用参数是否完整
-      if (
-        !readyIndices.has(d.index) &&
-        cur.name &&
-        looksLikeCompleteJson(cur.arguments)
-      ) {
-        readyIndices.add(d.index);
-      }
-
-      if (cur.name) {
+      // 推理增量
+      if (delta.reasoningDelta) {
+        reasoningContent += delta.reasoningDelta;
         yield {
           turn,
-          role: 'tool_call_delta',
+          role: 'assistant_delta',
           content: '',
-          toolName: cur.name,
-          toolCallArgsChars: cur.arguments.length,
-          toolCallIndex: d.index,
-          toolCallReadyCount: readyIndices.size,
+          reasoningDelta: delta.reasoningDelta,
         };
       }
-    }
 
-    // 用法统计
-    if (delta.usage) {
-      usage = delta.usage;
-    }
+      // 内容增量
+      if (delta.contentDelta) {
+        assistantContent += delta.contentDelta;
+        yield {
+          turn,
+          role: 'assistant_delta',
+          content: delta.contentDelta,
+        };
+      }
 
-    // 结束原因
-    if (delta.finishReason) {
-      finishReason = delta.finishReason;
+      // 工具调用增量
+      if (delta.toolCallDelta) {
+        const d = delta.toolCallDelta;
+        const cur = callBuf.get(d.index) ?? {
+          id: d.id ?? '',
+          name: '',
+          arguments: '',
+        };
+        if (d.id) cur.id = d.id;
+        if (d.name) cur.name = (cur.name ?? '') + d.name;
+        if (d.argumentsDelta)
+          cur.arguments = (cur.arguments ?? '') + d.argumentsDelta;
+        callBuf.set(d.index, cur);
+
+        // 检测工具调用参数是否完整
+        if (
+          !readyIndices.has(d.index) &&
+          cur.name &&
+          looksLikeCompleteJson(cur.arguments)
+        ) {
+          readyIndices.add(d.index);
+        }
+
+        if (cur.name) {
+          yield {
+            turn,
+            role: 'tool_call_delta',
+            content: '',
+            toolName: cur.name,
+            toolCallArgsChars: cur.arguments.length,
+            toolCallIndex: d.index,
+            toolCallReadyCount: readyIndices.size,
+          };
+        }
+      }
+
+      // 用法统计
+      if (delta.usage) {
+        usage = delta.usage;
+      }
+
+      // 结束原因
+      if (delta.finishReason) {
+        finishReason = delta.finishReason;
+      }
+    } catch (err) {
+      await handleError(err, {
+        module: 'query:streamModel',
+        action: 'forAwait_delta',
+      });
+      // 单条 delta 异常不中断整体流，继续处理后续 delta
     }
   }
 

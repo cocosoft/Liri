@@ -282,6 +282,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     this.initialized = true;
 
     // 监控：索引构建耗时
+    // @ignore-catch — 监控记录fire-and-forget，非关键路径
     knowledgeMonitor.record('knowledge.index.build_time_ms', 0).catch(() => {});
     logger.info('索引构建完成', { docCount: this.docs.length });
   }
@@ -779,6 +780,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
               cache: 'hit',
             }
           )
+          // @ignore-catch — OTel span属性设置fire-and-forget，非关键路径
           .catch(() => {});
         span.setAttribute('knowledge.cache', 'hit');
         otel.endSpan(span);
@@ -895,6 +897,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
         .record('knowledge.search.latency_ms', performance.now() - startTime, {
           cache: 'miss',
         })
+        // @ignore-catch — 监控记录fire-and-forget，非关键路径
         .catch(() => {});
       return result;
     } catch (err) {

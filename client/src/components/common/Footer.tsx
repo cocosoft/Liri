@@ -79,7 +79,9 @@ function Footer() {
     if (showCostDetail || isExpanded) {
       interval = setInterval(fetchCostSummary, 5000);
     }
-    return () => { if (interval) clearInterval(interval); };
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [showCostDetail, isExpanded]);
 
   const getStatusDot = (running: boolean) => (
@@ -354,7 +356,10 @@ function Footer() {
             </div>
             <div className="border-t border-gray-200 dark:border-gray-700 my-1.5" />
             <button
-              onClick={() => { setShowCostDetail(false); navigate("/usage"); }}
+              onClick={() => {
+                setShowCostDetail(false);
+                navigate("/usage");
+              }}
               className="w-full text-center text-xs text-blue-600 dark:text-blue-400 hover:underline"
             >
               查看完整用量分析 →

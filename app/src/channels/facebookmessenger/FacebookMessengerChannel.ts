@@ -8,6 +8,7 @@ import type {
 } from '@modules/channels/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'channels:facebookmessenger:FacebookMessengerChannel',
   level: LogLevel.INFO,
@@ -118,6 +119,11 @@ export class FacebookMessengerChannel extends BaseChannelPlugin {
       }
       return { success: true };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:facebookmessenger',
+        action: 'sendTextMessage',
+        context: { target },
+      });
       return { success: false, error: String(e) };
     }
   }
@@ -149,6 +155,11 @@ export class FacebookMessengerChannel extends BaseChannelPlugin {
       }
       return { success: true };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:facebookmessenger',
+        action: 'sendImageMessage',
+        context: { target },
+      });
       return { success: false, error: String(e) };
     }
   }
@@ -180,6 +191,11 @@ export class FacebookMessengerChannel extends BaseChannelPlugin {
       }
       return { success: true };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:facebookmessenger',
+        action: 'sendFileMessage',
+        context: { target },
+      });
       return { success: false, error: String(e) };
     }
   }
@@ -214,6 +230,11 @@ export class FacebookMessengerChannel extends BaseChannelPlugin {
       }
       return true;
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:facebookmessenger',
+        action: 'sendAttachment',
+        context: { target },
+      });
       this.logger.warn(`Facebook sendAttachment 失败: ${e}`);
       return false;
     }

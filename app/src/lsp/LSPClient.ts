@@ -1,4 +1,4 @@
-﻿//
+//
 import { spawn, type ChildProcess } from 'child_process';
 
 import type {
@@ -231,6 +231,7 @@ export function createLSPClient(
 
           const requestHandler = requestHandlers.get(message.method);
           if (requestHandler) {
+            // @ignore-catch — LSP通知处理fire-and-forget，失败不影响后续通信
             Promise.resolve(requestHandler(message.params)).catch(() => {});
           }
         }

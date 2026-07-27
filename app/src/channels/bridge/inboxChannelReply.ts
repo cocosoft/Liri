@@ -80,6 +80,10 @@ export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
     const plugin = channelBootstrapper.getPluginInstance(channelName);
     const outbound = plugin?.outbound;
 
+    const content = _formatReplyMessage(inboxItem);
+    const target =
+      inboxItem.channelConversationId ?? inboxItem.channelSessionId;
+
     if (!outbound) {
       // fallback: 使用 ChannelRegistry 的 sendMessage
       const regChannel = channelRegistry.get(channelName);
@@ -91,13 +95,8 @@ export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
         otel.endSpan(span, SpanStatusCode.ERROR, 'channel_not_found');
         return;
       }
-      const content = _formatReplyMessage(inboxItem);
       await regChannel.sendMessage(target, content);
     } else {
-      const content = _formatReplyMessage(inboxItem);
-      const target =
-        inboxItem.channelConversationId ?? inboxItem.channelSessionId;
-
       // 优先使用 sendInteractive（支持按钮的渠道）
       if (typeof (outbound as any).sendInteractive === 'function') {
         await outbound.sendInteractive(target, {

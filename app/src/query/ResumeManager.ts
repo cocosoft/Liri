@@ -134,7 +134,8 @@ export class ResumeManager {
     return {
       phase: checkpoint.phase,
       pendingToolCalls: checkpoint.pendingToolCalls?.length ?? 0,
-      tokenConsistency: checkpoint.budgetState.consumed <= liveTokenConsumed,
+      tokenConsistency:
+        checkpoint.budgetState.totalTokensUsed <= liveTokenConsumed,
       messageCountMatch:
         checkpoint.messageCount === undefined ||
         checkpoint.messageCount === liveMessageCount,

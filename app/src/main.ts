@@ -536,6 +536,7 @@ function checkSingletonInstance(): void {
     // Phase 2.7: 同步持久化 ContextStore（exit 事件不支持 async）
     serializeOnShutdownSync();
     // 同步 exit 事件不支持 async，fire-and-forget flush
+    // @ignore-catch — 同步exit事件不支持async，日志flush fire-and-forget
     flush().catch(() => {});
   });
   process.on('SIGINT', () => {
@@ -1169,8 +1170,26 @@ export async function launch(options: LaunchOptions): Promise<void> {
       );
     }
 
+    // 标记应用已就绪，HTTP 服务开始接受业务请求
+    try {
+      const { LocalHTTPService } =
+        await import('./infrastructure/http/LocalHTTPService.js');
+      LocalHTTPService._appReady = true;
+    } catch {
+      // LocalHTTPService 导入失败不影响主流程
+    }
+
     profileReport();
   } catch (error) {
+    // 增强错误日志：记录原始错误类型和栈信息
+    logger.error('launch 捕获到未处理异常', {
+      errorType: typeof error,
+      errorName: (error as Error)?.name ?? 'N/A',
+      errorMessage: (error as Error)?.message ?? String(error),
+      errorStack: (error as Error)?.stack?.slice(0, 1000) ?? 'N/A',
+      isErrorInstance: error instanceof Error,
+    });
+
     await (
       await import('./error/handleError.js')
     ).handleError(error, { module: 'app:main', action: 'launch' });

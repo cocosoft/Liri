@@ -19,7 +19,12 @@ interface AIConfigProps {
   collapsible?: boolean;
 }
 
-function AIConfigPanel({ isDark, config, onUpdate, collapsible }: AIConfigProps) {
+function AIConfigPanel({
+  isDark,
+  config,
+  onUpdate,
+  collapsible,
+}: AIConfigProps) {
   const { t } = useTranslation();
 
   const handleProviderChange = (provider: string) => {

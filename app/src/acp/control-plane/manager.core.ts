@@ -61,6 +61,9 @@ export class AcpSessionManagerCore {
         };
         const events = await this.config.runtime.runTurn(turnInput);
         return events;
+      } catch (err) {
+        // @ignore-catch — 确保 activeRuns 清理后重新抛出
+        throw err;
       } finally {
         this.state.activeRuns.delete(runId);
       }

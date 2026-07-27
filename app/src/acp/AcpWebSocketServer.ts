@@ -483,6 +483,7 @@ export class AcpWebSocketServer {
               handle: currentHandle,
               reason: 'Client disconnected',
             })
+            // @ignore-catch — 客户端断开时关闭代理session，fire-and-forget非关键
             .catch(() => {});
           currentHandle = null;
         }

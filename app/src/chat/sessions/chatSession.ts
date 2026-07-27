@@ -12,6 +12,7 @@ import {
 import { ChatHistory } from '../history/chatHistory';
 import aiService from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
+import type { ToolDefinition } from '../../ai/models/types';
 
 /**
  * 聊天会话类
@@ -155,6 +156,7 @@ export class ChatSession {
     const aiResponse = await aiService.generate(messages, this.options.model, {
       temperature: this.options.temperature,
       max_tokens: this.options.maxTokens,
+      tools: this._buildToolDefinitions(),
     });
 
     // 添加助手消息
@@ -212,12 +214,18 @@ export class ChatSession {
     const stream = aiService.stream(messages, this.options.model, {
       temperature: this.options.temperature,
       max_tokens: this.options.maxTokens,
+      tools: this._buildToolDefinitions(),
     });
 
     // 收集流式响应
     let fullContent = '';
+    let lastToolCalls: ChatResponse['toolCalls'];
     for await (const chunk of stream) {
       fullContent += chunk.content;
+      // N3 修复: 追踪最后一个 chunk 的 tool_calls
+      if (chunk.tool_calls && chunk.tool_calls.length > 0) {
+        lastToolCalls = chunk.tool_calls;
+      }
 
       // 构建流式聊天响应
       const response: ChatResponse = {
@@ -232,6 +240,8 @@ export class ChatSession {
         },
         timestamp: Date.now(),
         finishReason: chunk.finish_reason,
+        // 只有最后一个 chunk 才携带完整的 tool_calls
+        toolCalls: lastToolCalls,
       };
 
       yield response;
@@ -246,6 +256,21 @@ export class ChatSession {
       timestamp: Date.now(),
     };
     this.addMessage(assistantMessage);
+  }
+
+  /**
+   * 将 ChatTool[] 转换为 ToolDefinition[]
+   */
+  private _buildToolDefinitions(): ToolDefinition[] {
+    const tools = this.options.tools ?? [];
+    return tools.map((t) => ({
+      type: 'function' as const,
+      function: {
+        name: t.name,
+        description: t.description,
+        parameters: t.parameters ?? {},
+      },
+    }));
   }
 
   /**

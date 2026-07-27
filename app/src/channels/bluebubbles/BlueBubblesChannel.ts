@@ -18,6 +18,7 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error';
 import {
   getDefaultBlueBubblesConfig,
   validateBlueBubblesConfig,
@@ -198,6 +199,11 @@ export class BlueBubblesChannel
         messageId: body.guid,
       };
     } catch (err) {
+      await handleError(err, {
+        module: 'channels:bluebubbles',
+        action: 'sendTextMessage',
+        context: { target },
+      });
       return {
         success: false,
         error: err instanceof Error ? err.message : String(err),
@@ -250,6 +256,11 @@ export class BlueBubblesChannel
         messageId: body.guid,
       };
     } catch (err) {
+      await handleError(err, {
+        module: 'channels:bluebubbles',
+        action: 'sendImageMessage',
+        context: { target },
+      });
       return {
         success: false,
         error: err instanceof Error ? err.message : String(err),

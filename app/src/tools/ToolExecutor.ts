@@ -14,6 +14,7 @@ import { ToolHookManager } from '../hooks/managers/ToolHookManager';
 import { ToolHookContext } from '../hooks/types/ToolHooks';
 import { v4 as uuidv4 } from 'uuid';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import {
   SandboxManagerImpl,
   createSandboxManager,
@@ -263,7 +264,7 @@ export class ToolExecutor {
           );
           tracing.endSpan(tracingSpan, SpanStatusCode.ERROR, errorMessage);
         } catch (err) {
-          // OTel span 错误不影响主流程
+          // @ignore-catch — OTel span 错误不影响主流程
         }
       }
 
@@ -320,6 +321,10 @@ export class ToolExecutor {
         }
       }
     } catch (error) {
+      await handleError(error, {
+        module: 'tools:executor',
+        action: 'executePreToolUseHooks',
+      });
       logger.error(
         'Error executing PreToolUse hooks',
         error instanceof Error ? error : new Error(String(error))
@@ -351,6 +356,10 @@ export class ToolExecutor {
         }
       }
     } catch (error) {
+      await handleError(error, {
+        module: 'tools:executor',
+        action: 'executePostToolUseHooks',
+      });
       logger.error(
         'Error executing PostToolUse hooks',
         error instanceof Error ? error : new Error(String(error))
@@ -528,6 +537,7 @@ export class ToolExecutor {
           };
         }
       } catch (error) {
+        // @ignore-catch — 输入校验失败属于正常控制流
         return {
           valid: false,
           error:
@@ -571,6 +581,7 @@ export class ToolExecutor {
           error: permissionResult.reason || null,
         };
       } catch (error) {
+        // @ignore-catch — 权限检查失败属于正常控制流
         return {
           allowed: false,
           error:
@@ -592,6 +603,7 @@ export class ToolExecutor {
         };
       }
     } catch (error) {
+      // @ignore-catch — 权限检查抛异常属于正常控制流
       return {
         allowed: false,
         error:

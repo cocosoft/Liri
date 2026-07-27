@@ -86,8 +86,7 @@ function DataStoragePanel({
   handleSaveDataDirectory,
   handleResetDataDirectory,
 }: DataStoragePanelProps) {
-  const effectiveDir =
-    configuredDirectory || defaultDirectory || dataDirectory;
+  const effectiveDir = configuredDirectory || defaultDirectory || dataDirectory;
   let envInfo: string | null = null;
   if (
     envLiriHome &&
@@ -102,9 +101,7 @@ function DataStoragePanel({
   }
 
   return (
-    <ConfigSection
-      isDark={isDark}
-    >
+    <ConfigSection isDark={isDark}>
       <div className="mb-3 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs">
         <p className="text-blue-700 dark:text-blue-300">
           <span className="font-medium">当前生效目录：</span>

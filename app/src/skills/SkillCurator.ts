@@ -396,6 +396,7 @@ export class SkillCurator {
     this.states.delete(skillName);
 
     if (this.skillDB) {
+      // @ignore-catch — 异步从DB删除策展记录，fire-and-forget非关键路径
       this.skillDB.deleteCuration(skillName).catch(() => {});
     }
   }

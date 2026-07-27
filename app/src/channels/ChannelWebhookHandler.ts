@@ -9,6 +9,7 @@
 
 import { Logger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'channels:webhook' });
 
@@ -53,9 +54,10 @@ export async function handleWebhookEvent(
     span.end();
     return { handled: true };
   } catch (e) {
-    logger.error('Webhook handler failed', {
-      channel: event.channel,
-      error: String(e),
+    await handleError(e, {
+      module: 'channels:webhook',
+      action: 'handleWebhookEvent',
+      context: { channel: event.channel, eventType: event.eventType },
     });
     span.end();
     return { handled: false, error: String(e) };

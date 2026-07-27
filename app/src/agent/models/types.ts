@@ -23,6 +23,7 @@
  */
 
 import { AIModelType } from '@modules/ai';
+import type { ParsedToolCall } from '@modules/ai/models/types';
 import type { HooksSettings } from '@modules/types/hooks.js';
 import type { SkillLifecycleManager } from '@modules/tools/AgentTool/SkillLifecycleManager';
 
@@ -81,6 +82,7 @@ export interface AgentResponse {
   };
   timestamp: number;
   finishReason?: string;
+  toolCalls?: ParsedToolCall[];
   metadata?: Record<string, unknown>;
 }
 

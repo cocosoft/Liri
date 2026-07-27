@@ -39,21 +39,22 @@ export class DiskSpaceMonitor {
 
   check(): DiskInfo[] {
     try {
+      // 使用 PowerShell Get-CimInstance（wmic 已在 Win11 中弃用）
       const output = execSync(
-        'wmic logicaldisk get caption,size,freespace /format:csv',
+        'powershell -NoProfile -Command "Get-CimInstance Win32_LogicalDisk | ForEach-Object { \\"$($_.DeviceID),$($_.Size),$($_.FreeSpace)\\" }"',
         { encoding: 'utf-8', timeout: 5000 }
       );
 
-      const lines = output.trim().split('\n').slice(1);
+      const lines = output.trim().split('\n');
       const disks: DiskInfo[] = [];
 
       for (const line of lines) {
-        const parts = line.split(',').map((s) => s.trim());
+        const parts = line.split(',').map((s) => s.trim().replace(/"/g, ''));
         if (parts.length < 3) continue;
 
-        const drive = parts[1];
-        const totalBytes = parseInt(parts[2], 10);
-        const freeBytes = parseInt(parts[3], 10);
+        const drive = parts[0];
+        const totalBytes = parseInt(parts[1], 10);
+        const freeBytes = parseInt(parts[2], 10);
 
         if (isNaN(totalBytes) || isNaN(freeBytes) || totalBytes === 0) continue;
 

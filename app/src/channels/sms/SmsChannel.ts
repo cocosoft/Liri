@@ -12,6 +12,7 @@ import type {
 } from '@modules/channels/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'channels:sms:SmsChannel',
   level: LogLevel.INFO,
@@ -226,6 +227,11 @@ class SmsChannelPlugin extends BaseChannelPlugin {
       await smsChannel.sendMessage(target, content);
       return { success: true };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:sms',
+        action: 'sendTextMessage',
+        context: { target },
+      });
       return { success: false, error: String(e) };
     }
   }

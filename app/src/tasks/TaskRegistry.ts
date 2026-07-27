@@ -585,6 +585,7 @@ export class TaskRegistry {
 
   killAll(): Promise<void[]> {
     const running = this.getRunningTasks();
+    // @ignore-catch — killAll阶段best-effort终止任务，单个失败不阻塞其他
     return Promise.all(running.map((t) => t.kill().catch(() => {})));
   }
 

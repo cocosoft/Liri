@@ -97,6 +97,7 @@ export class SessionReaper extends EventEmitter {
     this.config.enabled = true;
 
     this.timer = setInterval(() => {
+      // @ignore-catch — 定时清理回调fire-and-forget，失败由内部handleError处理
       this.reap([]).catch(() => {});
     }, this.config.intervalMs);
 

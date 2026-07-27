@@ -13,6 +13,7 @@ import type {
 } from '@modules/channels/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'channels:webhook:WebhookChannel',
   level: LogLevel.INFO,
@@ -125,6 +126,7 @@ export class WebhookChannel extends EventEmitter {
           }
         );
       } catch (err) {
+        handleError(err, { module: 'channels:webhook', action: 'connect' });
         this.emit('error', err);
         resolve(false);
       }
@@ -279,6 +281,11 @@ class WebhookChannelPlugin extends BaseChannelPlugin {
       await webhookChannel.sendMessage(target, content);
       return { success: true };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:webhook',
+        action: 'sendTextMessage',
+        context: { target },
+      });
       return { success: false, error: String(e) };
     }
   }

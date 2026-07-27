@@ -60,6 +60,8 @@ import { globalToolManager } from '@modules/tools/core/ToolManager';
 import type { Coordinator } from '@modules/core';
 import { coordinator as defaultCoordinator } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { SmartRouter } from '@modules/ai';
@@ -322,6 +324,10 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('coreapi.chat', {
+      'session.id': request.sessionId ?? '',
+    });
     try {
       await this.ensureLLMClientInitialized();
       const { model, tier } = await this.resolveSmartModel(
@@ -346,6 +352,7 @@ export class CoreAPIImpl implements CoreAPI {
           sessionId: request.sessionId,
           questionId: pendingInteraction.questionId,
         });
+        otel.endSpan(span, SpanStatusCode.OK);
         return {
           content: pendingInteraction.question,
           sessionId: message.sessionId || request.sessionId || '',
@@ -367,6 +374,7 @@ export class CoreAPIImpl implements CoreAPI {
         this.autoGenerateTitle(request.sessionId, request.content, content);
       }
 
+      otel.endSpan(span, SpanStatusCode.OK);
       return {
         content,
         sessionId: message.sessionId || request.sessionId || '',
@@ -374,6 +382,11 @@ export class CoreAPIImpl implements CoreAPI {
         finishReason: 'stop',
       };
     } catch (error) {
+      otel.recordError(
+        span,
+        error instanceof Error ? error : new Error(String(error))
+      );
+      otel.endSpan(span, SpanStatusCode.ERROR, String(error));
       await handleError(error, { module: 'core:api', action: 'chat' });
 
       return {
@@ -388,6 +401,10 @@ export class CoreAPIImpl implements CoreAPI {
   async *chatStream(
     request: ChatRequest
   ): AsyncGenerator<ChatStreamChunk, ChatResponse, unknown> {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('coreapi.chatStream', {
+      'session.id': request.sessionId ?? '',
+    });
     await this.ensureLLMClientInitialized();
     let fullContent = '';
     let finalSessionId = request.sessionId || '';
@@ -640,7 +657,16 @@ export class CoreAPIImpl implements CoreAPI {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error('CoreAPI.chatStream 失败', { error: message });
+      otel.recordError(
+        span,
+        error instanceof Error ? error : new Error(message)
+      );
+      otel.endSpan(span, SpanStatusCode.ERROR, message);
+      await handleError(error, {
+        module: 'core:api',
+        action: 'chatStream',
+        context: { sessionId: finalSessionId },
+      });
 
       yield {
         type: 'error',
@@ -654,18 +680,29 @@ export class CoreAPIImpl implements CoreAPI {
     // 从 finalMessage 提取实际的 finishReason，而非硬编码 'stop'
     const actualFinishReason = finalMessage?.finishReason || 'stop';
 
-    yield {
-      type: 'done',
-      content: '',
-      sessionId: finalSessionId,
-      usage: capturedUsage,
-      finishReason: actualFinishReason,
-    } as ChatStreamChunk;
+    try {
+      yield {
+        type: 'done',
+        content: '',
+        sessionId: finalSessionId,
+        usage: capturedUsage,
+        finishReason: actualFinishReason,
+      } as ChatStreamChunk;
 
-    if (fullContent && finalSessionId) {
-      this.autoGenerateTitle(finalSessionId, request.content, fullContent);
+      if (fullContent && finalSessionId) {
+        this.autoGenerateTitle(finalSessionId, request.content, fullContent);
+      }
+    } catch (err) {
+      // @ignore-catch — 流已关闭，yield 失败说明客户端已断开
+      logger.debug(
+        'chatStream final yield failed (client likely disconnected)',
+        {
+          error: String(err),
+        }
+      );
     }
 
+    otel.endSpan(span, SpanStatusCode.OK);
     return {
       content: fullContent,
       sessionId: finalSessionId,

@@ -9,7 +9,12 @@ import { ToolUseContext } from './types/ToolUseContext';
 import { ToolExecutor, createToolExecutor } from './ToolExecutor';
 import { v4 as uuidv4 } from 'uuid';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 const logger = new Logger({
   module: 'tools:orchestrator',
@@ -211,6 +216,10 @@ export class ToolOrchestrator {
       }
     } catch (error) {
       batch.status = 'failed';
+      await handleError(error, {
+        module: 'tools:orchestrator',
+        action: 'executeBatch',
+      });
       logger.error('Batch execution failed:', { error });
     } finally {
       batch.endTime = Date.now();
@@ -393,6 +402,10 @@ export class ToolOrchestrator {
 
       batch.completedTasks++;
     } catch (error) {
+      await handleError(error, {
+        module: 'tools:orchestrator',
+        action: 'executeTask',
+      });
       if (task.retries! < (task.maxRetries || 0)) {
         task.retries!++;
         task.status = 'pending';

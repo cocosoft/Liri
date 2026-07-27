@@ -298,14 +298,13 @@ export class PermissionChecker {
   ): Promise<PermissionDecision> {
     try {
       const { inboxManager } = await import('@modules/runtime/InboxManager.js');
-      const sessionId = (context as Record<string, unknown>)?.sessionId as
-        | string
-        | undefined;
+      const sessionId = (context as unknown as Record<string, unknown>)
+        ?.sessionId as string | undefined;
       if (!sessionId) {
         return createAskDecision(`Inbox: no session context for ${toolName}`);
       }
 
-      const taskId = (context as Record<string, unknown>)?.taskId as
+      const taskId = (context as unknown as Record<string, unknown>)?.taskId as
         | string
         | undefined;
 

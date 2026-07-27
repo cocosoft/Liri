@@ -29,6 +29,7 @@
 import type {
   ChatMessage,
   ChatResponse,
+  ParsedToolCall,
   ToolDefinition,
 } from '../models/types';
 import type {
@@ -200,6 +201,13 @@ export class OpenAIProvider extends BaseAIProvider {
       let lastUsage:
         | import('@modules/ai/models/types').ChatResponse['usage']
         | undefined;
+      // 流式 tool_calls 累积（按 index 合并分片）
+      const pendingToolCalls = new Map<
+        number,
+        { id: string; name: string; arguments: string }
+      >();
+      let stopReason: 'stop' | 'tool_calls' | 'max_tokens' = 'stop';
+      let toolCalls: ParsedToolCall[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -229,6 +237,7 @@ export class OpenAIProvider extends BaseAIProvider {
 
             const choice = (parsed.choices as Record<string, unknown>[])?.[0];
             const delta = choice?.delta as Record<string, unknown> | undefined;
+            const finishReason = choice?.finish_reason as string | undefined;
 
             // 处理推理内容（OpenAI o1/o3 的 reasoning_content 字段）
             const reasoningContent = delta?.['reasoning_content'] as
@@ -243,6 +252,59 @@ export class OpenAIProvider extends BaseAIProvider {
               fullContent += content;
               yield content;
             }
+
+            // 流式 tool_calls 累积（按 index 合并分片）
+            const streamToolCalls = delta?.tool_calls as
+              | Array<Record<string, unknown>>
+              | undefined;
+            if (streamToolCalls) {
+              for (const tc of streamToolCalls) {
+                const idx = tc.index as number;
+                const func = tc.function as Record<string, unknown> | undefined;
+
+                let pending = pendingToolCalls.get(idx);
+                if (!pending) {
+                  pending = { id: '', name: '', arguments: '' };
+                  pendingToolCalls.set(idx, pending);
+                }
+                if (tc.id) pending.id = tc.id as string;
+                if (func) {
+                  if (func.name) pending.name = func.name as string;
+                  if (func.arguments)
+                    pending.arguments += func.arguments as string;
+                }
+              }
+            }
+
+            // 记录 finish_reason，处理 tool_calls 完成
+            if (finishReason === 'tool_calls' && pendingToolCalls.size > 0) {
+              stopReason = 'tool_calls';
+              toolCalls = Array.from(pendingToolCalls.entries())
+                .sort(([a], [b]) => a - b)
+                .map(([_, tc]) => {
+                  try {
+                    return {
+                      id: tc.id,
+                      name: tc.name,
+                      arguments: JSON.parse(tc.arguments) as Record<
+                        string,
+                        unknown
+                      >,
+                    };
+                  } catch {
+                    return {
+                      id: tc.id,
+                      name: tc.name,
+                      arguments: { _raw: tc.arguments },
+                    };
+                  }
+                });
+            } else if (
+              finishReason === 'max_tokens' ||
+              finishReason === 'length'
+            ) {
+              stopReason = 'max_tokens';
+            }
           } catch (err) {
             // skip malformed SSE lines
           }
@@ -252,7 +314,8 @@ export class OpenAIProvider extends BaseAIProvider {
       return {
         content: fullContent,
         model,
-        stop_reason: 'stop',
+        stop_reason: stopReason,
+        tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
         usage: lastUsage,
       };
     } catch (error) {

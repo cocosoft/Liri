@@ -263,7 +263,8 @@ export class MemoryStoreImpl implements MemoryStore {
           frontmatter.sessionId = memory.metadata.sessionId;
 
         // 新字段: 梦境追踪
-        frontmatter.schemaVersion = memory.metadata.schemaVersion;
+        if (memory.metadata.schemaVersion !== undefined)
+          frontmatter.schemaVersion = memory.metadata.schemaVersion;
         if (memory.metadata.dreamProcessedAt !== undefined)
           frontmatter.dreamProcessedAt = memory.metadata.dreamProcessedAt;
         if (memory.metadata.dreamSource)

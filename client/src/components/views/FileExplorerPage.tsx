@@ -481,7 +481,9 @@ function FileExplorerPage() {
               key={key}
               onClick={() => {
                 setCategory(key as FileCategory);
-                if (["inbound", "media", "artifact", "notebook"].includes(key)) {
+                if (
+                  ["inbound", "media", "artifact", "notebook"].includes(key)
+                ) {
                   setShowRegistry(true);
                   fileService
                     .getFileStats()
@@ -664,7 +666,9 @@ function FileExplorerPage() {
                     </div>
                   ) : sortedEntries.length === 0 ? (
                     <div className="text-center py-12">
-                      <p className="text-gray-500 dark:text-gray-400">暂无文件</p>
+                      <p className="text-gray-500 dark:text-gray-400">
+                        暂无文件
+                      </p>
                       <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
                         {currentCategory === "all"
                           ? "这是您的 Liri 数据目录（~/.pyapp/），子目录将在此展示"

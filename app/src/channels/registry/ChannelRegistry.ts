@@ -22,6 +22,7 @@ import { ChannelStatus } from '../../core/gateway/types';
 import type { IChannelPlugin } from '../types/IChannel';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   level: LogLevel.INFO,
@@ -157,6 +158,11 @@ export function adaptPluginToChannelInterface(
         await plugin.connect();
         return isPluginConnected(plugin);
       } catch (err) {
+        await handleError(err, {
+          module: 'channels:registry',
+          action: 'connect',
+          context: { pluginId: plugin.id },
+        });
         return false;
       }
     },
@@ -164,7 +170,11 @@ export function adaptPluginToChannelInterface(
       try {
         await plugin.disconnect();
       } catch (err) {
-        // 忽略断开失败
+        await handleError(err, {
+          module: 'channels:registry',
+          action: 'disconnect',
+          context: { pluginId: plugin.id },
+        });
       }
     },
     sendMessage: async (_target: string, text: string) => {
@@ -343,7 +353,11 @@ export class ChannelRegistry extends EventEmitter {
             try {
               options = JSON.parse(row.options || '{}');
             } catch (err) {
-              /* ignore */
+              handleError(err, {
+                module: 'channels:registry',
+                action: 'loadSavedConfigs',
+                context: { rowType: row.type, rowName: row.name },
+              });
             }
 
             // 用 type（通道标识，如 "qq"）作为 key，而非自增 id
@@ -632,6 +646,11 @@ export class ChannelRegistry extends EventEmitter {
         const success = await channel.sendMessage('', text);
         results.push({ channel: channel.name, success });
       } catch (err) {
+        await handleError(err, {
+          module: 'channels:registry',
+          action: 'broadcast',
+          context: { channel: channel.name },
+        });
         results.push({ channel: channel.name, success: false });
       }
     }

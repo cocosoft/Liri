@@ -102,8 +102,10 @@ export class MemoryPrefetchQueue {
   start(): void {
     if (this.timer) return;
     this.timer = setInterval(() => {
+      // @ignore-catch — 定时器内异步预取，fire-and-forget非关键路径
       this.processNext().catch(() => {});
     }, this.config.prefetchIntervalMs);
+    // @ignore-catch — 异步预取处理，fire-and-forget非关键路径
     this.processNext().catch(() => {});
   }
 
@@ -204,6 +206,7 @@ export class MemoryPrefetchQueue {
         setTimeout(() => {
           this.queue.push(task);
           this.sortQueue();
+          // @ignore-catch — 延迟重试时异步预取，fire-and-forget非关键路径
           this.processNext().catch(() => {});
         }, delay);
       } else {

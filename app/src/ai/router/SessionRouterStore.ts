@@ -115,6 +115,7 @@ export class SessionRouterStore {
 
             // 检查是否过期
             if (Date.now() - record.updatedAt > STICKY_TTL_MS) {
+              // @ignore-catch — 过期路由记录清理fire-and-forget，非关键路径
               this.delete(sessionId).catch(() => {});
               resolve(null);
             } else {

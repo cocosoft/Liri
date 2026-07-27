@@ -106,6 +106,14 @@ export class ConvergenceDetector {
       // 检查这些调用是否是同一个参数指纹（说明在重复完全相同的操作）
       const recs = toolCounts.get(maxToolName)!;
       const fp = recs[0].argsFingerprint;
+
+      // 新增：检查是否为合理批量操作（参数指纹不同 = 不同操作）
+      const uniqueFingerprints = new Set(recs.map((r) => r.argsFingerprint));
+      if (uniqueFingerprints.size > 1) {
+        // 参数不同 → 可能是批量操作（如连续读不同文件），不触发熔断
+        return { shouldMelt: false, reason: '' };
+      }
+
       const sameArgs = recs.every((r) => r.argsFingerprint === fp);
 
       if (sameArgs || state.lastComplaintRound >= state.calls.length - 3) {

@@ -8,6 +8,7 @@ import type {
 } from '@modules/channels/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'channels:claude:ClaudeChannel',
   level: LogLevel.INFO,
@@ -122,6 +123,11 @@ export class ClaudeChannel extends BaseChannelPlugin {
       });
       return { success: true };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:claude',
+        action: 'sendTextMessage',
+        context: { target },
+      });
       return { success: false, error: String(e) };
     }
   }
@@ -165,6 +171,10 @@ export class ClaudeChannel extends BaseChannelPlugin {
       }
       return true;
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:claude',
+        action: 'sendSystemPrompt',
+      });
       this.logger.warn(`Anthropic system prompt 失败: ${e}`);
       return false;
     }

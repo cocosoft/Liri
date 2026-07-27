@@ -96,11 +96,11 @@ export const LOOP_GENERIC_REPEAT_CRITICAL = envInt(
 /** ping-pong 交替次数阈值 */
 export const LOOP_PING_PONG_THRESHOLD = envInt('LOOP_PING_PONG_THRESHOLD', 10);
 /** no_tool_call 警告阈值 */
-export const LOOP_NO_TOOL_CALL_WARNING = envInt('LOOP_NO_TOOL_CALL_WARNING', 3);
+export const LOOP_NO_TOOL_CALL_WARNING = envInt('LOOP_NO_TOOL_CALL_WARNING', 8);
 /** no_tool_call 阻断阈值 */
 export const LOOP_NO_TOOL_CALL_CRITICAL = envInt(
   'LOOP_NO_TOOL_CALL_CRITICAL',
-  5
+  15
 );
 
 // ─── observeOnly 辅助函数 ──────────────────────────────

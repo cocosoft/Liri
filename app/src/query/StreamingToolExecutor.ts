@@ -17,6 +17,7 @@
  */
 
 import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ module: 'query:streamingToolExecutor' });
 
@@ -217,6 +218,10 @@ export class StreamingToolExecutor {
         }
       }
     } catch (error) {
+      await handleError(error, {
+        module: 'query:streamingToolExecutor',
+        action: 'executeStreaming',
+      });
       logger.warn('流式调用中断，等待已启动的工具执行完成', {
         error: String(error),
       });
@@ -256,6 +261,10 @@ export class StreamingToolExecutor {
         }
       );
     } catch (error) {
+      await handleError(error, {
+        module: 'query:streamingToolExecutor',
+        action: 'executeSingleTool',
+      });
       logger.warn('流式工具执行失败', {
         toolName: tc.name,
         toolCallId: tc.id,

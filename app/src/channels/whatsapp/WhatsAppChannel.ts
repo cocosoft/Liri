@@ -8,6 +8,7 @@ import type {
 } from '@modules/channels/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'channels:whatsapp:WhatsAppChannel',
   level: LogLevel.INFO,
@@ -126,6 +127,11 @@ export class WhatsAppChannel extends BaseChannelPlugin {
       }
       return { success: true };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:whatsapp',
+        action: 'sendTextMessage',
+        context: { target },
+      });
       return { success: false, error: String(e) };
     }
   }
@@ -157,6 +163,11 @@ export class WhatsAppChannel extends BaseChannelPlugin {
       }
       return { success: true };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:whatsapp',
+        action: 'sendImageMessage',
+        context: { target },
+      });
       return { success: false, error: String(e) };
     }
   }
@@ -189,6 +200,11 @@ export class WhatsAppChannel extends BaseChannelPlugin {
       }
       return { success: true };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:whatsapp',
+        action: 'sendFileMessage',
+        context: { target },
+      });
       return { success: false, error: String(e) };
     }
   }

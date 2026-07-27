@@ -89,9 +89,7 @@ function UserPanel({ isDark }: UserPanelProps) {
   const hasChanges = content !== originalContent;
 
   return (
-    <ConfigSection
-      isDark={isDark}
-    >
+    <ConfigSection isDark={isDark}>
       <div className="space-y-4">
         <textarea
           value={content}

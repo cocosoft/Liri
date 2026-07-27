@@ -250,8 +250,16 @@ export class ChronologicalBlockBuilder {
     }
   }
 
-  /** 添加问题块 */
+  /** 添加问题块（按 questionId 去重，避免重连/重试导致重复渲染） */
   addQuestion(questionData: QuestionData): void {
+    // 去重：相同的 questionId 不重复添加
+    const exists = this.blocks.some(
+      (b) =>
+        b.type === "question" &&
+        b.questionData?.questionId === questionData.questionId,
+    );
+    if (exists) return;
+
     this.blocks.push({
       id: generateBlockId(),
       type: "question",
@@ -515,6 +523,16 @@ export function createThinkExtractor() {
 }
 
 /**
+ * 兜底过滤：去除内容中残留的结构化标签
+ * <response>、<think>、<thinking> 及其闭合标签不应显示给用户
+ */
+export function stripStructuralTags(text: string): string {
+  return text
+    .replace(/<\/?response>/gi, "")
+    .replace(/<\/?think(?:ing)?>/gi, "");
+}
+
+/**
  * 查找消息中最后一个 tool_call 的 id
  */
 export function findLastToolCallId(
@@ -587,7 +605,9 @@ export function rebuildBlocksFromContent(
   const rawToolCalls = msg.tool_calls || [];
   // 统一规范化 tool_calls 格式
   const toolCalls = rawToolCalls.map(normalizeToolCall);
-  const fullText = typeof msg.content === "string" ? msg.content : "";
+  const fullText = stripStructuralTags(
+    typeof msg.content === "string" ? msg.content : "",
+  );
   let remainingText = fullText;
 
   // 超长内容保护：content 超过 50000 字符时不做文本解析重建，直接包装为 text block
@@ -650,11 +670,18 @@ export function rebuildBlocksFromContent(
         `「${name}」`,
         `${name} 工具`,
         `${name}工具`,
-        name,
       ];
       for (const c of candidates) {
         const pos = fullText.indexOf(c);
         if (pos !== -1) return { idx: -1, pos, len: c.length };
+      }
+      // 裸名匹配加词边界约束，避免 "read" 误匹配 "already" 中的 "read"
+      const wordBoundaryPattern = new RegExp(
+        `(?<![\\w])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w])`,
+      );
+      const wbMatch = fullText.match(wordBoundaryPattern);
+      if (wbMatch && wbMatch.index !== undefined) {
+        return { idx: -1, pos: wbMatch.index, len: wbMatch[0].length };
       }
       return null;
     });

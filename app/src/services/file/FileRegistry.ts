@@ -285,6 +285,7 @@ export class FileRegistry {
       };
     } catch (err) {
       // DB 写入失败 → 回滚已写入的文件
+      // @ignore-catch — DB写入失败回滚文件清理，best-effort非关键
       await unlink(savedPath).catch(() => {});
       throw new AppError(
         '文件注册失败，已回滚',

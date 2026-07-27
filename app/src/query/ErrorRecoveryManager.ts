@@ -35,7 +35,11 @@ type RecoveryType =
   | 'empty_response'
   | 'context_overflow'
   | 'timeout'
-  | 'max_output';
+  | 'max_output'
+  | 'server_error'
+  | 'rate_limit'
+  | 'network_error'
+  | 'unknown';
 
 /** 恢复尝试记录 */
 interface RecoveryAttempt {
@@ -71,10 +75,14 @@ const DEFAULT_MAX_RETRIES: Record<RecoveryType, number> = {
   context_overflow: 3,
   timeout: 2,
   max_output: 3,
+  server_error: 2,
+  rate_limit: 2,
+  network_error: 2,
+  unknown: 2,
 };
 
 /** 错误分类规则 */
-function classifyError(error: Error): RecoveryType | null {
+function classifyError(error: Error): RecoveryType {
   const msg = error.message + ((error as any).code ?? '');
 
   if (/empty.?response|no.?content/i.test(msg)) return 'empty_response';
@@ -84,16 +92,44 @@ function classifyError(error: Error): RecoveryType | null {
   if (/max.?output|token.?limit|finish_reason.*length/i.test(msg))
     return 'max_output';
 
-  return null; // 无法分类的错误不进行恢复
+  // 新增：服务端错误 → 重试
+  if (
+    /5\d\d|server.error|internal.server|bad.gateway|service.unavailable/i.test(
+      msg
+    )
+  )
+    return 'server_error';
+
+  // 新增：速率限制 → 重试
+  if (/429|rate.limit|too.many.requests/i.test(msg)) return 'rate_limit';
+
+  // 新增：网络连接错误 → 重试
+  if (
+    /fetch.failed|ECONNREFUSED|ECONNRESET|ENOTFOUND|EAI_AGAIN|network.error|socket.hang|UND_ERR/i.test(
+      msg
+    )
+  )
+    return 'network_error';
+
+  // 兜底：未分类错误 → 走重试（有最大重试次数保护）
+  return 'unknown';
 }
 
 /** 各恢复类型的注入消息 */
-function getRecoveryMessage(type: RecoveryType): string {
+function getRecoveryMessage(type: RecoveryType, errorMsg?: string): string {
   switch (type) {
     case 'empty_response':
       return '[SYSTEM] 模型返回了空响应。请继续回答。';
     case 'max_output':
       return '[SYSTEM] 模型输出达到上限。请继续未完成的回答。';
+    case 'server_error':
+      return `[SYSTEM] 服务端错误（${errorMsg?.slice(0, 100) ?? '未知'}），请重试。`;
+    case 'rate_limit':
+      return '[SYSTEM] 请求频率过高，请稍后重试。';
+    case 'network_error':
+      return `[SYSTEM] 网络连接错误（${errorMsg?.slice(0, 100) ?? '未知'}），请重试。`;
+    case 'unknown':
+      return `[SYSTEM] 请求异常（${errorMsg?.slice(0, 100) ?? '未知'}），请重试。`;
     default:
       return '[SYSTEM] 请继续。';
   }
@@ -121,18 +157,16 @@ export class ErrorRecoveryManager {
   assess(error: Error, context: RecoveryContext): RecoveryResult {
     const type = classifyError(error);
 
-    if (!type) {
-      // 无法分类的错误 → 不恢复，直接中止
-      logger.warn('Unclassifiable error, aborting', {
-        error: error.message,
-        turnCount: context.turnCount,
-      });
-      return { recovered: false, action: 'abort' };
-    }
-
-    const attempt = this.attempts.get(type);
+    let attempt = this.attempts.get(type);
     if (!attempt) {
-      return { recovered: false, action: 'abort' };
+      // 新增类型未在 attempts 中初始化 → 动态创建
+      const newAttempt: RecoveryAttempt = {
+        type,
+        maxRetries: DEFAULT_MAX_RETRIES[type] ?? 2,
+        retryCount: 0,
+      };
+      this.attempts.set(type, newAttempt);
+      attempt = newAttempt;
     }
 
     // 单次尝试守卫：压缩只能尝试一次
@@ -194,6 +228,16 @@ export class ErrorRecoveryManager {
           recovered: true,
           action: 'retry',
           message: '请求超时，请重试',
+        };
+
+      case 'server_error':
+      case 'rate_limit':
+      case 'network_error':
+      case 'unknown':
+        return {
+          recovered: true,
+          action: 'retry',
+          message: getRecoveryMessage(type, error.message),
         };
 
       default:

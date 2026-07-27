@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OpenAIRealtimeAdapter
  * OpenAI Realtime API WebSocket 适配器
  * 实现 VoiceProviderAdapter 接口，对接 OpenAI Realtime API
@@ -435,6 +435,7 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
 
     this.reconnect.timer = setTimeout(() => {
       if (!this.sessionActive) {
+        // @ignore-catch — 断线自动重连fire-and-forget，失败由重连逻辑自身处理
         this.createConnection().catch(() => {});
       }
     }, delay);

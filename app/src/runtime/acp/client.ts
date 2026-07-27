@@ -100,6 +100,7 @@ export class AcpTransportClient extends EventEmitter {
       const byeMsg = this.createMessage('bye', 'notification', {
         sessionId: this.sessionId,
       });
+      // @ignore-catch — ACP bye通知fire-and-forget，连接即将关闭
       this.doSend(byeMsg).catch(() => {});
     }
 
@@ -276,6 +277,7 @@ export class AcpTransportClient extends EventEmitter {
         timestamp: Date.now(),
       });
 
+      // @ignore-catch — ACP心跳fire-and-forget，失败不阻塞定时器
       this.doSend(hbMsg).catch(() => {});
     }, interval);
   }

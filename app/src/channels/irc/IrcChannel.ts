@@ -13,6 +13,7 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -320,6 +321,10 @@ class IrcChannelPlugin extends BaseChannelPlugin {
       try {
         this.sendRaw('QUIT :bye');
       } catch (err) {
+        await handleError(err, {
+          module: 'channels:irc',
+          action: 'onDisconnect',
+        });
         // 忽略 QUIT 发送失败
 
         logger.warn('Operation skipped', {
@@ -509,6 +514,10 @@ class IrcChannelPlugin extends BaseChannelPlugin {
         this.logger.info('IRC 尝试 NickServ GHOST 恢复昵称');
         return;
       } catch (err) {
+        handleError(err, {
+          module: 'channels:irc',
+          action: 'handleNickCollision',
+        });
         // GHOST 失败，回退
 
         logger.warn('Operation skipped', {
@@ -602,6 +611,11 @@ class IrcChannelPlugin extends BaseChannelPlugin {
       }
       return { success: true };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:irc',
+        action: 'sendTextMessage',
+        context: { target },
+      });
       return { success: false, error: String(e) };
     }
   }
@@ -658,6 +672,7 @@ class IrcChannelPlugin extends BaseChannelPlugin {
           try {
             self.sendRaw('QUIT :bye');
           } catch (err) {
+            await handleError(err, { module: 'channels:irc', action: 'stop' });
             // ignore
 
             logger.debug('Operation skipped', {

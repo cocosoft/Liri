@@ -285,6 +285,7 @@ export class DependencyHealthChecker {
     if (this.checkTimer) return;
 
     this.checkTimer = setInterval(() => {
+      // @ignore-catch — 定时健康检查回调fire-and-forget，失败由内部handleError处理
       this.runAll().catch(() => {});
     }, this.config.checkIntervalMs);
   }

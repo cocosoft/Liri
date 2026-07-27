@@ -158,6 +158,7 @@ export class ScriptHookExecutor {
       };
     } finally {
       if (tempFile) {
+        // @ignore-catch — 清理临时脚本文件，best-effort非关键
         unlink(tempFile).catch(() => {});
       }
     }

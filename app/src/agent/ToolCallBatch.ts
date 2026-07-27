@@ -8,6 +8,7 @@ import type { ToolCallProgress } from '../tools/types/Tool';
 import type { BaseTool } from '../tools/BaseTool';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 const logger = new Logger({
   module: 'agent:ToolCallBatch',
   level: LogLevel.INFO,
@@ -135,6 +136,10 @@ export class ToolCallBatch {
         };
       } catch (err) {
         hasFailure = true;
+        await handleError(err, {
+          module: 'agent:ToolCallBatch',
+          action: 'executeOne',
+        });
         const errMsg = err instanceof Error ? err.message : String(err);
         results[index] = {
           id: call.id,

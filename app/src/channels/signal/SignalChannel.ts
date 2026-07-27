@@ -10,6 +10,7 @@ import type {
 } from '@modules/channels/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'channels:signal:SignalChannel',
   level: LogLevel.INFO,
@@ -105,6 +106,11 @@ export class SignalChannel extends BaseChannelPlugin {
       ]);
       return { success: true };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:signal',
+        action: 'sendTextMessage',
+        context: { target },
+      });
       return { success: false, error: `Signal CLI 错误: ${e}` };
     }
   }
@@ -124,6 +130,11 @@ export class SignalChannel extends BaseChannelPlugin {
       ]);
       return { success: true };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:signal',
+        action: 'sendImageMessage',
+        context: { target },
+      });
       return { success: false, error: `Signal CLI 错误: ${e}` };
     }
   }
@@ -145,6 +156,11 @@ export class SignalChannel extends BaseChannelPlugin {
       ]);
       return { success: true };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:signal',
+        action: 'sendFileMessage',
+        context: { target, filePath },
+      });
       return { success: false, error: `Signal CLI 错误: ${e}` };
     }
   }

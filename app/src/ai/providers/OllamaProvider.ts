@@ -5,9 +5,14 @@
 import type {
   ChatMessage,
   ChatResponse,
+  ParsedToolCall,
   ToolDefinition,
 } from '../models/types';
-import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
+import type {
+  ProviderConfig,
+  ProviderValidationResult,
+  ThinkingProviderChunk,
+} from './AIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { configManager } from '@modules/config';
@@ -111,21 +116,22 @@ export class OllamaProvider extends BaseAIProvider {
       maxTokens?: number;
       temperature?: number;
     }
-  ): AsyncGenerator<string, ChatResponse, unknown> {
+  ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
     const model = await this.resolveModel('chat', options);
     const temperature = options?.temperature ?? 0.7;
     const maxTokens = options?.maxTokens || 2048;
 
+    // Y1 修复: 传递 tools 到请求体
     const requestBody = this.transport!.buildRequest({
       model,
       messages,
+      tools: options?.tools,
       maxTokens,
       temperature,
       stream: true,
     });
 
     try {
-      // 使用带连接重试的 fetch，应对 API 网关偶发断连
       const response = await BaseAIProvider.fetchWithConnectionRetry(
         `${this.baseUrl}/api/chat`,
         {
@@ -157,6 +163,15 @@ export class OllamaProvider extends BaseAIProvider {
 
       const decoder = new TextDecoder();
       let buffer = '';
+      // Y4 修复: 累积完整内容
+      let fullContent = '';
+      let lastUsage: ChatResponse['usage'] | undefined;
+      const pendingToolCalls = new Map<
+        number,
+        { id: string; name: string; arguments: string }
+      >();
+      let stopReason: 'stop' | 'tool_calls' | 'max_tokens' = 'stop';
+      let toolCalls: ParsedToolCall[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -172,14 +187,43 @@ export class OllamaProvider extends BaseAIProvider {
 
           try {
             const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+            if (parsed.done) break;
+
             const message = parsed.message as
               | Record<string, unknown>
               | undefined;
-            const content = message?.content as string;
+            const content = message?.content as string | undefined;
             if (content) {
+              fullContent += content;
               yield content;
             }
-            if (parsed.done) break;
+
+            // 解析 tool_calls（Ollama 0.3+ 支持）
+            const streamToolCalls = message?.tool_calls as
+              | Array<Record<string, unknown>>
+              | undefined;
+            if (streamToolCalls && streamToolCalls.length > 0) {
+              stopReason = 'tool_calls';
+              toolCalls = streamToolCalls.map((tc) => {
+                const func = tc.function as Record<string, unknown> | undefined;
+                return {
+                  id: (tc.id as string) || `call_${Date.now()}`,
+                  name: (func?.name as string) || 'unknown',
+                  arguments: func?.arguments
+                    ? ((): Record<string, unknown> => {
+                        try {
+                          return JSON.parse(func.arguments as string) as Record<
+                            string,
+                            unknown
+                          >;
+                        } catch {
+                          return { _raw: func.arguments };
+                        }
+                      })()
+                    : {},
+                };
+              });
+            }
           } catch (err) {
             // skip malformed lines
           }
@@ -187,9 +231,11 @@ export class OllamaProvider extends BaseAIProvider {
       }
 
       return {
-        content: '',
+        content: fullContent,
         model,
-        stop_reason: 'stop',
+        stop_reason: stopReason,
+        tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
+        usage: lastUsage,
       };
     } catch (error) {
       if (error instanceof AppError) throw error;

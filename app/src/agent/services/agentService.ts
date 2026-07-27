@@ -14,6 +14,7 @@ import {
   readFileSync,
   existsSync,
   mkdirSync,
+  unlinkSync,
 } from 'fs';
 import { AIModelType } from '@modules/ai';
 
@@ -177,9 +178,7 @@ export class AgentServiceImpl implements AgentService {
     const agentPath = join(this.config.memoryPath, `${agentId}.json`);
     try {
       if (existsSync(agentPath)) {
-        // 这里应该使用fs.unlinkSync，但为了安全起见，我们先检查文件是否存在
-        const fs = require('fs');
-        fs.unlinkSync(agentPath);
+        unlinkSync(agentPath);
       }
     } catch (error) {
       logger.error('Failed to delete agent file:', error);
@@ -221,7 +220,7 @@ export function createAgentService(
     maxTokens: 1000,
     timeout: 60000,
     memoryPath: join(resolveMemoryDir(), 'agent_memory'),
-    defaultStrategy: 'direct_answer',
+    defaultStrategy: 'general',
     tools: ToolFactory.createDefaultTools(),
   };
 

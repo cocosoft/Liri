@@ -254,17 +254,19 @@ export class VerifierAgent {
 
       return result;
     } catch (error) {
-      logger.error('验证过程出错', {
+      logger.error('验证过程出错 — 降级为 APPROVE（不阻断主流程）', {
         sessionId: input.sessionId,
         error: String(error),
+        turnCount: input.turnCount,
+        toolNames: input.toolResults?.map((tr) => tr.toolName),
       });
 
-      // 验证本身失败 → 降级为 APPROVE（不阻断主流程）
+      // 验证本身失败 → 降级为 APPROVE（不阻断主流程，但置信度极低）
       return {
         passed: true,
-        confidence: 0.3,
+        confidence: 0.1, // 从 0.3 降到 0.1，明确表达不确定性
         verdict: 'APPROVE',
-        feedback: '验证过程出错，降级通过',
+        feedback: `验证过程异常（${String(error).slice(0, 100)}），降级通过。请人工确认工具结果是否正确。`,
       };
     }
   }

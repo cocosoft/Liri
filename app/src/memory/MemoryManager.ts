@@ -253,9 +253,11 @@ export class MemoryManagerImpl {
     this.pyAppIntegrationService = new PYAppIntegrationService();
 
     // 加载关联图
+    // @ignore-catch — 关联图异步加载，非关键路径，失败不阻塞初始化
     this.loadRelationGraph().catch(() => {});
 
     // 预热摘要缓存，避免首次 getSummaries 冷启动走全量 I/O
+    // @ignore-catch — 摘要缓存异步预热，非关键路径，失败不影响主流程
     this.refreshSummaryCache().catch(() => {});
   }
 
@@ -390,6 +392,7 @@ export class MemoryManagerImpl {
 
     // 摘要缓存失效并异步预热
     this.recentSummaryCache = null;
+    // @ignore-catch — 摘要缓存异步预热，非关键路径，失败不影响主流程
     this.refreshSummaryCache().catch(() => {});
 
     return newMemory;
@@ -491,6 +494,7 @@ export class MemoryManagerImpl {
 
     // 摘要缓存失效并异步预热
     this.recentSummaryCache = null;
+    // @ignore-catch — 摘要缓存异步预热，非关键路径，失败不影响主流程
     this.refreshSummaryCache().catch(() => {});
 
     return updatedMemory;
@@ -513,6 +517,7 @@ export class MemoryManagerImpl {
 
     // 摘要缓存失效并异步预热
     this.recentSummaryCache = null;
+    // @ignore-catch — 摘要缓存异步预热，非关键路径，失败不影响主流程
     this.refreshSummaryCache().catch(() => {});
   }
 
@@ -536,6 +541,7 @@ export class MemoryManagerImpl {
 
     // 摘要缓存失效并异步预热
     this.recentSummaryCache = null;
+    // @ignore-catch — 摘要缓存异步预热，非关键路径，失败不影响主流程
     this.refreshSummaryCache().catch(() => {});
 
     return count;
@@ -683,6 +689,7 @@ export class MemoryManagerImpl {
    */
   removeProvider(): void {
     if (this.provider) {
+      // @ignore-catch — 外部提供者关闭best-effort，失败不影响内存释放
       this.provider.shutdown().catch(() => {});
       this.provider = null;
     }

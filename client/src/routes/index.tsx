@@ -10,7 +10,9 @@ const DashboardPage = lazy(() => import("../components/views/DashboardPage"));
 const FileExplorerPage = lazy(
   () => import("../components/views/FileExplorerPage"),
 );
-const UsageCenterPage = lazy(() => import("../components/views/UsageCenterPage"));
+const UsageCenterPage = lazy(
+  () => import("../components/views/UsageCenterPage"),
+);
 const KnowledgePage = lazy(() => import("../components/views/KnowledgePage"));
 const FAQView = lazy(() => import("../components/views/FAQView"));
 const GraphView = lazy(() => import("../components/views/GraphView"));

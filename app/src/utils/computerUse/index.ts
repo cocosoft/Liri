@@ -75,6 +75,7 @@ export function getComputerUseAdapter(): ComputerUseAdapter {
 
 export function resetComputerUseAdapter(): void {
   if (adapter) {
+    // @ignore-catch — 销毁适配器best-effort，失败不影响引用置空
     adapter.destroy().catch(() => {});
     adapter = null;
   }

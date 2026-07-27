@@ -174,8 +174,10 @@ export function InboxPanel() {
                           </span>
                         )}
                         {item.channelId && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400"
-                            title={`来源渠道: ${getChannelLabel(item.channelId)}`}>
+                          <span
+                            className="text-xs px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400"
+                            title={`来源渠道: ${getChannelLabel(item.channelId)}`}
+                          >
                             💬 {getChannelLabel(item.channelId)}
                           </span>
                         )}

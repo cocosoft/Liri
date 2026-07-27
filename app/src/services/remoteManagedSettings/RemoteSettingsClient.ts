@@ -113,6 +113,7 @@ export class RemoteSettingsClient {
   private startPolling(): void {
     this.stopPolling();
     this.pollTimer = setInterval(() => {
+      // @ignore-catch — 定期拉取设置fire-and-forget，失败使用缓存
       this.fetchSettings().catch(() => {});
     }, this.config.pollInterval);
   }

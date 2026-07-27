@@ -217,9 +217,7 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
   }, []);
 
   return (
-    <ConfigSection
-      isDark={isDark}
-    >
+    <ConfigSection isDark={isDark}>
       {/* 命令模式选择 */}
       <ConfigItem label="命令模式" isDark={isDark}>
         <SelectConfig

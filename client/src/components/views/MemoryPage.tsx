@@ -250,88 +250,88 @@ function MemoryPage() {
       )}
 
       <div className="flex items-center justify-end mb-6">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowCreateDialog(true)}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              isDark
+                ? "bg-blue-700 hover:bg-blue-600 text-white"
+                : "bg-blue-500 hover:bg-blue-600 text-white"
+            }`}
+          >
+            + 创建记忆
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={total === 0}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              total === 0
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500"
+                : isDark
+                  ? "bg-green-700 hover:bg-green-600 text-white"
+                  : "bg-green-500 hover:bg-green-600 text-white"
+            }`}
+          >
+            导出 JSON
+          </button>
+          <button
+            onClick={() => {
+              if (isBatchMode) {
+                clearSelection();
+              } else {
+                selectAllMemories();
+              }
+            }}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              isDark
+                ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+            }`}
+          >
+            {isBatchMode ? "退出批量" : "批量模式"}
+          </button>
+          {isBatchMode && selectedIds.size > 0 && (
             <button
-              onClick={() => setShowCreateDialog(true)}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isDark
-                  ? "bg-blue-700 hover:bg-blue-600 text-white"
-                  : "bg-blue-500 hover:bg-blue-600 text-white"
-              }`}
+              onClick={handleBatchDelete}
+              className="px-3 py-2 rounded-lg text-sm font-medium bg-red-500 hover:bg-red-600 text-white transition-colors"
             >
-              + 创建记忆
+              删除选中 ({selectedIds.size})
             </button>
+          )}
+          {!isBatchMode && (
             <button
-              onClick={handleExport}
+              onClick={() => {
+                if (total === 0) return;
+                // 使用自定义确认弹窗替代 confirm()
+                setDeleteAllConfirm("");
+                const modal = document.createElement("dialog");
+                modal.className = isDark
+                  ? "bg-gray-800 text-gray-100"
+                  : "bg-white text-gray-900";
+                // 使用简单的 confirm + 输入确认文字
+                const confirmed = confirm(
+                  `⚠️ 确定要清除全部 ${total} 条记忆吗？\n\n此操作不可恢复！\n请输入「确认删除」后点击确定。`,
+                );
+                if (confirmed) {
+                  const input = prompt("请输入「确认删除」以继续:");
+                  if (input === "确认删除") {
+                    setDeleteAllConfirm("确认删除");
+                    handleDeleteAll();
+                  }
+                }
+              }}
               disabled={total === 0}
               className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 total === 0
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500"
-                  : isDark
-                    ? "bg-green-700 hover:bg-green-600 text-white"
-                    : "bg-green-500 hover:bg-green-600 text-white"
+                  : "bg-red-500 hover:bg-red-600 text-white"
               }`}
             >
-              导出 JSON
+              清除全部
             </button>
-            <button
-              onClick={() => {
-                if (isBatchMode) {
-                  clearSelection();
-                } else {
-                  selectAllMemories();
-                }
-              }}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isDark
-                  ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
-                  : "bg-gray-200 hover:bg-gray-300 text-gray-700"
-              }`}
-            >
-              {isBatchMode ? "退出批量" : "批量模式"}
-            </button>
-            {isBatchMode && selectedIds.size > 0 && (
-              <button
-                onClick={handleBatchDelete}
-                className="px-3 py-2 rounded-lg text-sm font-medium bg-red-500 hover:bg-red-600 text-white transition-colors"
-              >
-                删除选中 ({selectedIds.size})
-              </button>
-            )}
-            {!isBatchMode && (
-              <button
-                onClick={() => {
-                  if (total === 0) return;
-                  // 使用自定义确认弹窗替代 confirm()
-                  setDeleteAllConfirm("");
-                  const modal = document.createElement("dialog");
-                  modal.className = isDark
-                    ? "bg-gray-800 text-gray-100"
-                    : "bg-white text-gray-900";
-                  // 使用简单的 confirm + 输入确认文字
-                  const confirmed = confirm(
-                    `⚠️ 确定要清除全部 ${total} 条记忆吗？\n\n此操作不可恢复！\n请输入「确认删除」后点击确定。`,
-                  );
-                  if (confirmed) {
-                    const input = prompt("请输入「确认删除」以继续:");
-                    if (input === "确认删除") {
-                      setDeleteAllConfirm("确认删除");
-                      handleDeleteAll();
-                    }
-                  }
-                }}
-                disabled={total === 0}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  total === 0
-                    ? "bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500"
-                    : "bg-red-500 hover:bg-red-600 text-white"
-                }`}
-              >
-                清除全部
-              </button>
-            )}
-          </div>
+          )}
         </div>
+      </div>
 
       {error && (
         <div

@@ -56,17 +56,17 @@ function CompanionSettingsPanel({
           isDark={isDark}
         >
           <div className="w-48">
-          <textarea
-            value={companion.soul || ""}
-            onChange={(e) => onUpdateCompanion({ soul: e.target.value })}
-            rows={2}
-            placeholder="You are a helpful coding assistant..."
-            className={`w-full px-3 py-2 text-sm border rounded font-mono resize-y ${
-              isDark
-                ? "bg-gray-700 border-gray-600 text-white placeholder-gray-500"
-                : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
-            }`}
-          />
+            <textarea
+              value={companion.soul || ""}
+              onChange={(e) => onUpdateCompanion({ soul: e.target.value })}
+              rows={2}
+              placeholder="You are a helpful coding assistant..."
+              className={`w-full px-3 py-2 text-sm border rounded font-mono resize-y ${
+                isDark
+                  ? "bg-gray-700 border-gray-600 text-white placeholder-gray-500"
+                  : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
+              }`}
+            />
           </div>
         </ConfigItem>
 

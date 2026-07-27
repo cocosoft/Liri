@@ -63,6 +63,7 @@ export async function generateUndoContext(
 ): Promise<string> {
   const snapshots = await listSessionSnapshots(sessionId).catch((err) => {
     logger.warn('获取快照列表失败', { sessionId, error: String(err) });
+    // @ignore-catch — handleError已处理，异步抛错无需再处理
     handleError(err, {
       module: 'AIContextInjector',
       action: 'generateUndoContext:listSessionSnapshots',

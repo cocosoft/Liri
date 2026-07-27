@@ -1,4 +1,4 @@
-﻿import { pathToFileURL } from 'url';
+import { pathToFileURL } from 'url';
 
 import type { ScopedLspServerConfig, Diagnostic } from './types.js';
 import {
@@ -110,6 +110,7 @@ export function createLSPServerManager(): LSPServerManager {
     async shutdown(): Promise<void> {
       const promises: Promise<void>[] = [];
       for (const [name, instance] of serverInstances) {
+        // @ignore-catch — 关闭阶段best-effort停止LSP实例，单个失败不阻塞其他
         promises.push(instance.stop().catch(() => {}));
       }
       await Promise.all(promises);

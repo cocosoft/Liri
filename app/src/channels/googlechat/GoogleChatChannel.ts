@@ -12,7 +12,12 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -257,6 +262,10 @@ class GoogleChatChannelPlugin extends BaseChannelPlugin {
         : `Google Chat API ${resp.status}: ${await resp.text()}`;
       return { ok: resp.ok, data, error };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:googlechat',
+        action: 'apiPost',
+      });
       return { ok: false, error: String(e) };
     }
   }
@@ -356,6 +365,11 @@ class GoogleChatChannelPlugin extends BaseChannelPlugin {
         messageId: msgResult.data?.['name'] as string,
       };
     } catch (e) {
+      await handleError(e, {
+        module: 'channels:googlechat',
+        action: 'sendFileMessage',
+        context: { target, filePath },
+      });
       return { success: false, error: String(e) };
     }
   }

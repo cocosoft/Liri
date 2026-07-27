@@ -273,6 +273,11 @@ async function handleStreamingChat(
   // 禁用响应缓冲，确保 SSE 数据立即发送
   (res as unknown as { flush: () => void }).flush?.();
 
+  // 禁用 TCP Nagle 算法，防止小数据包被合并延迟
+  if (res.socket) {
+    res.socket.setNoDelay(true);
+  }
+
   const responseId = `chatcmpl-${randomUUID().slice(0, 8)}`;
   const created = Math.floor(Date.now() / 1000);
   const model = request.model || 'pyapp-default';

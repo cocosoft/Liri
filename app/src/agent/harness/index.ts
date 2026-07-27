@@ -25,6 +25,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 const logger = new Logger({
   module: 'agent:harness:index',
   level: LogLevel.INFO,
@@ -208,6 +209,7 @@ export class AgentHarness {
       this.stats.successfulRuns++;
     } catch (error) {
       ctx.error = error instanceof Error ? error : new Error(String(error));
+      await handleError(error, { module: 'agent:harness', action: 'run' });
 
       await this.transitionTo('failed', ctx);
       await this.executeHooks('onError', ctx);

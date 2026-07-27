@@ -47,9 +47,9 @@ function ProviderPage() {
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
 
-  const [activeTab, setActiveTab] = useState<
-    "providers" | "models" | "tasks"
-  >("providers");
+  const [activeTab, setActiveTab] = useState<"providers" | "models" | "tasks">(
+    "providers",
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [showPresets, setShowPresets] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -232,7 +232,9 @@ function ProviderPage() {
   const handleCheckBalance = useCallback(async (provider: ProviderInfo) => {
     setCheckingBalanceId(provider.id);
     try {
-      const result = await usageService.checkBalance({ providerId: provider.id });
+      const result = await usageService.checkBalance({
+        providerId: provider.id,
+      });
       if (result.success) {
         const lines = result.data.map(
           (d) =>

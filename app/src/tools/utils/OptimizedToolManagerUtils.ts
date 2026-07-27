@@ -115,10 +115,22 @@ export async function optimizedExecuteTool(
   }
 
   // 执行工具
-  const result = await tool.execute(input, context, onProgress);
+  let result: unknown;
+  try {
+    result = await tool.execute(input, context, onProgress);
+  } catch (err) {
+    logger.error('optimizedExecuteTool 执行失败', {
+      toolName: tool.name,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return {
+      error: err instanceof Error ? err.message : String(err),
+      toolName: tool.name,
+    };
+  }
 
   // 缓存结果（仅缓存成功的结果）
-  if (result && !result.error) {
+  if (result && !(result as Record<string, unknown>).error) {
     toolExecutionCache.set(cacheKey, result);
   }
 

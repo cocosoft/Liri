@@ -45,6 +45,8 @@ export class AIAgentImpl implements AIAgent {
   private createdAt: number;
   private updatedAt: number;
   private curator: CuratorScheduler | null = null;
+  /** Y3 修复: 流式取消标记，cancel() 设置后 stream() 循环退出 */
+  private _streamCancelled = false;
   private skillLifecycle: SkillLifecycleManager | null = null;
   private eventBus: InternalEventBus | null = null;
 
@@ -207,7 +209,8 @@ export class AIAgentImpl implements AIAgent {
     let responseId = Date.now().toString(36);
     let chunkIndex = 0;
     let accumulatedContent = '';
-    let isCancelled = false;
+    // Y3 修复: 使用类字段 _streamCancelled，cancel() 可中断流式循环
+    this._streamCancelled = false;
 
     try {
       const context: AgentContext = {
@@ -241,6 +244,14 @@ export class AIAgentImpl implements AIAgent {
           temperature: context.temperature,
           max_tokens: context.maxTokens,
           timeout: context.timeout,
+          tools: this.config.tools?.map((t) => ({
+            type: 'function' as const,
+            function: {
+              name: t.name,
+              description: t.description,
+              parameters: t.parameters ?? {},
+            },
+          })),
         };
 
         await this.emitEvent('agent:reply:start', {
@@ -249,6 +260,7 @@ export class AIAgentImpl implements AIAgent {
           model: context.model,
         });
 
+        let lastToolCalls: AgentResponse['toolCalls'];
         try {
           for await (const chunk of aiService.stream(
             messages,
@@ -256,8 +268,13 @@ export class AIAgentImpl implements AIAgent {
             streamOptions
           )) {
             // 检查是否被取消
-            if (isCancelled) {
+            if (this._streamCancelled) {
               break;
+            }
+
+            // 追踪最后一个 chunk 的 tool_calls
+            if (chunk.tool_calls && chunk.tool_calls.length > 0) {
+              lastToolCalls = chunk.tool_calls;
             }
 
             if (chunk.content) {
@@ -307,12 +324,76 @@ export class AIAgentImpl implements AIAgent {
         }
 
         // 最终响应
+        // N2 修复: 流式结束后执行工具调用
+        let finalContent = accumulatedContent;
+        let finalResult: Record<string, unknown> | undefined;
+        if (lastToolCalls && lastToolCalls.length > 0) {
+          try {
+            const toolResults: Array<{
+              name: string;
+              result: unknown;
+              error?: string;
+            }> = [];
+            for (const tc of lastToolCalls) {
+              const tool = this.config.tools?.find((t) => t.name === tc.name);
+              if (tool) {
+                try {
+                  const result = await tool.execute(tc.arguments ?? {});
+                  toolResults.push({ name: tc.name, result });
+                } catch (execErr) {
+                  toolResults.push({
+                    name: tc.name,
+                    result: null,
+                    error: (execErr as Error).message,
+                  });
+                }
+              }
+            }
+
+            if (toolResults.length > 0) {
+              const toolResultSummary = toolResults
+                .map(
+                  (tr) =>
+                    `${tr.name}: ${tr.error ? `ERROR: ${tr.error}` : JSON.stringify(tr.result, null, 2)}`
+                )
+                .join('\n');
+              messages.push({
+                role: AIMessageRole.ASSISTANT,
+                content:
+                  accumulatedContent ||
+                  `调用工具: ${lastToolCalls.map((tc) => tc.name).join(', ')}`,
+              });
+              messages.push({
+                role: AIMessageRole.USER,
+                content: `Tool execution results:\n${toolResultSummary}`,
+              });
+
+              const followUpResponse = await aiService.generate(
+                messages,
+                context.model,
+                {
+                  temperature: context.temperature,
+                  max_tokens: context.maxTokens,
+                  tools: streamOptions.tools,
+                }
+              );
+              finalContent = followUpResponse.content;
+              finalResult = { toolResults };
+            }
+          } catch (execErr) {
+            logger.warn('流式工具执行失败', { error: String(execErr) });
+            finalContent = `${accumulatedContent}\n\n工具执行出错: ${(execErr as Error).message}`;
+          }
+        }
+
         const finalResponse: AgentResponse = {
           id: responseId,
           taskId: task.id,
-          content: accumulatedContent,
+          content: finalContent,
           status: AgentState.COMPLETED,
           timestamp: Date.now(),
+          toolCalls: lastToolCalls,
+          result: finalResult,
         };
 
         await this.emitEvent('agent:reply:end', {
@@ -358,6 +439,7 @@ export class AIAgentImpl implements AIAgent {
    * 取消流式执行
    */
   cancel(): void {
+    this._streamCancelled = true;
     this.state = AgentState.IDLE;
     this.updatedAt = Date.now();
   }
@@ -665,7 +747,8 @@ export function createAIAgent(config: Partial<AgentConfig> = {}): AIAgent {
     maxTokens: 1000,
     timeout: 60000,
     memoryPath: '',
-    defaultStrategy: 'direct_answer',
+    // S4 修复: 默认使用 general 策略（支持工具调用）
+    defaultStrategy: 'general',
     tools: [],
   };
 

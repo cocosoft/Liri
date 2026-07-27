@@ -37,6 +37,7 @@ export class CodeAgentStrategy extends BaseAgentStrategy {
     const aiResponse = await aiService.generate(messages, context.model, {
       temperature: 0.2,
       max_tokens: context.maxTokens,
+      tools: this.buildToolDefinitions(context),
     });
 
     return {

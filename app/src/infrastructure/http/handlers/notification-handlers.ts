@@ -15,7 +15,6 @@
 
 import type http from 'http';
 import { sendError, readRequestBody, type HandlerCtx } from './handler-utils';
-import { Logger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { notificationPersistence } from '@modules/runtime/NotificationPersistence.js';
 import type {
@@ -23,8 +22,6 @@ import type {
   NotificationStatus,
   NotificationPriority,
 } from '@modules/runtime/NotificationPersistence.js';
-
-const logger = new Logger({ module: 'http:notification' });
 
 function sendJSON(
   res: http.ServerResponse,
@@ -38,6 +35,14 @@ function sendJSON(
 function parseURL(req: http.IncomingMessage): URL {
   const host = req.headers.host || 'localhost';
   return new URL(req.url || '/', `http://${host}`);
+}
+
+/** 从 URL 路径 /v1/notifications/:id[/suffix] 中提取通知 ID */
+function extractNotificationId(req: http.IncomingMessage): string {
+  const url = parseURL(req);
+  const segments = url.pathname.split('/');
+  // path: /v1/notifications/:id[/suffix]
+  return segments[3] || '';
 }
 
 // ─── 列表 ───────────────────────────────────────────
@@ -111,39 +116,7 @@ export async function handleSearchNotifications(
       return;
     }
 
-    // 使用 FTS5 搜索
-    const np = notificationPersistence();
-    const db = await (np as any)._getDb(); // access internal db for FTS
-
-    const rows: { rowid: string }[] = await new Promise((resolve, reject) => {
-      db.all(
-        `SELECT rowid FROM notifications_fts WHERE notifications_fts MATCH ? ORDER BY rank LIMIT 50`,
-        q,
-        (err: Error | null, results: { rowid: string }[]) => {
-          if (err) reject(err);
-          else resolve(results);
-        }
-      );
-    });
-
-    if (rows.length === 0) {
-      sendJSON(res, 200, { items: [] });
-      return;
-    }
-
-    const ids = rows.map((r) => r.rowid);
-    const placeholders = ids.map(() => '?').join(',');
-    const items = await new Promise<any[]>((resolve, reject) => {
-      db.all(
-        `SELECT * FROM notifications WHERE id IN (${placeholders}) ORDER BY created_at DESC`,
-        ...ids,
-        (err: Error | null, results: any[]) => {
-          if (err) reject(err);
-          else resolve(results.map((r: any) => (np as any)._deserialize(r)));
-        }
-      );
-    });
-
+    const items = await notificationPersistence().search(q);
     sendJSON(res, 200, { items });
   } catch (e) {
     await handleError(e, { module: 'http:notification', action: 'search' });
@@ -160,7 +133,7 @@ export async function handleMarkRead(
   _ctx: HandlerCtx
 ): Promise<void> {
   try {
-    const id = (req as any).params?.id || '';
+    const id = extractNotificationId(req);
     if (!id) {
       sendError(res, '缺少 id', 400);
       return;
@@ -208,7 +181,7 @@ export async function handleDismiss(
   _ctx: HandlerCtx
 ): Promise<void> {
   try {
-    const id = (req as any).params?.id || '';
+    const id = extractNotificationId(req);
     if (!id) {
       sendError(res, '缺少 id', 400);
       return;
@@ -257,7 +230,7 @@ export async function handleDeleteNotification(
   _ctx: HandlerCtx
 ): Promise<void> {
   try {
-    const id = (req as any).params?.id || '';
+    const id = extractNotificationId(req);
     if (!id) {
       sendError(res, '缺少 id', 400);
       return;
@@ -279,7 +252,7 @@ export async function handleNotificationAction(
   _ctx: HandlerCtx
 ): Promise<void> {
   try {
-    const id = (req as any).params?.id || '';
+    const id = extractNotificationId(req);
     if (!id) {
       sendError(res, '缺少 id', 400);
       return;

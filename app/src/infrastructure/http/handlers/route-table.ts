@@ -7,6 +7,7 @@
 import type http from 'http';
 import { tryHandleRoute } from '@modules/ai';
 import { Logger, LogLevel } from '@modules/monitoring';
+import type { HandlerCtx } from './handler-utils';
 
 const logger = new Logger({ module: 'http:route-table', level: LogLevel.INFO });
 
@@ -141,13 +142,8 @@ export async function dispatchRoute(
   res: http.ServerResponse,
   url: string,
   self: Record<string, Function>,
-  broadcastEvent: (
-    event: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    data: any
-  ) => void,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  handlerCtx: any
+  broadcastEvent: (event: string, data: unknown) => void,
+  handlerCtx: HandlerCtx
 ): Promise<boolean> {
   const method = req.method || 'GET';
 
@@ -2077,22 +2073,18 @@ export async function dispatchRoute(
       id !== 'batch'
     ) {
       if (suffix === '/read' && method === 'PATCH') {
-        (req as any).params = { id };
         await handleMarkRead(req, res, handlerCtx);
         return true;
       }
       if (suffix === '/dismiss' && method === 'PATCH') {
-        (req as any).params = { id };
         await handleDismiss(req, res, handlerCtx);
         return true;
       }
       if (suffix === '/action' && method === 'POST') {
-        (req as any).params = { id };
         await handleNotificationAction(req, res, handlerCtx);
         return true;
       }
       if (!suffix && method === 'DELETE') {
-        (req as any).params = { id };
         await handleDeleteNotification(req, res, handlerCtx);
         return true;
       }

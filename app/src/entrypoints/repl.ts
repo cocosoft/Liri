@@ -445,10 +445,15 @@ export async function launchRepl(
         `[定时任务: ${job.name}] 执行完成`;
       const message = `📋 **${job.name}**\n${content}`;
 
-      if (job.deliver === 'origin' && job.origin) {
+      // 1) 直接 origin 投递（需同时有 platform 和 chatId）
+      if (
+        job.deliver === 'origin' &&
+        job.origin?.platform &&
+        job.origin?.chatId
+      ) {
         const { channelRegistry } =
           await import('../channels/registry/ChannelRegistry');
-        const platform = job.origin.platform as any;
+        const platform = job.origin.platform;
         const chatId = job.origin.chatId;
         const channel = channelRegistry.get(platform);
         if (channel?.enabled) {
@@ -458,15 +463,58 @@ export async function launchRepl(
             platform,
             chatId,
           });
-        } else {
-          logger.warn('Cron 投递（origin）失败：通道未注册或已禁用', {
-            jobName: job.name,
-            platform,
-          });
-          await deliveryRouter.deliverLocal(message);
+          return;
         }
-      } else {
-        // 无 origin 信息时回退到本地输出
+        logger.warn('Cron 投递（origin）失败：通道未注册或已禁用', {
+          jobName: job.name,
+          platform,
+        });
+      }
+
+      // 2) sessionKey 反查：通过 ChannelSessionManager 查找渠道
+      //    sessionKey = context.sessionId = message.conversationId ?? message.senderId
+      //    ChannelSession.conversationId 正是此值，用 find() 按 conversationId 匹配
+      if (job.sessionKey) {
+        const { channelSessionManager } =
+          await import('../channels/session/ChannelSessionManager');
+        const sessions = channelSessionManager.find({
+          conversationId: job.sessionKey,
+        });
+        const channelSession = sessions.length > 0 ? sessions[0] : undefined;
+        if (channelSession) {
+          const { channelRegistry } =
+            await import('../channels/registry/ChannelRegistry');
+          const channel = channelRegistry.get(channelSession.channelId);
+          if (channel?.enabled) {
+            await channel.sendMessage(channelSession.conversationId, message);
+            logger.info('Cron 投递（sessionKey 反查）成功', {
+              jobName: job.name,
+              channelId: channelSession.channelId,
+              conversationId: channelSession.conversationId,
+            });
+            return;
+          }
+        }
+      }
+
+      // 3) 最终兜底：写入通知中心
+      try {
+        const { notificationPersistence } =
+          await import('@modules/runtime/NotificationPersistence.js');
+        await notificationPersistence().create({
+          category: 'system',
+          priority: 'normal',
+          title: `定时任务完成: ${job.name}`,
+          content: message,
+          source: 'cron',
+          source_ref: job.id,
+        });
+        logger.info('Cron 投递（通知中心兜底）', {
+          jobName: job.name,
+          jobId: job.id,
+        });
+      } catch {
+        // 通知中心不可用 → 最后 resort: local log
         await deliveryRouter.deliverLocal(message);
       }
     };

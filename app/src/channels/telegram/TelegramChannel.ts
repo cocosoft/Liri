@@ -100,6 +100,14 @@ function escapeMarkdownV2(text: string): string {
   return result;
 }
 
+/** Telegram HTML 转义（用于 parse_mode: 'HTML'） */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 /**
  * 将 InteractiveCard 转为 Telegram InlineKeyboard
  */
@@ -478,11 +486,11 @@ class TelegramChannel extends BaseChannelPlugin {
     target: string,
     content: string
   ): Promise<SendResult> {
-    const escaped = escapeMarkdownV2(content);
+    // 使用 HTML 解析模式，无需转义特殊字符。比 MarkdownV2 更健壮。
     const body = {
       chat_id: target,
-      text: escaped.slice(0, TELEGRAM_META.maxMessageLength),
-      parse_mode: 'MarkdownV2',
+      text: content.slice(0, TELEGRAM_META.maxMessageLength),
+      parse_mode: 'HTML',
     };
     const resp = await this.transport.fetch(
       `/bot${this.botToken}/sendMessage`,
@@ -540,10 +548,13 @@ class TelegramChannel extends BaseChannelPlugin {
     card: InteractiveCard
   ): Promise<SendResult> {
     const keyboard = buildInlineKeyboard(card);
+    // HTML 格式：标题加粗 + 正文 + 可选按钮
+    const htmlTitle = escapeHtml(card.title);
+    const htmlContent = escapeHtml(card.content);
     const body: Record<string, unknown> = {
       chat_id: target,
-      text: `*${escapeMarkdownV2(card.title)}*\n${escapeMarkdownV2(card.content)}`,
-      parse_mode: 'MarkdownV2',
+      text: `<b>${htmlTitle}</b>\n${htmlContent}`,
+      parse_mode: 'HTML',
     };
     if (keyboard) {
       body['reply_markup'] = JSON.stringify(keyboard);
@@ -739,6 +750,72 @@ class TelegramChannel extends BaseChannelPlugin {
               action: 'handleIncomingMessage(text)',
             });
           });
+        }
+
+        // 处理编辑消息：用户编辑后重新发送
+        const editedMsg = update['edited_message'] as
+          | Record<string, unknown>
+          | undefined;
+        if (editedMsg && editedMsg['text']) {
+          const eChat = editedMsg['chat'] as Record<string, unknown>;
+          const eFrom = editedMsg['from'] as Record<string, unknown>;
+          const editedMessage: MessageContext = {
+            channelId: 'telegram',
+            senderId: String(eFrom?.['id'] || ''),
+            senderName:
+              (eFrom?.['first_name'] as string) ||
+              (eFrom?.['username'] as string) ||
+              '',
+            conversationId: String(eChat?.['id']),
+            messageId: `edit_${String(editedMsg['message_id'])}`,
+            messageType: 'text',
+            content: `[编辑] ${editedMsg['text'] as string}`,
+            timestamp: (editedMsg['date'] as number) * 1000,
+            isDirectMessage: (eChat?.['type'] as string) === 'private',
+            rawPayload: update as unknown as Record<string, unknown>,
+          };
+          this.handleIncomingMessage(editedMessage).catch((error) => {
+            handleError(error, {
+              module: 'channels:telegram',
+              action: 'handleIncomingMessage(edited)',
+            });
+          });
+        }
+
+        // 处理按钮回调：将 callback_data 作为用户消息转发
+        const callback = update['callback_query'] as
+          | Record<string, unknown>
+          | undefined;
+        if (callback) {
+          const cbMsg = callback['message'] as
+            | Record<string, unknown>
+            | undefined;
+          const cbFrom = callback['from'] as Record<string, unknown>;
+          const cbChat = cbMsg?.['chat'] as Record<string, unknown>;
+          const cbData = callback['data'] as string | undefined;
+          if (cbData && cbFrom && cbChat) {
+            const callbackMessage: MessageContext = {
+              channelId: 'telegram',
+              senderId: String(cbFrom['id'] || ''),
+              senderName:
+                (cbFrom['first_name'] as string) ||
+                (cbFrom['username'] as string) ||
+                '',
+              conversationId: String(cbChat['id']),
+              messageId: `cb_${String(callback['id'])}`,
+              messageType: 'text',
+              content: cbData,
+              timestamp: Date.now(),
+              isDirectMessage: (cbChat['type'] as string) === 'private',
+              rawPayload: update as unknown as Record<string, unknown>,
+            };
+            this.handleIncomingMessage(callbackMessage).catch((error) => {
+              handleError(error, {
+                module: 'channels:telegram',
+                action: 'handleIncomingMessage(callback)',
+              });
+            });
+          }
         }
       }
     } catch (error) {

@@ -130,6 +130,8 @@ export interface ToolUseContext {
     environment?: Record<string, string>;
   };
   abortController: AbortController;
+  /** 会话 ID，用于关联到具体的聊天会话 */
+  sessionId?: string;
   readFileState: unknown;
   getAppState(): unknown;
   setAppState(f: (prev: unknown) => unknown): void;

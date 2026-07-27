@@ -58,11 +58,22 @@ const DEDUP_TTL_MS = 3000;
  * QQ 等通道可能对同一条消息发送两个不同事件类型（如 AT_MESSAGE_CREATE + GROUP_AT_MESSAGE_CREATE），
  * 两者的 messageId 和 senderId 均不同，导致 messageId 级和 senderId+content 级去重均失效。
  * 此缓存仅基于 `channelId + 消息内容` 做短窗口去重，作为全局兜底。
+ * 上限 10000 条，通过 setInterval 每 30s 清理过期条目防止 OOM。
  */
 const contentDedupCache = new Map<string, number>();
 
 /** 内容级去重窗口（毫秒）—— 60s，覆盖 LLM 响应时间，确保同一条消息的重复事件不会触发两次 AI 调用 */
 const CONTENT_DEDUP_WINDOW_MS = 60000;
+
+/** 定期清理过期去重缓存条目 */
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, time] of contentDedupCache) {
+    if (now - time > CONTENT_DEDUP_WINDOW_MS * 2) {
+      contentDedupCache.delete(key);
+    }
+  }
+}, 30000).unref();
 
 /** 路由结果 */
 export interface RouteResult {

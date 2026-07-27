@@ -12,6 +12,8 @@ import type {
   NotificationItem,
   NotificationCountResult,
   NotificationCategory,
+  NotificationListParams,
+  NotificationStatus,
 } from "../types/notification";
 
 /** 从 configStore 读取通知偏好 */
@@ -195,11 +197,11 @@ export const useNotificationStore = create<NotificationStore>()((set, get) => ({
 
     set({ isLoading: true });
     try {
-      const params: Record<string, unknown> = { limit: 20 };
+      const params: NotificationListParams = { limit: 20 };
       if (activeCategory !== "all") params.category = activeCategory;
       if (!reset && nextCursor) params.cursor = nextCursor;
 
-      const result = await notificationService.list(params as any);
+      const result = await notificationService.list(params);
 
       set((s) => ({
         items: reset ? result.items : mergeItems(s.items, result.items),
@@ -350,7 +352,11 @@ export const useNotificationStore = create<NotificationStore>()((set, get) => ({
     set((s) => ({
       items: s.items.map((item) =>
         item.id === data.id
-          ? { ...item, status: data.status as any, updated_at: data.updated_at }
+          ? {
+              ...item,
+              status: data.status as NotificationStatus,
+              updated_at: data.updated_at,
+            }
           : item,
       ),
     }));

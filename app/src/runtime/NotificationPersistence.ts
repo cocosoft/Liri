@@ -281,7 +281,9 @@ export class NotificationPersistence {
     await new Promise<void>((resolve, _reject) => {
       db.run(
         `INSERT INTO notifications_fts(rowid, title, content) VALUES (?, ?, ?)`,
-        id, item.title, item.content,
+        id,
+        item.title,
+        item.content,
         (err: Error | null) => {
           if (err) {
             /* FTS 索引失败不影响主流程 */
@@ -634,6 +636,42 @@ export class NotificationPersistence {
         }
       );
     });
+  }
+
+  // ─── 搜索 ────────────────────────────────────
+
+  /** FTS5 全文搜索通知 */
+  async search(query: string): Promise<NotificationItem[]> {
+    const db = await this._getDb();
+    const self = this;
+
+    const rows: { rowid: string }[] = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT rowid FROM notifications_fts WHERE notifications_fts MATCH ? ORDER BY rank LIMIT 50`,
+        query,
+        (err: Error | null, results: { rowid: string }[]) => {
+          if (err) reject(err);
+          else resolve(results);
+        }
+      );
+    });
+
+    if (rows.length === 0) return [];
+
+    const ids = rows.map((r) => r.rowid);
+    const placeholders = ids.map(() => '?').join(',');
+    const items = await new Promise<NotificationItem[]>((resolve, reject) => {
+      db.all(
+        `SELECT * FROM notifications WHERE id IN (${placeholders}) ORDER BY created_at DESC`,
+        ids,
+        (err: Error | null, results: Record<string, unknown>[]) => {
+          if (err) reject(err);
+          else resolve(results.map((r) => self._deserialize(r)));
+        }
+      );
+    });
+
+    return items;
   }
 
   // ─── 操作（幂等） ─────────────────────────────

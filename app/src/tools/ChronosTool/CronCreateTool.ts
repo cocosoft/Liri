@@ -201,9 +201,12 @@ export class CronCreateTool {
             createdAt: new Date().toISOString(),
             silent,
             deliver: 'origin',
-            // origin/sessionKey 由 dispatchDelivery 回调在投递时通过 ChannelSessionManager 查找
-            // （ToolUseContext 不含渠道信息，存储在 cron_jobs.sessionKey 中供后续 lookup）
-            sessionKey: (context as any).sessionId || undefined,
+            // sessionKey 供 dispatchDelivery 通过 ChannelSessionManager 反查渠道信息
+            sessionKey: context.sessionId || undefined,
+            // origin: platform 信息（来自 ToolUseContext.options.querySource）
+            origin: context.options?.querySource
+              ? { platform: context.options.querySource }
+              : undefined,
           };
 
           // 计算首次运行时间

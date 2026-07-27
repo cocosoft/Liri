@@ -18,24 +18,13 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+
 /**
- * Gateway 命令
- * 管理消息通道的注册、启停和状态查看
- * 已统一：list/status 从 ChannelRegistry 获取数据，start/stop/diagnostics 通过 ChannelManager
- *
- * @deprecated 基于旧 ChannelManager 体系，待迁移至 channels/ 新 IChannelPlugin 体系
+ * Gateway 命令 — 管理消息通道
+ * 已迁移至 channels/ ChannelRegistry API
  */
 import type { Command } from '@modules/commands';
-import { getChannelManager } from '../../../core/gateway/ChannelManagerFactory';
 import { channelRegistry } from '../../../channels/registry/ChannelRegistry';
-import type { GatewayChannel } from '../../../core/gateway/types';
-import { ChannelStatus } from '../../../core/gateway/types';
-
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:gateway:index',
-  level: LogLevel.INFO,
-});
 
 /**
  * 网关命令
@@ -46,27 +35,25 @@ export const gatewayCommand: Command = {
   description: '管理消息通道',
   aliases: ['gw', 'channels'],
   argumentHint: '[list|status|start|stop|diagnostics]',
-  whenToUse: '当你需要查看或管理消息通道（Telegram、WebSocket）时',
+  whenToUse: '当你需要查看或管理消息通道（Telegram、Discord 等）时',
   load: async () => ({
     execute: async (args: string) => {
       const parts = args.trim().split(/\s+/);
       const subcommand = parts[0]?.toLowerCase() || '';
       const restArgs = parts.slice(1).join(' ');
 
-      const channelManager = getChannelManager();
-
       switch (subcommand) {
         case 'list': {
-          const registryChannels = channelRegistry.getAll();
+          const channels = channelRegistry.getAll();
 
-          if (registryChannels.length === 0) {
+          if (channels.length === 0) {
             return {
               success: true,
-              message: '没有已注册的通道。使用 /gateway start 启动默认通道。',
+              message: '没有已注册的通道。请在设置中配置通道后启用。',
             };
           }
 
-          const channelList = registryChannels
+          const channelList = channels
             .map((ch) => {
               const status = ch.connected ? '✓' : '✗';
               return `  ${status} ${ch.name} (${ch.type})`;
@@ -77,35 +64,33 @@ export const gatewayCommand: Command = {
 
           return {
             success: true,
-            message: `已注册通道 (${registryChannels.length}, 已启用 ${stats.enabled}):\n${channelList}`,
+            message: `已注册通道 (${channels.length}, 已启用 ${stats.enabled}):\n${channelList}`,
           };
         }
 
         case 'status': {
-          const regStats = channelRegistry.getStats();
-          const cmStatus = channelManager.getStatus();
+          const stats = channelRegistry.getStats();
+          const statuses = channelRegistry.getAllStatuses();
 
           const summary = [
             '=== ChannelRegistry ===',
-            `  总通道数: ${regStats.total}`,
-            `  已启用: ${regStats.enabled}`,
-            `  类型分布: ${Object.entries(regStats.types)
+            `  总通道数: ${stats.total}`,
+            `  已启用: ${stats.enabled}`,
+            `  类型分布: ${Object.entries(stats.types)
               .map(([t, n]) => `${t}:${n}`)
               .join(', ')}`,
             '',
-            '=== ChannelManager ===',
-            `  运行中: ${cmStatus.isRunning ? '是' : '否'}`,
-            `  总通道数: ${cmStatus.totalChannels}`,
-            `  已连接: ${cmStatus.connectedChannels}/${cmStatus.totalChannels}`,
+            '=== 通道详情 ===',
           ];
 
-          if (cmStatus.channels.length > 0) {
-            summary.push('');
-            for (const ch of cmStatus.channels) {
+          if (statuses.length > 0) {
+            for (const s of statuses) {
               summary.push(
-                `  ${ch.name} — ${ch.status}${ch.connected ? ' ✓' : ''}`
+                `  ${s.name} (${s.type}) — ${s.connected ? '已连接 ✓' : '未连接 ✗'}`
               );
             }
+          } else {
+            summary.push('  (无)');
           }
 
           return {
@@ -116,8 +101,15 @@ export const gatewayCommand: Command = {
 
         case 'start': {
           if (restArgs) {
+            const channel = channelRegistry.get(restArgs);
+            if (!channel) {
+              return {
+                success: false,
+                error: `通道不存在: ${restArgs}`,
+              };
+            }
             try {
-              await channelManager.startChannel(restArgs);
+              await channel.connect();
               return { success: true, message: `通道已启动: ${restArgs}` };
             } catch (error) {
               const message =
@@ -126,14 +118,40 @@ export const gatewayCommand: Command = {
             }
           }
 
-          await channelManager.start();
-          return { success: true, message: '所有通道已启动' };
+          // 启动所有已注册通道
+          const all = channelRegistry.getAll();
+          let started = 0;
+          const errors: string[] = [];
+          for (const ch of all) {
+            try {
+              await ch.connect();
+              started++;
+            } catch (error) {
+              errors.push(
+                `${ch.name}: ${error instanceof Error ? error.message : String(error)}`
+              );
+            }
+          }
+          if (errors.length > 0) {
+            return {
+              success: false,
+              error: `已启动 ${started}/${all.length} 个通道，${errors.length} 个失败: ${errors.join('; ')}`,
+            };
+          }
+          return { success: true, message: `所有通道已启动 (${started})` };
         }
 
         case 'stop': {
           if (restArgs) {
+            const channel = channelRegistry.get(restArgs);
+            if (!channel) {
+              return {
+                success: false,
+                error: `通道不存在: ${restArgs}`,
+              };
+            }
             try {
-              await channelManager.stopChannel(restArgs);
+              await channel.disconnect();
               return { success: true, message: `通道已停止: ${restArgs}` };
             } catch (error) {
               const message =
@@ -142,34 +160,45 @@ export const gatewayCommand: Command = {
             }
           }
 
-          await channelManager.stop();
-          return { success: true, message: '所有通道已停止' };
+          const all = channelRegistry.getAll();
+          for (const ch of all) {
+            await ch.disconnect();
+          }
+          return { success: true, message: `所有通道已停止 (${all.length})` };
         }
 
         case 'diagnostics': {
-          const channels = restArgs
-            ? ([channelManager.getChannel(restArgs)].filter(
-                Boolean
-              ) as GatewayChannel[])
-            : channelManager.listChannels();
-
-          if (channels.length === 0) {
+          if (restArgs) {
+            const channel = channelRegistry.get(restArgs);
+            if (!channel) {
+              return {
+                success: false,
+                error: `通道不存在: ${restArgs}`,
+              };
+            }
+            const s = channel.getStatus();
+            const fields = Object.entries(s)
+              .map(([key, value]) => `  ${key}: ${JSON.stringify(value)}`)
+              .join('\n');
             return {
-              success: false,
-              error: restArgs ? `通道不存在: ${restArgs}` : '没有已注册的通道',
+              success: true,
+              message: `通道诊断: ${restArgs} (${channel.type})\n${fields}`,
             };
           }
 
-          const diagnostics = channels
-            .map((ch) => {
-              const diag = ch.getDiagnostics();
-              const header = `通道: ${ch.name} (${ch.type})`;
-              const fields = Object.entries(diag)
-                .map(([key, value]) => `  ${key}: ${JSON.stringify(value)}`)
-                .join('\n');
-              return `${header}\n${fields}`;
+          const statuses = channelRegistry.getAllStatuses();
+          if (statuses.length === 0) {
+            return {
+              success: false,
+              error: '没有已注册的通道',
+            };
+          }
+
+          const diagnostics = statuses
+            .map((s) => {
+              return `${s.name} (${s.type}): ${s.connected ? '已连接 ✓' : '未连接 ✗'}`;
             })
-            .join('\n\n');
+            .join('\n');
 
           return {
             success: true,
@@ -181,14 +210,13 @@ export const gatewayCommand: Command = {
           const helpMessage = [
             '网关命令用法:',
             '',
-            '/gateway list          - 列出所有已注册通道（ChannelRegistry）',
-            '/gateway status        - 查看通道管理器运行状态',
+            '/gateway list          - 列出所有已注册通道',
+            '/gateway status        - 查看通道运行状态',
             '/gateway start [name]  - 启动所有或指定通道',
             '/gateway stop [name]   - 停止所有或指定通道',
             '/gateway diagnostics [name] - 查看通道诊断信息',
             '',
             '别名: /gw, /channels',
-            '注意: /channel 命令也提供类似功能，使用 ChannelRegistry 后端',
             '',
             '示例:',
             '  /gateway list',

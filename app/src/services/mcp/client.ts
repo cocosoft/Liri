@@ -18,7 +18,6 @@ import type {
   SerializedTool,
 } from './types';
 import type { McpCommand } from './commandManager';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 // 重连常量
 const MAX_RECONNECT_ATTEMPTS = 5;
@@ -128,41 +127,70 @@ export async function reconnectMcpServerImpl(
   try {
     logger.info(`Reconnecting to MCP server: ${serverName}`);
 
-    const options: Record<string, unknown> = {
-      url: (config as Record<string, unknown>).url,
-      headers: (config as Record<string, unknown>).headers || {},
-    };
-
+    // 根据 transport 类型创建对应的 SDK transport 实例
+    let transport: unknown;
     switch (config.type) {
-      case 'http':
-        options.transport = 'http';
-        break;
-      case 'ws':
-        options.transport = 'ws';
-        break;
-      case 'sse':
-        options.transport = 'sse';
-        break;
-      case 'stdio':
-        options.transport = 'stdio';
-        options.command = config.command;
-        options.args = config.args || [];
-        options.env = config.env || {};
-        break;
-      default:
-        throw new AppError(
-          `Unsupported transport type: ${config.type}`,
-          ErrorCategory.EXECUTION,
-          ErrorSeverity.HIGH,
-          '1000'
+      case 'sse': {
+        const { SSEClientTransport } =
+          await import('@modelcontextprotocol/sdk/client/sse.js');
+        transport = new SSEClientTransport(
+          new URL((config as Record<string, unknown>).url as string),
+          {
+            requestInit: {
+              headers:
+                ((config as Record<string, unknown>).headers as Record<
+                  string,
+                  string
+                >) || undefined,
+            },
+          }
         );
+        break;
+      }
+      case 'stdio': {
+        const { StdioClientTransport } =
+          await import('@modelcontextprotocol/sdk/client/stdio.js');
+        transport = new StdioClientTransport({
+          command: config.command!,
+          args: config.args || [],
+          env: (config.env as Record<string, string>) || undefined,
+        });
+        break;
+      }
+      case 'ws': {
+        const { WebSocketClientTransport } =
+          await import('@modelcontextprotocol/sdk/client/websocket.js');
+        transport = new WebSocketClientTransport(
+          new URL((config as Record<string, unknown>).url as string)
+        );
+        break;
+      }
+      default: {
+        // http / streamable-http
+        const { StreamableHTTPClientTransport } =
+          await import('@modelcontextprotocol/sdk/client/streamableHttp.js');
+        transport = new StreamableHTTPClientTransport(
+          new URL((config as Record<string, unknown>).url as string),
+          {
+            requestInit: {
+              headers:
+                ((config as Record<string, unknown>).headers as Record<
+                  string,
+                  string
+                >) || undefined,
+            },
+          }
+        );
+        break;
+      }
     }
 
-    const client = new Client(options as any);
+    const client = new Client(
+      { name: 'pyapp', version: '1.0.0' },
+      { capabilities: {} }
+    );
 
-    await (
-      client as unknown as { connect(transport?: unknown): Promise<void> }
-    ).connect();
+    await client.connect(transport as Parameters<typeof client.connect>[0]);
 
     const capabilities = (await (
       client as unknown as { capabilities: { get(): Promise<unknown> } }

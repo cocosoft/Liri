@@ -18,18 +18,19 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+
 /**
  * @deprecated 请使用 channels/ 目录下的 IChannelPlugin 体系替代。
- *   core/gateway/ 为遗留 Gateway Channel 体系，实现于 2025 年。
- *   新体系位于 channels/ 目录，包含 ChannelRegistry、IChannelPlugin、
- *   ChannelManager 等统一接口。
  *
- *   注意：新旧体系当前深度交织——channels/registry/ChannelRegistry
- *   仍从本文件导入 ChannelPluginRegistry 类型。迁移时应确保
- *   新体系不再依赖旧类型后方可移除此模块。
+ *   核心功能已完全迁移至 channels/ 体系。
+ *   当前仅保留:
+ *   - types: ChannelStatus 枚举被 ChannelRegistry + 旧 CLI 命令引用
+ *   - HealthMonitor: monitoring-handlers.ts 依赖，待迁移后移出
+ *   - ChannelPlugin + ChannelPluginRegistry: ChannelRegistry 桥接层依赖
  *
- *   此模块将在未来版本中移除。
+ *   此模块将在 HealthMonitor 迁移后整体移除。
  */
+
 export {
   ChannelType,
   ChannelStatus,
@@ -46,30 +47,6 @@ export type {
   GatewayChannel,
 } from './types';
 
-export { ChannelManager } from './ChannelManager';
-export {
-  createChannelManager,
-  getChannelManager,
-  disconnectAllChannels,
-} from './ChannelManagerFactory';
-
-export type {
-  ChannelManagerConfig,
-  ChannelManagerStatus,
-} from './ChannelManager';
-
-export { TelegramChannel } from './TelegramChannel';
-
-export type { TelegramChannelConfig } from './TelegramChannel';
-
-export { WebChannel } from './WebChannel';
-
-export type { WebChannelConfig } from './WebChannel';
-
-export { setupGatewayFromConfig } from './GatewaySetup';
-
-export type { GatewaySetupResult } from './GatewaySetup';
-
 export { HealthMonitor } from './HealthMonitor';
 
 export type {
@@ -78,55 +55,6 @@ export type {
   HealthStatus,
   HealthEvent,
 } from './HealthMonitor';
-
-export { ChannelStatusReporter } from './ChannelStatusReporter';
-
-export type {
-  ChannelSnapshot,
-  StatusReport,
-  ReporterEvent,
-} from './ChannelStatusReporter';
-
-export { RateLimiter } from './RateLimiter';
-
-export type {
-  RateLimitConfig,
-  RateLimitResult,
-  RateLimitBucket,
-} from './RateLimiter';
-
-export { GatewayAuth } from './auth/GatewayAuth';
-
-export type {
-  AuthResult,
-  AuthCredentials,
-  GatewayAuthenticator,
-  AuthConfig,
-} from './auth/GatewayAuth';
-
-export {
-  createRequestFrame,
-  createResponseFrame,
-  createEventFrame,
-  createErrorFrame,
-  isRequestFrame,
-  isResponseFrame,
-  isEventFrame,
-  isErrorFrame,
-  isInboundFrame,
-  getFrameId,
-  computeWebSocketAcceptKey,
-} from './protocol/frames';
-
-export type {
-  RequestFrame,
-  ResponseFrame,
-  EventFrame,
-  ErrorFrame,
-  GatewayFrame,
-  InboundFrame,
-  ErrorCode,
-} from './protocol/types';
 
 export { ChannelPluginRegistry, RegistryEvent } from './ChannelPluginRegistry';
 
@@ -138,10 +66,3 @@ export type {
   PluginValidationResult,
 } from './ChannelPlugin';
 export { isChannelPlugin } from './ChannelPlugin';
-
-export { GatewayMcpBridge, gatewayMcpBridge } from './mcp/GatewayMcpBridge.js';
-export type {
-  McpToolDefinition,
-  McpCallRequest,
-  McpCallResponse,
-} from './mcp/GatewayMcpBridge.js';

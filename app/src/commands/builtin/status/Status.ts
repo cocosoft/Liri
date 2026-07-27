@@ -51,25 +51,22 @@ async function handleAgent(): Promise<CommandResult> {
 
 /**
  * 处理 gateway 子命令 - 显示 API 网关状态
+ * 已迁移至 channels/ ChannelRegistry API
  */
 async function handleGateway(): Promise<CommandResult> {
   let gatewayInfo: string;
   try {
-    const { getChannelManager } =
-      await import('@modules/core/gateway/ChannelManagerFactory.js');
-    const status = getChannelManager().getStatus();
+    const { channelRegistry } =
+      await import('../../../channels/registry/ChannelRegistry');
+    const stats = channelRegistry.getStats();
+    const statuses = channelRegistry.getAllStatuses();
     gatewayInfo = [
-      '  Running:          ' + (status.isRunning ? 'Yes' : 'No'),
-      '  Total Channels:   ' + status.totalChannels,
-      '  Connected:        ' + status.connectedChannels,
-      ...status.channels.map(
-        (ch: {
-          name: string;
-          type: string;
-          status: string;
-          connected: boolean;
-        }) =>
-          `    ${ch.name} (${ch.type}) - ${ch.status}${ch.connected ? ' [connected]' : ''}`
+      '  Total Channels: ' + stats.total,
+      '  Enabled:        ' + stats.enabled,
+      '  Connected:      ' + statuses.filter((s) => s.connected).length,
+      ...statuses.map(
+        (s) =>
+          `    ${s.name} (${s.type}) - ${s.connected ? 'connected' : 'disconnected'}`
       ),
     ].join('\n');
   } catch {
@@ -88,28 +85,23 @@ async function handleGateway(): Promise<CommandResult> {
 
 /**
  * 处理 channels 子命令 - 显示通道状态
+ * 已迁移至 channels/ ChannelRegistry API
  */
 async function handleChannels(): Promise<CommandResult> {
   let channelsInfo: string;
   try {
-    const { getChannelManager } =
-      await import('@modules/core/gateway/ChannelManagerFactory.js');
-    const manager = getChannelManager();
-    const channels = manager.listChannels();
-    const active = channels.filter(
-      (ch: { status: string; isConnected: () => boolean }) => ch.isConnected()
-    );
+    const { channelRegistry } =
+      await import('../../../channels/registry/ChannelRegistry');
+    const all = channelRegistry.getAll();
+    const active = all.filter((ch) => ch.connected);
     channelsInfo = [
-      '  Total Channels: ' + channels.length,
-      '  Active:         ' + active.length,
-      '  Inactive:       ' + (channels.length - active.length),
+      '  Total:   ' + all.length,
+      '  Active:  ' + active.length,
+      '  Inactive:' + (all.length - active.length),
       '',
       '  Active Channels:',
       ...(active.length > 0
-        ? active.map(
-            (ch: { name: string; type: string }) =>
-              `    - ${ch.name} (${ch.type})`
-          )
+        ? active.map((ch) => `    - ${ch.name} (${ch.type})`)
         : ['    (none)']),
     ].join('\n');
   } catch {

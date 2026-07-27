@@ -417,41 +417,7 @@ export function registerStandardHandlers(): void {
               }
             }
 
-            // Gateway 旧通道止血开关
-            const gatewayLegacyDisabled =
-              process.env['GATEWAY_LEGACY_DISABLED'] === 'true';
-
-            if (!gatewayLegacyDisabled) {
-              const { getChannelManager } =
-                await import('../../core/gateway/ChannelManagerFactory.js');
-              getChannelManager();
-
-              try {
-                const { setupGatewayFromConfig } =
-                  await import('../../core/gateway/GatewaySetup.js');
-                const result = await setupGatewayFromConfig();
-                if (result.registeredChannels > 0) {
-                  logger.info(
-                    `[Phase 6] Gateway 通道自动启动: ${result.connectedChannels}/${result.registeredChannels} 已连接`
-                  );
-                }
-                if (result.errors.length > 0) {
-                  logger.warning('[Phase 6] Gateway 通道启动存在错误', {
-                    errors: result.errors,
-                  });
-                }
-              } catch (setupError) {
-                logger.debug('[Phase 6] Gateway 通道自动启动失败（非关键）', {
-                  error: setupError,
-                });
-              }
-
-              const { registerShutdownHandler } =
-                await import('@modules/utils/gracefulShutdown.js');
-              const { disconnectAllChannels } =
-                await import('../../core/gateway/index.js');
-              registerShutdownHandler(() => disconnectAllChannels());
-            }
+            // Gateway 旧通道系统已于 2026-07 清理，由 channels/ 体系完全替代
 
             logger.info('[Phase 6] CoreAPI + Gateway 初始化完成');
           } catch (e) {

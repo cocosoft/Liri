@@ -321,46 +321,8 @@ export async function init(): Promise<void> {
           const { getCoreAPI } = await import('../runtime/api/CoreAPIImpl.js');
           getCoreAPI();
 
-          // Gateway 旧通道止血开关：设置 GATEWAY_LEGACY_DISABLED=true 可禁用旧 Gateway 系统
-          const gatewayLegacyDisabled =
-            configManager.env('GATEWAY_LEGACY_DISABLED') === 'true';
-
-          if (!gatewayLegacyDisabled) {
-            // 预创建 ChannelManager 单例
-            const { getChannelManager } =
-              await import('../core/gateway/ChannelManagerFactory.js');
-            getChannelManager();
-
-            // 根据配置自动注册并启动 Gateway 通道
-            try {
-              const { setupGatewayFromConfig } =
-                await import('../core/gateway/GatewaySetup.js');
-              const result = await setupGatewayFromConfig();
-              if (result.registeredChannels > 0) {
-                logger.info(
-                  `Gateway 通道自动启动: ${result.connectedChannels}/${result.registeredChannels} 已连接`
-                );
-              }
-              if (result.errors.length > 0) {
-                logger.warning('Gateway 通道启动存在错误', {
-                  errors: result.errors,
-                });
-              }
-            } catch (setupError) {
-              logger.debug('Gateway 通道自动启动失败（非关键）', {
-                error: setupError,
-              });
-            }
-          } else {
-            logger.info('Gateway 旧通道已通过 GATEWAY_LEGACY_DISABLED 禁用');
-          }
-
-          // 注册 Gateway 优雅关闭处理（仅旧通道启用时）
-          if (!gatewayLegacyDisabled) {
-            const { disconnectAllChannels } =
-              await import('../core/gateway/index.js');
-            registerShutdownHandler(() => disconnectAllChannels());
-          }
+          // Gateway 旧通道系统已于 2026-07 清理，由 channels/ 体系完全替代
+          // 保留断路器记录以维持监控兼容
 
           const duration = Date.now() - startTime;
           if (duration > 100) {

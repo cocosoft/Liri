@@ -585,7 +585,7 @@ export async function handleInfrastructureStatus(
     const { getOTelMetrics } =
       await import('@modules/monitoring/otel/OTelMetrics');
     const { getHealthMonitor } =
-      await import('@modules/core/gateway/HealthMonitor');
+      await import('@modules/monitoring/HealthMonitor.js');
 
     const [healthResult, llmSummary] = await Promise.allSettled([
       infraHealthChecker.runAllChecks(),

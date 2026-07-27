@@ -680,8 +680,7 @@ class TelegramChannel extends BaseChannelPlugin {
                 messageType: 'text',
                 content: cbData,
                 timestamp: Date.now(),
-                isDirectMessage:
-                  (cbChat['type'] as string) === 'private',
+                isDirectMessage: (cbChat['type'] as string) === 'private',
                 rawPayload: update as unknown as Record<string, unknown>,
               };
               this.handleIncomingMessage(callbackMessage).catch((error) => {
@@ -712,8 +711,7 @@ class TelegramChannel extends BaseChannelPlugin {
               messageType: 'text',
               content: `[编辑] ${editedMsg['text'] as string}`,
               timestamp: (editedMsg['date'] as number) * 1000,
-              isDirectMessage:
-                (eChat?.['type'] as string) === 'private',
+              isDirectMessage: (eChat?.['type'] as string) === 'private',
               rawPayload: update as unknown as Record<string, unknown>,
             };
             this.handleIncomingMessage(editedMessage).catch((error) => {

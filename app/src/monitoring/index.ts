@@ -256,6 +256,15 @@ export {
 export { HeartbeatMonitor } from './HeartbeatMonitor.js';
 export type { HeartbeatEntry } from './HeartbeatMonitor.js';
 
+// 健康监控（从 core/gateway 迁移）
+export { HealthMonitor, getHealthMonitor } from './HealthMonitor.js';
+export type {
+  HealthConfig,
+  HealthReport,
+  HealthStatus as MonitorHealthStatus,
+  HealthEvent,
+} from './HealthMonitor.js';
+
 // 备份管理
 export { BackupManager, createDefaultBackupManager } from './backup/index.js';
 

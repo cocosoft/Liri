@@ -23,12 +23,10 @@
  * @deprecated 请使用 channels/ 目录下的 IChannelPlugin 体系替代。
  *
  *   核心功能已完全迁移至 channels/ 体系。
- *   当前仅保留:
- *   - types: ChannelStatus 枚举被 ChannelRegistry + 旧 CLI 命令引用
- *   - HealthMonitor: monitoring-handlers.ts 依赖，待迁移后移出
- *   - ChannelPlugin + ChannelPluginRegistry: ChannelRegistry 桥接层依赖
+ *   HealthMonitor 已移至 monitoring/HealthMonitor.ts。
+ *   当前仅保留 ChannelPlugin + ChannelPluginRegistry + types（桥接层）。
  *
- *   此模块将在 HealthMonitor 迁移后整体移除。
+ *   此模块将在桥接层解耦后整体移除。
  */
 
 export {
@@ -46,15 +44,6 @@ export type {
   ChannelStats,
   GatewayChannel,
 } from './types';
-
-export { HealthMonitor } from './HealthMonitor';
-
-export type {
-  HealthConfig,
-  HealthReport,
-  HealthStatus,
-  HealthEvent,
-} from './HealthMonitor';
 
 export { ChannelPluginRegistry, RegistryEvent } from './ChannelPluginRegistry';
 

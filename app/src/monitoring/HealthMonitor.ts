@@ -1,8 +1,8 @@
 import { EventEmitter } from 'events';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import type { GatewayChannel } from './types';
-import { ChannelStatus } from './types';
+import type { GatewayChannel } from '../core/gateway/types';
+import { ChannelStatus } from '../core/gateway/types';
 
 /** 全局单例 */
 let _healthMonitor: HealthMonitor | null = null;

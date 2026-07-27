@@ -70,6 +70,7 @@ export const gatewayCommand: Command = {
 
         case 'status': {
           const stats = channelRegistry.getStats();
+          const channels = channelRegistry.getAll();
           const statuses = channelRegistry.getAllStatuses();
 
           const summary = [
@@ -83,10 +84,12 @@ export const gatewayCommand: Command = {
             '=== 通道详情 ===',
           ];
 
-          if (statuses.length > 0) {
-            for (const s of statuses) {
+          if (channels.length > 0) {
+            for (const ch of channels) {
+              const s = statuses.find((st) => st.id === ch.name);
+              const connected = s?.status.connected ?? false;
               summary.push(
-                `  ${s.name} (${s.type}) — ${s.connected ? '已连接 ✓' : '未连接 ✗'}`
+                `  ${ch.name} (${ch.type}) — ${connected ? '已连接 ✓' : '未连接 ✗'}`
               );
             }
           } else {
@@ -186,17 +189,20 @@ export const gatewayCommand: Command = {
             };
           }
 
+          const channels = channelRegistry.getAll();
           const statuses = channelRegistry.getAllStatuses();
-          if (statuses.length === 0) {
+          if (channels.length === 0) {
             return {
               success: false,
               error: '没有已注册的通道',
             };
           }
 
-          const diagnostics = statuses
-            .map((s) => {
-              return `${s.name} (${s.type}): ${s.connected ? '已连接 ✓' : '未连接 ✗'}`;
+          const diagnostics = channels
+            .map((ch) => {
+              const s = statuses.find((st) => st.id === ch.name);
+              const connected = s?.status.connected ?? false;
+              return `${ch.name} (${ch.type}): ${connected ? '已连接 ✓' : '未连接 ✗'}`;
             })
             .join('\n');
 

@@ -59,15 +59,17 @@ async function handleGateway(): Promise<CommandResult> {
     const { channelRegistry } =
       await import('../../../channels/registry/ChannelRegistry');
     const stats = channelRegistry.getStats();
+    const channels = channelRegistry.getAll();
     const statuses = channelRegistry.getAllStatuses();
     gatewayInfo = [
       '  Total Channels: ' + stats.total,
       '  Enabled:        ' + stats.enabled,
-      '  Connected:      ' + statuses.filter((s) => s.connected).length,
-      ...statuses.map(
-        (s) =>
-          `    ${s.name} (${s.type}) - ${s.connected ? 'connected' : 'disconnected'}`
-      ),
+      '  Connected:      ' + statuses.filter((s) => s.status.connected).length,
+      ...channels.map((ch) => {
+        const s = statuses.find((st) => st.id === ch.name);
+        const connected = s?.status.connected ?? false;
+        return `    ${ch.name} (${ch.type}) - ${connected ? 'connected' : 'disconnected'}`;
+      }),
     ].join('\n');
   } catch {
     gatewayInfo = '  Gateway module not available.';

@@ -655,6 +655,75 @@ class TelegramChannel extends BaseChannelPlugin {
           this.lastUpdateId = updateId;
 
           const msg = update['message'] as Record<string, unknown> | undefined;
+
+          // 处理按钮回调：将 callback_data 作为用户消息转发
+          const callback = update['callback_query'] as
+            | Record<string, unknown>
+            | undefined;
+          if (callback) {
+            const cbMsg = callback['message'] as
+              | Record<string, unknown>
+              | undefined;
+            const cbFrom = callback['from'] as Record<string, unknown>;
+            const cbChat = cbMsg?.['chat'] as Record<string, unknown>;
+            const cbData = callback['data'] as string | undefined;
+            if (cbData && cbFrom && cbChat) {
+              const callbackMessage: MessageContext = {
+                channelId: 'telegram',
+                senderId: String(cbFrom['id'] || ''),
+                senderName:
+                  (cbFrom['first_name'] as string) ||
+                  (cbFrom['username'] as string) ||
+                  '',
+                conversationId: String(cbChat['id']),
+                messageId: `cb_${String(callback['id'])}`,
+                messageType: 'text',
+                content: cbData,
+                timestamp: Date.now(),
+                isDirectMessage:
+                  (cbChat['type'] as string) === 'private',
+                rawPayload: update as unknown as Record<string, unknown>,
+              };
+              this.handleIncomingMessage(callbackMessage).catch((error) => {
+                handleError(error, {
+                  module: 'channels:telegram',
+                  action: 'handleIncomingMessage(callback)',
+                });
+              });
+            }
+          }
+
+          // 处理编辑消息：用户编辑后重新发送
+          const editedMsg = update['edited_message'] as
+            | Record<string, unknown>
+            | undefined;
+          if (editedMsg && editedMsg['text']) {
+            const eChat = editedMsg['chat'] as Record<string, unknown>;
+            const eFrom = editedMsg['from'] as Record<string, unknown>;
+            const editedMessage: MessageContext = {
+              channelId: 'telegram',
+              senderId: String(eFrom?.['id'] || ''),
+              senderName:
+                (eFrom?.['first_name'] as string) ||
+                (eFrom?.['username'] as string) ||
+                '',
+              conversationId: String(eChat?.['id']),
+              messageId: `edit_${String(editedMsg['message_id'])}`,
+              messageType: 'text',
+              content: `[编辑] ${editedMsg['text'] as string}`,
+              timestamp: (editedMsg['date'] as number) * 1000,
+              isDirectMessage:
+                (eChat?.['type'] as string) === 'private',
+              rawPayload: update as unknown as Record<string, unknown>,
+            };
+            this.handleIncomingMessage(editedMessage).catch((error) => {
+              handleError(error, {
+                module: 'channels:telegram',
+                action: 'handleIncomingMessage(edited)',
+              });
+            });
+          }
+
           if (!msg) continue;
 
           const chat = msg['chat'] as Record<string, unknown>;
@@ -750,72 +819,6 @@ class TelegramChannel extends BaseChannelPlugin {
               action: 'handleIncomingMessage(text)',
             });
           });
-        }
-
-        // 处理编辑消息：用户编辑后重新发送
-        const editedMsg = update['edited_message'] as
-          | Record<string, unknown>
-          | undefined;
-        if (editedMsg && editedMsg['text']) {
-          const eChat = editedMsg['chat'] as Record<string, unknown>;
-          const eFrom = editedMsg['from'] as Record<string, unknown>;
-          const editedMessage: MessageContext = {
-            channelId: 'telegram',
-            senderId: String(eFrom?.['id'] || ''),
-            senderName:
-              (eFrom?.['first_name'] as string) ||
-              (eFrom?.['username'] as string) ||
-              '',
-            conversationId: String(eChat?.['id']),
-            messageId: `edit_${String(editedMsg['message_id'])}`,
-            messageType: 'text',
-            content: `[编辑] ${editedMsg['text'] as string}`,
-            timestamp: (editedMsg['date'] as number) * 1000,
-            isDirectMessage: (eChat?.['type'] as string) === 'private',
-            rawPayload: update as unknown as Record<string, unknown>,
-          };
-          this.handleIncomingMessage(editedMessage).catch((error) => {
-            handleError(error, {
-              module: 'channels:telegram',
-              action: 'handleIncomingMessage(edited)',
-            });
-          });
-        }
-
-        // 处理按钮回调：将 callback_data 作为用户消息转发
-        const callback = update['callback_query'] as
-          | Record<string, unknown>
-          | undefined;
-        if (callback) {
-          const cbMsg = callback['message'] as
-            | Record<string, unknown>
-            | undefined;
-          const cbFrom = callback['from'] as Record<string, unknown>;
-          const cbChat = cbMsg?.['chat'] as Record<string, unknown>;
-          const cbData = callback['data'] as string | undefined;
-          if (cbData && cbFrom && cbChat) {
-            const callbackMessage: MessageContext = {
-              channelId: 'telegram',
-              senderId: String(cbFrom['id'] || ''),
-              senderName:
-                (cbFrom['first_name'] as string) ||
-                (cbFrom['username'] as string) ||
-                '',
-              conversationId: String(cbChat['id']),
-              messageId: `cb_${String(callback['id'])}`,
-              messageType: 'text',
-              content: cbData,
-              timestamp: Date.now(),
-              isDirectMessage: (cbChat['type'] as string) === 'private',
-              rawPayload: update as unknown as Record<string, unknown>,
-            };
-            this.handleIncomingMessage(callbackMessage).catch((error) => {
-              handleError(error, {
-                module: 'channels:telegram',
-                action: 'handleIncomingMessage(callback)',
-              });
-            });
-          }
         }
       }
     } catch (error) {

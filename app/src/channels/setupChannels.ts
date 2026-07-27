@@ -17,13 +17,13 @@ import { handleError } from '@modules/error';
 const logger = new Logger({ level: LogLevel.INFO, module: 'channels:setup' });
 
 // ─── Feature Flag: Inbox ↔ 渠道桥接开关 ───
-/** 渠道 ↔ Inbox 桥接总开关（默认关闭） */
+/** 渠道 ↔ Inbox 桥接总开关（默认开启，显式设为 'false' 时关闭） */
 export function isBridgeEnabled(): boolean {
-  return process.env.INBOX_CHANNEL_BRIDGE_ENABLED === 'true';
+  return process.env.INBOX_CHANNEL_BRIDGE_ENABLED !== 'false';
 }
-/** 渠道 ← Inbox 回复回传开关（默认关闭） */
+/** 渠道 ← Inbox 回复回传开关（默认开启，显式设为 'false' 时关闭） */
 export function isReplyEnabled(): boolean {
-  return process.env.INBOX_CHANNEL_REPLY_ENABLED === 'true';
+  return process.env.INBOX_CHANNEL_REPLY_ENABLED !== 'false';
 }
 
 /**
@@ -533,6 +533,11 @@ export async function lazyConnectChannels(): Promise<void> {
                     context: { target, channelName: channel.name },
                   });
                 }
+              } else {
+                logger.warning(
+                  `通道 ${channel.name} 缺少 outbound 适配器，AI 回复无法发送到渠道`,
+                  { target, channelName: channel.name }
+                );
               }
             },
           });

@@ -6,6 +6,7 @@ import { useBackendStore } from "../../stores/backendStore";
 import { useVoiceStore } from "../../stores/voiceStore";
 import { useConfigStore } from "../../stores/configStore";
 import { useModelSwitchStore } from "../../stores/modelSwitchStore";
+import { useChatInspectorStore } from "../../stores/chatInspectorStore";
 import { useAutoScroll } from "../../hooks/useAutoScroll";
 import { useSessionContextSync } from "../../hooks/useSessionContextSync";
 import { voiceService } from "../../services/voiceService";
@@ -35,6 +36,31 @@ function ChatArea() {
       msgCount: messages.length,
     });
   }, [currentSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** 上下文面板点击消息摘要 → 滚动到对应消息 */
+  const highlightedRoundId = useChatInspectorStore((s) => s.highlightedRoundId);
+  const setHighlightedRoundId = useChatInspectorStore(
+    (s) => s.setHighlightedRoundId,
+  );
+  useEffect(() => {
+    if (!highlightedRoundId) return;
+    // 等待 DOM 渲染完成后再滚动（消息列表可能还未挂载）
+    requestAnimationFrame(() => {
+      const el = document.querySelector(
+        `[data-msg-id="${highlightedRoundId}"]`,
+      );
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        // 高亮闪烁效果
+        el.classList.add("ring-2", "ring-blue-400", "ring-offset-1");
+        setTimeout(() => {
+          el.classList.remove("ring-2", "ring-blue-400", "ring-offset-1");
+        }, 1500);
+      }
+      // 重置以允许重复点击同一消息
+      setHighlightedRoundId(null);
+    });
+  }, [highlightedRoundId, setHighlightedRoundId]);
   const { interimText, finalText, audioLevel, subtitleStatus } =
     useVoiceStore();
 

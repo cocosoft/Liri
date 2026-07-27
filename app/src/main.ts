@@ -1041,6 +1041,19 @@ export async function launch(options: LaunchOptions): Promise<void> {
       }
     }
 
+    // T1.26: 初始化通知持久化（建表 + FTS5 + 过期调度）
+    try {
+      const { notificationPersistence } =
+        await import('@modules/runtime/NotificationPersistence.js');
+      await notificationPersistence().init();
+      logger.info('NotificationPersistence 初始化完成');
+    } catch (e) {
+      logger.warning(
+        'NotificationPersistence 初始化失败（非致命）',
+        e as Error
+      );
+    }
+
     // T1.5: 等待关键预读取完成
     profileCheckpoint('T1_await_prefetch_start');
     profilePhaseStart('T1_await_prefetch');

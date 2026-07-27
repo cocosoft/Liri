@@ -200,6 +200,11 @@ async function handleListTasks(
 
     const persistence = getVideoTaskPersistence();
 
+    // 查询活跃任务前，先清理超过 30 分钟的过期任务
+    if (statusFilter === 'active') {
+      persistence.cleanupStaleTasks();
+    }
+
     let tasks;
     if (statusFilter === 'active') {
       tasks = persistence.listByStatus(

@@ -1,6 +1,9 @@
 /**
  * Inbox HTTP 端点 — /v1/inbox
  *
+ * @deprecated 已迁移至通知中心（/v1/notifications/*）。审批/提问交互请使用 notification-handlers。
+ * 此模块保留仅供向后兼容，请勿新增调用。
+ *
  * GET  /v1/inbox           — 列出 Inbox 项
  * GET  /v1/inbox/:id        — 获取单个 Inbox 项
  * POST /v1/inbox/:id/reply  — 回复 Inbox 项

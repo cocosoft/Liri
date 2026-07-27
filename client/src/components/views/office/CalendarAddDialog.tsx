@@ -21,6 +21,8 @@ export interface CalendarAddFormData {
   status?: EventStatus;
   priority?: number;
   tags?: string;
+  /** 同步到消息中心待办 */
+  syncToNotification?: boolean;
 }
 
 interface CalendarAddDialogProps {
@@ -57,6 +59,7 @@ export default function CalendarAddDialog({
   const [priority, setPriority] = useState(initialData?.priority ?? 3);
   const [tags, setTags] = useState(initialData?.tags ?? "");
   const [saving, setSaving] = useState(false);
+  const [syncToNotification, setSyncToNotification] = useState(false);
 
   // 重置表单
   const reset = () => {
@@ -68,6 +71,7 @@ export default function CalendarAddDialog({
     setStatus(initialData?.status ?? "pending");
     setPriority(initialData?.priority ?? 3);
     setTags(initialData?.tags ?? "");
+    setSyncToNotification(false);
   };
 
   const handleSave = async () => {
@@ -83,6 +87,7 @@ export default function CalendarAddDialog({
         status,
         priority,
         tags: tags || undefined,
+        syncToNotification,
       });
       onClose();
       reset();
@@ -220,6 +225,19 @@ export default function CalendarAddDialog({
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
             />
           </div>
+
+          {/* 同步到消息中心待办 */}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={syncToNotification}
+              onChange={(e) => setSyncToNotification(e.target.checked)}
+              className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              同时添加到消息中心待办
+            </span>
+          </label>
         </div>
         <DialogFooter>
           <button

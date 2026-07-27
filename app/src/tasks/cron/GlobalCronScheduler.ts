@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 全局 CronScheduler 单例
  * 保证整个进程只有一份调度器实例，HTTP handler 和守护进程共享
  */
@@ -43,7 +43,8 @@ function defaultExecutor(job: CronJob): Promise<CronJobResult> {
  * 在应用启动时调用一次，后续调用无副作用
  */
 export async function ensureGlobalCronSchedulerStarted(
-  callbacks?: Partial<SchedulerCallbacks>
+  callbacks?: Partial<SchedulerCallbacks>,
+  deliveryQueue?: any
 ): Promise<CronScheduler> {
   if (instance) return instance;
 
@@ -75,7 +76,7 @@ export async function ensureGlobalCronSchedulerStarted(
       jobTimeoutMs: 5 * 60_000,
       enableLock: false,
     },
-    undefined, // deliveryQueue
+    deliveryQueue,
     rl,
     alertService
   );

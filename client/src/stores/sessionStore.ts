@@ -130,4 +130,8 @@ useRootStore.subscribe((root) => {
 
 // 状态变更日志（仅开发环境）
 import { withStoreLogging } from "../utils/storeLogger";
-withStoreLogging(useSessionStore, "sessionStore", []);
+withStoreLogging(useSessionStore, "sessionStore", [
+  "switching",
+  "isLoading",
+  "sessions",
+]);

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import KeyboardShortcutsHelp from "../common/KeyboardShortcutsHelp";
 import { httpLegacy as http } from "../../services/httpClient";
+import { useAutoUpdate } from "../../hooks/useAutoUpdate";
 
 /** 帮助中心导航项 */
 interface HelpNavItem {
@@ -389,6 +390,15 @@ function HelpPage() {
   } | null>(null);
   const [loadingDoc, setLoadingDoc] = useState(false);
 
+  // 更新检查
+  const {
+    checking,
+    downloading,
+    result: updateResult,
+    error: updateError,
+    check: checkUpdate,
+  } = useAutoUpdate();
+
   useEffect(() => {
     if (docContent) {
       document.body.style.overflow = "hidden";
@@ -641,6 +651,28 @@ function HelpPage() {
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                 {t("help.aboutDesc")}
               </p>
+              <button
+                onClick={checkUpdate}
+                disabled={checking || downloading}
+                className="mt-3 px-4 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white rounded transition-colors"
+              >
+                {checking
+                  ? "检查中..."
+                  : downloading
+                    ? "下载中..."
+                    : "检查更新"}
+              </button>
+              {updateResult?.available && (
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1.5">
+                  新版本 {updateResult.latestVersion} 可用
+                </p>
+              )}
+              {updateResult && !updateResult.available && !checking && (
+                <p className="text-xs text-gray-400 mt-1">已是最新版本</p>
+              )}
+              {updateError && (
+                <p className="text-xs text-red-500 mt-1">{updateError}</p>
+              )}
             </div>
           </div>
 

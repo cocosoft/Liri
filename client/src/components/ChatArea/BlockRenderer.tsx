@@ -23,6 +23,7 @@ import TaskCard from "./TaskCard";
 import ProgressCard from "./ProgressCard";
 import DeliverableCard from "./DeliverableCard";
 import DiffBlock from "./DiffBlock";
+import InboxBlock from "./InboxBlock";
 import { useChatStore } from "../../stores/chat";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 
@@ -106,6 +107,10 @@ function BlockRenderer({
       ) : null;
     case "diff":
       return block.diffData ? <DiffBlock data={block.diffData} /> : null;
+    case "inbox":
+      return block.inboxData ? (
+        <InboxBlock data={block.inboxData} sessionId={sessionId} />
+      ) : null;
     case "text":
     default:
       return (

@@ -81,7 +81,7 @@ export class ScheduleHook {
   }
 
   /**
-   * 日历事件创建 → 创建 Cron 提醒 + 写入 AI 索引
+   * 日历事件创建 → 创建 Cron 提醒 + 写入 AI 索引 + 推送通知中心
    */
   async onCalendarCreated(payload: CalendarEventCreatedPayload): Promise<void> {
     const { event, sessionId, toolCallId, snippet, reminderMinutes } = payload;
@@ -135,7 +135,6 @@ export class ScheduleHook {
           });
           reminderCronJobIds.push(jobId);
         } catch (cronErr) {
-          // 补偿机制：记录错误但不回滚日历事件
           logger.warn('Cron 提醒创建失败', {
             eventId: event.id,
             minsBefore,
@@ -157,6 +156,9 @@ export class ScheduleHook {
         reminderCount: reminderCronJobIds.length,
         totalRequested: minutes.length,
       });
+
+      // 桥接写入通知中心（fire-and-forget，失败不影响主流程）
+      void this._pushCalendarNotice(event);
     } catch (err) {
       logger.error('onCalendarCreated 处理失败', {
         error: String(err),
@@ -185,6 +187,9 @@ export class ScheduleHook {
           event: newEvent,
         } as CalendarEventCreatedPayload);
 
+        // 同时更新通知中心的到期时间
+        void this._pushCalendarNotice(newEvent);
+
         logger.info('日程时间变更，已重建提醒', {
           eventId: newEvent.id,
           oldStart: prevEvent.start,
@@ -200,7 +205,7 @@ export class ScheduleHook {
   }
 
   /**
-   * 日历事件删除 → 删除关联 Cron 任务 + 标记 AI 索引
+   * 日历事件删除 → 删除关联 Cron 任务 + 标记 AI 索引 + 消除通知
    */
   async onCalendarDeleted(payload: CalendarEventDeletedPayload): Promise<void> {
     const { id } = payload;
@@ -211,6 +216,9 @@ export class ScheduleHook {
 
       // 标记 AI 索引为已删除
       await this.aiIndex.markDeleted(id);
+
+      // 消除通知中心对应通知
+      void this._dismissCalendarNotice(id);
 
       logger.info('日程已删除，关联提醒和索引已清理', { eventId: id });
     } catch (err) {
@@ -260,5 +268,52 @@ export class ScheduleHook {
   async destroy(): Promise<void> {
     await this.aiIndex.close();
     logger.info('ScheduleHook 已销毁');
+  }
+
+  /**
+   * 向通知中心推送日程提醒（category='notice'）
+   * 日程开始时自动过期，点击可跳回日历
+   */
+  private async _pushCalendarNotice(event: {
+    id: string;
+    summary: string;
+    start: string;
+    end: string;
+    description?: string;
+  }): Promise<void> {
+    try {
+      const { notificationPersistence } =
+        await import('@modules/runtime/NotificationPersistence.js');
+      const startTs = Math.floor(new Date(event.start).getTime() / 1000);
+      await notificationPersistence().create({
+        category: 'notice',
+        priority: 'normal',
+        title: `日程: ${event.summary}`,
+        content: event.description || `${event.start} 开始`,
+        source: 'calendar',
+        source_ref: event.id,
+        link_to: {
+          type: 'page',
+          id: `/office/calendar?date=${event.start.slice(0, 10)}`,
+          label: '查看日历',
+        },
+        expires_at: startTs,
+      });
+    } catch {
+      /* 通知写入失败不影响日历主流程 */
+    }
+  }
+
+  /**
+   * 消除通知中心中对应日程的通知
+   */
+  private async _dismissCalendarNotice(eventId: string): Promise<void> {
+    try {
+      const { notificationPersistence } =
+        await import('@modules/runtime/NotificationPersistence.js');
+      await notificationPersistence().resolveBySourceRef(eventId);
+    } catch {
+      /* 通知消除失败不影响日历主流程 */
+    }
   }
 }

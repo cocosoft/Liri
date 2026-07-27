@@ -118,7 +118,7 @@ export const MasonryGallery: React.FC<Props> = ({
   }, [hasMore, loading, onLoadMore]);
 
   return (
-    <div className="h-full overflow-y-auto p-3" ref={scrollRef}>
+    <div className="h-full overflow-y-auto p-3 pb-20" ref={scrollRef}>
       <div
         className="columns-2 md:columns-3 lg:columns-4"
         style={{ columnGap: 8 }}

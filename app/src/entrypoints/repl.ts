@@ -429,7 +429,52 @@ export async function launchRepl(
       }
     }
     const realExecutor = createCronExecutor(provider!);
-    await ensureGlobalCronSchedulerStarted({ executeJob: realExecutor });
+
+    // 初始化投递队列和路由器（AI 定时任务 → 渠道主动推送）
+    const { resolveDbPath } = await import('@modules/core/paths');
+    const { DeliveryQueue } = await import('../tasks/cron/DeliveryQueue');
+    const deliveryQueue = new DeliveryQueue(resolveDbPath());
+    await deliveryQueue.init();
+
+    const { getDeliveryRouter } = await import('../channels/DeliveryRouter');
+    const deliveryRouter = getDeliveryRouter();
+    const dispatchDelivery = async (job: any, result: any): Promise<void> => {
+      const content =
+        result.output ||
+        result.finalResponse ||
+        `[定时任务: ${job.name}] 执行完成`;
+      const message = `📋 **${job.name}**\n${content}`;
+
+      if (job.deliver === 'origin' && job.origin) {
+        const { channelRegistry } =
+          await import('../channels/registry/ChannelRegistry');
+        const platform = job.origin.platform as any;
+        const chatId = job.origin.chatId;
+        const channel = channelRegistry.get(platform);
+        if (channel?.enabled) {
+          await channel.sendMessage(chatId, message);
+          logger.info('Cron 投递（origin）成功', {
+            jobName: job.name,
+            platform,
+            chatId,
+          });
+        } else {
+          logger.warn('Cron 投递（origin）失败：通道未注册或已禁用', {
+            jobName: job.name,
+            platform,
+          });
+          await deliveryRouter.deliverLocal(message);
+        }
+      } else {
+        // 无 origin 信息时回退到本地输出
+        await deliveryRouter.deliverLocal(message);
+      }
+    };
+
+    await ensureGlobalCronSchedulerStarted(
+      { executeJob: realExecutor, dispatchDelivery },
+      deliveryQueue
+    );
     ui.showInfo('Cron 调度器已启动 (AI 执行引擎就绪)');
   } catch (cronError) {
     await handleError(cronError, { module: 'repl', action: 'cronEngine' });

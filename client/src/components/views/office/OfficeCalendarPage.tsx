@@ -8,6 +8,7 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { CalendarIcon } from "../../../assets/icons/navigation";
 import { officeService } from "../../../services/officeService";
+import { notificationService } from "../../../services/notificationService";
 import { cronService } from "../../../services/cronService";
 import { useOfficeStore } from "../../../stores/officeStore";
 import { useConfigStore } from "../../../stores/configStore";
@@ -345,6 +346,25 @@ export default function OfficeCalendarPage() {
         priority: data.priority,
         tags: data.tags ? data.tags.split(",").map((s) => s.trim()) : undefined,
       });
+      // 同步到消息中心待办
+      if (data.syncToNotification) {
+        notificationService
+          .create({
+            category: "todo",
+            title: data.summary,
+            content: data.description || `${data.start} 开始`,
+            source: "calendar",
+            link_to: {
+              type: "page",
+              id: `/office/calendar?date=${data.start.slice(0, 10)}`,
+              label: "查看日历",
+            },
+            expires_at: Math.floor(new Date(data.start).getTime() / 1000),
+          })
+          .catch(() => {
+            /* 通知创建失败不影响日程保存 */
+          });
+      }
       refreshMerged();
     } catch {
       setError(t("office.calAddError", "添加日程失败"));

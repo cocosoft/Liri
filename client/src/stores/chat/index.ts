@@ -63,5 +63,12 @@ sseService.on("messages:deleted", (data: Record<string, unknown>) => {
   });
 });
 
-// 状态变更日志（仅开发环境）
-withStoreLogging(useChatStore, "chatStore", []);
+// 状态变更日志（仅开发环境，忽略流式高频字段避免日志洪流）
+withStoreLogging(useChatStore, "chatStore", [
+  "messages",
+  "isStreaming",
+  "streamingStatus",
+  "executionPhase",
+  "abortController",
+  "rollbackSnapshot",
+]);

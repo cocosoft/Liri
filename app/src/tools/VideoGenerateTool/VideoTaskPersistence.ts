@@ -352,6 +352,33 @@ export class VideoTaskPersistence {
     };
   }
 
+  /**
+   * 清理过期活跃任务：将超过 maxAgeMs 仍处于活跃状态的任务标记为 failed。
+   * 用于防止应用重启后残留的旧任务被错误恢复。
+   *
+   * @returns 被标记为 failed 的任务数
+   */
+  cleanupStaleTasks(maxAgeMs: number = 30 * 60 * 1000): number {
+    const now = Date.now();
+    const cutoff = now - maxAgeMs;
+
+    const result = this.db.run(
+      `UPDATE video_tasks
+       SET status = 'failed',
+           error = '任务超时未完成（超过 ${Math.round(maxAgeMs / 60000)} 分钟），已自动标记为失败',
+           updated_at = ?
+       WHERE status IN ('pending', 'queued', 'running')
+         AND created_at < ?`,
+      [now, cutoff]
+    );
+
+    const count = result.changes;
+    if (count > 0) {
+      logger.info('VideoTaskPersistence 清理过期任务', { count, cutoff });
+    }
+    return count;
+  }
+
   /** 关闭数据库连接 */
   close(): void {
     this.db.close();

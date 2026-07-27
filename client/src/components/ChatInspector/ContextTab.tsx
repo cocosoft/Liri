@@ -48,6 +48,7 @@ function aggregateTokens(messages: Message[]) {
 function buildRoundSummaries(messages: Message[]): Array<{
   roundIndex: number;
   userMsg: string;
+  userMsgId: string;
   assistantMsg: string;
   timestamp: number;
 }> {
@@ -55,11 +56,13 @@ function buildRoundSummaries(messages: Message[]): Array<{
   const rounds: Array<{
     roundIndex: number;
     userMsg: string;
+    userMsgId: string;
     assistantMsg: string;
     timestamp: number;
   }> = [];
   let currentRound: {
     userMsg: string;
+    userMsgId: string;
     assistantMsg: string;
     timestamp: number;
   } | null = null;
@@ -74,6 +77,7 @@ function buildRoundSummaries(messages: Message[]): Array<{
       }
       currentRound = {
         userMsg: content.slice(0, 60).replace(/\n/g, " ") || "用户消息",
+        userMsgId: msg.id,
         assistantMsg: "",
         timestamp: msg.timestamp,
       };
@@ -175,7 +179,7 @@ function MessageSummaryListImpl({
 }: {
   rounds: ReturnType<typeof buildRoundSummaries>;
   streaming: boolean;
-  onRoundClick: (index: number) => void;
+  onRoundClick: (userMsgId: string) => void;
 }) {
   if (rounds.length === 0) return null;
 
@@ -189,7 +193,7 @@ function MessageSummaryListImpl({
         {rounds.map((round) => (
           <button
             key={round.roundIndex}
-            onClick={() => onRoundClick(round.roundIndex)}
+            onClick={() => onRoundClick(round.userMsgId)}
             className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             <span className="text-gray-400 mr-1.5">#{round.roundIndex}</span>
@@ -336,12 +340,8 @@ function ContextTab() {
   );
 
   // 跳转到对应轮次：设置 highlightedRoundId 触发 ChatArea 滚动
-  const handleRoundClick = (roundIndex: number) => {
-    // 根据轮次索引找到对应的消息 ID 作为高亮目标
-    const userMsg = messages.filter((m) => m.role === "user")[roundIndex - 1];
-    if (userMsg) {
-      setHighlightedRoundId(userMsg.id);
-    }
+  const handleRoundClick = (userMsgId: string) => {
+    setHighlightedRoundId(userMsgId);
   };
 
   // 复制系统提示词

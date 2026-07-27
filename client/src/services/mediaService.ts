@@ -5,7 +5,17 @@
  */
 
 import { toolService } from "./toolService";
-import type { ToolResult } from "../types/tools";
+
+/** 工具执行结果 */
+interface ToolResult {
+  status: string;
+  error?: string;
+  metadata?: Record<string, unknown>;
+  result?: string;
+  outputPath?: string;
+  outputSize?: number;
+  warning?: string;
+}
 
 export interface MediaInfoResult {
   format?: string;
@@ -25,7 +35,9 @@ export interface MediaProcessResult {
 export const mediaService = {
   /** 获取媒体文件元数据 */
   async info(filePath: string): Promise<MediaInfoResult | null> {
-    const result = await toolService.execute("media:info", { filePath });
+    const result = (await toolService.execute("media:info", {
+      filePath,
+    })) as ToolResult;
     if (result.status === "success" && result.metadata) {
       return result.metadata as MediaInfoResult;
     }
@@ -192,7 +204,9 @@ export const mediaService = {
 
   /** 解码二维码 */
   async decodeQR(input: string): Promise<string | null> {
-    const result = await toolService.execute("media:qr:decode", { input });
+    const result = (await toolService.execute("media:qr:decode", {
+      input,
+    })) as ToolResult;
     if (result.status === "success" && result.result) {
       return result.result as string;
     }
@@ -217,23 +231,26 @@ export const mediaService = {
 
   /** 删除媒体文件（需审批） */
   async deleteFile(filePath: string): Promise<ToolResult> {
-    return toolService.execute("media:delete", { filePath });
+    return toolService.execute("media:delete", {
+      filePath,
+    }) as Promise<ToolResult>;
   },
 
   /** 批量删除媒体文件（需审批） */
   async deleteBatch(filePaths: string[]): Promise<ToolResult> {
     return toolService.execute("media:deleteBatch", {
       filePaths: JSON.stringify(filePaths),
-    });
+    }) as Promise<ToolResult>;
   },
 };
 
-function _mapResult(result: ToolResult): MediaProcessResult {
+function _mapResult(result: unknown): MediaProcessResult {
+  const r = result as ToolResult;
   return {
-    success: result.status === "success",
-    outputPath: (result as any).outputPath,
-    outputSize: (result as any).outputSize,
-    error: result.error,
-    warning: (result as any).warning,
+    success: r.status === "success",
+    outputPath: r.outputPath,
+    outputSize: r.outputSize,
+    error: r.error,
+    warning: r.warning,
   };
 }

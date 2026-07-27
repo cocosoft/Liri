@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Cron创建工具 - 接入新 CronJobStore
  * AI 可通过此工具在聊天中创建定时任务
  */
@@ -200,7 +200,10 @@ export class CronCreateTool {
             state: 'scheduled',
             createdAt: new Date().toISOString(),
             silent,
-            deliver: 'local',
+            deliver: 'origin',
+            // origin/sessionKey 由 dispatchDelivery 回调在投递时通过 ChannelSessionManager 查找
+            // （ToolUseContext 不含渠道信息，存储在 cron_jobs.sessionKey 中供后续 lookup）
+            sessionKey: (context as any).sessionId || undefined,
           };
 
           // 计算首次运行时间

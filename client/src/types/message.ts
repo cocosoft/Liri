@@ -62,7 +62,8 @@ export interface MessageBlock {
     | "todo"
     | "progress"
     | "deliverable"
-    | "diff";
+    | "diff"
+    | "inbox";
   content: string;
   toolCall?: ToolCall;
   status?: string;
@@ -74,6 +75,7 @@ export interface MessageBlock {
   progressData?: ProgressData;
   deliverableData?: DeliverableData;
   diffData?: DiffData;
+  inboxData?: InboxBlockData;
 }
 
 export interface TaskCardData {
@@ -126,6 +128,23 @@ export interface DiffData {
   diff: string;
   language?: string;
   stats?: { additions: number; deletions: number };
+}
+
+/** Inbox 审批/提问交互卡片数据 */
+export interface InboxBlockData {
+  inboxId: string;
+  type: "approval" | "question" | "authorization";
+  title: string;
+  content: string;
+  status: "pending" | "replied" | "expired";
+  priority?: "urgent" | "normal" | "low";
+  actions: Array<{
+    label: string;
+    reply: string;
+    style: "primary" | "danger" | "secondary";
+  }>;
+  channelSource?: string;
+  expiresAt?: number;
 }
 
 export interface Tool {

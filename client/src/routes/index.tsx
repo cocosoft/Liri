@@ -35,7 +35,6 @@ const DreamPage = lazy(() => import("../components/views/DreamPage"));
 const LiriPage = lazy(() => import("../components/views/LiriPage"));
 const LoopPanel = lazy(() => import("../components/views/LoopPanel"));
 
-const InboxPanel = lazy(() => import("../components/views/InboxPanel"));
 const TaskCenterPage = lazy(() => import("../components/views/TaskCenterPage"));
 const WorkPageLayout = lazy(
   () => import("../components/Workspace/WorkPageLayout"),
@@ -353,14 +352,10 @@ export const routes: RouteObject[] = [
     ),
   },
 
-  // Inbox
+  // Inbox → 已迁移至通知中心，旧路由重定向至首页
   {
     path: "/inbox",
-    element: (
-      <AuthGuard>
-        <InboxPanel />
-      </AuthGuard>
-    ),
+    element: <Navigate to="/" replace />,
   },
 
   // 任务中心 → 工作模块

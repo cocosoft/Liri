@@ -14,6 +14,7 @@ import { handleError } from '@modules/error';
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core/paths';
 import { randomUUID } from 'crypto';
+import { broadcastEvent } from '../infrastructure/http/LocalHTTPServiceSSE.js';
 
 const logger = new Logger({ module: 'runtime:inbox' });
 
@@ -200,7 +201,11 @@ export class InboxManager {
 
   /** 提交 Inbox 项 */
   async submit(
-    item: Omit<InboxItem, 'id' | 'status' | 'createdAt' | 'updatedAt'>
+    item: Omit<InboxItem, 'id' | 'status' | 'createdAt' | 'updatedAt'>,
+    /** 可选：关联的会话 ID，用于注入 inbox block 到聊天消息 */
+    sessionId?: string,
+    /** 可选：关联的消息 ID，用于注入 inbox block */
+    messageId?: string
   ): Promise<InboxItem> {
     const db = await this.getDb();
     const otel = getOTelTracing();
@@ -316,6 +321,62 @@ export class InboxManager {
         'system',
         `Inbox item submitted: ${item.title}`
       );
+
+      // SSE 实时推送新 Inbox 项到前端
+      void broadcastEvent('inbox:new', {
+        id,
+        type: item.type,
+        title: item.title,
+        status: 'pending',
+        channelId: item.channelId,
+        traceId: item.traceId,
+      });
+
+      // 桥接写入通知中心（fire-and-forget，失败不影响 Inbox 主流程）
+      void (async () => {
+        try {
+          const { notificationPersistence } =
+            await import('@modules/runtime/NotificationPersistence.js');
+          await notificationPersistence().create({
+            category:
+              item.type === 'approval' || item.type === 'authorization'
+                ? 'approval'
+                : 'todo',
+            priority: 'normal',
+            title: item.title,
+            content: item.message || '',
+            source: 'inbox',
+            source_ref: id,
+            actions:
+              item.type === 'approval' || item.type === 'authorization'
+                ? [
+                    { label: '批准', action: 'approve', style: 'primary' },
+                    { label: '拒绝', action: 'reject', style: 'danger' },
+                  ]
+                : [{ label: '查看', action: 'view', style: 'primary' }],
+          });
+        } catch {
+          /* 通知写入失败不影响 Inbox 主流程 */
+        }
+      })();
+
+      // 自动注入 Inbox block 到聊天消息（会话内可见交互卡片）
+      if (sessionId) {
+        const actions = _buildDefaultActions(item.type);
+        void _injectInboxBlock(sessionId, messageId, {
+          inboxId: id,
+          type: item.type,
+          title: item.title,
+          content: item.message || '',
+          status: 'pending',
+          priority: 'normal',
+          actions,
+          channelSource: item.channelId,
+        }).catch(() => {
+          /* block 注入失败不影响主流程 */
+        });
+      }
+
       return full;
     } catch (e) {
       void handleError(e, {
@@ -371,6 +432,34 @@ export class InboxManager {
       void this._auditLog(id, 'replied', 'user', `Reply: ${reply}`, {
         selectedOption: _selectedOption,
       });
+
+      // 异步回传审批结果到来源渠道（失败不阻塞主流程）
+      if (item.channelSessionId && item.channelId) {
+        import('../channels/bridge/inboxChannelReply.js')
+          .then(({ relayReplyToChannel }) => relayReplyToChannel(item))
+          .catch(() => {
+            /* 回传失败不影响 Inbox 主流程 */
+          });
+      }
+
+      // SSE 推送状态更新到前端
+      void broadcastEvent('inbox:update', {
+        id,
+        status: 'replied',
+        reply,
+      });
+
+      // 桥接：按 Inbox source_ref 标记对应通知为已处理
+      void (async () => {
+        try {
+          const { notificationPersistence } =
+            await import('@modules/runtime/NotificationPersistence.js');
+          await notificationPersistence().resolveBySourceRef(item.id);
+        } catch {
+          /* 通知更新失败不影响 Inbox 主流程 */
+        }
+      })();
+
       return item;
     } catch (e) {
       void handleError(e, {
@@ -510,6 +599,12 @@ export class InboxManager {
 
     // 通知渠道：已过期的审批项
     for (const item of expiredItems) {
+      // SSE 推送过期状态到前端
+      void broadcastEvent('inbox:update', {
+        id: item.id,
+        status: 'expired',
+      });
+
       if (item.channelSessionId) {
         try {
           const { notifyExpired } =
@@ -735,6 +830,79 @@ export class InboxManager {
       );
     });
   }
+}
+
+// ─── Helper: Inbox Block 注入 ────────────────────────
+
+/** 根据 Inbox 类型生成默认操作按钮 */
+function _buildDefaultActions(type: InboxItemType): Array<{
+  label: string;
+  reply: string;
+  style: 'primary' | 'danger' | 'secondary';
+}> {
+  if (type === 'approval') {
+    return [
+      { label: '批准', reply: 'approve', style: 'primary' },
+      { label: '拒绝', reply: 'reject', style: 'danger' },
+    ];
+  }
+  if (type === 'question') {
+    return [
+      { label: '确认', reply: 'confirm', style: 'primary' },
+      { label: '取消', reply: 'cancel', style: 'secondary' },
+    ];
+  }
+  return [
+    { label: '授权', reply: 'authorize', style: 'primary' },
+    { label: '拒绝', reply: 'deny', style: 'danger' },
+  ];
+}
+
+/** 将 Inbox block 注入到聊天消息中（通过 SessionGateway 持久化管线） */
+async function _injectInboxBlock(
+  sessionId: string,
+  messageId: string | undefined,
+  data: Record<string, unknown>
+): Promise<void> {
+  const { randomUUID } = await import('crypto');
+  const { createSessionGateway } =
+    await import('@modules/session/SessionGateway.js');
+
+  const gateway = createSessionGateway();
+  const allMessages = await gateway.getMessages(sessionId);
+
+  // 如果未指定 messageId，自动查找该会话最新的助手消息
+  let targetMessageId = messageId;
+  if (!targetMessageId) {
+    const lastAssistant = allMessages
+      .filter((m) => m.role === 'assistant')
+      .pop();
+    if (!lastAssistant) return;
+    targetMessageId = lastAssistant.id;
+  }
+
+  // 读取当前消息并追加 inbox block
+  const msg = allMessages.find((m) => m.id === targetMessageId);
+  if (!msg) return;
+
+  const existingBlocks = (msg.blocks ?? []) as unknown as Record<
+    string,
+    unknown
+  >[];
+  const updatedBlocks = [
+    ...existingBlocks,
+    {
+      id: randomUUID(),
+      type: 'inbox' as const,
+      content: '',
+      inboxData: data,
+    },
+  ];
+
+  await gateway.updateMessage(sessionId, targetMessageId, {
+    ...msg,
+    blocks: updatedBlocks as any,
+  });
 }
 
 export const inboxManager = new InboxManager();

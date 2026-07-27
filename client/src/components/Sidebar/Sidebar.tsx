@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useNavigationStore } from "../../stores/navigationStore";
 import { useConfigStore } from "../../stores/configStore";
+import { useNotificationStore } from "../../stores/notificationStore";
 import {
   HomeIcon,
   ChatIcon,
@@ -19,8 +20,8 @@ import {
   CouncilIcon,
   OfficeIcon,
   CalendarIcon,
-  MailIcon,
   BuddyIcon,
+  BellIcon,
 } from "../../assets/icons";
 
 interface MenuItem {
@@ -29,6 +30,7 @@ interface MenuItem {
   icon: React.ComponentType<{ className?: string; size?: number }>;
   path?: string;
   action?: () => void;
+  badge?: number;
 }
 
 const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
@@ -76,7 +78,6 @@ const MANAGEMENT_ITEMS: MenuItem[] = [
 
 const SYSTEM_ITEMS: MenuItem[] = [
   { id: "liri", label: "Liri", icon: BuddyIcon, path: "/liri" },
-  { id: "inbox", label: "Inbox", icon: MailIcon, path: "/inbox" },
   { id: "loops", label: "Loops", icon: BuddyIcon, path: "/loops" },
   { id: "theme", label: "主题", icon: ThemeIcon },
   { id: "settings", label: "设置", icon: SettingsIcon, path: "/settings" },
@@ -141,14 +142,21 @@ function MenuButton({
   return (
     <button
       onClick={handleClick}
-      className={`flex flex-col items-center justify-center py-2 px-2 rounded transition-colors h-14 w-full flex-shrink-0 ${
+      className={`relative flex flex-col items-center justify-center py-2 px-2 rounded transition-colors h-14 w-full flex-shrink-0 ${
         isActive
           ? "bg-blue-600 text-white"
           : "text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
       }`}
       title={labelText}
     >
-      <IconComponent size={20} />
+      <div className="relative">
+        <IconComponent size={20} />
+        {item.badge != null && item.badge > 0 && (
+          <span className="absolute -top-1.5 -right-3 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1 leading-none">
+            {item.badge > 99 ? "99+" : item.badge}
+          </span>
+        )}
+      </div>
       <span className="text-xs mt-1 truncate w-full text-center h-4 flex items-center justify-center">
         {labelText}
       </span>
@@ -248,10 +256,17 @@ function MobileBottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const activeRoute = location.pathname.replace("/", "") || "home";
+  const openPanel = useNotificationStore((s) => s.openPanel);
+  const unreadTotal = useNotificationStore((s) => s.counts.total);
 
   const items: MenuItem[] = [
     { id: "home", label: t("nav.home"), icon: HomeIcon, path: "/" },
     { id: "chat", label: t("nav.chat"), icon: ChatIcon, path: "/chat" },
+    {
+      id: "notifications",
+      label: "通知",
+      icon: BellIcon,
+    },
     {
       id: "settings",
       label: t("nav.settings"),
@@ -270,13 +285,22 @@ function MobileBottomNav() {
           <button
             key={item.id}
             onClick={() => {
-              navigate(item.path!);
+              if (item.id === "notifications") {
+                openPanel();
+              } else {
+                navigate(item.path!);
+              }
             }}
-            className={`flex flex-col items-center px-2 py-1 min-w-0 ${
+            className={`relative flex flex-col items-center px-2 py-1 min-w-0 ${
               isActive ? "text-blue-600" : "text-gray-500 dark:text-gray-400"
             }`}
           >
             <IconComponent size={18} />
+            {item.id === "notifications" && unreadTotal > 0 && (
+              <span className="absolute -top-0.5 right-1 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold px-1 leading-none">
+                {unreadTotal > 99 ? "99+" : unreadTotal}
+              </span>
+            )}
             <span className="text-xs mt-0.5">{item.label}</span>
           </button>
         );

@@ -13,6 +13,21 @@ interface NotificationsConfig {
   taskCompleteEnabled: boolean;
   inputNeededEnabled: boolean;
   agentPushEnabled: boolean;
+  /** 消息中心：免打扰开关 */
+  dndEnabled: boolean;
+  /** 消息中心：免打扰开始时间（0-23） */
+  dndStartHour: number;
+  /** 消息中心：免打扰结束时间（0-23） */
+  dndEndHour: number;
+  /** 消息中心：分类角标开关 */
+  categoryBadges: {
+    approval: boolean;
+    todo: boolean;
+    system: boolean;
+    mention: boolean;
+  };
+  /** 消息中心：桌面通知最小未读数阈值 */
+  desktopNotifyMinUnread: number;
 }
 
 interface NotificationsPanelProps {
@@ -133,6 +148,134 @@ function NotificationsPanel({
             checked={notifications.agentPushEnabled}
             onChange={(checked) => onUpdate({ agentPushEnabled: checked })}
           />
+        </ConfigItem>
+
+        <div className={`h-px ${isDark ? "bg-gray-700" : "bg-gray-200"}`} />
+
+        {/* 消息中心偏好 */}
+        <p
+          className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}
+        >
+          消息中心
+        </p>
+
+        <ConfigItem
+          label="免打扰时段"
+          description="免打扰时段内不弹桌面通知，仅更新角标"
+          isDark={isDark}
+        >
+          <div className="flex items-center gap-3">
+            <ToggleConfig
+              isDark={isDark}
+              checked={notifications.dndEnabled}
+              onChange={(checked) => onUpdate({ dndEnabled: checked })}
+            />
+            {notifications.dndEnabled && (
+              <div className="flex items-center gap-2">
+                <TextConfig
+                  isDark={isDark}
+                  type="number"
+                  value={String(notifications.dndStartHour)}
+                  onChange={(value) =>
+                    onUpdate({
+                      dndStartHour: Math.max(
+                        0,
+                        Math.min(23, parseInt(value, 10) || 22),
+                      ),
+                    })
+                  }
+                  placeholder="22"
+                  className="w-14"
+                />
+                <span
+                  className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                >
+                  时 —
+                </span>
+                <TextConfig
+                  isDark={isDark}
+                  type="number"
+                  value={String(notifications.dndEndHour)}
+                  onChange={(value) =>
+                    onUpdate({
+                      dndEndHour: Math.max(
+                        0,
+                        Math.min(23, parseInt(value, 10) || 8),
+                      ),
+                    })
+                  }
+                  placeholder="8"
+                  className="w-14"
+                />
+                <span
+                  className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                >
+                  时
+                </span>
+              </div>
+            )}
+          </div>
+        </ConfigItem>
+
+        <ConfigItem
+          label="桌面通知阈值"
+          description="未读消息达到此数量时才弹出桌面通知（0=始终通知）"
+          isDark={isDark}
+        >
+          <TextConfig
+            isDark={isDark}
+            type="number"
+            value={String(notifications.desktopNotifyMinUnread)}
+            onChange={(value) =>
+              onUpdate({
+                desktopNotifyMinUnread: Math.max(0, parseInt(value, 10) || 1),
+              })
+            }
+            placeholder="1"
+            className="w-20"
+          />
+        </ConfigItem>
+
+        <ConfigItem
+          label="分类角标"
+          description="控制各分类是否在 Tab 栏显示未读角标"
+          isDark={isDark}
+        >
+          <div className="space-y-2">
+            {(["approval", "todo", "system", "mention"] as const).map((cat) => (
+              <div key={cat} className="flex items-center gap-2">
+                <ToggleConfig
+                  isDark={isDark}
+                  checked={notifications.categoryBadges?.[cat] ?? true}
+                  onChange={(checked) =>
+                    onUpdate({
+                      categoryBadges: {
+                        ...notifications.categoryBadges,
+                        approval:
+                          notifications.categoryBadges?.approval ?? true,
+                        todo: notifications.categoryBadges?.todo ?? true,
+                        system: notifications.categoryBadges?.system ?? true,
+                        mention: notifications.categoryBadges?.mention ?? true,
+                        [cat]: checked,
+                      },
+                    })
+                  }
+                />
+                <span
+                  className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}
+                >
+                  {
+                    {
+                      approval: "审批",
+                      todo: "待办",
+                      system: "系统",
+                      mention: "@提及",
+                    }[cat]
+                  }
+                </span>
+              </div>
+            ))}
+          </div>
         </ConfigItem>
       </div>
     </ConfigSection>

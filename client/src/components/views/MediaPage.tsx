@@ -798,33 +798,35 @@ function MediaPage() {
             {showUpload && <ImageUploadDrop onUploaded={handleUploaded} />}
           </div>
 
-          {/* 画廊 */}
-          {viewMode === "masonry" ? (
-            <MasonryGallery
-              items={filteredItems}
-              selectedId={selectedId}
-              hasMore={galleryHasMore}
-              loading={galleryLoading}
-              isDark={isDark}
-              onSelect={handleGallerySelect}
-              onLoadMore={() => loadGallery(true)}
-              disabled={isEditing}
-              scrollRef={galleryScrollRef}
-            />
-          ) : (
-            <GridView
-              items={filteredItems}
-              selectedId={selectedId}
-              isDark={isDark}
-              onSelect={handleGallerySelect}
-              batchMode={batchMode}
-              selectedIds={batchMode ? selectedIds : null}
-              favoriteIds={favoriteIds}
-              onToggleFavorite={toggleFavorite}
-              onDragStart={handleDragStart}
-              onCompareToggle={handleCompareToggle}
-            />
-          )}
+          {/* 画廊 — flex-1 min-h-0 撑满剩余高度，让 h-full 在 MasonryGallery 内生效 */}
+          <div className="flex-1 min-h-0">
+            {viewMode === "masonry" ? (
+              <MasonryGallery
+                items={filteredItems}
+                selectedId={selectedId}
+                hasMore={galleryHasMore}
+                loading={galleryLoading}
+                isDark={isDark}
+                onSelect={handleGallerySelect}
+                onLoadMore={() => loadGallery(true)}
+                disabled={isEditing}
+                scrollRef={galleryScrollRef}
+              />
+            ) : (
+              <GridView
+                items={filteredItems}
+                selectedId={selectedId}
+                isDark={isDark}
+                onSelect={handleGallerySelect}
+                batchMode={batchMode}
+                selectedIds={batchMode ? selectedIds : null}
+                favoriteIds={favoriteIds}
+                onToggleFavorite={toggleFavorite}
+                onDragStart={handleDragStart}
+                onCompareToggle={handleCompareToggle}
+              />
+            )}
+          </div>
         </div>
 
         {/* ========== 右侧：预览区 ========== */}
@@ -1046,14 +1048,16 @@ function MediaPage() {
       {/* ========== 浮动任务状态栏（始终可见） ========== */}
       {(generationTasks.length > 0 || activeTasks.length > 0) && (
         <div className="border-t border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900">
-          <GenerationTaskList
-            tasks={generationTasks}
-            onDelete={(id) => removeGenerationTask(id)}
-          />
-          <TaskList
-            tasks={activeTasks}
-            onDelete={(taskId) => useMediaStore.getState().removeTask(taskId)}
-          />
+          <div className="max-w-3xl mx-auto">
+            <GenerationTaskList
+              tasks={generationTasks}
+              onDelete={(id) => removeGenerationTask(id)}
+            />
+            <TaskList
+              tasks={activeTasks}
+              onDelete={(taskId) => useMediaStore.getState().removeTask(taskId)}
+            />
+          </div>
         </div>
       )}
 

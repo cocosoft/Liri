@@ -66,6 +66,20 @@ import {
 } from './inbox-handlers';
 import { handleUndoApproval } from './inbox-handlers';
 
+// Notification handlers
+import {
+  handleListNotifications,
+  handleUnreadCount,
+  handleSearchNotifications,
+  handleMarkRead,
+  handleReadAll,
+  handleDismiss,
+  handleBatch,
+  handleDeleteNotification,
+  handleNotificationAction,
+  handleCreateNotification,
+} from './notification-handlers';
+
 // Steering handler (Phase 3)
 import { handleSteerSession } from './steer-handlers';
 
@@ -2022,6 +2036,66 @@ export async function dispatchRoute(
     if (method === 'GET') {
       await handleGetInbox(req, res, handlerCtx);
       return true;
+    }
+  }
+
+  // ---- Notifications ----
+  if (url === '/v1/notifications/unread-count' && method === 'GET') {
+    await handleUnreadCount(req, res, handlerCtx);
+    return true;
+  }
+  if (url === '/v1/notifications/search' && method === 'GET') {
+    await handleSearchNotifications(req, res, handlerCtx);
+    return true;
+  }
+  if (url === '/v1/notifications/read-all' && method === 'PATCH') {
+    await handleReadAll(req, res, handlerCtx);
+    return true;
+  }
+  if (url === '/v1/notifications/batch' && method === 'PATCH') {
+    await handleBatch(req, res, handlerCtx);
+    return true;
+  }
+  if (url === '/v1/notifications' && method === 'GET') {
+    await handleListNotifications(req, res, handlerCtx);
+    return true;
+  }
+  if (url === '/v1/notifications' && method === 'POST') {
+    await handleCreateNotification(req, res, handlerCtx);
+    return true;
+  }
+  if (url.startsWith('/v1/notifications/')) {
+    const idMatch = url.match(/^\/v1\/notifications\/([^/]+)(\/.*)?$/);
+    const id = idMatch ? idMatch[1] : '';
+    const suffix = idMatch?.[2] || '';
+
+    if (
+      id &&
+      id !== 'unread-count' &&
+      id !== 'search' &&
+      id !== 'read-all' &&
+      id !== 'batch'
+    ) {
+      if (suffix === '/read' && method === 'PATCH') {
+        (req as any).params = { id };
+        await handleMarkRead(req, res, handlerCtx);
+        return true;
+      }
+      if (suffix === '/dismiss' && method === 'PATCH') {
+        (req as any).params = { id };
+        await handleDismiss(req, res, handlerCtx);
+        return true;
+      }
+      if (suffix === '/action' && method === 'POST') {
+        (req as any).params = { id };
+        await handleNotificationAction(req, res, handlerCtx);
+        return true;
+      }
+      if (!suffix && method === 'DELETE') {
+        (req as any).params = { id };
+        await handleDeleteNotification(req, res, handlerCtx);
+        return true;
+      }
     }
   }
 

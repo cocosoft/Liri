@@ -649,6 +649,12 @@ class IrcChannelPlugin extends BaseChannelPlugin {
 
   /**
    * 创建入站适配器（基于 TCP Socket 的 IRC 协议）
+   *
+   * 注意：协议标注为 'websocket' 是为了与监控/协议统计兼容（IRC 使用持久 TCP 连接，
+   * 行为上最接近 WebSocket 长连接模式）。实际传输层为 Node.js net.Socket（原始 TCP）。
+   *
+   * start() 为空操作是因为 TCP 连接由 BaseChannelPlugin 生命周期管理
+   * （onConnect → connectSocket → TCP 握手 → 消息到达后由 messageHandler 分发）。
    */
   protected override createInboundAdapter(): IChannelInboundAdapter {
     const self = this;

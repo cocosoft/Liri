@@ -343,16 +343,53 @@ export class ImageGenerationRouter {
     const attemptedNames = costBreakdown.map((c) => c.provider).join(', ');
     const firstError = providerErrors[0]?.error || '未知错误';
 
+    // 检测是否为内容安全拦截（服务商内容审核过滤）
+    const allErrors = providerErrors
+      .map((e) => e.error.toLowerCase())
+      .join(' ');
+    const safetyKeywords = [
+      'safety',
+      'content filter',
+      'content_filter',
+      'moderation',
+      'blocked',
+      'flagged',
+      'nsfw',
+      'inappropriate',
+      'policy',
+      'guidelines',
+      'terms of service',
+      'prohibited',
+      'refused',
+      'rejected',
+      'not allowed',
+    ];
+    const isSafetyBlock = safetyKeywords.some((kw) => allErrors.includes(kw));
+
     logger.error('ImageGenerationRouter · 所有 Provider 均已失败', {
       attemptedProviders: costBreakdown.map((c) => c.provider),
       errors: providerErrors,
+      isSafetyBlock,
     });
+
+    let errorDetail: string;
+    if (isSafetyBlock) {
+      errorDetail =
+        `图像生成被服务商内容安全策略拦截。` +
+        `\n原因：${firstError}` +
+        `\n这意味着提示词中含有服务商（${attemptedNames}）判定为敏感或违规的内容，API 直接拒绝生成，不扣费。` +
+        `\n你应该明确告知用户：生成被安全策略拦截了，不要静默结束。` +
+        `\n建议：1) 用更含蓄、艺术化的描述重试 2) 换用英文 prompt（有时英文更容易通过审查） 3) 换一个更宽松的模型。` +
+        `\n(providerErrors=${providerErrors.length}, providers=${this.providers.length})`;
+    } else {
+      errorDetail = `[v2] 图像生成失败 — ${firstError} (providerErrors=${providerErrors.length}, providers=${this.providers.length})`;
+    }
 
     return {
       result: {
         success: false,
         data: [],
-        error: `[v2] 图像生成失败 — ${firstError} (providerErrors=${providerErrors.length}, providers=${this.providers.length})`,
+        error: errorDetail,
         durationMs: 0,
       },
       costBreakdown,

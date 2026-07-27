@@ -720,6 +720,16 @@ function SettingsPage() {
                   taskCompleteEnabled: true,
                   inputNeededEnabled: true,
                   agentPushEnabled: true,
+                  dndEnabled: false,
+                  dndStartHour: 22,
+                  dndEndHour: 8,
+                  categoryBadges: {
+                    approval: true,
+                    todo: true,
+                    system: true,
+                    mention: true,
+                  },
+                  desktopNotifyMinUnread: 1,
                 }) as unknown as Parameters<
                   typeof NotificationsPanel
                 >[0]["notifications"]
@@ -744,6 +754,16 @@ function SettingsPage() {
                 taskCompleteEnabled: true,
                 inputNeededEnabled: true,
                 agentPushEnabled: true,
+                dndEnabled: false,
+                dndStartHour: 22,
+                dndEndHour: 8,
+                categoryBadges: {
+                  approval: true,
+                  todo: true,
+                  system: true,
+                  mention: true,
+                },
+                desktopNotifyMinUnread: 1,
               }) as unknown as Parameters<
                 typeof NotificationsPanel
               >[0]["notifications"]

@@ -110,7 +110,7 @@ export interface MessageMetadata {
  */
 export interface FrontendMessageBlock {
   id: string;
-  type: 'text' | 'thinking' | 'tool_call' | 'status' | 'todo';
+  type: 'text' | 'thinking' | 'tool_call' | 'status' | 'todo' | 'inbox';
   content: string;
   toolCall?: {
     id: string;
@@ -123,6 +123,24 @@ export interface FrontendMessageBlock {
   isStreaming?: boolean;
   /** 仅在 type='todo' 时存在 */
   todoData?: TodoBlockData;
+  /** 仅在 type='inbox' 时存在 */
+  inboxData?: InboxBlockData;
+}
+
+/** Inbox 审批卡片数据（前后端共享） */
+export interface InboxBlockData {
+  inboxId: string;
+  type: 'approval' | 'question' | 'authorization';
+  title: string;
+  content: string;
+  status: 'pending' | 'replied' | 'expired';
+  actions: Array<{
+    label: string;
+    reply: string;
+    style: 'primary' | 'danger' | 'secondary';
+  }>;
+  channelSource?: string;
+  expiresAt?: number;
 }
 
 /**

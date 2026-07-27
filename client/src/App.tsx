@@ -21,6 +21,8 @@ import { useRootStore } from "./stores/root-store";
 import { registerBuiltinModules } from "./stores/root-store/moduleRegistry";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { useBuddyNotification } from "./hooks/useBuddyNotification";
+import { useNotificationSSE } from "./hooks/useNotificationSSE";
+import NotificationPanel from "./components/views/NotificationPanel";
 import { useInitApp } from "./hooks/useInitApp";
 import { useAutoCreateSession } from "./hooks/useAutoCreateSession";
 
@@ -55,6 +57,7 @@ function App() {
 
   useKeyboard();
   useBuddyNotification();
+  useNotificationSSE();
   useAutoCreateSession(); // Phase 7: URL 导航 → SessionHub 自动创建模块 session
   // useSessionBridge / useWorktreeSync 已移除：同步逻辑已内置到 sessionStore / workspaceStore 中
 
@@ -157,6 +160,7 @@ function App() {
         <Header />
         <OperationStatusBar />
         <ToastContainer />
+        <NotificationPanel />
         <div className="flex flex-1 overflow-hidden">
           <div className="hidden lg:block">
             <Sidebar />

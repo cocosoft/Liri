@@ -10,6 +10,8 @@ import {
   type StructuredLogEntry,
   type LogSource,
 } from '../logs/LogMemory.js';
+import { Database } from '../../core/external/sqlite3.js';
+import { resolveDbPath } from '@modules/core';
 
 interface LLMCallRecord {
   requestId: string;
@@ -230,6 +232,167 @@ export class LLMTracker {
   private logger = new Logger({ module: 'LLMTracker' });
   private otelLogger = new OTelAwareLogger({ module: 'LLMTracker' });
   private scrubber = new SensitiveDataScrubber();
+  private db: Database | null = null;
+  private initialized = false;
+
+  /** 初始化 DB 表并从持久化数据恢复 */
+  async init(): Promise<void> {
+    if (this.initialized) return;
+    try {
+      this.db = new Database(resolveDbPath());
+      this.db.run(`
+        CREATE TABLE IF NOT EXISTS llm_call_records (
+          request_id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          title TEXT,
+          timestamp TEXT NOT NULL,
+          model TEXT NOT NULL,
+          provider TEXT NOT NULL,
+          input_tokens INTEGER NOT NULL DEFAULT 0,
+          output_tokens INTEGER NOT NULL DEFAULT 0,
+          cache_read_tokens INTEGER DEFAULT 0,
+          cache_create_tokens INTEGER DEFAULT 0,
+          reasoning_tokens INTEGER DEFAULT 0,
+          cost_usd REAL NOT NULL DEFAULT 0,
+          duration_ms INTEGER DEFAULT 0
+        )
+      `);
+      this.db.run(`
+        CREATE INDEX IF NOT EXISTS idx_llm_calls_session
+        ON llm_call_records(session_id, timestamp)
+      `);
+
+      // 从 DB 恢复会话统计
+      await this.restoreFromDB();
+      this.initialized = true;
+      this.logger.info('LLMTracker DB 初始化完成', {
+        sessions: this.sessionStats.size,
+        calls: this.countTotalCalls(),
+      });
+    } catch (err) {
+      this.logger.warn('LLMTracker DB 初始化失败，使用纯内存模式', {
+        error: String(err),
+      });
+      this.db = null;
+    }
+  }
+
+  private countTotalCalls(): number {
+    let count = 0;
+    for (const calls of this.sessionCalls.values()) count += calls.length;
+    return count;
+  }
+
+  private async restoreFromDB(): Promise<void> {
+    if (!this.db) return;
+    // 加载最近 7 天的调用记录
+    const rows = await new Promise<any[]>((resolve) => {
+      this.db!.all(
+        `SELECT * FROM llm_call_records
+         WHERE timestamp > datetime('now', '-7 days')
+         ORDER BY timestamp ASC`,
+        (err: Error | null, rows: any[]) => resolve(err ? [] : rows)
+      );
+    });
+
+    for (const row of rows) {
+      const existingStats = this.sessionStats.get(row.session_id);
+      if (existingStats) {
+        existingStats.totalRequests++;
+        existingStats.totalInputTokens += row.input_tokens;
+        existingStats.totalOutputTokens += row.output_tokens;
+        existingStats.totalCostUsd += row.cost_usd;
+        if (row.timestamp > existingStats.lastCallAt) {
+          existingStats.lastCallAt = row.timestamp;
+        }
+        if (!existingStats.models.includes(row.model)) {
+          existingStats.models.push(row.model);
+        }
+        if (!existingStats.providers.includes(row.provider)) {
+          existingStats.providers.push(row.provider);
+        }
+      } else {
+        this.sessionStats.set(row.session_id, {
+          sessionId: row.session_id,
+          title: row.title || undefined,
+          totalRequests: 1,
+          totalInputTokens: row.input_tokens,
+          totalOutputTokens: row.output_tokens,
+          totalCacheReadTokens: row.cache_read_tokens || 0,
+          totalCacheCreateTokens: row.cache_create_tokens || 0,
+          totalReasoningTokens: row.reasoning_tokens || 0,
+          totalCostUsd: row.cost_usd,
+          models: [row.model],
+          providers: [row.provider],
+          firstCallAt: row.timestamp,
+          lastCallAt: row.timestamp,
+        });
+      }
+
+      let calls = this.sessionCalls.get(row.session_id);
+      if (!calls) {
+        calls = [];
+        this.sessionCalls.set(row.session_id, calls);
+      }
+      calls.push({
+        requestId: row.request_id,
+        timestamp: row.timestamp,
+        model: row.model,
+        provider: row.provider,
+        inputTokens: row.input_tokens,
+        outputTokens: row.output_tokens,
+        cacheReadTokens: row.cache_read_tokens || 0,
+        cacheCreateTokens: row.cache_create_tokens || 0,
+        reasoningTokens: row.reasoning_tokens || 0,
+        costUsd: row.cost_usd,
+        durationMs: row.duration_ms || 0,
+      });
+    }
+  }
+
+  private persistCall(params: {
+    sessionId: string;
+    requestId: string;
+    title?: string;
+    timestamp: string;
+    model: string;
+    provider: string;
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheCreateTokens: number;
+    reasoningTokens: number;
+    costUsd: number;
+    durationMs: number;
+  }): void {
+    if (!this.db) return;
+    try {
+      this.db.run(
+        `INSERT OR REPLACE INTO llm_call_records
+         (request_id, session_id, title, timestamp, model, provider,
+          input_tokens, output_tokens, cache_read_tokens, cache_create_tokens,
+          reasoning_tokens, cost_usd, duration_ms)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          params.requestId,
+          params.sessionId,
+          params.title || null,
+          params.timestamp,
+          params.model,
+          params.provider,
+          params.inputTokens,
+          params.outputTokens,
+          params.cacheReadTokens,
+          params.cacheCreateTokens,
+          params.reasoningTokens,
+          params.costUsd,
+          params.durationMs,
+        ]
+      );
+    } catch (err) {
+      // DB 写入失败静默忽略，不影响主流程
+    }
+  }
 
   /**
    * 记录 LLM 调用
@@ -320,6 +483,23 @@ export class LLMTracker {
     if (calls.length > 10000) {
       calls.shift();
     }
+
+    // 持久化到 DB（异步，不阻塞主流程）
+    this.persistCall({
+      sessionId: params.sessionId,
+      requestId: params.requestId,
+      title: params.title,
+      timestamp: now,
+      model: params.model,
+      provider: params.provider,
+      inputTokens: params.inputTokens,
+      outputTokens: params.outputTokens,
+      cacheReadTokens: params.cacheReadTokens ?? 0,
+      cacheCreateTokens: params.cacheCreateTokens ?? 0,
+      reasoningTokens: params.reasoningTokens ?? 0,
+      costUsd: params.costUsd,
+      durationMs: params.durationMs,
+    });
 
     // 记录到日志系统（source='llm'）
     const logEntry: StructuredLogEntry = {

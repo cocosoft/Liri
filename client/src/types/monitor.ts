@@ -23,6 +23,8 @@ export interface LogEntry {
   source: string;
   module?: string;
   details?: string;
+  traceId?: string;
+  spanId?: string;
 }
 
 export interface SystemHealth {

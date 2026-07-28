@@ -324,6 +324,8 @@ export async function handleMonitorLogs(
       timestamp: new Date(entry.timestamp).getTime(),
       source: entry.source,
       module: entry.module,
+      traceId: entry.traceId,
+      spanId: entry.spanId,
       details: entry.data
         ? JSON.stringify(entry.data)
         : entry.error

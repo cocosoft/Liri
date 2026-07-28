@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { monitorService } from "../../services/monitorService";
-import { usageService, type CostSummary } from "../../services/usageService";
 import type { LogEntry, LogSource } from "../../types";
 import type {
   SessionSummary,
@@ -47,11 +46,6 @@ function LogViewerPage() {
   const [selectedSession, setSelectedSession] = useState<SessionDetail | null>(
     null,
   );
-
-  // 成本相关状态
-  const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
-  const [isLoadingCost, setIsLoadingCost] = useState(false);
-  const [costError, setCostError] = useState<string | null>(null);
 
   // 前端日志相关状态
   const [frontendLogs, setFrontendLogs] = useState<FrontendLogEntry[]>([]);
@@ -121,22 +115,6 @@ function LogViewerPage() {
     }
   }, []);
 
-  const fetchCostSummary = useCallback(async () => {
-    setIsLoadingCost(true);
-    setCostError(null);
-
-    try {
-      const result = await usageService.getCostSummary();
-      setCostSummary(result);
-    } catch (e) {
-      setCostError(
-        e instanceof Error ? e.message : t("settings.logViewerErrorFetchCost"),
-      );
-    } finally {
-      setIsLoadingCost(false);
-    }
-  }, []);
-
   const fetchSessionDetail = useCallback(async (sessionId: string) => {
     try {
       const result = await monitorService.getSessionDetail(sessionId);
@@ -185,8 +163,6 @@ function LogViewerPage() {
       fetchFrontendLogs(true);
     } else if (activeTab === "sessions") {
       fetchSessions();
-    } else if (activeTab === "cost") {
-      fetchCostSummary();
     }
   }, [activeTab]);
 
@@ -694,82 +670,21 @@ function LogViewerPage() {
 
         {/* 成本统计标签 */}
         {activeTab === "cost" && (
-          <>
-            {costError && (
-              <div
-                className={`mb-4 p-3 rounded-lg text-sm ${isDark ? "bg-red-900/30 text-red-400 border border-red-800" : "bg-red-50 text-red-600 border border-red-200"}`}
-              >
-                {costError}
-              </div>
-            )}
-
-            {isLoadingCost ? (
-              <div className="flex justify-center items-center py-12">
-                <div
-                  className={`w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full animate-spin ${isDark ? "" : ""}`}
-                ></div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div
-                  className={`p-6 rounded-lg ${isDark ? "bg-gray-800" : "bg-white"} border ${isDark ? "border-gray-700" : "border-gray-200"}`}
-                >
-                  <div
-                    className={`text-sm mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                  >
-                    {t("settings.logViewerStatTotalSessions")}
-                  </div>
-                  <div
-                    className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                  >
-                    {costSummary?.totalSessions || 0}
-                  </div>
-                </div>
-                <div
-                  className={`p-6 rounded-lg ${isDark ? "bg-gray-800" : "bg-white"} border ${isDark ? "border-gray-700" : "border-gray-200"}`}
-                >
-                  <div
-                    className={`text-sm mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                  >
-                    {t("settings.logViewerStatTotalRequests")}
-                  </div>
-                  <div
-                    className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                  >
-                    {costSummary?.totalRequests || 0}
-                  </div>
-                </div>
-                <div
-                  className={`p-6 rounded-lg ${isDark ? "bg-gray-800" : "bg-white"} border ${isDark ? "border-gray-700" : "border-gray-200"}`}
-                >
-                  <div
-                    className={`text-sm mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                  >
-                    {t("settings.logViewerStatInputTokens")}
-                  </div>
-                  <div
-                    className={`text-2xl font-bold ${isDark ? "text-blue-400" : "text-blue-600"}`}
-                  >
-                    {formatTokens(costSummary?.totalInputTokens || 0)}
-                  </div>
-                </div>
-                <div
-                  className={`p-6 rounded-lg ${isDark ? "bg-gray-800" : "bg-white"} border ${isDark ? "border-gray-700" : "border-gray-200"}`}
-                >
-                  <div
-                    className={`text-sm mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                  >
-                    {t("settings.logViewerStatOutputTokens")}
-                  </div>
-                  <div
-                    className={`text-2xl font-bold ${isDark ? "text-green-400" : "text-green-600"}`}
-                  >
-                    {formatTokens(costSummary?.totalOutputTokens || 0)}
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className={`text-lg font-medium mb-4 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+              成本统计已迁移到用量中心
+            </div>
+            <a
+              href="/usage?tab=cost"
+              onClick={(e) => {
+                e.preventDefault();
+                window.location.href = "/usage?tab=cost";
+              }}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+            >
+              前往用量中心 →
+            </a>
+          </div>
         )}
       </div>
 

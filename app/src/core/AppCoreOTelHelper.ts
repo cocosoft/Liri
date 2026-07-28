@@ -126,6 +126,15 @@ export async function initializeOTelSystem(): Promise<void> {
     getAlertBridge().init();
     heartbeat.register('alert-bridge');
     logger.info('AlertBridge 告警桥接已初始化');
+
+    // 心跳保活：所有注册模块需要定期 beat() 否则 5 分钟后被标记为 dead
+    const HEARTBEAT_INTERVAL = 4 * 60 * 1000; // 4 分钟，低于 5 分钟超时阈
+    const beatTimer = setInterval(() => {
+      heartbeat.beat('core:otel');
+      heartbeat.beat('trace-recording');
+      heartbeat.beat('alert-bridge');
+    }, HEARTBEAT_INTERVAL);
+    if (typeof beatTimer.unref === 'function') beatTimer.unref();
   } catch (error) {
     logger.error(
       'OTel 系统初始化失败',

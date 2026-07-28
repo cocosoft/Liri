@@ -982,6 +982,16 @@ export async function launch(options: LaunchOptions): Promise<void> {
       });
     }
 
+    // 初始化 LLM 调用跟踪器（DB 持久化 + 历史数据恢复）
+    try {
+      const { getLLMTracker } = await import('./monitoring/llm/getLLMTracker');
+      await getLLMTracker().init();
+    } catch (err) {
+      logger.warn('LLMTracker 初始化失败（非致命），使用内存模式', {
+        error: String(err),
+      });
+    }
+
     profilePhaseEnd('T1_module_init');
     profileCheckpoint('module_init_end');
 

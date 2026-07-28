@@ -64,6 +64,7 @@ function LogViewerPage() {
 
   const fetchLogs = useCallback(
     async (resetOffset = false) => {
+      if (isLoadingLogs) return; // 防止并发加载导致 offset 偏移
       setIsLoadingLogs(true);
       setLogsError(null);
 

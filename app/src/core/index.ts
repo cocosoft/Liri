@@ -31,7 +31,6 @@ export * from './events/EventBus';
 export * from './events/UiEvents';
 export { UiEventBus, uiEventBus } from './events/UiEventBus';
 
-export { AppCore, createAppCore, type AppCoreConfig } from './AppCore';
 export {
   BootstrapPhase,
   BootstrapPriority,

@@ -361,6 +361,29 @@ async function handleStreamingChat(
         ? { workspacePath: request.workspace_path }
         : undefined,
       images: request.images,
+      /** 上下文水位监测 → SSE context_state 事件桥接 */
+      onProgress: (event) => {
+        if (event.watermarkState) {
+          res.write(
+            `data: ${JSON.stringify({
+              id: responseId,
+              object: 'chat.completion.chunk',
+              created,
+              model,
+              __pyapp_type: 'context_state',
+              choices: [
+                {
+                  index: 0,
+                  delta: { content: event.message },
+                  finish_reason: null,
+                },
+              ],
+              watermarkState: event.watermarkState,
+            })}\n\n`
+          );
+          (res as unknown as { flush: () => void }).flush?.();
+        }
+      },
     };
 
     const generator = coreAPI.chatStream(chatRequest);

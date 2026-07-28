@@ -97,18 +97,42 @@ export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
       }
       await regChannel.sendMessage(target, content);
     } else {
-      // 优先使用 sendInteractive（支持按钮的渠道）
+      let sent = false;
+
+      // 优先使用 sendInteractive（支持按钮的渠道），失败时降级到 sendMarkdown → sendText
       if (typeof (outbound as any).sendInteractive === 'function') {
-        await outbound.sendInteractive(target, {
-          title: inboxItem.status === 'expired' ? '审批已过期' : '审批结果',
-          content,
-          color: inboxItem.reply === 'approve' ? 'green' : 'red',
-        });
-      } else if (typeof (outbound as any).sendMarkdown === 'function') {
-        await (outbound as any).sendMarkdown(target, content);
-      } else if (typeof outbound.sendText === 'function') {
+        try {
+          await outbound.sendInteractive(target, {
+            title: inboxItem.status === 'expired' ? '审批已过期' : '审批结果',
+            content,
+            color: inboxItem.reply === 'approve' ? 'green' : 'red',
+          });
+          sent = true;
+        } catch (e) {
+          logger.warn('sendInteractive 失败，降级到 sendMarkdown/sendText', {
+            channelName,
+            inboxId: inboxItem.id,
+            error: String(e),
+          });
+        }
+      }
+      if (!sent && typeof (outbound as any).sendMarkdown === 'function') {
+        try {
+          await (outbound as any).sendMarkdown(target, content);
+          sent = true;
+        } catch (e) {
+          logger.warn('sendMarkdown 失败，降级到 sendText', {
+            channelName,
+            inboxId: inboxItem.id,
+            error: String(e),
+          });
+        }
+      }
+      if (!sent && typeof outbound.sendText === 'function') {
         await outbound.sendText(target, content);
-      } else {
+        sent = true;
+      }
+      if (!sent) {
         logger.warn('relayReplyToChannel: no usable outbound adapter', {
           channelName,
           inboxId: inboxItem.id,
@@ -134,17 +158,16 @@ export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
 
     if (!retryResult.success) {
       await _writeDeadLetter(inboxItem);
+      await handleError(err, {
+        module: 'channels:inboxReply',
+        action: 'relayReplyToChannel',
+        context: { inboxId: inboxItem.id, channelName: inboxItem.channelId },
+      });
       logger.warn('Inbox reply dead-lettered after 3 retries', {
         inboxId: inboxItem.id,
         channelName: inboxItem.channelId,
       });
     }
-
-    await handleError(err, {
-      module: 'channels:inboxReply',
-      action: 'relayReplyToChannel',
-      context: { inboxId: inboxItem.id, channelName: inboxItem.channelId },
-    });
     otel.recordError(span, err instanceof Error ? err : new Error(String(err)));
     otel.endSpan(span, SpanStatusCode.ERROR, String(err));
   }

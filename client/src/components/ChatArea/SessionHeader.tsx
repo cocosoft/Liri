@@ -23,14 +23,27 @@ function getMessageSearchText(message: Message): string {
     parts.push(typeof message.content === "string" ? message.content : "");
   if (message.blocks) {
     for (const block of message.blocks) {
-      if (block.content) parts.push(block.content);
+      if (!block.content) continue;
+      const prefix =
+        block.type === "thinking"
+          ? "💭 [思考中]\n"
+          : block.type === "tool_call"
+            ? `🔧 [工具调用: ${block.toolCall?.name || "unknown"}]\n`
+            : block.type === "status" && (block.toolCallId || block.toolCall)
+              ? "📋 [工具结果]\n"
+              : block.type === "task_decomposition"
+                ? "📝 [任务分解]\n"
+                : block.type === "progress"
+                  ? "📊 [进度]\n"
+                  : "";
+      parts.push(prefix + String(block.content));
     }
   }
-  if (message.error) parts.push(message.error);
+  if (message.error) parts.push(`❌ [错误]: ${message.error}`);
   return parts.join("\n");
 }
 
-/** 导出为 Markdown */
+/** 导出为 Markdown（含思考、工具调用、blocks 标识） */
 function exportAsMarkdown(
   messages: Message[],
   labels: Record<string, string>,
@@ -47,23 +60,42 @@ function exportAsMarkdown(
               : `🛠 ${labels.tool}`;
       const date = new Date(msg.timestamp).toLocaleString();
       const text = getMessageSearchText(msg);
-      return `### ${roleLabel}  (${date})\n\n${text}\n`;
+      const usageInfo = msg.usage
+        ? `\n> 📊 Token: 输入 ${msg.usage.inputTokens ?? "?"} / 输出 ${msg.usage.outputTokens ?? "?"} / 缓存读 ${msg.usage.cacheReadTokens ?? "0"}`
+        : "";
+      return `### ${roleLabel}  (${date})\n\n${text}${usageInfo}\n`;
     })
     .join("\n---\n");
 }
 
-/** 导出为 JSON */
+/** 导出为 JSON（含 blocks、usage、metadata 完整信息） */
 function exportAsJson(messages: Message[]): string {
-  const cleaned = messages.map(
-    ({ id, role, content, timestamp, error, tool_calls }) => ({
-      id,
-      role,
-      content: typeof content === "string" ? content : "",
-      timestamp,
-      error,
-      toolCalls: tool_calls,
-    }),
-  );
+  const cleaned = messages.map((msg) => {
+    const blocksDetail = (msg.blocks || []).map((b) => ({
+      type: b.type,
+      content:
+        typeof b.content === "string"
+          ? b.content.substring(0, 5000)
+          : b.content,
+      toolName: b.toolCall?.name,
+      toolCallId: b.toolCallId,
+      status: b.status,
+      isStreaming: b.isStreaming,
+    }));
+    return {
+      id: msg.id,
+      role: msg.role,
+      timestamp: msg.timestamp,
+      content: typeof msg.content === "string" ? msg.content : "",
+      blocks: blocksDetail,
+      toolCalls: msg.tool_calls,
+      usage: msg.usage,
+      error: msg.error,
+      agentName: msg.agentName,
+      replyToId: msg.replyToId,
+      metadata: msg.metadata,
+    };
+  });
   return JSON.stringify(cleaned, null, 2);
 }
 

@@ -42,10 +42,20 @@ export function extractKeyPaths(content: string): string[] {
     paths.push(match[2]);
   }
 
-  // 匹配 Windows 绝对路径（如 E:\PY\CODES\PY_APP\app\data\...\file.png）
-  const winPathPattern = /([A-Za-z]:\\[^\s"',;}\]\)]+(?:\.\w{2,6}))/g;
-  while ((match = winPathPattern.exec(content)) !== null) {
+  // 匹配 Windows 绝对路径（文件路径，如 E:\PY\CODES\PY_APP\app\data\...\file.png）
+  const winFilePattern = /([A-Za-z]:\\[^\s"',;}\]\)]+(?:\.\w{2,6}))/g;
+  while ((match = winFilePattern.exec(content)) !== null) {
     paths.push(match[1]);
+  }
+
+  // 匹配 Windows 目录路径（无扩展名，如 E:\PY\Documents\CODES\PY_APP\app）
+  const winDirPattern =
+    /([A-Za-z]:\\(?:[\w\u4e00-\u9fff-]+\\)+[\w\u4e00-\u9fff-]+)(?=\s|$|"|,|;|\]|\))/g;
+  while ((match = winDirPattern.exec(content)) !== null) {
+    // 避免与文件路径重复（文件路径已包含目录前缀）
+    if (!paths.includes(match[1])) {
+      paths.push(match[1]);
+    }
   }
 
   // 匹配 Unix 绝对路径（如 /home/user/project/file.png）

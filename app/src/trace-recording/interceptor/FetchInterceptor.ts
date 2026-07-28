@@ -258,11 +258,10 @@ export class FetchInterceptor {
             }
           }
         } catch (err) {
-          // 流读取异常时使用已有的数据
-
-          logger.debug('Operation skipped', {
-            context: '流读取异常时使用已有的数据',
+          // 流读取异常时使用已有数据，不中断主响应
+          logger.warn('trace:fetchInterceptor SSE reader error', {
             error: err instanceof Error ? err.message : String(err),
+            url,
           });
         }
 

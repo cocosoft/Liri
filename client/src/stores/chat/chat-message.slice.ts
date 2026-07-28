@@ -16,6 +16,7 @@ import {
   playCompletionSound,
 } from "../../services/SoundService";
 import { createLogger } from "../../utils/logger";
+import { useContextWatermarkStore } from "../contextWatermarkStore";
 import { handleClientError } from "@/utils/handleError";
 import {
   ChronologicalBlockBuilder,
@@ -562,6 +563,40 @@ export const createMessageSlice: StateCreator<
           blockBuilder.addStatus(chunk.content);
           set({ streamingStatus: chunk.content });
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+          // 结构化水位数据优先（缺陷 E 修复），回退到正则兼容旧格式
+          if (chunk.watermarkState) {
+            useContextWatermarkStore
+              .getState()
+              .updateWatermark(chunk.watermarkState);
+          } else {
+            // 兼容旧格式: "上下文水位: 85% (170K/200K) | severity:compact | ratio:0.852 | tokens:170000/200000"
+            const structured = chunk.content.match(
+              /上下文水位:\s*(\d+)%\s*\(?(\d+K?)\/(\d+K?)\)?\s*\|\s*severity:(compact|warn)\s*\|\s*ratio:([\d.]+)\s*\|\s*tokens:(\d+)\/(\d+)/,
+            );
+            if (structured) {
+              useContextWatermarkStore.getState().updateWatermark({
+                currentTokens: parseInt(structured[6], 10),
+                contextLimit: parseInt(structured[7], 10),
+                ratio: parseFloat(structured[5]),
+                severity: structured[4] as "compact" | "warn",
+              });
+            } else {
+              // 兼容旧格式: "上下文水位: 85%"
+              const legacy = chunk.content.match(/上下文水位:\s*(\d+)%/);
+              if (legacy) {
+                const pct = parseInt(legacy[1], 10);
+                const isCompact =
+                  chunk.content.includes("压缩") ||
+                  chunk.content.includes("临界");
+                useContextWatermarkStore.getState().updateWatermark({
+                  currentTokens: 0,
+                  contextLimit: 0,
+                  ratio: pct / 100,
+                  severity: isCompact ? "compact" : "warn",
+                });
+              }
+            }
+          }
         } else if (chunk.type === "tool_completed") {
           // 工具完成事件：携带结构化 result data 更新对应 toolCall.result
           const tcId = chunk.tool_call_id;

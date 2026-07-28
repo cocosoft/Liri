@@ -21,6 +21,67 @@ export class InputAdapter {
   private lastTapX = 0;
   private lastTapY = 0;
 
+  // 绑定的指针事件处理器（保留引用以便 destroy 时移除）
+  private _onPointerDown = (e: PointerEvent) => {
+    this.pointers.set(e.pointerId, {
+      clientX: e.clientX,
+      clientY: e.clientY,
+    });
+
+    if (this.pointers.size === 2) {
+      const pts = this.getPointerArray();
+      const dx = pts[0].clientX - pts[1].clientX;
+      const dy = pts[0].clientY - pts[1].clientY;
+      this.prevPinchDist = Math.sqrt(dx * dx + dy * dy);
+      this.prevMidX = (pts[0].clientX + pts[1].clientX) / 2;
+      this.prevMidY = (pts[0].clientY + pts[1].clientY) / 2;
+      return;
+    }
+
+    const now = Date.now();
+    if (
+      now - this.lastTapTime < 300 &&
+      Math.abs(e.clientX - this.lastTapX) < 20 &&
+      Math.abs(e.clientY - this.lastTapY) < 20
+    ) {
+      this.gestureHandlers?.onDoubleTap?.(e.clientX, e.clientY);
+      this.lastTapTime = 0;
+      return;
+    }
+    this.lastTapTime = now;
+    this.lastTapX = e.clientX;
+    this.lastTapY = e.clientY;
+
+    this.handlers.onPointerDown?.(this.adapt(e));
+  };
+
+  private _onPointerMove = (e: PointerEvent) => {
+    const existing = this.pointers.get(e.pointerId);
+    if (existing) {
+      existing.clientX = e.clientX;
+      existing.clientY = e.clientY;
+    }
+
+    if (this.pointers.size >= 2) {
+      this.updateGesture();
+      return;
+    }
+
+    this.handlers.onPointerMove?.(this.adapt(e));
+  };
+
+  private _onPointerUp = (e: PointerEvent) => {
+    this.pointers.delete(e.pointerId);
+
+    if (this.pointers.size < 2) {
+      this.prevPinchDist = 0;
+      this.prevMidX = 0;
+      this.prevMidY = 0;
+    }
+
+    this.handlers.onPointerUp?.(this.adapt(e));
+  };
+
   constructor(
     private canvas: HTMLCanvasElement,
     private transform: CanvasTransform,
@@ -83,72 +144,15 @@ export class InputAdapter {
     const el = this.canvas;
     el.style.touchAction = "none";
 
-    el.addEventListener("pointerdown", (e: PointerEvent) => {
-      this.pointers.set(e.pointerId, {
-        clientX: e.clientX,
-        clientY: e.clientY,
-      });
-
-      // 双指手势初始化
-      if (this.pointers.size === 2) {
-        const pts = this.getPointerArray();
-        const dx = pts[0].clientX - pts[1].clientX;
-        const dy = pts[0].clientY - pts[1].clientY;
-        this.prevPinchDist = Math.sqrt(dx * dx + dy * dy);
-        this.prevMidX = (pts[0].clientX + pts[1].clientX) / 2;
-        this.prevMidY = (pts[0].clientY + pts[1].clientY) / 2;
-        return; // 双指时不触发单指事件
-      }
-
-      // 双击检测
-      const now = Date.now();
-      if (
-        now - this.lastTapTime < 300 &&
-        Math.abs(e.clientX - this.lastTapX) < 20 &&
-        Math.abs(e.clientY - this.lastTapY) < 20
-      ) {
-        this.gestureHandlers?.onDoubleTap?.(e.clientX, e.clientY);
-        this.lastTapTime = 0;
-        return;
-      }
-      this.lastTapTime = now;
-      this.lastTapX = e.clientX;
-      this.lastTapY = e.clientY;
-
-      this.handlers.onPointerDown?.(this.adapt(e));
-    });
-
-    el.addEventListener("pointermove", (e: PointerEvent) => {
-      // 更新指针位置
-      const existing = this.pointers.get(e.pointerId);
-      if (existing) {
-        existing.clientX = e.clientX;
-        existing.clientY = e.clientY;
-      }
-
-      // 双指手势
-      if (this.pointers.size >= 2) {
-        this.updateGesture();
-        return;
-      }
-
-      this.handlers.onPointerMove?.(this.adapt(e));
-    });
-
-    el.addEventListener("pointerup", (e: PointerEvent) => {
-      this.pointers.delete(e.pointerId);
-
-      if (this.pointers.size < 2) {
-        this.prevPinchDist = 0;
-        this.prevMidX = 0;
-        this.prevMidY = 0;
-      }
-
-      this.handlers.onPointerUp?.(this.adapt(e));
-    });
+    el.addEventListener("pointerdown", this._onPointerDown);
+    el.addEventListener("pointermove", this._onPointerMove);
+    el.addEventListener("pointerup", this._onPointerUp);
   }
 
   destroy() {
-    /* cleanup if needed */
+    const el = this.canvas;
+    el.removeEventListener("pointerdown", this._onPointerDown as EventListener);
+    el.removeEventListener("pointermove", this._onPointerMove as EventListener);
+    el.removeEventListener("pointerup", this._onPointerUp as EventListener);
   }
 }

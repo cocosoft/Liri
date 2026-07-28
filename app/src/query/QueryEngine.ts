@@ -59,7 +59,10 @@ import {
 import {
   TokenBudgetController,
   TokenBudgetStatus,
+  getDefaultTokenBudget,
 } from '../core/tokenBudget/TokenBudgetController.js';
+import { UnifiedTokenTracker } from '../core/tokenBudget/UnifiedTokenTracker.js';
+import { ContextTracker } from './context/ContextTracker.js';
 import { getTokenCountFromUsage } from '../services/tokenManagement/TokenCounter.js';
 import type { TokenUsage } from '../services/tokenManagement/TokenCounter.js';
 import {
@@ -338,6 +341,7 @@ export class QueryEngine {
    * Token 预算管理器
    */
   private tokenBudgetManager: TokenBudgetController;
+  private unifiedTracker: UnifiedTokenTracker;
 
   /**
    * 进度监听器
@@ -393,13 +397,18 @@ export class QueryEngine {
     this.costTracker = createCostAnalyticsTracker(analyticsQueue);
     setCostAnalyticsTracker(this.costTracker);
     this.config = config;
+    const defaultBudget = getDefaultTokenBudget('default');
     this.tokenBudgetManager = new TokenBudgetController(
       'default',
       {
-        total: config.taskBudget?.total || 200_000,
-        remaining: config.taskBudget?.total || 200_000,
+        total: config.taskBudget?.total || defaultBudget.total,
+        remaining: config.taskBudget?.total || defaultBudget.remaining,
       },
-      config.taskBudget?.total || 200_000
+      config.taskBudget?.total || defaultBudget.total
+    );
+    this.unifiedTracker = new UnifiedTokenTracker(
+      this.tokenBudgetManager,
+      new ContextTracker()
     );
     this.stopHookManager = createStopHookManager();
   }
@@ -671,12 +680,9 @@ export class QueryEngine {
       const response = await this.callAPI(prompt, sessionId || '', isFirstCall);
       isFirstCall = false;
 
-      // 记录 Token 使用并检查预算
+      // 记录 Token 使用并更新预算（通过统一追踪器）
       if (response.usage) {
-        this.tokenBudgetManager.recordUsage(
-          response.usage.inputTokens || 0,
-          response.usage.outputTokens || 0
-        );
+        this.unifiedTracker.recordPostRequest({ usage: response.usage });
 
         const budgetState = this.tokenBudgetManager.getCurrentBudgetState();
         if (
@@ -1238,17 +1244,16 @@ export class QueryEngine {
       // 触发压缩开始进度事件
       this.emitProgress('compact_start', { session_id: sessionId });
 
-      // 获取当前Token预算状态
-      const budgetState = this.tokenBudgetManager.getCurrentBudgetState();
-      // TokenBudgetManager 返回 0.0-1.0 小数值，determineCompactLevel 需要 0-100 百分比值
-      const percentUsed = (budgetState.percentUsed || 0) * 100;
-
-      // 根据Token使用率决定压缩级别
-      const compactLevel = this.determineCompactLevel(percentUsed);
+      // 获取当前压缩等级（Phase 1a: 已统一为 UNIFIED_THRESHOLDS）
+      const compactLevel = this.tokenBudgetManager.getCompressionLevel();
 
       if (compactLevel > 0) {
+        const percentUsed =
+          (this.tokenBudgetManager.getUsedBudget() /
+            this.tokenBudgetManager.getTotalBudget()) *
+          100;
         logger.info(
-          `检测到需要压缩，级别: Level ${compactLevel}, Token使用率: ${percentUsed}%`
+          `检测到需要压缩，级别: Level ${compactLevel}, Token使用率: ${percentUsed.toFixed(1)}%`
         );
 
         // 更新会话状态为压缩中
@@ -1303,22 +1308,6 @@ export class QueryEngine {
         timestamp: Date.now(),
       });
     }
-  }
-
-  /**
-   * 根据Token使用率决定压缩级别
-   * @param percentUsed Token使用率
-   * @returns 压缩级别 (0=不需要压缩, 1=轻度, 2=中等, 3=深度)
-   */
-  private determineCompactLevel(percentUsed: number): number {
-    // 三级压缩策略
-    // Level 1: 60%-75% - 轻度压缩
-    // Level 2: 75%-90% - 中等压缩
-    // Level 3: 90%+ - 深度压缩
-    if (percentUsed >= 90) return 3;
-    if (percentUsed >= 75) return 2;
-    if (percentUsed >= 60) return 1;
-    return 0;
   }
 
   /**
@@ -1752,6 +1741,10 @@ export class QueryEngine {
 
   getTokenBudgetManager(): TokenBudgetController {
     return this.tokenBudgetManager;
+  }
+
+  getUnifiedTracker(): UnifiedTokenTracker {
+    return this.unifiedTracker;
   }
 
   /**

@@ -29,6 +29,29 @@ const logger = new Logger({
   level: LogLevel.INFO,
 });
 
+// 缓存动态 import 避免每次 Tier 3 压缩重复解析模块
+let cachedAiModule: {
+  default: { generate: Function };
+  AIMessageRole: Record<string, string>;
+} | null = null;
+
+async function getAiService() {
+  if (!cachedAiModule) {
+    const mod = (await import('../../ai/index')) as {
+      default: { generate: Function };
+      AIMessageRole: Record<string, string>;
+    };
+    cachedAiModule = {
+      default: mod.default,
+      AIMessageRole: mod.AIMessageRole,
+    };
+  }
+  return cachedAiModule;
+}
+
+/** 压缩超时上限（毫秒），超时后回滚到原消息 */
+const COMPACTION_TIMEOUT_MS = 10_000;
+
 const FULL_COMPACTION_PROMPT = `You are a conversation compressor. Summarize the following conversation to preserve essential context while drastically reducing token count.
 
 Rules:
@@ -50,6 +73,9 @@ export interface CompactionOrchestratorOptions {
   policy?: AutoCompactionPolicy;
 }
 
+/** 正在执行压缩的会话 ID 集合，防止双管线并发压缩同一会话 */
+const activeCompactions = new Set<string>();
+
 export class CompactionOrchestrator {
   private policy: AutoCompactionPolicy;
 
@@ -65,22 +91,78 @@ export class CompactionOrchestrator {
     messages: ChatMessage[],
     ctx: CompactionContext
   ): Promise<{ messages: ChatMessage[]; applied: boolean }> {
-    const startTime = Date.now();
-    const decision = this.policy.evaluate(
-      messages,
-      ctx.model,
-      ctx.configOverride
-    );
-
-    // Skip：无需压缩
-    if (decision.decision === 'skip') {
-      logger.debug('compaction:skip', {
-        ratio: Number(decision.snapshot.ratio.toFixed(3)),
-        reason: decision.reason ?? 'below warning threshold',
-      });
-      return { messages, applied: false };
+    // 防止双管线并发压缩同一会话
+    if (ctx.sessionId) {
+      if (activeCompactions.has(ctx.sessionId)) {
+        logger.debug('compaction:already_in_progress', {
+          sessionId: ctx.sessionId,
+        });
+        return { messages, applied: false };
+      }
+      activeCompactions.add(ctx.sessionId);
     }
 
+    try {
+      const startTime = Date.now();
+      const decision = this.policy.evaluate(
+        messages,
+        ctx.model,
+        ctx.configOverride
+      );
+
+      // Skip：无需压缩
+      if (decision.decision === 'skip') {
+        logger.debug('compaction:skip', {
+          ratio: Number(decision.snapshot.ratio.toFixed(3)),
+          reason: decision.reason ?? 'below warning threshold',
+        });
+        return { messages, applied: false };
+      }
+
+      // 超时保护：压缩整体不得超过 COMPACTION_TIMEOUT_MS
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const result = await Promise.race([
+          this._doCompact(messages, ctx, decision, startTime),
+          new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(
+              () => reject(new Error('COMPACTION_TIMEOUT')),
+              COMPACTION_TIMEOUT_MS
+            );
+          }),
+        ]);
+        return result;
+      } catch (err) {
+        if (err instanceof Error && err.message === 'COMPACTION_TIMEOUT') {
+          logger.warn('compaction:timeout', {
+            sessionId: ctx.sessionId,
+            beforeTokens: decision.snapshot.tokens,
+            timeoutMs: COMPACTION_TIMEOUT_MS,
+            elapsedMs: Date.now() - startTime,
+          });
+          return { messages, applied: false };
+        }
+        // 非超时错误：记录 + 返回 fallback，不抛向上层（上层可能没有 catch）
+        await handleError(err, {
+          module: 'context:compaction',
+          action: 'compact',
+        });
+        return { messages, applied: false };
+      } finally {
+        if (timeoutId !== undefined) clearTimeout(timeoutId);
+      }
+    } finally {
+      if (ctx.sessionId) activeCompactions.delete(ctx.sessionId);
+    }
+  }
+
+  /** 执行压缩管线（不含超时保护，由 compact() 外层处理） */
+  private async _doCompact(
+    messages: ChatMessage[],
+    ctx: CompactionContext,
+    decision: ReturnType<AutoCompactionPolicy['evaluate']>,
+    startTime: number
+  ): Promise<{ messages: ChatMessage[]; applied: boolean }> {
     const beforeTokens = decision.snapshot.tokens;
 
     // Run before hooks
@@ -227,8 +309,7 @@ export class CompactionOrchestrator {
 
       if (conversationText.length < 200) return { messages, applied: false };
 
-      const { default: aiService, AIMessageRole } =
-        await import('../../ai/index');
+      const { default: aiService, AIMessageRole } = await getAiService();
       const response = await aiService.generate(
         [
           { role: AIMessageRole.SYSTEM, content: FULL_COMPACTION_PROMPT },
@@ -251,6 +332,18 @@ export class CompactionOrchestrator {
         } as ChatMessage,
         ...tailMessages,
       ];
+
+      // 校验：压缩后 token 应少于压缩前，否则回退（LLM 摘要可能比原文更长）
+      const beforeTokens = estimateMessagesTokens(toCompress);
+      const afterTokens = estimateMessagesTokens(compacted);
+      if (afterTokens >= beforeTokens) {
+        logger.warn('compaction:tier3_no_reduction', {
+          beforeTokens,
+          afterTokens,
+          summaryLength: summary.length,
+        });
+        return { messages, applied: false };
+      }
 
       return { messages: compacted, applied: true };
     } catch (err) {

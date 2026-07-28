@@ -77,6 +77,12 @@ const REJECT_KEYWORDS = [
 export function detectApprovalIntent(content: string): ApprovalIntent {
   const trimmed = content.trim();
 
+  // 上下文守卫：审批回复通常是极短的消息（"同意"、"好的"、"不行"）
+  // 长消息（>20字）几乎不可能是审批回复，避免正常对话误触发
+  if (trimmed.length > 20) {
+    return null;
+  }
+
   // 精确匹配优先（单字/短语完全一致）
   for (const kw of APPROVE_KEYWORDS) {
     if (

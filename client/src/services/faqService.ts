@@ -127,6 +127,6 @@ export const faqService = {
     const res = await http.get<{ total: number }>(
       `/v1/knowledge/${encodeURIComponent(base)}/faq?limit=1`,
     );
-    return res.ok ? res.data!.total : 0;
+    return res.ok ? (res.data?.total ?? 0) : 0;
   },
 };

@@ -38,6 +38,13 @@ export interface ProgressEvent {
   message: string;
   /** 工具名称（仅在 tool_executing 阶段存在） */
   toolName?: string;
+  /** 上下文水位状态（当 stage='generating' 且水位非 normal 时存在） */
+  watermarkState?: {
+    currentTokens: number;
+    contextLimit: number;
+    ratio: number;
+    severity: 'normal' | 'warn' | 'compact';
+  };
 }
 
 /** 聊天请求 */

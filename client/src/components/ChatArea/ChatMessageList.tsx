@@ -346,6 +346,13 @@ export default function ChatMessageList({
   /** 匹配集用于高亮标记 */
   const matchedSet = useMemo(() => new Set(matchedIds), [matchedIds]);
 
+  /** 最后一条 assistant 消息的索引（isStreaming 仅对此消息生效） */
+  const lastAssistantIdx = useMemo(
+    () =>
+      messages.reduce((last, m, i) => (m.role === "assistant" ? i : last), -1),
+    [messages],
+  );
+
   // 重置导出菜单标识
   if (!hasSession) {
     return (
@@ -526,7 +533,11 @@ export default function ChatMessageList({
                 <ErrorBoundary fallback={<MessageErrorFallback error={null} />}>
                   <ChatMessage
                     message={message}
-                    isStreaming={isStreaming && message.role === "assistant"}
+                    isStreaming={
+                      isStreaming &&
+                      message.role === "assistant" &&
+                      i === lastAssistantIdx
+                    }
                     hasReplies={hasReplies}
                     sessionUsage={sessionUsage}
                   />

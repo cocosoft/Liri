@@ -30,6 +30,20 @@ const logger = new Logger({
 });
 
 /**
+ * 通道出站适配器接口
+ * 用于 DeliveryRouter._sendWithFallback 的统一发送入口
+ */
+export interface ChannelOutbound {
+  sendText(target: string, content: string): Promise<boolean>;
+  sendMarkdown?(target: string, content: string): Promise<boolean>;
+  sendInteractive?(
+    target: string,
+    content: string,
+    card: Record<string, unknown>
+  ): Promise<boolean>;
+}
+
+/**
  * 通道接口
  * @deprecated 过渡接口，新代码请使用 IChannelPlugin
  */
@@ -53,9 +67,7 @@ export interface ChannelInterface {
   ): Promise<boolean>;
 
   plugin?: {
-    outbound: {
-      sendText(target: string, message: string): Promise<{ success: boolean }>;
-    };
+    outbound: ChannelOutbound;
   };
 }
 
@@ -99,9 +111,38 @@ export function adaptPluginToInterface(
     }),
     plugin: {
       outbound: {
-        sendText: async (target: string, message: string) => {
-          return plugin.outbound.sendText(target, message);
+        sendText: async (target: string, content: string) => {
+          const result = await plugin.outbound.sendText(target, content);
+          return result.success;
         },
+        ...(typeof (plugin.outbound as unknown as Record<string, unknown>)
+          .sendMarkdown === 'function'
+          ? {
+              sendMarkdown: async (target: string, content: string) => {
+                const result = (await (
+                  plugin.outbound as unknown as Record<string, Function>
+                ).sendMarkdown(target, content)) as { success: boolean };
+                return result.success;
+              },
+            }
+          : {}),
+        ...(typeof (plugin.outbound as unknown as Record<string, unknown>)
+          .sendInteractive === 'function'
+          ? {
+              sendInteractive: async (
+                target: string,
+                content: string,
+                card: Record<string, unknown>
+              ) => {
+                const result = (await (
+                  plugin.outbound as unknown as Record<string, Function>
+                ).sendInteractive(target, content, card)) as {
+                  success: boolean;
+                };
+                return result.success;
+              },
+            }
+          : {}),
       },
     },
   };

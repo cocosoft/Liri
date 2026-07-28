@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Channel-Bridge 集成适配器
  *
  * 核心使命：将 Channel 消息系统与 Bridge 分布式任务系统连接起来。
@@ -223,7 +223,7 @@ export class ChannelBridgeAdapter {
       if (status === 'completed' || status === 'failed') {
         this.activeDelegations.delete(taskId);
       }
-      return result.success;
+      return result;
     } catch (error) {
       logger.error(`Bridge→Channel 回复失败`, error as Error);
       return false;
@@ -245,15 +245,12 @@ export class ChannelBridgeAdapter {
 
     const message = this.formatResultMessage(meta, result);
     try {
-      const sendResult = await entry.plugin!.outbound.sendText(
-        meta.senderId,
-        message
-      );
+      const ok = await entry.plugin!.outbound.sendText(meta.senderId, message);
       this.activeDelegations.delete(taskId);
       logger.info(
         `Bridge→Channel 结果已回复: ${meta.channelId}/${meta.senderId}`
       );
-      return sendResult.success;
+      return ok;
     } catch (error) {
       logger.error(`Bridge→Channel 结果回复失败`, error as Error);
       return false;

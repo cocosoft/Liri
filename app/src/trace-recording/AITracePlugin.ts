@@ -14,6 +14,7 @@ import { TraceEngine } from './engine/TraceEngine';
 import { LiveViewServer } from './live/LiveViewServer';
 import { ViewerService } from './viewer/ViewerService';
 import { ExportService } from './export/ExportService';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   TraceRecord,
   TraceConfig,
@@ -21,6 +22,27 @@ import type {
   ExportFormat,
   MonitoringDeps,
 } from './types';
+
+const traceLogger = new Logger({
+  module: 'trace-recording',
+  level: LogLevel.INFO,
+  source: 'llm',
+});
+
+/** Trace usage 回调：每次 AI API 调用完成后触发，携带真实 token 消耗 */
+export type TraceUsageCallback = (usage: {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreateTokens: number;
+  durationMs: number;
+  status: number;
+  timestamp: string;
+}) => void;
+
+/** 全局 Trace usage 监听器列表 */
+export const traceUsageListeners: TraceUsageCallback[] = [];
 
 /** 默认配置 */
 const DEFAULT_CONFIG: TraceConfig = {
@@ -117,6 +139,42 @@ export class AITracePlugin {
     // 写入引擎
     if (this.engine) {
       this.engine.record(record);
+    }
+
+    // === 始终通过 Logger 记录 Trace 数据（必选项，不依赖配置） ===
+    const model = this.extractModel(record);
+    const usage = this.extractUsageFromRecord(record);
+    const isError = !!record.error || record.response.status >= 400;
+    traceLogger.info('trace:ai_call', {
+      model,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      cacheReadTokens: usage.cacheReadTokens,
+      cacheCreateTokens: usage.cacheCreateTokens,
+      durationMs: record.durationMs,
+      status: record.response.status,
+      isError,
+      timestamp: record.timestamp,
+    });
+
+    // === 通知全局 usage 监听器（供 UnifiedTokenTracker 校准因子闭环） ===
+    if (usage.inputTokens > 0 || usage.outputTokens > 0) {
+      for (const listener of traceUsageListeners) {
+        try {
+          listener({
+            model,
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            cacheReadTokens: usage.cacheReadTokens,
+            cacheCreateTokens: usage.cacheCreateTokens,
+            durationMs: record.durationMs,
+            status: record.response.status,
+            timestamp: record.timestamp,
+          });
+        } catch {
+          // 监听器异常不中断 trace 流程
+        }
+      }
     }
 
     // 集成模式：推送指标到监控系统
@@ -283,40 +341,62 @@ export class AITracePlugin {
   }
 
   /**
-   * 提取输入 token
+   * 从 TraceRecord 中提取完整 token 用量（兼容 Anthropic / OpenAI / Gemini 格式）
    */
-  private extractInputTokens(record: TraceRecord): number {
+  private extractUsageFromRecord(record: TraceRecord): {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheCreateTokens: number;
+  } {
     const body = record.response.body;
     if (body && typeof body === 'object') {
-      const usage = (body as Record<string, unknown>).usage as
-        | Record<string, unknown>
-        | undefined;
+      const resp = body as Record<string, unknown>;
+      const usage = resp.usage as Record<string, unknown> | undefined;
       if (usage) {
-        return (
-          (usage.input_tokens as number) || (usage.prompt_tokens as number) || 0
-        );
+        return {
+          inputTokens:
+            (usage.input_tokens as number) ||
+            (usage.prompt_tokens as number) ||
+            0,
+          outputTokens:
+            (usage.output_tokens as number) ||
+            (usage.completion_tokens as number) ||
+            0,
+          cacheReadTokens: (usage.cache_read_input_tokens as number) || 0,
+          cacheCreateTokens: (usage.cache_creation_input_tokens as number) || 0,
+        };
+      }
+      // Gemini: usageMetadata
+      const um = resp.usageMetadata as Record<string, number> | undefined;
+      if (um && typeof um.promptTokenCount === 'number') {
+        return {
+          inputTokens: um.promptTokenCount,
+          outputTokens: um.candidatesTokenCount ?? 0,
+          cacheReadTokens: 0,
+          cacheCreateTokens: 0,
+        };
       }
     }
-    return 0;
+    return {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheCreateTokens: 0,
+    };
   }
 
   /**
-   * 提取输出 token
+   * 提取输入 token（兼容旧接口）
+   */
+  private extractInputTokens(record: TraceRecord): number {
+    return this.extractUsageFromRecord(record).inputTokens;
+  }
+
+  /**
+   * 提取输出 token（兼容旧接口）
    */
   private extractOutputTokens(record: TraceRecord): number {
-    const body = record.response.body;
-    if (body && typeof body === 'object') {
-      const usage = (body as Record<string, unknown>).usage as
-        | Record<string, unknown>
-        | undefined;
-      if (usage) {
-        return (
-          (usage.output_tokens as number) ||
-          (usage.completion_tokens as number) ||
-          0
-        );
-      }
-    }
-    return 0;
+    return this.extractUsageFromRecord(record).outputTokens;
   }
 }

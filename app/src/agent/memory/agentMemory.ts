@@ -32,6 +32,7 @@ export class AgentMemoryImpl implements AgentMemory {
   private scope: AgentMemoryScope;
   private maxAge: number = 30 * 24 * 60 * 60 * 1000; // 默认30天
   private maxSize: number = 1000; // 默认最大内存项数
+  private saveTimer?: ReturnType<typeof setTimeout>; // 防抖定时器
 
   /**
    * 构造函数
@@ -123,19 +124,30 @@ export class AgentMemoryImpl implements AgentMemory {
   }
 
   /**
-   * 保存内存到文件
+   * 保存内存到文件（防抖 200ms，避免频繁同步 I/O 阻塞）
    */
   save(): void {
-    if (this.memoryPath) {
-      try {
-        writeFileSync(
-          this.memoryPath,
-          JSON.stringify(this.data, null, 2),
-          'utf-8'
-        );
-      } catch (error) {
-        logger.error('Failed to save agent memory:', error);
-      }
+    if (!this.memoryPath) return;
+    if (this.saveTimer) clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = undefined;
+      this.flushSyncSave();
+    }, 200);
+  }
+
+  /**
+   * 立即同步保存（进程退出等关键节点使用）
+   */
+  flushSyncSave(): void {
+    if (!this.memoryPath) return;
+    try {
+      writeFileSync(
+        this.memoryPath,
+        JSON.stringify(this.data, null, 2),
+        'utf-8'
+      );
+    } catch (error) {
+      logger.error('Failed to save agent memory:', error);
     }
   }
 

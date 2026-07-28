@@ -49,32 +49,14 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
   }, [blocks]);
 
   const status = useMemo(() => {
+    // 优先使用 tool_call 块自带的状态字段
     for (const block of blocks) {
       if (block.type === "tool_call" && block.toolCall?.status) {
         return block.toolCall.status;
       }
     }
 
-    for (const block of blocks) {
-      if (block.type === "status") {
-        if (
-          block.content.includes("completed") ||
-          block.content.includes("\u{2705}")
-        ) {
-          return "completed";
-        }
-        if (
-          block.content.includes("失败") ||
-          block.content.includes("\u{274C}")
-        ) {
-          return "failed";
-        }
-        if (block.content.includes("Running")) {
-          return "running";
-        }
-      }
-    }
-
+    // 回退：基于 isStreaming 判断（避免字符串匹配 CS02 违规）
     return blocks.some((b) => b.isStreaming) ? "running" : "completed";
   }, [blocks]);
 

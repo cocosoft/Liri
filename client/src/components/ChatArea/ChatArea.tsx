@@ -15,6 +15,7 @@ import ChatMessageList from "./ChatMessageList";
 import RoundNavigator from "./RoundNavigator";
 import StatusFloatBar from "./StatusFloatBar";
 import ChatInput from "./ChatInput";
+import { ContextWatermark } from "../chat/ContextWatermark";
 import VoiceSubtitleOverlay from "../VoiceSubtitleOverlay";
 import { createLogger } from "@/utils/logger";
 
@@ -142,6 +143,8 @@ function ChatArea() {
     playResponse,
   ]);
 
+  // TODO: CS02-ROOTFIX — 后端应返回结构化错误码（如 errorCode: "BACKEND_UNREACHABLE"），
+  // 前端根据 errorCode 判断而非字符串匹配浏览器错误消息。
   const displayError =
     error &&
     !backendRunning &&
@@ -324,6 +327,11 @@ function ChatArea() {
       {/* 底部区域：AI 状态栏 + 输入区（flex-col，StatusFloatBar 自然贴着输入区上方） */}
       <div className="shrink-0 flex flex-col bg-gray-50 dark:bg-gray-900">
         <StatusFloatBar />
+
+        {/* 上下文水位指示器 — 紧凑圆点，居中，hover 展开详情 */}
+        <div className="flex justify-center">
+          <ContextWatermark />
+        </div>
 
         {/* 语音字幕覆盖层 */}
         <VoiceSubtitleOverlay

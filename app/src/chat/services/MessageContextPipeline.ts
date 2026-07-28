@@ -15,7 +15,7 @@
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { ChatSession } from '../types/session.js';
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
-import { roughTokenCountForMessages } from '../../services/tokenManagement/TokenCounter.js';
+import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
 import { sanitizePass } from './ChatHelper';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
@@ -88,16 +88,19 @@ export function sanitizeApiMessages(
   sanitizePass(apiMessages);
 
   // 末尾孤立 tool 消息（没有 preceding assistant 含 tool_calls）
+  let removedInCleanup = false;
+  const lenBeforePop = apiMessages.length;
   while (
     apiMessages.length > 0 &&
     apiMessages[apiMessages.length - 1].role === 'tool'
   ) {
     apiMessages.pop();
+    removedInCleanup = true;
   }
+  if (apiMessages.length < lenBeforePop) removedInCleanup = true;
 
   // 中间孤立 tool 消息清理：
-  // 1) 没有 tool_call_id 的 tool 消息（API 无法处理）
-  // 2) tool_call_id 不在任何前置 assistant 的 tool_calls 中
+  // 先正向扫描收集所有已知 tool_call_id，再反向移除孤儿 tool 消息
   const knownToolCallIds = new Set<string>();
   for (let i = 0; i < apiMessages.length; i++) {
     const msg = apiMessages[i];
@@ -112,13 +115,16 @@ export function sanitizeApiMessages(
       const tcId = apiMessages[i].tool_call_id as string | undefined;
       if (!tcId || !knownToolCallIds.has(tcId)) {
         apiMessages.splice(i, 1);
+        removedInCleanup = true;
       }
     }
   }
 
-  // 第二轮清理：末尾 pop 和中间清理可能移除了有效 assistant 的 tool 消息，
-  // 导致 assistant 变为孤立，需要再次清理
-  sanitizePass(apiMessages);
+  // 仅在清理步骤实际移除了消息时才执行再清理
+  // （移除 tool 消息可能导致对应的 assistant 变为孤立）
+  if (removedInCleanup) {
+    sanitizePass(apiMessages);
+  }
 }
 
 /**
@@ -145,13 +151,16 @@ export function compressToolHistory(
 
   const preservedMessages: Record<string, unknown>[] = [];
 
-  // 保留系统消息和第一条用户消息作为上下文
-  if (currentRoundMessages.length > 0) {
-    preservedMessages.push(currentRoundMessages[0]); // system 消息
-  }
-  if (currentRoundMessages.length > 1) {
-    preservedMessages.push(currentRoundMessages[1]); // 首条 user 消息
-  }
+  // 保留系统消息和第一条用户消息作为上下文（按角色查找，不依赖位置）
+  const sysMsg = currentRoundMessages.find(
+    (m: Record<string, unknown>) => m.role === 'system'
+  );
+  if (sysMsg) preservedMessages.push(sysMsg);
+
+  const firstUserMsg = currentRoundMessages.find(
+    (m: Record<string, unknown>) => m.role === 'user'
+  );
+  if (firstUserMsg) preservedMessages.push(firstUserMsg);
 
   // 插入压缩摘要
   preservedMessages.push({
@@ -251,7 +260,7 @@ export async function truncateApiMessages(
   const RESPONSE_BUFFER_TOKENS = Math.round(maxContextTokens * 0.15);
   const SAFE_LIMIT = maxContextTokens - RESPONSE_BUFFER_TOKENS;
 
-  const estimatedTokens = roughTokenCountForMessages(
+  const estimatedTokens = estimateMessagesTokens(
     apiMessages as { content?: string | unknown; role?: string }[]
   );
   if (estimatedTokens <= SAFE_LIMIT) return;
@@ -260,7 +269,7 @@ export async function truncateApiMessages(
     `上下文超限(兜底截断): 估算 ${estimatedTokens} tokens (上限 ${SAFE_LIMIT})，将截断旧消息`
   );
 
-  const systemMsg = apiMessages.find(
+  const systemMessages = apiMessages.filter(
     (m: Record<string, unknown>) => m.role === 'system'
   );
   const nonSystemMessages = apiMessages.filter(
@@ -280,16 +289,18 @@ export async function truncateApiMessages(
     if (currentTokens <= SAFE_LIMIT) break;
 
     const msg = nonSystemMessages[i] as Record<string, unknown>;
+    // 先计算 token（无论是否跳过，都要从 currentTokens 减去）
+    const msgTokens = estimateMessagesTokens([
+      msg as { content?: string | unknown; role?: string },
+    ]);
+    currentTokens -= msgTokens;
+
     const isShortUserMsg =
       msg.role === 'user' &&
       typeof msg.content === 'string' &&
       msg.content.length < SHORT_USER_MSG_THRESHOLD;
     if (isShortUserMsg) continue;
 
-    const msgTokens = roughTokenCountForMessages([
-      msg as { content?: string | unknown; role?: string },
-    ]);
-    currentTokens -= msgTokens;
     toDrop.add(i);
     dropCount++;
   }
@@ -298,7 +309,7 @@ export async function truncateApiMessages(
     (_: unknown, i: number) => !toDrop.has(i)
   );
   apiMessages.length = 0;
-  if (systemMsg) apiMessages.push(systemMsg);
+  for (const msg of systemMessages) apiMessages.push(msg);
   for (const msg of keptNonSystem) apiMessages.push(msg);
 
   logger.warn(
@@ -416,6 +427,20 @@ export function recordChatResponseUsage(
 }
 
 /**
+ * 检测指定位置是否在 markdown fenced code block (```) 内部
+ */
+function isInsideFencedBlock(content: string, pos: number): boolean {
+  const fenceRegex = /```/g;
+  let inside = false;
+  let match: RegExpExecArray | null;
+  while ((match = fenceRegex.exec(content)) !== null) {
+    if (match.index >= pos) break;
+    inside = !inside;
+  }
+  return inside;
+}
+
+/**
  * 内容标签兜底处理：当模型未按要求使用 <think>/<response> 标签时，
  * 检测并补全标签结构，防止推理内容泄漏到用户可见回复中。
  *
@@ -462,8 +487,7 @@ export function ensureThinkResponseTags(content: string): string {
   let splitIdx = -1;
   for (const marker of responseMarkers) {
     const m = content.match(marker);
-    if (m?.index && m.index > 20) {
-      // 至少有一些内容在前
+    if (m?.index && m.index > 20 && !isInsideFencedBlock(content, m.index)) {
       splitIdx = m.index;
       break;
     }

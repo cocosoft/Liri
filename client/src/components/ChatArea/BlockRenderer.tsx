@@ -74,43 +74,99 @@ function BlockRenderer({
         />
       );
     case "tool_call":
-      return block.toolCall ? (
-        <ToolCallGroup
-          toolCall={block.toolCall}
-          isStreaming={block.isStreaming ?? false}
-          variant="card"
-        />
-      ) : null;
+      if (block.toolCall) {
+        return (
+          <ToolCallGroup
+            toolCall={block.toolCall}
+            isStreaming={block.isStreaming ?? false}
+            variant="card"
+          />
+        );
+      }
+      console.warn("[BlockRenderer] tool_call block 缺少 toolCall 数据", block);
+      return (
+        <div className="text-xs text-gray-400 italic px-2 py-1">
+          工具调用数据缺失
+        </div>
+      );
     case "question":
-      return block.questionData ? (
-        <QuestionBlock
-          questionData={block.questionData}
-          sessionId={sessionId}
-          onResponse={onQuestionResponse}
-        />
-      ) : null;
+      if (block.questionData) {
+        return (
+          <QuestionBlock
+            questionData={block.questionData}
+            sessionId={sessionId}
+            onResponse={onQuestionResponse}
+          />
+        );
+      }
+      console.warn("[BlockRenderer] question block 缺少 questionData", block);
+      return (
+        <div className="text-xs text-gray-400 italic px-2 py-1">
+          问题数据缺失
+        </div>
+      );
     case "task_decomposition":
-      return block.taskCard ? <TaskCard data={block.taskCard} /> : null;
     case "todo":
-      return block.taskCard ? <TaskCard data={block.taskCard} /> : null;
+      if (block.taskCard) {
+        return <TaskCard data={block.taskCard} />;
+      }
+      console.warn("[BlockRenderer] task block 缺少 taskCard 数据", block);
+      return (
+        <div className="text-xs text-gray-400 italic px-2 py-1">
+          任务数据缺失
+        </div>
+      );
     case "progress":
-      return block.progressData ? (
-        <ProgressCard data={block.progressData} />
-      ) : null;
+      if (block.progressData) {
+        return <ProgressCard data={block.progressData} />;
+      }
+      console.warn("[BlockRenderer] progress block 缺少 progressData", block);
+      return (
+        <div className="text-xs text-gray-400 italic px-2 py-1">
+          进度数据缺失
+        </div>
+      );
     case "deliverable":
-      return block.deliverableData ? (
-        <DeliverableCard
-          data={block.deliverableData}
-          onEnterWorkMode={workModuleEnabled ? handleEnterWorkMode : undefined}
-          workModeReady={backendReady}
-        />
-      ) : null;
+      if (block.deliverableData) {
+        return (
+          <DeliverableCard
+            data={block.deliverableData}
+            onEnterWorkMode={
+              workModuleEnabled ? handleEnterWorkMode : undefined
+            }
+            workModeReady={backendReady}
+          />
+        );
+      }
+      console.warn(
+        "[BlockRenderer] deliverable block 缺少 deliverableData",
+        block,
+      );
+      return (
+        <div className="text-xs text-gray-400 italic px-2 py-1">
+          交付物数据缺失
+        </div>
+      );
     case "diff":
-      return block.diffData ? <DiffBlock data={block.diffData} /> : null;
+      if (block.diffData) {
+        return <DiffBlock data={block.diffData} />;
+      }
+      console.warn("[BlockRenderer] diff block 缺少 diffData", block);
+      return (
+        <div className="text-xs text-gray-400 italic px-2 py-1">
+          差异数据缺失
+        </div>
+      );
     case "inbox":
-      return block.inboxData ? (
-        <InboxBlock data={block.inboxData} sessionId={sessionId} />
-      ) : null;
+      if (block.inboxData) {
+        return <InboxBlock data={block.inboxData} sessionId={sessionId} />;
+      }
+      console.warn("[BlockRenderer] inbox block 缺少 inboxData", block);
+      return (
+        <div className="text-xs text-gray-400 italic px-2 py-1">
+          收件箱数据缺失
+        </div>
+      );
     case "text":
     default:
       return (

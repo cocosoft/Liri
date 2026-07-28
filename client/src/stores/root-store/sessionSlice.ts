@@ -527,7 +527,8 @@ export const createSessionSlice: StateCreator<
         { module: "stores:sessionSlice", action: "switchChatSession" },
         "warn",
       );
-      if (prevId) {
+      // 仅当当前会话仍是切换目标时才回退（防止并发切换覆盖）
+      if (prevId && get().currentSessionId === id) {
         set({ currentSessionId: prevId });
       }
       set({ error: String(error) });
@@ -560,8 +561,9 @@ export const createSessionSlice: StateCreator<
           } catch {
             /* ignore */
           }
+          // 重新从当前状态获取 sessions，防止并发修改
           set({
-            chatSessions: sessions,
+            chatSessions: get().chatSessions.filter((s) => s.id !== id),
             currentSessionId: sessions[0].id,
             isLoading: false,
           });
@@ -573,13 +575,16 @@ export const createSessionSlice: StateCreator<
             /* ignore */
           }
           set({
-            chatSessions: sessions,
+            chatSessions: get().chatSessions.filter((s) => s.id !== id),
             currentSessionId: null,
             isLoading: false,
           });
         }
       } else {
-        set({ chatSessions: sessions, isLoading: false });
+        set({
+          chatSessions: get().chatSessions.filter((s) => s.id !== id),
+          isLoading: false,
+        });
       }
 
       // 同步删除 SessionHub 中的记录

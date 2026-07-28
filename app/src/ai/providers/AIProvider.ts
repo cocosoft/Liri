@@ -21,6 +21,8 @@ export interface ChatOptions {
   maxTokens?: number;
   temperature?: number;
   thinking?: ThinkingConfig;
+  /** AbortSignal 用于取消进行中的 LLM 请求 */
+  signal?: AbortSignal;
 }
 
 export interface ProviderValidationResult {

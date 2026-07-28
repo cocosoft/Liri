@@ -57,14 +57,22 @@ export class TraceWriter {
    * 执行写入操作
    */
   private async doWrite(record: TraceRecord): Promise<void> {
-    const today = new Date().toISOString().slice(0, 10);
-    if (today !== this.currentDate) {
-      this.rotateFile(today);
-    }
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      if (today !== this.currentDate) {
+        this.rotateFile(today);
+      }
 
-    const line = JSON.stringify(record) + '\n';
-    fs.appendFileSync(this.filePath, line, 'utf-8');
-    this.totalWritten++;
+      const line = JSON.stringify(record) + '\n';
+      fs.appendFileSync(this.filePath, line, 'utf-8');
+      this.totalWritten++;
+    } catch (err) {
+      // 磁盘满/目录被删除等场景：记录日志但不抛出，避免中断 fetch 调用链
+      logger.error('trace:write_failed', {
+        error: err instanceof Error ? err.message : String(err),
+        recordId: record.id,
+      });
+    }
   }
 
   /**
@@ -75,8 +83,15 @@ export class TraceWriter {
     this.currentDate = date;
     this.filePath = path.join(this.traceDir, `trace_${date}.jsonl`);
     // 确保文件存在
-    if (!fs.existsSync(this.filePath)) {
-      fs.writeFileSync(this.filePath, '', 'utf-8');
+    try {
+      if (!fs.existsSync(this.filePath)) {
+        fs.writeFileSync(this.filePath, '', 'utf-8');
+      }
+    } catch (err) {
+      logger.error('trace:rotate_file_failed', {
+        error: err instanceof Error ? err.message : String(err),
+        filePath: this.filePath,
+      });
     }
   }
 

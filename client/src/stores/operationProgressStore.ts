@@ -25,6 +25,8 @@ interface OperationProgressState {
   dreamPhase: string | null;
   /** 已完成的梦境阶段 */
   dreamPhasesDone: string[];
+  /** 是否已注册 SSE 监听器（防止重复注册） */
+  _inited: boolean;
   /** 注册事件监听 */
   _init: () => void;
 }
@@ -33,12 +35,17 @@ interface OperationProgressState {
 const STALE_TIMEOUT_MS = 30000;
 
 export const useOperationProgressStore = create<OperationProgressState>(
-  (set) => ({
+  (set, get) => ({
     operations: [],
     dreamPhase: null,
     dreamPhasesDone: [],
+    _inited: false,
 
     _init: () => {
+      // 防止重复注册 SSE 监听器（组件反复挂载时）
+      if (get()._inited) return;
+      set({ _inited: true });
+
       // 梦境阶段变化
       sseService.on("dream:phase:changed", (data) => {
         const phase = data.phase as string;

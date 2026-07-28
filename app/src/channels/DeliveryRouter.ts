@@ -2,298 +2,515 @@
  * DeliveryRouter 消息投递路由器
  * 对标 Hermes gateway/ 的 DeliveryRouter
  * 支持 origin/local/指定平台 三种路由模式
+ *
+ * 统一出站路径：富文本支持 + 自动降级 + per-channel 串行化 + OTel 追踪
  */
 import { DeliveryTarget } from './DeliveryTarget';
 import { ChannelRegistry, channelRegistry } from './registry/ChannelRegistry';
+import type { ChannelInterface } from './registry/ChannelRegistry';
 import type { ChannelId } from './types/IChannel';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
+import {
+  DELIVERY_FORMAT_CHAIN,
+  interactiveToMarkdown,
+  markdownToText,
+} from './deliveryFormatters';
+
 const logger = new Logger({
   module: 'channels:DeliveryRouter',
   level: LogLevel.INFO,
 });
 
-/**
- * 投递模式
- */
+// ─── 类型定义 ──────────────────────────────────────────
+
+/** 投递模式 */
 export type DeliveryMode = 'origin' | 'local' | 'targeted';
 
-/**
- * 投递任务
- */
+/** 消息格式 */
+export type DeliveryFormat = 'text' | 'markdown' | 'interactive' | 'none';
+
+/** 交互卡片数据 */
+export interface DeliveryInteractiveCard {
+  title: string;
+  color?: string;
+  options?: Array<{ label: string; value: string }>;
+}
+
+/** 投递内容（可辨识联合） */
+export type DeliveryContent =
+  | { format: 'text'; content: string }
+  | { format: 'markdown'; content: string }
+  | {
+      format: 'interactive';
+      card: DeliveryInteractiveCard;
+      fallbackText: string;
+    };
+
+/** 投递任务 */
 export interface DeliveryTask {
   target: DeliveryTarget;
-  content: string;
+  content: DeliveryContent;
   mode: DeliveryMode;
   priority: number;
 }
 
-/**
- * 投递结果
- */
+/** 投递结果 */
 export interface DeliveryResult {
   success: boolean;
-  target: DeliveryTarget;
+  actualFormat: DeliveryFormat;
   error?: string;
-  latencyMs?: number;
+  durationMs: number;
+  fallbackSteps: DeliveryFormat[];
 }
 
-/**
- * 批量投递结果
- */
+/** 批量投递结果 */
 export interface BatchDeliveryResult {
-  total: number;
-  succeeded: number;
-  failed: number;
-  results: DeliveryResult[];
+  results: Array<{ channelId: string } & DeliveryResult>;
+  totalSuccess: number;
+  totalFailed: number;
 }
 
-/**
- * 投递路由器
- */
+// ─── DeliveryRouter ────────────────────────────────────
+
 export class DeliveryRouter {
   private registry: ChannelRegistry;
   private localOutputFn:
     | ((content: string, target?: DeliveryTarget) => void)
     | null;
+  /** Per-channel 串行化锁 */
+  private channelLocks = new Map<string, Promise<void>>();
 
-  /**
-   * 构造函数
-   * @param registry 通道注册中心
-   */
   constructor(registry?: ChannelRegistry) {
     this.registry = registry || channelRegistry;
     this.localOutputFn = null;
   }
 
-  /**
-   * 设置本地输出函数（CLI 模式）
-   * @param fn 本地输出函数
-   */
   setLocalOutput(fn: (content: string, target?: DeliveryTarget) => void): void {
     this.localOutputFn = fn;
   }
 
-  /**
-   * 按 origin 模式投递消息（回复到消息来源平台）
-   * @param platform 来源平台
-   * @param conversationId 会话 ID
-   * @param content 消息内容
-   * @returns 投递结果
-   */
+  // ── 公共方法 ──────────────────────────────────────────
+
   async deliverToOrigin(
     platform: ChannelId,
     conversationId: string,
-    content: string
+    content: DeliveryContent
   ): Promise<DeliveryResult> {
+    const channel = this.registry.get(platform);
     const target = DeliveryTarget.fromOrigin(platform, conversationId);
 
-    return this.deliverToTarget(target, content);
+    return this._withChannelLock(platform, async () => {
+      const check = this._checkChannel(channel);
+      if (check) return check;
+
+      const otel = getOTelTracing();
+      const span = otel.startSpan('delivery.send', {
+        'delivery.platform': String(platform),
+        'delivery.chatId': target.chatId,
+        'delivery.format': content.format,
+        'delivery.content_length':
+          content.format === 'interactive'
+            ? content.fallbackText.length
+            : content.content.length,
+      });
+
+      const startTime = Date.now();
+      try {
+        const result = await this._sendWithFallback(
+          channel!,
+          target.chatId,
+          content
+        );
+        span.setAttributes({
+          'delivery.actualFormat': result.actualFormat,
+          'delivery.fallbackSteps': JSON.stringify(result.fallbackSteps),
+          'delivery.success': result.success,
+          'delivery.durationMs': result.durationMs,
+        });
+        otel.endSpan(
+          span,
+          result.success ? SpanStatusCode.OK : SpanStatusCode.ERROR
+        );
+        return { ...result, durationMs: Date.now() - startTime };
+      } catch (err) {
+        otel.recordError(
+          span,
+          err instanceof Error ? err : new Error(String(err))
+        );
+        otel.endSpan(span, SpanStatusCode.ERROR);
+        return {
+          success: false,
+          actualFormat: 'none',
+          error: String(err),
+          durationMs: Date.now() - startTime,
+          fallbackSteps: [],
+        };
+      }
+    });
   }
 
-  /**
-   * 按 local 模式投递消息（仅本地输出）
-   * @param content 消息内容
-   * @returns 投递结果
-   */
-  async deliverLocal(content: string): Promise<DeliveryResult> {
-    const target = new DeliveryTarget('telegram' as ChannelId, 'local');
+  async deliverLocal(content: DeliveryContent): Promise<DeliveryResult> {
+    const text =
+      content.format === 'interactive' ? content.fallbackText : content.content;
 
     if (this.localOutputFn) {
-      this.localOutputFn(content, target);
+      this.localOutputFn(text);
     } else {
-      console.log(`[LOCAL] ${content}`);
+      console.log(`[LOCAL] ${text}`);
     }
 
     return {
       success: true,
-      target,
-      latencyMs: 0,
+      actualFormat: content.format === 'interactive' ? 'text' : content.format,
+      durationMs: 0,
+      fallbackSteps: [],
     };
   }
 
-  /**
-   * 按指定目标投递消息
-   * @param target 投递目标
-   * @param content 消息内容
-   * @returns 投递结果
-   */
   async deliverToTarget(
     target: DeliveryTarget,
-    content: string
+    content: DeliveryContent
   ): Promise<DeliveryResult> {
-    const otel = getOTelTracing();
-    const span = otel.startSpan('delivery.send', {
-      'delivery.platform': String(target.platform),
-      'delivery.chat_id': target.chatId,
-      'delivery.content_length': content.length,
-    });
-
     const channel = this.registry.get(target.platform);
 
-    if (!channel) {
-      otel.endSpan(span, SpanStatusCode.ERROR, 'channel_not_registered');
-      return {
-        success: false,
-        target,
-        error: `通道 ${target.platform} 未注册`,
-      };
-    }
+    return this._withChannelLock(target.platform, async () => {
+      const check = this._checkChannel(channel);
+      if (check) return check;
 
-    if (!channel.enabled) {
-      otel.endSpan(span, SpanStatusCode.ERROR, 'channel_disabled');
-      return {
-        success: false,
-        target,
-        error: `通道 ${target.platform} 已禁用`,
-      };
-    }
-
-    const startTime = Date.now();
-
-    try {
-      const success = await channel.sendMessage(target.chatId, content);
-
-      span.setAttribute('delivery.success', success);
-      otel.endSpan(span, SpanStatusCode.OK);
-      return {
-        success,
-        target,
-        latencyMs: Date.now() - startTime,
-        error: success ? undefined : '发送失败',
-      };
-    } catch (err) {
-      await handleError(err, {
-        module: 'channels:delivery',
-        action: 'deliverToTarget',
-        context: { target: target.chatId, platform: target.platform },
+      const otel = getOTelTracing();
+      const span = otel.startSpan('delivery.send', {
+        'delivery.platform': String(target.platform),
+        'delivery.chatId': target.chatId,
+        'delivery.format': content.format,
       });
-      otel.recordError(
-        span,
-        err instanceof Error ? err : new Error(String(err))
-      );
-      otel.endSpan(span, SpanStatusCode.ERROR, String(err));
-      return {
-        success: false,
-        target,
-        error: err instanceof Error ? err.message : '未知错误',
-        latencyMs: Date.now() - startTime,
-      };
-    }
+
+      try {
+        const result = await this._sendWithFallback(
+          channel!,
+          target.chatId,
+          content
+        );
+        span.setAttributes({
+          'delivery.actualFormat': result.actualFormat,
+          'delivery.success': result.success,
+        });
+        otel.endSpan(
+          span,
+          result.success ? SpanStatusCode.OK : SpanStatusCode.ERROR
+        );
+        return result;
+      } catch (err) {
+        otel.recordError(
+          span,
+          err instanceof Error ? err : new Error(String(err))
+        );
+        otel.endSpan(span, SpanStatusCode.ERROR);
+        return {
+          success: false,
+          actualFormat: 'none',
+          error: String(err),
+          durationMs: 0,
+          fallbackSteps: [],
+        };
+      }
+    });
   }
 
-  /**
-   * 广播消息到所有已启用的通道
-   * @param content 消息内容
-   * @returns 批量投递结果
-   */
-  async broadcast(content: string): Promise<BatchDeliveryResult> {
+  async broadcast(content: DeliveryContent): Promise<BatchDeliveryResult> {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('delivery.broadcast', {
+      'delivery.format': content.format,
+    });
+
     const enabledChannels = this.registry.getEnabled();
-    const tasks: DeliveryTask[] = enabledChannels.map((ch) => ({
-      target: new DeliveryTarget(ch.name as ChannelId, 'broadcast'),
-      content,
-      mode: 'targeted' as DeliveryMode,
-      priority: 0,
-    }));
+    const results: BatchDeliveryResult['results'] = [];
+    let totalSuccess = 0;
+    let totalFailed = 0;
 
-    return this.deliverBatch(tasks);
+    for (const ch of enabledChannels) {
+      const target = new DeliveryTarget(ch.name as ChannelId, 'broadcast');
+      const result = await this.deliverToTarget(target, content);
+      results.push({ channelId: ch.name, ...result });
+      if (result.success) totalSuccess++;
+      else totalFailed++;
+    }
+
+    span.setAttributes({
+      'delivery.channelCount': enabledChannels.length,
+      'delivery.totalSuccess': totalSuccess,
+      'delivery.totalFailed': totalFailed,
+    });
+    otel.endSpan(span, SpanStatusCode.OK);
+
+    return { results, totalSuccess, totalFailed };
   }
 
-  /**
-   * 批量投递消息
-   * @param tasks 投递任务列表
-   * @returns 批量投递结果
-   */
   async deliverBatch(tasks: DeliveryTask[]): Promise<BatchDeliveryResult> {
     const sortedTasks = [...tasks].sort((a, b) => b.priority - a.priority);
-
-    const results: DeliveryResult[] = [];
+    const results: BatchDeliveryResult['results'] = [];
+    let totalSuccess = 0;
+    let totalFailed = 0;
 
     for (const task of sortedTasks) {
       if (task.mode === 'local') {
         const result = await this.deliverLocal(task.content);
-        results.push(result);
+        results.push({ channelId: 'local', ...result });
+        if (result.success) totalSuccess++;
+        else totalFailed++;
       } else {
         const result = await this.deliverToTarget(task.target, task.content);
-        results.push(result);
+        results.push({
+          channelId: String(task.target.platform),
+          ...result,
+        });
+        if (result.success) totalSuccess++;
+        else totalFailed++;
       }
     }
 
-    const succeeded = results.filter((r) => r.success).length;
-
-    return {
-      total: results.length,
-      succeeded,
-      failed: results.length - succeeded,
-      results,
-    };
+    return { results, totalSuccess, totalFailed };
   }
 
-  /**
-   * 自动选择投递模式
-   * 如果有明确的 target，用 targeted 模式；否则用 origin 模式
-   * @param platform 来源平台
-   * @param conversationId 会话 ID
-   * @param content 消息内容
-   * @param explicitTarget 显式目标（可选）
-   * @returns 投递结果
-   */
   async route(
     platform: ChannelId,
     conversationId: string,
-    content: string,
+    content: DeliveryContent,
     explicitTarget?: DeliveryTarget
   ): Promise<DeliveryResult> {
     if (explicitTarget) {
       return this.deliverToTarget(explicitTarget, content);
     }
-
     return this.deliverToOrigin(platform, conversationId, content);
   }
 
-  /**
-   * 检查目标平台是否可用
-   * @param platform 平台 ID
-   * @returns 是否可用
-   */
   isPlatformAvailable(platform: ChannelId): boolean {
     const channel = this.registry.get(platform);
-
     return !!channel && channel.enabled;
   }
 
-  /**
-   * 获取所有可用的平台列表
-   * @returns 平台 ID 列表
-   */
   getAvailablePlatforms(): ChannelId[] {
     return this.registry.getEnabled().map((ch) => ch.name as ChannelId);
   }
+
+  // ── 私有方法 ──────────────────────────────────────────
+
+  /** 前置检查：channel enabled + connected */
+  private _checkChannel(
+    channel: ChannelInterface | undefined
+  ): DeliveryResult | null {
+    if (!channel) {
+      return {
+        success: false,
+        actualFormat: 'none',
+        error: '通道未注册',
+        durationMs: 0,
+        fallbackSteps: [],
+      };
+    }
+    if (!channel.enabled) {
+      return {
+        success: false,
+        actualFormat: 'none',
+        error: '通道已禁用',
+        durationMs: 0,
+        fallbackSteps: [],
+      };
+    }
+    if (!channel.connected) {
+      return {
+        success: false,
+        actualFormat: 'none',
+        error: '通道未连接',
+        durationMs: 0,
+        fallbackSteps: [],
+      };
+    }
+    return null;
+  }
+
+  /** Per-channel 串行化：确保同一 channel 的消息按序发送 */
+  private async _withChannelLock(
+    channelId: string,
+    fn: () => Promise<DeliveryResult>
+  ): Promise<DeliveryResult> {
+    const prev = (this.channelLocks.get(channelId) ?? Promise.resolve()).catch(
+      () => {}
+    );
+    let releaseLock!: () => void;
+    const nextLock = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+
+    const task = prev.then(fn).finally(releaseLock);
+    this.channelLocks.set(channelId, nextLock);
+
+    return task;
+  }
+
+  /** 递归降级发送 */
+  private async _sendWithFallback(
+    channel: ChannelInterface,
+    target: string,
+    content: DeliveryContent,
+    fallbackSteps: DeliveryFormat[] = []
+  ): Promise<DeliveryResult> {
+    const result = await this._trySendFormat(
+      channel,
+      target,
+      content,
+      fallbackSteps
+    );
+    if (result) return result;
+
+    const nextFormat = this._nextLowerFormat(content.format);
+    if (!nextFormat) {
+      return {
+        success: false,
+        actualFormat: content.format,
+        durationMs: 0,
+        fallbackSteps,
+      };
+    }
+
+    this._emitFallbackEvent(content.format, nextFormat);
+    const converted = this._convertToFormat(content, nextFormat);
+    return this._sendWithFallback(channel, target, converted, [
+      ...fallbackSteps,
+      nextFormat,
+    ]);
+  }
+
+  /** 尝试当前格式发送，成功返回结果，不支持/失败返回 null */
+  private async _trySendFormat(
+    channel: ChannelInterface,
+    target: string,
+    content: DeliveryContent,
+    steps: DeliveryFormat[]
+  ): Promise<DeliveryResult | null> {
+    switch (content.format) {
+      case 'interactive': {
+        if (typeof channel.plugin?.outbound?.sendInteractive !== 'function')
+          return null;
+        const ok = await channel.plugin.outbound.sendInteractive(
+          target,
+          content.fallbackText,
+          content.card as unknown as Record<string, unknown>
+        );
+        if (!ok) return null;
+        return {
+          success: true,
+          actualFormat: 'interactive',
+          durationMs: 0,
+          fallbackSteps: steps,
+        };
+      }
+      case 'markdown': {
+        if (typeof channel.plugin?.outbound?.sendMarkdown !== 'function')
+          return null;
+        const ok = await channel.plugin.outbound.sendMarkdown(
+          target,
+          content.content
+        );
+        if (!ok) return null;
+        return {
+          success: true,
+          actualFormat: 'markdown',
+          durationMs: 0,
+          fallbackSteps: steps,
+        };
+      }
+      case 'text': {
+        if (typeof channel.plugin?.outbound?.sendText !== 'function')
+          return null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const ok = await channel.plugin.outbound.sendText(
+            target,
+            content.content
+          );
+          if (ok)
+            return {
+              success: true,
+              actualFormat: 'text',
+              durationMs: 0,
+              fallbackSteps: steps,
+            };
+          if (attempt === 0) await new Promise((r) => setTimeout(r, 100));
+        }
+        return null;
+      }
+      default: {
+        // TypeScript exhaustive check：确保所有 DeliveryFormat 成员都有处理
+        const _exhaustive: never = content;
+        throw new Error(`Unexpected format: ${String(_exhaustive)}`);
+      }
+    }
+  }
+
+  private _nextLowerFormat(f: DeliveryFormat): DeliveryFormat | null {
+    const idx = DELIVERY_FORMAT_CHAIN.indexOf(
+      f as (typeof DELIVERY_FORMAT_CHAIN)[number]
+    );
+    if (idx === -1 || idx === DELIVERY_FORMAT_CHAIN.length - 1) return null;
+    return DELIVERY_FORMAT_CHAIN[idx + 1] as DeliveryFormat;
+  }
+
+  private _convertToFormat(
+    content: DeliveryContent,
+    targetFmt: DeliveryFormat
+  ): DeliveryContent {
+    if (content.format === 'interactive') {
+      switch (targetFmt) {
+        case 'markdown':
+          return {
+            format: 'markdown',
+            content: interactiveToMarkdown(content.card, content.fallbackText),
+          };
+        case 'text':
+          return { format: 'text', content: content.fallbackText };
+        default:
+          throw new Error(
+            `Unsupported target format for interactive: ${targetFmt}`
+          );
+      }
+    }
+    if (content.format === 'markdown' && targetFmt === 'text') {
+      return { format: 'text', content: markdownToText(content.content) };
+    }
+    return content;
+  }
+
+  private _emitFallbackEvent(
+    fromFormat: DeliveryFormat,
+    toFormat: DeliveryFormat
+  ): void {
+    try {
+      const otel = getOTelTracing();
+      const span = otel.getActiveSpan();
+      span?.addEvent('fallback', {
+        from: fromFormat,
+        to: toFormat,
+      });
+    } catch {
+      // OTel 不可用时静默跳过
+    }
+  }
 }
 
-/**
- * 全局投递路由器实例
- */
+// ─── 全局实例 ──────────────────────────────────────────
+
 let globalDeliveryRouter: DeliveryRouter | null = null;
 
-/**
- * 获取全局投递路由器实例
- * @returns DeliveryRouter 实例
- */
 export function getDeliveryRouter(registry?: ChannelRegistry): DeliveryRouter {
   if (!globalDeliveryRouter) {
     globalDeliveryRouter = new DeliveryRouter(registry);
   }
-
   return globalDeliveryRouter;
 }
 
-/**
- * 重置全局投递路由器
- */
 export function resetDeliveryRouter(): void {
   globalDeliveryRouter = null;
 }

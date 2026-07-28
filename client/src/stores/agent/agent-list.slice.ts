@@ -108,9 +108,11 @@ export const useAgentListStore = create<AgentListSlice>((set, get) => ({
     set({ error: null });
     try {
       const updated = await agentService.updateTask(id, params);
-      set({
-        tasks: get().tasks.map((t) => (t.id === id ? updated : t)),
-      });
+      if (updated) {
+        set({
+          tasks: get().tasks.map((t) => (t.id === id ? updated : t)),
+        });
+      }
     } catch (e) {
       handleClientError(e, {
         module: "stores:agent:list",

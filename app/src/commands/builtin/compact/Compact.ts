@@ -1,7 +1,10 @@
 /**
  * Compact命令
  * 手动触发对话压缩，减少上下文大小
- * */
+ *
+ * Phase 5: 移除 DefaultContextEngine 死代码引用。
+ *   实际压缩由 ChatManager.compactSession → CompactionOrchestrator 完成。
+ */
 
 import type {
   Command,
@@ -10,16 +13,12 @@ import type {
   CommandResult,
 } from '@modules/commands';
 import type { CompactArtifact } from '@modules/services/compact/CompactService';
-import { DefaultContextEngine } from '@modules/query/context/DefaultContextEngine';
-import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
-  module: 'commands\builtin\compact\Compact',
+  module: 'commands:builtin:compact',
   level: LogLevel.INFO,
 });
-
-const contextEngine = new DefaultContextEngine();
 
 export interface CompactCommandOptions {
   preserveRecentMessages?: number;
@@ -40,7 +39,6 @@ export class CompactCommand implements Command {
     const options = this.parseOptions(argArray);
 
     try {
-      // 获取chatManager并执行压缩
       const { sessionId } = context;
       const chatManager = context.chatManager as
         | {
@@ -56,21 +54,8 @@ export class CompactCommand implements Command {
         };
       }
 
-      // 执行会话压缩
+      // 委托 ChatManager.compactSession → CompactionOrchestrator（Tier1/2/3）
       const artifacts = await chatManager.compactSession(sessionId);
-
-      // 使用 ContextEngine 进行上下文级压缩
-      const focusTopic = args.replace(/--\S+(\s+\S+)?/g, '').trim();
-      if (focusTopic) {
-        try {
-          await contextEngine.compress([], 12000);
-        } catch (_) {
-          void handleError(_, {
-            module: 'commands:builtin',
-            action: 'catch_error',
-          });
-        }
-      }
 
       // 构建返回消息
       let message = '对话历史已压缩';

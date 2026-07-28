@@ -8,6 +8,7 @@ import {
   type MonitorSummary,
 } from "../../services/monitorService";
 import { usageService, type CostSummary } from "../../services/usageService";
+import { getTraceStats, type TraceStats } from "../../services/traceService";
 import {
   infrastructureHealthService,
   type InfrastructureStatus,
@@ -100,6 +101,7 @@ function DashboardPage() {
   );
   const [summary, setSummary] = useState<MonitorSummary | null>(null);
   const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
+  const [traceStats, setTraceStats] = useState<TraceStats | null>(null);
   const [infrastructure, setInfrastructure] =
     useState<InfrastructureStatus | null>(null);
   const [timeRange, setTimeRange] = useState(3600000);
@@ -132,33 +134,33 @@ function DashboardPage() {
   useEffect(() => {
     if (!showMonitor) return;
     const fetchMonitorData = async () => {
+      const results = await Promise.allSettled([
+        monitorService.getMetrics(timeRange),
+        monitorService.getAlerts(),
+        monitorService.getSystemHealth(),
+        monitorService.getAnalyticsDashboard(),
+        monitorService.getSummary(),
+        infrastructureHealthService.getStatus(),
+        usageService.getCostSummary(),
+      ]);
+      // 逐项解包，单接口失败不影响其他数据显示
+      if (results[0].status === "fulfilled") setMetrics(results[0].value);
+      if (results[1].status === "fulfilled") setAlerts(results[1].value);
+      if (results[2].status === "fulfilled") setSystemHealth(results[2].value);
+      if (results[3].status === "fulfilled") setAnalytics(results[3].value);
+      if (results[4].status === "fulfilled") setSummary(results[4].value);
+      if (results[5].status === "fulfilled")
+        setInfrastructure(results[5].value);
+      if (results[6].status === "fulfilled") setCostSummary(results[6].value);
+
+      // Trace 真实 API 调用统计（必选项，不依赖配置）
       try {
-        const [
-          metricsData,
-          alertsData,
-          healthData,
-          analyticsData,
-          summaryData,
-          infraData,
-          costData,
-        ] = await Promise.all([
-          monitorService.getMetrics(timeRange),
-          monitorService.getAlerts(),
-          monitorService.getSystemHealth(),
-          monitorService.getAnalyticsDashboard(),
-          monitorService.getSummary(),
-          infrastructureHealthService.getStatus(),
-          usageService.getCostSummary(),
-        ]);
-        setMetrics(metricsData);
-        setAlerts(alertsData);
-        setSystemHealth(healthData);
-        setAnalytics(analyticsData);
-        setSummary(summaryData);
-        setInfrastructure(infraData);
-        setCostSummary(costData);
+        const traceData = await getTraceStats();
+        if (traceData.data?.stats) {
+          setTraceStats(traceData.data.stats);
+        }
       } catch {
-        // 静默失败
+        // Trace 数据获取失败不阻塞其他数据显示
       }
     };
     fetchMonitorData();
@@ -358,6 +360,51 @@ function DashboardPage() {
                     查看完整用量分析 →
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* Trace 实时 API 调用统计（真实数据，Trace 必选项） */}
+            {traceStats && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                  <span>📊</span> AI API 调用统计
+                  <span className="text-[10px] text-green-500 font-normal ml-1">
+                    (Trace 实时)
+                  </span>
+                </h3>
+                <div className="grid grid-cols-4 gap-4">
+                  <DashboardStatCard
+                    label="API 调用"
+                    value={String(traceStats.totalCalls)}
+                    icon="📞"
+                  />
+                  <DashboardStatCard
+                    label="输入 Token"
+                    value={formatTokens(traceStats.totalInputTokens)}
+                    icon="📥"
+                  />
+                  <DashboardStatCard
+                    label="输出 Token"
+                    value={formatTokens(traceStats.totalOutputTokens)}
+                    icon="📤"
+                  />
+                  <DashboardStatCard
+                    label="平均延迟"
+                    value={`${traceStats.latencyP50}ms`}
+                    icon="⏱️"
+                  />
+                </div>
+                {traceStats.totalErrors > 0 && (
+                  <div className="mt-2 text-xs text-red-500 dark:text-red-400">
+                    ⚠️ {traceStats.totalErrors} 次错误 (
+                    {(
+                      (traceStats.totalErrors /
+                        Math.max(traceStats.totalCalls, 1)) *
+                      100
+                    ).toFixed(1)}
+                    %)
+                  </div>
+                )}
               </div>
             )}
 

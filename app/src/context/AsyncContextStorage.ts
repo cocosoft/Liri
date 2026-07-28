@@ -32,6 +32,14 @@ export class AsyncContextStorage {
   resetStore(): void {
     this.storage.enterWith({});
   }
+
+  /**
+   * 恢复当前 store 到指定的上下文快照。
+   * 需要 Node.js 20+。
+   */
+  restoreStore(snapshot: Record<string, Context>): void {
+    this.storage.enterWith(snapshot);
+  }
 }
 
 export const asyncContextStorage = new AsyncContextStorage();

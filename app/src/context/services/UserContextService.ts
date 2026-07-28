@@ -88,7 +88,7 @@ export class UserContextService {
    * @returns Liri.md文件路径
    */
   private async findClaudeMd(startDir: string): Promise<string | null> {
-    const claudeMdNames = ['Liri.md', 'Liri.md', 'Liri.md'];
+    const claudeMdNames = ['Liri.md', 'liri.md', 'LIRI.md'];
 
     for (const name of claudeMdNames) {
       const filePath = join(startDir, name);

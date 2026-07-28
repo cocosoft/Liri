@@ -16,6 +16,7 @@
  */
 import type { ChatMessage } from '../models/types';
 import { getTiktokenCount } from './TiktokenEstimator';
+import { getCachedTiktokenEncoder } from './TiktokenEstimator';
 
 const CJK_REGEX =
   /[\u4e00-\u9fff\u3400-\u4dbf\u{20000}-\u{2a6df}\uf900-\ufaff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/gu;
@@ -86,11 +87,36 @@ export function estimateMessageTokens(message: {
 
 /**
  * 估算消息列表的 token 数
+ * 三级精度：tiktoken BPE（缓存）→ CJK 启发式 → chars/4
  */
 export function estimateMessagesTokens(
   messages: readonly { role?: string; content?: string | unknown }[]
 ): number {
   if (!messages || messages.length === 0) return 0;
+
+  // 优先使用 tiktoken BPE 精确分词（若编码器已加载）
+  const encoder = getCachedTiktokenEncoder();
+  if (encoder) {
+    let total = 0;
+    for (const msg of messages) {
+      const overhead =
+        ROLE_OVERHEAD[msg.role ?? 'user'] ?? PER_MESSAGE_OVERHEAD;
+      total += overhead;
+      if (typeof msg.content === 'string') {
+        try {
+          const result = encoder.encode(msg.content);
+          total += Array.isArray(result) ? result.length : result.length;
+        } catch {
+          // 编码失败时回退到启发式
+          total += estimateTokens(msg.content);
+        }
+      } else if (msg.content) {
+        total += estimateTokens(JSON.stringify(msg.content));
+      }
+    }
+    return Math.ceil(total);
+  }
+
   return messages.reduce((sum, msg) => sum + estimateMessageTokens(msg), 0);
 }
 

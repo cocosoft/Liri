@@ -105,6 +105,10 @@ export class ChronologicalBlockBuilder {
    *  2. "✅ Tool xxx completed" / "❌ Tool xxx failed" 冗余完成/失败态 → 丢弃（tool_call 块已展示状态）
    *  3. "AI is thinking..." / "🎨 AI is generating..." 等瞬态加载态 → 丢弃
    *  4. 连续重复内容跳过
+   *
+   *  TODO: CS02-ROOTFIX — 后端应在 status 消息中携带 statusType 字段
+   *  （如 "tool_started" / "tool_completed" / "ai_thinking"），
+   *  前端根据 statusType 过滤而非字符串匹配 content。
    */
   addStatus(status: string): void {
     // 丢弃中间态 "🔧 Running tool: xxx"

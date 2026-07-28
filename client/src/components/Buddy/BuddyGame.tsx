@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useBuddyStore } from "../../stores/buddyStore";
 
 interface GameScore {
@@ -35,6 +35,24 @@ function BuddyGame() {
   const [waitStart, setWaitStart] = useState<number | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
 
+  // 定时器引用（用于组件卸载时清理）
+  const reactionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mathTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 组件卸载时清理所有定时器
+  useEffect(() => {
+    return () => {
+      if (reactionTimerRef.current) {
+        clearTimeout(reactionTimerRef.current);
+        reactionTimerRef.current = null;
+      }
+      if (mathTimerRef.current) {
+        clearTimeout(mathTimerRef.current);
+        mathTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const generateMathProblem = useCallback(() => {
     const ops = ["+", "-", "*"];
     const op = ops[Math.floor(Math.random() * ops.length)];
@@ -59,7 +77,8 @@ function BuddyGame() {
     setWaitStart(null);
     setGameStarted(false);
     const delay = Math.random() * 3000 + 1000;
-    setTimeout(() => {
+    reactionTimerRef.current = setTimeout(() => {
+      reactionTimerRef.current = null;
       setWaitStart(Date.now());
       setGameStarted(true);
     }, delay);
@@ -85,7 +104,7 @@ function BuddyGame() {
         streak: 0,
       }));
     }
-    setTimeout(generateMathProblem, 1000);
+    mathTimerRef.current = setTimeout(generateMathProblem, 1000);
   };
 
   const handleMemoryClick = (num: number) => {

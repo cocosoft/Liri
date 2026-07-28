@@ -44,6 +44,21 @@ import type {
   TokenUsage,
 } from './types';
 import { estimateTokens } from '../../ai/tokenizer/TokenEstimator';
+import { Logger, LogLevel } from '../../monitoring/logs/Logger';
+
+const logger = new Logger({
+  level: LogLevel.INFO,
+  module: 'tokenBudget:controller',
+});
+
+// === Phase 1a: 统一阈值常量 — 所有方法共享 ===
+export const UNIFIED_THRESHOLDS = {
+  COMPACT_LIGHT: 0.5, // 50% → getCompressionLevel 1
+  COMPACT_MEDIUM: 0.7, // 70% → getCompressionLevel 2
+  WARNING: 0.75, // 75% → getCurrentBudgetState isWarning
+  COMPACT_DEEP: 0.85, // 85% → getCurrentBudgetState isCritical / getCompressionLevel 3
+  CRITICAL: 0.92, // 92% → checkBudget CRITICAL
+} as const;
 
 /** Phase 2.9: 统一 TokenBudgetStatus 枚举 */
 export enum TokenBudgetStatus {
@@ -88,8 +103,8 @@ function lazyInitNative() {
       } else {
         nativeEstimateTokens = null;
       }
-    } catch {
-      // @ignore-catch: native estimate unavailable
+    } catch (err) {
+      logger.warn('tokenBudget:lazyInitNative failed', { error: String(err) });
       nativeEstimateTokens = null;
     }
   }
@@ -125,8 +140,8 @@ export class TokenBudgetController {
   private totalCacheCreationTokens: number = 0;
   private messagesProcessed: number = 0;
   private resetAt: number = Date.now();
-  private readonly WARNING_THRESHOLD = 0.7;
-  private readonly CRITICAL_THRESHOLD = 0.85;
+  private readonly WARNING_THRESHOLD = UNIFIED_THRESHOLDS.WARNING;
+  private readonly CRITICAL_THRESHOLD = UNIFIED_THRESHOLDS.COMPACT_DEEP;
   // Declining return detection
   private recentTurnTokenUsage: number[] = [];
   private readonly DECLINING_RETURN_WINDOW = 3;
@@ -169,8 +184,11 @@ export class TokenBudgetController {
     try {
       const priceResult = priceManager.getPriceSync(model);
       return priceResult.contextWindow;
-    } catch {
-      // @ignore-catch: estimation fallback
+    } catch (err) {
+      logger.warn('tokenBudget:getContextWindow failed', {
+        error: String(err),
+        model,
+      });
       return 200_000;
     }
   }
@@ -346,13 +364,26 @@ export class TokenBudgetController {
     this.totalOutputTokensUsed += tokens;
   }
 
-  /** 预算状态检查 */
+  /** 预算状态检查 — 统一到 percentUsed = spent/total 基线 */
   checkBudget(): TokenBudgetStatus {
-    const pct = this.getBudgetPercentage();
-    if (this.budget.remaining <= 0) return TokenBudgetStatus.EXCEEDED;
-    if (pct < 10) return TokenBudgetStatus.CRITICAL;
-    if (pct < 20) return TokenBudgetStatus.WARNING;
-    return TokenBudgetStatus.NORMAL;
+    const pct = this.budget.total > 0 ? this.spent / this.budget.total : 0;
+    let status: TokenBudgetStatus;
+    if (this.budget.remaining <= 0) status = TokenBudgetStatus.EXCEEDED;
+    else if (pct >= UNIFIED_THRESHOLDS.CRITICAL)
+      status = TokenBudgetStatus.EXCEEDED;
+    else if (pct >= UNIFIED_THRESHOLDS.COMPACT_DEEP)
+      status = TokenBudgetStatus.CRITICAL;
+    else if (pct >= UNIFIED_THRESHOLDS.WARNING)
+      status = TokenBudgetStatus.WARNING;
+    else status = TokenBudgetStatus.NORMAL;
+    logger.info('tokenBudget:checkBudget', {
+      status,
+      percentUsed: Math.round(pct * 100) / 100,
+      spent: this.spent,
+      total: this.budget.total,
+      model: this.model,
+    });
+    return status;
   }
 
   /** 获取完整预算状态 */
@@ -414,13 +445,12 @@ export class TokenBudgetController {
     );
   }
 
-  /** 压缩等级（0=无需, 1=轻度, 2=中度, 3=重度） */
+  /** 压缩等级（0=无需, 1=轻度, 2=中度, 3=重度）— 统一使用 UNIFIED_THRESHOLDS */
   getCompressionLevel(): 0 | 1 | 2 | 3 {
-    const pct =
-      this.budget.total > 0 ? (this.spent / this.budget.total) * 100 : 0;
-    if (pct >= 90) return 3;
-    if (pct >= 70) return 2;
-    if (pct >= 50) return 1;
+    const pct = this.budget.total > 0 ? this.spent / this.budget.total : 0;
+    if (pct >= UNIFIED_THRESHOLDS.COMPACT_DEEP) return 3; // 85%→重度（原 90%）
+    if (pct >= UNIFIED_THRESHOLDS.COMPACT_MEDIUM) return 2; // 70%→中度
+    if (pct >= UNIFIED_THRESHOLDS.COMPACT_LIGHT) return 1; // 50%→轻度
     return 0;
   }
 
@@ -466,8 +496,11 @@ export function getContextWindowForModel(model: string): number {
   try {
     const priceResult = priceManager.getPriceSync(model);
     return priceResult.contextWindow;
-  } catch {
-    // @ignore-catch: estimation fallback
+  } catch (err) {
+    logger.warn('tokenBudget:getContextWindowForModel failed', {
+      error: String(err),
+      model,
+    });
     return 200_000;
   }
 }

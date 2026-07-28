@@ -515,7 +515,7 @@ export async function launchRepl(
         });
       } catch {
         // 通知中心不可用 → 最后 resort: local log
-        await deliveryRouter.deliverLocal(message);
+        await deliveryRouter.deliverLocal({ format: 'text', content: message });
       }
     };
 

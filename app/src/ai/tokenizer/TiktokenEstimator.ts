@@ -13,7 +13,6 @@
  * 惰性初始化：首次调用时加载 wasm，后续调用零延迟。
  */
 import { Logger, LogLevel } from '@modules/monitoring';
-import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'ai:tokenizer:tiktoken',
@@ -31,6 +30,22 @@ type TiktokenEncoding = {
 
 let _encoder: TiktokenEncoding | null | undefined;
 let _loadError = false;
+const TIKTOKEN_RETRY_MS = 30_000; // 首次失败后 30s 重试
+
+/** 执行编码器加载（内部实现） */
+async function _loadEncoder(): Promise<TiktokenEncoding | null> {
+  try {
+    const tiktoken = await import('js-tiktoken');
+    const enc = (
+      tiktoken as unknown as {
+        encodingForModel(model: string): TiktokenEncoding;
+      }
+    ).encodingForModel('gpt-4o');
+    return enc;
+  } catch (err) {
+    return null;
+  }
+}
 
 /**
  * 获取 tiktoken 编码器（惰性加载，复用单例）
@@ -40,24 +55,44 @@ export async function getTiktokenEncoder(): Promise<TiktokenEncoding | null> {
   if (_encoder !== undefined) return _encoder;
   if (_loadError) return null;
 
-  try {
-    const tiktoken = await import('js-tiktoken');
-    // o200k_base: GPT-4o / Claude 3.5 等最新模型的通用 BPE 编码
-    // js-tiktoken API 为 camelCase: encodingForModel
-    const enc = (
-      tiktoken as unknown as {
-        encodingForModel(model: string): TiktokenEncoding;
-      }
-    ).encodingForModel('gpt-4o');
+  const enc = await _loadEncoder();
+  if (enc) {
     _encoder = enc;
     logger.info('tiktoken:encoder_loaded', { model: 'gpt-4o (o200k_base)' });
     return enc;
-  } catch (err) {
-    _loadError = true;
-    _encoder = null;
-    await handleError(err, { module: 'ai:tokenizer', action: 'load' });
-    return null;
   }
+
+  // Phase 3: 加载失败 → 精度降级，logger.error 告警
+  _loadError = true;
+  _encoder = null;
+  logger.error(
+    'tiktoken:encoder_load_failed — 精度降至启发式估算，30s 后自动重试',
+    {
+      model: 'gpt-4o (o200k_base)',
+      retryMs: TIKTOKEN_RETRY_MS,
+    }
+  );
+
+  // Phase 3: 30s 后自动重试一次
+  setTimeout(() => {
+    _loadError = false;
+    _encoder = undefined;
+    logger.info('tiktoken:encoder_retry — 重新尝试加载编码器');
+    getTiktokenEncoder().catch(() => {
+      /* 重试静默 */
+    });
+  }, TIKTOKEN_RETRY_MS);
+
+  return null;
+}
+
+/**
+ * 同步获取已缓存的 tiktoken 编码器（不触发加载）
+ * 用于压缩决策等同步路径：若编码器已加载则直接使用，否则返回 null
+ */
+export function getCachedTiktokenEncoder(): TiktokenEncoding | null {
+  if (_encoder !== undefined && _encoder !== null) return _encoder;
+  return null;
 }
 
 /**
@@ -74,6 +109,20 @@ export async function getTiktokenCount(text: string): Promise<number | null> {
   } catch {
     // @ignore-catch: tiktoken not loaded
     return null;
+  }
+}
+
+/**
+ * Phase 3: 应用启动时预加载 tiktoken wasm，不在首次 API 请求路径上 lazy init。
+ * 调用方（如 main.ts 启动入口）应在应用初始化时调用此函数。
+ */
+export async function preloadTiktoken(): Promise<void> {
+  logger.info('tiktoken:preload_start');
+  const encoder = await getTiktokenEncoder();
+  if (encoder) {
+    logger.info('tiktoken:preload_success');
+  } else {
+    logger.error('tiktoken:preload_failed — 将在 30s 后自动重试');
   }
 }
 

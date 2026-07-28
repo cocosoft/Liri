@@ -18,6 +18,7 @@ import {
 } from './PromptTemplates';
 import { getPromptInjectionDetector } from '../security/injection/PromptInjectionDetector';
 import { getUnicodeSanitizer } from '../security/injection/UnicodeSanitizer';
+import { resolveContextWindow } from './window/ContextWindowResolver';
 
 /**
  * 简单的 memoize 实现，用于缓存函数调用的结果以避免重复计算。
@@ -35,20 +36,36 @@ function memoize<T extends (...args: any[]) => any>(
   resolver: (...args: Parameters<T>) => string
 ): T {
   // 创建用于存储缓存结果的 Map，键为字符串，值为函数的返回类型
-  const cache = new Map<string, ReturnType<T>>();
+  const cache = new Map<string, any>();
 
   // 创建记忆化后的函数包装器
   const memoized = ((...args: any[]) => {
-    // 使用 resolver 生成当前参数的唯一缓存键
     const key = resolver(...(args as Parameters<T>));
 
-    // 如果缓存中不存在该键对应的结果，则执行原始函数并存储结果
-    if (!cache.has(key)) {
-      cache.set(key, fn(...args));
+    if (cache.has(key)) {
+      const cached = cache.get(key) as any;
+      // 不缓存失败的 Promise，避免单次错误导致永久失败
+      if (cached instanceof Promise) {
+        return cached.catch((err: unknown) => {
+          cache.delete(key);
+          throw err;
+        });
+      }
+      return cached;
     }
 
-    // 从缓存中获取并返回结果（断言非空，因为上一步已确保存在）
-    return cache.get(key)!;
+    const result = fn(...args) as any;
+    // 对 Promise 也做失败清除（通过 .catch 异步删除）
+    if (result instanceof Promise) {
+      cache.set(key, result);
+      return result.catch((err: unknown) => {
+        cache.delete(key);
+        throw err;
+      });
+    }
+
+    cache.set(key, result);
+    return result;
   }) as T;
 
   return memoized;
@@ -262,18 +279,17 @@ export class ContextBuilder {
   /**
    * 根据模型名称获取其对应的上下文窗口大小。
    *
-   * @param model - 模型名称字符串，用于判断是否包含特定标识以确定上下文窗口大小。
-   * @returns 返回模型的上下文窗口大小（token 数量）。如果模型名称包含 '[1m]'，则返回 1,000,000；否则返回默认值 200,000。
+   * @param model - 模型名称字符串
+   * @returns 返回模型的上下文窗口大小（token 数量）
    */
   getContextWindowForModel(model: string): number {
-    const MODEL_CONTEXT_WINDOW_DEFAULT = 200_000;
-
-    // 检查模型名称是否包含 '[1m]' 标识，若是则返回 1,000,000 的上下文窗口大小
-    if (model.includes('[1m]')) {
-      return 1_000_000;
+    // 使用统一的 ContextWindowResolver 代替硬编码 [1m] 模式匹配
+    try {
+      const resolved = resolveContextWindow(model);
+      return resolved.tokens;
+    } catch {
+      return 200_000;
     }
-
-    return MODEL_CONTEXT_WINDOW_DEFAULT;
   }
 
   /**

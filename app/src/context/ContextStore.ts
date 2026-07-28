@@ -57,6 +57,16 @@ export class ContextStore implements IContextStore {
         `Context validation failed: ${validation.errors.join(', ')}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
+        ContextErrorCode.LIFECYCLE_INVALID
+      );
+    }
+
+    // 存储上限检查（LRU 驱逐逻辑只在 setMaxSize 中，create 也要检查）
+    if (this.store.size >= this.maxSize) {
+      throw new AppError(
+        `Context store full: ${this.store.size}/${this.maxSize}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
         ContextErrorCode.STORE_FULL
       );
     }
@@ -90,7 +100,7 @@ export class ContextStore implements IContextStore {
         `Context not found: ${id}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
-        ContextErrorCode.STORE_FULL
+        ContextErrorCode.CONTEXT_NOT_FOUND
       );
     }
     const updatedContext: Context = {

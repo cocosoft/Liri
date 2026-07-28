@@ -470,6 +470,7 @@ export class CoreAPIImpl implements CoreAPI {
         metadata: enrichedMetadata,
         model,
         images: request.images,
+        onProgress: request.onProgress,
         onUsage: (usage) => {
           capturedUsage = {
             inputTokens: usage.inputTokens,

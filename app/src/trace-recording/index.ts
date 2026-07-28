@@ -88,8 +88,6 @@ import type { MonitoringDeps, TraceConfig } from './types';
 export interface AITracePluginOptions {
   /** 录制存储目录（优先级高于环境变量 AI_TRACE_DIR） */
   traceDir?: string;
-  /** 是否启用（优先级高于 DISABLE_TRACE_RECORDING 环境变量） */
-  enabled?: boolean;
   /** 监控系统依赖（用于集成模式） */
   deps?: {
     /** OTel Tracer 实例（用于关联 Span） */
@@ -112,14 +110,16 @@ export function getAITracePlugin(): AITracePlugin | null {
 }
 
 /**
- * 创建并启动 AITracePlugin
+ * 创建并启动 AITracePlugin（始终启用，不可配置关闭）
  *
  * 从环境变量读取配置（options 参数优先级更高）：
  *   - AI_TRACE_DIR: 录制文件目录（默认: traces）
  *   - AI_TRACE_MODE: 录制模式 all|error-only|slow-only（默认: all）
  *   - AI_TRACE_SLOW_THRESHOLD: 慢请求阈值毫秒（默认: 30000）
  *   - AI_TRACE_LIVE_VIEW_PORT: 实时查看端口（0=禁用，默认: 0）
- *   - DISABLE_TRACE_RECORDING: 设为 true 禁用录制
+ *
+ * Trace 是必选基础设施，用于记录真实 token 消耗、校准估算偏差、
+ * 驱动压缩决策和成本计算。不再支持 DISABLE_TRACE_RECORDING 环境变量关闭。
  *
  * @param options 可选的配置覆盖 + 监控系统依赖
  */
@@ -132,8 +132,6 @@ export function createAITracePlugin(
 
   const traceDir =
     options?.traceDir || configManager.env('AI_TRACE_DIR') || 'traces';
-  const enabled =
-    options?.enabled ?? process.env.DISABLE_TRACE_RECORDING !== 'true';
 
   const config: TraceConfig = {
     traceDir,
@@ -141,7 +139,6 @@ export function createAITracePlugin(
     slowThresholdMs:
       Number(configManager.env('AI_TRACE_SLOW_THRESHOLD')) || 30000,
     liveViewPort: Number(configManager.env('AI_TRACE_LIVE_VIEW_PORT')) || 0,
-    enabled,
   };
 
   // 将新的 deps 格式映射到 MonitoringDeps
@@ -163,11 +160,8 @@ export function createAITracePlugin(
   }
 
   globalPlugin = new AITracePlugin(config, monitoring);
-
-  // 仅当 enabled 时启动
-  if (enabled) {
-    globalPlugin.start();
-  }
+  // Trace 始终启动（必选项）
+  globalPlugin.start();
 
   return globalPlugin;
 }

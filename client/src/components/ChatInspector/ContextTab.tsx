@@ -6,17 +6,19 @@
  */
 
 import React from "react";
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { Message } from "../../types";
 import { useChatStore } from "../../stores/chat";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useModelSwitchStore } from "../../stores/modelSwitchStore";
 import { useChatInspectorStore } from "../../stores/chatInspectorStore";
+import { useContextWatermarkStore } from "../../stores/contextWatermarkStore";
+import { useModelStore } from "../../stores/modelStore";
 
 // ─── 工具函数 ─────────────────────────────────────
 
-/** 默认上下文窗口大小（模型未加载时使用） */
-const DEFAULT_CONTEXT = 128000;
+/** 默认上下文窗口大小（模型未加载时使用，与后端 ContextWindowResolver 一致） */
+const DEFAULT_CONTEXT = 200_000;
 
 /** 从消息列表聚合 Token 用量 */
 function aggregateTokens(messages: Message[]) {
@@ -108,6 +110,9 @@ function ContextWindowBarImpl({
   totalInput,
   totalOutput,
   cacheRead,
+  severity,
+  isStreaming,
+  realTimeTokens,
 }: {
   used: number;
   contextLength: number;
@@ -115,32 +120,68 @@ function ContextWindowBarImpl({
   totalInput: number;
   totalOutput: number;
   cacheRead: number;
+  severity?: "normal" | "warn" | "compact";
+  isStreaming?: boolean;
+  realTimeTokens?: number;
 }) {
   const barColor =
-    percentage > 80
+    severity === "compact"
       ? "bg-red-500"
-      : percentage > 50
+      : severity === "warn"
         ? "bg-yellow-500"
-        : "bg-blue-500";
+        : percentage > 80
+          ? "bg-red-500"
+          : percentage > 50
+            ? "bg-yellow-500"
+            : "bg-blue-500";
+
+  const pulseClass = severity === "compact" ? "animate-pulse" : "";
 
   return (
     <div className="space-y-2">
       <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
         上下文窗口
+        {isStreaming && realTimeTokens !== undefined && (
+          <span className="ml-1 text-blue-500 dark:text-blue-400 text-[10px] font-normal">
+            实时
+          </span>
+        )}
+        {severity === "warn" && (
+          <span className="ml-1 text-yellow-500 text-[10px]">⚠ 偏高</span>
+        )}
+        {severity === "compact" && (
+          <span className="ml-1 text-red-500 text-[10px] animate-pulse">
+            🔴 临界
+          </span>
+        )}
       </h4>
       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
         <div
-          className={`${barColor} h-2.5 rounded-full transition-all duration-500`}
-          style={{ width: `${Math.min(percentage, 100)}%` }}
+          className={`${barColor} h-2.5 rounded-full transition-all duration-500 ${pulseClass}`}
+          style={{ width: `${Math.min(Math.max(percentage, 0), 100)}%` }}
         />
       </div>
       <p className="text-xs text-gray-600 dark:text-gray-400">
-        {used.toLocaleString()} / {contextLength.toLocaleString()} tokens
+        {used > contextLength ? (
+          <span className="text-red-500 font-medium">
+            已超出上限（{used.toLocaleString()} /{" "}
+            {contextLength.toLocaleString()} tokens）
+          </span>
+        ) : (
+          <>
+            {used.toLocaleString()} / {contextLength.toLocaleString()} tokens
+          </>
+        )}
         <span
-          className={`ml-2 font-medium ${percentage > 80 ? "text-red-500" : ""}`}
+          className={`ml-2 font-medium ${used > contextLength ? "text-red-500" : percentage > 80 || severity === "compact" ? "text-red-500" : percentage > 50 ? "text-yellow-500" : ""}`}
         >
           ({percentage.toFixed(1)}%)
         </span>
+        {isStreaming && realTimeTokens !== undefined && realTimeTokens > 0 && (
+          <span className="ml-2 text-blue-500 dark:text-blue-400 text-[10px]">
+            实时: {realTimeTokens.toLocaleString()} tokens
+          </span>
+        )}
       </p>
       <div className="grid grid-cols-3 gap-2 text-xs">
         <div>
@@ -298,15 +339,53 @@ function ContextTab() {
   const setHighlightedRoundId = useChatInspectorStore(
     (s) => s.setHighlightedRoundId,
   );
+  const setTokenWarning = useChatInspectorStore((s) => s.setTokenWarning);
+  const watermark = useContextWatermarkStore((s) => s.watermark);
+  const models = useModelStore((s) => s.models);
+
+  // 从模型列表获取当前模型的实际上下文窗口（非流式时使用）
+  const modelContextLength = useMemo(() => {
+    if (!currentModelName) return DEFAULT_CONTEXT;
+    // 精确匹配 → 模糊匹配（模型名可能有路径前缀如 /models/xxx）
+    const found =
+      models.find(
+        (m) => m.modelId === currentModelName || m.name === currentModelName,
+      ) ??
+      models.find(
+        (m) =>
+          m.modelId?.includes(currentModelName) ||
+          m.name?.includes(currentModelName),
+      );
+    return found?.context_length || DEFAULT_CONTEXT;
+  }, [currentModelName, models]);
+
+  // 实时水位数据 → tokenWarning 角标同步
+  useEffect(() => {
+    if (watermark && watermark.severity !== "normal") {
+      setTokenWarning(true);
+    } else if (!watermark || watermark.severity === "normal") {
+      setTokenWarning(false);
+    }
+  }, [watermark?.severity, watermark?.ratio, setTokenWarning]);
 
   const tokenStats = useMemo(
     () => aggregateTokens(messages),
     [messages.length, messages[messages.length - 1]?.usage],
   );
 
-  const contextLength = DEFAULT_CONTEXT;
+  // 流式输出中：融合实时水位数据与历史累积
+  // 非流式：保持原有行为（消息 usage 聚合）
+  const hasRealtime = isStreaming && watermark && watermark.currentTokens > 0;
+  const usedTokens = hasRealtime
+    ? Math.max(watermark.currentTokens, tokenStats.totalTokens)
+    : tokenStats.totalTokens;
+  const contextLength = hasRealtime
+    ? watermark.contextLimit
+    : modelContextLength;
   const percentage =
-    contextLength > 0 ? (tokenStats.totalTokens / contextLength) * 100 : 0;
+    contextLength > 0 ? Math.min((usedTokens / contextLength) * 100, 100) : 0;
+  const realTimeSeverity = hasRealtime ? watermark.severity : undefined;
+  const realTimeTokens = hasRealtime ? watermark.currentTokens : undefined;
 
   const rounds = useMemo(() => buildRoundSummaries(messages), [messages]);
 
@@ -322,6 +401,8 @@ function ContextTab() {
     [messages.length],
   );
 
+  // TODO: CS02-ROOTFIX — fileCount 目前靠字符串匹配（.py/.ts/output）猜测文件数，
+  // 应使用消息 blocks 中的结构化 filePath/attachment 元数据。
   const fileCount = useMemo(
     () =>
       messages.filter((m) => {
@@ -390,12 +471,15 @@ function ContextTab() {
   return (
     <div className="p-3 space-y-4">
       <ContextWindowBar
-        used={tokenStats.totalTokens}
+        used={usedTokens}
         contextLength={contextLength}
         percentage={percentage}
         totalInput={tokenStats.totalInput}
         totalOutput={tokenStats.totalOutput}
         cacheRead={tokenStats.cacheRead}
+        severity={realTimeSeverity}
+        isStreaming={isStreaming}
+        realTimeTokens={realTimeTokens}
       />
       <hr className="border-gray-200 dark:border-gray-700" />
 

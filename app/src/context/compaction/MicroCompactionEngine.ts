@@ -67,6 +67,21 @@ export function applyMicroCompaction(
   let rewrittenCount = 0;
   let recentResultsFound = 0;
 
+  // 从 assistant 消息的 tool_calls 中建立 tool_call_id → name 映射
+  // Claude API 的 tool result 消息不包含 name 字段，需要从对应的 assistant 查找
+  const aidToName = new Map<string, string>();
+  for (const msg of messages) {
+    if (
+      msg.role === 'assistant' &&
+      Array.isArray((msg as unknown as Record<string, unknown>).tool_calls)
+    ) {
+      for (const tc of (msg as unknown as Record<string, unknown>)
+        .tool_calls as Array<{ id?: string; name?: string }>) {
+        if (tc.id && tc.name) aidToName.set(tc.id, tc.name);
+      }
+    }
+  }
+
   // 从后往前找最近 keepLatest 条 tool_result 的位置
   const recentResultIndices = new Set<number>();
   for (
@@ -95,9 +110,12 @@ export function applyMicroCompaction(
 
     const toolCallId = (msg as unknown as Record<string, unknown>)
       .tool_call_id as string | undefined;
-    const toolName = (msg as unknown as Record<string, unknown>).name as
-      | string
-      | undefined;
+    // msg.name 在 tool result 消息上不一定存在（Claude API 无此字段）
+    // 从 assistant 消息的 tool_calls 中查找对应的 tool name
+    const toolName =
+      ((msg as unknown as Record<string, unknown>).name as
+        | string
+        | undefined) ?? (toolCallId ? aidToName.get(toolCallId) : undefined);
 
     // 仅压缩可压缩工具的结果
     if (toolCallId && toolName && COMPACTABLE_TOOL_NAMES.has(toolName)) {

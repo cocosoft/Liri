@@ -520,8 +520,8 @@ export class AdvancedMemorySystem {
       snapshot,
     });
 
-    if (this.versionHistory.length > 50) {
-      this.versionHistory = this.versionHistory.slice(-50);
+    if (this.versionHistory.length > 10) {
+      this.versionHistory = this.versionHistory.slice(-10);
     }
   }
 

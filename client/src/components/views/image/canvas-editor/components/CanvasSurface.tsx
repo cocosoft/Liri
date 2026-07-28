@@ -387,6 +387,10 @@ export const CanvasSurface: React.FC<Props> = ({
     );
 
     return () => {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
       ro.disconnect();
       adapter.destroy();
     };

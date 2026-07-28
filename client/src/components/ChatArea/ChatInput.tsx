@@ -933,7 +933,10 @@ function ChatInput() {
                     {CHAT_MODES.find((m) => m.key === chatMode)?.icon}
                   </span>
                   <span className="text-gray-500 dark:text-gray-400">
-                    {t(CHAT_MODES.find((m) => m.key === chatMode)!.labelKey)}
+                    {t(
+                      CHAT_MODES.find((m) => m.key === chatMode)?.labelKey ??
+                        "chat.selectMode",
+                    )}
                   </span>
                   <svg
                     className="w-3 h-3 text-gray-400"

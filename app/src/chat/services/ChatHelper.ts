@@ -139,10 +139,19 @@ export function repairImageUrls(content: string): string {
 export function resolveMaxContextTokens(model?: string): number {
   if (model) {
     try {
+      const {
+        resolveContextWindow,
+      } = require('../../context/window/ContextWindowResolver');
+      const ctx = resolveContextWindow(model);
+      if (ctx.tokens > 0) return ctx.tokens;
+    } catch {
+      // 回退到 AIModelManager
+    }
+    try {
       const ctx = getAIModelManager().getContextWindow(model);
       if (ctx > 0) return ctx;
-    } catch (err) {
-      // 模型未注册等情况，使用默认值
+    } catch {
+      // 模型未注册等情况
     }
   }
   return 128_000;

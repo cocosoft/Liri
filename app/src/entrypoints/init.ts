@@ -54,6 +54,18 @@ const logger = new Logger({ module: 'entrypoints:init', level: LogLevel.INFO });
 /** 全局 startup 配置引用 */
 let _startupConfig: StartupConfig | null = null;
 
+/** 后台定时器引用数组，进程退出时统一清理 */
+const backgroundTimers: ReturnType<typeof setInterval>[] = [];
+
+/** 知识事件订阅引用数组，热重载时先退订再重订 */
+const _knowledgeSubscriptions: { unsubscribe(): void }[] = [];
+
+// 注册退出钩子：清理所有后台定时器
+registerShutdownHandler(() => {
+  for (const t of backgroundTimers) clearInterval(t);
+  backgroundTimers.length = 0;
+});
+
 /**
  * 获取已加载的 startup 配置
  */
@@ -576,19 +588,21 @@ async function startDeferredPrefetches(): Promise<void> {
             logger.warning('启动时清理过期记忆失败', { error });
           }
 
-          // 注册定时清理（每 6 小时）
-          setInterval(
-            async () => {
-              try {
-                const cleaned = await memoryManager.cleanupExpiredMemories();
-                if (cleaned > 0) {
-                  logger.info(`定时清理了 ${cleaned} 条过期记忆`);
+          // 注册定时清理（每 6 小时），保存引用以便退出时清理
+          backgroundTimers.push(
+            setInterval(
+              async () => {
+                try {
+                  const cleaned = await memoryManager.cleanupExpiredMemories();
+                  if (cleaned > 0) {
+                    logger.info(`定时清理了 ${cleaned} 条过期记忆`);
+                  }
+                } catch (error) {
+                  logger.warning('定时清理过期记忆失败', { error });
                 }
-              } catch (error) {
-                logger.warning('定时清理过期记忆失败', { error });
-              }
-            },
-            6 * 60 * 60 * 1000
+              },
+              6 * 60 * 60 * 1000
+            )
           );
 
           // 检查旧目录残留记忆文件（问题 2）
@@ -683,15 +697,19 @@ async function startDeferredPrefetches(): Promise<void> {
             });
           }
 
-          // 注入 EventBus 实现增量索引更新
-          globalEventBus.subscribe('knowledge:changed', (event: unknown) => {
-            const evt = event as { action: string; filePath: string };
-            if (evt.action === 'deleted') {
-              (knowledgeRouter['removeFromIndex'] as (fp: string) => void)?.(
-                evt.filePath
-              );
-            }
-          });
+          // 注入 EventBus 实现增量索引更新（先退订防止热重载重复订阅）
+          for (const sub of _knowledgeSubscriptions) sub.unsubscribe();
+          _knowledgeSubscriptions.length = 0;
+          _knowledgeSubscriptions.push(
+            globalEventBus.subscribe('knowledge:changed', (event: unknown) => {
+              const evt = event as { action: string; filePath: string };
+              if (evt.action === 'deleted') {
+                (knowledgeRouter['removeFromIndex'] as (fp: string) => void)?.(
+                  evt.filePath
+                );
+              }
+            })
+          );
           await knowledgeRouter.buildIndex();
           const summarizer = new KnowledgeSummarizer(knowledgeRouter);
           setKnowledgeQueryProvider(summarizer);
@@ -717,30 +735,34 @@ async function startDeferredPrefetches(): Promise<void> {
             return;
           }
 
-          // 监听删除事件，自动清理悬挂边
-          globalEventBus.subscribe('knowledge:changed', (event: unknown) => {
-            const evt = event as { action: string };
-            if (evt.action === 'deleted') {
-              // 延迟异步清理，不阻塞删除主流程
-              setTimeout(async () => {
-                try {
-                  // 获取所有当前有效的实体 ID（基于知识库文档标题）
-                  const { knowledgeDocsProvider } =
-                    await import('../docs/FileDocsProvider.js');
-                  const docs = await knowledgeDocsProvider.buildIndex();
-                  const validIds = new Set(
-                    docs.map((d) => d.title.toLowerCase().replace(/\s+/g, '_'))
-                  );
-                  const cleaned = await graph.cleanupOrphans(validIds);
-                  if (cleaned > 0) {
-                    logger.info('已清理知识图谱孤儿边', { cleaned });
+          // 监听删除事件，自动清理悬挂边（先退订防止热重载重复订阅）
+          _knowledgeSubscriptions.push(
+            globalEventBus.subscribe('knowledge:changed', (event: unknown) => {
+              const evt = event as { action: string };
+              if (evt.action === 'deleted') {
+                // 延迟异步清理，不阻塞删除主流程
+                setTimeout(async () => {
+                  try {
+                    // 获取所有当前有效的实体 ID（基于知识库文档标题）
+                    const { knowledgeDocsProvider } =
+                      await import('../docs/FileDocsProvider.js');
+                    const docs = await knowledgeDocsProvider.buildIndex();
+                    const validIds = new Set(
+                      docs.map((d) =>
+                        d.title.toLowerCase().replace(/\s+/g, '_')
+                      )
+                    );
+                    const cleaned = await graph.cleanupOrphans(validIds);
+                    if (cleaned > 0) {
+                      logger.info('已清理知识图谱孤儿边', { cleaned });
+                    }
+                  } catch (cleanErr) {
+                    // 清理失败不报错，下次操作时再清理
                   }
-                } catch (cleanErr) {
-                  // 清理失败不报错，下次操作时再清理
-                }
-              }, 5000);
-            }
-          });
+                }, 5000);
+              }
+            })
+          );
 
           logger.info('知识图谱孤儿边清理监听已注册');
         } catch (error) {

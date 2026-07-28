@@ -435,7 +435,7 @@ function TaskCenterPage() {
     }
     return () => {
       if (expandedPollRef.current) {
-        clearTimeout(expandedPollRef.current);
+        clearInterval(expandedPollRef.current);
       }
     };
   }, [selectedTask]);

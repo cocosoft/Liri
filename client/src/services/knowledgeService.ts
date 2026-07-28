@@ -362,7 +362,7 @@ export const knowledgeService = {
         `[KNOWLEDGE_SNAPSHOTS] ${res.error?.message ?? "未知错误"}`,
       );
     }
-    return res.data!.snapshots;
+    return res.data?.snapshots ?? [];
   },
 
   /** W6: 获取快照内容 */
@@ -374,7 +374,7 @@ export const knowledgeService = {
     const res = await http.get<{ content: string }>(
       `/api/files/read?path=${encodeURIComponent(snapDir)}`,
     );
-    return res.ok ? (res.data!.content ?? null) : null;
+    return res.ok ? (res.data?.content ?? null) : null;
   },
 
   /** 从快照恢复文档 */
@@ -386,7 +386,7 @@ export const knowledgeService = {
       "/v1/knowledge/restore",
       { title, snapshot },
     );
-    return res.ok ? res.data!.restored : false;
+    return res.ok ? (res.data?.restored ?? false) : false;
   },
 
   /** 获取知识库健康指标 */

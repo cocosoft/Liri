@@ -185,6 +185,8 @@ export interface LoggerConfig {
   fileOutput?: boolean;
   module?: string;
   format?: 'text' | 'json';
+  /** 日志来源标签，用于前端按源过滤（默认 'logger'） */
+  source?: LogSource;
   /** 控制台输出是否着色（默认 false），仅对 consoleOutput 生效 */
   colorize?: boolean;
   /** 是否在日志中附带 OTEL traceId/spanId（默认 false） */
@@ -232,6 +234,7 @@ export class Logger {
     this.format = merged.format ?? 'text';
     this.colorize = merged.colorize ?? false;
     this.otelTraceEnabled = merged.otelTraceEnabled ?? false;
+    if (merged.source) this.logSource = merged.source;
   }
 
   private shouldLog(level: LogLevel): boolean {

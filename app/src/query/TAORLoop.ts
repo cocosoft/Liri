@@ -16,6 +16,7 @@ import {
   TokenBudgetController,
   TokenBudgetStatus,
   type TokenBudgetState,
+  getDefaultTokenBudget,
 } from '../core/tokenBudget/TokenBudgetController.js';
 import type { TokenBudgetConfig } from './TokenBudget.js';
 import { StopHookManager, DEFAULT_STOP_HOOK_PRIORITIES } from './StopHooks.js';
@@ -297,7 +298,8 @@ export class TAORLoop {
   ) {
     this.queryEngine = queryEngine;
     this.config = {
-      maxTurns: config.maxTurns ?? 50,
+      maxTurns:
+        config.maxTurns ?? (parseInt(process.env.MAX_TAOR_TURNS || '') || 300),
       budgetConfig: config.budgetConfig || {},
       sessionId: config.sessionId || '',
       enableCheckpoint: config.enableCheckpoint !== false,
@@ -315,14 +317,17 @@ export class TAORLoop {
     };
     this.steeringQueue = config.steeringMessages ?? [];
     this.contextEngineRegistry = config.contextEngineRegistry;
+    const model = this.config.budgetConfig.modelName || 'default';
+    const defaultBudget = getDefaultTokenBudget(model);
     this.tokenBudget = new TokenBudgetController(
-      this.config.budgetConfig.modelName || 'default',
+      model,
       {
-        total: this.config.budgetConfig.maxTokens || 200_000,
-        remaining: this.config.budgetConfig.maxTokens || 200_000,
+        total: this.config.budgetConfig.maxTokens || defaultBudget.total,
+        remaining:
+          this.config.budgetConfig.maxTokens || defaultBudget.remaining,
         maxOutputTokens: this.config.budgetConfig.maxOutputTokens,
       },
-      this.config.budgetConfig.maxTokens
+      this.config.budgetConfig.maxTokens || defaultBudget.total
     );
     this.stopHookManager = new StopHookManager();
     this.abortController = new AbortController();
@@ -704,13 +709,57 @@ export class TAORLoop {
           }>
         | undefined;
 
-      if (toolCalls && toolCalls.length > 0) {
+      // Fallback: API 未返回结构化 tool_calls 时，尝试从文本中解析 XML-格式工具调用
+      // 覆盖 <tool_call> / <invoke> / <function_call> 等格式
+      let fallbackToolCalls:
+        | Array<{
+            id: string;
+            name: string;
+            arguments: Record<string, unknown>;
+          }>
+        | undefined;
+
+      if (!toolCalls || toolCalls.length === 0) {
+        const content = (response.content as string) ?? '';
+        const { parserRegistry } = await import('../ai/parsers/ParserRegistry');
+        const parsed = parserRegistry.parseFallback(content);
+        if (parsed.toolCalls && parsed.toolCalls.length > 0) {
+          fallbackToolCalls = parsed.toolCalls.map((tc) => ({
+            id: tc.id,
+            name: tc.name,
+            arguments:
+              typeof tc.arguments === 'string'
+                ? (JSON.parse(tc.arguments) as Record<string, unknown>)
+                : (tc.arguments as Record<string, unknown>),
+          }));
+          // 用剥离标签后的内容替换 assistant 消息
+          const cleanContent = parsed.content ?? '';
+          if (cleanContent !== content) {
+            messages[messages.length - 1] = {
+              role: 'assistant',
+              content: cleanContent,
+              tool_calls:
+                fallbackToolCalls as unknown as ChatMessage['tool_calls'],
+            };
+          }
+          logger.info('Fallback parser 提取到工具调用', {
+            sessionId: this.config.sessionId,
+            turnCount: this.turnCount,
+            toolCount: fallbackToolCalls.length,
+            toolNames: fallbackToolCalls.map((t) => t.name),
+          });
+        }
+      }
+
+      const effectiveToolCalls = toolCalls ?? fallbackToolCalls;
+
+      if (effectiveToolCalls && effectiveToolCalls.length > 0) {
         // —— ACT ——
         this.currentPhase = TAORPhase.ACT;
         this.emitPhase(TAORPhase.ACT, this.turnCount, 'Executing tools');
 
         // Loop 检测（工具执行前）
-        for (const tc of toolCalls) {
+        for (const tc of effectiveToolCalls) {
           const loopResult = this.loopDetector.detect(tc.name, tc.arguments);
           if (loopResult.stuck && loopResult.level === 'critical') {
             logger.warn('Loop detected in TAORLoop: critical', {
@@ -725,7 +774,7 @@ export class TAORLoop {
         if (this.stopped) break;
 
         // PathGuard 路径安全守卫（Phase 1）
-        for (const tc of toolCalls) {
+        for (const tc of effectiveToolCalls) {
           const pathCheck = this.pathGuard.checkToolCall(tc.name, tc.arguments);
           if (!pathCheck.allowed) {
             logger.warn('PathGuard 拦截工具调用', {
@@ -741,7 +790,7 @@ export class TAORLoop {
         if (this.stopped) break;
 
         // FileIOLoopDetector 文件读写循环检测（Phase 2）
-        for (const tc of toolCalls) {
+        for (const tc of effectiveToolCalls) {
           const args = tc.arguments as Record<string, unknown>;
           const filePath = (args.path ?? args.filePath ?? args.directory) as
             | string
@@ -776,7 +825,7 @@ export class TAORLoop {
         const otel = getOTelTracing();
         const execSpan = otel.startSpan('taor.executeTools', {
           turn: this.turnCount,
-          'tool.count': toolCalls.length,
+          'tool.count': effectiveToolCalls.length,
         });
         let rawResults: Array<{
           toolCallId?: string;
@@ -786,7 +835,7 @@ export class TAORLoop {
         }>;
         try {
           rawResults = await deps.executeTools(
-            toolCalls.map((tc) => ({
+            effectiveToolCalls.map((tc) => ({
               id: tc.id,
               name: tc.name,
               arguments: tc.arguments,
@@ -805,11 +854,11 @@ export class TAORLoop {
             context: {
               sessionId: this.config.sessionId,
               turnCount: this.turnCount,
-              toolCount: toolCalls.length,
+              toolCount: effectiveToolCalls.length,
             },
           });
           // 构造错误结果，不丢失工具调用信息
-          rawResults = toolCalls.map((tc) => ({
+          rawResults = effectiveToolCalls.map((tc) => ({
             toolCallId: tc.id,
             toolName: tc.name,
             error: `工具执行异常: ${execErr instanceof Error ? execErr.message.slice(0, 300) : String(execErr).slice(0, 300)}`,
@@ -817,13 +866,13 @@ export class TAORLoop {
           // 注入系统提示，让 LLM 知道发生了什么
           messages.push({
             role: 'user',
-            content: `[SYSTEM] 上一轮 ${toolCalls.length} 个工具调用在执行阶段发生异常，请告知用户遇到了什么问题，并根据当前已完成的部分给出总结或建议下一步操作。`,
+            content: `[SYSTEM] 上一轮 ${effectiveToolCalls.length} 个工具调用在执行阶段发生异常，请告知用户遇到了什么问题，并根据当前已完成的部分给出总结或建议下一步操作。`,
           } as ChatMessage);
         }
 
         // Loop 检测（工具执行后记录结果）
-        for (let i = 0; i < toolCalls.length; i++) {
-          const tc = toolCalls[i];
+        for (let i = 0; i < effectiveToolCalls.length; i++) {
+          const tc = effectiveToolCalls[i];
           const r = rawResults[i];
           if (r) {
             this.loopDetector.recordToolCallOutcome(
@@ -837,8 +886,8 @@ export class TAORLoop {
 
         // 追加 tool 结果消息
         let roundHadErrors = false;
-        for (let i = 0; i < toolCalls.length; i++) {
-          const tc = toolCalls[i];
+        for (let i = 0; i < effectiveToolCalls.length; i++) {
+          const tc = effectiveToolCalls[i];
           const r = rawResults[i];
           const hasError = !r || r.error;
           const isEmpty =
@@ -866,8 +915,8 @@ export class TAORLoop {
         this._lastRoundHadToolErrors = roundHadErrors;
 
         // 全局断路器记录（Phase 2）：同调用+同结果追踪
-        for (let i = 0; i < toolCalls.length; i++) {
-          const tc = toolCalls[i];
+        for (let i = 0; i < effectiveToolCalls.length; i++) {
+          const tc = effectiveToolCalls[i];
           const r = rawResults[i];
           if (r && !r.error) {
             const argsHash =
@@ -968,7 +1017,7 @@ export class TAORLoop {
               tool_calls: m.tool_calls,
               tool_call_id: m.tool_call_id,
             })),
-            toolResults: toolCalls.map((tc, i) => ({
+            toolResults: effectiveToolCalls.map((tc, i) => ({
               toolName: tc.name,
               toolCallId: tc.id,
               result: rawResults[i]?.result,

@@ -97,6 +97,9 @@ import {
 // Channel plugin handlers（直接函数调用）
 import { handleUninstallChannelPlugin } from './channel-plugin-handlers';
 
+// Trace handlers（直接函数调用）
+import { handleTraceStats } from './trace-handlers';
+
 // Agent role handlers（直接函数调用）
 import {
   handleListAgentRoles,
@@ -1984,6 +1987,11 @@ export async function dispatchRoute(
   // P3-2.11: 后端错误统计
   if (method === 'GET' && url === '/v1/monitoring/errors') {
     self['handleGetErrorStats'](req, res);
+    return true;
+  }
+  // Trace 统计（必选项 — 暴露真实 API token 消耗数据）
+  if (method === 'GET' && url === '/v1/trace/stats') {
+    await handleTraceStats(req, res);
     return true;
   }
   if (method === 'POST' && url === '/v1/monitor/logs/export') {

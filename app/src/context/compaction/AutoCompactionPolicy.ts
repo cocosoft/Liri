@@ -1,6 +1,14 @@
 /**
- * AutoCompactionPolicy — 分级压缩触发策略（Phase 3）
- * 对标 PilotDeck AutoCompactionPolicy + hermes-agent 反抖动
+ * AutoCompactionPolicy — 分级压缩触发策略
+ *
+ * 流式水位监测已迁移到 UnifiedTokenTracker（UnifiedTokenTracker.startStreamingCheck）。
+ * 反抖动逻辑已内联到 UnifiedTokenTracker.shouldSkipDueToAntiFlapping()。
+ *
+ * **当前仍在 CompactionOrchestrator（构造函数 L9-10）和 ChatManager（L1550, L2569）中**
+ * **用于发送前压缩评估（非流式路径）。删除前必须完成以下迁移：**
+ *   1. CompactionOrchestrator 的评估逻辑迁移到 UnifiedTokenTracker.checkBeforeRequest()
+ *   2. ChatManager 两处入口的 autoCompactionPolicy.evaluate() 替换为 unifiedTracker.checkBeforeRequest()
+ *   3. 确认反抖动逻辑完全由 UnifiedTokenTracker 接管
  *
  * 决策逻辑：
  *   < 85% → skip
@@ -47,6 +55,7 @@
 import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
 import { resolveContextWindow } from '../window/ContextWindowResolver';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '../../error/handleError';
 
 const logger = new Logger({
   module: 'context:compaction:policy',
@@ -66,11 +75,45 @@ export class AutoCompactionPolicy {
   private blockingRatio: number;
   private recentSavings: number[] = [];
   private maxRecentSavings: number;
+  /** 逃生计数器：连续因反抖动跳过压缩的次数，超过阈值时强制允许压缩 */
+  private antiFlappingSkipCount: number = 0;
+  private static readonly ANTI_FLAPPING_ESCAPE = 10;
+  /** 校准因子：EMA 从 API 真实 usage 学习，修正估算偏差。1.0 = 信任估算 */
+  private calibrationFactor: number = 1.0;
+
+  /** 消息数量兜底阈值：超过此数量时强制至少 warn（绕过 token 估算偏差） */
+  private static readonly MESSAGE_COUNT_FALLBACK = 50;
+  /** 消息数兜底触发的最低比率：仅当估算低于此阈值（50%）时才认为估算失准 */
+  private static readonly MESSAGE_COUNT_FALLBACK_RATIO = 0.5;
 
   constructor(warningRatio = 0.85, blockingRatio = 0.92) {
     this.warningRatio = warningRatio;
     this.blockingRatio = blockingRatio;
     this.maxRecentSavings = 2; // 反抖动窗口
+  }
+
+  /**
+   * 设置校准因子（由 UnifiedTokenTracker 同步，EMA 平滑后的值）
+   * @param factor 校准因子，有下限保护避免完全不触发压缩
+   */
+  setCalibrationFactor(factor: number): void {
+    if (!isFinite(factor) || factor <= 0) {
+      logger.warn('compaction:invalid calibration factor rejected', { factor });
+      return;
+    }
+    // 下限保护：0.2（tiktoken BPE 精确估算 + Trace 真实数据校准闭环，
+    // 因子不会大幅偏离 1.0，但仍需防止极端情况下完全不触发压缩）
+    this.calibrationFactor = Math.max(factor, 0.2);
+    logger.info('compaction:calibration set', {
+      factor: this.calibrationFactor,
+    });
+  }
+
+  /**
+   * 获取当前校准因子
+   */
+  getCalibrationFactor(): number {
+    return this.calibrationFactor;
   }
 
   /**
@@ -83,46 +126,101 @@ export class AutoCompactionPolicy {
     model: string,
     configOverride?: number
   ): AutoCompactionDecision {
-    const tokens = estimateMessagesTokens(messages);
-    const { tokens: maxTokens } = resolveContextWindow(model, configOverride);
-    const ratio = maxTokens > 0 ? tokens / maxTokens : 0;
+    try {
+      const rawTokens = estimateMessagesTokens(messages);
+      // 用校准因子修正估算偏差，使 token 计数更接近真实值
+      const tokens = Math.round(rawTokens * this.calibrationFactor);
+      const { tokens: maxTokens } = resolveContextWindow(model, configOverride);
+      const ratio = maxTokens > 0 ? tokens / maxTokens : 0;
 
-    const snapshot = { tokens, maxTokens, ratio };
+      const snapshot = { tokens, maxTokens, ratio };
 
-    if (ratio < this.warningRatio) {
-      return { decision: 'skip', snapshot };
-    }
-
-    if (ratio >= this.blockingRatio) {
-      // 反抖动检查
-      if (this.shouldSkipDueToAntiFlapping()) {
+      // 消息数量兜底：当 token 估算严重偏低时（ratio 极低但消息数已达上限），
+      // 强制 trigger 以启动完整 Tier2→Tier3 压缩管线，防止压缩永远不触发。
+      // 仅当比率低于 50% 时才认为估算明显失准，避免在正常高水位时误触发。
+      if (
+        messages.length > AutoCompactionPolicy.MESSAGE_COUNT_FALLBACK &&
+        ratio < AutoCompactionPolicy.MESSAGE_COUNT_FALLBACK_RATIO
+      ) {
+        logger.info('compaction:evaluate message-count fallback', {
+          decision: 'trigger',
+          messageCount: messages.length,
+          threshold: AutoCompactionPolicy.MESSAGE_COUNT_FALLBACK,
+          ratio: Math.round(ratio * 100) / 100,
+          tokens,
+          maxTokens,
+          model,
+        });
         return {
-          decision: 'skip',
+          decision: 'trigger',
           snapshot,
-          reason: `anti-flapping: last ${this.maxRecentSavings} compactions each saved < 10%`,
+          reason: `message count ${messages.length} > ${AutoCompactionPolicy.MESSAGE_COUNT_FALLBACK} (token ratio ${(ratio * 100).toFixed(1)}% still below ${(this.warningRatio * 100).toFixed(0)}%, estimation may be off — forcing trigger for safety)`,
         };
       }
 
-      logger.info('compaction:triggered', {
-        tier: 3,
-        reason: 'blocking threshold',
-        beforeTokens: tokens,
-        maxTokens,
-        ratio,
-      });
+      if (ratio < this.warningRatio) {
+        logger.info('compaction:evaluate', {
+          decision: 'skip',
+          ratio: Math.round(ratio * 100) / 100,
+          tokens,
+          maxTokens,
+          model,
+        });
+        return { decision: 'skip', snapshot };
+      }
 
+      if (ratio >= this.blockingRatio) {
+        // 反抖动检查
+        if (this.shouldSkipDueToAntiFlapping()) {
+          logger.info('compaction:evaluate anti-flapping skip', {
+            ratio: Math.round(ratio * 100) / 100,
+            tokens,
+            maxTokens,
+          });
+          return {
+            decision: 'skip',
+            snapshot,
+            reason: `anti-flapping: last ${this.maxRecentSavings} compactions each saved < 10%`,
+          };
+        }
+
+        logger.info('compaction:evaluate triggered', {
+          decision: 'trigger',
+          tier: 3,
+          ratio: Math.round(ratio * 100) / 100,
+          tokens,
+          maxTokens,
+          model,
+        });
+        return {
+          decision: 'trigger',
+          snapshot,
+          reason: `token ratio ${(ratio * 100).toFixed(1)}% >= ${(this.blockingRatio * 100).toFixed(0)}%`,
+        };
+      }
+
+      logger.info('compaction:evaluate warn', {
+        decision: 'warn',
+        ratio: Math.round(ratio * 100) / 100,
+        tokens,
+        maxTokens,
+        model,
+      });
       return {
-        decision: 'trigger',
+        decision: 'warn',
         snapshot,
-        reason: `token ratio ${(ratio * 100).toFixed(1)}% >= ${(this.blockingRatio * 100).toFixed(0)}%`,
+        reason: `token ratio ${(ratio * 100).toFixed(1)}% >= ${(this.warningRatio * 100).toFixed(0)}%`,
+      };
+    } catch (err) {
+      logger.error('compaction:evaluate error, falling back to warn', {
+        error: String(err),
+        model,
+      });
+      return {
+        decision: 'warn',
+        snapshot: { tokens: 0, maxTokens: 0, ratio: 0 },
       };
     }
-
-    return {
-      decision: 'warn',
-      snapshot,
-      reason: `token ratio ${(ratio * 100).toFixed(1)}% >= ${(this.warningRatio * 100).toFixed(0)}%`,
-    };
   }
 
   /**
@@ -138,15 +236,32 @@ export class AutoCompactionPolicy {
 
   /**
    * 反抖动：最近 N 次压缩各节省 < 10% 则跳过
+   * 逃生机制：连续跳过超过 ANTI_FLAPPING_ESCAPE 次时强制允许压缩，防止永久卡死
    */
   private shouldSkipDueToAntiFlapping(): boolean {
     if (this.recentSavings.length < this.maxRecentSavings) return false;
-    return this.recentSavings.every((s) => s < 10);
+    if (this.recentSavings.every((s) => s < 10)) {
+      this.antiFlappingSkipCount++;
+      if (
+        this.antiFlappingSkipCount >= AutoCompactionPolicy.ANTI_FLAPPING_ESCAPE
+      ) {
+        logger.info('compaction:anti_flapping_escape', {
+          skipCount: this.antiFlappingSkipCount,
+        });
+        this.recentSavings = [];
+        this.antiFlappingSkipCount = 0;
+        return false;
+      }
+      return true;
+    }
+    this.antiFlappingSkipCount = 0;
+    return false;
   }
 
   /** 重置反抖动状态 */
   reset(): void {
     this.recentSavings = [];
+    this.antiFlappingSkipCount = 0;
   }
 }
 

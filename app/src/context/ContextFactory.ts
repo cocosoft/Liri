@@ -15,6 +15,10 @@ export interface ToolUseContextOptions {
   toolName: string;
   toolInput: Record<string, unknown>;
   sessionId: string;
+  /** 渠道来源标识（如 'wechat', 'dingtalk'），用于 Cron 任务结果回传 */
+  channelId?: string;
+  /** 渠道会话标识，用于恢复渠道上下文 */
+  channelSessionId?: string;
 }
 
 export interface UserInfo {
@@ -44,7 +48,11 @@ export class ContextFactory {
   createToolUseContext(options: ToolUseContextOptions): ToolUseContext {
     return {
       type: 'tool-use',
-      ...options,
+      toolName: options.toolName,
+      toolInput: options.toolInput,
+      sessionId: options.sessionId,
+      channelId: options.channelId,
+      channelSessionId: options.channelSessionId,
       createdAt: new Date(),
     };
   }

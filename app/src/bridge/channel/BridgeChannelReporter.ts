@@ -79,12 +79,12 @@ export class BridgeChannelReporter {
         report.targetUserId,
         message
       );
-      if (sendResult.success) {
+      if (sendResult) {
         logger.info(
           `Bridge→Channel 上报成功: ${report.taskId} → ${report.channelId}/${report.targetUserId}`
         );
       }
-      return sendResult.success;
+      return sendResult;
     } catch (error) {
       logger.error(`Bridge→Channel 上报失败: ${report.taskId}`, error as Error);
       return false;
@@ -151,11 +151,10 @@ export class BridgeChannelReporter {
     }
 
     try {
-      const result = await entry.plugin!.outbound.sendText(
+      return await entry.plugin!.outbound.sendText(
         targetUserId,
         lines.join('\n')
       );
-      return result.success;
     } catch (error) {
       logger.error('摘要上报失败', error as Error);
       return false;

@@ -156,14 +156,15 @@ function ImageGallery({
                 onError={(e) => {
                   // 图片加载失败显示占位色块
                   const target = e.currentTarget;
+                  const parent = target.parentElement;
+                  if (!parent) return;
                   target.style.display = "none";
-                  target.parentElement!.style.background =
-                    "rgba(128,128,128,0.1)";
-                  target.parentElement!.innerHTML =
+                  parent.style.background = "rgba(128,128,128,0.1)";
+                  parent.innerHTML =
                     '<span style="font-size:20px;opacity:0.3">🖼</span>';
-                  target.parentElement!.style.display = "flex";
-                  target.parentElement!.style.alignItems = "center";
-                  target.parentElement!.style.justifyContent = "center";
+                  parent.style.display = "flex";
+                  parent.style.alignItems = "center";
+                  parent.style.justifyContent = "center";
                 }}
               />
             </button>

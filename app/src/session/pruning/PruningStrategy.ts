@@ -32,7 +32,7 @@ export interface PruningStrategy {
 
 export const DEFAULT_PRUNING_CONFIG: PruningConfig = {
   enabled: true,
-  maxContextTokens: 100_000,
+  maxContextTokens: 200_000,
   maxContextMessages: 200,
   messageTtlMs: 3_600_000,
   ttlEnabled: true,

@@ -323,6 +323,14 @@ export class CompactServiceImpl implements CompactService {
       .slice(-messagesCountToKeep)
       .map((m) => m.id);
 
+    const postEstimate = preCompactTokenCount
+      ? Math.round(preCompactTokenCount * 0.3)
+      : undefined;
+    const savedPercent =
+      preCompactTokenCount && postEstimate
+        ? Math.round((1 - postEstimate / preCompactTokenCount) * 100)
+        : undefined;
+
     return {
       boundaryMarker,
       summaryMessages: [summaryMessage],
@@ -330,9 +338,11 @@ export class CompactServiceImpl implements CompactService {
       hookResults: [],
       messagesToKeep,
       preCompactTokenCount,
-      postCompactTokenCount: preCompactTokenCount
-        ? Math.round(preCompactTokenCount * 0.3)
-        : undefined,
+      postCompactTokenCount: postEstimate,
+      userDisplayMessage:
+        savedPercent !== undefined
+          ? `上下文已压缩：${preCompactTokenCount!.toLocaleString()} → ${postEstimate!.toLocaleString()} tokens（节省 ${savedPercent}%）`
+          : `上下文已压缩（保留最近 ${roundsToKeep} 轮对话）`,
     };
   }
 
@@ -375,6 +385,7 @@ export class CompactServiceImpl implements CompactService {
       hookResults: [],
       messagesToKeep: messagesToKeepIndices,
       preCompactTokenCount,
+      userDisplayMessage: `部分上下文已压缩（${direction === 'up_to' ? '前置' : '后置'}）`,
     };
   }
 

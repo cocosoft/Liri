@@ -667,6 +667,13 @@ export interface SendMessageOptions {
     stage: 'analyzing' | 'tool_executing' | 'generating' | 'completed';
     message: string;
     toolName?: string;
+    /** 上下文水位状态（当 stage='generating' 且水位非 normal 时存在） */
+    watermarkState?: {
+      currentTokens: number;
+      contextLimit: number;
+      ratio: number;
+      severity: 'normal' | 'warn' | 'compact';
+    };
   }) => void;
 
   /**

@@ -75,8 +75,8 @@ function Footer() {
     };
     // 初始加载
     fetchCostSummary();
-    // 弹窗展开时 5s 轮询，收起时停止
-    if (showCostDetail || isExpanded) {
+    // 仅当成本详情弹窗展开时轮询，关闭后立即停止（之前 || 导致一边关闭另一边仍在轮询）
+    if (showCostDetail) {
       interval = setInterval(fetchCostSummary, 5000);
     }
     return () => {

@@ -47,6 +47,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { BackgroundAgentTask } from '@modules/tasks/BackgroundAgentTask';
 import type { BackgroundTaskInfo } from '@modules/tasks/types';
 import { Logger } from '@modules/monitoring';
+import { subAgentTokenListeners } from '../../core/tokenBudget/SubAgentTokenBridge';
 
 /**
  * 工具管理器引用（DI 注入，避免循环依赖）
@@ -892,6 +893,25 @@ export class AgentTool implements Tool {
           agentId,
           agentType: effectiveType,
         });
+      }
+
+      // 将子 Agent 的 token 消耗汇聚到父会话的 UnifiedTokenTracker
+      if (result.tokenUsage && context?.sessionId) {
+        const usage = result.tokenUsage;
+        if (usage.totalTokens > 0) {
+          for (const listener of subAgentTokenListeners) {
+            try {
+              listener({
+                sessionId: context.sessionId,
+                promptTokens: usage.promptTokens ?? 0,
+                completionTokens: usage.completionTokens ?? 0,
+                totalTokens: usage.totalTokens,
+              });
+            } catch {
+              // 监听器异常不中断主流程
+            }
+          }
+        }
       }
 
       this.activeAgents.get(agentId)!.status = 'completed';

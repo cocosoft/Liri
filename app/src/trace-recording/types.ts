@@ -73,8 +73,6 @@ export interface TraceConfig {
   mode: 'all' | 'error-only' | 'slow-only';
   /** 慢查询阈值（ms） */
   slowThresholdMs: number;
-  /** 是否启用（默认 true） */
-  enabled?: boolean;
 }
 
 /** 统计快照 */

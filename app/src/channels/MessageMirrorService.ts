@@ -207,7 +207,10 @@ export class MessageMirrorService {
         const target = new DeliveryTarget(targetPlatform, sourceConversationId);
 
         try {
-          const result = await router.deliverToTarget(target, mirroredContent);
+          const result = await router.deliverToTarget(target, {
+            format: 'text',
+            content: mirroredContent,
+          });
 
           const record: MirrorRecord = {
             id: `mirror_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,

@@ -42,9 +42,25 @@ function saveLogs(logs: FrontendLogEntry[]): void {
     // 限制日志数量
     const trimmed = logs.slice(-MAX_LOGS);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    // 清除缓存（日志内容变化）
+    _levelCountsCache = null;
   } catch {
     // localStorage 不可用，静默忽略
   }
+}
+
+// 级别计数缓存，避免每次 countByLevel 遍历全数组
+let _levelCountsCache: Record<string, number> | null = null;
+
+function getLevelCountsCache(): Record<string, number> {
+  if (!_levelCountsCache) {
+    const logs = getStoredLogs();
+    _levelCountsCache = {};
+    for (const log of logs) {
+      _levelCountsCache[log.level] = (_levelCountsCache[log.level] || 0) + 1;
+    }
+  }
+  return _levelCountsCache;
 }
 
 export const logStore = {
@@ -138,9 +154,9 @@ export const logStore = {
   },
 
   /**
-   * 获取指定级别的日志数量
+   * 获取指定级别的日志数量（O(1) 缓存，首次或写操作后重建）
    */
   countByLevel(level: LogLevel): number {
-    return getStoredLogs().filter((log) => log.level === level).length;
+    return getLevelCountsCache()[level] || 0;
   },
 };

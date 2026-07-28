@@ -65,6 +65,8 @@ class SSEService {
 
   /** 是否已绑定 visibilitychange 监听 */
   private visibilityBound = false;
+  /** visibilitychange 处理器引用（保留以便移除） */
+  private _onVisibilityChange: (() => void) | null = null;
 
   // ── 公共 API ──────────────────────────────────────────────────
 
@@ -191,6 +193,16 @@ class SSEService {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+
+    // 移除 visibilitychange 监听器
+    if (this.visibilityBound && this._onVisibilityChange) {
+      document.removeEventListener(
+        "visibilitychange",
+        this._onVisibilityChange,
+      );
+      this._onVisibilityChange = null;
+      this.visibilityBound = false;
+    }
   }
 
   /**
@@ -304,7 +316,7 @@ class SSEService {
     if (this.visibilityBound) return;
     this.visibilityBound = true;
 
-    document.addEventListener("visibilitychange", () => {
+    this._onVisibilityChange = () => {
       if (document.visibilityState !== "visible") return;
       if (this.isConnected()) return;
 
@@ -315,7 +327,8 @@ class SSEService {
       }
       this.reconnectDelay = INITIAL_RECONNECT_DELAY;
       this.connect();
-    });
+    };
+    document.addEventListener("visibilitychange", this._onVisibilityChange);
   }
 
   // ── 内部工具 ──────────────────────────────────────────────────

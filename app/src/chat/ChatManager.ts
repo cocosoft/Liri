@@ -53,6 +53,7 @@ import {
   ensureThinkResponseTags,
   stripThinkResponseTags,
 } from './services/MessageContextPipeline';
+import { StreamingToolCallScrubber } from '../streaming/scrubbers/StreamingToolCallScrubber';
 import { SessionAccessFacade } from './services/SessionAccessFacade';
 import { TaskFacade } from './facades/TaskFacade';
 
@@ -71,6 +72,7 @@ import type {
   StreamMessageOptions,
   ChatResponse,
 } from './types/message.js';
+import { createSystemMessage } from './types/message.js';
 import type { ChatSession, CreateSessionParams } from './types/session.js';
 import { SessionState } from './types/session.js';
 import type { ToolCall, ToolResult, ToolIntegration } from './types/tool.js';
@@ -126,9 +128,12 @@ import {
   TokenBudgetController,
   TokenBudgetStatus,
   type TokenBudgetParams,
+  getDefaultTokenBudget,
 } from '../core/tokenBudget/TokenBudgetController.js';
+import { UnifiedTokenTracker } from '../core/tokenBudget/UnifiedTokenTracker.js';
 import { ContextTracker } from '../query/context/ContextTracker.js';
-import { autoCompactionPolicy } from '../context/compaction/AutoCompactionPolicy.js';
+import { compactionOrchestrator } from '../context/compaction/CompactionOrchestrator.js';
+import { estimateMessagesTokens } from '../ai/tokenizer/TokenEstimator';
 import { FileCheckpointStorage } from '../query/FileCheckpointStorage.js';
 import {
   StopHookManager,
@@ -172,7 +177,6 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { roughTokenCountForMessages } from '../services/tokenManagement/TokenCounter.js';
 
 import { TaskStatus } from '@modules/tasks/types';
 
@@ -239,15 +243,15 @@ export class ChatManagerImpl implements ChatManager {
 
   /**
    * 传统工具循环最大轮次（防止无 TAORLoop 保护时的死循环）
-   * 可通过环境变量 MAX_TOOL_TURNS 覆盖，默认 50（与 TAORLoop maxTurns 一致）
+   * 可通过环境变量 MAX_TAOR_TURNS 或 MAX_TOOL_TURNS 覆盖，默认 300
    */
   private readonly MAX_TOOL_TURNS = (() => {
-    const env = process.env.MAX_TOOL_TURNS;
+    const env = process.env.MAX_TAOR_TURNS || process.env.MAX_TOOL_TURNS;
     if (env) {
       const val = parseInt(env, 10);
       if (!isNaN(val) && val > 0) return val;
     }
-    return 50;
+    return 300;
   })();
 
   /**
@@ -328,6 +332,8 @@ export class ChatManagerImpl implements ChatManager {
    * Token 预算管理器（仅累计，不做循环控制——循环控制由 Phase 2 的 StopHookManager 负责）
    */
   private tokenBudget: TokenBudgetController;
+  /** 统一追踪器 — 请求前预检 + 流式水位 + 请求后校准 */
+  private unifiedTracker: UnifiedTokenTracker;
 
   /**
    * 上下文压缩追踪器（记录压缩前后 token 数、压缩比等指标）
@@ -426,10 +432,15 @@ export class ChatManagerImpl implements ChatManager {
     this._checkpointService = createCheckpointService(
       new FileCheckpointStorage()
     );
+    const defaultBudget = getDefaultTokenBudget('default');
     this.tokenBudget = new TokenBudgetController(
       'default',
-      { total: 200_000, remaining: 200_000 },
-      200_000
+      defaultBudget,
+      defaultBudget.total
+    );
+    this.unifiedTracker = new UnifiedTokenTracker(
+      this.tokenBudget,
+      new ContextTracker()
     );
     this.stopHookManager = createStopHookManager();
     this._registerStopHooks();
@@ -443,7 +454,7 @@ export class ChatManagerImpl implements ChatManager {
     if (!this._taorLoop) {
       this._taorLoop = createTAORLoop(this.getQueryEngine(), {
         sessionId,
-        maxTurns: 50,
+        maxTurns: parseInt(process.env.MAX_TAOR_TURNS || '') || 300,
         /** 启用检查点，每 3 轮自动保存（原值：关闭 + 5 轮） */
         enableCheckpoint: true,
         checkpointInterval: 3,
@@ -1535,23 +1546,66 @@ export class ChatManagerImpl implements ChatManager {
         }
 
         // ─────────────────────────────────────────────────────────
-        // 上下文长度保护：分级压缩策略评估 + 超限截断
+        // 上下文长度保护：CompactionOrchestrator 三级渐进压缩
+        //   Tier 1: MicroCompaction（无损移除过期 tool_result）
+        //   Tier 2: SnipEngine（按轮次选择性裁剪）
+        //   Tier 3: LLM Full Compaction（AI 摘要压缩）
+        //   Fallback: _truncateApiMessages（粗暴截断）
         // ─────────────────────────────────────────────────────────
-        const maxCtx = resolveMaxContextTokens(options?.model);
-        const compactionDecision = autoCompactionPolicy.evaluate(
-          apiMessages,
-          options?.model || ''
+        const beforeCompact = estimateMessagesTokens(apiMessages);
+        const compResult = await compactionOrchestrator.compact(
+          apiMessages as unknown as import('../ai/models/types').ChatMessage[],
+          { model: options?.model || '', sessionId: session.id }
         );
-        if (compactionDecision.decision !== 'skip') {
-          logger.info('compaction:policy_evaluated', {
-            decision: compactionDecision.decision,
-            ratio: Number(compactionDecision.snapshot.ratio.toFixed(3)),
-            tokens: compactionDecision.snapshot.tokens,
-            maxTokens: compactionDecision.snapshot.maxTokens,
-            reason: compactionDecision.reason,
-          });
+        if (compResult.applied) {
+          apiMessages = compResult.messages as unknown as Record<
+            string,
+            unknown
+          >[];
+        } else {
+          // 编排未生效 → fallback 到截断
+          const maxCtx = resolveMaxContextTokens(options?.model);
+          await this._truncateApiMessages(apiMessages, maxCtx, session.id);
         }
-        await this._truncateApiMessages(apiMessages, maxCtx, session.id);
+
+        // 通知压缩结果
+        const afterTokens = estimateMessagesTokens(apiMessages);
+        const savedPercent =
+          afterTokens > 0
+            ? Math.round((1 - afterTokens / beforeCompact) * 100)
+            : 0;
+        if (savedPercent > 0) {
+          const displayMsg = `上下文已压缩: ${beforeCompact} → ${afterTokens} tokens（节省 ${savedPercent}%）`;
+          logger.info('compaction:completed', {
+            sessionId: session.id,
+            before: beforeCompact,
+            after: afterTokens,
+            savedPercent,
+          });
+          options?.onProgress?.({
+            stage: 'generating',
+            message: displayMsg,
+          });
+          const sysMsg = createSystemMessage(
+            `[上下文压缩] ${beforeCompact} → ${afterTokens} tokens（节省 ${savedPercent}%）, 策略: tiered`,
+            { sessionId: session.id }
+          );
+          this._addAndPersistMessage(session.id, sysMsg);
+          this.unifiedTracker.recordCompaction(beforeCompact, afterTokens);
+        }
+
+        // 校准：压缩后调用 checkBeforeRequest 设定 baselineInputTokens，
+        // 后续 recordPostRequest 用真实 API usage 更新 calibrationFactor
+        if (options?.model) {
+          this.unifiedTracker.checkBeforeRequest(
+            apiMessages as unknown as {
+              role?: string;
+              content?: string | unknown;
+            }[],
+            options.model,
+            options?.maxTokens
+          );
+        }
 
         // 通知进度：开始 LLM 分析
         options?.onProgress?.({
@@ -2053,6 +2107,14 @@ export class ChatManagerImpl implements ChatManager {
 
     const totalTokens = inputTokens + outputTokens;
     this.tokenBudget.consumeTokens(totalTokens);
+    // Phase 1c: 同步校准因子到 UnifiedTokenTracker
+    this.unifiedTracker.recordPostRequest({
+      usage: { inputTokens, outputTokens, totalTokens },
+    });
+    // 同步校准因子到 AutoCompactionPolicy（使压缩决策阈值更准确）
+    compactionOrchestrator
+      .getPolicy()
+      .setCalibrationFactor(this.unifiedTracker.getCalibrationFactor());
   }
 
   /**
@@ -2234,6 +2296,11 @@ export class ChatManagerImpl implements ChatManager {
       );
     }
 
+    // 根据实际模型更新 token 预算（替换构造时的 'default' 预设值）
+    if (options?.model) {
+      this.unifiedTracker.onModelSwitch(options.model);
+    }
+
     // Bug Fix: 新请求到达时中止同一会话的旧流（防止工具链被打断后永久丢失）
     const existingAbort = this._sessionAbortControllers.get(session.id);
     if (existingAbort) {
@@ -2243,6 +2310,14 @@ export class ChatManagerImpl implements ChatManager {
     }
     const streamAbortController = new AbortController();
     this._sessionAbortControllers.set(session.id, streamAbortController);
+
+    // BUG-02/03 fix: streamMessage 加 mutex 保护（与 sendMessage 对称）
+    let mutex = this._sessionMutexes.get(session.id);
+    if (!mutex) {
+      mutex = new SimpleMutex();
+      this._sessionMutexes.set(session.id, mutex);
+    }
+    await mutex.acquire();
 
     // Phase 5+: 记忆初始化（新版 MemoryManagerImpl 自动初始化，无需手动调用）
 
@@ -2524,22 +2599,44 @@ export class ChatManagerImpl implements ChatManager {
 
     const activeClient = this.getClientForModel(options?.model);
 
-    // 上下文长度保护：分级压缩策略评估 + 超限截断
-    const maxCtx = resolveMaxContextTokens(options?.model);
-    const compactionDecision = autoCompactionPolicy.evaluate(
-      apiMessages,
-      options?.model || ''
+    // ─────────────────────────────────────────────────────────
+    // 上下文长度保护：CompactionOrchestrator 三级渐进压缩
+    // ─────────────────────────────────────────────────────────
+    const beforeCompact = estimateMessagesTokens(apiMessages);
+    const compResult = await compactionOrchestrator.compact(
+      apiMessages as unknown as import('../ai/models/types').ChatMessage[],
+      { model: options?.model || '', sessionId: session.id }
     );
-    if (compactionDecision.decision !== 'skip') {
-      logger.info('compaction:policy_evaluated', {
-        decision: compactionDecision.decision,
-        ratio: Number(compactionDecision.snapshot.ratio.toFixed(3)),
-        tokens: compactionDecision.snapshot.tokens,
-        maxTokens: compactionDecision.snapshot.maxTokens,
-        reason: compactionDecision.reason,
-      });
+    if (compResult.applied) {
+      apiMessages = compResult.messages as unknown as Record<string, unknown>[];
+    } else {
+      const maxCtx = resolveMaxContextTokens(options?.model);
+      await this._truncateApiMessages(apiMessages, maxCtx, session.id);
     }
-    await this._truncateApiMessages(apiMessages, maxCtx, session.id);
+
+    // 通知压缩结果
+    const afterTokens = estimateMessagesTokens(apiMessages);
+    const savedPercent =
+      afterTokens > 0 ? Math.round((1 - afterTokens / beforeCompact) * 100) : 0;
+    if (savedPercent > 0) {
+      const displayMsg = `上下文已压缩: ${beforeCompact} → ${afterTokens} tokens（节省 ${savedPercent}%）`;
+      logger.info('compaction:completed', {
+        sessionId: session.id,
+        before: beforeCompact,
+        after: afterTokens,
+        savedPercent,
+      });
+      options?.onProgress?.({
+        stage: 'generating',
+        message: displayMsg,
+      });
+      const sysMsg = createSystemMessage(
+        `[上下文压缩] ${beforeCompact} → ${afterTokens} tokens（节省 ${savedPercent}%）, 策略: tiered`,
+        { sessionId: session.id }
+      );
+      this._addAndPersistMessage(session.id, sysMsg);
+      this.unifiedTracker.recordCompaction(beforeCompact, afterTokens);
+    }
 
     // Phase 2: Telemetry + Trajectory THINK 开始
     const streamLlmStartTime = Date.now();
@@ -2570,10 +2667,38 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
 
+    // 缺陷 C 修复: 推理前容量预检 — 主动防御上下文超限
+    if (options?.model) {
+      const preCheck = this.unifiedTracker.checkBeforeRequest(
+        apiMessages as unknown as readonly {
+          role?: string;
+          content?: string | unknown;
+        }[],
+        options.model,
+        options?.maxTokens
+      );
+      if (preCheck.decision !== 'skip') {
+        logger.warn('compaction:preemptive_check', {
+          sessionId: session.id,
+          decision: preCheck.decision,
+          beforeTokens: preCheck.beforeTokens,
+        });
+        if (preCheck.decision === 'trigger') {
+          options?.onProgress?.({
+            stage: 'generating',
+            message: `上下文空间不足（预计 ${preCheck.beforeTokens.toLocaleString()} tokens），建议手动压缩`,
+          });
+        }
+      }
+    }
+
+    // 每轮 LLM 调用前重置输出 token 计数器
+    this.unifiedTracker.resetStreamTokens();
     const gen = activeClient.streamMessage(
       apiMessages as unknown as ChatMessage[],
       {
         ...options,
+        signal: streamAbortController.signal,
         tools:
           toolDefinitions.length > 0
             ? (toolDefinitions as unknown as ToolDefinition[])
@@ -2582,12 +2707,54 @@ export class ChatManagerImpl implements ChatManager {
     );
 
     let result = await gen.next();
+
+    // Phase 1c: 使用 UnifiedTokenTracker 做流式水位监测
+    this.unifiedTracker.startStreamingCheck((state) => {
+      logger.warn('流式输出中上下文水位告警', {
+        sessionId: session.id,
+        currentTokens: state.currentTokens,
+        contextLimit: state.contextLimit,
+        ratio: Number(state.ratio.toFixed(3)),
+        severity: state.severity,
+      });
+      // 结构化水位信息，同时保留人类可读文本用于 status 栏显示
+      const pct = Math.round(state.ratio * 100);
+      const curK =
+        state.currentTokens > 0
+          ? `${(state.currentTokens / 1000).toFixed(0)}K`
+          : '?';
+      const maxK =
+        state.contextLimit > 0
+          ? `${(state.contextLimit / 1000).toFixed(0)}K`
+          : '?';
+      options?.onProgress?.({
+        stage: 'generating',
+        message: `上下文水位: ${pct}% (${curK}/${maxK}) | severity:${state.severity} | ratio:${state.ratio.toFixed(3)} | tokens:${state.currentTokens}/${state.contextLimit}`,
+        watermarkState: {
+          currentTokens: state.currentTokens,
+          contextLimit: state.contextLimit,
+          ratio: state.ratio,
+          severity: state.severity,
+        },
+      });
+    });
+
     try {
       while (!result.done) {
         const chunk = result.value as string | ThinkingProviderChunk;
         if (typeof chunk === 'string') {
           accumulatedContent += chunk;
+          // 缺陷 B 修复: 通知 UnifiedTokenTracker 增量 token 计数，使流式水位监测准确
+          this.unifiedTracker.onStreamChunk(chunk);
         } else if (chunk?.type === 'thinking') {
+          // thinking token 也消耗上下文预算，计入实时水位
+          if (chunk.content) {
+            this.unifiedTracker.onStreamChunk(
+              typeof chunk.content === 'string'
+                ? chunk.content
+                : JSON.stringify(chunk.content)
+            );
+          }
           const thinkingChunk: ChatStreamChunk = {
             type: 'thinking',
             content: chunk.content,
@@ -2615,8 +2782,16 @@ export class ChatManagerImpl implements ChatManager {
     );
     // 剥离 think/response 标签，返回干净的用户可见内容
     const strippedContent = stripThinkResponseTags(repairedContent);
-    options?.onStream?.(strippedContent);
-    yield strippedContent;
+    // 擦洗工具调用标签（<tool_call>/<invoke>/<tool_calls>），防止在流式输出中暴露给用户
+    const toolCallScrubber = new StreamingToolCallScrubber();
+    const scrubbed = toolCallScrubber.scrub({
+      content: strippedContent,
+      isComplete: true,
+    });
+    const residual = toolCallScrubber.flush();
+    const finalContent = scrubbed.content + residual;
+    options?.onStream?.(finalContent);
+    yield finalContent;
 
     this.recordChatResponseUsage(session.id, finalResponse?.usage);
 
@@ -2985,10 +3160,21 @@ export class ChatManagerImpl implements ChatManager {
           ];
 
           let toolResultAccumulatedContent = '';
+          this.unifiedTracker.resetStreamTokens();
+          if (options?.model) {
+            this.unifiedTracker.updateBaselineForRound(
+              updatedMessages as unknown as {
+                role?: string;
+                content?: string | unknown;
+              }[],
+              options.model
+            );
+          }
           const toolGen = activeClient.streamMessage(
             updatedMessages as unknown as ChatMessage[],
             {
               ...options,
+              signal: streamAbortController.signal,
               tools:
                 toolDefinitions.length > 0
                   ? (toolDefinitions as unknown as ToolDefinition[])
@@ -3029,8 +3215,16 @@ export class ChatManagerImpl implements ChatManager {
           const repairedToolContent = ensureThinkResponseTags(
             repairImageUrls(toolResultAccumulatedContent)
           );
-          options?.onStream?.(repairedToolContent);
-          yield repairedToolContent;
+          // 擦洗工具调用标签，防止在工具轮次中暴露给用户
+          const toolRoundScrubber = new StreamingToolCallScrubber();
+          const toolScrubbed = toolRoundScrubber.scrub({
+            content: repairedToolContent,
+            isComplete: true,
+          });
+          const toolResidual = toolRoundScrubber.flush();
+          const cleanToolContent = toolScrubbed.content + toolResidual;
+          options?.onStream?.(cleanToolContent);
+          yield cleanToolContent;
 
           this.recordChatResponseUsage(session.id, toolResultResponse?.usage);
           trackUsage(toolResultResponse ?? {}, {
@@ -3106,6 +3300,10 @@ export class ChatManagerImpl implements ChatManager {
           : String(toolExecErr).slice(0, 300);
       accumulatedContent += `\n\n[工具执行异常: ${errMsg}]`;
     } finally {
+      // Phase 1c: 停止流式水位监测
+      this.unifiedTracker.stopStreamingCheck();
+      // BUG-02/03 fix: 释放 mutex 锁（工具执行异常时也必须释放，防止会话死锁）
+      mutex.release();
       // Bug Fix: 工具执行异常时也必须释放锁和 AbortController，防止会话死锁
       // 通知会话状态变化为空闲状态
       this.getSessionMachine(session.id).finish('工具执行完成');

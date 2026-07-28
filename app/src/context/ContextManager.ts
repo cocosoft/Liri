@@ -8,6 +8,7 @@ import {
   GitContextService,
   getGitContextService,
 } from './GitContextService.js';
+import * as path from 'path';
 import {
   UserContextService,
   getUserContextService,
@@ -31,6 +32,12 @@ import {
   contextSharingManager,
   type SharedContextEntry,
 } from './ContextSharingManager';
+import {
+  ContextEngine,
+  type ContextEntry,
+  type ContextQuery,
+  type ContextResult,
+} from '../context-engine/ContextEngine';
 import type { ContextData } from './types/ContextData';
 import type { Context } from './types/Context';
 
@@ -69,6 +76,8 @@ export interface ContextManagerDependencies {
   lifecycle?: LifecycleManager;
   isolator?: ContextIsolator;
   sharingManager?: ContextSharingManager;
+  /** Phase 5: scope-aware KV 上下文引擎 */
+  engine?: ContextEngine;
 }
 
 /**
@@ -88,6 +97,8 @@ export class ContextManager {
   private lifecycle: LifecycleManager;
   private isolator: ContextIsolator;
   private sharingManager: ContextSharingManager;
+  /** Phase 5: scope-aware KV 上下文引擎 */
+  private engine: ContextEngine | null;
 
   private constructor(
     options: ContextManagerOptions = {},
@@ -109,6 +120,8 @@ export class ContextManager {
     this.lifecycle = deps?.lifecycle ?? lifecycleManager;
     this.isolator = deps?.isolator ?? contextIsolator;
     this.sharingManager = deps?.sharingManager ?? contextSharingManager;
+    // Phase 5: Engine 可选注入，未注入时 scope-aware 功能不可用
+    this.engine = deps?.engine ?? null;
 
     this.cacheService.setDefaultTTL(this.options.cacheTTL);
 
@@ -144,10 +157,10 @@ export class ContextManager {
   }
 
   private setupFileWatchers(): void {
-    const gitPath = '.git';
+    const gitPath = path.resolve('.git');
     this.cacheService.watchDirectory(gitPath, [ContextCacheKeys.GIT_STATUS]);
 
-    const userContextPath = 'Liri.md';
+    const userContextPath = path.resolve('Liri.md');
     this.cacheService.watchFile(userContextPath, [
       ContextCacheKeys.USER_CONTEXT,
     ]);
@@ -257,7 +270,9 @@ export class ContextManager {
   }
 
   getCacheStats() {
-    return this.cacheService.getStats();
+    const cacheStats = this.cacheService.getStats();
+    const engineStats = this.engine?.getStats() ?? null;
+    return { cache: cacheStats, engine: engineStats };
   }
 
   runWithContext<T>(key: string, context: Context, fn: () => T): T {
@@ -293,6 +308,15 @@ export class ContextManager {
 
   destroyAllContexts(): void {
     asyncContextStorage.clearStore();
+  }
+
+  /**
+   * Phase 5: 销毁管理器，清理引擎
+   */
+  destroy(): void {
+    this.clearCache();
+    this.engine?.destroy();
+    this.destroyAllContexts();
   }
 
   registerContextType(type: string, options?: ContextTypeOptions): void {
@@ -384,6 +408,49 @@ export class ContextManager {
   getContextSharingManager(): ContextSharingManager {
     return this.sharingManager;
   }
+
+  // ── Phase 5: Scope-aware KV Engine bridge ──────────────────────────
+
+  /**
+   * 获取 scope-aware KV 引擎（可能为 null，调用方需判空）
+   */
+  getEngine(): ContextEngine | null {
+    return this.engine;
+  }
+
+  /**
+   * 缓存条目到 scope-aware 引擎
+   * 引擎未注入时静默跳过
+   */
+  setEngineEntry(
+    key: string,
+    value: unknown,
+    options?: {
+      scope?: ContextEntry['scope'];
+      priority?: number;
+      ttl?: number;
+      tags?: string[];
+    }
+  ): void {
+    this.engine?.set(key, value, options);
+  }
+
+  /**
+   * 从引擎按 scope 查询
+   * 引擎未注入时返回空结果
+   */
+  queryEngine(query: ContextQuery): ContextResult {
+    return this.engine?.query(query) ?? { entries: [], total: 0, query };
+  }
+
+  /**
+   * 清除引擎中指定 scope 的条目
+   */
+  clearEngineScope(scope: ContextEntry['scope']): void {
+    this.engine?.clear(scope);
+  }
+
+  // ── 上下文装配 ─────────────────────────────────────────────────────
 
   /**
    * prepareForModel — 统一上下文装配接口（对标 PilotDeck ContextRuntime.prepareForModel）

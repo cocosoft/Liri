@@ -294,8 +294,8 @@ export class AgentDelegationOrchestrator {
     if (!entry || !entry.connected) return false;
 
     try {
-      const result = await entry.plugin!.outbound.sendText(target, message);
-      return result.success;
+      const ok = await entry.plugin!.outbound.sendText(target, message);
+      return ok;
     } catch {
       return false;
     }

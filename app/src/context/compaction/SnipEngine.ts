@@ -57,7 +57,7 @@ export function isSnipBoundaryMessage(content: string): boolean {
 }
 
 /**
- * 按用户消息分组为轮次
+ * 按用户消息分组为轮次（不按 system 消息分组，避免记忆注入/跨轮摘要产生虚假轮次）
  */
 function groupByTurns(messages: ChatMessage[]): number[][] {
   const turns: number[][] = [];
@@ -65,7 +65,7 @@ function groupByTurns(messages: ChatMessage[]): number[][] {
 
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
-    if (msg.role === 'user' || msg.role === 'system') {
+    if (msg.role === 'user') {
       if (currentTurn.length > 0) {
         turns.push(currentTurn);
       }
@@ -120,8 +120,11 @@ export function snipMessages(
 
   // 插入边界标记在 head 和 tail 之间
   const headLastIdx =
-    turns[opts.keepHeadTurns - 1]?.[turns[opts.keepHeadTurns - 1].length - 1] ??
-    0;
+    opts.keepHeadTurns > 0
+      ? (turns[opts.keepHeadTurns - 1]?.[
+          turns[opts.keepHeadTurns - 1].length - 1
+        ] ?? 0)
+      : 0;
 
   const result: ChatMessage[] = [];
   for (let i = 0; i < messages.length; i++) {
@@ -142,22 +145,26 @@ export function snipMessages(
   }
 
   // 清理孤立的工具调用/结果
+  // 分别构建两个集合：result ID（有匹配结果）和 call ID（有匹配调用）
+  const pairedResultIds = new Set<string>();
   const pairedCallIds = new Set<string>();
   for (const msg of result) {
     const tcId = (msg as unknown as Record<string, unknown>).tool_call_id as
       | string
       | undefined;
-    if (tcId) pairedCallIds.add(tcId);
-    const name = (msg as unknown as Record<string, unknown>).name as
-      | string
+    if (tcId) pairedResultIds.add(tcId);
+
+    const toolCalls = (msg as unknown as Record<string, unknown>).tool_calls as
+      | Array<{ id?: string }>
       | undefined;
-    const id = (msg as unknown as Record<string, unknown>).id as
-      | string
-      | undefined;
-    if (name && id) pairedCallIds.add(id);
+    if (toolCalls) {
+      for (const tc of toolCalls) {
+        if (tc.id) pairedCallIds.add(tc.id);
+      }
+    }
   }
 
-  let cleaned = stripUnpairedToolCalls(result, pairedCallIds);
+  let cleaned = stripUnpairedToolCalls(result, pairedResultIds);
   cleaned = stripUnpairedToolResults(cleaned, pairedCallIds);
   cleaned = ensureTrailingUserMessage(cleaned);
 

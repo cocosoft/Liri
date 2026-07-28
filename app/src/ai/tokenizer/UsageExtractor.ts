@@ -27,7 +27,10 @@ export function extractOpenAIUsage(
   body: Record<string, unknown>
 ): ExtractedUsage | null {
   const usage = body.usage as Record<string, number> | undefined;
-  if (usage && typeof usage.prompt_tokens === 'number') {
+  if (!usage) return null;
+
+  // OpenAI 原生格式: prompt_tokens + completion_tokens
+  if (typeof usage.prompt_tokens === 'number') {
     return {
       inputTokens: usage.prompt_tokens,
       outputTokens: usage.completion_tokens ?? 0,
@@ -37,6 +40,18 @@ export function extractOpenAIUsage(
       source: 'api',
     };
   }
+
+  // 内部归一化格式: inputTokens + outputTokens（如 UnifiedTokenTracker.recordPostRequest）
+  if (typeof usage.inputTokens === 'number') {
+    return {
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens ?? 0,
+      totalTokens:
+        usage.totalTokens ?? usage.inputTokens + (usage.outputTokens ?? 0),
+      source: 'api',
+    };
+  }
+
   return null;
 }
 

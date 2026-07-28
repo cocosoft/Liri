@@ -112,6 +112,13 @@ export interface StreamChunk {
   tool_name?: string;
   /** tool_completed 事件携带的结构化 result data（如 image_generate 的 images 数组） */
   result_data?: Record<string, unknown>;
+  /** context_state 事件携带的结构化水位数据（替代前端正则解析） */
+  watermarkState?: {
+    currentTokens: number;
+    contextLimit: number;
+    ratio: number;
+    severity: "normal" | "warn" | "compact";
+  };
 }
 
 async function getTauriCore() {
@@ -278,7 +285,10 @@ export const chatService = {
         };
       }
 
-      const choice = response.choices[0];
+      const choice = response.choices?.[0];
+      if (!choice) {
+        throw new Error("AI 服务返回了空的 choices 列表");
+      }
       return {
         id: response.id,
         role: choice.message.role as "user" | "assistant" | "system",
@@ -341,6 +351,7 @@ export const chatService = {
       let buffer = "";
 
       try {
+        let parseFailCount = 0;
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -373,6 +384,15 @@ export const chatService = {
                   yield {
                     type: "context_state",
                     content: chunk.choices?.[0]?.delta?.content || "",
+                    watermarkState: (chunk as Record<string, unknown>)
+                      .watermarkState as
+                      | {
+                          currentTokens: number;
+                          contextLimit: number;
+                          ratio: number;
+                          severity: "normal" | "warn" | "compact";
+                        }
+                      | undefined,
                   };
                 } else if (pyappType === "tool_completed") {
                   // 生图完成事件 → 通知图库刷新 + 传递结构化数据给 chatStore 渲染
@@ -468,7 +488,7 @@ export const chatService = {
                   yield {
                     type: "usage",
                     content: "",
-                    finishReason: chunk.choices[0].finish_reason,
+                    finishReason: chunk.choices[0].finish_reason, // guarded by above ?
                   };
                 } else if (pyappType === "question" && chunk.__pyapp_question) {
                   logger.debug("解析到 question chunk", {
@@ -494,11 +514,19 @@ export const chatService = {
                   };
                 }
               } catch (e) {
+                parseFailCount++;
                 handleClientError(e, {
                   module: "services:chat",
                   action: "streamMessage-parseChunk",
                 });
-                // streaming 解析异常跳过当前 chunk
+                // 连续 5 次解析失败时向前端报告（低于阈值静默跳过）
+                if (parseFailCount >= 5) {
+                  yield {
+                    type: "error",
+                    content: "SSE 数据流解析异常，部分内容可能丢失",
+                  };
+                  parseFailCount = 0; // 重置以免重复报告
+                }
               }
             }
           }
@@ -512,6 +540,8 @@ export const chatService = {
           yield { type: "error", content: "请求已取消" };
           return;
         }
+        // TODO: CS02-ROOTFIX — 浏览器网络错误无结构化错误码，
+        // 后端 SSE 断开时应发送带 errorCode 的 error 事件，前端据此判断。
         // 处理连接意外关闭的情况
         const errorMessage = e instanceof Error ? e.message : String(e);
         if (

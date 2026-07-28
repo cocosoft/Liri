@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "maxContextTokens": 100000,
+  "maxContextTokens": 200000,
   "maxContextMessages": 200,
   "messageTtlMs": 3600000,
   "ttlEnabled": true,

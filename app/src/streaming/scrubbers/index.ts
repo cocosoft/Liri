@@ -28,6 +28,7 @@ export {
 } from './StreamingThinkScrubber';
 export type { ThinkTagName } from './StreamingThinkScrubber';
 export { StreamingContextScrubber } from './StreamingContextScrubber';
+export { StreamingToolCallScrubber } from './StreamingToolCallScrubber';
 export {
   ScrubberPipeline,
   createDefaultScrubberPipeline,

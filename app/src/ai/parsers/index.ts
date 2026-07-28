@@ -25,5 +25,7 @@ export { DeepSeekV3Parser } from './DeepSeekV3Parser';
 export { DeepSeekV31Parser } from './DeepSeekV31Parser';
 export { Glm45Parser } from './Glm45Parser';
 export { LlamaJsonParser } from './LlamaJsonParser';
+export { InvokeXmlParser } from './InvokeXmlParser';
+export { registerAllParsers } from './registerParsers';
 export type { ParsedResult, ParsedToolCall } from './types';
 export { emptyParsedResult, toolCallResult } from './types';

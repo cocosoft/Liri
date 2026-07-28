@@ -154,7 +154,8 @@ export class ContextIsolator {
         isolatedContexts = { ...currentStore, ...contexts };
         break;
       case 'shared':
-        isolatedContexts = currentStore;
+        // 复制而非引用 currentStore，避免泄漏修改到父作用域
+        isolatedContexts = { ...currentStore };
         for (const [key, ctx] of Object.entries(contexts)) {
           isolatedContexts[key] = ctx;
         }
@@ -208,6 +209,8 @@ export class ContextIsolator {
     }
 
     this.scopes.set(scopeId, { ...snapshot.scope });
+    // 恢复 contexts 到 AsyncLocalStorage
+    asyncContextStorage.restoreStore(snapshot.contexts);
     this.snapshots.delete(scopeId);
   }
 

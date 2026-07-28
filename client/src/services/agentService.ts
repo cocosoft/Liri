@@ -169,7 +169,7 @@ export const agentService = {
   updateTask: async (
     id: string,
     params: AgentTaskUpdateParams,
-  ): Promise<AgentTask> => {
+  ): Promise<AgentTask | null> => {
     try {
       return await http.put<AgentTask>(`/v1/agents/tasks/${id}`, params);
     } catch (e) {
@@ -181,7 +181,7 @@ export const agentService = {
       if (result) return result;
       const tasks = await agentService.listTasks();
       const task = tasks.find((t) => t.id === id);
-      return task ? { ...task, ...params } : task!;
+      return task ? { ...task, ...params } : null;
     }
   },
 

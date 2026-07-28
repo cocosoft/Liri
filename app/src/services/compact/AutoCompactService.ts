@@ -114,6 +114,25 @@ export class AutoCompactService {
         { isAutoCompact: true }
       );
 
+      // 压缩失败回退：节省 < 5% 视为无效压缩
+      const beforeTokens = compactResult.preCompactTokenCount ?? 0;
+      const afterTokens = compactResult.postCompactTokenCount ?? 0;
+      if (beforeTokens > 0 && afterTokens > 0) {
+        const savedRatio = 1 - afterTokens / beforeTokens;
+        if (savedRatio < 0.05) {
+          logger.warn('autoCompact:无效压缩（节省 < 5%），已跳过', {
+            sessionId,
+            beforeTokens,
+            afterTokens,
+            savedPercent: Math.round(savedRatio * 100),
+          });
+          return {
+            success: false,
+            error: `压缩未生效：节省仅 ${Math.round(savedRatio * 100)}%（阈值 5%）`,
+          };
+        }
+      }
+
       state.consecutiveFailures = 0;
       state.compacted = true;
 

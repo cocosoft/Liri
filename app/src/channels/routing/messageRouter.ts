@@ -62,8 +62,11 @@ const DEDUP_TTL_MS = 3000;
  */
 const contentDedupCache = new Map<string, number>();
 
-/** 内容级去重窗口（毫秒）—— 60s，覆盖 LLM 响应时间，确保同一条消息的重复事件不会触发两次 AI 调用 */
-const CONTENT_DEDUP_WINDOW_MS = 60000;
+/** 内容级去重窗口（毫秒）—— 5s，覆盖 WebSocket 重传窗口 */
+const CONTENT_DEDUP_WINDOW_MS = 5000; // 5 秒内容去重窗口
+
+/** AI 调用超时（毫秒）—— 防止渠道连接因长时间等待 LLM 而超时断开 */
+const CHAT_TIMEOUT_MS = 120_000; // 2 分钟
 
 /** 定期清理过期去重缓存条目 */
 setInterval(() => {
@@ -234,6 +237,13 @@ export async function routeChannelMessage(
     logger.info(`重复消息已跳过: ${message.messageId}`, { channelName });
     return { valid: true, response: 'duplicate_skipped' };
   }
+  if (claimResult === 'inflight') {
+    logger.info(`消息正在处理中: ${message.messageId}`, { channelName });
+    return { valid: true, response: 'inflight_skipped' };
+  }
+  if (claimResult === 'invalid') {
+    return { valid: false, errorCode: 'INVALID_ID' };
+  }
 
   // ②-② 内容级去重检查（兜底：不同 messageId 但内容相同的重复事件）
   if (message.content) {
@@ -373,7 +383,7 @@ export async function routeChannelMessage(
       }
     }
 
-    const response = await coreAPI.chat({
+    const chatPromise = coreAPI.chat({
       content: message.content,
       sessionId: message.conversationId ?? message.senderId,
       metadata: {
@@ -387,6 +397,16 @@ export async function routeChannelMessage(
         rawPayload: message.rawPayload,
       },
     });
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(`CoreAPI.chat() 超时 (>${CHAT_TIMEOUT_MS / 1000}s)`)
+          ),
+        CHAT_TIMEOUT_MS
+      )
+    );
+    const response = await Promise.race([chatPromise, timeoutPromise]);
 
     logger.info('[TRACE] routeChannelMessage CoreAPI.chat 返回', {
       messageId: message.messageId,

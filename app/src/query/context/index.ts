@@ -18,27 +18,18 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+
 /**
  * 上下文引擎模块导出
- * 对标 Hermes agent/context_engine.py
+ *
+ * Phase 5 清理: 删除已废弃的压缩引擎实现（DefaultContextEngine/TruncatorEngine/
+ *   SummarizerEngine/HybridEngine/SummaryGenerator/SummaryTemplate/JsonTruncator）。
+ *   实际压缩由 context/compaction/CompactionOrchestrator（Tier1/2/3）完成。
+ *   保留：IContextEngine 接口、ContextEngineRegistry（TAORLoop 引用）、ContextTracker（ChatManager 引用）。
  */
 export { IContextEngine, DEFAULT_COMPRESSION_CONFIG } from './IContextEngine';
 export type { CompressionConfig, CompressionResult } from './IContextEngine';
-export { DefaultContextEngine } from './DefaultContextEngine';
-export { SummaryTemplate } from './SummaryTemplate';
-export type {
-  StructuredSummary,
-  IssueEntry,
-  IssueStatus,
-  DecisionRecord,
-  FileChangeSummary,
-} from './SummaryTemplate';
-export { JsonTruncator, DEFAULT_TRUNCATOR_CONFIG } from './JsonTruncator';
-export type { JsonTruncatorConfig } from './JsonTruncator';
 export { ContextEngineRegistry } from './ContextEngineRegistry';
 export type { CompressionFeature } from './ContextEngineRegistry';
-export { SummarizerEngine } from './SummarizerEngine';
-export { TruncatorEngine } from './TruncatorEngine';
-export { HybridEngine } from './HybridEngine';
 export { ContextTracker } from './ContextTracker';
 export type { CompressionRecord } from './ContextTracker';

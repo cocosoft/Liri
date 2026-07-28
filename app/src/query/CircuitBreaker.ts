@@ -84,7 +84,7 @@ const DEFAULT_CONFIG: CircuitBreakerConfig = {
   maxConsecutiveSameError: 5,
   maxConsecutiveFailures: 10,
   tokenBudgetPercentCeiling: 1.0,
-  maxTurnsHardCap: 50,
+  maxTurnsHardCap: 1000,
   resetTimeoutMs: 30_000,
   sameCallSameResultThreshold: LOOP_GLOBAL_BREAKER_THRESHOLD,
   globalBreakerMessage:

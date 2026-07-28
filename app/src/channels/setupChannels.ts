@@ -9,10 +9,15 @@ import type { ChannelBootstrapConfig } from './bootstrap/ChannelBootstrapper';
 import { channelRegistry } from './registry/ChannelRegistry';
 import { initRegistry } from './secrets/ChannelSecretStore';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl';
-import type { IChannelPlugin, MessageContext } from './types/IChannel';
+import type {
+  IChannelPlugin,
+  MessageContext,
+  ChannelId,
+} from './types/IChannel';
 import { routeChannelMessage } from './routing/messageRouter';
 import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
+import { getDeliveryRouter } from './DeliveryRouter';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'channels:setup' });
 
@@ -24,6 +29,10 @@ export function isBridgeEnabled(): boolean {
 /** 渠道 ← Inbox 回复回传开关（默认开启，显式设为 'false' 时关闭） */
 export function isReplyEnabled(): boolean {
   return process.env.INBOX_CHANNEL_REPLY_ENABLED !== 'false';
+}
+/** DeliveryRouter 统一出站开关（默认开启，显式设为 '0' 时切回旧 onOutbound 路径） */
+export function useDeliveryRouterOutbound(): boolean {
+  return process.env.DELIVERY_ROUTER_OUTBOUND !== '0';
 }
 
 /**
@@ -500,7 +509,40 @@ export async function lazyConnectChannels(): Promise<void> {
               console.log(content);
               console.log(''); // 空行分隔
 
-              if (plugin.outbound) {
+              if (useDeliveryRouterOutbound()) {
+                // Phase 2: 走 DeliveryRouter 统一出站路径（降级、并发控制、OTel 追踪）
+                try {
+                  const router = getDeliveryRouter();
+                  const result = await router.deliverToOrigin(
+                    channel.name as ChannelId,
+                    target,
+                    { format: 'text', content }
+                  );
+                  logger.info('[TRACE] setupChannels DeliveryRouter 返回', {
+                    channelName: channel.name,
+                    success: result.success,
+                    actualFormat: result.actualFormat,
+                    fallbackSteps: result.fallbackSteps,
+                    durationMs: result.durationMs,
+                  });
+                  if (!result.success) {
+                    logger.warning(
+                      `通道 ${channel.name} 消息发送失败 (DeliveryRouter)`,
+                      {
+                        target,
+                        error: result.error,
+                        fallbackSteps: result.fallbackSteps,
+                      }
+                    );
+                  }
+                } catch (sendError) {
+                  handleError(sendError, {
+                    module: 'channels:setup',
+                    action: 'inbound:deliveryRouter',
+                    context: { target, channelName: channel.name },
+                  });
+                }
+              } else if (plugin.outbound) {
                 try {
                   logger.info(
                     '[TRACE] setupChannels 调用 plugin.outbound.sendText',

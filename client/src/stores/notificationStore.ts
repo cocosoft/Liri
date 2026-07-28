@@ -343,7 +343,11 @@ export const useNotificationStore = create<NotificationStore>()((set, get) => ({
         : [item, ...s.items];
       return { items: newItems };
     });
-    get().loadCounts();
+    get()
+      .loadCounts()
+      .catch(() => {
+        /* 静默失败：计数刷新非关键路径 */
+      });
     // 桌面通知
     maybeShowDesktopNotification(item);
   },

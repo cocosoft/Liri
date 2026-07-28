@@ -25,6 +25,8 @@ const AI_API_DOMAIN_PATTERNS: RegExp[] = [
   /^https?:\/\/.+\/v1\/(chat\/completions|messages|embeddings|models)/i,
   // 通用 v1/responses 模式（OpenAI Responses API）
   /^https?:\/\/.+\/v1\/responses/i,
+  // Ollama（非标准 /api/chat, /api/generate, /api/tags 路径）
+  /^https?:\/\/.+\/api\/(chat|generate|tags|embeddings)/i,
 ];
 
 /** 需要脱敏的请求头 */

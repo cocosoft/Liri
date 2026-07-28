@@ -94,7 +94,7 @@ export class SessionResetPolicy extends EventEmitter {
     this.config = {
       type: config.type,
       idleTimeoutMs: config.idleTimeoutMs ?? 30 * 60 * 1000,
-      maxTurns: config.maxTurns ?? 50,
+      maxTurns: config.maxTurns ?? 300,
       preserveMetadata: config.preserveMetadata ?? true,
     };
   }

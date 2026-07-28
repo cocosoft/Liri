@@ -927,49 +927,52 @@ export async function launch(options: LaunchOptions): Promise<void> {
     // 启动时关键依赖完整性校验（非阻塞，缺失时输出修复指引）
     checkCriticalDependencies();
 
+    // 注册工具调用解析器（Hermes / InvokeXml / LlamaJson 等）
+    // 必须在 TAORLoop / ChatManager 使用 parserRegistry.parseFallback() 前注册
+    import('./ai/parsers/registerParsers.js').then(({ registerAllParsers }) =>
+      registerAllParsers()
+    );
+
+    // Phase 3 token-tracking-unification: 启动时预加载 tiktoken wasm
+    // 不在首次 API 请求路径上 lazy init，失败时 30s 自动重试
+    import('./ai/tokenizer/TiktokenEstimator.js').then(({ preloadTiktoken }) =>
+      preloadTiktoken()
+    );
+
     // T1: 模块系统初始化
     profileCheckpoint('module_init_start');
     profilePhaseStart('T1_module_init');
 
-    // 灰度回退：检测 --use-legacy-module-system 标志
-    // 启用旧版 ModuleDependencyManager 替代统一 ModuleRegistry + DIContainer 路径
-    const useLegacyModuleSystem =
-      process.env.LIRI_USE_LEGACY_MODULE_SYSTEM === '1';
+    // 灰度回退已移除
+    if (process.env.LIRI_USE_LEGACY_MODULE_SYSTEM === '1') {
+      logger.error('V1 旧版模块系统已移除。请使用默认 V2 路径启动。');
+      process.exit(1);
+    }
 
-    if (useLegacyModuleSystem) {
-      // V1 回退路径：使用 AppCore + ModuleDependencyManager
-      logger.info('使用旧版模块系统（V1 回退路径）');
+    // V2 统一路径：使用 DIContainer.bootstrap()
+    // 显示加载提示（在 T1 执行期间给用户进度反馈）
+    process.stdout.write('⏳ Liri 正在加载模块...\r');
 
-      const { AppCore } = await import('./core/AppCore');
-      const appCore = new AppCore({
-        name: 'Liri',
-        version: '3.0.0',
-        debug: options.debug ?? false,
-        useLegacyModuleSystem: true,
-        startup: {
-          terminalBackup: false,
-          worktree: { enabled: false },
-        },
+    const { getDIContainer } = await import('./core/DIContainer');
+    const { moduleRegistry } = await import('./modules/ModuleRegistry');
+    await getDIContainer().bootstrap(moduleRegistry, {
+      mode: options.mode,
+      args: options.args,
+      debug: options.debug,
+      verbose: options.verbose,
+    });
+
+    // 清除加载提示行
+    process.stdout.write('\x1b[K');
+
+    // 初始化 OTel 观测系统 + Trace 引擎（必选项）
+    try {
+      const { initializeOTelSystem } = await import('./core/AppCoreOTelHelper');
+      await initializeOTelSystem();
+    } catch (err) {
+      logger.warn('OTel 观测系统初始化失败（非致命），已跳过', {
+        error: String(err),
       });
-
-      await appCore.initialize();
-      logger.info('旧版模块系统初始化完成');
-    } else {
-      // V2 统一路径：使用 DIContainer.bootstrap()
-      // 显示加载提示（在 T1 执行期间给用户进度反馈）
-      process.stdout.write('⏳ Liri 正在加载模块...\r');
-
-      const { getDIContainer } = await import('./core/DIContainer');
-      const { moduleRegistry } = await import('./modules/ModuleRegistry');
-      await getDIContainer().bootstrap(moduleRegistry, {
-        mode: options.mode,
-        args: options.args,
-        debug: options.debug,
-        verbose: options.verbose,
-      });
-
-      // 清除加载提示行
-      process.stdout.write('\x1b[K');
     }
 
     profilePhaseEnd('T1_module_init');
@@ -1011,34 +1014,30 @@ export async function launch(options: LaunchOptions): Promise<void> {
       // 非致命：env 读取失败时静默跳过
     }
 
-    // T1.25: 加载模型配置（V2 路径专属）
-    if (!useLegacyModuleSystem) {
-      try {
-        const { ModelRegistry } =
-          await import('@modules/ai/models/ModelRegistry');
-        const registry = ModelRegistry.getInstance();
-        registry.loadDefaultModels();
-        registry.loadUserConfigs();
+    // T1.25: 加载模型配置
+    try {
+      const { ModelRegistry } =
+        await import('@modules/ai/models/ModelRegistry');
+      const registry = ModelRegistry.getInstance();
+      registry.loadDefaultModels();
+      registry.loadUserConfigs();
 
-        // 初始化模型注册表 DB（创建 model_registry 表、从 YAML 种子、迁移旧表）
-        const { modelPricingService } =
-          await import('@modules/ai/models/ModelPricingService.js').catch(
-            () => {
-              return {
-                modelPricingService:
-                  null as unknown as import('@modules/ai/models/ModelPricingService.js').ModelPricingService,
-              };
-            }
-          );
-        if (modelPricingService) {
-          await modelPricingService.initialize();
-        } else {
-          // 将 DB 定价加载到 ModelRegistry 内存缓存（定价单一事实来源）
-          await registry.loadDbPricing();
-        }
-      } catch (e) {
-        logger.warning('加载模型配置失败（非致命）', e as Error);
+      // 初始化模型注册表 DB（创建 model_registry 表、从 YAML 种子、迁移旧表）
+      const { modelPricingService } =
+        await import('@modules/ai/models/ModelPricingService.js').catch(() => {
+          return {
+            modelPricingService:
+              null as unknown as import('@modules/ai/models/ModelPricingService.js').ModelPricingService,
+          };
+        });
+      if (modelPricingService) {
+        await modelPricingService.initialize();
+      } else {
+        // 将 DB 定价加载到 ModelRegistry 内存缓存（定价单一事实来源）
+        await registry.loadDbPricing();
       }
+    } catch (e) {
+      logger.warning('加载模型配置失败（非致命）', e as Error);
     }
 
     // T1.26: 初始化通知持久化（建表 + FTS5 + 过期调度）
@@ -1064,74 +1063,70 @@ export async function launch(options: LaunchOptions): Promise<void> {
     profilePhaseEnd('T1_await_prefetch');
     profileCheckpoint('T1_await_prefetch_end');
 
-    // T1.75: 初始化 ACP 模块桥接（V2 路径专属，非阻塞，失败不影响主流程）
-    if (!useLegacyModuleSystem) {
-      import('./bridge/ModuleBridgeSetup.js').then(
-        ({ setupModuleBridgeOnStartup }) => {
-          setupModuleBridgeOnStartup().catch((err) => {
-            logger.warning('ACP 模块桥接初始化异常（非致命）', {
-              error: String(err),
-            });
+    // T1.75: 初始化 ACP 模块桥接（非阻塞，失败不影响主流程）
+    import('./bridge/ModuleBridgeSetup.js').then(
+      ({ setupModuleBridgeOnStartup }) => {
+        setupModuleBridgeOnStartup().catch((err) => {
+          logger.warning('ACP 模块桥接初始化异常（非致命）', {
+            error: String(err),
           });
-        }
-      );
-    }
-
-    // T1.8: 初始化 SmartRouter 智能路由（V2 路径专属，非阻塞，失败不影响主流程）
-    if (!useLegacyModuleSystem) {
-      try {
-        const { SmartRouter } = await import('@modules/ai/router/SmartRouter');
-        const { providerRegistry } =
-          await import('@modules/ai/providers/ProviderRegistry');
-        const { configManager } = await import('@modules/config/ConfigManager');
-
-        // 从 configManager 读取路由配置，若无则使用默认值
-        const savedRouter = (configManager.getGlobalConfig().models?.router ??
-          {}) as Partial<import('@modules/ai/router/types').RouterConfig>;
-        const routerConfig: import('@modules/ai/router/types').RouterConfig = {
-          enabled: savedRouter.enabled !== false,
-          defaultTier: savedRouter.defaultTier || 'medium',
-          sessionSticky: savedRouter.sessionSticky !== false,
-          tiers: {
-            simple: savedRouter.tiers?.simple ?? {
-              model: 'deepseek-v4-flash',
-              providerHint: 'deepseek',
-            },
-            medium: savedRouter.tiers?.medium ?? {
-              model: 'deepseek-v4-flash',
-              providerHint: 'deepseek',
-            },
-            complex: savedRouter.tiers?.complex ?? {
-              model: 'deepseek-v4-pro',
-              providerHint: 'deepseek',
-            },
-            reasoning: savedRouter.tiers?.reasoning ?? {
-              model: 'deepseek-reasoner',
-              providerHint: 'deepseek',
-            },
-          },
-          fallback: savedRouter.fallback,
-          judge: savedRouter.judge,
-          zeroUsageRetry: savedRouter.zeroUsageRetry,
-          transientRetry: savedRouter.transientRetry,
-          stats: savedRouter.stats,
-        };
-
-        const smartRouter = new SmartRouter({
-          config: routerConfig,
-          providerRegistry,
         });
-
-        // 注入 CoreAPIImpl 全局单例
-        const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
-        getCoreAPI().setSmartRouter(smartRouter);
-        logger.info('SmartRouter 已初始化并注入 CoreAPIImpl');
-      } catch (e) {
-        logger.warning(
-          'SmartRouter 初始化失败（非致命，使用静态路由）',
-          e as Error
-        );
       }
+    );
+
+    // T1.8: 初始化 SmartRouter 智能路由（非阻塞，失败不影响主流程）
+    try {
+      const { SmartRouter } = await import('@modules/ai/router/SmartRouter');
+      const { providerRegistry } =
+        await import('@modules/ai/providers/ProviderRegistry');
+      const { configManager } = await import('@modules/config/ConfigManager');
+
+      // 从 configManager 读取路由配置，若无则使用默认值
+      const savedRouter = (configManager.getGlobalConfig().models?.router ??
+        {}) as Partial<import('@modules/ai/router/types').RouterConfig>;
+      const routerConfig: import('@modules/ai/router/types').RouterConfig = {
+        enabled: savedRouter.enabled !== false,
+        defaultTier: savedRouter.defaultTier || 'medium',
+        sessionSticky: savedRouter.sessionSticky !== false,
+        tiers: {
+          simple: savedRouter.tiers?.simple ?? {
+            model: 'deepseek-v4-flash',
+            providerHint: 'deepseek',
+          },
+          medium: savedRouter.tiers?.medium ?? {
+            model: 'deepseek-v4-flash',
+            providerHint: 'deepseek',
+          },
+          complex: savedRouter.tiers?.complex ?? {
+            model: 'deepseek-v4-pro',
+            providerHint: 'deepseek',
+          },
+          reasoning: savedRouter.tiers?.reasoning ?? {
+            model: 'deepseek-reasoner',
+            providerHint: 'deepseek',
+          },
+        },
+        fallback: savedRouter.fallback,
+        judge: savedRouter.judge,
+        zeroUsageRetry: savedRouter.zeroUsageRetry,
+        transientRetry: savedRouter.transientRetry,
+        stats: savedRouter.stats,
+      };
+
+      const smartRouter = new SmartRouter({
+        config: routerConfig,
+        providerRegistry,
+      });
+
+      // 注入 CoreAPIImpl 全局单例
+      const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+      getCoreAPI().setSmartRouter(smartRouter);
+      logger.info('SmartRouter 已初始化并注入 CoreAPIImpl');
+    } catch (e) {
+      logger.warning(
+        'SmartRouter 初始化失败（非致命，使用静态路由）',
+        e as Error
+      );
     }
 
     // Phase 3: Connection Registry — 验证关键组件连接
@@ -1280,10 +1275,10 @@ export async function main(): Promise<void> {
     args.push('--legacy-repl');
   }
 
-  // 灰度回退：检测 --use-legacy-module-system 标志
-  // 传此标志则 AppCore 使用旧版 ModuleDependencyManager 替代统一 ModuleRegistry
+  // 灰度回退已移除：--use-legacy-module-system 标志不再支持
   if (args.includes('--use-legacy-module-system')) {
-    process.env.LIRI_USE_LEGACY_MODULE_SYSTEM = '1';
+    console.error('[ERROR] V1 旧版模块系统已移除，请使用默认 V2 路径启动。');
+    process.exit(1);
   }
 
   await launch({ mode, args });

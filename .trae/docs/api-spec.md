@@ -356,6 +356,7 @@
 | POST | `/v1/monitor/alerts/{id}/acknowledge` | ✅ | `monitorService.acknowledgeAlert` |
 | GET | `/v1/monitor/logs` | ✅ | `monitorService.getLogs` |
 | GET | `/v1/health/report` | ✅ | `monitorService.getSystemHealth` |
+| GET | `/v1/trace/stats` | ✅ | `traceService.getTraceStats` — Trace 统计快照（真实 API token 消耗） |
 
 ### §3.19 分析
 

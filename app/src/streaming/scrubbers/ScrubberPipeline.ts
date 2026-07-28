@@ -6,6 +6,7 @@
 import type { StreamChunk } from '../types';
 import { StreamingThinkScrubber } from './StreamingThinkScrubber';
 import { StreamingContextScrubber } from './StreamingContextScrubber';
+import { StreamingToolCallScrubber } from './StreamingToolCallScrubber';
 
 /**
  * 擦洗器接口
@@ -109,11 +110,12 @@ export class ScrubberPipeline {
 
 /**
  * 创建默认擦洗管道
- * 包含 StreamingThinkScrubber + StreamingContextScrubber
+ * 包含 StreamingToolCallScrubber + StreamingThinkScrubber + StreamingContextScrubber
  * @returns ScrubberPipeline
  */
 export function createDefaultScrubberPipeline(): ScrubberPipeline {
   return new ScrubberPipeline([
+    new StreamingToolCallScrubber(),
     new StreamingThinkScrubber(),
     new StreamingContextScrubber(),
   ]);

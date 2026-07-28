@@ -224,7 +224,7 @@ export class ContextCompressor {
     const preserveCount = this.config.recentMessageCount;
     const count = messages.length;
 
-    return messages.slice(0, count - preserveCount).filter((m) => {
+    return messages.slice(0, Math.max(0, count - preserveCount)).filter((m) => {
       if (this.config.preserveSystemMessages && m.role === 'system') {
         return false;
       }

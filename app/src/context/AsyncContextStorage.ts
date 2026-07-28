@@ -27,18 +27,28 @@ export class AsyncContextStorage {
 
   /**
    * 重置当前 store 为空。使用 enterWith({}) 确保同一 async 链中后续 getStore() 返回空。
-   * 需要 Node.js 20+。
+   * Node.js 20+；< 20 自动降级为 run({}, fn)。
    */
   resetStore(): void {
-    this.storage.enterWith({});
+    // BUG-ε fix: Node.js < 20 fallback
+    if (typeof this.storage.enterWith === 'function') {
+      this.storage.enterWith({});
+    } else {
+      this.clearStore();
+    }
   }
 
   /**
    * 恢复当前 store 到指定的上下文快照。
-   * 需要 Node.js 20+。
+   * Node.js 20+；< 20 自动降级为 run(snapshot, fn)。
    */
   restoreStore(snapshot: Record<string, Context>): void {
-    this.storage.enterWith(snapshot);
+    // BUG-ε fix: Node.js < 20 fallback
+    if (typeof this.storage.enterWith === 'function') {
+      this.storage.enterWith(snapshot);
+    } else {
+      this.storage.run(snapshot, () => {});
+    }
   }
 }
 

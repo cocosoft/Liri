@@ -328,6 +328,9 @@ export class ContextManager {
     if (this.engine && this.engine !== contextEngine) {
       this.engine.destroy();
     }
+    this.cacheService.clearFileWatchers(); // BUG-δ: 清理文件 watcher，防止句柄泄漏
+    this.lifecycle.stopCleanupTimer(); // BUG-η: 停止生命周期定时器
+    this.lifecycle.clear();
     this.destroyAllContexts();
     // BUG-14 fix: 清理孤立作用域和共享上下文
     this.isolator.destroy();

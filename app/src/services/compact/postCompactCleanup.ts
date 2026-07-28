@@ -22,7 +22,7 @@ export function runPostCompactCleanup(querySource?: string): void {
 
   if (isMainThreadCompact) {
     // BUG-M fix: use dynamic import() instead of require() to avoid module resolution issues
-    import('../../session/SessionStorage')
+    import('../../session/SessionStorage.js')
       .then((mod) => {
         const clearCache = (mod as Record<string, unknown>)
           .clearSessionMessagesCache;

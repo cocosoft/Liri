@@ -52,9 +52,6 @@ export function stripUnpairedToolCalls(
   pairedResultIds: Set<string>
 ): ChatMessage[] {
   return messages.filter((msg) => {
-    const tcId = (msg as unknown as Record<string, unknown>).id as
-      | string
-      | undefined;
     const toolCalls = (msg as unknown as Record<string, unknown>).tool_calls as
       | Array<{ id?: string }>
       | undefined;
@@ -67,8 +64,8 @@ export function stripUnpairedToolCalls(
       return hasPaired;
     }
 
-    // 单个 tool_call
-    if (tcId && !pairedResultIds.has(tcId)) return false;
+    // BUG-β fix: removed dead `msg.id` branch — ChatMessage has no `id` field
+    // Only the tool_calls array path is valid
     return true;
   });
 }

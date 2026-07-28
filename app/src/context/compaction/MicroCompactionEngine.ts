@@ -68,7 +68,7 @@ export function applyMicroCompaction(
   let recentResultsFound = 0;
 
   // 从 assistant 消息的 tool_calls 中建立 tool_call_id → name 映射
-  // Claude API 的 tool result 消息不包含 name 字段，需要从对应的 assistant 查找
+  // Claude API 的 tool_calls 使用 function.name 嵌套结构
   const aidToName = new Map<string, string>();
   for (const msg of messages) {
     if (
@@ -76,8 +76,10 @@ export function applyMicroCompaction(
       Array.isArray((msg as unknown as Record<string, unknown>).tool_calls)
     ) {
       for (const tc of (msg as unknown as Record<string, unknown>)
-        .tool_calls as Array<{ id?: string; name?: string }>) {
-        if (tc.id && tc.name) aidToName.set(tc.id, tc.name);
+        .tool_calls as Array<{ id?: string; name?: string; function?: { name?: string } }>) {
+        // BUG-γ fix: ToolCall uses function.name (nested), not name (flat)
+        const tcName = tc.function?.name || tc.name;
+        if (tc.id && tcName) aidToName.set(tc.id, tcName);
       }
     }
   }
@@ -119,20 +121,15 @@ export function applyMicroCompaction(
 
     // 仅压缩可压缩工具的结果
     if (toolCallId && toolName && COMPACTABLE_TOOL_NAMES.has(toolName)) {
-      const msgAge =
-        nowMs -
-        (((msg as unknown as Record<string, unknown>).timestamp as number) ??
-          0);
-
-      if (msgAge > ttlMs) {
-        result.push({
-          ...msg,
-          content: MICROCOMPACT_CLEARED,
-        } as unknown as ChatMessage);
-        rewrittenCount++;
-        rewrittenToolCallIds.push(toolCallId);
-        continue;
-      }
+      // BUG-γ fix: ChatMessage has no timestamp field, skip age check.
+      // keepLatest mechanism (recentResultIndices) already handles recency.
+      result.push({
+        ...msg,
+        content: MICROCOMPACT_CLEARED,
+      } as unknown as ChatMessage);
+      rewrittenCount++;
+      rewrittenToolCallIds.push(toolCallId);
+      continue;
     }
 
     result.push(msg);

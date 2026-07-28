@@ -194,6 +194,10 @@ export class CompactionOrchestrator {
       if (microResult.applied) {
         result = { messages: microResult.messages, applied: true };
       } else {
+        // BUG-ζ fix: check abort signal before Tier 2 (snip is sync but still adds overhead after timeout)
+        if (signal?.aborted) {
+          return { messages, applied: false };
+        }
         // Micro 无效果，尝试 Tier 2 Snip
         tier = 2;
         triggerLabel = 'warn_snip';

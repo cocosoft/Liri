@@ -121,14 +121,15 @@ export class CompactionOrchestrator {
 
       // 超时保护：压缩整体不得超过 COMPACTION_TIMEOUT_MS
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      const abortCtrl = new AbortController();
       try {
         const result = await Promise.race([
-          this._doCompact(messages, ctx, decision, startTime),
+          this._doCompact(messages, ctx, decision, startTime, abortCtrl.signal),
           new Promise<never>((_, reject) => {
-            timeoutId = setTimeout(
-              () => reject(new Error('COMPACTION_TIMEOUT')),
-              COMPACTION_TIMEOUT_MS
-            );
+            timeoutId = setTimeout(() => {
+              abortCtrl.abort(); // BUG-G fix: cancel ongoing _doCompact
+              reject(new Error('COMPACTION_TIMEOUT'));
+            }, COMPACTION_TIMEOUT_MS);
           }),
         ]);
         return result;
@@ -161,7 +162,8 @@ export class CompactionOrchestrator {
     messages: ChatMessage[],
     ctx: CompactionContext,
     decision: ReturnType<AutoCompactionPolicy['evaluate']>,
-    startTime: number
+    startTime: number,
+    signal?: AbortSignal
   ): Promise<{ messages: ChatMessage[]; applied: boolean }> {
     const beforeTokens = decision.snapshot.tokens;
 
@@ -212,6 +214,12 @@ export class CompactionOrchestrator {
 
       // Tier 2 无效或仍超限 → 尝试 Tier 3 LLM Full Compaction
       if (!result.applied || this.isStillOverBudget(result.messages, ctx)) {
+        // BUG-G fix: skip LLM call if already aborted (avoid side effects after timeout)
+        if (signal?.aborted) {
+          logger.debug('compaction:tier3_skipped', { reason: 'aborted' });
+          return { messages, applied: false };
+        }
+
         logger.info('compaction:escalating_to_tier3', {
           reason: result.applied ? 'snip_insufficient' : 'snip_no_effect',
           beforeTokens,

@@ -39,7 +39,7 @@ const KNOWN_CONTEXT_WINDOWS: Record<string, number> = {
 
 export interface ContextWindowInfo {
   tokens: number;
-  source: 'known_model' | 'config' | 'default';
+  source: 'known_model' | 'config' | 'default' | 'db';
 }
 
 /**
@@ -77,7 +77,7 @@ export async function resolveContextWindowAsync(
   // 0. 尝试从 DB 读取
   const dbWindow = await resolveFromDB(model);
   if (dbWindow) {
-    return { tokens: configOverride ?? dbWindow, source: 'config' };
+    return { tokens: configOverride ?? dbWindow, source: 'db' };
   }
 
   return resolveContextWindow(model, configOverride);

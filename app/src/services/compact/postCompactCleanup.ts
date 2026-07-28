@@ -21,20 +21,18 @@ export function runPostCompactCleanup(querySource?: string): void {
   resetMicrocompactState();
 
   if (isMainThreadCompact) {
-    try {
-      const {
-        clearSessionMessagesCache,
-      } = require('../../session/SessionStorage');
-      if (typeof clearSessionMessagesCache === 'function') {
-        clearSessionMessagesCache();
-      }
-    } catch (err) {
-      // SessionStorage可能尚未实现该函数，忽略
-
-      logger.debug('Operation skipped', {
-        context: 'SessionStorage可能尚未实现该函数，忽略',
-        error: err instanceof Error ? err.message : String(err),
+    // BUG-M fix: use dynamic import() instead of require() to avoid module resolution issues
+    import('../../session/SessionStorage')
+      .then(({ clearSessionMessagesCache }) => {
+        if (typeof clearSessionMessagesCache === 'function') {
+          clearSessionMessagesCache();
+        }
+      })
+      .catch((err: unknown) => {
+        logger.debug('Operation skipped', {
+          context: 'SessionStorage可能尚未实现该函数，忽略',
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
-    }
   }
 }

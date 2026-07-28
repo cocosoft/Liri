@@ -315,8 +315,13 @@ function buildFoldSummaryInstruction(): string {
 
 /** 提取对话中的高优先级约束 */
 function extractPinnedConstraints(systemPrompt: string): string {
-  const pattern =
-    /# (?:HIGH PRIORITY constraints|User memory|Project memory)[\s\S]*?(?=\n# |\n---|$)/g;
+  // BUG-C fix: also match ## heading levels + inline labels (e.g. "# HIGH PRIORITY constraints: do not...")
+  const heading = `#{1,2}`;
+  const label = '(?:HIGH PRIORITY constraints|User memory|Project memory)';
+  const pattern = new RegExp(
+    `${heading} ${label}[\\s\\S]*?(?=\\n${heading} |\\n---|$)`,
+    'g'
+  );
   return Array.from(systemPrompt.matchAll(pattern), (m) => m[0]).join('\n\n');
 }
 

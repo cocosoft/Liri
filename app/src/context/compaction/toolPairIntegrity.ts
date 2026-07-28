@@ -7,7 +7,9 @@
 import type { ChatMessage } from '../../ai/models/types';
 
 /**
- * 收集所有 tool_call ID
+ * 收集所有 tool_call 引用 ID（调用声明 + 结果标注的 tool_call_id 并集）
+ * 注意：不是仅"调用"ID——同时包含 tool_result.tool_call_id（结果标注字段）。
+ * 如果需要仅收集调用 ID，请使用 collectToolResultIds() 配合过滤。
  */
 export function collectToolCallIds(messages: ChatMessage[]): Set<string> {
   const ids = new Set<string>();

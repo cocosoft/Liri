@@ -133,8 +133,9 @@ export function snipMessages(
     }
     // 在 head 最后一条之后插入边界标记
     if (i === headLastIdx && turnsSnipped > 0) {
+      // BUG-F fix: use 'user' role — LLM APIs require system messages at the beginning only
       result.push({
-        role: 'system',
+        role: 'user',
         content: createSnipBoundary(
           turnsSnipped,
           opts.keepHeadTurns,

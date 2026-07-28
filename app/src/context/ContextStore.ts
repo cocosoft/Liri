@@ -61,14 +61,9 @@ export class ContextStore implements IContextStore {
       );
     }
 
-    // 存储上限检查（LRU 驱逐逻辑只在 setMaxSize 中，create 也要检查）
-    if (this.store.size >= this.maxSize) {
-      throw new AppError(
-        `Context store full: ${this.store.size}/${this.maxSize}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        ContextErrorCode.STORE_FULL
-      );
+    // BUG-D fix: evict oldest instead of throwing (consistent with setMaxSize LRU policy)
+    while (this.store.size >= this.maxSize && this.store.size > 0) {
+      this.evictOldest();
     }
 
     const id = crypto.randomUUID();

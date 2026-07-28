@@ -158,10 +158,17 @@ export class ContextManager {
   }
 
   private setupFileWatchers(): void {
-    const gitPath = path.resolve('.git');
+    // BUG-K fix: use PYAPP_PROJECT_DIR instead of process.cwd()-relative path
+    const gitPath = path.resolve(
+      process.env.PYAPP_PROJECT_DIR || process.cwd(),
+      '.git'
+    );
     this.cacheService.watchDirectory(gitPath, [ContextCacheKeys.GIT_STATUS]);
 
-    const userContextPath = path.resolve('Liri.md');
+    const userContextPath = path.resolve(
+      process.env.PYAPP_PROJECT_DIR || process.cwd(),
+      'Liri.md'
+    );
     this.cacheService.watchFile(userContextPath, [
       ContextCacheKeys.USER_CONTEXT,
     ]);
@@ -308,7 +315,8 @@ export class ContextManager {
   }
 
   destroyAllContexts(): void {
-    asyncContextStorage.clearStore();
+    // BUG-B fix: clearStore() is deprecated (semantics bug — run({}, fn) doesn't clear current store)
+    asyncContextStorage.resetStore();
   }
 
   /**

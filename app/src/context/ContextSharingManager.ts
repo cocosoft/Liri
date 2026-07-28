@@ -220,9 +220,16 @@ export class ContextSharingManager {
     if (oldestKey) {
       const colonIdx = oldestKey.indexOf(':');
       if (colonIdx !== -1) {
-        const targetScopeId = oldestKey.substring(0, colonIdx);
+        const scopeId = oldestKey.substring(0, colonIdx);
         const contextKey = oldestKey.substring(colonIdx + 1);
-        this.scopeShares.get(targetScopeId)?.delete(contextKey);
+        const scopeSet = this.scopeShares.get(scopeId);
+        if (scopeSet) {
+          scopeSet.delete(contextKey);
+          // BUG-I fix: remove empty Set from scopeShares to prevent accumulation
+          if (scopeSet.size === 0) {
+            this.scopeShares.delete(scopeId);
+          }
+        }
       }
       this.sharedContexts.delete(oldestKey);
     }

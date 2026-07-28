@@ -189,6 +189,11 @@ export class ContextSharingManager {
     this.scopeShares.clear();
   }
 
+  /** 销毁所有共享上下文（BUG-14: 配合 ContextManager shutdown） */
+  destroy(): void {
+    this.clear();
+  }
+
   getStats() {
     return {
       totalSharedContexts: this.sharedContexts.size,

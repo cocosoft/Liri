@@ -102,15 +102,19 @@ export class ContextEngine {
     }
   ): ContextEntry {
     try {
+      // BUG-8 fix: ttl:0 = never expires (use ?? not || for falsy check)
+      const ttl =
+        options?.ttl !== undefined ? options.ttl : this.config.defaultTTL;
+      const expiresAt = ttl === 0 ? undefined : Date.now() + ttl;
       const entry: ContextEntry = {
         id: `ctx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         key,
         value,
         scope: options?.scope || 'conversation',
         priority: options?.priority || 0,
-        ttl: options?.ttl || this.config.defaultTTL,
+        ttl: ttl === 0 ? undefined : ttl,
         createdAt: Date.now(),
-        expiresAt: Date.now() + (options?.ttl || this.config.defaultTTL),
+        expiresAt,
         tags: options?.tags || [],
         source: options?.source,
       };
@@ -152,7 +156,8 @@ export class ContextEngine {
    */
   get(key: string, scope?: string): ContextEntry | undefined {
     try {
-      const scopedKey = scope ? `${scope}:${key}` : key;
+      // BUG-7 fix: default scope to 'conversation' (matching set()'s default)
+      const scopedKey = scope ? `${scope}:${key}` : `conversation:${key}`;
       const entry = this.entries.get(scopedKey);
 
       if (entry && entry.expiresAt && Date.now() > entry.expiresAt) {
@@ -220,7 +225,7 @@ export class ContextEngine {
    */
   delete(key: string, scope?: string): boolean {
     try {
-      const scopedKey = scope ? `${scope}:${key}` : key;
+      const scopedKey = scope ? `${scope}:${key}` : `conversation:${key}`;
       const deleted = this.entries.delete(scopedKey);
 
       logger.debug('context:engine delete', { scopedKey, deleted });
@@ -338,6 +343,10 @@ export class ContextEngine {
         });
       }
     }, 60000);
+    // BUG-11 fix: don't prevent process exit / GC
+    if (this.expiryTimer && typeof this.expiryTimer.unref === 'function') {
+      this.expiryTimer.unref();
+    }
   }
 }
 

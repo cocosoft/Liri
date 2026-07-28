@@ -657,7 +657,13 @@ export class CoreAPIImpl implements CoreAPI {
         fullContent = finalContent || fullContent;
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      // 普通对象（如 AI Provider 返回的 { message: "...", type: "..." }）可能不是 Error 实例
+      const message =
+        error instanceof Error
+          ? error.message
+          : (error as Record<string, unknown>)?.message
+            ? String((error as Record<string, unknown>).message)
+            : String(error);
       otel.recordError(
         span,
         error instanceof Error ? error : new Error(message)

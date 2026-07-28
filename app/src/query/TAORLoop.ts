@@ -24,10 +24,6 @@ import type { StopHook, StopHookContext, StopHookReason } from './StopHooks.js';
 import type { QueryEngine } from './QueryEngine.js';
 import { ContextTracker } from './context/ContextTracker.js';
 import type { CompressionRecord } from './context/ContextTracker.js';
-import type {
-  ContextEngineRegistry,
-  CompressionFeature,
-} from './context/ContextEngineRegistry.js';
 import { TAORPhase } from './types.js';
 import type { TAORCheckpoint, CheckpointStorage } from './types.js';
 import { createLoopDetector } from './LoopDetector.js';
@@ -49,6 +45,7 @@ import {
 import { VerifierAgent, createVerifierAgent } from './VerifierAgent.js';
 import type { VerifierAgentConfig } from './VerifierAgent.js';
 import { FileTAORCheckpointStorage } from './FileTAORCheckpointStorage.js';
+import { countMessageTokens } from './ContextFolder.js';
 import type { ChatMessage } from '../ai/models/types';
 
 const logger = new Logger({ module: 'query:taorLoop' });
@@ -150,8 +147,6 @@ export interface TAORLoopConfig {
   checkpointInterval?: number;
   /** 检查点存储实现 */
   checkpointStorage?: CheckpointStorage;
-  /** 上下文引擎注册中心（启用可插拔引擎选择与追踪） */
-  contextEngineRegistry?: ContextEngineRegistry;
   /** 是否启用验证器代理（Phase 4），默认 true */
   enableVerifier?: boolean;
   /** 验证器配置 */
@@ -240,7 +235,7 @@ export class TAORLoop {
   private queryEngine: QueryEngine;
   private tokenBudget: TokenBudgetController;
   private stopHookManager: StopHookManager;
-  private config: Required<Omit<TAORLoopConfig, 'contextEngineRegistry'>>;
+  private config: Required<TAORLoopConfig>;
   private abortController: AbortController;
   private phaseCallbacks: TAORPhaseCallback;
   private turnCount: number = 0;
@@ -259,7 +254,6 @@ export class TAORLoop {
   private resumedFromCheckpoint: boolean = false;
   private resumedCheckpointId: string | null = null;
   private contextTracker: ContextTracker;
-  private contextEngineRegistry: ContextEngineRegistry | undefined;
   // Phase 2 新增
   private loopDetector: LoopDetector;
   private errorRecovery: ErrorRecoveryManager;
@@ -316,7 +310,6 @@ export class TAORLoop {
       steeringMessages: config.steeringMessages ?? [],
     };
     this.steeringQueue = config.steeringMessages ?? [];
-    this.contextEngineRegistry = config.contextEngineRegistry;
     const model = this.config.budgetConfig.modelName || 'default';
     const defaultBudget = getDefaultTokenBudget(model);
     this.tokenBudget = new TokenBudgetController(
@@ -1258,14 +1251,12 @@ export class TAORLoop {
   }
 
   /**
-   * 简单 token 估算（字符数 / 4）
+   * Token 估算：使用 countMessageTokens 统一入口（含 tool_calls、message 结构开销）
    */
   private _estimateTokens(messages: ChatMessage[]): number {
     let total = 0;
     for (const m of messages) {
-      if (typeof m.content === 'string') {
-        total += Math.ceil(m.content.length / 4);
-      }
+      total += countMessageTokens(m);
     }
     return total;
   }

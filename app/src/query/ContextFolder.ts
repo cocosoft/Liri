@@ -200,17 +200,8 @@ export class ContextFolder {
     if (messages.length === 0) return { messages, result: noop };
 
     // 计算每条消息的 token 数
-    const tokenCounts = messages.map((m) => {
-      let n = countMessageTokens(m);
-      if (
-        m.role === 'assistant' &&
-        Array.isArray(m.tool_calls) &&
-        m.tool_calls.length > 0
-      ) {
-        n += estimateStringTokens(JSON.stringify(m.tool_calls));
-      }
-      return n;
-    });
+    // 注意：countMessageTokens() 内部已计算 tool_calls 的 token，不要重复
+    const tokenCounts = messages.map((m) => countMessageTokens(m));
     const totalTokens = tokenCounts.reduce((a, b) => a + b, 0);
 
     // 从尾部向前扫描，找到边界
@@ -329,14 +320,9 @@ function extractPinnedConstraints(systemPrompt: string): string {
   return Array.from(systemPrompt.matchAll(pattern), (m) => m[0]).join('\n\n');
 }
 
-/** 合并两个 AbortSignal */
+/** 合并两个 AbortSignal（使用标准 API，无监听泄漏） */
 function combineAbortSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
-  const controller = new AbortController();
-  const abort = () => controller.abort();
-  a.addEventListener('abort', abort, { once: true });
-  b.addEventListener('abort', abort, { once: true });
-  if (a.aborted || b.aborted) controller.abort();
-  return controller.signal;
+  return AbortSignal.any([a, b]);
 }
 
 // ─── Token 估算工具 ──────────────────────────────────────────────────────────

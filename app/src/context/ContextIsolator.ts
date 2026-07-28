@@ -106,6 +106,13 @@ export class ContextIsolator {
     return id ? this.scopes.get(id) : undefined;
   }
 
+  /** 清空所有作用域和快照（BUG-14: 防止孤儿作用域累积） */
+  destroy(): void {
+    this.scopes.clear();
+    this.snapshots.clear();
+    this.scopeStack = [];
+  }
+
   removeScope(id: string): void {
     const childScopes = Array.from(this.scopes.values())
       .filter((s) => s.parentId === id)

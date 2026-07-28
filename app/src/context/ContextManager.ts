@@ -34,6 +34,7 @@ import {
 } from './ContextSharingManager';
 import {
   ContextEngine,
+  contextEngine,
   type ContextEntry,
   type ContextQuery,
   type ContextResult,
@@ -120,8 +121,8 @@ export class ContextManager {
     this.lifecycle = deps?.lifecycle ?? lifecycleManager;
     this.isolator = deps?.isolator ?? contextIsolator;
     this.sharingManager = deps?.sharingManager ?? contextSharingManager;
-    // Phase 5: Engine 可选注入，未注入时 scope-aware 功能不可用
-    this.engine = deps?.engine ?? null;
+    // Phase 5: Engine 默认注入全局单例（BUG-1 fix: 不再静默为 null）
+    this.engine = deps?.engine ?? contextEngine;
 
     this.cacheService.setDefaultTTL(this.options.cacheTTL);
 
@@ -317,6 +318,9 @@ export class ContextManager {
     this.clearCache();
     this.engine?.destroy();
     this.destroyAllContexts();
+    // BUG-14 fix: 清理孤立作用域和共享上下文
+    this.isolator.destroy();
+    this.sharingManager.destroy();
   }
 
   registerContextType(type: string, options?: ContextTypeOptions): void {

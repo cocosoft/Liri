@@ -68,6 +68,7 @@ import {
   hydrateOnStartup,
   serializeOnShutdownSync,
 } from './context/persistence/ContextPersistenceLifecycle.js';
+import { contextManager } from './context/ContextManager.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({ module: 'main', level: LogLevel.INFO });
@@ -528,6 +529,12 @@ function checkSingletonInstance(): void {
       }
     } catch (err) {
       // 清理失败不阻塞退出
+    }
+    // BUG-12 fix: 销毁 ContextManager（清空缓存 + engine KV + 上下文）
+    try {
+      contextManager.destroy();
+    } catch (err) {
+      // destroy 失败不阻塞退出
     }
   };
 

@@ -78,6 +78,9 @@ export class AutoCompactionPolicy {
   /** 逃生计数器：连续因反抖动跳过压缩的次数，超过阈值时强制允许压缩 */
   private antiFlappingSkipCount: number = 0;
   private static readonly ANTI_FLAPPING_ESCAPE = 10;
+  /** 逃生后冷却计数：逃生后 N 轮不记录 savings，防止立即重新震荡 */
+  private antiFlappingCooldown: number = 0;
+  private static readonly ANTI_FLAPPING_COOLDOWN = 5;
   /** 校准因子：EMA 从 API 真实 usage 学习，修正估算偏差。1.0 = 信任估算 */
   private calibrationFactor: number = 1.0;
 
@@ -228,6 +231,11 @@ export class AutoCompactionPolicy {
    * @param savedPercent 节省百分比（0-100）
    */
   recordSaving(savedPercent: number): void {
+    // 冷却期不记录 savings，防止逃生后立即重新震荡
+    if (this.antiFlappingCooldown > 0) {
+      this.antiFlappingCooldown--;
+      return;
+    }
     this.recentSavings.push(savedPercent);
     if (this.recentSavings.length > this.maxRecentSavings) {
       this.recentSavings.shift();
@@ -250,6 +258,7 @@ export class AutoCompactionPolicy {
         });
         this.recentSavings = [];
         this.antiFlappingSkipCount = 0;
+        this.antiFlappingCooldown = AutoCompactionPolicy.ANTI_FLAPPING_COOLDOWN;
         return false;
       }
       return true;
@@ -262,6 +271,7 @@ export class AutoCompactionPolicy {
   reset(): void {
     this.recentSavings = [];
     this.antiFlappingSkipCount = 0;
+    this.antiFlappingCooldown = 0;
   }
 }
 

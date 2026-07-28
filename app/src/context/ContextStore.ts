@@ -85,6 +85,8 @@ export class ContextStore implements IContextStore {
       this.store.delete(id);
       return null;
     }
+    // BUG-O fix: update access timestamp for true LRU eviction
+    entry.updatedAt = new Date();
     return entry.context;
   }
 
@@ -130,6 +132,8 @@ export class ContextStore implements IContextStore {
       return false;
     }
 
+    // BUG-O fix: update access timestamp for true LRU eviction
+    entry.updatedAt = new Date();
     return true;
   }
 
@@ -238,7 +242,7 @@ export class ContextStore implements IContextStore {
     let oldestId: string | undefined;
     let oldestTime = Infinity;
 
-    // Phase 1.5: 驱逐策略从 createdAt 改为 updatedAt（真正的 LRU）
+    // BUG-O fix: true LRU — evict least recently accessed (read + write) entry
     for (const [id, entry] of this.store.entries()) {
       if (entry.updatedAt.getTime() < oldestTime) {
         oldestTime = entry.updatedAt.getTime();

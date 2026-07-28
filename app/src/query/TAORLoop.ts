@@ -45,7 +45,7 @@ import {
 import { VerifierAgent, createVerifierAgent } from './VerifierAgent.js';
 import type { VerifierAgentConfig } from './VerifierAgent.js';
 import { FileTAORCheckpointStorage } from './FileTAORCheckpointStorage.js';
-import { countMessageTokens } from './ContextFolder.js';
+import { estimateMessagesTokens } from '../ai/tokenizer/TokenEstimator';
 import type { ChatMessage } from '../ai/models/types';
 
 const logger = new Logger({ module: 'query:taorLoop' });
@@ -1251,14 +1251,10 @@ export class TAORLoop {
   }
 
   /**
-   * Token 估算：使用 countMessageTokens 统一入口（含 tool_calls、message 结构开销）
+   * Token 估算：使用 estimateMessagesTokens（tiktoken + CJK + role overhead）
    */
   private _estimateTokens(messages: ChatMessage[]): number {
-    let total = 0;
-    for (const m of messages) {
-      total += countMessageTokens(m);
-    }
-    return total;
+    return estimateMessagesTokens(messages);
   }
 
   /**

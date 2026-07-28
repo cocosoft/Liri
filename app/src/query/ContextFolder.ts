@@ -32,6 +32,7 @@ import { Logger } from '@modules/monitoring';
 import type { ChatMessage } from '../tools/repair/types';
 import { healLoadedMessages } from './healing';
 import { looksLikeCompleteJson } from './shrink';
+import { estimateMessagesTokens } from '../ai/tokenizer/TokenEstimator';
 
 const logger = new Logger({ module: 'query:contextFolder' });
 
@@ -172,7 +173,8 @@ export class ContextFolder {
     toolCount: number
   ): { estimateTokens: number; ctxMax: number; ratio: number } {
     const { ctxMax } = this.deps;
-    const estimate = estimateMessageTokens(messages, toolCount);
+    // BUG-L fix: use estimateMessagesTokens (tiktoken + CJK + role overhead) instead of local heuristic
+    const estimate = estimateMessagesTokens(messages) + toolCount * 200;
     return { estimateTokens: estimate, ctxMax, ratio: estimate / ctxMax };
   }
 
@@ -199,9 +201,8 @@ export class ContextFolder {
     };
     if (messages.length === 0) return { messages, result: noop };
 
-    // 计算每条消息的 token 数
-    // 注意：countMessageTokens() 内部已计算 tool_calls 的 token，不要重复
-    const tokenCounts = messages.map((m) => countMessageTokens(m));
+    // BUG-L fix: use estimateMessagesTokens (tiktoken + CJK + role overhead)
+    const tokenCounts = messages.map((m) => estimateMessagesTokens([m]));
     const totalTokens = tokenCounts.reduce((a, b) => a + b, 0);
 
     // 从尾部向前扫描，找到边界
@@ -248,7 +249,11 @@ export class ContextFolder {
       beforeMessages: messages.length,
       afterMessages: replacement.length,
       summaryChars: summary.content.length,
-      savedTokens: headTokens - estimateStringTokens(summaryContent),
+      savedTokens:
+        headTokens -
+        estimateMessagesTokens([
+          { role: 'user', content: summaryContent } as ChatMessage,
+        ]),
     };
 
     this.deps.onFold?.(result);
@@ -330,55 +335,6 @@ function combineAbortSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
   return AbortSignal.any([a, b]);
 }
 
-// ─── Token 估算工具 ──────────────────────────────────────────────────────────
-
-/** 估算消息列表的 token 数 */
-function estimateMessageTokens(
-  messages: ChatMessage[],
-  toolCount: number
-): number {
-  let total = 0;
-  for (const msg of messages) {
-    total += countMessageTokens(msg);
-  }
-  // 工具定义开销：每个工具约 200 tokens
-  total += toolCount * 200;
-  return total;
-}
-
-/** 估算单条消息的 token 数 */
-function countMessageTokens(msg: ChatMessage): number {
-  let n = estimateStringTokens(
-    typeof msg.content === 'string' ? msg.content : ''
-  );
-  if (msg.role === 'assistant' && Array.isArray(msg.tool_calls)) {
-    n += estimateStringTokens(JSON.stringify(msg.tool_calls));
-  }
-  return n;
-}
-
-/** 启发式 token 估算（英文约 4 char/token，中文约 1.5 char/token） */
-function estimateStringTokens(text: string): number {
-  if (!text) return 0;
-  let tokens = 0;
-  for (let i = 0; i < text.length; i++) {
-    const code = text.charCodeAt(i);
-    if (code < 128) {
-      tokens += 0.25; // ASCII
-    } else if (code < 2048) {
-      tokens += 0.5;
-    } else {
-      tokens += 0.75; // CJK
-    }
-  }
-  return Math.ceil(tokens);
-}
-
 // ─── 便捷导出 ────────────────────────────────────────────────────────────────
 
-export {
-  extractPinnedConstraints,
-  estimateMessageTokens,
-  countMessageTokens,
-  estimateStringTokens,
-};
+export { extractPinnedConstraints };

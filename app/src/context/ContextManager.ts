@@ -324,7 +324,10 @@ export class ContextManager {
    */
   destroy(): void {
     this.clearCache();
-    this.engine?.destroy();
+    // BUG-P fix: 仅销毁自己注入的 engine（非全局单例），保护共享 KV 存储
+    if (this.engine && this.engine !== contextEngine) {
+      this.engine.destroy();
+    }
     this.destroyAllContexts();
     // BUG-14 fix: 清理孤立作用域和共享上下文
     this.isolator.destroy();

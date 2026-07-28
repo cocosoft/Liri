@@ -30,10 +30,12 @@ import type {
   PostSamplingHook,
 } from '../hooks/types/PostSampling.js';
 import type { ToolUseContext } from '../tools/types/ToolUseContext.js';
-import { CompactServiceImpl } from '../services/compact/CompactService.js';
-import type { CompactArtifact } from '../services/compact/CompactService.js';
 import { MemoryIntegration } from '../memory/integrations/MemoryIntegration.js';
-import type { SessionMessage } from '../session/models/SessionMessage.js';
+import {
+  compactionOrchestrator,
+  type CompactionContext,
+} from '../context/compaction/CompactionOrchestrator';
+import type { ChatMessage } from '../ai/models/types';
 import { AnalyticsService, analyticsService } from '../analytics/index.js';
 import {
   AnalyticsEventQueue,
@@ -308,10 +310,6 @@ export class QueryEngine {
   private postSamplingHookManager: PostSamplingHookManager;
 
   /**
-   * 压缩服务
-   */
-  private compactService: CompactServiceImpl;
-
   /**
    * 记忆集成（可选）
    */
@@ -391,7 +389,6 @@ export class QueryEngine {
     this.postSamplingHookManager = createPostSamplingHookManager({
       enableLogging: false,
     });
-    this.compactService = new CompactServiceImpl();
     this.analyticsService = analyticsService;
     const analyticsQueue = getGlobalAnalyticsQueue();
     this.costTracker = createCostAnalyticsTracker(analyticsQueue);
@@ -656,7 +653,7 @@ export class QueryEngine {
     this.updateSessionState({ queryState: QueryState.RUNNING });
 
     // 检查是否需要压缩
-    await this.checkAndPerformCompact(sessionId || '');
+    await this.compactIfNeeded(sessionId || '');
 
     // 主循环
     let isFirstCall = true;
@@ -767,7 +764,7 @@ export class QueryEngine {
       );
 
       // 检查是否需要压缩
-      await this.checkAndPerformCompact(sessionId || '');
+      await this.compactIfNeeded(sessionId || '');
     }
 
     // 触发查询结束进度事件
@@ -1228,216 +1225,34 @@ export class QueryEngine {
     await this.postSamplingHookManager.executeHooks(hookContext);
   }
 
+  // ─────────────────────────────────────────────────────────
+  // BUG-A fix: 压缩统一入口 — 委托给 CompactionOrchestrator
+  // 消除双管线冲突（旧管线已移除）
+  // ─────────────────────────────────────────────────────────
+
   /**
-   * 检查并执行压缩
-   * @param sessionId 会话ID
+   * 检查并执行上下文压缩（公开接口）
+   * 供外部组件（如 TAORLoop）在 TokenBudget WARNING 时调用
    */
-  private async checkAndPerformCompact(sessionId: string): Promise<void> {
-    try {
-      // 从ChatManager获取会话消息
-      const sessions = await this.chatManager.getSessions();
-      const session = sessions.find((s: ChatSession) => s.id === sessionId);
-      if (!session) return;
+  async compactIfNeeded(sessionId: string): Promise<void> {
+    if (!sessionId) return;
 
-      const messages = session.messages || [];
+    const sessions = this.chatManager.getSessions();
+    const session = sessions.find((s) => s.id === sessionId);
+    if (!session || !session.messages?.length) return;
 
-      // 触发压缩开始进度事件
-      this.emitProgress('compact_start', { session_id: sessionId });
+    const messages = session.messages as unknown as ChatMessage[];
+    const result = await compactionOrchestrator.compact(messages, {
+      model: 'default',
+      sessionId,
+    } as CompactionContext);
 
-      // 获取当前压缩等级（Phase 1a: 已统一为 UNIFIED_THRESHOLDS）
-      const compactLevel = this.tokenBudgetManager.getCompressionLevel();
-
-      if (compactLevel > 0) {
-        const percentUsed =
-          (this.tokenBudgetManager.getUsedBudget() /
-            this.tokenBudgetManager.getTotalBudget()) *
-          100;
-        logger.info(
-          `检测到需要压缩，级别: Level ${compactLevel}, Token使用率: ${percentUsed.toFixed(1)}%`
-        );
-
-        // 更新会话状态为压缩中
-        this.updateSessionState({ queryState: QueryState.COMPACTING });
-
-        // 根据压缩级别执行不同的压缩策略
-        let compactResult: { artifacts: unknown[]; messagesToKeep: string[] };
-        if (compactLevel === 3) {
-          // Level 3: 深度压缩 - 保留最近1轮对话
-          compactResult = await this.performDeepCompact(sessionId, messages);
-        } else if (compactLevel === 2) {
-          // Level 2: 中等压缩 - 保留最近2轮对话
-          compactResult = await this.performMediumCompact(sessionId, messages);
-        } else {
-          // Level 1: 轻度压缩 - 保留最近3轮对话
-          compactResult = await this.performLightCompact(sessionId, messages);
-        }
-
-        logger.info(
-          `压缩完成，生成了 ${compactResult.artifacts.length} 个压缩产物`
-        );
-
-        // 记录压缩事件（在裁剪/注入之前，确保事件不会因后续操作失败而丢失）
-        this.analyticsService.logEvent('compaction_performed', {
-          session_id: sessionId,
-          level: compactLevel,
-          token_percent_used: percentUsed,
-          artifacts_count: compactResult.artifacts.length,
-          timestamp: Date.now(),
-        });
-
-        // 重新注入压缩产物
-        await this.compactService.reinjectArtifacts(
-          sessionId,
-          compactResult.artifacts as CompactArtifact[]
-        );
-
-        // 裁剪 session.messages — 用 messagesToKeep 落地压缩结果
-        this.applyCompactTrim(session, compactResult.messagesToKeep);
-
-        // 更新会话状态为运行中
-        this.updateSessionState({ queryState: QueryState.RUNNING });
-      }
-
-      // 触发压缩结束进度事件
-      this.emitProgress('compact_end', { session_id: sessionId });
-    } catch (error) {
-      logger.error('压缩检查失败:', { error });
-      this.analyticsService.logEvent('compaction_failed', {
-        session_id: sessionId,
-        error: error instanceof Error ? error.message : String(error),
-        timestamp: Date.now(),
-      });
+    if (result.applied) {
+      session.messages = result.messages as unknown as typeof session.messages;
+      this.chatManager
+        .saveSession(session)
+        .catch((err) => logger.error('压缩持久化失败', { error: err }));
     }
-  }
-
-  /**
-   * 将压缩结果落地到 session.messages — 裁剪旧消息，仅保留 messagesToKeep 中的消息
-   * @param session 会话对象（引用，原地修改）
-   * @param messagesToKeep 需保留的消息 ID 列表
-   */
-  private applyCompactTrim(
-    session: ChatSession,
-    messagesToKeep: string[]
-  ): void {
-    const keepIds = new Set(messagesToKeep);
-    const originalCount = session.messages.length;
-    session.messages = session.messages.filter(
-      (m) => m.id && keepIds.has(m.id)
-    );
-
-    logger.info(
-      `压缩裁剪: ${originalCount} → ${session.messages.length} 条消息`,
-      { sessionId: session.id }
-    );
-
-    // 持久化裁剪后的消息列表
-    this.chatManager.saveSession(session).catch((err) => {
-      logger.error('压缩裁剪持久化失败', { error: err });
-    });
-  }
-
-  /**
-   * 轻度压缩 - 保留最近3轮对话
-   * @param sessionId 会话ID
-   * @param messages 消息列表
-   * @returns 压缩产物和需保留的消息ID列表
-   */
-  private async performLightCompact(
-    sessionId: string,
-    messages: unknown[]
-  ): Promise<{ artifacts: unknown[]; messagesToKeep: string[] }> {
-    const result = await this.compactService.compactConversation(
-      messages as SessionMessage[],
-      {
-        isAutoCompact: true,
-        suppressFollowUpQuestions: true,
-      }
-    );
-
-    const artifacts = result.summaryMessages.map((msg: string) => ({
-      id: `compact_light_${Date.now()}`,
-      sessionId,
-      type: 'summary',
-      content: msg,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }));
-
-    return { artifacts, messagesToKeep: result.messagesToKeep ?? [] };
-  }
-
-  /**
-   * 中等压缩 - 保留最近2轮对话
-   * @param sessionId 会话ID
-   * @param messages 消息列表
-   * @returns 压缩产物和需保留的消息ID列表
-   */
-  private async performMediumCompact(
-    sessionId: string,
-    messages: unknown[]
-  ): Promise<{ artifacts: unknown[]; messagesToKeep: string[] }> {
-    const pivotIndex = Math.max(0, messages.length - 6);
-    const result = await this.compactService.partialCompactConversation(
-      messages as SessionMessage[],
-      pivotIndex,
-      'up_to'
-    );
-
-    const artifacts = result.summaryMessages.map((msg: string) => ({
-      id: `compact_medium_${Date.now()}`,
-      sessionId,
-      type: 'summary',
-      content: msg,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }));
-
-    return { artifacts, messagesToKeep: result.messagesToKeep ?? [] };
-  }
-
-  /**
-   * 深度压缩 - 保留最近1轮对话
-   * @param sessionId 会话ID
-   * @param messages 消息列表
-   * @returns 压缩产物和需保留的消息ID列表
-   */
-  private async performDeepCompact(
-    sessionId: string,
-    messages: unknown[]
-  ): Promise<{ artifacts: unknown[]; messagesToKeep: string[] }> {
-    const pivotIndex = Math.max(0, messages.length - 3);
-    const result = await this.compactService.partialCompactConversation(
-      messages as SessionMessage[],
-      pivotIndex,
-      'up_to'
-    );
-
-    // 同时提取关键信息
-    const keyArtifacts = await this.compactService.extractKeyInformation(
-      messages as SessionMessage[],
-      sessionId
-    );
-
-    const summaryArtifact = {
-      id: `compact_deep_${Date.now()}`,
-      sessionId,
-      type: 'summary',
-      content: result.summaryMessages.join('\n'),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    return {
-      artifacts: [summaryArtifact, ...keyArtifacts],
-      messagesToKeep: result.messagesToKeep ?? [],
-    };
-  }
-
-  /**
-   * 压缩服务实例注入（供 TAORLoop 设置）
-   */
-  setCompactService(service: CompactServiceImpl): void {
-    this.compactService = service;
   }
 
   /**
@@ -1453,23 +1268,6 @@ export class QueryEngine {
    */
   getMemoryIntegration(): MemoryIntegration | null {
     return this.memoryIntegration;
-  }
-
-  /**
-   * 检查并执行上下文压缩（公开接口）
-   * 供外部组件（如 TAORLoop）在 TokenBudget WARNING 时调用
-   */
-  async compactIfNeeded(sessionId: string): Promise<void> {
-    if (!sessionId) return;
-    await this.checkAndPerformCompact(sessionId);
-  }
-
-  /**
-   * 获取压缩服务
-   * @returns 压缩服务实例
-   */
-  getCompactService(): CompactServiceImpl {
-    return this.compactService;
   }
 
   /**

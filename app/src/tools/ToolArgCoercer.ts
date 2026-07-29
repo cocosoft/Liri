@@ -83,7 +83,12 @@ export function coerceToolArgs(
         continue;
       }
       delete coerced[key];
-      changes.push({ key, original: value, coerced: undefined, reason: 'null removed (field not nullable)' });
+      changes.push({
+        key,
+        original: value,
+        coerced: undefined,
+        reason: 'null removed (field not nullable)',
+      });
       continue;
     }
 
@@ -92,7 +97,12 @@ export function coerceToolArgs(
       const coercedValue = coerceScalar(value, prop.type);
       if (coercedValue !== value) {
         coerced[key] = coercedValue;
-        changes.push({ key, original: value, coerced: coercedValue, reason: `${typeof value} coerced to ${prop.type}` });
+        changes.push({
+          key,
+          original: value,
+          coerced: coercedValue,
+          reason: `${typeof value} coerced to ${prop.type}`,
+        });
         continue;
       }
     }
@@ -100,16 +110,29 @@ export function coerceToolArgs(
     // #4: scalar → array (schema expects array)
     if (prop.type === 'array' && prop.items && !Array.isArray(value)) {
       coerced[key] = [value];
-      changes.push({ key, original: value, coerced: [value], reason: 'scalar wrapped in array' });
+      changes.push({
+        key,
+        original: value,
+        coerced: [value],
+        reason: 'scalar wrapped in array',
+      });
       continue;
     }
 
     // #5: JSON-encoded string → nested object/array (recursive)
-    if (typeof value === 'string' && (prop.type === 'object' || prop.type === 'array')) {
+    if (
+      typeof value === 'string' &&
+      (prop.type === 'object' || prop.type === 'array')
+    ) {
       const parsed = tryParseJSON(value);
       if (parsed !== undefined) {
         coerced[key] = parsed;
-        changes.push({ key, original: value, coerced: parsed, reason: 'JSON string parsed to object/array' });
+        changes.push({
+          key,
+          original: value,
+          coerced: parsed,
+          reason: 'JSON string parsed to object/array',
+        });
         continue;
       }
     }
@@ -122,7 +145,12 @@ export function coerceToolArgs(
       if (!allowedKeys.has(key)) {
         const removed = coerced[key];
         delete coerced[key];
-        changes.push({ key, original: removed, coerced: undefined, reason: 'extra key removed (additionalProperties: false)' });
+        changes.push({
+          key,
+          original: removed,
+          coerced: undefined,
+          reason: 'extra key removed (additionalProperties: false)',
+        });
       }
     }
   }
@@ -196,7 +224,11 @@ function tryParseJSON(value: string): unknown | undefined {
 export function tryCoerceToolArgs(
   input: Record<string, unknown>,
   schema: ToolSchema
-): { input: Record<string, unknown>; modified: boolean; changes: CoerceChange[] } {
+): {
+  input: Record<string, unknown>;
+  modified: boolean;
+  changes: CoerceChange[];
+} {
   try {
     const result = coerceToolArgs(input, schema);
     if (result.modified) {

@@ -290,10 +290,16 @@ export class MemoryStoreImpl implements MemoryStore {
         try {
           getMemoryDriftDetector().snapshot(filePath);
         } catch (err) {
-          await handleError(err, { module: 'memory:stores', action: 'driftSnapshot' });
+          await handleError(err, {
+            module: 'memory:stores',
+            action: 'driftSnapshot',
+          });
         }
       } catch (error) {
-        await handleError(error, { module: 'memory:stores', action: 'flushBatch' });
+        await handleError(error, {
+          module: 'memory:stores',
+          action: 'flushBatch',
+        });
         storeLogger.error(`批量写入失败`, { id, error });
       }
     }
@@ -303,7 +309,10 @@ export class MemoryStoreImpl implements MemoryStore {
     if (this.batchTimer) return;
     this.batchTimer = setTimeout(() => {
       this.flushBatch().catch((error) => {
-        handleError(error, { module: 'memory:stores', action: 'scheduleFlush' }).catch(() => {});
+        handleError(error, {
+          module: 'memory:stores',
+          action: 'scheduleFlush',
+        }).catch(() => {});
         storeLogger.error('定时批量刷新失败', { error });
       });
     }, 1000);

@@ -76,7 +76,11 @@ export function applyMicroCompaction(
       Array.isArray((msg as unknown as Record<string, unknown>).tool_calls)
     ) {
       for (const tc of (msg as unknown as Record<string, unknown>)
-        .tool_calls as Array<{ id?: string; name?: string; function?: { name?: string } }>) {
+        .tool_calls as Array<{
+        id?: string;
+        name?: string;
+        function?: { name?: string };
+      }>) {
         // BUG-γ fix: ToolCall uses function.name (nested), not name (flat)
         const tcName = tc.function?.name || tc.name;
         if (tc.id && tcName) aidToName.set(tc.id, tcName);

@@ -22,7 +22,11 @@ export class SelfWakeService {
   }
 
   /** Agent 挂起指定秒数 */
-  async sleepFor(sessionId: string, taskId: string, seconds: number): Promise<WakeEntry> {
+  async sleepFor(
+    sessionId: string,
+    taskId: string,
+    seconds: number
+  ): Promise<WakeEntry> {
     if (seconds > 86400) {
       throw new Error('sleep_for max is 24h (86400 seconds)');
     }
@@ -40,20 +44,33 @@ export class SelfWakeService {
     // 短时 Timer（< tickInterval）：直接 setTimeout 精确触发
     if (seconds * 1000 < this.tickIntervalMs) {
       const timer = setTimeout(() => {
-        this.fire(entry.id).catch(err => {
-          cg3Log('tasks:selfwake', 'error', 'shortTimerFireFailed', { wakeId: entry.id, error: String(err) });
+        this.fire(entry.id).catch((err) => {
+          cg3Log('tasks:selfwake', 'error', 'shortTimerFireFailed', {
+            wakeId: entry.id,
+            error: String(err),
+          });
         });
       }, seconds * 1000);
       this.shortTimers.set(entry.id, timer);
     }
 
     await this.wakeStore.save(sessionId, [entry]);
-    cg3Log('tasks:selfwake', 'info', 'sleepFor', { sessionId, taskId, seconds, wakeId: entry.id, shortTimer: seconds * 1000 < this.tickIntervalMs });
+    cg3Log('tasks:selfwake', 'info', 'sleepFor', {
+      sessionId,
+      taskId,
+      seconds,
+      wakeId: entry.id,
+      shortTimer: seconds * 1000 < this.tickIntervalMs,
+    });
     return entry;
   }
 
   /** Agent 挂起到指定时间 */
-  async sleepUntil(sessionId: string, taskId: string, whenIso: string): Promise<WakeEntry> {
+  async sleepUntil(
+    sessionId: string,
+    taskId: string,
+    whenIso: string
+  ): Promise<WakeEntry> {
     const when = new Date(whenIso).getTime();
     if (isNaN(when)) throw new Error(`Invalid ISO datetime: ${whenIso}`);
     const seconds = Math.ceil((when - Date.now()) / 1000);
@@ -62,7 +79,11 @@ export class SelfWakeService {
   }
 
   /** 等待后台任务完成 */
-  async wakeOnJob(sessionId: string, taskId: string, jobId: string): Promise<WakeEntry> {
+  async wakeOnJob(
+    sessionId: string,
+    taskId: string,
+    jobId: string
+  ): Promise<WakeEntry> {
     const entry: WakeEntry = {
       id: randomUUID(),
       kind: WakeKind.COMPLETION,
@@ -73,12 +94,21 @@ export class SelfWakeService {
       createdAt: Date.now(),
     };
     await this.wakeStore.save(sessionId, [entry]);
-    cg3Log('tasks:selfwake', 'info', 'wakeOnJob', { sessionId, taskId, jobId, wakeId: entry.id });
+    cg3Log('tasks:selfwake', 'info', 'wakeOnJob', {
+      sessionId,
+      taskId,
+      jobId,
+      wakeId: entry.id,
+    });
     return entry;
   }
 
   /** 等待 connector 事件 */
-  async wakeOnEvent(sessionId: string, taskId: string, eventKey: string): Promise<WakeEntry> {
+  async wakeOnEvent(
+    sessionId: string,
+    taskId: string,
+    eventKey: string
+  ): Promise<WakeEntry> {
     const entry: WakeEntry = {
       id: randomUUID(),
       kind: WakeKind.EVENT,
@@ -89,7 +119,12 @@ export class SelfWakeService {
       createdAt: Date.now(),
     };
     await this.wakeStore.save(sessionId, [entry]);
-    cg3Log('tasks:selfwake', 'info', 'wakeOnEvent', { sessionId, taskId, eventKey, wakeId: entry.id });
+    cg3Log('tasks:selfwake', 'info', 'wakeOnEvent', {
+      sessionId,
+      taskId,
+      eventKey,
+      wakeId: entry.id,
+    });
     return entry;
   }
 

@@ -14,9 +14,9 @@ const logger = new Logger({ module: 'permission:standingRules' });
 export interface StandingRule {
   toolName: string;
   allowedTargets: Set<string>;
-  createdBy: string;     // task_id or 'manual'
+  createdBy: string; // task_id or 'manual'
   createdAt: number;
-  expiresAt?: number;    // optional TTL
+  expiresAt?: number; // optional TTL
 }
 
 export interface RuleMatch {
@@ -34,12 +34,7 @@ export class StandingRuleEngine {
    * @param taskId 关联的任务 ID
    * @param ttlMs 存活时间（ms），0 = 永久
    */
-  addRule(
-    toolName: string,
-    target: string,
-    taskId: string,
-    ttlMs = 0
-  ): void {
+  addRule(toolName: string, target: string, taskId: string, ttlMs = 0): void {
     const key = `${taskId}:${toolName}`;
     let rule = this.rules.get(key);
     if (!rule) {
@@ -60,10 +55,7 @@ export class StandingRuleEngine {
   /**
    * 检查工具调用是否匹配任何 Standing Rule
    */
-  checkPermission(
-    toolName: string,
-    target?: string
-  ): RuleMatch {
+  checkPermission(toolName: string, target?: string): RuleMatch {
     for (const rule of this.rules.values()) {
       // Check expiration
       if (rule.expiresAt && Date.now() > rule.expiresAt) {
@@ -75,7 +67,11 @@ export class StandingRuleEngine {
       if (rule.toolName !== toolName) continue;
 
       // Target match (exact or wildcard '*')
-      if (!target || rule.allowedTargets.has('*') || rule.allowedTargets.has(target)) {
+      if (
+        !target ||
+        rule.allowedTargets.has('*') ||
+        rule.allowedTargets.has(target)
+      ) {
         return { matched: true, rule };
       }
     }
@@ -123,7 +119,9 @@ export class StandingRuleEngine {
     return removed;
   }
 
-  get ruleCount(): number { return this.rules.size; }
+  get ruleCount(): number {
+    return this.rules.size;
+  }
 }
 
 /** P3-5: 全局单例 */

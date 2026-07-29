@@ -357,8 +357,16 @@ export class SkillInjectionService {
    * @returns 注入 skills 块后的消息列表（如无激活技能则原样返回）
    */
   injectSkillsIntoMessageHistory(
-    messages: Array<{ role: string; content: string; metadata?: Record<string, unknown> }>
-  ): Array<{ role: string; content: string; metadata?: Record<string, unknown> }> {
+    messages: Array<{
+      role: string;
+      content: string;
+      metadata?: Record<string, unknown>;
+    }>
+  ): Array<{
+    role: string;
+    content: string;
+    metadata?: Record<string, unknown>;
+  }> {
     const active = this.getActiveSkills();
     if (active.length === 0) return messages;
 
@@ -366,7 +374,7 @@ export class SkillInjectionService {
     if (!prompt) return messages;
 
     // 找到最后一条 user message 的位置
-    const lastUserIdx = findLastIndex(messages, m => m.role === 'user');
+    const lastUserIdx = findLastIndex(messages, (m) => m.role === 'user');
     if (lastUserIdx === -1) return messages;
 
     // 在最后一条 user message 前插入 skills 注入块

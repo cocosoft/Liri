@@ -96,7 +96,10 @@ export function isValidMemoryType(type: string): type is MemoryType {
  * P2-5: 为记忆类型生成 XML 格式模板
  * 对标 hermes-agent memory XML format
  */
-export function renderMemoryXMLTemplate(type: MemoryType, content: string): string {
+export function renderMemoryXMLTemplate(
+  type: MemoryType,
+  content: string
+): string {
   const semantics = MEMORY_TYPE_SEMANTICS[type];
   if (!semantics) return content;
 

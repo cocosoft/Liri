@@ -42,10 +42,18 @@ export interface MemoryProvider {
   retrieve(query: string, recentMessages?: string[]): Promise<string | null>;
 
   /** 记忆一条 turn */
-  captureTurn(sessionId: string, userMessage: string, assistantMessage: string): Promise<void>;
+  captureTurn(
+    sessionId: string,
+    userMessage: string,
+    assistantMessage: string
+  ): Promise<void>;
 
   /** 写入记忆（镜像内置 MemoryStore） */
-  onMemoryWrite?(action: 'add' | 'update' | 'delete', target: string, content: string): Promise<void>;
+  onMemoryWrite?(
+    action: 'add' | 'update' | 'delete',
+    target: string,
+    content: string
+  ): Promise<void>;
 
   /** 会话结束 */
   onSessionEnd?(sessionId: string, messages?: string[]): Promise<void>;
@@ -54,7 +62,11 @@ export interface MemoryProvider {
   onPreCompact?(sessionId: string, messages?: string[]): Promise<void>;
 
   /** 子代理委派 */
-  onDelegation?(sessionId: string, subAgentId: string, task: string): Promise<void>;
+  onDelegation?(
+    sessionId: string,
+    subAgentId: string,
+    task: string
+  ): Promise<void>;
 
   /** 会话切换 */
   onSessionSwitch?(fromSessionId: string, toSessionId: string): Promise<void>;
@@ -93,7 +105,10 @@ export class MemoryProviderEngine {
   }
 
   /** 初始化所有 Provider */
-  async initializeAll(sessionId: string, config?: Record<string, string>): Promise<void> {
+  async initializeAll(
+    sessionId: string,
+    config?: Record<string, string>
+  ): Promise<void> {
     this.activeSession = sessionId;
     const results = await Promise.allSettled(
       [...this.providers.values()].map((p) => p.initialize(sessionId, config))
@@ -111,9 +126,14 @@ export class MemoryProviderEngine {
     const blocks: string[] = [];
     for (const p of this.providers.values()) {
       try {
-        const block = await withTimeout(p.systemPromptBlock(this.activeSession), 3_000);
+        const block = await withTimeout(
+          p.systemPromptBlock(this.activeSession),
+          3_000
+        );
         if (block) blocks.push(block);
-      } catch { /* timeout or failure — skip */ }
+      } catch {
+        /* timeout or failure — skip */
+      }
     }
     return blocks.length > 0
       ? `<memory-context>\n${blocks.join('\n\n')}\n</memory-context>`
@@ -121,7 +141,10 @@ export class MemoryProviderEngine {
   }
 
   /** 同步所有 Provider 的当前 turn */
-  async syncTurnAll(userMessage: string, assistantMessage: string): Promise<void> {
+  async syncTurnAll(
+    userMessage: string,
+    assistantMessage: string
+  ): Promise<void> {
     if (!this.activeSession) return;
     await Promise.allSettled(
       [...this.providers.values()].map((p) =>
@@ -148,7 +171,10 @@ export class MemoryProviderEngine {
   }
 }
 
-async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number
+): Promise<T | null> {
   try {
     const result = await Promise.race([
       promise,

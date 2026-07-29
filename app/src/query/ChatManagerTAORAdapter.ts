@@ -141,7 +141,10 @@ export function createChatManagerTAORDeps(
       // P1-5: 级联中止 — 启动新一轮，创建 cascade controller
       const cascadeController = cascadeManager.startRound();
       // 合并 TAORLoop 和 cascade 两个 signal
-      const combinedSignal = AbortSignal.any([taorSignal, cascadeController.signal]);
+      const combinedSignal = AbortSignal.any([
+        taorSignal,
+        cascadeController.signal,
+      ]);
 
       // P1-5: 遍历前检查是否已被中止
       if (combinedSignal.aborted) {

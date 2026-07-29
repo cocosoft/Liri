@@ -22,14 +22,14 @@ export interface WatchPattern {
   name: string;
   pattern: RegExp;
   severity: 'info' | 'warn' | 'error';
-  rateLimitMs?: number;    // 同一模式最小通知间隔
+  rateLimitMs?: number; // 同一模式最小通知间隔
   description: string;
 }
 
 export interface WatchdogConfig {
   patterns: WatchPattern[];
   globalCircuitBreaker: number; // 全局断路器阈值
-  circuitWindowMs: number;      // 断路器时间窗口
+  circuitWindowMs: number; // 断路器时间窗口
 }
 
 export interface WatchdogStats {
@@ -60,7 +60,8 @@ const DEFAULT_PATTERNS: WatchPattern[] = [
   },
   {
     name: 'auth_failure',
-    pattern: /401 Unauthorized|403 Forbidden|Invalid API key|Authentication failed/i,
+    pattern:
+      /401 Unauthorized|403 Forbidden|Invalid API key|Authentication failed/i,
     severity: 'error',
     rateLimitMs: 30_000,
     description: 'Authentication failure',
@@ -134,10 +135,10 @@ export class ProcessWatchdog {
 
       matches.push({ pattern: p.name, severity: p.severity });
 
-      logger[p.severity === 'error' ? 'error' : 'warn'](
-        `watchdog:${p.name}`,
-        { description: p.description, line: line.slice(0, 200) }
-      );
+      logger[p.severity === 'error' ? 'error' : 'warn'](`watchdog:${p.name}`, {
+        description: p.description,
+        line: line.slice(0, 200),
+      });
     }
 
     // Global circuit breaker

@@ -35,7 +35,11 @@ export function resolvePermissionDecision(
   // No hook → defer to settings
   if (!hookDecision || hookDecision === 'passthrough') {
     if (!settingsDecision) {
-      return { decision: 'ask', source: 'default', reason: `No rule for '${toolName}'` };
+      return {
+        decision: 'ask',
+        source: 'default',
+        reason: `No rule for '${toolName}'`,
+      };
     }
     return {
       decision: settingsDecision as HookDecision,

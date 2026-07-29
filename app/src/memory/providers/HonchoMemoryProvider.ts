@@ -12,7 +12,11 @@
  *   HONCHO_BASE_URL — API 地址（默认 https://api.honcho.dev）
  */
 
-import type { ExternalMemoryProvider, ExternalMemoryEntry, MemoryQuery } from './ExternalMemoryProvider';
+import type {
+  ExternalMemoryProvider,
+  ExternalMemoryEntry,
+  MemoryQuery,
+} from './ExternalMemoryProvider';
 import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'memory:providers:honcho' });
@@ -40,18 +44,13 @@ export class HonchoMemoryProvider implements ExternalMemoryProvider {
   private initialized = false;
 
   constructor(config?: Partial<HonchoConfig>) {
-    const apiKey =
-      config?.apiKey ||
-      process.env.HONCHO_API_KEY ||
-      '';
+    const apiKey = config?.apiKey || process.env.HONCHO_API_KEY || '';
     const baseUrl =
       config?.baseUrl ||
       process.env.HONCHO_BASE_URL ||
       DEFAULT_HONCHO_CONFIG.baseUrl!;
-    const timeoutMs =
-      config?.timeoutMs ?? DEFAULT_HONCHO_CONFIG.timeoutMs!;
-    const maxRetries =
-      config?.maxRetries ?? DEFAULT_HONCHO_CONFIG.maxRetries!;
+    const timeoutMs = config?.timeoutMs ?? DEFAULT_HONCHO_CONFIG.timeoutMs!;
+    const maxRetries = config?.maxRetries ?? DEFAULT_HONCHO_CONFIG.maxRetries!;
 
     this.config = { apiKey, baseUrl, timeoutMs, maxRetries };
   }
@@ -70,16 +69,13 @@ export class HonchoMemoryProvider implements ExternalMemoryProvider {
     }
   }
 
-  async fetchAllMemories(
-    query?: MemoryQuery
-  ): Promise<ExternalMemoryEntry[]> {
+  async fetchAllMemories(query?: MemoryQuery): Promise<ExternalMemoryEntry[]> {
     if (!this.initialized) return [];
 
     const params = new URLSearchParams();
     if (query?.limit) params.set('limit', String(query.limit));
     if (query?.offset) params.set('offset', String(query.offset));
-    if (query?.tags?.length)
-      params.set('tags', query.tags.join(','));
+    if (query?.tags?.length) params.set('tags', query.tags.join(','));
 
     try {
       const data = await this.request<any[]>(
@@ -106,9 +102,7 @@ export class HonchoMemoryProvider implements ExternalMemoryProvider {
     }
   }
 
-  async fetchMemoryById(
-    id: string
-  ): Promise<ExternalMemoryEntry | null> {
+  async fetchMemoryById(id: string): Promise<ExternalMemoryEntry | null> {
     if (!this.initialized) return null;
 
     try {
@@ -131,9 +125,7 @@ export class HonchoMemoryProvider implements ExternalMemoryProvider {
     }
   }
 
-  async syncMemories(
-    entries: ExternalMemoryEntry[]
-  ): Promise<void> {
+  async syncMemories(entries: ExternalMemoryEntry[]): Promise<void> {
     if (!this.initialized || entries.length === 0) return;
 
     try {
@@ -171,10 +163,7 @@ export class HonchoMemoryProvider implements ExternalMemoryProvider {
     logger.info('HonchoMemoryProvider shutdown');
   }
 
-  private async request<T>(
-    path: string,
-    options: RequestInit
-  ): Promise<T> {
+  private async request<T>(path: string, options: RequestInit): Promise<T> {
     const url = `${this.config.baseUrl}${path}`;
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.config.apiKey}`,
@@ -199,18 +188,14 @@ export class HonchoMemoryProvider implements ExternalMemoryProvider {
         clearTimeout(timer);
 
         if (!res.ok) {
-          throw new Error(
-            `Honcho HTTP ${res.status}: ${res.statusText}`
-          );
+          throw new Error(`Honcho HTTP ${res.status}: ${res.statusText}`);
         }
 
         return (await res.json()) as T;
       } catch (err) {
         lastError = err as Error;
         if (attempt < this.config.maxRetries) {
-          await new Promise((r) =>
-            setTimeout(r, Math.pow(2, attempt) * 500)
-          );
+          await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 500));
         }
       }
     }

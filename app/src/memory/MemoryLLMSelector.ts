@@ -12,7 +12,7 @@ export interface MemoryItem {
 }
 
 export interface SelectionConfig {
-  maxItems: number;        // 最多返回 N 条，默认 5
+  maxItems: number; // 最多返回 N 条，默认 5
   maxCharsPerItem: number; // 单条最大字符数
 }
 
@@ -46,7 +46,9 @@ export function parseSelectionResult(raw: string): string[] {
   try {
     const parsed = JSON.parse(raw.trim());
     if (Array.isArray(parsed)) return parsed.map(String);
-  } catch { /* not valid JSON, try regex fallback */ }
+  } catch {
+    /* not valid JSON, try regex fallback */
+  }
 
   // Fallback: extract IDs from bracket notation
   const match = /\[([^\]]+)\]/.exec(raw);
@@ -63,7 +65,8 @@ export function applySelection(
   memories: MemoryItem[],
   selectedIds: string[]
 ): MemoryItem[] {
-  if (selectedIds.length === 0) return memories.slice(0, DEFAULT_CONFIG.maxItems);
+  if (selectedIds.length === 0)
+    return memories.slice(0, DEFAULT_CONFIG.maxItems);
   const idSet = new Set(selectedIds);
   return memories.filter((m) => idSet.has(m.id));
 }

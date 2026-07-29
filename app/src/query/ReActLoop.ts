@@ -95,7 +95,11 @@ const DEFAULT_CONFIG: ReActLoopConfig = {
 // Abstract Base Class
 // ==========================================
 
-export abstract class ReActLoop<TInput = unknown, TContext = unknown, TResult = unknown> {
+export abstract class ReActLoop<
+  TInput = unknown,
+  TContext = unknown,
+  TResult = unknown,
+> {
   protected config: ReActLoopConfig;
   protected state: ReActState;
   protected consecutiveInvalidTurns = 0;
@@ -122,13 +126,13 @@ export abstract class ReActLoop<TInput = unknown, TContext = unknown, TResult = 
   ): Promise<ActResult>;
 
   /** 判断循环是否应该继续 */
-  protected abstract shouldContinue(input: TInput, result: ReasonResult<TContext>): boolean;
+  protected abstract shouldContinue(
+    input: TInput,
+    result: ReasonResult<TContext>
+  ): boolean;
 
   /** 最终化结果（循环结束时调用） */
-  protected abstract finalize(
-    state: ReActState,
-    context?: TContext
-  ): TResult;
+  protected abstract finalize(state: ReActState, context?: TContext): TResult;
 
   // ==========================================
   // Hooks — 子类可覆写
@@ -166,12 +170,12 @@ export abstract class ReActLoop<TInput = unknown, TContext = unknown, TResult = 
 
   private checkCircuitBreaker(result: ActResult): boolean {
     if (this.config.maxConsecutiveInvalidTurns <= 0) return false;
-    const allInvalid = result.results.every(
-      (r) => r.status === 'error'
-    );
+    const allInvalid = result.results.every((r) => r.status === 'error');
     if (allInvalid) {
       this.consecutiveInvalidTurns++;
-      if (this.consecutiveInvalidTurns >= this.config.maxConsecutiveInvalidTurns) {
+      if (
+        this.consecutiveInvalidTurns >= this.config.maxConsecutiveInvalidTurns
+      ) {
         logger.warn('reActLoop:circuit_breaker triggered', {
           consecutiveInvalidTurns: this.consecutiveInvalidTurns,
           maxConsecutiveInvalidTurns: this.config.maxConsecutiveInvalidTurns,
@@ -246,7 +250,10 @@ export abstract class ReActLoop<TInput = unknown, TContext = unknown, TResult = 
         // ==== ACTING PHASE ====
         this.state.phase = 'acting';
         this.state.pendingToolCalls = reasonResult.toolCalls;
-        yield { type: 'acting_start', toolCount: reasonResult.toolCalls.length };
+        yield {
+          type: 'acting_start',
+          toolCount: reasonResult.toolCalls.length,
+        };
 
         let actResult: ActResult;
         try {
@@ -282,7 +289,8 @@ export abstract class ReActLoop<TInput = unknown, TContext = unknown, TResult = 
         // --- Circuit breaker ---
         if (this.checkCircuitBreaker(actResult)) {
           this.state.phase = 'error';
-          this.state.lastError = 'circuit_breaker: consecutive invalid turns exceeded';
+          this.state.lastError =
+            'circuit_breaker: consecutive invalid turns exceeded';
           yield {
             type: 'error',
             message: this.state.lastError,
@@ -310,8 +318,11 @@ export abstract class ReActLoop<TInput = unknown, TContext = unknown, TResult = 
     this.state.phase = 'aborted';
     if (this.config.abortSignal) {
       // 通过 AbortController 传播中止信号
-      (this.config.abortSignal as AbortSignal & { _controller?: AbortController })
-        ._controller?.abort();
+      (
+        this.config.abortSignal as AbortSignal & {
+          _controller?: AbortController;
+        }
+      )._controller?.abort();
     }
   }
 }

@@ -18,21 +18,54 @@ const logger = new Logger({ module: 'mcp:securityFilter' });
 // ==========================================
 
 /** 凭据剥离正则模式列表 */
-const CREDENTIAL_PATTERNS: Array<{ pattern: RegExp; name: string; replacement: string }> = [
+const CREDENTIAL_PATTERNS: Array<{
+  pattern: RegExp;
+  name: string;
+  replacement: string;
+}> = [
   // GitHub tokens
-  { pattern: /gh[pousr]_[A-Za-z0-9_]{36,}/g, name: 'github_token', replacement: '[REDACTED:github_token]' },
+  {
+    pattern: /gh[pousr]_[A-Za-z0-9_]{36,}/g,
+    name: 'github_token',
+    replacement: '[REDACTED:github_token]',
+  },
   // OpenAI/Anthropic API keys
-  { pattern: /sk-(?:ant|proj)-[A-Za-z0-9_-]{32,}/g, name: 'api_key', replacement: '[REDACTED:api_key]' },
+  {
+    pattern: /sk-(?:ant|proj)-[A-Za-z0-9_-]{32,}/g,
+    name: 'api_key',
+    replacement: '[REDACTED:api_key]',
+  },
   // Generic Bearer tokens
-  { pattern: /bearer\s+[A-Za-z0-9\-._~+/]+=*/gi, name: 'bearer_token', replacement: 'Bearer [REDACTED]' },
+  {
+    pattern: /bearer\s+[A-Za-z0-9\-._~+/]+=*/gi,
+    name: 'bearer_token',
+    replacement: 'Bearer [REDACTED]',
+  },
   // AWS access keys
-  { pattern: /AKIA[0-9A-Z]{16}/g, name: 'aws_key', replacement: '[REDACTED:aws_key]' },
+  {
+    pattern: /AKIA[0-9A-Z]{16}/g,
+    name: 'aws_key',
+    replacement: '[REDACTED:aws_key]',
+  },
   // Generic hex/api keys (32+ chars)
-  { pattern: /[A-Za-z0-9+/]{52,}={0,2}/g, name: 'long_base64', replacement: '[REDACTED:long_token]' },
+  {
+    pattern: /[A-Za-z0-9+/]{52,}={0,2}/g,
+    name: 'long_base64',
+    replacement: '[REDACTED:long_token]',
+  },
   // JWT tokens (header.body.signature)
-  { pattern: /eyJ[A-Za-z0-9\-_]+\.eyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+/g, name: 'jwt', replacement: '[REDACTED:jwt]' },
+  {
+    pattern: /eyJ[A-Za-z0-9\-_]+\.eyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+/g,
+    name: 'jwt',
+    replacement: '[REDACTED:jwt]',
+  },
   // Private key headers
-  { pattern: /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g, name: 'private_key', replacement: '[REDACTED:private_key]' },
+  {
+    pattern:
+      /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g,
+    name: 'private_key',
+    replacement: '[REDACTED:private_key]',
+  },
 ];
 
 /**
@@ -76,27 +109,55 @@ export function stripCredentials(text: string): {
 /** 允许传递给 MCP 子进程的安全基线环境变量 */
 const SAFE_ENV_KEYS = new Set([
   // OS required
-  'PATH', 'HOME', 'USER', 'TEMP', 'TMP', 'TMPDIR',
-  'SHELL', 'LANG', 'LC_ALL', 'TERM',
+  'PATH',
+  'HOME',
+  'USER',
+  'TEMP',
+  'TMP',
+  'TMPDIR',
+  'SHELL',
+  'LANG',
+  'LC_ALL',
+  'TERM',
   // XDG paths
-  'XDG_CACHE_HOME', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME',
-  'XDG_STATE_HOME', 'XDG_RUNTIME_DIR',
+  'XDG_CACHE_HOME',
+  'XDG_CONFIG_HOME',
+  'XDG_DATA_HOME',
+  'XDG_STATE_HOME',
+  'XDG_RUNTIME_DIR',
   // PY_APP specific (non-sensitive)
-  'PYAPP_HOME', 'PYAPP_DATA_DIR', 'PYAPP_PROJECT_DIR',
-  'OUTPUT_DIR', 'DOWNLOADS_DIR',
+  'PYAPP_HOME',
+  'PYAPP_DATA_DIR',
+  'PYAPP_PROJECT_DIR',
+  'OUTPUT_DIR',
+  'DOWNLOADS_DIR',
   // System info
-  'OS', 'PROCESSOR_ARCHITECTURE', 'NUMBER_OF_PROCESSORS',
+  'OS',
+  'PROCESSOR_ARCHITECTURE',
+  'NUMBER_OF_PROCESSORS',
   // Bun/Node
-  'NODE_ENV', 'BUN_INSTALL', 'npm_config_cache',
+  'NODE_ENV',
+  'BUN_INSTALL',
+  'npm_config_cache',
   // Display
-  'DISPLAY', 'WAYLAND_DISPLAY',
+  'DISPLAY',
+  'WAYLAND_DISPLAY',
 ]);
 
 /** 明确拒绝的环境变量键（含敏感信息） */
 const BLOCKED_ENV_PATTERNS = [
-  /API[_-]?KEY/i, /TOKEN/i, /SECRET/i, /PASSWORD/i, /PASSWD/i,
-  /CREDENTIAL/i, /PRIVATE[_-]?KEY/i, /AUTH/i, /ACCESS[_-]?KEY/i,
-  /DATABASE_URL/i, /DB_[A-Z]/i, /REDIS_URL/i,
+  /API[_-]?KEY/i,
+  /TOKEN/i,
+  /SECRET/i,
+  /PASSWORD/i,
+  /PASSWD/i,
+  /CREDENTIAL/i,
+  /PRIVATE[_-]?KEY/i,
+  /AUTH/i,
+  /ACCESS[_-]?KEY/i,
+  /DATABASE_URL/i,
+  /DB_[A-Z]/i,
+  /REDIS_URL/i,
 ];
 
 /**
@@ -113,7 +174,10 @@ export function buildSafeEnv(extraKeys?: string[]): Record<string, string> {
       if (!blocked) {
         allowedKeys.add(key);
       } else {
-        logger.warn('mcp:env_blocked', { key, reason: 'matched blocked pattern' });
+        logger.warn('mcp:env_blocked', {
+          key,
+          reason: 'matched blocked pattern',
+        });
       }
     }
   }

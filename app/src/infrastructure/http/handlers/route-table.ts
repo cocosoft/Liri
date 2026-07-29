@@ -227,7 +227,10 @@ export async function dispatchRoute(
     );
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/checkpoints\/latest$/)) {
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/sessions\/(.+)\/checkpoints\/latest$/)
+  ) {
     await self['handleLatestCheckpoint'](
       req,
       res,

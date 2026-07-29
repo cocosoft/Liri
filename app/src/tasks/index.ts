@@ -185,7 +185,13 @@ export type {
 } from '../tools/AgentTool/CuratorReviewScope';
 
 // CG3 自主执行闭环
-export { createCg3Services, wireSelfWakeToCron, wireAlwaysOnToChat, startCg3, getCg3 } from './Cg3Bootstrap';
+export {
+  createCg3Services,
+  wireSelfWakeToCron,
+  wireAlwaysOnToChat,
+  startCg3,
+  getCg3,
+} from './Cg3Bootstrap';
 export type { Cg3BootstrapResult } from './Cg3Bootstrap';
 export { CommandBridge, getCommandBridge } from './commands/CommandBridge';
 export { SteeringBridge, getSteeringBridge } from './steering/SteeringBridge';
@@ -193,10 +199,20 @@ export { cg3DataDir, cg3Log } from './cg3Env';
 
 // P2-9: 批量并行处理导出
 export { BatchRunner } from './BatchRunner';
-export type { BatchConfig, BatchWorker, BatchProgress, BatchItem, BatchResult } from './BatchRunner';
+export type {
+  BatchConfig,
+  BatchWorker,
+  BatchProgress,
+  BatchItem,
+  BatchResult,
+} from './BatchRunner';
 
 // P3-1: 任务蓝图目录导出
-export { findBlueprint, renderBlueprintPrompt, BUILTIN_BLUEPRINTS } from './TaskBlueprintCatalog';
+export {
+  findBlueprint,
+  renderBlueprintPrompt,
+  BUILTIN_BLUEPRINTS,
+} from './TaskBlueprintCatalog';
 export type { TaskBlueprint, BlueprintSlot } from './TaskBlueprintCatalog';
 
 // P3-13: 任务列表视图导出

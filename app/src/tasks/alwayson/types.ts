@@ -53,11 +53,7 @@ export interface GateResult {
 }
 
 /** 4 阶段 */
-export type PipelinePhase =
-  | 'discovery'
-  | 'workspace'
-  | 'execution'
-  | 'report';
+export type PipelinePhase = 'discovery' | 'workspace' | 'execution' | 'report';
 
 /** 发现阶段产出的执行计划 */
 export interface DiscoveryPlan {

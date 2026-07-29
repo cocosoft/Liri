@@ -39,7 +39,11 @@ const SECTION_FILE_MAP: Record<string, string> = {
  * 加载外置 Prompt 覆盖
  */
 export function loadPromptOverrides(forceRefresh = false): PromptOverrides {
-  if (!forceRefresh && _cachedOverrides && Date.now() - _cacheTime < CACHE_TTL_MS) {
+  if (
+    !forceRefresh &&
+    _cachedOverrides &&
+    Date.now() - _cacheTime < CACHE_TTL_MS
+  ) {
     return _cachedOverrides;
   }
 

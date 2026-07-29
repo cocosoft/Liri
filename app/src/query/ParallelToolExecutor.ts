@@ -145,10 +145,7 @@ export class ParallelToolExecutor {
         );
         allResults.push(...serialResults);
 
-        if (
-          this.config.abortOnError &&
-          serialResults.some((r) => !r.success)
-        ) {
+        if (this.config.abortOnError && serialResults.some((r) => !r.success)) {
           break;
         }
       }

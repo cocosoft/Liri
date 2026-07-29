@@ -70,16 +70,33 @@ export * from './EnhancedMemoryManager.js';
 export * from './SmartMemoryAnalyzer.js';
 
 // P2-5: 记忆类型扩展（FEEDBACK/REFERENCE + XML 模板）
-export { MemoryType, getTypeSemantics, getAllTypeSemantics, isValidMemoryType, renderMemoryXMLTemplate } from './types/MemoryType';
+export {
+  MemoryType,
+  getTypeSemantics,
+  getAllTypeSemantics,
+  isValidMemoryType,
+  renderMemoryXMLTemplate,
+} from './types/MemoryType';
 export type { MemoryTypeSemantics } from './types/MemoryType';
 
 // P2-6: LLM 精选记忆检索
-export { buildSelectionPrompt, parseSelectionResult, applySelection } from './MemoryLLMSelector';
+export {
+  buildSelectionPrompt,
+  parseSelectionResult,
+  applySelection,
+} from './MemoryLLMSelector';
 export type { MemoryItem, SelectionConfig } from './MemoryLLMSelector';
 
 // P2-7: 记忆外部漂移检测
-export { MemoryDriftDetector, getMemoryDriftDetector } from './MemoryDriftDetector';
+export {
+  MemoryDriftDetector,
+  getMemoryDriftDetector,
+} from './MemoryDriftDetector';
 export type { DriftSnapshot } from './MemoryDriftDetector';
 
 // P1-2: 会话级记忆冻结快照
-export { FrozenSnapshotService, getFrozenSnapshotService, resetFrozenSnapshotService } from './FrozenSnapshotService';
+export {
+  FrozenSnapshotService,
+  getFrozenSnapshotService,
+  resetFrozenSnapshotService,
+} from './FrozenSnapshotService';

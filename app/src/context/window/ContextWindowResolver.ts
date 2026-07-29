@@ -193,13 +193,25 @@ export function applyDegradationProbe(
 ): { tokens: number; degraded: boolean; reason: string } {
   const parsedLimit = parseContextLimitFromError(errorMessage);
   if (parsedLimit && parsedLimit > 0 && parsedLimit >= MINIMUM_CONTEXT_LENGTH) {
-    return { tokens: parsedLimit, degraded: true, reason: `API reported: ${parsedLimit}` };
+    return {
+      tokens: parsedLimit,
+      degraded: true,
+      reason: `API reported: ${parsedLimit}`,
+    };
   }
   const nextTier = getNextDegradationTier(currentTokens);
   if (nextTier) {
-    return { tokens: nextTier, degraded: true, reason: `Probe tier: ${nextTier}` };
+    return {
+      tokens: nextTier,
+      degraded: true,
+      reason: `Probe tier: ${nextTier}`,
+    };
   }
-  return { tokens: DEFAULT_CONTEXT_WINDOW, degraded: true, reason: 'Exhausted, using default' };
+  return {
+    tokens: DEFAULT_CONTEXT_WINDOW,
+    degraded: true,
+    reason: 'Exhausted, using default',
+  };
 }
 
 // ============================================================

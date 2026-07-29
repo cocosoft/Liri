@@ -95,7 +95,10 @@ export class SubAgentEventPump {
     // 500ms 轮询：采集状态并推送
     this.pollTimer = setInterval(() => this.poll(), this.pollIntervalMs);
     // 2s 心跳检测：标记超时子代理
-    this.heartbeatTimer = setInterval(() => this.detectStale(), this.heartbeatTimeoutMs);
+    this.heartbeatTimer = setInterval(
+      () => this.detectStale(),
+      this.heartbeatTimeoutMs
+    );
     logger.info('pump:started', {
       pollIntervalMs: this.pollIntervalMs,
       heartbeatTimeoutMs: this.heartbeatTimeoutMs,
@@ -104,8 +107,14 @@ export class SubAgentEventPump {
 
   /** 停止 */
   stop(): void {
-    if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
-    if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
   }
 
   /** 500ms 轮询：推送活跃状态 */
@@ -124,7 +133,10 @@ export class SubAgentEventPump {
       if (state.status !== 'running') continue;
       if (now - state.lastHeartbeat > this.heartbeatTimeoutMs) {
         state.status = 'stale';
-        logger.warn('pump:stale', { subAgentId: id, lastHeartbeat: state.lastHeartbeat });
+        logger.warn('pump:stale', {
+          subAgentId: id,
+          lastHeartbeat: state.lastHeartbeat,
+        });
         this.emitStatus(state);
       }
     }

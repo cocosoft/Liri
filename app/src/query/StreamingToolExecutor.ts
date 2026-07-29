@@ -213,7 +213,13 @@ export class StreamingToolExecutor {
       trackedResults = trackedTools.map((t) => t.toResult());
     }
 
-    return { content, toolCalls, toolResults, trackedResults, streamChunks: chunks };
+    return {
+      content,
+      toolCalls,
+      toolResults,
+      trackedResults,
+      streamChunks: chunks,
+    };
   }
 
   /**
@@ -279,7 +285,13 @@ export class StreamingToolExecutor {
     const content = chunks.map((c) => c.content ?? '').join('');
     const trackedResults = trackedTools.map((t) => t.toResult());
 
-    return { content, toolCalls, toolResults, trackedResults, streamChunks: chunks };
+    return {
+      content,
+      toolCalls,
+      toolResults,
+      trackedResults,
+      streamChunks: chunks,
+    };
   }
 
   /**
@@ -327,10 +339,7 @@ export class StreamingToolExecutor {
       // 区分超时和中止
       if (errStr.includes('timeout') || errStr.includes('Timeout')) {
         tracked.markTimedOut(this.config.toolTimeoutMs);
-      } else if (
-        errStr.includes('abort') ||
-        errStr.includes('AbortError')
-      ) {
+      } else if (errStr.includes('abort') || errStr.includes('AbortError')) {
         tracked.markAborted(errStr);
       } else {
         tracked.markFailed(errStr);

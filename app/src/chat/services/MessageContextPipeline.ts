@@ -348,14 +348,22 @@ export async function truncateApiMessages(
   // 确保上下文压缩后 skills 列表仍然存在，且不破坏 System Prompt 的 cache_control 前缀
   try {
     const injected = skillInjectionService.injectSkillsIntoMessageHistory(
-      apiMessages as Array<{ role: string; content: string; metadata?: Record<string, unknown> }>
+      apiMessages as Array<{
+        role: string;
+        content: string;
+        metadata?: Record<string, unknown>;
+      }>
     );
     // 直接替换数组内容（保持引用）
     apiMessages.length = 0;
-    for (const msg of injected) apiMessages.push(msg as Record<string, unknown>);
+    for (const msg of injected)
+      apiMessages.push(msg as Record<string, unknown>);
   } catch (err) {
     // Skills 注入失败不阻塞主流程
-    await handleError(err, { module: 'chat:context-pipeline', action: 'injectSkills' });
+    await handleError(err, {
+      module: 'chat:context-pipeline',
+      action: 'injectSkills',
+    });
   }
 }
 

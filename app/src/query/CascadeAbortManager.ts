@@ -19,7 +19,11 @@ const logger = new Logger({ module: 'query:cascadeAbort' });
 // ==========================================
 
 /** 级联中止触发条件 */
-export type CascadeTrigger = 'bash_error' | 'write_error' | 'permission_denied' | 'never';
+export type CascadeTrigger =
+  | 'bash_error'
+  | 'write_error'
+  | 'permission_denied'
+  | 'never';
 
 /** 级联中止配置 */
 export interface CascadeAbortConfig {
@@ -53,14 +57,24 @@ export interface ErrorClassification {
 
 /** Bash/code execution tool names that can cascade-abort */
 const CASCADE_TOOL_PATTERNS = [
-  /^bash$/i, /^sh$/i, /^shell$/i, /^run_shell$/i,
-  /^powershell$/i, /^cmd$/i, /^terminal$/i,
+  /^bash$/i,
+  /^sh$/i,
+  /^shell$/i,
+  /^run_shell$/i,
+  /^powershell$/i,
+  /^cmd$/i,
+  /^terminal$/i,
 ];
 
 /** Write tool names that can cascade-abort */
 const WRITE_TOOL_PATTERNS = [
-  /write/i, /edit/i, /patch/i, /replace/i,
-  /^file_write$/i, /^file_edit$/i, /^write_file$/i,
+  /write/i,
+  /edit/i,
+  /patch/i,
+  /replace/i,
+  /^file_write$/i,
+  /^file_edit$/i,
+  /^write_file$/i,
 ];
 
 /**
@@ -196,7 +210,10 @@ export class CascadeAbortManager {
   /**
    * 为被中止的工具生成结果
    */
-  createAbortedResult(toolCallId: string, toolName: string): {
+  createAbortedResult(
+    toolCallId: string,
+    toolName: string
+  ): {
     toolCallId: string;
     toolName: string;
     result: string;

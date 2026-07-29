@@ -240,7 +240,8 @@ function tsEstimateTokens(messagesJson: string): number {
 function estimateTextTokens(text: string): number {
   if (!text) return 0;
 
-  const CJK_REGEX = /[\u4e00-\u9fff\u3400-\u4dbf\u{20000}-\u{2a6df}\uf900-\ufaff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/gu;
+  const CJK_REGEX =
+    /[\u4e00-\u9fff\u3400-\u4dbf\u{20000}-\u{2a6df}\uf900-\ufaff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/gu;
   const cjkMatches = text.match(CJK_REGEX);
   const cjkCount = cjkMatches ? cjkMatches.length : 0;
   const totalChars = text.length;
@@ -253,7 +254,9 @@ function estimateTextTokens(text: string): number {
   if (cjkRatio > 0.3) {
     const nonCjk = totalChars - cjkCount;
     const words = text.split(/\s+/).filter(Boolean);
-    return Math.ceil(cjkCount * 1.5 + nonCjk * 0.25) + Math.min(words.length, 5);
+    return (
+      Math.ceil(cjkCount * 1.5 + nonCjk * 0.25) + Math.min(words.length, 5)
+    );
   }
 
   const words = text.split(/\s+/).filter(Boolean);

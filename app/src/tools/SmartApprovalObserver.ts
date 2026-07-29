@@ -28,7 +28,11 @@ export interface ApprovalResult {
 // ==========================================
 
 const SAFE_COMMAND_PATTERNS: Array<{ pattern: RegExp; description: string }> = [
-  { pattern: /^git\s+(status|diff|log|branch|show|remote|config|blame|rev-parse|stash\s+list)\b/i, description: 'git read-only' },
+  {
+    pattern:
+      /^git\s+(status|diff|log|branch|show|remote|config|blame|rev-parse|stash\s+list)\b/i,
+    description: 'git read-only',
+  },
   { pattern: /^ls\b/i, description: 'list files' },
   { pattern: /^pwd\b/i, description: 'print working directory' },
   { pattern: /^echo\b/i, description: 'echo' },
@@ -45,8 +49,15 @@ const SAFE_COMMAND_PATTERNS: Array<{ pattern: RegExp; description: string }> = [
   { pattern: /^du\b(?!.*-h)/i, description: 'disk usage' },
   { pattern: /^df\b/i, description: 'disk free' },
   { pattern: /^env\b/i, description: 'environment' },
-  { pattern: /^(bun|npm|pnpm|yarn)\s+(run|test|lint|build|typecheck|check|format)\b/i, description: 'package manager run' },
-  { pattern: /^cargo\s+(build|test|check|clippy|fmt)\b/i, description: 'cargo build' },
+  {
+    pattern:
+      /^(bun|npm|pnpm|yarn)\s+(run|test|lint|build|typecheck|check|format)\b/i,
+    description: 'package manager run',
+  },
+  {
+    pattern: /^cargo\s+(build|test|check|clippy|fmt)\b/i,
+    description: 'cargo build',
+  },
   { pattern: /^go\s+(build|test|vet|fmt)\b/i, description: 'go build' },
 ];
 
@@ -55,9 +66,16 @@ const SAFE_COMMAND_PATTERNS: Array<{ pattern: RegExp; description: string }> = [
 // ==========================================
 
 const DANGEROUS_FLAGS = [
-  /--force\b/i, /-f\b/, /--yes\b/i, /-y\b/,
-  /--delete\b/i, /--remove\b/i, /--purge\b/i,
-  /--hard\b/i, /--no-verify\b/i, /--allow-empty\b/i,
+  /--force\b/i,
+  /-f\b/,
+  /--yes\b/i,
+  /-y\b/,
+  /--delete\b/i,
+  /--remove\b/i,
+  /--purge\b/i,
+  /--hard\b/i,
+  /--no-verify\b/i,
+  /--allow-empty\b/i,
 ];
 
 // ==========================================
@@ -76,7 +94,11 @@ export class SmartApprovalObserver {
    */
   evaluate(command: string): ApprovalResult {
     if (!command?.trim()) {
-      return { decision: 'auto_deny', reason: 'Empty command', confidence: 1.0 };
+      return {
+        decision: 'auto_deny',
+        reason: 'Empty command',
+        confidence: 1.0,
+      };
     }
 
     const trimmed = command.trim();
@@ -136,7 +158,9 @@ export class SmartApprovalObserver {
   }
 
   /** 清除历史 */
-  clearHistory(): void { this.history = []; }
+  clearHistory(): void {
+    this.history = [];
+  }
 
   /** 获取统计 */
   getStats() {
@@ -145,9 +169,8 @@ export class SmartApprovalObserver {
       autoDeny: this.autoDenyCount,
       needsReview: this.needsReviewCount,
       total: this.autoAllowCount + this.autoDenyCount + this.needsReviewCount,
-      autoAllowRate: this.totalApprovals > 0
-        ? this.autoAllowCount / this.totalApprovals
-        : 0,
+      autoAllowRate:
+        this.totalApprovals > 0 ? this.autoAllowCount / this.totalApprovals : 0,
     };
   }
 
@@ -157,7 +180,8 @@ export class SmartApprovalObserver {
 }
 
 function isDestructiveCommand(cmd: string): boolean {
-  return /rm\s+(-rf?)\s/i.test(cmd) ||
+  return (
+    /rm\s+(-rf?)\s/i.test(cmd) ||
     /sudo\s/i.test(cmd) ||
     /chmod\s+777/i.test(cmd) ||
     /chown\s+-R/i.test(cmd) ||
@@ -166,7 +190,8 @@ function isDestructiveCommand(cmd: string): boolean {
     />\s*\/dev\//i.test(cmd) ||
     /shutdown|reboot|halt/i.test(cmd) ||
     /git\s+reset\s+--hard/i.test(cmd) ||
-    /git\s+push\s+--force/i.test(cmd);
+    /git\s+push\s+--force/i.test(cmd)
+  );
 }
 
 function containsDangerousFlags(cmd: string): boolean {

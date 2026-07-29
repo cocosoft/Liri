@@ -7,7 +7,14 @@
  * 并发安全：内部维护 Map<sessionId, Mutex>，确保同一文件读→改→写原子化。
  * markFired() 使用读-改-写三步（锁定 → 读取 → 修改 → 写入 → 解锁）。
  */
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from 'fs';
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  readdirSync,
+  unlinkSync,
+} from 'fs';
 import { join, basename } from 'path';
 import type { WakeEntry } from './types';
 import { cg3DataDir } from '../cg3Env';
@@ -25,11 +32,19 @@ export class WakeStore {
   }
 
   /** 获取文件锁，确保 read→modify→write 原子化 */
-  private async withLock<T>(sessionId: string, fn: () => Promise<T>): Promise<T> {
+  private async withLock<T>(
+    sessionId: string,
+    fn: () => Promise<T>
+  ): Promise<T> {
     const prev = this.fileMutex.get(sessionId) ?? Promise.resolve();
     let release!: () => void;
-    const next = new Promise<void>((r) => { release = r; });
-    this.fileMutex.set(sessionId, prev.then(() => next));
+    const next = new Promise<void>((r) => {
+      release = r;
+    });
+    this.fileMutex.set(
+      sessionId,
+      prev.then(() => next)
+    );
     await prev;
     try {
       return await fn();
@@ -67,7 +82,7 @@ export class WakeStore {
       const path = this.filePath(sid);
       if (!existsSync(path)) return;
       const entries: WakeEntry[] = JSON.parse(readFileSync(path, 'utf-8'));
-      const idx = entries.findIndex(e => e.id === wakeId);
+      const idx = entries.findIndex((e) => e.id === wakeId);
       if (idx >= 0) {
         entries[idx].status = 'fired';
         entries[idx].firedAt = Date.now();
@@ -79,7 +94,9 @@ export class WakeStore {
   /** 获取所有 pending/due 状态的唤醒条目 */
   async getAllPending(): Promise<WakeEntry[]> {
     const results: WakeEntry[] = [];
-    const files = existsSync(this.dir) ? readdirSync(this.dir).filter(f => f.endsWith('.json')) : [];
+    const files = existsSync(this.dir)
+      ? readdirSync(this.dir).filter((f) => f.endsWith('.json'))
+      : [];
     for (const f of files) {
       const sid = basename(f, '.json');
       const entries = await this.load(sid);
@@ -95,12 +112,18 @@ export class WakeStore {
   /** 获取到期的唤醒条目 */
   async getDueWakes(): Promise<WakeEntry[]> {
     const results: WakeEntry[] = [];
-    const files = existsSync(this.dir) ? readdirSync(this.dir).filter(f => f.endsWith('.json')) : [];
+    const files = existsSync(this.dir)
+      ? readdirSync(this.dir).filter((f) => f.endsWith('.json'))
+      : [];
     for (const f of files) {
       const sid = basename(f, '.json');
       const entries = await this.load(sid);
       for (const e of entries) {
-        if ((e.status === 'pending' || e.status === 'due') && e.triggerAt && e.triggerAt <= Date.now()) {
+        if (
+          (e.status === 'pending' || e.status === 'due') &&
+          e.triggerAt &&
+          e.triggerAt <= Date.now()
+        ) {
           results.push(e);
         }
       }
@@ -112,14 +135,18 @@ export class WakeStore {
   async gc(maxAgeMs = 24 * 3600_000): Promise<number> {
     let cleaned = 0;
     const cutoff = Date.now() - maxAgeMs;
-    const files = existsSync(this.dir) ? readdirSync(this.dir).filter(f => f.endsWith('.json')) : [];
+    const files = existsSync(this.dir)
+      ? readdirSync(this.dir).filter((f) => f.endsWith('.json'))
+      : [];
     for (const f of files) {
       const sid = basename(f, '.json');
       await this.withLock(sid, async () => {
         const path = this.filePath(sid);
         if (!existsSync(path)) return;
         const entries: WakeEntry[] = JSON.parse(readFileSync(path, 'utf-8'));
-        const kept = entries.filter(e => e.status !== 'fired' || (e.firedAt && e.firedAt > cutoff));
+        const kept = entries.filter(
+          (e) => e.status !== 'fired' || (e.firedAt && e.firedAt > cutoff)
+        );
         if (kept.length < entries.length) {
           cleaned += entries.length - kept.length;
           if (kept.length === 0) {

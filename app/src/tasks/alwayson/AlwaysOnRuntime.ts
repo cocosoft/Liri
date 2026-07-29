@@ -33,14 +33,21 @@ export class AlwaysOnRuntime {
     projectPath: string = '',
     cmdBridge?: CommandBridge,
     steerBridge?: SteeringBridge,
-    watchdog?: WatchdogBridge,
+    watchdog?: WatchdogBridge
   ) {
     this.config = { ...DEFAULT_ALWAYSON_CONFIG, ...config };
     this.signalWatcher = new SignalWatcher(this.config.dormantDebounceMs);
-    this.gates = new DiscoveryGates(this.config, this.signalWatcher, projectPath);
+    this.gates = new DiscoveryGates(
+      this.config,
+      this.signalWatcher,
+      projectPath
+    );
     this.resourceArbiter = new ResourceArbiter();
     this.fireRunner = new DiscoveryFire(this.config.execution);
-    this.scheduler = new DiscoveryScheduler(this.config.tickIntervalMinutes, () => this.tryRun());
+    this.scheduler = new DiscoveryScheduler(
+      this.config.tickIntervalMinutes,
+      () => this.tryRun()
+    );
     this.cmdBridge = cmdBridge;
     this.steerBridge = steerBridge;
     this.watchdog = watchdog;
@@ -53,7 +60,10 @@ export class AlwaysOnRuntime {
     try {
       const gate = this.gates.evaluate();
       if (!gate.passed) {
-        cg3Log('tasks:alwayson:runtime', 'debug', 'gateBlocked', { reason: gate.reason, detail: gate.detail });
+        cg3Log('tasks:alwayson:runtime', 'debug', 'gateBlocked', {
+          reason: gate.reason,
+          detail: gate.detail,
+        });
         return;
       }
 
@@ -81,7 +91,9 @@ export class AlwaysOnRuntime {
       // 重检关键门控
       const recheck1 = this.gates.quickRecheck();
       if (!recheck1.passed) {
-        cg3Log('tasks:alwayson:runtime', 'info', 'quickRecheckBlocked', { reason: recheck1.reason });
+        cg3Log('tasks:alwayson:runtime', 'info', 'quickRecheckBlocked', {
+          reason: recheck1.reason,
+        });
         return;
       }
 
@@ -93,10 +105,15 @@ export class AlwaysOnRuntime {
 
       // 阶段 4: Report
       const report = await this.fireRunner.report(result);
-      cg3Log('tasks:alwayson:runtime', 'info', 'completed', { success: result.success, durationMs: result.durationMs });
+      cg3Log('tasks:alwayson:runtime', 'info', 'completed', {
+        success: result.success,
+        durationMs: result.durationMs,
+      });
       this.gates.recordRun();
     } catch (err) {
-      cg3Log('tasks:alwayson:runtime', 'error', 'runtime:error', { error: String(err) });
+      cg3Log('tasks:alwayson:runtime', 'error', 'runtime:error', {
+        error: String(err),
+      });
     } finally {
       this.resourceArbiter.release('alwayson');
     }
@@ -111,7 +128,9 @@ export class AlwaysOnRuntime {
     this.fireRunner.workspace = fn;
   }
 
-  setExecutionFn(fn: (workspace: string) => Promise<import('./types').ExecutionResult>): void {
+  setExecutionFn(
+    fn: (workspace: string) => Promise<import('./types').ExecutionResult>
+  ): void {
     this.fireRunner.execution = fn;
   }
 

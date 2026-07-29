@@ -35,7 +35,10 @@ import { SkillInjectionService } from '@modules/skills/services/SkillInjectionSe
 import { SkillRegistry } from '@modules/skills/SkillRegistry';
 import { FileSkillLoader } from '@modules/skills/loaders/sources/FileSkillLoader';
 import { SkillSource } from '@modules/skills/types';
-import { BUILTIN_EXAMPLES, renderFewShotPrompt } from '@modules/tools/FewShotRegistry';
+import {
+  BUILTIN_EXAMPLES,
+  renderFewShotPrompt,
+} from '@modules/tools/FewShotRegistry';
 
 /** 内建技能目录 */
 const BUILTIN_SKILLS_DIR = join(
@@ -447,17 +450,19 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
   ),
 
   // P1-11: Few-shot 工具使用示例
-  systemPromptSection(
-    'fewShotExamples',
-    () => {
-      if (!BUILTIN_EXAMPLES || BUILTIN_EXAMPLES.length === 0) return null;
-      const parts = ['## Tool Usage Examples', '', 'Below are examples of correct tool usage to guide your behavior:', ''];
-      for (const entry of BUILTIN_EXAMPLES) {
-        parts.push(renderFewShotPrompt(entry));
-      }
-      return parts.join('\n');
+  systemPromptSection('fewShotExamples', () => {
+    if (!BUILTIN_EXAMPLES || BUILTIN_EXAMPLES.length === 0) return null;
+    const parts = [
+      '## Tool Usage Examples',
+      '',
+      'Below are examples of correct tool usage to guide your behavior:',
+      '',
+    ];
+    for (const entry of BUILTIN_EXAMPLES) {
+      parts.push(renderFewShotPrompt(entry));
     }
-  ),
+    return parts.join('\n');
+  }),
 ];
 
 /**

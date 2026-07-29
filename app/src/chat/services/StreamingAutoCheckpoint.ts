@@ -18,7 +18,10 @@ import type { Message } from '../types/message';
 import type { SessionMetadata, SessionState } from '../types/session';
 import type { ToolCallSpec } from '@modules/runtime/api/CoreAPI';
 
-const logger = new Logger({ module: 'chat:streamingAutoCheckpoint', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'chat:streamingAutoCheckpoint',
+  level: LogLevel.INFO,
+});
 
 // ── 类型 ──────────────────────────────────────────────────────────
 
@@ -78,7 +81,8 @@ export class StreamingAutoCheckpoint {
 
   /** 每个 tool_call 完成后调用，写入自动检查点 */
   async onToolCompleted(state: ToolCompletedState): Promise<SessionCheckpoint> {
-    const isFull = this.stepIndex === 0 || (this.stepIndex - this.lastFullStep) >= 10;
+    const isFull =
+      this.stepIndex === 0 || this.stepIndex - this.lastFullStep >= 10;
     this.version++;
 
     const description = JSON.stringify({
@@ -116,7 +120,9 @@ export class StreamingAutoCheckpoint {
       stepIndex: checkpoint.id,
       mode: isFull ? 'full' : 'delta',
       version: this.version,
-      messageCount: isFull ? state.messagesSnapshot.length : state.newMessagesSinceLastCheckpoint.length,
+      messageCount: isFull
+        ? state.messagesSnapshot.length
+        : state.newMessagesSinceLastCheckpoint.length,
     });
 
     return checkpoint;
@@ -124,7 +130,9 @@ export class StreamingAutoCheckpoint {
 
   /** 恢复：从最新自动检查点重建生成器状态 */
   async restore(): Promise<RestoreResult | null> {
-    const latest = await this.checkpointService.getLatestCheckpoint(this.sessionId);
+    const latest = await this.checkpointService.getLatestCheckpoint(
+      this.sessionId
+    );
     if (!latest) return null;
 
     const meta = latest.metadata as unknown as Record<string, unknown>;

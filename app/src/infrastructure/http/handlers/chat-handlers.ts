@@ -279,7 +279,7 @@ async function handleStreamingChat(
   const otel = getOTelTracing();
   const streamSpan = otel.startSpan('http:chat.stream', {
     'session.id': request.session_id ?? '',
-    'model': request.model ?? 'default',
+    model: request.model ?? 'default',
   });
 
   res.writeHead(200, {
@@ -651,7 +651,10 @@ async function handleStreamingChat(
     res.end();
   } catch (err) {
     eventNotificationService.off('tool:completed', onToolCompleted);
-    otel.recordError(streamSpan, err instanceof Error ? err : new Error(String(err)));
+    otel.recordError(
+      streamSpan,
+      err instanceof Error ? err : new Error(String(err))
+    );
     otel.endSpan(streamSpan, SpanStatusCode.ERROR, String(err));
     await handleError(err, {
       module: 'infra:http',
@@ -695,7 +698,8 @@ export async function handleSessionStreamingStatus(
 ): Promise<void> {
   try {
     const coreAPI = getCoreAPI();
-    const streaming = coreAPI.chatManager?.isSessionStreaming(sessionId) ?? false;
+    const streaming =
+      coreAPI.chatManager?.isSessionStreaming(sessionId) ?? false;
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ sessionId, streaming }));
   } catch (err) {
@@ -720,13 +724,18 @@ export async function handleLatestCheckpoint(
 ): Promise<void> {
   try {
     const coreAPI = getCoreAPI();
-    const messages = await coreAPI.chatManager?.getLatestCheckpointMessages(sessionId);
+    const messages =
+      await coreAPI.chatManager?.getLatestCheckpointMessages(sessionId);
     if (messages && messages.length > 0) {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ sessionId, checkpointAvailable: true, messages }));
+      res.end(
+        JSON.stringify({ sessionId, checkpointAvailable: true, messages })
+      );
     } else {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ sessionId, checkpointAvailable: false, messages: [] }));
+      res.end(
+        JSON.stringify({ sessionId, checkpointAvailable: false, messages: [] })
+      );
     }
   } catch (err) {
     await handleError(err, {
@@ -761,7 +770,11 @@ export async function handleResumeChat(
   const checkpointId = request.checkpoint_id;
   if (!sessionId || !checkpointId) {
     res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: { message: 'session_id and checkpoint_id are required' } }));
+    res.end(
+      JSON.stringify({
+        error: { message: 'session_id and checkpoint_id are required' },
+      })
+    );
     return;
   }
 
@@ -777,21 +790,33 @@ export async function handleResumeChat(
   res.on('close', () => {
     try {
       getCoreAPI().chatManager?.abortSessionStream(sessionId);
-    } catch { /* 静默处理 */ }
+    } catch {
+      /* 静默处理 */
+    }
   });
 
   try {
     const coreAPI = getCoreAPI();
-    const generator = coreAPI.chatManager!.resumeStream(sessionId, checkpointId);
+    const generator = coreAPI.chatManager!.resumeStream(
+      sessionId,
+      checkpointId
+    );
 
     let result = await generator.next();
     while (!result.done) {
       if (res.destroyed || res.writableEnded) break;
 
       const chunk = result.value;
-      const data = typeof chunk === 'string'
-        ? JSON.stringify({ __pyapp_type: 'text', choices: [{ delta: { content: chunk } }] })
-        : JSON.stringify({ ...(chunk as unknown as Record<string, unknown>), __pyapp_type: (chunk as unknown as Record<string, unknown>).type });
+      const data =
+        typeof chunk === 'string'
+          ? JSON.stringify({
+              __pyapp_type: 'text',
+              choices: [{ delta: { content: chunk } }],
+            })
+          : JSON.stringify({
+              ...(chunk as unknown as Record<string, unknown>),
+              __pyapp_type: (chunk as unknown as Record<string, unknown>).type,
+            });
 
       res.write(`data: ${data}\n\n`);
       safeFlush(res);
@@ -805,7 +830,9 @@ export async function handleResumeChat(
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'resume_chat' });
     if (!res.destroyed && !res.writableEnded) {
-      res.write(`data: ${JSON.stringify({ __pyapp_type: 'error', content: '恢复失败' })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({ __pyapp_type: 'error', content: '恢复失败' })}\n\n`
+      );
       safeFlush(res);
     }
   } finally {

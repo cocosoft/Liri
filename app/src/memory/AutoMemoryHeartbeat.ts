@@ -68,7 +68,10 @@ export class AutoMemoryHeartbeat {
 
   /** 停止心跳 */
   stop(): void {
-    if (this.timer) { clearInterval(this.timer); this.timer = null; }
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
   }
 
   /** 单次心跳 */
@@ -123,9 +126,12 @@ export class AutoMemoryHeartbeat {
       succeeded,
       failed: total - succeeded,
       successRate: total > 0 ? succeeded / total : 0,
-      lastBeatAt: this.trace.length > 0 ? this.trace[this.trace.length - 1].timestamp : 0,
+      lastBeatAt:
+        this.trace.length > 0 ? this.trace[this.trace.length - 1].timestamp : 0,
     };
   }
 
-  get running(): boolean { return this.timer !== null; }
+  get running(): boolean {
+    return this.timer !== null;
+  }
 }

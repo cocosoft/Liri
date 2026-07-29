@@ -80,9 +80,15 @@ export const BUILTIN_EXAMPLES: FewShotEntry[] = [
       },
       {
         scenario: '覆盖已有文件',
-        input: { file_path: '/src/config.ts', content: 'export default { port: 3000 };' },
+        input: {
+          file_path: '/src/config.ts',
+          content: 'export default { port: 3000 };',
+        },
         expectedBehavior: '文件被新内容覆盖',
-        commonMistakes: ['未先 read_file 确认当前状态', '覆盖时丢失原有重要配置'],
+        commonMistakes: [
+          '未先 read_file 确认当前状态',
+          '覆盖时丢失原有重要配置',
+        ],
       },
       {
         scenario: '写入超大文件（边缘情况）',
@@ -99,13 +105,25 @@ export const BUILTIN_EXAMPLES: FewShotEntry[] = [
     examples: [
       {
         scenario: '搜索函数定义',
-        input: { pattern: 'function\\s+handleLogin', path: '/src', glob: '*.ts' },
+        input: {
+          pattern: 'function\\s+handleLogin',
+          path: '/src',
+          glob: '*.ts',
+        },
         expectedBehavior: '返回匹配行及上下文',
-        commonMistakes: ['不使用 glob 过滤导致匹配过量', 'Pattern 忘记转义特殊字符'],
+        commonMistakes: [
+          '不使用 glob 过滤导致匹配过量',
+          'Pattern 忘记转义特殊字符',
+        ],
       },
       {
         scenario: '搜索接口实现（带上下文）',
-        input: { pattern: 'implements IPlugin', path: '/src', output_mode: 'content', '-C': 3 },
+        input: {
+          pattern: 'implements IPlugin',
+          path: '/src',
+          output_mode: 'content',
+          '-C': 3,
+        },
         expectedBehavior: '返回匹配行及前后3行上下文',
         commonMistakes: ['忘记 -C 参数导致缺少关键上下文'],
       },
@@ -126,7 +144,10 @@ export const BUILTIN_EXAMPLES: FewShotEntry[] = [
         scenario: '检查 git 状态',
         input: { command: 'git status --short', timeout: 10000 },
         expectedBehavior: '返回 git 变更列表',
-        commonMistakes: ['使用 rm -rf（触发危险模式检测）', 'command 中包含分号串联多个命令'],
+        commonMistakes: [
+          '使用 rm -rf（触发危险模式检测）',
+          'command 中包含分号串联多个命令',
+        ],
       },
       {
         scenario: '安装项目依赖',
@@ -149,19 +170,38 @@ export const BUILTIN_EXAMPLES: FewShotEntry[] = [
     examples: [
       {
         scenario: '精确替换函数体',
-        input: { file_path: '/src/app.ts', old_string: 'function foo() { return 1; }', new_string: 'function foo() { return 2; }' },
+        input: {
+          file_path: '/src/app.ts',
+          old_string: 'function foo() { return 1; }',
+          new_string: 'function foo() { return 2; }',
+        },
         expectedBehavior: '单处精确替换成功',
-        commonMistakes: ['old_string 不唯一导致替换失败', '缩进不匹配导致匹配失败'],
+        commonMistakes: [
+          'old_string 不唯一导致替换失败',
+          '缩进不匹配导致匹配失败',
+        ],
       },
       {
         scenario: '重命名变量（全文件替换）',
-        input: { file_path: '/src/utils.ts', old_string: 'oldVarName', new_string: 'newVarName', replace_all: true },
+        input: {
+          file_path: '/src/utils.ts',
+          old_string: 'oldVarName',
+          new_string: 'newVarName',
+          replace_all: true,
+        },
         expectedBehavior: '文件中所有 oldVarName 替换为 newVarName',
-        commonMistakes: ['替换词太短导致误伤其他标识符', '替换注释中的同名文本'],
+        commonMistakes: [
+          '替换词太短导致误伤其他标识符',
+          '替换注释中的同名文本',
+        ],
       },
       {
         scenario: '修复 import 路径',
-        input: { file_path: '/src/index.ts', old_string: "from './old/path'", new_string: "from './new/path'" },
+        input: {
+          file_path: '/src/index.ts',
+          old_string: "from './old/path'",
+          new_string: "from './new/path'",
+        },
         expectedBehavior: 'import 语句路径更新',
         commonMistakes: ['转义字符差异导致匹配失败（双引号vs单引号）'],
       },
@@ -211,7 +251,11 @@ export const BUILTIN_EXAMPLES: FewShotEntry[] = [
       },
       {
         scenario: '限定语言搜索',
-        input: { query: 'Python asyncio best practices', num: 5, lr: 'lang_en' },
+        input: {
+          query: 'Python asyncio best practices',
+          num: 5,
+          lr: 'lang_en',
+        },
         expectedBehavior: '返回英文搜索结果',
         commonMistakes: ['需要英文结果时不指定 lr 参数'],
       },
@@ -232,7 +276,10 @@ export const BUILTIN_EXAMPLES: FewShotEntry[] = [
         scenario: '读取 GitHub 仓库 README',
         input: { url: 'https://github.com/user/repo#readme' },
         expectedBehavior: '返回 README 正文内容',
-        commonMistakes: ['抓取大文件页面（可能截断）', 'URL 后不带 #readme 锚点'],
+        commonMistakes: [
+          '抓取大文件页面（可能截断）',
+          'URL 后不带 #readme 锚点',
+        ],
       },
       {
         scenario: '抓取错误页面（边缘情况）',
@@ -249,19 +296,53 @@ export const BUILTIN_EXAMPLES: FewShotEntry[] = [
     examples: [
       {
         scenario: '创建多步骤任务计划',
-        input: { todos: [{ id: '1', content: '分析错误根因', status: 'in_progress', priority: 'high' }, { id: '2', content: '修复代码', status: 'pending', priority: 'high' }], merge: false },
+        input: {
+          todos: [
+            {
+              id: '1',
+              content: '分析错误根因',
+              status: 'in_progress',
+              priority: 'high',
+            },
+            {
+              id: '2',
+              content: '修复代码',
+              status: 'pending',
+              priority: 'high',
+            },
+          ],
+          merge: false,
+        },
         expectedBehavior: '创建新任务列表，前端显示两个任务',
         commonMistakes: ['简单任务不需要 todo', 'merge=false 覆盖了已有任务'],
       },
       {
         scenario: '标记任务完成并更新进度',
-        input: { todos: [{ id: '1', status: 'completed', summary: '根因：空指针异常' }], merge: true },
+        input: {
+          todos: [
+            { id: '1', status: 'completed', summary: '根因：空指针异常' },
+          ],
+          merge: true,
+        },
         expectedBehavior: '任务1标记完成，任务2自动变为in_progress',
-        commonMistakes: ['完成任务后不写 summary', '多个任务同时标记 in_progress'],
+        commonMistakes: [
+          '完成任务后不写 summary',
+          '多个任务同时标记 in_progress',
+        ],
       },
       {
         scenario: '增量添加新任务',
-        input: { todos: [{ id: '3', content: '编写单元测试', status: 'pending', priority: 'medium' }], merge: true },
+        input: {
+          todos: [
+            {
+              id: '3',
+              content: '编写单元测试',
+              status: 'pending',
+              priority: 'medium',
+            },
+          ],
+          merge: true,
+        },
         expectedBehavior: '新任务追加到已有列表',
         commonMistakes: ['merge: true 时 id 与已有任务冲突'],
       },
@@ -274,19 +355,52 @@ export const BUILTIN_EXAMPLES: FewShotEntry[] = [
     examples: [
       {
         scenario: '确认技术方案选择',
-        input: { questions: [{ question: '使用哪个状态管理库？', header: '状态管理', options: [{ label: 'Zustand (推荐)', description: '轻量、与 React 18 配合最佳' }, { label: 'Redux Toolkit', description: '功能完整、生态丰富' }], multiSelect: false }] },
+        input: {
+          questions: [
+            {
+              question: '使用哪个状态管理库？',
+              header: '状态管理',
+              options: [
+                {
+                  label: 'Zustand (推荐)',
+                  description: '轻量、与 React 18 配合最佳',
+                },
+                { label: 'Redux Toolkit', description: '功能完整、生态丰富' },
+              ],
+              multiSelect: false,
+            },
+          ],
+        },
         expectedBehavior: '前端显示单选问题，用户选择后继续',
         commonMistakes: ['选项太多无法区分', '问题表述不清无法回答'],
       },
       {
         scenario: '多选确认功能需求',
-        input: { questions: [{ question: '需要支持哪些数据库？', header: '数据库', options: [{ label: 'SQLite', description: '本地嵌入式数据库' }, { label: 'PostgreSQL', description: '服务器级关系型数据库' }, { label: 'MongoDB', description: '文档型 NoSQL' }], multiSelect: true }] },
+        input: {
+          questions: [
+            {
+              question: '需要支持哪些数据库？',
+              header: '数据库',
+              options: [
+                { label: 'SQLite', description: '本地嵌入式数据库' },
+                { label: 'PostgreSQL', description: '服务器级关系型数据库' },
+                { label: 'MongoDB', description: '文档型 NoSQL' },
+              ],
+              multiSelect: true,
+            },
+          ],
+        },
         expectedBehavior: '用户可多选数据库类型',
-        commonMistakes: ['应该单选却设为 multiSelect', '选项没有 description 导致用户不解其意'],
+        commonMistakes: [
+          '应该单选却设为 multiSelect',
+          '选项没有 description 导致用户不解其意',
+        ],
       },
       {
         scenario: '边界条件：不需要提问时',
-        input: { /* 无调用 — 当需求明确时不应使用此工具 */ },
+        input: {
+          /* 无调用 — 当需求明确时不应使用此工具 */
+        },
         expectedBehavior: '明确需求不调用 ask_user_question',
         commonMistakes: ['过度使用导致用户烦躁', '无选项或选项少于2个'],
       },

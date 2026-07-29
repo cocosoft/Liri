@@ -176,7 +176,9 @@ export async function initializeChatManager(): Promise<ChatManager> {
   // P0-1/P0-2: CG3 自主执行闭环 — 连线 SelfWake + AlwaysOnRuntime
   try {
     const { startCg3 } = await import('../tasks/Cg3Bootstrap.js');
-    const cg3 = await startCg3(chatManager as unknown as { onTurnEnd?: () => void });
+    const cg3 = await startCg3(
+      chatManager as unknown as { onTurnEnd?: () => void }
+    );
     // 将 CG3 挂载到 chatManager 上，供 teardown 时使用
     (chatManager as unknown as Record<string, unknown>)._cg3 = cg3;
     logger.info('CG3 autonomous loop wired: SelfWake → Cron, AlwaysOn → Chat');
@@ -971,7 +973,9 @@ export async function launchRepl(
     // 第二步：清理 ChatManager（停止任务编排器、工具注册表、流服务）
     // P0-1/P0-2: 先断开 CG3 连线，释放 selfWake timers + alwaysOn scheduler
     try {
-      const cg3 = (chatManager as unknown as Record<string, unknown>)._cg3 as { teardown?: () => void } | undefined;
+      const cg3 = (chatManager as unknown as Record<string, unknown>)._cg3 as
+        | { teardown?: () => void }
+        | undefined;
       if (cg3?.teardown) {
         cg3.teardown();
         logger.info('CG3 teardown complete');

@@ -138,9 +138,10 @@ export class MCPServerManager {
           const rawMsg = error instanceof Error ? error.message : String(error);
           const { stripCredentials } = await import('./MCPSecurityFilter');
           const { cleaned } = stripCredentials(rawMsg);
-          const wrappedError = error instanceof Error
-            ? Object.assign(new Error(cleaned), { stack: error.stack })
-            : new Error(cleaned);
+          const wrappedError =
+            error instanceof Error
+              ? Object.assign(new Error(cleaned), { stack: error.stack })
+              : new Error(cleaned);
           await handleError(wrappedError, {
             module: 'services:mcp:server',
             action: 'connect_server',
@@ -203,7 +204,11 @@ export class MCPServerManager {
         const jsonStr = JSON.stringify(result);
         const { cleaned } = stripCredentials(jsonStr);
         if (cleaned !== jsonStr) {
-          try { safeResult = JSON.parse(cleaned); } catch { safeResult = cleaned; }
+          try {
+            safeResult = JSON.parse(cleaned);
+          } catch {
+            safeResult = cleaned;
+          }
         }
       }
 

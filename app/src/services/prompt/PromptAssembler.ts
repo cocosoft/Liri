@@ -11,8 +11,14 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { setCurrentSessionContext } from './MemoryPromptProvider';
 import type { SessionContext } from '@modules/memory/types/SessionContext';
 import { generatePromptReport, formatPromptReport } from './SystemPromptReport';
-import { applyPromptOverrides, getPromptAppendices } from './PromptVersionManager';
-import { generateDiagnosticsReport, type DiagnosticsReport } from './DiagnosticsReport';
+import {
+  applyPromptOverrides,
+  getPromptAppendices,
+} from './PromptVersionManager';
+import {
+  generateDiagnosticsReport,
+  type DiagnosticsReport,
+} from './DiagnosticsReport';
 import type { PromptMode } from './types';
 export type { PromptMode };
 
@@ -157,7 +163,12 @@ export async function assembleSystemPrompt(
 
   // P3-10: 追加外置 custom prompt
   const appendices = getPromptAppendices();
-  const parts: string[] = [...stableParts, CACHE_BOUNDARY, ...dynamicParts, ...appendices];
+  const parts: string[] = [
+    ...stableParts,
+    CACHE_BOUNDARY,
+    ...dynamicParts,
+    ...appendices,
+  ];
 
   const combined = parts.join('\n\n');
 
@@ -182,7 +193,8 @@ export async function assembleSystemPrompt(
     }));
     // 上下文限制从环境配置获取，默认 200K
     const contextLimit =
-      (systemPromptContext as Record<string, unknown>)?.contextLimit as number ?? 200_000;
+      ((systemPromptContext as Record<string, unknown>)
+        ?.contextLimit as number) ?? 200_000;
     _lastDiagnosticsReport = generateDiagnosticsReport(
       sectionData,
       0, // messages — 此处不跟踪，由调用方按需补充

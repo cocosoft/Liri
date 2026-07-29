@@ -435,11 +435,14 @@ export class ToolExecutor {
       // P2-11: 使用 ToolInputSelfCorrector 生成结构化修正提示
       let correctionHint = `Error: ${validationResult.error}`;
       try {
-        const { getToolInputSelfCorrector } = await import('./ToolInputSelfCorrector');
+        const { getToolInputSelfCorrector } =
+          await import('./ToolInputSelfCorrector');
         const corrector = getToolInputSelfCorrector();
         if (corrector.shouldRetry(1)) {
-          const toolParams = (tool.getInfo?.()?.params as Array<{ name: string }> | undefined)
-            ?.map((p: { name: string }) => p.name) ?? [];
+          const toolParams =
+            (
+              tool.getInfo?.()?.params as Array<{ name: string }> | undefined
+            )?.map((p: { name: string }) => p.name) ?? [];
           const result = corrector.generateCorrectionMessage(
             tool.name,
             JSON.stringify(input),
@@ -517,11 +520,14 @@ export class ToolExecutor {
       // P2-11: 使用 ToolInputSelfCorrector 生成结构化修正提示（legacy 路径）
       let correctionHint = `Error: ${validationResult.error}`;
       try {
-        const { getToolInputSelfCorrector } = await import('./ToolInputSelfCorrector');
+        const { getToolInputSelfCorrector } =
+          await import('./ToolInputSelfCorrector');
         const corrector = getToolInputSelfCorrector();
         if (corrector.shouldRetry(1)) {
-          const toolParams = (tool.getInfo?.()?.params as Array<{ name: string }> | undefined)
-            ?.map((p: { name: string }) => p.name) ?? [];
+          const toolParams =
+            (
+              tool.getInfo?.()?.params as Array<{ name: string }> | undefined
+            )?.map((p: { name: string }) => p.name) ?? [];
           const result = corrector.generateCorrectionMessage(
             tool.name,
             JSON.stringify(input),
@@ -675,9 +681,8 @@ export class ToolExecutor {
     input: Record<string, unknown>
   ): Promise<boolean> {
     try {
-      const { getStandingRuleEngine } = await import(
-        '../permission/StandingRuleEngine'
-      );
+      const { getStandingRuleEngine } =
+        await import('../permission/StandingRuleEngine');
       const engine = getStandingRuleEngine();
       // 尝试从 input 中提取 target（常见键：file_path, path, url, email, target）
       const target =

@@ -26,42 +26,50 @@ export interface ScanResult {
 const STRICT_PATTERNS = [
   {
     name: 'prompt_injection',
-    pattern: /ignore (?:all )?(?:previous|above|prior) instructions|disregard (?:all )?(?:previous|above) instructions|forget (?:all )?(?:your )?instructions/i,
+    pattern:
+      /ignore (?:all )?(?:previous|above|prior) instructions|disregard (?:all )?(?:previous|above) instructions|forget (?:all )?(?:your )?instructions/i,
     description: 'Prompt injection: ignoring previous instructions',
   },
   {
     name: 'deception_hide',
-    pattern: /do not (?:tell|inform|notify|show) the user|hide (?:this|the|your) (?:action|output|result)|secretly|without (?:the )?user(?:'s)? knowledge/i,
+    pattern:
+      /do not (?:tell|inform|notify|show) the user|hide (?:this|the|your) (?:action|output|result)|secretly|without (?:the )?user(?:'s)? knowledge/i,
     description: 'Deception: hiding actions from user',
   },
   {
     name: 'sys_prompt_override',
-    pattern: /you are (?:now|a) (?:different|new) (?:AI|assistant|agent|system)|your (?:new )?(?:system prompt|instructions|role) is/i,
+    pattern:
+      /you are (?:now|a) (?:different|new) (?:AI|assistant|agent|system)|your (?:new )?(?:system prompt|instructions|role) is/i,
     description: 'System prompt override attempt',
   },
   {
     name: 'disregard_rules',
-    pattern: /do not follow (?:the |any )?(?:rules|guidelines|policies|safety|ethics)|bypass (?:all )?(?:safety|security|restrictions)/i,
+    pattern:
+      /do not follow (?:the |any )?(?:rules|guidelines|policies|safety|ethics)|bypass (?:all )?(?:safety|security|restrictions)/i,
     description: 'Attempt to disregard rules/safety',
   },
   {
     name: 'read_secrets',
-    pattern: /(?:cat|type|read|get-content)\s+.*\.(?:env|credentials|secret|key|token|pem|p12|pfx)/i,
+    pattern:
+      /(?:cat|type|read|get-content)\s+.*\.(?:env|credentials|secret|key|token|pem|p12|pfx)/i,
     description: 'Attempt to read sensitive files',
   },
   {
     name: 'ssh_backdoor',
-    pattern: /(?:echo|cat|tee)\s+.*>>\s*.*authorized_keys|ssh-keygen\s+.*-N\s*""/i,
+    pattern:
+      /(?:echo|cat|tee)\s+.*>>\s*.*authorized_keys|ssh-keygen\s+.*-N\s*""/i,
     description: 'SSH backdoor injection',
   },
   {
     name: 'sudoers_mod',
-    pattern: /(?:visudo|chmod\s+.*\/etc\/sudoers|echo\s+.*>>\s*\/etc\/sudoers)/i,
+    pattern:
+      /(?:visudo|chmod\s+.*\/etc\/sudoers|echo\s+.*>>\s*\/etc\/sudoers)/i,
     description: 'Sudoers file modification',
   },
   {
     name: 'destructive_root_rm',
-    pattern: /rm\s+(?:-rf?\s+)?\/(?:$|\s)|rm\s+(?:-rf?\s+)?\/etc|rm\s+(?:-rf?\s+)?\/usr|dd\s+if=.*of=\/dev\/(?:sd|nvme)/i,
+    pattern:
+      /rm\s+(?:-rf?\s+)?\/(?:$|\s)|rm\s+(?:-rf?\s+)?\/etc|rm\s+(?:-rf?\s+)?\/usr|dd\s+if=.*of=\/dev\/(?:sd|nvme)/i,
     description: 'Destructive root-level removal',
   },
 ];
@@ -81,7 +89,8 @@ const RELAXED_PATTERNS = [
 // Invisible Unicode Detection
 // ============================================================
 
-const INVISIBLE_CHARS = /[\u200B\u200C\u200D\u200E\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g;
+const INVISIBLE_CHARS =
+  /[\u200B\u200C\u200D\u200E\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g;
 
 /**
  * 检测不可见 Unicode 字符（对比度攻击）
@@ -91,11 +100,13 @@ function checkInvisibleUnicode(text: string): ScanResult {
   if (matches && matches.length > 0) {
     return {
       safe: false,
-      threats: [{
-        name: 'invisible_unicode',
-        description: `Detected ${matches.length} invisible Unicode character(s) — potential contrast attack`,
-        match: `${matches.length} chars`,
-      }],
+      threats: [
+        {
+          name: 'invisible_unicode',
+          description: `Detected ${matches.length} invisible Unicode character(s) — potential contrast attack`,
+          match: `${matches.length} chars`,
+        },
+      ],
     };
   }
   return { safe: true, threats: [] };

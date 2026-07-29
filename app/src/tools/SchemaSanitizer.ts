@@ -44,7 +44,10 @@ export function sanitizeSchema(
   const cleaned = JSON.parse(JSON.stringify(schema)) as Record<string, unknown>;
 
   // Rule 1: Remove $defs/$ref (llama.cpp doesn't support)
-  if ('$defs' in cleaned && ['ollama', 'local', 'auto'].includes(options.provider)) {
+  if (
+    '$defs' in cleaned &&
+    ['ollama', 'local', 'auto'].includes(options.provider)
+  ) {
     delete cleaned.$defs;
     changes.push('removed $defs');
   }
@@ -55,7 +58,10 @@ export function sanitizeSchema(
 
   // Rule 2: Remove oneOf/anyOf/allOf (GBNF unsupported)
   for (const key of ['oneOf', 'anyOf', 'allOf']) {
-    if (key in cleaned && ['ollama', 'local', 'auto'].includes(options.provider)) {
+    if (
+      key in cleaned &&
+      ['ollama', 'local', 'auto'].includes(options.provider)
+    ) {
       delete cleaned[key];
       changes.push(`removed ${key}`);
     }
@@ -123,10 +129,16 @@ function flattenDeepNesting(
   for (const [key, value] of Object.entries(props)) {
     if (value && typeof value === 'object') {
       const child = value as Record<string, unknown>;
-      if (child.type === 'object' && child.properties && typeof child.properties === 'object') {
+      if (
+        child.type === 'object' &&
+        child.properties &&
+        typeof child.properties === 'object'
+      ) {
         if (depth >= maxDepth) {
           keysToFlatten.push(key);
-        } else if (flattenDeepNesting(child, [...path, key], depth + 1, maxDepth)) {
+        } else if (
+          flattenDeepNesting(child, [...path, key], depth + 1, maxDepth)
+        ) {
           modified = true;
         }
       }
@@ -149,67 +161,116 @@ function flattenDeepNesting(
   return modified;
 }
 
-const FORMAT_FIELDS = ['format', 'pattern', 'minLength', 'maxLength',
-  'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum',
-  'multipleOf'];
+const FORMAT_FIELDS = [
+  'format',
+  'pattern',
+  'minLength',
+  'maxLength',
+  'minimum',
+  'maximum',
+  'exclusiveMinimum',
+  'exclusiveMaximum',
+  'multipleOf',
+];
 
-function removeFormatFields(obj: Record<string, unknown>, path: string[]): boolean {
+function removeFormatFields(
+  obj: Record<string, unknown>,
+  path: string[]
+): boolean {
   let modified = false;
   for (const f of FORMAT_FIELDS) {
-    if (f in obj) { delete obj[f]; modified = true; }
+    if (f in obj) {
+      delete obj[f];
+      modified = true;
+    }
   }
   if (obj.properties && typeof obj.properties === 'object') {
-    for (const [k, v] of Object.entries(obj.properties as Record<string, unknown>)) {
+    for (const [k, v] of Object.entries(
+      obj.properties as Record<string, unknown>
+    )) {
       if (v && typeof v === 'object') {
-        if (removeFormatFields(v as Record<string, unknown>, [...path, k])) modified = true;
+        if (removeFormatFields(v as Record<string, unknown>, [...path, k]))
+          modified = true;
       }
     }
   }
   if (obj.items && typeof obj.items === 'object') {
-    if (removeFormatFields(obj.items as Record<string, unknown>, [...path, 'items'])) modified = true;
+    if (
+      removeFormatFields(obj.items as Record<string, unknown>, [
+        ...path,
+        'items',
+      ])
+    )
+      modified = true;
   }
   return modified;
 }
 
-function removeDefaultValues(obj: Record<string, unknown>, path: string[]): boolean {
+function removeDefaultValues(
+  obj: Record<string, unknown>,
+  path: string[]
+): boolean {
   let modified = false;
-  if ('default' in obj) { delete obj.default; modified = true; }
+  if ('default' in obj) {
+    delete obj.default;
+    modified = true;
+  }
   if (obj.properties && typeof obj.properties === 'object') {
-    for (const [k, v] of Object.entries(obj.properties as Record<string, unknown>)) {
+    for (const [k, v] of Object.entries(
+      obj.properties as Record<string, unknown>
+    )) {
       if (v && typeof v === 'object') {
-        if (removeDefaultValues(v as Record<string, unknown>, [...path, k])) modified = true;
+        if (removeDefaultValues(v as Record<string, unknown>, [...path, k]))
+          modified = true;
       }
     }
   }
   return modified;
 }
 
-function truncateEnums(obj: Record<string, unknown>, maxSize: number, path: string[]): boolean {
+function truncateEnums(
+  obj: Record<string, unknown>,
+  maxSize: number,
+  path: string[]
+): boolean {
   let modified = false;
   if (Array.isArray(obj.enum) && obj.enum.length > maxSize) {
     const enumArr = obj.enum as unknown[];
     const originalLen = enumArr.length;
     obj.enum = enumArr.slice(0, maxSize);
-    (obj as Record<string, unknown>).description = `${obj.description ?? ''} (truncated from ${originalLen} values, showing first ${maxSize})`.trim();
+    (obj as Record<string, unknown>).description =
+      `${obj.description ?? ''} (truncated from ${originalLen} values, showing first ${maxSize})`.trim();
     modified = true;
   }
   if (obj.properties && typeof obj.properties === 'object') {
-    for (const [k, v] of Object.entries(obj.properties as Record<string, unknown>)) {
+    for (const [k, v] of Object.entries(
+      obj.properties as Record<string, unknown>
+    )) {
       if (v && typeof v === 'object') {
-        if (truncateEnums(v as Record<string, unknown>, maxSize, [...path, k])) modified = true;
+        if (truncateEnums(v as Record<string, unknown>, maxSize, [...path, k]))
+          modified = true;
       }
     }
   }
   return modified;
 }
 
-function removePatternProperties(obj: Record<string, unknown>, path: string[]): boolean {
+function removePatternProperties(
+  obj: Record<string, unknown>,
+  path: string[]
+): boolean {
   let modified = false;
-  if ('patternProperties' in obj) { delete obj.patternProperties; modified = true; }
+  if ('patternProperties' in obj) {
+    delete obj.patternProperties;
+    modified = true;
+  }
   if (obj.properties && typeof obj.properties === 'object') {
-    for (const [k, v] of Object.entries(obj.properties as Record<string, unknown>)) {
+    for (const [k, v] of Object.entries(
+      obj.properties as Record<string, unknown>
+    )) {
       if (v && typeof v === 'object') {
-        if (removePatternProperties(v as Record<string, unknown>, [...path, k])) modified = true;
+        if (removePatternProperties(v as Record<string, unknown>, [...path, k]))
+          modified = true;
       }
     }
   }

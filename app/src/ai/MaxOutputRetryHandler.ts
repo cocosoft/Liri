@@ -105,7 +105,11 @@ export function advanceMaxOutputRetry(
   );
 
   if (!canRetry) {
-    return { ...state, shouldRetry: false, nextMaxTokens: state.currentMaxTokens };
+    return {
+      ...state,
+      shouldRetry: false,
+      nextMaxTokens: state.currentMaxTokens,
+    };
   }
 
   const nextMax = computeNextMaxTokens(state.currentMaxTokens, config);

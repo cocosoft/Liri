@@ -470,7 +470,11 @@ export interface ChatManager {
   resumeStream(
     sessionId: string,
     checkpointId: string
-  ): AsyncGenerator<string | import('@modules/runtime/api/CoreAPI').ChatStreamChunk, import('./types/message').Message, unknown>;
+  ): AsyncGenerator<
+    string | import('@modules/runtime/api/CoreAPI').ChatStreamChunk,
+    import('./types/message').Message,
+    unknown
+  >;
 }
 
 /**

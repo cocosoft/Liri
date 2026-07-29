@@ -30,7 +30,10 @@ export class ResourceArbiter {
     for (const [r, ts] of this.locks) {
       if (now - ts > this.lockTimeoutMs) {
         this.locks.delete(r);
-        cg3Log('tasks:alwayson:arbiter', 'warn', 'expiredLockReleased', { resource: r, heldMs: now - ts });
+        cg3Log('tasks:alwayson:arbiter', 'warn', 'expiredLockReleased', {
+          resource: r,
+          heldMs: now - ts,
+        });
       }
     }
 
@@ -42,7 +45,10 @@ export class ResourceArbiter {
     for (const [r] of this.locks) {
       const heldPriority = RESOURCE_PRIORITY[r] ?? 99;
       if (heldPriority < reqPriority) {
-        cg3Log('tasks:alwayson:arbiter', 'debug', 'blocked', { resource, by: r });
+        cg3Log('tasks:alwayson:arbiter', 'debug', 'blocked', {
+          resource,
+          by: r,
+        });
         return false;
       }
     }

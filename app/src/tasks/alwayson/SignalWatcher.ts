@@ -48,7 +48,10 @@ export class SignalWatcher {
           }
         });
         w.on('error', (err) => {
-          cg3Log('tasks:alwayson:signal', 'warn', 'watchError', { path: p, error: String(err) });
+          cg3Log('tasks:alwayson:signal', 'warn', 'watchError', {
+            path: p,
+            error: String(err),
+          });
           // 如果 fs.watch 失败，回退到 polling
           if (!this.usePolling) {
             this.usePolling = true;
@@ -58,15 +61,23 @@ export class SignalWatcher {
         });
         this.watchers.push(w);
       } catch (err) {
-        cg3Log('tasks:alwayson:signal', 'warn', 'watchSetupFailed', { path: p, error: String(err) });
+        cg3Log('tasks:alwayson:signal', 'warn', 'watchSetupFailed', {
+          path: p,
+          error: String(err),
+        });
       }
     }
-    cg3Log('tasks:alwayson:signal', 'info', 'fileWatchStarted', { count: this.watchers.length });
+    cg3Log('tasks:alwayson:signal', 'info', 'fileWatchStarted', {
+      count: this.watchers.length,
+    });
   }
 
   /** 30s stat polling 回退（Windows） */
   private startPolling(): void {
-    cg3Log('tasks:alwayson:signal', 'info', 'pollingStarted', { intervalMs: this.pollIntervalMs, isWindows: process.platform === 'win32' });
+    cg3Log('tasks:alwayson:signal', 'info', 'pollingStarted', {
+      intervalMs: this.pollIntervalMs,
+      isWindows: process.platform === 'win32',
+    });
     let lastMtimes = new Map<string, number>();
 
     const poll = () => {
@@ -79,7 +90,9 @@ export class SignalWatcher {
             changed = true;
             lastMtimes.set(p, stat.mtimeMs);
           }
-        } catch { /* path may not exist */ }
+        } catch {
+          /* path may not exist */
+        }
       }
       if (changed) this.recordSignal();
 
@@ -114,7 +127,11 @@ export class SignalWatcher {
 
   private closeAllWatchers(): void {
     for (const w of this.watchers) {
-      try { w.close(); } catch { /* best effort */ }
+      try {
+        w.close();
+      } catch {
+        /* best effort */
+      }
     }
     this.watchers = [];
   }

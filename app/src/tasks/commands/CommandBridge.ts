@@ -26,9 +26,8 @@ export class CommandBridge {
   /** 入队一个 CG3 命令（去重 + 容量控制由 MessageCommandQueue 保证） */
   async enqueue(cmd: CG3Command): Promise<boolean> {
     try {
-      const { getGlobalMessageQueue } = await import(
-        '../../query/MessageCommandQueue'
-      );
+      const { getGlobalMessageQueue } =
+        await import('../../query/MessageCommandQueue');
       const queue = getGlobalMessageQueue();
       return queue.enqueue({
         id: cmd.id,
@@ -40,12 +39,9 @@ export class CommandBridge {
         metadata: cmd.metadata,
       });
     } catch (err) {
-      cg3Log(
-        'tasks:commands:bridge',
-        'error',
-        'enqueueFailed',
-        { error: String(err) }
-      );
+      cg3Log('tasks:commands:bridge', 'error', 'enqueueFailed', {
+        error: String(err),
+      });
       return false;
     }
   }
@@ -62,9 +58,8 @@ export class CommandBridge {
   /** 获取待处理数量 */
   async pendingCount(): Promise<number> {
     try {
-      const { getGlobalMessageQueue } = await import(
-        '../../query/MessageCommandQueue'
-      );
+      const { getGlobalMessageQueue } =
+        await import('../../query/MessageCommandQueue');
       return getGlobalMessageQueue().pendingCount;
     } catch {
       return 0;
@@ -74,9 +69,8 @@ export class CommandBridge {
   /** 按优先级统计 */
   async countByPriority(): Promise<Record<QueuePriority, number>> {
     try {
-      const { getGlobalMessageQueue } = await import(
-        '../../query/MessageCommandQueue'
-      );
+      const { getGlobalMessageQueue } =
+        await import('../../query/MessageCommandQueue');
       return getGlobalMessageQueue().countByPriority();
     } catch {
       return { now: 0, next: 0, later: 0 };

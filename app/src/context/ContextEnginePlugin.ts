@@ -36,22 +36,36 @@ export interface ContextEnginePlugin {
   onSessionStart?(sessionId: string): Promise<void>;
 
   /** 判断是否应压缩 */
-  shouldCompress(currentTokens: number, maxTokens: number, threshold: number): boolean;
+  shouldCompress(
+    currentTokens: number,
+    maxTokens: number,
+    threshold: number
+  ): boolean;
 
   /** 执行压缩 */
   compress(request: CompressionRequest): Promise<CompressionResult>;
 
   /** 从 API 响应更新内部状态 */
-  onResponse?(usage: { inputTokens: number; outputTokens: number }): Promise<void>;
+  onResponse?(usage: {
+    inputTokens: number;
+    outputTokens: number;
+  }): Promise<void>;
 
   /** session 结束时 */
   onSessionEnd?(sessionId: string): Promise<void>;
 
   /** 暴露额外工具 */
-  getToolSchemas?: () => Array<{ name: string; description: string; schema: Record<string, unknown> }>;
+  getToolSchemas?: () => Array<{
+    name: string;
+    description: string;
+    schema: Record<string, unknown>;
+  }>;
 
   /** 处理引擎专用工具调用 */
-  handleToolCall?: (name: string, args: Record<string, unknown>) => Promise<unknown>;
+  handleToolCall?: (
+    name: string,
+    args: Record<string, unknown>
+  ) => Promise<unknown>;
 }
 
 /**

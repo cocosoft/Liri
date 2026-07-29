@@ -42,12 +42,9 @@ export class WatchdogBridge {
       const wd = getGlobalWatchdog(ProcessWatchdog);
       return wd.feed(line);
     } catch (err) {
-      cg3Log(
-        'tasks:watchdog:bridge',
-        'error',
-        'feedFailed',
-        { error: String(err) }
-      );
+      cg3Log('tasks:watchdog:bridge', 'error', 'feedFailed', {
+        error: String(err),
+      });
       return [];
     }
   }

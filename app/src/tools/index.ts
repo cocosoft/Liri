@@ -214,7 +214,10 @@ export { sanitizeSchema } from './SchemaSanitizer';
 export type { SanitizeOptions, SanitizeResult } from './SchemaSanitizer';
 
 // P3-3: Bash 命令 allowlist 前缀匹配防注入
-export { checkBashAllowlist, isReadOnlyBashCommand } from './BashAllowlistMatcher';
+export {
+  checkBashAllowlist,
+  isReadOnlyBashCommand,
+} from './BashAllowlistMatcher';
 export type { AllowlistResult } from './BashAllowlistMatcher';
 
 /**
@@ -280,12 +283,26 @@ export {
   getToolInputSelfCorrector,
   classifyJsonError,
 } from './ToolInputSelfCorrector';
-export type { CorrectionConfig, CorrectionResult, CorrectionAttempt } from './ToolInputSelfCorrector';
+export type {
+  CorrectionConfig,
+  CorrectionResult,
+  CorrectionAttempt,
+} from './ToolInputSelfCorrector';
 
 // P2-2: 工具参数类型强制
 export { coerceToolArgs, tryCoerceToolArgs } from './ToolArgCoercer';
-export type { ToolSchema, ToolProperty, CoerceResult, CoerceChange } from './ToolArgCoercer';
+export type {
+  ToolSchema,
+  ToolProperty,
+  CoerceResult,
+  CoerceChange,
+} from './ToolArgCoercer';
 
 // P1-11: Few-shot 示例管理
-export { BUILTIN_EXAMPLES, renderFewShotPrompt, findFewShotEntry, getFewShotToolNames } from './FewShotRegistry';
+export {
+  BUILTIN_EXAMPLES,
+  renderFewShotPrompt,
+  findFewShotEntry,
+  getFewShotToolNames,
+} from './FewShotRegistry';
 export type { ToolExample, FewShotEntry } from './FewShotRegistry';

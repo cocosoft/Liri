@@ -97,7 +97,10 @@ export class CronStopTool {
                 }
               );
             }
-            await store.pauseJob(id, 'Agent requested pause via cron_stop tool');
+            await store.pauseJob(
+              id,
+              'Agent requested pause via cron_stop tool'
+            );
             await store.close();
 
             return ToolUtils.createSuccessResult(
@@ -131,11 +134,21 @@ export class CronStopTool {
             try {
               const { computeNextCronRun } =
                 await import('@modules/tasks/cron/CronParser');
-              if (existing.schedule?.kind === 'interval' && existing.schedule.minutes) {
-                const nextMs = Date.now() + existing.schedule.minutes * 60 * 1000;
+              if (
+                existing.schedule?.kind === 'interval' &&
+                existing.schedule.minutes
+              ) {
+                const nextMs =
+                  Date.now() + existing.schedule.minutes * 60 * 1000;
                 nextRunAt = new Date(nextMs).toISOString();
-              } else if (existing.schedule?.kind === 'cron' && existing.schedule.expr) {
-                const next = computeNextCronRun(existing.schedule.expr, Date.now());
+              } else if (
+                existing.schedule?.kind === 'cron' &&
+                existing.schedule.expr
+              ) {
+                const next = computeNextCronRun(
+                  existing.schedule.expr,
+                  Date.now()
+                );
                 if (next) nextRunAt = next;
               }
             } catch {

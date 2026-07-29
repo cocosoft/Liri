@@ -20,7 +20,10 @@ export class AlwaysOnManager {
   registerProject(projectId: string, projectPath: string): AlwaysOnRuntime {
     const runtime = new AlwaysOnRuntime(this.config, projectPath);
     this.runtimes.set(projectId, runtime);
-    cg3Log('tasks:alwayson:manager', 'info', 'projectRegistered', { projectId, projectPath });
+    cg3Log('tasks:alwayson:manager', 'info', 'projectRegistered', {
+      projectId,
+      projectPath,
+    });
     return runtime;
   }
 
@@ -30,7 +33,9 @@ export class AlwaysOnManager {
     if (runtime) {
       runtime.stop();
       this.runtimes.delete(projectId);
-      cg3Log('tasks:alwayson:manager', 'info', 'projectUnregistered', { projectId });
+      cg3Log('tasks:alwayson:manager', 'info', 'projectUnregistered', {
+        projectId,
+      });
     }
   }
 
@@ -46,7 +51,9 @@ export class AlwaysOnManager {
     for (const [id, rt] of this.runtimes) {
       rt.start();
     }
-    cg3Log('tasks:alwayson:manager', 'info', 'allStarted', { count: this.runtimes.size });
+    cg3Log('tasks:alwayson:manager', 'info', 'allStarted', {
+      count: this.runtimes.size,
+    });
   }
 
   /** 停止所有项目 */

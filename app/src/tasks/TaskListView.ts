@@ -43,7 +43,8 @@ export function sortAndFilterTasks(
 
   // Filter: hide old completed tasks
   const visible = tasks.filter(
-    (t) => t.status !== 'completed' || now - t.updatedAt < cfg.autoHideCompletedMs
+    (t) =>
+      t.status !== 'completed' || now - t.updatedAt < cfg.autoHideCompletedMs
   );
 
   // Sort

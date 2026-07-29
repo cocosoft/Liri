@@ -12,7 +12,11 @@
  *   MEM0_BASE_URL — API 地址（默认 https://api.mem0.ai）
  */
 
-import type { ExternalMemoryProvider, ExternalMemoryEntry, MemoryQuery } from './ExternalMemoryProvider';
+import type {
+  ExternalMemoryProvider,
+  ExternalMemoryEntry,
+  MemoryQuery,
+} from './ExternalMemoryProvider';
 import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'memory:providers:mem0' });
@@ -38,18 +42,13 @@ export class Mem0MemoryProvider implements ExternalMemoryProvider {
   private initialized = false;
 
   constructor(config?: Partial<Mem0Config>) {
-    const apiKey =
-      config?.apiKey ||
-      process.env.MEM0_API_KEY ||
-      '';
+    const apiKey = config?.apiKey || process.env.MEM0_API_KEY || '';
     const baseUrl =
       config?.baseUrl ||
       process.env.MEM0_BASE_URL ||
       DEFAULT_MEM0_CONFIG.baseUrl!;
-    const timeoutMs =
-      config?.timeoutMs ?? DEFAULT_MEM0_CONFIG.timeoutMs!;
-    const maxRetries =
-      config?.maxRetries ?? DEFAULT_MEM0_CONFIG.maxRetries!;
+    const timeoutMs = config?.timeoutMs ?? DEFAULT_MEM0_CONFIG.timeoutMs!;
+    const maxRetries = config?.maxRetries ?? DEFAULT_MEM0_CONFIG.maxRetries!;
 
     this.config = { apiKey, baseUrl, timeoutMs, maxRetries };
   }
@@ -68,9 +67,7 @@ export class Mem0MemoryProvider implements ExternalMemoryProvider {
     }
   }
 
-  async fetchAllMemories(
-    query?: MemoryQuery
-  ): Promise<ExternalMemoryEntry[]> {
+  async fetchAllMemories(query?: MemoryQuery): Promise<ExternalMemoryEntry[]> {
     if (!this.initialized) return [];
 
     // Mem0 uses search endpoint for retrieval
@@ -85,17 +82,16 @@ export class Mem0MemoryProvider implements ExternalMemoryProvider {
     }
 
     try {
-      const data = await this.request<any>(
-        '/v1/memories/search',
-        {
-          method: 'POST',
-          body: JSON.stringify(body),
-        }
-      );
+      const data = await this.request<any>('/v1/memories/search', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
 
       const results = Array.isArray(data?.results)
         ? data.results
-        : Array.isArray(data) ? data : [];
+        : Array.isArray(data)
+          ? data
+          : [];
 
       return results.map((item: any) => ({
         id: String(item.id || ''),
@@ -114,9 +110,7 @@ export class Mem0MemoryProvider implements ExternalMemoryProvider {
     }
   }
 
-  async fetchMemoryById(
-    id: string
-  ): Promise<ExternalMemoryEntry | null> {
+  async fetchMemoryById(id: string): Promise<ExternalMemoryEntry | null> {
     if (!this.initialized) return null;
 
     try {
@@ -139,9 +133,7 @@ export class Mem0MemoryProvider implements ExternalMemoryProvider {
     }
   }
 
-  async syncMemories(
-    entries: ExternalMemoryEntry[]
-  ): Promise<void> {
+  async syncMemories(entries: ExternalMemoryEntry[]): Promise<void> {
     if (!this.initialized || entries.length === 0) return;
 
     // Mem0 sync is done per-memory via add endpoint
@@ -192,10 +184,7 @@ export class Mem0MemoryProvider implements ExternalMemoryProvider {
     return Date.now();
   }
 
-  private async request<T>(
-    path: string,
-    options: RequestInit
-  ): Promise<T> {
+  private async request<T>(path: string, options: RequestInit): Promise<T> {
     const url = `${this.config.baseUrl}${path}`;
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.config.apiKey}`,
@@ -220,18 +209,14 @@ export class Mem0MemoryProvider implements ExternalMemoryProvider {
         clearTimeout(timer);
 
         if (!res.ok) {
-          throw new Error(
-            `Mem0 HTTP ${res.status}: ${res.statusText}`
-          );
+          throw new Error(`Mem0 HTTP ${res.status}: ${res.statusText}`);
         }
 
         return (await res.json()) as T;
       } catch (err) {
         lastError = err as Error;
         if (attempt < this.config.maxRetries) {
-          await new Promise((r) =>
-            setTimeout(r, Math.pow(2, attempt) * 500)
-          );
+          await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 500));
         }
       }
     }

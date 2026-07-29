@@ -26,27 +26,21 @@ export class SteeringBridge {
    */
   async queue(command: SteeringCommand): Promise<boolean> {
     try {
-      const { getGlobalSteeringManager } = await import(
-        '../../query/SteeringManager'
-      );
+      const { getGlobalSteeringManager } =
+        await import('../../query/SteeringManager');
       const mgr = getGlobalSteeringManager();
       const success = mgr.queueSteering(command.text, command.source);
       if (success) {
-        cg3Log(
-          'tasks:steering:bridge',
-          'info',
-          'queued',
-          { source: command.source, sessionId: command.sessionId }
-        );
+        cg3Log('tasks:steering:bridge', 'info', 'queued', {
+          source: command.source,
+          sessionId: command.sessionId,
+        });
       }
       return success;
     } catch (err) {
-      cg3Log(
-        'tasks:steering:bridge',
-        'error',
-        'queueFailed',
-        { error: String(err) }
-      );
+      cg3Log('tasks:steering:bridge', 'error', 'queueFailed', {
+        error: String(err),
+      });
       return false;
     }
   }
@@ -54,9 +48,8 @@ export class SteeringBridge {
   /** 是否有待注入的指令 */
   async hasPending(): Promise<boolean> {
     try {
-      const { getGlobalSteeringManager } = await import(
-        '../../query/SteeringManager'
-      );
+      const { getGlobalSteeringManager } =
+        await import('../../query/SteeringManager');
       return getGlobalSteeringManager().hasPending();
     } catch {
       return false;
@@ -66,9 +59,8 @@ export class SteeringBridge {
   /** 待处理数量 */
   async pendingCount(): Promise<number> {
     try {
-      const { getGlobalSteeringManager } = await import(
-        '../../query/SteeringManager'
-      );
+      const { getGlobalSteeringManager } =
+        await import('../../query/SteeringManager');
       return getGlobalSteeringManager().pendingCount;
     } catch {
       return 0;
@@ -85,26 +77,19 @@ export class SteeringBridge {
     Array<{ role: 'user'; content: string; source?: string }>
   > {
     try {
-      const { getGlobalSteeringManager } = await import(
-        '../../query/SteeringManager'
-      );
+      const { getGlobalSteeringManager } =
+        await import('../../query/SteeringManager');
       const messages = getGlobalSteeringManager().consumeAll();
       if (messages.length > 0) {
-        cg3Log(
-          'tasks:steering:bridge',
-          'info',
-          'consumed',
-          { count: messages.length }
-        );
+        cg3Log('tasks:steering:bridge', 'info', 'consumed', {
+          count: messages.length,
+        });
       }
       return messages;
     } catch (err) {
-      cg3Log(
-        'tasks:steering:bridge',
-        'error',
-        'consumeFailed',
-        { error: String(err) }
-      );
+      cg3Log('tasks:steering:bridge', 'error', 'consumeFailed', {
+        error: String(err),
+      });
       return [];
     }
   }
@@ -112,9 +97,8 @@ export class SteeringBridge {
   /** 清空所有待注入指令（不注入） */
   async clear(): Promise<void> {
     try {
-      const { getGlobalSteeringManager } = await import(
-        '../../query/SteeringManager'
-      );
+      const { getGlobalSteeringManager } =
+        await import('../../query/SteeringManager');
       getGlobalSteeringManager().clear();
     } catch {
       // best-effort

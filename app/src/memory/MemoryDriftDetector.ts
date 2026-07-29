@@ -47,11 +47,14 @@ export class MemoryDriftDetector {
   check(filePath: string): { drifted: boolean; reason: string } {
     const snap = this.snapshots.get(filePath);
     if (!snap) return { drifted: false, reason: 'no snapshot' };
-    if (!existsSync(filePath)) return { drifted: true, reason: 'file deleted externally' };
+    if (!existsSync(filePath))
+      return { drifted: true, reason: 'file deleted externally' };
 
     try {
       const content = readFileSync(filePath);
-      const currentChecksum = createHash('sha256').update(content).digest('hex');
+      const currentChecksum = createHash('sha256')
+        .update(content)
+        .digest('hex');
       if (currentChecksum !== snap.checksum) {
         const bakPath = `${filePath}.bak.${Date.now()}`;
         writeFileSync(bakPath, content);
@@ -59,7 +62,9 @@ export class MemoryDriftDetector {
         try {
           writeFileSync(filePath, snap.originalContent);
           logger.warn('memoryDrift:restored', { filePath });
-        } catch { /* best-effort */ }
+        } catch {
+          /* best-effort */
+        }
 
         logger.warn('memoryDrift:detected', {
           filePath,
@@ -68,7 +73,10 @@ export class MemoryDriftDetector {
           backup: bakPath,
         });
 
-        return { drifted: true, reason: `Checksum mismatch. Backup saved to ${bakPath}` };
+        return {
+          drifted: true,
+          reason: `Checksum mismatch. Backup saved to ${bakPath}`,
+        };
       }
       return { drifted: false, reason: 'checksum match' };
     } catch (err) {
@@ -77,10 +85,14 @@ export class MemoryDriftDetector {
   }
 
   /** 删除快照 */
-  remove(filePath: string): void { this.snapshots.delete(filePath); }
+  remove(filePath: string): void {
+    this.snapshots.delete(filePath);
+  }
 
   /** 获取所有被快照的文件 */
-  getTrackedFiles(): string[] { return [...this.snapshots.keys()]; }
+  getTrackedFiles(): string[] {
+    return [...this.snapshots.keys()];
+  }
 }
 
 /** P2-7: 全局单例 */

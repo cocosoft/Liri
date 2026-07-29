@@ -644,7 +644,10 @@ export class ChatManagerImpl implements ChatManager {
    * P4-fix: 返回的 Promise 自动加入 _pendingPersistPromises，
    *         确保 flushPendingPersists() 可等待全部落盘。
    */
-  private async _addAndPersistMessage(sessionId: string, message: Message): Promise<void> {
+  private async _addAndPersistMessage(
+    sessionId: string,
+    message: Message
+  ): Promise<void> {
     const session = this._chatSessions.get(sessionId);
     if (session) {
       session.messages.push(message);
@@ -666,7 +669,9 @@ export class ChatManagerImpl implements ChatManager {
     })();
     this._pendingPersistPromises.add(persistPromise);
     // 完成后自动从集合中移除，避免内存泄漏
-    persistPromise.finally(() => this._pendingPersistPromises.delete(persistPromise));
+    persistPromise.finally(() =>
+      this._pendingPersistPromises.delete(persistPromise)
+    );
     await persistPromise;
   }
 
@@ -2380,7 +2385,7 @@ export class ChatManagerImpl implements ChatManager {
 
   /**
    * P2-3.5: 将 session.messages 转换为 API 格式消息列表
-   * 
+   *
    * 提取自 streamMessage，处理工具结果截断、tool_call_id 补全、
    * 跨轮 tool_calls 清理等纯数据转换逻辑。
    */
@@ -2465,7 +2470,7 @@ export class ChatManagerImpl implements ChatManager {
 
   /**
    * P2-3.5: 流式消息预处理 — 会话准备、安全检查、Mutex 获取
-   * 
+   *
    * 提取自 streamMessage，返回 streamMessage 后续阶段所需的上下文对象。
    */
   private async _prepareStreamSession(
@@ -2478,7 +2483,11 @@ export class ChatManagerImpl implements ChatManager {
     streamingCheckpoint: StreamingAutoCheckpoint;
     mutex: SimpleMutex;
     userMessage: Message;
-    streamSpan: ReturnType<typeof getOTelTracing> extends { startSpan: (...args: any[]) => infer S } ? S : never;
+    streamSpan: ReturnType<typeof getOTelTracing> extends {
+      startSpan: (...args: any[]) => infer S;
+    }
+      ? S
+      : never;
   }> {
     // 清理用户输入，防止XSS和隐藏字符攻击
     content = recursivelySanitizeUnicode(content) as string;
@@ -2621,7 +2630,7 @@ export class ChatManagerImpl implements ChatManager {
     finalResponse: ChatResponse | null,
     streamAbortController: AbortController,
     streamSpan: ReturnType<ReturnType<typeof getOTelTracing>['startSpan']>,
-    options?: StreamMessageOptions,
+    options?: StreamMessageOptions
   ): Promise<Message> {
     // Phase 1c: 停止流式水位监测
     this.unifiedTracker.stopStreamingCheck();
@@ -2860,7 +2869,10 @@ export class ChatManagerImpl implements ChatManager {
         { model: options?.model || '', sessionId: session.id }
       );
       if (compResult.applied) {
-        apiMessages = compResult.messages as unknown as Record<string, unknown>[];
+        apiMessages = compResult.messages as unknown as Record<
+          string,
+          unknown
+        >[];
       } else {
         const maxCtx = resolveMaxContextTokens(options?.model);
         await this._truncateApiMessages(apiMessages, maxCtx, session.id);
@@ -3047,7 +3059,10 @@ export class ChatManagerImpl implements ChatManager {
           action: 'streamMessage_genIteration',
           context: { sessionId: session.id },
         });
-        const errorMsg = genErr instanceof Error ? genErr.message.slice(0, 200) : String(genErr).slice(0, 200);
+        const errorMsg =
+          genErr instanceof Error
+            ? genErr.message.slice(0, 200)
+            : String(genErr).slice(0, 200);
         yield {
           type: 'error',
           content: `流式响应中断: ${errorMsg}`,
@@ -3063,9 +3078,15 @@ export class ChatManagerImpl implements ChatManager {
       }
 
       // P2-12: 检查是否需要加倍重试（stop_reason === 'max_tokens' 表示输出截断）
-      const aiStopReason = (finalResponse as unknown as { stop_reason?: string }).stop_reason;
+      const aiStopReason = (
+        finalResponse as unknown as { stop_reason?: string }
+      ).stop_reason;
       if (aiStopReason === 'max_tokens') {
-        retryState = advanceMaxOutputRetry('max_tokens', retryState, MAX_OUTPUT_RETRY_CFG);
+        retryState = advanceMaxOutputRetry(
+          'max_tokens',
+          retryState,
+          MAX_OUTPUT_RETRY_CFG
+        );
       } else {
         retryState = { ...retryState, shouldRetry: false };
       }
@@ -3347,7 +3368,10 @@ export class ChatManagerImpl implements ChatManager {
           // P2-3: LoopDetector — 执行前检测是否有循环模式
           for (const toolCall of currentToolCalls) {
             const toolName = getToolCallName(toolCall);
-            const detection = this._loopDetector.detect(toolName, toolCall.arguments);
+            const detection = this._loopDetector.detect(
+              toolName,
+              toolCall.arguments
+            );
             if (detection.stuck && detection.level === 'critical') {
               logger.warn('LoopDetector 检测到工具调用循环，中止执行', {
                 sessionId: session.id,
@@ -3491,10 +3515,7 @@ export class ChatManagerImpl implements ChatManager {
 
             // P2-1: 工具执行完成后写入流式自动检查点
             await streamingCheckpoint.onToolCompleted({
-              newMessagesSinceLastCheckpoint: [
-                assistantMessage,
-                toolResultMsg,
-              ],
+              newMessagesSinceLastCheckpoint: [assistantMessage, toolResultMsg],
               messagesSnapshot: session.messages.slice(),
               currentToolCalls: currentToolCalls
                 .filter((tc: ParsedToolCall) => tc.id !== toolCall.id)
@@ -3658,7 +3679,8 @@ export class ChatManagerImpl implements ChatManager {
             });
           toolResultAssistantMsg.finishReason =
             toolResultResponse?.finishReason ||
-            (toolResultResponse as unknown as { stop_reason?: string })?.stop_reason ||
+            (toolResultResponse as unknown as { stop_reason?: string })
+              ?.stop_reason ||
             'stop';
           if (toolResultResponse?.tool_calls?.length) {
             toolResultAssistantMsg.metadata = {
@@ -3753,14 +3775,20 @@ export class ChatManagerImpl implements ChatManager {
 
     // P2-3.5: 资源清理 + 持久化 + 构建返回消息（提取为 _finalizeStreamMessage）
     return await this._finalizeStreamMessage(
-      session, content, accumulatedContent, assistantMessage,
-      finalResponse, streamAbortController, streamSpan, options
+      session,
+      content,
+      accumulatedContent,
+      assistantMessage,
+      finalResponse,
+      streamAbortController,
+      streamSpan,
+      options
     );
   }
 
   /**
    * P2-1: 从检查点恢复流式执行
-   * 
+   *
    * 加载自动检查点中保存的消息快照和剩余工具调用，
    * 跳过已完成的工具，从断点继续执行工具循环。
    */
@@ -3801,214 +3829,253 @@ export class ChatManagerImpl implements ChatManager {
       return null as unknown as Message;
     }
 
-    const { checkpoint, stepIndex, completedToolCallIds, generatorState } = restoreResult;
+    const { checkpoint, stepIndex, completedToolCallIds, generatorState } =
+      restoreResult;
 
     // 1. 恢复会话状态
     const session = await this._getOrLoadSession(sessionId);
     session.messages = checkpoint.messages;
 
     try {
-    // 2. 创建新的 streamAbortController
-    const streamAbortController = new AbortController();
-    this._sessionAbortControllers.set(sessionId, streamAbortController);
+      // 2. 创建新的 streamAbortController
+      const streamAbortController = new AbortController();
+      this._sessionAbortControllers.set(sessionId, streamAbortController);
 
-    // 3. 找到最后一条含 tool_calls 的 assistant 消息，提取剩余工具
-    let accumulatedContent = '';
-    let remainingToolCalls: ParsedToolCall[] = [];
-    for (let i = session.messages.length - 1; i >= 0; i--) {
-      const msg = session.messages[i];
-      if (msg.role === 'assistant' && msg.metadata?.tool_calls) {
-        const tcs = msg.metadata.tool_calls as Array<{
-          id: string;
-          type: string;
-          function: { name: string; arguments: string };
-        }>;
-        remainingToolCalls = tcs
-          .filter((tc) => !completedToolCallIds.includes(tc.id))
-          .map((tc) => ({
-            id: tc.id,
-            name: tc.function.name,
-            arguments:
-              typeof tc.function.arguments === 'string'
-                ? JSON.parse(tc.function.arguments)
-                : tc.function.arguments,
-          }));
-        accumulatedContent = typeof msg.content === 'string' ? msg.content : '';
-        break;
-      }
-    }
-
-    if (remainingToolCalls.length === 0) {
-      logger.info('resumeStream: 所有工具已完成，无需恢复', { sessionId });
-      try {
-        yield {
-          type: 'status',
-          content: '任务已全部完成',
-          sessionId,
-        } as ChatStreamChunk;
-      } finally {
-        mutex.release();
-      }
-      return session.messages[session.messages.length - 1] || ({} as Message);
-    }
-
-    // 4. 获取工具定义
-    const activeClient = this.getLLMClient();
-    let toolDefinitions: Record<string, unknown>[] = [];
-    if (this.toolRegistry) {
-      const registry = this.toolRegistry as unknown as {
-        getToolSchemas: () => Array<Record<string, unknown>>;
-      };
-      const schemas = registry.getToolSchemas?.() || [];
-      for (const schema of schemas) {
-        toolDefinitions.push({
-          type: 'function',
-          function: {
-            name: schema.name as string,
-            description: schema.description as string,
-            parameters: {
-              type: 'object',
-              properties: (schema.input_schema as { properties?: unknown })?.properties || {},
-              required: (schema.input_schema as { required?: string[] })?.required || [],
-            },
-          },
-        });
-      }
-    }
-
-    logger.info('resumeStream: 开始恢复执行', {
-      sessionId,
-      stepIndex,
-      completedToolCount: completedToolCallIds.length,
-      remainingToolCount: remainingToolCalls.length,
-      toolTurnCount: generatorState.toolTurnCount,
-    });
-
-    yield {
-      type: 'status',
-      content: `从第 ${stepIndex} 步恢复 — 剩余 ${remainingToolCalls.length} 个工具`,
-      sessionId,
-    } as ChatStreamChunk;
-
-    // 5. 工具执行循环（简化版，复用核心逻辑）
-    let currentToolCalls: ParsedToolCall[] = remainingToolCalls;
-    let toolTurnCount = generatorState.toolTurnCount;
-    const MAX_TOOL_TURNS = this.MAX_TOOL_TURNS;
-
-    while (currentToolCalls.length > 0) {
-      if (streamAbortController.signal.aborted) break;
-      toolTurnCount++;
-
-      if (toolTurnCount > MAX_TOOL_TURNS) {
-        yield {
-          type: 'error',
-          content: `工具调用次数已达上限 (${MAX_TOOL_TURNS})`,
-          sessionId,
-        } as unknown as string;
-        break;
+      // 3. 找到最后一条含 tool_calls 的 assistant 消息，提取剩余工具
+      let accumulatedContent = '';
+      let remainingToolCalls: ParsedToolCall[] = [];
+      for (let i = session.messages.length - 1; i >= 0; i--) {
+        const msg = session.messages[i];
+        if (msg.role === 'assistant' && msg.metadata?.tool_calls) {
+          const tcs = msg.metadata.tool_calls as Array<{
+            id: string;
+            type: string;
+            function: { name: string; arguments: string };
+          }>;
+          remainingToolCalls = tcs
+            .filter((tc) => !completedToolCallIds.includes(tc.id))
+            .map((tc) => ({
+              id: tc.id,
+              name: tc.function.name,
+              arguments:
+                typeof tc.function.arguments === 'string'
+                  ? JSON.parse(tc.function.arguments)
+                  : tc.function.arguments,
+            }));
+          accumulatedContent =
+            typeof msg.content === 'string' ? msg.content : '';
+          break;
+        }
       }
 
-      // 执行本轮工具
-      const processedResults: Array<{ normalizedToolCall: ParsedToolCall; result: ToolResult }> = [];
-      for (const tc of currentToolCalls) {
-        const toolName = tc.name;
-        const toolResult = await this.executeTool(
-          { id: tc.id, name: toolName, arguments: tc.arguments, sessionId },
-          { useErrorHandler: true }
-        );
-        processedResults.push({
-          normalizedToolCall: { id: tc.id, name: toolName, arguments: tc.arguments },
-          result: toolResult,
-        });
-
-        yield {
-          type: 'tool_call',
-          content: toolResult.error ? `工具 ${toolName} 执行失败` : '',
-          sessionId,
-          toolCall: {
-            id: tc.id,
-            name: toolName,
-            arguments: tc.arguments,
-            status: toolResult.error ? 'failed' : 'completed',
-          },
-        } as unknown as string;
+      if (remainingToolCalls.length === 0) {
+        logger.info('resumeStream: 所有工具已完成，无需恢复', { sessionId });
+        try {
+          yield {
+            type: 'status',
+            content: '任务已全部完成',
+            sessionId,
+          } as ChatStreamChunk;
+        } finally {
+          mutex.release();
+        }
+        return session.messages[session.messages.length - 1] || ({} as Message);
       }
 
-      // 构建 API 消息并调用 LLM
-      const updatedMessages: Record<string, unknown>[] = session.messages
-        .map((m) => ({
-          role: m.role,
-          content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
-          ...(m.metadata?.tool_calls ? { tool_calls: m.metadata.tool_calls } : {}),
-          ...(m.toolCallId ? { tool_call_id: m.toolCallId } : {}),
-        }));
-
-      for (const pr of processedResults) {
-        updatedMessages.push({
-          role: 'assistant',
-          content: accumulatedContent,
-          tool_calls: currentToolCalls.map((tc) => ({
-            id: tc.id,
+      // 4. 获取工具定义
+      const activeClient = this.getLLMClient();
+      let toolDefinitions: Record<string, unknown>[] = [];
+      if (this.toolRegistry) {
+        const registry = this.toolRegistry as unknown as {
+          getToolSchemas: () => Array<Record<string, unknown>>;
+        };
+        const schemas = registry.getToolSchemas?.() || [];
+        for (const schema of schemas) {
+          toolDefinitions.push({
             type: 'function',
-            function: { name: tc.name, arguments: JSON.stringify(tc.arguments) },
-          })),
-        });
-        updatedMessages.push({
-          role: 'tool',
-          content: pr.result.result ? (typeof pr.result.result === 'string' ? pr.result.result : JSON.stringify(pr.result.result)) : (pr.result.error || '{}'),
-          tool_call_id: pr.normalizedToolCall.id,
-        });
+            function: {
+              name: schema.name as string,
+              description: schema.description as string,
+              parameters: {
+                type: 'object',
+                properties:
+                  (schema.input_schema as { properties?: unknown })
+                    ?.properties || {},
+                required:
+                  (schema.input_schema as { required?: string[] })?.required ||
+                  [],
+              },
+            },
+          });
+        }
       }
 
-      // 调用 LLM
-      const toolGen = activeClient.streamMessage(
-        updatedMessages as unknown as ChatMessage[],
-        {
-          signal: streamAbortController.signal,
-          tools: toolDefinitions.length > 0 ? (toolDefinitions as unknown as ToolDefinition[]) : undefined,
+      logger.info('resumeStream: 开始恢复执行', {
+        sessionId,
+        stepIndex,
+        completedToolCount: completedToolCallIds.length,
+        remainingToolCount: remainingToolCalls.length,
+        toolTurnCount: generatorState.toolTurnCount,
+      });
+
+      yield {
+        type: 'status',
+        content: `从第 ${stepIndex} 步恢复 — 剩余 ${remainingToolCalls.length} 个工具`,
+        sessionId,
+      } as ChatStreamChunk;
+
+      // 5. 工具执行循环（简化版，复用核心逻辑）
+      let currentToolCalls: ParsedToolCall[] = remainingToolCalls;
+      let toolTurnCount = generatorState.toolTurnCount;
+      const MAX_TOOL_TURNS = this.MAX_TOOL_TURNS;
+
+      while (currentToolCalls.length > 0) {
+        if (streamAbortController.signal.aborted) break;
+        toolTurnCount++;
+
+        if (toolTurnCount > MAX_TOOL_TURNS) {
+          yield {
+            type: 'error',
+            content: `工具调用次数已达上限 (${MAX_TOOL_TURNS})`,
+            sessionId,
+          } as unknown as string;
+          break;
         }
+
+        // 执行本轮工具
+        const processedResults: Array<{
+          normalizedToolCall: ParsedToolCall;
+          result: ToolResult;
+        }> = [];
+        for (const tc of currentToolCalls) {
+          const toolName = tc.name;
+          const toolResult = await this.executeTool(
+            { id: tc.id, name: toolName, arguments: tc.arguments, sessionId },
+            { useErrorHandler: true }
+          );
+          processedResults.push({
+            normalizedToolCall: {
+              id: tc.id,
+              name: toolName,
+              arguments: tc.arguments,
+            },
+            result: toolResult,
+          });
+
+          yield {
+            type: 'tool_call',
+            content: toolResult.error ? `工具 ${toolName} 执行失败` : '',
+            sessionId,
+            toolCall: {
+              id: tc.id,
+              name: toolName,
+              arguments: tc.arguments,
+              status: toolResult.error ? 'failed' : 'completed',
+            },
+          } as unknown as string;
+        }
+
+        // 构建 API 消息并调用 LLM
+        const updatedMessages: Record<string, unknown>[] = session.messages.map(
+          (m) => ({
+            role: m.role,
+            content:
+              typeof m.content === 'string'
+                ? m.content
+                : JSON.stringify(m.content),
+            ...(m.metadata?.tool_calls
+              ? { tool_calls: m.metadata.tool_calls }
+              : {}),
+            ...(m.toolCallId ? { tool_call_id: m.toolCallId } : {}),
+          })
+        );
+
+        for (const pr of processedResults) {
+          updatedMessages.push({
+            role: 'assistant',
+            content: accumulatedContent,
+            tool_calls: currentToolCalls.map((tc) => ({
+              id: tc.id,
+              type: 'function',
+              function: {
+                name: tc.name,
+                arguments: JSON.stringify(tc.arguments),
+              },
+            })),
+          });
+          updatedMessages.push({
+            role: 'tool',
+            content: pr.result.result
+              ? typeof pr.result.result === 'string'
+                ? pr.result.result
+                : JSON.stringify(pr.result.result)
+              : pr.result.error || '{}',
+            tool_call_id: pr.normalizedToolCall.id,
+          });
+        }
+
+        // 调用 LLM
+        const toolGen = activeClient.streamMessage(
+          updatedMessages as unknown as ChatMessage[],
+          {
+            signal: streamAbortController.signal,
+            tools:
+              toolDefinitions.length > 0
+                ? (toolDefinitions as unknown as ToolDefinition[])
+                : undefined,
+          }
+        );
+
+        accumulatedContent = '';
+        let result = await toolGen.next();
+        while (!result.done) {
+          const chunk = result.value as
+            | { type?: string; content?: string; delta?: { content?: string } }
+            | string;
+          const content =
+            typeof chunk === 'string'
+              ? chunk
+              : chunk?.delta?.content || chunk?.content || '';
+          if (content) {
+            accumulatedContent += content;
+            yield content;
+          }
+          result = await toolGen.next();
+        }
+
+        const toolResultResponse = result.value as {
+          content?: string;
+          tool_calls?: ParsedToolCall[];
+          usage?: { inputTokens?: number; outputTokens?: number };
+        };
+
+        // 检查是否还有新工具调用
+        if (
+          toolResultResponse?.tool_calls &&
+          toolResultResponse.tool_calls.length > 0
+        ) {
+          currentToolCalls = [...toolResultResponse.tool_calls];
+          continue;
+        }
+
+        currentToolCalls = [];
+      }
+
+      // 6. 清理
+      this._sessionAbortControllers.delete(sessionId);
+      this._streamingCheckpoint = null;
+
+      const assistantMessage = this.messageService.createAssistantMessage(
+        accumulatedContent,
+        { sessionId }
       );
+      assistantMessage.sessionId = sessionId;
+      assistantMessage.finishReason = streamAbortController.signal.aborted
+        ? 'abort'
+        : 'stop';
+      this._addAndPersistMessage(sessionId, assistantMessage);
 
-      accumulatedContent = '';
-      let result = await toolGen.next();
-      while (!result.done) {
-        const chunk = result.value as { type?: string; content?: string; delta?: { content?: string } } | string;
-        const content = typeof chunk === 'string' ? chunk : (chunk?.delta?.content || chunk?.content || '');
-        if (content) {
-          accumulatedContent += content;
-          yield content;
-        }
-        result = await toolGen.next();
-      }
-
-      const toolResultResponse = result.value as {
-        content?: string;
-        tool_calls?: ParsedToolCall[];
-        usage?: { inputTokens?: number; outputTokens?: number };
-      };
-
-      // 检查是否还有新工具调用
-      if (toolResultResponse?.tool_calls && toolResultResponse.tool_calls.length > 0) {
-        currentToolCalls = [...toolResultResponse.tool_calls];
-        continue;
-      }
-
-      currentToolCalls = [];
-    }
-
-    // 6. 清理
-    this._sessionAbortControllers.delete(sessionId);
-    this._streamingCheckpoint = null;
-
-    const assistantMessage = this.messageService.createAssistantMessage(
-      accumulatedContent,
-      { sessionId }
-    );
-    assistantMessage.sessionId = sessionId;
-    assistantMessage.finishReason = streamAbortController.signal.aborted ? 'abort' : 'stop';
-    this._addAndPersistMessage(sessionId, assistantMessage);
-
-    return assistantMessage;
+      return assistantMessage;
     } finally {
       mutex.release();
     }

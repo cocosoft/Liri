@@ -24,7 +24,7 @@ async function _logAndHandle(
   module: string,
   msg: string,
   error: unknown,
-  action?: string,
+  action?: string
 ) {
   cg3Log(module, level, msg, { error: String(error) });
   try {
@@ -90,9 +90,8 @@ export async function wireSelfWakeToCron(
   selfWakeService: SelfWakeService
 ): Promise<boolean> {
   try {
-    const { getGlobalCronScheduler } = await import(
-      './cron/GlobalCronScheduler'
-    );
+    const { getGlobalCronScheduler } =
+      await import('./cron/GlobalCronScheduler');
     const scheduler = getGlobalCronScheduler();
     if (!scheduler) {
       cg3Log('tasks:cg3:bootstrap', 'warn', 'wireSelfWake: cron not started');
@@ -101,11 +100,16 @@ export async function wireSelfWakeToCron(
 
     const prevExtraTick = scheduler.extraTick;
     scheduler.extraTick = () => {
-      try { prevExtraTick?.(); } catch { /* best-effort */ }
+      try {
+        prevExtraTick?.();
+      } catch {
+        /* best-effort */
+      }
 
       // Fire-and-forget: SelfWake 操作异步执行，不阻塞 Cron tick 循环
       // 如果失败，到期唤醒条目会在下次 tick 重试
-      selfWakeService.getDueWakes()
+      selfWakeService
+        .getDueWakes()
         .then((due) => {
           for (const w of due) {
             selfWakeService.fire(w.id);
@@ -125,7 +129,13 @@ export async function wireSelfWakeToCron(
     cg3Log('tasks:cg3:bootstrap', 'info', 'wireSelfWake: cron wired');
     return true;
   } catch (err) {
-    await _logAndHandle('warn', 'tasks:cg3:bootstrap', 'wireSelfWake: failed', err, 'cg3_wire_selfwake');
+    await _logAndHandle(
+      'warn',
+      'tasks:cg3:bootstrap',
+      'wireSelfWake: failed',
+      err,
+      'cg3_wire_selfwake'
+    );
     return false;
   }
 }
@@ -149,7 +159,13 @@ export function wireAlwaysOnToChat(
     return true;
   } catch (err) {
     // Fire-and-forget: handleError 异步执行不阻塞同步回调注册
-    _logAndHandle('warn', 'tasks:cg3:bootstrap', 'wireAlwaysOn: failed', err, 'cg3_wire_alwayson').catch(() => {});
+    _logAndHandle(
+      'warn',
+      'tasks:cg3:bootstrap',
+      'wireAlwaysOn: failed',
+      err,
+      'cg3_wire_alwayson'
+    ).catch(() => {});
     return false;
   }
 }

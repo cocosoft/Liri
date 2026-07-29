@@ -57,13 +57,37 @@ export type JsonErrorType =
   | 'empty_value'
   | 'unknown';
 
-export function classifyJsonError(error: string, params: string[]): JsonErrorType {
+export function classifyJsonError(
+  error: string,
+  params: string[]
+): JsonErrorType {
   const msg = error.toLowerCase();
-  if (msg.includes('missing') || msg.includes('required')) return 'missing_field';
-  if (msg.includes('unrecognized') || msg.includes('unknown') || msg.includes('unexpected key')) return 'unexpected_field';
-  if (msg.includes('type') || msg.includes('expected') || msg.includes('invalid type')) return 'type_mismatch';
-  if (msg.includes('unexpected token') || msg.includes('unexpected end') || msg.includes('json')) return 'invalid_json';
-  if (msg.includes('empty') || msg.includes('null') || msg.includes('undefined')) return 'empty_value';
+  if (msg.includes('missing') || msg.includes('required'))
+    return 'missing_field';
+  if (
+    msg.includes('unrecognized') ||
+    msg.includes('unknown') ||
+    msg.includes('unexpected key')
+  )
+    return 'unexpected_field';
+  if (
+    msg.includes('type') ||
+    msg.includes('expected') ||
+    msg.includes('invalid type')
+  )
+    return 'type_mismatch';
+  if (
+    msg.includes('unexpected token') ||
+    msg.includes('unexpected end') ||
+    msg.includes('json')
+  )
+    return 'invalid_json';
+  if (
+    msg.includes('empty') ||
+    msg.includes('null') ||
+    msg.includes('undefined')
+  )
+    return 'empty_value';
   return 'unknown';
 }
 
@@ -120,7 +144,13 @@ export class ToolInputSelfCorrector {
     attempt: number
   ): CorrectionAttempt {
     const errorType = classifyJsonError(errorMessage, params);
-    const hint = buildCorrectionHint(errorType, errorMessage, toolName, params, attempt);
+    const hint = buildCorrectionHint(
+      errorType,
+      errorMessage,
+      toolName,
+      params,
+      attempt
+    );
 
     const attempt_: CorrectionAttempt = {
       attempt,
@@ -152,13 +182,19 @@ export class ToolInputSelfCorrector {
   /**
    * 记录成功
    */
-  recordSuccess(attempt: number, correctedInput: Record<string, unknown>): void {
+  recordSuccess(
+    attempt: number,
+    correctedInput: Record<string, unknown>
+  ): void {
     const last = this.history[this.history.length - 1];
     if (last) {
       last.result = correctedInput;
       last.success = true;
     }
-    logger.info('selfCorrector:success', { attempt, totalAttempts: attempt + 1 });
+    logger.info('selfCorrector:success', {
+      attempt,
+      totalAttempts: attempt + 1,
+    });
   }
 
   /**
@@ -176,7 +212,8 @@ export class ToolInputSelfCorrector {
     return {
       totalAttempts: this.history.length,
       successCount,
-      successRate: this.history.length > 0 ? successCount / this.history.length : 0,
+      successRate:
+        this.history.length > 0 ? successCount / this.history.length : 0,
       history: this.history,
     };
   }

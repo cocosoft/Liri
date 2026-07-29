@@ -326,13 +326,20 @@ export class CompactionOrchestrator {
       const { default: aiService, AIMessageRole } = await getAiService();
 
       // P2-15: 优先使用结构化 prompt（5 字段），解析失败时回退到自由文本
-      const { COMPACTION_SYSTEM_PROMPT, COMPACTION_USER_PROMPT, parseCompactionSummary, renderCompactionSummary } =
-        await import('./StructuredCompactionPrompt');
+      const {
+        COMPACTION_SYSTEM_PROMPT,
+        COMPACTION_USER_PROMPT,
+        parseCompactionSummary,
+        renderCompactionSummary,
+      } = await import('./StructuredCompactionPrompt');
 
       const response = await aiService.generate(
         [
           { role: AIMessageRole.SYSTEM, content: COMPACTION_SYSTEM_PROMPT },
-          { role: AIMessageRole.USER, content: `${COMPACTION_USER_PROMPT}\n\n${conversationText}` },
+          {
+            role: AIMessageRole.USER,
+            content: `${COMPACTION_USER_PROMPT}\n\n${conversationText}`,
+          },
         ],
         ctx.model || '',
         { temperature: 0.3, max_tokens: 4096 }
@@ -347,7 +354,9 @@ export class CompactionOrchestrator {
       if (structured) {
         summary = renderCompactionSummary(structured);
         logger.debug('compaction:tier3_structured', {
-          fields: Object.keys(structured).filter((k) => (structured as Record<string,string>)[k]),
+          fields: Object.keys(structured).filter(
+            (k) => (structured as Record<string, string>)[k]
+          ),
         });
       } else {
         // 回退：LLM 未返回有效 JSON，使用原始文本（仅保留纯文本摘要格式）

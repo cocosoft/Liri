@@ -150,9 +150,7 @@ export class BatchRunner<TInput = unknown, TOutput = unknown> {
     for (let i = 0; i < toProcess.length; i += this.config.concurrency) {
       const batch = toProcess.slice(i, i + this.config.concurrency);
 
-      const batchPromises = batch.map((item) =>
-        this.processItem(item, worker)
-      );
+      const batchPromises = batch.map((item) => this.processItem(item, worker));
 
       const settled = await Promise.allSettled(batchPromises);
 

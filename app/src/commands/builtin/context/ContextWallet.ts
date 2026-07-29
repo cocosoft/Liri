@@ -93,9 +93,8 @@ export async function analyzeContextUsage(
   let sessionFromLLMTracker = false;
 
   try {
-    const { getLLMTracker } = await import(
-      '@modules/monitoring/llm/getLLMTracker'
-    );
+    const { getLLMTracker } =
+      await import('@modules/monitoring/llm/getLLMTracker');
     const tracker = getLLMTracker();
     const stats = tracker.getSessionStats(sessionId);
     if (stats) {
@@ -134,9 +133,8 @@ export async function analyzeContextUsage(
   // Get cache savings
   let cacheSavingsUsd = 0;
   try {
-    const { promptCacheManager } = await import(
-      '../../../ai/prompts/PromptCacheManager'
-    );
+    const { promptCacheManager } =
+      await import('../../../ai/prompts/PromptCacheManager');
     const cacheStats = promptCacheManager.getCacheStats(sessionId);
     if (cacheStats) {
       cacheSavingsUsd = cacheStats.estimatedSavingsUsd;
@@ -234,21 +232,24 @@ export function generateContextSuggestions(
       type: 'near_limit',
       severity: data.totalTokens > 180_000 ? 'critical' : 'warning',
       message: `上下文接近上限 (${data.totalTokens.toLocaleString()} tokens)`,
-      action: '建议执行 /context compact 压缩上下文，或 /context trim <N> 裁剪旧消息',
+      action:
+        '建议执行 /context compact 压缩上下文，或 /context trim <N> 裁剪旧消息',
     });
   }
 
   // 2. Cache not utilized → suggest enable cache
   const cacheHitRate =
     data.totalTokens > 0
-      ? data.cacheReadTokens / (data.cacheReadTokens + data.cacheCreationTokens + 1)
+      ? data.cacheReadTokens /
+        (data.cacheReadTokens + data.cacheCreationTokens + 1)
       : 0;
   if (data.totalTokens > 10_000 && cacheHitRate < 0.1) {
     target.push({
       type: 'enable_cache',
       severity: 'info',
       message: `缓存命中率低 (${(cacheHitRate * 100).toFixed(1)}%)，未充分利用 Prompt 缓存`,
-      action: '使用 Anthropic 模型时 cache_control 可降低 90% 输入成本。换用 Claude 模型可获得缓存加速。',
+      action:
+        '使用 Anthropic 模型时 cache_control 可降低 90% 输入成本。换用 Claude 模型可获得缓存加速。',
     });
   }
 
@@ -260,7 +261,8 @@ export function generateContextSuggestions(
       type: 'route_cheaper',
       severity: 'warning',
       message: `模型 ${expensiveModel.model} 成本较高 ($${expensiveModel.costUsd.toFixed(4)}), ${expensiveModel.requests} 次请求`,
-      action: '简单任务可路由到廉价模型。执行 /models tasks 查看当前任务分工配置。',
+      action:
+        '简单任务可路由到廉价模型。执行 /models tasks 查看当前任务分工配置。',
     });
   }
 
@@ -270,7 +272,8 @@ export function generateContextSuggestions(
       type: 'trim_tools',
       severity: 'info',
       message: `${data.totalRequests} 次请求中工具定义可能占用大量上下文`,
-      action: '检查是否启用了不必要的工具。MCP 工具可通过 /mcp disable <tool> 禁用。',
+      action:
+        '检查是否启用了不必要的工具。MCP 工具可通过 /mcp disable <tool> 禁用。',
     });
   }
 
@@ -280,7 +283,8 @@ export function generateContextSuggestions(
       type: 'compact',
       severity: 'info',
       message: `上下文正在增长 (${data.totalTokens.toLocaleString()} tokens)，建议提前压缩`,
-      action: '执行 /context compact 可触发自动摘要压缩，减少后续轮次的 Token 消耗。',
+      action:
+        '执行 /context compact 可触发自动摘要压缩，减少后续轮次的 Token 消耗。',
     });
   }
 
@@ -300,20 +304,14 @@ export function formatWalletBreakdown(breakdown: WalletBreakdown): string {
   lines.push(`| 指标 | 值 |`);
   lines.push(`|------|-----|`);
   lines.push(`| 会话 ID | ${breakdown.sessionId} |`);
-  lines.push(
-    `| 总 Token | ${breakdown.totalTokens.toLocaleString()} |`
-  );
-  lines.push(
-    `| 估计成本 | $${breakdown.estimatedCostUsd.toFixed(6)} |`
-  );
+  lines.push(`| 总 Token | ${breakdown.totalTokens.toLocaleString()} |`);
+  lines.push(`| 估计成本 | $${breakdown.estimatedCostUsd.toFixed(6)} |`);
   if (breakdown.sessionDurationSec > 0) {
     const mins = Math.floor(breakdown.sessionDurationSec / 60);
     const secs = breakdown.sessionDurationSec % 60;
     lines.push(`| 运行时长 | ${mins}m ${secs}s |`);
   }
-  lines.push(
-    `| 请求数 | ${breakdown.totalRequests} |`
-  );
+  lines.push(`| 请求数 | ${breakdown.totalRequests} |`);
   lines.push('');
 
   // Token breakdown
@@ -338,9 +336,7 @@ export function formatWalletBreakdown(breakdown: WalletBreakdown): string {
     );
   }
   if (breakdown.reasoningTokens > 0) {
-    lines.push(
-      `| 推理 | ${breakdown.reasoningTokens.toLocaleString()} | — |`
-    );
+    lines.push(`| 推理 | ${breakdown.reasoningTokens.toLocaleString()} | — |`);
   }
   lines.push('');
 
@@ -348,9 +344,7 @@ export function formatWalletBreakdown(breakdown: WalletBreakdown): string {
   lines.push('### 成本');
   lines.push(`- 估计成本: **$${breakdown.estimatedCostUsd.toFixed(6)}**`);
   if (breakdown.cacheSavingsUsd > 0) {
-    lines.push(
-      `- 缓存节省: **$${breakdown.cacheSavingsUsd.toFixed(6)}**`
-    );
+    lines.push(`- 缓存节省: **$${breakdown.cacheSavingsUsd.toFixed(6)}**`);
     const savingsRate =
       (breakdown.cacheSavingsUsd /
         (breakdown.estimatedCostUsd + breakdown.cacheSavingsUsd + 0.000001)) *

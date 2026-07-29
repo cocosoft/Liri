@@ -48,9 +48,7 @@ Here is a structured summary of your previous work in this conversation. Use thi
 </system-info>`;
 
 /** P2-15: 从 LLM 输出解析结构化压缩摘要 */
-export function parseCompactionSummary(
-  raw: string
-): {
+export function parseCompactionSummary(raw: string): {
   task_overview: string;
   current_state: string;
   important_discoveries: string;
@@ -67,7 +65,9 @@ export function parseCompactionSummary(
     if (match) {
       try {
         return JSON.parse(match[1]);
-      } catch { /* continue */ }
+      } catch {
+        /* continue */
+      }
     }
   }
   return null;
@@ -78,10 +78,24 @@ export function renderCompactionSummary(
   summary: ReturnType<typeof parseCompactionSummary> extends infer T ? T : never
 ): string {
   if (!summary) return '';
-  return COMPACTION_TEMPLATE
-    .replace('{task_overview}', (summary as Record<string,string>).task_overview ?? '')
-    .replace('{current_state}', (summary as Record<string,string>).current_state ?? '')
-    .replace('{important_discoveries}', (summary as Record<string,string>).important_discoveries ?? '')
-    .replace('{next_steps}', (summary as Record<string,string>).next_steps ?? '')
-    .replace('{context_to_preserve}', (summary as Record<string,string>).context_to_preserve ?? '');
+  return COMPACTION_TEMPLATE.replace(
+    '{task_overview}',
+    (summary as Record<string, string>).task_overview ?? ''
+  )
+    .replace(
+      '{current_state}',
+      (summary as Record<string, string>).current_state ?? ''
+    )
+    .replace(
+      '{important_discoveries}',
+      (summary as Record<string, string>).important_discoveries ?? ''
+    )
+    .replace(
+      '{next_steps}',
+      (summary as Record<string, string>).next_steps ?? ''
+    )
+    .replace(
+      '{context_to_preserve}',
+      (summary as Record<string, string>).context_to_preserve ?? ''
+    );
 }

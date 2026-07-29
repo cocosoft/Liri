@@ -42,7 +42,10 @@ export class StreamingContextScrubber {
       if (this.state === 'normal') {
         // Look for opening tag
         const openMatch = remaining.match(
-          new RegExp(`<(${StreamingContextScrubber.STRIP_TAGS.join('|')})[\\s>]`, 'i')
+          new RegExp(
+            `<(${StreamingContextScrubber.STRIP_TAGS.join('|')})[\\s>]`,
+            'i'
+          )
         );
         if (openMatch && remaining.startsWith(`<${openMatch[1]}`)) {
           // Emit anything before the tag
@@ -86,7 +89,10 @@ export class StreamingContextScrubber {
         } else {
           // Check for nested opening tags of the same type
           const nestedMatch = remaining.match(
-            new RegExp(`<(${StreamingContextScrubber.STRIP_TAGS.join('|')})[\\s>]`, 'i')
+            new RegExp(
+              `<(${StreamingContextScrubber.STRIP_TAGS.join('|')})[\\s>]`,
+              'i'
+            )
           );
           if (nestedMatch && remaining.startsWith(`<${nestedMatch[1]}`)) {
             this.tagDepth++;
@@ -127,8 +133,12 @@ export class StreamingContextScrubber {
  *
  * 对标 cc_code memoryFreshnessNote（>1 天记忆附加验证警告）。
  */
-export function memoryFreshnessNote(createdAt: number | Date, content: string): string {
-  const created = typeof createdAt === 'number' ? createdAt : createdAt.getTime();
+export function memoryFreshnessNote(
+  createdAt: number | Date,
+  content: string
+): string {
+  const created =
+    typeof createdAt === 'number' ? createdAt : createdAt.getTime();
   const ageMs = Date.now() - created;
   const ageDays = Math.floor(ageMs / 86_400_000);
 

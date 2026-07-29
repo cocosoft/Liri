@@ -29,7 +29,13 @@ export class DiscoveryFire {
 
   /** 阶段 3: Execution — bypassPermissions 自动执行（由 AlwaysOnRuntime 注入发现计划的具体步骤） */
   async execution(_workspace: string): Promise<ExecutionResult> {
-    return { success: true, output: '', errors: [], toolCalls: 0, durationMs: 0 };
+    return {
+      success: true,
+      output: '',
+      errors: [],
+      toolCalls: 0,
+      durationMs: 0,
+    };
   }
 
   /** 阶段 4: Report — 生成 Markdown 报告 */

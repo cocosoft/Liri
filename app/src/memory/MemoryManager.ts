@@ -614,7 +614,11 @@ export class MemoryManagerImpl {
           const prompt = buildSelectionPrompt(query, items);
           const response = await provider.chat(
             [
-              { role: 'system', content: 'You are a memory selector. Return ONLY a JSON array of memory IDs.' },
+              {
+                role: 'system',
+                content:
+                  'You are a memory selector. Return ONLY a JSON array of memory IDs.',
+              },
               { role: 'user', content: prompt },
             ],
             {
@@ -637,7 +641,10 @@ export class MemoryManagerImpl {
           }
         }
       } catch (err) {
-        await handleError(err, { module: 'memory:memoryManager', action: 'llmSelectMemories' });
+        await handleError(err, {
+          module: 'memory:memoryManager',
+          action: 'llmSelectMemories',
+        });
         logger.warn('LLM 精选记忆失败，降级为 top-K', {
           error: String(err),
         });

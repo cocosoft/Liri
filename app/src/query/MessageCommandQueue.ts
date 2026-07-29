@@ -30,7 +30,11 @@ export interface QueueEntry {
 
 type QueueListener = (entry: QueueEntry, action: 'enqueue' | 'dequeue') => void;
 
-const PRIORITY_WEIGHT: Record<QueuePriority, number> = { now: 0, next: 1, later: 2 };
+const PRIORITY_WEIGHT: Record<QueuePriority, number> = {
+  now: 0,
+  next: 1,
+  later: 2,
+};
 
 export class MessageCommandQueue {
   private queue: QueueEntry[] = [];
@@ -77,7 +81,10 @@ export class MessageCommandQueue {
   dequeueAllMatching(predicate: (e: QueueEntry) => boolean): QueueEntry[] {
     const matched: QueueEntry[] = [];
     this.queue = this.queue.filter((e) => {
-      if (predicate(e)) { matched.push(e); return false; }
+      if (predicate(e)) {
+        matched.push(e);
+        return false;
+      }
       return true;
     });
     for (const e of matched) {
@@ -125,7 +132,11 @@ export class MessageCommandQueue {
 
   private notify(entry: QueueEntry, action: 'enqueue' | 'dequeue'): void {
     for (const l of this.listeners) {
-      try { l(entry, action); } catch { /* best-effort */ }
+      try {
+        l(entry, action);
+      } catch {
+        /* best-effort */
+      }
     }
   }
 }

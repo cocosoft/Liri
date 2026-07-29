@@ -116,7 +116,9 @@ export class BashPermission {
     }
 
     // P2-1: 智能审批 — 使用 SmartApprovalObserver 自动批准低风险命令
-    const { SmartApprovalObserver } = require('@modules/tools/SmartApprovalObserver');
+    const {
+      SmartApprovalObserver,
+    } = require('@modules/tools/SmartApprovalObserver');
     const observer = new SmartApprovalObserver();
     const approvalResult = observer.evaluate(command);
 
@@ -128,6 +130,8 @@ export class BashPermission {
     }
 
     // 需要人工审核或未匹配 → 默认询问
-    return createAskDecision(approvalResult.reason || 'Unknown command, requiring user approval');
+    return createAskDecision(
+      approvalResult.reason || 'Unknown command, requiring user approval'
+    );
   }
 }

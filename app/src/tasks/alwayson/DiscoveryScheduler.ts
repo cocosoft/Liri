@@ -20,7 +20,9 @@ export class DiscoveryScheduler {
     if (this.running) return;
     this.running = true;
     this.scheduleNext();
-    cg3Log('tasks:alwayson:scheduler', 'info', 'started', { intervalMinutes: this.intervalMs / 60_000 });
+    cg3Log('tasks:alwayson:scheduler', 'info', 'started', {
+      intervalMinutes: this.intervalMs / 60_000,
+    });
   }
 
   private scheduleNext(): void {
@@ -29,7 +31,9 @@ export class DiscoveryScheduler {
       try {
         await this.callback();
       } catch (err) {
-        cg3Log('tasks:alwayson:scheduler', 'error', 'tickFailed', { error: String(err) });
+        cg3Log('tasks:alwayson:scheduler', 'error', 'tickFailed', {
+          error: String(err),
+        });
       }
       this.scheduleNext();
     }, this.intervalMs);

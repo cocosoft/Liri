@@ -444,7 +444,16 @@ export async function launchRepl(
         );
       }
     }
-    const realExecutor = createCronExecutor(provider!);
+
+    // 防御：若 provider 仍为空，回退到默认执行器（不依赖 AI provider）
+    if (!provider) {
+      logger.warn('Cron AI 执行器初始化失败：无可用的 AI Provider，降级为默认执行器');
+      await ensureGlobalCronSchedulerStarted();
+      ui.showWarning('Cron 调度器已启动（默认执行模式 — 无 AI Provider 可用）');
+      return; // 外层 try/catch 不会执行后续代码
+    }
+
+    const realExecutor = createCronExecutor(provider);
 
     // 初始化投递队列和路由器（AI 定时任务 → 渠道主动推送）
     const { resolveDbPath } = await import('@modules/core/paths');

@@ -508,8 +508,10 @@ export class CronScheduler {
     // NEW-BUG-4 fix: 从 DB 重读 consecutiveErrors，避免使用内存中的 stale 值
     //（recoverInterruptedJobs 已通过 atomicRecoverJob 更新 DB，但 job 对象未刷新）
     const freshJob = await this.store.getJob(job.id);
-    const prevErrorCount = freshJob?.consecutiveErrors ?? job.consecutiveErrors ?? 0;
-    const prevSkippedCount = freshJob?.consecutiveSkipped ?? job.consecutiveSkipped ?? 0;
+    const prevErrorCount =
+      freshJob?.consecutiveErrors ?? job.consecutiveErrors ?? 0;
+    const prevSkippedCount =
+      freshJob?.consecutiveSkipped ?? job.consecutiveSkipped ?? 0;
     const maxErrors = job.maxConsecutiveErrors ?? 10;
 
     // 持久化执行结果

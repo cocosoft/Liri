@@ -41,6 +41,11 @@ export function createCronExecutor(
   provider: AIProvider,
   config?: CronExecutorConfig
 ): (job: CronJob) => Promise<CronJobResult> {
+  if (!provider) {
+    logger.error('[CronExecutor] 无法创建执行器：provider 为空');
+    throw new Error('CronExecutor: provider 不能为 null/undefined');
+  }
+
   const cfg = { ...DEFAULT_CONFIG, ...config };
 
   return async (job: CronJob): Promise<CronJobResult> => {

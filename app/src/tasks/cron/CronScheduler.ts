@@ -153,6 +153,10 @@ export class CronScheduler {
     // 追赶遗漏的作业
     await this.catchUpMissedJobs();
 
+    // NEW-BUG-7 fix: 给 catchUp 启动的作业一点时间到达 inFlightJobs.add，
+    // 避免 timer 的第一个 tick 在 catchUp 作业 entry 之前就触发同一 job。
+    await new Promise((r) => setTimeout(r, 100));
+
     // 使用动态定时器替代固定轮询
     this.timer.start(async () => {
       await this.tick();
@@ -172,6 +176,8 @@ export class CronScheduler {
   stop(): void {
     this.running = false;
     this.timer.stop();
+    // NEW-BUG-6 fix: 清理 inFlightJobs，避免重启时残留 ID 阻止 catchUp
+    this.inFlightJobs.clear();
     if (this.lock) {
       releaseLock(this.config.lockIdentity);
       this.lock = null;
@@ -499,8 +505,11 @@ export class CronScheduler {
       this.inFlightJobs.delete(job.id);
     }
 
-    const prevErrorCount = job.consecutiveErrors ?? 0;
-    const prevSkippedCount = job.consecutiveSkipped ?? 0;
+    // NEW-BUG-4 fix: 从 DB 重读 consecutiveErrors，避免使用内存中的 stale 值
+    //（recoverInterruptedJobs 已通过 atomicRecoverJob 更新 DB，但 job 对象未刷新）
+    const freshJob = await this.store.getJob(job.id);
+    const prevErrorCount = freshJob?.consecutiveErrors ?? job.consecutiveErrors ?? 0;
+    const prevSkippedCount = freshJob?.consecutiveSkipped ?? job.consecutiveSkipped ?? 0;
     const maxErrors = job.maxConsecutiveErrors ?? 10;
 
     // 持久化执行结果

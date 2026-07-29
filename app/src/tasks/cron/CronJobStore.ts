@@ -338,7 +338,7 @@ export class CronJobStore {
 
   /**
    * 更新作业状态（含状态流转守卫验证）
-   * 读取当前状态 → 验证合法性 → 写入新状态
+   * NEW-BUG-1 fix: WHERE state=? 原子守卫防 TOCTOU
    */
   async updateJobState(jobId: string, newState: CronJobState): Promise<void> {
     const job = await this.getJob(jobId);
@@ -354,13 +354,15 @@ export class CronJobStore {
     const db = this.ensureDb();
     const sql = `UPDATE ${TABLE_CRON_JOBS}
       SET state = ?, updated_at = ?
-      WHERE id = ?`;
+      WHERE id = ? AND state = ?`;
 
     return new Promise((resolve, reject) => {
-      db.run(sql, [newState, Date.now(), jobId], (err) => {
+      db.run(sql, [newState, Date.now(), jobId, job.state], (err) => {
         if (err) {
           logger.error('[CronJobStore] 更新状态失败', {
             jobId,
+            from: job.state,
+            to: newState,
             error: err.message,
           });
           reject(err);
@@ -372,8 +374,9 @@ export class CronJobStore {
   }
 
   /**
-   * BUG-2 fix: 原子恢复中断作业 — 单步 SQL 完成 running→scheduled + 错误计数
+   * BUG-2 fix: 原子恢复中断作业 — 单步 SQL 完成 running→scheduled
    * 避免 failed→scheduled 两步窗口在进程崩溃时导致作业永久丢失。
+   * NEW-BUG-3 fix: consecutiveErrors 不 +1 — 进程崩溃非作业自身失败。
    */
   async atomicRecoverJob(
     jobId: string,
@@ -394,7 +397,7 @@ export class CronJobStore {
     return new Promise((resolve, reject) => {
       db.run(
         sql,
-        [prevErrors + 1, prevSkipped, scheduleErrors, now, jobId],
+        [prevErrors, prevSkipped, scheduleErrors, now, jobId],
         (err) => {
           if (err) {
             logger.error('[CronJobStore] 原子恢复失败', {

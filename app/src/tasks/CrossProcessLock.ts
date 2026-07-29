@@ -21,6 +21,8 @@ import {
   unlinkSync,
   existsSync,
   mkdirSync,
+  statSync,
+  utimesSync,
 } from 'fs';
 import { resolveDataSubDir } from '@modules/core';
 import { Logger } from '@modules/monitoring';
@@ -157,7 +159,7 @@ export class CrossProcessLock {
       // 检查心跳/TTL
       const now = Date.now();
       try {
-        const { mtimeMs } = require('fs').statSync(this.lockPath);
+        const { mtimeMs } = statSync(this.lockPath);
         if (now - mtimeMs > this.ttlMs) {
           this.forceClean();
           return true;
@@ -227,7 +229,7 @@ export class CrossProcessLock {
         if (existsSync(this.lockPath)) {
           // touch — 更新 mtime 用于 TTL 判断
           const now = new Date();
-          require('fs').utimesSync(this.lockPath, now, now);
+          utimesSync(this.lockPath, now, now);
         }
       } catch (err) {
         handleError(err, {

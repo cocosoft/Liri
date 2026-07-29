@@ -263,15 +263,22 @@ export class BashSecurityAnalyzer {
       };
     }
 
-    // P3-3: allowlist 前缀匹配 — 仅放行已知安全命令，拒绝含 shell operator 的命令
+    // P3-3: allowlist 前缀匹配 — shell operator 始终 deny
+    // 不在已知安全列表 → 先标记，等危险命令检测后再判断
     const allowlistCheck = checkBashAllowlist(trimmedCommand);
+    let allowlistPendingDeny = false;
     if (!allowlistCheck.safe) {
-      return {
-        safe: false,
-        behavior: 'deny',
-        riskLevel: 'high',
-        matchedPatterns: [`Bash allowlist rejected: ${allowlistCheck.reason}`],
-      };
+      const isShellOperator = allowlistCheck.reason.includes('Shell operator');
+      if (isShellOperator) {
+        return {
+          safe: false,
+          behavior: 'deny',
+          riskLevel: 'high',
+          matchedPatterns: [`Bash allowlist rejected: ${allowlistCheck.reason}`],
+        };
+      }
+      // 不在已知安全列表 — 暂不拦截，等危险命令检测后再决定
+      allowlistPendingDeny = true;
     }
 
     // 前置检查：白名单模式 — 配置了 whitelist 时，只放行匹配的指令
@@ -336,7 +343,7 @@ export class BashSecurityAnalyzer {
             finalBehavior,
             messages
           );
-          return this.applyTrustLevelBehavior(augmentedResult, trustLevel);
+          return this.applyAllowlistThenTrust(augmentedResult, trustLevel, allowlistPendingDeny, allowlistCheck.reason);
         }
       } catch (err) {
         // 降级到TypeScript完整分析
@@ -345,6 +352,50 @@ export class BashSecurityAnalyzer {
 
     // TypeScript降级：完整分析
     const result = this.runFullAnalysis(trimmedCommand);
+    return this.applyAllowlistThenTrust(result, trustLevel, allowlistPendingDeny, allowlistCheck.reason);
+  }
+
+  /**
+   * 先检查 allowlist，再应用信任级别
+   * 保证危险命令(deny)不被信任级别绕过
+   */
+  private applyAllowlistThenTrust(
+    result: SecurityAnalysisResult,
+    trustLevel: string | undefined,
+    allowlistPendingDeny: boolean,
+    allowlistReason: string
+  ): SecurityAnalysisResult {
+    // 危险命令在任何情况下都不被绕过
+    if (result.behavior === 'deny') return result;
+
+    // allowlist 标记了"不在已知安全列表" → 根据信任级别处理
+    if (allowlistPendingDeny) {
+      if (trustLevel === 'work' || trustLevel === 'development') {
+        // 信任工作区：降级为 ask，再交给信任级别处理
+        const askResult: SecurityAnalysisResult = {
+          ...result,
+          safe: false,
+          behavior: 'ask',
+          matchedPatterns: [
+            ...(result.matchedPatterns || []),
+            `Bash allowlist: ${allowlistReason}`,
+          ],
+        };
+        return this.applyTrustLevelBehavior(askResult, trustLevel);
+      }
+      // 无信任级别或 chat 级别 → 保持 deny
+      return {
+        ...result,
+        safe: false,
+        behavior: 'deny',
+        matchedPatterns: [
+          ...(result.matchedPatterns || []),
+          `Bash allowlist rejected: ${allowlistReason}`,
+        ],
+      };
+    }
+
+    // 没有 allowlist 问题 → 正常应用信任级别
     return this.applyTrustLevelBehavior(result, trustLevel);
   }
 

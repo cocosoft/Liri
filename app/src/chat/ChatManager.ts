@@ -3073,7 +3073,10 @@ export class ChatManagerImpl implements ChatManager {
                 currentTokens: 0,
                 contextLimit: degradationResult.limit,
                 ratio: degradationResult.limit / ctxDegradation.originalLimit,
-                severity: degradationResult.limit / ctxDegradation.originalLimit <= 0.5 ? 'compact' as const : 'warn' as const,
+                severity:
+                  degradationResult.limit / ctxDegradation.originalLimit <= 0.5
+                    ? ('compact' as const)
+                    : ('warn' as const),
               },
             } as ChatStreamChunk;
           }

@@ -152,7 +152,8 @@ export async function writeCronTasksFile(
   const filePath = getCronFilePath(baseDir);
 
   const body = {
-    tasks: tasks.map(({ durable: _durable, ...rest }) => rest),
+    // BUG-7 fix: 保留 durable 字段，避免持久化-加载循环后语义丢失
+    tasks: tasks.map(({ durable, ...rest }) => ({ ...rest, durable })),
   };
 
   writeFileSync(filePath, JSON.stringify(body, null, 2) + '\n', 'utf-8');

@@ -1,6 +1,5 @@
 import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { resolveDbPath } from '@modules/core';
 import { TaskPriority } from './TaskPriority';
 import type { Task, TaskResult } from './types';
 
@@ -86,73 +85,5 @@ export class InMemoryQueueBackend implements QueueBackend {
     for (const [, queue] of this.queues) {
       queue.length = 0;
     }
-  }
-}
-
-export class SqliteQueueBackend implements QueueBackend {
-  private entries: Map<string, QueuedTaskEntry> = new Map();
-  private priorityOrder: TaskPriority[][] = [
-    [TaskPriority.CRITICAL],
-    [TaskPriority.HIGH],
-    [TaskPriority.NORMAL],
-    [TaskPriority.LOW],
-  ];
-  private dbPath: string;
-
-  constructor(dbPath?: string) {
-    this.dbPath = dbPath || resolveDbPath();
-  }
-
-  enqueue(entry: QueuedTaskEntry, priority: TaskPriority): void {
-    this.entries.set(entry.task.id, entry);
-  }
-
-  dequeue(priority: TaskPriority): QueuedTaskEntry | undefined {
-    for (const [id, entry] of this.entries) {
-      if (entry.task.priority === priority) {
-        this.entries.delete(id);
-        return entry;
-      }
-    }
-    return undefined;
-  }
-
-  remove(taskId: string): QueuedTaskEntry | undefined {
-    const entry = this.entries.get(taskId);
-    if (entry) this.entries.delete(taskId);
-    return entry;
-  }
-
-  peek(priority: TaskPriority): QueuedTaskEntry | undefined {
-    for (const [, entry] of this.entries) {
-      if (entry.task.priority === priority) return entry;
-    }
-    return undefined;
-  }
-
-  contains(taskId: string): boolean {
-    return this.entries.has(taskId);
-  }
-
-  pendingCount(): number {
-    return this.entries.size;
-  }
-
-  pendingByPriority(): Map<TaskPriority, number> {
-    const result = new Map<TaskPriority, number>();
-    for (const p of Object.values(TaskPriority).filter(
-      (v) => typeof v === 'number'
-    )) {
-      result.set(p as TaskPriority, 0);
-    }
-    for (const [, entry] of this.entries) {
-      const p = entry.task.priority;
-      result.set(p, (result.get(p) || 0) + 1);
-    }
-    return result;
-  }
-
-  flush(): void {
-    this.entries.clear();
   }
 }

@@ -168,6 +168,14 @@ export class DagTaskExecutor {
     if (this.tasks.has(def.id)) {
       throw new Error(`任务 ID 重复: ${def.id}`);
     }
+    // BUG-4 fix: 验证 dependsOn 引用的任务 ID 有效性
+    for (const depId of def.dependsOn) {
+      if (!this.tasks.has(depId)) {
+        throw new Error(
+          `任务 "${def.id}" 依赖了不存在的任务 "${depId}"`
+        );
+      }
+    }
     this.tasks.set(def.id, { def, executor });
   }
 
@@ -304,7 +312,13 @@ export class DagTaskExecutor {
       let level = 0;
 
       for (const depId of entry.def.dependsOn) {
-        const depLevel = nodeLevel.get(depId) ?? 0;
+        // BUG-4 fix: missing dep 不应静默降级为 level=0，抛出明确错误
+        if (!nodeLevel.has(depId)) {
+          throw new Error(
+            `DAG 层次错误: 任务 "${taskId}" 依赖的 "${depId}" 不在拓扑排序结果中`
+          );
+        }
+        const depLevel = nodeLevel.get(depId)!;
         level = Math.max(level, depLevel + 1);
       }
 

@@ -200,7 +200,6 @@ export class CronScheduler {
       if (runningJobs.length === 0) return;
 
       const now = Date.now();
-      const interruptedReason = 'cron: job interrupted by gateway restart';
 
       logger.warning(
         `[CronScheduler] 发现 ${runningJobs.length} 个中断作业，执行恢复`,
@@ -216,15 +215,11 @@ export class CronScheduler {
             ? Math.max(0, now - job.runningAtMs)
             : undefined;
 
-          // 标记为 failed
-          await this.store.updateJobState(job.id, 'failed');
-          this.emitCalendarStateChange(job.id, 'failed');
-
-          // 更新连续错误计数
-          const prevErrors = job.consecutiveErrors ?? 0;
-          await this.store.updateConsecutiveErrors(
+          // BUG-2 fix: 单步恢复 — 直接用 WHERE state='running' 条件更新，
+          // 避免 failed→scheduled 两步窗口导致作业永久丢失。
+          await this.store.atomicRecoverJob(
             job.id,
-            prevErrors + 1,
+            job.consecutiveErrors ?? 0,
             job.consecutiveSkipped ?? 0,
             job.scheduleErrorCount ?? 0
           );
@@ -235,8 +230,7 @@ export class CronScheduler {
             await this.store.updateNextRun(job.id, nextRun);
           }
 
-          // 恢复为 scheduled 以便下次继续
-          await this.store.updateJobState(job.id, 'scheduled');
+          this.emitCalendarStateChange(job.id, 'scheduled');
 
           logger.info('[CronScheduler] 恢复中断作业', {
             jobId: job.id,
@@ -433,12 +427,6 @@ export class CronScheduler {
     let result: CronJobResult;
 
     try {
-      // 提前计算下次运行时间（at-most-once 语义）
-      const nextRun = this.computeNextRun(job);
-      if (nextRun) {
-        await this.store.updateNextRun(job.id, nextRun);
-      }
-
       logger.info('[CronScheduler] 开始执行作业', {
         jobId: job.id,
         name: job.name,
@@ -521,6 +509,12 @@ export class CronScheduler {
     if (result.success) {
       // 成功：重置连续错误计数
       await this.store.updateConsecutiveErrors(job.id, 0, 0, 0);
+
+      // BUG-3 fix: 成功后计算并更新下次运行时间（was: 执行前提前更新，失败时会错过调度）
+      const nextRun = this.computeNextRun(job);
+      if (nextRun) {
+        await this.store.updateNextRun(job.id, nextRun);
+      }
     } else {
       // 失败：递增连续错误计数
       const newErrors = prevErrorCount + 1;

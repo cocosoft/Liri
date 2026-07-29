@@ -50,5 +50,5 @@ export type { UpdateInfo } from './AutoUpdater';
 export { startHealthServer, stopHealthServer } from './HealthServer';
 export type { HealthCheckConfig } from './HealthServer';
 
-export { InMemoryQueueBackend, SqliteQueueBackend } from './QueueBackend';
+export { InMemoryQueueBackend } from './QueueBackend';
 export type { QueueBackend, QueuedTaskEntry } from './QueueBackend';

@@ -13,12 +13,15 @@ export type { Task, TaskResult };
 export class TaskQueue {
   private backend: QueueBackend;
   private running: Set<string>;
+  /** BUG-6 fix: 运行中任务的 AbortController，cancel 时触发 abort */
+  private runningControllers: Map<string, AbortController>;
   private isProcessing: boolean;
   private maxConcurrent: number;
 
   constructor(maxConcurrent = 4, backend?: QueueBackend) {
     this.backend = backend ?? new InMemoryQueueBackend();
     this.running = new Set();
+    this.runningControllers = new Map();
     this.isProcessing = false;
     this.maxConcurrent = maxConcurrent;
   }
@@ -67,7 +70,14 @@ export class TaskQueue {
       return true;
     }
     if (this.running.has(taskId)) {
-      logger.info(`正在终止运行中的任务: ${taskId}`);
+      // BUG-6 fix: abort 运行中的任务
+      const ctrl = this.runningControllers.get(taskId);
+      if (ctrl) {
+        ctrl.abort();
+        logger.info(`已中止运行中的任务: ${taskId}`);
+      } else {
+        logger.info(`运行中任务无 AbortController: ${taskId}`);
+      }
       return true;
     }
     return false;
@@ -113,10 +123,11 @@ export class TaskQueue {
   private async executeTask(entry: QueuedTaskEntry): Promise<void> {
     const { task, resolve, controller, retries } = entry;
     this.running.add(task.id);
+    this.runningControllers.set(task.id, controller);
     const startedAt = Date.now();
 
     try {
-      let timeoutId: ReturnType<typeof setInterval> | undefined;
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
       const timeout = task.timeout ?? 30000;
 
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -135,6 +146,7 @@ export class TaskQueue {
 
       clearTimeout(timeoutId);
       this.running.delete(task.id);
+      this.runningControllers.delete(task.id);
       resolve({
         taskId: task.id,
         success: true,
@@ -148,6 +160,7 @@ export class TaskQueue {
       this.reportTaskMetrics();
     } catch (error) {
       this.running.delete(task.id);
+      this.runningControllers.delete(task.id);
       const errMsg = error instanceof Error ? error.message : String(error);
 
       if (retries < (task.maxRetries ?? 0)) {

@@ -371,6 +371,45 @@ export class CronJobStore {
     });
   }
 
+  /**
+   * BUG-2 fix: 原子恢复中断作业 — 单步 SQL 完成 running→scheduled + 错误计数
+   * 避免 failed→scheduled 两步窗口在进程崩溃时导致作业永久丢失。
+   */
+  async atomicRecoverJob(
+    jobId: string,
+    prevErrors: number,
+    prevSkipped: number,
+    scheduleErrors: number
+  ): Promise<void> {
+    const db = this.ensureDb();
+    const now = Date.now();
+    const sql = `UPDATE ${TABLE_CRON_JOBS}
+      SET state = 'scheduled',
+          consecutive_errors = ?,
+          consecutive_skipped = ?,
+          schedule_error_count = ?,
+          updated_at = ?
+      WHERE id = ? AND state = 'running'`;
+
+    return new Promise((resolve, reject) => {
+      db.run(
+        sql,
+        [prevErrors + 1, prevSkipped, scheduleErrors, now, jobId],
+        (err) => {
+          if (err) {
+            logger.error('[CronJobStore] 原子恢复失败', {
+              jobId,
+              error: err.message,
+            });
+            reject(err);
+            return;
+          }
+          resolve();
+        }
+      );
+    });
+  }
+
   /** 列出所有启用的作业 */
   async listEnabledJobs(): Promise<CronJob[]> {
     return this.loadJobs({ enabled: true });

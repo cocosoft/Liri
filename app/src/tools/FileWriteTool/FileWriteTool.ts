@@ -116,7 +116,12 @@ import type {
   ToolResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
-import { AppError, ErrorCategory, ErrorSeverity, handleError } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { checkPathAccessibility } from '../utils/ToolUtils';
 
 import { Logger, LogLevel } from '@modules/monitoring';

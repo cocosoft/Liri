@@ -21,6 +21,7 @@ import {
 } from '@modules/ai/router/resolveModelRoute.js';
 import { AppError, ErrorCategory, ErrorSeverity, handleError } from '@modules/error';
 import { withRetry } from '@modules/utils/withRetry';
+import { trackUsage } from '../../ai/UsageTracker';
 import { globalEventBus } from '../../core/events/EventBus.js';
 import { AgentEventType } from '../../agent/events/types.js';
 
@@ -590,6 +591,7 @@ export class SubAgentEngine {
     });
 
     try {
+      const startTime = Date.now();
       const result = await withRetry(
         () =>
           client.chat(messages, {
@@ -598,6 +600,14 @@ export class SubAgentEngine {
           }),
         { maxRetries: 2 }
       );
+      const latencyMs = Date.now() - startTime;
+
+      // 记录 token 使用到全局追踪系统
+      trackUsage(result as unknown as Record<string, unknown>, {
+        model: resolvedModel,
+        latencyMs,
+      });
+
       otel.endSpan(span, SpanStatusCode.OK);
       return result;
     } catch (e) {

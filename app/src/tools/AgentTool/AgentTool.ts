@@ -48,6 +48,7 @@ import { BackgroundAgentTask } from '@modules/tasks/BackgroundAgentTask';
 import type { BackgroundTaskInfo } from '@modules/tasks/types';
 import { Logger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { trackUsage } from '../../ai/UsageTracker';
 import { subAgentTokenListeners } from '../../core/tokenBudget/SubAgentTokenBridge';
 
 /**
@@ -546,9 +547,16 @@ export class AgentTool implements Tool {
       { role: 'user' as const, content: input.prompt },
     ];
 
+    const startTime = Date.now();
     const response = await llmClient.chat(messages, {
       tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
       model: input.model,
+    });
+    const latencyMs = Date.now() - startTime;
+
+    trackUsage(response as unknown as Record<string, unknown>, {
+      model: input.model || agentModel,
+      latencyMs,
     });
 
     const content = response.content || '';

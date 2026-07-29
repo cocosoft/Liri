@@ -19,7 +19,7 @@ import {
   resolveModelRoute,
   RouteKey,
 } from '@modules/ai/router/resolveModelRoute.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity, handleError } from '@modules/error';
 import { withRetry } from '@modules/utils/withRetry';
 import { globalEventBus } from '../../core/events/EventBus.js';
 import { AgentEventType } from '../../agent/events/types.js';
@@ -188,9 +188,9 @@ export class SubAgentEngine {
       if (!pump['pollTimer']) pump.start();
       eventPumpStarted = true;
     } catch (err) {
-      logger.debug('SubAgentEventPump unavailable, event monitoring disabled', {
-        agentId,
-        error: String(err),
+      handleError(err, {
+        module: 'tools:AgentTool:SubAgentEngine',
+        action: 'startEventPump',
       });
     }
 
@@ -338,10 +338,9 @@ export class SubAgentEngine {
                   await import('../../subagents/SubAgentEventPump');
                 getSubAgentEventPump().heartbeat(agentId, toolCallCount);
               } catch (err) {
-                logger.debug('event pump heartbeat failed', {
-                  agentId,
-                  toolCallCount,
-                  error: String(err),
+                handleError(err, {
+                  module: 'tools:AgentTool:SubAgentEngine',
+                  action: 'heartbeat',
                 });
               }
             }
@@ -439,9 +438,9 @@ export class SubAgentEngine {
                 await import('../../subagents/SubAgentEventPump');
               getSubAgentEventPump().complete(agentId);
             } catch (err) {
-              logger.debug('event pump complete notification failed', {
-                agentId,
-                error: String(err),
+              handleError(err, {
+                module: 'tools:AgentTool:SubAgentEngine',
+                action: 'eventPumpComplete',
               });
             }
           }
@@ -499,9 +498,9 @@ export class SubAgentEngine {
             await import('../../subagents/SubAgentEventPump');
           getSubAgentEventPump().fail(agentId);
         } catch (err) {
-          logger.debug('event pump fail notification failed', {
-            agentId,
-            error: String(err),
+          handleError(err, {
+            module: 'tools:AgentTool:SubAgentEngine',
+            action: 'eventPumpFail',
           });
         }
       }

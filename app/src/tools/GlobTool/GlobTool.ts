@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'tools:GlobTool:GlobTool',
   level: LogLevel.INFO,
@@ -87,9 +88,9 @@ function walkDir(
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch (err) {
-    logger.debug('readdir failed, skipping directory', {
-      dir,
-      error: String(err),
+    handleError(err, {
+      module: 'tools:glob',
+      action: 'readdir',
     });
     return;
   }
@@ -158,11 +159,9 @@ function matchGlob(name: string, pattern: string): boolean {
     const basename = path.basename(normalizedName);
     return regex.test(basename) || regex.test(normalizedName);
   } catch (err) {
-    logger.debug('glob regex failed, falling back to substring match', {
-      normalizedName,
-      pattern,
-      regexStr,
-      error: String(err),
+    handleError(err, {
+      module: 'tools:glob',
+      action: 'matchName',
     });
     return normalizedName.includes(pattern.replace(/\*/g, ''));
   }

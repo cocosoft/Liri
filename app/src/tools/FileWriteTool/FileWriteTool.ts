@@ -30,8 +30,9 @@ function lazyInitNativeRead(): ((filePath: string) => string) | null {
         nativeReadFile = null;
       }
     } catch (err) {
-      logger.debug('nativeReadFile init failed, using UTF-8 fallback', {
-        error: String(err),
+      handleError(err, {
+        module: 'tools:FileWriteTool',
+        action: 'initNativeReadFile',
       });
       nativeReadFile = null;
     }
@@ -115,7 +116,7 @@ import type {
   ToolResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity, handleError } from '@modules/error';
 import { checkPathAccessibility } from '../utils/ToolUtils';
 
 import { Logger, LogLevel } from '@modules/monitoring';

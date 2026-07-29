@@ -3,7 +3,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity, handleError } from '@modules/error';
 import { getReadProtectionService } from '../../security/files/ReadProtectionService';
 import { resolveFilePath } from '../utils/ToolUtils';
 import type { FileOperationResult } from '../types/ToolResult';
@@ -91,10 +91,9 @@ export function readFile(input: FileReadInput): FileReadResult {
     try {
       content = fs.readFileSync(resolved, 'utf-8');
     } catch (errUtf8) {
-      logger.debug('UTF-8 fallback also failed', {
-        path: resolved,
-        nativeError: String(e),
-        utf8Error: String(errUtf8),
+      handleError(errUtf8, {
+        module: 'tools:FileReadTool',
+        action: 'utf8FallbackRead',
       });
       throw new AppError(
         `读取文件失败: ${e.message}`,

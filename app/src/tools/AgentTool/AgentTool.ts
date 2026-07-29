@@ -47,6 +47,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { BackgroundAgentTask } from '@modules/tasks/BackgroundAgentTask';
 import type { BackgroundTaskInfo } from '@modules/tasks/types';
 import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { subAgentTokenListeners } from '../../core/tokenBudget/SubAgentTokenBridge';
 
 /**
@@ -908,9 +909,9 @@ export class AgentTool implements Tool {
                 totalTokens: usage.totalTokens,
               });
             } catch (err) {
-              logger.debug('subAgent token listener failed', {
-                agentId,
-                error: String(err),
+              handleError(err, {
+                module: 'tools:AgentTool',
+                action: 'tokenListener',
               });
             }
           }

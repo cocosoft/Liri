@@ -171,9 +171,7 @@ export class DagTaskExecutor {
     // BUG-4 fix: 验证 dependsOn 引用的任务 ID 有效性
     for (const depId of def.dependsOn) {
       if (!this.tasks.has(depId)) {
-        throw new Error(
-          `任务 "${def.id}" 依赖了不存在的任务 "${depId}"`
-        );
+        throw new Error(`任务 "${def.id}" 依赖了不存在的任务 "${depId}"`);
       }
     }
     this.tasks.set(def.id, { def, executor });

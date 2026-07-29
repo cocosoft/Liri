@@ -86,8 +86,11 @@ function walkDir(
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    // 如果读取目录失败（如权限不足或目录不存在），则静默返回
+  } catch (err) {
+    logger.debug('readdir failed, skipping directory', {
+      dir,
+      error: String(err),
+    });
     return;
   }
 
@@ -154,9 +157,13 @@ function matchGlob(name: string, pattern: string): boolean {
     const regex = new RegExp(`^${regexStr}$`, 'i');
     const basename = path.basename(normalizedName);
     return regex.test(basename) || regex.test(normalizedName);
-  } catch {
-    // 如果正则表达式构建失败（例如非法模式），回退到简单的包含检查
-    // 移除模式中的所有星号后，检查剩余部分是否包含在名称中
+  } catch (err) {
+    logger.debug('glob regex failed, falling back to substring match', {
+      normalizedName,
+      pattern,
+      regexStr,
+      error: String(err),
+    });
     return normalizedName.includes(pattern.replace(/\*/g, ''));
   }
 }

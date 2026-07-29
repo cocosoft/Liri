@@ -907,8 +907,11 @@ export class AgentTool implements Tool {
                 completionTokens: usage.completionTokens ?? 0,
                 totalTokens: usage.totalTokens,
               });
-            } catch {
-              // 监听器异常不中断主流程
+            } catch (err) {
+              logger.debug('subAgent token listener failed', {
+                agentId,
+                error: String(err),
+              });
             }
           }
         }

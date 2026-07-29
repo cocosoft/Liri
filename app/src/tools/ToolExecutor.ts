@@ -452,8 +452,11 @@ export class ToolExecutor {
           );
           correctionHint = result.correctionHint;
         }
-      } catch {
-        // SelfCorrector 不可用时回退简单错误
+      } catch (err) {
+        logger.debug('SelfCorrector unavailable, using simple error hint', {
+          toolName: tool.name,
+          error: String(err),
+        });
       }
       return createToolResult(null, {
         newMessages: [
@@ -537,8 +540,11 @@ export class ToolExecutor {
           );
           correctionHint = result.correctionHint;
         }
-      } catch {
-        // SelfCorrector 不可用时回退简单错误
+      } catch (err) {
+        logger.debug('SelfCorrector unavailable in legacy path, using simple error', {
+          toolName: tool.name,
+          error: String(err),
+        });
       }
       return createToolResult(null, {
         newMessages: [
@@ -693,7 +699,11 @@ export class ToolExecutor {
         (input.target as string);
       const result = engine.checkPermission(toolName, target || undefined);
       return result.matched;
-    } catch {
+    } catch (err) {
+      logger.debug('StandingRuleEngine check failed, assuming no match', {
+        toolName,
+        error: String(err),
+      });
       return false;
     }
   }
@@ -833,7 +843,11 @@ export class ToolExecutor {
 
       const result = tryCoerceToolArgs(input, schema);
       return { input: result.input, modified: result.modified };
-    } catch {
+    } catch (err) {
+      logger.debug('coerceToolArgs failed, returning original input', {
+        toolName: tool.name,
+        error: String(err),
+      });
       return { input, modified: false };
     }
   }

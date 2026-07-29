@@ -1,5 +1,8 @@
-﻿import { join } from 'path';
+import { join } from 'path';
 import { resolvePyappHome } from '@modules/core';
+import { Logger } from '@modules/monitoring';
+
+const logger = new Logger({ module: 'tools:AgentTool:resumeAgent' });
 
 export type ResumeAgentInput = {
   agentId: string;
@@ -37,7 +40,11 @@ async function readAgentTranscript(
     }
     const content = readFileSync(transcriptPath, 'utf-8');
     return JSON.parse(content) as Array<{ role: string; content: string }>;
-  } catch {
+  } catch (err) {
+    logger.debug('Failed to read agent transcript', {
+      agentId,
+      error: String(err),
+    });
     return null;
   }
 }
@@ -53,7 +60,11 @@ async function readAgentMetadata(
     }
     const content = readFileSync(metaPath, 'utf-8');
     return JSON.parse(content) as Record<string, unknown>;
-  } catch {
+  } catch (err) {
+    logger.debug('Failed to read agent metadata', {
+      agentId,
+      error: String(err),
+    });
     return null;
   }
 }

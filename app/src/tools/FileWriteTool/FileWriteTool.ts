@@ -29,7 +29,10 @@ function lazyInitNativeRead(): ((filePath: string) => string) | null {
       } else {
         nativeReadFile = null;
       }
-    } catch {
+    } catch (err) {
+      logger.debug('nativeReadFile init failed, using UTF-8 fallback', {
+        error: String(err),
+      });
       nativeReadFile = null;
     }
   }

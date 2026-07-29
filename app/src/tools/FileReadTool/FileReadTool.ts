@@ -90,7 +90,12 @@ export function readFile(input: FileReadInput): FileReadResult {
     // 若原生模块不可用或调用失败，回退到 UTF-8 读取
     try {
       content = fs.readFileSync(resolved, 'utf-8');
-    } catch {
+    } catch (errUtf8) {
+      logger.debug('UTF-8 fallback also failed', {
+        path: resolved,
+        nativeError: String(e),
+        utf8Error: String(errUtf8),
+      });
       throw new AppError(
         `读取文件失败: ${e.message}`,
         ErrorCategory.FILESYSTEM,

@@ -274,7 +274,9 @@ export class BashSecurityAnalyzer {
           safe: false,
           behavior: 'deny',
           riskLevel: 'high',
-          matchedPatterns: [`Bash allowlist rejected: ${allowlistCheck.reason}`],
+          matchedPatterns: [
+            `Bash allowlist rejected: ${allowlistCheck.reason}`,
+          ],
         };
       }
       // 不在已知安全列表 — 暂不拦截，等危险命令检测后再决定
@@ -343,7 +345,12 @@ export class BashSecurityAnalyzer {
             finalBehavior,
             messages
           );
-          return this.applyAllowlistThenTrust(augmentedResult, trustLevel, allowlistPendingDeny, allowlistCheck.reason);
+          return this.applyAllowlistThenTrust(
+            augmentedResult,
+            trustLevel,
+            allowlistPendingDeny,
+            allowlistCheck.reason
+          );
         }
       } catch (err) {
         // 降级到TypeScript完整分析
@@ -352,7 +359,12 @@ export class BashSecurityAnalyzer {
 
     // TypeScript降级：完整分析
     const result = this.runFullAnalysis(trimmedCommand);
-    return this.applyAllowlistThenTrust(result, trustLevel, allowlistPendingDeny, allowlistCheck.reason);
+    return this.applyAllowlistThenTrust(
+      result,
+      trustLevel,
+      allowlistPendingDeny,
+      allowlistCheck.reason
+    );
   }
 
   /**

@@ -187,8 +187,11 @@ export class SubAgentEngine {
       pump.register(agentId);
       if (!pump['pollTimer']) pump.start();
       eventPumpStarted = true;
-    } catch {
-      // event pump 不可用不阻断
+    } catch (err) {
+      logger.debug('SubAgentEventPump unavailable, event monitoring disabled', {
+        agentId,
+        error: String(err),
+      });
     }
 
     // 整体超时保护：超时后自动 abort，防止子代理永久挂起
@@ -334,8 +337,12 @@ export class SubAgentEngine {
                 const { getSubAgentEventPump } =
                   await import('../../subagents/SubAgentEventPump');
                 getSubAgentEventPump().heartbeat(agentId, toolCallCount);
-              } catch {
-                /* ignore */
+              } catch (err) {
+                logger.debug('event pump heartbeat failed', {
+                  agentId,
+                  toolCallCount,
+                  error: String(err),
+                });
               }
             }
             // 发射工具调用开始事件
@@ -431,8 +438,11 @@ export class SubAgentEngine {
               const { getSubAgentEventPump } =
                 await import('../../subagents/SubAgentEventPump');
               getSubAgentEventPump().complete(agentId);
-            } catch {
-              /* ignore */
+            } catch (err) {
+              logger.debug('event pump complete notification failed', {
+                agentId,
+                error: String(err),
+              });
             }
           }
 
@@ -488,8 +498,11 @@ export class SubAgentEngine {
           const { getSubAgentEventPump } =
             await import('../../subagents/SubAgentEventPump');
           getSubAgentEventPump().fail(agentId);
-        } catch {
-          /* ignore */
+        } catch (err) {
+          logger.debug('event pump fail notification failed', {
+            agentId,
+            error: String(err),
+          });
         }
       }
 

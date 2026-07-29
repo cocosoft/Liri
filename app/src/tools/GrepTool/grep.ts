@@ -29,7 +29,8 @@ function lazyInitNativeRead() {
       } else {
         nativeReadFile = null;
       }
-    } catch {
+    } catch (err) {
+      logger.debug('nativeReadFile init failed', { error: String(err) });
       nativeReadFile = null;
     }
   }
@@ -87,7 +88,11 @@ export function grep(options: GrepOptions): GrepResult {
   try {
     const flags = options.multiline ? 'gims' : 'gim';
     regex = new RegExp(options.pattern, flags);
-  } catch {
+  } catch (err) {
+    logger.debug('Invalid regex, escaping pattern', {
+      pattern: options.pattern,
+      error: String(err),
+    });
     regex = new RegExp(escapeRegex(options.pattern), 'gim');
   }
 
@@ -175,7 +180,11 @@ function searchDir(
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
+  } catch (err) {
+    logger.debug('readdir failed, skipping directory', {
+      dir,
+      error: String(err),
+    });
     return;
   }
 
@@ -299,7 +308,12 @@ function matchGlob(filename: string, pattern: string): boolean {
   const regexStr = pattern.replace(/\./g, '\\.').replace(/\*/g, '.*');
   try {
     return new RegExp(`^${regexStr}$`, 'i').test(filename);
-  } catch {
+  } catch (err) {
+    logger.debug('glob regex failed', {
+      filename,
+      pattern,
+      error: String(err),
+    });
     return false;
   }
 }

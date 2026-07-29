@@ -105,6 +105,25 @@ export type {
 export { buildSystemPrompt } from './prompts/SystemPromptBuilder';
 export type { SystemPromptContext } from './prompts/SystemPromptBuilder';
 
+// prompts/ — 模型指引 & 平台提示
+export {
+  getModelGuidance,
+  getToolUseGuidance,
+  PROVIDER_GUIDANCE,
+} from './prompts/ModelGuidance';
+export type {
+  ModelGuidanceMode,
+  ModelGuidanceConfig,
+} from './prompts/ModelGuidance';
+export {
+  PLATFORM_HINTS,
+  PLATFORM_TOOL_HINTS,
+  getMessageToolHints,
+  getPlatformHint,
+  buildPlatformContext,
+  buildEnvironmentHints,
+} from './prompts/PlatformHints';
+
 // parsers/ — 工具调用解析器（对标 Hermes ToolCallParser 系统）
 export { BaseParser } from './parsers/BaseParser';
 export { ParserRegistry, parserRegistry } from './parsers/ParserRegistry';
@@ -135,6 +154,18 @@ export {
   shouldEnableThinkingByDefault,
 } from './clients/thinking';
 // withRetry 标准实现在 query/withRetry.ts
+
+// P2-12: max_output 加倍重试
+export {
+  shouldRetryMaxOutput,
+  computeNextMaxTokens,
+  createMaxOutputRetryState,
+  advanceMaxOutputRetry,
+} from './MaxOutputRetryHandler';
+export type {
+  MaxOutputRetryConfig,
+  MaxOutputRetryState,
+} from './MaxOutputRetryHandler';
 
 export { LLMInputValidator } from './utils/LLMInputValidator';
 export type { ValidationResult as LLMValidationResult } from '@modules/common/types';

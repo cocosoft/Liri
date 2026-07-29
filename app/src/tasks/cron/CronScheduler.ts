@@ -92,6 +92,8 @@ export class CronScheduler {
   private deliveryQueue: DeliveryQueue | null = null;
   private runLog: CronRunLog | null = null;
   private alertService: CronAlertService | null = null;
+  /** P0-1: 每次 tick 后执行的额外回调（如 SelfWakeService 长时定时器检查） */
+  public extraTick?: () => void;
 
   /** 状态变更时通知日历模块 */
   private emitCalendarStateChange(jobId: string, newState: string): void {
@@ -388,6 +390,9 @@ export class CronScheduler {
         error: error instanceof Error ? error.message : String(error),
       });
       return 0;
+    } finally {
+      // P0-1: 每次 tick 后调用 extraTick（如 SelfWake 长时定时器检查）
+      try { this.extraTick?.(); } catch { /* best-effort */ }
     }
   }
 
@@ -434,6 +439,33 @@ export class CronScheduler {
         jobId: job.id,
         name: job.name,
       });
+
+      // P2-10: Cron 防注入扫描 — 执行前检查 prompt 安全性
+      if (job.prompt) {
+        const { CronInjectionScanner } = await import(
+          '../../chronos/CronInjectionScanner'
+        );
+        const scanner = new CronInjectionScanner();
+        const scanResult = scanner.scan(job.prompt, 'strict');
+        if (!scanResult.safe) {
+          const threatList = scanResult.threats
+            .map((t) => `${t.name}: ${t.match}`)
+            .join('; ');
+          logger.error('[CronScheduler] 注入检测拦截', {
+            jobId: job.id,
+            name: job.name,
+            threats: threatList,
+          });
+          await this.store.updateJobState(job.id, 'failed');
+          return {
+            success: false,
+            output: '',
+            finalResponse: '',
+            error: `Cron injection blocked: ${threatList}`,
+            durationMs: Date.now() - startTime,
+          };
+        }
+      }
 
       // 调用外部执行器
       result = await this.executeWithTimeout(job);

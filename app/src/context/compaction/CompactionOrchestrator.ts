@@ -300,6 +300,8 @@ export class CompactionOrchestrator {
 
   /**
    * Tier 3: LLM Full Compaction — 将对话历史压缩为结构化摘要
+   * P2-15: 使用 StructuredCompactionPrompt 5 字段结构化格式，
+   * 替代自由文本 FULL_COMPACTION_PROMPT，提升信息保留率。
    */
   private async runFullCompaction(
     messages: ChatMessage[],
@@ -322,17 +324,39 @@ export class CompactionOrchestrator {
       if (conversationText.length < 200) return { messages, applied: false };
 
       const { default: aiService, AIMessageRole } = await getAiService();
+
+      // P2-15: 优先使用结构化 prompt（5 字段），解析失败时回退到自由文本
+      const { COMPACTION_SYSTEM_PROMPT, COMPACTION_USER_PROMPT, parseCompactionSummary, renderCompactionSummary } =
+        await import('./StructuredCompactionPrompt');
+
       const response = await aiService.generate(
         [
-          { role: AIMessageRole.SYSTEM, content: FULL_COMPACTION_PROMPT },
-          { role: AIMessageRole.USER, content: conversationText },
+          { role: AIMessageRole.SYSTEM, content: COMPACTION_SYSTEM_PROMPT },
+          { role: AIMessageRole.USER, content: `${COMPACTION_USER_PROMPT}\n\n${conversationText}` },
         ],
-        ctx.model || '', // 使用当前会话同一模型（质量优先）
+        ctx.model || '',
         { temperature: 0.3, max_tokens: 4096 }
       );
 
-      const summary = response.content?.trim();
-      if (!summary) return { messages, applied: false };
+      let summary: string;
+      const raw = response.content?.trim();
+      if (!raw) return { messages, applied: false };
+
+      // P2-15: 尝试解析结构化 JSON，成功则使用结构化渲染
+      const structured = parseCompactionSummary(raw);
+      if (structured) {
+        summary = renderCompactionSummary(structured);
+        logger.debug('compaction:tier3_structured', {
+          fields: Object.keys(structured).filter((k) => (structured as Record<string,string>)[k]),
+        });
+      } else {
+        // 回退：LLM 未返回有效 JSON，使用原始文本（仅保留纯文本摘要格式）
+        logger.debug('compaction:tier3_fallback_text', {
+          rawLength: raw.length,
+          reason: 'parseCompactionSummary returned null',
+        });
+        summary = `[Previous conversation summary]\n${raw}`;
+      }
 
       // 构建压缩后消息：system prompts + 摘要 + 最后 2 条尾部消息
       const tailMessages = toCompress.slice(-2);
@@ -340,12 +364,12 @@ export class CompactionOrchestrator {
         ...headMessages,
         {
           role: 'system',
-          content: `[Previous conversation summary]\n${summary}`,
+          content: summary,
         } as ChatMessage,
         ...tailMessages,
       ];
 
-      // 校验：压缩后 token 应少于压缩前，否则回退（LLM 摘要可能比原文更长）
+      // 校验：压缩后 token 应少于压缩前，否则回退
       const beforeTokens = estimateMessagesTokens(toCompress);
       const afterTokens = estimateMessagesTokens(compacted);
       if (afterTokens >= beforeTokens) {
@@ -353,6 +377,7 @@ export class CompactionOrchestrator {
           beforeTokens,
           afterTokens,
           summaryLength: summary.length,
+          structured: !!structured,
         });
         return { messages, applied: false };
       }

@@ -125,7 +125,8 @@ export function getCoreAPI(): CoreAPIImpl {
  * 通过构造函数注入依赖，所有参数均为可选，默认使用全局单例
  */
 export class CoreAPIImpl implements CoreAPI {
-  private chatManager: ChatManager;
+  /** P1-5: 改为 public readonly 以支持会话流式状态查询 */
+  public readonly chatManager: ChatManager;
   private sessionManager: SessionManager;
   private toolManager: ToolManager;
   private coordinator: Coordinator;

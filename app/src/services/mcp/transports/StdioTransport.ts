@@ -13,6 +13,7 @@ import { MCPTransport } from './MCPTransport';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { trackProcess, untrackProcess } from './ChildProcessTracker';
+import { buildSafeEnv, stripCredentials } from '../MCPSecurityFilter';
 
 const logger = new Logger({
   module: 'services:mcp:stdio',
@@ -52,8 +53,10 @@ export class StdioTransport extends MCPTransport {
     super();
     this.command = options.command;
     this.args = options.args || [];
+    // P2-4: 使用 buildSafeEnv() 仅传递安全基线环境变量，而非全部 process.env
+    const extraKeys = options.env ? Object.keys(options.env) : [];
     this.env = {
-      ...this.filterUndefined(process.env),
+      ...buildSafeEnv(extraKeys),
       ...options.env,
     };
   }
@@ -97,8 +100,11 @@ export class StdioTransport extends MCPTransport {
     });
 
     // 处理标准错误
+    // P2-4: stderr 输出需脱敏，防止凭据泄露到日志
     this.process.stderr?.on('data', (data) => {
-      logger.error(`MCP stderr: ${data.toString()}`);
+      const raw = data.toString();
+      const { cleaned } = stripCredentials(raw);
+      logger.error(`MCP stderr: ${cleaned}`);
     });
 
     // 处理进程退出

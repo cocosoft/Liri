@@ -18,6 +18,7 @@ import { CronDeleteTool } from './ChronosTool/CronDeleteTool';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { CronListTool } from './ChronosTool/CronListTool';
+import { CronStopTool } from './ChronosTool/CronStopTool';
 import { knowledgeRouter } from '../knowledge/KnowledgeRouter';
 import { resolveMemoryDir } from '@modules/core';
 import { createKnowledgeSearchTool } from '../knowledge/tools/KnowledgeSearchTool';
@@ -397,6 +398,14 @@ export class ToolFactory {
    */
   createCronListTool(): Tool {
     return CronListTool.create();
+  }
+
+  /**
+   * 创建Cron暂停/恢复工具
+   * @returns Cron暂停/恢复工具实例
+   */
+  createCronStopTool(): Tool {
+    return CronStopTool.create();
   }
 
   /**
@@ -1141,6 +1150,7 @@ export function getAllBaseTools(): Tool[] {
     tools.push(CronCreateTool.create());
     tools.push(CronDeleteTool.create());
     tools.push(CronListTool.create());
+    tools.push(CronStopTool.create());
   }
 
   const sendMessageTool = new SendMessageTool();
@@ -1169,13 +1179,6 @@ export function getAllBaseTools(): Tool[] {
   const listPeersTool = new ListPeersTool();
   if (listPeersTool) {
     tools.push(listPeersTool);
-  }
-
-  if (isFeatureEnabled('VERIFICATION_AGENT')) {
-    const verifyPlanTool = createVerifyPlanExecutionTool();
-    if (verifyPlanTool) {
-      tools.push(verifyPlanTool);
-    }
   }
 
   if (isAntUser() && isFeatureEnabled('REPL')) {
@@ -1499,11 +1502,6 @@ function createTeamDeleteTool(): Tool | null {
   if (!isToolEnabled('ENABLE_TEAM_DELETE')) return null;
   const factory = new ToolFactory();
   return factory.createTeamDeleteTool();
-}
-
-function createVerifyPlanExecutionTool(): Tool | null {
-  if (!isToolEnabled('VERIFICATION_AGENT')) return null;
-  return null;
 }
 
 function createSleepTool(): Tool | null {

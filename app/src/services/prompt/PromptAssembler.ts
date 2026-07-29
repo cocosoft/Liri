@@ -11,10 +11,20 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { setCurrentSessionContext } from './MemoryPromptProvider';
 import type { SessionContext } from '@modules/memory/types/SessionContext';
 import { generatePromptReport, formatPromptReport } from './SystemPromptReport';
+import { applyPromptOverrides, getPromptAppendices } from './PromptVersionManager';
+import { generateDiagnosticsReport, type DiagnosticsReport } from './DiagnosticsReport';
 import type { PromptMode } from './types';
 export type { PromptMode };
 
 const logger = new Logger({ module: 'prompt:assembler', level: LogLevel.INFO });
+
+/** P3-11: 最近一次诊断报告缓存 */
+let _lastDiagnosticsReport: DiagnosticsReport | null = null;
+
+/** P3-11: 获取最近一次诊断报告 */
+export function getLastDiagnosticsReport(): DiagnosticsReport | null {
+  return _lastDiagnosticsReport;
+}
 
 const CORE_SECTION_NAMES = new Set([
   'identity',
@@ -131,17 +141,23 @@ export async function assembleSystemPrompt(
   const dynamicParts: string[] = [];
 
   for (let i = 0; i < filteredSections.length; i++) {
-    const result = sectionResults[i];
+    const section = filteredSections[i];
+    let result = sectionResults[i];
     if (!result) continue;
 
-    if (filteredSections[i].cacheBreak) {
+    // P3-10: 应用外置 Prompt 覆盖（~/.pyapp/prompts/*.md）
+    result = applyPromptOverrides(section.name, result);
+
+    if (section.cacheBreak) {
       dynamicParts.push(result);
     } else {
       stableParts.push(result);
     }
   }
 
-  const parts: string[] = [...stableParts, CACHE_BOUNDARY, ...dynamicParts];
+  // P3-10: 追加外置 custom prompt
+  const appendices = getPromptAppendices();
+  const parts: string[] = [...stableParts, CACHE_BOUNDARY, ...dynamicParts, ...appendices];
 
   const combined = parts.join('\n\n');
 
@@ -155,6 +171,34 @@ export async function assembleSystemPrompt(
 
   if (strategyExtra) {
     result = result + '\n\n' + strategyExtra;
+  }
+
+  // P3-11: 生成诊断报告（按静态/动态/消息/工具/记忆/MCP 分类的 Token 消耗分解）
+  try {
+    const sectionData = filteredSections.map((s, i) => ({
+      name: s.name,
+      content: sectionResults[i] ?? '',
+      cacheBreak: s.cacheBreak,
+    }));
+    // 上下文限制从环境配置获取，默认 200K
+    const contextLimit =
+      (systemPromptContext as Record<string, unknown>)?.contextLimit as number ?? 200_000;
+    _lastDiagnosticsReport = generateDiagnosticsReport(
+      sectionData,
+      0, // messages — 此处不跟踪，由调用方按需补充
+      0, // toolDefs
+      0, // toolResults
+      0, // memoryFiles
+      0, // mcpInstructions
+      contextLimit
+    );
+    if (_lastDiagnosticsReport.suggestions.length > 0) {
+      logger.debug('diagnostics:suggestions', {
+        suggestions: _lastDiagnosticsReport.suggestions,
+      });
+    }
+  } catch {
+    // 诊断报告失败不阻断主流程
   }
 
   return result;

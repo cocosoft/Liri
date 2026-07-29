@@ -81,7 +81,8 @@ export interface StreamChunk {
     | "deliverable"
     | "diff"
     | "context_state"
-    | "tool_completed";
+    | "tool_completed"
+    | "reconnect_status"; // P2-2: 重连状态提示
   content: string;
   toolCall?: ToolCall;
   questionData?: QuestionData;
@@ -566,6 +567,126 @@ export const chatService = {
       throw e;
     } finally {
       otel.endSpan(span);
+    }
+  },
+
+  /**
+   * P2-2: 带自动重连的流式消息发送
+   * 包装 streamMessage，断开时自动从检查点恢复，最多重试 3 次。
+   */
+  streamMessageWithReconnect: async function* (
+    content: string,
+    sessionId: string,
+    signal?: AbortSignal,
+    options?: { workMode?: "plan" | "do"; images?: AttachedImage[] },
+  ): AsyncGenerator<StreamChunk, void, unknown> {
+    let checkpointId: string | null = null;
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    while (retryCount <= maxRetries) {
+      // 恢复路径：直接 fetch resume 端点
+      if (checkpointId) {
+        try {
+          const resumeResp = await fetch(
+            `${getBackendBaseUrl()}/v1/sessions/${sessionId}/resume`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                session_id: sessionId,
+                checkpoint_id: checkpointId,
+              }),
+              signal,
+            },
+          );
+          if (!resumeResp.ok) throw new Error(`Resume HTTP ${resumeResp.status}`);
+          if (!resumeResp.body) throw new Error('No resume response body');
+
+          // 复用内联 SSE 解析逻辑（与 streamMessage 一致）
+          const reader = resumeResp.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                if (data === '[DONE]') return;
+                try {
+                  const chunk = JSON.parse(data);
+                  // 简单类型识别（与 streamMessage 内联逻辑一致）
+                  const pyappType = chunk.__pyapp_type;
+                  if (pyappType === 'text' && chunk.choices?.[0]?.delta?.content) {
+                    yield { type: 'text', content: chunk.choices[0].delta.content } as StreamChunk;
+                  } else if (pyappType === 'error') {
+                    yield { type: 'error', content: chunk.content || '' } as StreamChunk;
+                  } else if (pyappType === 'status' || chunk.content) {
+                    yield { type: 'status', content: chunk.content || '' } as StreamChunk;
+                  }
+                } catch { /* skip malformed */ }
+              }
+            }
+          }
+          return; // 恢复成功，正常结束
+        } catch (err: unknown) {
+          const e = err as Error & { name?: string };
+          if (e.name === 'AbortError') return;
+          // 恢复失败 → 进入重试逻辑
+        }
+      } else {
+        // 正常路径：委托现有 streamMessage
+        try {
+          yield* chatService.streamMessage(content, sessionId, signal, options);
+          return; // 正常结束
+        } catch (err: unknown) {
+          const e = err as Error & { name?: string };
+          if (e.name === 'AbortError') return;
+          // streamMessage 本身已 yield error chunk，此处进入重试
+        }
+      }
+
+      // 重试逻辑
+      retryCount++;
+      if (retryCount > maxRetries) {
+        yield { type: 'error', content: '重连失败，请手动重试' } as StreamChunk;
+        return;
+      }
+
+      // 获取最新检查点
+      try {
+        const cpResp = await fetch(
+          `${getBackendBaseUrl()}/v1/sessions/${sessionId}/checkpoints/latest`,
+          { signal: AbortSignal.timeout(5000) },
+        );
+        const cpData = await cpResp.json() as {
+          checkpointAvailable?: boolean;
+          checkpointId?: string;
+          stepIndex?: number;
+        };
+        if (cpData.checkpointAvailable && cpData.checkpointId) {
+          checkpointId = cpData.checkpointId;
+          yield {
+            type: 'reconnect_status',
+            content: `连接已断开，正在从第 ${cpData.stepIndex ?? '?'} 步恢复...`,
+          } as StreamChunk;
+          const delay = Math.min(1000 * 2 ** (retryCount - 1), 30000);
+          await new Promise((r) => setTimeout(r, delay));
+          continue;
+        }
+      } catch {
+        // 检查点查询失败
+      }
+
+      yield {
+        type: 'error',
+        content: '连接已断开，且无可用检查点',
+      } as StreamChunk;
+      return;
     }
   },
 

@@ -4,11 +4,19 @@
  *
  * 基于现有 ToolCallPartitioner 分区逻辑，将并发安全组工具并行执行，
  * 串行组工具（写操作）顺序执行，结果按原始调用顺序排列。
+ *
+ * P1-5: 集成 CascadeAbortManager 实现级联中止——
+ *   Bash/Write/Permission 错误 → AbortController 级联中止兄弟工具（≤500ms）
  */
 import { ToolCallPartitioner } from '../tools/orchestration/Partitioner.js';
 import type { ToolUseBlock } from '../chat/types/ToolUseBlock.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
+import {
+  CascadeAbortManager,
+  classifyToolError,
+} from './CascadeAbortManager.js';
+import type { CascadeAbortConfig } from './CascadeAbortManager.js';
 
 const logger = new Logger({
   module: 'query:parallelToolExecutor',
@@ -77,20 +85,22 @@ export interface ParallelToolExecutorConfig {
 export class ParallelToolExecutor {
   private partitioner: ToolCallPartitioner;
   private config: Required<ParallelToolExecutorConfig>;
+  private cascadeManager: CascadeAbortManager;
 
   constructor(config: ParallelToolExecutorConfig = {}) {
     this.partitioner = new ToolCallPartitioner();
     this.config = {
       timeoutMs: config.timeoutMs ?? 0,
-      abortOnError: config.abortOnError ?? false,
+      abortOnError: config.abortOnError ?? true,
     };
+    this.cascadeManager = new CascadeAbortManager({
+      enabled: this.config.abortOnError,
+    });
   }
 
   /**
    * 并行执行工具调用列表
-   * @param toolCalls 工具调用列表
-   * @param execute Tool 执行回调
-   * @returns 按原始顺序排列的执行结果
+   * P1-5: 集成级联中止——Bash/write错误级联中止所有兄弟工具
    */
   async executeAll(
     toolCalls: Array<{
@@ -110,13 +120,13 @@ export class ParallelToolExecutor {
 
     const partitions = this.partitioner.partition(toolUseBlocks);
     const allResults: ParallelToolResult[] = [];
+    this.cascadeManager.startRound();
 
     let concurrentGroups = 0;
     let serialGroups = 0;
-    let abort = false;
 
     for (const partition of partitions) {
-      if (abort) break;
+      if (this.cascadeManager.isCascaded) break;
 
       if (partition.isConcurrencySafe) {
         concurrentGroups++;
@@ -126,13 +136,6 @@ export class ParallelToolExecutor {
           toolCalls
         );
         allResults.push(...concurrentResults);
-
-        if (
-          this.config.abortOnError &&
-          concurrentResults.some((r) => !r.success)
-        ) {
-          abort = true;
-        }
       } else {
         serialGroups++;
         const serialResults = await this.executeSerial(
@@ -142,14 +145,18 @@ export class ParallelToolExecutor {
         );
         allResults.push(...serialResults);
 
-        if (this.config.abortOnError && serialResults.some((r) => !r.success)) {
-          abort = true;
+        if (
+          this.config.abortOnError &&
+          serialResults.some((r) => !r.success)
+        ) {
+          break;
         }
       }
     }
 
     const duration = Date.now() - startTime;
     const successCount = allResults.filter((r) => r.success).length;
+    const cascadeStats = this.cascadeManager.getStats();
 
     logger.info('Batch tool execution completed', {
       totalTools: toolCalls.length,
@@ -157,6 +164,8 @@ export class ParallelToolExecutor {
       serialGroups,
       successCount,
       failureCount: allResults.length - successCount,
+      cascadeTriggered: cascadeStats.cascadeTriggered,
+      cascadeReason: cascadeStats.triggerReason,
       duration,
     });
 
@@ -172,6 +181,7 @@ export class ParallelToolExecutor {
 
   /**
    * 并发执行一组工具
+   * P1-5: 任一工具触发级联错误→AbortController中止其余in-flight工具
    */
   private async executeConcurrent(
     blocks: ToolUseBlock[],
@@ -184,13 +194,36 @@ export class ParallelToolExecutor {
   ): Promise<ParallelToolResult[]> {
     if (blocks.length === 0) return [];
 
+    const signal = this.cascadeManager.signal;
+
     return Promise.all(
       blocks.map(async (block) => {
+        // Check if already cascaded before starting
+        if (signal?.aborted) {
+          return this.errorResult(
+            block,
+            `[CASCADE_ABORTED] ${this.cascadeManager.reason}`
+          );
+        }
+
         const toolCall = toolCalls.find((tc) => tc.id === block.id);
         if (!toolCall) {
           return this.errorResult(block, 'Tool call not found in list');
         }
-        return this.executeOne(toolCall, execute);
+
+        // Execute with cascade-aware abort checking
+        const result = await this.executeOne(toolCall, execute, signal);
+
+        // Report result to cascade manager
+        if (!result.success) {
+          this.cascadeManager.reportResult(
+            toolCall.name,
+            false,
+            result.error ?? 'Unknown error'
+          );
+        }
+
+        return result;
       })
     );
   }
@@ -227,30 +260,65 @@ export class ParallelToolExecutor {
 
   /**
    * 执行单个工具调用
+   * P1-5: 接受 AbortSignal，执行前和执行中检查级联中止
    */
   private async executeOne(
     toolCall: { id: string; name: string; arguments: Record<string, unknown> },
-    execute: ToolExecutorFn
+    execute: ToolExecutorFn,
+    abortSignal?: AbortSignal
   ): Promise<ParallelToolResult> {
+    // Check cascade abort before starting
+    if (abortSignal?.aborted) {
+      return {
+        toolCallId: toolCall.id,
+        toolName: toolCall.name,
+        result: '',
+        error: `[CASCADE_ABORTED] ${abortSignal.reason ?? 'Cascade abort triggered'}`,
+        success: false,
+        durationMs: 0,
+      };
+    }
+
     const start = Date.now();
 
+    // Set up cascade-aware abort listener
+    const onAbort = new Promise<never>((_, reject) => {
+      if (!abortSignal) return;
+      if (abortSignal.aborted) {
+        reject(new Error(`[CASCADE_ABORTED] ${abortSignal.reason ?? ''}`));
+        return;
+      }
+      const handler = () => {
+        reject(new Error(`[CASCADE_ABORTED] ${abortSignal.reason ?? ''}`));
+      };
+      abortSignal.addEventListener('abort', handler, { once: true });
+    });
+
     try {
+      let result: string;
       const executePromise = execute(toolCall);
 
-      let result: string;
-      if (this.config.timeoutMs > 0) {
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(
-            () =>
-              reject(
-                new Error(
-                  `Tool execution timed out after ${this.config.timeoutMs}ms`
-                )
-              ),
-            this.config.timeoutMs
-          )
-        );
-        result = await Promise.race([executePromise, timeoutPromise]);
+      if (this.config.timeoutMs > 0 || abortSignal) {
+        const racePromises: Promise<unknown>[] = [executePromise];
+        if (this.config.timeoutMs > 0) {
+          racePromises.push(
+            new Promise<never>((_, reject) =>
+              setTimeout(
+                () =>
+                  reject(
+                    new Error(
+                      `Tool execution timed out after ${this.config.timeoutMs}ms`
+                    )
+                  ),
+                this.config.timeoutMs
+              )
+            )
+          );
+        }
+        if (abortSignal) {
+          racePromises.push(onAbort);
+        }
+        result = (await Promise.race(racePromises)) as string;
       } else {
         result = await executePromise;
       }
@@ -274,6 +342,7 @@ export class ParallelToolExecutor {
         toolName: toolCall.name,
         toolCallId: toolCall.id,
         error: errorMessage,
+        cascaded: this.cascadeManager.isCascaded,
         duration: Date.now() - start,
       });
 

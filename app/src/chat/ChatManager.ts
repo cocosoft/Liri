@@ -93,6 +93,7 @@ import { permissionModeIntegrationService } from './services/PermissionModeInteg
 import { performanceOptimizationService } from './services/PerformanceOptimizationService.js';
 import { securityService } from './services/SecurityService.js';
 import { createCheckpointService } from './services/SessionCheckpointService.js';
+import { StreamingAutoCheckpoint } from './services/StreamingAutoCheckpoint.js';
 import { HookChainManager } from '@modules/hooks/core/HookChainManager.js';
 import {
   recursivelySanitizeUnicode,
@@ -103,6 +104,11 @@ import { toolResultRegistry } from '../tool/ToolResultRegistry.js';
 import { ToolAwareClient } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
 import { trackUsage } from '@modules/ai';
+import {
+  createMaxOutputRetryState,
+  advanceMaxOutputRetry,
+  type MaxOutputRetryState,
+} from '../ai/MaxOutputRetryHandler';
 import type { IToolExecutor } from '@modules/ai';
 import type { ToolRegistry } from '@modules/tools/ToolRegistry';
 import type {
@@ -143,6 +149,7 @@ import {
 import type { StopHookReason } from '../query/StopHooks.js';
 import { TAORLoop, createTAORLoop } from '../query/TAORLoop.js';
 import type { TAORLoopConfig } from '../query/TAORLoop.js';
+import { LoopDetector } from '../query/LoopDetector.js';
 import { createChatManagerTAORDeps } from '../query/ChatManagerTAORAdapter.js';
 import type { ChatManagerTAORContext } from '../query/ChatManagerTAORAdapter.js';
 import { agentTelemetry } from '../agent/AgentTelemetry.js';
@@ -242,6 +249,48 @@ export class ChatManagerImpl implements ChatManager {
   private _sessionAbortControllers = new Map<string, AbortController>();
 
   /**
+   * P1-5: 检查指定会话是否有活跃的流式请求
+   * 用于前端幽灵块检测 — 长时间无 chunk 时 ping 此状态
+   */
+  public isSessionStreaming(sessionId: string): boolean {
+    return this._sessionAbortControllers.has(sessionId);
+  }
+
+  /**
+   * P2-1: 获取会话最近一次自动检查点的消息列表
+   * 用于断线重连时恢复任务状态
+   */
+  public async getLatestCheckpointMessages(
+    sessionId: string
+  ): Promise<Array<Record<string, unknown>> | null> {
+    try {
+      const cp = await this._checkpointService.getLatestCheckpoint(sessionId);
+      if (cp && cp.messages && cp.messages.length > 0) {
+        return cp.messages as unknown as Array<Record<string, unknown>>;
+      }
+      return null;
+    } catch (e) {
+      logger.warn('获取最新检查点失败', {
+        sessionId,
+        error: String(e),
+      });
+      return null;
+    }
+  }
+
+  /**
+   * S1: 中止指定会话的流式请求
+   * 用于 req.on('close') → 通知后端停止工具执行
+   */
+  public abortSessionStream(sessionId: string): void {
+    const controller = this._sessionAbortControllers.get(sessionId);
+    if (controller) {
+      logger.info('req.on(close) 触发 — 中止会话流', { sessionId });
+      controller.abort();
+    }
+  }
+
+  /**
    * 传统工具循环最大轮次（防止无 TAORLoop 保护时的死循环）
    * 可通过环境变量 MAX_TAOR_TURNS 或 MAX_TOOL_TURNS 覆盖，默认 300
    */
@@ -258,6 +307,9 @@ export class ChatManagerImpl implements ChatManager {
    * 检查点服务
    */
   private _checkpointService: ReturnType<typeof createCheckpointService>;
+
+  /** P2-1: 当前流式执行的自动检查点管理器 */
+  private _streamingCheckpoint: StreamingAutoCheckpoint | null = null;
 
   /**
    * LLM客户端
@@ -364,12 +416,41 @@ export class ChatManagerImpl implements ChatManager {
    * 启用后 sendMessage/streamMessage 委托 TAORLoop 编排工具调用循环
    */
   private readonly ENABLE_LOOP_V8_PHASE2 =
-    process.env.ENABLE_LOOP_V8_PHASE2 !== 'false';
+    process.env.ENABLE_LOOP_V8_PHASE2 === 'true';
+
+  /**
+   * P2-3: TAORLoop 流量百分比（0~100，默认 10）
+   * 仅在 ENABLE_LOOP_V8_PHASE2=true 时生效。
+   * 按 sessionId hash 决定是否走 TAORLoop 路径。
+   */
+  private readonly _taorLoopTrafficPercent: number = (() => {
+    const raw = process.env.TAORLOOP_TRAFFIC_PERCENT;
+    const val = raw && !isNaN(Number(raw)) ? Number(raw) : 10;
+    return Math.min(100, Math.max(0, val));
+  })();
+
+  /**
+   * P2-3: 按 sessionId hash 决定是否走 TAORLoop 路径
+   */
+  private _shouldUseTAORLoop(sessionId: string): boolean {
+    if (!this.ENABLE_LOOP_V8_PHASE2) return false;
+    if (this._taorLoopTrafficPercent >= 100) return true;
+    if (this._taorLoopTrafficPercent <= 0) return false;
+    // 简单 hash：取 sessionId 首字符 charCode % 100
+    const hash = (sessionId.charCodeAt(0) || 0) % 100;
+    return hash < this._taorLoopTrafficPercent;
+  }
 
   /**
    * TAORLoop 统一编排器实例（懒初始化，仅在 ENABLE_LOOP_V8_PHASE2 时创建）
    */
   private _taorLoop?: TAORLoop;
+
+  /**
+   * P2-3: LoopDetector — 工具调用循环检测器
+   * 集成 TAORLoop 的循环检测能力到 streamMessage 工具循环
+   */
+  private _loopDetector = new LoopDetector();
   /** Resume 熔断计数 */
   private _resumeFailCount: number = 0;
 
@@ -383,6 +464,14 @@ export class ChatManagerImpl implements ChatManager {
    * 负责图片路径注册、路径匹配、图像上下文跟踪
    */
   private imageContextService = new ImageContextService();
+
+  /**
+   * P4-fix: 待落盘的持久化 Promise 集合
+   * _addAndPersistMessage 为 fire-and-forget 时，将 Promise 加入此集合。
+   * 在 generator 返回前通过 flushPendingPersists() 等待全部落盘，
+   * 确保 WAP 规范：操作结果在响应返回前已写入 DB。
+   */
+  private _pendingPersistPromises: Set<Promise<void>> = new Set();
 
   /**
    * 会话子系统访问门面
@@ -419,6 +508,12 @@ export class ChatManagerImpl implements ChatManager {
   private getSessionMachine(sessionId: string): SessionStateMachine {
     return getOrCreateSessionMachine(this.sessionMachines, sessionId);
   }
+
+  /**
+   * P0-2: 每次 Agent Loop（TAORLoop）完成后的回调。
+   * 由 AlwaysOnManager 注册，用于更新 agent_busy 状态。
+   */
+  public onTurnEnd?: () => void;
 
   /**
    * 构造函数
@@ -545,8 +640,11 @@ export class ChatManagerImpl implements ChatManager {
 
   /**
    * 添加消息到本地缓存并持久化
+   * P1-3: await 持久化完成后再返回，符合 WAP 规范（先落盘再渲染）
+   * P4-fix: 返回的 Promise 自动加入 _pendingPersistPromises，
+   *         确保 flushPendingPersists() 可等待全部落盘。
    */
-  private _addAndPersistMessage(sessionId: string, message: Message): void {
+  private async _addAndPersistMessage(sessionId: string, message: Message): Promise<void> {
     const session = this._chatSessions.get(sessionId);
     if (session) {
       session.messages.push(message);
@@ -554,12 +652,40 @@ export class ChatManagerImpl implements ChatManager {
       session.metadata.lastActivityAt = new Date();
       session.metadata.totalMessages = session.messages.length;
     }
-    persistChatMessage(this.sessionGateway, sessionId, message).catch((e) => {
-      logger.error('Failed to persist message', {
-        sessionId,
-        error: String(e),
-      });
-    });
+    const persistPromise = (async () => {
+      try {
+        await persistChatMessage(this.sessionGateway, sessionId, message);
+      } catch (e) {
+        // @ignore-catch — 持久化失败不阻断主流程，由 handleError 统一记录
+        handleError(e, {
+          module: 'chat:manager',
+          action: 'persistMessage',
+          context: { sessionId },
+        }).catch(() => {});
+      }
+    })();
+    this._pendingPersistPromises.add(persistPromise);
+    // 完成后自动从集合中移除，避免内存泄漏
+    persistPromise.finally(() => this._pendingPersistPromises.delete(persistPromise));
+    await persistPromise;
+  }
+
+  /**
+   * P4-fix: 等待所有未完成的持久化 Promise
+   * 在 generator 返回前调用，确保 WAP 规范（操作结果在响应返回前已写入 DB）
+   * 超时保护 3 秒
+   */
+  private async flushPendingPersists(): Promise<void> {
+    if (this._pendingPersistPromises.size === 0) return;
+    const promises = [...this._pendingPersistPromises];
+    try {
+      await Promise.race([
+        Promise.all(promises),
+        new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+      ]);
+    } catch {
+      // 持久化超时，不阻断主流程
+    }
   }
 
   /**
@@ -1813,8 +1939,8 @@ export class ChatManagerImpl implements ChatManager {
 
         // 处理工具调用 — 使用 while 循环支持多轮递归工具调用
         if (response.tool_calls && response.tool_calls.length > 0) {
-          // Phase 2: 若 ENABLE_LOOP_V8_PHASE2，委托 TAORLoop 统一编排
-          if (this.ENABLE_LOOP_V8_PHASE2) {
+          // P2-3: 按流量百分比灰度决定是否走 TAORLoop 路径
+          if (this._shouldUseTAORLoop(session.id)) {
             logger.info('sendMessage 委托 TAORLoop 编排工具调用循环', {
               sessionId: session.id,
               toolCalls: response.tool_calls.length,
@@ -1850,6 +1976,9 @@ export class ChatManagerImpl implements ChatManager {
                 tokens: taorResult.totalTokens,
                 reason: taorResult.stopReason,
               });
+
+              // P0-2: 通知 AlwaysOnManager loop 已结束
+              this.onTurnEnd?.();
 
               // TAORLoop 已通过 persistMessages 持久化消息，
               // 从会话中取最后一条 assistant 消息作为返回值
@@ -2250,19 +2379,111 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 流式发送消息
-   * @param content 消息内容
-   * @param options 选项
-   * @returns 异步生成器，产生流数据块
+   * P2-3.5: 将 session.messages 转换为 API 格式消息列表
+   * 
+   * 提取自 streamMessage，处理工具结果截断、tool_call_id 补全、
+   * 跨轮 tool_calls 清理等纯数据转换逻辑。
    */
-  async *streamMessage(
+  private _buildApiMessagesForStream(
+    messages: Message[]
+  ): Array<Record<string, unknown>> {
+    const apiMessages = messages.map((msg) => {
+      let content =
+        typeof msg.content === 'string'
+          ? msg.content
+          : JSON.stringify(msg.content);
+
+      if (
+        msg.role === 'tool' &&
+        typeof content === 'string' &&
+        content.length > TOOL_RESULT_MAX_LENGTH
+      ) {
+        content = truncateToolResult(content);
+      }
+
+      const chatMessage: Record<string, unknown> = {
+        role: msg.role,
+        content,
+      };
+
+      if (msg.role === 'tool') {
+        const tcId =
+          msg.toolCallId ||
+          (msg.metadata?.toolCallId as string) ||
+          (msg.metadata?.tool_call_id as string);
+        if (tcId) {
+          chatMessage.tool_call_id = tcId;
+        }
+      }
+
+      if (msg.role === 'assistant' && msg.metadata?.tool_calls) {
+        const toolCalls = msg.metadata.tool_calls as Record<string, unknown>[];
+        chatMessage.tool_calls = toolCalls.map(
+          (tc: Record<string, unknown>) => {
+            if (tc.type && tc.function) {
+              return tc;
+            }
+            return {
+              id: tc.id,
+              type: 'function',
+              function: {
+                name: tc.name,
+                arguments:
+                  typeof tc.arguments === 'string'
+                    ? tc.arguments
+                    : JSON.stringify(tc.arguments || {}),
+              },
+            };
+          }
+        );
+      }
+
+      return chatMessage;
+    });
+
+    // 防止跨轮 tool_calls 污染
+    let lastUserMsgIdx = -1;
+    for (let i = apiMessages.length - 1; i >= 0; i--) {
+      if (apiMessages[i].role === 'user') {
+        lastUserMsgIdx = i;
+        break;
+      }
+    }
+    for (let i = 0; i < lastUserMsgIdx; i++) {
+      const msg = apiMessages[i];
+      if (msg.role === 'assistant' && msg.tool_calls) {
+        logger.info('清除旧轮次 assistant tool_calls，防止跨轮污染', {
+          index: i,
+          toolCallCount: (msg.tool_calls as unknown[]).length,
+        });
+        delete msg.tool_calls;
+      }
+    }
+
+    return apiMessages;
+  }
+
+  /**
+   * P2-3.5: 流式消息预处理 — 会话准备、安全检查、Mutex 获取
+   * 
+   * 提取自 streamMessage，返回 streamMessage 后续阶段所需的上下文对象。
+   */
+  private async _prepareStreamSession(
     content: string,
     options?: StreamMessageOptions
-  ): AsyncGenerator<string | ChatStreamChunk, Message, unknown> {
+  ): Promise<{
+    content: string;
+    session: ChatSession;
+    streamAbortController: AbortController;
+    streamingCheckpoint: StreamingAutoCheckpoint;
+    mutex: SimpleMutex;
+    userMessage: Message;
+    streamSpan: ReturnType<typeof getOTelTracing> extends { startSpan: (...args: any[]) => infer S } ? S : never;
+  }> {
     // 清理用户输入，防止XSS和隐藏字符攻击
     content = recursivelySanitizeUnicode(content) as string;
 
-    // 验证输入安全性 — 检测到敏感数据时脱敏后继续，而非阻断
+    // 验证输入安全性
     const validationResult = securityService.validateInput(content);
     if (!validationResult.valid) {
       logger.warn('用户输入包含敏感数据，已自动脱敏处理', {
@@ -2276,7 +2497,7 @@ export class ChatManagerImpl implements ChatManager {
       });
     }
 
-    // 获取或创建会话（统一 Gateway 降级加载）
+    // 获取或创建会话
     const sessionId = options?.sessionId || this._currentSessionId;
     if (!sessionId) {
       throw new AppError(
@@ -2296,12 +2517,12 @@ export class ChatManagerImpl implements ChatManager {
       );
     }
 
-    // 根据实际模型更新 token 预算（替换构造时的 'default' 预设值）
+    // 根据实际模型更新 token 预算
     if (options?.model) {
       this.unifiedTracker.onModelSwitch(options.model);
     }
 
-    // Bug Fix: 新请求到达时中止同一会话的旧流（防止工具链被打断后永久丢失）
+    // 中止同一会话的旧流
     const existingAbort = this._sessionAbortControllers.get(session.id);
     if (existingAbort) {
       logger.info('中止同一会话的旧流式请求', { sessionId: session.id });
@@ -2311,15 +2532,20 @@ export class ChatManagerImpl implements ChatManager {
     const streamAbortController = new AbortController();
     this._sessionAbortControllers.set(session.id, streamAbortController);
 
-    // BUG-02/03 fix: streamMessage 加 mutex 保护（与 sendMessage 对称）
+    // P2-1: 初始化流式自动检查点
+    const streamingCheckpoint = new StreamingAutoCheckpoint(
+      this._checkpointService,
+      session.id
+    );
+    this._streamingCheckpoint = streamingCheckpoint;
+
+    // 获取会话互斥锁
     let mutex = this._sessionMutexes.get(session.id);
     if (!mutex) {
       mutex = new SimpleMutex();
       this._sessionMutexes.set(session.id, mutex);
     }
     await mutex.acquire();
-
-    // Phase 5+: 记忆初始化（新版 MemoryManagerImpl 自动初始化，无需手动调用）
 
     // 触发 ChatPreMessage Hook
     const preMsgResult = await this.hookChainManager.execute('chat', {
@@ -2343,13 +2569,8 @@ export class ChatManagerImpl implements ChatManager {
       metadata: options?.metadata,
     });
 
-    // 持久化 roundCount（轮次数 = 用户消息数）
     session.metadata.roundCount = (session.metadata.roundCount ?? 0) + 1;
-
-    // 添加消息到会话
     this._addAndPersistMessage(session.id, userMessage);
-
-    // 通知会话状态变化为运行状态
     this.getSessionMachine(session.id).start('processUserInput');
 
     // OTel span
@@ -2376,88 +2597,118 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
 
-    // 准备消息列表（用于API调用）
-    const messages = session.messages;
-    let apiMessages = messages.map((msg) => {
-      // 对工具结果消息，若内容过大则截断，避免旧数据主导 LLM 上下文
-      let content =
-        typeof msg.content === 'string'
-          ? msg.content
-          : JSON.stringify(msg.content);
+    return {
+      content,
+      session,
+      streamAbortController,
+      streamingCheckpoint,
+      mutex,
+      userMessage,
+      streamSpan,
+    };
+  }
 
-      if (
-        msg.role === 'tool' &&
-        typeof content === 'string' &&
-        content.length > TOOL_RESULT_MAX_LENGTH
-      ) {
-        content = truncateToolResult(content);
-      }
+  /**
+   * P2-3.5: 流式消息最终化 — 清理资源 + 持久化 + 构建返回消息
+   *
+   * 提取自 streamMessage 的 finally 块和最终 return 逻辑。
+   */
+  private async _finalizeStreamMessage(
+    session: ChatSession,
+    content: string,
+    accumulatedContent: string,
+    assistantMessage: Message,
+    finalResponse: ChatResponse | null,
+    streamAbortController: AbortController,
+    streamSpan: ReturnType<ReturnType<typeof getOTelTracing>['startSpan']>,
+    options?: StreamMessageOptions,
+  ): Promise<Message> {
+    // Phase 1c: 停止流式水位监测
+    this.unifiedTracker.stopStreamingCheck();
+    // 通知会话状态变化为空闲状态
+    this.getSessionMachine(session.id).finish('工具执行完成');
+    getOTelTracing().endSpan(streamSpan, SpanStatusCode.OK);
 
-      const chatMessage: Record<string, unknown> = {
-        role: msg.role,
-        content,
-      };
-
-      // 对于工具结果消息，确保添加 tool_call_id
-      // 优先使用 msg.toolCallId，其次从 metadata 中查找
-      // 只有在确实存在 tool_call_id 时才设置该字段，避免向 API 发送空值
-      if (msg.role === 'tool') {
-        const tcId =
-          msg.toolCallId ||
-          (msg.metadata?.toolCallId as string) ||
-          (msg.metadata?.tool_call_id as string);
-        if (tcId) {
-          chatMessage.tool_call_id = tcId;
-        }
-      }
-
-      // 对于助手消息，添加tool_calls（从metadata中读取）
-      if (msg.role === 'assistant' && msg.metadata?.tool_calls) {
-        const toolCalls = msg.metadata.tool_calls as Record<string, unknown>[];
-        chatMessage.tool_calls = toolCalls.map(
-          (tc: Record<string, unknown>) => {
-            if (tc.type && tc.function) {
-              return tc;
-            }
-            return {
-              id: tc.id,
-              type: 'function',
-              function: {
-                name: tc.name,
-                arguments:
-                  typeof tc.arguments === 'string'
-                    ? tc.arguments
-                    : JSON.stringify(tc.arguments || {}),
-              },
-            };
-          }
-        );
-      }
-
-      return chatMessage;
-    });
-
-    // 防止跨轮 tool_calls 污染：旧轮次的 tool_calls 会误导模型继续执行已完成的任务
-    // 找到最后一条 user 消息之前的 assistant 消息，清除其 tool_calls
-    // 后续 sanitizeApiMessages 会自动清理对应的孤立 tool 结果消息
-    let lastUserMsgIdx_2 = -1;
-    for (let i = apiMessages.length - 1; i >= 0; i--) {
-      if (apiMessages[i].role === 'user') {
-        lastUserMsgIdx_2 = i;
-        break;
-      }
+    // Bug Fix: 清理 AbortController（当前流已完成，允许新请求）
+    if (
+      this._sessionAbortControllers.get(session.id) === streamAbortController
+    ) {
+      this._sessionAbortControllers.delete(session.id);
     }
-    // 清除最后一条 user 消息之前的所有 assistant 消息的 tool_calls
-    for (let i = 0; i < lastUserMsgIdx_2; i++) {
-      const msg = apiMessages[i];
-      if (msg.role === 'assistant' && msg.tool_calls) {
-        logger.info('清除旧轮次 assistant tool_calls，防止跨轮污染', {
-          index: i,
-          toolCallCount: (msg.tool_calls as unknown[]).length,
+
+    // 跨轮对话摘要：保存关键决策
+    this._persistTurnSummary(session);
+
+    // Session Memory: 累计本轮数据，达到阈值则触发提炼
+    this._accumulateSessionMemory(
+      session.id,
+      content,
+      accumulatedContent,
+      finalResponse?.usage?.inputTokens || 0,
+      finalResponse?.tool_calls?.length || 0
+    );
+
+    options?.onComplete?.(assistantMessage);
+
+    // Phase 2: Telemetry + Trajectory 完成
+    if (this.ENABLE_TELEMETRY) {
+      try {
+        agentTelemetry.endTurn(session.id, 'completed');
+      } catch (err) {
+        logger.debug('Telemetry recording skipped', {
+          error: err instanceof Error ? err.message : String(err),
         });
-        delete msg.tool_calls;
       }
     }
+    if (this.ENABLE_TRAJECTORY) {
+      try {
+        trajectoryRecorder.recordStep(session.id, {
+          phase: 'response',
+          output:
+            typeof assistantMessage.content === 'string'
+              ? assistantMessage.content.slice(0, 500)
+              : '',
+        });
+        trajectoryRecorder.completeSession(session.id);
+        trajectoryRuntime.completeSession(session.id);
+      } catch (err) {
+        logger.debug('Telemetry recording skipped', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    // P4-fix: 等待所有未完成的持久化完成后再返回（WAP 规范）
+    await this.flushPendingPersists();
+
+    // P2-1: 流正常结束，清理自动检查点
+    this._streamingCheckpoint = null;
+
+    return assistantMessage;
+  }
+
+  /**
+   * 流式发送消息
+   * @param content 消息内容
+   * @param options 选项
+   * @returns 异步生成器，产生流数据块
+   */
+  async *streamMessage(
+    content: string,
+    options?: StreamMessageOptions
+  ): AsyncGenerator<string | ChatStreamChunk, Message, unknown> {
+    // P2-3.5: 流式消息预处理（提取为 _prepareStreamSession）
+    const ctx = await this._prepareStreamSession(content, options);
+    content = ctx.content;
+    const session = ctx.session;
+    const streamAbortController = ctx.streamAbortController;
+    const streamingCheckpoint = ctx.streamingCheckpoint;
+    const mutex = ctx.mutex;
+    const userMessage = ctx.userMessage;
+    const streamSpan = ctx.streamSpan;
+
+    // P2-3.5: 构建 API 格式消息列表（提取为 _buildApiMessagesForStream）
+    let apiMessages = this._buildApiMessagesForStream(session.messages);
 
     // 将附带的图片路径以文本形式追加到用户消息中
     // 不嵌入 image_url 块（DeepSeek 等 Provider 不支持多模态），
@@ -2603,15 +2854,30 @@ export class ChatManagerImpl implements ChatManager {
     // 上下文长度保护：CompactionOrchestrator 三级渐进压缩
     // ─────────────────────────────────────────────────────────
     const beforeCompact = estimateMessagesTokens(apiMessages);
-    const compResult = await compactionOrchestrator.compact(
-      apiMessages as unknown as import('../ai/models/types').ChatMessage[],
-      { model: options?.model || '', sessionId: session.id }
-    );
-    if (compResult.applied) {
-      apiMessages = compResult.messages as unknown as Record<string, unknown>[];
-    } else {
+    try {
+      const compResult = await compactionOrchestrator.compact(
+        apiMessages as unknown as import('../ai/models/types').ChatMessage[],
+        { model: options?.model || '', sessionId: session.id }
+      );
+      if (compResult.applied) {
+        apiMessages = compResult.messages as unknown as Record<string, unknown>[];
+      } else {
+        const maxCtx = resolveMaxContextTokens(options?.model);
+        await this._truncateApiMessages(apiMessages, maxCtx, session.id);
+      }
+    } catch (compErr) {
+      // P2: 压缩是非关键优化，失败时降级到截断
+      logger.warn('compaction:failed — 降级到截断策略', {
+        sessionId: session.id,
+        error: compErr instanceof Error ? compErr.message : String(compErr),
+      });
       const maxCtx = resolveMaxContextTokens(options?.model);
       await this._truncateApiMessages(apiMessages, maxCtx, session.id);
+      handleError(compErr, {
+        module: 'chat:manager',
+        action: 'compaction',
+        context: { sessionId: session.id },
+      }).catch(() => {});
     }
 
     // 通知压缩结果
@@ -2692,88 +2958,134 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
 
-    // 每轮 LLM 调用前重置输出 token 计数器
-    this.unifiedTracker.resetStreamTokens();
-    const gen = activeClient.streamMessage(
-      apiMessages as unknown as ChatMessage[],
-      {
-        ...options,
-        signal: streamAbortController.signal,
-        tools:
-          toolDefinitions.length > 0
-            ? (toolDefinitions as unknown as ToolDefinition[])
-            : undefined,
-      }
+    // P2-12: max_output 加倍重试 — 对标 PilotDeck finishReason=length 处理
+    const MAX_OUTPUT_RETRY_CFG = { maxRetries: 3, maxOutputLimit: 64000 };
+    const initialMaxTokens = (options?.maxTokens as number | undefined) ?? 4096;
+    let retryState: MaxOutputRetryState = createMaxOutputRetryState(
+      initialMaxTokens,
+      MAX_OUTPUT_RETRY_CFG
     );
 
-    let result = await gen.next();
+    let streamHadError = false;
+    while (true) {
+      streamHadError = false;
 
-    // Phase 1c: 使用 UnifiedTokenTracker 做流式水位监测
-    this.unifiedTracker.startStreamingCheck((state) => {
-      logger.warn('流式输出中上下文水位告警', {
-        sessionId: session.id,
-        currentTokens: state.currentTokens,
-        contextLimit: state.contextLimit,
-        ratio: Number(state.ratio.toFixed(3)),
-        severity: state.severity,
-      });
-      // 结构化水位信息，同时保留人类可读文本用于 status 栏显示
-      const pct = Math.round(state.ratio * 100);
-      const curK =
-        state.currentTokens > 0
-          ? `${(state.currentTokens / 1000).toFixed(0)}K`
-          : '?';
-      const maxK =
-        state.contextLimit > 0
-          ? `${(state.contextLimit / 1000).toFixed(0)}K`
-          : '?';
-      options?.onProgress?.({
-        stage: 'generating',
-        message: `上下文水位: ${pct}% (${curK}/${maxK}) | severity:${state.severity} | ratio:${state.ratio.toFixed(3)} | tokens:${state.currentTokens}/${state.contextLimit}`,
-        watermarkState: {
+      // 每轮 LLM 调用（含重试）前重置输出 token 计数器
+      this.unifiedTracker.resetStreamTokens();
+      const gen = activeClient.streamMessage(
+        apiMessages as unknown as ChatMessage[],
+        {
+          ...options,
+          maxTokens: retryState.nextMaxTokens,
+          signal: streamAbortController.signal,
+          tools:
+            toolDefinitions.length > 0
+              ? (toolDefinitions as unknown as ToolDefinition[])
+              : undefined,
+        }
+      );
+
+      let result = await gen.next();
+
+      // Phase 1c: 使用 UnifiedTokenTracker 做流式水位监测
+      this.unifiedTracker.startStreamingCheck((state) => {
+        logger.warn('流式输出中上下文水位告警', {
+          sessionId: session.id,
           currentTokens: state.currentTokens,
           contextLimit: state.contextLimit,
-          ratio: state.ratio,
+          ratio: Number(state.ratio.toFixed(3)),
           severity: state.severity,
-        },
+        });
+        const pct = Math.round(state.ratio * 100);
+        const curK =
+          state.currentTokens > 0
+            ? `${(state.currentTokens / 1000).toFixed(0)}K`
+            : '?';
+        const maxK =
+          state.contextLimit > 0
+            ? `${(state.contextLimit / 1000).toFixed(0)}K`
+            : '?';
+        options?.onProgress?.({
+          stage: 'generating',
+          message: `上下文水位: ${pct}% (${curK}/${maxK}) | severity:${state.severity} | ratio:${state.ratio.toFixed(3)} | tokens:${state.currentTokens}/${state.contextLimit}`,
+          watermarkState: {
+            currentTokens: state.currentTokens,
+            contextLimit: state.contextLimit,
+            ratio: state.ratio,
+            severity: state.severity,
+          },
+        });
       });
-    });
 
-    try {
-      while (!result.done) {
-        const chunk = result.value as string | ThinkingProviderChunk;
-        if (typeof chunk === 'string') {
-          accumulatedContent += chunk;
-          // 缺陷 B 修复: 通知 UnifiedTokenTracker 增量 token 计数，使流式水位监测准确
-          this.unifiedTracker.onStreamChunk(chunk);
-        } else if (chunk?.type === 'thinking') {
-          // thinking token 也消耗上下文预算，计入实时水位
-          if (chunk.content) {
-            this.unifiedTracker.onStreamChunk(
-              typeof chunk.content === 'string'
-                ? chunk.content
-                : JSON.stringify(chunk.content)
-            );
+      try {
+        while (!result.done) {
+          const chunk = result.value as string | ThinkingProviderChunk;
+          if (typeof chunk === 'string') {
+            accumulatedContent += chunk;
+            this.unifiedTracker.onStreamChunk(chunk);
+          } else if (chunk?.type === 'thinking') {
+            if (chunk.content) {
+              this.unifiedTracker.onStreamChunk(
+                typeof chunk.content === 'string'
+                  ? chunk.content
+                  : JSON.stringify(chunk.content)
+              );
+            }
+            const thinkingChunk: ChatStreamChunk = {
+              type: 'thinking',
+              content: chunk.content,
+              sessionId: session.id,
+            };
+            yield thinkingChunk;
           }
-          const thinkingChunk: ChatStreamChunk = {
-            type: 'thinking',
-            content: chunk.content,
-            sessionId: session.id,
-          };
-          yield thinkingChunk;
+          result = await gen.next();
         }
-        result = await gen.next();
+      } catch (genErr) {
+        streamHadError = true;
+        await handleError(genErr, {
+          module: 'chat:ChatManager',
+          action: 'streamMessage_genIteration',
+          context: { sessionId: session.id },
+        });
+        const errorMsg = genErr instanceof Error ? genErr.message.slice(0, 200) : String(genErr).slice(0, 200);
+        yield {
+          type: 'error',
+          content: `流式响应中断: ${errorMsg}`,
+          sessionId: session.id,
+        } as unknown as string;
       }
-    } catch (genErr) {
-      await handleError(genErr, {
-        module: 'chat:ChatManager',
-        action: 'streamMessage_genIteration',
-        context: { sessionId: session.id },
+
+      if (!streamHadError) {
+        finalResponse = result.value as unknown as ChatResponse;
+      } else {
+        finalResponse = { finishReason: 'error' } as unknown as ChatResponse;
+        break; // 流错误不重试
+      }
+
+      // P2-12: 检查是否需要加倍重试（stop_reason === 'max_tokens' 表示输出截断）
+      const aiStopReason = (finalResponse as unknown as { stop_reason?: string }).stop_reason;
+      if (aiStopReason === 'max_tokens') {
+        retryState = advanceMaxOutputRetry('max_tokens', retryState, MAX_OUTPUT_RETRY_CFG);
+      } else {
+        retryState = { ...retryState, shouldRetry: false };
+      }
+
+      if (!retryState.shouldRetry) break;
+
+      // 重试：清空累积内容，LLM 将以更大 maxTokens 重新生成完整响应
+      logger.info('maxOutputRetry: retrying with increased maxTokens', {
+        sessionId: session.id,
+        retryCount: retryState.retryCount,
+        nextMaxTokens: retryState.nextMaxTokens,
+        previousContentLength: accumulatedContent.length,
       });
-      // 不中断 stream — 注入错误提示到累积内容，让流自然结束
-      accumulatedContent += `\n\n[流式响应中断: ${genErr instanceof Error ? genErr.message.slice(0, 200) : String(genErr).slice(0, 200)}]`;
+      yield {
+        type: 'status',
+        content: `输出截断，正在以更大 token 限制重试（第 ${retryState.retryCount} 次，maxTokens=${retryState.nextMaxTokens}）...`,
+        sessionId: session.id,
+      } as ChatStreamChunk;
+      accumulatedContent = '';
     }
-    finalResponse = result.value as unknown as ChatResponse;
 
     // 攒够完整响应后统一修复图片 URL，再一次性发出，避免 AI 拼错 URL
     // ensureThinkResponseTags 用于内部处理，最终输出时剥离标签
@@ -2879,7 +3191,11 @@ export class ChatManagerImpl implements ChatManager {
       }
     );
     // 传播 finishReason 到消息对象（修复 BUG #10 L3）
-    assistantMessage.finishReason = finalResponse?.finishReason || 'stop';
+    // P2-12: 同时检查 stop_reason（AI ChatResponse）和 finishReason（chat ChatResponse）
+    assistantMessage.finishReason =
+      finalResponse?.finishReason ||
+      (finalResponse as unknown as { stop_reason?: string })?.stop_reason ||
+      'stop';
 
     // 添加助手消息到会话
     // 将 tool_calls 附加到存储的助手消息上，确保后续重建 apiMessages 时格式正确
@@ -2970,9 +3286,50 @@ export class ChatManagerImpl implements ChatManager {
         );
 
         let toolTurnCount = 0;
+        let llmCallCount = 1; // 初始 LLM 调用为第 1 次，工具循环中每次调用递增
+        let lastHeartbeatTime = Date.now();
+        // P2-5: 跨轮累计已完成工具名，用于心跳结构化数据
+        const completedToolNames: string[] = [];
+        // P2-1: 跨轮累计已完成 tool_call ID，用于检查点恢复
+        const completedToolCallIds: string[] = [];
         while (currentToolCalls.length > 0) {
+          // P1-1: 客户端断开时立即中止工具循环，防止幽灵任务浪费 LLM token
+          if (streamAbortController.signal.aborted) {
+            logger.warn('客户端已断开/取消，中止工具循环', {
+              sessionId: session.id,
+              completedTurnCount: toolTurnCount,
+            });
+            break;
+          }
           // Bug Fix: 传统工具循环最大轮次保护
           toolTurnCount++;
+
+          // P2-5: 任务进度心跳 — 每 5 秒 yield execution_phase，前端渲染进度条
+          if (Date.now() - lastHeartbeatTime >= 5000) {
+            lastHeartbeatTime = Date.now();
+            yield {
+              type: 'execution_phase',
+              content: `已执行 ${completedToolNames.length} 个工具，第 ${toolTurnCount} 轮`,
+              sessionId: session.id,
+              executionPhase: {
+                phase: 'implementing' as const,
+                progress: completedToolNames.length,
+                description: `第 ${toolTurnCount} 轮工具调用`,
+                steps: [
+                  ...completedToolNames.map((name) => ({
+                    name,
+                    status: 'done' as const,
+                  })),
+                  ...currentToolCalls.map((tc) => ({
+                    name: getToolCallName(tc),
+                    status: 'in_progress' as const,
+                  })),
+                ],
+                currentStep: getToolCallName(currentToolCalls[0]) || '',
+              },
+            } as ChatStreamChunk;
+          }
+
           if (toolTurnCount > this.MAX_TOOL_TURNS) {
             logger.warn('工具循环达到最大轮次限制', {
               sessionId: session.id,
@@ -2986,6 +3343,31 @@ export class ChatManagerImpl implements ChatManager {
             normalizedToolCall: ToolCall;
             result: ToolResult;
           }> = [];
+
+          // P2-3: LoopDetector — 执行前检测是否有循环模式
+          for (const toolCall of currentToolCalls) {
+            const toolName = getToolCallName(toolCall);
+            const detection = this._loopDetector.detect(toolName, toolCall.arguments);
+            if (detection.stuck && detection.level === 'critical') {
+              logger.warn('LoopDetector 检测到工具调用循环，中止执行', {
+                sessionId: session.id,
+                toolName,
+                detector: detection.detector,
+                message: detection.message,
+              });
+              yield `\n\n⚠️ 检测到工具调用循环 (${detection.message})，任务提前终止。`;
+              currentToolCalls = [];
+              break;
+            } else if (detection.stuck && detection.level === 'warning') {
+              logger.info('LoopDetector 警告', {
+                sessionId: session.id,
+                toolName,
+                detector: detection.detector,
+                message: detection.message,
+              });
+            }
+          }
+          if (currentToolCalls.length === 0) break;
 
           for (const toolCall of currentToolCalls) {
             const toolName = getToolCallName(toolCall);
@@ -3102,6 +3484,39 @@ export class ChatManagerImpl implements ChatManager {
               result: toolResult,
             });
 
+            // P2-5: 记录已完成工具名，用于心跳结构化数据
+            completedToolNames.push(toolName);
+            // P2-1: 记录已完成 tool_call ID，用于检查点恢复
+            completedToolCallIds.push(toolCall.id);
+
+            // P2-1: 工具执行完成后写入流式自动检查点
+            await streamingCheckpoint.onToolCompleted({
+              newMessagesSinceLastCheckpoint: [
+                assistantMessage,
+                toolResultMsg,
+              ],
+              messagesSnapshot: session.messages.slice(),
+              currentToolCalls: currentToolCalls
+                .filter((tc: ParsedToolCall) => tc.id !== toolCall.id)
+                .map((tc: ParsedToolCall) => ({
+                  id: tc.id,
+                  name: getToolCallName(tc),
+                  arguments: tc.arguments,
+                })),
+              completedToolCallIds: [...completedToolCallIds],
+              generatorState: { toolTurnCount, llmCallCount },
+              metadata: { model: options?.model },
+              sessionState: session.state,
+            });
+
+            // P2-3: LoopDetector — 记录工具执行结果，用于后续循环检测
+            this._loopDetector.recordToolCallOutcome(
+              toolName,
+              toolCall.arguments,
+              toolResult.result,
+              toolResult.error
+            );
+
             // yield tool_call 完成 chunk
             yield {
               type: 'tool_call',
@@ -3170,6 +3585,7 @@ export class ChatManagerImpl implements ChatManager {
               options.model
             );
           }
+          llmCallCount++; // P2-1: 追踪 LLM 调用次数
           const toolGen = activeClient.streamMessage(
             updatedMessages as unknown as ChatMessage[],
             {
@@ -3241,7 +3657,9 @@ export class ChatManagerImpl implements ChatManager {
               sessionId: session.id,
             });
           toolResultAssistantMsg.finishReason =
-            toolResultResponse?.finishReason || 'stop';
+            toolResultResponse?.finishReason ||
+            (toolResultResponse as unknown as { stop_reason?: string })?.stop_reason ||
+            'stop';
           if (toolResultResponse?.tool_calls?.length) {
             toolResultAssistantMsg.metadata = {
               ...toolResultAssistantMsg.metadata,
@@ -3273,6 +3691,35 @@ export class ChatManagerImpl implements ChatManager {
             assistantMessage = toolResultAssistantMsg;
             currentToolCalls = [];
           }
+
+          // P2-3: LoopDetector — 记录本轮是否有工具调用
+          this._loopDetector.recordTurn(
+            toolResultResponse?.tool_calls?.length ? true : false
+          );
+
+          // P2-1: 断点续传 — 每 5 轮保存一次检查点
+          if (toolTurnCount % 5 === 0) {
+            this._checkpointService
+              .saveCheckpointWithData(
+                session.id,
+                session.messages,
+                session.metadata,
+                SessionState.ACTIVE,
+                `auto-round-${toolTurnCount}`,
+                `工具执行第 ${toolTurnCount} 轮自动检查点`,
+                true,
+                estimateMessagesTokens(
+                  session.messages as unknown as Record<string, unknown>[]
+                )
+              )
+              .catch((e) =>
+                logger.warn('自动检查点保存失败（非关键）', {
+                  sessionId: session.id,
+                  round: toolTurnCount,
+                  error: String(e),
+                })
+              );
+          }
         }
 
         await this._endRollbackRound(
@@ -3300,66 +3747,271 @@ export class ChatManagerImpl implements ChatManager {
           : String(toolExecErr).slice(0, 300);
       accumulatedContent += `\n\n[工具执行异常: ${errMsg}]`;
     } finally {
-      // Phase 1c: 停止流式水位监测
-      this.unifiedTracker.stopStreamingCheck();
       // BUG-02/03 fix: 释放 mutex 锁（工具执行异常时也必须释放，防止会话死锁）
       mutex.release();
-      // Bug Fix: 工具执行异常时也必须释放锁和 AbortController，防止会话死锁
-      // 通知会话状态变化为空闲状态
-      this.getSessionMachine(session.id).finish('工具执行完成');
-      streamSpan.end();
+    }
 
-      // Bug Fix: 清理 AbortController（当前流已完成，允许新请求）
-      if (
-        this._sessionAbortControllers.get(session.id) === streamAbortController
-      ) {
-        this._sessionAbortControllers.delete(session.id);
+    // P2-3.5: 资源清理 + 持久化 + 构建返回消息（提取为 _finalizeStreamMessage）
+    return await this._finalizeStreamMessage(
+      session, content, accumulatedContent, assistantMessage,
+      finalResponse, streamAbortController, streamSpan, options
+    );
+  }
+
+  /**
+   * P2-1: 从检查点恢复流式执行
+   * 
+   * 加载自动检查点中保存的消息快照和剩余工具调用，
+   * 跳过已完成的工具，从断点继续执行工具循环。
+   */
+  async *resumeStream(
+    sessionId: string,
+    checkpointId: string
+  ): AsyncGenerator<string | ChatStreamChunk, Message, unknown> {
+    // P2-1: 获取会话互斥锁，防止并发恢复请求操作同一会话
+    let mutex = this._sessionMutexes.get(sessionId);
+    if (!mutex) {
+      mutex = new SimpleMutex();
+      this._sessionMutexes.set(sessionId, mutex);
+    }
+    await mutex.acquire();
+
+    const streamingCheckpoint = new StreamingAutoCheckpoint(
+      this._checkpointService,
+      sessionId
+    );
+
+    let restoreResult: Awaited<ReturnType<StreamingAutoCheckpoint['restore']>>;
+    try {
+      restoreResult = await streamingCheckpoint.restore();
+    } catch (err) {
+      mutex.release();
+      throw err;
+    }
+    if (!restoreResult) {
+      try {
+        yield {
+          type: 'error',
+          content: '无可用检查点，无法恢复',
+          sessionId,
+        } as unknown as string;
+      } finally {
+        mutex.release();
       }
+      return null as unknown as Message;
+    }
 
-      // 跨轮对话摘要：保存关键决策
-      this._persistTurnSummary(session);
+    const { checkpoint, stepIndex, completedToolCallIds, generatorState } = restoreResult;
 
-      // Session Memory: 累计本轮数据，达到阈值则触发提炼
-      this._accumulateSessionMemory(
-        session.id,
-        content,
-        accumulatedContent,
-        finalResponse?.usage?.inputTokens || 0,
-        finalResponse?.tool_calls?.length || 0
-      );
+    // 1. 恢复会话状态
+    const session = await this._getOrLoadSession(sessionId);
+    session.messages = checkpoint.messages;
 
-      options?.onComplete?.(assistantMessage);
+    try {
+    // 2. 创建新的 streamAbortController
+    const streamAbortController = new AbortController();
+    this._sessionAbortControllers.set(sessionId, streamAbortController);
 
-      // Phase 2: Telemetry + Trajectory 完成
-      if (this.ENABLE_TELEMETRY) {
-        try {
-          agentTelemetry.endTurn(session.id, 'completed');
-        } catch (err) {
-          logger.debug('Telemetry recording skipped', {
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-      }
-      if (this.ENABLE_TRAJECTORY) {
-        try {
-          trajectoryRecorder.recordStep(session.id, {
-            phase: 'response',
-            output:
-              typeof assistantMessage.content === 'string'
-                ? assistantMessage.content.slice(0, 500)
-                : '',
-          });
-          trajectoryRecorder.completeSession(session.id);
-          trajectoryRuntime.completeSession(session.id);
-        } catch (err) {
-          logger.debug('Telemetry recording skipped', {
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
+    // 3. 找到最后一条含 tool_calls 的 assistant 消息，提取剩余工具
+    let accumulatedContent = '';
+    let remainingToolCalls: ParsedToolCall[] = [];
+    for (let i = session.messages.length - 1; i >= 0; i--) {
+      const msg = session.messages[i];
+      if (msg.role === 'assistant' && msg.metadata?.tool_calls) {
+        const tcs = msg.metadata.tool_calls as Array<{
+          id: string;
+          type: string;
+          function: { name: string; arguments: string };
+        }>;
+        remainingToolCalls = tcs
+          .filter((tc) => !completedToolCallIds.includes(tc.id))
+          .map((tc) => ({
+            id: tc.id,
+            name: tc.function.name,
+            arguments:
+              typeof tc.function.arguments === 'string'
+                ? JSON.parse(tc.function.arguments)
+                : tc.function.arguments,
+          }));
+        accumulatedContent = typeof msg.content === 'string' ? msg.content : '';
+        break;
       }
     }
 
+    if (remainingToolCalls.length === 0) {
+      logger.info('resumeStream: 所有工具已完成，无需恢复', { sessionId });
+      try {
+        yield {
+          type: 'status',
+          content: '任务已全部完成',
+          sessionId,
+        } as ChatStreamChunk;
+      } finally {
+        mutex.release();
+      }
+      return session.messages[session.messages.length - 1] || ({} as Message);
+    }
+
+    // 4. 获取工具定义
+    const activeClient = this.getLLMClient();
+    let toolDefinitions: Record<string, unknown>[] = [];
+    if (this.toolRegistry) {
+      const registry = this.toolRegistry as unknown as {
+        getToolSchemas: () => Array<Record<string, unknown>>;
+      };
+      const schemas = registry.getToolSchemas?.() || [];
+      for (const schema of schemas) {
+        toolDefinitions.push({
+          type: 'function',
+          function: {
+            name: schema.name as string,
+            description: schema.description as string,
+            parameters: {
+              type: 'object',
+              properties: (schema.input_schema as { properties?: unknown })?.properties || {},
+              required: (schema.input_schema as { required?: string[] })?.required || [],
+            },
+          },
+        });
+      }
+    }
+
+    logger.info('resumeStream: 开始恢复执行', {
+      sessionId,
+      stepIndex,
+      completedToolCount: completedToolCallIds.length,
+      remainingToolCount: remainingToolCalls.length,
+      toolTurnCount: generatorState.toolTurnCount,
+    });
+
+    yield {
+      type: 'status',
+      content: `从第 ${stepIndex} 步恢复 — 剩余 ${remainingToolCalls.length} 个工具`,
+      sessionId,
+    } as ChatStreamChunk;
+
+    // 5. 工具执行循环（简化版，复用核心逻辑）
+    let currentToolCalls: ParsedToolCall[] = remainingToolCalls;
+    let toolTurnCount = generatorState.toolTurnCount;
+    const MAX_TOOL_TURNS = this.MAX_TOOL_TURNS;
+
+    while (currentToolCalls.length > 0) {
+      if (streamAbortController.signal.aborted) break;
+      toolTurnCount++;
+
+      if (toolTurnCount > MAX_TOOL_TURNS) {
+        yield {
+          type: 'error',
+          content: `工具调用次数已达上限 (${MAX_TOOL_TURNS})`,
+          sessionId,
+        } as unknown as string;
+        break;
+      }
+
+      // 执行本轮工具
+      const processedResults: Array<{ normalizedToolCall: ParsedToolCall; result: ToolResult }> = [];
+      for (const tc of currentToolCalls) {
+        const toolName = tc.name;
+        const toolResult = await this.executeTool(
+          { id: tc.id, name: toolName, arguments: tc.arguments, sessionId },
+          { useErrorHandler: true }
+        );
+        processedResults.push({
+          normalizedToolCall: { id: tc.id, name: toolName, arguments: tc.arguments },
+          result: toolResult,
+        });
+
+        yield {
+          type: 'tool_call',
+          content: toolResult.error ? `工具 ${toolName} 执行失败` : '',
+          sessionId,
+          toolCall: {
+            id: tc.id,
+            name: toolName,
+            arguments: tc.arguments,
+            status: toolResult.error ? 'failed' : 'completed',
+          },
+        } as unknown as string;
+      }
+
+      // 构建 API 消息并调用 LLM
+      const updatedMessages: Record<string, unknown>[] = session.messages
+        .map((m) => ({
+          role: m.role,
+          content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+          ...(m.metadata?.tool_calls ? { tool_calls: m.metadata.tool_calls } : {}),
+          ...(m.toolCallId ? { tool_call_id: m.toolCallId } : {}),
+        }));
+
+      for (const pr of processedResults) {
+        updatedMessages.push({
+          role: 'assistant',
+          content: accumulatedContent,
+          tool_calls: currentToolCalls.map((tc) => ({
+            id: tc.id,
+            type: 'function',
+            function: { name: tc.name, arguments: JSON.stringify(tc.arguments) },
+          })),
+        });
+        updatedMessages.push({
+          role: 'tool',
+          content: pr.result.result ? (typeof pr.result.result === 'string' ? pr.result.result : JSON.stringify(pr.result.result)) : (pr.result.error || '{}'),
+          tool_call_id: pr.normalizedToolCall.id,
+        });
+      }
+
+      // 调用 LLM
+      const toolGen = activeClient.streamMessage(
+        updatedMessages as unknown as ChatMessage[],
+        {
+          signal: streamAbortController.signal,
+          tools: toolDefinitions.length > 0 ? (toolDefinitions as unknown as ToolDefinition[]) : undefined,
+        }
+      );
+
+      accumulatedContent = '';
+      let result = await toolGen.next();
+      while (!result.done) {
+        const chunk = result.value as { type?: string; content?: string; delta?: { content?: string } } | string;
+        const content = typeof chunk === 'string' ? chunk : (chunk?.delta?.content || chunk?.content || '');
+        if (content) {
+          accumulatedContent += content;
+          yield content;
+        }
+        result = await toolGen.next();
+      }
+
+      const toolResultResponse = result.value as {
+        content?: string;
+        tool_calls?: ParsedToolCall[];
+        usage?: { inputTokens?: number; outputTokens?: number };
+      };
+
+      // 检查是否还有新工具调用
+      if (toolResultResponse?.tool_calls && toolResultResponse.tool_calls.length > 0) {
+        currentToolCalls = [...toolResultResponse.tool_calls];
+        continue;
+      }
+
+      currentToolCalls = [];
+    }
+
+    // 6. 清理
+    this._sessionAbortControllers.delete(sessionId);
+    this._streamingCheckpoint = null;
+
+    const assistantMessage = this.messageService.createAssistantMessage(
+      accumulatedContent,
+      { sessionId }
+    );
+    assistantMessage.sessionId = sessionId;
+    assistantMessage.finishReason = streamAbortController.signal.aborted ? 'abort' : 'stop';
+    this._addAndPersistMessage(sessionId, assistantMessage);
+
     return assistantMessage;
+    } finally {
+      mutex.release();
+    }
   }
 
   /**

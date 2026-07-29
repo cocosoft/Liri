@@ -5,6 +5,7 @@
  */
 import fs from 'fs';
 import path from 'path';
+import { memoryFreshnessNote } from './StreamingContextScrubber';
 
 /**
  * 上下文篱笆标签
@@ -122,7 +123,9 @@ export class ContextFence {
     const contents: string[] = [];
 
     for (const file of files) {
-      const content = fs.readFileSync(file.path, 'utf-8');
+      let content = fs.readFileSync(file.path, 'utf-8');
+      // P3-8: 记忆超过1天附加新鲜度时效警告
+      content = memoryFreshnessNote(file.mtime, content);
       const wrapped = this.wrap(`[${file.name}]\n${content}`);
       contents.push(wrapped);
     }

@@ -391,7 +391,7 @@ export class MemdirMemoryScanner {
     const lowerContent = content.toLowerCase();
 
     if (fileName.includes('feedback') || lowerContent.includes('feedback')) {
-      return MemoryType.USER_PREFERENCE;
+      return MemoryType.FEEDBACK; // P2-5: 修复映射 bug — 原为 USER_PREFERENCE
     }
 
     if (fileName.includes('project') || lowerContent.includes('project')) {
@@ -399,7 +399,7 @@ export class MemdirMemoryScanner {
     }
 
     if (fileName.includes('reference') || lowerContent.includes('reference')) {
-      return MemoryType.DECISION;
+      return MemoryType.REFERENCE; // P2-5: 修复映射 bug — 原为 DECISION
     }
 
     return MemoryType.USER_FACT;

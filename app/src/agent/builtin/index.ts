@@ -23,6 +23,5 @@
  */
 
 export { GuideAgentStrategy } from './GuideAgent';
-export { VerificationAgentStrategy } from './VerificationAgent';
 export { ExploreAgentStrategy } from './ExploreAgent';
 export { BuiltinAgentConfig, BuiltinAgentStrategy } from './types';

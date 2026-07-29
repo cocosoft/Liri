@@ -19,6 +19,14 @@ import {
 } from '../SkillConditionMatcher';
 import { resolvePyappHome } from '@modules/core';
 
+/** 辅助：找数组最后一个满足条件的元素索引 */
+function findLastIndex<T>(arr: T[], predicate: (item: T) => boolean): number {
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (predicate(arr[i])) return i;
+  }
+  return -1;
+}
+
 const logger = new Logger({
   module: 'skills:services:SkillInjectionService',
   level: LogLevel.INFO,
@@ -337,6 +345,38 @@ export class SkillInjectionService {
       .map((s) => `${s.name}:${s.version ?? '1.0.0'}`)
       .sort();
     return entries.join('|');
+  }
+
+  /**
+   * P1-3: 将 Skills 注入到消息历史（用于每次上下文组装时调用）
+   * 确保压缩后 skills 列表仍然存在于最新一批消息中。
+   *
+   * 对标 hermes-agent：Skills 作为 User Message 注入，不破坏 System Prompt 缓存。
+   *
+   * @param messages 当前消息列表
+   * @returns 注入 skills 块后的消息列表（如无激活技能则原样返回）
+   */
+  injectSkillsIntoMessageHistory(
+    messages: Array<{ role: string; content: string; metadata?: Record<string, unknown> }>
+  ): Array<{ role: string; content: string; metadata?: Record<string, unknown> }> {
+    const active = this.getActiveSkills();
+    if (active.length === 0) return messages;
+
+    const prompt = this.getInjectionPrompt();
+    if (!prompt) return messages;
+
+    // 找到最后一条 user message 的位置
+    const lastUserIdx = findLastIndex(messages, m => m.role === 'user');
+    if (lastUserIdx === -1) return messages;
+
+    // 在最后一条 user message 前插入 skills 注入块
+    const result = [...messages];
+    result.splice(lastUserIdx, 0, {
+      role: 'user',
+      content: prompt,
+      metadata: { __skills_injection: true },
+    });
+    return result;
   }
 
   /**

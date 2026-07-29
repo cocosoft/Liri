@@ -219,6 +219,26 @@ export async function dispatchRoute(
     await self['handleUpdateMessageBlocks'](req, res, match![1], match![2]);
     return true;
   }
+  if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/streaming$/)) {
+    await self['handleSessionStreamingStatus'](
+      req,
+      res,
+      url.match(/^\/v1\/sessions\/(.+)\/streaming$/)![1]
+    );
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/checkpoints\/latest$/)) {
+    await self['handleLatestCheckpoint'](
+      req,
+      res,
+      url.match(/^\/v1\/sessions\/(.+)\/checkpoints\/latest$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/resume$/)) {
+    await self['handleResumeChat'](req, res);
+    return true;
+  }
   if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)$/)) {
     await self['handleGetSession'](
       req,

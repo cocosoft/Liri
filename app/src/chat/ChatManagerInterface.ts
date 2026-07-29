@@ -441,6 +441,36 @@ export interface ChatManager {
     questionId: string,
     answers: string[]
   ): Promise<Message>;
+
+  /**
+   * P1-5: 检查指定会话是否有活跃的流式请求
+   * 用于前端幽灵块检测
+   */
+  isSessionStreaming(sessionId: string): boolean;
+
+  /**
+   * P2-1: 获取会话最近一次自动检查点的消息列表
+   * 用于断线重连时恢复任务状态
+   */
+  getLatestCheckpointMessages(
+    sessionId: string
+  ): Promise<Array<Record<string, unknown>> | null>;
+
+  /**
+   * S1: 中止指定会话的流式请求
+   * 用于 req.on('close') 时通知后端停止工具执行
+   */
+  abortSessionStream(sessionId: string): void;
+
+  /**
+   * P2-1: 从检查点恢复流式执行
+   * 加载自动检查点中保存的消息快照和剩余工具调用，
+   * 跳过已完成的工具，从断点继续执行工具循环。
+   */
+  resumeStream(
+    sessionId: string,
+    checkpointId: string
+  ): AsyncGenerator<string | import('@modules/runtime/api/CoreAPI').ChatStreamChunk, import('./types/message').Message, unknown>;
 }
 
 /**

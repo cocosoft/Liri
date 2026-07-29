@@ -130,6 +130,41 @@ export const OLLAMA_GUIDANCE = `## 本地模型特定指引
 - 保持指令简洁明确，减少模型的推理负担
 - 每次只推进一个子任务，确认完成后再继续下一步`;
 
+/** P2-14: Qwen 模型特定指引 */
+export const QWEN_GUIDANCE = `## Qwen 模型特定指引
+- 并行工具调用: Qwen 支持原生并行工具调用，可批量发送独立工具
+- 绝对路径: 始终使用绝对文件路径，不依赖相对路径
+- 简洁输出: 优先输出执行结果，减少冗余解释
+- 函数调用优先: 有工具可用时优先调用工具，避免纯文本推测`;
+
+/** P2-14: GLM 模型特定指引 */
+export const GLM_GUIDANCE = `## GLM 模型特定指引
+- 工具调用格式: 严格遵循 OpenAI function-calling 格式
+- 单次一步: 每次只调用一个工具，避免批量并行
+- 中文优先: 用中文回复用户，技术内容可混合英文
+- 参数验证: 调用工具前检查必填参数是否完整`;
+
+/** P2-14: Grok 模型特定指引 */
+export const GROK_GUIDANCE = `## Grok 模型特定指引
+- 工具使用: 优先使用工具获取实时信息，而非依赖训练数据
+- 搜索能力: 充分利用 web_search 工具获取最新信息
+- 代码执行: 数学和代码任务使用工具验证结果
+- 简洁回应: 直接回答问题，减少不必要的前言`;
+
+/** P2-14: Codex 模型特定指引 */
+export const CODEX_GUIDANCE = `## Codex 模型特定指引
+- 代码生成优先: 使用 write_file/edit_file 直接生成代码
+- 增量编辑: 使用 replace_in_file 进行精确的字符串替换
+- 预检操作: 修改前先用 read_file 读取文件内容
+- 验证循环: 修改后用 grep/read 验证结果`;
+
+/** P2-14: Gemma 模型特定指引 */
+export const GEMMA_GUIDANCE = `## Gemma 模型特定指引
+- 会话长度: 注意 Gemma 上下文窗口限制，避免超长输入
+- 工具约束: Gemma 工具调用格式有特殊要求，使用标准 JSON
+- 简洁优先: Gemma 对长文本处理有限，输出精炼
+- 单任务聚焦: 每次专注一个任务，避免多任务并行`;
+
 /**
  * 提供商特定指引映射
  */
@@ -139,6 +174,11 @@ export const PROVIDER_GUIDANCE: Record<string, string> = {
   openai: OPENAI_GUIDANCE,
   google: GOOGLE_GUIDANCE,
   ollama: OLLAMA_GUIDANCE,
+  qwen: QWEN_GUIDANCE,
+  glm: GLM_GUIDANCE, // P2-14: 修复键名拼写 glma→glm
+  grok: GROK_GUIDANCE,
+  codex: CODEX_GUIDANCE,
+  gemma: GEMMA_GUIDANCE,
 };
 
 /**

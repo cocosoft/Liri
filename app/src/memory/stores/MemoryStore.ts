@@ -6,9 +6,11 @@ import { glob } from 'glob';
 import type { Memory } from '../types/Memory';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveMemoryDir, resolveDbPath } from '@modules/core';
 import { Database } from '@modules/core/external/sqlite3';
+import { getMemoryDriftDetector } from '../MemoryDriftDetector';
 
 const storeLogger = new Logger({
   module: 'memory:stores',
@@ -281,11 +283,17 @@ export class MemoryStoreImpl implements MemoryStore {
         const validatedContent = this.validateMarkdownContent(memory.content);
         const content = matter.stringify(validatedContent, frontmatter);
         // 任务 4：按 session 分目录，使用 sessionId 确定目标路径
-        await this.atomicWrite(
-          this.getMemoryFilePath(id, memory.metadata.sessionId),
-          content
-        );
+        const filePath = this.getMemoryFilePath(id, memory.metadata.sessionId);
+        await this.atomicWrite(filePath, content);
+
+        // P2-7: 写入后重新拍快照，保护文件不被外部意外修改
+        try {
+          getMemoryDriftDetector().snapshot(filePath);
+        } catch (err) {
+          await handleError(err, { module: 'memory:stores', action: 'driftSnapshot' });
+        }
       } catch (error) {
+        await handleError(error, { module: 'memory:stores', action: 'flushBatch' });
         storeLogger.error(`批量写入失败`, { id, error });
       }
     }
@@ -295,6 +303,7 @@ export class MemoryStoreImpl implements MemoryStore {
     if (this.batchTimer) return;
     this.batchTimer = setTimeout(() => {
       this.flushBatch().catch((error) => {
+        handleError(error, { module: 'memory:stores', action: 'scheduleFlush' }).catch(() => {});
         storeLogger.error('定时批量刷新失败', { error });
       });
     }, 1000);
@@ -719,6 +728,13 @@ export class MemoryStoreImpl implements MemoryStore {
     // 任务 4：按 session 分目录查找文件
     const filePath = await this.findMemoryPath(id);
     if (!filePath) return null;
+
+    // P2-7: 读取前检查外部漂移，漂移则自动恢复原始内容
+    try {
+      getMemoryDriftDetector().check(filePath);
+    } catch (err) {
+      await handleError(err, { module: 'memory:stores', action: 'driftCheck' });
+    }
 
     try {
       // 检查文件是否存在

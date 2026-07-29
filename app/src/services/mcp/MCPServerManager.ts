@@ -134,7 +134,14 @@ export class MCPServerManager {
             await this.refreshServerTools(name);
           }
         } catch (error: any) {
-          await handleError(error, {
+          // P2-4: 连接错误消息脱敏后记录，防止凭据泄露到日志
+          const rawMsg = error instanceof Error ? error.message : String(error);
+          const { stripCredentials } = await import('./MCPSecurityFilter');
+          const { cleaned } = stripCredentials(rawMsg);
+          const wrappedError = error instanceof Error
+            ? Object.assign(new Error(cleaned), { stack: error.stack })
+            : new Error(cleaned);
+          await handleError(wrappedError, {
             module: 'services:mcp:server',
             action: 'connect_server',
             context: { serverName: name },
@@ -185,16 +192,35 @@ export class MCPServerManager {
       }
 
       const result = await server.callTool(toolName, args);
+
+      // P2-4: MCP 凭据剥离 — 工具结果中的 API keys/tokens 脱敏
+      let safeResult = result;
+      if (typeof result === 'string' && result.length > 0) {
+        const { filterMCPToolResult } = await import('./MCPSecurityFilter');
+        safeResult = filterMCPToolResult(result);
+      } else if (typeof result === 'object' && result !== null) {
+        const { stripCredentials } = await import('./MCPSecurityFilter');
+        const jsonStr = JSON.stringify(result);
+        const { cleaned } = stripCredentials(jsonStr);
+        if (cleaned !== jsonStr) {
+          try { safeResult = JSON.parse(cleaned); } catch { safeResult = cleaned; }
+        }
+      }
+
       stats.successfulRequests++;
       stats.responseTime = Date.now() - startTime;
       stats.lastRequestTime = Date.now();
 
-      return result;
+      return safeResult;
     } catch (error) {
       stats.failedRequests++;
       stats.responseTime = Date.now() - startTime;
       stats.lastRequestTime = Date.now();
-      throw error;
+      // P2-4: 错误消息脱敏后抛出，防止凭据泄露到 LLM 上下文
+      const rawError = error instanceof Error ? error.message : String(error);
+      const { stripCredentials } = await import('./MCPSecurityFilter');
+      const { cleaned } = stripCredentials(rawError);
+      throw new Error(cleaned);
     }
   }
 

@@ -20,6 +20,7 @@ import {
   getMemoryQueryProvider,
   getCurrentSessionContext,
 } from '@modules/services/prompt/MemoryPromptProvider';
+import { getFrozenSnapshotService } from '@modules/memory/FrozenSnapshotService';
 import {
   getKnowledgeQueryProvider,
   getCurrentKnowledgeQuery,
@@ -34,6 +35,7 @@ import { SkillInjectionService } from '@modules/skills/services/SkillInjectionSe
 import { SkillRegistry } from '@modules/skills/SkillRegistry';
 import { FileSkillLoader } from '@modules/skills/loaders/sources/FileSkillLoader';
 import { SkillSource } from '@modules/skills/types';
+import { BUILTIN_EXAMPLES, renderFewShotPrompt } from '@modules/tools/FewShotRegistry';
 
 /** 内建技能目录 */
 const BUILTIN_SKILLS_DIR = join(
@@ -304,6 +306,14 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
   DANGEROUS_uncachedSystemPromptSection(
     'memoryContext',
     async () => {
+      // P1-2: 冻结快照优先 — 会话内记忆不变，避免每轮重算破坏 Prompt 缓存
+      const ctx = getCurrentSessionContext();
+      if (ctx) {
+        const frozenService = getFrozenSnapshotService();
+        const frozen = frozenService.getFrozen(ctx.sessionId);
+        if (frozen) return frozen;
+      }
+
       const provider = getMemoryQueryProvider();
       if (!provider) return null;
 
@@ -328,6 +338,12 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
       const memoryBlock = buildMemoryContextBlock(
         `## 记忆上下文\n\n用户有以下相关记忆：\n${truncated.content}`
       );
+
+      // P1-2: 首次计算后冻结，会话内不再重算
+      if (ctx && memoryBlock) {
+        getFrozenSnapshotService().freeze(ctx.sessionId, memoryBlock);
+      }
+
       return memoryBlock;
     },
     'Memory summaries change as new memories are created'
@@ -371,8 +387,9 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
   DANGEROUS_uncachedSystemPromptSection(
     'skills',
     async () => {
-      await skillInjectionService.ensureFresh();
-      return skillInjectionService.getInjectionPrompt() || null;
+      // P1-3: Skills 改为 User Message 注入（SkillInjectionService.injectSkillsIntoMessageHistory），
+      // 不再注入到 System Prompt，避免破坏 cache_control 前缀。
+      return null;
     },
     'Skill injection content changes as conditions update'
   ),
@@ -428,6 +445,19 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
     },
     'Knowledge digest updated periodically, cache 5min'
   ),
+
+  // P1-11: Few-shot 工具使用示例
+  systemPromptSection(
+    'fewShotExamples',
+    () => {
+      if (!BUILTIN_EXAMPLES || BUILTIN_EXAMPLES.length === 0) return null;
+      const parts = ['## Tool Usage Examples', '', 'Below are examples of correct tool usage to guide your behavior:', ''];
+      for (const entry of BUILTIN_EXAMPLES) {
+        parts.push(renderFewShotPrompt(entry));
+      }
+      return parts.join('\n');
+    }
+  ),
 ];
 
 /**
@@ -481,4 +511,5 @@ export function clearSystemPromptSections(): void {
   clearSoulCache();
   clearUserCache();
   clearWorkspaceCache();
+  getFrozenSnapshotService().unfreezeAll();
 }

@@ -1,12 +1,14 @@
 /**
- * 上下文窗口解析器（Phase 2 + P2 DB 动态读取增强）
+ * 上下文窗口解析器（Phase 2 + P2 DB 动态读取增强 + P1-7 渐进降级探测）
  * 对标 openclaw resolveContextWindowInfo() + PilotDeck 溢出恢复
+ *       + hermes-agent 6级降级探测链 + parse_context_limit_from_error
  *
  * 多层 fallback 解析模型上下文窗口大小：
  *   1. DB model_registry 动态读取（context_window 字段）
  *   2. 已知模型硬编码映射（fallback）
- *   3. 1M 启发式检测
- *   4. 默认 200K
+ *   3. 运行时降级探测（P1-7: 256K→128K→64K→32K→16K→8K）
+ *   4. 1M 启发式检测
+ *   5. 默认 200K
  */
 import { Logger, LogLevel } from '@modules/monitoring';
 import { Database } from '@modules/core/external/sqlite3';
@@ -16,6 +18,14 @@ const logger = new Logger({ module: 'context:window', level: LogLevel.INFO });
 
 /** 默认 fallback 上下文窗口（tokens） */
 const DEFAULT_CONTEXT_WINDOW = 200_000;
+
+/** P1-7: 最小上下文门槛（低于此值直接拒绝） */
+const MINIMUM_CONTEXT_LENGTH = 64_000;
+
+/** P1-7: 运行时降级探测层级（从大到小依次尝试） */
+const CONTEXT_PROBE_TIERS = [
+  256_000, 128_000, 64_000, 32_000, 16_000, 8_000,
+] as const;
 
 /** 已知模型的上下文窗口映射（DB 无记录时的 hardcoded fallback） */
 const KNOWN_CONTEXT_WINDOWS: Record<string, number> = {
@@ -130,6 +140,71 @@ export function getEffectiveContextWindow(
   const { tokens } = resolveContextWindow(model);
   return Math.max(tokens * 0.95 - reservedOutputTokens, 0);
 }
+
+// ============================================================
+// P1-7: 运行时降级探测
+// 对标 hermes-agent CONTEXT_PROBE_TIERS + parse_context_limit_from_error
+// ============================================================
+
+/**
+ * P1-7: 从 API 错误响应中提取实际上下文限制
+ */
+export function parseContextLimitFromError(
+  errorMessage: string
+): number | null {
+  if (!errorMessage) return null;
+  const anthropicMatch = /(\d+)\s+maximum|maximum of (\d+)/i.exec(errorMessage);
+  if (anthropicMatch) {
+    const limit = parseInt(anthropicMatch[1] || anthropicMatch[2], 10);
+    if (limit > 0) return limit;
+  }
+  const openaiMatch = /maximum context length is (\d+)/i.exec(errorMessage);
+  if (openaiMatch) return parseInt(openaiMatch[1], 10);
+  if (/context_length_exceeded|prompt_too_long/i.test(errorMessage)) {
+    return -1; // signal: overflow occurred, no exact number
+  }
+  return null;
+}
+
+export function isOutputCapError(errorMessage: string): boolean {
+  return /output.*(?:too|exceed|cap|maximum)/i.test(errorMessage);
+}
+
+export function getNextDegradationTier(currentTokens: number): number | null {
+  const tiers = [...CONTEXT_PROBE_TIERS].sort((a, b) => b - a);
+  for (const tier of tiers) {
+    if (tier < currentTokens && tier >= MINIMUM_CONTEXT_LENGTH) return tier;
+  }
+  return null;
+}
+
+export function validateMinimumContext(model: string, tokens: number): boolean {
+  if (tokens < MINIMUM_CONTEXT_LENGTH) {
+    logger.warn('context_window:below_minimum', { model, tokens });
+    return false;
+  }
+  return true;
+}
+
+export function applyDegradationProbe(
+  model: string,
+  errorMessage: string,
+  currentTokens: number
+): { tokens: number; degraded: boolean; reason: string } {
+  const parsedLimit = parseContextLimitFromError(errorMessage);
+  if (parsedLimit && parsedLimit > 0 && parsedLimit >= MINIMUM_CONTEXT_LENGTH) {
+    return { tokens: parsedLimit, degraded: true, reason: `API reported: ${parsedLimit}` };
+  }
+  const nextTier = getNextDegradationTier(currentTokens);
+  if (nextTier) {
+    return { tokens: nextTier, degraded: true, reason: `Probe tier: ${nextTier}` };
+  }
+  return { tokens: DEFAULT_CONTEXT_WINDOW, degraded: true, reason: 'Exhausted, using default' };
+}
+
+// ============================================================
+// 溢出恢复策略
+// ============================================================
 
 /**
  * 渐进式溢出恢复策略

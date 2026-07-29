@@ -32,7 +32,7 @@ export const contextCommand: Command = {
   name: 'context',
   description: '上下文管理',
   aliases: ['ctx'],
-  argumentHint: '[show|clear|compact|info|trim <tokens>]',
+  argumentHint: '[show|clear|compact|info|trim <tokens>|history|snapshot|debug|wallet]',
   whenToUse: '当你需要管理会话上下文时',
   load: async () =>
     import('./Context.js').then((m) => ({

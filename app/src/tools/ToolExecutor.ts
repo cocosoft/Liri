@@ -15,6 +15,8 @@ import { ToolHookContext } from '../hooks/types/ToolHooks';
 import { v4 as uuidv4 } from 'uuid';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { tryCoerceToolArgs } from './ToolArgCoercer.js';
+import type { ToolSchema } from './ToolArgCoercer.js';
 import {
   SandboxManagerImpl,
   createSandboxManager,
@@ -123,6 +125,10 @@ export class ToolExecutor {
     const toolUseId = uuidv4();
 
     const toolName = tool.name;
+
+    // P2-2: coerce_tool_args — 自动修复 LLM 参数类型偏差
+    const coerced = this.coerceInputIfNeeded(tool, input);
+    input = coerced.input as Record<string, unknown>;
 
     const hookContext: ToolHookContext = {
       toolName: toolName,
@@ -426,11 +432,31 @@ export class ToolExecutor {
   ): Promise<ToolResult> {
     const validationResult = await this.validateInput(tool, input, context);
     if (!validationResult.valid) {
+      // P2-11: 使用 ToolInputSelfCorrector 生成结构化修正提示
+      let correctionHint = `Error: ${validationResult.error}`;
+      try {
+        const { getToolInputSelfCorrector } = await import('./ToolInputSelfCorrector');
+        const corrector = getToolInputSelfCorrector();
+        if (corrector.shouldRetry(1)) {
+          const toolParams = (tool.getInfo?.()?.params as Array<{ name: string }> | undefined)
+            ?.map((p: { name: string }) => p.name) ?? [];
+          const result = corrector.generateCorrectionMessage(
+            tool.name,
+            JSON.stringify(input),
+            validationResult.error || 'Unknown validation error',
+            toolParams,
+            1
+          );
+          correctionHint = result.correctionHint;
+        }
+      } catch {
+        // SelfCorrector 不可用时回退简单错误
+      }
       return createToolResult(null, {
         newMessages: [
           {
             role: 'system',
-            content: `Error: ${validationResult.error}`,
+            content: correctionHint,
           },
         ],
       });
@@ -488,11 +514,31 @@ export class ToolExecutor {
   ): Promise<ToolResult> {
     const validationResult = await this.validateInput(tool, input, context);
     if (!validationResult.valid) {
+      // P2-11: 使用 ToolInputSelfCorrector 生成结构化修正提示（legacy 路径）
+      let correctionHint = `Error: ${validationResult.error}`;
+      try {
+        const { getToolInputSelfCorrector } = await import('./ToolInputSelfCorrector');
+        const corrector = getToolInputSelfCorrector();
+        if (corrector.shouldRetry(1)) {
+          const toolParams = (tool.getInfo?.()?.params as Array<{ name: string }> | undefined)
+            ?.map((p: { name: string }) => p.name) ?? [];
+          const result = corrector.generateCorrectionMessage(
+            tool.name,
+            JSON.stringify(input),
+            validationResult.error || 'Unknown validation error',
+            toolParams,
+            1
+          );
+          correctionHint = result.correctionHint;
+        }
+      } catch {
+        // SelfCorrector 不可用时回退简单错误
+      }
       return createToolResult(null, {
         newMessages: [
           {
             role: 'system',
-            content: `Error: ${validationResult.error}`,
+            content: correctionHint,
           },
         ],
       });
@@ -597,10 +643,14 @@ export class ToolExecutor {
       );
 
       if (decision.type === 'deny') {
-        return {
-          allowed: false,
-          error: decision.reason || 'Permission denied',
-        };
+        // P3-5: Standing Rules — 检查是否有任务级预先批准覆盖拒绝决策
+        const standingAllowed = await this.checkStandingRules(tool.name, input);
+        if (!standingAllowed) {
+          return {
+            allowed: false,
+            error: decision.reason || 'Permission denied',
+          };
+        }
       }
     } catch (error) {
       // @ignore-catch — 权限检查抛异常属于正常控制流
@@ -615,6 +665,32 @@ export class ToolExecutor {
       allowed: true,
       error: null,
     };
+  }
+
+  /**
+   * P3-5: 检查 Standing Rules — 任务级预先批准的工具调用
+   */
+  private async checkStandingRules(
+    toolName: string,
+    input: Record<string, unknown>
+  ): Promise<boolean> {
+    try {
+      const { getStandingRuleEngine } = await import(
+        '../permission/StandingRuleEngine'
+      );
+      const engine = getStandingRuleEngine();
+      // 尝试从 input 中提取 target（常见键：file_path, path, url, email, target）
+      const target =
+        (input.file_path as string) ||
+        (input.path as string) ||
+        (input.url as string) ||
+        (input.email as string) ||
+        (input.target as string);
+      const result = engine.checkPermission(toolName, target || undefined);
+      return result.matched;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -720,6 +796,41 @@ export class ToolExecutor {
    */
   isGovernanceEnabled(): boolean {
     return this.useGovernance;
+  }
+
+  /**
+   * P2-2: 自动修复 LLM 工具参数类型偏差
+   * 对标 hermes-agent coerce_tool_args() 的 7 种类型强制修复
+   */
+  private coerceInputIfNeeded(
+    tool: Tool,
+    input: Record<string, unknown>
+  ): { input: Record<string, unknown>; modified: boolean } {
+    try {
+      const toolInfo = tool.getInfo();
+      if (!toolInfo?.params) return { input, modified: false };
+
+      const schema: ToolSchema = {
+        type: 'object',
+        properties: {},
+        required: [],
+        additionalProperties: false,
+      };
+
+      for (const param of toolInfo.params) {
+        schema.properties![param.name] = {
+          type: param.type || 'string',
+          description: param.description,
+          ...(param.enum ? { enum: param.enum } : {}),
+        };
+        if (param.required) schema.required!.push(param.name);
+      }
+
+      const result = tryCoerceToolArgs(input, schema);
+      return { input: result.input, modified: result.modified };
+    } catch {
+      return { input, modified: false };
+    }
   }
 
   /**

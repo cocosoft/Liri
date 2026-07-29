@@ -22,6 +22,10 @@ import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgeProm
 import type { SessionContext } from '@modules/memory/types/SessionContext';
 import type { ImageContextService } from './ImageContextService';
 
+// P1-3: Skills as User Message injection (not System Prompt, avoids breaking cache_control prefix)
+import { skillInjectionService } from '@modules/constants/systemPromptSections';
+import { handleError } from '@modules/error';
+
 const logger = new Logger({
   module: 'chat:context-pipeline',
   level: LogLevel.INFO,
@@ -338,6 +342,20 @@ export async function truncateApiMessages(
         summaryLength: summaryContent.length,
       });
     }
+  }
+
+  // P1-3: Skills 作为 User Message 注入 — 在最后一条 user message 前插入，
+  // 确保上下文压缩后 skills 列表仍然存在，且不破坏 System Prompt 的 cache_control 前缀
+  try {
+    const injected = skillInjectionService.injectSkillsIntoMessageHistory(
+      apiMessages as Array<{ role: string; content: string; metadata?: Record<string, unknown> }>
+    );
+    // 直接替换数组内容（保持引用）
+    apiMessages.length = 0;
+    for (const msg of injected) apiMessages.push(msg as Record<string, unknown>);
+  } catch (err) {
+    // Skills 注入失败不阻塞主流程
+    await handleError(err, { module: 'chat:context-pipeline', action: 'injectSkills' });
   }
 }
 

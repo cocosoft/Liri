@@ -6,6 +6,7 @@ import { compactionMetricsTracker } from '../../../context/compaction/Compaction
 import { estimateMessagesTokens } from '../../../ai/tokenizer/TokenEstimator';
 import { autoCompactionPolicy } from '../../../context/compaction/AutoCompactionPolicy';
 import type { ContextSnapshot } from '../../../context/compaction/CompactionMetrics';
+import { analyzeContextUsage, formatWalletBreakdown } from './ContextWallet';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -49,6 +50,8 @@ export default {
         return this.handleSnapshot(context);
       case 'debug':
         return this.handleDebug();
+      case 'wallet':
+        return this.handleWallet(context);
       default:
         return this.handleHelp();
     }
@@ -303,6 +306,32 @@ export default {
   },
 
   /**
+   * 上下文钱包可视化（P1-14）
+   * 按类别分解 Token 用量 + 生成优化建议
+   */
+  async handleWallet(context: CommandContext): Promise<CommandResult> {
+    const sessionId = (context.sessionId as string) || 'unknown';
+    try {
+      const breakdown = await analyzeContextUsage(sessionId);
+      const formatted = formatWalletBreakdown(breakdown);
+
+      context.onDone?.('上下文钱包分析完成', { display: 'system' });
+      return {
+        success: true,
+        type: 'text',
+        message: formatted,
+        data: breakdown,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        type: 'error',
+        error: `钱包分析失败: ${(error as Error).message}`,
+      };
+    }
+  },
+
+  /**
    * 显示帮助信息
    */
   async handleHelp(): Promise<CommandResult> {
@@ -316,6 +345,7 @@ export default {
 /context history [N] - 显示最近 N 次压缩历史（默认 10）
 /context snapshot  - 显示当前上下文快照
 /context debug     - 显示压缩决策树诊断
+/context wallet    - 上下文钱包可视化（Token 分解 + 优化建议）
 
 示例:
   /context show

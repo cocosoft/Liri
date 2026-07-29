@@ -447,6 +447,10 @@ export {
 export { mcpToolBridge, MCPToolBridge } from './MCPToolBridge';
 export { McpToolWrapper } from './McpToolWrapper';
 export { mcpMarketplace, MCPMarketplace } from './marketplace/MCPMarketplace';
+
+// P2-4: MCP 凭据剥离 — 工具结果中的 API keys/tokens 脱敏
+export { filterMCPToolResult, stripCredentials } from './MCPSecurityFilter';
+
 export type {
   RegistryType,
   ThirdPartyRegistry,

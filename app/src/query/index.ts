@@ -23,6 +23,16 @@
  * 查询模块主入口
  */
 
+export { ReActLoop } from './ReActLoop.js';
+export type {
+  ReActState,
+  ReActLoopConfig,
+  ReActEvent,
+  ToolCallEntry,
+  ToolResultEntry,
+  ReasonResult,
+  ActResult,
+} from './ReActLoop.js';
 export { QueryEngine, createQueryEngine } from './QueryEngine.js';
 export type {
   QueryEngineConfig,
@@ -153,6 +163,8 @@ export type {
   CallModelFn,
   ExecuteToolsFn,
 } from './StreamingToolExecutor.js';
+export { TrackedTool, TrackedToolState } from './TrackedTool.js';
+export type { TrackedToolResult, TrackedToolCallback } from './TrackedTool.js';
 export {
   ParallelToolExecutor,
   createParallelToolExecutor,
@@ -163,6 +175,15 @@ export type {
   BatchExecutionResult,
   ParallelToolExecutorConfig,
 } from './ParallelToolExecutor.js';
+export {
+  CascadeAbortManager,
+  classifyToolError,
+} from './CascadeAbortManager.js';
+export type {
+  CascadeAbortConfig,
+  ErrorClassification,
+  CascadeTrigger,
+} from './CascadeAbortManager.js';
 export {
   ToolErrorCollector,
   createToolErrorCollector,

@@ -29,6 +29,8 @@ import type { HandlerCtx } from './handler-utils';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { SpanStatusCode } from '@opentelemetry/api';
 import type {
   ChatRequest,
   ChatStreamChunk,
@@ -37,6 +39,18 @@ import { SandboxConfigBuilder } from '@modules/sandbox/SandboxConfigBuilder';
 import { eventNotificationService } from '@modules/chat/services/EventNotificationService';
 
 const logger = new Logger({ module: 'http:chat', level: LogLevel.INFO });
+
+// ── 模块级辅助函数 ────────────────────────────────────────────────
+
+/** P1-2: 安全 flush — 检查客户端是否已断开，避免 EPIPE 错误和资源浪费 */
+function safeFlush(r: http.ServerResponse): void {
+  if (r.destroyed || r.writableEnded) return;
+  try {
+    (r as unknown as { flush: () => void }).flush?.();
+  } catch {
+    // 客户端已断开，静默忽略
+  }
+}
 
 // ── 类型定义 ──────────────────────────────────────────────────────
 
@@ -262,6 +276,12 @@ async function handleStreamingChat(
     return;
   }
 
+  const otel = getOTelTracing();
+  const streamSpan = otel.startSpan('http:chat.stream', {
+    'session.id': request.session_id ?? '',
+    'model': request.model ?? 'default',
+  });
+
   res.writeHead(200, {
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache',
@@ -271,12 +291,23 @@ async function handleStreamingChat(
   });
 
   // 禁用响应缓冲，确保 SSE 数据立即发送
-  (res as unknown as { flush: () => void }).flush?.();
+  safeFlush(res);
 
   // 禁用 TCP Nagle 算法，防止小数据包被合并延迟
   if (res.socket) {
     res.socket.setNoDelay(true);
   }
+
+  // S1: 客户端断开时通知后端中止工具执行 — 补全 close → AbortController 链路
+  res.on('close', () => {
+    if (request.session_id) {
+      try {
+        getCoreAPI().chatManager?.abortSessionStream(request.session_id);
+      } catch {
+        // 静默处理 — coreAPI 可能尚未初始化
+      }
+    }
+  });
 
   const responseId = `chatcmpl-${randomUUID().slice(0, 8)}`;
   const created = Math.floor(Date.now() / 1000);
@@ -294,7 +325,7 @@ async function handleStreamingChat(
       ],
     })}\n\n`
   );
-  (res as unknown as { flush: () => void }).flush?.();
+  safeFlush(res);
 
   res.write(
     `data: ${JSON.stringify({
@@ -312,7 +343,7 @@ async function handleStreamingChat(
       ],
     })}\n\n`
   );
-  (res as unknown as { flush: () => void }).flush?.();
+  safeFlush(res);
 
   /** 生图完成事件 → SSE 转发（含结构化 resultData 用于前端渲染） */
   const onToolCompleted = (evt: { type: string; data: unknown }) => {
@@ -328,6 +359,8 @@ async function handleStreamingChat(
       d.toolName === 'video_display' ||
       d.toolName === 'audio_play'
     ) {
+      // P1-2: 检查客户端是否断开，避免 EPIPE
+      if (res.destroyed || res.writableEnded) return;
       res.write(
         `data: ${JSON.stringify({
           id: responseId,
@@ -348,6 +381,7 @@ async function handleStreamingChat(
           ],
         })}\n\n`
       );
+      safeFlush(res);
     }
   };
 
@@ -381,7 +415,7 @@ async function handleStreamingChat(
               watermarkState: event.watermarkState,
             })}\n\n`
           );
-          (res as unknown as { flush: () => void }).flush?.();
+          safeFlush(res);
         }
       },
     };
@@ -404,6 +438,13 @@ async function handleStreamingChat(
     let chunkFinishReason: string | undefined;
 
     while (!result.done) {
+      // P1-2: 客户端断开时立即停止流式输出，避免后续 res.write() 抛出 EPIPE
+      if (res.destroyed || res.writableEnded) {
+        logger.info('SSE 客户端已断开，停止流式输出', {
+          sessionId: request.session_id,
+        });
+        break;
+      }
       const chunk = result.value as ChatStreamChunk;
 
       switch (chunk.type) {
@@ -424,7 +465,7 @@ async function handleStreamingChat(
                 ],
               })}\n\n`
             );
-            (res as unknown as { flush: () => void }).flush?.();
+            safeFlush(res);
           }
           break;
         case 'thinking':
@@ -446,7 +487,7 @@ async function handleStreamingChat(
                 ],
               })}\n\n`
             );
-            (res as unknown as { flush: () => void }).flush?.();
+            safeFlush(res);
           }
           break;
         case 'error':
@@ -467,7 +508,7 @@ async function handleStreamingChat(
                 ],
               })}\n\n`
             );
-            (res as unknown as { flush: () => void }).flush?.();
+            safeFlush(res);
           }
           break;
         case 'tool_call':
@@ -501,7 +542,7 @@ async function handleStreamingChat(
                 ],
               })}\n\n`
             );
-            (res as unknown as { flush: () => void }).flush?.();
+            safeFlush(res);
           }
           break;
         case 'question':
@@ -524,7 +565,7 @@ async function handleStreamingChat(
                 ],
               })}\n\n`
             );
-            (res as unknown as { flush: () => void }).flush?.();
+            safeFlush(res);
           }
           break;
         case 'todo':
@@ -542,7 +583,7 @@ async function handleStreamingChat(
                 ],
               })}\n\n`
             );
-            (res as unknown as { flush: () => void }).flush?.();
+            safeFlush(res);
           }
           break;
         case 'done':
@@ -561,6 +602,11 @@ async function handleStreamingChat(
 
     // 发送 usage 和 done（使用捕获的 finishReason 而非硬编码 'stop'）
     const finalFinishReason = chunkFinishReason || 'stop';
+    if (res.destroyed || res.writableEnded) {
+      eventNotificationService.off('tool:completed', onToolCompleted);
+      otel.endSpan(streamSpan, SpanStatusCode.OK, 'client disconnected');
+      return;
+    }
     if (streamUsage) {
       res.write(
         `data: ${JSON.stringify({
@@ -580,7 +626,7 @@ async function handleStreamingChat(
           choices: [{ index: 0, delta: {}, finish_reason: finalFinishReason }],
         })}\n\n`
       );
-      (res as unknown as { flush: () => void }).flush?.();
+      safeFlush(res);
     } else {
       res.write(
         `data: ${JSON.stringify({
@@ -591,23 +637,28 @@ async function handleStreamingChat(
           choices: [{ index: 0, delta: {}, finish_reason: finalFinishReason }],
         })}\n\n`
       );
-      (res as unknown as { flush: () => void }).flush?.();
+      safeFlush(res);
     }
 
     res.write('data: [DONE]\n\n');
-    (res as unknown as { flush: () => void }).flush?.();
+    safeFlush(res);
     eventNotificationService.off('tool:completed', onToolCompleted);
     logger.info('Stream chat completed', {
       model,
       sessionId: request.session_id,
     });
+    otel.endSpan(streamSpan, SpanStatusCode.OK);
     res.end();
   } catch (err) {
     eventNotificationService.off('tool:completed', onToolCompleted);
+    otel.recordError(streamSpan, err instanceof Error ? err : new Error(String(err)));
+    otel.endSpan(streamSpan, SpanStatusCode.ERROR, String(err));
     await handleError(err, {
       module: 'infra:http',
       action: 'chat_stream_request',
     });
+    // P1-2: 若客户端已断开，不尝试写入
+    if (res.destroyed || res.writableEnded) return;
     res.write(
       `data: ${JSON.stringify({
         id: responseId,
@@ -625,10 +676,142 @@ async function handleStreamingChat(
         ],
       })}\n\n`
     );
-    (res as unknown as { flush: () => void }).flush?.();
+    safeFlush(res);
     res.write('data: [DONE]\n\n');
-    (res as unknown as { flush: () => void }).flush?.();
+    safeFlush(res);
     res.end();
+  }
+}
+
+/**
+ * GET /v1/sessions/:id/streaming — P1-5 会话流式状态查询
+ * 前端幽灵块检测用：30s 无 chunk 时 ping 此端点确认任务是否仍在执行
+ */
+export async function handleSessionStreamingStatus(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  sessionId: string
+): Promise<void> {
+  try {
+    const coreAPI = getCoreAPI();
+    const streaming = coreAPI.chatManager?.isSessionStreaming(sessionId) ?? false;
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ sessionId, streaming }));
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'session_streaming_status',
+    });
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Internal server error' }));
+  }
+}
+
+/**
+ * GET /v1/sessions/:id/checkpoints/latest — P2-1 获取最新检查点
+ * 断线重连时前端用此端点恢复任务状态
+ */
+export async function handleLatestCheckpoint(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  sessionId: string
+): Promise<void> {
+  try {
+    const coreAPI = getCoreAPI();
+    const messages = await coreAPI.chatManager?.getLatestCheckpointMessages(sessionId);
+    if (messages && messages.length > 0) {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ sessionId, checkpointAvailable: true, messages }));
+    } else {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ sessionId, checkpointAvailable: false, messages: [] }));
+    }
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'latest_checkpoint',
+    });
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Internal server error' }));
+  }
+}
+
+/**
+ * POST /v1/sessions/:id/resume — P2-1 从检查点恢复 SSE 流
+ * 前端重连时调用，重建 SSE 流从断点继续执行工具循环
+ */
+export async function handleResumeChat(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  const body = await ctx.readRequestBody(req);
+  let request: { session_id?: string; checkpoint_id?: string };
+  try {
+    request = JSON.parse(body);
+  } catch {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: { message: 'Invalid JSON' } }));
+    return;
+  }
+
+  const sessionId = request.session_id;
+  const checkpointId = request.checkpoint_id;
+  if (!sessionId || !checkpointId) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: { message: 'session_id and checkpoint_id are required' } }));
+    return;
+  }
+
+  // SSE 头（与 handleStreamingChat 一致）
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+    'Transfer-Encoding': 'chunked',
+  });
+
+  res.on('close', () => {
+    try {
+      getCoreAPI().chatManager?.abortSessionStream(sessionId);
+    } catch { /* 静默处理 */ }
+  });
+
+  try {
+    const coreAPI = getCoreAPI();
+    const generator = coreAPI.chatManager!.resumeStream(sessionId, checkpointId);
+
+    let result = await generator.next();
+    while (!result.done) {
+      if (res.destroyed || res.writableEnded) break;
+
+      const chunk = result.value;
+      const data = typeof chunk === 'string'
+        ? JSON.stringify({ __pyapp_type: 'text', choices: [{ delta: { content: chunk } }] })
+        : JSON.stringify({ ...(chunk as unknown as Record<string, unknown>), __pyapp_type: (chunk as unknown as Record<string, unknown>).type });
+
+      res.write(`data: ${data}\n\n`);
+      safeFlush(res);
+      result = await generator.next();
+    }
+
+    if (!res.destroyed && !res.writableEnded) {
+      res.write('data: [DONE]\n\n');
+      safeFlush(res);
+    }
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'resume_chat' });
+    if (!res.destroyed && !res.writableEnded) {
+      res.write(`data: ${JSON.stringify({ __pyapp_type: 'error', content: '恢复失败' })}\n\n`);
+      safeFlush(res);
+    }
+  } finally {
+    if (!res.destroyed && !res.writableEnded) {
+      res.end();
+    }
   }
 }
 

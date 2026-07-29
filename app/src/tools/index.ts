@@ -205,6 +205,18 @@ export * from './guardrails';
 export * from './web';
 export * from './version';
 
+// P2-1: 智能审批 — 低风险命令自动批准
+export { SmartApprovalObserver } from './SmartApprovalObserver';
+export type { ApprovalResult, ApprovalDecision } from './SmartApprovalObserver';
+
+// P2-3: Schema 净化 — Ollama/llama.cpp GBNF 兼容
+export { sanitizeSchema } from './SchemaSanitizer';
+export type { SanitizeOptions, SanitizeResult } from './SchemaSanitizer';
+
+// P3-3: Bash 命令 allowlist 前缀匹配防注入
+export { checkBashAllowlist, isReadOnlyBashCommand } from './BashAllowlistMatcher';
+export type { AllowlistResult } from './BashAllowlistMatcher';
+
 /**
  * 使用 feature() 控制可选工具的条件加载
  */
@@ -215,6 +227,7 @@ export function getTools(): any[] {
     tools.push('CronCreateTool');
     tools.push('CronDeleteTool');
     tools.push('CronListTool');
+    tools.push('CronStopTool');
   }
 
   if (feature('AGENT_TRIGGERS_REMOTE')) {
@@ -253,3 +266,26 @@ export default {
   ToolMonitor: globalToolMonitor,
   version: TOOL_SYSTEM_VERSION,
 };
+
+// P3-4: MCP 工具分类白名单导出
+export {
+  classifyMcpTool,
+  isCollapsibleMcpTool,
+  groupMcpToolsByService,
+} from './MCPToolClassifier';
+
+// P2-11: JSON 自纠正导出
+export {
+  ToolInputSelfCorrector,
+  getToolInputSelfCorrector,
+  classifyJsonError,
+} from './ToolInputSelfCorrector';
+export type { CorrectionConfig, CorrectionResult, CorrectionAttempt } from './ToolInputSelfCorrector';
+
+// P2-2: 工具参数类型强制
+export { coerceToolArgs, tryCoerceToolArgs } from './ToolArgCoercer';
+export type { ToolSchema, ToolProperty, CoerceResult, CoerceChange } from './ToolArgCoercer';
+
+// P1-11: Few-shot 示例管理
+export { BUILTIN_EXAMPLES, renderFewShotPrompt, findFewShotEntry, getFewShotToolNames } from './FewShotRegistry';
+export type { ToolExample, FewShotEntry } from './FewShotRegistry';

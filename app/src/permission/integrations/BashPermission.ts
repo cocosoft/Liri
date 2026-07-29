@@ -115,34 +115,19 @@ export class BashPermission {
       }
     }
 
-    // 检查路径操作
-    if (
-      command.includes('cd') ||
-      command.includes('pwd') ||
-      command.includes('ls')
-    ) {
-      return createAllowDecision('Safe path operation');
+    // P2-1: 智能审批 — 使用 SmartApprovalObserver 自动批准低风险命令
+    const { SmartApprovalObserver } = require('@modules/tools/SmartApprovalObserver');
+    const observer = new SmartApprovalObserver();
+    const approvalResult = observer.evaluate(command);
+
+    if (approvalResult.decision === 'auto_deny') {
+      return createDenyDecision(approvalResult.reason);
+    }
+    if (approvalResult.decision === 'auto_allow') {
+      return createAllowDecision(approvalResult.reason);
     }
 
-    // 检查文件操作
-    if (
-      command.includes('cat') ||
-      command.includes('echo') ||
-      command.includes('touch')
-    ) {
-      return createAllowDecision('Safe file operation');
-    }
-
-    // 检查其他安全命令
-    if (
-      command.match(
-        /^\s*(echo|cat|ls|pwd|cd|mkdir|rmdir|find|grep|sed|awk|sort|uniq|cut|paste|tr|head|tail|wc|du|df)\s/
-      )
-    ) {
-      return createAllowDecision('Safe command');
-    }
-
-    // 默认返回询问
-    return createAskDecision('Unknown command, requiring user approval');
+    // 需要人工审核或未匹配 → 默认询问
+    return createAskDecision(approvalResult.reason || 'Unknown command, requiring user approval');
   }
 }

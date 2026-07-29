@@ -186,6 +186,10 @@ export function getBuiltinToolLoaders(): ToolLoader[] {
       createToolLoader(ToolFactory.prototype.createCronListTool)
     ),
     conditionalTool(
+      coreFeature('AGENT_TRIGGERS'),
+      createToolLoader(ToolFactory.prototype.createCronStopTool)
+    ),
+    conditionalTool(
       coreFeature('AGENT_TRIGGERS_REMOTE'),
       createToolLoader(ToolFactory.prototype.createRemoteTriggerTool)
     ),

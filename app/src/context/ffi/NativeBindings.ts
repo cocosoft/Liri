@@ -235,34 +235,29 @@ function tsEstimateTokens(messagesJson: string): number {
   }
 }
 
-/** 估算单段文本的 token 数（CJK 感知） */
+/** 估算单段文本的 token 数（CJK 感知）。
+ * P1-13: 算法收敛到 TokenEstimator.estimateTokens() — CJK×1.5 + 非CJK×0.25, 英文 words×1.3 + chars×0.05。 */
 function estimateTextTokens(text: string): number {
-  let cjkChars = 0;
-  let otherChars = 0;
+  if (!text) return 0;
 
-  for (const ch of text) {
-    if (isCJK(ch)) {
-      cjkChars++;
-    } else {
-      otherChars++;
-    }
+  const CJK_REGEX = /[\u4e00-\u9fff\u3400-\u4dbf\u{20000}-\u{2a6df}\uf900-\ufaff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/gu;
+  const cjkMatches = text.match(CJK_REGEX);
+  const cjkCount = cjkMatches ? cjkMatches.length : 0;
+  const totalChars = text.length;
+
+  if (cjkCount === 0) {
+    return Math.ceil(totalChars / 4);
   }
 
-  // CJK: ~1.5 tokens/char, 其他: chars/4
-  return Math.floor(cjkChars * 1.5) + Math.floor(otherChars / 4);
-}
+  const cjkRatio = cjkCount / totalChars;
+  if (cjkRatio > 0.3) {
+    const nonCjk = totalChars - cjkCount;
+    const words = text.split(/\s+/).filter(Boolean);
+    return Math.ceil(cjkCount * 1.5 + nonCjk * 0.25) + Math.min(words.length, 5);
+  }
 
-function isCJK(ch: string): boolean {
-  const code = ch.codePointAt(0);
-  if (code == null) return false;
-  return (
-    (code >= 0x4e00 && code <= 0x9fff) || // CJK Unified
-    (code >= 0x3400 && code <= 0x4dbf) || // CJK Ext-A
-    (code >= 0x20000 && code <= 0x2a6df) || // CJK Ext-B
-    (code >= 0x3040 && code <= 0x309f) || // Hiragana
-    (code >= 0x30a0 && code <= 0x30ff) || // Katakana
-    (code >= 0xac00 && code <= 0xd7af) // Hangul
-  );
+  const words = text.split(/\s+/).filter(Boolean);
+  return Math.ceil(words.length * 1.3 + totalChars * 0.05);
 }
 
 // ============================================================

@@ -118,6 +118,8 @@ export interface MessageSlice {
   abortController: AbortController | null;
   /** 消息队列：流式输出中用户发送的新消息（放开输入限制后使用） */
   messageQueue: Array<{ content: string; sessionId?: string }>;
+  /** P2-6: 中止恢复提示 — 上次任务被中止，有可恢复的检查点 */
+  recoverySessionId: string | null;
 
   addMessage: (message: Message) => void;
   sendMessage: (content: string, sessionId?: string) => Promise<void>;
@@ -155,6 +157,10 @@ export interface MessageSlice {
   rollbackSnapshot: Message[] | null;
   /** 撤销最近一次回退（恢复快照中的消息） */
   restoreRollback: () => void;
+  /** P2-6: 检查是否有可恢复的中止检查点 */
+  checkAbortRecovery: (sessionId: string) => Promise<boolean>;
+  /** P2-6: 关闭恢复提示 */
+  dismissRecovery: () => void;
 }
 
 /**
@@ -180,12 +186,23 @@ export const createMessageSlice: StateCreator<
   messageQueue: [],
   rollbackSnapshot: null,
   hasPendingQuestion: false,
+  recoverySessionId: null,
 
   addMessage: (message: Message) => {
     set({ messages: [...get().messages, message] });
   },
 
   sendMessage: async (content: string, sessionId?: string) => {
+    // P2-6: 检查是否有可恢复的中止检查点
+    const state = get();
+    const currentSid = sessionId ?? state.messages[0]?.session_id ?? "";
+    if (currentSid) {
+      const hasRecovery = await get().checkAbortRecovery(currentSid);
+      if (hasRecovery) {
+        return; // 等待用户确认恢复或拒绝
+      }
+    }
+
     // 消息排队模式：流式输出中不阻塞，加入队列
     const messageQueueEnabled =
       useFeatureFlagStore.getState().flags.message_queue;
@@ -195,8 +212,6 @@ export const createMessageSlice: StateCreator<
     }
 
     // 标记当前 session 缓存为 stale（发送新消息后缓存将过期）
-    const state = get();
-    const currentSid = sessionId ?? state.messages[0]?.session_id ?? "";
     if (currentSid) staleSessionCache(currentSid);
 
     set({ isSending: true, isInputBlocked: !messageQueueEnabled, error: null });
@@ -500,14 +515,55 @@ export const createMessageSlice: StateCreator<
     };
 
     try {
-      const generator = chatService.streamMessage(
-        content,
-        sessionId,
-        abortController.signal,
-        { workMode, images: attachedImages },
-      );
+      // P2-2: 有 sessionId 时使用带自动重连的流式发送
+      const generator = sessionId
+        ? chatService.streamMessageWithReconnect(
+            content,
+            sessionId,
+            abortController.signal,
+            { workMode, images: attachedImages },
+          )
+        : chatService.streamMessage(
+            content,
+            sessionId,
+            abortController.signal,
+            { workMode, images: attachedImages },
+          );
       const blockBuilder = new ChronologicalBlockBuilder();
       const extractor = createThinkExtractor();
+
+      // P1-5: 幽灵块检测 — 超过 30s 无 chunk 时 ping 后端确认任务是否仍在执行
+      let lastChunkTime = Date.now();
+      const ghostCheckTimer = setInterval(async () => {
+        if (abortController.signal.aborted) {
+          clearInterval(ghostCheckTimer);
+          return;
+        }
+        if (Date.now() - lastChunkTime < 30000) return;
+
+        // 30s 无 chunk：ping 后端确认会话状态
+        try {
+          const base = await import("../../services/backendUrl").then((m) =>
+            m.getBackendBaseUrl(),
+          );
+          const resp = await fetch(
+            `${base}/v1/sessions/${sessionId || "default"}/streaming`,
+          );
+          if (resp.ok) {
+            const status = await resp.json();
+            if (!status.streaming) {
+              logger.warn(
+                "幽灵块检测：后端报告会话流已结束，但前端仍在等待 chunk",
+                { sessionId },
+              );
+              clearInterval(ghostCheckTimer);
+              abortController.abort();
+            }
+          }
+        } catch {
+          // ping 失败静默处理，不干扰主流程
+        }
+      }, 10000);
 
       for await (const rawChunk of generator) {
         // 检查是否已被中止
@@ -529,6 +585,8 @@ export const createMessageSlice: StateCreator<
       async function processChunk(
         chunk: import("../../services/chatService").StreamChunk,
       ) {
+        // P1-5: 每次收到 chunk 时更新时间戳
+        lastChunkTime = Date.now();
         const current = get().messages;
         const msgIdx = current.findIndex((m) => m.id === assistantId);
 
@@ -556,6 +614,11 @@ export const createMessageSlice: StateCreator<
           };
         } else if (chunk.type === "status") {
           blockBuilder.addStatus(chunk.content);
+          set({ streamingStatus: chunk.content });
+          updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+        } else if (chunk.type === "reconnect_status") {
+          // P2-2: 重连状态提示
+          blockBuilder.addStatus(`🔄 ${chunk.content}`);
           set({ streamingStatus: chunk.content });
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === "context_state") {
@@ -809,11 +872,35 @@ export const createMessageSlice: StateCreator<
         clearTimeout(saveBlocksTimer);
         saveBlocksTimer = null;
       }
+      // P1-5: 清除幽灵块检测定时器
+      clearInterval(ghostCheckTimer);
       setHasPendingSave(false);
       await flushSaveBlocksLocal();
 
       // 流结束，冻结所有块
       blockBuilder.freezeAll();
+
+      // P3-1: 流完整性检查 — 检测未完成的 tool_call 块，标记中断状态
+      const unfrozenBlocks = blockBuilder.getBlocks();
+      const incompleteToolCalls = unfrozenBlocks.filter(
+        (b) =>
+          b.type === "tool_call" &&
+          b.toolCall?.status === "running",
+      );
+      if (incompleteToolCalls.length > 0) {
+        const names = incompleteToolCalls
+          .map((b) => b.toolCall?.name)
+          .filter(Boolean)
+          .join("、");
+        blockBuilder.addStatus(
+          `⚠️ 任务中断：以下工具未完成 — ${names || `${incompleteToolCalls.length} 个工具`}`,
+        );
+        logger.warn("流完整性检查：发现未完成的 tool_call", {
+          count: incompleteToolCalls.length,
+          names,
+        });
+      }
+
       const finalBlocks = blockBuilder.getBlocks();
 
       // 版本号递增：使 pending 的 rAF flushSet 全部失效，
@@ -905,6 +992,29 @@ export const createMessageSlice: StateCreator<
         { module: "stores:chat:message", action: "streamMessage" },
         "warn",
       );
+      // P2-2: 断线重连 — 非用户取消的中断尝试从检查点恢复消息
+      if (!abortController.signal.aborted && sessionId) {
+        try {
+          const base = await import("../../services/backendUrl").then((m) =>
+            m.getBackendBaseUrl(),
+          );
+          const resp = await fetch(
+            `${base}/v1/sessions/${sessionId}/checkpoints/latest`,
+          );
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data.checkpointAvailable && data.messages?.length > 0) {
+              logger.info("从检查点恢复消息", {
+                sessionId,
+                messageCount: data.messages.length,
+              });
+              set({ messages: data.messages });
+            }
+          }
+        } catch {
+          // 检查点恢复失败静默处理
+        }
+      }
       if (!abortController.signal.aborted) {
         set({
           error: String(error),
@@ -1112,6 +1222,28 @@ export const createMessageSlice: StateCreator<
   stopMessage: () => {
     const controller = get().abortController;
     if (controller) {
+      // P2-6: 保存中止恢复点（fire-and-forget，不阻塞 UI）
+      const state = get();
+      const sessionId = state.messages[0]?.session_id ?? "";
+      if (sessionId) {
+        const assistantMsg = [...state.messages].reverse().find(
+          (m) => m.role === 'assistant'
+        );
+        if (assistantMsg) {
+          import('../../services/backendUrl').then(({ getBackendBaseUrl }) => {
+            fetch(`${getBackendBaseUrl()}/v1/sessions/${sessionId}/checkpoints/latest`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                label: `abort_${Date.now()}`,
+                autoCreated: true,
+                metadata: { abortRecovery: true },
+              }),
+            }).catch(() => {});
+          });
+        }
+      }
+
       controller.abort();
       set({
         isStreaming: false,
@@ -1266,6 +1398,44 @@ export const createMessageSlice: StateCreator<
   },
 
   /**
+   * P2-6: 检查是否有可恢复的中止检查点
+   * 如果存在 abortRecovery 检查点，设置 recoverySessionId 以触发 UI 提示
+   * @returns true 如果有待恢复的检查点（调用方应停止发送并等待用户确认）
+   */
+  checkAbortRecovery: async (sessionId: string): Promise<boolean> => {
+    try {
+      const base = await import("../../services/backendUrl").then((m) =>
+        m.getBackendBaseUrl()
+      );
+      const resp = await fetch(
+        `${base}/v1/sessions/${sessionId}/checkpoints/latest`
+      );
+      if (!resp.ok) return false;
+      const data = await resp.json();
+      if (data?.metadata?.abortRecovery) {
+        set({ recoverySessionId: sessionId });
+        return true;
+      }
+    } catch {
+      // 检查点查询失败静默处理
+    }
+    return false;
+  },
+
+  /** P2-6: 关闭恢复提示并清理 abortRecovery 标记 */
+  dismissRecovery: () => {
+    const sid = get().recoverySessionId;
+    set({ recoverySessionId: null });
+    if (sid) {
+      import("../../services/backendUrl").then(({ getBackendBaseUrl }) => {
+        fetch(`${getBackendBaseUrl()}/v1/sessions/${sid}/checkpoints/latest`, {
+          method: "DELETE",
+        }).catch(() => {});
+      });
+    }
+  },
+
+  /**
    * 加载历史消息时为 assistant 消息重建 blocks 结构
    * 确保 AssistantMessage 组件能正确分组渲染（text / tool_call 等）
    * 如果后端已保存 blocks，则直接使用，否则自动重建
@@ -1289,7 +1459,7 @@ export const createMessageSlice: StateCreator<
       (c, m) => c + (typeof m.content === "string" ? m.content.length : 0),
       0,
     );
-    console.info("[Diag:setMsg] ═══ 开始处理消息", {
+    logger.info("[Diag:setMsg] ═══ 开始处理消息", {
       count: messages.length,
       totalBlocks: inputBlocks,
       totalChars: inputChars,
@@ -1323,7 +1493,7 @@ export const createMessageSlice: StateCreator<
           filteredMessages.push(msg);
         }
       }
-      console.info("[Diag:setMsg] Phase1 过滤tool消息", {
+      logger.info("[Diag:setMsg] Phase1 过滤tool消息", {
         ms: (performance.now() - tP1).toFixed(1),
         toolResults: toolResultsByCallId.size,
         remaining: filteredMessages.length,
@@ -1365,7 +1535,7 @@ export const createMessageSlice: StateCreator<
           mergedMessages.push({ ...msg });
         }
       }
-      console.info("[Diag:setMsg] Phase2 合并assistant消息", {
+      logger.info("[Diag:setMsg] Phase2 合并assistant消息", {
         ms: (performance.now() - tP2).toFixed(1),
         merged: mergedCount,
         resultCount: mergedMessages.length,
@@ -1431,7 +1601,7 @@ export const createMessageSlice: StateCreator<
         (c, m) => c + (Array.isArray(m.blocks) ? m.blocks.length : 0),
         0,
       );
-      console.info("[Diag:setMsg] Phase3 重建blocks+合并工具结果", {
+      logger.info("[Diag:setMsg] Phase3 重建blocks+合并工具结果", {
         ms: (performance.now() - tP3).toFixed(1),
         outputBlocks: outBlocks,
       });
@@ -1457,7 +1627,7 @@ export const createMessageSlice: StateCreator<
           );
         }
       }
-      console.info("[Diag:setMsg] Phase4 提取文件路径", {
+      logger.info("[Diag:setMsg] Phase4 提取文件路径", {
         ms: (performance.now() - tP4).toFixed(1),
         filesFound: sessionFilesList.length,
       });
@@ -1504,11 +1674,11 @@ export const createMessageSlice: StateCreator<
         setHasPendingSave(true);
         _pendingSwitchChunks = [];
       }
-      console.info("[Diag:setMsg] ✅ 处理完成", {
+      logger.info("[Diag:setMsg] ✅ 处理完成", {
         totalMs: (performance.now() - t0).toFixed(1),
       });
     } catch (e) {
-      console.error("[Diag:setMsg] ❌ 处理失败", {
+      logger.error("[Diag:setMsg] ❌ 处理失败", {
         error: String(e),
         totalMs: (performance.now() - t0).toFixed(1),
       });

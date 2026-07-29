@@ -178,6 +178,18 @@ export class SubAgentEngine {
 
     this.activeAgents.set(agentId, { abortController, startTime });
 
+    // P2-13: 注册子代理到事件泵（500ms 轮询 + 2s 心跳）
+    let eventPumpStarted = false;
+    try {
+      const { getSubAgentEventPump } = await import('../../subagents/SubAgentEventPump');
+      const pump = getSubAgentEventPump();
+      pump.register(agentId);
+      if (!pump['pollTimer']) pump.start();
+      eventPumpStarted = true;
+    } catch {
+      // event pump 不可用不阻断
+    }
+
     // 整体超时保护：超时后自动 abort，防止子代理永久挂起
     const timeoutMs = this.config.timeoutMs;
     const timeoutTimer = setTimeout(() => {
@@ -315,6 +327,13 @@ export class SubAgentEngine {
             if (abortController.signal.aborted) break;
 
             toolCallCount++;
+            // P2-13: 心跳刷新 — 每次工具调用后更新心跳
+            if (eventPumpStarted) {
+              try {
+                const { getSubAgentEventPump } = await import('../../subagents/SubAgentEventPump');
+                getSubAgentEventPump().heartbeat(agentId, toolCallCount);
+              } catch { /* ignore */ }
+            }
             // 发射工具调用开始事件
             safePublish(AgentEventType.TOOL_CALL_START, {
               agentId,
@@ -401,6 +420,15 @@ export class SubAgentEngine {
           });
 
           otel.endSpan(execSpan, SpanStatusCode.OK);
+
+          // P2-13: 子代理完成 — 通知事件泵
+          if (eventPumpStarted) {
+            try {
+              const { getSubAgentEventPump } = await import('../../subagents/SubAgentEventPump');
+              getSubAgentEventPump().complete(agentId);
+            } catch { /* ignore */ }
+          }
+
           return {
             agentId,
             completed: true,
@@ -446,6 +474,14 @@ export class SubAgentEngine {
     } catch (error) {
       clearTimeout(timeoutTimer);
       this.activeAgents.delete(agentId);
+
+      // P2-13: 子代理失败 — 通知事件泵
+      if (eventPumpStarted) {
+        try {
+          const { getSubAgentEventPump } = await import('../../subagents/SubAgentEventPump');
+          getSubAgentEventPump().fail(agentId);
+        } catch { /* ignore */ }
+      }
 
       const errorMessage =
         error instanceof Error ? error.message : String(error);

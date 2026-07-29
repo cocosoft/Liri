@@ -27,3 +27,9 @@ export type {
   ExternalMemoryEntry,
   MemoryQuery,
 } from './ExternalMemoryProvider';
+
+// P1-4: 外部记忆提供商
+export { HonchoMemoryProvider } from './HonchoMemoryProvider';
+export type { HonchoConfig } from './HonchoMemoryProvider';
+export { Mem0MemoryProvider } from './Mem0MemoryProvider';
+export type { Mem0Config } from './Mem0MemoryProvider';

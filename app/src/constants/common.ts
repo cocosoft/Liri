@@ -36,7 +36,7 @@ export const MAX_FILE_SIZE = 10 * 1024 * 1024;
 export const MAX_PATH_LENGTH = 4096;
 export const MAX_FILENAME_LENGTH = 255;
 
-export const TOKEN_ENCODING = 'cl100k_base';
+export const TOKEN_ENCODING = 'o200k_base'; // P1-13: upgraded from cl100k_base
 export const DEFAULT_MODEL = '';
 export const DEFAULT_MAX_TOKENS = 4096;
 

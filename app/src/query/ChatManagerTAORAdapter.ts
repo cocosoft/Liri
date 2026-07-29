@@ -13,6 +13,7 @@ import type { ToolCall, ToolResult } from '../chat/types/tool.js';
 import type { ChatMessage } from '../ai/models/types';
 import type { TAORLoopDeps, TAORLoopResult } from './TAORLoop.js';
 import { createTAORLoopDeps } from './TAORLoop.js';
+import { CascadeAbortManager } from './CascadeAbortManager.js';
 
 const logger = new Logger({ module: 'query:chatManagerTAORAdapter' });
 
@@ -88,6 +89,9 @@ export interface ChatManagerTAORContext {
 export function createChatManagerTAORDeps(
   ctx: ChatManagerTAORContext
 ): TAORLoopDeps {
+  // P1-5: 级联中止管理器 — Bash/写操作错误 → 中止本轮所有兄弟工具
+  const cascadeManager = new CascadeAbortManager();
+
   return createTAORLoopDeps({
     // ── callModel：将非流式 LLM 调用包装为 AsyncGenerator ──
     callModel: async function* (messages: ChatMessage[], _signal: AbortSignal) {
@@ -125,7 +129,7 @@ export function createChatManagerTAORDeps(
         name: string;
         arguments: Record<string, unknown>;
       }>,
-      _signal: AbortSignal
+      taorSignal: AbortSignal
     ) => {
       const results: Array<{
         toolCallId?: string;
@@ -134,7 +138,45 @@ export function createChatManagerTAORDeps(
         error?: string;
       }> = [];
 
+      // P1-5: 级联中止 — 启动新一轮，创建 cascade controller
+      const cascadeController = cascadeManager.startRound();
+      // 合并 TAORLoop 和 cascade 两个 signal
+      const combinedSignal = AbortSignal.any([taorSignal, cascadeController.signal]);
+
+      // P1-5: 遍历前检查是否已被中止
+      if (combinedSignal.aborted) {
+        for (const tc of toolCalls) {
+          results.push({
+            toolCallId: tc.id,
+            toolName: tc.name,
+            error: 'Aborted: cascade abort triggered by sibling tool failure',
+          });
+        }
+        return results;
+      }
+
+      const onAbort = new Promise<never>((_, reject) => {
+        const handler = () => {
+          reject(new DOMException('Aborted by cascade abort', 'AbortError'));
+        };
+        if (combinedSignal.aborted) {
+          handler();
+        } else {
+          combinedSignal.addEventListener('abort', handler, { once: true });
+        }
+      });
+
       for (const tc of toolCalls) {
+        // P1-5: 每个工具启动前检查中止信号
+        if (combinedSignal.aborted) {
+          results.push({
+            toolCallId: tc.id,
+            toolName: tc.name,
+            error: 'Skipped: cascade abort triggered',
+          });
+          continue;
+        }
+
         ctx.onProgress?.({
           stage: 'tool_executing',
           message: `正在执行 ${tc.name}...`,
@@ -149,7 +191,9 @@ export function createChatManagerTAORDeps(
         );
 
         try {
-          const toolResult = await ctx.executeTool(
+          // P1-5: Promise.race 使工具执行可被 AbortSignal 中断
+          // P3-12: coerce_tool_args 类型强制由 ToolExecutor.execute() 统一处理，TAORLoop 路径通过 executeTool 委托 ToolManager 间接覆盖
+          const executePromise = ctx.executeTool(
             {
               id: tc.id,
               name: tc.name,
@@ -158,6 +202,12 @@ export function createChatManagerTAORDeps(
             },
             { useErrorHandler: true }
           );
+
+          const toolResult = await Promise.race([executePromise, onAbort]);
+
+          // P1-5: 报告结果给 CascadeAbortManager — Bash/写错误触发级联中止
+          const hasError = !!toolResult.error;
+          cascadeManager.reportResult(tc.name, !hasError, toolResult.error);
 
           const resultDetail = toolResult.error
             ? `失败: ${toolResult.error.slice(0, 200)}`
@@ -173,6 +223,13 @@ export function createChatManagerTAORDeps(
           });
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : String(err);
+
+          // P1-5: 异常也报告给 CascadeAbortManager
+          if (err instanceof DOMException && err.name === 'AbortError') {
+            // 已被 cascade 中止，不需要再次报告
+          } else {
+            cascadeManager.reportResult(tc.name, false, errMsg);
+          }
           ctx.onToolCall?.(
             'end',
             tc.name,

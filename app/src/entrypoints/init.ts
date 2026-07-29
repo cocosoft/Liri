@@ -638,6 +638,39 @@ async function startDeferredPrefetches(): Promise<void> {
         }
       })(),
 
+      // P3-9: 自动记忆心跳 — 定期触发记忆老化检查与整合
+      (async () => {
+        try {
+          const { AutoMemoryHeartbeat } =
+            await import('../memory/AutoMemoryHeartbeat.js');
+          const { startAutoArchive, stopAutoArchive } =
+            await import('../memory/utils/MemoryAgeManager.js');
+          const heartbeat = new AutoMemoryHeartbeat(async (action) => {
+            try {
+              switch (action.type) {
+                case 'memory_age':
+                  startAutoArchive();
+                  return true;
+                case 'dream':
+                  // 记忆整合 — 当前为空操作，后续可接入 MemoryConsolidator
+                  return true;
+                default:
+                  return false;
+              }
+            } catch {
+              return false;
+            }
+          });
+          heartbeat.start();
+          registerShutdownHandler(() => {
+            heartbeat.stop();
+            stopAutoArchive();
+          });
+        } catch {
+          // 心跳初始化失败不阻塞启动
+        }
+      })(),
+
       // 注册知识库查询提供者（HybridKnowledgeRouter → KnowledgeSummarizer → KnowledgeQueryProvider 适配）
       (async () => {
         try {

@@ -8,6 +8,8 @@
  * 当原生库不可用时自动降级为TypeScript模式匹配
  */
 
+import { checkBashAllowlist } from '../tools/BashAllowlistMatcher';
+
 let nativeAnalyzeSave: ((command: string) => object | null) | null = null;
 
 function lazyInitNative() {
@@ -258,6 +260,17 @@ export class BashSecurityAnalyzer {
         behavior: 'allow',
         riskLevel: 'low',
         matchedPatterns: [],
+      };
+    }
+
+    // P3-3: allowlist 前缀匹配 — 仅放行已知安全命令，拒绝含 shell operator 的命令
+    const allowlistCheck = checkBashAllowlist(trimmedCommand);
+    if (!allowlistCheck.safe) {
+      return {
+        safe: false,
+        behavior: 'deny',
+        riskLevel: 'high',
+        matchedPatterns: [`Bash allowlist rejected: ${allowlistCheck.reason}`],
       };
     }
 

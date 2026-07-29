@@ -260,6 +260,8 @@ export class LocalBashTask extends BaseTask {
         this.stdoutBuffer += output;
         this.outputStream?.write(output);
         this.emit('output', { type: 'stdout', data: output });
+        // P2-8: 逐行馈入 WatchdogBridge 检测异常模式
+        this.feedWatchdog(output);
       });
 
       this.subprocess.stderr?.on('data', (data: Buffer) => {
@@ -267,6 +269,8 @@ export class LocalBashTask extends BaseTask {
         this.stderrBuffer += output;
         this.outputStream?.write(output);
         this.emit('output', { type: 'stderr', data: output });
+        // P2-8: 逐行馈入 WatchdogBridge 检测异常模式
+        this.feedWatchdog(output);
       });
 
       const cleanup = () => {
@@ -335,6 +339,24 @@ export class LocalBashTask extends BaseTask {
         this.startStallWatchdog();
       }
     });
+  }
+
+  /**
+   * P2-8: 逐行馈入 WatchdogBridge 检测异常模式（OOM/磁盘满/认证失败/限流/断连）
+   */
+  private feedWatchdog(output: string): void {
+    const lines = output.split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      import('./watchdog/WatchdogBridge')
+        .then(({ getWatchdogBridge }) => {
+          getWatchdogBridge().feed(trimmed);
+        })
+        .catch(() => {
+          // watchdog feed 失败不阻断主流程
+        });
+    }
   }
 
   async kill(): Promise<void> {

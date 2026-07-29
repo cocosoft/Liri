@@ -57,6 +57,9 @@ import { setupInfrastructureDiagnostics } from '@modules/diagnostics/infrastruct
 import {
   handleChatCompletions,
   handleQuestionAnswer,
+  handleSessionStreamingStatus,
+  handleLatestCheckpoint,
+  handleResumeChat,
 } from './handlers/chat-handlers';
 import {
   handleFileRegistryList,
@@ -370,6 +373,16 @@ export class LocalHTTPService {
     this.server.timeout = 0; // 禁用请求超时，支持长时间 SSE 流
     this.server.keepAliveTimeout = 60000 * 5; // 5分钟
     this.server.headersTimeout = 60000 * 6; // 6分钟（必须大于 keepAliveTimeout）
+
+    // P3-2: 超时事件监听 — 审计用。虽 server.timeout=0，但 socket 层仍可能触发
+    this.server.on('timeout', (socket) => {
+      logger.warn('HTTP socket 超时事件触发', {
+        remoteAddress: socket.remoteAddress,
+        remotePort: socket.remotePort,
+        localPort: (socket as unknown as { localPort?: number }).localPort,
+      });
+      // 不销毁 socket — timeout=0 时不应用，但监听可防止默认销毁行为
+    });
 
     return new Promise((resolve, reject) => {
       this.server!.listen(this.config.port, this.config.host, () => {
@@ -700,6 +713,32 @@ export class LocalHTTPService {
     sessionId: string
   ): Promise<void> {
     return handleGetSession(this._handlerCtx, req, res, sessionId);
+  }
+
+  /** P1-5: 会话流式状态查询 — 前端幽灵块检测用 */
+  private async handleSessionStreamingStatus(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sessionId: string
+  ): Promise<void> {
+    return handleSessionStreamingStatus(this._handlerCtx, req, res, sessionId);
+  }
+
+  /** P2-1: 最新检查点查询 — 前端断线重连用 */
+  private async handleLatestCheckpoint(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sessionId: string
+  ): Promise<void> {
+    return handleLatestCheckpoint(this._handlerCtx, req, res, sessionId);
+  }
+
+  /** P2-1: 从检查点恢复 SSE 流 — 前端断线重连用 */
+  private async handleResumeChat(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleResumeChat(this._handlerCtx, req, res);
   }
 
   private async handleGetSessionMessages(

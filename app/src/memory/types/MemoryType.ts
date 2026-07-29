@@ -8,6 +8,10 @@ export enum MemoryType {
   PROJECT_KNOWLEDGE = 'project_knowledge',
   CODE_PATTERN = 'code_pattern',
   DECISION = 'decision',
+  /** P2-5: 用户反馈 — 用户对 Agent 输出的评价 */
+  FEEDBACK = 'feedback',
+  /** P2-5: 参考材料 — 外部文档、URL、数据源摘要 */
+  REFERENCE = 'reference',
 }
 
 /**
@@ -38,6 +42,14 @@ const MEMORY_TYPE_SEMANTICS: Record<MemoryType, MemoryTypeSemantics> = {
   [MemoryType.DECISION]: {
     whenToSave: '技术决策 — 包含理由的重大架构或技术选择',
     howToUse: '在类似场景中复用决策理由，避免重复讨论',
+  },
+  [MemoryType.FEEDBACK]: {
+    whenToSave: '用户反馈 — 用户对 Agent 输出的评价、纠正、偏好表达',
+    howToUse: '在后续回复中参考用户反馈，改进输出质量和风格',
+  },
+  [MemoryType.REFERENCE]: {
+    whenToSave: '参考材料 — 外部文档链接、数据源摘要、API 文档片段',
+    howToUse: '在需要时引用参考材料作为权威信息来源',
   },
 };
 
@@ -78,6 +90,31 @@ export function isValidMemoryType(type: string): type is MemoryType {
     ...customTypeRegistry.keys(),
   ]);
   return registered.has(type as MemoryType);
+}
+
+/**
+ * P2-5: 为记忆类型生成 XML 格式模板
+ * 对标 hermes-agent memory XML format
+ */
+export function renderMemoryXMLTemplate(type: MemoryType, content: string): string {
+  const semantics = MEMORY_TYPE_SEMANTICS[type];
+  if (!semantics) return content;
+
+  return [
+    `<memory type="${type}">`,
+    `  <content>${escapeXml(content)}</content>`,
+    `  <save_rule>${escapeXml(semantics.whenToSave)}</save_rule>`,
+    `  <use_rule>${escapeXml(semantics.howToUse)}</use_rule>`,
+    `</memory>`,
+  ].join('\n');
+}
+
+function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 /**

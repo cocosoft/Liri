@@ -1,6 +1,6 @@
 # 前后端接口清单
 
-> **版本**: 2.1.0 | **更新**: 2026-06-12 | **状态**: 持续维护
+> **版本**: 2.2.0 | **更新**: 2026-07-28 | **状态**: 持续维护
 >
 > 本文档是前后端通信的**唯一事实来源**。涉及前后端通信的开发、测试、调试场景时，**必须先查阅本文档**，确认接口是否存在、参数是否对齐，再进行编码。
 
@@ -174,6 +174,9 @@
 | GET | `/v1/sessions/{id}/messages` | ✅ | `sessionService.getMessages` |
 | POST | `/v1/sessions/{id}/title` | ✅ | `sessionService.generateTitle` |
 | PUT | `/api/session/{id}/message/{msgId}/blocks` | ✅ | `chatService.updateMessageBlocks` |
+| GET | `/v1/sessions/{id}/streaming` | ✅ P1-5 | `chat-message.slice.ts` ghostCheckTimer |
+| GET | `/v1/sessions/{id}/checkpoints/latest` | ✅ P2-1 | `chat-message.slice.ts` reconnect |
+| POST | `/v1/sessions/{id}/resume` | ✅ P2-1 | `chatService.streamMessageWithReconnect` |
 
 ### §3.7 工具
 

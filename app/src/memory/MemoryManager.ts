@@ -41,6 +41,14 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { createHash } from 'crypto';
 
+// P2-6: LLM 精选记忆检索
+import {
+  buildSelectionPrompt,
+  parseSelectionResult,
+  applySelection,
+  type MemoryItem,
+} from './MemoryLLMSelector';
+
 const logger = new Logger({
   module: 'memory:memoryManager',
   level: LogLevel.INFO,
@@ -550,7 +558,8 @@ export class MemoryManagerImpl {
   /**
    * 检索相关记忆
    * 使用混合搜索（关键词+语义），优先利用 EmbeddingService 提升检索准确度，
-   * 同时利用关联图扩展关联记忆（联想记忆）
+   * 同时利用关联图扩展关联记忆（联想记忆），
+   * 最后通过 LLM 精选（P2-6）从候选中选出最相关条目。
    * @param query 查询字符串
    * @param limit 返回数量限制
    * @returns 相关记忆列表
@@ -559,7 +568,9 @@ export class MemoryManagerImpl {
     query: string,
     limit: number = 5
   ): Promise<Memory[]> {
-    const results = await this.retriever.hybridSearch(query, limit);
+    // 获取更多候选（3x limit），给 LLM 精选留空间
+    const candidateLimit = limit * 3;
+    const results = await this.retriever.hybridSearch(query, candidateLimit);
 
     // 通过关联图扩展关联记忆
     const resultIds = new Set(results.map((m) => m.id));
@@ -577,21 +588,63 @@ export class MemoryManagerImpl {
       }
     }
 
+    const combined: Memory[] = [...results];
+
     if (relatedIds.size > 0) {
-      const relatedMemories: Memory[] = [];
       for (const id of relatedIds) {
         const memory = await this.store.readMemory(id);
-        if (memory) {
-          relatedMemories.push(memory);
-        }
+        if (memory) combined.push(memory);
       }
-
-      // 将关联记忆附加到结果末尾
-      const combined = [...results, ...relatedMemories];
-      return combined.slice(0, limit);
     }
 
-    return results;
+    // P2-6: 候选超过 limit 时，用 LLM 精选最相关的记忆
+    if (combined.length > limit) {
+      try {
+        const { providerRegistry } = await import('@modules/ai');
+        const provider = providerRegistry.getDefaultProvider();
+
+        if (provider) {
+          const items: MemoryItem[] = combined.map((m) => ({
+            id: m.id,
+            type: (m.metadata?.type as string) ?? 'unknown',
+            content: m.content,
+            createdAt: m.createdAt.getTime(),
+          }));
+
+          const prompt = buildSelectionPrompt(query, items);
+          const response = await provider.chat(
+            [
+              { role: 'system', content: 'You are a memory selector. Return ONLY a JSON array of memory IDs.' },
+              { role: 'user', content: prompt },
+            ],
+            {
+              model: undefined,
+              temperature: 0.3,
+              maxTokens: 512,
+            }
+          );
+
+          const selectedIds = parseSelectionResult(response.content);
+          if (selectedIds.length > 0) {
+            const selected = applySelection(items, selectedIds);
+            const selectedIdSet = new Set(selected.map((s) => s.id));
+            const refined = combined.filter((m) => selectedIdSet.has(m.id));
+            logger.info('LLM 精选记忆完成', {
+              candidates: combined.length,
+              selected: refined.length,
+            });
+            return refined.slice(0, limit);
+          }
+        }
+      } catch (err) {
+        await handleError(err, { module: 'memory:memoryManager', action: 'llmSelectMemories' });
+        logger.warn('LLM 精选记忆失败，降级为 top-K', {
+          error: String(err),
+        });
+      }
+    }
+
+    return combined.slice(0, limit);
   }
 
   /**
@@ -631,6 +684,8 @@ export class MemoryManagerImpl {
       [MemoryType.PROJECT_KNOWLEDGE]: 0,
       [MemoryType.CODE_PATTERN]: 0,
       [MemoryType.DECISION]: 0,
+      [MemoryType.FEEDBACK]: 0,
+      [MemoryType.REFERENCE]: 0,
     };
 
     let totalSize = 0;

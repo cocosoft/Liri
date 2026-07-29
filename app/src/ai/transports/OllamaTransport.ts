@@ -47,12 +47,14 @@ export class OllamaTransport extends BaseTransport {
       parameters: Record<string, unknown>;
     };
   }> {
+    // P2-3: Schema净化 — Ollama/llama.cpp GBNF 兼容
+    const { sanitizeSchema } = require('@modules/tools/SchemaSanitizer');
     return tools.map((t) => ({
       type: 'function' as const,
       function: {
         name: t.name,
         description: t.description,
-        parameters: t.parameters,
+        parameters: sanitizeSchema(t.parameters),
       },
     }));
   }

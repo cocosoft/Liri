@@ -172,7 +172,9 @@ export type { KnowledgeMaintenanceResult } from './knowledge';
  * 检查Chronos系统是否处于活跃状态
  */
 export function isChronosActive(): boolean {
-  // 这里可以根据实际情况实现检查逻辑
-  // 例如检查环境变量、配置文件或系统状态
   return true;
 }
+
+// P2-10: Cron 防注入扫描器导出
+export { CronInjectionScanner } from './CronInjectionScanner';
+export type { ScanResult } from './CronInjectionScanner';

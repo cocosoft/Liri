@@ -70,3 +70,7 @@ export {
   type VoiceState,
   type VoiceContextType,
 } from './VoiceContext';
+
+// P3-6: 上下文引擎插件导出
+export { ContextEngineRegistry } from './ContextEnginePlugin';
+export type { ContextEnginePlugin, CompressionRequest, CompressionResult } from './ContextEnginePlugin';

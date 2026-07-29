@@ -8,6 +8,7 @@
 import os from 'os';
 import { execSync } from 'child_process';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'monitoring:metrics:SystemMetricsCollector',
@@ -241,9 +242,9 @@ export function getDiskInfo(): DiskInfo {
   } catch (err) {
     // 磁盘信息不可用时静默处理
 
-    logger.debug('Operation skipped', {
-      context: '磁盘信息不可用时静默处理',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'monitoring:metrics:SystemMetricsCollector',
+      action: 'diskInfoUnavailable',
     });
   }
 

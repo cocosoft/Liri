@@ -112,11 +112,9 @@ export function grep(options: GrepOptions): GrepResult {
       searchDir(searchPath, regex, options, fileMatches, MAX_RESULTS);
     }
   } catch (err) {
-    // 路径无效时静默处理，返回空结果
-
-    logger.debug('Operation skipped', {
-      context: '路径无效时静默处理，返回空结果',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'tools:grep',
+      action: 'statSearchPath',
     });
   }
 

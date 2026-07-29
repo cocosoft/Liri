@@ -8,6 +8,8 @@
 
 import type { SkillDB } from './persistence/SkillDB';
 
+import { handleError } from '@modules/error';
+
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'skills:SkillCurator',
@@ -92,9 +94,9 @@ export class SkillCurator {
     } catch (err) {
       // DB 不可用时继续使用纯内存模式
 
-      logger.debug('Operation skipped', {
-        context: 'DB 不可用时继续使用纯内存模式',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'skills:SkillCurator',
+        action: 'loadCurationStates',
       });
     }
   }
@@ -128,9 +130,9 @@ export class SkillCurator {
     } catch (err) {
       // 静默处理 DB 错误
 
-      logger.debug('Operation skipped', {
-        context: '静默处理 DB 错误',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'skills:SkillCurator',
+        action: 'saveCuration',
       });
     }
   }

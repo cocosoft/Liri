@@ -9,6 +9,8 @@
 import { ModelRegistry } from '@modules/ai';
 import { getModelConfigById } from '@modules/ai';
 
+import { handleError } from '@modules/error';
+
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'cost:ModelPricing',
@@ -56,10 +58,7 @@ function getPricingFromRegistry(modelName: string): ModelPricing | null {
     // ModelRegistry 不可用时忽略
     // @ignore-catch: non-critical fallback
 
-    logger.debug('Operation skipped', {
-      context: 'ModelRegistry 不可用时忽略',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'cost:ModelPricing', action: 'getPricing' });
   }
   return null;
 }
@@ -72,9 +71,9 @@ export function getCanonicalModelName(modelName: string): string {
     // 忽略
     // @ignore-catch: non-critical fallback
 
-    logger.debug('Operation skipped', {
-      context: '忽略',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'cost:ModelPricing',
+      action: 'getCanonicalName',
     });
   }
   return modelName;

@@ -35,6 +35,7 @@
 import { resolve, dirname, join } from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { getLogger } from './monitoring/logs/Logger';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({ module: 'pyapp', level: LogLevel.INFO });
@@ -256,10 +257,7 @@ process.env.LIRI_PROJECT_DIR = projectRoot;
   } catch (err) {
     // 非致命：.env 加载失败不影响启动
 
-    logger.warn('Operation skipped', {
-      context: '非致命：.env 加载失败不影响启动',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'core:startup', action: 'loadEnvFile' });
   }
 }
 
@@ -298,10 +296,7 @@ try {
 } catch (err) {
   // 非致命：用户档案文件创建失败不影响启动
 
-  logger.warn('Operation skipped', {
-    context: '非致命：用户档案文件创建失败不影响启动',
-    error: err instanceof Error ? err.message : String(err),
-  });
+  handleError(err, { module: 'core:startup', action: 'ensureUserProfiles' });
 }
 
 // ── 策略 6: 全局异常捕获（进程级兜底） ──
@@ -381,9 +376,9 @@ if (isCompiledBinary) {
         } catch (err) {
           // 当前目录没有 node_modules，继续尝试下一个
 
-          logger.debug('Operation skipped', {
-            context: '当前目录没有 node_modules，继续尝试下一个',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'pyapp:main',
+            action: 'resolveModuleFromDir',
           });
         }
       }
@@ -410,9 +405,9 @@ if (isCompiledBinary) {
         } catch (err) {
           // fallback to original
 
-          logger.debug('Operation skipped', {
-            context: 'fallback to original',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'pyapp:main',
+            action: 'resolveExternalModuleFallback',
           });
         }
       }

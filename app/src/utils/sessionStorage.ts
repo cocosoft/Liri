@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 会话存储工具
  *
  * 提供基于文件系统的持久化会话存储能力。
@@ -9,6 +9,7 @@ import { join, dirname, basename } from 'path';
 import { existsSync } from 'fs';
 import { resolvePyappHome } from '@modules/core';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'utils:sessionStorage',
@@ -78,9 +79,9 @@ export class SessionStorage {
     } catch (err) {
       // 删除失败时静默处理
 
-      logger.warn('Operation skipped', {
-        context: '删除失败时静默处理',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'utils:sessionStorage',
+        action: 'deleteSilentlyFailed',
       });
     }
   }
@@ -133,9 +134,9 @@ export class SessionStorage {
     } catch (err) {
       // 清理失败时静默处理
 
-      logger.warn('Operation skipped', {
-        context: '清理失败时静默处理',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'utils:sessionStorage',
+        action: 'cleanupFailed',
       });
     }
   }

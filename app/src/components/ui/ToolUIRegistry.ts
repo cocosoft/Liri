@@ -121,9 +121,7 @@ export function initDefaultToolUIRegistry(): void {
     registerToolUI('agent', agentUI);
     registerToolUI('agenttool', agentUI);
   } catch (err) {
-    logger.debug('Operation skipped', {
-      error: err instanceof Error ? err.message : String(err),
-    });
+    void handleError(err, { module: 'components:ui', action: 'loadAgentUI' });
   } // @ignore-catch: optional UI module
 
   try {

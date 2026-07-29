@@ -7,6 +7,7 @@
 import { watch, unwatchFile } from 'fs';
 import type { KeybindingConfig } from './validation';
 import { validateConfig } from './validation';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -60,9 +61,9 @@ export class HotReloadManager {
     } catch (err) {
       // 忽略错误
 
-      logger.debug('Operation skipped', {
-        context: '忽略错误',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'keybindings:hotReload',
+        action: 'unwatchConfig',
       });
     }
     if (this.debounceTimer) {

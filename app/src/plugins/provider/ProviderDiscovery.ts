@@ -8,6 +8,7 @@ import {
   type ProviderType,
 } from './ProviderCatalog.js';
 import { configManager } from '@modules/config';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -203,9 +204,9 @@ export class ProviderDiscovery {
     } catch (err) {
       // 忽略配置读取错误
 
-      logger.debug('Operation skipped', {
-        context: '忽略配置读取错误',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'plugins:provider',
+        action: 'discoverProviders',
       });
     }
 

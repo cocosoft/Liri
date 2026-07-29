@@ -5,6 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import { resolvePyappHome } from '@modules/core';
+import { handleError } from '@modules/error';
 
 import type { ChannelId, MessageContext } from '../types/IChannel.js';
 import { getRedactMiddleware } from '../../security/redact/RedactMiddleware';
@@ -271,9 +272,9 @@ export class ChannelLogManager {
     } catch (err) {
       // 持久化失败不影响主流程
 
-      logger.warn('Operation skipped', {
-        context: '持久化失败不影响主流程',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'channels:log',
+        action: 'appendLog',
       });
     }
   }

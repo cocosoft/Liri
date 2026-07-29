@@ -31,6 +31,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { CodeChunk } from './chunker';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -210,9 +211,9 @@ export class SemanticStore {
         } catch (err) {
           // 跳过损坏的行
 
-          logger.debug('Operation skipped', {
-            context: '跳过损坏的行',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'knowledge:semantic',
+            action: 'parseIndexLine',
           });
         }
       }

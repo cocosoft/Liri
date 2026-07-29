@@ -3,7 +3,12 @@
  * 统一管理多个价格提供者，使用 ModelRegistry 作为默认回退
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import type { IPriceProvider, PricingResult } from './providers/IPriceProvider';
 import { ConfigPriceProvider } from './providers/ConfigPriceProvider';
 import type { ModelPriceTable } from './types';
@@ -83,9 +88,9 @@ export class PriceManager {
       // ModelRegistry 不可用时忽略
       // @ignore-catch: non-critical fallback
 
-      logger.debug('Operation skipped', {
-        context: 'ModelRegistry 不可用时忽略',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'core:tokenBudget',
+        action: 'getPrice',
       });
     }
     return null;

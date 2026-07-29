@@ -16,6 +16,7 @@ import {
 } from '@modules/tasks/types.js';
 import type { BaseTask } from '@modules/tasks/BaseTask.js';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'commands:tasks:tasks',
@@ -874,9 +875,9 @@ const tasksCommand = {
       } catch (err) {
         // analytics 非关键
 
-        logger.debug('Operation skipped', {
-          context: 'analytics 非关键',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'commands:tasks:tasks',
+          action: 'analyticsNonCritical',
         });
       }
 

@@ -5,6 +5,7 @@
  */
 
 import { resetMicrocompactState } from './microCompact';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -31,9 +32,9 @@ export function runPostCompactCleanup(querySource?: string): void {
         }
       })
       .catch((err: unknown) => {
-        logger.debug('Operation skipped', {
-          context: 'SessionStorage可能尚未实现该函数，忽略',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'services:compact',
+          action: 'clearSessionCache',
         });
       });
   }

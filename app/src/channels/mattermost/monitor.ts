@@ -6,6 +6,7 @@
 import { EventEmitter } from 'events';
 import type { MessageContext } from '@modules/channels/types';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'channels:mattermost:monitor',
@@ -70,9 +71,9 @@ export class MattermostMonitor extends EventEmitter {
       } catch (err) {
         // ignore
 
-        logger.debug('Operation skipped', {
-          context: 'ignore',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'channels:mattermost',
+          action: 'stop',
         });
       }
       this.ws = null;

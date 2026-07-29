@@ -18,6 +18,7 @@ import {
 } from './types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'promptSuggestion:UnifiedSuggestions',
   level: LogLevel.INFO,
@@ -137,9 +138,9 @@ async function scanDirectory(
   } catch (err) {
     // 忽略无法访问的目录
 
-    logger.debug('Operation skipped', {
-      context: '忽略无法访问的目录',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'promptSuggestion:UnifiedSuggestions',
+      action: 'scanDirectory',
     });
   }
 
@@ -193,9 +194,9 @@ export async function generateFileSuggestions(
   } catch (err) {
     // 扫描失败时返回空列表
 
-    logger.warn('Operation skipped', {
-      context: '扫描失败时返回空列表',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'promptSuggestion:UnifiedSuggestions',
+      action: 'scanSuggestions',
     });
   }
 

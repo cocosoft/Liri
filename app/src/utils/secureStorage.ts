@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 安全存储工具
  *
  * 提供加密文件存储能力，基于 security/Crypto.ts 的加密实现。
@@ -16,6 +16,7 @@ import {
   ENCRYPTION_ALGORITHMS,
 } from '@modules/security';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'utils:secureStorage',
@@ -34,9 +35,9 @@ function getOrCreateMasterKey(): Buffer {
   } catch (err) {
     // 读取失败则创建新密钥
 
-    logger.warn('Operation skipped', {
-      context: '读取失败则创建新密钥',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'utils:secureStorage',
+      action: 'readFailedCreateNew',
     });
   }
 
@@ -105,9 +106,9 @@ export async function secureDelete(key: string): Promise<void> {
   } catch (err) {
     // 删除失败时静默处理
 
-    logger.warn('Operation skipped', {
-      context: '删除失败时静默处理',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'utils:secureStorage',
+      action: 'deleteSilentlyFailed',
     });
   }
 }

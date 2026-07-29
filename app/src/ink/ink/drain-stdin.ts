@@ -44,6 +44,7 @@
  */
 
 import { closeSync, constants as fsConstants, openSync, readSync } from 'fs';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -62,10 +63,7 @@ export function drainStdin(stdin: NodeJS.ReadStream = process.stdin): void {
   } catch (err) {
     // stream may be destroyed
 
-    logger.debug('Operation skipped', {
-      context: 'stream may be destroyed',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'ink:drain-stdin', action: 'drainStdinRead' });
   }
 
   // Windows 没有 /dev/tty；CONIN$ 不支持 O_NONBLOCK 语义
@@ -88,9 +86,9 @@ export function drainStdin(stdin: NodeJS.ReadStream = process.stdin): void {
   } catch (err) {
     // EAGAIN, ENXIO/ENOENT, EBADF/EIO
 
-    logger.debug('Operation skipped', {
-      context: 'EAGAIN, ENXIO/ENOENT, EBADF/EIO',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'ink:drain-stdin',
+      action: 'drainRawStdinRead',
     });
   } finally {
     if (fd >= 0) {
@@ -99,9 +97,9 @@ export function drainStdin(stdin: NodeJS.ReadStream = process.stdin): void {
       } catch (err) {
         // ignore
 
-        logger.debug('Operation skipped', {
-          context: 'ignore',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'ink:drain-stdin',
+          action: 'closeSyncStdin',
         });
       }
     }
@@ -111,9 +109,9 @@ export function drainStdin(stdin: NodeJS.ReadStream = process.stdin): void {
       } catch (err) {
         // TTY may be gone
 
-        logger.debug('Operation skipped', {
-          context: 'TTY may be gone',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'ink:drain-stdin',
+          action: 'restoreCookedMode',
         });
       }
     }

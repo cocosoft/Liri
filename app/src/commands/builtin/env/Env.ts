@@ -6,6 +6,7 @@ import { arch, platform } from 'os';
 import { configManager } from '@modules/config';
 import type { CommandContext, CommandResult } from '@modules/commands';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'commands:builtin:env:Env',
@@ -247,9 +248,9 @@ const envCommand = {
       } catch (err) {
         // analytics 非关键
 
-        logger.debug('Operation skipped', {
-          context: 'analytics 非关键',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'commands:builtin:env:Env',
+          action: 'analyticsNonCritical',
         });
       }
 

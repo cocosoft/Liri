@@ -10,6 +10,7 @@ import { registerPendingLSPDiagnostic } from './LSPDiagnosticRegistry.js';
 import type { LSPServerManager } from './LSPServerManager.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'lsp:passiveFeedback',
   level: LogLevel.INFO,
@@ -172,9 +173,9 @@ export function registerLSPNotificationHandlers(
           } catch (err) {
             // Handler errors are isolated
 
-            logger.debug('Operation skipped', {
-              context: 'Handler errors are isolated',
-              error: err instanceof Error ? err.message : String(err),
+            handleError(err, {
+              module: 'lsp:passiveFeedback',
+              action: 'handleDiagnostics',
             });
           }
         }

@@ -6,6 +6,7 @@
 
 import { configManager } from '@modules/config';
 import { BUILTIN_TRANSLATIONS } from './extended-translations';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -84,10 +85,7 @@ export function detectSystemLocale(): SupportedLocale {
   } catch (err) {
     // Intl API 不可用时静默降级
 
-    logger.debug('Operation skipped', {
-      context: 'Intl API 不可用时静默降级',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'system:i18n', action: 'detectLocale' });
   }
 
   return 'zh';

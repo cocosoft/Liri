@@ -4,6 +4,7 @@
  * */
 
 import { basename } from 'path';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -62,9 +63,9 @@ export async function getVoiceKeyterms(
   } catch (err) {
     // ignore
 
-    logger.debug('Operation skipped', {
-      context: 'ignore',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'services:voice',
+      action: 'scanDirectoryTerms',
     });
   }
 

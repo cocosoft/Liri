@@ -19,6 +19,7 @@ const execAsync = promisify(exec);
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'utils:imageResizer',
@@ -232,9 +233,9 @@ export async function maybeResizeAndDownsampleImageBuffer(
     } catch (err) {
       // Fall through to size validation
 
-      logger.debug('Operation skipped', {
-        context: 'Fall through to size validation',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'utils:imageResizer',
+        action: 'fallThroughToSizeValidation',
       });
     }
   }
@@ -441,10 +442,7 @@ export async function compressImageBuffer(
     } catch (err) {
       // Fall through
 
-      logger.debug('Operation skipped', {
-        context: 'Fall through',
-        error: err instanceof Error ? err.message : String(err),
-      });
+      handleError(err, { module: 'utils:imageResizer', action: 'fallThrough' });
     }
   }
 
@@ -510,17 +508,17 @@ export async function compressImageBuffer(
     } catch (err) {
       // sharp png palette may fail for some images
 
-      logger.debug('Operation skipped', {
-        context: 'sharp png palette may fail for some images',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'utils:imageResizer',
+        action: 'sharpPngPaletteFailed',
       });
     }
   } catch (err) {
     // sharp not available, fall through to error
 
-    logger.debug('Operation skipped', {
-      context: 'sharp not available, fall through to error',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'utils:imageResizer',
+      action: 'sharpNotAvailable',
     });
   }
 

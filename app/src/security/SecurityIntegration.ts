@@ -13,6 +13,7 @@ import type { PermissionConfig } from '@modules/config/types';
 import { SecurityAudit } from './SecurityAudit';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'security:SecurityIntegration',
   level: LogLevel.INFO,
@@ -81,9 +82,9 @@ export class SecurityIntegrationService {
       } catch (err) {
         // 审计日志非阻塞
 
-        logger.warn('Operation skipped', {
-          context: '审计日志非阻塞',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'security:SecurityIntegration',
+          action: 'auditLog',
         });
       }
     }

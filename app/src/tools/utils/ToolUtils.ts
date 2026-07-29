@@ -11,6 +11,7 @@ import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { configManager } from '@modules/config';
 import { resolveOutputDir } from '@modules/core';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -449,11 +450,9 @@ export async function checkPathAccessibilityAsync(
     await fsp.access(resolved, fs.constants.F_OK);
     return { accessible: true, resolvedPath: resolved };
   } catch (err) {
-    // 路径不存在，走同步逻辑构建友好的错误提示
-
-    logger.debug('Operation skipped', {
-      context: '路径不存在，走同步逻辑构建友好的错误提示',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'tools:utils',
+      action: 'checkPathAccessibility',
     });
   }
 

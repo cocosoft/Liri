@@ -6,7 +6,12 @@ import { readdir, readFile, writeFile, unlink, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, basename } from 'path';
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
 
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -275,9 +280,9 @@ async function loadAllAgents(): Promise<AgentInfo[]> {
     } catch (err) {
       // 跳过不可读目录
 
-      logger.debug('Operation skipped', {
-        context: '跳过不可读目录',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'commands:agents:Subagent',
+        action: 'skipUnreadableDir',
       });
     }
   }
@@ -680,9 +685,9 @@ const subagentCommand = {
       } catch (err) {
         // analytics 非关键
 
-        logger.debug('Operation skipped', {
-          context: 'analytics 非关键',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'commands:agents:Subagent',
+          action: 'analyticsNonCritical',
         });
       }
 

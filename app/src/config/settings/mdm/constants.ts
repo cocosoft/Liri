@@ -6,6 +6,7 @@
 import { homedir, userInfo } from 'os';
 import { join } from 'path';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '../../../monitoring/logs/Logger.js';
 const logger = new Logger({
   module: 'config:settings:mdm:constants',
@@ -60,9 +61,9 @@ export function getMacOSPlistPaths(): Array<{ path: string; label: string }> {
   } catch (err) {
     // ignore
 
-    logger.debug('Operation skipped', {
-      context: 'ignore',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'config:settings:mdm:constants',
+      action: 'ignoreUsernameError',
     });
   }
 

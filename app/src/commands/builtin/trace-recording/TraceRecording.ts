@@ -14,6 +14,7 @@ import { join, resolve } from 'path';
 import { resolveOutputDir } from '@modules/core';
 import type { CommandContext, CommandResult } from '@modules/commands';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'commands:builtin:trace-recording:TraceRecording',
@@ -230,9 +231,9 @@ const traceRecordingCommand = {
       } catch (err) {
         // 忽略引擎查询错误
 
-        logger.debug('Operation skipped', {
-          context: '忽略引擎查询错误',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'commands:builtin:trace-recording:TraceRecording',
+          action: 'ignoreEngineQueryError',
         });
       }
     }

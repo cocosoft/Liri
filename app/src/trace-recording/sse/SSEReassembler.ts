@@ -12,6 +12,7 @@
 import type { SSERawEvent } from '../types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'trace-recording:sse:SSEReassembler',
   level: LogLevel.INFO,
@@ -80,9 +81,9 @@ export class SSEReassembler {
         } catch (err) {
           // 保留原始字符串
 
-          logger.debug('Operation skipped', {
-            context: '保留原始字符串',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'trace-recording:sse',
+            action: 'parseSSEData',
           });
         }
 
@@ -188,9 +189,9 @@ export class SSEReassembler {
             } catch (err) {
               // partial JSON 不完整时保留原值
 
-              logger.debug('Operation skipped', {
-                context: 'partial JSON 不完整时保留原值',
-                error: err instanceof Error ? err.message : String(err),
+              handleError(err, {
+                module: 'trace-recording:sse',
+                action: 'parsePartialJsonInput',
               });
             }
             delete block._partialJson;
@@ -212,9 +213,9 @@ export class SSEReassembler {
     } catch (err) {
       // 累积异常时静默忽略，不影响主流程
 
-      logger.warn('Operation skipped', {
-        context: '累积异常时静默忽略，不影响主流程',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'trace-recording:sse',
+        action: 'accumulateStream',
       });
     }
   }
@@ -345,9 +346,9 @@ export class SSEReassembler {
       } catch (err) {
         // 参数仍在流式传输中
 
-        logger.debug('Operation skipped', {
-          context: '参数仍在流式传输中',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'trace-recording:sse',
+          action: 'parseStreamingArgs',
         });
       }
     }

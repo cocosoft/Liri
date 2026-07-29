@@ -4,7 +4,12 @@
  */
 import path from 'path';
 import fs from 'fs';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { resolveProjectRoot } from '@modules/core';
 import { PluginRegistry } from '../core/PluginRegistry.js';
 import { NpmDistributor } from '../distribution/NpmDistributor.js';
@@ -421,10 +426,7 @@ export class PluginInstallManager {
     } catch (err) {
       // 忽略保存错误
 
-      logger.debug('Operation skipped', {
-        context: '忽略保存错误',
-        error: err instanceof Error ? err.message : String(err),
-      });
+      handleError(err, { module: 'plugins:install', action: 'saveLockFile' });
     }
   }
 }

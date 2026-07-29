@@ -12,6 +12,7 @@
  */
 
 import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { resolveDataSubDir } from '@modules/core';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
@@ -76,7 +77,8 @@ function loadCheckpoint(path: string): CheckpointData | null {
   try {
     if (!existsSync(path)) return null;
     return JSON.parse(readFileSync(path, 'utf-8')) as CheckpointData;
-  } catch {
+  } catch (err) {
+    handleError(err, { module: 'tasks:batchRunner', action: 'loadCheckpoint' });
     return null;
   }
 }
@@ -95,7 +97,8 @@ function saveCheckpoint(
       JSON.stringify({ completed, lastProcessedId: lastId, startedAt }),
       'utf-8'
     );
-  } catch {
+  } catch (err) {
+    handleError(err, { module: 'tasks:batchRunner', action: 'saveCheckpoint' });
     logger.warn('batchRunner:checkpoint_write_failed', { path });
   }
 }
@@ -220,6 +223,7 @@ export class BatchRunner<TInput = unknown, TOutput = unknown> {
       });
       this.completed.add(item.id);
     } catch (err) {
+      handleError(err, { module: 'tasks:batchRunner', action: 'runItem' });
       this.results.set(item.id, {
         id: item.id,
         status: 'failed',

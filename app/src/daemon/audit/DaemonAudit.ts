@@ -229,9 +229,7 @@ export class DaemonAudit {
     try {
       fs.appendFileSync(this.logFile, JSON.stringify(event) + '\n', 'utf-8');
     } catch (err) {
-      logger.debug('Operation skipped', {
-        error: err instanceof Error ? err.message : String(err),
-      });
+      handleError(err, { module: 'daemon:audit', action: 'appendToFile' });
     } // @ignore-catch: io error, non-blocking
   }
 

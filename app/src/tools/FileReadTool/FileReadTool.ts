@@ -305,6 +305,10 @@ export class FileReadTool extends BaseTool {
         ],
       });
     } catch (error: any) {
+      handleError(error, {
+        module: 'tools:FileReadTool',
+        action: 'execute',
+      });
       if (onProgress) {
         onProgress({
           toolUseID: 'file-read-tool',
@@ -371,6 +375,10 @@ export class FileReadTool extends BaseTool {
         ],
       });
     } catch (error: any) {
+      handleError(error, {
+        module: 'tools:FileReadTool',
+        action: 'convertFile',
+      });
       return createToolResult(error.message, {
         success: false,
         error: error.message,
@@ -416,11 +424,9 @@ export class FileReadTool extends BaseTool {
         return record.savedPath;
       }
     } catch (err) {
-      // 静默失败，回退到 file_path
-
-      logger.warn('Operation skipped', {
-        context: '静默失败，回退到 file_path',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'tools:FileReadTool',
+        action: 'resolveFileId',
       });
     }
     return null;
@@ -484,11 +490,9 @@ export class FileReadTool extends BaseTool {
           description: 'FileReadTool 自动注册',
         });
       } catch (err) {
-        // 静默失败，不干扰主流程
-
-        logger.warn('Operation skipped', {
-          context: '静默失败，不干扰主流程',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'tools:FileReadTool',
+          action: 'autoIngestRegister',
         });
       }
 
@@ -501,11 +505,9 @@ export class FileReadTool extends BaseTool {
           skipClassification: true,
         });
       } catch (err) {
-        // 静默失败，不干扰主流程
-
-        logger.warn('Operation skipped', {
-          context: '静默失败，不干扰主流程',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'tools:FileReadTool',
+          action: 'autoIngestSync',
         });
       }
     });

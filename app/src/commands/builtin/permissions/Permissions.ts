@@ -16,6 +16,7 @@ import {
 import { permissionModeIntegrationService } from '@modules/chat/services/PermissionModeIntegrationService.js';
 import { completeSecuritySystem } from '@modules/security';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'commands:builtin:permissions:Permissions',
@@ -159,9 +160,9 @@ async function handleList(context: CommandContext): Promise<CommandResult> {
   } catch (err) {
     // analytics 非关键
 
-    logger.debug('Operation skipped', {
-      context: 'analytics 非关键',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'commands:builtin:permissions:Permissions',
+      action: 'analyticsNonCritical',
     });
   }
 
@@ -197,9 +198,9 @@ async function handleList(context: CommandContext): Promise<CommandResult> {
   } catch (err) {
     // 忽略细粒度查询失败
 
-    logger.warn('Operation skipped', {
-      context: '忽略细粒度查询失败',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'commands:builtin:permissions:Permissions',
+      action: 'ignoreFineGrainedQueryFailed',
     });
   }
 
@@ -273,9 +274,9 @@ async function handleGrant(
   } catch (err) {
     // 忽略管理器调用失败
 
-    logger.warn('Operation skipped', {
-      context: '忽略管理器调用失败',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'commands:builtin:permissions:Permissions',
+      action: 'ignoreManagerCallFailed',
     });
   }
 
@@ -321,9 +322,9 @@ async function handleRevoke(
   } catch (err) {
     // 忽略
 
-    logger.debug('Operation skipped', {
-      context: '忽略',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'commands:builtin:permissions:Permissions',
+      action: 'ignoreError',
     });
   }
 
@@ -361,9 +362,9 @@ async function handleStatus(
   } catch (err) {
     // analytics 非关键
 
-    logger.debug('Operation skipped', {
-      context: 'analytics 非关键',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'commands:builtin:permissions:Permissions',
+      action: 'analyticsNonCritical',
     });
   }
 
@@ -570,9 +571,9 @@ async function handleAdd(params: string[]): Promise<CommandResult> {
     } catch (err) {
       // 可选同步失败不影响主要结果
 
-      logger.warn('Operation skipped', {
-        context: '可选同步失败不影响主要结果',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'commands:builtin:permissions:Permissions',
+        action: 'optionalSyncFailed',
       });
     }
 

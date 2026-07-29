@@ -9,11 +9,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { load, dump } from 'js-yaml';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'ai:config:defaultModels',
-  level: LogLevel.INFO,
-});
+import { handleError } from '@modules/error';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -90,11 +86,7 @@ export function loadDefaultModels(): DefaultModelsData {
       }
     } catch (err) {
       // 文件损坏时忽略，走内联回退
-
-      logger.debug('Operation skipped', {
-        context: '文件损坏时忽略，走内联回退',
-        error: err instanceof Error ? err.message : String(err),
-      });
+      handleError(err, { module: 'ai:config', action: 'loadDefaultModels' });
     }
   }
 

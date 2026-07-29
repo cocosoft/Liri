@@ -19,6 +19,8 @@ import {
   SandboxExecuteResult,
 } from '../SandboxTypes';
 
+import { handleError } from '@modules/error';
+
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'sandbox:adapters:LocalWorkspace',
@@ -87,10 +89,7 @@ export class LocalWorkspace extends WorkspaceBase {
       } catch (err) {
         // 跳过无权限访问的文件
 
-        logger.debug('Operation skipped', {
-          context: '跳过无权限访问的文件',
-          error: err instanceof Error ? err.message : String(err),
-        });
+        handleError(err, { module: 'sandbox:adapters', action: 'listFiles' });
       }
     }
 

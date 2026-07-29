@@ -22,6 +22,7 @@ import { join } from 'path';
 import { resolvePyappHome } from '@modules/core/paths';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'session:activity:SessionActivityTracker',
   level: LogLevel.INFO,
@@ -207,9 +208,9 @@ export class SessionActivityTracker {
     } catch (err) {
       // PID 写入失败不影响主流程
 
-      logger.warn('Operation skipped', {
-        context: 'PID 写入失败不影响主流程',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'session:activity',
+        action: 'writePidFile',
       });
     }
   }
@@ -226,9 +227,9 @@ export class SessionActivityTracker {
     } catch (err) {
       // 删除失败不影响
 
-      logger.warn('Operation skipped', {
-        context: '删除失败不影响',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'session:activity',
+        action: 'removePidFile',
       });
     }
   }

@@ -24,6 +24,7 @@
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'infrastructure:http:handlers:cron-handlers',
@@ -183,9 +184,9 @@ export async function handleCreateCron(
     } catch (err) {
       // 调度器未启动，忽略
 
-      logger.debug('Operation skipped', {
-        context: '调度器未启动，忽略',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'infrastructure:http:handlers:cron-handlers',
+        action: 'schedulerNotStarted',
       });
     }
 

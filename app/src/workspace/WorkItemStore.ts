@@ -17,6 +17,7 @@ import { join } from 'path';
 import type { WorkItem, WorkItemStatus, WorkItemType } from './types';
 import type { LiriConfigManager } from './LiriConfigManager';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'workspace:WorkItemStore',
@@ -86,9 +87,9 @@ export class WorkItemStore {
         } catch (err) {
           // 跳过损坏的文件
 
-          logger.debug('Operation skipped', {
-            context: '跳过损坏的文件',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'workspace:WorkItemStore',
+            action: 'skipCorruptedFile',
           });
         }
       }

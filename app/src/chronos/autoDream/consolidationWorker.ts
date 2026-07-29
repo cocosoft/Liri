@@ -3,6 +3,8 @@ import { join, relative, resolve, normalize } from 'path';
 import { existsSync } from 'fs';
 import { configManager } from '@modules/config';
 
+import { handleError } from '@modules/error';
+
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'chronos:autoDream:consolidationWorker',
@@ -106,10 +108,7 @@ async function walkDirectory(
   } catch (err) {
     // directory not accessible
 
-    logger.debug('Operation skipped', {
-      context: 'directory not accessible',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'chronos:autoDream', action: 'walkDirectory' });
   }
   return results;
 }

@@ -13,6 +13,7 @@ import { ResourceArbiter } from './ResourceArbiter';
 import { DiscoveryScheduler } from './DiscoveryScheduler';
 import { DiscoveryFire } from './DiscoveryFire';
 import { cg3Log } from '../cg3Env';
+import { handleError } from '@modules/error';
 import type { CommandBridge } from '../commands/CommandBridge';
 import type { SteeringBridge } from '../steering/SteeringBridge';
 import type { WatchdogBridge } from '../watchdog/WatchdogBridge';
@@ -111,8 +112,10 @@ export class AlwaysOnRuntime {
       });
       this.gates.recordRun();
     } catch (err) {
-      cg3Log('tasks:alwayson:runtime', 'error', 'runtime:error', {
-        error: String(err),
+      handleError(err, {
+        module: 'tasks:alwayson',
+        action: 'runtime',
+        context: { projectPath: this.config.dormantDebounceMs },
       });
     } finally {
       this.resourceArbiter.release('alwayson');

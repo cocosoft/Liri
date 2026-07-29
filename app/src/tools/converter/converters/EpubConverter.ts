@@ -1,7 +1,7 @@
-﻿import { HtmlConverter } from './HtmlConverter';
+import { HtmlConverter } from './HtmlConverter';
 import type { ConversionResult, ConversionContext } from '../engine/types';
 import { PRIORITY_SPECIFIC_FILE_FORMAT } from '../engine/types';
-import { AppError } from '@modules/error';
+import { AppError, handleError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -137,11 +137,9 @@ export class EpubConverter extends HtmlConverter {
       meta.description =
         extractTag('dc:description') || extractTag('description');
     } catch (err) {
-      // 元数据解析失败时静默处理
-
-      logger.warn('Operation skipped', {
-        context: '元数据解析失败时静默处理',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'tools:converter',
+        action: 'extractEpubMetadata',
       });
     }
 

@@ -12,6 +12,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { SessionCheckpointService } from './SessionCheckpointService';
 import type { SessionCheckpoint } from '../types/checkpoint';
 import type { Message } from '../types/message';
@@ -149,10 +150,11 @@ export class StreamingAutoCheckpoint {
       const autoState = desc[DESC_KEY];
       if (!autoState) return null;
       state = autoState;
-    } catch {
-      logger.warn('自动检查点 description 解析失败，跳过恢复', {
-        sessionId: this.sessionId,
-        checkpointId: latest.id,
+    } catch (parseErr) {
+      handleError(parseErr, {
+        module: 'chat:streamingAutoCheckpoint',
+        action: 'restoreParseDescription',
+        context: { sessionId: this.sessionId, checkpointId: latest.id },
       });
       return null;
     }

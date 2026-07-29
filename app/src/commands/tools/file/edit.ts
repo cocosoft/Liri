@@ -7,6 +7,7 @@
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'commands:tools:file:edit',
@@ -213,9 +214,9 @@ const editCommand = {
     } catch (err) {
       // analytics 非关键
 
-      logger.debug('Operation skipped', {
-        context: 'analytics 非关键',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'commands:tools:file:edit',
+        action: 'analyticsNonCritical',
       });
     }
 

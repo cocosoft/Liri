@@ -5,6 +5,8 @@
 
 import type { Tip, TipContext } from './types';
 
+import { handleError } from '@modules/error';
+
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'services:tips:tipRegistry',
@@ -88,9 +90,9 @@ export async function getRelevantTips(context?: TipContext): Promise<Tip[]> {
     } catch (err) {
       // ignore
 
-      logger.debug('Operation skipped', {
-        context: 'ignore',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'services:tips',
+        action: 'checkTipRelevance',
       });
     }
   }

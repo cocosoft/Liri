@@ -35,6 +35,7 @@
 import type { ToolCall, ScavengeOptions, ScavengeResult } from './types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'tools:repair:scavenge',
   level: LogLevel.INFO,
@@ -136,11 +137,9 @@ function parseDsmlParameters(body: string): Record<string, unknown> {
         args[key] = JSON.parse(raw);
         continue;
       } catch (err) {
-        // 回退为字面量文本，保留信息
-
-        logger.debug('Operation skipped', {
-          context: '回退为字面量文本，保留信息',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'tools:repair',
+          action: 'scavengeParseJson',
         });
       }
     }

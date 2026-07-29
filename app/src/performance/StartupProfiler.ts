@@ -17,6 +17,7 @@ import fs from 'fs';
 import { getPerformanceConfig } from './PerformanceConfig.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'performance:StartupProfiler',
   level: LogLevel.INFO,
@@ -154,9 +155,9 @@ export function profilePhaseEnd(phase: string): number {
   } catch (err) {
     // 起始标记不存在时（如未调用 profilePhaseStart），忽略测量
 
-    logger.debug('Operation skipped', {
-      context: '起始标记不存在时（如未调用 profilePhaseStart），忽略测量',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'performance:StartupProfiler',
+      action: 'measurePhase',
     });
   }
 

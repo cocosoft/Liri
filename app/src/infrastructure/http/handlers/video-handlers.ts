@@ -100,9 +100,9 @@ function collectVideoFiles(
   } catch (err) {
     // 目录不存在或不可读，忽略
 
-    logger.debug('Operation skipped', {
-      context: '目录不存在或不可读，忽略',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'infrastructure:http:handlers:video-handlers',
+      action: 'directoryNotReadable',
     });
   }
 }
@@ -149,9 +149,9 @@ function collectRegisteredVideos(): Array<{
   } catch (err) {
     // DB 不可用，回退到文件系统扫描
 
-    logger.debug('Operation skipped', {
-      context: 'DB 不可用，回退到文件系统扫描',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'infrastructure:http:handlers:video-handlers',
+      action: 'dbUnavailableFallback',
     });
   }
 
@@ -320,9 +320,9 @@ export async function handleVideoMetadata(
     } catch (err) {
       // DB 不可用，忽略
 
-      logger.debug('Operation skipped', {
-        context: 'DB 不可用，忽略',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'infrastructure:http:handlers:video-handlers',
+        action: 'dbUnavailable',
       });
     }
 
@@ -548,9 +548,9 @@ export async function handleVideoDelete(
     } catch (err) {
       // DB 不可用，忽略
 
-      logger.debug('Operation skipped', {
-        context: 'DB 不可用，忽略',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'infrastructure:http:handlers:video-handlers',
+        action: 'dbUnavailable',
       });
     }
 

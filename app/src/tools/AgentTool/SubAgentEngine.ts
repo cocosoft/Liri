@@ -19,7 +19,12 @@ import {
   resolveModelRoute,
   RouteKey,
 } from '@modules/ai/router/resolveModelRoute.js';
-import { AppError, ErrorCategory, ErrorSeverity, handleError } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { withRetry } from '@modules/utils/withRetry';
 import { trackUsage } from '../../ai/UsageTracker';
 import { globalEventBus } from '../../core/events/EventBus.js';
@@ -40,6 +45,10 @@ function safePublish(event: string, payload: Record<string, unknown>): void {
   try {
     globalEventBus.publish(event as any, payload);
   } catch (err) {
+    handleError(err, {
+      module: 'tools:AgentTool:SubAgentEngine',
+      action: 'safePublish',
+    });
     logger.warn('EventBus publish failed', {
       event,
       error: err instanceof Error ? err.message : String(err),
@@ -509,6 +518,11 @@ export class SubAgentEngine {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
 
+      handleError(error, {
+        module: 'tools:AgentTool:SubAgentEngine',
+        action: 'execute',
+      });
+
       otel.recordError(
         execSpan,
         error instanceof Error ? error : new Error(errorMessage)
@@ -613,6 +627,10 @@ export class SubAgentEngine {
     } catch (e) {
       otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
       otel.endSpan(span, SpanStatusCode.ERROR, String(e));
+      handleError(e, {
+        module: 'tools:AgentTool:SubAgentEngine',
+        action: 'callLLM',
+      });
       throw e;
     }
   }
@@ -644,6 +662,10 @@ export class SubAgentEngine {
 
       return JSON.stringify(output);
     } catch (error) {
+      handleError(error, {
+        module: 'tools:AgentTool:SubAgentEngine',
+        action: 'executeToolCall',
+      });
       return JSON.stringify({
         success: false,
         error: error instanceof Error ? error.message : String(error),

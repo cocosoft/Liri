@@ -10,6 +10,7 @@ import type { WakeEntry } from './types';
 import { WakeKind } from './types';
 import { WakeStore } from './WakeStore';
 import { cg3Log } from '../cg3Env';
+import { handleError } from '@modules/error';
 
 export class SelfWakeService {
   private wakeStore: WakeStore;
@@ -45,9 +46,10 @@ export class SelfWakeService {
     if (seconds * 1000 < this.tickIntervalMs) {
       const timer = setTimeout(() => {
         this.fire(entry.id).catch((err) => {
-          cg3Log('tasks:selfwake', 'error', 'shortTimerFireFailed', {
-            wakeId: entry.id,
-            error: String(err),
+          handleError(err, {
+            module: 'tasks:selfwake',
+            action: 'shortTimerFire',
+            context: { wakeId: entry.id },
           });
         });
       }, seconds * 1000);

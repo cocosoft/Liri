@@ -14,6 +14,8 @@ import {
   createPermissionRule,
 } from '../types/PermissionRule';
 
+import { handleError } from '@modules/error';
+
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'permission:utils:RuleMatcher',
@@ -218,10 +220,7 @@ export function matchWildcard(
   } catch (err) {
     // Invalid regex pattern
 
-    logger.debug('Operation skipped', {
-      context: 'Invalid regex pattern',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'permission:utils', action: 'compileRegex' });
   }
 
   return { matched: false };

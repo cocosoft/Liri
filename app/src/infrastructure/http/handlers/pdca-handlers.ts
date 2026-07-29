@@ -24,6 +24,7 @@
 import type http from 'http';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'infrastructure:http:handlers:pdca-handlers',
@@ -73,9 +74,9 @@ export async function handlePdcaStatus(
     } catch (err) {
       // 模块加载失败或无 orchestrator
 
-      logger.warn('Operation skipped', {
-        context: '模块加载失败或无 orchestrator',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'infrastructure:http:handlers:pdca-handlers',
+        action: 'orchestratorModuleFailed',
       });
     }
     if (!orchestrator) {
@@ -106,8 +107,9 @@ export async function handlePdcaAudit(
       const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
       orchestrator = m.getOrchestrator(taskId);
     } catch (err) {
-      logger.debug('Operation skipped', {
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'infrastructure:http:handlers:pdca-handlers',
+        action: 'orchestratorImportFailed',
       });
     } /* 可选模块, 加载失败时降级 */
     if (!orchestrator) {
@@ -138,8 +140,9 @@ export async function handlePdcaReviewStep(
       const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
       orchestrator = m.getOrchestrator(taskId);
     } catch (err) {
-      logger.debug('Operation skipped', {
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'infrastructure:http:handlers:pdca-handlers',
+        action: 'orchestratorImportFailed',
       });
     } /* 可选模块, 加载失败时降级 */
     if (!orchestrator) {
@@ -173,8 +176,9 @@ export async function handlePdcaDecideStep(
       const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
       orchestrator = m.getOrchestrator(taskId);
     } catch (err) {
-      logger.debug('Operation skipped', {
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'infrastructure:http:handlers:pdca-handlers',
+        action: 'orchestratorImportFailed',
       });
     } /* 可选模块, 加载失败时降级 */
     if (!orchestrator) {
@@ -204,8 +208,9 @@ export async function handlePdcaList(
       const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
       list = m.getAllOrchestrators().map((o: any) => o.getStatus());
     } catch (err) {
-      logger.debug('Operation skipped', {
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'infrastructure:http:handlers:pdca-handlers',
+        action: 'orchestratorImportFailed',
       });
     } /* 可选模块, 加载失败时降级 */
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -229,8 +234,9 @@ export async function handlePdcaConfirm(
       const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
       orchestrator = m.getOrchestrator(taskId);
     } catch (err) {
-      logger.debug('Operation skipped', {
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'infrastructure:http:handlers:pdca-handlers',
+        action: 'orchestratorImportFailed',
       });
     } /* 可选模块, 加载失败时降级 */
     if (!orchestrator) {

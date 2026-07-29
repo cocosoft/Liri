@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 负责MCP协议的序列化、反序列化、验证和消息路由
  */
 
@@ -10,7 +10,12 @@ import type {
   MCPPromptDefinition,
 } from '../types/MCPTypes';
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -539,9 +544,9 @@ export class MCPProtocolManager {
       } catch (err) {
         // 忽略解析错误
 
-        logger.debug('Operation skipped', {
-          context: '忽略解析错误',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'mcp:protocol',
+          action: 'extractRequestId',
         });
       }
 

@@ -115,6 +115,15 @@ export type {
   ModelGuidanceMode,
   ModelGuidanceConfig,
 } from './prompts/ModelGuidance';
+
+// P1-7: 上下文溢出渐进降级探测
+export {
+  createDegradationState,
+  tryDegradeContext,
+  parseContextLimitFromError,
+  getDegradationWarning,
+} from './ContextDegradation';
+export type { DegradationState, DegradationResult } from './ContextDegradation';
 export {
   PLATFORM_HINTS,
   PLATFORM_TOOL_HINTS,

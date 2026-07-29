@@ -1,7 +1,7 @@
-﻿import { BaseConverter } from '../engine/BaseConverter';
+import { BaseConverter } from '../engine/BaseConverter';
 import type { ConversionResult, ConversionContext } from '../engine/types';
 import { PRIORITY_SPECIFIC_FILE_FORMAT } from '../engine/types';
-import { AppError } from '@modules/error';
+import { AppError, handleError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import { resolve, dirname } from 'path';
 import { pathToFileURL } from 'url';
@@ -29,12 +29,7 @@ function ensurePdfJsLoaded(): void {
     _cMapUrl = pathToFileURL(resolve(pdfjsDistPath, 'cmaps') + '/').href;
     return;
   } catch (err) {
-    // 标准 require 失败，继续尝试其他方式
-
-    logger.warn('Operation skipped', {
-      context: '标准 require 失败，继续尝试其他方式',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'tools:converter', action: 'loadPdfjs1' });
   }
 
   // 尝试2: 通过 createRequire 从 exe 同目录加载外部 node_modules
@@ -48,12 +43,7 @@ function ensurePdfJsLoaded(): void {
     _cMapUrl = pathToFileURL(resolve(pdfjsDistPath, 'cmaps') + '/').href;
     return;
   } catch (err) {
-    // 外部路径也失败
-
-    logger.warn('Operation skipped', {
-      context: '外部路径也失败',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'tools:converter', action: 'loadPdfjs2' });
   }
 
   // 尝试3: 最终回退，加载未指定 legacy 的版本

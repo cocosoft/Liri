@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 命令历史模块
  * 管理CLI命令历史记录
  */
@@ -6,6 +6,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@modules/core';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({ module: 'cli:history', level: LogLevel.INFO });
@@ -57,10 +58,7 @@ export class CommandHistory {
     } catch (err) {
       // 忽略保存错误
 
-      logger.debug('Operation skipped', {
-        context: '忽略保存错误',
-        error: err instanceof Error ? err.message : String(err),
-      });
+      handleError(err, { module: 'cli:history', action: 'saveHistory' });
     }
   }
 

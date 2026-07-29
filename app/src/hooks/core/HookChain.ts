@@ -1,4 +1,4 @@
-﻿/**
+/**
  * HookChain — 三段式 Hook 执行链
  *
  * 统一 before / after / onError 三段式 Hook 机制。
@@ -14,7 +14,12 @@
  * ```
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -141,9 +146,9 @@ export class HookChain {
         } catch (err) {
           // onError hook 自身不得抛出异常
 
-          logger.debug('Operation skipped', {
-            context: 'onError hook 自身不得抛出异常',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'hooks:core',
+            action: 'onErrorHookHandler',
           });
         }
       }

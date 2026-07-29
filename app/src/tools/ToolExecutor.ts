@@ -253,6 +253,11 @@ export class ToolExecutor {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
 
+      handleError(error, {
+        module: 'tools:executor',
+        action: 'execute',
+      });
+
       if (this.useHooks) {
         hookContext.error = errorMessage;
         await this.executePostToolUseHooks(hookContext, false);

@@ -6,7 +6,12 @@
 import { Tool } from '../types/Tool';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -141,6 +146,29 @@ export class CronCreateTool {
         const silent = (input.silent as boolean) ?? false;
         const description = (input.description as string)?.trim() || prompt;
 
+        // P2-10: Cron 防注入扫描 — 创建时即拦截恶意 prompt
+        try {
+          const { CronInjectionScanner } =
+            await import('../../chronos/CronInjectionScanner');
+          const scanner = new CronInjectionScanner();
+          const scanResult = scanner.scan(prompt, 'strict');
+          if (!scanResult.safe) {
+            return ToolUtils.createFailureResult(
+              `Cron prompt rejected: ${scanResult.threats.join('; ')}`,
+              { executionTime: Date.now() - startTime }
+            );
+          }
+        } catch (scanErr) {
+          handleError(scanErr, {
+            module: 'tools:chronos',
+            action: 'scanCronPrompt',
+          });
+          return ToolUtils.createFailureResult(
+            'Cron prompt security scan failed',
+            { executionTime: Date.now() - startTime }
+          );
+        }
+
         try {
           // 构建 expression
           let expression = (input.expression as string)?.trim() || '';
@@ -228,11 +256,9 @@ export class CronCreateTool {
               await import('@modules/tasks/cron/GlobalCronScheduler');
             wakeGlobalCronScheduler();
           } catch (err) {
-            // 调度器可能未启动，忽略
-
-            logger.debug('Operation skipped', {
-              context: '调度器可能未启动，忽略',
-              error: err instanceof Error ? err.message : String(err),
+            handleError(err, {
+              module: 'tools:chronos',
+              action: 'wakeGlobalCronScheduler',
             });
           }
 

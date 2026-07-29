@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 会话管理器
  * 负责创建、管理和销毁会话，追踪会话活动与状态
  */
@@ -9,7 +9,12 @@ import type {
   SessionDoneStatus,
   SessionActivity,
 } from '../types/index.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -258,9 +263,9 @@ export class SessionManager {
     } catch (err) {
       // 忽略停止时的错误
 
-      logger.debug('Operation skipped', {
-        context: '忽略停止时的错误',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'bridge:managers:SessionManager',
+        action: 'ignoreStopError',
       });
     }
 

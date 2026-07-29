@@ -10,6 +10,7 @@ import { TaskType, TaskStatus, isTerminalTaskStatus } from './types';
 import type { AgentDefinition, AgentProgress, ToolActivity } from './types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'tasks:InProcessTeammateTask',
   level: LogLevel.INFO,
@@ -163,9 +164,9 @@ export class InProcessTeammateTask extends BaseTask {
       } catch (err) {
         // Ignore kill errors during cleanup
 
-        logger.debug('Operation skipped', {
-          context: 'Ignore kill errors during cleanup',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'tasks:teammate',
+          action: 'kill',
         });
       }
     }

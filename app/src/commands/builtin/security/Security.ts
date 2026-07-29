@@ -13,6 +13,7 @@ import { createSecurityScanner } from '@modules/security/scanners/SecurityScanne
 // eslint-disable-next-line no-restricted-imports
 import { inputValidator } from '@modules/security/validators/InputValidator.js';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'commands:builtin:security:Security',
@@ -455,9 +456,9 @@ const securityCommand = {
     } catch (err) {
       // 权限管理器可能不支持 getRules
 
-      logger.debug('Operation skipped', {
-        context: '权限管理器可能不支持 getRules',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'commands:builtin:security:Security',
+        action: 'getRulesUnsupported',
       });
     }
 

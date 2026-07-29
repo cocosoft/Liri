@@ -12,6 +12,7 @@ import { resolvePyappHome } from '@modules/core';
 import { randomUUID } from 'crypto';
 import { configManager } from '@modules/config';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({ module: 'utils:auth', level: LogLevel.INFO });
 
@@ -70,10 +71,7 @@ export async function loadAuthConfig(): Promise<AuthConfig> {
   } catch (err) {
     // 配置文件不存在或格式错误时返回空配置
 
-    logger.debug('Operation skipped', {
-      context: '配置文件不存在或格式错误时返回空配置',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'utils:auth', action: 'loadAuthConfigFailed' });
   }
   return {};
 }
@@ -95,10 +93,7 @@ export async function loadSession(): Promise<AuthSession | null> {
   } catch (err) {
     // 会话文件异常时返回 null
 
-    logger.debug('Operation skipped', {
-      context: '会话文件异常时返回 null',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'utils:auth', action: 'loadSessionFailed' });
   }
   return null;
 }
@@ -119,10 +114,7 @@ export async function clearSession(): Promise<void> {
   } catch (err) {
     // 清理失败时静默处理
 
-    logger.warn('Operation skipped', {
-      context: '清理失败时静默处理',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'utils:auth', action: 'clearSessionFailed' });
   }
 }
 

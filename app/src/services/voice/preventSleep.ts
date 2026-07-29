@@ -5,6 +5,8 @@
 
 import { spawn } from 'child_process';
 
+import { handleError } from '@modules/error';
+
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'services:voice:preventSleep',
@@ -110,10 +112,7 @@ function killCaffeinate(): void {
     } catch (err) {
       // ignore
 
-      logger.debug('Operation skipped', {
-        context: 'ignore',
-        error: err instanceof Error ? err.message : String(err),
-      });
+      handleError(err, { module: 'services:voice', action: 'stopCaffeinate' });
     }
     caffeinateProcess = null;
   }

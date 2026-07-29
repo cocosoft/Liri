@@ -23,7 +23,12 @@ import {
 } from 'fs';
 import { join, resolve, basename, dirname } from 'path';
 import { tmpdir, homedir } from 'os';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 // ─── 类型定义 ───────────────────────────────────────────────
 
@@ -315,10 +320,7 @@ function collectFiles(dirPath: string, result: string[]): void {
   } catch (err) {
     // 跳过无权限访问的目录
 
-    logger.debug('Operation skipped', {
-      context: '跳过无权限访问的目录',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'services:executor', action: 'scanWorkingDir' });
   }
 }
 
@@ -387,9 +389,9 @@ function restoreFromDir(
   } catch (err) {
     // 跳过恢复失败的条目
 
-    logger.warn('Operation skipped', {
-      context: '跳过恢复失败的条目',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'services:executor',
+      action: 'restorePathState',
     });
   }
 }

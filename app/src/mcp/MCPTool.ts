@@ -227,9 +227,15 @@ export const MCPTool: Tool = {
                 }
               );
             } else {
+              // P2-4: 凭据剥离
+              const { stripCredentials } =
+                await import('../services/mcp/MCPSecurityFilter');
+              const connErr = stripCredentials(
+                connection.getError() || 'unknown'
+              ).cleaned;
               return createToolResult(null, {
                 success: false,
-                error: `Failed to connect to MCP server: ${connection.getError()}`,
+                error: `Failed to connect to MCP server: ${connErr}`,
               });
             }
           }
@@ -305,9 +311,13 @@ export const MCPTool: Tool = {
           });
       }
     } catch (error: any) {
+      // P2-4: 凭据剥离
+      const { stripCredentials } =
+        await import('../services/mcp/MCPSecurityFilter');
+      const cleaned = stripCredentials(error.message || String(error)).cleaned;
       return createToolResult(null, {
         success: false,
-        error: `MCP operation failed: ${error.message}`,
+        error: `MCP operation failed: ${cleaned}`,
       });
     }
   },

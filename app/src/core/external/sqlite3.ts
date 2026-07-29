@@ -31,6 +31,7 @@ import { mkdirSync } from 'fs';
 import { dirname } from 'path';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'core:external:sqlite3',
   level: LogLevel.INFO,
@@ -81,9 +82,9 @@ class Database {
     } catch (err) {
       // 忽略
 
-      logger.debug('Operation skipped', {
-        context: '忽略',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'core:external',
+        action: 'mkdirSync',
       });
     }
 

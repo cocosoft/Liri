@@ -18,6 +18,8 @@ import {
   HookExecutionContext,
 } from '../types';
 
+import { handleError } from '@modules/error';
+
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'hooks:executors:ScriptHookExecutor',
@@ -142,9 +144,9 @@ export class ScriptHookExecutor {
       } catch (err) {
         // not valid JSON, keep as-is
 
-        logger.debug('Operation skipped', {
-          context: 'not valid JSON, keep as-is',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'hooks:executors',
+          action: 'parseScriptOutput',
         });
       }
 

@@ -7,6 +7,7 @@ import { priceManager } from './PriceManager';
 import type { ContextCategory, ContextStats, APIProviderType } from './types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'core:tokenBudget:ContextStatsCollector',
   level: LogLevel.INFO,
@@ -71,9 +72,9 @@ export class ContextStatsCollector {
       // use default
       // @ignore-catch: non-critical fallback
 
-      logger.debug('Operation skipped', {
-        context: 'use default',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'core:tokenBudget',
+        action: 'collect',
       });
     }
 

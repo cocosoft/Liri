@@ -7,6 +7,7 @@ import type { SessionLifecycleEventBus } from '@modules/session/lifecycle/Sessio
 import type { SessionLifecycleEvent } from '@modules/session/lifecycle/SessionLifecycleEvent';
 import type { EventSubscription } from '@modules/core';
 import { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -66,9 +67,9 @@ export class SessionStateBridge {
         } catch (err) {
           // 忽略非 RUNNING 状态下 complete 失败的异常
 
-          logger.warn('Operation skipped', {
-            context: '忽略非 RUNNING 状态下 complete 失败的异常',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'chat:sessionBridge',
+            action: 'completeStateMachine',
           });
         }
       })

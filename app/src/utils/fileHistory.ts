@@ -10,6 +10,7 @@ import { join, dirname, relative, isAbsolute, resolve } from 'path';
 import { createHash, randomUUID } from 'crypto';
 import { resolvePyappHome } from '@modules/core';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'utils:fileHistory',
@@ -209,9 +210,9 @@ export async function fileHistoryMakeSnapshot(
     } catch (err) {
       // 跳过无法备份的文件
 
-      logger.debug('Operation skipped', {
-        context: '跳过无法备份的文件',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'utils:fileHistory',
+        action: 'skipUnbackableFile',
       });
     }
   }

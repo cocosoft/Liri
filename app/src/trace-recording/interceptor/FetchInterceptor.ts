@@ -16,6 +16,7 @@ import { extractModelName } from './URLMatcher';
 import crypto from 'crypto';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'trace-recording:interceptor:FetchInterceptor',
   level: LogLevel.INFO,
@@ -179,9 +180,9 @@ export class FetchInterceptor {
     } catch (err) {
       // body 读取失败时不录制
 
-      logger.warn('Operation skipped', {
-        context: 'body 读取失败时不录制',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'trace-recording:interceptor',
+        action: 'readBody',
       });
     }
 
@@ -208,9 +209,9 @@ export class FetchInterceptor {
     } catch (err) {
       // 头读取失败
 
-      logger.warn('Operation skipped', {
-        context: '头读取失败',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'trace-recording:interceptor',
+        action: 'readHeaders',
       });
     }
 
@@ -304,9 +305,9 @@ export class FetchInterceptor {
           } catch (err) {
             // body 解析失败
 
-            logger.warn('Operation skipped', {
-              context: 'body 解析失败',
-              error: err instanceof Error ? err.message : String(err),
+            handleError(err, {
+              module: 'trace-recording:interceptor',
+              action: 'readResponseBody',
             });
           }
         }

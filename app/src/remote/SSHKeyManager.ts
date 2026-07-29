@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * SSH密钥管理器
  * 负责SSH密钥的生成、管理、存储和生命周期管理
@@ -11,7 +11,12 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { randomUUID } from 'crypto';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -343,18 +348,18 @@ export class SSHKeyManager {
         } catch (err) {
           // skip unreadable keys
 
-          logger.debug('Operation skipped', {
-            context: 'skip unreadable keys',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'remote:SSHKeyManager',
+            action: 'loadKeyFile',
           });
         }
       }
     } catch (err) {
       // storage dir might not exist yet
 
-      logger.debug('Operation skipped', {
-        context: 'storage dir might not exist yet',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'remote:SSHKeyManager',
+        action: 'loadKeysFromDir',
       });
     }
   }
@@ -381,9 +386,9 @@ export class SSHKeyManager {
       } catch (err) {
         // ignore cleanup failures
 
-        logger.debug('Operation skipped', {
-          context: 'ignore cleanup failures',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'remote:SSHKeyManager',
+          action: 'cleanupKeys',
         });
       }
     }

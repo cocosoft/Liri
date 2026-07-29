@@ -12,6 +12,7 @@ import path from 'path';
 import type { TraceRecord } from '../types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'trace-recording:engine:TraceWriter',
   level: LogLevel.INFO,
@@ -114,9 +115,9 @@ export class TraceWriter {
       } catch (err) {
         // 忽略无效行
 
-        logger.debug('Operation skipped', {
-          context: '忽略无效行',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'trace-recording:engine',
+          action: 'readRecordsParseLine',
         });
       }
     }
@@ -147,9 +148,9 @@ export class TraceWriter {
         } catch (err) {
           // 忽略无效行
 
-          logger.debug('Operation skipped', {
-            context: '忽略无效行',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'trace-recording:engine',
+            action: 'readRecordsFromPath',
           });
         }
       }

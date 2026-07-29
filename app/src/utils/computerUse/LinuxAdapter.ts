@@ -25,6 +25,7 @@ import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'utils:computerUse:LinuxAdapter',
@@ -161,9 +162,9 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
       } catch (err) {
         // ignore
 
-        logger.debug('Operation skipped', {
-          context: 'ignore',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'utils:computerUse:LinuxAdapter',
+          action: 'ignore',
         });
       }
 
@@ -175,9 +176,9 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
       } catch (err) {
         // ignore
 
-        logger.debug('Operation skipped', {
-          context: 'ignore',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'utils:computerUse:LinuxAdapter',
+          action: 'ignore',
         });
       }
       throw err;
@@ -559,18 +560,18 @@ export class LinuxComputerUseAdapter implements ComputerUseAdapter {
           } catch (err) {
             // 单个窗口查询失败跳过
 
-            logger.warn('Operation skipped', {
-              context: '单个窗口查询失败跳过',
-              error: err instanceof Error ? err.message : String(err),
+            handleError(err, {
+              module: 'utils:computerUse:LinuxAdapter',
+              action: 'singleWindowQueryFailed',
             });
           }
         }
       } catch (err) {
         // 两种方式都失败
 
-        logger.warn('Operation skipped', {
-          context: '两种方式都失败',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'utils:computerUse:LinuxAdapter',
+          action: 'allMethodsFailed',
         });
       }
     }

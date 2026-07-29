@@ -54,8 +54,9 @@ export async function handleCancelAgentTask(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-        logger.debug('Operation skipped', {
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'infrastructure:http:handlers:agent2-handlers',
+          action: 'responseAlreadyEnded',
         });
       } /* res可能已结束, 忽略 */
     }
@@ -90,8 +91,9 @@ export async function handleGetAgentTaskState(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-        logger.debug('Operation skipped', {
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'infrastructure:http:handlers:agent2-handlers',
+          action: 'responseAlreadyEnded',
         });
       } /* res可能已结束, 忽略 */
     }
@@ -121,8 +123,9 @@ export async function handleGetAgentTaskAudit(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-        logger.debug('Operation skipped', {
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'infrastructure:http:handlers:agent2-handlers',
+          action: 'responseAlreadyEnded',
         });
       } /* res可能已结束, 忽略 */
     }
@@ -177,8 +180,9 @@ export async function handleGetAgentTaskLogs(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-        logger.debug('Operation skipped', {
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'infrastructure:http:handlers:agent2-handlers',
+          action: 'responseAlreadyEnded',
         });
       } /* res可能已结束, 忽略 */
     }
@@ -215,8 +219,9 @@ export async function handleGetAgentTaskOutput(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-        logger.debug('Operation skipped', {
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'infrastructure:http:handlers:agent2-handlers',
+          action: 'responseAlreadyEnded',
         });
       } /* res可能已结束, 忽略 */
     }
@@ -248,8 +253,9 @@ export async function handleRecoverAgentTask(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-        logger.debug('Operation skipped', {
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'infrastructure:http:handlers:agent2-handlers',
+          action: 'responseAlreadyEnded',
         });
       } /* res可能已结束, 忽略 */
     }
@@ -288,8 +294,9 @@ export async function handleAgentTaskChat(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-        logger.debug('Operation skipped', {
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'infrastructure:http:handlers:agent2-handlers',
+          action: 'responseAlreadyEnded',
         });
       } /* res可能已结束, 忽略 */
     }

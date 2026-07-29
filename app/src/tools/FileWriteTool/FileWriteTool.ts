@@ -49,11 +49,9 @@ function readFileWithEncoding(filePath: string): string {
     try {
       return nativeRead(filePath);
     } catch (err) {
-      // 原生模块读取失败，回退到 UTF-8
-
-      logger.warn('Operation skipped', {
-        context: '原生模块读取失败，回退到 UTF-8',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'tools:FileWriteTool',
+        action: 'readFileWithEncoding',
       });
     }
   }
@@ -235,6 +233,10 @@ export class FileWriteTool extends BaseTool {
         ],
       });
     } catch (error: any) {
+      handleError(error, {
+        module: 'tools:FileWriteTool',
+        action: 'execute',
+      });
       if (onProgress) {
         onProgress({
           toolUseID: 'file-write-tool',
@@ -297,11 +299,9 @@ export class FileWriteTool extends BaseTool {
           storeZone: 'inbound',
         });
       } catch (err) {
-        // 静默失败，不干扰工具调用主流程
-
-        logger.warn('Operation skipped', {
-          context: '静默失败，不干扰工具调用主流程',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'tools:FileWriteTool',
+          action: 'registerWriteToFileRegistry',
         });
       }
     });

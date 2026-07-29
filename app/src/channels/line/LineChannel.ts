@@ -105,9 +105,9 @@ class UserProfileCache {
     } catch (err) {
       // 静默降级
 
-      logger.debug('Operation skipped', {
-        context: '静默降级',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'channels:line',
+        action: 'getProfile',
       });
     }
     return userId;

@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { resolveProjectRoot, resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -165,9 +166,9 @@ export class PluginDiscovery {
             } catch (err) {
               // 忽略解析错误
 
-              logger.debug('Operation skipped', {
-                context: '忽略解析错误',
-                error: err instanceof Error ? err.message : String(err),
+              handleError(err, {
+                module: 'plugins:discovery',
+                action: 'parsePackageManifest',
               });
             }
 
@@ -194,9 +195,9 @@ export class PluginDiscovery {
     } catch (err) {
       // 忽略扫描错误
 
-      logger.debug('Operation skipped', {
-        context: '忽略扫描错误',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'plugins:discovery',
+        action: 'scanPluginDir',
       });
     }
 

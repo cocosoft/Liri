@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 缓存系统
  * 提供持久化存储、版本管理和并发控制功能
  */
@@ -19,6 +19,7 @@ import {
 import { logForDebugging } from '../utils/debug.js';
 import { isEnvTruthy } from '../utils/envUtils.js';
 import { configManager } from '@modules/config';
+import { handleError } from '@modules/error';
 import { jsonStringify, jsonParse } from '../performance/SlowOperations.js';
 import {
   type PersistentCacheItem,
@@ -200,9 +201,9 @@ export class DiskStorage implements PersistentCacheStorage {
       } catch (err) {
         // 忽略清理错误
 
-        logger.debug('Operation skipped', {
-          context: '忽略清理错误',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'cache:CacheSystem',
+          action: 'cleanupTempFile',
         });
       }
       throw error;

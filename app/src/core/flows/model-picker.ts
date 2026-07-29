@@ -7,6 +7,7 @@ import type {
 import { modelManager } from '@modules/ai';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'core:flows:model-picker',
   level: LogLevel.INFO,
@@ -54,9 +55,9 @@ function loadModelCatalog(): Map<string, ModelCatalogEntry> {
   } catch (err) {
     // ModelManager 不可用时使用空目录
 
-    logger.debug('Operation skipped', {
-      context: 'ModelManager 不可用时使用空目录',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'core:flows',
+      action: 'buildCatalog',
     });
   }
   return catalog;

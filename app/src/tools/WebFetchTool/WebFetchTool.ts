@@ -1,4 +1,4 @@
-﻿/**
+/**
  * WebFetch 工具
  *
  * 提供网页内容获取功能
@@ -23,6 +23,7 @@ import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'tools:WebFetchTool:WebFetchTool',
   level: LogLevel.INFO,
@@ -454,12 +455,7 @@ export class WebFetchTool extends BaseTool {
         storeZone: 'inbound',
       });
     } catch (err) {
-      // 静默失败，不干扰主流程
-
-      logger.warn('Operation skipped', {
-        context: '静默失败，不干扰主流程',
-        error: err instanceof Error ? err.message : String(err),
-      });
+      handleError(err, { module: 'tools:webFetch', action: 'registerFile' });
     }
   }
 }

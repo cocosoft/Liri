@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 记忆提示构建器
  * 构建AI系统提示，指导模型如何使用持久化文件记忆系统
  * 参考CC源码的memdir/memdir.ts实现
@@ -15,11 +15,7 @@ import {
   WHEN_TO_ACCESS_SECTION,
 } from './memoryTypes.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'memory:services:MemoryPromptBuilder',
-  level: LogLevel.INFO,
-});
+import { handleError } from '@modules/error';
 
 export const ENTRYPOINT_NAME = 'MEMORY.md';
 export const MAX_ENTRYPOINT_LINES = 200;
@@ -91,11 +87,7 @@ export function ensureMemoryDirExists(memoryDir: string): void {
       mkdirSync(memoryDir, { recursive: true });
     } catch (err) {
       // 目录创建失败，不影响后续操作
-
-      logger.warn('Operation skipped', {
-        context: '目录创建失败，不影响后续操作',
-        error: err instanceof Error ? err.message : String(err),
-      });
+      handleError(err, { module: 'memory:prompt', action: 'ensureMemoryDir' });
     }
   }
 }
@@ -190,11 +182,7 @@ export function buildMemoryPrompt(params: {
     }
   } catch (err) {
     // 文件读取失败，使用空内容
-
-    logger.warn('Operation skipped', {
-      context: '文件读取失败，使用空内容',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'memory:prompt', action: 'readEntrypoint' });
   }
 
   const lines = buildMemoryLines(displayName, memoryDir, extraGuidelines);

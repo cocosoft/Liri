@@ -470,8 +470,29 @@ export class CronScheduler {
         }
       }
 
+      // P3-2: 跨进程调度锁 — 防止多实例重复触发同一任务
+      const { createCronLock } = await import('../CrossProcessLock');
+      const cronLock = createCronLock(job.id);
+      if (!cronLock.tryAcquire()) {
+        logger.info('[CronScheduler] 跨进程锁未获取（其他实例正在执行）', {
+          jobId: job.id,
+          name: job.name,
+        });
+        return {
+          success: false,
+          output: '',
+          finalResponse: '',
+          error: 'Another instance is executing this job',
+          durationMs: Date.now() - startTime,
+        };
+      }
+
       // 调用外部执行器
-      result = await this.executeWithTimeout(job);
+      try {
+        result = await this.executeWithTimeout(job);
+      } finally {
+        cronLock.release();
+      }
     } catch (error) {
       result = {
         success: false,

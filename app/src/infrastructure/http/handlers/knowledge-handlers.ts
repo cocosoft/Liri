@@ -13,6 +13,7 @@ import {
 import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'infrastructure:http:handlers:knowledge-handlers',
@@ -71,9 +72,9 @@ export async function handleListKnowledge(
       } catch (err) {
         // 文件可能已被移动，使用默认值
 
-        logger.debug('Operation skipped', {
-          context: '文件可能已被移动，使用默认值',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'infrastructure:http:handlers:knowledge-handlers',
+          action: 'fileMovedFallback',
         });
       }
 
@@ -883,9 +884,9 @@ export async function handleGetRawFiles(
         } catch (err) {
           // 元数据文件损坏，忽略
 
-          logger.debug('Operation skipped', {
-            context: '元数据文件损坏，忽略',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'infrastructure:http:handlers:knowledge-handlers',
+            action: 'metaFileCorrupted',
           });
         }
       }
@@ -1194,9 +1195,9 @@ export async function handleUpdateKnowledgeDoc(
           } catch (err) {
             // 摘要重建失败不影响主流程
 
-            logger.warn('Operation skipped', {
-              context: '摘要重建失败不影响主流程',
-              error: err instanceof Error ? err.message : String(err),
+            handleError(err, {
+              module: 'infrastructure:http:handlers:knowledge-handlers',
+              action: 'digestRebuildFailed',
             });
           }
 
@@ -1232,9 +1233,9 @@ export async function handleUpdateKnowledgeDoc(
     } catch (err) {
       // 摘要重建失败不影响主流程
 
-      logger.warn('Operation skipped', {
-        context: '摘要重建失败不影响主流程',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'infrastructure:http:handlers:knowledge-handlers',
+        action: 'digestRebuildFailed',
       });
     }
 

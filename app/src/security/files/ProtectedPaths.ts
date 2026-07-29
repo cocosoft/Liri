@@ -4,6 +4,7 @@
 import os from 'os';
 import path from 'path';
 import { configManager } from '@modules/config';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -121,7 +122,7 @@ export function getCrossPlatformProtectedFiles(): string[] {
     return windowsProtected.map((p) => normalizePath(p));
   })();
 
-  // 合并用户自定义规则
+  // 合并用户自定义规则（文件）
   try {
     const permission = configManager.getConfigValue<any>('permission');
     const blacklist = permission?.customRules?.directoryRules?.blacklist;
@@ -132,10 +133,7 @@ export function getCrossPlatformProtectedFiles(): string[] {
   } catch (err) {
     // config 系统未初始化时静默降级
 
-    logger.debug('Operation skipped', {
-      context: 'config 系统未初始化时静默降级',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'security:files', action: 'getProtectedDirs' });
   }
 
   return baseList;
@@ -191,10 +189,7 @@ export function getCrossPlatformProtectedDirectoryPrefixes(): string[] {
   } catch (err) {
     // config 系统未初始化时静默降级
 
-    logger.debug('Operation skipped', {
-      context: 'config 系统未初始化时静默降级',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'security:files', action: 'getProtectedFiles' });
   }
 
   return baseList;

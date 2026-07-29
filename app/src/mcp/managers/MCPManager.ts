@@ -288,6 +288,11 @@ export class MCPManager {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
 
+      // P2-4: 凭据剥离 — 错误消息中移除 API keys/tokens
+      const { stripCredentials } =
+        await import('../../services/mcp/MCPSecurityFilter');
+      const cleaned = stripCredentials(errorMessage).cleaned;
+
       // 记录失败的命令
       this.commandHistory.push({
         id: commandId,
@@ -298,11 +303,11 @@ export class MCPManager {
       });
 
       logger.error(
-        `Command execution failed: ${command} on ${serverName}: ${errorMessage}`
+        `Command execution failed: ${command} on ${serverName}: ${cleaned}`
       );
       return {
         success: false,
-        error: errorMessage,
+        error: cleaned,
       };
     }
   }

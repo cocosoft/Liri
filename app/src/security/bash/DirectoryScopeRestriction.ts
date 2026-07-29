@@ -6,6 +6,7 @@
 import { resolve, normalize, relative, sep } from 'path';
 import { existsSync, statSync } from 'fs';
 import { configManager } from '@modules/config';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -121,10 +122,7 @@ export class DirectoryScopeRestriction {
     } catch (err) {
       // config 系统未初始化时静默降级
 
-      logger.debug('Operation skipped', {
-        context: 'config 系统未初始化时静默降级',
-        error: err instanceof Error ? err.message : String(err),
-      });
+      handleError(err, { module: 'security:bash', action: 'loadScopeConfig' });
     }
   }
 

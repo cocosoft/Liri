@@ -71,6 +71,7 @@ import {
 import { contextManager } from './context/ContextManager.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({ module: 'main', level: LogLevel.INFO });
 
 /** 最大首次引导重试次数 */
@@ -346,9 +347,7 @@ async function checkFirstRunAndOnboard(): Promise<void> {
       try {
         rmSync(onboardRetryFlag, { force: true });
       } catch (err) {
-        logger.debug('Operation skipped', {
-          error: err instanceof Error ? err.message : String(err),
-        });
+        handleError(err, { module: 'core:onboard', action: 'cleanRetryFlag' });
       } // @ignore-catch: 清理重试标志文件，失败不影响流程
     }
     return;
@@ -376,9 +375,7 @@ async function checkFirstRunAndOnboard(): Promise<void> {
       try {
         rmSync(onboardRetryFlag, { force: true });
       } catch (err) {
-        logger.debug('Operation skipped', {
-          error: err instanceof Error ? err.message : String(err),
-        });
+        handleError(err, { module: 'core:onboard', action: 'cleanRetryFlag' });
       } // @ignore-catch: 清理重试标志文件，失败不影响流程
     }
 
@@ -400,9 +397,7 @@ async function checkFirstRunAndOnboard(): Promise<void> {
       }
       writeFileSync(onboardRetryFlag, String(retryCount), 'utf-8');
     } catch (err) {
-      logger.debug('Operation skipped', {
-        error: err instanceof Error ? err.message : String(err),
-      });
+      handleError(err, { module: 'core:onboard', action: 'writeRetryFlag' });
     } // @ignore-catch: 重试计数写入失败不影响主流程
 
     const errorMsg = error instanceof Error ? error.message : String(error);

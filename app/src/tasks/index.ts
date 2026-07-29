@@ -218,3 +218,7 @@ export type { TaskBlueprint, BlueprintSlot } from './TaskBlueprintCatalog';
 // P3-13: 任务列表视图导出
 export { sortAndFilterTasks, getTaskPillLabel } from './TaskListView';
 export type { TaskListViewItem, TaskListViewConfig } from './TaskListView';
+
+// P3-2: 跨进程调度锁
+export { CrossProcessLock, createCronLock } from './CrossProcessLock';
+export type { CrossProcessLockOptions } from './CrossProcessLock';

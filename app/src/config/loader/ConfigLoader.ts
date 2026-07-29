@@ -1,6 +1,11 @@
 import { readFileSync, existsSync } from 'fs';
 import { join, extname } from 'path';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { resolvePyappHome } from '@modules/core';
 
 import { Logger, LogLevel } from '../../monitoring/logs/Logger.js';
@@ -302,9 +307,9 @@ export class ConfigLoader implements IConfigLoader {
         } catch (err) {
           // ignore read errors during watch
 
-          logger.debug('Operation skipped', {
-            context: 'ignore read errors during watch',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'config:loader:ConfigLoader',
+            action: 'ignoreWatchReadError',
           });
         }
       }, 2000);

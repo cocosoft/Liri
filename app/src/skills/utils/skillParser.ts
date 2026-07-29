@@ -11,7 +11,12 @@ import { SkillSource, SkillLoadMethod } from '../types';
 import type { Skill } from '../types';
 // Re-export for downstream consumers
 export { SkillSource, SkillLoadMethod };
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -236,10 +241,7 @@ export class SkillParser {
       } catch (err) {
         // 如果JSON解析失败，回退到简单分割
 
-        logger.warn('Operation skipped', {
-          context: '如果JSON解析失败，回退到简单分割',
-          error: err instanceof Error ? err.message : String(err),
-        });
+        handleError(err, { module: 'skills:utils', action: 'parseArrayValue' });
       }
     }
 

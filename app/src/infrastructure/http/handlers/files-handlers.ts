@@ -113,9 +113,9 @@ export async function handleFileList(
       } catch (err) {
         // 权限不足时跳过 stat
 
-        logger.debug('Operation skipped', {
-          context: '权限不足时跳过 stat',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'infrastructure:http:handlers:files-handlers',
+          action: 'permissionDeniedStat',
         });
       }
       return {
@@ -349,8 +349,9 @@ export async function handleFileUpload(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-        logger.debug('Operation skipped', {
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'infrastructure:http:handlers:files-handlers',
+          action: 'responseAlreadyEnded',
         });
       } /* res可能已结束, 忽略 */
     }
@@ -385,8 +386,9 @@ export async function handleConvertFile(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-        logger.debug('Operation skipped', {
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'infrastructure:http:handlers:files-handlers',
+          action: 'responseAlreadyEnded',
         });
       } /* res可能已结束, 忽略 */
     }
@@ -417,8 +419,9 @@ export async function handleDetectFileType(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-        logger.debug('Operation skipped', {
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'infrastructure:http:handlers:files-handlers',
+          action: 'responseAlreadyEnded',
         });
       } /* res可能已结束, 忽略 */
     }
@@ -486,8 +489,9 @@ export async function handleSendFileToAI(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-        logger.debug('Operation skipped', {
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'infrastructure:http:handlers:files-handlers',
+          action: 'responseAlreadyEnded',
         });
       } /* res可能已结束, 忽略 */
     }
@@ -523,9 +527,9 @@ async function registerUploadToFileRegistry(
   } catch (err) {
     // 静默失败，不影响 HTTP 响应
 
-    logger.warn('Operation skipped', {
-      context: '静默失败，不影响 HTTP 响应',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'infrastructure:http:handlers:files-handlers',
+      action: 'silentFailure',
     });
   }
 }

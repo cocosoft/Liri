@@ -15,6 +15,7 @@ import { ALL_MODEL_CONFIGS } from '@modules/ai';
 import { priceManager } from './PriceManager';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'core:tokenBudget:ModelContextCache',
   level: LogLevel.INFO,
@@ -143,9 +144,9 @@ export class ModelContextCache {
         // 忽略单个监听器异常，确保其他监听器继续执行
         // @ignore-catch: non-critical fallback
 
-        logger.debug('Operation skipped', {
-          context: '忽略单个监听器异常，确保其他监听器继续执行',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'core:tokenBudget',
+          action: 'notifyListeners',
         });
       }
     }
@@ -188,9 +189,9 @@ export class ModelContextCache {
         // 模型未在 PriceManager 中注册，跳过
         // @ignore-catch: non-critical fallback
 
-        logger.debug('Operation skipped', {
-          context: '模型未在 PriceManager 中注册，跳过',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'core:tokenBudget',
+          action: 'discoverFromPriceManager',
         });
       }
     }

@@ -8,6 +8,8 @@ import type { Keybindings, KeybindingTemplate, Keybinding } from './validation';
 import { validateTemplate } from './validation';
 import { templates, getTemplate, getTemplateObject } from './templates';
 
+import { handleError } from '@modules/error';
+
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'keybindings:templateManager',
@@ -160,9 +162,9 @@ export class TemplateManager {
     } catch (err) {
       // 忽略加载错误
 
-      logger.debug('Operation skipped', {
-        context: '忽略加载错误',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'keybindings:templateManager',
+        action: 'loadCustomBindings',
       });
     }
   }
@@ -183,9 +185,9 @@ export class TemplateManager {
     } catch (err) {
       // 忽略保存错误
 
-      logger.debug('Operation skipped', {
-        context: '忽略保存错误',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'keybindings:templateManager',
+        action: 'saveCustomBindings',
       });
     }
   }

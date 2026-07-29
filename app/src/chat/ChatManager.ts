@@ -109,6 +109,12 @@ import {
   advanceMaxOutputRetry,
   type MaxOutputRetryState,
 } from '../ai/MaxOutputRetryHandler';
+import {
+  createDegradationState,
+  tryDegradeContext,
+  getDegradationWarning,
+  type DegradationState,
+} from '../ai/ContextDegradation';
 import type { IToolExecutor } from '@modules/ai';
 import type { ToolRegistry } from '@modules/tools/ToolRegistry';
 import type {
@@ -761,9 +767,9 @@ export class ChatManagerImpl implements ChatManager {
       );
     } catch (err) {
       // 更新失败不应影响主消息流
-      logger.warn('Operation skipped', {
-        context: '更新失败不应影响主消息流',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'chat:manager',
+        action: 'updateMessage_appendAssistant',
       });
     }
   }
@@ -820,10 +826,7 @@ export class ChatManagerImpl implements ChatManager {
       migrateSessionsToWorktree();
     } catch (err) {
       // 非阻塞
-      logger.warn('Operation skipped', {
-        context: '非阻塞',
-        error: err instanceof Error ? err.message : String(err),
-      });
+      handleError(err, { module: 'chat:manager', action: 'migrateSessions' });
     }
 
     // 连线 SessionLifecycle 事件 → 记忆/心跳自动化
@@ -835,9 +838,9 @@ export class ChatManagerImpl implements ChatManager {
       connectSessionHandlers(getGlobalEventBus());
     } catch (err) {
       // 非阻塞：事件连线失败不影响主流程
-      logger.warn('Operation skipped', {
-        context: '非阻塞：事件连线失败不影响主流程',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'chat:manager',
+        action: 'connectSessionHandlers',
       });
     }
 
@@ -1040,9 +1043,9 @@ export class ChatManagerImpl implements ChatManager {
             }
           } catch (err) {
             // 回灌失败不影响会话加载
-            logger.warn('Operation skipped', {
-              context: '回灌失败不影响会话加载',
-              error: err instanceof Error ? err.message : String(err),
+            handleError(err, {
+              module: 'chat:manager',
+              action: 'hydrateDecisions_loadSession',
             });
           }
         } catch (e) {
@@ -1666,12 +1669,8 @@ export class ChatManagerImpl implements ChatManager {
           } catch (err) {
             // 共享上下文加载失败不影响主流程
             await handleError(err, {
-              module: 'chat:ChatManager',
+              module: 'chat:manager',
               action: 'sharedContext_load',
-            });
-            logger.warn('Operation skipped', {
-              context: '共享上下文加载失败不影响主流程',
-              error: err instanceof Error ? err.message : String(err),
             });
           }
         }
@@ -2220,10 +2219,7 @@ export class ChatManagerImpl implements ChatManager {
       });
     } catch (err) {
       // 记忆提取失败不影响主流程
-      logger.warn('Operation skipped', {
-        context: '记忆提取失败不影响主流程',
-        error: err instanceof Error ? err.message : String(err),
-      });
+      handleError(err, { module: 'chat:manager', action: 'extractMemory' });
     }
   }
 
@@ -2978,6 +2974,11 @@ export class ChatManagerImpl implements ChatManager {
       MAX_OUTPUT_RETRY_CFG
     );
 
+    // P1-7: 上下文溢出渐进降级 — 初始化降级状态
+    const initialCtxLimit = resolveMaxContextTokens(options?.model);
+    let ctxDegradation: DegradationState =
+      createDegradationState(initialCtxLimit);
+
     let streamHadError = false;
     while (true) {
       streamHadError = false;
@@ -3053,6 +3054,33 @@ export class ChatManagerImpl implements ChatManager {
           result = await gen.next();
         }
       } catch (genErr) {
+        // P1-7: 上下文溢出降级 — 检测 context_length_exceeded 并尝试降级重试
+        const degradationResult = tryDegradeContext(ctxDegradation, genErr);
+        if (degradationResult.shouldRetry) {
+          logger.warn('chat:context_degraded — 降低上下文窗口重试', {
+            sessionId: session.id,
+            from: initialCtxLimit,
+            to: degradationResult.limit,
+            degradationCount: ctxDegradation.degradationCount,
+          });
+          const warning = getDegradationWarning(ctxDegradation);
+          if (warning) {
+            yield {
+              type: 'system',
+              content: warning,
+              sessionId: session.id,
+            } as unknown as string;
+          }
+          // 重新截断消息以适应降级后的上下文窗口
+          await this._truncateApiMessages(
+            apiMessages,
+            degradationResult.limit,
+            session.id
+          );
+          // 继续 while(true) 重试（不设置 streamHadError，不 break）
+          continue;
+        }
+
         streamHadError = true;
         await handleError(genErr, {
           module: 'chat:ChatManager',
@@ -5283,9 +5311,9 @@ export class ChatManagerImpl implements ChatManager {
           }
         } catch (err) {
           // 回灌失败不影响
-          logger.warn('Operation skipped', {
-            context: '回灌失败不影响',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'chat:manager',
+            action: 'hydrateDecisions_loadGateway',
           });
         }
         return chatSession;
@@ -6144,9 +6172,9 @@ export class ChatManagerImpl implements ChatManager {
                 ]);
               } catch (err) {
                 // 降级也失败，放弃
-                logger.warn('Operation skipped', {
-                  context: '降级也失败，放弃',
-                  error: err instanceof Error ? err.message : String(err),
+                handleError(err, {
+                  module: 'chat:manager',
+                  action: 'fallback_summarize',
                 });
               }
             }

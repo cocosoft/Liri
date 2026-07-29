@@ -27,6 +27,7 @@
 import type { Command, CommandContext, CommandResult } from '@modules/commands';
 import { getCommandManager } from '@modules/commands';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'commands:stats:index',
@@ -161,9 +162,9 @@ async function handleTokens(): Promise<CommandResult> {
   } catch (err) {
     // 兜底：costTracker 可能未加载
 
-    logger.debug('Operation skipped', {
-      context: '兜底：costTracker 可能未加载',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'commands:stats:index',
+      action: 'costTrackerFallback',
     });
   }
 

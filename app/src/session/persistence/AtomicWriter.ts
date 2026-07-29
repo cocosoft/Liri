@@ -7,7 +7,12 @@
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -81,9 +86,9 @@ export class AtomicWriter {
       } catch (err) {
         // file doesn't exist yet, that's fine
 
-        logger.debug('Operation skipped', {
-          context: "file doesn't exist yet, that's fine",
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'session:persistence',
+          action: 'readExisting',
         });
       }
       await fs.writeFile(tmpPath, existing + data, 'utf-8');

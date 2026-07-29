@@ -18,6 +18,7 @@ import type {
 } from '../types/Session.js';
 import type { UnifiedMessage } from '../types/Message.js';
 import { AtomicWriter } from '../persistence/AtomicWriter.js';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -175,9 +176,9 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     } catch (err) {
       // ignore cleanup errors
 
-      logger.debug('Operation skipped', {
-        context: 'ignore cleanup errors',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'session:storage',
+        action: 'deleteSession',
       });
     }
   }

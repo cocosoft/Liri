@@ -17,6 +17,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'query:reactLoop', level: LogLevel.INFO });
 
@@ -227,6 +228,7 @@ export abstract class ReActLoop<
           context = reasonResult.context ?? context;
           yield { type: 'reasoning_end', result: reasonResult };
         } catch (err) {
+          handleError(err, { module: 'query:reactLoop', action: 'reasoning' });
           logger.warn('reActLoop:reasoning_error', { error: String(err) });
           const recovered = await this.onReasoningError(err, input, context);
           if (recovered) {
@@ -263,6 +265,7 @@ export abstract class ReActLoop<
           }
           actResult = await this.act(reasonResult.toolCalls, context);
         } catch (err) {
+          handleError(err, { module: 'query:reactLoop', action: 'acting' });
           logger.error('reActLoop:acting_error', { error: String(err) });
           actResult = {
             results: reasonResult.toolCalls.map((tc) => ({
@@ -301,6 +304,7 @@ export abstract class ReActLoop<
         yield { type: 'iteration_end', iteration: this.state.iteration };
       }
     } catch (err) {
+      handleError(err, { module: 'query:reactLoop', action: 'run' });
       this.state.phase = 'error';
       this.state.lastError = String(err);
       yield { type: 'error', message: String(err) };

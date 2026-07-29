@@ -29,6 +29,7 @@ import {
 } from '../../tools/AgentTool/SubAgentEngine';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'agent:swarms:AgentSwarmManager',
   level: LogLevel.INFO,
@@ -91,9 +92,9 @@ class RealSwarmAgent implements ISwarmAgent {
     } catch (err) {
       // EventBus 发射失败不阻塞主流程
 
-      logger.warn('Operation skipped', {
-        context: 'EventBus 发射失败不阻塞主流程',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'agent:swarms',
+        action: 'emitAgentStatusStart',
       });
     }
 
@@ -127,9 +128,9 @@ class RealSwarmAgent implements ISwarmAgent {
             } catch (err) {
               // 不阻塞主流程
 
-              logger.debug('Operation skipped', {
-                context: '不阻塞主流程',
-                error: err instanceof Error ? err.message : String(err),
+              handleError(err, {
+                module: 'agent:swarms',
+                action: 'emitAgentProgress',
               });
             }
           }
@@ -154,9 +155,9 @@ class RealSwarmAgent implements ISwarmAgent {
       } catch (err) {
         // 不阻塞主流程
 
-        logger.debug('Operation skipped', {
-          context: '不阻塞主流程',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'agent:swarms',
+          action: 'emitAgentStatusComplete',
         });
       }
 
@@ -184,9 +185,9 @@ class RealSwarmAgent implements ISwarmAgent {
       } catch (err) {
         // 不阻塞主流程
 
-        logger.debug('Operation skipped', {
-          context: '不阻塞主流程',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'agent:swarms',
+          action: 'emitAgentStatusError',
         });
       }
 
@@ -293,9 +294,9 @@ export class AgentSwarmManager {
     } catch (err) {
       // 不阻塞主流程
 
-      logger.debug('Operation skipped', {
-        context: '不阻塞主流程',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'agent:swarms',
+        action: 'emitAgentAdded',
       });
     }
   }
@@ -344,9 +345,9 @@ export class AgentSwarmManager {
     } catch (err) {
       // 不阻塞主流程
 
-      logger.debug('Operation skipped', {
-        context: '不阻塞主流程',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'agent:swarms',
+        action: 'emitAgentRemoved',
       });
     }
   }
@@ -391,9 +392,9 @@ export class AgentSwarmManager {
         } catch (err) {
           // 不阻塞主流程
 
-          logger.debug('Operation skipped', {
-            context: '不阻塞主流程',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'agent:swarms',
+            action: 'emitHeartbeat',
           });
         }
 
@@ -420,9 +421,9 @@ export class AgentSwarmManager {
           } catch (err) {
             // 不阻塞主流程
 
-            logger.debug('Operation skipped', {
-              context: '不阻塞主流程',
-              error: err instanceof Error ? err.message : String(err),
+            handleError(err, {
+              module: 'agent:swarms',
+              action: 'emitAutoRecovery',
             });
           }
         }
@@ -471,9 +472,9 @@ export class AgentSwarmManager {
     } catch (err) {
       // 不阻塞主流程
 
-      logger.debug('Operation skipped', {
-        context: '不阻塞主流程',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'agent:swarms',
+        action: 'emitSwarmDispatch',
       });
     }
 
@@ -499,9 +500,9 @@ export class AgentSwarmManager {
       } catch (err) {
         // 不阻塞主流程
 
-        logger.debug('Operation skipped', {
-          context: '不阻塞主流程',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'agent:swarms',
+          action: 'emitSwarmComplete',
         });
       }
 

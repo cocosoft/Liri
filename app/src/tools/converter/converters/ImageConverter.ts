@@ -1,7 +1,7 @@
-﻿import { BaseConverter } from '../engine/BaseConverter';
+import { BaseConverter } from '../engine/BaseConverter';
 import type { ConversionResult, ConversionContext } from '../engine/types';
 import { PRIORITY_SPECIFIC_FILE_FORMAT } from '../engine/types';
-import { AppError } from '@modules/error';
+import { AppError, handleError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -34,24 +34,14 @@ function ensureSharpLoaded(): void {
     _sharp = require('sharp');
     return;
   } catch (err) {
-    // 继续尝试下一级
-
-    logger.debug('Operation skipped', {
-      context: '继续尝试下一级',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'tools:converter', action: 'loadSharp1' });
   }
 
   try {
     const exeRequire = createRequire(__filename);
     _sharp = exeRequire('sharp');
   } catch (err) {
-    // sharp 不可用，_sharp 保持 null
-
-    logger.debug('Operation skipped', {
-      context: 'sharp 不可用，_sharp 保持 null',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'tools:converter', action: 'loadSharp2' });
   }
 }
 

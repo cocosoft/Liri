@@ -1,6 +1,8 @@
 import type { PolicyDefinition, PolicyLimitConfig, UsageQuota } from './types';
 import { DEFAULT_POLICY_CONFIG, LimitType } from './types';
 
+import { handleError } from '@modules/error';
+
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'services:policyLimits:PolicyLimitsClient',
@@ -72,9 +74,9 @@ export class PolicyLimitsClient {
     } catch (err) {
       // Fallback to defaults
 
-      logger.debug('Operation skipped', {
-        context: 'Fallback to defaults',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'services:policyLimits',
+        action: 'fetchPolicies',
       });
     }
   }

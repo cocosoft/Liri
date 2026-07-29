@@ -242,9 +242,9 @@ class TelegramFallbackTransport {
       } catch (err) {
         // 单个 DoH 失败不影响其他
 
-        logger.warn('Operation skipped', {
-          context: '单个 DoH 失败不影响其他',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'channels:telegram',
+          action: 'dohLookup',
         });
       }
     }
@@ -350,9 +350,9 @@ class TelegramFallbackTransport {
     } catch (err) {
       // 恢复失败，保持现有 fallback
 
-      logger.warn('Operation skipped', {
-        context: '恢复失败，保持现有 fallback',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'channels:telegram',
+        action: 'tryRestoreDefault',
       });
     }
   }

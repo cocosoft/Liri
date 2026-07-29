@@ -5,6 +5,7 @@
  */
 
 import { SSHConnection, SSHConfig, SSHConnectionStatus } from './SSHConnection';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -200,9 +201,9 @@ export class SSHConnectionPool {
       } catch (err) {
         // ignore disconnect errors during shutdown
 
-        logger.debug('Operation skipped', {
-          context: 'ignore disconnect errors during shutdown',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'remote:SSHConnectionPool',
+          action: 'disconnectAll',
         });
       }
     }

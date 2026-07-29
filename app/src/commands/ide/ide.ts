@@ -9,6 +9,7 @@ import { join } from 'path';
 import { configManager } from '@modules/config';
 import type { CommandContext, CommandResult } from '@modules/commands';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({ module: 'commands:ide:ide', level: LogLevel.INFO });
 
@@ -212,10 +213,7 @@ function detectByPath(def: IDEDefinition): {
   } catch (err) {
     // not in PATH
 
-    logger.debug('Operation skipped', {
-      context: 'not in PATH',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'commands:ide:ide', action: 'notInPath' });
   }
   return { installed: false };
 }
@@ -443,9 +441,9 @@ const ideCommand = {
       } catch (err) {
         // analytics 非关键
 
-        logger.debug('Operation skipped', {
-          context: 'analytics 非关键',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'commands:ide:ide',
+          action: 'analyticsNonCritical',
         });
       }
 

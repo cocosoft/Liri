@@ -13,6 +13,7 @@
 
 import { createServer, type Server } from 'http';
 import type { AddressInfo } from 'net';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -57,10 +58,7 @@ export class AuthCodeListener {
       } catch (err) {
         // 端口被占用，回退到范围扫描
 
-        logger.debug('Operation skipped', {
-          context: '端口被占用，回退到范围扫描',
-          error: err instanceof Error ? err.message : String(err),
-        });
+        handleError(err, { module: 'system:auth', action: 'bindPortOrScan' });
       }
     }
 

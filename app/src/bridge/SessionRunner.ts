@@ -10,6 +10,7 @@
 import { spawn, type ChildProcess } from 'child_process';
 import { createWriteStream, type WriteStream } from 'fs';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'bridge:SessionRunner',
@@ -139,9 +140,9 @@ export function createSessionRunner(
     } catch (err) {
       // silently ignore debug file creation failures
 
-      logger.debug('Operation skipped', {
-        context: 'silently ignore debug file creation failures',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'bridge:SessionRunner',
+        action: 'ignoreDebugFileCreationFailure',
       });
     }
   }

@@ -547,17 +547,26 @@ export class AgentTool implements Tool {
       { role: 'user' as const, content: input.prompt },
     ];
 
-    const startTime = Date.now();
-    const response = await llmClient.chat(messages, {
-      tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
-      model: input.model,
-    });
-    const latencyMs = Date.now() - startTime;
+    let response: Awaited<ReturnType<typeof llmClient.chat>>;
+    try {
+      const startTime = Date.now();
+      response = await llmClient.chat(messages, {
+        tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
+        model: input.model,
+      });
+      const latencyMs = Date.now() - startTime;
 
-    trackUsage(response as unknown as Record<string, unknown>, {
-      model: input.model || agentModel,
-      latencyMs,
-    });
+      trackUsage(response as unknown as Record<string, unknown>, {
+        model: input.model || agentModel,
+        latencyMs,
+      });
+    } catch (e) {
+      handleError(e, {
+        module: 'tools:agentTool',
+        action: 'runDirectCallLLM',
+      });
+      throw e;
+    }
 
     const content = response.content || '';
     const toolCalls = response.tool_calls;
@@ -964,6 +973,11 @@ export class AgentTool implements Tool {
 
       const errorMessage =
         error instanceof Error ? error.message : String(error);
+
+      handleError(error, {
+        module: 'tools:agentTool',
+        action: 'execute',
+      });
 
       logger.error('Agent execution failed', {
         agentId,

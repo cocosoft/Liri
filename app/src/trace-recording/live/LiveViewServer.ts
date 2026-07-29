@@ -13,6 +13,7 @@ import { ViewerService } from '../viewer/ViewerService';
 import { TraceEngine } from '../engine/TraceEngine';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'trace-recording:live:LiveViewServer',
   level: LogLevel.INFO,
@@ -70,9 +71,9 @@ export class LiveViewServer {
       } catch (err) {
         // 忽略关闭异常
 
-        logger.debug('Operation skipped', {
-          context: '忽略关闭异常',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'trace-recording:live',
+          action: 'closeSSEClient',
         });
       }
     }

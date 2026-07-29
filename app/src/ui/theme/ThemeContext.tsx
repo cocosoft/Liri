@@ -27,6 +27,7 @@ import React, {
 } from 'react';
 import { ThemeManager } from '../ThemeManager';
 import type { ThemeUIColorPalette } from './ThemeSchema';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -137,10 +138,7 @@ function loadUiColors(
   } catch (err) {
     // 忽略加载异常，使用后备配色
 
-    logger.debug('Operation skipped', {
-      context: '忽略加载异常，使用后备配色',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'ui:theme', action: 'loadThemeMap' });
   }
   return isDarkName(themeName) ? FALLBACK_DARK : FALLBACK_LIGHT;
 }

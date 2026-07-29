@@ -95,10 +95,7 @@ export function parseForSecurity(command: string): ParseForSecurityResult {
     } catch (err) {
       // 降级到TypeScript解析
 
-      logger.debug('Operation skipped', {
-        context: '降级到TypeScript解析',
-        error: err instanceof Error ? err.message : String(err),
-      });
+      handleError(err, { module: 'security:bash', action: 'parseBashAST' });
     }
   }
 
@@ -252,6 +249,7 @@ export function hasRedirects(commands: SimpleCommand[]): boolean {
 
 import type { IParsedCommand } from './ParsedCommand';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'security:bash:BashAST',

@@ -1,4 +1,4 @@
-﻿import { handleError } from '@modules/error';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -46,9 +46,9 @@ export async function executePreCompactHooks(
     } catch (err) {
       // Hook errors must not break compact flow
 
-      logger.debug('Operation skipped', {
-        context: 'Hook errors must not break compact flow',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'services:compact',
+        action: 'executeCompactHook',
       });
     }
   }

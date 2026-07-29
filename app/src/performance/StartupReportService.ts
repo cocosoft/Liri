@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 启动报告服务
  * 用于生成详细的应用启动性能报告
  */
@@ -8,6 +8,7 @@ import fs from 'fs';
 import { resolveDataSubDir, resolveProjectRoot } from '@modules/core';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'performance:StartupReportService',
   level: LogLevel.INFO,
@@ -333,9 +334,9 @@ export class StartupReportService {
     } catch (err) {
       // 忽略错误
 
-      logger.debug('Operation skipped', {
-        context: '忽略错误',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'performance:StartupReport',
+        action: 'readPackageJson',
       });
     }
 

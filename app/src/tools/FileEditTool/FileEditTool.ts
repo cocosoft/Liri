@@ -48,11 +48,9 @@ function readFileWithEncoding(filePath: string): string {
     try {
       return nativeRead(filePath);
     } catch (err) {
-      // 原生模块读取失败，回退到 UTF-8
-
-      logger.warn('Operation skipped', {
-        context: '原生模块读取失败，回退到 UTF-8',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'tools:FileEditTool',
+        action: 'readFileWithEncoding',
       });
     }
   }
@@ -283,6 +281,10 @@ export class FileEditTool extends BaseTool {
         }
       );
     } catch (error: any) {
+      handleError(error, {
+        module: 'tools:FileEditTool',
+        action: 'execute',
+      });
       return createToolResult(error.message, {
         newMessages: [{ role: 'system', content: `Error: ${error.message}` }],
       });

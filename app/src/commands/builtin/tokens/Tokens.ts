@@ -324,9 +324,9 @@ const tokensCommand = {
         // analytics 非关键
         // @ignore-catch: non-critical fallback
 
-        logger.debug('Operation skipped', {
-          context: 'analytics 非关键',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'commands:builtin:tokens:Tokens',
+          action: 'analyticsNonCritical',
         });
       }
 

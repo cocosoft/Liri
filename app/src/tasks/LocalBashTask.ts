@@ -18,6 +18,7 @@ import type { BashTaskOptions } from './types';
 import { taskRegistry } from './TaskRegistry';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'tasks:LocalBashTask',
   level: LogLevel.INFO,
@@ -198,9 +199,9 @@ export class LocalBashTask extends BaseTask {
       } catch (err) {
         // 输出文件可能还不存在
 
-        logger.debug('Operation skipped', {
-          context: '输出文件可能还不存在',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'tasks:bash',
+          action: 'stallCheck',
         });
       }
     }, STALL_CHECK_INTERVAL_MS);

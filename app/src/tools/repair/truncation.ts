@@ -31,6 +31,7 @@
 import type { TruncationRepairResult } from './types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'tools:repair:truncation',
   level: LogLevel.INFO,
@@ -55,12 +56,7 @@ export function repairTruncatedJson(input: string): TruncationRepairResult {
     JSON.parse(input);
     return { repaired: input, changed: false, notes: [], fallback: false };
   } catch (err) {
-    // 继续修复
-
-    logger.debug('Operation skipped', {
-      context: '继续修复',
-      error: err instanceof Error ? err.message : String(err),
-    });
+    handleError(err, { module: 'tools:repair', action: 'repairTruncatedJson' });
   }
 
   const stack: Array<'}' | ']' | '"'> = [];

@@ -11,6 +11,7 @@ import { promises as fs } from 'fs';
 import { join, extname } from 'path';
 import { getCommandManager as getCmdMgr } from '@modules/commands';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'commands:builtin:activity:ActivityStats',
@@ -102,9 +103,9 @@ async function scanProjectCode(rootDir?: string): Promise<CodeScanResult> {
   } catch (err) {
     // 扫描失败时返回空数据
 
-    logger.warn('Operation skipped', {
-      context: '扫描失败时返回空数据',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'commands:builtin:activity:ActivityStats',
+      action: 'scanFailed',
     });
   }
 

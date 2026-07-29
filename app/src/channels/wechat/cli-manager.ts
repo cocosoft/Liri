@@ -18,6 +18,7 @@ import path from 'path';
 import fs from 'fs';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'channels:wechat:cli-manager',
   level: LogLevel.INFO,
@@ -337,9 +338,9 @@ export class WeixinCliManager extends EventEmitter {
         } catch (err) {
           // ignore
 
-          logger.debug('Operation skipped', {
-            context: 'ignore',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'channels:wechat',
+            action: 'stopSIGKILL',
           });
         }
       }, 10_000);
@@ -358,9 +359,9 @@ export class WeixinCliManager extends EventEmitter {
       } catch (err) {
         // ignore
 
-        logger.debug('Operation skipped', {
-          context: 'ignore',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'channels:wechat',
+          action: 'stopSIGTERM',
         });
       }
     });
@@ -427,9 +428,9 @@ export class WeixinCliManager extends EventEmitter {
         } catch (err) {
           // ignore
 
-          logger.debug('Operation skipped', {
-            context: 'ignore',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'channels:wechat',
+            action: 'execSIGKILL',
           });
         }
         resolve(false);

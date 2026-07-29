@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 列出Peers工具
  * 用于发现本地peer（UDS）或远程会话（bridge）
  * 参考CC源码 cc_code/backend/tools/ListPeersTool/ListPeersTool.ts 实现
@@ -13,6 +13,7 @@ import { join } from 'path';
 import { resolveDataSubDir } from '@modules/core';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'tools:ListPeersTool:ListPeersTool',
   level: LogLevel.INFO,
@@ -129,20 +130,16 @@ export class ListPeersTool extends BaseTool<ListPeersInput, ListPeersOutput> {
             });
           }
         } catch (err) {
-          // 忽略无法访问的socket
-
-          logger.debug('Operation skipped', {
-            context: '忽略无法访问的socket',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'tools:listPeers',
+            action: 'scanUdsSocket',
           });
         }
       }
     } catch (err) {
-      // 目录不存在或无法访问
-
-      logger.debug('Operation skipped', {
-        context: '目录不存在或无法访问',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'tools:listPeers',
+        action: 'scanLocalSockets',
       });
     }
 
@@ -176,11 +173,9 @@ export class ListPeersTool extends BaseTool<ListPeersInput, ListPeersOutput> {
         }
       }
     } catch (err) {
-      // 目录不存在或无法访问
-
-      logger.debug('Operation skipped', {
-        context: '目录不存在或无法访问',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'tools:listPeers',
+        action: 'scanBridgeSessions',
       });
     }
 
@@ -188,7 +183,7 @@ export class ListPeersTool extends BaseTool<ListPeersInput, ListPeersOutput> {
   }
 
   /**
-   * 扫描本地进程
+   * 扫描Teammate会话
    */
   private scanLocalProcesses(): PeerInfo[] {
     const peers: PeerInfo[] = [];
@@ -208,12 +203,7 @@ export class ListPeersTool extends BaseTool<ListPeersInput, ListPeersOutput> {
         });
       }
     } catch (err) {
-      // TeammateManager不可用
-
-      logger.debug('Operation skipped', {
-        context: 'TeammateManager不可用',
-        error: err instanceof Error ? err.message : String(err),
-      });
+      handleError(err, { module: 'tools:listPeers', action: 'scanTeammates' });
     }
 
     return peers;

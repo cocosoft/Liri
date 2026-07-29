@@ -17,6 +17,7 @@ import type { ChatSession } from '../../chat/types/session';
 import type { Message } from '../../chat/types/message';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'session:hydration:SessionStateHydrator',
   level: LogLevel.INFO,
@@ -169,9 +170,9 @@ export class SessionStateHydrator {
           } catch (err) {
             // ignore
 
-            logger.debug('Operation skipped', {
-              context: 'ignore',
-              error: err instanceof Error ? err.message : String(err),
+            handleError(err, {
+              module: 'session:hydration',
+              action: 'extractFilePath',
             });
           }
         }
@@ -203,9 +204,9 @@ export class SessionStateHydrator {
           } catch (err) {
             // ignore
 
-            logger.debug('Operation skipped', {
-              context: 'ignore',
-              error: err instanceof Error ? err.message : String(err),
+            handleError(err, {
+              module: 'session:hydration',
+              action: 'parseToolResult',
             });
           }
         }

@@ -17,7 +17,8 @@ import {
 } from 'fs';
 import { join, basename } from 'path';
 import type { WakeEntry } from './types';
-import { cg3DataDir } from '../cg3Env';
+import { cg3DataDir, cg3Log } from '../cg3Env';
+import { handleError } from '@modules/error';
 
 export class WakeStore {
   private dir: string;
@@ -59,18 +60,31 @@ export class WakeStore {
 
   async save(sessionId: string, entries: WakeEntry[]): Promise<void> {
     return this.withLock(sessionId, async () => {
-      writeFileSync(this.filePath(sessionId), JSON.stringify(entries, null, 2));
-      for (const e of entries) {
-        this.wakeToSession.set(e.id, sessionId);
+      try {
+        writeFileSync(
+          this.filePath(sessionId),
+          JSON.stringify(entries, null, 2)
+        );
+        for (const e of entries) {
+          this.wakeToSession.set(e.id, sessionId);
+        }
+      } catch (err) {
+        handleError(err, { module: 'tasks:selfwake', action: 'saveWake' });
+        throw err;
       }
     });
   }
 
   async load(sessionId: string): Promise<WakeEntry[]> {
     return this.withLock(sessionId, async () => {
-      const path = this.filePath(sessionId);
-      if (!existsSync(path)) return [];
-      return JSON.parse(readFileSync(path, 'utf-8'));
+      try {
+        const path = this.filePath(sessionId);
+        if (!existsSync(path)) return [];
+        return JSON.parse(readFileSync(path, 'utf-8'));
+      } catch (err) {
+        handleError(err, { module: 'tasks:selfwake', action: 'loadWake' });
+        return [];
+      }
     });
   }
 
@@ -79,14 +93,18 @@ export class WakeStore {
     const sid = this.wakeToSession.get(wakeId);
     if (!sid) return;
     await this.withLock(sid, async () => {
-      const path = this.filePath(sid);
-      if (!existsSync(path)) return;
-      const entries: WakeEntry[] = JSON.parse(readFileSync(path, 'utf-8'));
-      const idx = entries.findIndex((e) => e.id === wakeId);
-      if (idx >= 0) {
-        entries[idx].status = 'fired';
-        entries[idx].firedAt = Date.now();
-        writeFileSync(path, JSON.stringify(entries, null, 2));
+      try {
+        const path = this.filePath(sid);
+        if (!existsSync(path)) return;
+        const entries: WakeEntry[] = JSON.parse(readFileSync(path, 'utf-8'));
+        const idx = entries.findIndex((e) => e.id === wakeId);
+        if (idx >= 0) {
+          entries[idx].status = 'fired';
+          entries[idx].firedAt = Date.now();
+          writeFileSync(path, JSON.stringify(entries, null, 2));
+        }
+      } catch (err) {
+        handleError(err, { module: 'tasks:selfwake', action: 'markFired' });
       }
     });
   }
@@ -141,20 +159,24 @@ export class WakeStore {
     for (const f of files) {
       const sid = basename(f, '.json');
       await this.withLock(sid, async () => {
-        const path = this.filePath(sid);
-        if (!existsSync(path)) return;
-        const entries: WakeEntry[] = JSON.parse(readFileSync(path, 'utf-8'));
-        const kept = entries.filter(
-          (e) => e.status !== 'fired' || (e.firedAt && e.firedAt > cutoff)
-        );
-        if (kept.length < entries.length) {
-          cleaned += entries.length - kept.length;
-          if (kept.length === 0) {
-            unlinkSync(path);
-            for (const e of entries) this.wakeToSession.delete(e.id);
-          } else {
-            writeFileSync(path, JSON.stringify(kept, null, 2));
+        try {
+          const path = this.filePath(sid);
+          if (!existsSync(path)) return;
+          const entries: WakeEntry[] = JSON.parse(readFileSync(path, 'utf-8'));
+          const kept = entries.filter(
+            (e) => e.status !== 'fired' || (e.firedAt && e.firedAt > cutoff)
+          );
+          if (kept.length < entries.length) {
+            cleaned += entries.length - kept.length;
+            if (kept.length === 0) {
+              unlinkSync(path);
+              for (const e of entries) this.wakeToSession.delete(e.id);
+            } else {
+              writeFileSync(path, JSON.stringify(kept, null, 2));
+            }
           }
+        } catch (err) {
+          handleError(err, { module: 'tasks:selfwake', action: 'gcWake' });
         }
       });
     }

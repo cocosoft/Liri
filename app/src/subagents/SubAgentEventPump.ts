@@ -10,6 +10,7 @@
  *   - 通过 globalEventBus 推送 subagent_status 事件
  */
 import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'subagents:eventPump' });
 
@@ -153,8 +154,11 @@ export class SubAgentEventPump {
     };
     try {
       this.onStatusChange?.(event);
-    } catch {
-      // callback 失败不阻断轮询
+    } catch (err) {
+      handleError(err, {
+        module: 'subagents:eventPump',
+        action: 'onStatusChange',
+      });
     }
   }
 

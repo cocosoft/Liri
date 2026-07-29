@@ -1,6 +1,11 @@
-﻿import { existsSync, readFileSync, watchFile, unwatchFile, Stats } from 'fs';
+import { existsSync, readFileSync, watchFile, unwatchFile, Stats } from 'fs';
 import { extname } from 'path';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 import { Logger, LogLevel } from '../../monitoring/logs/Logger.js';
 const logger = new Logger({
@@ -235,9 +240,9 @@ export class HotReloader {
       } catch (err) {
         // ignore listener errors
 
-        logger.debug('Operation skipped', {
-          context: 'ignore listener errors',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'config:hotreload:HotReloader',
+          action: 'ignoreListenerError',
         });
       }
     }
@@ -253,9 +258,9 @@ export class HotReloader {
       } catch (err) {
         // ignore listener errors
 
-        logger.debug('Operation skipped', {
-          context: 'ignore listener errors',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'config:hotreload:HotReloader',
+          action: 'ignoreErrorListenerError',
         });
       }
     }

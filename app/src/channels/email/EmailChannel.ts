@@ -412,9 +412,9 @@ class SmtpClient {
     } catch (err) {
       // 忽略 QUIT 错误
 
-      logger.debug('Operation skipped', {
-        context: '忽略 QUIT 错误',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'channels:email',
+        action: 'quit',
       });
     }
     this.close();
@@ -429,9 +429,9 @@ class SmtpClient {
       } catch (err) {
         // 忽略
 
-        logger.debug('Operation skipped', {
-          context: '忽略',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'channels:email',
+          action: 'close',
         });
       }
       this.socket = null;
@@ -767,12 +767,6 @@ class EmailChannelPlugin extends BaseChannelPlugin {
         await handleError(err, {
           module: 'channels:email',
           action: 'onDisconnect',
-        });
-        // 忽略
-
-        logger.debug('Operation skipped', {
-          context: '忽略',
-          error: err instanceof Error ? err.message : String(err),
         });
       }
       this.smtpClient = null;

@@ -15,6 +15,7 @@ import { connect as tlsConnect, TLSSocket } from 'tls';
 import { randomUUID, randomBytes, createHash } from 'crypto';
 import { writeFileSync, appendFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -438,9 +439,9 @@ function extractAudio(data: Buffer): Buffer | null {
     } catch (err) {
       // not utf8, try next
 
-      logger.debug('Operation skipped', {
-        context: 'not utf8, try next',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'services:voice',
+        action: 'decodeUtf8PrefixTryNext',
       });
     }
   }
@@ -455,9 +456,9 @@ function extractAudio(data: Buffer): Buffer | null {
     } catch (err) {
       // not utf8
 
-      logger.debug('Operation skipped', {
-        context: 'not utf8',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'services:voice',
+        action: 'decodeUtf8Prefix',
       });
     }
   }

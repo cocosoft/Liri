@@ -7,6 +7,8 @@
 import type { SkillRegistry } from './SkillRegistry';
 import type { SkillDB } from './persistence/SkillDB';
 
+import { handleError } from '@modules/error';
+
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'skills:SkillUsageTracker',
@@ -77,9 +79,9 @@ export class SkillUsageTracker {
     } catch (err) {
       // DB 不可用时继续使用纯内存模式
 
-      logger.debug('Operation skipped', {
-        context: 'DB 不可用时继续使用纯内存模式',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'skills:SkillUsageTracker',
+        action: 'loadUsageRecords',
       });
     }
   }

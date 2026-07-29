@@ -10,6 +10,7 @@ import { readdir, readFile, stat } from 'fs/promises';
 import { join, resolve } from 'path';
 import { existsSync, type Dirent } from 'fs';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'utils:git:GitFilesystem',
@@ -116,9 +117,9 @@ export async function resolveRef(
   } catch (err) {
     // not found as loose ref
 
-    logger.debug('Operation skipped', {
-      context: 'not found as loose ref',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'utils:git:GitFilesystem',
+      action: 'looseRefNotFound',
     });
   }
 
@@ -142,9 +143,9 @@ export async function resolveRef(
   } catch (err) {
     // no packed-refs file
 
-    logger.debug('Operation skipped', {
-      context: 'no packed-refs file',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'utils:git:GitFilesystem',
+      action: 'packedRefsNotFound',
     });
   }
 
@@ -200,9 +201,9 @@ export async function getDefaultBranch(gitDir: string): Promise<string | null> {
   } catch (err) {
     // no origin/HEAD
 
-    logger.debug('Operation skipped', {
-      context: 'no origin/HEAD',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'utils:git:GitFilesystem',
+      action: 'originHeadNotFound',
     });
   }
 
@@ -216,9 +217,9 @@ export async function getDefaultBranch(gitDir: string): Promise<string | null> {
   } catch (err) {
     // no config
 
-    logger.debug('Operation skipped', {
-      context: 'no config',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'utils:git:GitFilesystem',
+      action: 'gitConfigNotFound',
     });
   }
 

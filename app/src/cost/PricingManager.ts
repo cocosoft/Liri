@@ -133,10 +133,7 @@ export class PricingManager {
       // ModelRegistry 不可用时忽略
       // @ignore-catch: non-critical fallback
 
-      logger.debug('Operation skipped', {
-        context: 'ModelRegistry 不可用时忽略',
-        error: err instanceof Error ? err.message : String(err),
-      });
+      handleError(err, { module: 'cost:PricingManager', action: 'getPricing' });
     }
 
     return undefined;

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 文件导出器
  * 提供指标和追踪数据的文件输出
  */
@@ -7,7 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { resolveLogsDir } from '@modules/core';
 import { logForDebugging } from '@modules/utils/debug.js';
-import { errorMessage } from '@modules/error';
+import { errorMessage, handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -148,9 +148,9 @@ export class FileExporter {
           } catch (err) {
             // 忽略删除错误
 
-            logger.debug('Operation skipped', {
-              context: '忽略删除错误',
-              error: err instanceof Error ? err.message : String(err),
+            handleError(err, {
+              module: 'monitoring:exporters:FileExporter',
+              action: 'ignoreFileDeleteError',
             });
           }
         }
@@ -158,9 +158,9 @@ export class FileExporter {
     } catch (err) {
       // 忽略清理错误
 
-      logger.debug('Operation skipped', {
-        context: '忽略清理错误',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'monitoring:exporters:FileExporter',
+        action: 'ignoreCleanupError',
       });
     }
   }

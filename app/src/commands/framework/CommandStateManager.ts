@@ -4,6 +4,7 @@
  */
 import type { CommandResult } from '@modules/commands';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'commands:framework:CommandStateManager',
@@ -192,9 +193,9 @@ export class CommandStateManager {
       } catch (err) {
         // 忽略监听器错误
 
-        logger.debug('Operation skipped', {
-          context: '忽略监听器错误',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'commands:framework:CommandStateManager',
+          action: 'ignoreListenerError',
         });
       }
     }

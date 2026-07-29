@@ -6,6 +6,8 @@ import {
   globalDiagnosticRegistry,
 } from './DiagnosticRegistry';
 
+import { handleError } from '@modules/error';
+
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'services:lsp:PassiveFeedback',
@@ -53,9 +55,9 @@ export class PassiveFeedback {
         } catch (err) {
           // ignore listener errors
 
-          logger.debug('Operation skipped', {
-            context: 'ignore listener errors',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'services:lsp',
+            action: 'notifyListener',
           });
         }
       }

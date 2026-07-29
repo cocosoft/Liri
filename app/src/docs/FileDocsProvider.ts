@@ -8,6 +8,7 @@ import { join, relative, basename, dirname } from 'path';
 import { resolvePyappHome } from '@modules/core';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'docs:FileDocsProvider',
   level: LogLevel.INFO,
@@ -239,9 +240,9 @@ export class FileDocsProvider {
         } catch (err) {
           // 跳过无法读取的文件
 
-          logger.debug('Operation skipped', {
-            context: '跳过无法读取的文件',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'docs:FileDocsProvider',
+            action: 'loadFile',
           });
         }
       }

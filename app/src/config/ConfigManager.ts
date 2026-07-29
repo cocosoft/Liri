@@ -249,9 +249,9 @@ export class ConfigManager {
       } catch (err) {
         // 文件不存在
 
-        logger.debug('Operation skipped', {
-          context: '文件不存在',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'config:ConfigManager',
+          action: 'fileNotExist',
         });
       }
 
@@ -620,9 +620,9 @@ export class ConfigManager {
         } catch (err) {
           // 忽略清理错误
 
-          logger.debug('Operation skipped', {
-            context: '忽略清理错误',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'config:ConfigManager',
+            action: 'ignoreCleanupTempError',
           });
         }
       }
@@ -693,9 +693,9 @@ export class ConfigManager {
     } catch (err) {
       // 忽略清理错误
 
-      logger.debug('Operation skipped', {
-        context: '忽略清理错误',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'config:ConfigManager',
+        action: 'ignoreCleanupBackupError',
       });
     }
   }
@@ -769,9 +769,9 @@ export class ConfigManager {
         } catch (err) {
           // 忽略读取错误
 
-          logger.debug('Operation skipped', {
-            context: '忽略读取错误',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'config:ConfigManager',
+            action: 'ignoreReadError',
           });
         }
       }
@@ -1118,9 +1118,9 @@ export class ConfigManager {
       } catch (err) {
         // 忽略清理错误
 
-        logger.debug('Operation skipped', {
-          context: '忽略清理错误',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'config:ConfigManager',
+          action: 'ignoreCleanupTempError',
         });
       }
       logger.error('JSON 文件写入失败', { filePath, error: String(error) });

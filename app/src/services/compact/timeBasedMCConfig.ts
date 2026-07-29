@@ -6,6 +6,7 @@
  */
 
 import { configManager } from '@modules/config';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -46,9 +47,9 @@ export function getTimeBasedMCConfig(): TimeBasedMCConfig {
   } catch (err) {
     // 解析失败时使用默认值
 
-    logger.warn('Operation skipped', {
-      context: '解析失败时使用默认值',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'services:compact',
+      action: 'parseTimeBasedMCConfig',
     });
   }
 

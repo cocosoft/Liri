@@ -23,6 +23,7 @@ import type http from 'http';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 import type { Skill } from '@modules/skills/types';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'infrastructure:http:handlers:skill-handlers',
@@ -55,9 +56,9 @@ async function getClawHubAdapter(): Promise<ClawHubAdapter> {
   } catch (err) {
     // 注册表不可用时 fallback
 
-    logger.debug('Operation skipped', {
-      context: '注册表不可用时 fallback',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'infrastructure:http:handlers:skill-handlers',
+      action: 'registryUnavailable',
     });
   }
 

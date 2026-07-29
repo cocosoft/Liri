@@ -326,11 +326,6 @@ class IrcChannelPlugin extends BaseChannelPlugin {
           action: 'onDisconnect',
         });
         // 忽略 QUIT 发送失败
-
-        logger.warn('Operation skipped', {
-          context: '忽略 QUIT 发送失败',
-          error: err instanceof Error ? err.message : String(err),
-        });
       }
       this.socket.destroy();
       this.socket = null;
@@ -519,11 +514,6 @@ class IrcChannelPlugin extends BaseChannelPlugin {
           action: 'handleNickCollision',
         });
         // GHOST 失败，回退
-
-        logger.warn('Operation skipped', {
-          context: 'GHOST 失败，回退',
-          error: err instanceof Error ? err.message : String(err),
-        });
       }
     }
 
@@ -679,12 +669,6 @@ class IrcChannelPlugin extends BaseChannelPlugin {
             self.sendRaw('QUIT :bye');
           } catch (err) {
             await handleError(err, { module: 'channels:irc', action: 'stop' });
-            // ignore
-
-            logger.debug('Operation skipped', {
-              context: 'ignore',
-              error: err instanceof Error ? err.message : String(err),
-            });
           }
           self.socket.destroy();
           self.socket = null;

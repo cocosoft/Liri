@@ -18,7 +18,12 @@ import type {
   TextEdit,
   WorkspaceEdit,
 } from './types.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({ module: 'lsp:LSPClient', level: LogLevel.INFO });
@@ -221,9 +226,9 @@ export function createLSPClient(
               } catch (err) {
                 // Handler errors are isolated per handler
 
-                logger.debug('Operation skipped', {
-                  context: 'Handler errors are isolated per handler',
-                  error: err instanceof Error ? err.message : String(err),
+                handleError(err, {
+                  module: 'lsp:LSPClient',
+                  action: 'handleNotification',
                 });
               }
             }
@@ -238,10 +243,7 @@ export function createLSPClient(
       } catch (err) {
         // JSON parse errors are silently ignored
 
-        logger.debug('Operation skipped', {
-          context: 'JSON parse errors are silently ignored',
-          error: err instanceof Error ? err.message : String(err),
-        });
+        handleError(err, { module: 'lsp:LSPClient', action: 'parseMessage' });
       }
     }
   }
@@ -711,10 +713,7 @@ export function createLSPClient(
       } catch (err) {
         // Errors during shutdown are ignored
 
-        logger.debug('Operation skipped', {
-          context: 'Errors during shutdown are ignored',
-          error: err instanceof Error ? err.message : String(err),
-        });
+        handleError(err, { module: 'lsp:LSPClient', action: 'stop' });
       }
       if (childProcess && !childProcess.killed) {
         childProcess.kill();

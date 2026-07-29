@@ -2,6 +2,7 @@ import * as path from 'path';
 import { PermissionBehavior } from './types/PermissionRule';
 import type { PermissionDecision, PermissionResult } from './PermissionResult';
 import { configManager } from '@modules/config';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -104,9 +105,9 @@ export function isWithinWorkingDirectory(
   } catch (err) {
     // config 不可用时静默降级，仅使用 cwd 检查
 
-    logger.debug('Operation skipped', {
-      context: 'config 不可用时静默降级，仅使用 cwd 检查',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'permission:filesystem',
+      action: 'loadWorkspaceConfig',
     });
   }
 

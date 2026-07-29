@@ -7,6 +7,7 @@
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'infrastructure:http:handlers:commands-handlers',
@@ -228,9 +229,9 @@ export async function handleSetDataDirectory(
       } catch (err) {
         // 非致命：令牌写入失败不影响迁移
 
-        logger.warn('Operation skipped', {
-          context: '非致命：令牌写入失败不影响迁移',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'infrastructure:http:handlers:commands-handlers',
+          action: 'tokenWriteNonFatal',
         });
       }
 
@@ -267,9 +268,9 @@ export async function handleSetDataDirectory(
       } catch (err) {
         // 非致命：标记写入失败不影响目录切换
 
-        logger.warn('Operation skipped', {
-          context: '非致命：标记写入失败不影响目录切换',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'infrastructure:http:handlers:commands-handlers',
+          action: 'markerWriteNonFatal',
         });
       }
     }
@@ -327,9 +328,9 @@ function rollbackMigration(
         } catch (err) {
           // 静默忽略清理中的个别错误
 
-          logger.debug('Operation skipped', {
-            context: '静默忽略清理中的个别错误',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'infrastructure:http:handlers:commands-handlers',
+            action: 'ignoreCleanupError',
           });
         }
       }
@@ -337,9 +338,9 @@ function rollbackMigration(
   } catch (err) {
     // 回滚清理失败不影响主流程，数据保留在原目录
 
-    logger.warn('Operation skipped', {
-      context: '回滚清理失败不影响主流程，数据保留在原目录',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'infrastructure:http:handlers:commands-handlers',
+      action: 'rollbackCleanupNonFatal',
     });
   }
 }
@@ -364,9 +365,9 @@ export async function getClawHubAdapter(): Promise<any> {
   } catch (err) {
     // 注册表不可用时 fallback
 
-    logger.debug('Operation skipped', {
-      context: '注册表不可用时 fallback',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'infrastructure:http:handlers:commands-handlers',
+      action: 'registryUnavailable',
     });
   }
 
@@ -450,9 +451,9 @@ export async function handleListSystemSkills(
           } catch (err) {
             // use defaults
 
-            logger.debug('Operation skipped', {
-              context: 'use defaults',
-              error: err instanceof Error ? err.message : String(err),
+            handleError(err, {
+              module: 'infrastructure:http:handlers:commands-handlers',
+              action: 'useDefaultStats',
             });
           }
 
@@ -475,9 +476,9 @@ export async function handleListSystemSkills(
         } catch (err) {
           // skip malformed files
 
-          logger.debug('Operation skipped', {
-            context: 'skip malformed files',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'infrastructure:http:handlers:commands-handlers',
+            action: 'skipMalformedFile',
           });
         }
       }
@@ -573,9 +574,9 @@ export async function handleSystemSkillContent(
     } catch (err) {
       // ignore
 
-      logger.debug('Operation skipped', {
-        context: 'ignore',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'infrastructure:http:handlers:commands-handlers',
+        action: 'ignoreError',
       });
     }
 

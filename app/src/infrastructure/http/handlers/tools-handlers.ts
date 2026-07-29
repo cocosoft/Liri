@@ -51,8 +51,9 @@ export async function handleListTools(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-        logger.debug('Operation skipped', {
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'infrastructure:http:handlers:tools-handlers',
+          action: 'responseAlreadyEnded',
         });
       } /* res可能已结束, 忽略 */
     }
@@ -88,8 +89,9 @@ export async function handleExecuteTool(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
       } catch (err) {
-        logger.debug('Operation skipped', {
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'infrastructure:http:handlers:tools-handlers',
+          action: 'responseAlreadyEnded',
         });
       } /* res可能已结束, 忽略 */
     }

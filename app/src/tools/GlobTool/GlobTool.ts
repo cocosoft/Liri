@@ -47,11 +47,9 @@ export function glob(
       normalizedSearchPath
     );
   } catch (err) {
-    // 权限拒绝时返回空
-
-    logger.debug('Operation skipped', {
-      context: '权限拒绝时返回空',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'tools:glob',
+      action: 'walkDirGlobRoot',
     });
   }
 

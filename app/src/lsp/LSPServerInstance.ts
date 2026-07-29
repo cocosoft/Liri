@@ -1,9 +1,14 @@
-﻿//
+//
 import { pathToFileURL } from 'url';
 import * as path from 'path';
 
 import type { LspServerState, ScopedLspServerConfig } from './types.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -113,10 +118,7 @@ export function createLSPServerInstance(
     } catch (err) {
       // Errors during stop are ignored
 
-      logger.debug('Operation skipped', {
-        context: 'Errors during stop are ignored',
-        error: err instanceof Error ? err.message : String(err),
-      });
+      handleError(err, { module: 'lsp:LSPServerInstance', action: 'stop' });
     }
 
     client = undefined;

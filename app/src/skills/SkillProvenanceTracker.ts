@@ -28,6 +28,7 @@
 import type { SkillDB } from './persistence/SkillDB';
 import type { SkillRegistry } from './SkillRegistry';
 import { SkillSource } from './types/index';
+import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -81,9 +82,9 @@ export class SkillProvenanceTracker {
     } catch (err) {
       // DB 不可用时继续使用纯内存模式
 
-      logger.debug('Operation skipped', {
-        context: 'DB 不可用时继续使用纯内存模式',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'skills:SkillProvenanceTracker',
+        action: 'loadProvenance',
       });
     }
   }

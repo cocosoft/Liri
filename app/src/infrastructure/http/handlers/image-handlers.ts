@@ -203,9 +203,9 @@ function collectImageFiles(
   } catch (err) {
     // 目录不存在或不可读，忽略
 
-    logger.debug('Operation skipped', {
-      context: '目录不存在或不可读，忽略',
-      error: err instanceof Error ? err.message : String(err),
+    handleError(err, {
+      module: 'infrastructure:http:handlers:image-handlers',
+      action: 'directoryNotReadable',
     });
   }
 }

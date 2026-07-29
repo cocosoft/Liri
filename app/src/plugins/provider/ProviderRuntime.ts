@@ -8,6 +8,8 @@ import type {
 } from './ProviderCatalog.js';
 import type { ProviderCredentials } from './ProviderAuth.js';
 
+import { handleError } from '@modules/error';
+
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'plugins:provider:ProviderRuntime',
@@ -218,9 +220,9 @@ export class ProviderRuntime {
       } catch (err) {
         // 忽略监听器错误
 
-        logger.debug('Operation skipped', {
-          context: '忽略监听器错误',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'plugins:provider',
+          action: 'notifyEventListener',
         });
       }
     }

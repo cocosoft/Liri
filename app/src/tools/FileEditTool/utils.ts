@@ -6,7 +6,12 @@
 
 import { readFileSync, writeFileSync, existsSync, statSync } from 'fs';
 import { createHash } from 'crypto';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import {
   type EditCommand,
   type EditResult,
@@ -200,11 +205,9 @@ export async function applyBatchEdits(
       try {
         snapshots.set(edit.path, takeSnapshot(edit.path));
       } catch (err) {
-        // File may not exist yet
-
-        logger.debug('Operation skipped', {
-          context: 'File may not exist yet',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'tools:FileEditTool',
+          action: 'takeSnapshot',
         });
       }
     }
@@ -224,11 +227,9 @@ export async function applyBatchEdits(
             try {
               writeFileContent(path, snapshot.content);
             } catch (err) {
-              // Rollback silently
-
-              logger.debug('Operation skipped', {
-                context: 'Rollback silently',
-                error: err instanceof Error ? err.message : String(err),
+              handleError(err, {
+                module: 'tools:FileEditTool',
+                action: 'rollbackWrite',
               });
             }
           }

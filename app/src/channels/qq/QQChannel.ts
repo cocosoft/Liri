@@ -1653,10 +1653,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
       } catch (err) {
         // 清理阶段关闭 WebSocket 出错是正常的（可能已经关闭），无需记录
 
-        logger.debug('Operation skipped', {
-          context:
-            '清理阶段关闭 WebSocket 出错是正常的（可能已经关闭），无需记录',
-          error: err instanceof Error ? err.message : String(err),
+        handleError(err, {
+          module: 'channels:qq',
+          action: 'stop',
         });
       }
       this.ws = null;

@@ -12,6 +12,7 @@ import type { TaskState } from './types';
 import { BaseTask } from './BaseTask';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'tasks:MonitorTask',
   level: LogLevel.INFO,
@@ -89,9 +90,9 @@ export class MonitorTask extends BaseTask {
         } catch (err) {
           // 单目标探测失败不中断其他目标
 
-          logger.warn('Operation skipped', {
-            context: '单目标探测失败不中断其他目标',
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'tasks:monitor',
+            action: 'probe',
           });
         }
       }

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 遥测工具
  *
  * 提供遥测数据收集和上报功能。
@@ -10,6 +10,7 @@ import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { resolvePyappHome } from '@modules/core';
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({ module: 'utils:telemetry', level: LogLevel.INFO });
 
@@ -49,9 +50,9 @@ export class TelemetryService {
     } catch (err) {
       // 读取失败则创建新 ID
 
-      logger.warn('Operation skipped', {
-        context: '读取失败则创建新 ID',
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'utils:telemetry',
+        action: 'readFailedCreateNew',
       });
     }
     const id = randomUUID();

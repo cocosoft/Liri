@@ -18,6 +18,7 @@
  */
 
 import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'tools:argCoercer' });
 
@@ -238,6 +239,7 @@ export function tryCoerceToolArgs(
     }
     return result;
   } catch (err) {
+    handleError(err, { module: 'tools:argCoercer', action: 'tryCoerce' });
     logger.warn('toolArgCoercer:failed', { error: String(err) });
     return { input, modified: false, changes: [] };
   }

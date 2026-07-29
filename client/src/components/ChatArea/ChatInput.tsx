@@ -15,6 +15,7 @@ import { useVoiceStore } from "../../stores/voiceStore";
 import { useFeatureFlagStore } from "../../stores/featureFlags";
 import { fileService } from "../../services/fileService";
 import { imageService } from "../../services/imageService";
+import { chatService } from "../../services/chatService";
 import VoiceInputButton, { type VoiceInputHandle } from "../VoiceInputButton";
 import FileAttachmentBar from "./FileAttachmentBar";
 import type { FileAttachmentBarHandle } from "./FileAttachmentBar";
@@ -89,6 +90,10 @@ function ChatInput() {
   const uploadMenuRef = useRef<HTMLDivElement>(null);
   const wasShowingCommandsRef = useRef(false);
   const voiceBtnRef = useRef<VoiceInputHandle>(null);
+  /** CG3: Steering — 任务执行中注入指导 */
+  const [showSteering, setShowSteering] = useState(false);
+  const [steeringText, setSteeringText] = useState("");
+  const steeringInputRef = useRef<HTMLInputElement>(null);
 
   /** textarea 自动扩展高度 */
   const autoGrow = useCallback(() => {
@@ -418,6 +423,24 @@ function ChatInput() {
     }
     return uploaded;
   }, [imageItems]);
+
+  /**
+   * CG3: 发送 Steering 指令到正在运行的任务
+   */
+  const handleSteering = async () => {
+    const trimmed = steeringText.trim();
+    if (!trimmed || !currentSession?.id) return;
+    try {
+      await chatService.steerSession(currentSession.id, trimmed);
+      setSteeringText("");
+      setShowSteering(false);
+    } catch (err) {
+      handleClientError(err, {
+        module: "components:chatInput",
+        action: "steerSession",
+      });
+    }
+  };
 
   /**
    * 发送消息，先上传附件
@@ -1127,6 +1150,64 @@ function ChatInput() {
                     textareaRef.current?.focus();
                   }}
                 />
+                {/* CG3: Steering 注入 — 流式执行中可发送指令 */}
+                {isStreaming && currentSession && (
+                  <div className="flex items-center gap-1">
+                    {showSteering ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          ref={steeringInputRef}
+                          type="text"
+                          value={steeringText}
+                          onChange={(e) => setSteeringText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSteering();
+                            if (e.key === "Escape") {
+                              setShowSteering(false);
+                              setSteeringText("");
+                            }
+                          }}
+                          placeholder={t("chat.steeringPlaceholder")}
+                          className="w-36 px-2 py-1.5 text-xs bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                          autoFocus
+                        />
+                        <button
+                          onClick={handleSteering}
+                          disabled={!steeringText.trim()}
+                          className="px-2 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                        >
+                          {t("chat.steeringSend")}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setShowSteering(true);
+                          setTimeout(
+                            () => steeringInputRef.current?.focus(),
+                            50,
+                          );
+                        }}
+                        className="p-1.5 text-amber-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                        title={t("chat.steeringTitle")}
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                )}
                 {isStreaming && !messageQueueEnabled ? (
                   <button
                     onClick={() => stopMessage()}

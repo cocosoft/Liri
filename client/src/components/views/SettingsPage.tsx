@@ -604,6 +604,7 @@ function SettingsPage() {
                   copyFullResponse: false,
                   todoEnabled: true,
                   showExpandedTodos: false,
+                  alwaysOn: false,
                 }) as unknown as Parameters<
                   typeof FeatureFlagsPanel
                 >[0]["features"]

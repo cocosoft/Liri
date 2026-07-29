@@ -11,6 +11,7 @@ interface FeatureFlags {
   copyFullResponse: boolean;
   todoEnabled: boolean;
   showExpandedTodos: boolean;
+  alwaysOn: boolean;
 }
 
 interface FeatureFlagsPanelProps {
@@ -77,6 +78,11 @@ function FeatureFlagsPanel({
       key: "showExpandedTodos",
       labelKey: "settings.featuresShowExpandedTodos",
       descriptionKey: "settings.featuresShowExpandedTodosDesc",
+    },
+    {
+      key: "alwaysOn",
+      labelKey: "settings.featuresAlwaysOn",
+      descriptionKey: "settings.featuresAlwaysOnDesc",
     },
   ];
 

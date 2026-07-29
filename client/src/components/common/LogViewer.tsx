@@ -133,14 +133,30 @@ function LogDetailModal({ log, isDark, onClose }: LogDetailModalProps) {
                 </label>
                 {log.traceId && (
                   <p className="text-xs font-mono">
-                    <span className={isDark ? "text-gray-500" : "text-gray-400"}>traceId: </span>
-                    <span className={isDark ? "text-blue-400" : "text-blue-600"}>{log.traceId}</span>
+                    <span
+                      className={isDark ? "text-gray-500" : "text-gray-400"}
+                    >
+                      traceId:{" "}
+                    </span>
+                    <span
+                      className={isDark ? "text-blue-400" : "text-blue-600"}
+                    >
+                      {log.traceId}
+                    </span>
                   </p>
                 )}
                 {log.spanId && (
                   <p className="text-xs font-mono">
-                    <span className={isDark ? "text-gray-500" : "text-gray-400"}>spanId: </span>
-                    <span className={isDark ? "text-purple-400" : "text-purple-600"}>{log.spanId}</span>
+                    <span
+                      className={isDark ? "text-gray-500" : "text-gray-400"}
+                    >
+                      spanId:{" "}
+                    </span>
+                    <span
+                      className={isDark ? "text-purple-400" : "text-purple-600"}
+                    >
+                      {log.spanId}
+                    </span>
                   </p>
                 )}
               </div>
@@ -241,7 +257,10 @@ function LogViewer({
                     {log.message}
                   </span>
                   {log.traceId && (
-                    <span className="text-xs font-mono text-blue-400 truncate max-w-[120px]" title={log.traceId}>
+                    <span
+                      className="text-xs font-mono text-blue-400 truncate max-w-[120px]"
+                      title={log.traceId}
+                    >
                       {log.traceId.slice(0, 8)}
                     </span>
                   )}

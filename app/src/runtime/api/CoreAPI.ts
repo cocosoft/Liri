@@ -106,7 +106,8 @@ export interface ChatStreamChunk {
     | 'error'
     | 'question'
     | 'todo'
-    | 'execution_phase';
+    | 'execution_phase'
+    | 'context_state';
   content: string;
   sessionId: string;
   toolCall?: ToolCallSpec;
@@ -128,6 +129,13 @@ export interface ChatStreamChunk {
   mode?: 'plan' | 'do';
   /** 仅当 type='done' 时存在：模型的终止原因 */
   finishReason?: string;
+  /** 仅当 type='context_state' 时存在：上下文水位 */
+  watermarkState?: {
+    currentTokens: number;
+    contextLimit: number;
+    ratio: number;
+    severity: 'normal' | 'warn' | 'compact';
+  };
 }
 
 /** 执行阶段数据 */

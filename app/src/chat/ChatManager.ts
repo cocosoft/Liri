@@ -3066,10 +3066,16 @@ export class ChatManagerImpl implements ChatManager {
           const warning = getDegradationWarning(ctxDegradation);
           if (warning) {
             yield {
-              type: 'system',
+              type: 'context_state',
               content: warning,
               sessionId: session.id,
-            } as unknown as string;
+              watermarkState: {
+                currentTokens: 0,
+                contextLimit: degradationResult.limit,
+                ratio: degradationResult.limit / ctxDegradation.originalLimit,
+                severity: degradationResult.limit / ctxDegradation.originalLimit <= 0.5 ? 'compact' as const : 'warn' as const,
+              },
+            } as ChatStreamChunk;
           }
           // 重新截断消息以适应降级后的上下文窗口
           await this._truncateApiMessages(

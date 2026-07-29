@@ -671,7 +671,9 @@ function LogViewerPage() {
         {/* 成本统计标签 */}
         {activeTab === "cost" && (
           <div className="flex flex-col items-center justify-center py-16">
-            <div className={`text-lg font-medium mb-4 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+            <div
+              className={`text-lg font-medium mb-4 ${isDark ? "text-gray-300" : "text-gray-600"}`}
+            >
               成本统计已迁移到用量中心
             </div>
             <a

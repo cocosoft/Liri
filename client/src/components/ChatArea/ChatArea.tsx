@@ -23,7 +23,14 @@ const logger = createLogger("components:chatArea");
 
 function ChatArea() {
   const { t } = useTranslation();
-  const { messages, error, isStreaming } = useChatStore();
+  const {
+    messages,
+    error,
+    isStreaming,
+    recoverySessionId,
+    dismissRecovery,
+    resumeRecovery,
+  } = useChatStore();
   const { currentSession, createSession } = useSessionStore();
   const backendRunning = useBackendStore((s) => s.status.running);
   const config = useConfigStore((s) => s.config);
@@ -218,6 +225,44 @@ function ChatArea() {
               <button
                 onClick={handleDismissError}
                 className="text-red-400 hover:text-red-600 dark:hover:text-red-200 flex-shrink-0"
+                title={t("common.close")}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* P2-6: 中止恢复提示 */}
+          {recoverySessionId && (
+            <div className="m-4 p-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl flex items-start gap-3">
+              <span className="text-amber-500 dark:text-amber-400 flex-shrink-0 mt-0.5 text-lg">
+                ⏸
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                  {t("chat.abortRecoveryTitle")}
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                  {t("chat.abortRecoveryDesc")}
+                </p>
+                <div className="flex items-center gap-2 mt-3">
+                  <button
+                    onClick={() => resumeRecovery(recoverySessionId)}
+                    className="text-xs px-3 py-1.5 rounded bg-amber-500 text-white hover:bg-amber-600 transition-colors font-medium"
+                  >
+                    {t("chat.abortRecoveryResume")}
+                  </button>
+                  <button
+                    onClick={dismissRecovery}
+                    className="text-xs px-3 py-1.5 rounded bg-amber-100 dark:bg-amber-800/50 text-amber-600 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-700/50 transition-colors"
+                  >
+                    {t("chat.abortRecoveryDismiss")}
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={dismissRecovery}
+                className="text-amber-400 hover:text-amber-600 dark:hover:text-amber-200 flex-shrink-0"
                 title={t("common.close")}
               >
                 ✕

@@ -159,8 +159,10 @@ export interface MessageSlice {
   restoreRollback: () => void;
   /** P2-6: 检查是否有可恢复的中止检查点 */
   checkAbortRecovery: (sessionId: string) => Promise<boolean>;
-  /** P2-6: 关闭恢复提示 */
+  /** P2-6: 关闭恢复提示并清理检查点 */
   dismissRecovery: () => void;
+  /** P2-6: 用户确认恢复 — 关闭提示并继续之前被中止的会话 */
+  resumeRecovery: (sessionId: string) => void;
 }
 
 /**
@@ -883,9 +885,7 @@ export const createMessageSlice: StateCreator<
       // P3-1: 流完整性检查 — 检测未完成的 tool_call 块，标记中断状态
       const unfrozenBlocks = blockBuilder.getBlocks();
       const incompleteToolCalls = unfrozenBlocks.filter(
-        (b) =>
-          b.type === "tool_call" &&
-          b.toolCall?.status === "running",
+        (b) => b.type === "tool_call" && b.toolCall?.status === "running",
       );
       if (incompleteToolCalls.length > 0) {
         const names = incompleteToolCalls
@@ -1226,20 +1226,23 @@ export const createMessageSlice: StateCreator<
       const state = get();
       const sessionId = state.messages[0]?.session_id ?? "";
       if (sessionId) {
-        const assistantMsg = [...state.messages].reverse().find(
-          (m) => m.role === 'assistant'
-        );
+        const assistantMsg = [...state.messages]
+          .reverse()
+          .find((m) => m.role === "assistant");
         if (assistantMsg) {
-          import('../../services/backendUrl').then(({ getBackendBaseUrl }) => {
-            fetch(`${getBackendBaseUrl()}/v1/sessions/${sessionId}/checkpoints/latest`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                label: `abort_${Date.now()}`,
-                autoCreated: true,
-                metadata: { abortRecovery: true },
-              }),
-            }).catch(() => {});
+          import("../../services/backendUrl").then(({ getBackendBaseUrl }) => {
+            fetch(
+              `${getBackendBaseUrl()}/v1/sessions/${sessionId}/checkpoints/latest`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  label: `abort_${Date.now()}`,
+                  autoCreated: true,
+                  metadata: { abortRecovery: true },
+                }),
+              },
+            ).catch(() => {});
           });
         }
       }
@@ -1405,10 +1408,10 @@ export const createMessageSlice: StateCreator<
   checkAbortRecovery: async (sessionId: string): Promise<boolean> => {
     try {
       const base = await import("../../services/backendUrl").then((m) =>
-        m.getBackendBaseUrl()
+        m.getBackendBaseUrl(),
       );
       const resp = await fetch(
-        `${base}/v1/sessions/${sessionId}/checkpoints/latest`
+        `${base}/v1/sessions/${sessionId}/checkpoints/latest`,
       );
       if (!resp.ok) return false;
       const data = await resp.json();
@@ -1433,6 +1436,12 @@ export const createMessageSlice: StateCreator<
         }).catch(() => {});
       });
     }
+  },
+
+  /** P2-6: 用户确认恢复 — 关闭提示，允许下一条消息通过 */
+  resumeRecovery: (sessionId: string) => {
+    set({ recoverySessionId: null });
+    // 不清除后端检查点 — resume 端点需要它来恢复生成器状态
   },
 
   /**

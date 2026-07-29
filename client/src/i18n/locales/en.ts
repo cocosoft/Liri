@@ -214,6 +214,16 @@ const en = {
     backendNotRunning: "Backend service is not running",
     refreshPage: "Refresh page",
     messageListLoadError: "Failed to load messages",
+    abortRecoveryTitle: "Previous task incomplete",
+    abortRecoveryDesc:
+      "A previously aborted task was detected. You can resume from the checkpoint.",
+    abortRecoveryResume: "Resume",
+    abortRecoveryDismiss: "Discard",
+    contextDegraded:
+      "Context window reduced to {{limit}} tokens. Long conversations may be affected.",
+    steeringTitle: "Send steering instruction",
+    steeringPlaceholder: "Instruction...",
+    steeringSend: "Send",
     complexContent: "[Complex content]",
     replyPrefix: "Reply: ",
     replyTo: "Reply to",
@@ -374,6 +384,9 @@ const en = {
     featuresRespectGitignoreDesc: "Ignore .gitignore files during file ops",
     featuresShowExpandedTodos: "Show Expanded Todos",
     featuresShowExpandedTodosDesc: "Display todos expanded by default",
+    featuresAlwaysOn: "Autonomous Mode (CG3)",
+    featuresAlwaysOnDesc:
+      "AI discovers and executes tasks autonomously when idle (Always-On + SelfWake)",
     featuresShowStatusInTerminalTab: "Terminal Tab Status",
     featuresShowStatusInTerminalTabDesc: "Show running status on terminal tab",
     featuresShowTurnDuration: "Show Turn Duration",

@@ -993,12 +993,6 @@ export class STTRegistry {
         return result;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        logger.error('STT 转录失败', {
-          provider: provider.id,
-          error: lastError.message,
-          attempt: i + 1,
-          total: providers.length,
-        });
         handleError(lastError, {
           module: 'services:voice:sttRegistry',
           action: 'transcribe',
@@ -1013,10 +1007,6 @@ export class STTRegistry {
     }
 
     // 全部失败
-    logger.error('STT 所有提供者转录均失败', {
-      providerCount: providers.length,
-      lastError: lastError?.message,
-    });
     handleError(lastError!, {
       module: 'services:voice:sttRegistry',
       action: 'transcribe:all_failed',

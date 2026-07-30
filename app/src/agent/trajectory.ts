@@ -8,6 +8,7 @@ import { appendFile, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
 
@@ -120,10 +121,7 @@ export async function saveTrajectory(
       messages: trajectory.conversations.length,
     });
   } catch (error) {
-    logger.error('Failed to save trajectory', {
-      error: error instanceof Error ? error : new Error(String(error)),
-      file: filename,
-    });
+    handleError(error, { module: 'agent:trajectory', action: '保存对话轨迹' });
   }
 }
 

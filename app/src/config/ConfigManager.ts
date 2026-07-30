@@ -280,7 +280,7 @@ export class ConfigManager {
       // 诊断：记录调用栈
       logger.warning('getGlobalConfig catch 调用栈', {
         errorName: error instanceof Error ? error.name : typeof error,
-        errorCode: (error as any)?.code,
+        errorCode: (error as unknown as Record<string, unknown>)?.code,
         errorMessage: error instanceof Error ? error.message : String(error),
         stack: new Error().stack?.split('\n').slice(3).join('\n'),
         configReadingAllowed: this.configReadingAllowed,
@@ -441,7 +441,7 @@ export class ConfigManager {
 
       return config;
     } catch (error) {
-      const errCode = (error as any)?.code;
+      const errCode = (error as unknown as Record<string, unknown>)?.code;
       if (errCode === 'ENOENT') {
         logger.info('配置文件不存在，使用默认配置');
         return createDefaultGlobalConfig();
@@ -511,7 +511,10 @@ export class ConfigManager {
       // 同步运行时快照
       setRuntimeConfigSnapshot(newConfig);
     } catch (error) {
-      logger.error('保存配置失败', error instanceof Error ? error : undefined);
+      void handleError(error, {
+        module: 'config:manager',
+        action: '保存配置失败',
+      });
       throw error;
     }
   }
@@ -643,9 +646,9 @@ export class ConfigManager {
     const filtered: Partial<GlobalConfig> = {};
 
     for (const [key, value] of Object.entries(config)) {
-      const defaultValue = (defaultConfig as any)[key];
+      const defaultValue = (defaultConfig as Record<string, unknown>)[key];
       if (JSON.stringify(value) !== JSON.stringify(defaultValue)) {
-        (filtered as any)[key] = value;
+        (filtered as Record<string, unknown>)[key] = value;
       }
     }
 
@@ -878,9 +881,9 @@ export class ConfigManager {
    * @param key 配置键
    * @returns 配置值
    */
-  getConfigValue<T = any>(key: string): T | undefined {
+  getConfigValue<T = unknown>(key: string): T | undefined {
     const config = this.getGlobalConfig();
-    return config[key];
+    return config[key] as T | undefined;
   }
 
   /**
@@ -888,7 +891,7 @@ export class ConfigManager {
    * @param key 配置键
    * @param value 配置值
    */
-  setConfigValue<T = any>(key: string, value: T): void {
+  setConfigValue<T = unknown>(key: string, value: T): void {
     this.saveGlobalConfig((config) => ({
       ...config,
       [key]: value,
@@ -1123,7 +1126,10 @@ export class ConfigManager {
           action: 'ignoreCleanupTempError',
         });
       }
-      logger.error('JSON 文件写入失败', { filePath, error: String(error) });
+      void handleError(error, {
+        module: 'config:manager',
+        action: 'JSON文件写入失败',
+      });
       return false;
     } finally {
       this.configIO.releaseLock(lockPath);
@@ -1165,7 +1171,7 @@ export const configManager = new Proxy({} as ConfigManager, {
     return value;
   },
   set(_, prop: keyof ConfigManager, value) {
-    (getConfigManager() as any)[prop] = value;
+    (getConfigManager() as unknown as Record<string, unknown>)[prop] = value;
     return true;
   },
 });

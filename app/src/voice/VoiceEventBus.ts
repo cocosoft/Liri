@@ -1,4 +1,4 @@
-﻿/**
+/**
  * VoiceEventBus 实现
  * 事件分发与状态管理，支持 Client→Server 和 Server→Client 双向事件
  *
@@ -7,7 +7,6 @@
  *   2. 类型安全的事件通道（voice:client / voice:server / voice:error）
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
 import { EventBusImpl } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type {
@@ -43,17 +42,17 @@ export class VoiceEventBus
 
   /** 注册客户端事件处理器（收到来自客户端的 VoiceClientEvent） */
   onClientEvent(handler: VoiceClientEventHandler): void {
-    this.subscribe(CHANNEL_CLIENT, handler as any);
+    this.subscribe(CHANNEL_CLIENT, handler as (data: unknown) => void);
   }
 
   /** 注册服务端事件处理器（收到来自服务端的 VoiceServerEvent） */
   onServerEvent(handler: VoiceServerEventHandler): void {
-    this.subscribe(CHANNEL_SERVER, handler as any);
+    this.subscribe(CHANNEL_SERVER, handler as (data: unknown) => void);
   }
 
   /** 注册错误事件处理器 */
   onError(handler: VoiceErrorHandler): void {
-    this.subscribe(CHANNEL_ERROR, handler as any);
+    this.subscribe(CHANNEL_ERROR, handler as (data: unknown) => void);
   }
 
   /** 注册状态变更处理器（领域层状态机） */
@@ -81,12 +80,16 @@ export class VoiceEventBus
    * 发布事件并捕获处理器异常，传播到错误通道
    */
   private publishWithErrorPropagation<T>(channel: string, data: T): void {
-    const eventListeners = (this as any).listeners?.get(channel);
+    const eventListeners = (
+      this as unknown as {
+        listeners?: Map<string, Set<(data: unknown) => void>>;
+      }
+    ).listeners?.get(channel);
     if (!eventListeners || eventListeners.size === 0) return;
 
     for (const listener of eventListeners) {
       try {
-        const result = listener(data);
+        const result: unknown = listener(data);
         if (result instanceof Promise) {
           result.catch((error: Error) => {
             this.emitError(

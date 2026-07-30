@@ -85,11 +85,12 @@ function FileList({
 // ─── 主组件 ───────────────────────────────────────
 
 export default function FileListViewer() {
-  const { previewFile, sessionFiles, setPreviewFile, clearSessionFiles } =
+  const { previewFile, sessionFiles, readFileToPreview, setPreviewFile, clearSessionFiles } =
     useChatStore(
       useShallow((s) => ({
         previewFile: s.previewFile,
         sessionFiles: s.sessionFiles,
+        readFileToPreview: s.readFileToPreview,
         setPreviewFile: s.setPreviewFile,
         clearSessionFiles: s.clearSessionFiles,
       })),
@@ -101,9 +102,9 @@ export default function FileListViewer() {
 
   const handleSelectFile = useCallback(
     (file: FilePreview) => {
-      setPreviewFile(file);
+      readFileToPreview(file.path);
     },
-    [setPreviewFile],
+    [readFileToPreview],
   );
 
   // ESC 关闭预览

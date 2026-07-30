@@ -399,7 +399,6 @@ export class PiperTTSProvider implements TTSProvider {
         } catch (error) {
           const errorMsg =
             error instanceof Error ? error.message : String(error);
-          logger.error('Piper TTS 播放失败', { error: errorMsg });
           void handleError(error, {
             module: 'services:voice:piperTTS',
             action: 'speak',
@@ -538,7 +537,10 @@ export class PiperTTSProvider implements TTSProvider {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error('Piper TTS 保存失败', { error: errorMsg });
+      void handleError(error, {
+        module: 'services:voice:piper',
+        action: 'TTS 保存失败',
+      });
       return {
         success: false,
         error: `Piper TTS 保存失败: ${errorMsg}`,
@@ -594,8 +596,9 @@ export class PiperTTSProvider implements TTSProvider {
         });
       }
     } catch (error) {
-      logger.error('PiperTTS · 构建模型索引失败', {
-        error: error instanceof Error ? error.message : String(error),
+      void handleError(error, {
+        module: 'services:voice:piper',
+        action: '构建模型索引失败',
       });
       return [];
     }

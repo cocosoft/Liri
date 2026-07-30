@@ -6,6 +6,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
   module: 'agent:utils:permissionSyncManager',
@@ -324,10 +325,10 @@ export class PermissionSyncManager {
       try {
         listener(message);
       } catch (error) {
-        logger.error(
-          `Error in permission listener for ${message.workerId}:`,
-          error as Error
-        );
+        handleError(error, {
+          module: 'agent:permission',
+          action: '权限监听器回调',
+        });
       }
     }
   }

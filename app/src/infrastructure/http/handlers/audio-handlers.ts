@@ -12,7 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
-import { resolveMediaDir } from '@modules/core/paths';
+import { resolveMediaDir, isPathWithin } from '@modules/core/paths';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -43,20 +43,20 @@ function getAudioMimeType(filePath: string): string {
 function isAudioRootSafe(requestedPath: string): boolean {
   if (path.isAbsolute(requestedPath)) {
     const resolved = path.resolve(requestedPath);
-    return resolved.startsWith(AUDIO_ROOT);
+    return isPathWithin(AUDIO_ROOT, resolved);
   }
   const resolved = path.resolve(AUDIO_ROOT, requestedPath);
-  return resolved.startsWith(AUDIO_ROOT);
+  return isPathWithin(AUDIO_ROOT, resolved);
 }
 
 function resolveAudioPath(requestedPath: string): string | null {
   if (path.isAbsolute(requestedPath)) {
     const resolved = path.resolve(requestedPath);
-    if (resolved.startsWith(AUDIO_ROOT)) return resolved;
+    if (isPathWithin(AUDIO_ROOT, resolved)) return resolved;
     return null;
   }
   const resolved = path.resolve(AUDIO_ROOT, requestedPath);
-  if (!resolved.startsWith(AUDIO_ROOT)) return null;
+  if (!isPathWithin(AUDIO_ROOT, resolved)) return null;
   return resolved;
 }
 

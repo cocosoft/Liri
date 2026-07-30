@@ -109,6 +109,13 @@ function SessionHistorySidebar() {
   const listContainerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const ESTIMATED_ITEM_HEIGHT = 56;
+  // P10: 实测高度缓存，避免标题换行时虚拟列表偏移量不准
+  const measuredHeights = useRef<Record<number, number>>({});
+  const measureItem = useCallback((index: number, el: HTMLDivElement | null) => {
+    if (el) {
+      measuredHeights.current[index] = el.getBoundingClientRect().height;
+    }
+  }, []);
   // 右键菜单状态
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -160,14 +167,27 @@ function SessionHistorySidebar() {
     try {
       const session = sessions.find((s) => s.id === sessionId);
       if (!session) return;
-      const data = JSON.stringify(session, null, 2);
-      const blob = new Blob([data], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${session.title || "session"}.${format}`;
-      a.click();
-      URL.revokeObjectURL(url);
+      // P3: 仅导出会话元数据（非完整消息）。完整对话导出请使用 SessionHeader 的导出功能。
+      const exportedTitle = session.title || "session";
+      if (format === "md") {
+        const md = `# ${exportedTitle}\n\n- ID: ${session.id}\n- 创建时间: ${session.createdAt}\n- 更新时间: ${session.updatedAt}\n- 消息数: ${session.messageCount ?? "N/A"}\n`;
+        const blob = new Blob([md], { type: "text/markdown" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${exportedTitle}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        const data = JSON.stringify(session, null, 2);
+        const blob = new Blob([data], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${exportedTitle}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
     } finally {
       setContextMenu(null);
     }
@@ -269,25 +289,53 @@ function SessionHistorySidebar() {
         visibleItems: filteredSessions,
         offsetY: 0,
         startIdx: 0,
+        totalHeight: 0,
       };
     }
     const total = filteredSessions.length;
     const viewportHeight = listContainerRef.current?.clientHeight || 400;
     const overscan = 5;
-    const startIdx = Math.max(
-      0,
-      Math.floor(scrollTop / ESTIMATED_ITEM_HEIGHT) - overscan,
-    );
-    const endIdx = Math.min(
-      total,
-      Math.ceil((scrollTop + viewportHeight) / ESTIMATED_ITEM_HEIGHT) +
-        overscan,
-    );
+
+    // P10: 用实测高度计算 startIdx 和 offsetY，替代固定 ESTIMATED_ITEM_HEIGHT
+    let cumulative = 0;
+    let startIdx = 0;
+    for (let i = 0; i < total; i++) {
+      const h = measuredHeights.current[i] ?? ESTIMATED_ITEM_HEIGHT;
+      if (cumulative + h > scrollTop - overscan * ESTIMATED_ITEM_HEIGHT) {
+        startIdx = Math.max(0, i - overscan);
+        // 回退到 startIdx 的累积高度
+        cumulative = 0;
+        for (let j = 0; j < startIdx; j++) {
+          cumulative += measuredHeights.current[j] ?? ESTIMATED_ITEM_HEIGHT;
+        }
+        break;
+      }
+      cumulative += h;
+      startIdx = i;
+    }
+
+    // 计算可见结束索引
+    let visibleCumulative = cumulative;
+    let endIdx = startIdx;
+    for (let i = startIdx; i < total; i++) {
+      const h = measuredHeights.current[i] ?? ESTIMATED_ITEM_HEIGHT;
+      visibleCumulative += h;
+      endIdx = i + 1;
+      if (visibleCumulative >= scrollTop + viewportHeight + overscan * ESTIMATED_ITEM_HEIGHT) break;
+    }
+
+    // 计算总高度（实测 + 估算）
+    let totalHeight = 0;
+    for (let i = 0; i < total; i++) {
+      totalHeight += measuredHeights.current[i] ?? ESTIMATED_ITEM_HEIGHT;
+    }
+
     return {
       total,
       visibleItems: filteredSessions.slice(startIdx, endIdx),
-      offsetY: startIdx * ESTIMATED_ITEM_HEIGHT,
+      offsetY: cumulative,
       startIdx,
+      totalHeight,
     };
   }, [filteredSessions, scrollTop]);
 
@@ -309,7 +357,7 @@ function SessionHistorySidebar() {
     });
 
     try {
-      console.info("[SessionSwitch] 开始切换会话", {
+      if (import.meta.env.DEV) console.info("[SessionSwitch] 开始切换会话", {
         sessionId: id,
         prevSessionId: currentSession?.id ?? "none",
         timestamp: Date.now(),
@@ -317,7 +365,7 @@ function SessionHistorySidebar() {
 
       await switchSession(id);
 
-      console.info("[SessionSwitch] 会话切换成功", {
+      if (import.meta.env.DEV) console.info("[SessionSwitch] 会话切换成功", {
         sessionId: id,
         timestamp: Date.now(),
       });
@@ -325,7 +373,7 @@ function SessionHistorySidebar() {
       span.setAttribute("status", "success");
       navigate("/chat");
     } catch (error) {
-      console.error("[SessionSwitch] 会话切换失败", {
+      if (import.meta.env.DEV) console.error("[SessionSwitch] 会话切换失败", {
         sessionId: id,
         prevSessionId: currentSession?.id ?? "none",
         error: String(error),
@@ -573,7 +621,7 @@ function SessionHistorySidebar() {
             style={
               useVirtualScroll
                 ? {
-                    height: virtualList.total * ESTIMATED_ITEM_HEIGHT,
+                    height: virtualList.totalHeight,
                     position: "relative",
                   }
                 : undefined
@@ -586,9 +634,16 @@ function SessionHistorySidebar() {
                   : undefined
               }
             >
-              {virtualList.visibleItems.map((session) => (
-                <SessionListItem
+              {virtualList.visibleItems.map((session, idx) => (
+                <div
                   key={session.id}
+                  ref={
+                    useVirtualScroll
+                      ? (el) => measureItem(virtualList.startIdx + idx, el)
+                      : undefined
+                  }
+                >
+                <SessionListItem
                   session={session}
                   isActive={currentSession?.id === session.id}
                   isEditing={editingId === session.id}
@@ -604,6 +659,7 @@ function SessionHistorySidebar() {
                   onDelete={handleDeleteSession}
                   onContextMenu={handleContextMenu}
                 />
+                </div>
               ))}
             </div>
           </div>

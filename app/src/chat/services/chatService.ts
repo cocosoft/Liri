@@ -22,6 +22,7 @@ import {
 } from 'fs';
 import { AIModelType } from '@modules/ai';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { resolveDataSubDir } from '@modules/core';
 
 const logger = new Logger({
@@ -182,10 +183,7 @@ export class ChatServiceImpl implements ChatService {
         'utf-8'
       );
     } catch (error) {
-      logger.error(
-        'Failed to save session',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, { module: 'chat:service', action: '保存会话失败' });
     }
   }
 
@@ -200,10 +198,10 @@ export class ChatServiceImpl implements ChatService {
         unlinkSync(sessionPath);
       }
     } catch (error) {
-      logger.error(
-        'Failed to delete session file',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, {
+        module: 'chat:service',
+        action: '删除会话文件失败',
+      });
     }
   }
 
@@ -223,10 +221,7 @@ export class ChatServiceImpl implements ChatService {
         }
       }
     } catch (error) {
-      logger.error(
-        'Failed to load sessions',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, { module: 'chat:service', action: '加载会话失败' });
     }
   }
 }

@@ -7,6 +7,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
   module: 'services:agent:memoryManager',
@@ -139,10 +140,10 @@ export class AgentMemoryManager {
 
       return this.buildScanResult(entries);
     } catch (error) {
-      logger.error(
-        `Failed to scan memory for agent ${agentType}:`,
-        error as Error
-      );
+      handleError(error, {
+        module: 'services:agent:memory',
+        action: '扫描Agent内存失败',
+      });
       return {
         entries: [],
         totalSize: 0,
@@ -200,10 +201,10 @@ export class AgentMemoryManager {
 
       return deletedCount;
     } catch (error) {
-      logger.error(
-        `Failed to manage memory age for agent ${agentType}:`,
-        error as Error
-      );
+      handleError(error, {
+        module: 'services:agent:memory',
+        action: '管理内存年龄失败',
+      });
       return 0;
     }
   }
@@ -252,10 +253,10 @@ export class AgentMemoryManager {
 
       return true;
     } catch (error) {
-      logger.error(
-        `Failed to optimize memory for agent ${agentType}:`,
-        error as Error
-      );
+      handleError(error, {
+        module: 'services:agent:memory',
+        action: '优化内存失败',
+      });
       return false;
     }
   }
@@ -291,10 +292,10 @@ export class AgentMemoryManager {
 
       return true;
     } catch (error) {
-      logger.error(
-        `Failed to clean memory for agent ${agentType}:`,
-        error as Error
-      );
+      handleError(error, {
+        module: 'services:agent:memory',
+        action: '清理内存失败',
+      });
       return false;
     }
   }
@@ -321,10 +322,10 @@ export class AgentMemoryManager {
         newestTimestamp: scanResult.newestEntry?.timestamp || null,
       };
     } catch (error) {
-      logger.error(
-        `Failed to get memory stats for agent ${agentType}:`,
-        error as Error
-      );
+      handleError(error, {
+        module: 'services:agent:memory',
+        action: '获取内存统计失败',
+      });
       return {
         totalEntries: 0,
         totalSize: 0,

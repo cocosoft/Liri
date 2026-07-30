@@ -15,6 +15,7 @@ import { BootPhase } from './BootPhase';
 import { bootPipeline } from './BootPipeline';
 import type { BootContext } from './BootPipeline';
 import type { RouterTier } from '@modules/ai/router';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('BootPipelineIntegrator');
 
@@ -247,7 +248,10 @@ export function registerStandardHandlers(): void {
         }
         logger.info('[Phase 5] ModelRegistry 加载完成');
       } catch (e) {
-        logger.warning('[Phase 5] 加载模型配置失败（非致命）', e as Error);
+        void handleError(e, {
+          module: 'boot:phase5',
+          action: 'loadModelPricing',
+        });
       }
 
       // T1.75: 初始化 ACP 模块桥接（非阻塞）
@@ -257,10 +261,10 @@ export function registerStandardHandlers(): void {
         await setupModuleBridgeOnStartup();
         logger.info('[Phase 5] ACP 模块桥接初始化完成');
       } catch (e) {
-        logger.warning(
-          '[Phase 5] ACP 模块桥接初始化异常（非致命）',
-          e as Error
-        );
+        void handleError(e, {
+          module: 'boot:phase5',
+          action: 'setupModuleBridge',
+        });
       }
 
       // T1.8: 初始化 SmartRouter 智能路由
@@ -296,10 +300,10 @@ export function registerStandardHandlers(): void {
         getCoreAPI().setSmartRouter(smartRouter);
         logger.info('[Phase 5] SmartRouter 已初始化并注入 CoreAPIImpl');
       } catch (e) {
-        logger.warning(
-          '[Phase 5] SmartRouter 初始化失败（非致命，使用静态路由）',
-          e as Error
-        );
+        void handleError(e, {
+          module: 'boot:phase5',
+          action: 'initSmartRouter',
+        });
       }
 
       logger.info('[Phase 5] 领域模块初始化完成');
@@ -332,8 +336,9 @@ export function registerStandardHandlers(): void {
             createToolManager();
             logger.info('[Phase 6] 工具系统初始化完成');
           } catch (e) {
-            logger.warning('[Phase 6] 工具系统初始化失败', {
-              error: String(e),
+            void handleError(e, {
+              module: 'boot:phase6',
+              action: 'initToolSystem',
             });
           }
         })(),
@@ -345,8 +350,9 @@ export function registerStandardHandlers(): void {
             await initializeCommands();
             logger.info('[Phase 6] 命令系统初始化完成');
           } catch (e) {
-            logger.warning('[Phase 6] 命令系统初始化失败', {
-              error: String(e),
+            void handleError(e, {
+              module: 'boot:phase6',
+              action: 'initCommands',
             });
           }
         })(),
@@ -360,8 +366,9 @@ export function registerStandardHandlers(): void {
             monitoringService.start();
             logger.info('[Phase 6] 监控服务已启动');
           } catch (e) {
-            logger.warning('[Phase 6] 监控服务启动失败', {
-              error: String(e),
+            void handleError(e, {
+              module: 'boot:phase6',
+              action: 'startMonitoring',
             });
           }
         })(),
@@ -374,8 +381,9 @@ export function registerStandardHandlers(): void {
             await initializeModelManagementServices();
             logger.info('[Phase 6] 模型管理服务初始化完成');
           } catch (e) {
-            logger.warning('[Phase 6] 模型管理服务初始化失败', {
-              error: String(e),
+            void handleError(e, {
+              module: 'boot:phase6',
+              action: 'initModelManagement',
             });
           }
         })(),
@@ -421,8 +429,9 @@ export function registerStandardHandlers(): void {
 
             logger.info('[Phase 6] CoreAPI + Gateway 初始化完成');
           } catch (e) {
-            logger.warning('[Phase 6] CoreAPI/Gateway 初始化失败（非关键）', {
-              error: String(e),
+            void handleError(e, {
+              module: 'boot:phase6',
+              action: 'initCoreAPI',
             });
           }
         })(),

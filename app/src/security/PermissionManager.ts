@@ -1,9 +1,10 @@
-﻿/**
+/**
  * 权限管理�?
  * 管理用户权限，控制工具和功能的访�?
  */
 
 import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'PermissionManager' });
 
@@ -138,8 +139,10 @@ export class PermissionManager {
       this.loadDefaultRules();
       logger.info('Permission manager initialized');
     } catch (error) {
-      const e = error instanceof Error ? error : new Error(String(error));
-      logger.error('Failed to initialize permission manager:', e);
+      void handleError(error, {
+        module: 'security:permMgr',
+        action: '初始化权限管理器失败',
+      });
       throw error;
     }
   }
@@ -369,8 +372,10 @@ export class PermissionManager {
       this.clearRules();
       logger.info('Permission manager stopped');
     } catch (error) {
-      const e = error instanceof Error ? error : new Error(String(error));
-      logger.error('Failed to stop permission manager:', e);
+      void handleError(error, {
+        module: 'security:permMgr',
+        action: '停止权限管理器失败',
+      });
       throw error;
     }
   }

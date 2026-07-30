@@ -19,8 +19,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
-
 import type http from 'http';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
@@ -30,6 +28,14 @@ const logger = new Logger({
   module: 'infrastructure:http:handlers:pdca-handlers',
   level: LogLevel.INFO,
 });
+
+type OrchestratorLike = {
+  getStatus(): unknown;
+  generateReport(): unknown;
+  reviewStep(stepId: string): Promise<unknown>;
+  decideStep(stepId: string, decision: string): Promise<void>;
+  confirm?(decision: unknown): Promise<void>;
+};
 
 // ========== PDCA Handlers ==========
 
@@ -67,10 +73,11 @@ export async function handlePdcaStatus(
   taskId: string
 ): Promise<void> {
   try {
-    let orchestrator: any = null;
+    let orchestrator: OrchestratorLike | null = null;
     try {
       const mod = await import('@modules/tasks/LongRunningTaskOrchestrator');
-      orchestrator = mod.getOrchestrator(taskId);
+      orchestrator = (mod.getOrchestrator(taskId) ??
+        null) as OrchestratorLike | null;
     } catch (err) {
       // 模块加载失败或无 orchestrator
 
@@ -102,10 +109,11 @@ export async function handlePdcaAudit(
   taskId: string
 ): Promise<void> {
   try {
-    let orchestrator: any = null;
+    let orchestrator: OrchestratorLike | null = null;
     try {
       const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
-      orchestrator = m.getOrchestrator(taskId);
+      orchestrator = (m.getOrchestrator(taskId) ??
+        null) as OrchestratorLike | null;
     } catch (err) {
       handleError(err, {
         module: 'infrastructure:http:handlers:pdca-handlers',
@@ -135,10 +143,11 @@ export async function handlePdcaReviewStep(
   stepId: string
 ): Promise<void> {
   try {
-    let orchestrator: any = null;
+    let orchestrator: OrchestratorLike | null = null;
     try {
       const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
-      orchestrator = m.getOrchestrator(taskId);
+      orchestrator = (m.getOrchestrator(taskId) ??
+        null) as OrchestratorLike | null;
     } catch (err) {
       handleError(err, {
         module: 'infrastructure:http:handlers:pdca-handlers',
@@ -171,10 +180,11 @@ export async function handlePdcaDecideStep(
   try {
     const body = await readRequestBody(req);
     const { decision } = JSON.parse(body);
-    let orchestrator: any = null;
+    let orchestrator: OrchestratorLike | null = null;
     try {
       const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
-      orchestrator = m.getOrchestrator(taskId);
+      orchestrator = (m.getOrchestrator(taskId) ??
+        null) as OrchestratorLike | null;
     } catch (err) {
       handleError(err, {
         module: 'infrastructure:http:handlers:pdca-handlers',
@@ -203,10 +213,12 @@ export async function handlePdcaList(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    let list: any[] = [];
+    let list: unknown[] = [];
     try {
       const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
-      list = m.getAllOrchestrators().map((o: any) => o.getStatus());
+      list = m
+        .getAllOrchestrators()
+        .map((o: unknown) => (o as OrchestratorLike).getStatus());
     } catch (err) {
       handleError(err, {
         module: 'infrastructure:http:handlers:pdca-handlers',
@@ -229,10 +241,11 @@ export async function handlePdcaConfirm(
   taskId: string
 ): Promise<void> {
   try {
-    let orchestrator: any = null;
+    let orchestrator: OrchestratorLike | null = null;
     try {
       const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
-      orchestrator = m.getOrchestrator(taskId);
+      orchestrator = (m.getOrchestrator(taskId) ??
+        null) as OrchestratorLike | null;
     } catch (err) {
       handleError(err, {
         module: 'infrastructure:http:handlers:pdca-handlers',
@@ -244,7 +257,7 @@ export async function handlePdcaConfirm(
       res.end(JSON.stringify({ error: 'Not available' }));
       return;
     }
-    await orchestrator.confirm(undefined);
+    await orchestrator.confirm?.(undefined);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: true }));
   } catch (err) {

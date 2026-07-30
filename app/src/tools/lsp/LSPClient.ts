@@ -12,6 +12,7 @@ import {
   Diagnostic,
 } from './types/index.js';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'tools:lspClient', level: LogLevel.INFO });
 
@@ -159,7 +160,10 @@ export class LSPClient {
           this.handleNotification(data.method, data.params);
         }
       } catch (error) {
-        logger.error('Error parsing LSP message:', { error });
+        void handleError(error, {
+          module: 'tools:lsp',
+          action: 'parseMessage',
+        });
       }
     });
   }

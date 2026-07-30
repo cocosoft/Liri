@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 状态机专用错误类型
  *
  * 遵循架构规范（R01-002），所有自定义错误必须继承 AppError。
@@ -6,9 +6,6 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'state\errors', level: LogLevel.INFO });
 
 /**
  * 非法状态转换错误

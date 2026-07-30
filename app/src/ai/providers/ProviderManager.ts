@@ -275,7 +275,7 @@ export class ProviderManager {
   /** 执行 SQL get */
   private getAsync<T>(sql: string, params?: unknown[]): Promise<T | undefined> {
     return new Promise<T | undefined>((resolve, reject) => {
-      this.db!.get(sql, params || [], (err: Error | null, row: any) => {
+      this.db!.get(sql, params || [], (err: Error | null, row: unknown) => {
         if (err) reject(err);
         else resolve(row as T | undefined);
       });
@@ -285,7 +285,7 @@ export class ProviderManager {
   /** 执行 SQL all */
   private allAsync<T>(sql: string, params?: unknown[]): Promise<T[]> {
     return new Promise<T[]>((resolve, reject) => {
-      this.db!.all(sql, params || [], (err: Error | null, rows: any[]) => {
+      this.db!.all(sql, params || [], (err: Error | null, rows: unknown[]) => {
         if (err) reject(err);
         else resolve(rows as T[]);
       });

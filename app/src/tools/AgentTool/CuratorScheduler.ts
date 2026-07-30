@@ -13,6 +13,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@modules/core';
@@ -181,7 +182,7 @@ export class CuratorScheduler {
     try {
       result = await reviewFn();
     } catch (e) {
-      logger.error('Curator review failed', { error: String(e) });
+      await handleError(e, { module: 'tools:curator', action: 'review' });
       return null;
     }
 

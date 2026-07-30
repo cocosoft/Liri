@@ -34,7 +34,10 @@ export class LocalCommandExecutor implements CommandExecutor {
     this.maxOutputLength = maxOutputLength;
   }
 
-  async execute(match: CommandMatch, context?: any): Promise<string> {
+  async execute(
+    match: CommandMatch,
+    context?: Record<string, string>
+  ): Promise<string> {
     const { action, args } = match;
 
     switch (action) {
@@ -55,7 +58,7 @@ export class LocalCommandExecutor implements CommandExecutor {
 
   private async handleCreate(
     args?: Record<string, string>,
-    context?: any
+    context?: Record<string, string>
   ): Promise<string> {
     const filePath = args?.path || context?.path;
 
@@ -79,7 +82,7 @@ export class LocalCommandExecutor implements CommandExecutor {
 
   private async handleDelete(
     args?: Record<string, string>,
-    context?: any
+    context?: Record<string, string>
   ): Promise<string> {
     const filePath = args?.path || context?.path;
 
@@ -96,7 +99,7 @@ export class LocalCommandExecutor implements CommandExecutor {
 
   private async handleRead(
     args?: Record<string, string>,
-    context?: any
+    context?: Record<string, string>
   ): Promise<string> {
     const filePath = args?.path || context?.path;
 
@@ -119,7 +122,7 @@ export class LocalCommandExecutor implements CommandExecutor {
 
   private async handleWrite(
     args?: Record<string, string>,
-    context?: any
+    context?: Record<string, string>
   ): Promise<string> {
     const filePath = args?.path || context?.path;
     const content = args?.content || context?.content;
@@ -170,7 +173,7 @@ export class LocalCommandExecutor implements CommandExecutor {
 
   private async handleExecute(
     args?: Record<string, string>,
-    context?: any
+    context?: Record<string, string>
   ): Promise<string> {
     const command = args?.command || context?.command;
     const commandArgs = args?.args || context?.args;
@@ -183,7 +186,10 @@ export class LocalCommandExecutor implements CommandExecutor {
       return `Error: command not allowed: ${command}`;
     }
 
-    return this.executeCommand(command, commandArgs);
+    return this.executeCommand(
+      command,
+      commandArgs as unknown as string[] | undefined
+    );
   }
 
   private isCommandAllowed(command: string): boolean {

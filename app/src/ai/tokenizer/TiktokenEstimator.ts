@@ -13,6 +13,7 @@
  * 惰性初始化：首次调用时加载 wasm，后续调用零延迟。
  */
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'ai:tokenizer:tiktoken',
@@ -62,16 +63,13 @@ export async function getTiktokenEncoder(): Promise<TiktokenEncoding | null> {
     return enc;
   }
 
-  // Phase 3: 加载失败 → 精度降级，logger.error 告警
+  // Phase 3: 加载失败 → 精度降级，handleError 告警
   _loadError = true;
   _encoder = null;
-  logger.error(
-    'tiktoken:encoder_load_failed — 精度降至启发式估算，30s 后自动重试',
-    {
-      model: 'gpt-4o (o200k_base)',
-      retryMs: TIKTOKEN_RETRY_MS,
-    }
-  );
+  await handleError(new Error('tiktoken:encoder_load_failed'), {
+    module: 'ai:tokenizer',
+    action: 'loadEncoder',
+  });
 
   // Phase 3: 30s 后自动重试一次
   setTimeout(() => {
@@ -122,7 +120,10 @@ export async function preloadTiktoken(): Promise<void> {
   if (encoder) {
     logger.info('tiktoken:preload_success');
   } else {
-    logger.error('tiktoken:preload_failed — 将在 30s 后自动重试');
+    await handleError(new Error('tiktoken:preload_failed'), {
+      module: 'ai:tokenizer',
+      action: 'preload',
+    });
   }
 }
 

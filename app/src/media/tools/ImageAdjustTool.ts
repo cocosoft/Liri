@@ -116,7 +116,7 @@ export function createImageAdjustTool(): Tool {
         const result = await imageProcessor.adjust(
           safeInput.path!,
           safeOutput.path!,
-          options as any
+          options as Record<string, unknown>
         );
         if (!result.success) {
           return {

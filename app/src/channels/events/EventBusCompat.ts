@@ -89,8 +89,11 @@ export function createEventBusCompat(bus: EventBus): EventBusCompat {
       return compat;
     },
 
-    once(event: string, listener: (...args: any[]) => void): EventBusCompat {
-      const wrapped: EventListener = (data: any) => {
+    once(
+      event: string,
+      listener: (...args: unknown[]) => void
+    ): EventBusCompat {
+      const wrapped: EventListener = (data: unknown) => {
         listener(data);
       };
       const sub = bus.once(event, wrapped);
@@ -98,7 +101,7 @@ export function createEventBusCompat(bus: EventBus): EventBusCompat {
       return compat;
     },
 
-    off(event: string, listener: (...args: any[]) => void): EventBusCompat {
+    off(event: string, listener: (...args: unknown[]) => void): EventBusCompat {
       const subMap = subscriptions.get(event);
       if (subMap) {
         const sub = subMap.get(listener);
@@ -110,7 +113,7 @@ export function createEventBusCompat(bus: EventBus): EventBusCompat {
       return compat;
     },
 
-    emit(event: string, ...args: any[]): boolean {
+    emit(event: string, ...args: unknown[]): boolean {
       const data = args.length === 1 ? args[0] : args;
       bus.publish(event, data);
       return bus.hasListeners(event);

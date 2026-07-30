@@ -20,6 +20,8 @@ import type {
 } from '../providers/AIProvider';
 import type { ChatMessage, ChatResponse } from '../models/types';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import { trackUsage } from '@modules/ai';
 
 const logger = new Logger({
   module: 'ai:middleware:pipeline',
@@ -57,9 +59,10 @@ function applyPreRequest(
         if (newCtx === null) return null;
         return applyPreRequest(newCtx, middlewares, index + 1);
       })
-      .catch((err) => {
-        logger.error(`Middleware "${mw.name}" preRequest failed`, {
-          error: String(err),
+      .catch(async (err) => {
+        await handleError(err, {
+          module: 'ai:pipeline',
+          action: `preRequest:${mw.name}`,
         });
         return ctx;
       })
@@ -80,8 +83,9 @@ async function applyPostResponse(
     const newResponse = await mw.postResponse(ctx, response);
     return applyPostResponse(ctx, newResponse, middlewares, index + 1);
   } catch (err) {
-    logger.error(`Middleware "${mw.name}" postResponse failed`, {
-      error: String(err),
+    await handleError(err, {
+      module: 'ai:pipeline',
+      action: `postResponse:${mw.name}`,
     });
     return response;
   }
@@ -141,10 +145,17 @@ export class AIPipeline {
       };
     }
 
+    const _trackStart = Date.now();
     const response = await provider.chat(finalCtx.messages, {
       ...options,
       messages: undefined,
     } as ChatOptions);
+
+    trackUsage(response, {
+      model: ctx.model,
+      providerId: provider.id,
+      latencyMs: Date.now() - _trackStart,
+    });
 
     return applyPostResponse(finalCtx, response, this.middlewares, 0);
   }

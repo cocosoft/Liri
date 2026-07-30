@@ -15,13 +15,7 @@ import fs from 'fs';
 import path from 'path';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
-import { resolveMediaDir } from '@modules/core/paths';
-
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'infrastructure:http:handlers:video-handlers',
-  level: LogLevel.INFO,
-});
+import { resolveMediaDir, isPathWithin } from '@modules/core/paths';
 
 /** 视频根目录（AI 生成持久化） */
 const VIDEOS_ROOT = path.join(resolveMediaDir(), 'video');
@@ -53,11 +47,11 @@ function getVideoMimeType(filePath: string): string {
 function isVideoRootSafe(requestedPath: string): boolean {
   if (path.isAbsolute(requestedPath)) {
     const resolved = path.resolve(requestedPath);
-    return resolved.startsWith(VIDEOS_ROOT);
+    return isPathWithin(VIDEOS_ROOT, resolved);
   }
 
   const resolved = path.resolve(VIDEOS_ROOT, requestedPath);
-  return resolved.startsWith(VIDEOS_ROOT);
+  return isPathWithin(VIDEOS_ROOT, resolved);
 }
 
 /**
@@ -66,12 +60,12 @@ function isVideoRootSafe(requestedPath: string): boolean {
 function resolveVideoPath(requestedPath: string): string | null {
   if (path.isAbsolute(requestedPath)) {
     const resolved = path.resolve(requestedPath);
-    if (resolved.startsWith(VIDEOS_ROOT)) return resolved;
+    if (isPathWithin(VIDEOS_ROOT, resolved)) return resolved;
     return null;
   }
 
   const resolved = path.resolve(VIDEOS_ROOT, requestedPath);
-  if (!resolved.startsWith(VIDEOS_ROOT)) return null;
+  if (!isPathWithin(VIDEOS_ROOT, resolved)) return null;
   return resolved;
 }
 
@@ -307,7 +301,15 @@ export async function handleVideoMetadata(
            WHERE result_video_url LIKE ?
            ORDER BY created_at DESC LIMIT 1`
         )
-        .get(likePattern) as any;
+        .get(likePattern) as
+        | {
+            prompt?: string;
+            model?: string;
+            source_image_url?: string;
+            source_image_path?: string;
+            mode?: string;
+          }
+        | undefined;
 
       if (row) {
         prompt = row.prompt || null;

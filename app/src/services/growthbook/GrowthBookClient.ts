@@ -7,6 +7,7 @@ import type {
 import { DEFAULT_GROWTHBOOK_CONFIG } from './GrowthBookConfig';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'services:growthbook:client',
@@ -125,10 +126,10 @@ export class GrowthBookClient {
         this.notifyListeners();
       }
     } catch (error) {
-      logger.error(
-        '[GrowthBook] Initialization failed',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      void handleError(error, {
+        module: 'services:growthbook',
+        action: 'GrowthBook 初始化失败',
+      });
       this.initPromise = null;
     }
   }
@@ -198,16 +199,16 @@ export class GrowthBookClient {
     for (const listener of this.refreshListeners) {
       try {
         void Promise.resolve(listener()).catch((e) => {
-          logger.error(
-            '[GrowthBook] Listener error',
-            e instanceof Error ? e : new Error(String(e))
-          );
+          void handleError(e, {
+            module: 'services:growthbook',
+            action: '通知刷新监听器失败',
+          });
         });
       } catch (e) {
-        logger.error(
-          '[GrowthBook] Listener error',
-          e instanceof Error ? e : new Error(String(e))
-        );
+        void handleError(e, {
+          module: 'services:growthbook',
+          action: '通知刷新监听器失败',
+        });
       }
     }
   }

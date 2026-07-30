@@ -139,8 +139,11 @@ export async function migrate(
 
       // 尝试从源按批次读取（对 JSONL 实现，通过内部方法获取）
       // 如果 from 支持 getAll 方法（JsonlVectorStore 内部有 store.all）
-      if (typeof (from as any).getAllEntries === 'function') {
-        const allEntries = await (from as any).getAllEntries();
+      const store = from as unknown as {
+        getAllEntries?: () => Promise<VectorEntry[]>;
+      };
+      if (typeof store.getAllEntries === 'function') {
+        const allEntries = await store.getAllEntries();
         const batchEntries = allEntries.slice(offset, offset + BATCH_SIZE);
         batch.push(...batchEntries);
         offset += BATCH_SIZE;

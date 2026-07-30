@@ -52,7 +52,7 @@ export interface Context {
   platform?: string;
   userRole?: string;
   projectType?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface HelpTopic {

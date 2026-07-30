@@ -28,7 +28,25 @@ function FileLink({ filePath, onPreview }: FileLinkProps) {
     return secret ? { "X-API-Key": secret } : {};
   }, []);
 
-  const handleClick = useCallback(
+  /**
+   * P5: 提取公共系统打开逻辑，消除 handleClick 与 handleOpenInSystem 重复。
+   */
+  const openInSystem = useCallback(async (): Promise<void> => {
+    if (isTauri) {
+      const { open } = await import("@tauri-apps/plugin-shell");
+      await open(filePath);
+    } else {
+      const baseUrl = getBackendBaseUrl();
+      const encodedPath = encodeURIComponent(filePath);
+      const resp = await fetch(
+        `${baseUrl}/api/file/open?path=${encodedPath}`,
+        { headers: authHeaders() },
+      );
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    }
+  }, [filePath, authHeaders]);
+
+  const handleFileAction = useCallback(
     async (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -39,36 +57,21 @@ function FileLink({ filePath, onPreview }: FileLinkProps) {
       try {
         if (onPreview) {
           onPreview(filePath);
-        } else if (isTauri) {
-          const { open } = await import("@tauri-apps/plugin-shell");
-          await open(filePath);
         } else {
-          const baseUrl = getBackendBaseUrl();
-          const encodedPath = encodeURIComponent(filePath);
-          const resp = await fetch(
-            `${baseUrl}/api/file/open?path=${encodedPath}`,
-            {
-              headers: authHeaders(),
-            },
-          );
-          if (!resp.ok) {
-            throw new Error(`HTTP ${resp.status}`);
-          }
+          await openInSystem();
         }
       } catch (err) {
         logger.error("打开文件失败", err);
         setError(true);
-        // 清除该路径的缓存，允许下次重新解析
         if (sessionId) {
           invalidateCacheEntry(getCacheKey(sessionId, filePath));
         }
-        // 3 秒后自动清除错误状态
         setTimeout(() => setError(false), 3000);
       } finally {
         setOpening(false);
       }
     },
-    [filePath, opening, onPreview, authHeaders, sessionId],
+    [filePath, opening, onPreview, openInSystem, sessionId],
   );
 
   const handleOpenInSystem = useCallback(
@@ -80,22 +83,7 @@ function FileLink({ filePath, onPreview }: FileLinkProps) {
       setError(false);
 
       try {
-        if (isTauri) {
-          const { open } = await import("@tauri-apps/plugin-shell");
-          await open(filePath);
-        } else {
-          const baseUrl = getBackendBaseUrl();
-          const encodedPath = encodeURIComponent(filePath);
-          const resp = await fetch(
-            `${baseUrl}/api/file/open?path=${encodedPath}`,
-            {
-              headers: authHeaders(),
-            },
-          );
-          if (!resp.ok) {
-            throw new Error(`HTTP ${resp.status}`);
-          }
-        }
+        await openInSystem();
       } catch (err) {
         logger.error("打开文件失败", err);
         setError(true);
@@ -107,14 +95,14 @@ function FileLink({ filePath, onPreview }: FileLinkProps) {
         setOpening(false);
       }
     },
-    [filePath, opening, authHeaders, sessionId],
+    [filePath, opening, openInSystem, sessionId],
   );
 
   return (
     <span className="inline-flex items-center gap-1 group">
       <a
         href="#"
-        onClick={handleClick}
+        onClick={handleFileAction}
         className={`file-link inline-flex items-center gap-1 underline cursor-pointer ${
           error
             ? "text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 line-through decoration-red-400"

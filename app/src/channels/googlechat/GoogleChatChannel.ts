@@ -513,8 +513,9 @@ class GoogleChatChannelPlugin extends BaseChannelPlugin {
               };
 
               self.handleIncomingMessage(ctx).catch((err) => {
-                self.logger.error('Google Chat 消息处理异常', {
-                  error: String(err),
+                handleError(err, {
+                  module: 'channels:googlechat',
+                  action: 'Google Chat 消息处理异常',
                 });
               });
             } catch {
@@ -532,8 +533,9 @@ class GoogleChatChannelPlugin extends BaseChannelPlugin {
             resolve();
           });
           self.webhookServer!.on('error', (err: Error) => {
-            self.logger.error('Google Chat Webhook 启动失败', {
-              error: String(err),
+            handleError(err, {
+              module: 'channels:googlechat',
+              action: 'Google Chat Webhook 启动失败',
             });
             reject(err);
           });

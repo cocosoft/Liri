@@ -20,6 +20,7 @@ import {
   resolveOutputDir,
   resolveMediaDir,
   resolveAttachmentsDir,
+  isPathWithin,
 } from '@modules/core/paths';
 
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -116,7 +117,7 @@ function getMimeType(filePath: string): string {
  */
 function isInAnySafeRoot(absolutePath: string): boolean {
   for (const root of IMAGE_ROOTS) {
-    if (absolutePath.startsWith(root)) return true;
+    if (isPathWithin(root, absolutePath)) return true;
   }
   return false;
 }
@@ -136,15 +137,15 @@ function isAnyRootSafe(requestedPath: string): boolean {
   if (requestedPath.startsWith('media/')) {
     const subPath = requestedPath.slice('media/'.length);
     resolvedPath = path.resolve(MEDIA_IMAGES_ROOT, subPath);
-    return resolvedPath.startsWith(MEDIA_IMAGES_ROOT);
+    return isPathWithin(MEDIA_IMAGES_ROOT, resolvedPath);
   }
   if (requestedPath.startsWith('attachments/')) {
     const subPath = requestedPath.slice('attachments/'.length);
     resolvedPath = path.resolve(ATTACHMENTS_ROOT, subPath);
-    return resolvedPath.startsWith(ATTACHMENTS_ROOT);
+    return isPathWithin(ATTACHMENTS_ROOT, resolvedPath);
   }
   resolvedPath = path.resolve(IMAGES_ROOT, requestedPath);
-  return resolvedPath.startsWith(IMAGES_ROOT);
+  return isPathWithin(IMAGES_ROOT, resolvedPath);
 }
 
 /**
@@ -163,17 +164,17 @@ function resolveFullPath(requestedPath: string): string | null {
   if (requestedPath.startsWith('media/')) {
     const subPath = requestedPath.slice('media/'.length);
     const p = path.resolve(MEDIA_IMAGES_ROOT, subPath);
-    if (!p.startsWith(MEDIA_IMAGES_ROOT)) return null;
+    if (!isPathWithin(MEDIA_IMAGES_ROOT, p)) return null;
     return p;
   }
   if (requestedPath.startsWith('attachments/')) {
     const subPath = requestedPath.slice('attachments/'.length);
     const p = path.resolve(ATTACHMENTS_ROOT, subPath);
-    if (!p.startsWith(ATTACHMENTS_ROOT)) return null;
+    if (!isPathWithin(ATTACHMENTS_ROOT, p)) return null;
     return p;
   }
   const p = path.resolve(IMAGES_ROOT, requestedPath);
-  if (!p.startsWith(IMAGES_ROOT)) return null;
+  if (!isPathWithin(IMAGES_ROOT, p)) return null;
   return p;
 }
 
@@ -398,12 +399,33 @@ export async function handleImageUpload(
       return;
     }
 
+    // BUG09 修复：提取客户端真实 IP（支持 X-Forwarded-For 代理链）
+    function getClientIP(req: http.IncomingMessage): string {
+      const xff = req.headers['x-forwarded-for'];
+      if (xff && typeof xff === 'string') {
+        const ips = xff.split(',').map((s) => s.trim());
+        // 从右向左取第一个非内网代理 IP
+        for (let i = ips.length - 1; i >= 0; i--) {
+          const ip = ips[i];
+          if (
+            ip &&
+            ip !== '127.0.0.1' &&
+            ip !== '::1' &&
+            !ip.startsWith('10.') &&
+            !ip.startsWith('172.16.') &&
+            !ip.startsWith('192.168.')
+          ) {
+            return ip;
+          }
+        }
+      }
+      return req.socket?.remoteAddress || 'unknown';
+    }
+
     // 速率限制：基于客户端 IP，每分钟最多 20 次上传
     pruneRateTracker();
     const clientId =
-      (req.headers['x-session-id'] as string) ||
-      req.socket?.remoteAddress ||
-      'unknown';
+      (req.headers['x-session-id'] as string) || getClientIP(req);
     const timestamps = uploadRateTracker.get(clientId) || [];
     const now = Date.now();
     const recentUploads = timestamps.filter(

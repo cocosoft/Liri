@@ -82,8 +82,9 @@ export class ConfigIO {
         fs.closeSync(fd);
         this.locks.set(lockPath, true);
         return true;
-      } catch (error: any) {
-        if (error.code === 'EEXIST') {
+      } catch (error: unknown) {
+        const e = error as Record<string, unknown>;
+        if (e.code === 'EEXIST') {
           // 检查锁是否过期（>10秒的锁视为过期）
           try {
             const stat = fs.statSync(lockPath);
@@ -108,7 +109,7 @@ export class ConfigIO {
           continue;
         }
         // EPERM: 权限不足（如 Windows 用户目录），降级为无锁模式
-        if (error.code === 'EPERM') {
+        if (e.code === 'EPERM') {
           logger.debug('文件锁获取失败（EPERM），降级为无锁模式', { lockPath });
           return true;
         }
@@ -168,7 +169,10 @@ export class ConfigIO {
       } catch (err) {
         // 忽略清理错误
       }
-      logger.error('原子写入失败', { filePath, error: String(error) });
+      void handleError(error, {
+        module: 'config:io',
+        action: '原子写入失败',
+      });
       return false;
     } finally {
       if (useLock) {

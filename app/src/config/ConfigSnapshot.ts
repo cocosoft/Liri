@@ -8,6 +8,7 @@ import {
 } from 'fs';
 import { join } from 'path';
 import { Logger } from '../monitoring/logs/Logger.js';
+import { handleError } from '@modules/error';
 import { redactConfig } from './ConfigRedactor';
 
 const logger = new Logger({ module: 'config:snapshot' });
@@ -67,10 +68,10 @@ export class ConfigSnapshot {
       const content = readFileSync(path, 'utf-8');
       return JSON.parse(content) as Record<string, unknown>;
     } catch (error) {
-      logger.error(
-        `读取快照失败: ${path}`,
-        error instanceof Error ? error : undefined
-      );
+      void handleError(error, {
+        module: 'config:snapshot',
+        action: '读取快照失败',
+      });
       return null;
     }
   }

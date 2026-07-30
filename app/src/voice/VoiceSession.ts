@@ -562,7 +562,7 @@ export class VoiceSession {
     if (this.adapter) {
       try {
         this.adapter.disconnect();
-      } catch (err) {
+      } catch (_err) {
         // 忽略断开时的错误
       }
       this.adapter = null;

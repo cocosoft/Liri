@@ -307,7 +307,7 @@ export class HookManager {
    * 检查异步Hook响应
    */
   public async checkAsyncHookResponses(): Promise<HookResult[]> {
-    return await this.hookExecutor.checkAsyncHookResponses();
+    return (await this.hookExecutor.checkAsyncHookResponses()) as unknown as HookResult[];
   }
 
   /**

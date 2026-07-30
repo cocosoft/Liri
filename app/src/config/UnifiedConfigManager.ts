@@ -10,6 +10,7 @@
  */
 
 import { Logger, LogLevel } from '../monitoring/logs/Logger.js';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'config:UnifiedConfigManager',
   level: LogLevel.INFO,
@@ -156,10 +157,10 @@ export class UnifiedConfigManager {
       this.initialized = true;
       logger.info('UnifiedConfigManager initialized');
     } catch (error) {
-      logger.error(
-        'Failed to initialize UnifiedConfigManager:',
-        error as Error
-      );
+      void handleError(error, {
+        module: 'config:unified',
+        action: '统一配置管理器初始化失败',
+      });
       throw error;
     }
   }

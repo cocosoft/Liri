@@ -82,9 +82,15 @@ export interface FilePreview {
     | "text"
     | "pdf"
     | "docx"
-    | "pptx";
+    | "pptx"
+    | "xlsx"
+    | "audio"
+    | "video"
+    | "unsupported";
   language?: string;
   size?: number;
+  /** 音视频文件的静态流 URL（/api/file/stream），供 <audio>/<video> 直接播放 */
+  staticUrl?: string;
 }
 
 export interface FileRegistryRecord {

@@ -43,7 +43,12 @@ export enum MCPErrorType {
   UNKNOWN_ERROR = 'UNKNOWN_ERROR',
 }
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 /**
  * MCP错误类
@@ -227,12 +232,16 @@ export class MCPErrorHandler {
 
     switch (error.type) {
       case MCPErrorType.CONNECTION_FAILED:
-        logger.error(`MCP Connection Failed${serverContext}: ${error.message}`);
+        handleError(error, {
+          module: 'services:mcp:error',
+          action: 'MCP连接失败',
+        });
         break;
       case MCPErrorType.RECONNECTION_FAILED:
-        logger.error(
-          `MCP Reconnection Failed${serverContext}: ${error.message}`
-        );
+        handleError(error, {
+          module: 'services:mcp:error',
+          action: 'MCP重连失败',
+        });
         break;
       case MCPErrorType.SERVER_DISCONNECTED:
         logger.warn(
@@ -245,41 +254,55 @@ export class MCPErrorHandler {
         );
         break;
       case MCPErrorType.AUTHENTICATION_FAILED:
-        logger.error(
-          `MCP Authentication Failed${serverContext}: ${error.message}`
-        );
+        handleError(error, {
+          module: 'services:mcp:error',
+          action: 'MCP认证失败',
+        });
         break;
       case MCPErrorType.TOOL_FETCH_FAILED:
-        logger.error(`MCP Tool Fetch Failed${serverContext}: ${error.message}`);
+        handleError(error, {
+          module: 'services:mcp:error',
+          action: 'MCP工具获取失败',
+        });
         break;
       case MCPErrorType.TOOL_EXECUTION_FAILED:
-        logger.error(
-          `MCP Tool Execution Failed${serverContext}: ${error.message}`
-        );
+        handleError(error, {
+          module: 'services:mcp:error',
+          action: 'MCP工具执行失败',
+        });
         break;
       case MCPErrorType.COMMAND_FETCH_FAILED:
-        logger.error(
-          `MCP Command Fetch Failed${serverContext}: ${error.message}`
-        );
+        handleError(error, {
+          module: 'services:mcp:error',
+          action: 'MCP命令获取失败',
+        });
         break;
       case MCPErrorType.COMMAND_EXECUTION_FAILED:
-        logger.error(
-          `MCP Command Execution Failed${serverContext}: ${error.message}`
-        );
+        handleError(error, {
+          module: 'services:mcp:error',
+          action: 'MCP命令执行失败',
+        });
         break;
       case MCPErrorType.RESOURCE_FETCH_FAILED:
-        logger.error(
-          `MCP Resource Fetch Failed${serverContext}: ${error.message}`
-        );
+        handleError(error, {
+          module: 'services:mcp:error',
+          action: 'MCP资源获取失败',
+        });
         break;
       case MCPErrorType.INVALID_CONFIG:
-        logger.error(`MCP Invalid Config${serverContext}: ${error.message}`);
+        handleError(error, {
+          module: 'services:mcp:error',
+          action: 'MCP配置无效',
+        });
         break;
       case MCPErrorType.CONFIG_NOT_FOUND:
         logger.warn(`MCP Config Not Found${serverContext}: ${error.message}`);
         break;
       default:
-        logger.error(`MCP Unknown Error${serverContext}: ${error.message}`);
+        handleError(error, {
+          module: 'services:mcp:error',
+          action: 'MCP未知错误',
+        });
     }
 
     if (error.details) {
@@ -291,19 +314,17 @@ export class MCPErrorHandler {
    * 处理通用错误
    */
   private static handleGenericError(error: Error, serverName?: string): void {
-    const serverContext = serverName ? ` [Server: ${serverName}]` : '';
-    logger.error(`MCP Generic Error${serverContext}: ${error.message}`);
-    if (error.stack) {
-      logger.debug('Error stack:', { stack: error.stack });
-    }
+    handleError(error, { module: 'services:mcp:error', action: 'MCP通用错误' });
   }
 
   /**
    * 处理未知错误
    */
   private static handleUnknownError(error: unknown, serverName?: string): void {
-    const serverContext = serverName ? ` [Server: ${serverName}]` : '';
-    logger.error(`MCP Unknown Error${serverContext}: ${String(error)}`);
+    handleError(error instanceof Error ? error : new Error(String(error)), {
+      module: 'services:mcp:error',
+      action: 'MCP未知错误',
+    });
   }
 
   /**

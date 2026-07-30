@@ -16,7 +16,7 @@ const logger = new Logger({
  * 智能分析服务类
  */
 class IntelligentAnalysisService {
-  private insights: any[] = [];
+  private insights: Record<string, unknown>[] = [];
   private maxInsights = 1000;
   private analysisInterval = 60000;
   private intervalId: ReturnType<typeof setInterval> | null = null;
@@ -41,11 +41,13 @@ class IntelligentAnalysisService {
    */
   initialize() {
     // 注册事件监听器
-    analyticsService.on('eventTracked', (event: any) => {
+    analyticsService.on('eventTracked', (...args: unknown[]) => {
+      const event = args[0] as Record<string, unknown>;
       this.analyzeEvent(event);
     });
 
-    analyticsService.on('sessionEnded', (session) => {
+    analyticsService.on('sessionEnded', (...args: unknown[]) => {
+      const session = args[0] as Record<string, unknown>;
       this.analyzeSession(session);
     });
   }
@@ -89,7 +91,7 @@ class IntelligentAnalysisService {
    * 分析事件
    * @param event 事件记录
    */
-  analyzeEvent(event: any) {
+  analyzeEvent(event: Record<string, unknown>) {
     // 分析错误事件
     if (event.type === 'error') {
       this.analyzeErrorEvent(event);
@@ -105,13 +107,13 @@ class IntelligentAnalysisService {
    * 分析会话
    * @param session 会话信息
    */
-  analyzeSession(session: any) {
+  analyzeSession(session: Record<string, unknown>) {
     // 分析会话持续时间
-    if (session.totalDuration > 3600000) {
+    if ((session.totalDuration as number) > 3600000) {
       // 超过1小时
       this.generateInsight('usage_pattern', {
         title: '长时间会话',
-        description: `用户 ${session.user_id} 的会话持续时间超过1小时`,
+        description: `用户 ${String(session.user_id)} 的会话持续时间超过1小时`,
         severity: 'medium',
         data: { session },
         recommendations: ['检查用户是否遇到了问题', '考虑优化长时间运行的操作'],
@@ -119,10 +121,10 @@ class IntelligentAnalysisService {
     }
 
     // 分析交互次数
-    if (session.interactionCount > 100) {
+    if ((session.interactionCount as number) > 100) {
       this.generateInsight('usage_pattern', {
         title: '高频交互',
-        description: `用户 ${session.user_id} 在单个会话中进行了 ${session.interactionCount} 次交互`,
+        description: `用户 ${String(session.user_id)} 在单个会话中进行了 ${String(session.interactionCount)} 次交互`,
         severity: 'low',
         data: { session },
         recommendations: ['分析用户行为模式', '考虑提供批量操作功能'],
@@ -134,10 +136,10 @@ class IntelligentAnalysisService {
    * 分析错误事件
    * @param event 错误事件
    */
-  analyzeErrorEvent(event: any) {
+  analyzeErrorEvent(event: Record<string, unknown>) {
     this.generateInsight('error_trend', {
       title: '错误事件',
-      description: `发生错误: ${event.name}`,
+      description: `发生错误: ${String(event.name)}`,
       severity: 'medium',
       data: { event },
       recommendations: ['检查错误原因', '修复相关代码'],
@@ -148,12 +150,13 @@ class IntelligentAnalysisService {
    * 分析性能事件
    * @param event 性能事件
    */
-  analyzePerformanceEvent(event: any) {
-    const duration = event.metadata.duration_ms;
+  analyzePerformanceEvent(event: Record<string, unknown>) {
+    const metadata = event.metadata as Record<string, unknown>;
+    const duration = metadata.duration_ms as number | undefined;
     if (duration && duration > 1000) {
       this.generateInsight('performance_issue', {
         title: '性能问题',
-        description: `操作 ${event.name} 执行时间过长: ${duration}ms`,
+        description: `操作 ${String(event.name)} 执行时间过长: ${duration}ms`,
         severity: 'medium',
         data: { event },
         recommendations: ['优化操作性能', '考虑缓存策略'],
@@ -188,8 +191,8 @@ class IntelligentAnalysisService {
     }
 
     // 分析平均会话持续时间
-    const totalDuration = sessions.reduce(
-      (sum: number, session: any) => sum + session.totalDuration,
+    const totalDuration = (sessions as Array<{ totalDuration: number }>).reduce(
+      (sum, session) => sum + session.totalDuration,
       0
     );
     const averageDuration = totalDuration / sessions.length;
@@ -237,7 +240,7 @@ class IntelligentAnalysisService {
    * @param type 洞察类型
    * @param insightData 洞察数据
    */
-  generateInsight(type: string, insightData: any) {
+  generateInsight(type: string, insightData: Record<string, unknown>) {
     const insight = {
       id: `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type,
@@ -264,7 +267,7 @@ class IntelligentAnalysisService {
    * @param options 查询选项
    * @returns 洞察列表
    */
-  getInsights(options: Record<string, any> = {}) {
+  getInsights(options: Record<string, unknown> = {}) {
     let result = [...this.insights];
 
     if (options.type) {
@@ -279,18 +282,25 @@ class IntelligentAnalysisService {
 
     if (options.startTime) {
       result = result.filter(
-        (insight) => insight.timestamp >= options.startTime
+        (insight) =>
+          (insight.timestamp as number) >= (options.startTime as number)
       );
     }
 
     if (options.endTime) {
-      result = result.filter((insight) => insight.timestamp <= options.endTime);
+      result = result.filter(
+        (insight) =>
+          (insight.timestamp as number) <= (options.endTime as number)
+      );
     }
 
-    result.sort((a: any, b: any) => b.timestamp - a.timestamp);
+    result.sort(
+      (a: Record<string, unknown>, b: Record<string, unknown>) =>
+        (b.timestamp as number) - (a.timestamp as number)
+    );
 
     if (options.limit) {
-      result = result.slice(0, options.limit);
+      result = result.slice(0, options.limit as number);
     }
 
     return result;

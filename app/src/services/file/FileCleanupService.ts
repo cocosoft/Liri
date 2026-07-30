@@ -118,7 +118,11 @@ export class FileCleanupService {
           result.failedCount++;
           const msg = `清理失败: ${row.saved_path} - ${(err as Error).message}`;
           result.errors.push(msg);
-          logger.warning(msg);
+          void handleError(err, {
+            module: 'services:file:cleanup',
+            action: 'cleanupFile',
+            context: { savedPath: row.saved_path },
+          });
         }
       }
 

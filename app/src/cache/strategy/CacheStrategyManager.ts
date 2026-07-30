@@ -411,7 +411,7 @@ export class CacheStrategyManager implements ICacheStrategyManager {
     return undefined;
   }
 
-  private getFromL2(key: string, startTime: number): any {
+  private getFromL2(key: string, startTime: number): unknown {
     const l2Entry = this.l2Storage.get(key);
 
     if (l2Entry) {
@@ -500,7 +500,7 @@ export class CacheStrategyManager implements ICacheStrategyManager {
 
   async set(
     key: string,
-    value: any,
+    value: unknown,
     ttl?: number,
     priority: CachePriority = CachePriority.NORMAL
   ): Promise<void> {

@@ -63,15 +63,16 @@ export function applyEnvironmentOverrides(config: BridgeConfig): BridgeConfig {
       // 根据类型进行转换
       switch (key) {
         case 'maxSessions':
-          (result as any)[key] = parseInt(envValue, 10) || config[key];
+          (result as Record<string, unknown>)[key] =
+            parseInt(envValue, 10) || config[key];
           break;
         case 'spawnMode':
           if (['single-session', 'same-dir', 'worktree'].includes(envValue)) {
-            (result as any)[key] = envValue;
+            (result as Record<string, unknown>)[key] = envValue;
           }
           break;
         default:
-          (result as any)[key] = envValue;
+          (result as Record<string, unknown>)[key] = envValue;
           break;
       }
     }

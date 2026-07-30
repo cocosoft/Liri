@@ -9,6 +9,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import {
   SandboxManagerImpl,
   createSandboxManager,
@@ -191,7 +192,10 @@ export class ToolSandboxRouter {
         exitCode: result.exitCode || 0,
       };
     } catch (error) {
-      logger.error('[E-08] Docker 沙箱执行异常', error as Error);
+      await handleError(error, {
+        module: 'tools:sandbox',
+        action: 'Docker沙箱执行异常',
+      });
       return {
         stdout: '',
         stderr:

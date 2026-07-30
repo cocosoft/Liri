@@ -19,6 +19,7 @@ import {
   ModuleLoadPriority,
 } from '../modules/LazyModuleStrategy';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'tools:dependencyValidator',
@@ -689,7 +690,10 @@ async function runDependencyValidation(): Promise<void> {
       process.exit(1);
     }
   } catch (error) {
-    logger.error('依赖关系验证失败:', { error });
+    await handleError(error, {
+      module: 'tools:depValid',
+      action: '依赖关系验证失败',
+    });
     process.exit(1);
   }
 }
@@ -700,6 +704,9 @@ export { runDependencyValidation };
 // 如果直接运行此文件，则执行验证
 if (fileURLToPath(import.meta.url) === process.argv[1]) {
   runDependencyValidation().catch((e) =>
-    logger.error('依赖关系验证失败:', { error: e })
+    handleError(e, {
+      module: 'tools:depValid',
+      action: '依赖关系验证CLI入口失败',
+    })
   );
 }

@@ -332,8 +332,7 @@ export async function handleMediaSubtitleGenerate(
       throw err;
     }
   } catch (err) {
-    logger.error('媒体字幕生成失败', { error: String(err) });
-    void handleError(err, {
+    await handleError(err, {
       module: 'http:media',
       action: 'subtitle_generate',
     });
@@ -392,8 +391,7 @@ export async function handleMediaSubtitleDownload(
     });
     res.end(content);
   } catch (err) {
-    logger.error('字幕下载失败', { error: String(err) });
-    void handleError(err, {
+    await handleError(err, {
       module: 'http:media',
       action: 'subtitle_download',
     });

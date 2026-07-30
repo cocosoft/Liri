@@ -12,7 +12,12 @@
  *   const result = await chain.authenticate({ apiKey: '...' });
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { Logger, LogLevel } from '../../../monitoring/logs/Logger.js';
 import { configManager } from '../../ConfigManager.js';
 
@@ -188,7 +193,10 @@ export class OAuthAuthenticator implements AuthStrategy {
         };
       }
     } catch (error) {
-      logger.error('OAuth 认证失败', error);
+      void handleError(error, {
+        module: 'config:enterprise:auth',
+        action: 'OAuth 认证失败',
+      });
     }
 
     return null;
@@ -263,7 +271,10 @@ export class SamlAuthenticator implements AuthStrategy {
         };
       }
     } catch (error) {
-      logger.error('SAML 认证失败', error);
+      void handleError(error, {
+        module: 'config:enterprise:auth',
+        action: 'SAML 认证失败',
+      });
     }
 
     return null;
@@ -339,7 +350,10 @@ export class LdapAuthenticator implements AuthStrategy {
         };
       }
     } catch (error) {
-      logger.error('LDAP 认证失败', error);
+      void handleError(error, {
+        module: 'config:enterprise:auth',
+        action: 'LDAP 认证失败',
+      });
     }
 
     return null;
@@ -401,7 +415,10 @@ export class JwtAuthenticator implements AuthStrategy {
         },
       };
     } catch (error) {
-      logger.error('JWT 解码失败', error);
+      void handleError(error, {
+        module: 'config:enterprise:auth',
+        action: 'JWT 解码失败',
+      });
     }
 
     return null;

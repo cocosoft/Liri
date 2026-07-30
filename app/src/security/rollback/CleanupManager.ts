@@ -52,7 +52,12 @@ const DEFAULT_QUOTA_BYTES = 5 * 1024 * 1024 * 1024;
  * 获取临时文件根目录
  */
 function getTempRoot(): string {
-  return join(homedir(), '.pyapp', 'tmp', 'snapshots');
+  try {
+    const { resolveSnapshotsDir } = require('@modules/core/paths');
+    return require('path').join(resolveSnapshotsDir(), 'tmp');
+  } catch {
+    return join(homedir(), '.pyapp', 'tmp', 'snapshots');
+  }
 }
 
 /**

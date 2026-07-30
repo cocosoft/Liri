@@ -80,7 +80,7 @@ function sendTextFrame(socket: Socket, text: string): void {
     const payload = Buffer.from(text, 'utf-8');
     const frame = buildFrame(OpCode.TEXT, payload);
     socket.write(frame);
-  } catch (err) {
+  } catch (_err) {
     // 发送错误忽略
   }
 }
@@ -194,7 +194,7 @@ function sendPongFrame(socket: Socket, payload: Buffer): void {
   try {
     const frame = buildFrame(OpCode.PONG, payload);
     socket.write(frame);
-  } catch (err) {
+  } catch (_err) {
     // 忽略 pong 发送错误
   }
 }
@@ -229,7 +229,7 @@ function sendPingFrame(socket: Socket): void {
   try {
     const frame = buildFrame(OpCode.PING, Buffer.alloc(0));
     socket.write(frame);
-  } catch (err) {
+  } catch (_err) {
     // 忽略 ping 发送错误
   }
 }
@@ -263,7 +263,7 @@ function cleanupClient(
     closePayload.writeUInt16BE(code, 0);
     const frame = buildFrame(OpCode.CLOSE, closePayload);
     client.socket.write(frame);
-  } catch (err) {
+  } catch (_err) {
     // 忽略错误
   }
 

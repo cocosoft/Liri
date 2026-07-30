@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 用户全局设置管理
  * 管理用户级别的全局配置，存储在 ~/.pyapp/settings.json
  */
@@ -6,6 +6,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { Logger } from '../../monitoring/logs/Logger.js';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'UserSettings' });
 import { deepMerge } from '@modules/utils/common.js';
@@ -37,10 +38,10 @@ export function loadUserSettings(): Record<string, unknown> {
     const content = readFileSync(filePath, 'utf-8');
     return JSON.parse(content);
   } catch (error) {
-    logger.error(
-      'Failed to load user settings:',
-      error instanceof Error ? error : new Error(String(error))
-    );
+    void handleError(error, {
+      module: 'config:settings:user',
+      action: '加载用户设置失败',
+    });
     return {};
   }
 }
@@ -60,10 +61,10 @@ export function saveUserSettings(settings: Record<string, unknown>): void {
     writeFileSync(filePath, JSON.stringify(settings, null, 2), 'utf-8');
     logger.info('User settings saved');
   } catch (error) {
-    logger.error(
-      'Failed to save user settings:',
-      error instanceof Error ? error : new Error(String(error))
-    );
+    void handleError(error, {
+      module: 'config:settings:user',
+      action: '保存用户设置失败',
+    });
     throw error;
   }
 }

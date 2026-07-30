@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { PermissionMode } from '../permission/PermissionMode';
 import type { RequiresActionDetails } from '../state/session/types.js';
 
@@ -104,7 +105,10 @@ export class ChatSessionMetadataManager {
       try {
         listener(updates);
       } catch (error) {
-        logger.error('[chat] Error in metadata listener:', error);
+        handleError(error, {
+          module: 'chat:metadata',
+          action: '元数据监听器执行异常',
+        });
       }
     });
   }
@@ -126,7 +130,10 @@ export class ChatSessionMetadataManager {
       try {
         listener({ permission_mode: mode });
       } catch (error) {
-        logger.error('[chat] Error in metadata listener:', error);
+        handleError(error, {
+          module: 'chat:metadata',
+          action: '元数据监听器执行异常',
+        });
       }
     });
 
@@ -135,7 +142,10 @@ export class ChatSessionMetadataManager {
       try {
         listener(mode);
       } catch (error) {
-        logger.error('[chat] Error in permission mode listener:', error);
+        handleError(error, {
+          module: 'chat:metadata',
+          action: '权限模式监听器执行异常',
+        });
       }
     });
   }

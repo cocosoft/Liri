@@ -63,7 +63,9 @@ export class SkillExecutor {
 
       // 执行技能
       const startTime = Date.now();
-      const result = await skill.impl.execute(context);
+      const result = (await skill.impl.execute(context)) as
+        | Record<string, unknown>
+        | undefined;
       const durationMs = Date.now() - startTime;
 
       // 添加上下文信息
@@ -71,7 +73,7 @@ export class SkillExecutor {
         ...result,
         success: true,
         usage: {
-          ...result?.usage,
+          ...(result?.usage as Record<string, unknown> | undefined),
           durationMs,
         },
       };

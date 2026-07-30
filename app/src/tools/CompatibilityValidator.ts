@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error';
 import { resolveDataSubDir } from '@modules/core';
 
 const logger = new Logger({
@@ -98,7 +99,10 @@ export class CompatibilityValidator {
 
       logger.info('兼容性验证完成');
     } catch (error) {
-      logger.error('兼容性验证失败:', { error });
+      await handleError(error, {
+        module: 'tools:compat',
+        action: '兼容性验证失败',
+      });
       result.issues.push({
         filePath: 'compatibility-validator',
         lineNumber: 0,
@@ -223,7 +227,10 @@ export class CompatibilityValidator {
         result.statistics.compatibleFiles++;
       }
     } catch (error) {
-      logger.error(`分析文件失败: ${filePath}`, { error });
+      await handleError(error, {
+        module: 'tools:compat',
+        action: '分析文件失败',
+      });
       result.issues.push({
         filePath,
         lineNumber: 0,
@@ -626,7 +633,10 @@ async function runCompatibilityValidation(): Promise<void> {
 
     logger.info(`\n兼容性报告已保存到: ${reportPath}`);
   } catch (error) {
-    logger.error('兼容性验证失败:', { error });
+    await handleError(error, {
+      module: 'tools:compat',
+      action: '兼容性验证运行失败',
+    });
     throw error;
   }
 }
@@ -635,6 +645,6 @@ export { runCompatibilityValidation };
 
 if (require.main === module) {
   runCompatibilityValidation().catch((e) =>
-    logger.error('兼容性验证失败:', { error: e })
+    handleError(e, { module: 'tools:compat', action: '兼容性验证CLI入口失败' })
   );
 }

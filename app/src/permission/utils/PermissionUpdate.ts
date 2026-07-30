@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'permission:utils:permissionUpdate',
@@ -315,7 +316,10 @@ export class PermissionUpdateManager {
       try {
         listener(update);
       } catch (error) {
-        logger.error('PermissionUpdate: Listener error:', error);
+        void handleError(error, {
+          module: 'permission:update',
+          action: '权限更新监听器错误',
+        });
       }
     }
 

@@ -109,7 +109,9 @@ export function useReplBridge(): UseReplBridgeResult {
     async (sessionId?: string) => {
       setState('connecting');
       try {
-        bridgeRef.current = new BridgeMain({} as any);
+        bridgeRef.current = new BridgeMain(
+          {} as unknown as ConstructorParameters<typeof BridgeMain>[0]
+        );
 
         const newSession = await (bridgeRef.current as any).connect(sessionId);
         setSession(newSession);
@@ -137,7 +139,7 @@ export function useReplBridge(): UseReplBridgeResult {
   // 断开连接
   const disconnect = useCallback(() => {
     if (bridgeRef.current) {
-      (bridgeRef.current as any).disconnect();
+      (bridgeRef.current as unknown as { disconnect(): void }).disconnect();
       bridgeRef.current = null;
     }
     setSession(null);

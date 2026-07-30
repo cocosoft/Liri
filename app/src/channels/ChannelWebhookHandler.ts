@@ -51,7 +51,7 @@ export async function handleWebhookEvent(
     // await orchestrator.runFullPdca(event.payload.description || 'Process webhook event', sessionId);
 
     span.setAttribute('proactive.handled', true);
-    span.end();
+    otel.endSpan(span);
     return { handled: true };
   } catch (e) {
     await handleError(e, {
@@ -59,7 +59,7 @@ export async function handleWebhookEvent(
       action: 'handleWebhookEvent',
       context: { channel: event.channel, eventType: event.eventType },
     });
-    span.end();
+    otel.endSpan(span);
     return { handled: false, error: String(e) };
   }
 }

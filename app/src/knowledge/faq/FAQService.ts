@@ -402,7 +402,8 @@ export class FAQService {
         });
         report.imported++;
       } catch (err) {
-        if ((err as any)?.code === 'KNOWLEDGE_FAQ_DUPLICATE') report.skipped++;
+        if ((err as { code?: string })?.code === 'KNOWLEDGE_FAQ_DUPLICATE')
+          report.skipped++;
         else {
           report.failed++;
           report.errors.push({ row: i + 1, error: (err as Error).message });

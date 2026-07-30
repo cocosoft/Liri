@@ -8,7 +8,12 @@ import * as fsSync from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { Logger } from '../../monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 const logger = new Logger({ module: 'security:auditManager' });
 
@@ -165,7 +170,10 @@ export class SecurityAuditManager {
       await fs.appendFile(this.currentLogFile!, logEntry);
       this.currentFileSize += logEntry.length;
     } catch (error) {
-      logger.error('Failed to log audit event:', error);
+      void handleError(error, {
+        module: 'security:auditMgr',
+        action: '记录审计事件失败',
+      });
     }
   }
 
@@ -335,7 +343,10 @@ export class SecurityAuditManager {
         }
       }
     } catch (error) {
-      logger.error('Failed to cleanup old logs:', error);
+      void handleError(error, {
+        module: 'security:auditMgr',
+        action: '清理旧审计日志失败',
+      });
     }
   }
 
@@ -401,7 +412,10 @@ export class SecurityAuditManager {
               return events;
             }
           } catch (error) {
-            logger.error('Failed to parse audit log line:', error);
+            void handleError(error, {
+              module: 'security:auditMgr',
+              action: '解析审计日志行失败',
+            });
           }
         }
       }
@@ -413,7 +427,10 @@ export class SecurityAuditManager {
 
       return events;
     } catch (error) {
-      logger.error('Failed to get audit logs:', error);
+      void handleError(error, {
+        module: 'security:auditMgr',
+        action: '获取审计日志失败',
+      });
       return [];
     }
   }

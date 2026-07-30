@@ -300,13 +300,13 @@ export const memoryManager = new MemoryManager();
  */
 export function monitorMemory() {
   return function (
-    target: any,
+    target: object,
     propertyKey: string,
     descriptor: PropertyDescriptor
   ) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (...args: unknown[]) {
       const startMemory = process.memoryUsage();
       const startTime = performance.now();
 

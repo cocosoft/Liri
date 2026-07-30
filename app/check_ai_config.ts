@@ -1,6 +1,8 @@
 import { Database } from 'bun:sqlite';
+import { homedir } from 'os';
+import { join } from 'path';
 
-const db = new Database('C:/Users/Administrator/.pyapp/data/app.db');
+const db = new Database(join(homedir(), '.pyapp', 'data', 'app.db'));
 
 // Check AI model configs
 const configs = db.query('SELECT * FROM ai_app_model_configs').all();

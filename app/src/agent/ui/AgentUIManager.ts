@@ -13,6 +13,7 @@ const logger = new Logger({
   level: LogLevel.INFO,
 });
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error/handleError';
 
 interface AgentCommand {
   type: 'start' | 'stop' | 'pause' | 'resume' | 'configure' | 'execute';
@@ -59,14 +60,14 @@ interface Alert {
 }
 
 interface StateCallback {
-  (agentId: string, state: AgentState, data?: any): void;
+  (agentId: string, state: AgentState, data?: unknown): void;
 }
 
 interface EventSubscription {
   id: string;
   agentId: string;
   eventType: string;
-  callback: (...args: any[]) => void;
+  callback: (agentId: string, state: AgentState, data?: unknown) => void;
 }
 
 export class AgentUIManager {
@@ -76,7 +77,7 @@ export class AgentUIManager {
   private commandHistory: AgentCommand[] = [];
   private maxAlerts: number = 100;
   private maxCommandHistory: number = 1000;
-  private eventListeners: Map<string, Set<(...args: any[]) => void>> =
+  private eventListeners: Map<string, Set<(...args: unknown[]) => void>> =
     new Map();
 
   registerAgent(agent: AIAgent): void {
@@ -269,30 +270,31 @@ export class AgentUIManager {
     return [...this.commandHistory];
   }
 
-  on(event: string, listener: (...args: any[]) => void): void {
+  on(event: string, listener: (...args: unknown[]) => void): void {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, new Set());
     }
     this.eventListeners.get(event)!.add(listener);
   }
 
-  off(event: string, listener: (...args: any[]) => void): void {
+  off(event: string, listener: (...args: unknown[]) => void): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       listeners.delete(listener);
     }
   }
 
-  notifyStateChange(agentId: string, newState: AgentState, data?: any): void {
+  notifyStateChange(
+    agentId: string,
+    newState: AgentState,
+    data?: unknown
+  ): void {
     for (const [, subscription] of this.subscriptions) {
       if (subscription.agentId === agentId || subscription.agentId === '*') {
         try {
           subscription.callback(agentId, newState, data);
         } catch (error) {
-          logger.error(
-            `State change callback failed for subscription ${subscription.id}:`,
-            error as Error
-          );
+          handleError(error, { module: 'agent:ui', action: '状态变更回调' });
         }
       }
     }
@@ -317,14 +319,14 @@ export class AgentUIManager {
     logger.info('AgentUIManager shut down');
   }
 
-  private emit(event: string, ...args: any[]): void {
+  private emit(event: string, ...args: unknown[]): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       for (const listener of listeners) {
         try {
           listener(...args);
         } catch (error) {
-          logger.error(`Event listener failed for ${event}:`, error as Error);
+          handleError(error, { module: 'agent:ui', action: '事件监听器回调' });
         }
       }
     }

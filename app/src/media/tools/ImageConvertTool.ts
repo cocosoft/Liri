@@ -8,6 +8,7 @@ import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
 import { imageProcessor } from '../image/ImageProcessor';
+import type { ImageFormat } from '../image/ImageProcessor';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
@@ -91,7 +92,7 @@ export function createImageConvertTool(): Tool {
         const result = await imageProcessor.convert(
           safeInput.path!,
           safeOutput.path!,
-          format as any
+          format as ImageFormat
         );
         if (!result.success) {
           return {

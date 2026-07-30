@@ -8,6 +8,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type {
   PlatformAdapter,
   PlatformConfig,
@@ -109,9 +110,9 @@ export class PlatformRouter {
         try {
           await entry.adapter.connect(entry.config);
         } catch (err) {
-          logger.error('平台适配器连接失败', {
-            name,
-            error: String(err),
+          await handleError(err, {
+            module: 'sessions:platform',
+            action: '平台适配器连接失败',
           });
         }
       })

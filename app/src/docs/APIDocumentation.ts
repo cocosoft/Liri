@@ -31,8 +31,8 @@ export interface ParameterDoc {
   type: string;
   required: boolean;
   description: string;
-  default?: any;
-  enum?: any[];
+  default?: unknown;
+  enum?: unknown[];
 }
 
 export interface ReturnDoc {

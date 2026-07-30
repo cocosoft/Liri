@@ -217,7 +217,9 @@ export class CostReportEndpoint {
         output: this.costTracker.getTotalOutputTokens(),
         cacheRead: this.costTracker.getTotalCacheReadInputTokens(),
         cacheCreation: this.costTracker.getTotalCacheCreationInputTokens(),
-        reasoning: (this.costTracker as any).totalReasoningTokens || 0,
+        reasoning:
+          (this.costTracker as unknown as { totalReasoningTokens: number })
+            .totalReasoningTokens || 0,
       },
       byModel,
     };

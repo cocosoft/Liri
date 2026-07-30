@@ -31,7 +31,7 @@ export interface TerminalSession {
   status: 'connecting' | 'connected' | 'disconnected' | 'error';
   startTime: number;
   lastActiveTime: number;
-  config: any;
+  config: unknown;
 }
 
 /**
@@ -119,7 +119,7 @@ export class TerminalUIIntegration {
   createSession(
     id: string,
     type: TerminalSession['type'],
-    config: any
+    config: unknown
   ): TerminalSession {
     const session: TerminalSession = {
       id,

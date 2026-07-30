@@ -141,7 +141,7 @@ export class ConfigValidator {
    * @param value 值
    * @returns 类型字符串
    */
-  private static getType(value: any): string {
+  private static getType(value: unknown): string {
     if (Array.isArray(value)) {
       return 'array';
     }
@@ -197,7 +197,7 @@ export class ConfigValidator {
 
     for (const rule of this.DEFAULT_RULES) {
       if (rule.default !== undefined && fixed[rule.key] === undefined) {
-        (fixed as any)[rule.key] = rule.default;
+        (fixed as Record<string, unknown>)[rule.key] = rule.default;
       }
     }
 

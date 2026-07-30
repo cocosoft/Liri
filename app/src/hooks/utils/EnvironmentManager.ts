@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 环境变量管理工具
  * 提供环境变量的处理和管理功能
  * 参考CC源码: cc_code/backend/utils/subprocessEnv.ts
@@ -14,7 +14,7 @@ export interface EnvOptions {
   pluginOptions?: Record<string, string>;
   skillRoot?: string;
   sessionId?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**

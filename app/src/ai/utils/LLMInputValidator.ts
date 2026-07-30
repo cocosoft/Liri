@@ -98,17 +98,17 @@ export class LLMInputValidator {
     return { valid: errors.length === 0, errors };
   }
 
-  static validateToolCalls(toolCalls: any[]): ValidationResult {
+  static validateToolCalls(toolCalls: unknown[]): ValidationResult {
     const errors: string[] = [];
 
     for (let i = 0; i < toolCalls.length; i++) {
-      const tc = toolCalls[i];
+      const tc = toolCalls[i] as Record<string, unknown>;
 
       if (!tc.id) {
         errors.push(`工具调用${i + 1}: 缺少id`);
       }
 
-      if (!tc.name && !tc.function?.name) {
+      if (!tc.name && !(tc.function as Record<string, unknown>)?.name) {
         errors.push(`工具调用${i + 1}: 缺少工具名称`);
       }
 

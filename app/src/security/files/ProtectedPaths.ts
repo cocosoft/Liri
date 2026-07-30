@@ -107,6 +107,8 @@ export function getCrossPlatformProtectedFiles(): string[] {
       path.join(sysRoot, 'System32', 'config', 'SAM'),
       path.join(sysRoot, 'System32', 'config', 'SECURITY'),
       path.join(sysRoot, 'System32', 'config', 'SOFTWARE'),
+      // Windows 证书管理（替换 /etc/ssl/）
+      path.join(sysRoot, 'System32', 'certlm.msc'),
       // Windows 系统配置（替换 /etc/sudoers）
       path.join(sysRoot, 'System32', 'GroupPolicy', 'Machine', 'Registry.pol'),
       // Windows hosts 文件（替换 /etc/hosts）
@@ -162,8 +164,6 @@ export function getCrossPlatformProtectedDirectoryPrefixes(): string[] {
       normalizePath(path.join(sysRoot, 'System32', 'config')) + '/',
       // Windows 程序数据目录（替换 /etc/apt/）
       normalizePath(path.join(programData)) + '/',
-      // Windows SSL 管理（替换 /etc/ssl/）
-      normalizePath(path.join(sysRoot, 'System32', 'certlm.msc')) + '/',
       // Windows 服务配置（替换 /etc/systemd/system/）
       normalizePath(path.join(sysRoot, 'System32', 'drivers', 'etc')) + '/',
       // 保留跨平台通用的家目录前缀

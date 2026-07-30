@@ -35,6 +35,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = new Logger({
@@ -331,7 +332,10 @@ export class StreamableHttpTransport {
       }
     } catch (err) {
       if (!this.closed) {
-        logger.error('Streamable HTTP SSE stream error', { err });
+        handleError(err, {
+          module: 'services:mcp:http',
+          action: 'Streamable HTTP SSE流错误',
+        });
         this.pushMessage({
           jsonrpc: '2.0',
           id: null,

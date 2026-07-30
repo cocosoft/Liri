@@ -17,12 +17,6 @@ import type {
   WorkItemSearchResult,
 } from '@modules/workspace/types';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'infrastructure:http:handlers:workitem-search-handlers',
-  level: LogLevel.INFO,
-});
-
 /**
  * 搜索工作项
  * POST /v1/workspaces/:id/items/search

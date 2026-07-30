@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 import { join, dirname } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { Session } from '../models/Session';
 import { SessionMessage } from '../models/SessionMessage';
 import { SessionMetadata } from '../models/SessionMetadata';
@@ -10,11 +10,6 @@ import type {
   SessionListOptions,
 } from '../SessionStorage';
 import { resolveSessionsDir } from '@modules/core';
-
-const logger = new Logger({
-  module: 'session:fileStorage',
-  level: LogLevel.INFO,
-});
 
 /**
  * 文件系统存储实现
@@ -111,7 +106,10 @@ export class FileSystemStorage implements SessionStorage {
       const data = JSON.parse(content);
       return Session.fromJSON(data);
     } catch (error: any) {
-      logger.error(`Error loading session ${sessionId}:`, error.message);
+      await handleError(error, {
+        module: 'sessions:storage',
+        action: `加载会话失败: ${sessionId}`,
+      });
       return null;
     }
   }

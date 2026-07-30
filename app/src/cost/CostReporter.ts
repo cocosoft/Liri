@@ -305,7 +305,7 @@ export class CostReporter {
     modelUsage: Record<string, ModelUsage>,
     options: CostReportOptions
   ): string {
-    const report: any = {
+    const report: Record<string, unknown> = {
       timestamp: Date.now(),
       totalCost,
       totalInputTokens,

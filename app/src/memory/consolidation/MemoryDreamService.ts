@@ -10,6 +10,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { providerRegistry } from '@modules/ai';
 import { ToolAwareClient } from '@modules/ai';
 import { resolvePyappHome } from '@modules/core';
@@ -152,7 +153,7 @@ async function syncKnowledgeFiles(
           type,
           tags: Array.isArray(tags) ? tags : [String(tags)],
           priority: 15,
-        }) as any,
+        }),
       });
 
       syncedCount++;
@@ -273,7 +274,7 @@ export async function runMemoryDream(
                 tags: m.metadata?.tags || [],
               }))
             ),
-          } as any,
+          },
         ],
         { temperature: 0.3, maxTokens: 4096 }
       );
@@ -317,7 +318,7 @@ export async function runMemoryDream(
             type,
             tags: item.tags || [],
             priority: 12,
-          }) as any,
+          }),
         });
       }
 
@@ -335,8 +336,10 @@ export async function runMemoryDream(
         refined: refined.length,
       });
     } catch (err) {
-      logger.error(`Dream精炼失败: ${typeName}`, {
-        error: (err as Error).message,
+      void handleError(err, {
+        module: 'memory:dream',
+        action: 'Dream 精炼失败',
+        context: { typeName },
       });
       details.push({
         type: typeName,

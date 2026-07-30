@@ -19,8 +19,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
-
 /**
  * Liri 启动入口
  *
@@ -33,12 +31,15 @@
  *   3. fs.mkdirSync/mkdir 拦截 — 检测根路径写入时重定向至 projectRoot
  */
 import { resolve, dirname, join } from 'path';
-import { existsSync, readFileSync } from 'fs';
+import {
+  existsSync,
+  readFileSync,
+  type PathLike,
+  type MakeDirectoryOptions,
+} from 'fs';
 import { getLogger } from './monitoring/logs/Logger';
 import { handleError } from '@modules/error';
-
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'pyapp', level: LogLevel.INFO });
+import { createRequire } from 'module';
 
 const bootLogger = getLogger('pyapp');
 
@@ -131,6 +132,14 @@ try {
       error: String(e),
     });
   }
+  // BUG06 修复：非编译模式下 chdir 失败无兜底，后续 process.cwd() 全部错误，必须退出
+  if (!isCompiledBinary) {
+    bootLogger.fatal('chdir failed in non-compiled mode, cannot recover', {
+      projectRoot,
+      error: String(e),
+    });
+    process.exit(1);
+  }
 }
 
 // ── 策略 2: Object.defineProperty override process.cwd ──
@@ -164,38 +173,57 @@ if (isCompiledBinary) {
   }
 
   try {
-    const fsModule: any = require('fs');
-    const origMkdirSync: Function = fsModule.mkdirSync.bind(fsModule);
+    const fsModule = require('fs') as typeof import('fs');
+    const origMkdirSync = fsModule.mkdirSync.bind(
+      fsModule
+    ) as typeof fsModule.mkdirSync;
     fsModule.mkdirSync = function patchedMkdirSync(
-      path: any,
-      options?: any
-    ): any {
-      if (isRootPath(path)) {
+      p: unknown,
+      options?: unknown
+    ): unknown {
+      if (isRootPath(p)) {
         if (process.env['LIRI_DEBUG']) {
-          bootLogger.error('BLOCKED mkdirSync', { path: String(path) });
+          bootLogger.error('BLOCKED mkdirSync', { path: String(p) });
         }
-        return origMkdirSync(join(projectRoot, 'app', 'data'), options);
+        return origMkdirSync(
+          join(projectRoot, 'app', 'data'),
+          options as MakeDirectoryOptions | null
+        );
       }
-      return origMkdirSync(path, options);
-    };
+      return origMkdirSync(
+        p as PathLike,
+        options as MakeDirectoryOptions | null
+      );
+    } as typeof fsModule.mkdirSync;
 
-    const origMkdir: Function = fsModule.mkdir.bind(fsModule);
+    const origMkdir = fsModule.mkdir.bind(fsModule);
     fsModule.mkdir = function patchedMkdir(
-      path: any,
-      options: any,
-      callback?: any
-    ): any {
-      if (isRootPath(path)) {
+      p: unknown,
+      options: unknown,
+      callback?: unknown
+    ): unknown {
+      if (isRootPath(p)) {
         if (process.env['LIRI_DEBUG']) {
-          bootLogger.error('BLOCKED mkdir', { path: String(path) });
+          bootLogger.error('BLOCKED mkdir', { path: String(p) });
         }
         if (typeof options === 'function') {
-          return origMkdir(join(projectRoot, 'app', 'data'), options);
+          return (origMkdir as (...args: unknown[]) => unknown)(
+            join(projectRoot, 'app', 'data'),
+            options
+          );
         }
-        return origMkdir(join(projectRoot, 'app', 'data'), options, callback);
+        return (origMkdir as (...args: unknown[]) => unknown)(
+          join(projectRoot, 'app', 'data'),
+          options,
+          callback
+        );
       }
-      return origMkdir(path, options, callback);
-    };
+      return (origMkdir as (...args: unknown[]) => unknown)(
+        p as PathLike,
+        options,
+        callback
+      );
+    } as typeof fsModule.mkdir;
   } catch (e) {
     if (process.env['LIRI_DEBUG']) {
       bootLogger.error('fs interception failed (non-critical)', {
@@ -262,12 +290,19 @@ process.env.LIRI_PROJECT_DIR = projectRoot;
 }
 
 // ── 确保用户档案文件存在（SOUL.md 和 USER.md）──
-// 使用 resolvePyappHome() 逻辑，尊重 LIRI_HOME 环境变量
+// 通过 resolvePyappHome() 获取路径，尊重 LIRI_HOME 环境变量
 try {
-  const liriHomeVal = process.env['LIRI_HOME']?.trim();
-  const pyappDir = liriHomeVal
-    ? resolve(liriHomeVal)
-    : resolve(join(projectRoot, 'app', 'data', 'pyapp'));
+  let pyappDir: string;
+  try {
+    const { resolvePyappHome } = require('@modules/core/paths');
+    pyappDir = resolvePyappHome();
+  } catch {
+    // paths.ts 尚未就绪时的最小兜底
+    const liriHomeVal = process.env['LIRI_HOME']?.trim();
+    pyappDir = liriHomeVal
+      ? resolve(liriHomeVal)
+      : resolve(join(projectRoot, 'app', 'data', 'pyapp'));
+  }
 
   const soulPath = join(pyappDir, 'SOUL.md');
   const userPath = join(pyappDir, 'USER.md');
@@ -348,9 +383,21 @@ if (process.env['LIRI_DEBUG']) {
 // 并搜索多个可能的 node_modules 位置（同级目录 + binaries/ 子目录）。
 if (isCompiledBinary) {
   try {
-    const Module = require('module') as any;
-    const { createRequire } = await import('module');
-    const path = require('path') as any;
+    const Module = require('module') as {
+      _resolveFilename: (
+        request: string,
+        parent: unknown,
+        isMain: boolean,
+        options?: { paths?: string[] }
+      ) => string;
+      _resolveFilenameOrig?: (
+        request: string,
+        parent: unknown,
+        isMain: boolean,
+        options?: { paths?: string[] }
+      ) => string;
+    };
+    const path = require('path') as typeof import('path');
 
     const exeDir = path.dirname(process.execPath);
 
@@ -387,12 +434,14 @@ if (isCompiledBinary) {
       );
     }
 
-    const origResolveFilename = Module._resolveFilename.bind(Module);
+    const origResolveFilename = Module._resolveFilename.bind(
+      Module
+    ) as typeof Module._resolveFilename;
     Module._resolveFilename = function patchedResolveFilename(
       request: string,
-      parent: any,
+      parent: unknown,
       isMain: boolean,
-      options: any
+      options?: { paths?: string[] }
     ): string {
       // 前缀匹配：支持子路径如 pdfjs-dist/legacy/build/pdf
       if (

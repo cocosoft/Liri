@@ -5,6 +5,7 @@
 
 import type { ContextModifier } from './types';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'tools:contextModifier',
@@ -44,7 +45,10 @@ export class ContextModifierQueue {
       try {
         result = modifier(result);
       } catch (error) {
-        logger.error(`Context modifier error for ${toolUseID}:`, { error });
+        handleError(error, {
+          module: 'tools:orchestration',
+          action: '上下文修改器执行失败',
+        });
       }
     }
 
@@ -65,7 +69,10 @@ export class ContextModifierQueue {
         try {
           result = modifier(result);
         } catch (error) {
-          logger.error(`Context modifier error for ${toolUseID}:`, { error });
+          handleError(error, {
+            module: 'tools:orchestration',
+            action: '批量上下文修改器执行失败',
+          });
         }
       }
     }

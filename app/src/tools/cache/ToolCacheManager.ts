@@ -3,6 +3,7 @@ import path from 'path';
 import { resolvePyappHome } from '@modules/core';
 import crypto from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { ICache, CacheStats } from '@modules/cache/types';
 import { TTLCache } from '@modules/utils/cache';
 
@@ -229,7 +230,10 @@ export class ToolCacheManager implements ICache<string, unknown> {
         }
       }
     } catch (error) {
-      logger.warning('Failed to load tool cache:', { error });
+      void handleError(error, {
+        module: 'tools:cacheManager',
+        action: 'loadCache',
+      });
     }
   }
 
@@ -254,7 +258,10 @@ export class ToolCacheManager implements ICache<string, unknown> {
 
       fs.writeFileSync(this.cachePath, JSON.stringify(items, null, 2));
     } catch (error) {
-      logger.warning('Failed to save tool cache:', { error });
+      void handleError(error, {
+        module: 'tools:cacheManager',
+        action: 'saveCache',
+      });
     }
   }
 }

@@ -327,7 +327,7 @@ export class AppModelConfigService {
     return new Promise<AppModelConfig[]>((resolve, reject) => {
       this.db!.all(
         `SELECT * FROM ${APP_CONFIG_TABLE} ORDER BY app_type ASC`,
-        (err: Error | null, rows: any[]) => {
+        (err: Error | null, rows: unknown[]) => {
           if (err) reject(err);
           else {
             resolve(
@@ -365,7 +365,7 @@ export class AppModelConfigService {
       this.db!.run(
         `DELETE FROM ${APP_CONFIG_TABLE} WHERE app_type = ?`,
         [appType],
-        function (this: any, err: Error | null) {
+        function (this: { changes: number }, err: Error | null) {
           if (err) reject(err);
           else {
             if (this.changes > 0) {

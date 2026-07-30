@@ -101,7 +101,7 @@ export function createQRGenerateTool(): Tool {
         const success = await qrCodeManager.generate(
           text,
           safeOutput.path!,
-          options as any
+          options as Record<string, unknown>
         );
         if (!success) {
           return {

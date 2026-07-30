@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 远程会话管理器
  * 负责管理远程会话的连接、消息发送和接收
  */
@@ -32,8 +32,8 @@ export interface RemoteSessionConfig {
  * 远程会话回调
  */
 export interface RemoteSessionCallbacks {
-  onMessage: (message: any) => void;
-  onPermissionRequest?: (request: any, requestId: string) => void;
+  onMessage: (message: unknown) => void;
+  onPermissionRequest?: (request: unknown, requestId: string) => void;
   onPermissionCancelled?: (requestId: string, toolUseId?: string) => void;
   onConnected?: () => void;
   onDisconnected?: () => void;
@@ -171,27 +171,33 @@ export class RemoteSessionManager {
   /**
    * 处理消息
    */
-  private handleMessage(message: any): void {
-    if (message.type === 'control_request') {
+  private handleMessage(message: unknown): void {
+    const msg = message as {
+      type?: string;
+      request_id?: string;
+      request?: { subtype?: string };
+      [key: string]: unknown;
+    };
+    if (msg.type === 'control_request') {
       // 处理权限请求
-      const { request_id, request: inner } = message;
-      if (inner.subtype === 'can_use_tool') {
-        this.callbacks.onPermissionRequest?.(inner, request_id);
+      const { request_id, request: inner } = msg;
+      if (inner && inner.subtype === 'can_use_tool') {
+        this.callbacks.onPermissionRequest?.(inner, request_id ?? '');
       }
-    } else if (message.type === 'control_cancel_request') {
+    } else if (msg.type === 'control_cancel_request') {
       // 处理权限取消
-      const { request_id } = message;
-      this.callbacks.onPermissionCancelled?.(request_id);
+      const { request_id } = msg;
+      this.callbacks.onPermissionCancelled?.(request_id ?? '');
     } else {
       // 处理普通消息
-      this.callbacks.onMessage(message);
+      this.callbacks.onMessage(msg);
     }
   }
 
   /**
    * 发送消息
    */
-  async sendMessage(content: any): Promise<boolean> {
+  async sendMessage(content: unknown): Promise<boolean> {
     if (!this.connected) {
       logger.warn('Cannot send message: not connected');
       return false;
@@ -228,7 +234,11 @@ export class RemoteSessionManager {
    */
   respondToPermissionRequest(
     requestId: string,
-    result: { behavior: 'allow' | 'deny'; updatedInput?: any; message?: string }
+    result: {
+      behavior: 'allow' | 'deny';
+      updatedInput?: unknown;
+      message?: string;
+    }
   ): void {
     if (
       this.sessionType === RemoteSessionType.DIRECT_CONNECT &&

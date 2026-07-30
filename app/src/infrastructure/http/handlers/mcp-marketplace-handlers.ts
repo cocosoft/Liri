@@ -155,7 +155,10 @@ export async function handleMCPMarketplaceCategories(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(categories));
   } catch (err) {
-    logger.error('获取 MCP 分类列表失败', err as Error);
+    await handleError(err, {
+      module: 'infra:handler:mcp',
+      action: 'categories',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
@@ -196,7 +199,10 @@ export async function handleMCPMarketplaceServerDetail(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(detail));
   } catch (err) {
-    logger.error('获取 MCP 服务器详情失败', err as Error);
+    await handleError(err, {
+      module: 'infra:handler:mcp',
+      action: 'server_detail',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
@@ -321,7 +327,11 @@ export async function handleMCPUninstallServer(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true, serverId }));
   } catch (err) {
-    logger.error(`卸载 MCP 服务器失败: ${serverId}`, err as Error);
+    await handleError(err, {
+      module: 'infra:handler:mcp',
+      action: 'uninstall_server',
+      context: { serverId },
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({

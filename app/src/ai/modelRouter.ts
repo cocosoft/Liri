@@ -301,8 +301,9 @@ async function refreshTaskCapabilityMapping(): Promise<void> {
       mappings: Object.keys(taskCapabilityMapping),
     });
   } catch (err) {
-    logger.warning('ModelRouter: 刷新任务-能力映射失败，使用默认值', {
-      error: (err as Error).message,
+    void handleError(err, {
+      module: 'ai:model-router',
+      action: 'refreshCapabilityMapping',
     });
     taskCapabilityMapping = { ...DEFAULT_TASK_CAPABILITY };
   }
@@ -470,8 +471,9 @@ export class ModelRouter {
       await this._loadTaskCacheFromDb(appModelConfigService);
       logger.debug('ModelRouter: 任务缓存已刷新');
     } catch (err) {
-      logger.warning('ModelRouter: 刷新任务缓存失败', {
-        error: (err as Error).message,
+      void handleError(err, {
+        module: 'ai:model-router',
+        action: 'refreshTaskCache',
       });
     }
   }
@@ -503,9 +505,10 @@ export class ModelRouter {
         this._currentModel = '';
       }
     } catch (err) {
-      logger.warning('ModelRouter: 级联清理任务引用失败', {
-        modelId,
-        error: (err as Error).message,
+      void handleError(err, {
+        module: 'ai:model-router',
+        action: 'cleanupTaskRef',
+        context: { modelId },
       });
     }
   }
@@ -571,8 +574,9 @@ export class ModelRouter {
         });
       }
     } catch (err) {
-      logger.warning('ModelRouter: config.json 迁移失败，将从空 DB 启动', {
-        error: (err as Error).message,
+      void handleError(err, {
+        module: 'ai:model-router',
+        action: 'migrateFromConfigJson',
       });
     }
   }

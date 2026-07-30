@@ -220,7 +220,6 @@ export class ToolOrchestrator {
         module: 'tools:orchestrator',
         action: 'executeBatch',
       });
-      logger.error('Batch execution failed:', { error });
     } finally {
       batch.endTime = Date.now();
       this.isRunning = false;

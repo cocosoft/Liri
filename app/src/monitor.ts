@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 监控脚本
  * 用于显示监控数据和性能报告
  */
@@ -6,9 +6,6 @@
 import { handleError } from '@modules/error';
 import { getMonitoringService } from './monitoring/index.js';
 import { getProcessCpuPercent } from './monitoring/metrics/SystemMetricsCollector.js';
-
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'monitor', level: LogLevel.INFO });
 
 function monitor() {
   console.log('=== Liri 监控面板 ===');

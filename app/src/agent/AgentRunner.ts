@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Agent子系统增强
  * 子代理类型、后台运行、进度追踪、摘要、群组执行
  */
@@ -10,7 +10,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
-  module: 'agent\AgentRunner',
+  module: 'agent/AgentRunner',
   level: LogLevel.INFO,
 });
 

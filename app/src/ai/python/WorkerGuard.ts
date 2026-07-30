@@ -9,6 +9,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { StdioBridge } from './StdioBridge';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'ai:python:guard' });
@@ -64,7 +65,10 @@ export class WorkerGuard {
       this.state = 'running';
       this.startHealthCheck();
     } catch (error) {
-      logger.error('WorkerGuard · 启动失败', { error: String(error) });
+      await handleError(error, {
+        module: 'ai:python',
+        action: 'start',
+      });
     }
   }
 
@@ -153,9 +157,13 @@ export class WorkerGuard {
     if (this.consecutiveCrashCount >= this.config.maxRestarts) {
       if (this.config.circuitBreaker) {
         this.state = 'circuit_open';
-        logger.error('WorkerGuard · 熔断器开启 — L2 分析功能已降级', {
-          consecutiveCrashes: this.consecutiveCrashCount,
-        });
+        await handleError(
+          new Error('WorkerGuard · 熔断器开启 — L2 分析功能已降级'),
+          {
+            module: 'ai:python',
+            action: 'circuitBreakerOpen',
+          }
+        );
         this.stopHealthCheck();
         return;
       }
@@ -176,7 +184,10 @@ export class WorkerGuard {
       this.state = 'running';
       logger.info('WorkerGuard · worker 已恢复');
     } catch (error) {
-      logger.error('WorkerGuard · worker 恢复失败', { error: String(error) });
+      await handleError(error, {
+        module: 'ai:python',
+        action: 'recoverWorker',
+      });
       // 递归调用自身来处理下一次失败
       await this.onHealthCheckFailed();
     }

@@ -308,7 +308,7 @@ async function resizeWithMagick(
       input: imageBuffer,
       timeout: 10000,
       maxBuffer: 20 * 1024 * 1024,
-    } as any
+    } as unknown as { input: Buffer; timeout: number; maxBuffer: number }
   );
 
   const resizedBuffer = Buffer.from(stdout);
@@ -411,7 +411,7 @@ export async function compressImageBuffer(
             input: imageBuffer,
             timeout: 15000,
             maxBuffer: 20 * 1024 * 1024,
-          } as any
+          } as unknown as { input: Buffer; timeout: number; maxBuffer: number }
         );
 
         const compressed = Buffer.from(stdout);
@@ -430,7 +430,7 @@ export async function compressImageBuffer(
           input: imageBuffer,
           timeout: 15000,
           maxBuffer: 20 * 1024 * 1024,
-        } as any
+        } as unknown as { input: Buffer; timeout: number; maxBuffer: number }
       );
 
       const compressed = Buffer.from(stdout);

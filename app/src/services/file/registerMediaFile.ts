@@ -13,6 +13,7 @@ import { FileRegistry } from './FileRegistry';
 import { FileSource } from './types';
 import type { MediaType } from './types';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'services:file', level: LogLevel.INFO });
 
@@ -104,9 +105,9 @@ export async function registerGeneratedMedia(
       savedFullPath: result.savedPath,
     };
   } catch (err) {
-    logger.error('注册媒体文件异常', {
-      error: err instanceof Error ? err.message : String(err),
-      url: url.slice(0, 200),
+    void handleError(err, {
+      module: 'services:file',
+      action: '注册媒体文件异常',
     });
     return null;
   }

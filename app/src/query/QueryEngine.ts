@@ -77,6 +77,7 @@ import {
 import { ToolCallPartitioner } from '../tools/orchestration/Partitioner.js';
 import { ToolCallTracker } from '../utils/ToolCallTracker.js';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { QueryLogStore, getQueryLogStore } from './QueryLogStore.js';
 
 const logger = new Logger({ module: 'query:engine', level: LogLevel.INFO });
@@ -979,7 +980,7 @@ export class QueryEngine {
         timestamp: Date.now(),
       })
       .catch((err) => {
-        logger.error('持久化 API 日志失败', { error: err });
+        handleError(err, { module: 'query:engine', action: '持久化 API 日志' });
       });
   }
 
@@ -1009,7 +1010,10 @@ export class QueryEngine {
         timestamp: Date.now(),
       })
       .catch((err) => {
-        logger.error('持久化工具调用日志失败', { error: err });
+        handleError(err, {
+          module: 'query:engine',
+          action: '持久化工具调用日志',
+        });
       });
   }
 
@@ -1251,7 +1255,9 @@ export class QueryEngine {
       session.messages = result.messages as unknown as typeof session.messages;
       this.chatManager
         .saveSession(session)
-        .catch((err) => logger.error('压缩持久化失败', { error: err }));
+        .catch((err) =>
+          handleError(err, { module: 'query:engine', action: '压缩持久化' })
+        );
     }
   }
 
@@ -1421,7 +1427,10 @@ export class QueryEngine {
       try {
         listener(event);
       } catch (e) {
-        logger.error('Progress listener error:', { e });
+        handleError(e, {
+          module: 'query:engine',
+          action: 'Progress监听器回调',
+        });
       }
     }
   }
@@ -1438,7 +1447,7 @@ export class QueryEngine {
       try {
         handler(error);
       } catch (e) {
-        logger.error('Error handler error:', { e });
+        handleError(e, { module: 'query:engine', action: 'Error处理器回调' });
       }
     }
   }

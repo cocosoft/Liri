@@ -24,6 +24,8 @@ import type {
   QueryOptions,
 } from '../interfaces/IQueryEngineCore.js';
 import type { ToolCall } from '@modules/tools/types';
+import type { RouteTarget } from '../localAgent/types.js';
+import type { ToolCall as ChatToolCall } from '../models/types.js';
 import { createLocalAgent, LocalAgent } from '../localAgent/LocalAgent.js';
 import {
   QueryEngineIntegrationAdapter,
@@ -33,6 +35,7 @@ import { SmartRouter } from '../router/SmartRouter.js';
 import { RouteKey } from '../router/routes.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { trackUsage } from '@modules/ai';
 const logger = new Logger({
   module: 'ai:services:QueryEngineWrapper',
   level: LogLevel.INFO,
@@ -59,7 +62,7 @@ export class QueryEngineWrapper implements IQueryEngineCore {
     this.defaultModel = config.defaultModel;
     this.integrationAdapter = createIntegrationAdapter({
       enabled: config.localAgentEnabled ?? false,
-      bypassRoutes: config.bypassRoutes as any,
+      bypassRoutes: config.bypassRoutes as unknown as RouteTarget[],
       enableMetrics: config.enableMetrics ?? false,
     });
   }
@@ -146,7 +149,11 @@ export class QueryEngineWrapper implements IQueryEngineCore {
       let fullContent = '';
 
       try {
-        const streamIterable = (this.client as any).stream?.(currentMessages, {
+        const streamIterable = (
+          this.client as unknown as {
+            stream?: (...args: unknown[]) => AsyncIterable<unknown>;
+          }
+        ).stream?.(currentMessages, {
           model: effectiveModel,
           tools: options?.tools,
         });
@@ -159,14 +166,19 @@ export class QueryEngineWrapper implements IQueryEngineCore {
           return;
         }
 
-        for await (const event of streamIterable) {
+        for await (const rawEvent of streamIterable) {
+          const event = rawEvent as Record<string, unknown>;
           if (event.type === 'content_block_delta') {
-            fullContent += event.delta;
-            yield { type: 'content_block_delta', data: { delta: event.delta } };
+            const delta = event.delta as string;
+            fullContent += delta;
+            yield { type: 'content_block_delta', data: { delta } };
           } else if (event.type === 'tool_call') {
+            const toolCall = event.tool_call as
+              | Record<string, unknown>
+              | undefined;
             yield {
               type: 'content_block_delta',
-              data: { delta: `[Tool: ${event.tool_call?.name}]` },
+              data: { delta: `[Tool: ${toolCall?.name}]` },
             };
           }
         }
@@ -199,7 +211,7 @@ export class QueryEngineWrapper implements IQueryEngineCore {
     return {
       messages,
       model: options?.model,
-      tools: options?.tools as any,
+      tools: options?.tools as unknown as ToolCall[],
       maxTokens: options?.maxTokens,
       temperature: options?.temperature,
       maxTurns: options?.maxTurns,
@@ -253,7 +265,8 @@ export class QueryEngineWrapper implements IQueryEngineCore {
         },
         allMessages: messages,
         turns: 0,
-        finishReason: 'local_agent_handled' as any,
+        finishReason:
+          'local_agent_handled' as unknown as QueryResult['finishReason'],
       };
     }
 
@@ -287,6 +300,7 @@ export class QueryEngineWrapper implements IQueryEngineCore {
       currentTurn++;
 
       try {
+        const _trackStart = Date.now();
         const response = await this.client.chat(currentMessages, {
           model: model || this.defaultModel,
           tools,
@@ -294,7 +308,15 @@ export class QueryEngineWrapper implements IQueryEngineCore {
           temperature,
         });
 
-        const assistantMessage = this.createAssistantMessage(response);
+        trackUsage(response, {
+          model: model || this.defaultModel,
+          providerId: this.client.id,
+          latencyMs: Date.now() - _trackStart,
+        });
+
+        const assistantMessage = this.createAssistantMessage(
+          response as unknown as Record<string, unknown>
+        );
         accumulatedMessages.push(assistantMessage);
         currentMessages.push(assistantMessage);
 
@@ -316,7 +338,8 @@ export class QueryEngineWrapper implements IQueryEngineCore {
             ? 'end_turn'
             : response.stop_reason === 'tool_calls'
               ? 'tool_use'
-              : response.stop_reason) || 'end_turn') as any,
+              : response.stop_reason) ||
+            'end_turn') as unknown as QueryResult['finishReason'],
         };
       } catch (error) {
         return {
@@ -337,7 +360,9 @@ export class QueryEngineWrapper implements IQueryEngineCore {
     };
   }
 
-  private createAssistantMessage(response: any): ChatMessage {
+  private createAssistantMessage(
+    response: Record<string, unknown>
+  ): ChatMessage {
     const message: ChatMessage = {
       role: 'assistant',
       content: '',
@@ -346,8 +371,8 @@ export class QueryEngineWrapper implements IQueryEngineCore {
     if (typeof response.content === 'string') {
       message.content = response.content;
     } else if (Array.isArray(response.content)) {
-      message.content = response.content
-        .map((block: any) => {
+      message.content = (response.content as Array<Record<string, unknown>>)
+        .map((block: Record<string, unknown>) => {
           if (block.type === 'text') return block.text;
           if (block.type === 'thinking') return block.thinking;
           return JSON.stringify(block);
@@ -356,11 +381,13 @@ export class QueryEngineWrapper implements IQueryEngineCore {
     }
 
     if (response.tool_calls) {
-      message.tool_calls = response.tool_calls.map((tc: any) => ({
+      message.tool_calls = (
+        response.tool_calls as Array<Record<string, unknown>>
+      ).map((tc: Record<string, unknown>) => ({
         id: tc.id,
         name: tc.name,
         input: tc.input,
-      }));
+      })) as unknown as ChatToolCall[];
     }
 
     return message;

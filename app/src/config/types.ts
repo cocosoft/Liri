@@ -668,8 +668,8 @@ export interface ConfigValidationRule {
   key: string;
   type: 'string' | 'number' | 'boolean' | 'array' | 'object';
   required?: boolean;
-  default?: any;
-  validate?: (value: any) => boolean;
+  default?: unknown;
+  validate?: (value: unknown) => boolean;
   message?: string;
 }
 
@@ -706,5 +706,5 @@ export interface SettingsJson {
   fontSize?: number;
   apiKey?: string;
   model?: string;
-  [key: string]: unknown;
+  [key: string]: any;
 }

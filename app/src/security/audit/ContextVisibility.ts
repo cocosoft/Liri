@@ -6,6 +6,7 @@
 
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'security:contextVisibility',
@@ -97,7 +98,10 @@ export function auditContextVisibility(
 
     logger.info(`上下文可见性审计完成，发现 ${findings.length} 个问题`);
   } catch (error) {
-    logger.error('上下文可见性审计失败', error as Error);
+    void handleError(error, {
+      module: 'security:audit:context',
+      action: '上下文可见性审计失败',
+    });
   }
 
   return findings;

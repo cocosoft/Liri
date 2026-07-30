@@ -266,7 +266,6 @@ export abstract class ReActLoop<
           actResult = await this.act(reasonResult.toolCalls, context);
         } catch (err) {
           handleError(err, { module: 'query:reactLoop', action: 'acting' });
-          logger.error('reActLoop:acting_error', { error: String(err) });
           actResult = {
             results: reasonResult.toolCalls.map((tc) => ({
               toolCallId: tc.id,

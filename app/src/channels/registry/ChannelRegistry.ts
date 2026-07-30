@@ -340,7 +340,11 @@ export class ChannelRegistry extends EventEmitter {
       },
 
       onError: (id: string, error: Error) => {
-        logger.warning(`主动同步: 插件错误 ${id}`, { error: error.message });
+        void handleError(error, {
+          module: 'channels:registry',
+          action: 'syncOnError',
+          context: { pluginId: id },
+        });
         const plugin = registry.lookup(id);
         if (plugin) {
           const adapted = adaptPluginToChannelInterface(plugin);
@@ -448,9 +452,10 @@ export class ChannelRegistry extends EventEmitter {
         [type, name, type, enabled ? 1 : 0, optionsJson, Date.now()],
         (err: Error | null) => {
           if (err) {
-            logger.error(`持久化通道配置失败: ${type}`, {
-              error: err.message,
-              config,
+            handleError(err, {
+              module: 'channels:registry',
+              action: `持久化通道配置失败: ${type}`,
+              context: { config },
             });
             resolve(false);
           } else {
@@ -473,8 +478,9 @@ export class ChannelRegistry extends EventEmitter {
         [id],
         (err: Error | null) => {
           if (err) {
-            logger.error(`删除持久化通道配置失败: ${id}`, {
-              error: err.message,
+            handleError(err, {
+              module: 'channels:registry',
+              action: `删除持久化通道配置失败: ${id}`,
             });
             resolve(false);
           } else {

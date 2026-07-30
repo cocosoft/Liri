@@ -7,12 +7,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
-import {
-  AppError,
-  ErrorCategory,
-  ErrorSeverity,
-  handleError,
-} from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -83,13 +78,8 @@ export class AtomicWriter {
       let existing = '';
       try {
         existing = await fs.readFile(targetPath, 'utf-8');
-      } catch (err) {
-        // file doesn't exist yet, that's fine
-
-        handleError(err, {
-          module: 'session:persistence',
-          action: 'readExisting',
-        });
+      } catch {
+        // 文件尚不存在（新会话首次访问），静默处理
       }
       await fs.writeFile(tmpPath, existing + data, 'utf-8');
       await fs.rename(tmpPath, targetPath);

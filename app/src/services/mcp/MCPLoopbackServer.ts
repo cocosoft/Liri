@@ -30,6 +30,7 @@
 
 import http from 'http';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { findToolByName } from '../../tools/types/Tool.js';
 import { getEmptyToolPermissionContext } from '../../tools/types/PermissionContext.js';
 import { ToolUseContext } from '../../tools/types/ToolUseContext.js';
@@ -121,7 +122,10 @@ export class MCPLoopbackServer {
       });
 
       this.server.on('error', (err) => {
-        logger.error('Loopback server error', { error: String(err) });
+        handleError(err instanceof Error ? err : new Error(String(err)), {
+          module: 'services:mcp:loopback',
+          action: 'Loopback服务器错误',
+        });
         reject(err);
       });
 

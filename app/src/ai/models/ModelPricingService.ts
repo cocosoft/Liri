@@ -288,7 +288,7 @@ export class ModelPricingService {
   }
 
   /** Promise 化 db.run */
-  private runAsync(sql: string, params: any[] = []): Promise<void> {
+  private runAsync(sql: string, params: unknown[] = []): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       this.db!.run(sql, params, (err: Error | null) => {
         if (err) reject(err);
@@ -338,7 +338,7 @@ export class ModelPricingService {
       this.db!.get(
         `SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
         [OLD_PRICING_TABLE],
-        (err: Error | null, row: any) => {
+        (err: Error | null, row: unknown) => {
           if (err) reject(err);
           else resolve(!!row);
         }
@@ -351,7 +351,7 @@ export class ModelPricingService {
     const registryCount = await new Promise<number>((resolve, reject) => {
       this.db!.get(
         `SELECT COUNT(*) as cnt FROM ${REGISTRY_TABLE}`,
-        (err: Error | null, row: any) => {
+        (err: Error | null, row: unknown) => {
           if (err) reject(err);
           else resolve((row as Record<string, number>).cnt);
         }
@@ -378,7 +378,7 @@ export class ModelPricingService {
       (resolve, reject) => {
         this.db!.all(
           `SELECT * FROM ${OLD_PRICING_TABLE}`,
-          (err: Error | null, rows: any[]) => {
+          (err: Error | null, rows: unknown[]) => {
             if (err) reject(err);
             else resolve(rows as Record<string, unknown>[]);
           }
@@ -466,7 +466,7 @@ export class ModelPricingService {
     const count = await new Promise<number>((resolve, reject) => {
       this.db!.get(
         `SELECT COUNT(*) as cnt FROM ${REGISTRY_TABLE}`,
-        (err: Error | null, row: any) => {
+        (err: Error | null, row: unknown) => {
           if (err) reject(err);
           else resolve((row as Record<string, number>).cnt);
         }
@@ -534,8 +534,9 @@ export class ModelPricingService {
       this.seeded = true;
       logger.info(`已从 YAML 种子 ${seeded} 个模型到 model_registry 表`);
     } catch (err) {
-      logger.warning('YAML 种子失败（非关键，不影响启动）', {
-        error: (err as Error).message,
+      void handleError(err, {
+        module: 'ai:pricing',
+        action: 'seedFromYaml',
       });
     }
   }
@@ -661,7 +662,7 @@ export class ModelPricingService {
       this.db!.get(
         `SELECT * FROM ${REGISTRY_TABLE} WHERE model_id = ?`,
         [modelId],
-        (err: Error | null, row: any) => {
+        (err: Error | null, row: unknown) => {
           if (err) reject(err);
           else if (!row) resolve(undefined);
           else resolve(rowToRecord(row as Record<string, unknown>));
@@ -677,7 +678,7 @@ export class ModelPricingService {
     return new Promise<ModelPricingRecord[]>((resolve, reject) => {
       this.db!.all(
         `SELECT * FROM ${REGISTRY_TABLE} ORDER BY model_id ASC`,
-        (err: Error | null, rows: any[]) => {
+        (err: Error | null, rows: unknown[]) => {
           if (err) reject(err);
           else {
             resolve((rows as Record<string, unknown>[]).map(rowToRecord));
@@ -761,7 +762,7 @@ export class ModelPricingService {
       this.db!.get(
         `SELECT * FROM ${REGISTRY_TABLE} WHERE id = ?`,
         [id],
-        (err: Error | null, row: any) => {
+        (err: Error | null, row: unknown) => {
           if (err) reject(err);
           else if (!row) resolve(undefined);
           else resolve(rowToRecord(row as Record<string, unknown>));
@@ -809,7 +810,7 @@ export class ModelPricingService {
     return new Promise<number>((resolve, reject) => {
       this.db!.get(
         `SELECT COUNT(*) as cnt FROM ${REGISTRY_TABLE}`,
-        (err: Error | null, row: any) => {
+        (err: Error | null, row: unknown) => {
           if (err) reject(err);
           else resolve((row as Record<string, number>).cnt);
         }
@@ -886,7 +887,10 @@ export class ModelPricingService {
       logger.info(`YAML 数据重新同步完成：${updated} 条更新`);
       return updated;
     } catch (err) {
-      logger.error('YAML 重新同步失败', err);
+      await handleError(err, {
+        module: 'ai:models',
+        action: 'reSeedFromYaml',
+      });
       throw err;
     }
   }

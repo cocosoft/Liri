@@ -125,7 +125,10 @@ export class Recorder {
       case 'powershell':
         return this.startPowerShellStream(onData, onEnd, options);
       default:
-        logger.error('Recorder · 未知的录音方法', { method });
+        void handleError(new Error(`未知的录音方法: ${method}`), {
+          module: 'services:voice:recorder',
+          action: '未知录音方法',
+        });
         return false;
     }
   }
@@ -342,7 +345,10 @@ export class Recorder {
     });
 
     child.on('error', (err) => {
-      logger.error('Recorder · SoX 录音失败', { error: String(err) });
+      void handleError(err, {
+        module: 'services:voice:recorder',
+        action: 'SoX 录音失败',
+      });
       this.process = null;
       onEnd();
     });
@@ -395,7 +401,10 @@ export class Recorder {
     });
 
     child.on('error', (err) => {
-      logger.error('Recorder · arecord 录音失败', { error: String(err) });
+      void handleError(err, {
+        module: 'services:voice:recorder',
+        action: 'arecord 录音失败',
+      });
       this.process = null;
       onEnd();
     });
@@ -531,7 +540,10 @@ $stdout.Close()
       });
 
       child.on('error', (err) => {
-        logger.error('Recorder · PowerShell 录音失败', { error: String(err) });
+        void handleError(err, {
+          module: 'services:voice:recorder',
+          action: 'PowerShell 录音失败',
+        });
         this.process = null;
         onEnd();
       });

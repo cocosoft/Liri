@@ -449,7 +449,10 @@ class LineChannelPlugin extends BaseChannelPlugin {
             resolve();
           });
           self.webhookServer!.on('error', (err: Error) => {
-            self.logger.error('LINE Webhook 启动失败', { error: String(err) });
+            handleError(err, {
+              module: 'channels:line',
+              action: 'LINE Webhook 启动失败',
+            });
             reject(err);
           });
         });

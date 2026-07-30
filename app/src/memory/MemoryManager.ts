@@ -39,6 +39,7 @@ import { memoryRelationGraph } from './utils/MemoryRelationGraph';
 import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { trackUsage } from '@modules/ai';
 import { createHash } from 'crypto';
 
 // P2-6: LLM 精选记忆检索
@@ -83,7 +84,7 @@ export interface MemoryManager {
 
   // 自动创建记忆（从聊天）
   createMemoryFromChat(
-    messages: any[],
+    messages: unknown[],
     name?: string,
     type?: string
   ): Promise<Memory>;
@@ -158,7 +159,7 @@ export interface MemoryManager {
   getPYAppRulesByPriority(priority: 'high' | 'medium' | 'low'): Rule[];
   getPYAppPreferences(): Preference[];
   getPYAppPreference(key: string): Preference | undefined;
-  getPYAppPreferenceValue(key: string, defaultValue?: any): any;
+  getPYAppPreferenceValue(key: string, defaultValue?: unknown): unknown;
   getPYAppRulesText(): string;
   checkPYAppChanges(): Promise<boolean>;
   addPYAppChangeListener(listener: (config: PYAppConfig) => void): void;
@@ -255,9 +256,15 @@ export class MemoryManagerImpl {
     this.store = new MemoryStoreImpl(memoryDir);
     this.scanner = new MemoryScannerImpl();
     this.retriever = new MemoryRetrieverImpl(memoryDir);
-    this.promptService = new MemoryPromptService(this as any);
-    this.autoMemoryService = new AutoMemoryService(this as any);
-    this.teamMemoryService = new TeamMemoryService(this as any);
+    this.promptService = new MemoryPromptService(
+      this as unknown as MemoryManager
+    );
+    this.autoMemoryService = new AutoMemoryService(
+      this as unknown as MemoryManager
+    );
+    this.teamMemoryService = new TeamMemoryService(
+      this as unknown as MemoryManager
+    );
     this.pyAppIntegrationService = new PYAppIntegrationService();
 
     // 加载关联图
@@ -612,6 +619,7 @@ export class MemoryManagerImpl {
           }));
 
           const prompt = buildSelectionPrompt(query, items);
+          const _trackStart = Date.now();
           const response = await provider.chat(
             [
               {
@@ -627,6 +635,12 @@ export class MemoryManagerImpl {
               maxTokens: 512,
             }
           );
+
+          trackUsage(response, {
+            model: response.model || provider.id || 'unknown',
+            providerId: provider.id,
+            latencyMs: Date.now() - _trackStart,
+          });
 
           const selectedIds = parseSelectionResult(response.content);
           if (selectedIds.length > 0) {
@@ -1091,7 +1105,7 @@ export class MemoryManagerImpl {
   /**
    * 获取Liri偏好设置值
    */
-  getPYAppPreferenceValue(key: string, defaultValue?: any): any {
+  getPYAppPreferenceValue(key: string, defaultValue?: unknown): unknown {
     return this.pyAppIntegrationService.getPreferenceValue(key, defaultValue);
   }
 

@@ -89,7 +89,7 @@ const verifySkill: Skill = {
   version: '2.0.0',
   impl: {
     kind: 'executable',
-    execute: async (args: unknown[]) => {
+    execute: async (context: unknown) => {
       const otel = getOTelTracing();
       const span = otel.startSpan('verify.execute', {});
 
@@ -117,9 +117,13 @@ const verifySkill: Skill = {
               passed: true,
               detail: `${checkCmd} → OK`,
             });
-          } catch (e: any) {
+          } catch (e: unknown) {
+            const err = e as {
+              stdout?: { toString: () => string };
+              stderr?: { toString: () => string };
+            };
             const output =
-              e.stdout?.toString() || e.stderr?.toString() || String(e);
+              err.stdout?.toString() || err.stderr?.toString() || String(e);
             results.push({
               step: `${projectType}_check`,
               passed: false,
@@ -139,9 +143,13 @@ const verifySkill: Skill = {
               passed: true,
               detail: `${testCmd} → OK`,
             });
-          } catch (e: any) {
+          } catch (e: unknown) {
+            const err = e as {
+              stdout?: { toString: () => string };
+              stderr?: { toString: () => string };
+            };
             const output =
-              e.stdout?.toString() || e.stderr?.toString() || String(e);
+              err.stdout?.toString() || err.stderr?.toString() || String(e);
             results.push({
               step: `${projectType}_test`,
               passed: false,

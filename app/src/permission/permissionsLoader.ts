@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { resolvePyappHome, resolveDataDir } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { PermissionRuleSource } from './types/PermissionRule';
 import type { ToolPermissionContext } from './permissions';
 import { getEmptyToolPermissionContext } from './permissions';
@@ -60,7 +61,10 @@ export function loadPermissionsFromSettings(
     }
   } catch (e) {
     // 设置文件读取失败时使用默认值，不影响系统启动
-    logger.error('读取权限设置文件失败:', e as Error);
+    void handleError(e, {
+      module: 'permission:loader',
+      action: '读取权限设置文件失败',
+    });
   }
 
   return context;

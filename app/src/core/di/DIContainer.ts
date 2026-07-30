@@ -3,7 +3,12 @@
  * 支持 singleton/transient/request 三种作用域、循环依赖检测、自动装配、
  * 生命周期钩子、ModuleRegistry 回退解析、统一启动入口等特性
  */
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import {
   type ContainerConfig,
@@ -324,8 +329,9 @@ export class DIContainer {
       const duration = performance.now() - startTime;
       logger.info(`DIContainer: 容器启动完成 (${duration.toFixed(0)}ms)`);
     } catch (error) {
-      logger.error('DIContainer: 容器启动失败', {
-        error: error instanceof Error ? error.message : String(error),
+      await handleError(error, {
+        module: 'core:di',
+        action: 'start',
       });
       throw error;
     }

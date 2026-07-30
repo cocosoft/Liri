@@ -1,7 +1,7 @@
 import { join } from 'path';
 import { Database } from '@modules/core/external/sqlite3';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { DatabaseError } from '@modules/error';
+import { DatabaseError, handleError } from '@modules/error';
 import { resolveDbPath } from '@modules/core';
 import { SCHEMA, FTS5_SCHEMA, KANBAN_SCHEMA, TABLE_NAMES } from './schema';
 import type { TaskState } from '../types';
@@ -676,10 +676,7 @@ export class SqliteTaskStore implements ITaskStore {
       });
       return { migrated, skipped };
     } catch (error) {
-      logger.error(
-        'Migration from JSON file failed',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, { module: 'tasks:db:store', action: '迁移失败' });
       throw error;
     }
   }

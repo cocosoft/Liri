@@ -100,7 +100,10 @@ export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
       let sent = false;
 
       // 优先使用 sendInteractive（支持按钮的渠道），失败时降级到 sendMarkdown → sendText
-      if (typeof (outbound as any).sendInteractive === 'function') {
+      if (
+        typeof (outbound as unknown as Record<string, Function>)
+          .sendInteractive === 'function'
+      ) {
         try {
           await outbound.sendInteractive(target, {
             title: inboxItem.status === 'expired' ? '审批已过期' : '审批结果',
@@ -116,9 +119,16 @@ export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
           });
         }
       }
-      if (!sent && typeof (outbound as any).sendMarkdown === 'function') {
+      if (
+        !sent &&
+        typeof (outbound as unknown as Record<string, Function>)
+          .sendMarkdown === 'function'
+      ) {
         try {
-          await (outbound as any).sendMarkdown(target, content);
+          await (outbound as unknown as Record<string, Function>).sendMarkdown(
+            target,
+            content
+          );
           sent = true;
         } catch (e) {
           logger.warn('sendMarkdown 失败，降级到 sendText', {

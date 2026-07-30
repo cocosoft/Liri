@@ -120,16 +120,17 @@ export const MCPTool: Tool = {
       maxResultSizeChars: 10000,
     };
   },
-  userFacingName: function (input?: Partial<any>): string {
-    const action = (input?.action as string) || '';
-    const serverName = (input?.server_name as string) || '';
-    const toolName = (input?.tool_name as string) || '';
+  userFacingName: function (input?: Partial<Record<string, unknown>>): string {
+    const inp = (input as Record<string, unknown>) ?? {};
+    const action = (inp.action as string) || '';
+    const serverName = (inp.server_name as string) || '';
+    const toolName = (inp.tool_name as string) || '';
 
     switch (action) {
       case 'list_servers':
         return 'MCP: List Servers';
       case 'connect':
-        return `MCP: Connect to ${input?.server_config?.name || 'Server'}`;
+        return `MCP: Connect to ${(inp.server_config as Record<string, unknown>)?.name || 'Server'}`;
       case 'list_tools':
         return `MCP: List Tools from ${serverName}`;
       case 'call':
@@ -138,16 +139,19 @@ export const MCPTool: Tool = {
         return this.name;
     }
   },
-  getActivityDescription: function (input?: Partial<any>): string | null {
-    const action = (input?.action as string) || '';
-    const serverName = (input?.server_name as string) || '';
-    const toolName = (input?.tool_name as string) || '';
+  getActivityDescription: function (
+    input?: Partial<Record<string, unknown>>
+  ): string | null {
+    const inp = (input as Record<string, unknown>) ?? {};
+    const action = (inp.action as string) || '';
+    const serverName = (inp.server_name as string) || '';
+    const toolName = (inp.tool_name as string) || '';
 
     switch (action) {
       case 'list_servers':
         return 'Listing MCP servers';
       case 'connect':
-        return `Connecting to MCP server: ${input?.server_config?.name || 'Server'}`;
+        return `Connecting to MCP server: ${(inp.server_config as Record<string, unknown>)?.name || 'Server'}`;
       case 'list_tools':
         return `Listing tools from MCP server: ${serverName}`;
       case 'call':
@@ -156,16 +160,19 @@ export const MCPTool: Tool = {
         return null;
     }
   },
-  getToolUseSummary: function (input?: Partial<any>): string | null {
-    const action = (input?.action as string) || '';
-    const serverName = (input?.server_name as string) || '';
-    const toolName = (input?.tool_name as string) || '';
+  getToolUseSummary: function (
+    input?: Partial<Record<string, unknown>>
+  ): string | null {
+    const inp = (input as Record<string, unknown>) ?? {};
+    const action = (inp.action as string) || '';
+    const serverName = (inp.server_name as string) || '';
+    const toolName = (inp.tool_name as string) || '';
 
     switch (action) {
       case 'list_servers':
         return 'List MCP servers';
       case 'connect':
-        return `Connect to MCP server: ${input?.server_config?.name || 'Server'}`;
+        return `Connect to MCP server: ${(inp.server_config as Record<string, unknown>)?.name || 'Server'}`;
       case 'list_tools':
         return `List tools from MCP server: ${serverName}`;
       case 'call':
@@ -310,11 +317,13 @@ export const MCPTool: Tool = {
             error: `Unknown action: ${action}`,
           });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // P2-4: 凭据剥离
       const { stripCredentials } =
         await import('../services/mcp/MCPSecurityFilter');
-      const cleaned = stripCredentials(error.message || String(error)).cleaned;
+      const cleaned = stripCredentials(
+        (error as Error).message || String(error)
+      ).cleaned;
       return createToolResult(null, {
         success: false,
         error: `MCP operation failed: ${cleaned}`,

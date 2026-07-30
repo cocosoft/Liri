@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'ai:health:modelHealthCheck',
@@ -67,14 +68,20 @@ export class ModelHealthChecker {
     }
 
     this.timer = setInterval(() => {
-      this.runChecks().catch((e) => {
-        logger.error('健康检查轮次失败', e as Error);
+      this.runChecks().catch(async (e) => {
+        await handleError(e, {
+          module: 'ai:health',
+          action: 'runChecksRound',
+        });
       });
     }, this.config.checkIntervalMs);
 
     // 首次立即运行
-    this.runChecks().catch((e) => {
-      logger.error('首次健康检查失败', e as Error);
+    this.runChecks().catch(async (e) => {
+      await handleError(e, {
+        module: 'ai:health',
+        action: 'firstHealthCheck',
+      });
     });
 
     logger.info(`模型健康检查已启动 (间隔: ${this.config.checkIntervalMs}ms)`);
@@ -154,7 +161,10 @@ export class ModelHealthChecker {
           );
         }
       } catch (error) {
-        logger.error(`模型健康检查异常: ${provider}`, error as Error);
+        await handleError(error, {
+          module: 'ai:health',
+          action: `pingProvider:${provider}`,
+        });
       }
     }
   }

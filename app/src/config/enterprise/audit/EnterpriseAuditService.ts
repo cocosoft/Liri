@@ -9,6 +9,7 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '../../../monitoring/logs/Logger.js';
+import { handleError } from '@modules/error';
 import { resolveLogsDir } from '@modules/core';
 
 const logger = new Logger({
@@ -188,7 +189,10 @@ export class EnterpriseAuditService {
         }
       }
     } catch (error) {
-      logger.error('审计日志清理失败', error);
+      void handleError(error, {
+        module: 'config:enterprise:audit',
+        action: '审计日志清理失败',
+      });
     }
   }
 
@@ -217,8 +221,12 @@ export class EnterpriseAuditService {
       this.events = this.events.slice(-this.maxMemoryEvents);
     }
 
-    this.persistEvent(auditEvent).catch((err) =>
-      logger.error('审计事件持久化失败', err)
+    this.persistEvent(auditEvent).catch(
+      (err) =>
+        void handleError(err, {
+          module: 'config:enterprise:audit',
+          action: '审计事件持久化失败',
+        })
     );
 
     return auditEvent;

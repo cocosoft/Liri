@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 记忆提取Hook
  * 在LLM采样后提取有价值的记忆
  */
@@ -77,10 +77,13 @@ export function createMemoryExtractionHook(
     // Phase 1: Deep AI-driven memory extraction
     if (extractMemories.isEnabled()) {
       try {
-        const messages = context.messages.map((m: any) => ({
-          role: m.role || 'unknown',
-          content: m.content || '',
-        }));
+        const messages = context.messages.map((m: unknown) => {
+          const msg = m as Record<string, unknown>;
+          return {
+            role: (msg.role as string)?.toString() || 'unknown',
+            content: (msg.content as string)?.toString() || '',
+          };
+        });
 
         const result = await extractMemories.extract(messages, sessionId);
 
@@ -145,10 +148,10 @@ export function createMemoryExtractionHook(
  * @returns 是否值得记忆
  */
 async function evaluateForMemory(
-  block: any,
+  block: unknown,
   context: PostSamplingHookContext,
   customExtractor?: (
-    block: any,
+    block: unknown,
     context: PostSamplingHookContext
   ) => Promise<boolean>
 ): Promise<boolean> {
@@ -156,24 +159,25 @@ async function evaluateForMemory(
     return customExtractor(block, context);
   }
 
-  if (!MEMORABLE_TOOLS.has(block.name)) {
+  const b = block as Record<string, unknown>;
+  if (!MEMORABLE_TOOLS.has(b.name as string)) {
     return false;
   }
 
-  const input = block.input;
+  const input = b.input as Record<string, unknown> | undefined;
   if (!input) {
     return false;
   }
 
-  if (block.name === 'Write' || block.name === 'Edit') {
+  if (b.name === 'Write' || b.name === 'Edit') {
     const filePath = input.file_path || input.path;
-    if (filePath && isImportantFile(filePath)) {
+    if (filePath && isImportantFile(filePath as string)) {
       return true;
     }
   }
 
-  if (block.name === 'Bash' || block.name === 'PowerShell') {
-    const command = input.command;
+  if (b.name === 'Bash' || b.name === 'PowerShell') {
+    const command = input.command as string | undefined;
     if (command && isImportantCommand(command)) {
       return true;
     }

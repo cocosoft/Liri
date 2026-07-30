@@ -14,7 +14,7 @@ let isShuttingDown = false;
  * 注册关闭处理函数
  * @param {Function} handler - 关闭处理函数
  */
-export function registerShutdownHandler(handler: any) {
+export function registerShutdownHandler(handler: () => void | Promise<void>) {
   shutdownHandlers.push(handler);
 }
 

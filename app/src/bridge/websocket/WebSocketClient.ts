@@ -38,7 +38,7 @@ export type WebSocketState =
  */
 export interface WebSocketMessage {
   type: string;
-  data?: any;
+  data?: unknown;
   timestamp?: number;
   id?: string;
 }

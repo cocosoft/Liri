@@ -65,8 +65,8 @@ export async function handleListWorkspaces(
         res.end(
           JSON.stringify({ error: { message: 'Internal server error' } })
         );
-      } catch (err) {
-        handleError(err, {
+      } catch (_err) {
+        handleError(_err, {
           module: 'infrastructure:http:handlers:workspaces-handlers',
           action: 'responseAlreadyEnded',
         });

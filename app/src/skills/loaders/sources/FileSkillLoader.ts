@@ -78,7 +78,7 @@ export class FileSkillLoader extends SkillLoader {
   private async loadFromDirectory(
     directory: string,
     skills: Skill[],
-    fs: any
+    fs: typeof import('fs/promises')
   ): Promise<void> {
     try {
       let entries: string[] = [];
@@ -114,7 +114,7 @@ export class FileSkillLoader extends SkillLoader {
   private async loadSkillEntry(
     fullPath: string,
     entry: string,
-    fs: any
+    fs: typeof import('fs/promises')
   ): Promise<Skill | null> {
     const ext = this.getExtension(entry);
     const isSkillFile = ext && this.config.extensions!.includes(ext);
@@ -150,7 +150,7 @@ export class FileSkillLoader extends SkillLoader {
   private async loadSkillFromFile(
     filePath: string,
     skillName: string,
-    fs: any
+    fs: typeof import('fs/promises')
   ): Promise<Skill | null> {
     try {
       await fs.access(filePath);

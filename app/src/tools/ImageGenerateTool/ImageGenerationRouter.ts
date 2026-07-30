@@ -8,6 +8,7 @@
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import {
   resolveModelRoute,
   RouteKey,
@@ -366,7 +367,7 @@ export class ImageGenerationRouter {
     ];
     const isSafetyBlock = safetyKeywords.some((kw) => allErrors.includes(kw));
 
-    logger.error('ImageGenerationRouter · 所有 Provider 均已失败', {
+    logger.warn('ImageGenerationRouter · 所有 Provider 均已失败', {
       attemptedProviders: costBreakdown.map((c) => c.provider),
       errors: providerErrors,
       isSafetyBlock,

@@ -22,7 +22,6 @@ import { resolveDbPath } from '@modules/core';
 import { Database } from '@modules/core/external/sqlite3';
 import type { IVectorStore, VectorEntry, SearchHit } from './IVectorStore';
 import type { IndexIdentity, IndexMeta } from './store';
-import { readIndexMeta, cosineSimilarity } from './store';
 
 const logger = new OTelAwareLogger({
   module: 'knowledge:vector',

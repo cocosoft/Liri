@@ -6,8 +6,6 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import type { CronScheduler } from '@modules/chronos/types';
-import { globalEventBus, SystemEvents } from '@modules/core';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -73,24 +71,14 @@ export interface ServiceActionResult {
 /**
  * 跨平台守护进程服务管理器
  * 支持 systemd (Linux)、launchd (macOS)、schtasks (Windows) 三平台
- * 可选管理 Chronos 调度器的进程内生命周期。
  */
 export class DaemonService {
   private config: ServiceConfig;
   private platform: PlatformType;
-  private chronosScheduler?: CronScheduler;
 
   constructor(config: ServiceConfig) {
     this.config = config;
     this.platform = os.platform() as PlatformType;
-  }
-
-  /**
-   * 注册 Chronos 调度器（可选集成）
-   * DaemonService 启动/停止时将同步管理 Chronos 生命周期。
-   */
-  registerChronosScheduler(scheduler: CronScheduler): void {
-    this.chronosScheduler = scheduler;
   }
 
   /**
@@ -115,64 +103,6 @@ export class DaemonService {
           message: `不支持的平台: ${this.platform}`,
         };
     }
-  }
-
-  /**
-   * 执行服务操作并同步管理 Chronos 调度器生命周期
-   * 在 execute() 基础上扩展 Chronos 启停管理。
-   */
-  executeWithChronos(action: ServiceAction): ServiceActionResult {
-    if (action === 'stop' && this.chronosScheduler) {
-      this.chronosScheduler.stop();
-      globalEventBus.publish(SystemEvents.MODULE_INITIALIZED, {
-        source: 'daemon',
-        module: 'chronos',
-        action: 'stop',
-        timestamp: Date.now(),
-      });
-    }
-
-    const result = this.execute(action);
-
-    if (result.success) {
-      if (action === 'start' && this.chronosScheduler) {
-        this.chronosScheduler.start().catch((err: Error) => {
-          globalEventBus.publish(SystemEvents.MODULE_ERROR, {
-            source: 'daemon',
-            module: 'chronos',
-            action: 'start',
-            error: err.message,
-            timestamp: Date.now(),
-          });
-        });
-        globalEventBus.publish(SystemEvents.MODULE_INITIALIZED, {
-          source: 'daemon',
-          module: 'chronos',
-          action: 'start',
-          timestamp: Date.now(),
-        });
-      }
-
-      if (action === 'restart' && this.chronosScheduler) {
-        this.chronosScheduler.start().catch((err: Error) => {
-          globalEventBus.publish(SystemEvents.MODULE_ERROR, {
-            source: 'daemon',
-            module: 'chronos',
-            action: 'restart',
-            error: err.message,
-            timestamp: Date.now(),
-          });
-        });
-        globalEventBus.publish(SystemEvents.MODULE_INITIALIZED, {
-          source: 'daemon',
-          module: 'chronos',
-          action: 'restart',
-          timestamp: Date.now(),
-        });
-      }
-    }
-
-    return result;
   }
 
   /**

@@ -6,6 +6,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { ServerCapabilities } from '@modelcontextprotocol/sdk/types.js';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
   module: 'services:mcp:client',
@@ -41,10 +42,10 @@ export async function fetchToolsForClient(
     }));
     return tools;
   } catch (error) {
-    logger.error(
-      'Failed to fetch tools:',
-      error instanceof Error ? error : new Error(String(error))
-    );
+    handleError(error, {
+      module: 'services:mcp:client',
+      action: '获取工具失败',
+    });
     return [];
   }
 }
@@ -69,10 +70,10 @@ export async function fetchCommandsForClient(
         }) as McpCommand
     );
   } catch (error) {
-    logger.error(
-      'Failed to fetch commands:',
-      error instanceof Error ? error : new Error(String(error))
-    );
+    handleError(error, {
+      module: 'services:mcp:client',
+      action: '获取命令失败',
+    });
     return [];
   }
 }
@@ -87,10 +88,10 @@ export async function fetchResourcesForClient(
     const resources = await (client as any).resources.list();
     return resources as ServerResource[];
   } catch (error) {
-    logger.error(
-      'Failed to fetch resources:',
-      error instanceof Error ? error : new Error(String(error))
-    );
+    handleError(error, {
+      module: 'services:mcp:client',
+      action: '获取资源失败',
+    });
     return [];
   }
 }
@@ -105,10 +106,10 @@ export async function clearServerCache(
   try {
     logger.info(`Clearing cache for server: ${serverName}`);
   } catch (error) {
-    logger.error(
-      'Failed to clear server cache:',
-      error instanceof Error ? error : new Error(String(error))
-    );
+    handleError(error, {
+      module: 'services:mcp:client',
+      action: '清除服务器缓存失败',
+    });
   }
 }
 
@@ -212,10 +213,10 @@ export async function reconnectMcpServerImpl(
         try {
           await (client as unknown as { close(): Promise<void> }).close();
         } catch (error) {
-          logger.error(
-            'Error during cleanup:',
-            error instanceof Error ? error : new Error(String(error))
-          );
+          handleError(error, {
+            module: 'services:mcp:client',
+            action: '清理连接出错',
+          });
         }
       },
     };
@@ -227,10 +228,10 @@ export async function reconnectMcpServerImpl(
       resources,
     };
   } catch (error) {
-    logger.error(
-      `Failed to reconnect to MCP server ${serverName}:`,
-      error instanceof Error ? error : new Error(String(error))
-    );
+    handleError(error, {
+      module: 'services:mcp:client',
+      action: '重连MCP服务器失败',
+    });
 
     return {
       connection: {
@@ -264,10 +265,10 @@ export async function getMcpToolsCommandsAndResources(
           const result = await reconnectMcpServerImpl(name, config);
           onConnectionAttempt(result);
         } catch (error) {
-          logger.error(
-            `Failed to connect to MCP server ${name}:`,
-            error instanceof Error ? error : new Error(String(error))
-          );
+          handleError(error, {
+            module: 'services:mcp:client',
+            action: '连接MCP服务器失败',
+          });
           onConnectionAttempt({
             connection: {
               name,
@@ -284,9 +285,9 @@ export async function getMcpToolsCommandsAndResources(
 
     await Promise.all(connectionPromises);
   } catch (error) {
-    logger.error(
-      'Error in getMcpToolsCommandsAndResources:',
-      error instanceof Error ? error : new Error(String(error))
-    );
+    handleError(error, {
+      module: 'services:mcp:client',
+      action: '获取MCP工具命令资源出错',
+    });
   }
 }

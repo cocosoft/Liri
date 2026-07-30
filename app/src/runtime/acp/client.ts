@@ -10,12 +10,6 @@ import {
   AcpMessagePriority,
 } from './types.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'runtime:acp:client',
-  level: LogLevel.INFO,
-});
-
 let _clientIdCounter = 0;
 
 function nextClientId(): string {

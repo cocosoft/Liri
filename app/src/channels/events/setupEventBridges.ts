@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -69,13 +69,14 @@ export function setupEventBridges(
   // 桥接规则 1：通道严重错误 → 全局 APP_ERROR
   const sub1 = channelEventBus.subscribe(
     ChannelEvents.CHANNEL_ERROR,
-    (data: any) => {
+    (data: unknown) => {
+      const d = data as Record<string, unknown> | undefined;
       const eventName = systemEvents?.APP_ERROR || 'app:error';
       globalEventBus.publish(eventName, {
-        message: data?.message || '通道错误',
-        code: data?.code || 'CHANNEL_ERROR',
+        message: d?.message || '通道错误',
+        code: d?.code || 'CHANNEL_ERROR',
         source: 'channel',
-        channelName: data?.channelName,
+        channelName: d?.channelName,
         timestamp: Date.now(),
       });
     }
@@ -85,11 +86,12 @@ export function setupEventBridges(
   // 桥接规则 2：通道配额告警 → 全局 CONFIG_CHANGE
   const sub2 = channelEventBus.subscribe(
     ChannelEvents.CHANNEL_LIMIT_WARNING,
-    (data: any) => {
+    (data: unknown) => {
+      const d = data as Record<string, unknown> | undefined;
       const eventName = systemEvents?.CONFIG_CHANGE || 'config:change';
       globalEventBus.publish(eventName, {
         key: 'channel_limit',
-        message: data?.message || '通道配额告警',
+        message: d?.message || '通道配额告警',
         timestamp: Date.now(),
       });
     }
@@ -116,12 +118,13 @@ export function setupEventBridges(
   // 每条通道消息在系统事件总线上触发 task:created，供监控/统计订阅
   const sub4 = channelEventBus.subscribe(
     ChannelEvents.MESSAGE_RECEIVED,
-    (data: any) => {
+    (data: unknown) => {
+      const d = data as Record<string, unknown> | undefined;
       const eventName = systemEvents?.TASK_CREATED || 'task:created';
       globalEventBus.publish(eventName, {
-        channelName: data?.channelName,
-        messageId: data?.messageId,
-        senderId: data?.senderId,
+        channelName: d?.channelName,
+        messageId: d?.messageId,
+        senderId: d?.senderId,
         source: 'channel',
         timestamp: Date.now(),
       });
@@ -132,10 +135,11 @@ export function setupEventBridges(
   // 桥接规则 5（向下）：系统配置变更 → 通道配置重载
   const sub5 = globalEventBus.subscribe(
     systemEvents?.CONFIG_CHANGED || 'config:changed',
-    (data: any) => {
+    (data: unknown) => {
+      const d = data as Record<string, unknown> | undefined;
       channelEventBus.publish(ChannelEvents.CHANNEL_CONFIG_RELOAD, {
-        key: data?.key,
-        message: data?.message,
+        key: d?.key,
+        message: d?.message,
         source: 'system',
         timestamp: Date.now(),
       });
@@ -158,10 +162,10 @@ export function setupEventBridges(
   // 桥接规则 7（向下）：系统初始化完成 → 通道就绪
   const sub7 = globalEventBus.subscribe(
     systemEvents?.APP_INITIALIZED || 'app:initialized',
-    (data: any) => {
+    (data: unknown) => {
       channelEventBus.publish(ChannelEvents.CHANNEL_SYSTEM_READY, {
         timestamp: Date.now(),
-        ...data,
+        ...(data as Record<string, unknown>),
       });
     }
   );

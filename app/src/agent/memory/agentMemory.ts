@@ -3,6 +3,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { AgentMemory, AgentMemoryScope } from '../models/types';
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
@@ -147,7 +148,10 @@ export class AgentMemoryImpl implements AgentMemory {
         'utf-8'
       );
     } catch (error) {
-      logger.error('Failed to save agent memory:', error);
+      handleError(error, {
+        module: 'agent:memory',
+        action: '保存Agent内存到文件',
+      });
     }
   }
 
@@ -160,7 +164,7 @@ export class AgentMemoryImpl implements AgentMemory {
         const data = readFileSync(this.memoryPath, 'utf-8');
         this.data = JSON.parse(data);
       } catch (error) {
-        logger.error('Failed to load agent memory:', error);
+        handleError(error, { module: 'agent:memory', action: '加载Agent内存' });
         this.data = {};
       }
     }

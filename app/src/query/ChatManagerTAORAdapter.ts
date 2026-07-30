@@ -117,7 +117,6 @@ export function createChatManagerTAORDeps(
           module: 'query:taorAdapter',
           action: 'callModel',
         });
-        logger.error('TAORAdapter callModel failed', { error: String(error) });
         throw error;
       }
     },
@@ -268,7 +267,7 @@ export function createChatManagerTAORDeps(
             ctx.sessionId,
             msg.content as string,
             'tool',
-            (msg as any).tool_call_id
+            (msg as { tool_call_id?: string }).tool_call_id
           );
         }
       }

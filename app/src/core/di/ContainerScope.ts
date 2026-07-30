@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 容器作用域管理器
  * 管理 singleton/transient/request 三种作用域的服务实例生命周期
  */
@@ -12,6 +12,7 @@ import {
 import { CycleDetector } from './CycleDetector';
 import { DisposeManager } from './DisposeManager';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('DIContainer');
 
@@ -56,9 +57,9 @@ export class ContainerScope {
       try {
         callback(id, instance);
       } catch (error) {
-        logger.error('onInstanceCreated 回调执行失败', {
-          id,
-          error: String(error),
+        handleError(error, {
+          module: 'core:di:scope',
+          action: 'instance_created_callback',
         });
       }
     }
@@ -155,8 +156,9 @@ export class ContainerScope {
       try {
         await desc.onLoad(instance);
       } catch (error) {
-        logger.error(`服务 onLoad 钩子执行失败: ${id}`, {
-          error: String(error),
+        await handleError(error, {
+          module: 'core:di:scope',
+          action: 'onLoad_hook',
         });
         throw error;
       }
@@ -177,8 +179,9 @@ export class ContainerScope {
       try {
         await desc.onReady(instance);
       } catch (error) {
-        logger.error(`服务 onReady 钩子执行失败: ${id}`, {
-          error: String(error),
+        await handleError(error, {
+          module: 'core:di:scope',
+          action: 'onReady_hook',
         });
         throw error;
       }

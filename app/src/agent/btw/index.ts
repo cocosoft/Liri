@@ -27,6 +27,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ module: 'agent:btw:index', level: LogLevel.INFO });
 
@@ -288,9 +289,7 @@ export class BtwProcessor {
       const durationMs = Date.now() - startTime;
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      logger.error(
-        `BTW processing failed after ${durationMs}ms: ${errorMessage}`
-      );
+      handleError(error, { module: 'agent:btw', action: 'BTW侧问题回答' });
 
       return {
         answer: '',

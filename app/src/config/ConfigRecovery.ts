@@ -1,6 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { Logger } from '../monitoring/logs/Logger.js';
+import { handleError } from '@modules/error';
 import { ConfigSnapshot } from './ConfigSnapshot';
 
 const logger = new Logger({ module: 'config:recovery' });
@@ -56,10 +57,10 @@ export class ConfigRecovery {
       return { recovered: true, config, snapshotPath: latest.path };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      logger.error(
-        '快照恢复写入失败',
-        error instanceof Error ? error : undefined
-      );
+      void handleError(error, {
+        module: 'config:recovery',
+        action: '快照恢复写入失败',
+      });
       return { recovered: false, error: msg, snapshotPath: latest.path };
     }
   }

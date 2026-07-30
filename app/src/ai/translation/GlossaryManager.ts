@@ -12,6 +12,7 @@ import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { resolveDataSubDir } from '../../core/paths';
 import { Logger, LogLevel } from '../../monitoring/logs/Logger';
+import { handleError } from '../../error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'ai:glossary' });
 const MAX_GLOSSARY_ENTRIES = 200;
@@ -59,7 +60,10 @@ export class GlossaryManager {
         logger.info(`术语表已加载: ${entries.length} 条`);
       }
     } catch (err) {
-      logger.warning('术语表加载失败，使用空表', { error: String(err) });
+      void handleError(err, {
+        module: 'ai:glossary',
+        action: 'loadGlossary',
+      });
     }
 
     this.initialized = true;
@@ -206,7 +210,10 @@ export class GlossaryManager {
       writeFileSync(filePath, JSON.stringify(entries, null, 2), 'utf-8');
       logger.info(`术语表已保存: ${entries.length} 条`);
     } catch (err) {
-      logger.warning('术语表保存失败', { error: String(err) });
+      void handleError(err, {
+        module: 'ai:glossary',
+        action: 'saveGlossary',
+      });
     }
   }
 

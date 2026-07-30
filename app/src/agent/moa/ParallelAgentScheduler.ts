@@ -30,6 +30,7 @@ class Semaphore {
   release(): void {
     const next = this.queue.shift();
     if (next) {
+      // 唤醒队列中的等待者 — current 保持不变（槽位从完成者转移给等待者）
       next();
     } else {
       this.current = Math.max(0, this.current - 1);

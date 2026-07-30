@@ -16,6 +16,7 @@ import { auditFilesystem } from './AuditFilesystem';
 import { auditContextVisibility } from './ContextVisibility';
 import { buildAuditReport } from './AuditReport';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { resolveProjectRoot } from '@modules/core';
 
 const logger = new Logger({
@@ -111,7 +112,10 @@ export class AuditEngine {
       logger.info(`安全审计完成: ${report.summary.total} 个发现`);
       return report;
     } catch (error) {
-      logger.error('安全审计执行失败', error as Error);
+      void handleError(error, {
+        module: 'security:audit:engine',
+        action: '安全审计执行失败',
+      });
       const report = buildAuditReport(findings, startTime);
       return report;
     }
@@ -214,7 +218,10 @@ export class AuditEngine {
         }
       }
     } catch (error) {
-      logger.error('深度代码安全检测失败', error as Error);
+      void handleError(error, {
+        module: 'security:audit:engine',
+        action: '深度代码安全检测失败',
+      });
     }
 
     return findings;

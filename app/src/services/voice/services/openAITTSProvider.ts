@@ -134,7 +134,6 @@ export class OpenAITTSProvider implements TTSProvider {
         } catch (error) {
           const errorMsg =
             error instanceof Error ? error.message : String(error);
-          logger.error('OpenAI TTS 合成失败', { error: errorMsg });
           void handleError(error, {
             module: 'services:voice:openaiTTS',
             action: 'speak',
@@ -193,7 +192,6 @@ export class OpenAITTSProvider implements TTSProvider {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error('OpenAI TTS 保存失败', { error: errorMsg });
       void handleError(error, {
         module: 'services:voice:openaiTTS',
         action: 'save',

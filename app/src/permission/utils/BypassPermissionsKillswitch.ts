@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'permission:utils:bypassPermissionsKillswitch',
@@ -405,7 +406,10 @@ export class BypassPermissionsKillswitch {
       try {
         listener(event);
       } catch (error) {
-        logger.error('BypassKillswitch: Listener error:', error);
+        void handleError(error, {
+          module: 'permission:bypass',
+          action: '绕过开关监听器错误',
+        });
       }
     }
   }

@@ -10,6 +10,7 @@ import { AIAgentImpl } from '../agent';
 import { AgentSourceManager } from './AgentSourceManager';
 import { AgentConfigManager } from './AgentConfigManager';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import type { HealthStatus as HealthStatusValue } from '@modules/core/health/types.js';
 
 const logger = new Logger({
@@ -344,10 +345,10 @@ export class MultiSourceAgentManager {
       const agent = new AIAgentImpl(config);
       return { agent };
     } catch (error) {
-      logger.error(
-        `Failed to create agent for pool ${source}:`,
-        error as Error
-      );
+      handleError(error, {
+        module: 'agent:manager',
+        action: '创建Agent池实例',
+      });
       return null;
     }
   }
@@ -377,7 +378,10 @@ export class MultiSourceAgentManager {
           this.balanceLoad();
         }
       } catch (error) {
-        logger.error('Health check failed:', error as Error);
+        handleError(error, {
+          module: 'agent:manager',
+          action: 'Agent健康检查',
+        });
       }
     }, interval);
   }

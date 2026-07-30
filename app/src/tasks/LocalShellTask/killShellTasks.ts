@@ -12,6 +12,7 @@ import { taskRegistry } from '../TaskRegistry';
 import { isLocalShellTask } from './guards';
 import type { LocalShellTaskState } from './guards';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'tasks:killShell', level: LogLevel.INFO });
 
@@ -31,7 +32,7 @@ export function killTask(taskId: string): void {
   }
 
   task.kill().catch((error: Error) => {
-    logger.error(`killTask: failed to kill shell task ${taskId}`, error);
+    handleError(error, { module: 'tasks:killShell', action: 'killTask' });
   });
 }
 

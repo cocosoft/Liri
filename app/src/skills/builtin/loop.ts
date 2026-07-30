@@ -70,7 +70,8 @@ const loopSkill: Skill = {
   version: '1.0.0',
   impl: {
     kind: 'executable',
-    execute: async (args: unknown[]) => {
+    execute: async (context: unknown) => {
+      const args = context as unknown[];
       const raw = args.join(' ');
       const otel = getOTelTracing();
 

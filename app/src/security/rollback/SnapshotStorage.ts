@@ -59,7 +59,12 @@ const SCHEMA_VERSION = 1;
  * 获取存储根目录
  */
 function getSnapshotsRoot(): string {
-  return join(homedir(), '.pyapp', 'data', 'snapshots');
+  try {
+    const { resolveSnapshotsDir } = require('@modules/core/paths');
+    return resolveSnapshotsDir();
+  } catch {
+    return join(homedir(), '.pyapp', 'data', 'snapshots');
+  }
 }
 
 /**

@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'session:ws', level: LogLevel.INFO });
 
@@ -200,7 +201,10 @@ export class SessionsWebSocket {
 
       this.callbacks.onMessage(message);
     } catch (error) {
-      logger.error('Failed to parse WebSocket message:', error);
+      handleError(error, {
+        module: 'sessions:websocket',
+        action: 'Failed to parse WebSocket message',
+      });
     }
   }
 

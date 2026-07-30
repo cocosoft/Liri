@@ -18,11 +18,6 @@ import type { WorkItem, WorkItemStatus, WorkItemType } from './types';
 import type { LiriConfigManager } from './LiriConfigManager';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'workspace:WorkItemStore',
-  level: LogLevel.INFO,
-});
 
 /** .liri/workitems/ 子目录 */
 const WORKITEMS_DIR = 'workitems';

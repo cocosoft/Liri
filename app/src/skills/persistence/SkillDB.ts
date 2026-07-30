@@ -220,7 +220,7 @@ export class SkillDB {
   ): Promise<SkillUsageRecord[]> {
     await this.init();
     let sql = `SELECT * FROM ${USAGE_TABLE} WHERE skill_name = ?`;
-    const params: any[] = [skillName];
+    const params: unknown[] = [skillName];
 
     if (since) {
       sql += ' AND timestamp >= ?';
@@ -296,7 +296,7 @@ export class SkillDB {
         this.db!.get(
           `SELECT id as min_id FROM ${USAGE_TABLE} ORDER BY id DESC LIMIT 1 OFFSET ?`,
           [keepCount - 1],
-          (err, row: any) => {
+          (err, row: { min_id: number }) => {
             if (err) reject(err);
             else resolve(row);
           }

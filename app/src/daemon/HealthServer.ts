@@ -116,7 +116,7 @@ export async function startHealthServer(
       if (req.url === '/health/ready' && req.method === 'GET') {
         const customChecks = await collectCustomChecks(merged.checks);
         const allHealthy = Object.values(customChecks).every(
-          (v: any) => v.healthy !== false
+          (v: unknown) => (v as { healthy: boolean }).healthy !== false
         );
         const status = allHealthy ? 'ready' : 'not_ready';
 

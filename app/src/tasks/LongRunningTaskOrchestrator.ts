@@ -16,6 +16,10 @@ import { Logger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { configManager } from '@modules/config';
+import { mkdirSync, writeFileSync } from 'fs';
+import { join } from 'path';
+import { resolveDataDir } from '@modules/core/paths';
+import { trackUsage } from '@modules/ai';
 import { taskOrchestrator } from './TaskOrchestrator';
 import type { Plan, PlanStep, PlanProgress } from './TaskOrchestrator';
 import { TaskStatus } from './types';
@@ -180,11 +184,25 @@ export class LongRunningTaskOrchestrator {
           defaultModel: '',
           apiKey: configManager.env('ANTHROPIC_API_KEY') || '',
         });
+        const _trackStart = Date.now();
         const response = await (service as any).chat({
           messages: [
             { role: 'system', content: params.systemPrompt },
             { role: 'user', content: params.userPrompt },
           ],
+        });
+        const trackPayload =
+          typeof response === 'string'
+            ? { content: response }
+            : (response as {
+                content?: string;
+                model?: string;
+                usage?: Record<string, unknown>;
+              });
+        trackUsage(trackPayload, {
+          model: trackPayload.model || 'unknown',
+          providerId: 'default',
+          latencyMs: Date.now() - _trackStart,
         });
         return typeof response === 'string'
           ? response
@@ -853,6 +871,7 @@ export class LongRunningTaskOrchestrator {
     // 生成审计报告
     this.phase = 'completed';
     this.auditReport = this.generateReport();
+    this.persistAuditReport(this.auditReport);
     this.lifecycle.record('finalized', TaskStatus.COMPLETED, 'PDCA completed');
 
     return this.getStatus();
@@ -880,6 +899,28 @@ export class LongRunningTaskOrchestrator {
         };
       }),
     });
+  }
+
+  /**
+   * BUG 修复: 将审计报告持久化到文件，重启后可恢复。
+   * 保存路径: ~/.pyapp/data/task-audits/{taskId}.json
+   */
+  private persistAuditReport(report: AuditReport): void {
+    try {
+      const dir = join(resolveDataDir(), 'task-audits');
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(
+        join(dir, `${report.taskId}.json`),
+        JSON.stringify(report, null, 2),
+        'utf-8'
+      );
+    } catch (err) {
+      // 持久化失败不影响任务完成状态
+      logger.warn('审计报告持久化失败', {
+        taskId: report.taskId,
+        error: String(err),
+      });
+    }
   }
 
   // ─── 状态查询 ───────────────────────────────────────
@@ -1041,6 +1082,7 @@ export class LongRunningTaskOrchestrator {
 
     this.phase = 'completed';
     this.auditReport = this.generateReport();
+    this.persistAuditReport(this.auditReport);
     this.lifecycle.record('finalized', TaskStatus.COMPLETED, 'PDCA completed');
     return this.getStatus();
   }

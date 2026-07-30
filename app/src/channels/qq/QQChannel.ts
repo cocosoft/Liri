@@ -494,10 +494,6 @@ class QQChannelPlugin extends BaseChannelPlugin {
         messageId: data['id'] as string,
       };
     } catch (err) {
-      this.logger.error('[TRACE] QQ sendTextMessage 异常', {
-        target,
-        error: (err as Error).message,
-      });
       await handleError(err, {
         module: 'channels:qq',
         action: 'sendTextMessage',
@@ -1205,8 +1201,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
     };
 
     this.handleIncomingMessage(message).catch((error) => {
-      this.logger.error('QQ Bot AT_MESSAGE_CREATE 处理异常', {
-        error: String(error),
+      handleError(error, {
+        module: 'channels:qq',
+        action: 'AT_MESSAGE_CREATE 处理异常',
       });
     });
   }
@@ -1244,8 +1241,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
     };
 
     this.handleIncomingMessage(message).catch((error) => {
-      this.logger.error('QQ Bot C2C_MESSAGE_CREATE 处理异常', {
-        error: String(error),
+      handleError(error, {
+        module: 'channels:qq',
+        action: 'C2C_MESSAGE_CREATE 处理异常',
       });
     });
   }
@@ -1306,8 +1304,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
     };
 
     this.handleIncomingMessage(message).catch((error) => {
-      this.logger.error('QQ Bot GROUP_AT_MESSAGE_CREATE 处理异常', {
-        error: String(error),
+      handleError(error, {
+        module: 'channels:qq',
+        action: 'GROUP_AT_MESSAGE_CREATE 处理异常',
       });
     });
   }
@@ -1345,8 +1344,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
     };
 
     this.handleIncomingMessage(message).catch((error) => {
-      this.logger.error('QQ Bot DIRECT_MESSAGE_CREATE 处理异常', {
-        error: String(error),
+      handleError(error, {
+        module: 'channels:qq',
+        action: 'DIRECT_MESSAGE_CREATE 处理异常',
       });
     });
   }

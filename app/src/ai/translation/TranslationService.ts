@@ -14,6 +14,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '../../error/types';
 import { handleError } from '../../error/handleError';
 import { modelRouter } from '../modelRouter';
 import { providerRegistry } from '../providers/ProviderRegistry';
+import { trackUsage } from '@modules/ai';
 import { LanguageDetector } from './LanguageDetector';
 import { PromptBuilder } from './PromptBuilder';
 import { PostProcessor } from './PostProcessor';
@@ -128,10 +129,17 @@ export class TranslationService {
     let usage: TranslateResult['usage'];
 
     try {
+      const trackStart = Date.now();
       const response = await provider.chat(messages, {
         model: modelName,
         temperature: 0.3,
         maxTokens: Math.max(request.text.length * 2, 256),
+      });
+
+      trackUsage(response, {
+        model: modelName,
+        providerId: provider.id,
+        latencyMs: Date.now() - trackStart,
       });
 
       rawOutput = response.content || '';
@@ -436,10 +444,17 @@ export class TranslationService {
     ];
 
     try {
+      const trackStart = Date.now();
       const response = await provider.chat(messages, {
         model: modelName,
         temperature: 0.1,
         maxTokens: 512,
+      });
+
+      trackUsage(response, {
+        model: modelName,
+        providerId: provider.id,
+        latencyMs: Date.now() - trackStart,
       });
 
       const rawOutput = (response.content || '').trim();

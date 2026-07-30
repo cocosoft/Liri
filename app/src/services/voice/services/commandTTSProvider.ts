@@ -189,7 +189,6 @@ export class CommandTTSProvider implements TTSProvider {
         } catch (error) {
           const errorMsg =
             error instanceof Error ? error.message : String(error);
-          logger.error('Command TTS 播放失败', { error: errorMsg, backend });
           void handleError(error, {
             module: 'services:voice:commandTTS',
             action: 'speak',
@@ -240,7 +239,6 @@ export class CommandTTSProvider implements TTSProvider {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error('Command TTS 保存失败', { error: errorMsg, backend });
       void handleError(error, {
         module: 'services:voice:commandTTS',
         action: 'save',

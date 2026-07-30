@@ -5,6 +5,7 @@
 import { Command } from 'commander';
 import { generateCodeFile, CodeGenOptions } from './CodeGenerator';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'tools:codegenCli', level: LogLevel.INFO });
 
@@ -46,7 +47,7 @@ program
       await generateCodeFile(codeGenOptions);
       logger.info('代码生成成功！');
     } catch (error) {
-      logger.error('代码生成失败:', { error });
+      handleError(error, { module: 'tools:codegen', action: '代码生成失败' });
       process.exit(1);
     }
   });
@@ -79,7 +80,7 @@ program
       await generateCodeFile(codeGenOptions);
       logger.info('类文件生成成功！');
     } catch (error) {
-      logger.error('类文件生成失败:', { error });
+      handleError(error, { module: 'tools:codegen', action: '类文件生成失败' });
       process.exit(1);
     }
   });
@@ -114,7 +115,10 @@ program
       await generateCodeFile(codeGenOptions);
       logger.info('接口文件生成成功！');
     } catch (error) {
-      logger.error('接口文件生成失败:', { error });
+      handleError(error, {
+        module: 'tools:codegen',
+        action: '接口文件生成失败',
+      });
       process.exit(1);
     }
   });

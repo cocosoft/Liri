@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { CronJob } from './types';
 
 const logger = new Logger({ module: 'tasks:cron:alert', level: LogLevel.INFO });
@@ -77,10 +78,7 @@ export class CronAlertService {
         reason,
       });
     } catch (err) {
-      logger.error('[CronAlertService] 告警回调失败', {
-        jobId: job.id,
-        error: err instanceof Error ? err.message : String(err),
-      });
+      handleError(err, { module: 'tasks:cron:alert', action: '告警回调失败' });
     }
   }
 

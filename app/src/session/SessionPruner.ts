@@ -1,3 +1,4 @@
+import { handleError } from '@modules/error';
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import type { SessionStorage } from './SessionStorage';
@@ -110,7 +111,10 @@ export class SessionPruner {
           await this.storage.deleteSession(id);
           deletedIds.push(id);
         } catch (err) {
-          logger.error(`Failed to delete session ${id} during pruning`, err);
+          handleError(err, {
+            module: 'sessions:pruner',
+            action: 'Failed to delete session during pruning',
+          });
         }
       }
 

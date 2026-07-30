@@ -56,7 +56,14 @@ export class MCPSkillLoader extends SkillLoader {
    * @param serverId 服务器名称
    * @returns 技能对象
    */
-  private createMCPSkill(tool: any, serverId: string): Skill {
+  private createMCPSkill(
+    tool: {
+      name: string;
+      description?: string;
+      inputSchema?: { properties?: Record<string, { description?: string }> };
+    },
+    serverId: string
+  ): Skill {
     const skillName = `${serverId}:${tool.name}`;
     const description = tool.description || `MCP tool: ${tool.name}`;
     const params = tool.inputSchema?.properties

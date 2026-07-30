@@ -13,7 +13,8 @@ const rememberSkill: Skill = {
   version: '1.0.0',
   impl: {
     kind: 'executable',
-    execute: async (args: unknown[]) => {
+    execute: async (context: unknown) => {
+      const args = context as unknown[];
       return `Remembering information...\n\nContent: ${args.join(' ') || 'No content provided'}\n\nThis information has been stored for future reference.`;
     },
   },

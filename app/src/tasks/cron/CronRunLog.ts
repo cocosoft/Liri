@@ -5,6 +5,7 @@
 
 import { Database } from '@modules/core/external/sqlite3';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { CronJob, CronJobResult, CronRunStatus } from './types';
 
 const logger = new Logger({
@@ -112,14 +113,18 @@ export class CronRunLog {
     return new Promise((resolve, reject) => {
       this.db = new Database(this.dbPath, (err: Error | null) => {
         if (err) {
-          logger.error('[CronRunLog] 打开数据库失败', { error: err.message });
+          handleError(err, {
+            module: 'tasks:cron:runlog',
+            action: '打开数据库失败',
+          });
           reject(err);
           return;
         }
         this.db!.exec(SCHEMA, (schemaErr) => {
           if (schemaErr) {
-            logger.error('[CronRunLog] 初始化表结构失败', {
-              error: schemaErr.message,
+            handleError(schemaErr, {
+              module: 'tasks:cron:runlog',
+              action: '初始化表结构失败',
             });
             reject(schemaErr);
             return;
@@ -189,9 +194,9 @@ export class CronRunLog {
         ],
         (err: Error | null) => {
           if (err) {
-            logger.error('[CronRunLog] 写入日志失败', {
-              jobId: entry.jobId,
-              error: err.message,
+            handleError(err, {
+              module: 'tasks:cron:runlog',
+              action: '写入日志失败',
             });
             reject(err);
             return;
@@ -319,7 +324,10 @@ export class CronRunLog {
         params,
         (err, row: any) => {
           if (err) {
-            logger.error('[CronRunLog] 查询总数失败', { error: err.message });
+            handleError(err, {
+              module: 'tasks:cron:runlog',
+              action: '查询总数失败',
+            });
             reject(err);
             return;
           }
@@ -331,8 +339,9 @@ export class CronRunLog {
             [...params, limit, offset],
             (err2, rows: any[]) => {
               if (err2) {
-                logger.error('[CronRunLog] 查询日志失败', {
-                  error: err2.message,
+                handleError(err2, {
+                  module: 'tasks:cron:runlog',
+                  action: '查询日志失败',
                 });
                 reject(err2);
                 return;

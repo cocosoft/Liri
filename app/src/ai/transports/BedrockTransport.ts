@@ -81,11 +81,14 @@ export class BedrockTransport extends BaseTransport {
     return request;
   }
 
-  normalizeResponse(raw: any): NormalizedResponse {
-    const output = raw.output ?? {};
-    const message = output.message ?? {};
-    const contentBlocks = message.content ?? [];
-    const usage = raw.usage ?? {};
+  normalizeResponse(raw: unknown): NormalizedResponse {
+    const r = raw as Record<string, unknown>;
+    const output = (r.output ?? {}) as Record<string, unknown>;
+    const message = (output.message ?? {}) as Record<string, unknown>;
+    const contentBlocks = (message.content ?? []) as Array<
+      Record<string, unknown>
+    >;
+    const usage = (r.usage ?? {}) as Record<string, number>;
 
     let textContent: string | null = null;
     const toolCalls: NormalizedToolCall[] = [];
@@ -94,13 +97,14 @@ export class BedrockTransport extends BaseTransport {
       if (block.text) {
         textContent = (textContent || '') + block.text;
       } else if (block.toolUse) {
+        const tu = block.toolUse as Record<string, unknown>;
         toolCalls.push({
-          id: block.toolUse.toolUseId ?? '',
-          name: block.toolUse.name ?? '',
+          id: (tu.toolUseId as string) ?? '',
+          name: (tu.name as string) ?? '',
           arguments:
-            typeof block.toolUse.input === 'object'
-              ? JSON.stringify(block.toolUse.input)
-              : String(block.toolUse.input ?? '{}'),
+            typeof tu.input === 'object'
+              ? JSON.stringify(tu.input)
+              : String(tu.input ?? '{}'),
         });
       }
     }
@@ -116,9 +120,13 @@ export class BedrockTransport extends BaseTransport {
         totalTokens: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
       },
       reasoning: null,
-      finishReason: raw.stopReason ?? 'end_turn',
-      model: raw.model ?? '',
-      id: raw.messageId ?? raw.ResponseMetadata?.RequestId ?? '',
+      finishReason: (r.stopReason as string) ?? 'end_turn',
+      model: (r.model as string) ?? '',
+      id:
+        (r.messageId as string) ??
+        ((r.ResponseMetadata as Record<string, unknown>)
+          ?.RequestId as string) ??
+        '',
     };
   }
 

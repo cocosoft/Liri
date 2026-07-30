@@ -217,7 +217,7 @@ function loadAgentsFromJson(
     const content = fs.readFileSync(filePath, 'utf8');
     const data = JSON.parse(content);
 
-    const agents = parseAgentsFromJson(data, 'plugin' as any);
+    const agents = parseAgentsFromJson(data, 'plugin' as unknown as never);
 
     // 转换为PluginAgentDefinition
     return agents.map((agent) => ({

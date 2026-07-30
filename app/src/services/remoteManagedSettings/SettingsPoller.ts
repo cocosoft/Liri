@@ -1,6 +1,7 @@
 import type { RemoteSetting, RemoteSettingsPayload } from './types';
 import { RemoteSettingsClient } from './RemoteSettingsClient';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'services:settingsPoller',
@@ -25,16 +26,16 @@ export class SettingsPoller {
     for (const listener of this.listeners) {
       try {
         void Promise.resolve(listener()).catch((e) => {
-          logger.error(
-            '[SettingsPoller] Listener error',
-            e instanceof Error ? e : new Error(String(e))
-          );
+          void handleError(e, {
+            module: 'services:settings:poller',
+            action: '通知监听器失败',
+          });
         });
       } catch (e) {
-        logger.error(
-          '[SettingsPoller] Listener error',
-          e instanceof Error ? e : new Error(String(e))
-        );
+        void handleError(e, {
+          module: 'services:settings:poller',
+          action: '通知监听器失败',
+        });
       }
     }
   }

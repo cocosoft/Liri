@@ -29,7 +29,7 @@ export interface MemoryScanner {
   validateMemory(memory: Memory): boolean;
 
   // 提取记忆元数据
-  extractMetadata(content: string): any;
+  extractMetadata(content: string): unknown;
 }
 
 /**

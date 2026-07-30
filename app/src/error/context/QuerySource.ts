@@ -60,7 +60,9 @@ export function shouldRetryOnError(error: Error, source: QuerySource): boolean {
  * 判断是否为服务器过载错误（529）
  */
 function isServerOverloadError(error: Error): boolean {
-  return 'status' in error && (error as any).status === 529;
+  return (
+    'status' in error && (error as Error & { status: number }).status === 529
+  );
 }
 
 /**

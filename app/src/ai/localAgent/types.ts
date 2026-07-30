@@ -110,10 +110,16 @@ export interface LocalAgentResult {
 
 export type IntentClassifier = (input: string) => Intent;
 
-export type TaskRouter = (intent: Intent, context?: any) => RouteDecision;
+export type TaskRouter = (
+  intent: Intent,
+  context?: Record<string, unknown>
+) => RouteDecision;
 
 export interface CommandExecutor {
-  execute(match: CommandMatch, context?: any): Promise<string>;
+  execute(
+    match: CommandMatch,
+    context?: Record<string, unknown>
+  ): Promise<string>;
 }
 
 export interface IRuleEngine {

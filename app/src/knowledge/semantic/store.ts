@@ -33,12 +33,6 @@ import * as path from 'path';
 import type { CodeChunk } from './chunker';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'knowledge:semantic:store',
-  level: LogLevel.INFO,
-});
-
 /** 索引条目 */
 export interface IndexEntry extends CodeChunk {
   /** 嵌入向量 */

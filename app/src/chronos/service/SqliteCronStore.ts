@@ -13,7 +13,32 @@ const logger = new Logger({
 const TABLE = 'scheduled_tasks';
 const RUNS_TABLE = 'cron_runs';
 
-function rowToScheduledTask(row: any): ScheduledTask {
+interface TaskRow {
+  id: string;
+  cron: string;
+  prompt: string;
+  created_at: number;
+  last_fired_at: number | null;
+  recurring: number;
+  permanent: number;
+  durable: number;
+  agent_id: string | null;
+  task_type: string;
+  metadata: string | null;
+}
+
+interface CronRunRow {
+  id: string;
+  task_id: string;
+  started_at: number;
+  completed_at: number | null;
+  status: string;
+  exit_code: number | null;
+  output: string | null;
+  error: string | null;
+}
+
+function rowToScheduledTask(row: TaskRow): ScheduledTask {
   return {
     id: row.id,
     cron: row.cron,
@@ -131,12 +156,12 @@ export class SqliteCronStore {
     await this.init();
     if (!this.db) throw new Error('Database not initialized');
 
-    const rows = await new Promise<any[]>((resolve, reject) => {
+    const rows = await new Promise<TaskRow[]>((resolve, reject) => {
       this.db!.all(
         `SELECT * FROM ${TABLE} ORDER BY created_at DESC`,
         (err, rows) => {
           if (err) reject(err);
-          else resolve(rows || []);
+          else resolve((rows || []) as TaskRow[]);
         }
       );
     });
@@ -147,13 +172,13 @@ export class SqliteCronStore {
     await this.init();
     if (!this.db) throw new Error('Database not initialized');
 
-    const row = await new Promise<any>((resolve, reject) => {
+    const row = await new Promise<TaskRow | undefined>((resolve, reject) => {
       this.db!.get(
         `SELECT * FROM ${TABLE} WHERE id = ?`,
         [taskId],
         (err, row) => {
           if (err) reject(err);
-          else resolve(row);
+          else resolve(row as TaskRow | undefined);
         }
       );
     });
@@ -188,6 +213,17 @@ export class SqliteCronStore {
     if (!this.db) throw new Error('Database not initialized');
 
     const placeholders = ids.map(() => '?').join(', ');
+    // BUG-10 fix: 级联删除 cron_runs 表中的运行记录
+    await new Promise<void>((resolve, reject) => {
+      this.db!.run(
+        `DELETE FROM ${RUNS_TABLE} WHERE task_id IN (${placeholders})`,
+        ids,
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
         `DELETE FROM ${TABLE} WHERE id IN (${placeholders})`,
@@ -255,12 +291,14 @@ export class SqliteCronStore {
     await this.init();
     if (!this.db) throw new Error('Database not initialized');
 
-    const row = await new Promise<any>((resolve, reject) => {
-      this.db!.get(`SELECT COUNT(*) as count FROM ${TABLE}`, (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
+    const row = await new Promise<{ count: number } | undefined>(
+      (resolve, reject) => {
+        this.db!.get(`SELECT COUNT(*) as count FROM ${TABLE}`, (err, row) => {
+          if (err) reject(err);
+          else resolve(row as { count: number } | undefined);
+        });
+      }
+    );
     return row?.count ?? 0;
   }
 
@@ -296,13 +334,13 @@ export class SqliteCronStore {
     await this.init();
     if (!this.db) throw new Error('Database not initialized');
 
-    const rows = await new Promise<any[]>((resolve, reject) => {
+    const rows = await new Promise<CronRunRow[]>((resolve, reject) => {
       this.db!.all(
         `SELECT * FROM ${RUNS_TABLE} WHERE task_id = ? ORDER BY started_at DESC`,
         [taskId],
         (err, rows) => {
           if (err) reject(err);
-          else resolve(rows || []);
+          else resolve((rows || []) as CronRunRow[]);
         }
       );
     });
@@ -367,7 +405,7 @@ export class SqliteCronStore {
   }
 }
 
-function rowToCronRun(row: any): CronRun {
+function rowToCronRun(row: CronRunRow): CronRun {
   return {
     id: row.id,
     taskId: row.task_id,

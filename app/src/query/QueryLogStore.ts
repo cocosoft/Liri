@@ -261,8 +261,8 @@ export class QueryLogStore {
     const sql = `SELECT * FROM ${QUERY_LOG_TABLE} ${whereClause} ORDER BY timestamp DESC LIMIT ? OFFSET ?`;
     params.push(limit, offset);
 
-    const rows = await new Promise<any[]>((resolve, reject) => {
-      this.db?.all(sql, params, (err: Error | null, rows: any[]) => {
+    const rows = await new Promise<unknown[]>((resolve, reject) => {
+      this.db?.all(sql, params, (err: Error | null, rows: unknown[]) => {
         if (err) {
           reject(err);
         } else {
@@ -271,7 +271,7 @@ export class QueryLogStore {
       });
     });
 
-    return rows.map((row) => this.rowToEntry(row));
+    return rows.map((row) => this.rowToEntry(row as Record<string, unknown>));
   }
 
   /**
@@ -302,9 +302,10 @@ export class QueryLogStore {
     const actualStart = startTime ?? 0;
     const actualEnd = endTime ?? now;
 
-    const stats = await new Promise<any>((resolve, reject) => {
-      this.db?.get(
-        `SELECT
+    const stats = await new Promise<Record<string, number>>(
+      (resolve, reject) => {
+        this.db?.get(
+          `SELECT
           COALESCE(SUM(CASE WHEN type = 'api_call' THEN 1 ELSE 0 END), 0) AS total_api_calls,
           COALESCE(SUM(CASE WHEN type = 'api_call' THEN duration_ms ELSE 0 END), 0) AS total_api_duration_ms,
           COALESCE(SUM(CASE WHEN type = 'api_call' THEN total_tokens ELSE 0 END), 0) AS total_tokens,
@@ -314,16 +315,17 @@ export class QueryLogStore {
           COALESCE(SUM(CASE WHEN type = 'query' THEN 1 ELSE 0 END), 0) AS total_queries
         FROM ${QUERY_LOG_TABLE}
         WHERE timestamp >= ? AND timestamp <= ?`,
-        [actualStart, actualEnd],
-        (err: Error | null, row: any) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(row);
+          [actualStart, actualEnd],
+          (err: Error | null, row: unknown) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(row as Record<string, number>);
+            }
           }
-        }
-      );
-    });
+        );
+      }
+    );
 
     const totalApiCalls = stats.total_api_calls || 0;
     const apiErrorCount = stats.api_error_count || 0;
@@ -372,7 +374,7 @@ export class QueryLogStore {
         this.db?.run(
           `DELETE FROM ${QUERY_LOG_TABLE} WHERE timestamp < ?`,
           [beforeTimestamp],
-          function (this: any, err) {
+          function (this: { changes: number }, err: Error | null) {
             if (err) {
               reject(err);
             } else {
@@ -411,30 +413,30 @@ export class QueryLogStore {
   /**
    * 数据库行记录转 QueryLogEntry
    */
-  private rowToEntry(row: any): QueryLogEntry {
+  private rowToEntry(row: Record<string, unknown>): QueryLogEntry {
     const entry: QueryLogEntry = {
-      id: row.id,
-      sessionId: row.session_id,
-      type: row.type,
-      model: row.model || undefined,
-      promptTokens: row.prompt_tokens,
-      outputTokens: row.output_tokens,
-      totalTokens: row.total_tokens,
-      durationMs: row.duration_ms,
+      id: row.id as string,
+      sessionId: row.session_id as string,
+      type: row.type as QueryLogEntry['type'],
+      model: (row.model as string) || undefined,
+      promptTokens: row.prompt_tokens as number,
+      outputTokens: row.output_tokens as number,
+      totalTokens: row.total_tokens as number,
+      durationMs: row.duration_ms as number,
       success: row.success === 1,
-      error: row.error || undefined,
-      toolName: row.tool_name || undefined,
-      retryCount: row.retry_count ?? undefined,
-      turnCount: row.turn_count ?? undefined,
-      toolCallCount: row.tool_call_count ?? undefined,
-      timestamp: row.timestamp,
+      error: (row.error as string) || undefined,
+      toolName: (row.tool_name as string) || undefined,
+      retryCount: (row.retry_count as number) ?? undefined,
+      turnCount: (row.turn_count as number) ?? undefined,
+      toolCallCount: (row.tool_call_count as number) ?? undefined,
+      timestamp: row.timestamp as number,
     };
 
     if (row.metadata) {
       try {
-        entry.metadata = JSON.parse(row.metadata);
+        entry.metadata = JSON.parse(row.metadata as string);
       } catch {
-        entry.metadata = { raw: row.metadata };
+        entry.metadata = { raw: row.metadata as string };
       }
     }
 

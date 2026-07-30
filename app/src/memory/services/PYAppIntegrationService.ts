@@ -406,7 +406,7 @@ export class PYAppIntegrationService {
   /**
    * 获取偏好设置值
    */
-  getPreferenceValue(key: string, defaultValue?: any): any {
+  getPreferenceValue(key: string, defaultValue?: unknown): unknown {
     const preference = this.getPreference(key);
     return preference?.value ?? defaultValue;
   }

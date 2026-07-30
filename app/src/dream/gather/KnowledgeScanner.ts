@@ -91,7 +91,10 @@ export class KnowledgeScanner {
     const { readdir } = await import('fs/promises');
     let entries: { name: string; isDirectory: () => boolean }[];
     try {
-      entries = (await readdir(dir, { withFileTypes: true })) as any;
+      entries = (await readdir(dir, { withFileTypes: true })) as unknown as {
+        name: string;
+        isDirectory: () => boolean;
+      }[];
     } catch {
       return;
     }

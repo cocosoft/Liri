@@ -111,10 +111,15 @@ class WecomChannelPlugin extends BaseChannelPlugin {
           Date.now() + ((data['expires_in'] as number) || 7200) * 1000;
         return this.accessToken;
       }
-      this.logger.error('企业微信获取 access_token 失败', {
-        errcode: data['errcode'],
-        errmsg: data['errmsg'],
-      });
+      handleError(
+        new Error(
+          `企业微信获取 access_token 失败: errcode=${data['errcode']}, errmsg=${data['errmsg']}`
+        ),
+        {
+          module: 'channels:wecom',
+          action: '获取企业微信 access_token 失败',
+        }
+      );
     } catch (err) {
       await handleError(err, {
         module: 'channels:wecom',

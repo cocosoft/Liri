@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useMemo } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import mermaid from "mermaid";
+import DOMPurify from "dompurify";
 
 /** 检测文本是否包含中文字符，含中文的 $...$ 内容不应走 KaTeX 解析 */
 const CONTAINS_CHINESE_RE = /[\u4e00-\u9fa5]/;
@@ -182,7 +183,7 @@ function MarkdownRenderer({
                 <span
                   key={key++}
                   className="inline-block"
-                  dangerouslySetInnerHTML={{ __html: renderedFormula }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderedFormula) as unknown as string }}
                 />,
               );
             } else {
@@ -262,7 +263,7 @@ function MarkdownRenderer({
                 <span
                   key={key++}
                   className="inline-block"
-                  dangerouslySetInnerHTML={{ __html: renderedFormula }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderedFormula) as unknown as string }}
                 />,
               );
             } else {

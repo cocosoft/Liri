@@ -22,7 +22,10 @@ export interface ToolCallResult {
 /**
  * 分发工具调用
  *
- * 当前为骨架实现，Phase 3 对接 chat-toolcall.slice 和 toolResultRegistry。
+ * @deprecated 当前为骨架实现（始终返回 success: false）。
+ * 工具调用由后端 ToolManager + toolResultRegistry 通过流式管道处理。
+ * 此 use-case 为未来前端侧工具编排预留接口（Phase 3）。
+ * 当前调用方不应依赖此函数的返回值做业务决策。
  */
 export function handleToolCall(
   toolCallId: string,

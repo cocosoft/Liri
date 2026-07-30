@@ -16,6 +16,7 @@
  */
 
 import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'query:verifierAgent' });
 
@@ -254,11 +255,9 @@ export class VerifierAgent {
 
       return result;
     } catch (error) {
-      logger.error('验证过程出错 — 降级为 APPROVE（不阻断主流程）', {
-        sessionId: input.sessionId,
-        error: String(error),
-        turnCount: input.turnCount,
-        toolNames: input.toolResults?.map((tr) => tr.toolName),
+      await handleError(error, {
+        module: 'query:verifier',
+        action: '验证过程',
       });
 
       // 验证本身失败 → 降级为 APPROVE（不阻断主流程，但置信度极低）

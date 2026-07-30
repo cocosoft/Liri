@@ -349,11 +349,19 @@ export const fetchCommand: Command = {
         const duration = Date.now() - startTime;
 
         // 提取响应元数据
-        const content = (result as any).content || result?.output || '';
-        const status = (result as any).status;
-        const statusText = (result as any).statusText;
-        const contentType = (result as any).contentType;
-        const contentLength = (result as any).contentLength || content.length;
+        const r = result as unknown as {
+          content?: string;
+          output?: string;
+          status?: number;
+          statusText?: string;
+          contentType?: string;
+          contentLength?: number;
+        };
+        const content = r.content || r.output || '';
+        const status = r.status;
+        const statusText = r.statusText;
+        const contentType = r.contentType;
+        const contentLength = r.contentLength || content.length;
 
         // 应用 HTML→Markdown 转换（对标 CC htmlToMarkdown）
         let displayContent = content;

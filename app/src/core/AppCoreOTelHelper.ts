@@ -14,6 +14,7 @@
  */
 
 import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'AppCore' });
 
@@ -136,10 +137,10 @@ export async function initializeOTelSystem(): Promise<void> {
     }, HEARTBEAT_INTERVAL);
     if (typeof beatTimer.unref === 'function') beatTimer.unref();
   } catch (error) {
-    logger.error(
-      'OTel 系统初始化失败',
-      error instanceof Error ? error : new Error(String(error))
-    );
+    await handleError(error, {
+      module: 'core:otel',
+      action: 'init',
+    });
   }
 }
 

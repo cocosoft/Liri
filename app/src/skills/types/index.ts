@@ -52,16 +52,16 @@ export enum SkillLoadMethod {
 export interface PromptImplementation {
   kind: 'prompt';
   getPromptForCommand: (
-    args: any,
-    toolUseContext: any
+    args: unknown,
+    toolUseContext: unknown
   ) => Promise<{ type: string; text: string }[]>;
 }
 
 /** Executable 执行模型：直接执行代码 */
 export interface ExecutableImplementation {
   kind: 'executable';
-  execute: (context: any) => Promise<any>;
-  validate?: (context: any) => boolean;
+  execute: (context: unknown) => Promise<unknown>;
+  validate?: (context: unknown) => boolean;
   cleanup?: () => void;
   init?: () => Promise<void>;
   shutdown?: () => Promise<void>;
@@ -108,7 +108,7 @@ export interface Skill {
   config?: Record<string, unknown>;
   author?: string;
   dependencies?: string[];
-  hooks?: any;
+  hooks?: unknown;
   skillRoot?: string;
   isHidden?: boolean;
   progressMessage?: string;
@@ -130,32 +130,32 @@ export interface SkillManifest {
   version?: string;
   icon?: string;
   main?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /** 技能执行上下文 */
 export interface SkillContext {
-  args?: any;
-  toolUseContext?: any;
-  [key: string]: any;
+  args?: unknown;
+  toolUseContext?: unknown;
+  [key: string]: unknown;
 }
 
 /** 技能执行结果 */
 export interface SkillResult {
   success: boolean;
   error?: string;
-  data?: any;
+  data?: unknown;
   usage?: {
     durationMs: number;
-    [key: string]: any;
+    [key: string]: unknown;
   };
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /** 技能执行上下文（含 Skill 引用） */
 export interface SkillExecutionContext {
-  args: any;
-  toolUseContext: any;
+  args: unknown;
+  toolUseContext: unknown;
   skill: Skill;
 }
 
@@ -181,7 +181,7 @@ export interface SkillFrontmatter {
   'disable-model-invocation'?: boolean;
   context?: 'fork';
   agent?: string;
-  shell?: any;
+  shell?: boolean | string;
 }
 
 /** @deprecated Track C 桥接类型，将由统一 Skill 替代 */
@@ -199,7 +199,7 @@ export interface SkillInfo {
 /** @deprecated Track C 桥接类型，将由统一 Skill 替代 */
 export interface SkillExecutionResult {
   success: boolean;
-  result: any;
+  result: unknown;
   error?: string;
 }
 
@@ -222,9 +222,9 @@ export interface SkillDefinition {
   disableModelInvocation?: boolean;
   userInvocable?: boolean;
   isEnabled?: () => boolean;
-  hooks?: any;
+  hooks?: unknown;
   context?: 'inline' | 'fork';
   agent?: string;
   files?: Record<string, string>;
-  getPromptForCommand: (args: string, context: any) => Promise<any[]>;
+  getPromptForCommand: (args: string, context: unknown) => Promise<unknown[]>;
 }

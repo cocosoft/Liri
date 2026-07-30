@@ -17,13 +17,13 @@ const logger = new Logger({
 
 export interface ToolUIRenderer {
   renderToolUseMessage?: (
-    input: any,
+    input: unknown,
     options: { verbose: boolean }
   ) => React.ReactNode;
 
   renderToolResultMessage?: (
-    output: any,
-    progressMessages: any[],
+    output: unknown,
+    progressMessages: unknown[],
     options: { verbose: boolean }
   ) => React.ReactNode;
 
@@ -32,9 +32,9 @@ export interface ToolUIRenderer {
     options: { verbose: boolean }
   ) => React.ReactNode;
 
-  renderToolUseProgressMessage?: (data: any) => React.ReactNode;
+  renderToolUseProgressMessage?: (data: unknown) => React.ReactNode;
 
-  getToolUseSummary?: (input: any) => string | null;
+  getToolUseSummary?: (input: unknown) => string | null;
 }
 
 const registry = new Map<string, ToolUIRenderer>();

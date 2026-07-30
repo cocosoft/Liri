@@ -313,20 +313,24 @@ export async function fetchWithLogging(
  * const data = await fsWithLogging.readFile('file.txt', 'utf8')
  */
 export const fsWithLogging = {
-  readFile: async (path: string, options?: any) => {
+  readFile: async (path: string, options?: unknown) => {
     using _ = slowLoggingWithType('fs', `readFile(${path})`);
     const fs = await import('fs/promises');
-    return fs.readFile(path, options);
+    return fs.readFile(path, options as BufferEncoding);
   },
-  writeFile: async (path: string, data: any, options?: any) => {
+  writeFile: async (path: string, data: unknown, options?: unknown) => {
     using _ = slowLoggingWithType('fs', `writeFile(${path})`);
     const fs = await import('fs/promises');
-    return fs.writeFile(path, data, options);
+    return fs.writeFile(
+      path,
+      data as string | NodeJS.ArrayBufferView,
+      options as BufferEncoding
+    );
   },
-  readdir: async (path: string, options?: any) => {
+  readdir: async (path: string, options?: unknown) => {
     using _ = slowLoggingWithType('fs', `readdir(${path})`);
     const fs = await import('fs/promises');
-    return fs.readdir(path, options);
+    return fs.readdir(path, options as BufferEncoding);
   },
 };
 

@@ -607,16 +607,54 @@ export async function handleFileOpen(
       return;
     }
 
-    const { exec } = await import('child_process');
-    const { promisify } = await import('util');
-    const execAsync = promisify(exec);
+    const { spawn } = await import('child_process');
+
+    // 安全校验：路径必须在 pyappHome 范围内
+    const { isPathWithin, resolvePyappHome } =
+      await import('@modules/core/paths');
+    const home = resolvePyappHome();
+    if (!isPathWithin(home, filePath)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'Access denied: path outside allowed directory' },
+        })
+      );
+      return;
+    }
+
+    // 安全校验：禁止文件名含双引号，防止命令注入
+    if (filePath.includes('"')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'Invalid path: contains illegal characters' },
+        })
+      );
+      return;
+    }
 
     if (process.platform === 'win32') {
-      await execAsync(`start "" "${filePath}"`);
+      const child = spawn('cmd', ['/c', 'start', '""', filePath], {
+        shell: false,
+        stdio: 'ignore',
+        detached: true,
+      });
+      child.unref();
     } else if (process.platform === 'darwin') {
-      await execAsync(`open "${filePath}"`);
+      const child = spawn('open', [filePath], {
+        shell: false,
+        stdio: 'ignore',
+        detached: true,
+      });
+      child.unref();
     } else {
-      await execAsync(`xdg-open "${filePath}"`);
+      const child = spawn('xdg-open', [filePath], {
+        shell: false,
+        stdio: 'ignore',
+        detached: true,
+      });
+      child.unref();
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -657,6 +695,16 @@ export async function handleFileRead(
     if (!filePath) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: 'Missing path parameter' } }));
+      return;
+    }
+
+    // 安全校验：路径必须在 pyappHome 范围内
+    const { isPathWithin, resolvePyappHome } =
+      await import('@modules/core/paths');
+    const home = resolvePyappHome();
+    if (!isPathWithin(home, filePath)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Access denied' } }));
       return;
     }
 
@@ -812,7 +860,11 @@ export async function handleFileRead(
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    logger.error('读取文件失败', { path: req.url, error: message });
+    await handleError(err, {
+      module: 'infra:handler:memory',
+      action: 'file_read',
+      context: { path: req.url },
+    });
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
@@ -884,9 +936,24 @@ export async function handleFileResolvePath(
       resolveDownloadsDir,
       resolveDataDir,
       resolveDocsDir,
+      isPathWithin,
+      containsPathTraversal,
     } = await import('@modules/core/paths');
 
+    // BUG-C 修复：绝对路径必须验证在允许范围内
     if (path.isAbsolute(rawPath)) {
+      const pyappHome = resolvePyappHome();
+      if (!isPathWithin(pyappHome, rawPath)) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            resolvedPath: rawPath,
+            exists: false,
+            restricted: true,
+          })
+        );
+        return;
+      }
       if (fs.existsSync(rawPath)) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ resolvedPath: rawPath, exists: true }));
@@ -900,6 +967,18 @@ export async function handleFileResolvePath(
     if (rawPath.startsWith('~')) {
       const pyappHome = resolvePyappHome();
       const withoutTilde = rawPath.replace(/^~[/\\]?/, '');
+      // BUG-D 修复：禁止 tilde 展开后的路径遍历
+      if (containsPathTraversal(withoutTilde)) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            resolvedPath: rawPath,
+            exists: false,
+            restricted: true,
+          })
+        );
+        return;
+      }
       const fullPath = path.join(pyappHome, withoutTilde);
       if (fs.existsSync(fullPath)) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -920,6 +999,19 @@ export async function handleFileResolvePath(
       path.join(projectRoot, 'client'),
     ];
 
+    // fallback 搜索前先检查路径遍历
+    if (containsPathTraversal(rawPath)) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          resolvedPath: rawPath,
+          exists: false,
+          restricted: true,
+        })
+      );
+      return;
+    }
+
     for (const baseDir of baseDirs) {
       const candidate = path.join(baseDir, rawPath);
       if (fs.existsSync(candidate)) {
@@ -934,7 +1026,11 @@ export async function handleFileResolvePath(
     res.end(JSON.stringify({ resolvedPath: guessedPath, exists: false }));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    logger.error('解析文件路径失败', { path: req.url, error: message });
+    await handleError(err, {
+      module: 'infra:handler:memory',
+      action: 'file_resolve_path',
+      context: { path: req.url },
+    });
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
@@ -979,7 +1075,7 @@ export async function handleFilePreview(
     const ext = path.extname(filePath).toLowerCase();
 
     // Office 文件扩展名：使用 ConverterEngine 转为 Markdown
-    const officeExts = ['.pdf', '.docx', '.pptx'];
+    const officeExts = ['.pdf', '.docx', '.pptx', '.xlsx'];
 
     if (officeExts.includes(ext)) {
       const coreAPI = getCoreAPI();
@@ -1021,5 +1117,105 @@ export async function handleFilePreview(
         error: { message: `Failed to preview file: ${message}` },
       })
     );
+  }
+}
+
+/**
+ * 处理文件流播放请求（音视频）
+ * GET /api/file/stream?path=<encoded_path>
+ * 返回文件二进制流，支持 Range 请求用于视频拖动/音频 seek
+ */
+export async function handleFileStream(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const parsedUrl = new URL(
+      req.url!,
+      `http://${req.headers.host || 'localhost'}`
+    );
+    const filePath = parsedUrl.searchParams.get('path');
+
+    if (!filePath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Missing path parameter' } }));
+      return;
+    }
+
+    // 安全校验
+    const { isPathWithin, resolvePyappHome } =
+      await import('@modules/core/paths');
+    const home = resolvePyappHome();
+    if (!isPathWithin(home, filePath)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Access denied' } }));
+      return;
+    }
+
+    if (!fs.existsSync(filePath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'File not found' } }));
+      return;
+    }
+
+    const stats = fs.statSync(filePath);
+    const fileSize = stats.size;
+    const ext = path.extname(filePath).toLowerCase();
+
+    // 音视频 MIME 类型映射
+    const mimeTypes: Record<string, string> = {
+      '.mp3': 'audio/mpeg',
+      '.wav': 'audio/wav',
+      '.ogg': 'audio/ogg',
+      '.aac': 'audio/aac',
+      '.m4a': 'audio/mp4',
+      '.flac': 'audio/flac',
+      '.mp4': 'video/mp4',
+      '.webm': 'video/webm',
+      '.mov': 'video/quicktime',
+      '.avi': 'video/x-msvideo',
+      '.mkv': 'video/x-matroska',
+    };
+    const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+    // Range 请求支持（视频拖动/音频 seek）
+    const range = req.headers.range;
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunkSize = end - start + 1;
+
+      const fileStream = fs.createReadStream(filePath, { start, end });
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunkSize,
+        'Content-Type': contentType,
+      });
+      fileStream.pipe(res);
+      return;
+    }
+
+    // 无 Range 请求：完整返回
+    res.writeHead(200, {
+      'Content-Length': fileSize,
+      'Content-Type': contentType,
+      'Accept-Ranges': 'bytes',
+    });
+    fs.createReadStream(filePath).pipe(res);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await handleError(err, {
+      module: 'infra:handler:memory',
+      action: 'file_stream',
+      context: { path: req.url },
+    });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: `Stream failed: ${message}` } })
+      );
+    }
   }
 }

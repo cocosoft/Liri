@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 语音输入Hook
  * * 支持语音识别和语音合成功能
  */
@@ -130,20 +130,25 @@ export function useVoice(config: Partial<VoiceConfig> = {}): UseVoiceResult {
 
   // 检查浏览器支持
   useEffect(() => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-    setIsSupported(!!SpeechRecognition && !!window.speechSynthesis);
+    const Recognition =
+      ((window as unknown as Record<string, unknown>)
+        .SpeechRecognition as typeof SpeechRecognition) ||
+      ((window as unknown as Record<string, unknown>)
+        .webkitSpeechRecognition as typeof SpeechRecognition);
+    setIsSupported(!!Recognition && !!window.speechSynthesis);
   }, []);
 
   // 创建识别器
   useEffect(() => {
     if (!isSupported) return;
 
-    const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
+    const Recognition =
+      ((window as unknown as Record<string, unknown>)
+        .SpeechRecognition as typeof SpeechRecognition) ||
+      ((window as unknown as Record<string, unknown>)
+        .webkitSpeechRecognition as typeof SpeechRecognition);
+    if (!Recognition) return;
+    const recognition = new Recognition();
 
     recognition.lang = mergedConfig.language;
     recognition.continuous = mergedConfig.continuous;

@@ -25,7 +25,6 @@ import AppearancePanel from "../settings/AppearancePanel";
 import ApiKeyContent from "../settings/ApiKeyContent";
 import BackendServicePanel from "../settings/BackendServicePanel";
 import DataStoragePanel from "../settings/DataStoragePanel";
-import SecurityDashboard from "../views/SecurityDashboard";
 import UsageCenterPage from "../views/UsageCenterPage";
 import {
   ConfigSection,
@@ -153,12 +152,6 @@ const NAV_GROUPS: NavGroup[] = [
         icon: LinkIcon,
         zone: "security",
       },
-      {
-        id: "security-dashboard",
-        labelKey: "settings.securityLog",
-        icon: ShieldIcon,
-        zone: "security",
-      },
     ],
   },
   {
@@ -223,7 +216,6 @@ const PAGE_DESCRIPTIONS: Record<string, string> = {
   "custom-rules": "配置自定义安全规则和约束",
   permissions: "管理权限策略和访问控制",
   oauth: "配置 OAuth 第三方登录认证",
-  "security-dashboard": "安全状态概览和风险评估",
   voice: "配置语音唤醒、识别和合成功能",
   "data-dir": "配置数据文件和附件的存储位置",
   ingest: "配置知识库摄入规则和来源",
@@ -805,12 +797,6 @@ function SettingsPage() {
         return <PermissionManagementContent isDark={isDark} />;
       case "oauth":
         return <OAuthManagementContent isDark={isDark} />;
-      case "security-dashboard":
-        return (
-          <div className="p-6">
-            <SecurityDashboard />
-          </div>
-        );
       case "voice":
         return <VoiceSettings isDark={isDark} />;
       case "data-dir":

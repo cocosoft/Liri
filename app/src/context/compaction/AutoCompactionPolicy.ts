@@ -215,9 +215,9 @@ export class AutoCompactionPolicy {
         reason: `token ratio ${(ratio * 100).toFixed(1)}% >= ${(this.warningRatio * 100).toFixed(0)}%`,
       };
     } catch (err) {
-      logger.error('compaction:evaluate error, falling back to warn', {
-        error: String(err),
-        model,
+      void handleError(err, {
+        module: 'context:compaction',
+        action: '压缩评估失败，回退到warn',
       });
       return {
         decision: 'warn',

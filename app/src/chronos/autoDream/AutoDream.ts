@@ -97,7 +97,7 @@ interface DreamProgress {
   touchedPaths: string[];
 }
 
-let runner: ((context: any) => Promise<void>) | null = null;
+let runner: ((context: unknown) => Promise<void>) | null = null;
 let lastSessionScanAt = 0;
 let currentAbortController: AbortController | null = null;
 
@@ -134,7 +134,7 @@ function isGateOpen(): boolean {
 }
 
 function registerDreamTask(
-  setAppState: any,
+  setAppState: unknown,
   options: { sessionsReviewing: number; priorMtime: number }
 ): string {
   const taskId = generateTaskId();
@@ -163,7 +163,7 @@ function addDreamTurn(
   taskId: string,
   progress: DreamProgress,
   touchedPaths: string[],
-  setAppState: any
+  setAppState: unknown
 ): void {
   const task = dreamTasks.get(taskId);
   if (task) {
@@ -219,14 +219,15 @@ function getAllDreamTasks(): DreamTask[] {
   return Array.from(dreamTasks.values());
 }
 
-function isDreamTask(task: any): task is DreamTask {
-  return task && typeof task.id === 'string' && typeof task.status === 'string';
+function isDreamTask(task: unknown): task is DreamTask {
+  const t = task as Record<string, unknown>;
+  return !!task && typeof t.id === 'string' && typeof t.status === 'string';
 }
 
 export async function initAutoDream(): Promise<void> {
   lastSessionScanAt = 0;
 
-  runner = async function runAutoDream(context: any) {
+  runner = async function runAutoDream(context: unknown) {
     const cfg = getAutoDreamConfig();
     const force = false;
 
@@ -308,7 +309,9 @@ ${sessionIds.map((id) => `- ${id}`).join('\n')}`;
       extra,
     });
 
-    const setAppState = context?.toolUseContext?.setAppState;
+    const ctx = context as Record<string, unknown>;
+    const toolCtx = ctx?.toolUseContext as Record<string, unknown> | undefined;
+    const setAppState = toolCtx?.setAppState;
     const taskId = registerDreamTask(setAppState, {
       sessionsReviewing: sessionIds.length,
       priorMtime,
@@ -389,8 +392,12 @@ ${sessionIds.map((id) => `- ${id}`).join('\n')}`;
         timestamp: Date.now(),
       });
 
-      if (context?.toolUseContext?.appendSystemMessage) {
-        context.toolUseContext.appendSystemMessage({
+      const ctx = context as Record<string, unknown>;
+      const toolCtx = ctx?.toolUseContext as
+        | Record<string, unknown>
+        | undefined;
+      if (toolCtx?.appendSystemMessage) {
+        (toolCtx.appendSystemMessage as Function)({
           type: 'text',
           text: `Memory consolidation completed. ${result.insightsGenerated} insights generated, ${result.filesTouched.length} files touched (${result.duration}ms).`,
         });
@@ -412,7 +419,7 @@ ${sessionIds.map((id) => `- ${id}`).join('\n')}`;
   };
 }
 
-export async function executeAutoDream(context?: any): Promise<void> {
+export async function executeAutoDream(context?: unknown): Promise<void> {
   if (runner) {
     await runner(context || {});
   }

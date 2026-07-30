@@ -16,7 +16,7 @@ const logger = new Logger({
  * 性能监控服务类
  */
 class PerformanceMonitoringService {
-  private metrics: any[] = [];
+  private metrics: Record<string, unknown>[] = [];
   private maxMetrics = 50000;
   private samplingInterval = 5000;
   private intervalId: ReturnType<typeof setInterval> | null = null;
@@ -181,7 +181,7 @@ class PerformanceMonitoringService {
     type: string,
     name: string,
     value: number,
-    tags: Record<string, any> = {}
+    tags: Record<string, unknown> = {}
   ) {
     const metric = {
       id: `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -215,7 +215,7 @@ class PerformanceMonitoringService {
   recordResponseTime(
     operation: string,
     duration: number,
-    tags: Record<string, any> = {}
+    tags: Record<string, unknown> = {}
   ) {
     this.recordMetric('response_time', `response_time_${operation}`, duration, {
       operation,
@@ -232,7 +232,7 @@ class PerformanceMonitoringService {
   recordThroughput(
     operation: string,
     count: number,
-    tags: Record<string, any> = {}
+    tags: Record<string, unknown> = {}
   ) {
     this.recordMetric('throughput', `throughput_${operation}`, count, {
       operation,
@@ -251,7 +251,7 @@ class PerformanceMonitoringService {
     operation: string,
     errorCount: number,
     totalCount: number,
-    tags: Record<string, any> = {}
+    tags: Record<string, unknown> = {}
   ) {
     const errorRate = totalCount > 0 ? (errorCount / totalCount) * 100 : 0;
     this.recordMetric('error_rate', `error_rate_${operation}`, errorRate, {
@@ -267,7 +267,7 @@ class PerformanceMonitoringService {
    * @param options 查询选项
    * @returns 指标列表
    */
-  getMetrics(options: Record<string, any> = {}) {
+  getMetrics(options: Record<string, unknown> = {}) {
     let result = [...this.metrics];
 
     if (options.type) {
@@ -279,17 +279,22 @@ class PerformanceMonitoringService {
     }
 
     if (options.startTime) {
-      result = result.filter((metric) => metric.timestamp >= options.startTime);
+      result = result.filter(
+        (metric) =>
+          (metric.timestamp as number) >= (options.startTime as number)
+      );
     }
 
     if (options.endTime) {
-      result = result.filter((metric) => metric.timestamp <= options.endTime);
+      result = result.filter(
+        (metric) => (metric.timestamp as number) <= (options.endTime as number)
+      );
     }
 
-    result.sort((a, b) => b.timestamp - a.timestamp);
+    result.sort((a, b) => (b.timestamp as number) - (a.timestamp as number));
 
     if (options.limit) {
-      result = result.slice(0, options.limit);
+      result = result.slice(0, options.limit as number);
     }
 
     return result;
@@ -316,7 +321,7 @@ class PerformanceMonitoringService {
       };
     }
 
-    const values = metrics.map((metric) => metric.value);
+    const values = metrics.map((metric) => metric.value as number);
     return {
       average: values.reduce((sum, val) => sum + val, 0) / values.length,
       min: Math.min(...values),
@@ -336,32 +341,41 @@ class PerformanceMonitoringService {
     const recentMetrics = this.getMetrics({ startTime: Date.now() - 300000 }); // 最近5分钟
 
     for (const metric of recentMetrics) {
-      const stats = this.getMetricStats(metric.type, metric.name);
+      const stats = this.getMetricStats(
+        metric.type as string,
+        metric.name as string | undefined
+      );
 
       // 检测异常
-      if (metric.type === 'cpu_usage' && metric.value > 90) {
+      if (metric.type === 'cpu_usage' && (metric.value as number) > 90) {
         anomalies.push({
           metric,
           severity: 'high',
-          message: `CPU使用率过高: ${metric.value.toFixed(2)}%`,
+          message: `CPU使用率过高: ${(metric.value as number).toFixed(2)}%`,
         });
-      } else if (metric.type === 'memory_usage' && metric.value > 80) {
+      } else if (
+        metric.type === 'memory_usage' &&
+        (metric.value as number) > 80
+      ) {
         anomalies.push({
           metric,
           severity: 'high',
-          message: `内存使用率过高: ${metric.value.toFixed(2)}%`,
+          message: `内存使用率过高: ${(metric.value as number).toFixed(2)}%`,
         });
-      } else if (metric.type === 'response_time' && metric.value > 1000) {
+      } else if (
+        metric.type === 'response_time' &&
+        (metric.value as number) > 1000
+      ) {
         anomalies.push({
           metric,
           severity: 'medium',
-          message: `响应时间过长: ${metric.value.toFixed(2)}ms`,
+          message: `响应时间过长: ${(metric.value as number).toFixed(2)}ms`,
         });
-      } else if (metric.type === 'error_rate' && metric.value > 5) {
+      } else if (metric.type === 'error_rate' && (metric.value as number) > 5) {
         anomalies.push({
           metric,
           severity: 'medium',
-          message: `错误率过高: ${metric.value.toFixed(2)}%`,
+          message: `错误率过高: ${(metric.value as number).toFixed(2)}%`,
         });
       }
     }
@@ -385,7 +399,7 @@ class PerformanceMonitoringService {
       'error_rate',
     ];
 
-    const stats: Record<string, any> = {};
+    const stats: Record<string, unknown> = {};
 
     for (const type of metricTypes) {
       stats[type] = this.getMetricStats(type);

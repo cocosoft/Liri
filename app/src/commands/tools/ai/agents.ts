@@ -251,7 +251,9 @@ async function handleCreate(
     };
   }
 
-  if (!AGENT_TYPES.includes(agentType as any)) {
+  if (
+    !AGENT_TYPES.includes(agentType as unknown as (typeof AGENT_TYPES)[number])
+  ) {
     return {
       success: false,
       error: `无效的 Agent 类型: "${agentType}"\n可用类型: ${AGENT_TYPES.join(', ')}`,

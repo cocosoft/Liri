@@ -30,14 +30,15 @@ export function parseFrontmatter(content: string): {
     const kvMatch = trimmed.match(/^([^:]+):\s*(.+)$/);
     if (kvMatch) {
       const key = kvMatch[1].trim();
-      let value: any = kvMatch[2].trim();
+      let value: unknown = kvMatch[2].trim();
+      const strValue = String(value);
 
       // 尝试解析数组 [item1, item2]
-      if (value.startsWith('[') && value.endsWith(']')) {
+      if (strValue.startsWith('[') && strValue.endsWith(']')) {
         try {
-          value = JSON.parse(value.replace(/'/g, '"'));
+          value = JSON.parse(strValue.replace(/'/g, '"'));
         } catch {
-          value = value
+          value = strValue
             .slice(1, -1)
             .split(',')
             .map((s: string) => s.trim().replace(/['"]/g, ''));

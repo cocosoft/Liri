@@ -18,7 +18,12 @@
 
 import { randomUUID } from 'crypto';
 import { EventEmitter } from 'events';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import { Logger, LogLevel } from '../../../monitoring/logs/Logger.js';
 
@@ -147,8 +152,12 @@ export class ExecApprovalManager {
 
     if (this.config.autoApprove) {
       setImmediate(() => {
-        this.approve(id, 'auto-approver', 'auto-approve mode').catch((err) =>
-          logger.error('auto-approve failed', err)
+        this.approve(id, 'auto-approver', 'auto-approve mode').catch(
+          (err) =>
+            void handleError(err, {
+              module: 'config:enterprise:exec',
+              action: '自动审批失败',
+            })
         );
       });
     }

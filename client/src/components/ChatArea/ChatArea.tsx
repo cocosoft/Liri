@@ -38,7 +38,7 @@ function ChatArea() {
 
   /** 诊断：会话变化时记录 */
   useEffect(() => {
-    console.info("[Diag:chatArea] 会话变更", {
+    if (import.meta.env.DEV) console.info("[Diag:chatArea] 会话变更", {
       sessionId: currentSession?.id,
       title: currentSession?.title,
       msgCount: messages.length,

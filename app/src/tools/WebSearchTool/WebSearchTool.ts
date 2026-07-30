@@ -18,6 +18,7 @@ import type {
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import type { SearchResult } from './providers';
 
 const logger = new Logger({ module: 'tools:webSearch', level: LogLevel.INFO });
@@ -291,12 +292,10 @@ export class WebSearchTool extends BaseTool {
         });
       } catch (networkError: any) {
         clearTimeout(timeoutId);
-        logger.error(
-          'Network error',
-          networkError instanceof Error
-            ? networkError
-            : new Error(String(networkError))
-        );
+        await handleError(networkError, {
+          module: 'tools:webSearch',
+          action: '网络错误',
+        });
 
         // 报告执行错误
         onProgress?.({
@@ -356,10 +355,10 @@ export class WebSearchTool extends BaseTool {
         });
       }
     } catch (error: any) {
-      logger.error(
-        'Search error',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, {
+        module: 'tools:webSearch',
+        action: '搜索错误',
+      });
 
       // 报告执行错误
       onProgress?.({

@@ -13,6 +13,7 @@ import type http from 'http';
 import { sendError } from './handler-utils';
 import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
+import { handleError } from '@modules/error';
 
 const logger = new OTelAwareLogger({
   module: 'http:graph-handlers',
@@ -51,7 +52,10 @@ export async function handleListGraphEdges(
       })
     );
   } catch (err) {
-    logger.error('获取图谱边失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'infra:handler:graph',
+      action: 'list_edges',
+    });
     sendError(res, (err as Error).message, 500);
   }
 }
@@ -72,7 +76,7 @@ export async function handleGraphStats(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(stats));
   } catch (err) {
-    logger.error('获取图谱统计失败', { error: (err as Error).message });
+    await handleError(err, { module: 'infra:handler:graph', action: 'stats' });
     sendError(res, (err as Error).message, 500);
   }
 }

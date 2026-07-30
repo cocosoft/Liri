@@ -225,7 +225,7 @@ export class CoreAPIImpl implements CoreAPI {
       this.chatManager.getLLMClient();
       this._llmReady = true;
       return;
-    } catch (err) {
+    } catch (_err) {
       // LLM 客户端未初始化，继续执行初始化
     }
 
@@ -518,7 +518,7 @@ export class CoreAPIImpl implements CoreAPI {
             let toolArgs: Record<string, unknown> = {};
             try {
               toolArgs = JSON.parse(detail || '{}');
-            } catch (err) {
+            } catch (_err) {
               // detail might not be valid JSON, use empty object
             }
 
@@ -771,10 +771,13 @@ export class CoreAPIImpl implements CoreAPI {
         error: error instanceof Error ? error.message : String(error),
         executionTime: Date.now() - startTime,
       };
-      logger.error('CoreAPIImpl.executeTool() 异常', {
-        toolName: toolCall.name,
-        error: errorResponse.error,
-        executionTime: errorResponse.executionTime,
+      handleError(error, {
+        module: 'runtime:api',
+        action: 'executeTool执行异常',
+        context: {
+          toolName: toolCall.name,
+          executionTime: errorResponse.executionTime,
+        },
       });
       return errorResponse;
     }
@@ -898,7 +901,7 @@ export class CoreAPIImpl implements CoreAPI {
           }));
         }
       }
-    } catch (err) {
+    } catch (_err) {
       // 持久化读取失败，降级到内存缓存
     }
 
@@ -980,7 +983,7 @@ export class CoreAPIImpl implements CoreAPI {
     const session = this.sessionManager.getSession(sessionId);
     if (session?.metadata?.isStreaming) {
       const err = new Error('Cannot delete message while streaming');
-      (err as any).statusCode = 409;
+      (err as unknown as Record<string, unknown>).statusCode = 409;
       throw err;
     }
 
@@ -989,12 +992,12 @@ export class CoreAPIImpl implements CoreAPI {
     const targetMsg = messages.find((m) => m.id === messageId);
     if (!targetMsg) {
       const err = new Error('Message not found');
-      (err as any).statusCode = 404;
+      (err as unknown as Record<string, unknown>).statusCode = 404;
       throw err;
     }
     if (targetMsg.role !== 'user') {
       const err = new Error('Only user messages can be deleted');
-      (err as any).statusCode = 400;
+      (err as unknown as Record<string, unknown>).statusCode = 400;
       throw err;
     }
 
@@ -1049,7 +1052,7 @@ export class CoreAPIImpl implements CoreAPI {
     const session = this.sessionManager.getSession(sessionId);
     if (session?.metadata?.isStreaming) {
       const err = new Error('Cannot rollback while streaming');
-      (err as any).statusCode = 409;
+      (err as unknown as Record<string, unknown>).statusCode = 409;
       throw err;
     }
 
@@ -1059,7 +1062,7 @@ export class CoreAPIImpl implements CoreAPI {
     const MAX_ROLLBACKS = 5;
     if (rollbackCount >= MAX_ROLLBACKS) {
       const err = new Error('Rollback limit reached (max 5)');
-      (err as any).statusCode = 429;
+      (err as unknown as Record<string, unknown>).statusCode = 429;
       throw err;
     }
 
@@ -1068,12 +1071,12 @@ export class CoreAPIImpl implements CoreAPI {
     const targetIndex = messages.findIndex((m) => m.id === beforeMessageId);
     if (targetIndex === -1) {
       const err = new Error('Target message not found');
-      (err as any).statusCode = 404;
+      (err as unknown as Record<string, unknown>).statusCode = 404;
       throw err;
     }
     if (messages[targetIndex].role !== 'user') {
       const err = new Error('Can only rollback to a user message');
-      (err as any).statusCode = 400;
+      (err as unknown as Record<string, unknown>).statusCode = 400;
       throw err;
     }
 
@@ -1220,7 +1223,7 @@ export class CoreAPIImpl implements CoreAPI {
           }
         ).listLiteSessions();
       }
-    } catch (err) {
+    } catch (_err) {
       // 降级到内存列表
     }
     // 降级：内存列表
@@ -1393,7 +1396,7 @@ export class CoreAPIImpl implements CoreAPI {
           userMessage.slice(0, 30) + (userMessage.length > 30 ? '…' : '');
         try {
           await this.renameSession(sessionId, fallback);
-        } catch (err) {
+        } catch (_err) {
           // 降级也失败，放弃
         }
       }
@@ -1503,7 +1506,7 @@ export class CoreAPIImpl implements CoreAPI {
     try {
       const stat = fs.statSync(filePath);
       size = stat.size;
-    } catch (err) {
+    } catch (_err) {
       size = 0;
     }
 
@@ -1570,8 +1573,7 @@ export class CoreAPIImpl implements CoreAPI {
         finishReason: 'stop',
       };
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      logger.error('continueInteraction 失败', { error: msg });
+      handleError(error, { module: 'runtime:api', action: '聊天续写失败' });
       return {
         content: '',
         sessionId,
@@ -1603,9 +1605,8 @@ export class CoreAPIImpl implements CoreAPI {
       >();
       for (const msg of allMessages) {
         if (deletedSet.has(msg.id)) {
-          const attachments = (msg as any).attachments as
-            | Array<{ name: string; url: string }>
-            | undefined;
+          const attachments = (msg as unknown as Record<string, unknown>)
+            .attachments as Array<{ name: string; url: string }> | undefined;
           if (attachments) {
             for (const att of attachments) {
               if (att.url) {
@@ -1622,9 +1623,8 @@ export class CoreAPIImpl implements CoreAPI {
       const remainingRefs = new Set<string>();
       for (const msg of allMessages) {
         if (!deletedSet.has(msg.id)) {
-          const attachments = (msg as any).attachments as
-            | Array<{ url: string }>
-            | undefined;
+          const attachments = (msg as unknown as Record<string, unknown>)
+            .attachments as Array<{ url: string }> | undefined;
           if (attachments) {
             for (const att of attachments) {
               if (att.url) {
@@ -1638,7 +1638,7 @@ export class CoreAPIImpl implements CoreAPI {
       // 清理零引用附件
       const { unlink } = await import('fs/promises');
       let cleanedCount = 0;
-      for (const [url, att] of deletedAttachments) {
+      for (const [url] of deletedAttachments) {
         if (!remainingRefs.has(url)) {
           try {
             // 尝试从 URL 解析文件路径

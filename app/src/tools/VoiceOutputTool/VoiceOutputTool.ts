@@ -3,6 +3,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { Tool, ToolInfo, ToolTag, ValidationResult } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
@@ -159,7 +160,10 @@ export class VoiceOutputTool implements Tool {
     } catch (error) {
       this.isSpeaking = false;
       const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error('VoiceOutputTool · 朗读失败', { error: errorMsg });
+      await handleError(error, {
+        module: 'tools:voiceOutput',
+        action: '朗读失败',
+      });
       return {
         status: ToolExecutionStatus.FAILURE,
         result: null,
@@ -197,7 +201,10 @@ export class VoiceOutputTool implements Tool {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error('VoiceOutputTool · 停止朗读失败', { error: errorMsg });
+      await handleError(error, {
+        module: 'tools:voiceOutput',
+        action: '停止朗读失败',
+      });
       return {
         status: ToolExecutionStatus.FAILURE,
         result: null,

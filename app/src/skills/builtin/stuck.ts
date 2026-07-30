@@ -13,7 +13,8 @@ const stuckSkill: Skill = {
   version: '1.0.0',
   impl: {
     kind: 'executable',
-    execute: async (args: unknown[]) => {
+    execute: async (context: unknown) => {
+      const args = context as unknown[];
       return `Help getting unstuck...\n\nProblem: ${args.join(' ') || 'Not specified'}\n\nLet me help you work through this problem. Try these approaches:\n1. Break the problem into smaller pieces\n2. Look for similar problems/solutions\n3. Take a step back and reconsider the approach\n4. Try a different approach altogether`;
     },
   },

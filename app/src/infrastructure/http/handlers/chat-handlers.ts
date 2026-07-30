@@ -941,8 +941,10 @@ export async function handleGetDataDirectory(
       })
     );
   } catch (error) {
-    // 使用 Logger 记录错误
-    logger.error('获取数据目录失败', { error: String(error) });
+    await handleError(error, {
+      module: 'infra:handler:chat',
+      action: 'get_data_directory',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: String(error) }));
   }

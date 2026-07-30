@@ -1,8 +1,13 @@
-﻿/**
+/**
  * 启动优化器
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'StartupOptimizer' });
@@ -154,10 +159,10 @@ export class StartupOptimizer {
         `Startup optimization completed in ${this.metrics.totalTime}ms`
       );
     } catch (error) {
-      logger.error(
-        'Startup optimization failed:',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, {
+        module: 'core:startup',
+        action: 'optimize',
+      });
       this.metrics.totalTime = Date.now() - startTime;
     }
 
@@ -301,11 +306,10 @@ export class StartupOptimizer {
           const duration = Date.now() - startTime;
           this.failedTasks.set(task.id, attempt);
 
-          const e = error instanceof Error ? error : new Error(String(error));
-          logger.error(
-            `Prefetch task ${task.id} failed after ${attempt} attempts:`,
-            e
-          );
+          await handleError(error, {
+            module: 'core:startup',
+            action: 'prefetch',
+          });
 
           return {
             taskId: task.id,
@@ -374,10 +378,10 @@ export class StartupOptimizer {
 
       logger.debug(`Module loading completed in ${Date.now() - startTime}ms`);
     } catch (error) {
-      logger.error(
-        'Parallel module loading failed:',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, {
+        module: 'core:startup',
+        action: 'load_modules',
+      });
       throw error;
     }
   }

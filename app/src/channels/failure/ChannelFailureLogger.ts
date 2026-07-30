@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,6 +34,7 @@ import { writeFileSync, appendFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { resolveDataDir } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.WARN, module: 'channels:failure' });
 
@@ -89,7 +90,10 @@ export function writeChannelFailureLog(record: ChannelFailureRecord): void {
   try {
     appendFileSync(logPath, line, 'utf-8');
   } catch (error) {
-    logger.error('失败日志写入失败', { error: String(error), logPath });
+    handleError(error instanceof Error ? error : new Error(String(error)), {
+      module: 'channels:failure',
+      action: '失败日志写入失败',
+    });
   }
 }
 

@@ -83,7 +83,7 @@ function BlockRenderer({
           />
         );
       }
-      console.warn("[BlockRenderer] tool_call block 缺少 toolCall 数据", block);
+      if (import.meta.env.DEV) console.warn("[BlockRenderer] tool_call block 缺少 toolCall 数据", block);
       return (
         <div className="text-xs text-gray-400 italic px-2 py-1">
           工具调用数据缺失
@@ -99,7 +99,7 @@ function BlockRenderer({
           />
         );
       }
-      console.warn("[BlockRenderer] question block 缺少 questionData", block);
+      if (import.meta.env.DEV) console.warn("[BlockRenderer] question block 缺少 questionData", block);
       return (
         <div className="text-xs text-gray-400 italic px-2 py-1">
           问题数据缺失
@@ -110,7 +110,7 @@ function BlockRenderer({
       if (block.taskCard) {
         return <TaskCard data={block.taskCard} />;
       }
-      console.warn("[BlockRenderer] task block 缺少 taskCard 数据", block);
+      if (import.meta.env.DEV) console.warn("[BlockRenderer] task block 缺少 taskCard 数据", block);
       return (
         <div className="text-xs text-gray-400 italic px-2 py-1">
           任务数据缺失
@@ -120,7 +120,7 @@ function BlockRenderer({
       if (block.progressData) {
         return <ProgressCard data={block.progressData} />;
       }
-      console.warn("[BlockRenderer] progress block 缺少 progressData", block);
+      if (import.meta.env.DEV) console.warn("[BlockRenderer] progress block 缺少 progressData", block);
       return (
         <div className="text-xs text-gray-400 italic px-2 py-1">
           进度数据缺失
@@ -138,7 +138,7 @@ function BlockRenderer({
           />
         );
       }
-      console.warn(
+      if (import.meta.env.DEV) console.warn(
         "[BlockRenderer] deliverable block 缺少 deliverableData",
         block,
       );
@@ -151,7 +151,7 @@ function BlockRenderer({
       if (block.diffData) {
         return <DiffBlock data={block.diffData} />;
       }
-      console.warn("[BlockRenderer] diff block 缺少 diffData", block);
+      if (import.meta.env.DEV) console.warn("[BlockRenderer] diff block 缺少 diffData", block);
       return (
         <div className="text-xs text-gray-400 italic px-2 py-1">
           差异数据缺失
@@ -161,7 +161,7 @@ function BlockRenderer({
       if (block.inboxData) {
         return <InboxBlock data={block.inboxData} sessionId={sessionId} />;
       }
-      console.warn("[BlockRenderer] inbox block 缺少 inboxData", block);
+      if (import.meta.env.DEV) console.warn("[BlockRenderer] inbox block 缺少 inboxData", block);
       return (
         <div className="text-xs text-gray-400 italic px-2 py-1">
           收件箱数据缺失

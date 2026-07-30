@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 远程会话CLI命令处理器
  * 提供SSH和直接连接的命令行接口
  */
@@ -88,7 +88,7 @@ export class RemoteSessionCLI {
           });
 
           const callbacks = {
-            onMessage: (message: any) => {
+            onMessage: (message: unknown) => {
               logger.debug('Received message:', message);
             },
             onConnected: () => {
@@ -162,7 +162,7 @@ export class RemoteSessionCLI {
           });
 
           const callbacks = {
-            onMessage: (message: any) => {
+            onMessage: (message: unknown) => {
               logger.debug('Received message:', message);
             },
             onConnected: () => {

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 工具Hook管理器
  * 负责工具Hook的注册、管理和执行
  */
@@ -22,9 +22,9 @@ const logger = getLogger('ToolHookManager');
  */
 export class ToolHookManager {
   private static instance: ToolHookManager;
-  private preToolUseHooks: Map<string, any[]> = new Map();
-  private postToolUseHooks: Map<string, any[]> = new Map();
-  private postToolUseFailureHooks: Map<string, any[]> = new Map();
+  private preToolUseHooks: Map<string, unknown[]> = new Map();
+  private postToolUseHooks: Map<string, unknown[]> = new Map();
+  private postToolUseFailureHooks: Map<string, unknown[]> = new Map();
 
   private constructor() {}
 
@@ -55,7 +55,7 @@ export class ToolHookManager {
    * @param toolName 工具名称
    * @param hook Hook配置
    */
-  public registerPostToolUseHook(toolName: string, hook: any): void {
+  public registerPostToolUseHook(toolName: string, hook: unknown): void {
     if (!this.postToolUseHooks.has(toolName)) {
       this.postToolUseHooks.set(toolName, []);
     }
@@ -267,17 +267,22 @@ export class ToolHookManager {
    * @returns Hook执行结果
    */
   private async executeHook(
-    hook: any,
+    hook: unknown,
     context: ToolHookContext,
     options: ToolHookExecutionOptions
   ): Promise<ToolHookResult> {
     try {
-      if (hook.callback && typeof hook.callback === 'function') {
-        return await hook.callback(context, options);
+      const h = hook as Record<string, unknown>;
+      if (h.callback && typeof h.callback === 'function') {
+        return await (h.callback as Function)(context, options);
       }
 
-      if (hook.command && typeof hook.command === 'string') {
-        return await this.executeCommandHook(hook.command, context, options);
+      if (h.command && typeof h.command === 'string') {
+        return await this.executeCommandHook(
+          h.command as string,
+          context,
+          options
+        );
       }
 
       return createToolHookSuccessResult();

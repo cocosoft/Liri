@@ -170,6 +170,8 @@ export interface TAORLoopConfig {
   steeringMessages?: string[];
 }
 
+// runLogger 不在此接口中（由构造函数单独处理，避免 Required<> 强制）
+
 export interface TAORLoopResult {
   turnCount: number;
   totalTokens: number;
@@ -258,7 +260,7 @@ export class TAORLoop {
   private loopDetector: LoopDetector;
   private errorRecovery: ErrorRecoveryManager;
   private circuitBreaker: CircuitBreaker;
-  private runLogger?: RunLogger;
+  private runLogger: RunLogger;
   private lastRunLog?: Record<string, unknown>;
   // Phase 1: 路径安全守卫
   private pathGuard: PathGuard;
@@ -344,6 +346,8 @@ export class TAORLoop {
       ...config.verifierConfig,
       enabled: config.enableVerifier !== false,
     });
+    // Phase 2: 运行日志记录器（默认激活，确保长程任务日志落盘）
+    this.runLogger = createRunLogger();
 
     this.registerDefaultStopHooks();
   }
@@ -675,7 +679,7 @@ export class TAORLoop {
           continue;
         }
         // 防御性兜底：未处理的 action
-        logger.error('Unhandled recovery action in TAORLoop', {
+        logger.warn('Unhandled recovery action in TAORLoop', {
           action: recovery.action,
           sessionId: this.config.sessionId,
           turnCount: this.turnCount,
@@ -841,6 +845,7 @@ export class TAORLoop {
             execSpan,
             execErr instanceof Error ? execErr : new Error(String(execErr))
           );
+          execSpan.end();
           await handleError(execErr, {
             module: 'query:taorLoop',
             action: 'executeTools_batch',
@@ -1164,7 +1169,6 @@ export class TAORLoop {
               turnCount: this.turnCount,
             },
           });
-          logger.error('persist failed after retry', { error: String(e2) });
         }
       }
     }
@@ -1237,7 +1241,7 @@ export class TAORLoop {
         errorRecoveries: { count: 0, byType: {} },
         cost: { estimatedUsd: 0, modelName: '' },
         featureFlags: { phase1: true, phase2: true },
-      } as any);
+      } as unknown as Parameters<typeof this.runLogger.record>[0]);
     }
 
     return {

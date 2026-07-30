@@ -21,8 +21,7 @@ import type { CouncilConfig } from './CouncilEngine.js';
 import { globalEventBus } from '../core/events/EventBus.js';
 import { OrchestrationEventType } from '../agent/events/OrchestrationEvents.js';
 import { Logger, LogLevel } from '@modules/monitoring';
-import aiService from '@modules/ai';
-import type { AIMessage } from '@modules/ai';
+import aiService, { type AIMessage, AIMessageRole } from '@modules/ai';
 import { getAgentRoleStore } from './AgentRoleStore.js';
 import { getAgentRegistry } from '../agent/registry/AgentRegistry.js';
 import type { AgentDefinition } from '../agent/registry/AgentRegistry.js';
@@ -245,7 +244,7 @@ export class CouncilOrchestrator {
         })),
         timestamp: Date.now(),
       });
-    } catch (err) {
+    } catch (_err) {
       // EventBus 发射失败不应阻塞主流程
     }
 
@@ -264,7 +263,7 @@ export class CouncilOrchestrator {
         finalProposal: result.finalProposal,
         timestamp: Date.now(),
       });
-    } catch (err) {
+    } catch (_err) {
       // EventBus 发射失败不应阻塞主流程
     }
 
@@ -295,7 +294,7 @@ export class CouncilOrchestrator {
           systemPrompt: row.systemPrompt,
         }));
       }
-    } catch (err) {
+    } catch (_err) {
       logger.warn('从数据库加载 Agent 角色失败');
     }
 
@@ -399,11 +398,9 @@ export class CouncilOrchestrator {
     const messages: AIMessage[] = [];
 
     if (systemPrompt) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      messages.push({ role: 'system' as any, content: systemPrompt });
+      messages.push({ role: AIMessageRole.SYSTEM, content: systemPrompt });
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    messages.push({ role: 'user' as any, content: userPrompt });
+    messages.push({ role: AIMessageRole.USER, content: userPrompt });
 
     const response = await aiService.generate(messages, undefined, {
       max_tokens: options?.maxTokens ?? 512,
@@ -553,7 +550,7 @@ export class CouncilOrchestrator {
       if (parsed.content && Array.isArray(parsed.keyPoints)) {
         return { content: parsed.content, keyPoints: parsed.keyPoints };
       }
-    } catch (err) {
+    } catch (_err) {
       // 不是 JSON，使用全文作为 content
     }
 
@@ -587,7 +584,7 @@ export class CouncilOrchestrator {
         finalProposal: parsed.finalProposal ?? '无法达成共识',
         minorityOpinion: parsed.minorityOpinion ?? null,
       };
-    } catch (err) {
+    } catch (_err) {
       // JSON 解析失败，回退：从文本中推断
       logger.warn('Consensus JSON 解析失败，使用文本回退');
     }

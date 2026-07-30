@@ -126,7 +126,7 @@ export function createVideoCompressTool(): Tool {
         const success = await videoProcessor.compress(
           safeInput.path!,
           safeOutput.path!,
-          options as any
+          options as Record<string, unknown>
         );
         if (!success) {
           return {

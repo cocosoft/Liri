@@ -1,7 +1,7 @@
 import type { MCPProvider } from './MCPProvider.js';
 import type { SkillProvider } from './SkillProvider.js';
 import type { LocalCommandExecutor } from './CommandExecutor.js';
-import type { CommandMatch } from './types.js';
+import type { CommandMatch, CommandAction } from './types.js';
 
 export interface ToolResult {
   success: boolean;
@@ -67,7 +67,7 @@ export class ToolDispatcher {
 
     if (this.commandExecutor) {
       const cmdMatch: CommandMatch = {
-        action: toolName as any,
+        action: toolName as CommandAction,
         args: args as Record<string, string>,
       };
       const output = await this.commandExecutor.execute(cmdMatch);
@@ -129,7 +129,7 @@ export class ToolDispatcher {
       if (pattern.test(input)) {
         const path = input.replace(pattern, '').trim().replace(/['"]/g, '');
         return {
-          action: action as any,
+          action: action as CommandAction,
           args: { path, original: input },
         };
       }

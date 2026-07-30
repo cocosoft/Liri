@@ -26,7 +26,7 @@ export type TemplateVariableType =
 export interface TemplateVariable {
   name: string;
   type: TemplateVariableType;
-  defaultValue?: any;
+  defaultValue?: unknown;
   description?: string;
   required?: boolean;
 }
@@ -651,7 +651,7 @@ export class TemplateService {
   /**
    * 获取变量类型
    */
-  private getVariableType(value: any): TemplateVariableType {
+  private getVariableType(value: unknown): TemplateVariableType {
     if (typeof value === 'string') return 'string';
     if (typeof value === 'number') return 'number';
     if (typeof value === 'boolean') return 'boolean';

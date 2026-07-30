@@ -20,34 +20,37 @@ const logger = new OTelAwareLogger({ module: 'hooks:postCallSummary' });
 export function createPostCallSummaryHook(): PostSamplingHook {
   return async (context: PostSamplingHookContext): Promise<void> => {
     const { messages, toolUseContext } = context;
-    const sessionId = (toolUseContext as any)?.sessionId;
+    const tuc = toolUseContext as unknown as Record<string, unknown>;
+    const sessionId = tuc?.sessionId;
 
     // 找到最后一条助手消息
-    const lastAssistantMsg = [...messages]
-      .reverse()
-      .find((m: any) => m.role === 'assistant');
+    const lastAssistantMsg = [...messages].reverse().find((m) => {
+      const mm = m as unknown as Record<string, unknown>;
+      return mm.role === 'assistant';
+    });
 
     if (!lastAssistantMsg) return;
 
+    const lmsg = lastAssistantMsg as unknown as Record<string, unknown>;
     // 统计工具调用次数
     let toolCallCount = 0;
-    if (Array.isArray((lastAssistantMsg as any).content)) {
-      for (const block of (lastAssistantMsg as any).content) {
-        if (block.type === 'tool_use') {
+    if (Array.isArray(lmsg.content)) {
+      for (const block of lmsg.content as unknown[]) {
+        if ((block as Record<string, unknown>).type === 'tool_use') {
           toolCallCount++;
         }
       }
     }
 
     // 统计消息中的工具调用
-    const toolCalls = (lastAssistantMsg as any).tool_calls;
+    const toolCalls = lmsg.tool_calls;
     if (Array.isArray(toolCalls)) {
       toolCallCount = Math.max(toolCallCount, toolCalls.length);
     }
 
     logger.info('AI 调用汇总', {
       sessionId: sessionId || 'unknown',
-      messageId: (lastAssistantMsg as any).id,
+      messageId: lmsg.id,
       toolCallCount,
       messageCount: messages.length,
       querySource: context.querySource,

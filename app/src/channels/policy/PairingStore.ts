@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { randomBytes } from 'crypto';
@@ -144,7 +145,10 @@ export class PairingStore {
         logger.info(`已加载配对数据: ${Object.keys(raw).length} 个通道`);
       }
     } catch (error) {
-      logger.error('加载配对数据失败', error as Error);
+      handleError(error instanceof Error ? error : new Error(String(error)), {
+        module: 'channels:policy',
+        action: '加载配对数据失败',
+      });
     }
     this.loaded = true;
   }
@@ -157,7 +161,10 @@ export class PairingStore {
       }
       writeFileSync(this.getFilePath(), JSON.stringify(data, null, 2));
     } catch (error) {
-      logger.error('保存配对数据失败', error as Error);
+      handleError(error instanceof Error ? error : new Error(String(error)), {
+        module: 'channels:policy',
+        action: '保存配对数据失败',
+      });
     }
   }
 }

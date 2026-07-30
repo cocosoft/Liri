@@ -31,19 +31,19 @@ import { resolveContextWindow } from './window/ContextWindowResolver';
  * @returns 返回一个新的函数，该函数具有与原始函数相同的签名。
  *          当使用相同的参数调用时，它将返回缓存的结果，而不是重新执行原始函数。
  */
-function memoize<T extends (...args: any[]) => any>(
-  fn: T,
-  resolver: (...args: Parameters<T>) => string
-): T {
+function memoize<Args extends unknown[], R>(
+  fn: (...args: Args) => R,
+  resolver: (...args: Args) => string
+): (...args: Args) => R {
   // 创建用于存储缓存结果的 Map，键为字符串，值为函数的返回类型
-  const cache = new Map<string, any>();
+  const cache = new Map<string, unknown>();
 
   // 创建记忆化后的函数包装器
-  const memoized = ((...args: any[]) => {
-    const key = resolver(...(args as Parameters<T>));
+  const memoized = ((...args: unknown[]) => {
+    const key = resolver(...(args as Args));
 
     if (cache.has(key)) {
-      const cached = cache.get(key) as any;
+      const cached = cache.get(key) as unknown;
       // 不缓存失败的 Promise，避免单次错误导致永久失败
       if (cached instanceof Promise) {
         return cached.catch((err: unknown) => {
@@ -54,7 +54,7 @@ function memoize<T extends (...args: any[]) => any>(
       return cached;
     }
 
-    const result = fn(...args) as any;
+    const result = fn(...(args as Args)) as unknown;
     // 对 Promise 也做失败清除（通过 .catch 异步删除）
     if (result instanceof Promise) {
       cache.set(key, result);
@@ -66,7 +66,7 @@ function memoize<T extends (...args: any[]) => any>(
 
     cache.set(key, result);
     return result;
-  }) as T;
+  }) as (...args: Args) => R;
 
   return memoized;
 }

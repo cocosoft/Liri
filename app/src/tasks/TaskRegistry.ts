@@ -4,6 +4,7 @@ import { randomBytes } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 import type { SqliteTaskStore } from './db/SqliteTaskStore';
 
 const logger = new Logger({ module: 'tasks:registry', level: LogLevel.INFO });
@@ -231,6 +232,7 @@ export class TaskRegistry {
       return this.stateHistory;
     } catch (err) {
       otel.endSpan(span, SpanStatusCode.ERROR, String(err));
+      handleError(err, { module: 'tasks:registry', action: 'loadTasksJson' });
       return [];
     }
   }
@@ -627,6 +629,10 @@ export class TaskRegistry {
         await fs.appendFile(auditPath, JSON.stringify(entry) + '\n', 'utf-8');
       } catch (err) {
         // 降级路径也失败，不阻塞主流程
+        handleError(err, {
+          module: 'tasks:registry',
+          action: 'writeAuditFile',
+        });
       }
     }
   }
@@ -666,7 +672,7 @@ export class TaskRegistry {
       if (now - lastTime > LOST_TIMEOUT_MS) {
         const taskId = task.id;
         await task.kill();
-        task['updateState']?.({
+        task.updateState({
           status: TaskStatus.LOST,
           endTime: now,
           error: 'Task lost: no progress update for 30 minutes',
@@ -692,7 +698,7 @@ export class TaskRegistry {
     const task = this.tasks.get(taskId);
     if (!task || task.status !== TaskStatus.LOST) return false;
 
-    task['updateState']?.({
+    task.updateState({
       status: TaskStatus.PENDING,
       endTime: undefined,
       error: undefined,

@@ -14,7 +14,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import { homedir, tmpdir } from 'os';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -104,10 +104,17 @@ function getAuditLogPath(): string {
     return auditLogPath;
   }
 
-  const primaryDir = join(homedir(), '.trae');
-  const primaryPath = join(primaryDir, 'security-audit.log');
+  // BUG15 修复：优先使用 paths.ts 统一路径，不可用时 fallback 到 homedir()
+  let primaryPath: string;
+  try {
+    const { resolveSecurityDir } = require('@modules/core/paths');
+    primaryPath = join(resolveSecurityDir(), 'security-audit.log');
+  } catch {
+    primaryPath = join(homedir(), '.trae', 'security-audit.log');
+  }
 
   try {
+    const primaryDir = dirname(primaryPath);
     if (!existsSync(primaryDir)) {
       mkdirSync(primaryDir, { recursive: true });
     }

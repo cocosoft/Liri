@@ -80,25 +80,34 @@ export class OllamaTransport extends BaseTransport {
     return request;
   }
 
-  normalizeResponse(raw: any): NormalizedResponse {
-    const message = raw.message ?? {};
+  normalizeResponse(raw: unknown): NormalizedResponse {
+    const r = raw as Record<string, unknown>;
+    const message = (r.message ?? {}) as Record<string, unknown>;
 
     let content: string | null = null;
     const toolCalls: NormalizedToolCall[] = [];
 
     if (message.content) {
-      content = message.content;
+      content = message.content as string;
     }
 
     if (message.tool_calls) {
-      for (const tc of message.tool_calls) {
+      for (const tc of message.tool_calls as Array<Record<string, unknown>>) {
         toolCalls.push({
-          id: tc.id ?? '',
-          name: tc.function?.name ?? tc.name ?? '',
+          id: (tc.id as string) ?? '',
+          name:
+            ((tc.function as Record<string, unknown>)?.name as string) ??
+            (tc.name as string) ??
+            '',
           arguments:
-            typeof tc.function?.arguments === 'string'
-              ? tc.function.arguments
-              : JSON.stringify(tc.function?.arguments ?? tc.arguments ?? {}),
+            typeof (tc.function as Record<string, unknown>)?.arguments ===
+            'string'
+              ? ((tc.function as Record<string, unknown>).arguments as string)
+              : JSON.stringify(
+                  (tc.function as Record<string, unknown>)?.arguments ??
+                    tc.arguments ??
+                    {}
+                ),
         });
       }
     }
@@ -107,15 +116,17 @@ export class OllamaTransport extends BaseTransport {
       content,
       toolCalls,
       usage: {
-        inputTokens: raw.prompt_eval_count ?? 0,
-        outputTokens: raw.eval_count ?? 0,
+        inputTokens: (r.prompt_eval_count as number) ?? 0,
+        outputTokens: (r.eval_count as number) ?? 0,
         cacheReadTokens: 0,
         cacheCreationTokens: 0,
-        totalTokens: (raw.prompt_eval_count ?? 0) + (raw.eval_count ?? 0),
+        totalTokens:
+          ((r.prompt_eval_count as number) ?? 0) +
+          ((r.eval_count as number) ?? 0),
       },
       reasoning: null,
-      finishReason: raw.done ? 'stop' : 'tool_calls',
-      model: raw.model ?? '',
+      finishReason: r.done ? 'stop' : 'tool_calls',
+      model: (r.model as string) ?? '',
       id: '',
     };
   }

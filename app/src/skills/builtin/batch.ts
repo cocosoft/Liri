@@ -13,7 +13,8 @@ const batchSkill: Skill = {
   version: '1.0.0',
   impl: {
     kind: 'executable',
-    execute: async (args: unknown[]) => {
+    execute: async (context: unknown) => {
+      const args = context as unknown[];
       return `Batch operation mode...\n\nCommands: ${args.join(' ') || 'None specified'}\n\nUse the batch skill to execute multiple commands sequentially.\nFormat: /batch "command1" "command2" "command3"`;
     },
   },

@@ -14,6 +14,7 @@
  */
 
 import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'ai:contextDegradation' });
 
@@ -100,9 +101,9 @@ export function tryDegradeContext(
   const nextTierIndex = currentTierIndex + 1;
   if (nextTierIndex >= DEGRADATION_CHAIN.length) {
     state.exhausted = true;
-    logger.error('contextDegradation:exhausted', {
-      currentLimit: state.currentLimit,
-      totalDegradations: state.degradationCount,
+    void handleError(new Error('contextDegradation:exhausted'), {
+      module: 'ai:context',
+      action: 'degradation:exhausted',
     });
     return { limit: state.currentLimit, shouldRetry: false, state };
   }

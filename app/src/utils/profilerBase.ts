@@ -8,7 +8,7 @@
 export function getPerformance(): Performance {
   return (
     performance ||
-    (globalThis as any).performance ||
+    (globalThis as unknown as { performance?: Performance }).performance ||
     require('perf_hooks').performance
   );
 }

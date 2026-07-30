@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Bridge API实现
  * 负责与远程服务器的通信
  */
@@ -416,7 +416,7 @@ export function createBridgeApiClient(deps: BridgeApiDeps): BridgeApiClient {
       const workType = response.data.data?.type;
       const sessionId =
         response.data.data?.type === 'session'
-          ? (response.data.data as any).id
+          ? (response.data.data as unknown as Record<string, unknown>).id
           : undefined;
       debug(
         `[bridge:api] GET .../work/poll -> ${response.status} workId=${workId} type=${workType}${sessionId ? ` sessionId=${sessionId}` : ''}`

@@ -112,7 +112,7 @@ export default function GlobalSearchModal({
       });
 
       try {
-        console.info("[SessionSwitch] 全局搜索切换会话", {
+        if (import.meta.env.DEV) console.info("[SessionSwitch] 全局搜索切换会话", {
           sessionId: session.id,
           sessionTitle: session.title,
           timestamp: Date.now(),
@@ -120,7 +120,7 @@ export default function GlobalSearchModal({
 
         await switchSession(session.id);
 
-        console.info("[SessionSwitch] 全局搜索切换会话成功", {
+        if (import.meta.env.DEV) console.info("[SessionSwitch] 全局搜索切换会话成功", {
           sessionId: session.id,
           timestamp: Date.now(),
         });
@@ -129,7 +129,7 @@ export default function GlobalSearchModal({
         setActivePage("chat");
         onClose();
       } catch (error) {
-        console.error("[SessionSwitch] 全局搜索切换会话失败", {
+        if (import.meta.env.DEV) console.error("[SessionSwitch] 全局搜索切换会话失败", {
           sessionId: session.id,
           sessionTitle: session.title,
           error: String(error),

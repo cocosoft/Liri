@@ -15,6 +15,7 @@ import {
   writeFileSync,
   unlinkSync,
   readdirSync,
+  renameSync,
 } from 'fs';
 import { join } from 'path';
 
@@ -39,12 +40,15 @@ export class SessionStoragePortable {
     }
   }
 
-  /** 保存 JSON 对象到文件 */
+  /** 保存 JSON 对象到文件（原子写入：先写临时文件再 rename，防半写损坏） */
   saveFile(relativePath: string, data: unknown): void {
     const fullPath = join(this.basePath, relativePath);
     const dir = join(fullPath, '..');
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-    writeFileSync(fullPath, JSON.stringify(data, null, 2), 'utf-8');
+    // BUG-J 修复：原子写入，避免进程崩溃导致半写文件
+    const tmpPath = fullPath + '.tmp.' + Date.now();
+    writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
+    renameSync(tmpPath, fullPath);
   }
 
   /** 读取并解析 JSON 文件 */

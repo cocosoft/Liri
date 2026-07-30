@@ -95,15 +95,17 @@ export class MessagesApiTransport extends BaseTransport {
         }
         if (m.tool_calls?.length) {
           for (const tc of m.tool_calls) {
-            const fn = (tc as any).function || tc;
+            const fn =
+              (tc.function as Record<string, unknown> | undefined) || tc;
             blocks.push({
               type: 'tool_use',
-              id: (tc as any).id || `tc_${Math.random().toString(36).slice(2)}`,
-              name: fn.name || '',
-              input:
-                typeof fn.arguments === 'string'
-                  ? JSON.parse(fn.arguments)
-                  : fn.arguments || {},
+              id:
+                (tc.id as string) ||
+                `tc_${Math.random().toString(36).slice(2)}`,
+              name: (fn.name as string) || '',
+              input: (typeof fn.arguments === 'string'
+                ? JSON.parse(fn.arguments)
+                : fn.arguments || {}) as Record<string, unknown>,
             });
           }
         }
@@ -148,9 +150,9 @@ export class MessagesApiTransport extends BaseTransport {
   }
 
   buildRequest(params: TransportRequestParams): Record<string, unknown> {
-    const messages = this.convertMessages(params.messages as any);
+    const messages = this.convertMessages(params.messages);
     const tools = params.tools?.length
-      ? this.convertTools(params.tools as any)
+      ? this.convertTools(params.tools)
       : undefined;
 
     const systemMsg = (
@@ -190,50 +192,55 @@ export class MessagesApiTransport extends BaseTransport {
     return body;
   }
 
-  normalizeResponse(raw: any): NormalizedResponse {
-    const content = raw.content || [];
-    const textBlocks = content.filter((b: any) => b.type === 'text');
-    const toolUseBlocks = content.filter((b: any) => b.type === 'tool_use');
+  normalizeResponse(raw: unknown): NormalizedResponse {
+    const r = raw as Record<string, unknown>;
+    const content = (r.content as Array<Record<string, unknown>>) || [];
+    const textBlocks = content.filter((b) => b.type === 'text');
+    const toolUseBlocks = content.filter((b) => b.type === 'tool_use');
 
-    const text = textBlocks.map((b: any) => b.text).join('\n');
-    const toolCalls: NormalizedToolCall[] = toolUseBlocks.map((b: any) => ({
-      id: b.id,
-      name: b.name,
-      arguments: b.input,
+    const text = textBlocks.map((b) => b.text as string).join('\n');
+    const toolCalls: NormalizedToolCall[] = toolUseBlocks.map((b) => ({
+      id: b.id as string,
+      name: b.name as string,
+      arguments: JSON.stringify(b.input),
     }));
 
+    const usageData = (r.usage || {}) as Record<string, number>;
+
     const usage: NormalizedUsage = {
-      inputTokens: raw.usage?.input_tokens ?? 0,
-      outputTokens: raw.usage?.output_tokens ?? 0,
+      inputTokens: usageData.input_tokens ?? 0,
+      outputTokens: usageData.output_tokens ?? 0,
       totalTokens:
-        (raw.usage?.input_tokens ?? 0) + (raw.usage?.output_tokens ?? 0),
-      cacheReadTokens: raw.usage?.cache_read_input_tokens ?? 0,
-      cacheCreationTokens: raw.usage?.cache_creation_input_tokens ?? 0,
+        (usageData.input_tokens ?? 0) + (usageData.output_tokens ?? 0),
+      cacheReadTokens: usageData.cache_read_input_tokens ?? 0,
+      cacheCreationTokens: usageData.cache_creation_input_tokens ?? 0,
     };
 
     return {
-      id: raw.id || '',
-      model: raw.model,
-      finishReason: raw.stop_reason || 'stop',
+      id: (r.id as string) || '',
+      model: r.model as string,
+      finishReason: (r.stop_reason as string) || 'stop',
       content: text || null,
       toolCalls: toolCalls,
       reasoning: null,
       usage,
-      raw,
+      raw: r,
     };
   }
 
-  override extractCacheStats(raw: any): NormalizedUsage | null {
+  override extractCacheStats(raw: unknown): NormalizedUsage | null {
+    const r = raw as Record<string, unknown>;
+    const usageData = r.usage as Record<string, number> | undefined;
     if (
-      raw.usage?.cache_read_input_tokens ||
-      raw.usage?.cache_creation_input_tokens
+      usageData?.cache_read_input_tokens ||
+      usageData?.cache_creation_input_tokens
     ) {
       return {
         inputTokens: 0,
         outputTokens: 0,
         totalTokens: 0,
-        cacheReadTokens: raw.usage.cache_read_input_tokens || 0,
-        cacheCreationTokens: raw.usage.cache_creation_input_tokens || 0,
+        cacheReadTokens: usageData.cache_read_input_tokens || 0,
+        cacheCreationTokens: usageData.cache_creation_input_tokens || 0,
       };
     }
     return null;

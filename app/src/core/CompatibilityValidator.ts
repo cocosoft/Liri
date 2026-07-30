@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { EnhancedModuleDependencyManager } from './EnhancedModuleDependencyManager.js';
 import { StartupOptimizer } from './StartupOptimizer.js';
 import { RemoteConfigManager } from './RemoteConfigManager.js';
@@ -663,7 +664,10 @@ async function main(): Promise<void> {
       );
     }
   } catch (error) {
-    logger.error('兼容性验证失败:', error);
+    await handleError(error, {
+      module: 'core:compat',
+      action: 'validate',
+    });
     process.exit(1);
   }
 }

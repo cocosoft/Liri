@@ -12,8 +12,8 @@ const logger = new Logger({
 
 export interface SkillContext {
   input: string;
-  messages: any[];
-  [key: string]: any;
+  messages: unknown[];
+  [key: string]: unknown;
 }
 
 export interface SkillResult {
@@ -35,8 +35,8 @@ export interface SkillMatch {
 }
 
 export interface ISkillRegistry {
-  get(skillName: string): any;
-  getAll(): any[];
+  get(skillName: string): Record<string, unknown>;
+  getAll(): Record<string, unknown>[];
   has(skillName: string): boolean;
 }
 
@@ -51,7 +51,7 @@ export class SkillProvider {
 
   constructor(config: SkillProviderConfig) {
     this.enabled = config.enabled;
-    this.registry = config.skillRegistry || null;
+    this.registry = (config.skillRegistry as ISkillRegistry) || null;
   }
 
   isEnabled(): boolean {
@@ -111,9 +111,11 @@ export class SkillProvider {
     const lowerInput = input.toLowerCase();
 
     for (const skill of skills) {
-      const manifest = skill.manifest || skill;
-      const keywords = manifest.keywords || [];
-      const skillName = manifest.name || '';
+      const manifest = (skill as Record<string, unknown>).manifest || skill;
+      const keywords =
+        ((manifest as Record<string, unknown>).keywords as string[]) || [];
+      const skillName =
+        ((manifest as Record<string, unknown>).name as string) || '';
 
       for (const keyword of keywords) {
         if (lowerInput.includes(keyword.toLowerCase())) {
@@ -139,7 +141,15 @@ export class SkillProvider {
     if (!this.registry) {
       return [];
     }
-    return this.registry.getAll().map((s) => s.manifest?.name || s.name || '');
+    return this.registry
+      .getAll()
+      .map(
+        (s) =>
+          (((s as Record<string, unknown>).manifest as Record<string, unknown>)
+            ?.name ||
+            (s as Record<string, unknown>).name ||
+            '') as string
+      );
   }
 
   hasSkill(skillName: string): boolean {

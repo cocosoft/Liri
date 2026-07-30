@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { ITaskStore } from './ITaskStore';
 import type { TaskState } from '../types';
 
@@ -33,10 +34,10 @@ export class JsonTaskStore implements ITaskStore {
         'utf-8'
       );
     } catch (error) {
-      logger.error(
-        '[JsonTaskStore] 保存任务状态失败',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, {
+        module: 'tasks:store:json',
+        action: '保存任务状态',
+      });
     }
   }
 

@@ -167,15 +167,19 @@ export function usePrStatus(repo: string, prNumber: number): UsePrStatusResult {
               : undefined,
           })) || [],
         reviews:
-          reviewsData?.map((review: any) => ({
-            author: review.user.login,
-            state: review.state as
-              | 'approved'
-              | 'changes_requested'
-              | 'commented'
-              | 'dismissed',
-            submittedAt: new Date(review.submitted_at),
-          })) || [],
+          reviewsData?.map((review: unknown) => {
+            const r = review as Record<string, unknown>;
+            const user = r.user as Record<string, unknown>;
+            return {
+              author: user.login as string,
+              state: r.state as
+                | 'approved'
+                | 'changes_requested'
+                | 'commented'
+                | 'dismissed',
+              submittedAt: new Date(r.submitted_at as string),
+            };
+          }) || [],
       };
 
       setPr(prInfo);

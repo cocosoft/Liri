@@ -59,7 +59,7 @@ export interface ModelConfig {
  */
 export type ModelKey = string;
 
-function _getRegistry(): any {
+function _getRegistry(): unknown {
   try {
     const mod =
       (globalThis as any).__ModelRegistryModule ??
@@ -80,9 +80,11 @@ function _getRegistry(): any {
 function _getAllFromRegistry(): Record<string, ModelConfig> {
   try {
     const mod = _getRegistry();
-    if (mod?.ModelRegistry) {
-      const reg = mod.ModelRegistry.getInstance();
-      return reg.getAllModelsAsRecord();
+    if (mod && typeof mod === 'object' && 'ModelRegistry' in mod) {
+      const reg = (mod as Record<string, unknown>).ModelRegistry as unknown as {
+        getInstance(): { getAllModelsAsRecord(): Record<string, ModelConfig> };
+      };
+      return reg.getInstance().getAllModelsAsRecord();
     }
   } catch (err) {
     // ModelRegistry 不可用
@@ -102,7 +104,7 @@ function _getAllFromRegistry(): Record<string, ModelConfig> {
 export const ALL_MODEL_CONFIGS: Record<ModelKey, ModelConfig> = new Proxy(
   {} as Record<ModelKey, ModelConfig>,
   {
-    get(_target, prop: string | symbol): any {
+    get(_target, prop: string | symbol): unknown {
       if (typeof prop === 'string' && prop !== 'then' && prop !== 'toJSON') {
         const data = _getAllFromRegistry();
         return data[prop];

@@ -3,6 +3,7 @@ import { AgentTool } from '../models/types';
 import { AgentStrategy } from '../models/types';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error/handleError';
 import { pluginSystem } from '@modules/plugins';
 import { PluginState } from '@modules/plugins/types/PluginTypes';
 
@@ -25,7 +26,7 @@ interface AgentPlugin {
 }
 
 interface PluginConfig {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface AgentExtension {
@@ -148,7 +149,7 @@ export class PluginLoader {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       this.loadHistory.push({ success: false, error: errorMessage, loadTime });
-      logger.error(`Failed to load plugin from ${pluginPath}: ${errorMessage}`);
+      handleError(error, { module: 'agent:plugin', action: '加载插件' });
       throw error;
     }
   }
@@ -166,7 +167,7 @@ export class PluginLoader {
       this.sandboxes.delete(pluginId);
       logger.info(`Unloaded plugin ${pluginId}`);
     } catch (error) {
-      logger.error(`Failed to unload plugin ${pluginId}:`, error as Error);
+      handleError(error, { module: 'agent:plugin', action: '卸载插件' });
       throw error;
     }
   }
@@ -313,17 +314,18 @@ export class PluginLoader {
     }
   }
 
-  private validatePlugin(plugin: any): plugin is AgentPlugin {
+  private validatePlugin(plugin: unknown): plugin is AgentPlugin {
+    const p = plugin as Record<string, unknown>;
     return (
-      typeof plugin.id === 'string' &&
-      typeof plugin.name === 'string' &&
-      typeof plugin.version === 'string' &&
-      typeof plugin.initialize === 'function' &&
-      typeof plugin.activate === 'function' &&
-      typeof plugin.deactivate === 'function' &&
-      typeof plugin.getTools === 'function' &&
-      typeof plugin.getStrategies === 'function' &&
-      typeof plugin.getExtensions === 'function'
+      typeof p.id === 'string' &&
+      typeof p.name === 'string' &&
+      typeof p.version === 'string' &&
+      typeof p.initialize === 'function' &&
+      typeof p.activate === 'function' &&
+      typeof p.deactivate === 'function' &&
+      typeof p.getTools === 'function' &&
+      typeof p.getStrategies === 'function' &&
+      typeof p.getExtensions === 'function'
     );
   }
 

@@ -6,6 +6,7 @@
  * */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
   module: 'services:mcp:elicitation',
@@ -303,7 +304,10 @@ export class MCPElicitationQueue {
           handler.onElicitResponse(event, response);
         }
       } catch (error) {
-        logger.error('Error notifying elicitation handler:', error as Error);
+        handleError(error, {
+          module: 'services:mcp:elicit',
+          action: '通知引导处理器出错',
+        });
       }
     }
   }

@@ -493,9 +493,9 @@ const zh = {
     notificationsAgentPushDesc: "Agent 推送消息时发送通知",
     notificationsBlockedAlert:
       "通知已被浏览器阻止，请在浏览器设置中允许本网站的通知",
-    logs: "后端日志",
+    logs: "查看日志",
     logViewerTitle: "日志浏览器",
-    logViewerDesc: "浏览系统日志、LLM 会话记录和成本统计",
+    logViewerDesc: "浏览系统日志、LLM 会话记录和安全日志",
     logViewerTabLogs: "系统日志",
     logViewerTabFrontend: "前端日志",
     logViewerTabSessions: "LLM 会话",

@@ -17,7 +17,12 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import {
   getDefaultMattermostConfig,
   validateMattermostConfig,
@@ -384,17 +389,17 @@ export class MattermostChannel
 
         self.monitor.on('message', (msg: MessageContext) => {
           self.handleIncomingMessage(msg).catch((err) => {
-            self.logger.error('处理入站消息失败', {
-              error: String(err),
-              channel: 'mattermost',
+            handleError(err, {
+              module: 'channels:mattermost',
+              action: '处理入站消息失败',
             });
           });
         });
 
         self.monitor.on('error', (err: Error) => {
-          self.logger.error('Mattermost 监控错误', {
-            error: err.message,
-            channel: 'mattermost',
+          handleError(err, {
+            module: 'channels:mattermost',
+            action: 'Mattermost 监控错误',
           });
         });
 

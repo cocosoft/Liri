@@ -15,6 +15,7 @@ import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core/paths';
 import { randomUUID } from 'crypto';
 import { broadcastEvent } from '../infrastructure/http/LocalHTTPServiceSSE.js';
+import type { FrontendMessageBlock } from '@modules/session/types/Message.js';
 
 const logger = new Logger({ module: 'runtime:inbox' });
 
@@ -901,7 +902,7 @@ async function _injectInboxBlock(
 
   await gateway.updateMessage(sessionId, targetMessageId, {
     ...msg,
-    blocks: updatedBlocks as any,
+    blocks: updatedBlocks as unknown as FrontendMessageBlock[],
   });
 }
 

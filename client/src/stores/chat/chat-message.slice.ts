@@ -273,6 +273,16 @@ export const createMessageSlice: StateCreator<
 
       // 非流式路径也持久化 blocks，避免下次全量加载时重建丢失结构
       const assistantMsg = response as Message;
+      // P7: 非流式路径 blocks 重建 — 若后端返回 content 但无 blocks，构建 fallback text block
+      if (assistantMsg.role === "assistant" && !assistantMsg.blocks?.length && assistantMsg.content) {
+        assistantMsg.blocks = [
+          {
+            id: `fallback-${assistantMsg.id}`,
+            type: "text" as const,
+            content: assistantMsg.content,
+          },
+        ];
+      }
       if (assistantMsg.role === "assistant" && assistantMsg.blocks?.length) {
         chatService
           .updateMessageBlocks(
@@ -516,8 +526,11 @@ export const createMessageSlice: StateCreator<
       batchPending = false;
     };
 
+    // P8: ghostCheckTimer 提升到 try 外，确保 catch 块中可清除
+    let ghostCheckTimer: ReturnType<typeof setInterval> | undefined;
+
+    // P2-2: 有 sessionId 时使用带自动重连的流式发送
     try {
-      // P2-2: 有 sessionId 时使用带自动重连的流式发送
       const generator = sessionId
         ? chatService.streamMessageWithReconnect(
             content,
@@ -536,7 +549,7 @@ export const createMessageSlice: StateCreator<
 
       // P1-5: 幽灵块检测 — 超过 30s 无 chunk 时 ping 后端确认任务是否仍在执行
       let lastChunkTime = Date.now();
-      const ghostCheckTimer = setInterval(async () => {
+      ghostCheckTimer = setInterval(async () => {
         if (abortController.signal.aborted) {
           clearInterval(ghostCheckTimer);
           return;
@@ -987,6 +1000,8 @@ export const createMessageSlice: StateCreator<
       // 消息排队：自动消费队列中的下一条消息
       tryDequeue();
     } catch (error) {
+      // P8: 清除幽灵检测定时器，防止网络断开后旧定时器泄露到新流式
+      if (ghostCheckTimer) clearInterval(ghostCheckTimer);
       handleClientError(
         error,
         { module: "stores:chat:message", action: "streamMessage" },
@@ -1439,7 +1454,7 @@ export const createMessageSlice: StateCreator<
   },
 
   /** P2-6: 用户确认恢复 — 关闭提示，允许下一条消息通过 */
-  resumeRecovery: (sessionId: string) => {
+  resumeRecovery: (_sessionId: string) => {
     set({ recoverySessionId: null });
     // 不清除后端检查点 — resume 端点需要它来恢复生成器状态
   },

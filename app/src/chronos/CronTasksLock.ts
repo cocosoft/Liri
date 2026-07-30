@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Cron任务调度锁
  * 用于防止多实例同时执行任务
  */
@@ -90,18 +90,20 @@ async function tryCreateExclusiveLock(
       return true;
     }
     return false;
-  } catch (e: any) {
-    if (e.code === 'ENOENT') {
+  } catch (e: unknown) {
+    const err = e as Record<string, unknown>;
+    if (err.code === 'ENOENT') {
       ensureLockDir(baseDir);
       try {
         writeFileSync(lockPath, JSON.stringify(lock), { flag: 'wx' });
         return true;
-      } catch (retryErr: any) {
-        if (retryErr.code === 'EEXIST') return false;
+      } catch (retryErr: unknown) {
+        const retryErr2 = retryErr as Record<string, unknown>;
+        if (retryErr2.code === 'EEXIST') return false;
         throw retryErr;
       }
     }
-    if (e.code === 'EEXIST') return false;
+    if (err.code === 'EEXIST') return false;
     throw e;
   }
 }

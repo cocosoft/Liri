@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Chronos CLI命令
  * 定时任务管理命令行工具
  */
@@ -28,7 +28,7 @@ export function registerChronosCommands(program: Command): void {
     .command('list')
     .description('List all scheduled tasks')
     .option('-j, --json', 'Output as JSON')
-    .action(async (options: any) => {
+    .action(async (options: Record<string, unknown>) => {
       try {
         const tasks = await listAllCronTasks();
 
@@ -59,8 +59,10 @@ export function registerChronosCommands(program: Command): void {
         }
 
         console.log(chalk.bold(`Total tasks: ${tasks.length}`));
-      } catch (error: any) {
-        console.error(chalk.red(`Error listing tasks: ${error.message}`));
+      } catch (error: unknown) {
+        console.error(
+          chalk.red(`Error listing tasks: ${(error as Error).message}`)
+        );
       }
     });
 
@@ -75,13 +77,13 @@ export function registerChronosCommands(program: Command): void {
     .option('-r, --recurring', 'Set as recurring task', true)
     .option('-d, --durable', 'Persist task to disk', true)
     .option('-a, --agent <id>', 'Agent ID to use')
-    .action(async (options: any) => {
+    .action(async (options: Record<string, unknown>) => {
       try {
-        const cron = options.cron;
-        const prompt = options.prompt;
-        const recurring = options.recurring ?? true;
-        const durable = options.durable ?? true;
-        const agentId = options.agent;
+        const cron = options.cron as string;
+        const prompt = options.prompt as string;
+        const recurring = (options.recurring as boolean | undefined) ?? true;
+        const durable = (options.durable as boolean | undefined) ?? true;
+        const agentId = options.agent as string | undefined;
 
         const parsed = parseCronExpression(cron);
         if (!parsed) {
@@ -101,8 +103,10 @@ export function registerChronosCommands(program: Command): void {
         console.log(chalk.white(`Recurring: ${recurring}`));
         console.log(chalk.white(`Durable: ${durable}`));
         console.log(chalk.cyan('═'.repeat(80)));
-      } catch (error: any) {
-        console.error(chalk.red(`Error creating task: ${error.message}`));
+      } catch (error: unknown) {
+        console.error(
+          chalk.red(`Error creating task: ${(error as Error).message}`)
+        );
       }
     });
 
@@ -110,9 +114,9 @@ export function registerChronosCommands(program: Command): void {
     .command('delete')
     .description('Delete a scheduled task')
     .requiredOption('-i, --id <task-id>', 'Task ID to delete')
-    .action(async (options: any) => {
+    .action(async (options: Record<string, unknown>) => {
       try {
-        const id = options.id;
+        const id = options.id as string;
 
         const tasks = await listAllCronTasks();
         const task = tasks.find((t) => t.id === id);
@@ -125,8 +129,10 @@ export function registerChronosCommands(program: Command): void {
         await removeCronTasks([id]);
 
         console.log(chalk.green('✓'), `Task ${id} deleted successfully!`);
-      } catch (error: any) {
-        console.error(chalk.red(`Error deleting task: ${error.message}`));
+      } catch (error: unknown) {
+        console.error(
+          chalk.red(`Error deleting task: ${(error as Error).message}`)
+        );
       }
     });
 
@@ -134,9 +140,9 @@ export function registerChronosCommands(program: Command): void {
     .command('info')
     .description('Show detailed information about a task')
     .requiredOption('-i, --id <task-id>', 'Task ID')
-    .action(async (options: any) => {
+    .action(async (options: Record<string, unknown>) => {
       try {
-        const id = options.id;
+        const id = options.id as string;
 
         const tasks = await listAllCronTasks();
         const task = tasks.find((t) => t.id === id);
@@ -172,8 +178,10 @@ export function registerChronosCommands(program: Command): void {
           );
         }
         console.log(chalk.cyan('═'.repeat(80)));
-      } catch (error: any) {
-        console.error(chalk.red(`Error getting task info: ${error.message}`));
+      } catch (error: unknown) {
+        console.error(
+          chalk.red(`Error getting task info: ${(error as Error).message}`)
+        );
       }
     });
 }

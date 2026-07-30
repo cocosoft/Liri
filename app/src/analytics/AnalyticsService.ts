@@ -3,19 +3,31 @@ import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('analytics');
 
+interface AnalyticsSession {
+  id: string;
+  startTime: number;
+  lastActivity: number;
+  user_id: string;
+  interactionCount: number;
+  totalDuration: number;
+  operations: Array<{ type: string; count: number; totalDuration: number }>;
+  endTime?: number;
+}
+
 /**
  * 分析服务 - 负责事件追踪、会话管理等
  */
 export class AnalyticsService {
-  private events: any[] = [];
-  private sessions: Map<string, any> = new Map();
+  private events: Record<string, unknown>[] = [];
+  private sessions: Map<string, AnalyticsSession> = new Map();
   private eventSequence: number = 0;
   private maxEvents: number = 50000;
   private maxSessions: number = 1000;
   private sessionTimeout: number = 1800000; // 30分钟
   private toolCallCounts: Map<string, number> = new Map();
   private totalToolCalls: number = 0;
-  private listeners: Map<string, Array<(...args: any[]) => void>> = new Map();
+  private listeners: Map<string, Array<(...args: unknown[]) => void>> =
+    new Map();
   static instance: AnalyticsService;
 
   /**
@@ -25,7 +37,11 @@ export class AnalyticsService {
    * @param metadata 事件元数据
    * @returns 事件ID
    */
-  trackEvent(type: string, name: string, metadata: Record<string, any> = {}) {
+  trackEvent(
+    type: string,
+    name: string,
+    metadata: Record<string, unknown> = {}
+  ) {
     const eventId = randomUUID();
     const timestamp = Date.now();
     const event = {
@@ -52,7 +68,7 @@ export class AnalyticsService {
 
     // 独立累计工具调用计数（不受队列清空影响）
     if (['tool_call', 'tool_execute', 'tool_result'].includes(type)) {
-      const toolName = metadata?.tool_name || name || 'unknown';
+      const toolName = String(metadata?.tool_name || name || 'unknown');
       this.toolCallCounts.set(
         toolName,
         (this.toolCallCounts.get(toolName) || 0) + 1
@@ -69,7 +85,7 @@ export class AnalyticsService {
    * @param metadata 事件元数据
    * @returns 事件ID
    */
-  logEvent(eventName: string, metadata: Record<string, any> = {}) {
+  logEvent(eventName: string, metadata: Record<string, unknown> = {}) {
     return this.trackEvent(eventName, eventName, metadata);
   }
 
@@ -116,7 +132,7 @@ export class AnalyticsService {
    * @param options 查询选项
    * @returns 事件列表
    */
-  getEvents(options: Record<string, any> = {}) {
+  getEvents(options: Record<string, unknown> = {}) {
     let result = [...this.events];
 
     if (options.type) {
@@ -128,15 +144,19 @@ export class AnalyticsService {
     }
 
     if (options.startTime) {
-      result = result.filter((event) => event.timestamp >= options.startTime);
+      result = result.filter(
+        (event) => (event.timestamp as number) >= (options.startTime as number)
+      );
     }
 
     if (options.endTime) {
-      result = result.filter((event) => event.timestamp <= options.endTime);
+      result = result.filter(
+        (event) => (event.timestamp as number) <= (options.endTime as number)
+      );
     }
 
     if (options.limit) {
-      result = result.slice(0, options.limit);
+      result = result.slice(0, options.limit as number);
     }
 
     return result;
@@ -178,7 +198,7 @@ export class AnalyticsService {
     session.totalDuration = session.lastActivity - session.startTime;
 
     let operation = session.operations.find(
-      (op: any) => op.type === operationType
+      (op: Record<string, unknown>) => op.type === operationType
     );
     if (!operation) {
       operation = { type: operationType, count: 0, totalDuration: 0 };
@@ -227,9 +247,10 @@ export class AnalyticsService {
    * @returns 统计信息
    */
   getStats() {
-    const eventCounts: Record<string, any> = {};
+    const eventCounts: Record<string, unknown> = {};
     for (const event of this.events) {
-      eventCounts[event.type] = (eventCounts[event.type] || 0) + 1;
+      eventCounts[event.type as string] =
+        ((eventCounts[event.type as string] as number) || 0) + 1;
     }
 
     return {
@@ -269,7 +290,7 @@ export class AnalyticsService {
    */
   getActiveSessions(timeout: number = 300000) {
     const now = Date.now();
-    const activeSessions: any[] = [];
+    const activeSessions: AnalyticsSession[] = [];
 
     for (const session of this.sessions.values()) {
       if (now - session.lastActivity <= timeout) {
@@ -285,7 +306,7 @@ export class AnalyticsService {
    * @param event 事件名称
    * @param data 事件数据
    */
-  emit(event: string, data: any) {
+  emit(event: string, data: unknown) {
     const handlers = this.listeners.get(event);
     if (handlers) {
       for (const handler of handlers) {
@@ -303,7 +324,7 @@ export class AnalyticsService {
    * @param event 事件名称
    * @param handler 事件处理函数
    */
-  on(event: string, handler: (...args: any[]) => void) {
+  on(event: string, handler: (...args: unknown[]) => void) {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
     }
@@ -313,10 +334,11 @@ export class AnalyticsService {
   /**
    * 事件计数
    */
-  get eventCounts(): Record<string, any> {
-    const counts: Record<string, any> = {};
+  get eventCounts(): Record<string, unknown> {
+    const counts: Record<string, unknown> = {};
     for (const event of this.events) {
-      counts[event.type] = (counts[event.type] || 0) + 1;
+      counts[event.type as string] =
+        ((counts[event.type as string] as number) || 0) + 1;
     }
     return counts;
   }

@@ -310,7 +310,7 @@ export class FileIngestionService {
               content.slice(0, 3000)
             );
           }
-        } catch (err) {
+        } catch (_err) {
           logger.warning('AI 分类失败，使用默认分类', { fileName });
         }
       }
@@ -409,7 +409,7 @@ export class FileIngestionService {
         const meta = JSON.parse(content);
         const cat = meta.category || 'other';
         categories[cat] = (categories[cat] || 0) + 1;
-      } catch (err) {
+      } catch (_err) {
         // 跳过损坏的元数据文件
       }
     }
@@ -496,7 +496,7 @@ export class FileIngestionService {
         'other',
       ];
       return validCategories.includes(category) ? category : 'reference';
-    } catch (err) {
+    } catch (_err) {
       return 'reference';
     }
   }
@@ -530,7 +530,7 @@ export class FileIngestionService {
       if (stats.size > 1024 * 1024) return null;
 
       return await readFile(filePath, 'utf-8');
-    } catch (err) {
+    } catch (_err) {
       return null;
     }
   }

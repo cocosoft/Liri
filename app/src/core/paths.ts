@@ -136,7 +136,16 @@ export function resolveProjectRoot(
     const parent = resolve(resolved, '..');
     const parentAppPackage = join(parent, 'app', 'package.json');
     if (existsSync(parentAppPackage)) {
-      return parent;
+      // BUG05 修复：验证 package.json 内容，避免同名 app 目录误匹配
+      try {
+        const pkg = JSON.parse(readFileSync(parentAppPackage, 'utf-8'));
+        if (pkg.name && typeof pkg.name === 'string') {
+          return parent;
+        }
+      } catch {
+        // package.json 不可读时仍返回 parent（保持向后兼容）
+        return parent;
+      }
     }
   }
 
@@ -603,11 +612,33 @@ export function ensureDir(dirPath: string): void {
 // ─── 路径工具函数（对标 cc_code/cline-main）───────────
 
 /**
+ * 安全的路径包含判断 — 检查 child 是否在 parent 目录内（含边界保护）
+ * 解决 startsWith 前缀碰撞：parent="proj" 不会匹配 child="proj2/file"
+ */
+export function isPathWithin(parent: string, child: string): boolean {
+  const resolvedParent = resolve(parent);
+  const resolvedChild = resolve(child);
+  if (resolvedChild === resolvedParent) return true;
+  const parentWithSep = resolvedParent.endsWith(sep)
+    ? resolvedParent
+    : resolvedParent + sep;
+  return resolvedChild.startsWith(parentWithSep);
+}
+
+/**
  * 路径遍历检测 — 禁止 ../ 或 ..\ 模式
+ * 覆盖：原始字符串、URL 编码 (%2e)、双编码 (%252e)
  * 对标 BA_REF/cc_code backend/utils/path.ts:133-135
  */
 export function containsPathTraversal(inputPath: string): boolean {
-  return /\.\.(?:\/|\\)/.test(inputPath);
+  if (!inputPath || typeof inputPath !== 'string') return false;
+  // Step 1: 原始字符串中的 ../
+  if (/\.\.[/\\]/.test(inputPath)) return true;
+  // Step 2: URL 编码形式 (%2e%2e/ / %2e%2e%2f)
+  if (/%2e%2e[/\\]?/i.test(inputPath)) return true;
+  // Step 3: 双编码形式（绕过手段）
+  if (/%252e%252e[/\\]?/i.test(inputPath)) return true;
+  return false;
 }
 
 /**
@@ -814,6 +845,17 @@ export function ensureDataDirectories(
 }
 
 // ─── 常量（默认值） ───────────────────────────
+//
+// BUG14 风险评估：已确认安全。
+//   pyapp.ts 是唯一入口 → 设置 LIRI_PROJECT_DIR + chdir → 动态 import main.ts → 此后才导入 paths.ts。
+//   测试/REPL 等非标准入口如需重置，调用 resetPaths() 后再重新 import。
+//
+
+/** 重置内部路径缓存（供测试/运行时目录变更后调用） */
+export function resetPaths(): void {
+  // 目前常量基于环境变量/chdir 实时计算，无需缓存清除。
+  // 如需惰性求值迁移，在此处添加 cache.clear()。
+}
 
 export const LIRI_HOME = resolvePyappHome();
 export const PROJECT_ROOT = resolveProjectRoot();

@@ -31,30 +31,6 @@ const logger = new OTelAwareLogger({
   level: LogLevel.INFO,
 });
 
-/** RSS 条目 */
-interface RSSItem {
-  title?: string;
-  link?: string;
-  guid?: string;
-  description?: string;
-  'content:encoded'?: string;
-  content?: string;
-  pubDate?: string;
-  author?: string;
-  category?: string | string[];
-}
-
-interface RSSFeed {
-  rss?: {
-    channel?: Array<{
-      item?: RSSItem[];
-    }>;
-  };
-  feed?: {
-    entry?: Array<Record<string, unknown>>;
-  };
-}
-
 /**
  * RSS/Atom Feed 连接器
  *

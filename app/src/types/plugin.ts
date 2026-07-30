@@ -43,7 +43,7 @@ export interface PluginManifest {
  * 插件钩子配置
  */
 export interface PluginHooks {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -53,7 +53,7 @@ export interface PluginMcpServer {
   name: string;
   url: string;
   description?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -65,7 +65,7 @@ export interface BuiltinPluginDefinition {
   version: string;
   defaultEnabled?: boolean;
   isAvailable?: () => boolean;
-  skills?: any[];
+  skills?: unknown[];
   hooks?: PluginHooks;
   mcpServers?: PluginMcpServer[];
 }
@@ -84,7 +84,7 @@ export interface CommandMetadata {
     required: boolean;
     default?: any;
   }>;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**

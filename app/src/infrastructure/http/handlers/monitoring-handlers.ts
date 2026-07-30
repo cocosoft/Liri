@@ -19,8 +19,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
-
 /**
  * monitoring-handlers.ts — 监控相关 HTTP 处理器（从 LocalHTTPService 提取）
  */
@@ -35,6 +33,7 @@ import {
   getSystemCpuPercentAsync,
   getDiskInfoAsync,
 } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'infrastructure:http:handlers:monitoring-handlers',
@@ -438,7 +437,10 @@ export async function handleExportLogs(
       res.end(JSON.stringify(exportData, null, 2));
     }
   } catch (error) {
-    logger.error('导出日志失败', { error: String(error) });
+    await handleError(error, {
+      module: 'infra:handler:monitoring',
+      action: 'export_logs',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: '导出日志失败' }));
   }
@@ -468,7 +470,10 @@ export async function handleMonitorSessions(
       })
     );
   } catch (error) {
-    logger.error('获取会话列表失败', { error: String(error) });
+    await handleError(error, {
+      module: 'infra:handler:monitoring',
+      action: 'sessions',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: '获取会话列表失败' }));
   }
@@ -496,7 +501,10 @@ export async function handleMonitorSessionDetail(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(sessionDetail));
   } catch (error) {
-    logger.error('获取会话详情失败', { error: String(error) });
+    await handleError(error, {
+      module: 'infra:handler:monitoring',
+      action: 'session_detail',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: '获取会话详情失败' }));
   }
@@ -517,7 +525,10 @@ export async function handleSessionsSummary(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(summary));
   } catch (error) {
-    logger.error('获取会话汇总失败', { error: String(error) });
+    await handleError(error, {
+      module: 'infra:handler:monitoring',
+      action: 'sessions_summary',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: '获取会话汇总失败' }));
   }
@@ -557,13 +568,27 @@ export async function handleOTelMetrics(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
-        enabled: (oTelMetrics as any)?.enabled ?? false,
-        serviceName: (oTelMetrics as any)?.config?.serviceName,
+        enabled:
+          (
+            oTelMetrics as unknown as {
+              enabled?: boolean;
+              config?: { serviceName?: string };
+            }
+          )?.enabled ?? false,
+        serviceName: (
+          oTelMetrics as unknown as {
+            enabled?: boolean;
+            config?: { serviceName?: string };
+          }
+        )?.config?.serviceName,
         snapshot,
       })
     );
   } catch (error) {
-    logger.error('获取 OTel 指标失败', { error: String(error) });
+    await handleError(error, {
+      module: 'infra:handler:monitoring',
+      action: 'otel_metrics',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: '获取 OTel 指标失败' }));
   }
@@ -616,7 +641,9 @@ export async function handleInfrastructureStatus(
     // OTel 启用状态
     let otelEnabled = false;
     try {
-      otelEnabled = (getOTelMetrics() as any)?.enabled ?? false;
+      otelEnabled =
+        (getOTelMetrics() as unknown as { enabled?: boolean })?.enabled ??
+        false;
     } catch (err) {
       // 默认 false
     }
@@ -663,7 +690,10 @@ export async function handleInfrastructureStatus(
       })
     );
   } catch (error) {
-    logger.error('获取基础设施状态失败', { error: String(error) });
+    await handleError(error, {
+      module: 'infra:handler:monitoring',
+      action: 'infra_status',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: '获取基础设施状态失败' }));
   }
@@ -689,7 +719,10 @@ export async function handlePathGuardMetrics(
     });
     res.end(JSON.stringify(metrics));
   } catch (error) {
-    logger.error('获取路径守卫指标失败', { error: String(error) });
+    await handleError(error, {
+      module: 'infra:handler:monitoring',
+      action: 'path_guard_metrics',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: '获取路径守卫指标失败' }));
   }
@@ -713,7 +746,10 @@ export async function handlePathGuardMetricsReset(
     });
     res.end(JSON.stringify({ ok: true }));
   } catch (error) {
-    logger.error('重置路径守卫指标失败', { error: String(error) });
+    await handleError(error, {
+      module: 'infra:handler:monitoring',
+      action: 'path_guard_reset',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: '重置路径守卫指标失败' }));
   }

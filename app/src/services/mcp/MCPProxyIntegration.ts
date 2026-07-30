@@ -4,6 +4,7 @@
  * 负责与外部 MCP 服务器的集成
  */
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
   module: 'services:mcp:proxy',
@@ -35,10 +36,10 @@ export class MCPProxyIntegration {
       logger.info('Initializing Proxy integration');
       // 这里可以添加初始化逻辑
     } catch (error) {
-      logger.error(
-        'Failed to initialize Proxy integration:',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, {
+        module: 'services:mcp:proxy',
+        action: '初始化Proxy集成失败',
+      });
     }
   }
 
@@ -79,10 +80,10 @@ export class MCPProxyIntegration {
       this.connectedServers.add(server.name);
       logger.info(`Proxy server ${server.name} connected and configured`);
     } catch (error) {
-      logger.error(
-        `Failed to setup Proxy server ${server.name}:`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, {
+        module: 'services:mcp:proxy',
+        action: '设置Proxy服务器失败',
+      });
     }
   }
 
@@ -104,10 +105,10 @@ export class MCPProxyIntegration {
       this.connectedServers.delete(serverName);
       logger.info(`Proxy server ${serverName} disconnected and cleaned up`);
     } catch (error) {
-      logger.error(
-        `Failed to cleanup Proxy server ${serverName}:`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, {
+        module: 'services:mcp:proxy',
+        action: '清理Proxy服务器失败',
+      });
     }
   }
 
@@ -125,10 +126,10 @@ export class MCPProxyIntegration {
       );
       // 这里可以添加消息处理逻辑
     } catch (error) {
-      logger.error(
-        'Failed to handle channel message:',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, {
+        module: 'services:mcp:proxy',
+        action: '处理通道消息失败',
+      });
     }
   }
 
@@ -146,10 +147,10 @@ export class MCPProxyIntegration {
         `Loaded ${commands.length} Proxy commands from server ${server.name}`
       );
     } catch (error) {
-      logger.error(
-        `Failed to load Proxy commands:`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, {
+        module: 'services:mcp:proxy',
+        action: '加载Proxy命令失败',
+      });
     }
   }
 
@@ -167,10 +168,10 @@ export class MCPProxyIntegration {
         `Loaded ${resources.length} Proxy resources from server ${server.name}`
       );
     } catch (error) {
-      logger.error(
-        `Failed to load Proxy resources:`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, {
+        module: 'services:mcp:proxy',
+        action: '加载Proxy资源失败',
+      });
     }
   }
 
@@ -186,10 +187,10 @@ export class MCPProxyIntegration {
       const fullCommandName = `${serverName}:${commandName}`;
       return await getCommandManager().executeCommand(fullCommandName, args);
     } catch (error) {
-      logger.error(
-        `Failed to execute Proxy command:`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, {
+        module: 'services:mcp:proxy',
+        action: '执行Proxy命令失败',
+      });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

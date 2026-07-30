@@ -1,4 +1,4 @@
-﻿import { Logger } from '../monitoring/logs/Logger';
+import { Logger, LogLevel } from '../monitoring/logs/Logger';
 import { getMonitoringService } from '../monitoring/MonitoringService';
 import { createSqliteCronStore } from '../chronos/service/SqliteCronStore';
 import { nextCronRunMs } from '../chronos/CronTasks';
@@ -8,7 +8,10 @@ import { TaskPriority } from './TaskPriority';
 import type { ManagedProcess } from './ProcessManager';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: 'info' as any });
+const logger = new Logger({
+  level: LogLevel.INFO,
+  module: 'daemon:cronBridge',
+});
 
 export interface CronBridgeConfig {
   dir?: string;

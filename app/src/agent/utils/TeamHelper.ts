@@ -7,6 +7,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
 
@@ -150,10 +151,7 @@ export class TeamHelper {
       const content = readFileSync(configPath, 'utf-8');
       return JSON.parse(content) as TeamConfig;
     } catch (error) {
-      logger.error(
-        `Failed to read team config from ${configPath}:`,
-        error as Error
-      );
+      handleError(error, { module: 'agent:team', action: '读取团队配置' });
       return null;
     }
   }
@@ -169,10 +167,7 @@ export class TeamHelper {
       writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
       logger.debug(`Saved team config to ${configPath}`);
     } catch (error) {
-      logger.error(
-        `Failed to save team config to ${configPath}:`,
-        error as Error
-      );
+      handleError(error, { module: 'agent:team', action: '保存团队配置' });
     }
   }
 
@@ -371,7 +366,7 @@ export class TeamHelper {
         };
       });
     } catch (error) {
-      logger.error(`Failed to list files in ${targetDir}:`, error as Error);
+      handleError(error, { module: 'agent:team', action: '列出团队文件' });
       return [];
     }
   }
@@ -432,7 +427,7 @@ export function writeTeamFile(
     writeFileSync(filePath, content, 'utf-8');
     return true;
   } catch (error) {
-    logger.error(`Failed to write team file ${filePath}:`, error as Error);
+    handleError(error, { module: 'agent:team', action: '写入团队文件' });
     return false;
   }
 }

@@ -14,7 +14,8 @@ const helloSkill: Skill = {
   version: '1.0.0',
   impl: {
     kind: 'executable',
-    execute: async (args: unknown[]) => {
+    execute: async (context: unknown) => {
+      const args = context as unknown[];
       return `Hello, ${args[0] || 'world'}!`;
     },
   },

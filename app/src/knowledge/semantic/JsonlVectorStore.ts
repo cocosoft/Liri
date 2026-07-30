@@ -74,10 +74,9 @@ export class JsonlVectorStore implements IVectorStore {
     return readIndexMeta(this.indexDir);
   }
 
-  async setMeta(meta: IndexMeta): Promise<void> {
+  async setMeta(_meta: IndexMeta): Promise<void> {
     // SemanticStore.add 中会自动写 meta，这里不单独实现
     // store 的 dim 已在首次 add 时设置
-    const allEntries = this.store.all;
     this.store.clear();
     // 清空后重新写入以更新 meta（保持现有行为）
   }

@@ -10,6 +10,7 @@
  *   - 优雅降级（心跳失败不阻断主流程）
  */
 import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'memory:heartbeat' });
 
@@ -103,7 +104,10 @@ export class AutoMemoryHeartbeat {
         }
       }
     } catch (err) {
-      logger.error('heartbeat:failed', { error: String(err) });
+      void handleError(err, {
+        module: 'memory:heartbeat',
+        action: '心跳执行失败',
+      });
     }
   }
 

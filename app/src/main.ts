@@ -967,25 +967,52 @@ export async function launch(options: LaunchOptions): Promise<void> {
     // 清除加载提示行
     process.stdout.write('\x1b[K');
 
-    // 初始化 OTel 观测系统 + Trace 引擎（必选项）
-    try {
-      const { initializeOTelSystem } = await import('./core/AppCoreOTelHelper');
-      await initializeOTelSystem();
-    } catch (err) {
-      logger.warn('OTel 观测系统初始化失败（非致命），已跳过', {
-        error: String(err),
-      });
+    // 模块初始化失败汇总（启动末尾统一报告）
+    const initFailures: { module: string; error: string }[] = [];
+
+    /** 统一的模块初始化包装器，失败时记录到 initFailures 而非静默吞异常 */
+    async function wrapInit(
+      module: string,
+      fn: () => Promise<void>,
+      opts?: { critical?: boolean; fallbackMsg?: string }
+    ): Promise<void> {
+      try {
+        await fn();
+      } catch (e) {
+        const errMsg = e instanceof Error ? e.message : String(e);
+        initFailures.push({ module, error: errMsg });
+        if (opts?.critical) {
+          logger.error(`关键模块 ${module} 初始化失败，应用终止`, e as Error);
+          process.exit(1);
+        }
+        logger.warning(
+          `${module} 初始化失败（非致命${opts?.fallbackMsg ? `，${opts.fallbackMsg}` : ''}）`,
+          e as Error
+        );
+      }
     }
 
+    // 初始化 OTel 观测系统 + Trace 引擎（必选项）
+    await wrapInit(
+      'OTel',
+      async () => {
+        const { initializeOTelSystem } =
+          await import('./core/AppCoreOTelHelper');
+        await initializeOTelSystem();
+      },
+      { fallbackMsg: '已跳过' }
+    );
+
     // 初始化 LLM 调用跟踪器（DB 持久化 + 历史数据恢复）
-    try {
-      const { getLLMTracker } = await import('./monitoring/llm/getLLMTracker');
-      await getLLMTracker().init();
-    } catch (err) {
-      logger.warn('LLMTracker 初始化失败（非致命），使用内存模式', {
-        error: String(err),
-      });
-    }
+    await wrapInit(
+      'LLMTracker',
+      async () => {
+        const { getLLMTracker } =
+          await import('./monitoring/llm/getLLMTracker');
+        await getLLMTracker().init();
+      },
+      { fallbackMsg: '使用内存模式' }
+    );
 
     profilePhaseEnd('T1_module_init');
     profileCheckpoint('module_init_end');
@@ -1023,11 +1050,11 @@ export async function launch(options: LaunchOptions): Promise<void> {
         }
       }
     } catch (err) {
-      // 非致命：env 读取失败时静默跳过
+      // 非致命：env 读取失败时静默跳过（不记录到 initFailures，因依赖环境变量）
     }
 
     // T1.25: 加载模型配置
-    try {
+    await wrapInit('模型配置', async () => {
       const { ModelRegistry } =
         await import('@modules/ai/models/ModelRegistry');
       const registry = ModelRegistry.getInstance();
@@ -1048,22 +1075,14 @@ export async function launch(options: LaunchOptions): Promise<void> {
         // 将 DB 定价加载到 ModelRegistry 内存缓存（定价单一事实来源）
         await registry.loadDbPricing();
       }
-    } catch (e) {
-      logger.warning('加载模型配置失败（非致命）', e as Error);
-    }
+    });
 
     // T1.26: 初始化通知持久化（建表 + FTS5 + 过期调度）
-    try {
+    await wrapInit('NotificationPersistence', async () => {
       const { notificationPersistence } =
         await import('@modules/runtime/NotificationPersistence.js');
       await notificationPersistence().init();
-      logger.info('NotificationPersistence 初始化完成');
-    } catch (e) {
-      logger.warning(
-        'NotificationPersistence 初始化失败（非致命）',
-        e as Error
-      );
-    }
+    });
 
     // T1.5: 等待关键预读取完成
     profileCheckpoint('T1_await_prefetch_start');
@@ -1087,68 +1106,64 @@ export async function launch(options: LaunchOptions): Promise<void> {
     );
 
     // T1.8: 初始化 SmartRouter 智能路由（非阻塞，失败不影响主流程）
-    try {
-      const { SmartRouter } = await import('@modules/ai/router/SmartRouter');
-      const { providerRegistry } =
-        await import('@modules/ai/providers/ProviderRegistry');
-      const { configManager } = await import('@modules/config/ConfigManager');
+    await wrapInit(
+      'SmartRouter',
+      async () => {
+        const { SmartRouter } = await import('@modules/ai/router/SmartRouter');
+        const { providerRegistry } =
+          await import('@modules/ai/providers/ProviderRegistry');
+        const { configManager } = await import('@modules/config/ConfigManager');
 
-      // 从 configManager 读取路由配置，若无则使用默认值
-      const savedRouter = (configManager.getGlobalConfig().models?.router ??
-        {}) as Partial<import('@modules/ai/router/types').RouterConfig>;
-      const routerConfig: import('@modules/ai/router/types').RouterConfig = {
-        enabled: savedRouter.enabled !== false,
-        defaultTier: savedRouter.defaultTier || 'medium',
-        sessionSticky: savedRouter.sessionSticky !== false,
-        tiers: {
-          simple: savedRouter.tiers?.simple ?? {
-            model: 'deepseek-v4-flash',
-            providerHint: 'deepseek',
+        // 从 configManager 读取路由配置，若无则使用默认值
+        const savedRouter = (configManager.getGlobalConfig().models?.router ??
+          {}) as Partial<import('@modules/ai/router/types').RouterConfig>;
+        const routerConfig: import('@modules/ai/router/types').RouterConfig = {
+          enabled: savedRouter.enabled !== false,
+          defaultTier: savedRouter.defaultTier || 'medium',
+          sessionSticky: savedRouter.sessionSticky !== false,
+          tiers: {
+            simple: savedRouter.tiers?.simple ?? {
+              model: 'deepseek-v4-flash',
+              providerHint: 'deepseek',
+            },
+            medium: savedRouter.tiers?.medium ?? {
+              model: 'deepseek-v4-flash',
+              providerHint: 'deepseek',
+            },
+            complex: savedRouter.tiers?.complex ?? {
+              model: 'deepseek-v4-pro',
+              providerHint: 'deepseek',
+            },
+            reasoning: savedRouter.tiers?.reasoning ?? {
+              model: 'deepseek-reasoner',
+              providerHint: 'deepseek',
+            },
           },
-          medium: savedRouter.tiers?.medium ?? {
-            model: 'deepseek-v4-flash',
-            providerHint: 'deepseek',
-          },
-          complex: savedRouter.tiers?.complex ?? {
-            model: 'deepseek-v4-pro',
-            providerHint: 'deepseek',
-          },
-          reasoning: savedRouter.tiers?.reasoning ?? {
-            model: 'deepseek-reasoner',
-            providerHint: 'deepseek',
-          },
-        },
-        fallback: savedRouter.fallback,
-        judge: savedRouter.judge,
-        zeroUsageRetry: savedRouter.zeroUsageRetry,
-        transientRetry: savedRouter.transientRetry,
-        stats: savedRouter.stats,
-      };
+          fallback: savedRouter.fallback,
+          judge: savedRouter.judge,
+          zeroUsageRetry: savedRouter.zeroUsageRetry,
+          transientRetry: savedRouter.transientRetry,
+          stats: savedRouter.stats,
+        };
 
-      const smartRouter = new SmartRouter({
-        config: routerConfig,
-        providerRegistry,
-      });
+        const smartRouter = new SmartRouter({
+          config: routerConfig,
+          providerRegistry,
+        });
 
-      // 注入 CoreAPIImpl 全局单例
-      const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
-      getCoreAPI().setSmartRouter(smartRouter);
-      logger.info('SmartRouter 已初始化并注入 CoreAPIImpl');
-    } catch (e) {
-      logger.warning(
-        'SmartRouter 初始化失败（非致命，使用静态路由）',
-        e as Error
-      );
-    }
+        // 注入 CoreAPIImpl 全局单例
+        const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+        getCoreAPI().setSmartRouter(smartRouter);
+      },
+      { fallbackMsg: '使用静态路由' }
+    );
 
     // Phase 3: Connection Registry — 验证关键组件连接
-    try {
+    await wrapInit('ConnectionRegistry', async () => {
       const { connectionRegistry } =
         await import('./core/connections/ConnectionRegistry.js');
       connectionRegistry.verifyAll();
-    } catch (e) {
-      logger.warning('ConnectionRegistry 验证失败（非致命）', e as Error);
-    }
+    });
 
     // T2: 模式分发 + 后台延迟加载
     profileCheckpoint('T2_dispatch_start');
@@ -1188,6 +1203,14 @@ export async function launch(options: LaunchOptions): Promise<void> {
       logger.info(
         `  ${summary.phase}: ${summary.duration.toFixed(1)}ms (${(summary.ratio * 100).toFixed(1)}%)`
       );
+    }
+
+    // 汇总报告：模块初始化失败（非致命）
+    if (initFailures.length > 0) {
+      logger.warning(`${initFailures.length} 个模块初始化失败（非致命）`, {
+        modules: initFailures.map((f) => f.module),
+        errors: initFailures.map((f) => f.error),
+      });
     }
 
     // 标记应用已就绪，HTTP 服务开始接受业务请求

@@ -8,6 +8,7 @@ import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
 import { imageProcessor } from '../image/ImageProcessor';
+import type { WatermarkOptions } from '../image/ImageProcessor';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
@@ -123,7 +124,7 @@ export function createImageWatermarkTool(): Tool {
         const result = await imageProcessor.watermark(
           safeInput.path!,
           safeOutput.path!,
-          options as any
+          options as unknown as WatermarkOptions
         );
         if (!result.success) {
           return {

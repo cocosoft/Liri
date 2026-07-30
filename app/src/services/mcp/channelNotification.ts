@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
   module: 'services:mcp:channelNotification',
@@ -101,10 +102,10 @@ export function registerChannelNotificationHandler(
       `Registered channel notification handlers for server ${server.name}`
     );
   } catch (error) {
-    logger.error(
-      `Failed to register channel notification handlers:`,
-      error instanceof Error ? error : new Error(String(error))
-    );
+    handleError(error, {
+      module: 'services:mcp:notify',
+      action: '注册通道通知处理器失败',
+    });
   }
 }
 
@@ -121,9 +122,9 @@ export function removeChannelNotificationHandler(
       `Removed channel notification handlers for server ${server.name}`
     );
   } catch (error) {
-    logger.error(
-      `Failed to remove channel notification handlers:`,
-      error instanceof Error ? error : new Error(String(error))
-    );
+    handleError(error, {
+      module: 'services:mcp:notify',
+      action: '移除通道通知处理器失败',
+    });
   }
 }

@@ -16,7 +16,7 @@ import {
 import { getCachedTiktokenEncoder } from '../../ai/tokenizer/TiktokenEstimator';
 import { resolveContextWindow } from '../../context/window/ContextWindowResolver';
 import { Logger, LogLevel } from '../../monitoring/logs/Logger';
-import { handleError } from '../../error/handleError';
+import { handleError } from '@modules/error';
 import {
   TokenBudgetController,
   UNIFIED_THRESHOLDS,
@@ -187,9 +187,9 @@ export class UnifiedTokenTracker {
       });
       return decision;
     } catch (err) {
-      logger.error('unified:checkBeforeRequest error', {
-        error: String(err),
-        model,
+      handleError(err, {
+        module: 'core:tokenBudget',
+        action: 'check_before_request',
       });
       return { decision: 'skip', beforeTokens: 0 };
     }
@@ -320,7 +320,10 @@ export class UnifiedTokenTracker {
         }
       }, 1500);
     } catch (err) {
-      logger.error('unified:startStreamingCheck error', { error: String(err) });
+      handleError(err, {
+        module: 'core:tokenBudget',
+        action: 'start_streaming_check',
+      });
     }
   }
 

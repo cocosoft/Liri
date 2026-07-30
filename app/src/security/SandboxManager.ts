@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 沙箱管理�?
  * 提供沙箱环境，限制代码执行的权限和资�?
  */
@@ -8,7 +8,12 @@ const logger = new Logger({
   module: 'security:SandboxManager',
   level: LogLevel.INFO,
 });
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 /**
  * 沙箱配置
@@ -115,8 +120,10 @@ export class SandboxManager {
       this.state = SandboxState.RUNNING;
       logger.info('Sandbox manager initialized');
     } catch (error) {
-      const e = error instanceof Error ? error : new Error(String(error));
-      logger.error('Failed to initialize sandbox manager:', e);
+      void handleError(error, {
+        module: 'security:sandbox',
+        action: '初始化沙箱管理器失败',
+      });
       this.state = SandboxState.ERROR;
       throw error;
     }
@@ -212,8 +219,10 @@ export class SandboxManager {
       logger.info(`Code executed successfully in sandbox ${id}`);
       return result;
     } catch (error) {
-      const e = error instanceof Error ? error : new Error(String(error));
-      logger.error(`Failed to execute code in sandbox ${id}:`, e);
+      void handleError(error, {
+        module: 'security:sandbox',
+        action: '沙箱代码执行失败',
+      });
       throw error;
     }
   }
@@ -370,8 +379,10 @@ export class SandboxManager {
       this.state = SandboxState.STOPPED;
       logger.info('Sandbox manager stopped');
     } catch (error) {
-      const e = error instanceof Error ? error : new Error(String(error));
-      logger.error('Failed to stop sandbox manager:', e);
+      void handleError(error, {
+        module: 'security:sandbox',
+        action: '停止沙箱管理器失败',
+      });
       this.state = SandboxState.ERROR;
       throw error;
     }

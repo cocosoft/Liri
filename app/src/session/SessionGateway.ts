@@ -1127,7 +1127,10 @@ export class SessionGateway {
       try {
         await this.executePrune();
       } catch (err) {
-        logger.error('定时修剪执行失败', { error: String(err) });
+        await handleError(err, {
+          module: 'sessions:gateway',
+          action: '定时修剪执行失败',
+        });
       }
     }, intervalMs);
     this.prunerInterval.unref();

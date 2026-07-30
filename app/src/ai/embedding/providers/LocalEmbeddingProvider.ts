@@ -190,7 +190,11 @@ export class LocalEmbeddingProvider extends EmbeddingBase {
         // 单条失败不中断整体，注入零向量占位
         embeddings.push(new Array(this.dimensions || 768).fill(0));
       } finally {
-        clearTimeout((controller as any)._timer);
+        clearTimeout(
+          (controller as unknown as Record<string, unknown>)._timer as
+            | number
+            | undefined
+        );
       }
     }
 
@@ -266,7 +270,11 @@ export class LocalEmbeddingProvider extends EmbeddingBase {
           embeddings.push(new Array(this.dimensions || 768).fill(0));
         }
       } finally {
-        clearTimeout((controller as any)._timer);
+        clearTimeout(
+          (controller as unknown as Record<string, unknown>)._timer as
+            | number
+            | undefined
+        );
       }
     }
 
@@ -290,7 +298,12 @@ export class LocalEmbeddingProvider extends EmbeddingBase {
       () => controller.abort(new Error(timeoutMsg)),
       timeoutMs
     );
-    (controller as any)._timer = timer;
+    (
+      controller as unknown as {
+        signal?: { reason?: unknown };
+        _timer?: ReturnType<typeof setTimeout>;
+      }
+    )._timer = timer;
     return { controller };
   }
 }

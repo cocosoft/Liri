@@ -152,14 +152,14 @@ export interface InputProps {
   color?: keyof UITheme['colors'];
   onFocus?: () => void;
   onBlur?: () => void;
-  onKeyDown?: (event: any) => void;
+  onKeyDown?: (event: unknown) => void;
   onSubmit?: () => void;
 }
 
 /**
  * 选择框属性类型
  */
-export interface SelectOption<T = any> {
+export interface SelectOption<T = unknown> {
   label: string;
   value: T;
   disabled?: boolean;
@@ -240,7 +240,7 @@ export interface KeyboardShortcutHintProps {
 /**
  * 模糊搜索选择器属性类型
  */
-export interface FuzzyPickerProps<T = any> {
+export interface FuzzyPickerProps<T = unknown> {
   items: T[];
   onSelect: (item: T) => void;
   itemToString: (item: T) => string;

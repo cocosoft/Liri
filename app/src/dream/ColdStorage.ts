@@ -62,8 +62,7 @@ export class ColdStorage {
   async archive(memory: {
     id: string;
     content: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    metadata?: any;
+    metadata?: unknown;
     createdAt: Date;
     updatedAt: Date;
   }): Promise<void> {
@@ -147,8 +146,7 @@ export async function pruneOldMemories(memoryManager: {
     Array<{
       id: string;
       content: string;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      metadata: any;
+      metadata: unknown;
       createdAt: Date;
       updatedAt: Date;
     }>
@@ -163,8 +161,7 @@ export async function pruneOldMemories(memoryManager: {
   const toArchive: Array<{
     id: string;
     content: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    metadata: any;
+    metadata: unknown;
     createdAt: Date;
     updatedAt: Date;
   }> = [];
@@ -176,7 +173,7 @@ export async function pruneOldMemories(memoryManager: {
     const age = now - m.updatedAt.getTime();
     if (age > COLD_THRESHOLD_MS && !archivedIds.has(m.id)) {
       // 跳过已标记为弃用的记忆（它们不会出现在活跃记忆中）
-      const deprecated = (m.metadata as any)?.deprecatedBy;
+      const deprecated = (m.metadata as Record<string, unknown>)?.deprecatedBy;
       if (!deprecated) {
         toArchive.push(m);
       }

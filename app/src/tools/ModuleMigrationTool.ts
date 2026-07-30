@@ -6,7 +6,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { resolveDataSubDir } from '@modules/core';
 
 const logger = new Logger({
@@ -353,7 +358,7 @@ export async function migrate${this.capitalizeFirst(moduleName)}Module(): Promis
     logger.info('${moduleName} 模块迁移完成');
     
   } catch (error) {
-    logger.error('${moduleName} 模块迁移失败:', { error });
+    await handleError(error, { module: 'tools:migration', action: 'migrateModule' });
     throw error;
   }
 }

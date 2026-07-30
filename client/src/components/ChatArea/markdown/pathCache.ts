@@ -15,7 +15,7 @@ export interface PathCacheEntry {
   canonical: string;
   /** 别名列表（大小写变体、无扩展名变体等），用于快速查找 */
   aliases: Set<string>;
-  /** 缓存创建时间戳 (ms) */
+  /** 缓存创建时间 (monotonic clock ms，防 NTP 跳变) */
   createdAt: number;
   /** 是否为否定缓存（后端确认文件不存在） */
   isNegative: boolean;
@@ -48,7 +48,8 @@ export function getCacheKey(sessionId: string, filePath: string): string {
 export function getCacheEntry(key: string): PathCacheEntry | null {
   const entry = pathResolveCache.get(key);
   if (!entry) return null;
-  const now = Date.now();
+  // BUG11 修复：使用 monotonic clock 防止 NTP/夏令时跳变导致缓存异常
+  const now = performance.now();
   const ttl = entry.isNegative ? NEGATIVE_CACHE_TTL_MS : POSITIVE_CACHE_TTL_MS;
   if (now - entry.createdAt > ttl) {
     // 过期：删除并触发后台刷新
@@ -133,7 +134,8 @@ export function setPathCache(
 ): void {
   const isNegative = canonical === "";
   const sessionKey = getCacheKey(sessionId, key);
-  const now = Date.now();
+  // BUG11 修复：使用 monotonic clock
+  const now = performance.now();
   const aliases = new Set<string>();
 
   if (!isNegative) {

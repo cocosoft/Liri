@@ -67,6 +67,8 @@ export class FTS5SearchEngine {
    * @param doc 文档
    */
   index(doc: FTSDocument): void {
+    // BUG12 修复：检查文档元数据中的路径是否在允许范围内
+    this.validateDocumentPaths(doc);
     this.documents.set(doc.id, doc);
 
     const tokens = this.tokenize(doc.title + ' ' + doc.content);
@@ -209,6 +211,32 @@ export class FTS5SearchEngine {
       termCount: this.invertedIndex.size,
       avgDocLength: docCount > 0 ? Math.round(totalLength / docCount) : 0,
     };
+  }
+
+  /**
+   * BUG12 修复：验证文档元数据中的路径是否在允许范围内
+   * 防止搜索结果暴露受限目录的文件路径
+   */
+  private validateDocumentPaths(doc: FTSDocument): void {
+    const { isPathWithin, resolvePyappHome } = require('@modules/core/paths');
+    const allowedRoots = [resolvePyappHome()];
+
+    // 检查 metadata 中常见的路径字段
+    const pathKeys = ['filePath', 'path', 'sourcePath', 'targetPath'];
+    for (const key of pathKeys) {
+      const value = doc.metadata?.[key];
+      if (typeof value === 'string' && value) {
+        const isAllowed = allowedRoots.some((root) =>
+          isPathWithin(root, value)
+        );
+        if (!isAllowed) {
+          // 将越权路径标记为受限（不阻塞索引，但清除路径信息）
+          if (doc.metadata) {
+            doc.metadata[key] = '[restricted]';
+          }
+        }
+      }
+    }
   }
 
   /**

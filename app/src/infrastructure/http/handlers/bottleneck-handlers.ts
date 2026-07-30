@@ -5,6 +5,7 @@
  */
 import type http from 'http';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { HandlerCtx } from './handler-utils';
 import { bottleneckAnalyzer } from '@modules/workspace/BottleneckAnalyzer';
 
@@ -40,7 +41,10 @@ export async function handleBottleneckAnalysis(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(summary));
   } catch (err) {
-    logger.error('瓶颈分析失败', { error: String(err) });
+    await handleError(err, {
+      module: 'infra:handler:bottleneck',
+      action: 'bottleneck_analysis',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '瓶颈分析失败' }));

@@ -11,6 +11,7 @@ import { HookExecutor } from './HookExecutor.js';
 import type {
   IndividualHookConfig,
   HookExecutionResult,
+  HookContext,
 } from '../types/index.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -179,7 +180,10 @@ export class StopHookExecutor {
         context.toolUseContext.options?.tools?.map((t) => t.name) || [],
     };
 
-    return await this.hookExecutor.execute(hook, hookContext as any);
+    return await this.hookExecutor.execute(
+      hook,
+      hookContext as unknown as HookContext
+    );
   }
 
   /**
@@ -212,7 +216,7 @@ export class StopHookExecutor {
   private createErrorMessage(error: string): Message {
     return {
       id: `error-${Date.now()}`,
-      role: 'system' as any,
+      role: 'system' as unknown as Message['role'],
       content: `[StopHook Error]: ${error}`,
       createdAt: new Date(),
       updatedAt: new Date(),

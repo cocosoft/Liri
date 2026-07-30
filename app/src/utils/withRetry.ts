@@ -73,7 +73,7 @@ export class RetryableError extends AppError {
 }
 
 export function isRetryableError(
-  error: any,
+  error: unknown,
   config: Partial<RetryConfig> = {}
 ): boolean {
   const fullConfig = { ...DEFAULT_RETRY_CONFIG, ...config };
@@ -82,11 +82,13 @@ export function isRetryableError(
     return true;
   }
 
-  if ('status' in error && typeof error.status === 'number') {
-    return fullConfig.retryableStatusCodes.includes(error.status);
+  const err = error as Record<string, unknown>;
+
+  if (typeof err.status === 'number') {
+    return fullConfig.retryableStatusCodes.includes(err.status);
   }
 
-  const errorMessage = error?.message || '';
+  const errorMessage = typeof err.message === 'string' ? err.message : '';
   for (const retryableError of fullConfig.retryableErrors) {
     if (errorMessage.includes(retryableError)) {
       return true;
@@ -106,7 +108,7 @@ export async function withRetry<T>(
   for (let attempt = 0; attempt <= fullConfig.maxRetries; attempt++) {
     try {
       return await fn();
-    } catch (error: any) {
+    } catch (error: unknown) {
       lastError = error instanceof Error ? error : new Error(String(error));
 
       if (attempt === fullConfig.maxRetries) {
@@ -154,7 +156,7 @@ export async function withRetryAsync<T>(
         result,
         state,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       state.lastError =
         error instanceof Error ? error : new Error(String(error));
 
@@ -276,8 +278,10 @@ export interface APIErrorClassification {
  * 从 query/withRetry.ts 合并
  */
 export function categorizeAPIError(error: unknown): APIErrorClassification {
-  const err = error as any;
-  const msg = (err.message || '').toString().toLowerCase();
+  const err = error as Record<string, unknown>;
+  const msg = (
+    typeof err.message === 'string' ? err.message : ''
+  ).toLowerCase();
   const statusCode = err.status || err.statusCode;
 
   // 速率限制
@@ -286,11 +290,15 @@ export function categorizeAPIError(error: unknown): APIErrorClassification {
     msg.includes('rate_limit') ||
     msg.includes('rate limit')
   ) {
-    const retryAfter = err.retryAfterMs || err.headers?.['retry-after'];
+    const retryAfter =
+      err.retryAfterMs ||
+      (err.headers as Record<string, unknown>)?.['retry-after'];
     return {
       type: RetryableErrorType.RATE_LIMIT,
       retryable: true,
-      retryAfterMs: retryAfter ? parseInt(retryAfter) * 1000 : undefined,
+      retryAfterMs: retryAfter
+        ? parseInt(String(retryAfter)) * 1000
+        : undefined,
     };
   }
 
@@ -352,7 +360,7 @@ export function categorizeAPIError(error: unknown): APIErrorClassification {
   }
 
   // 客户端错误（4xx，除429外）不可重试
-  if (statusCode && statusCode >= 400 && statusCode < 500) {
+  if (typeof statusCode === 'number' && statusCode >= 400 && statusCode < 500) {
     return {
       type: RetryableErrorType.UNKNOWN,
       retryable: false,

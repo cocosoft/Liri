@@ -6,7 +6,9 @@
 import type { CronJob, CronJobResult } from './types';
 import type { AIProvider, ChatOptions } from '@modules/ai';
 import type { ChatMessage } from '@modules/ai';
+import { trackUsage } from '@modules/ai';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
 
 const logger = new Logger({
@@ -71,6 +73,7 @@ export function createCronExecutor(
     });
 
     // 创建带超时的执行
+    const cronTrackStart = Date.now();
     const chatPromise = provider.chat(messages, {
       model,
       max_tokens: cfg.maxTokens!,
@@ -86,6 +89,13 @@ export function createCronExecutor(
 
     try {
       const response = await Promise.race([chatPromise, timeoutPromise]);
+
+      // 追踪 token/成本使用量
+      trackUsage(response, {
+        model,
+        providerId: provider.id,
+        latencyMs: Date.now() - cronTrackStart,
+      });
 
       const durationMs = Date.now() - startTime;
       const content =
@@ -119,10 +129,9 @@ export function createCronExecutor(
       const durationMs = Date.now() - startTime;
       const errorMsg = err instanceof Error ? err.message : String(err);
 
-      logger.error('[CronExecutor] 作业执行失败', {
-        jobId: job.id,
-        error: errorMsg,
-        durationMs,
+      handleError(err, {
+        module: 'tasks:cron:executor',
+        action: '作业执行失败',
       });
 
       return {

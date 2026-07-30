@@ -12,6 +12,7 @@
 
 import type http from 'http';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { HandlerCtx } from './handler-utils';
 import {
   getRuleEngine,
@@ -37,7 +38,10 @@ export function handleListRules(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(rules));
   } catch (err) {
-    logger.error('列出规则失败', { error: String(err) });
+    void handleError(err, {
+      module: 'infra:handler:rule',
+      action: 'list_rules',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '列出规则失败' }));
@@ -73,7 +77,7 @@ export function handleGetRule(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ specialization, content, exists: true }));
   } catch (err) {
-    logger.error('读取规则失败', { error: String(err) });
+    void handleError(err, { module: 'infra:handler:rule', action: 'get_rule' });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '读取规则失败' }));
@@ -108,7 +112,10 @@ export async function handleWriteRule(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ specialization, message: '规则已保存' }));
   } catch (err) {
-    logger.error('写入规则失败', { error: String(err) });
+    await handleError(err, {
+      module: 'infra:handler:rule',
+      action: 'write_rule',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '写入规则失败' }));
@@ -143,7 +150,10 @@ export async function handleAppendRule(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ specialization, message: '规则已追加' }));
   } catch (err) {
-    logger.error('追加规则失败', { error: String(err) });
+    await handleError(err, {
+      module: 'infra:handler:rule',
+      action: 'append_rule',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '追加规则失败' }));
@@ -181,7 +191,10 @@ export async function handleLoadRulesForWorkItem(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ rules }));
   } catch (err) {
-    logger.error('加载规则失败', { error: String(err) });
+    await handleError(err, {
+      module: 'infra:handler:rule',
+      action: 'load_rules',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '加载规则失败' }));
@@ -205,7 +218,10 @@ export function handleRulesOverview(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ overview }));
   } catch (err) {
-    logger.error('获取规则总览失败', { error: String(err) });
+    void handleError(err, {
+      module: 'infra:handler:rule',
+      action: 'rules_overview',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '获取规则总览失败' }));

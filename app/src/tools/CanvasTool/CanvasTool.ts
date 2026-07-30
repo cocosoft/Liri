@@ -429,10 +429,6 @@ export class CanvasTool extends BaseTool {
         module: 'tools:canvas',
         action: 'export',
       });
-      logger.error('CanvasTool · 导出失败', {
-        canvasId: instance.canvasId,
-        error: String(error),
-      });
       const msg = error instanceof Error ? error.message : String(error);
       return { success: false, error: `Export failed: ${msg}` };
     }

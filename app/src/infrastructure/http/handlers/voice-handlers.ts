@@ -84,7 +84,7 @@ export async function handleSTTTranscribe(
       if (keytermsField && typeof keytermsField.data === 'string') {
         try {
           keyterms = JSON.parse(keytermsField.data);
-        } catch (err) {
+        } catch (_err) {
           keyterms = [keytermsField.data];
         }
       }
@@ -156,8 +156,7 @@ export async function handleSTTTranscribe(
 
     const providers = STTRegistry.getAllProviders();
     const activeProvider = providerId
-      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        providers.find((p: any) => p.id === providerId)
+      ? providers.find((p: { id: string }) => p.id === providerId)
       : STTRegistry.getDefaultProvider();
 
     // 构建详细状态信息
@@ -210,7 +209,6 @@ export async function handleSTTTranscribe(
       })
     );
   } catch (err) {
-    logger.error('STT 转写失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'stt_transcribe' });
     sendError(res, err);
   }
@@ -248,7 +246,6 @@ export async function handleGetVoiceSettings(
       })
     );
   } catch (err) {
-    logger.error('获取语音设置失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'get_settings' });
     sendError(res, err);
   }
@@ -276,7 +273,6 @@ export async function handleUpdateVoiceSettings(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, config: settings.config }));
   } catch (err) {
-    logger.error('更新语音设置失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'update_settings' });
     sendError(res, err);
   }
@@ -304,7 +300,6 @@ export async function handleStartVoiceSession(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(session));
   } catch (err) {
-    logger.error('开始语音会话失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'start_session' });
     sendError(res, err);
   }
@@ -336,7 +331,6 @@ export async function handleEndVoiceSession(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(session));
   } catch (err) {
-    logger.error('结束语音会话失败', { error: String(err), sessionId });
     void handleError(err, {
       module: 'http:voice',
       action: 'end_session',
@@ -361,7 +355,6 @@ export async function handleListVoiceSessions(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ sessions, total: sessions.length }));
   } catch (err) {
-    logger.error('列出语音会话失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'list_sessions' });
     sendError(res, err);
   }
@@ -388,7 +381,6 @@ export async function handleGetVoiceSession(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(session));
   } catch (err) {
-    logger.error('获取语音会话详情失败', { error: String(err), sessionId });
     void handleError(err, {
       module: 'http:voice',
       action: 'get_session',
@@ -414,7 +406,6 @@ export async function handleVoiceUpload(
       })
     );
   } catch (err) {
-    logger.error('上传音频失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'upload_audio' });
     sendError(res, err);
   }
@@ -432,7 +423,6 @@ export async function handleVoiceStream(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Audio streaming not implemented' }));
   } catch (err) {
-    logger.error('获取音频流失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'stream_audio' });
     sendError(res, err);
   }
@@ -487,7 +477,6 @@ export async function handleTTSSynthesize(
       );
     }
   } catch (err) {
-    logger.error('TTS 合成失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'tts_synthesize' });
     sendError(res, err);
   }
@@ -519,7 +508,7 @@ export async function handleListVoiceProviders(
         if (svProvider.isAvailable()) {
           STTRegistry.register(svProvider);
         }
-      } catch (err) {
+      } catch (_err) {
         // sherpa-onnx 未安装时静默跳过
       }
 
@@ -540,7 +529,6 @@ export async function handleListVoiceProviders(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(providerIds));
   } catch (err) {
-    logger.error('列出语音提供商失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'list_providers' });
     sendError(res, err);
   }
@@ -576,7 +564,6 @@ export async function handleListVoices(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(voices));
   } catch (err) {
-    logger.error('列出语音列表失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'list_voices' });
     sendError(res, err);
   }
@@ -629,7 +616,6 @@ export async function handleTestWakeWord(
       })
     );
   } catch (err) {
-    logger.error('测试唤醒词失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'test_wakeword' });
     sendError(res, err);
   }
@@ -649,7 +635,6 @@ export async function handleWakeStart(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, status: 'listening' }));
   } catch (err) {
-    logger.error('启动唤醒监听失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'wake_start' });
     sendError(res, err);
   }
@@ -669,7 +654,6 @@ export async function handleWakeStop(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, status: 'idle' }));
   } catch (err) {
-    logger.error('停止唤醒监听失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'wake_stop' });
     sendError(res, err);
   }
@@ -694,7 +678,6 @@ export async function handleWakeStatus(
       })
     );
   } catch (err) {
-    logger.error('查询唤醒状态失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'wake_status' });
     sendError(res, err);
   }
@@ -726,7 +709,6 @@ export async function handleListTTSProviders(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(providers));
   } catch (err) {
-    logger.error('列出 TTS 提供者失败', { error: String(err) });
     void handleError(err, {
       module: 'http:voice',
       action: 'list_tts_providers',
@@ -777,10 +759,6 @@ export async function handleSaveProviderConfig(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {
-    logger.error('保存 TTS 提供者配置失败', {
-      error: String(err),
-      providerName,
-    });
     void handleError(err, {
       module: 'http:voice',
       action: 'save_provider_config',
@@ -809,7 +787,6 @@ export async function handleListPersonas(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(personas));
   } catch (err) {
-    logger.error('列出人设失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'list_personas' });
     sendError(res, err);
   }
@@ -834,7 +811,6 @@ export async function handleCreatePersona(
     res.writeHead(201, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(persona));
   } catch (err) {
-    logger.error('创建人设失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'create_persona' });
     sendError(res, err);
   }
@@ -864,7 +840,6 @@ export async function handleGetPersona(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(persona));
   } catch (err) {
-    logger.error('获取人设失败', { error: String(err), personaId });
     void handleError(err, { module: 'http:voice', action: 'get_persona' });
     sendError(res, err);
   }
@@ -898,7 +873,6 @@ export async function handleUpdatePersona(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(updated));
   } catch (err) {
-    logger.error('更新人设失败', { error: String(err), personaId });
     void handleError(err, { module: 'http:voice', action: 'update_persona' });
     sendError(res, err);
   }
@@ -928,7 +902,6 @@ export async function handleDeletePersona(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {
-    logger.error('删除人设失败', { error: String(err), personaId });
     void handleError(err, { module: 'http:voice', action: 'delete_persona' });
     sendError(res, err);
   }
@@ -965,7 +938,6 @@ export async function handleTTSStop(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {
-    logger.error('停止 TTS 合成失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'tts_stop' });
     sendError(res, err);
   }
@@ -999,7 +971,6 @@ export async function handleTTSHealth(
       })
     );
   } catch (err) {
-    logger.error('TTS 健康检测失败', { error: String(err) });
     void handleError(err, { module: 'http:voice', action: 'tts_health' });
     sendError(res, err);
   }
@@ -1021,7 +992,6 @@ export async function handleGetDefaultPersona(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(defaultPersona ?? null));
   } catch (err) {
-    logger.error('获取默认人设失败', { error: String(err) });
     void handleError(err, {
       module: 'http:voice',
       action: 'get_default_persona',
@@ -1066,7 +1036,6 @@ export async function handleListPersonaBindings(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
   } catch (err) {
-    logger.error('列出人设绑定关系失败', { error: String(err) });
     void handleError(err, {
       module: 'http:voice',
       action: 'list_persona_bindings',
@@ -1108,7 +1077,6 @@ export async function handleSetDefaultPersona(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(updated));
   } catch (err) {
-    logger.error('设置默认人设失败', { error: String(err), personaId });
     void handleError(err, {
       module: 'http:voice',
       action: 'set_default_persona',
@@ -1150,7 +1118,6 @@ export async function handleBindPersona(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, agentId, personaId }));
   } catch (err) {
-    logger.error('绑定人设到 Agent 失败', { error: String(err), personaId });
     void handleError(err, { module: 'http:voice', action: 'bind_persona' });
     sendError(res, err);
   }
@@ -1182,7 +1149,6 @@ export async function handleUnbindPersona(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, agentId, personaId }));
   } catch (err) {
-    logger.error('取消人设绑定失败', { error: String(err), personaId });
     void handleError(err, { module: 'http:voice', action: 'unbind_persona' });
     sendError(res, err);
   }

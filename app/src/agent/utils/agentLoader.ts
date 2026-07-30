@@ -9,12 +9,14 @@ import {
   AgentDefinition,
   AgentColorName,
   AgentMemoryScope,
+  AgentSource,
 } from '../models/types';
 import type { HooksSettings } from '@modules/types/hooks.js';
 import { parseFrontmatter } from '@modules/utils/frontmatterParser';
 import { parseYAML, parseJSON, AgentDefinitionFile } from './agentDefinition';
 import { Logger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ module: 'agent:agentLoader' });
 
@@ -49,7 +51,7 @@ function convertToAgentDefinition(
     isolation: undefined,
     omitClaudeMd: undefined,
     getSystemPrompt: () => '',
-    source: source as any,
+    source: source as unknown as Exclude<AgentSource, 'built-in' | 'plugin'>,
     name: fileDef.name,
     version: fileDef.version,
     config: {
@@ -113,7 +115,7 @@ function loadAgentFromFile(
       isolation: fm.isolation as 'worktree' | 'remote' | undefined,
       omitClaudeMd: fm.omitClaudeMd as boolean | undefined,
       getSystemPrompt: () => body,
-      source: source as any,
+      source: source as unknown as Exclude<AgentSource, 'built-in' | 'plugin'>,
     };
   }
 
@@ -166,10 +168,7 @@ function loadAgentsFromDir(
         const agent = loadAgentFromFile(filePath, source);
         agents.push(agent);
       } catch (error) {
-        logger.error('加载Agent文件失败', {
-          filePath,
-          error: error instanceof Error ? error.message : String(error),
-        });
+        handleError(error, { module: 'agent:loader', action: '加载Agent文件' });
       }
     }
   });

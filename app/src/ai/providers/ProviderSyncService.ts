@@ -45,6 +45,7 @@ import { ReplicateProvider } from './ReplicateProvider';
 import type { AIProvider, ProviderConfig } from './AIProvider';
 import type { ProviderRecord, ProviderType } from './ProviderManager';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'ai:provider-sync' });
@@ -267,8 +268,9 @@ function syncOneProvider(record: ProviderRecord): void {
   }
 
   // 从 DB 配置设置 API Key（createProviderByType 未将 config.apiKey 传递给 Provider 构造函数）
-  if (config.apiKey && typeof (wrapped as any).setApiKey === 'function') {
-    (wrapped as any).setApiKey(config.apiKey);
+  const wrappedRecord = wrapped as unknown as Record<string, unknown>;
+  if (config.apiKey && typeof wrappedRecord.setApiKey === 'function') {
+    (wrappedRecord.setApiKey as (key: string) => void)(config.apiKey);
   }
 
   providerRegistry.register(wrapped);
@@ -306,8 +308,10 @@ export async function syncDBProvidersToRegistry(): Promise<number> {
         dbToRegistry.set(record.id, `db:${record.id}`);
         count++;
       } catch (err) {
-        logger.warning(`同步供应商失败: ${record.name}`, {
-          error: (err as Error).message,
+        void handleError(err, {
+          module: 'ai:provider-sync',
+          action: 'syncOneProvider',
+          context: { name: record.name },
         });
       }
     }
@@ -318,8 +322,9 @@ export async function syncDBProvidersToRegistry(): Promise<number> {
 
     return count;
   } catch (err) {
-    logger.warning('DB供应商同步失败（将使用环境变量预置Provider）', {
-      error: (err as Error).message,
+    void handleError(err, {
+      module: 'ai:provider-sync',
+      action: 'syncDBProvidersToRegistry',
     });
     return 0;
   }
@@ -342,8 +347,10 @@ export async function registerProviderFromDB(
     dbToRegistry.set(record.id, `db:${record.id}`);
     return true;
   } catch (err) {
-    logger.warning(`注册供应商失败: ${providerId}`, {
-      error: (err as Error).message,
+    void handleError(err, {
+      module: 'ai:provider-sync',
+      action: 'registerProviderFromDB',
+      context: { providerId },
     });
     return false;
   }

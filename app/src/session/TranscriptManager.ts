@@ -24,6 +24,7 @@ import type {
   TranscriptSearchResult,
 } from './types/Transcript.js';
 import { isTranscriptMessage, isChainParticipant } from './types/Transcript.js';
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({
@@ -159,10 +160,10 @@ export class TranscriptManager {
       this.transcriptCache.set(sessionId, transcript);
       return this.filterTranscript(transcript, options);
     } catch (error) {
-      logger.error(
-        `Failed to load transcript for session ${sessionId}:`,
-        error
-      );
+      handleError(error, {
+        module: 'sessions:transcript',
+        action: 'Failed to load transcript',
+      });
       return null;
     }
   }

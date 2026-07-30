@@ -142,7 +142,7 @@ function handleRead(idOrPath: string): {
           `  代码: ${preview}${(codeCell.code || '').length > 120 ? '…' : ''}`
         );
       } else {
-        const mdCell = cell as any;
+        const mdCell = cell as unknown as { content?: string };
         const preview = (mdCell.content || '')
           .substring(0, 120)
           .replace(/\n/g, '↵');
@@ -266,7 +266,7 @@ export const notebookCommand: Command = {
       success: boolean;
       message?: string;
       error?: string;
-      data?: any;
+      data?: unknown;
     }> => {
       if (!feature('NOTEBOOK')) {
         return {

@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'ai:credentials:credentialPool',
@@ -317,7 +318,10 @@ export class CredentialPool {
         `凭证来源 "${source.name}" 已注册，导入 ${credentials.length} 条凭证`
       );
     } catch (error) {
-      logger.error(`凭证来源 "${source.name}" 注册失败`, error as Error);
+      await handleError(error, {
+        module: 'ai:credential',
+        action: `registerSource:${source.name}`,
+      });
     }
   }
 }

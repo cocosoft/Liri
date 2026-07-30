@@ -174,36 +174,51 @@ async function extractWithPdfJs(
   options: PdfExtractOptions
 ): Promise<ExtractedPage[]> {
   // 动态导入 pdf.js（使用 legacy 构建，与 PdfConverter 保持一致）
-  let pdfjsLib: any;
+  let pdfjsLib: unknown;
   try {
     pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
   } catch {
     throw new Error('pdf.js 未安装。运行: bun add pdfjs-dist');
   }
 
+  const lib = pdfjsLib as unknown as Record<string, Function>;
+
   fs.mkdirSync(outputDir, { recursive: true });
 
   const data = new Uint8Array(fs.readFileSync(pdfPath));
-  const doc = await pdfjsLib.getDocument({ data }).promise;
+  const doc = await (
+    lib.getDocument({ data }) as unknown as {
+      promise: Promise<Record<string, unknown>>;
+    }
+  ).promise;
+  const pdoc = doc as unknown as Record<string, unknown>;
 
-  const totalPages = doc.numPages;
+  const totalPages = pdoc.numPages as number;
   const startPage = Math.max(1, options.startPage || 1);
   const endPage = Math.min(totalPages, options.endPage || totalPages);
 
   const pages: ExtractedPage[] = [];
-  const scale = dpi / 72; // PDF 默认 72 DPI
+  const scale = dpi / 72;
 
   // Canvas 使用 @napi-rs/canvas 或 node-canvas（需要运行时支持）
   const { createCanvas } = await import('@napi-rs/canvas');
 
   for (let i = startPage; i <= endPage; i++) {
-    const page = await doc.getPage(i);
-    const viewport = page.getViewport({ scale });
+    const page = (await (pdoc.getPage as Function)(i)) as unknown as Record<
+      string,
+      Function
+    >;
+    const viewport = (page.getViewport as Function)({
+      scale,
+    }) as unknown as Record<string, unknown>;
 
-    const canvas = createCanvas(viewport.width, viewport.height);
+    const canvas = createCanvas(
+      (viewport.width as number) || 0,
+      (viewport.height as number) || 0
+    );
     const ctx = canvas.getContext('2d');
 
-    await page.render({ canvasContext: ctx as any, viewport }).promise;
+    await (page.render as Function)({ canvasContext: ctx, viewport });
 
     const ext = format === 'png' ? 'png' : 'jpg';
     const imagePath = path.join(
@@ -211,15 +226,15 @@ async function extractWithPdfJs(
       `page-${String(i).padStart(2, '0')}.${ext}`
     );
 
-    const buffer = canvas.toBuffer(`image/${ext}` as any);
+    const buffer = canvas.toBuffer('image/jpeg' as 'image/jpeg' | 'image/webp');
     fs.writeFileSync(imagePath, buffer);
 
     pages.push({
       pageNumber: i,
       imagePath,
       format: ext,
-      width: viewport.width,
-      height: viewport.height,
+      width: viewport.width as number,
+      height: viewport.height as number,
     });
   }
 

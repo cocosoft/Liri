@@ -59,8 +59,9 @@ export async function handleDeleteMessage(
     if (!res.headersSent) {
       try {
         const statusCode =
-          err instanceof Error && (err as any).statusCode
-            ? (err as any).statusCode
+          err instanceof Error &&
+          (err as unknown as { statusCode?: number }).statusCode
+            ? (err as unknown as { statusCode?: number }).statusCode!
             : 500;
         res.writeHead(statusCode, { 'Content-Type': 'application/json' });
         res.end(
@@ -121,8 +122,9 @@ export async function handleTruncateMessages(
     if (!res.headersSent) {
       try {
         const statusCode =
-          err instanceof Error && (err as any).statusCode
-            ? (err as any).statusCode
+          err instanceof Error &&
+          (err as unknown as { statusCode?: number }).statusCode
+            ? (err as unknown as { statusCode?: number }).statusCode!
             : 500;
         res.writeHead(statusCode, { 'Content-Type': 'application/json' });
         res.end(

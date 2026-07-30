@@ -1,9 +1,14 @@
-﻿//
+//
 /**
  * 远程配置管理器
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'RemoteConfigManager' });
@@ -263,10 +268,10 @@ export class RemoteConfigManager {
         duration: Date.now() - startTime,
       };
 
-      logger.error(
-        'Config synchronization failed:',
-        error instanceof Error ? error : undefined
-      );
+      await handleError(error, {
+        module: 'core:remote',
+        action: 'sync',
+      });
 
       return this.syncStatus;
     }
@@ -355,10 +360,10 @@ export class RemoteConfigManager {
 
           logger.debug(`Applied remote change for ${key}`);
         } catch (error) {
-          logger.error(
-            `Failed to apply remote change for ${key}:`,
-            error instanceof Error ? error : undefined
-          );
+          await handleError(error, {
+            module: 'core:remote',
+            action: 'apply_change',
+          });
         }
       }
     }

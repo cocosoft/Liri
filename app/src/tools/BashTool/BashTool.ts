@@ -252,6 +252,44 @@ const DANGEROUS_PATTERNS = [
 ];
 
 /**
+ * BUG08 修复：多策略路径提取，覆盖以下场景：
+ *   - Unix 绝对路径: /home/user/file.txt
+ *   - Windows 绝对路径: C:\path\to\file 或 \\server\share\file
+ *   - --path=xxx 参数: --path=/etc/passwd 或 --path C:\config
+ *   - 引号内空格路径: "/path/with spaces/file.txt"
+ *   - 路径中的合法特殊字符: -_. 等
+ */
+function extractPathsFromCommand(command: string): string[] {
+  const paths = new Set<string>();
+
+  // 策略 1: --path=xxx 或 --path xxx 格式
+  const pathArgMatches = command.matchAll(
+    /--path[= ](['"]?)([^\s'"]+?)\1(?:\s|$)/g
+  );
+  for (const m of pathArgMatches) {
+    paths.add(m[2]);
+  }
+
+  // 策略 2: 被引号包裹的路径（支持空格）
+  const quotedMatches = command.matchAll(
+    /['"]([\/\\][^'"]*?[\/\\][^'"]*?)['"]/g
+  );
+  for (const m of quotedMatches) {
+    paths.add(m[1]);
+  }
+
+  // 策略 3: 无引号的 Unix/Windows 路径（以 / 或盘符或 UNC 开头）
+  const barePathMatches = command.matchAll(
+    /(?<![a-zA-Z0-9])([\/\\][^\s'";|&<>$`()]+|[A-Za-z]:[\\\/][^\s'";|&<>$`()]+)/g
+  );
+  for (const m of barePathMatches) {
+    paths.add(m[1]);
+  }
+
+  return [...paths];
+}
+
+/**
  * 检查路径是否安全（防止路径遍历攻击）
  */
 function isPathSafe(path: string): boolean {
@@ -500,11 +538,10 @@ export class BashTool {
       return true;
     }
 
-    // 检查路径安全性
-    const pathMatch = command.match(/['"]?(\/[^\s'"]+)['"]?/);
-    if (pathMatch) {
-      const path = pathMatch[1];
-      if (!isPathSafe(path)) {
+    // 检查路径安全性 — 多策略路径提取，覆盖 Unix/Windows/--path=/空格场景
+    const extractedPaths = extractPathsFromCommand(command);
+    for (const p of extractedPaths) {
+      if (!isPathSafe(p)) {
         return true;
       }
     }

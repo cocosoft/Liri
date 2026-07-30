@@ -12,6 +12,7 @@ import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'tools:DocGenerateTool',
   level: LogLevel.INFO,
@@ -459,7 +460,8 @@ export class DocGenerateTool extends BaseTool {
       let result: { fileName: string; filePath: string };
 
       // 检测 officecli 可用性，选择生成路径
-      if (isOfficeCLIAvailable()) {
+      const cliAvailable = isOfficeCLIAvailable();
+      if (cliAvailable) {
         logger.info('DocGenerateTool: 使用 officecli 路径');
         result = createWithOfficeCLI(
           finalTitle,
@@ -507,15 +509,20 @@ export class DocGenerateTool extends BaseTool {
         size,
       };
 
+      // officecli 不可用时的提示信息
+      const cliNote = cliAvailable
+        ? ''
+        : '\n\n⚠️ officecli 未安装，已生成 Markdown 降级文件。安装 officecli 后可生成真正的 .docx/.xlsx/.pptx 文件。';
+
       return {
         success: true,
         data,
-        output: `文档已生成：${result.fileName}（${(size / 1024).toFixed(1)} KB，格式：${docType}）`,
+        output: `文档已生成：${result.fileName}（${(size / 1024).toFixed(1)} KB，格式：${docType}）${cliNote}`,
       };
     } catch (error) {
-      logger.error('DocGenerateTool: 执行异常！', {
-        error: String(error),
-        stack: error instanceof Error ? error.stack : undefined,
+      await handleError(error, {
+        module: 'tools:docGenerate',
+        action: '文档生成失败',
       });
       return {
         success: false,

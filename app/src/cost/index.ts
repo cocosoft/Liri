@@ -112,6 +112,10 @@ import { Logger } from '../monitoring/logs/Logger.js';
 import { globalEventBus, SystemEvents } from '@modules/core';
 import type { CostRecordedEvent } from '@modules/core';
 import { handleError } from '@modules/error';
+import {
+  AnalyticsCategory,
+  AnalyticsSeverity,
+} from '../analytics/AnalyticsSchema.js';
 
 const logger = new Logger({ module: 'cost:index' });
 
@@ -175,8 +179,8 @@ export async function initializeCostTrackingSystem(): Promise<void> {
           timestamp: Date.now(),
           async: false,
           schemaVersion: '1.0.0',
-          category: 'system' as any,
-          severity: 'info' as any,
+          category: AnalyticsCategory.SYSTEM,
+          severity: AnalyticsSeverity.INFO,
           eventName,
           metadata: metadata,
         });
@@ -186,8 +190,8 @@ export async function initializeCostTrackingSystem(): Promise<void> {
           timestamp: Date.now(),
           async: false,
           schemaVersion: '1.0.0',
-          category: 'system' as any,
-          severity: 'info' as any,
+          category: AnalyticsCategory.SYSTEM,
+          severity: AnalyticsSeverity.INFO,
           eventName,
           metadata: metadata,
         });

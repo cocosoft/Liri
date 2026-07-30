@@ -74,9 +74,35 @@ function resolveStorePath(rawPath: string): string {
   const base = ENV_MAP[firstSegment];
   if (base) {
     const rest = rawPath.slice(firstSegment.length).replace(/^[/\\]/, '');
-    return rest ? join(base, rest) : base;
+    const resolved = rest ? join(base, rest) : base;
+    // 安全校验：确保 path.join 没有被跨盘符绝对路径覆盖（BUG02修复）
+    const { isPathWithin } = require('@modules/core/paths');
+    const resolvedBase = base;
+    if (!isPathWithin(resolvedBase, resolved)) {
+      logger.warn('resolveStorePath: 路径越权被拦截', {
+        rawPath,
+        resolved,
+        base,
+      });
+      return base; // 回退到安全基路径
+    }
+    return resolved;
   }
-  return isAbsolute(rawPath) ? rawPath : resolve(rawPath);
+  // BUG-B 修复：未知前缀的绝对路径拒绝访问，防止目录列表越权
+  const fallback = isAbsolute(rawPath) ? rawPath : resolve(rawPath);
+  // 仅允许 LIRI_HOME 下的路径（~/.pyapp/）
+  const home = process.env.LIRI_HOME || process.env.PYAPP_HOME;
+  if (home) {
+    const { isPathWithin } = require('@modules/core/paths');
+    if (!isPathWithin(home, fallback)) {
+      logger.warn('resolveStorePath: 未知前缀路径拒绝访问', {
+        rawPath,
+        fallback,
+      });
+      return home;
+    }
+  }
+  return fallback;
 }
 
 /**

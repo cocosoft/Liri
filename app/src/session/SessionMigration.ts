@@ -63,7 +63,10 @@ export class SessionMigration {
           }
         }
       } catch (error) {
-        logger.error('会话迁移失败', error as Error);
+        handleError(error, {
+          module: 'sessions:migration',
+          action: '会话迁移失败',
+        });
       }
 
       otel.endSpan(span);

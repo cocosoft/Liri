@@ -5,6 +5,7 @@
 
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { existsSync, statSync } from 'fs';
 import { join } from 'path';
 import { resolveProjectRoot, resolveDataDir } from '@modules/core';
@@ -66,7 +67,10 @@ export function auditFilesystem(workspaceDir?: string): SecurityAuditFinding[] {
 
     logger.info(`文件系统审计完成，发现 ${findings.length} 个问题`);
   } catch (error) {
-    logger.error('文件系统审计失败', error as Error);
+    void handleError(error, {
+      module: 'security:audit:fs',
+      action: '文件系统审计失败',
+    });
   }
 
   return findings;

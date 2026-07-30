@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 系统诊断服务
  * 实现系统诊断、安装类型检测、配置检测等功能
  */
@@ -58,7 +58,7 @@ export const InstallType = {
  * 诊断服务类
  */
 class DiagnosticsService {
-  private results: any[] = [];
+  private results: Record<string, unknown>[] = [];
   private installType = InstallType.UNKNOWN;
   static instance: DiagnosticsService;
 
@@ -666,7 +666,7 @@ class DiagnosticsService {
    * 添加诊断结果
    * @param result 诊断结果
    */
-  addResult(result: Record<string, any>) {
+  addResult(result: Record<string, unknown>) {
     this.results.push({
       id: randomUUID(),
       timestamp: Date.now(),
@@ -679,13 +679,15 @@ class DiagnosticsService {
    * @returns 诊断摘要
    */
   getSummary() {
-    const byLevel: Record<string, any> = {};
-    const byCategory: Record<string, any> = {};
+    const byLevel: Record<string, unknown> = {};
+    const byCategory: Record<string, unknown> = {};
 
     for (const result of this.results) {
-      byLevel[result.level] = (byLevel[result.level] || 0) + 1;
-      byCategory[result.name.split('-')[0]] =
-        (byCategory[result.name.split('-')[0]] || 0) + 1;
+      const level = result.level as string;
+      const name = result.name as string;
+      byLevel[level] = ((byLevel[level] as number) || 0) + 1;
+      byCategory[name.split('-')[0]] =
+        ((byCategory[name.split('-')[0]] as number) || 0) + 1;
     }
 
     return {

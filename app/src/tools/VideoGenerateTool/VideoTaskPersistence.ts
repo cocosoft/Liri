@@ -13,6 +13,7 @@
 import { Database } from 'bun:sqlite';
 import { resolveDbPath } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   level: LogLevel.INFO,
@@ -141,9 +142,10 @@ export class VideoTaskPersistence {
           this.db.run(m.ddl);
           logger.info('VideoTaskPersistence 迁移', { col: m.col });
         } catch (e) {
-          logger.warning('VideoTaskPersistence 迁移跳过（可能已存在）', {
-            col: m.col,
-            error: String(e),
+          void handleError(e, {
+            module: 'tools:videoGenerate',
+            action: 'migrate',
+            context: { col: m.col },
           });
         }
       }

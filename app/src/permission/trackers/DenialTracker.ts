@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'permission:trackers:denialTracker',
@@ -119,8 +120,10 @@ export class DenialTracker {
       try {
         listener(record);
       } catch (error) {
-        const e = error instanceof Error ? error : new Error(String(error));
-        logger.error('DenialTracker: Listener error:', e);
+        void handleError(error, {
+          module: 'permission:tracker',
+          action: '拒绝跟踪器监听器错误',
+        });
       }
     }
 

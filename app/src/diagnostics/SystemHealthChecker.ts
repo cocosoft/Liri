@@ -258,7 +258,12 @@ export class SystemHealthChecker extends EventEmitter {
    */
   private async getUnixDiskInfo(): Promise<{ total: number; free: number }> {
     try {
-      const { stdout } = await (execAsync as any)('df -k / | tail -1', {
+      const { stdout } = await (
+        execAsync as unknown as (
+          cmd: string,
+          opts?: { shell: boolean }
+        ) => Promise<{ stdout: string; stderr: string }>
+      )('df -k / | tail -1', {
         shell: true,
       });
       const parts = stdout.trim().split(/\s+/);

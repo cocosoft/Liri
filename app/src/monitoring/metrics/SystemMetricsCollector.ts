@@ -6,9 +6,8 @@
  */
 
 import os from 'os';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
-import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
   module: 'monitoring:metrics:SystemMetricsCollector',
@@ -195,7 +194,7 @@ export interface DiskInfo {
 /**
  * 收集磁盘信息
  *
- * - Windows: 通过 PowerShell Get-CimInstance 获取磁盘信息（比 wmic 更可靠）
+ * - Windows: 通过 PowerShell Get-CimInstance 获取磁盘信息（2s 超时，失败静默返回 0）
  * - Unix:    通过 df -k
  */
 export function getDiskInfo(): DiskInfo {
@@ -204,10 +203,14 @@ export function getDiskInfo(): DiskInfo {
 
   try {
     if (process.platform === 'win32') {
-      // 使用 PowerShell Get-CimInstance 获取磁盘信息（wmic 已在 Win11 中弃用）
-      const output = execSync(
-        'powershell -NoProfile -Command "Get-CimInstance Win32_LogicalDisk -Filter \\"DriveType=3\\" | ForEach-Object { \\"$($_.Size),$($_.FreeSpace)\\" }"',
-        { encoding: 'utf8', timeout: 5000 }
+      const output = execFileSync(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-Command',
+          'Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | ForEach-Object { "$($_.Size),$($_.FreeSpace)" }',
+        ],
+        { encoding: 'utf8', timeout: 2000 }
       );
       const lines = output.trim().split('\n');
       for (const line of lines) {
@@ -222,10 +225,19 @@ export function getDiskInfo(): DiskInfo {
         }
       }
     } else {
-      const output = execSync('df -k --total 2>/dev/null || df -k', {
-        encoding: 'utf8',
-        timeout: 3000,
-      });
+      // 使用 execFileSync 直接调用 df，绕过 shell 中介
+      let output: string;
+      try {
+        output = execFileSync('df', ['-k', '--total'], {
+          encoding: 'utf8',
+          timeout: 3000,
+        });
+      } catch {
+        output = execFileSync('df', ['-k'], {
+          encoding: 'utf8',
+          timeout: 3000,
+        });
+      }
       const lines = output.trim().split('\n').slice(1);
       for (const line of lines) {
         const parts = line.trim().split(/\s+/);
@@ -239,13 +251,8 @@ export function getDiskInfo(): DiskInfo {
         }
       }
     }
-  } catch (err) {
-    // 磁盘信息不可用时静默处理
-
-    handleError(err, {
-      module: 'monitoring:metrics:SystemMetricsCollector',
-      action: 'diskInfoUnavailable',
-    });
+  } catch {
+    // 磁盘信息不可用（系统负载高时 PowerShell/df 可能超时），静默返回 0
   }
 
   const usedBytes = totalBytes - freeBytes;

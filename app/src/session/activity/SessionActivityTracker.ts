@@ -17,8 +17,14 @@
  * 设计原则：独立模块，不侵入现有 SessionStore。
  */
 
-import { writeFileSync, readFileSync, unlinkSync, existsSync } from 'fs';
-import { join } from 'path';
+import {
+  writeFileSync,
+  readFileSync,
+  unlinkSync,
+  existsSync,
+  mkdirSync,
+} from 'fs';
+import { join, dirname } from 'path';
 import { resolvePyappHome } from '@modules/core/paths';
 
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -204,6 +210,10 @@ export class SessionActivityTracker {
   private writePidFile(sessionId: string): void {
     try {
       const pidPath = this.getPidPath(sessionId);
+      const pidDir = dirname(pidPath);
+      if (!existsSync(pidDir)) {
+        mkdirSync(pidDir, { recursive: true });
+      }
       writeFileSync(pidPath, String(process.pid), 'utf-8');
     } catch (err) {
       // PID 写入失败不影响主流程

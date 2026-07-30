@@ -16,13 +16,16 @@ const logger = new Logger({ module: 'utils:exec', level: LogLevel.INFO });
  */
 export function execSyncWithOutput(
   command: string,
-  options: any = {}
+  options: Record<string, unknown> = {}
 ): { stdout: string; stderr: string } {
   try {
     const stdout = cpExecSync(command, { ...options, encoding: 'utf8' });
     return { stdout, stderr: '' };
-  } catch (error: any) {
-    return { stdout: error.stdout || '', stderr: error.stderr || '' };
+  } catch (error: unknown) {
+    return {
+      stdout: (error as { stdout?: string }).stdout || '',
+      stderr: (error as { stderr?: string }).stderr || '',
+    };
   }
 }
 
@@ -32,6 +35,9 @@ export function execSyncWithOutput(
  * @param options 选项
  * @returns 命令输出
  */
-export function execSync(command: string, options: any = {}): string {
+export function execSync(
+  command: string,
+  options: Record<string, unknown> = {}
+): string {
   return cpExecSync(command, { ...options, encoding: 'utf8' });
 }

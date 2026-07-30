@@ -6,7 +6,12 @@
  */
 
 import { randomUUID } from 'crypto';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import { Logger, LogLevel } from '../../../monitoring/logs/Logger.js';
 
@@ -461,8 +466,12 @@ export class ApprovalWorkflow {
       () => {
         if (request.status === 'pending') {
           const reason = 'SLA 超时，自动升级审批级别';
-          this.escalate(request.id, reason).catch((err) =>
-            logger.error('自动升级失败', err)
+          this.escalate(request.id, reason).catch(
+            (err) =>
+              void handleError(err, {
+                module: 'config:enterprise:approval',
+                action: '自动升级失败',
+              })
           );
         }
       },

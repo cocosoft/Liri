@@ -29,6 +29,7 @@ import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { getMonitoringService } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'infrastructure:http:handlers:analytics-handlers',
@@ -124,7 +125,10 @@ async function ensureCostRepository(): Promise<void> {
   try {
     await costRepository?.initDatabase();
   } catch (err) {
-    logger.warning('成本仓库初始化失败', { error: String(err) });
+    void handleError(err, {
+      module: 'infrastructure:http:analytics',
+      action: 'initCostRepository',
+    });
   }
 }
 
@@ -303,8 +307,9 @@ export async function handleAnalyticsDashboard(
           });
         }
       } catch (err) {
-        logger.warning('分析面板 costRepository DB 回退失败', {
-          error: String(err),
+        void handleError(err, {
+          module: 'infrastructure:http:analytics',
+          action: 'fallbackCostDB',
         });
       }
     }

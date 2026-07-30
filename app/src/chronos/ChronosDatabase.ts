@@ -358,7 +358,7 @@ export class ChronosDatabase {
       return null;
     }
 
-    return this.rowToTask(row);
+    return this.rowToTask(row as unknown as Record<string, unknown>);
   }
 
   /**
@@ -413,7 +413,7 @@ export class ChronosDatabase {
     }
 
     const setClauses: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (updates.cron !== undefined) {
       setClauses.push('cron = ?');
@@ -559,7 +559,7 @@ export class ChronosDatabase {
     }
 
     const setClauses: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (updates.completedAt !== undefined) {
       setClauses.push('completed_at = ?');
@@ -679,19 +679,19 @@ export class ChronosDatabase {
    * @param row 数据库行
    * @returns 任务对象
    */
-  private rowToTask(row: any): ScheduledTask {
+  private rowToTask(row: Record<string, unknown>): ScheduledTask {
     return {
-      id: row.id,
-      cron: row.cron,
-      prompt: row.prompt,
-      createdAt: row.created_at,
-      lastFiredAt: row.last_fired_at,
+      id: row.id as string,
+      cron: row.cron as string,
+      prompt: row.prompt as string,
+      createdAt: row.created_at as number,
+      lastFiredAt: row.last_fired_at as number | undefined,
       recurring: row.recurring === 1,
       permanent: row.permanent === 1,
       durable: row.durable === 1,
-      agentId: row.agent_id,
-      taskType: row.task_type,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+      agentId: row.agent_id as string | undefined,
+      taskType: row.task_type as string,
+      metadata: row.metadata ? JSON.parse(row.metadata as string) : undefined,
     };
   }
 

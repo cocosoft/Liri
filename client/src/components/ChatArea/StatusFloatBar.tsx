@@ -195,7 +195,12 @@ export default function StatusFloatBar() {
         ? `${phaseLabel} ${executionPhase.description}`
         : phaseLabel;
     }
-    if (streamingStatus) return streamingStatus;
+    if (streamingStatus) {
+      // 精简上下文水位显示：仅取百分比，其余信息在 ContextWatermark hover 中查看
+      const pctMatch = streamingStatus.match(/上下文水位:\s*(\d+)%/);
+      if (pctMatch) return `上下文 ${pctMatch[1]}%`;
+      return streamingStatus;
+    }
     return "AI 正在回复...";
   };
 

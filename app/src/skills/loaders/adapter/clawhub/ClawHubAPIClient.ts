@@ -119,7 +119,7 @@ export class ClawHubAPIClient {
   async getSkillDetail(skillId: string): Promise<ClawHubSkillMeta | null> {
     try {
       const url = `${this.apiBaseUrl}/skills/${encodeURIComponent(skillId)}`;
-      const data = await this.httpGetJson<any>(url);
+      const data = await this.httpGetJson<Record<string, unknown>>(url);
       return this.mapToSkillMeta(data);
     } catch (error) {
       logger.error(`获取技能详情失败: ${skillId}`, error as Error);
@@ -135,10 +135,10 @@ export class ClawHubAPIClient {
   ): Promise<{ meta: ClawHubSkillMeta; files: Record<string, string> } | null> {
     try {
       const url = `${this.apiBaseUrl}/skills/${encodeURIComponent(skillId)}/download`;
-      const data = await this.httpGetJson<any>(url);
+      const data = await this.httpGetJson<Record<string, unknown>>(url);
       return {
         meta: this.mapToSkillMeta(data),
-        files: data.files || {},
+        files: (data.files as Record<string, string>) || {},
       };
     } catch (error) {
       logger.error(`下载技能失败: ${skillId}`, error as Error);
@@ -156,21 +156,21 @@ export class ClawHubAPIClient {
   /**
    * 将 API 返回数据映射为 ClawHubSkillMeta
    */
-  private mapToSkillMeta(data: any): ClawHubSkillMeta {
+  private mapToSkillMeta(data: Record<string, unknown>): ClawHubSkillMeta {
     return {
-      id: data.id || '',
-      name: data.name || '',
-      version: data.version || '1.0.0',
-      description: data.description || '',
-      author: data.author || '',
-      license: data.license,
-      category: data.category,
-      tags: data.tags || [],
-      icon: data.icon,
-      readme: data.readme,
-      dependencies: data.dependencies,
-      permissions: data.permissions,
-      manifestVersion: data.manifestVersion || '1.0',
+      id: (data.id as string) || '',
+      name: (data.name as string) || '',
+      version: (data.version as string) || '1.0.0',
+      description: (data.description as string) || '',
+      author: (data.author as string) || '',
+      license: data.license as string | undefined,
+      category: data.category as string | undefined,
+      tags: (data.tags as string[]) || [],
+      icon: data.icon as string | undefined,
+      readme: data.readme as string | undefined,
+      dependencies: data.dependencies as string[] | undefined,
+      permissions: data.permissions as string[] | undefined,
+      manifestVersion: (data.manifestVersion as string) || '1.0',
       source: 'third_party',
     };
   }

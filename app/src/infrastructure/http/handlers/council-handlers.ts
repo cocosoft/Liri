@@ -12,6 +12,7 @@
 import type http from 'http';
 import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { HandlerCtx } from './handler-utils';
 import {
   getCouncilEngine,
@@ -107,10 +108,16 @@ export async function handleCreateCouncil(
     // 第 2 步：异步执行辩论（不阻塞 HTTP 响应）
     const orchestrator = new CouncilOrchestrator(engine);
     orchestrator.runDebate(session.sessionId).catch((err) => {
-      logger.error('Council 辩论执行失败', { error: String(err) });
+      void handleError(err, {
+        module: 'infra:handler:council',
+        action: 'debate_execution',
+      });
     });
   } catch (err) {
-    logger.error('创建 Council 会话失败', { error: String(err) });
+    await handleError(err, {
+      module: 'infra:handler:council',
+      action: 'create_council',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '创建 Council 会话失败' }));
@@ -141,7 +148,10 @@ export function handleGetCouncil(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(session));
   } catch (err) {
-    logger.error('获取 Council 会话失败', { error: String(err) });
+    void handleError(err, {
+      module: 'infra:handler:council',
+      action: 'get_council',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '获取 Council 会话失败' }));
@@ -234,7 +244,10 @@ export function handleListCouncils(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(sessions));
   } catch (err) {
-    logger.error('列出 Council 会话失败', { error: String(err) });
+    void handleError(err, {
+      module: 'infra:handler:council',
+      action: 'list_councils',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '列出 Council 会话失败' }));
@@ -306,7 +319,10 @@ export async function handleSubmitStatement(
     res.writeHead(201, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(statement));
   } catch (err) {
-    logger.error('提交 Council 发言失败', { error: String(err) });
+    await handleError(err, {
+      module: 'infra:handler:council',
+      action: 'submit_statement',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '提交 Council 发言失败' }));

@@ -130,6 +130,13 @@ import {
   handleMediaSubtitleDownload,
 } from './media-handlers';
 
+// Task registry handlers
+import {
+  handleListTasks,
+  handleCancelTask,
+  handleRemoveTask,
+} from './task-handlers';
+
 /**
  * 路由调度函数
  * @param req - HTTP 请求
@@ -532,6 +539,24 @@ export async function dispatchRoute(
   // ---- Video Tasks (async) ----
   if (url.startsWith('/v1/video/tasks')) {
     await self['handleVideoTasks'](req, res);
+    return true;
+  }
+
+  // ---- Tasks (长程任务中心) ----
+  if (method === 'GET' && url === '/v1/tasks') {
+    await handleListTasks(req, res);
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/tasks\/(.+)\/cancel$/)) {
+    await handleCancelTask(
+      req,
+      res,
+      url.match(/^\/v1\/tasks\/(.+)\/cancel$/)![1]
+    );
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/tasks\/(.+)$/)) {
+    await handleRemoveTask(req, res, url.match(/^\/v1\/tasks\/(.+)$/)![1]);
     return true;
   }
 
@@ -2469,7 +2494,7 @@ export async function dispatchRoute(
     await self['handleFileOpen'](req, res);
     return true;
   }
-  if (method === 'GET' && url.startsWith('/api/file/read')) {
+  if (method === 'GET' && url === '/api/file/read') {
     await self['handleFileRead'](req, res);
     return true;
   }
@@ -2477,12 +2502,17 @@ export async function dispatchRoute(
     await self['handleFilePaths'](req, res);
     return true;
   }
-  if (method === 'GET' && url.startsWith('/api/file/resolve-path')) {
+  if (method === 'GET' && url === '/api/file/resolve-path') {
     await self['handleFileResolvePath'](req, res);
     return true;
   }
   if (method === 'GET' && url === '/api/file/preview') {
     await self['handleFilePreview'](req, res);
+    return true;
+  }
+  if (method === 'GET' && url.startsWith('/api/file/stream')) {
+    const { handleFileStream } = await import('./memory-handlers');
+    await handleFileStream(req, res);
     return true;
   }
 

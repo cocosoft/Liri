@@ -152,7 +152,7 @@ export class IndexManager {
         if (summaryMatch) {
           summary = summaryMatch[1].trim().replace(/["'"]/g, '');
         }
-      } catch (err) {
+      } catch (_err) {
         // 无法读取时使用默认值
       }
 
@@ -230,7 +230,7 @@ export class IndexManager {
           summary = summaryMatch[1].trim().replace(/["'"]/g, '');
         const kindMatch = content.match(/^kind:\s*(.+)$/m);
         if (kindMatch) kind = kindMatch[1].trim().replace(/["'"]/g, '');
-      } catch (err) {
+      } catch (_err) {
         /* 忽略 */
       }
 
@@ -271,7 +271,7 @@ export class IndexManager {
     if (existsSync(logFile)) {
       try {
         existingLog = await readFile(logFile, 'utf-8');
-      } catch (err) {
+      } catch (_err) {
         existingLog = '';
       }
     }
@@ -332,7 +332,7 @@ export class IndexManager {
       const lines = content.split('\n').filter((l) => l.startsWith('- **'));
 
       return lines.slice(-count);
-    } catch (err) {
+    } catch (_err) {
       return [];
     }
   }
@@ -367,7 +367,7 @@ export class IndexManager {
     let entries;
     try {
       entries = await readdir(dir, { withFileTypes: true });
-    } catch (err) {
+    } catch (_err) {
       return;
     }
     for (const entry of entries) {

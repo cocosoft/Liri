@@ -953,9 +953,9 @@ export class ImageAnalysisTool extends BaseTool {
       }
     } catch (err) {
       // UUID 链路失败，记录详细错误后直接返回，不绕行其他供应商
-      logger.error('ImageAnalysisTool · UUID链路查找失败', {
-        error: String(err),
-        route: taskType,
+      await handleError(err, {
+        module: 'tools:imageAnalysis',
+        action: 'UUID链路查找失败',
       });
       return {
         success: false,

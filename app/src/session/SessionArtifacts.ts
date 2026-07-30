@@ -4,7 +4,12 @@
  * 对齐 OpenClaw config/sessions/artifacts.ts
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 import {
   existsSync,
@@ -161,7 +166,10 @@ export class SessionArtifacts {
     try {
       return readFileSync(filePath);
     } catch (error) {
-      logger.error(`读取制品失败: ${id}`, error as Error);
+      handleError(error, {
+        module: 'sessions:artifacts',
+        action: '读取制品失败',
+      });
       return null;
     }
   }
@@ -181,7 +189,10 @@ export class SessionArtifacts {
       this.artifacts.set(sessionId, artifacts);
       return true;
     } catch (error) {
-      logger.error(`删除制品失败: ${id}`, error as Error);
+      handleError(error, {
+        module: 'sessions:artifacts',
+        action: '删除制品失败',
+      });
       return false;
     }
   }

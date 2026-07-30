@@ -14,7 +14,12 @@ import { join } from 'path';
 import { Notebook } from './types/index.js';
 import { NotebookImpl } from './types/Notebook.js';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { resolveDataSubDir } from '@modules/core';
 
 const logger = new Logger({ module: 'tools:notebook', level: LogLevel.INFO });
@@ -62,7 +67,10 @@ export class NotebookManager {
           const notebook = NotebookImpl.fromJSON(notebookData);
           this.notebooks.set(notebook.id, notebook);
         } catch (error) {
-          logger.error(`Error loading notebook ${file}:`, { error });
+          void handleError(error, {
+            module: 'tools:notebookMgr',
+            action: 'loadNotebook',
+          });
         }
       }
     }

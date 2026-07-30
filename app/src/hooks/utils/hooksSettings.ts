@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * Hook设置工具
  * 负责Hook配置的读写和管理
@@ -34,7 +34,7 @@ export function readHookConfig(configPath: string): any {
  * @param configPath 配置文件路径
  * @param config 配置对象
  */
-export function writeHookConfig(configPath: string, config: any): void {
+export function writeHookConfig(configPath: string, config: unknown): void {
   try {
     const content = JSON.stringify(config, null, 2);
     writeFileSync(configPath, content, 'utf8');
@@ -97,22 +97,24 @@ export function sortMatchersByPriority(
  * @param hook Hook配置
  * @returns 验证结果
  */
-export function validateHookConfig(hook: any): {
+export function validateHookConfig(hook: unknown): {
   valid: boolean;
   error?: string;
 } {
+  const h = hook as Record<string, unknown>;
   // 验证事件类型
-  if (!hook.event) {
+  if (!h.event) {
     return { valid: false, error: 'Hook must have an event' };
   }
 
   // 验证配置
-  if (!hook.config) {
+  if (!h.config) {
     return { valid: false, error: 'Hook must have a config' };
   }
 
+  const hc = h.config as Record<string, unknown>;
   // 验证配置类型
-  if (!['command', 'prompt', 'http', 'agent'].includes(hook.config.type)) {
+  if (!['command', 'prompt', 'http', 'agent'].includes(hc.type as string)) {
     return {
       valid: false,
       error: 'Hook config type must be one of: command, prompt, http, agent',
@@ -120,22 +122,22 @@ export function validateHookConfig(hook: any): {
   }
 
   // 验证命令类型Hook
-  if (hook.config.type === 'command' && !hook.config.command) {
+  if (hc.type === 'command' && !hc.command) {
     return { valid: false, error: 'Command type hook must have a command' };
   }
 
   // 验证HTTP类型Hook
   if (
-    hook.config.type === 'http' &&
-    (!hook.config.http || !hook.config.http.url)
+    hc.type === 'http' &&
+    (!hc.http || !(hc.http as Record<string, unknown>).url)
   ) {
     return { valid: false, error: 'HTTP type hook must have a url' };
   }
 
   // 验证代理类型Hook
   if (
-    hook.config.type === 'agent' &&
-    (!hook.config.agent || !hook.config.agent.id)
+    hc.type === 'agent' &&
+    (!hc.agent || !(hc.agent as Record<string, unknown>).id)
   ) {
     return { valid: false, error: 'Agent type hook must have an agent id' };
   }

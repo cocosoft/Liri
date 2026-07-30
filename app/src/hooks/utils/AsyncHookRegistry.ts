@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 异步钩子注册表
  * 管理异步钩子的执行和状态
  * 参考CC源码: cc_code/backend/utils/hooks/AsyncHookRegistry.ts
@@ -18,14 +18,14 @@ export interface AsyncHookJSONOutput {
   async: boolean;
   asyncTimeout?: number;
   asyncRewake?: boolean;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
  * 同步钩子输出
  */
 export interface SyncHookJSONOutput {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -88,7 +88,7 @@ export class AsyncHookRegistry extends EventEmitter {
     hookName: string;
     hookEvent: HookEvent | 'StatusLine' | 'FileSuggestion';
     command: string;
-    shellCommand: any;
+    shellCommand: unknown;
     toolName?: string;
     pluginId?: string;
   }): void {

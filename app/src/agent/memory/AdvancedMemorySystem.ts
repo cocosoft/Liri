@@ -1,6 +1,7 @@
 import { AgentMemory, AgentMemoryScope } from '../models/types';
 import { AgentMemoryImpl, MemoryItem } from './agentMemory';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
   module: 'agent:memory:advancedMemorySystem',
@@ -10,7 +11,7 @@ const logger = new Logger({
 interface MemoryVector {
   id: string;
   vector: number[];
-  content: any;
+  content: unknown;
   timestamp: number;
   tags: string[];
 }
@@ -39,7 +40,7 @@ interface MemoryExport {
 interface MemoryEntry {
   id: string;
   key: string;
-  content: any;
+  content: unknown;
   vector?: number[];
   tags: string[];
   timestamp: number;
@@ -103,7 +104,7 @@ export class AdvancedMemorySystem {
     this.startConsolidation();
   }
 
-  add(key: string, value: any, tags?: string[]): void {
+  add(key: string, value: unknown, tags?: string[]): void {
     const importance = this.calculateImportance(value);
     const vector = this.vectorize(value);
 
@@ -126,7 +127,7 @@ export class AdvancedMemorySystem {
     this.createVersion(`add:${key}`);
   }
 
-  get(key: string): any {
+  get(key: string): unknown {
     let value = this.shortTermMemory.get(key);
     if (value !== undefined) return value;
 
@@ -385,7 +386,7 @@ export class AdvancedMemorySystem {
     this.archivedMemory.save();
   }
 
-  private calculateImportance(value: any): number {
+  private calculateImportance(value: unknown): number {
     if (typeof value === 'string') {
       return Math.min(1, value.length / 1000);
     }
@@ -401,7 +402,7 @@ export class AdvancedMemorySystem {
     return 0.5;
   }
 
-  private vectorize(content: any): number[] | null {
+  private vectorize(content: unknown): number[] | null {
     try {
       const str =
         typeof content === 'string' ? content : JSON.stringify(content);
@@ -447,13 +448,14 @@ export class AdvancedMemorySystem {
     return Math.abs(hash);
   }
 
-  private getTimestamp(value: any): number | null {
+  private getTimestamp(value: unknown): number | null {
     if (typeof value === 'object' && value !== null) {
-      if (value.timestamp) return value.timestamp;
-      if (value.time)
-        return typeof value.time === 'number'
-          ? value.time
-          : Date.parse(value.time);
+      const v = value as Record<string, unknown>;
+      if (v.timestamp && typeof v.timestamp === 'number') return v.timestamp;
+      if (v.time) {
+        if (typeof v.time === 'number') return v.time;
+        if (typeof v.time === 'string') return Date.parse(v.time);
+      }
     }
     return null;
   }
@@ -535,7 +537,7 @@ export class AdvancedMemorySystem {
           );
         }
       } catch (error) {
-        logger.error('Memory consolidation failed:', error as Error);
+        handleError(error, { module: 'agent:memory', action: '内存整合' });
       }
     }, this.consolidationInterval);
   }

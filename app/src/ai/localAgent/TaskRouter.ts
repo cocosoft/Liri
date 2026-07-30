@@ -24,7 +24,7 @@ export class TaskRouterImpl {
     };
   }
 
-  route(intent: Intent, context?: any): RouteDecision {
+  route(intent: Intent, context?: Record<string, unknown>): RouteDecision {
     const { type, confidence } = intent;
 
     if (confidence < 0.3) {
@@ -54,7 +54,10 @@ export class TaskRouterImpl {
     }
   }
 
-  private routeLocalFirst(intent: Intent, context?: any): RouteDecision {
+  private routeLocalFirst(
+    intent: Intent,
+    context?: Record<string, unknown>
+  ): RouteDecision {
     const { type, confidence } = intent;
     const { ruleEngine, localLLM } = this.thresholds;
 
@@ -124,7 +127,10 @@ export class TaskRouterImpl {
     };
   }
 
-  private routeMCP(intent: Intent, context?: any): RouteDecision {
+  private routeMCP(
+    intent: Intent,
+    context?: Record<string, unknown>
+  ): RouteDecision {
     return {
       target: 'rule_engine',
       handler: 'mcp',
@@ -132,7 +138,10 @@ export class TaskRouterImpl {
     };
   }
 
-  private routeSkill(intent: Intent, context?: any): RouteDecision {
+  private routeSkill(
+    intent: Intent,
+    context?: Record<string, unknown>
+  ): RouteDecision {
     return {
       target: 'rule_engine',
       handler: 'skill',
@@ -140,7 +149,10 @@ export class TaskRouterImpl {
     };
   }
 
-  private routeCommand(intent: Intent, context?: any): RouteDecision {
+  private routeCommand(
+    intent: Intent,
+    context?: Record<string, unknown>
+  ): RouteDecision {
     return {
       target: 'rule_engine',
       handler: 'command',
@@ -149,7 +161,10 @@ export class TaskRouterImpl {
     };
   }
 
-  private routeCodeGeneration(intent: Intent, context?: any): RouteDecision {
+  private routeCodeGeneration(
+    intent: Intent,
+    context?: Record<string, unknown>
+  ): RouteDecision {
     if (this.strategy === 'ollama-first') {
       return {
         target: 'ollama',
@@ -166,7 +181,10 @@ export class TaskRouterImpl {
     };
   }
 
-  private routeExplanation(intent: Intent, context?: any): RouteDecision {
+  private routeExplanation(
+    intent: Intent,
+    context?: Record<string, unknown>
+  ): RouteDecision {
     if (this.strategy === 'ollama-first') {
       return {
         target: 'ollama',
@@ -183,7 +201,10 @@ export class TaskRouterImpl {
     };
   }
 
-  private routeSimpleQA(intent: Intent, context?: any): RouteDecision {
+  private routeSimpleQA(
+    intent: Intent,
+    context?: Record<string, unknown>
+  ): RouteDecision {
     return {
       target: 'rule_engine',
       handler: 'simple_qa',
@@ -191,8 +212,15 @@ export class TaskRouterImpl {
     };
   }
 
-  private routeGeneral(intent: Intent, context?: any): RouteDecision {
-    if (context?.inputLength && context.inputLength < 50) {
+  private routeGeneral(
+    intent: Intent,
+    context?: Record<string, unknown>
+  ): RouteDecision {
+    if (
+      context &&
+      typeof context.inputLength === 'number' &&
+      context.inputLength < 50
+    ) {
       return {
         target: 'rule_engine',
         handler: 'general',

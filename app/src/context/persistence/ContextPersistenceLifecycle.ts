@@ -9,6 +9,7 @@ import {
   JsonlContextPersistence,
   SqliteContextPersistenceImpl,
   type ContextPersistence,
+  type ContextSnapshot,
 } from '../persistence/ContextPersistence';
 import { resolveDataSubDir } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -103,7 +104,7 @@ function hydrateFromSnapshot(snapshot: {
   schemaVersion: string;
 }): number {
   const p = getPersistenceSync();
-  const validation = p.validate(snapshot as any);
+  const validation = p.validate(snapshot as unknown as ContextSnapshot);
   if (!validation.valid) {
     logger.warn('persistence:invalid_snapshot', {
       errors: validation.errors,
@@ -112,7 +113,7 @@ function hydrateFromSnapshot(snapshot: {
     return 0;
   }
 
-  const count = contextStore.hydrate(snapshot as any);
+  const count = contextStore.hydrate(snapshot as unknown as ContextSnapshot);
   logger.info('persistence:hydrated', { count });
   return count;
 }

@@ -6,6 +6,7 @@
 
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'security:auditConfig',
@@ -106,7 +107,10 @@ export function auditConfig(
 
     logger.info(`配置审计完成，发现 ${findings.length} 个问题`);
   } catch (error) {
-    logger.error('配置审计失败', error as Error);
+    void handleError(error, {
+      module: 'security:audit:config',
+      action: '配置审计失败',
+    });
   }
 
   return findings;

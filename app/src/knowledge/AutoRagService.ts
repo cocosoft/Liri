@@ -37,7 +37,7 @@ import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
 import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
+
 import { resolveKnowledgeDir, resolveDomainDir } from '@modules/core';
 import { EmbeddingManager, globalEmbeddingManager } from '@modules/ai';
 import { IndexManager } from './IndexManager';

@@ -154,7 +154,11 @@ export function createLSPServerInstance(
       attempt++
     ) {
       try {
-        const result = await (client as any).sendRequest(method, params);
+        const result = await (
+          client as unknown as {
+            sendRequest: (method: string, params: unknown) => Promise<unknown>;
+          }
+        ).sendRequest(method, params);
         return result as T;
       } catch (error) {
         const err = error as Error & { code?: number };
@@ -185,7 +189,11 @@ export function createLSPServerInstance(
         new Error(`LSP server '${name}' is not running (state: ${state})`)
       );
     }
-    return (client as any).sendNotification(method, params);
+    return (
+      client as unknown as {
+        sendNotification: (method: string, params: unknown) => Promise<void>;
+      }
+    ).sendNotification(method, params);
   }
 
   function onNotification(

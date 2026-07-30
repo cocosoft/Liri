@@ -5,6 +5,7 @@ import type {
 } from './types';
 import { DEFAULT_REMOTE_SETTINGS_CONFIG } from './types';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'services:remoteSettingsClient',
@@ -95,10 +96,10 @@ export class RemoteSettingsClient {
       if (error instanceof DOMException && error.name === 'AbortError') {
         logger.warning('[RemoteSettings] Request timeout');
       } else {
-        logger.error(
-          '[RemoteSettings] Fetch error',
-          error instanceof Error ? error : new Error(String(error))
-        );
+        void handleError(error, {
+          module: 'services:settings:client',
+          action: '获取远程设置失败',
+        });
       }
       return null;
     }

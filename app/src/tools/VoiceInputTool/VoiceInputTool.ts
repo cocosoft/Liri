@@ -3,6 +3,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { Tool, ToolInfo, ToolTag, ValidationResult } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
@@ -135,7 +136,10 @@ export class VoiceInputTool implements Tool {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error('VoiceInputTool · 启动录音异常', { error: errorMsg });
+      void handleError(error, {
+        module: 'tools:voiceInput',
+        action: '启动录音异常',
+      });
       return {
         status: ToolExecutionStatus.FAILURE,
         result: null,
@@ -200,7 +204,10 @@ export class VoiceInputTool implements Tool {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error('VoiceInputTool · 停止录音异常', { error: errorMsg });
+      void handleError(error, {
+        module: 'tools:voiceInput',
+        action: '停止录音异常',
+      });
       return {
         status: ToolExecutionStatus.FAILURE,
         result: null,

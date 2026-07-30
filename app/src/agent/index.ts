@@ -122,6 +122,36 @@ import type {
   AgentIdentitySystemConfig,
 } from './identity';
 
+import { StrategySelector } from './StrategySelector';
+import {
+  TaskComplexity,
+  ContextSize,
+  type TaskFeature,
+  type StrategyRule,
+  type StrategySelection,
+} from './types';
+import { ToolCallBatch } from './ToolCallBatch';
+import type {
+  ToolCallItem,
+  ToolCallBatchResult,
+  BatchConfig,
+} from './ToolCallBatch';
+import { ContextCompressor } from './ContextCompressor';
+import type {
+  CompressibleMessage,
+  ContextCompressionConfig,
+  CompressionResult,
+} from './ContextCompressor';
+import {
+  AgentRegistry,
+  getAgentRegistry,
+  agentRegistry,
+} from './registry/AgentRegistry';
+import type {
+  AgentDefinition,
+  DiscoverCriteria,
+} from './registry/AgentRegistry';
+
 export {
   AgentService,
   createAgentService,
@@ -237,36 +267,6 @@ export type {
   CompressionResult,
 } from './ContextCompressor';
 export type {
-  AgentDefinition,
-  DiscoverCriteria,
-} from './registry/AgentRegistry';
-import { StrategySelector } from './StrategySelector';
-import {
-  TaskComplexity,
-  ContextSize,
-  type TaskFeature,
-  type StrategyRule,
-  type StrategySelection,
-} from './types';
-import { ToolCallBatch } from './ToolCallBatch';
-import type {
-  ToolCallItem,
-  ToolCallBatchResult,
-  BatchConfig,
-} from './ToolCallBatch';
-import { ContextCompressor } from './ContextCompressor';
-import type {
-  CompressibleMessage,
-  ContextCompressionConfig,
-  CompressionResult,
-} from './ContextCompressor';
-
-import {
-  AgentRegistry,
-  getAgentRegistry,
-  agentRegistry,
-} from './registry/AgentRegistry';
-import type {
   AgentDefinition,
   DiscoverCriteria,
 } from './registry/AgentRegistry';

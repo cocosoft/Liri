@@ -13,6 +13,7 @@
 
 import type http from 'http';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { HandlerCtx } from './handler-utils';
 import {
   changeImpactAnalyzer,
@@ -55,7 +56,10 @@ export async function handleImpactAnalysis(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
   } catch (err) {
-    logger.error('变更影响评估失败', { error: String(err) });
+    await handleError(err, {
+      module: 'infra:handler:orch',
+      action: 'impact_analysis',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '变更影响评估失败' }));
@@ -94,7 +98,10 @@ export async function handleRiskDetection(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ risks, summary }));
   } catch (err) {
-    logger.error('风险识别失败', { error: String(err) });
+    await handleError(err, {
+      module: 'infra:handler:orch',
+      action: 'risk_detection',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '风险识别失败' }));
@@ -132,7 +139,10 @@ export async function handleDecisionClassify(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
   } catch (err) {
-    logger.error('决策分级失败', { error: String(err) });
+    await handleError(err, {
+      module: 'infra:handler:orch',
+      action: 'decision_classify',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '决策分级失败' }));
@@ -181,7 +191,10 @@ export async function handleEscalation(
       })
     );
   } catch (err) {
-    logger.error('异常升级失败', { error: String(err) });
+    await handleError(err, {
+      module: 'infra:handler:orch',
+      action: 'escalation',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '异常升级失败' }));
@@ -204,7 +217,10 @@ export function handleGetEscalations(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(active));
   } catch (err) {
-    logger.error('获取活跃异常失败', { error: String(err) });
+    void handleError(err, {
+      module: 'infra:handler:orch',
+      action: 'get_escalations',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '获取活跃异常失败' }));
@@ -241,7 +257,10 @@ export async function handleResourceSchedule(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(results));
   } catch (err) {
-    logger.error('资源调度失败', { error: String(err) });
+    await handleError(err, {
+      module: 'infra:handler:orch',
+      action: 'resource_schedule',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '资源调度失败' }));
@@ -264,7 +283,10 @@ export function handleGetResources(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(status));
   } catch (err) {
-    logger.error('获取资源状态失败', { error: String(err) });
+    void handleError(err, {
+      module: 'infra:handler:orch',
+      action: 'get_resources',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: '获取资源状态失败' }));

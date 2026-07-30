@@ -75,7 +75,10 @@ export async function rerankDocs(
     // 2. 通过 ProviderRegistry 获取 Provider
     const provider = providerRegistry.getByModel(modelKey);
     // 类型守卫：检查 rerank 方法是否存在
-    if (!provider || typeof (provider as any).rerank !== 'function') {
+    const providerWithRerank = provider as unknown as {
+      rerank?: (request: RerankRequest) => Promise<RerankResult>;
+    };
+    if (!provider || typeof providerWithRerank.rerank !== 'function') {
       logger.warn('重排序跳过：Provider 不支持 rerank', {
         model: modelKey,
       });
@@ -97,7 +100,7 @@ export async function rerankDocs(
       docCount: contents.length,
     });
 
-    const result: RerankResult = await (provider as any).rerank(request);
+    const result = await providerWithRerank.rerank(request);
 
     span.setAttribute('knowledge.rerank.result_count', result.results.length);
 

@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
   module: 'services:mcp:resourceManager',
@@ -266,10 +267,10 @@ export class ResourceManager {
       );
       return serverResources;
     } catch (error) {
-      logger.error(
-        `Failed to load resources from server ${serverName}:`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, {
+        module: 'services:mcp:resource',
+        action: '从服务器加载资源失败',
+      });
       return [];
     }
   }

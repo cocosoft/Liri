@@ -5,6 +5,7 @@
 
 import { Database } from '@modules/core/external/sqlite3';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { CronJob, CronJobResult } from './types';
 
 const logger = new Logger({
@@ -111,16 +112,18 @@ export class DeliveryQueue {
     return new Promise((resolve, reject) => {
       this.db = new Database(this.dbPath, (err: Error | null) => {
         if (err) {
-          logger.error('[DeliveryQueue] 打开数据库失败', {
-            error: err.message,
+          handleError(err, {
+            module: 'tasks:cron:delivery',
+            action: '打开数据库失败',
           });
           reject(err);
           return;
         }
         this.db!.exec(SCHEMA, (schemaErr) => {
           if (schemaErr) {
-            logger.error('[DeliveryQueue] 初始化表结构失败', {
-              error: schemaErr.message,
+            handleError(schemaErr, {
+              module: 'tasks:cron:delivery',
+              action: '初始化表结构失败',
             });
             reject(schemaErr);
             return;
@@ -195,9 +198,9 @@ export class DeliveryQueue {
         ],
         (err: Error | null) => {
           if (err) {
-            logger.error('[DeliveryQueue] 入队失败', {
-              jobId: job.id,
-              error: err.message,
+            handleError(err, {
+              module: 'tasks:cron:delivery',
+              action: '入队失败',
             });
             reject(err);
             return;

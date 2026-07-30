@@ -5,6 +5,7 @@
 
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { resolveProjectRoot } from '@modules/core';
@@ -47,7 +48,10 @@ export function auditPlugins(pluginsDir?: string): SecurityAuditFinding[] {
       `插件信任审计完成，扫描 ${pluginMetas.length} 个插件，发现 ${findings.length} 个问题`
     );
   } catch (error) {
-    logger.error('插件信任审计失败', error as Error);
+    void handleError(error, {
+      module: 'security:audit:plugins',
+      action: '插件信任审计失败',
+    });
   }
 
   return findings;

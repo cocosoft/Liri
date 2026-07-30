@@ -29,7 +29,12 @@
  * 管理模块的注册、加载、启动、停止、卸载及依赖解析。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { Module, ModuleState } from './types.js';
 
@@ -227,7 +232,10 @@ export class ModuleManager {
     try {
       await module.destroy();
     } catch (error) {
-      logger.error(`Failed to destroy module ${moduleId}:`, error);
+      await handleError(error, {
+        module: 'core:ext',
+        action: 'destroy_module',
+      });
     }
 
     this.modules.delete(moduleId);
@@ -250,7 +258,10 @@ export class ModuleManager {
       try {
         return await this.loadLazyModule(moduleId);
       } catch (error) {
-        logger.error(`Failed to load lazy module ${moduleId}:`, error);
+        await handleError(error, {
+          module: 'core:ext',
+          action: 'load_lazy',
+        });
         return undefined;
       }
     }
@@ -320,7 +331,10 @@ export class ModuleManager {
       try {
         await module.destroy();
       } catch (error) {
-        logger.error(`Failed to destroy module ${module.metadata.id}:`, error);
+        await handleError(error, {
+          module: 'core:ext',
+          action: 'destroy_all',
+        });
       }
     }
     this.modules.clear();

@@ -14,6 +14,7 @@ import type {
 } from '../../../ai/providers/AIProvider';
 import type { ImageGenerationProvider, CostEstimate } from '../types';
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { SpanStatusCode } from '@opentelemetry/api';
 import {
   resolveModelRoute,
@@ -150,9 +151,9 @@ export class RegistryImageProvider implements ImageGenerationProvider {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       otel.endSpan(span, SpanStatusCode.ERROR, errorMsg);
-      logger.error('RegistryImageProvider · 生成异常', {
-        providerId: this.aiProvider.id,
-        error: errorMsg,
+      await handleError(error, {
+        module: 'tools:registryImage',
+        action: '生成异常',
       });
       return {
         success: false,

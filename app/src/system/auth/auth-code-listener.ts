@@ -15,12 +15,6 @@ import { createServer, type Server } from 'http';
 import type { AddressInfo } from 'net';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'system:auth:auth-code-listener',
-  level: LogLevel.INFO,
-});
-
 /** 默认端口范围（对标 cline-main 48801-48811） */
 const DEFAULT_PORT_RANGE = { start: 48801, end: 48811 };
 

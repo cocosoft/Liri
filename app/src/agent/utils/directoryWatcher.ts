@@ -6,6 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ module: 'agent:directoryWatcher' });
 
@@ -130,9 +131,7 @@ export class DirectoryWatcher {
       try {
         callback(event);
       } catch (error) {
-        logger.error('Error in directory watcher callback', {
-          error: error instanceof Error ? error.message : String(error),
-        });
+        handleError(error, { module: 'agent:watcher', action: '目录监控回调' });
       }
     }
   }

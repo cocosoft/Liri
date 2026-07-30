@@ -6,6 +6,7 @@
 import type { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { McpTlsConfig } from './McpTlsManager';
 
@@ -72,13 +73,19 @@ export class SSETransport extends MCPTransport {
           this.pendingRequests.delete(requestId);
         }
       } catch (error) {
-        logger.error(`Failed to parse SSE response: ${event.data}`);
+        handleError(error, {
+          module: 'services:mcp:sse',
+          action: '解析SSE响应失败',
+        });
       }
     });
 
     // 处理错误事件
     this.eventSource.addEventListener('error', (event) => {
-      logger.error('SSE error:', { event });
+      handleError(new Error('SSE error'), {
+        module: 'services:mcp:sse',
+        action: 'SSE连接错误',
+      });
       this.connected = false;
 
       // 拒绝所有未完成的请求

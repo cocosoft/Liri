@@ -34,7 +34,11 @@ import {
 // @ts-ignore
 import * as gracefulShutdownModule from '@modules/utils/gracefulShutdown.js';
 const { gracefulShutdown, setupGracefulShutdown, registerShutdownHandler } =
-  gracefulShutdownModule as any;
+  gracefulShutdownModule as unknown as {
+    gracefulShutdown: () => void;
+    setupGracefulShutdown: () => void;
+    registerShutdownHandler: (handler: () => void) => void;
+  };
 import { getMonitoringService } from '@modules/monitoring/index.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 import {
@@ -393,7 +397,11 @@ async function startDeferredPrefetches(): Promise<void> {
         try {
           // @ts-ignore
           const contextModule = await import('../context/context.js');
-          const { getSystemContext, getUserContext } = contextModule as any;
+          const { getSystemContext, getUserContext } =
+            contextModule as unknown as {
+              getSystemContext: () => unknown;
+              getUserContext: () => unknown;
+            };
           void getSystemContext();
           void getUserContext();
         } catch (error) {
@@ -422,12 +430,15 @@ async function startDeferredPrefetches(): Promise<void> {
         }
       })(),
 
-      // 预加载治理管理器
+      // 预加载治理管理器（仅在启用时）
       (async () => {
         try {
-          await import('../governance/managers/GovernanceManager');
-        } catch (error) {
-          // 忽略预加载错�?
+          const govCfg = await import('../../config/governance.json');
+          if ((govCfg.default as { enabled?: boolean })?.enabled !== false) {
+            await import('../governance/managers/GovernanceManager');
+          }
+        } catch {
+          // 配置文件加载失败或 governance 已禁用，跳过
         }
       })(),
 

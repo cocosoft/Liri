@@ -85,7 +85,7 @@ export class HonchoMemoryProvider implements ExternalMemoryProvider {
 
       if (!Array.isArray(data)) return [];
 
-      return data.map((item: any) => ({
+      return data.map((item: Record<string, unknown>) => ({
         id: String(item.id || ''),
         content: String(item.content || ''),
         tags: Array.isArray(item.tags) ? item.tags : [],

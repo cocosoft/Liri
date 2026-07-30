@@ -572,8 +572,9 @@ export class SenseVoiceSTTProvider implements STTProvider {
         setTimeout(() => {
           if (!this._disposing) {
             this.startWorker().catch((err) => {
-              logger.error('重启 SenseVoice 工作进程失败', {
-                error: String(err),
+              void handleError(err, {
+                module: 'services:voice:sense',
+                action: '重启工作进程失败',
               });
             });
           }
@@ -582,7 +583,10 @@ export class SenseVoiceSTTProvider implements STTProvider {
     });
 
     proc.on('error', (err) => {
-      logger.error('SenseVoice 工作进程错误', { error: err.message });
+      void handleError(err, {
+        module: 'services:voice:sense',
+        action: '工作进程错误',
+      });
     });
 
     // 发送初始配置

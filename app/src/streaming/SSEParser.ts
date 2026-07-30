@@ -70,19 +70,25 @@ export function parseOpenAIStreamChunk(chunk: string): {
       return null;
     }
 
-    const result: any = {};
+    const result: Record<string, unknown> = {};
 
     if (choice.delta?.content) {
       result.content = choice.delta.content;
     }
 
     if (choice.delta?.tool_calls) {
-      result.toolCalls = choice.delta.tool_calls.map((tc: any) => ({
-        id: tc.id,
-        name: tc.function?.name,
-        arguments: tc.function?.arguments || '',
-        index: tc.index,
-      }));
+      result.toolCalls = choice.delta.tool_calls.map(
+        (tc: {
+          id?: string;
+          function?: { name?: string; arguments?: string };
+          index?: number;
+        }) => ({
+          id: tc.id,
+          name: tc.function?.name,
+          arguments: tc.function?.arguments || '',
+          index: tc.index,
+        })
+      );
     }
 
     if (choice.finish_reason) {

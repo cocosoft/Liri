@@ -11,6 +11,7 @@ import { spawn, type ChildProcess } from 'child_process';
 import type { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { trackProcess, untrackProcess } from './ChildProcessTracker';
 import { buildSafeEnv, stripCredentials } from '../MCPSecurityFilter';
@@ -104,7 +105,10 @@ export class StdioTransport extends MCPTransport {
     this.process.stderr?.on('data', (data) => {
       const raw = data.toString();
       const { cleaned } = stripCredentials(raw);
-      logger.error(`MCP stderr: ${cleaned}`);
+      handleError(new Error(`MCP stderr: ${cleaned}`), {
+        module: 'services:mcp:stdio',
+        action: 'MCP标准错误输出',
+      });
     });
 
     // 处理进程退出
@@ -225,7 +229,10 @@ export class StdioTransport extends MCPTransport {
           this.pendingRequests.delete(requestId);
         }
       } catch (error) {
-        logger.error(`Failed to parse MCP response: ${line}`);
+        handleError(error, {
+          module: 'services:mcp:stdio',
+          action: '解析MCP响应失败',
+        });
       }
     }
 

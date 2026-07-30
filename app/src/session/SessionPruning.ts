@@ -4,6 +4,7 @@
  * 对齐 OpenClaw config/sessions/store-pruning.ts
  */
 
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { existsSync, unlinkSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
@@ -119,7 +120,10 @@ export class SessionPruning {
       }
     } catch (error) {
       result.errors.push(`修剪失败: ${String(error)}`);
-      logger.error('会话修剪失败', error as Error);
+      handleError(error, {
+        module: 'sessions:pruning',
+        action: '会话修剪失败',
+      });
     }
 
     return result;

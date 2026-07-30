@@ -6,6 +6,7 @@
  */
 
 import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { EventEmitter } from 'events';
 import { FileTAORCheckpointStorage } from './FileTAORCheckpointStorage.js';
 import {
@@ -94,7 +95,10 @@ export class ResumeManager {
 
       return candidates.sort((a, b) => b.savedAt - a.savedAt);
     } catch (e) {
-      logger.error('Failed to scan pending checkpoints', { error: String(e) });
+      await handleError(e, {
+        module: 'query:resume',
+        action: '扫描待恢复检查点',
+      });
       return [];
     }
   }

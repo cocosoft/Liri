@@ -25,11 +25,6 @@ import type {
 import { WorkItemStore } from './WorkItemStore';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'workspace:ProjectStore',
-  level: LogLevel.INFO,
-});
 
 /** 项目存储子目录 */
 const PROJECTS_DIR = 'projects';

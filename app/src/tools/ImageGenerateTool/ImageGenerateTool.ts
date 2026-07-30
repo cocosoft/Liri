@@ -269,8 +269,9 @@ export class ImageGenerateTool extends BaseTool {
           mappedType,
         });
       } catch (error) {
-        logger.error('ImageGenerateTool · 创建 Router 失败', {
-          error: error instanceof Error ? error.message : String(error),
+        await handleError(error, {
+          module: 'tools:imageGenerate',
+          action: '创建Router失败',
         });
         throw error;
       }
@@ -367,10 +368,6 @@ export class ImageGenerateTool extends BaseTool {
         SpanStatusCode.ERROR,
         error instanceof Error ? error.message : String(error)
       );
-      logger.error('ImageGenerateTool · execute() 异常', {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
       await handleError(error, {
         module: 'tools:imageGenerate',
         action: 'execute',

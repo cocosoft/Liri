@@ -229,8 +229,11 @@ class SensitiveDataScrubber {
 export class LLMTracker {
   private sessionStats = new Map<string, SessionLLMStats>();
   private sessionCalls = new Map<string, LLMCallRecord[]>();
-  private logger = new Logger({ module: 'LLMTracker' });
-  private otelLogger = new OTelAwareLogger({ module: 'LLMTracker' });
+  private logger = new Logger({ module: 'LLMTracker', source: 'llm' });
+  private otelLogger = new OTelAwareLogger({
+    module: 'LLMTracker',
+    source: 'llm',
+  } as any);
   private scrubber = new SensitiveDataScrubber();
   private db: Database | null = null;
   private initialized = false;

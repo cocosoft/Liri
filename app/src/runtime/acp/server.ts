@@ -11,12 +11,6 @@ import {
   AcpSessionStatus,
 } from './types.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'runtime:acp:server',
-  level: LogLevel.INFO,
-});
-
 let _serverIdCounter = 0;
 function nextServerId(): string {
   _serverIdCounter++;

@@ -13,7 +13,8 @@ const debugSkill: Skill = {
   version: '1.0.0',
   impl: {
     kind: 'executable',
-    execute: async (args: unknown[]) => {
+    execute: async (context: unknown) => {
+      const args = context as unknown[];
       return `Debug mode activated. Use this skill to help diagnose issues in your current session.\n\nUser issue: ${args.join(' ') || 'No specific issue provided'}`;
     },
   },

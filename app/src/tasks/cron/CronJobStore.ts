@@ -5,6 +5,7 @@
 
 import { Database } from '@modules/core/external/sqlite3';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type {
   CronJob,
   CronJobState,
@@ -178,14 +179,18 @@ export class CronJobStore {
     return new Promise((resolve, reject) => {
       this.db = new Database(this.dbPath, (err) => {
         if (err) {
-          logger.error('[CronJobStore] 打开数据库失败', { error: err.message });
+          handleError(err, {
+            module: 'tasks:cron:store',
+            action: '打开数据库失败',
+          });
           reject(err);
           return;
         }
         this.db!.exec(SCHEMA, (schemaErr) => {
           if (schemaErr) {
-            logger.error('[CronJobStore] 初始化表结构失败', {
-              error: schemaErr.message,
+            handleError(schemaErr, {
+              module: 'tasks:cron:store',
+              action: '初始化表结构失败',
             });
             reject(schemaErr);
             return;
@@ -266,9 +271,9 @@ export class CronJobStore {
     return new Promise((resolve, reject) => {
       db.run(sql, values, (err) => {
         if (err) {
-          logger.error('[CronJobStore] 保存作业失败', {
-            jobId: job.id,
-            error: err.message,
+          handleError(err, {
+            module: 'tasks:cron:store',
+            action: '保存作业失败',
           });
           reject(err);
           return;
@@ -321,7 +326,10 @@ export class CronJobStore {
     return new Promise((resolve, reject) => {
       db.all(sql, params, (err, rows) => {
         if (err) {
-          logger.error('[CronJobStore] 加载作业失败', { error: err.message });
+          handleError(err, {
+            module: 'tasks:cron:store',
+            action: '加载作业失败',
+          });
           reject(err);
           return;
         }
@@ -359,11 +367,9 @@ export class CronJobStore {
     return new Promise((resolve, reject) => {
       db.run(sql, [newState, Date.now(), jobId, job.state], (err) => {
         if (err) {
-          logger.error('[CronJobStore] 更新状态失败', {
-            jobId,
-            from: job.state,
-            to: newState,
-            error: err.message,
+          handleError(err, {
+            module: 'tasks:cron:store',
+            action: '更新状态失败',
           });
           reject(err);
           return;
@@ -400,9 +406,9 @@ export class CronJobStore {
         [prevErrors, prevSkipped, scheduleErrors, now, jobId],
         (err) => {
           if (err) {
-            logger.error('[CronJobStore] 原子恢复失败', {
-              jobId,
-              error: err.message,
+            handleError(err, {
+              module: 'tasks:cron:store',
+              action: '原子恢复失败',
             });
             reject(err);
             return;
@@ -431,8 +437,9 @@ export class CronJobStore {
     return new Promise((resolve, reject) => {
       db.all(sql, [nowIso], (err, rows) => {
         if (err) {
-          logger.error('[CronJobStore] 获取到期作业失败', {
-            error: err.message,
+          handleError(err, {
+            module: 'tasks:cron:store',
+            action: '获取到期作业失败',
           });
           reject(err);
           return;
@@ -442,7 +449,7 @@ export class CronJobStore {
     });
   }
 
-  /** 更新作业的执行记录 */
+  /** 更新作业的执行记录（NEW-BUG-2 fix: WHERE state = 'running' 守卫防并发覆盖） */
   async markJobRun(
     jobId: string,
     success: boolean,
@@ -459,7 +466,7 @@ export class CronJobStore {
           last_error = ?,
           last_delivery_error = ?,
           updated_at = ?
-      WHERE id = ?`;
+      WHERE id = ? AND state = 'running'`;
 
     return new Promise((resolve, reject) => {
       db.run(
@@ -467,9 +474,9 @@ export class CronJobStore {
         [now, status, error ?? null, deliveryError ?? null, Date.now(), jobId],
         (err) => {
           if (err) {
-            logger.error('[CronJobStore] 标记作业运行失败', {
-              jobId,
-              error: err.message,
+            handleError(err, {
+              module: 'tasks:cron:store',
+              action: '标记作业运行失败',
             });
             reject(err);
             return;
@@ -491,9 +498,9 @@ export class CronJobStore {
     return new Promise((resolve, reject) => {
       db.run(sql, [nextRunAt, Date.now(), jobId], (err) => {
         if (err) {
-          logger.error('[CronJobStore] 更新下次运行时间失败', {
-            jobId,
-            error: err.message,
+          handleError(err, {
+            module: 'tasks:cron:store',
+            action: '更新下次运行时间失败',
           });
           reject(err);
           return;
@@ -514,9 +521,9 @@ export class CronJobStore {
     return new Promise((resolve, reject) => {
       db.run(sql, [Date.now(), jobId], (err) => {
         if (err) {
-          logger.error('[CronJobStore] 增加重复计数失败', {
-            jobId,
-            error: err.message,
+          handleError(err, {
+            module: 'tasks:cron:store',
+            action: '增加重复计数失败',
           });
           reject(err);
           return;
@@ -549,9 +556,9 @@ export class CronJobStore {
         [Date.now(), reason ?? null, Date.now(), jobId, job.state],
         (err) => {
           if (err) {
-            logger.error('[CronJobStore] 暂停作业失败', {
-              jobId,
-              error: err.message,
+            handleError(err, {
+              module: 'tasks:cron:store',
+              action: '暂停作业失败',
             });
             reject(err);
             return;
@@ -583,9 +590,9 @@ export class CronJobStore {
     return new Promise((resolve, reject) => {
       db.run(sql, [nextRunAt, Date.now(), jobId, job.state], (err) => {
         if (err) {
-          logger.error('[CronJobStore] 恢复作业失败', {
-            jobId,
-            error: err.message,
+          handleError(err, {
+            module: 'tasks:cron:store',
+            action: '恢复作业失败',
           });
           reject(err);
           return;
@@ -601,9 +608,9 @@ export class CronJobStore {
     return new Promise((resolve, reject) => {
       db.run(`DELETE FROM ${TABLE_CRON_JOBS} WHERE id = ?`, [jobId], (err) => {
         if (err) {
-          logger.error('[CronJobStore] 删除作业失败', {
-            jobId,
-            error: err.message,
+          handleError(err, {
+            module: 'tasks:cron:store',
+            action: '删除作业失败',
           });
           reject(err);
           return;
@@ -626,9 +633,9 @@ export class CronJobStore {
         [reason ? `已自动禁用: ${reason}` : null, Date.now(), jobId],
         (err) => {
           if (err) {
-            logger.error('[CronJobStore] 禁用作业失败', {
-              jobId,
-              error: err.message,
+            handleError(err, {
+              module: 'tasks:cron:store',
+              action: '禁用作业失败',
             });
             reject(err);
             return;
@@ -648,8 +655,9 @@ export class CronJobStore {
         [],
         (err, rows) => {
           if (err) {
-            logger.error('[CronJobStore] 查询运行中作业失败', {
-              error: err.message,
+            handleError(err, {
+              module: 'tasks:cron:store',
+              action: '查询运行中作业失败',
             });
             reject(err);
             return;
@@ -679,9 +687,9 @@ export class CronJobStore {
         [errors, skipped, scheduleErrors, Date.now(), jobId],
         (err) => {
           if (err) {
-            logger.error('[CronJobStore] 更新错误计数失败', {
-              jobId,
-              error: err.message,
+            handleError(err, {
+              module: 'tasks:cron:store',
+              action: '更新错误计数失败',
             });
             reject(err);
             return;

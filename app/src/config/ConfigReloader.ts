@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '../monitoring/logs/Logger.js';
+import { handleError } from '@modules/error';
 import { watch, type FSWatcher } from 'fs';
 import { join } from 'path';
 import { EventEmitter } from 'events';
@@ -103,7 +104,10 @@ export class ConfigReloader {
     this.watcher = watcher || new ConfigWatcher();
     this.watcher.on('change', (event: ConfigChangeEvent) => {
       this.handleChange(event).catch((err) => {
-        logger.error('配置热重载失败', err as Error);
+        void handleError(err, {
+          module: 'config:reloader',
+          action: '配置热重载失败',
+        });
       });
     });
   }
@@ -151,7 +155,10 @@ export class ConfigReloader {
           await target.reload();
           logger.info(`重载完成: ${target.name}`);
         } catch (error) {
-          logger.error(`重载失败: ${target.name}`, error as Error);
+          void handleError(error, {
+            module: 'config:reloader',
+            action: `重载失败: ${target.name}`,
+          });
         }
       }
     } finally {

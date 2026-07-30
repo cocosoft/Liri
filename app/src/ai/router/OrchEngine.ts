@@ -53,6 +53,8 @@ import type { RouteDecision, RouterTier } from './types.js';
 import { TaskDecomposer } from './TaskDecomposer.js';
 import type { DecompositionResult, SubTask } from './TaskDecomposer.js';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { trackUsage } from '@modules/ai';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'ai:orch' });
 
@@ -282,10 +284,10 @@ export class OrchEngine {
     } catch (error) {
       const durationMs = Date.now() - startTime;
 
-      logger.warning('OrchEngine: 子任务失败', {
-        taskId: task.id,
-        error,
-        durationMs,
+      void handleError(error, {
+        module: 'ai:orch',
+        action: 'executeSubTask',
+        context: { taskId: task.id, durationMs },
       });
 
       return {
@@ -334,13 +336,23 @@ export class OrchEngine {
           resultsText
         );
 
+        const _trackStart = Date.now();
         const response = await this.synthesizeProvider.chat([
           { role: 'user', content: prompt },
         ]);
 
+        trackUsage(response, {
+          model: response.model || 'unknown',
+          providerId: this.synthesizeProvider.id,
+          latencyMs: Date.now() - _trackStart,
+        });
+
         return response.content;
       } catch (error) {
-        logger.warning('OrchEngine: 合成失败，使用简单拼接', { error });
+        void handleError(error, {
+          module: 'ai:orch',
+          action: 'synthesizeResults',
+        });
       }
     }
 

@@ -10,6 +10,7 @@ import type { FilePreview } from "../../types";
 import { httpLegacy as http } from "../../services/httpClient";
 import { resolveFilePath } from "../../services/filePathResolver";
 import { handleClientError } from "@/utils/handleError";
+import { useChatInspectorStore } from "../chatInspectorStore";
 
 /** 扩展名 → 文件类型映射表 */
 export type FileType =
@@ -19,9 +20,13 @@ export type FileType =
   | "markdown"
   | "json"
   | "yaml"
+  | "xlsx"
   | "pdf"
   | "docx"
-  | "pptx";
+  | "pptx"
+  | "audio"
+  | "video"
+  | "unsupported";
 
 const EXT_TO_TYPE: Record<string, FileType> = {
   // 文档
@@ -34,6 +39,7 @@ const EXT_TO_TYPE: Record<string, FileType> = {
   ".pdf": "pdf",
   ".docx": "docx",
   ".pptx": "pptx",
+  ".xlsx": "xlsx",
   // 数据
   ".json": "json",
   ".jsonc": "json",
@@ -80,9 +86,8 @@ const EXT_TO_TYPE: Record<string, FileType> = {
   ".gitignore": "text",
   ".dockerignore": "text",
   ".editorconfig": "text",
-  // 矢量图形
-  ".svg": "code",
   // 图片
+  ".svg": "image",
   ".png": "image",
   ".jpg": "image",
   ".jpeg": "image",
@@ -91,6 +96,19 @@ const EXT_TO_TYPE: Record<string, FileType> = {
   ".ico": "image",
   ".bmp": "image",
   ".tiff": "image",
+  // 音频
+  ".mp3": "audio",
+  ".wav": "audio",
+  ".ogg": "audio",
+  ".aac": "audio",
+  ".m4a": "audio",
+  ".flac": "audio",
+  // 视频
+  ".mp4": "video",
+  ".webm": "video",
+  ".mov": "video",
+  ".avi": "video",
+  ".mkv": "video",
 };
 
 /**
@@ -112,8 +130,18 @@ export function inferFileType(filePath: string): FileType {
       return type;
     }
   }
-  return "text";
+  for (const ext of BINARY_EXTS) {
+    if (lower.endsWith(ext)) return "unsupported";
+  }
+  return "unsupported";
 }
+
+/** 二进制/不可预览文件的扩展名（防止误当作文本渲染导致乱码） */
+const BINARY_EXTS: string[] = [
+  ".exe", ".dll", ".so", ".dylib",
+  ".zip", ".tar", ".gz", ".7z", ".rar",
+  ".bin", ".dat", ".wasm", ".class", ".pyc",
+];
 
 /**
  * 从工具调用中提取文件路径
@@ -135,21 +163,26 @@ export function extractFilePathFromToolCall(toolCall: ToolCall): string | null {
 
 /**
  * 从工具调用结果中提取最精确的文件路径
- * 优先取 result 中的路径，fallback 到 arguments 中的路径
+ * 优先取 result 中的路径（含嵌套 data.filePath），fallback 到 arguments 中的路径
  */
 export function resolveFilePathFromResult(toolCall: ToolCall): string | null {
-  const argPath = extractFilePathFromToolCall(toolCall);
-  if (!argPath) return null;
-
+  // 先尝试从 result 中提取（支持嵌套 data.filePath / data.path）
   if (toolCall.result && typeof toolCall.result === "object") {
     const result = toolCall.result as Record<string, unknown>;
+    const data = result.data as Record<string, unknown> | undefined;
+
     const resultPath =
       (result.filePath as string) ||
       (result.path as string) ||
-      (result.file_path as string);
+      (result.file_path as string) ||
+      (data?.filePath as string) ||
+      (data?.path as string) ||
+      (data?.file_path as string);
     if (resultPath && typeof resultPath === "string") return resultPath;
   }
-  return argPath;
+
+  // fallback 到 arguments 中的路径
+  return extractFilePathFromToolCall(toolCall);
 }
 
 /**
@@ -177,6 +210,7 @@ export function addFilePathsFromBlocks(
           name: extractFileName(filePath),
           content: "",
           type: inferFileType(filePath),
+          size: undefined,
         });
         pendingResolves.push({ filePath });
       }
@@ -234,6 +268,8 @@ export interface FileSlice {
   sessionFiles: FilePreview[];
   /** 是否正在上传文件 */
   isUploading: boolean;
+  /** 正在加载预览的文件路径（防止快速点击并发的竞态） */
+  pendingPreview: string | undefined;
 
   /** 设置预览文件 */
   setPreviewFile: (file: FilePreview | null) => void;
@@ -257,6 +293,7 @@ export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (
   previewFile: null,
   sessionFiles: [],
   isUploading: false,
+  pendingPreview: undefined,
 
   setPreviewFile: (file) => {
     set({ previewFile: file });
@@ -275,10 +312,15 @@ export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (
   },
 
   clearSessionFiles: () => {
-    set({ sessionFiles: [], previewFile: null });
+    set({ sessionFiles: [], previewFile: null, pendingPreview: undefined });
   },
 
   readFileToPreview: async (filePath: string) => {
+    // 竞态防护：同一文件正在加载中则跳过
+    const { pendingPreview } = get();
+    if (pendingPreview === filePath) return;
+    set({ pendingPreview: filePath });
+
     try {
       const resolvedPath = await resolveFilePath(filePath);
 
@@ -298,13 +340,67 @@ export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (
       }
 
       const existing = get().sessionFiles.find((f) => f.path === resolvedPath);
+      // 文本类文件：有 content 即可复用缓存
       if (existing && existing.content) {
-        set({ previewFile: existing });
+        set({ previewFile: existing, pendingPreview: undefined });
+        return;
+      }
+      // 客户端直渲/流播放类文件：content 始终为空，但有 staticUrl 或已渲染过即可复用
+      const clientRenderedTypes = ["docx", "xlsx", "pptx", "audio", "video"];
+      if (existing && clientRenderedTypes.includes(existing.type)) {
+        set({ previewFile: existing, pendingPreview: undefined });
         return;
       }
 
       const ext = resolvedPath.toLowerCase().split(".").pop();
-      const isOfficeFile = ext === "pdf" || ext === "docx" || ext === "pptx";
+      const inferredType = inferFileType(resolvedPath);
+
+      // 不支持预览的格式：直接返回，不调后端 API
+      if (inferredType === "unsupported") {
+        const filePreview: FilePreview = {
+          path: resolvedPath,
+          name: extractFileName(resolvedPath),
+          content: "",
+          type: "unsupported",
+        };
+        set({ previewFile: filePreview, pendingPreview: undefined });
+        useChatInspectorStore.getState().setOpen(true);
+        useChatInspectorStore.getState().setActiveTab("files");
+        return;
+      }
+
+      // 音视频文件：使用静态流 URL 播放，不通过 /api/file/read 读取内容
+      if (inferredType === "audio" || inferredType === "video") {
+        const { getBackendBaseUrl } = await import("../../services/backendUrl");
+        const staticUrl = `${getBackendBaseUrl()}/api/file/stream?path=${encodeURIComponent(resolvedPath)}`;
+        const filePreview: FilePreview = {
+          path: resolvedPath,
+          name: extractFileName(resolvedPath),
+          content: "",
+          type: inferredType,
+          staticUrl,
+        };
+        set({ previewFile: filePreview, pendingPreview: undefined });
+        useChatInspectorStore.getState().setOpen(true);
+        useChatInspectorStore.getState().setActiveTab("files");
+        return;
+      }
+
+      // 客户端直渲 Office 文件（docx/xlsx/pptx）：不调后端 API，由 OfficePreview 自行下载二进制
+      if (inferredType === "docx" || inferredType === "xlsx" || inferredType === "pptx") {
+        const filePreview: FilePreview = {
+          path: resolvedPath,
+          name: extractFileName(resolvedPath),
+          content: "",
+          type: inferredType,
+        };
+        set({ previewFile: filePreview, pendingPreview: undefined });
+        useChatInspectorStore.getState().setOpen(true);
+        useChatInspectorStore.getState().setActiveTab("files");
+        return;
+      }
+
+      const isOfficeFile = ext === "pdf";
 
       // Office 文件使用预览转换接口，其他文件使用普通读取接口
       const apiEndpoint = isOfficeFile ? "/api/file/preview" : "/api/file/read";
@@ -351,7 +447,9 @@ export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (
           get().addSessionFile(filePreview);
         }
       }
-      set({ previewFile: filePreview });
+      set({ previewFile: filePreview, pendingPreview: undefined });
+      useChatInspectorStore.getState().setOpen(true);
+      useChatInspectorStore.getState().setActiveTab("files");
     } catch (err) {
       handleClientError(
         err,
@@ -366,6 +464,7 @@ export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (
           content: `错误: ${err instanceof Error ? err.message : String(err)}`,
           type: inferFileType(filePath),
         },
+        pendingPreview: undefined,
       });
     }
   },

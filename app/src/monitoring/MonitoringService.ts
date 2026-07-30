@@ -11,6 +11,7 @@ import { performanceUtils } from '../core/utils/Performance.js';
 import { configManager } from '@modules/config';
 import { profileCheckpoint } from '../performance/StartupProfiler.js';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import {
   AlertPresetLoader,
   createAlertPresetLoader,
@@ -294,8 +295,11 @@ export class MonitoringService {
           this.addMetric('system.load.5m', loadAvg[1]);
           this.addMetric('system.load.15m', loadAvg[2]);
         } catch (error) {
-          // @ignore-catch: 非关键监控指标收集，系统负载获取失败不影响主流程
-          logger.error('获取系统负载失败', error);
+          // 非关键监控指标收集，系统负载获取失败不影响主流程
+          handleError(error, {
+            module: 'monitoring:service',
+            action: '获取系统负载',
+          });
         }
       }
 
@@ -445,8 +449,11 @@ export class MonitoringService {
         // 解析输出（暂未实现）
       }
     } catch (error) {
-      // @ignore-catch: 非关键磁盘信息收集，仅 Unix 系统可用，获取失败不影响主流程
-      logger.error('磁盘信息获取失败', error);
+      // 非关键磁盘信息收集，仅 Unix 系统可用，获取失败不影响主流程
+      handleError(error, {
+        module: 'monitoring:service',
+        action: '获取磁盘信息',
+      });
     }
 
     return {

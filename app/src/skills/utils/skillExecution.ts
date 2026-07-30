@@ -1,4 +1,4 @@
-﻿import { Skill, SkillExecutionContext } from '../types';
+import { Skill, SkillExecutionContext } from '../types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -58,11 +58,11 @@ export async function executeSkill(
  */
 function prepareExecutionContext(
   skill: Skill,
-  args: any,
-  toolUseContext: any
-): any {
+  args: unknown,
+  toolUseContext: unknown
+): Record<string, unknown> {
   return {
-    ...toolUseContext,
+    ...(toolUseContext as Record<string, unknown>),
     skillName: skill.name,
     skillSource: skill.source,
     allowedTools: skill.allowedTools,
@@ -95,11 +95,14 @@ function processExecutionResult(
  * @param skill 技能
  * @returns 错误处理结果
  */
-function handleExecutionError(error: any, skill: Skill): any {
+function handleExecutionError(
+  error: unknown,
+  skill: Skill
+): Record<string, unknown> {
   return {
     success: false,
     skill: skill?.name || 'unknown',
-    error: error.message || 'Unknown error',
+    error: (error as Error).message || 'Unknown error',
     timestamp: new Date().toISOString(),
   };
 }

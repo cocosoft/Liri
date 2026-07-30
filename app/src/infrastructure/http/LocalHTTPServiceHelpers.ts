@@ -316,8 +316,10 @@ async function writeDefaultKnowledgeDocs(
       await fs.writeFile(filePath, doc.content, 'utf-8');
       logger.info(`已写入默认知识文档：${filePath}`);
     } catch (err) {
-      logger.warning(`写入默认知识文档失败：${filePath}`, {
-        error: String(err),
+      void handleError(err, {
+        module: 'infrastructure:http:helpers',
+        action: 'writeDefaultDoc',
+        context: { filePath },
       });
     }
   }
@@ -354,8 +356,9 @@ export async function startCompileScheduler(): Promise<{
     scheduler.start();
     return scheduler;
   } catch (err) {
-    logger.warning('知识库编译调度器初始化失败（非关键错误）', {
-      error: String(err),
+    void handleError(err, {
+      module: 'infrastructure:http:helpers',
+      action: 'startCompileScheduler',
     });
     return null;
   }
@@ -412,8 +415,10 @@ export async function tryDynamicRegister(
 
     return true;
   } catch (err) {
-    logger.error(`tryDynamicRegister(${channelType}) 失败`, {
-      error: String(err),
+    await handleError(err, {
+      module: 'infra:http:helpers',
+      action: 'try_dynamic_register',
+      context: { channelType },
     });
     return false;
   }
@@ -485,10 +490,16 @@ function bindInboundMessageHandler(
 export function copyDirectory(
   src: string,
   dest: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  fs: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  path: any
+  fs: {
+    existsSync(p: string): boolean;
+    mkdirSync(p: string, opts?: { recursive?: boolean }): void;
+    readdirSync(
+      p: string,
+      opts?: { withFileTypes?: boolean }
+    ): Array<{ name: string; isDirectory(): boolean }>;
+    copyFileSync(src: string, dest: string): void;
+  },
+  path: { join(...segments: string[]): string }
 ): { copied: number; skipped: number; errors: string[] } {
   let copied = 0;
   let skipped = 0;

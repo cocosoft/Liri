@@ -1,3 +1,4 @@
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { ArchiveStorage } from './ArchiveStorage';
 import type {
@@ -89,10 +90,9 @@ export class SessionArchiver {
       });
     } catch (e) {
       result.error = String(e);
-      logger.error('Failed to archive session', {
-        sessionId: session.id,
-        trigger,
-        error: String(e),
+      handleError(e, {
+        module: 'sessions:archive',
+        action: 'Failed to archive session',
       });
     }
 
@@ -116,7 +116,10 @@ export class SessionArchiver {
       });
     } catch (e) {
       result.error = String(e);
-      logger.error('Failed to restore session', { error: String(e) });
+      handleError(e, {
+        module: 'sessions:archive',
+        action: 'Failed to restore session',
+      });
     }
 
     return result;
@@ -179,7 +182,10 @@ export class SessionArchiver {
           });
         }
       } catch (e) {
-        logger.error('Auto-archive error', { error: String(e) });
+        handleError(e, {
+          module: 'sessions:archive',
+          action: 'Auto-archive error',
+        });
       }
     }, checkIntervalMs);
 

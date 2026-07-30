@@ -522,14 +522,14 @@ export class EnhancedMCPManager {
     toolName: string,
     args: Record<string, unknown>
   ): Promise<{
-    result: any;
+    result: unknown;
     performanceMetrics?: MCPPerformanceMetrics;
     toolAnalytics?: MCPToolUsageAnalytics;
     recommendations?: MCPOptimizationRecommendation[];
   }> {
     const startTime = Date.now();
     let success = true;
-    let result: any;
+    let result: unknown;
 
     try {
       result = await this.baseManager.callTool(serverName, toolName, args);

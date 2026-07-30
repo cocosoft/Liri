@@ -96,7 +96,7 @@ export function classifyAPIScene(error: unknown): APISceneResult {
       error.message.toLowerCase().includes('timeout')) ||
     (error instanceof Error &&
       (error.message.toLowerCase().includes('timeout') ||
-        (error as any).code === 'ETIMEDOUT'))
+        (error as Error & { code?: string }).code === 'ETIMEDOUT'))
   ) {
     return {
       scene: APIScene.CONNECTION_TIMEOUT,

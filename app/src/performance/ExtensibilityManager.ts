@@ -48,7 +48,7 @@ export interface Extension {
   /** 销毁函数 */
   destroy: () => Promise<void>;
   /** 执行函数 */
-  execute: (...args: any[]) => Promise<unknown>;
+  execute: (...args: unknown[]) => Promise<unknown>;
 }
 
 /**
@@ -179,10 +179,10 @@ export class ExtensibilityManager {
    */
   async executeExtensionPoint(
     extensionPoint: ExtensionPoint,
-    ...args: any[]
-  ): Promise<any[]> {
+    ...args: unknown[]
+  ): Promise<unknown[]> {
     const extensions = this.getExtensionsByPoint(extensionPoint);
-    const results: any[] = [];
+    const results: unknown[] = [];
 
     for (const extension of extensions) {
       try {

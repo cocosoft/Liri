@@ -3,6 +3,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'tools:workerPool', level: LogLevel.INFO });
 
@@ -125,7 +126,10 @@ export class WorkerPool {
         try {
           await task.execute();
         } catch (error) {
-          logger.error(`Task ${task.id} failed:`, { error });
+          await handleError(error, {
+            module: 'tools:workerPool',
+            action: 'executeTask',
+          });
         } finally {
           this.workers--;
           this.runningTasks.delete(task.id);

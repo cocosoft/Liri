@@ -107,7 +107,7 @@ export function initHooksCommand(program: Command): void {
         return;
       }
 
-      const hook: any = {
+      const hook: Record<string, unknown> = {
         event: options.event,
         matcher: options.matcher,
         config: {
@@ -119,13 +119,13 @@ export function initHooksCommand(program: Command): void {
 
       // 根据类型添加特定配置
       if (options.type === 'command' && options.command) {
-        hook.config.command = options.command;
+        (hook.config as Record<string, unknown>).command = options.command;
       } else if (options.type === 'prompt' && options.prompt) {
-        hook.config.prompt = options.prompt;
+        (hook.config as Record<string, unknown>).prompt = options.prompt;
       } else if (options.type === 'http' && options.url) {
-        hook.config.http = { url: options.url };
+        (hook.config as Record<string, unknown>).http = { url: options.url };
       } else if (options.type === 'agent' && options.agent) {
-        hook.config.agent = { id: options.agent };
+        (hook.config as Record<string, unknown>).agent = { id: options.agent };
       }
 
       // 验证配置

@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { AgentDefinition } from '../models/types';
 import { getBuiltInAgents } from '../strategies/agentStrategy';
 import { loadPluginAgents as loadPluginAgentsFromPlugins } from '@modules/utils/plugins/loadPluginAgents';
@@ -110,7 +111,7 @@ export class AgentSourceManager {
       await this.reloadAgents();
       this.notifyHotReload('added');
     } catch (error) {
-      logger.error(`Failed to load new agent file: ${filePath}`, error);
+      handleError(error, { module: 'agent:source', action: '热加载-文件新增' });
     }
   }
 
@@ -122,7 +123,7 @@ export class AgentSourceManager {
       await this.reloadAgents();
       this.notifyHotReload('updated');
     } catch (error) {
-      logger.error(`Failed to reload changed agent file: ${filePath}`, error);
+      handleError(error, { module: 'agent:source', action: '热加载-文件修改' });
     }
   }
 
@@ -142,7 +143,7 @@ export class AgentSourceManager {
       });
       this.notifyHotReload('removed');
     } catch (error) {
-      logger.error(`Failed to remove agent: ${filePath}`, error);
+      handleError(error, { module: 'agent:source', action: '热加载-文件删除' });
     }
   }
 
@@ -157,7 +158,7 @@ export class AgentSourceManager {
       try {
         callback(event, agent);
       } catch (error) {
-        logger.error('Error in hot reload callback:', error);
+        handleError(error, { module: 'agent:source', action: '热加载回调' });
       }
     }
   }
@@ -326,8 +327,11 @@ export class AgentSourceManager {
   private async loadPluginAgents(): Promise<void> {
     try {
       const pluginAgents = await loadPluginAgentsFromPlugins();
-      pluginAgents.forEach((agent: any) => {
-        this.addAgent({ ...agent, source: 'plugin' } as AgentDefinition);
+      pluginAgents.forEach((agent: unknown) => {
+        this.addAgent({
+          ...(agent as Record<string, unknown>),
+          source: 'plugin',
+        } as AgentDefinition);
       });
     } catch (error) {
       this.failedFiles.push({

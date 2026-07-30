@@ -71,7 +71,7 @@ export class ContextCollapserImpl implements ContextCollapser {
     ];
 
     const collapsedTokenCount = roughTokenCountEstimationForMessages(
-      collapsedMessages as any
+      collapsedMessages as unknown as SessionMessage[]
     );
 
     return {

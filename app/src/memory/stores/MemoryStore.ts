@@ -453,10 +453,10 @@ export class MemoryStoreImpl implements MemoryStore {
     >
   > {
     const db = await this.ensureVectorTable();
-    const rows = await new Promise<any[]>((resolve, reject) => {
+    const rows = await new Promise<unknown[]>((resolve, reject) => {
       db.all(
         `SELECT memory_id, vector, model, model_version, timestamp FROM ${MEMORY_VECTORS_TABLE}`,
-        (err: Error | null, rows?: any[]) => {
+        (err: Error | null, rows?: unknown[]) => {
           if (err) reject(err);
           else resolve(rows || []);
         }
@@ -472,12 +472,13 @@ export class MemoryStoreImpl implements MemoryStore {
         model_version?: string;
       }
     > = {};
-    for (const row of rows) {
-      result[row.memory_id] = {
-        vector: JSON.parse(row.vector),
-        model: row.model,
-        model_version: row.model_version || undefined,
-        timestamp: row.timestamp,
+    for (const rawRow of rows) {
+      const row = rawRow as Record<string, unknown>;
+      result[row.memory_id as string] = {
+        vector: JSON.parse(row.vector as string),
+        model: row.model as string,
+        model_version: (row.model_version as string) || undefined,
+        timestamp: row.timestamp as string,
       };
     }
     return result;
@@ -520,22 +521,23 @@ export class MemoryStoreImpl implements MemoryStore {
     model_version?: string;
   } | null> {
     const db = await this.ensureVectorTable();
-    const row = await new Promise<any>((resolve, reject) => {
+    const row = await new Promise<unknown>((resolve, reject) => {
       db.get(
         `SELECT vector, model, model_version, timestamp FROM ${MEMORY_VECTORS_TABLE} WHERE memory_id = ?`,
         memoryId,
-        (err: Error | null, row?: any) => {
+        (err: Error | null, row?: unknown) => {
           if (err) reject(err);
           else resolve(row);
         }
       );
     });
     if (!row) return null;
+    const r = row as Record<string, unknown>;
     return {
-      vector: JSON.parse(row.vector),
-      model: row.model,
-      model_version: row.model_version || undefined,
-      timestamp: row.timestamp,
+      vector: JSON.parse(r.vector as string),
+      model: r.model as string,
+      model_version: (r.model_version as string) || undefined,
+      timestamp: r.timestamp as string,
     };
   }
 

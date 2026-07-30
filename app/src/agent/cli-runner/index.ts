@@ -120,15 +120,21 @@ export class CliRunner {
         duration,
         command,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const execErr = error as {
+        stdout?: Buffer | string;
+        stderr?: Buffer | string;
+        status?: number;
+        message?: string;
+      };
       const duration = Date.now() - startTime;
       this.stats.failedExecutions++;
       this.updateAvgDuration(duration);
 
       return {
-        stdout: error.stdout?.toString().trim() ?? '',
-        stderr: error.stderr?.toString().trim() ?? error.message,
-        exitCode: error.status ?? -1,
+        stdout: execErr.stdout?.toString().trim() ?? '',
+        stderr: execErr.stderr?.toString().trim() ?? execErr.message ?? '',
+        exitCode: execErr.status ?? -1,
         duration,
         command,
       };

@@ -14,7 +14,8 @@ const skillifySkill: Skill = {
   version: '1.0.0',
   impl: {
     kind: 'executable',
-    execute: async (args: unknown[]) => {
+    execute: async (context: unknown) => {
+      const args = context as unknown[];
       const action = String(args[0] || 'help');
       const skillName = String(args[1] || '');
       const description = args.slice(2).join(' ') || '';

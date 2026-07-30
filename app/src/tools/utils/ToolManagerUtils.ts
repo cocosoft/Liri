@@ -7,6 +7,7 @@ import { ToolFactory } from '../ToolFactory';
 import { feature as coreFeature } from '@modules/core';
 import { isAntUser } from '@modules/utils/features.js';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'tools:managerUtils',
@@ -43,9 +44,12 @@ export function createToolLoader<T extends (...args: any[]) => Tool | null>(
     try {
       return creator.call(factory);
     } catch (error) {
-      logger.error(
-        `Failed to create tool [${creator.name}]`,
-        error instanceof Error ? error : new Error(String(error))
+      void handleError(
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          module: 'tools:utils',
+          action: 'createTool',
+        }
       );
       return null;
     }

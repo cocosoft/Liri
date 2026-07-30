@@ -20,7 +20,10 @@ import {
   BatchSpanProcessor,
   ConsoleSpanExporter,
   TraceIdRatioBasedSampler,
+  type SpanExporter,
+  type ReadableSpan,
 } from '@opentelemetry/sdk-trace-base';
+import { ExportResultCode } from '@opentelemetry/core';
 import {
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_VERSION,
@@ -250,6 +253,61 @@ export function isTelemetryEnabled() {
   return process.env.NODE_ENV === 'production';
 }
 
+/**
+ * BUG 修复: 文件 Span 导出器 — 将 spans 持久化到 JSONL 文件，供跨进程链路追踪。
+ * 保存路径: ~/.pyapp/data/otel-traces/{date}.jsonl
+ */
+class FileSpanExporter implements SpanExporter {
+  private dir: string;
+
+  constructor() {
+    const { join } = require('path');
+    const { resolveDataDir } = require('@modules/core/paths');
+    this.dir = join(resolveDataDir(), 'otel-traces');
+    const { mkdirSync } = require('fs');
+    try {
+      mkdirSync(this.dir, { recursive: true });
+    } catch {
+      /* 忽略 */
+    }
+  }
+
+  export(
+    spans: ReadableSpan[],
+    resultCallback: (result: { code: ExportResultCode }) => void
+  ): void {
+    try {
+      const { appendFileSync } = require('fs');
+      const { join } = require('path');
+      const today = new Date().toISOString().slice(0, 10);
+      for (const span of spans) {
+        appendFileSync(
+          join(this.dir, `${today}.jsonl`),
+          JSON.stringify({
+            traceId: span.spanContext().traceId,
+            spanId: span.spanContext().spanId,
+            parentSpanId: span.parentSpanContext?.spanId,
+            name: span.name,
+            kind: span.kind,
+            startTime: span.startTime,
+            endTime: span.endTime,
+            status: span.status,
+            attributes: span.attributes,
+            events: span.events,
+          }) + '\n',
+          'utf-8'
+        );
+      }
+      resultCallback({ code: ExportResultCode.SUCCESS });
+    } catch {
+      resultCallback({ code: ExportResultCode.FAILED });
+    }
+  }
+
+  async shutdown(): Promise<void> {}
+  async forceFlush(): Promise<void> {}
+}
+
 function parseOtelHeadersEnvVar(): Record<string, string> {
   const headers: Record<string, string> = {};
   const envHeaders = configManager.env('OTEL_EXPORTER_OTLP_HEADERS');
@@ -412,36 +470,42 @@ export async function initializeTelemetry() {
     void (trace.getTracerProvider() as any)?.forceFlush();
   });
 
-  // Initialize tracing if enhanced telemetry is enabled
-  if (telemetryEnabled) {
-    const traceExporters = await getOtlpTraceExporters();
-    if (traceExporters.length > 0) {
-      // Create span processors for each exporter
-      const spanProcessors = traceExporters.map(
-        (exporter) =>
-          new BatchSpanProcessor(exporter, {
-            scheduledDelayMillis: parseInt(
-              configManager.env('OTEL_TRACES_EXPORT_INTERVAL') ||
-                DEFAULT_TRACES_EXPORT_INTERVAL_MS.toString()
-            ),
-          })
-      );
+  // BUG 修复: 始终初始化 TracerProvider（ConsoleSpanExporter + FileSpanExporter），
+  // 确保跨进程链路追踪数据落盘。增强遥测启用时额外叠加 OTLP 导出器。
+  {
+    const spanExporters: SpanExporter[] = [
+      new ConsoleSpanExporter(),
+      new FileSpanExporter(),
+    ];
 
-      // P1-2.4: 采样率配置（默认 10%）
-      const samplingRate = parseFloat(
-        configManager.env('Liri_OTEL_SAMPLING_RATE') || '0.1'
-      );
-      const sampler = new TraceIdRatioBasedSampler(samplingRate);
-
-      const tracerProvider = new BasicTracerProvider({
-        resource,
-        spanProcessors,
-        sampler,
-      });
-
-      // Register the tracer provider globally
-      trace.setGlobalTracerProvider(tracerProvider);
+    // 增强遥测启用时追加 OTLP 导出器
+    if (telemetryEnabled) {
+      const otlpExporters = await getOtlpTraceExporters();
+      spanExporters.push(...otlpExporters);
     }
+
+    const spanProcessors = spanExporters.map(
+      (exporter) =>
+        new BatchSpanProcessor(exporter, {
+          scheduledDelayMillis: parseInt(
+            configManager.env('OTEL_TRACES_EXPORT_INTERVAL') ||
+              DEFAULT_TRACES_EXPORT_INTERVAL_MS.toString()
+          ),
+        })
+    );
+
+    const samplingRate = parseFloat(
+      configManager.env('Liri_OTEL_SAMPLING_RATE') || '1.0'
+    );
+    const sampler = new TraceIdRatioBasedSampler(samplingRate);
+
+    const tracerProvider = new BasicTracerProvider({
+      resource,
+      spanProcessors,
+      sampler,
+    });
+
+    trace.setGlobalTracerProvider(tracerProvider);
   }
 
   return {

@@ -538,7 +538,10 @@ export async function handleApplyChannelConfig(
       })
     );
   } catch (err) {
-    logger.error('通道配置应用失败', err as Error);
+    await handleError(err, {
+      module: 'infra:handler:channel',
+      action: 'apply_channel_config',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
@@ -600,8 +603,10 @@ async function tryDynamicRegister(
 
     return true;
   } catch (err) {
-    logger.error(`tryDynamicRegister(${channelType}) 失败`, {
-      error: String(err),
+    await handleError(err, {
+      module: 'infra:handler:channel',
+      action: 'try_dynamic_register',
+      context: { channelType },
     });
     return false;
   }
@@ -644,13 +649,15 @@ function bindChannelMessageHandler(channelType: string, plugin: any): void {
           pending.retryCount++;
           if (pending.retryCount >= 3) {
             _pendingOutboundReplies.delete(key);
-            logger.error(
-              `[${channelType}] 消息发送失败（已达最大重试次数 3）`,
-              {
+            void handleError(err, {
+              module: 'infra:handler:channel',
+              action: 'outbound_retry_exhausted',
+              context: {
+                channelType,
                 target: pending.target,
                 retryCount: pending.retryCount,
-              }
-            );
+              },
+            });
           } else {
             logger.warn(
               `[${channelType}] 消息发送重试 ${pending.retryCount}/3 失败`,

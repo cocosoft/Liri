@@ -699,12 +699,10 @@ export async function executeUndo(
     };
   } catch (error) {
     // 撤消过程中出错，尝试回滚 undoGuard
-    logger.error('撤消失败，尝试回滚', { roundId, error: String(error) });
     // @ignore-catch — handleError已处理，异步抛错无需再处理
     handleError(error, {
-      module: 'UndoManager',
-      action: 'executeUndo',
-      context: { roundId, sessionId, walId },
+      module: 'security:rollback:undo',
+      action: '撤消执行失败',
     }).catch(() => {});
 
     await WalStore.update(walId, {
@@ -720,9 +718,9 @@ export async function executeUndo(
           try {
             await copyFile(item.backupPath, item.path);
           } catch (rollbackError) {
-            logger.error('undoGuard 回滚失败', {
-              path: item.path,
-              error: String(rollbackError),
+            void handleError(rollbackError, {
+              module: 'security:rollback:undo',
+              action: 'undoGuard回滚失败',
             });
           }
         }
@@ -815,19 +813,10 @@ export async function recoverFromCrash(): Promise<void> {
             try {
               await copyFile(item.backupPath, item.path);
             } catch (error) {
-              logger.error('崩溃恢复回滚失败', {
-                path: item.path,
-                error: String(error),
-              });
               // @ignore-catch — handleError已处理，崩溃恢复回滚异步抛错无需再处理
               handleError(error, {
-                module: 'UndoManager',
-                action: 'recoverFromCrash:undoGuard',
-                context: {
-                  path: item.path,
-                  backupPath: item.backupPath,
-                  roundId: entry.roundId,
-                },
+                module: 'security:rollback:undo',
+                action: '崩溃恢复回滚失败',
               }).catch(() => {});
             }
           }

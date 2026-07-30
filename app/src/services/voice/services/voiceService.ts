@@ -1204,14 +1204,9 @@ export class VoiceService {
         task.resolve(true);
       } catch (error) {
         // 方案 5：单个任务失败不阻塞队列
-        logger.error('VoiceService · speak 任务执行失败（已跳过）', {
-          taskId: task.id,
-          error: error instanceof Error ? error.message : String(error),
-          remaining: this.speakQueue.length,
-        });
         void handleError(error, {
-          module: 'services:voice:speakQueue',
-          action: 'processQueue',
+          module: 'services:voice',
+          action: 'speak 任务执行失败',
           context: { taskId: task.id },
         });
         task.reject(error);

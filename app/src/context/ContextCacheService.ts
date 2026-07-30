@@ -152,23 +152,21 @@ export class ContextCacheService {
     return this.config.ttl;
   }
 
-  memoize<T extends (...args: any[]) => any>(
-    fn: T,
-    keyGenerator?: (...args: Parameters<T>) => string
-  ): T {
+  memoize<Args extends unknown[], R>(
+    fn: (...args: Args) => R,
+    keyGenerator?: (...args: Args) => string
+  ): (...args: Args) => R {
     const cache = this;
-    const memoized = async function (
-      ...args: Parameters<T>
-    ): Promise<ReturnType<T>> {
+    const memoized = async function (...args: Args): Promise<R> {
       const key = keyGenerator ? keyGenerator(...args) : JSON.stringify(args);
-      const cached = cache.get<ReturnType<T>>(key);
+      const cached = cache.get<R>(key);
       if (cached !== undefined) {
         return cached;
       }
       const result = await fn(...args);
       cache.set(key, result);
       return result;
-    } as T;
+    } as (...args: Args) => R;
     return memoized;
   }
 }
@@ -194,9 +192,9 @@ export function clearContextCacheByKey(key: string): void {
 
 export const contextCacheService = ContextCacheService.getInstance();
 
-export function memoize<T extends (...args: any[]) => any>(
-  fn: T,
-  keyGenerator?: (...args: Parameters<T>) => string
-): T {
+export function memoize<Args extends unknown[], R>(
+  fn: (...args: Args) => R,
+  keyGenerator?: (...args: Args) => string
+): (...args: Args) => R {
   return contextCacheService.memoize(fn, keyGenerator);
 }

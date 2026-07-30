@@ -53,11 +53,6 @@ export {
   type ServiceDescriptor,
   type CycleDetectionResult,
 } from './DIContainer';
-/** @deprecated 由 ModuleRegistry + DIContainer 替代。保留用于 --use-legacy-module-system */
-export {
-  ModuleDependencyManager,
-  type ModuleDefinition,
-} from './ModuleDependencyManager';
 /** @deprecated 由 pluginSystem 统一替代。保留用于 --use-legacy-module-system */
 export { PluginEcosystem, type EcosystemConfig } from './PluginEcosystem';
 /** @deprecated 由 pluginSystem 统一替代。保留用于 --use-legacy-module-system */

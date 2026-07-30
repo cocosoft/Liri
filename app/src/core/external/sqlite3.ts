@@ -80,8 +80,8 @@ class Database {
     try {
       mkdirSync(dirname(path), { recursive: true });
     } catch (err) {
-      // 忽略
-
+      // 目录创建失败时记录日志，但不阻止初始化（可能目录已存在但权限检查失败）
+      // 后续 new BunDB 会自行处理路径不可用的情况
       handleError(err, {
         module: 'core:external',
         action: 'mkdirSync',
@@ -178,10 +178,21 @@ class Database {
       const params = this.resolveParams(args);
       const result = this._db.prepare(sql).run(...params);
       if (callback) {
-        callback.call(
-          { lastID: Number(result.lastInsertRowid), changes: result.changes },
-          null
-        );
+        // W6: 安全转换 lastInsertRowid（bigint → number 可能丢失精度）
+        // 超出 Number.MAX_SAFE_INTEGER 时记录警告并使用安全上限
+        const lastID =
+          typeof result.lastInsertRowid === 'bigint'
+            ? result.lastInsertRowid > BigInt(Number.MAX_SAFE_INTEGER)
+              ? (logger.warn(
+                  'lastInsertRowid 超出 Number 安全范围，使用 MAX_SAFE_INTEGER',
+                  {
+                    value: String(result.lastInsertRowid),
+                  }
+                ),
+                Number.MAX_SAFE_INTEGER)
+              : Number(result.lastInsertRowid)
+            : result.lastInsertRowid;
+        callback.call({ lastID, changes: result.changes }, null);
       }
     } catch (e) {
       callback?.(e as Error);

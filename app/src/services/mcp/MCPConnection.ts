@@ -270,7 +270,10 @@ export class MCPConnection {
         try {
           await this.batchSendRequests(requests);
         } catch (error) {
-          logger.error('Batch update failed:', error as Error);
+          handleError(error, {
+            module: 'services:mcp:conn',
+            action: '批量更新失败',
+          });
         }
       }
       this.batchUpdateTimer = null;

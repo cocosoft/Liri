@@ -36,7 +36,9 @@ export class MemorySummarizer {
       let candidates = [...cache.memories];
 
       // 过滤掉已弃用的记忆 (deprecatedBy 不为空)
-      candidates = candidates.filter((m) => !(m.metadata as any)?.deprecatedBy);
+      candidates = candidates.filter(
+        (m) => !(m.metadata as unknown as Record<string, unknown>)?.deprecatedBy
+      );
 
       // 综合排序：会话内 → 梦境精炼 → 优先级 → 更新时间
       this.sortCandidates(candidates, sessionContext, prioritizeDreamRefined);
@@ -53,7 +55,7 @@ export class MemorySummarizer {
     // 缓存不存在时回退全量 I/O
     const allMemories = await this.memoryManager.getAllMemories();
     let candidates = allMemories.filter(
-      (m) => !(m.metadata as any)?.deprecatedBy
+      (m) => !(m.metadata as unknown as Record<string, unknown>)?.deprecatedBy
     );
 
     this.sortCandidates(candidates, sessionContext, prioritizeDreamRefined);
@@ -91,8 +93,12 @@ export class MemorySummarizer {
 
       // 2. 梦境精炼过的记忆优先
       if (prioritizeDreamRefined) {
-        const aRefined = (a.metadata as any)?.dreamRefined === true;
-        const bRefined = (b.metadata as any)?.dreamRefined === true;
+        const aRefined =
+          (a.metadata as unknown as Record<string, unknown>)?.dreamRefined ===
+          true;
+        const bRefined =
+          (b.metadata as unknown as Record<string, unknown>)?.dreamRefined ===
+          true;
         if (aRefined && !bRefined) return -1;
         if (!aRefined && bRefined) return 1;
       }

@@ -34,6 +34,7 @@ import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { ModelCapability } from './models/types';
 import { CapabilityCategory } from './services/CapabilityService.js';
+import { trackUsage } from '@modules/ai';
 import {
   getModelCapabilities,
   getModelContextWindow,
@@ -1343,9 +1344,16 @@ async function handleTestModel(
       return;
     }
 
+    const _trackStart = Date.now();
     const result = await provider.chat([{ role: 'user', content: 'ping' }], {
       model: modelId,
       maxTokens: 10,
+    });
+
+    trackUsage(result, {
+      model: modelId,
+      providerId: providerId,
+      latencyMs: Date.now() - _trackStart,
     });
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -1877,7 +1885,7 @@ async function handleBatchCapabilities(
   _match: RegExpMatchArray | null
 ): Promise<void> {
   try {
-    const body = (await parseBody(req)) as { data: any[] };
+    const body = (await parseBody(req)) as { data: unknown[] };
     if (!body.data || !Array.isArray(body.data) || body.data.length === 0) {
       sendError(res, 'data 不能为空', 400);
       return;
@@ -1888,7 +1896,7 @@ async function handleBatchCapabilities(
     const service = getCapabilityService();
     await service.init();
 
-    await service.batch(body.data);
+    await service.batch(body.data as Parameters<typeof service.batch>[0]);
     sendJson(res, { success: true, count: body.data.length });
   } catch (err) {
     await handleError(err, {
@@ -1933,7 +1941,7 @@ async function handleUpdateTaskMappings(
   _match: RegExpMatchArray | null
 ): Promise<void> {
   try {
-    const body = (await parseBody(req)) as { data: any[] };
+    const body = (await parseBody(req)) as { data: unknown[] };
     if (!body.data || !Array.isArray(body.data) || body.data.length === 0) {
       sendError(res, 'data 不能为空', 400);
       return;
@@ -1944,7 +1952,9 @@ async function handleUpdateTaskMappings(
     const service = getCapabilityService();
     await service.init();
 
-    await service.updateTaskMappings(body.data);
+    await service.updateTaskMappings(
+      body.data as Parameters<typeof service.updateTaskMappings>[0]
+    );
     sendJson(res, { success: true, count: body.data.length });
   } catch (err) {
     await handleError(err, {

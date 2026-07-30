@@ -99,13 +99,19 @@ export class EnhancedCostManager {
     optimizations: CostOptimization[];
   }> {
     // 获取基础成本数据
-    const costData = await (this.costTracker as any).getCostData(period);
+    const costData = await (
+      this.costTracker as unknown as {
+        getCostData(period: CostPeriod): Promise<CostData[]>;
+      }
+    ).getCostData(period);
     this.addToHistory(costData);
 
     // 基础分析
-    const basicAnalysis = (await (this.costReporter as any).generateReport(
-      period
-    )) as unknown as CostAnalysis;
+    const basicAnalysis = (await (
+      this.costReporter as unknown as {
+        generateReport(period: CostPeriod): Promise<CostAnalysis>;
+      }
+    ).generateReport(period)) as unknown as CostAnalysis;
 
     // 高级分析
     const trendAnalysis = this.analyzeTrends(period);

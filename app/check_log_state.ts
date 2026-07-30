@@ -1,10 +1,13 @@
 import { Database } from 'bun:sqlite';
+import { homedir } from 'os';
+import { join } from 'path';
 
-const db = new Database('C:/Users/Administrator/.pyapp/data/app.db');
+const dbPath = join(homedir(), '.pyapp', 'data', 'app.db');
+const db = new Database(dbPath);
 
 // Check last log entries in the log file
 const fs = require('fs');
-const logPath = 'C:/Users/Administrator/.pyapp/data/logs/app.log';
+const logPath = join(homedir(), '.pyapp', 'data', 'logs', 'app.log');
 const stat = fs.statSync(logPath);
 console.log('Log file size:', stat.size, 'bytes');
 console.log('Log file last modified:', stat.mtime.toISOString());

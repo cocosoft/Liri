@@ -153,9 +153,9 @@ export function checkFilePathPermission(
   ];
 
   const normalizedPath = path.resolve(filePath);
+  const { isPathWithin } = require('@modules/core/paths');
   const isAllowed = allowedDirs.some((dir) => {
-    const normalizedDir = path.resolve(dir);
-    return normalizedPath.startsWith(normalizedDir);
+    return isPathWithin(path.resolve(dir), normalizedPath);
   });
 
   if (!isAllowed) {

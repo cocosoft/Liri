@@ -281,7 +281,7 @@ export class AgentModuleTest {
     return results;
   }
 
-  private createMockPlugin(): any {
+  private createMockPlugin(): unknown {
     return {
       id: 'mock-plugin',
       name: 'Mock Plugin',
@@ -296,17 +296,18 @@ export class AgentModuleTest {
     };
   }
 
-  private validateMockPlugin(plugin: any): boolean {
+  private validateMockPlugin(plugin: unknown): boolean {
+    const p = plugin as Record<string, unknown>;
     return (
-      typeof plugin.id === 'string' &&
-      typeof plugin.name === 'string' &&
-      typeof plugin.version === 'string' &&
-      typeof plugin.initialize === 'function' &&
-      typeof plugin.activate === 'function' &&
-      typeof plugin.deactivate === 'function' &&
-      typeof plugin.getTools === 'function' &&
-      typeof plugin.getStrategies === 'function' &&
-      typeof plugin.getExtensions === 'function'
+      typeof p.id === 'string' &&
+      typeof p.name === 'string' &&
+      typeof p.version === 'string' &&
+      typeof p.initialize === 'function' &&
+      typeof p.activate === 'function' &&
+      typeof p.deactivate === 'function' &&
+      typeof p.getTools === 'function' &&
+      typeof p.getStrategies === 'function' &&
+      typeof p.getExtensions === 'function'
     );
   }
 

@@ -121,7 +121,7 @@ export function createImageResizeTool(): Tool {
         const result = await imageProcessor.resize(
           safeInput.path!,
           safeOutput.path!,
-          options as any
+          options as Record<string, unknown>
         );
         if (!result.success) {
           return {

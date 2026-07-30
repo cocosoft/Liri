@@ -34,7 +34,7 @@ import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import { handleError } from '@modules/error';
 import type { EventBus } from '@modules/core';
 import type { EmbeddingManager } from '@modules/ai';
-import { chunkText, autoChunk } from '@modules/knowledge/semantic/chunker';
+import { autoChunk } from '@modules/knowledge/semantic/chunker';
 import type { IndexEntry } from '@modules/knowledge/semantic/store';
 import type { IVectorStore } from '@modules/knowledge/semantic/IVectorStore';
 import { createVectorStore } from '@modules/knowledge/semantic/VectorStoreFactory';

@@ -14,6 +14,7 @@ import type {
   ProviderConfig,
 } from '../types';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
   level: LogLevel.INFO,
@@ -120,8 +121,9 @@ export class SDWebUIProvider implements ImageGenerationProvider {
         durationMs: Date.now() - startTime,
       };
     } catch (error) {
-      logger.error('SDWebUIProvider · 生成异常', {
-        error: (error as Error).message,
+      await handleError(error, {
+        module: 'tools:sdWebUI',
+        action: '生成异常',
       });
       return {
         success: false,

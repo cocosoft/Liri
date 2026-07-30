@@ -52,6 +52,7 @@ import type { AIProvider } from '../providers/AIProvider.js';
 import type { RouterTier, JudgeResult } from './types.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { trackUsage } from '@modules/ai';
 
 const logger = new Logger({
   level: LogLevel.INFO,
@@ -157,9 +158,16 @@ export class TaskDecomposer {
   private async llmDecompose(message: string): Promise<DecompositionResult> {
     const prompt = DECOMPOSE_PROMPT.replace('{MESSAGE}', message);
 
+    const _trackStart = Date.now();
     const response = await this.decomposerProvider!.chat([
       { role: 'user', content: prompt },
     ]);
+
+    trackUsage(response, {
+      model: response.model || 'unknown',
+      providerId: this.decomposerProvider!.id,
+      latencyMs: Date.now() - _trackStart,
+    });
 
     return this.parseDecomposition(response.content);
   }

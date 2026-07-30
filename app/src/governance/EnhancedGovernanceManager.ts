@@ -349,7 +349,7 @@ export class EnhancedGovernanceManager {
   private trendAnalyses: Map<string, GovernanceTrendAnalysis> = new Map();
   private recommendations: Map<string, IntelligentGovernanceRecommendation[]> =
     new Map();
-  private analysisCache: Map<string, any> = new Map();
+  private analysisCache: Map<string, unknown> = new Map();
   private monitoringIntervals: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(
@@ -883,20 +883,24 @@ export class EnhancedGovernanceManager {
   async executeEnhanced(
     governanceDomain: string,
     operation: string,
-    context?: any
+    context?: unknown
   ): Promise<{
-    result: any;
+    result: unknown;
     riskAssessment?: GovernanceRiskAssessment;
     performanceMetrics?: GovernancePerformanceMetrics;
     trendAnalysis?: GovernanceTrendAnalysis;
     recommendations?: IntelligentGovernanceRecommendation[];
   }> {
     // 执行基础治理操作
-    const result = await (this.baseManager as any).execute(
-      governanceDomain,
-      operation,
-      context
-    );
+    const result = await (
+      this.baseManager as unknown as {
+        execute: (
+          domain: string,
+          operation: string,
+          context?: unknown
+        ) => Promise<unknown>;
+      }
+    ).execute(governanceDomain, operation, context);
 
     // 收集性能指标
     await this.collectPerformanceMetrics(governanceDomain);

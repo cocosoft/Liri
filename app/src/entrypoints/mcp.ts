@@ -121,10 +121,12 @@ export async function startMCPServer(
         return {
           tools: await Promise.all(
             tools.map(async (tool) => {
-              let outputSchema: any;
+              let outputSchema: unknown;
               if (tool.outputSchema) {
                 const convertedSchema = zodToJsonSchema(
-                  tool.outputSchema as any
+                  tool.outputSchema as unknown as Parameters<
+                    typeof zodToJsonSchema
+                  >[0]
                 );
                 // MCP SDK要求outputSchema在根级别有type: "object"
                 // 跳过根级别有anyOf/oneOf的模式（来自z.union, z.discriminatedUnion等）
@@ -141,14 +143,31 @@ export async function startMCPServer(
                 name: tool.name,
                 description:
                   (await tool.getDescription?.(
-                    (tool.inputSchema as any) || {},
+                    (tool.inputSchema as unknown as Record<string, unknown>) ||
+                      {},
                     {
                       isNonInteractiveSession: true,
                       toolPermissionContext,
                     }
                   )) || tool.description,
-                inputSchema: zodToJsonSchema(tool.inputSchema as any) as any,
-                outputSchema,
+                inputSchema: (zodToJsonSchema(
+                  tool.inputSchema as unknown as Parameters<
+                    typeof zodToJsonSchema
+                  >[0]
+                ) ?? { type: 'object' }) as unknown as {
+                  [x: string]: unknown;
+                  type: 'object';
+                  properties?: Record<string, object>;
+                  required?: string[];
+                },
+                outputSchema: outputSchema as
+                  | {
+                      [x: string]: unknown;
+                      type: 'object';
+                      properties?: Record<string, object>;
+                      required?: string[];
+                    }
+                  | undefined,
               };
             })
           ),

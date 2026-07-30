@@ -30,7 +30,12 @@
  *   此模块将在未来版本中移除。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 import {
   Plugin,
@@ -223,7 +228,10 @@ export class PluginLoader {
       this.pluginCache.delete(pluginId);
       return true;
     } catch (error) {
-      logger.error(`Failed to unload plugin ${pluginId}:`, error);
+      await handleError(error, {
+        module: 'core:ext',
+        action: 'unload_plugin',
+      });
       return false;
     }
   }
@@ -239,7 +247,10 @@ export class PluginLoader {
       await plugin.activate();
       return true;
     } catch (error) {
-      logger.error(`Failed to activate plugin ${pluginId}:`, error);
+      await handleError(error, {
+        module: 'core:ext',
+        action: 'activate_plugin',
+      });
       plugin.state = PluginState.FAILED;
       plugin.error = error instanceof Error ? error.message : String(error);
       return false;
@@ -257,7 +268,10 @@ export class PluginLoader {
       await plugin.deactivate();
       return true;
     } catch (error) {
-      logger.error(`Failed to deactivate plugin ${pluginId}:`, error);
+      await handleError(error, {
+        module: 'core:ext',
+        action: 'deactivate_plugin',
+      });
       return false;
     }
   }
@@ -301,15 +315,21 @@ export class PluginLoader {
                   if (pluginJson.plugin && pluginJson.plugin.name) {
                     pluginIds.push(pluginJson.plugin.name);
                   }
-                } catch {
-                  logger.warning(`Invalid plugin.json in ${entry.name}:`, null);
+                } catch (e) {
+                  void handleError(e, {
+                    module: 'core:extensibility:pluginLoader',
+                    action: 'parsePluginJson',
+                  });
                 }
               }
             }
           }
         }
       } catch (error) {
-        logger.warning(`Error scanning plugin directory ${fullPath}:`, error);
+        void handleError(error, {
+          module: 'core:extensibility:pluginLoader',
+          action: 'scanDirectory',
+        });
       }
     }
 

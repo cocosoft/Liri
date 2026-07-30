@@ -1,4 +1,5 @@
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import {
   DeliveryAdapter,
   ConsoleAdapter,
@@ -91,10 +92,9 @@ export class FailureNotifier {
       try {
         await channel.send(context);
       } catch (e) {
-        logger.error('[FailureNotifier] 通知通道异常', {
-          channel: channel.name,
-          taskId: context.taskId,
-          error: String(e),
+        await handleError(e, {
+          module: 'core:delivery',
+          action: 'notify_channel',
         });
       }
     }
@@ -121,10 +121,9 @@ export class FailureNotifier {
         try {
           await adapter.deliver(message);
         } catch (e) {
-          logger.error('[FailureNotifier] 投递适配器异常', {
-            adapter: adapter.name,
-            taskId: context.taskId,
-            error: String(e),
+          await handleError(e, {
+            module: 'core:delivery',
+            action: 'deliver_adapter',
           });
         }
       }

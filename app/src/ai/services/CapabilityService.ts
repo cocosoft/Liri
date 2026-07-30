@@ -30,6 +30,7 @@ import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath, resolveProjectRoot } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error';
 import yaml from 'js-yaml';
 import fs from 'fs';
 import path from 'path';
@@ -295,12 +296,15 @@ export class CapabilityService {
       );
     }
 
-    let yamlData: any;
+    let yamlData: unknown;
     try {
       const content = fs.readFileSync(YAML_CONFIG_PATH, 'utf-8');
       yamlData = yaml.load(content);
     } catch (err) {
-      logger.error('加载 YAML 配置失败', { error: String(err) });
+      await handleError(err, {
+        module: 'ai:capability',
+        action: 'mergeYamlToDatabase:loadYaml',
+      });
       // YAML 加载失败不阻塞启动，使用数据库已有数据或空数据
       return;
     }
@@ -308,19 +312,23 @@ export class CapabilityService {
     // 验证 YAML 结构
     this.validateYamlSchema(yamlData);
 
+    const data = yamlData as Record<string, unknown>;
+
     // 合并分类
-    if (yamlData.categories) {
-      for (const cat of yamlData.categories) {
+    if (data.categories) {
+      for (const cat of data.categories as Array<unknown>) {
         // 分类存储在能力表中，不需要单独表
         // 这里只记录到日志，实际分类通过能力的 category 字段体现
       }
     }
 
     // 合并能力定义
-    if (yamlData.capabilities) {
+    if (data.capabilities) {
       const dbCapabilities = await this.getAllFromDb();
 
-      for (const yamlCap of yamlData.capabilities) {
+      for (const yamlCap of data.capabilities as Array<
+        Record<string, unknown>
+      >) {
         const dbCap = dbCapabilities.find((c) => c.key === yamlCap.key);
 
         if (!dbCap) {
@@ -336,9 +344,9 @@ export class CapabilityService {
       // 检查废弃能力（YAML 中移除的能力）
       const currentVersion = '0.4.0'; // TODO: 从版本配置获取
       for (const dbCap of dbCapabilities) {
-        const yamlCap = yamlData.capabilities.find(
-          (c: any) => c.key === dbCap.key
-        );
+        const yamlCap = (
+          data.capabilities as Array<Record<string, unknown>>
+        ).find((c: Record<string, unknown>) => c.key === dbCap.key);
         if (!yamlCap && !dbCap.deprecatedSince) {
           // YAML 没有但 DB 有 → 标记废弃
           await this.update(dbCap.key, { deprecatedSince: currentVersion });
@@ -347,10 +355,12 @@ export class CapabilityService {
     }
 
     // 合并任务-能力映射
-    if (yamlData.taskMappings) {
+    if (data.taskMappings) {
       const dbMappings = await this.getTaskMappingsFromDb();
 
-      for (const yamlMapping of yamlData.taskMappings) {
+      for (const yamlMapping of data.taskMappings as Array<
+        Record<string, unknown>
+      >) {
         const dbMapping = dbMappings.find(
           (m) => m.taskType === yamlMapping.taskType
         );
@@ -373,7 +383,10 @@ export class CapabilityService {
    */
   private validateYamlSchema(yamlData: unknown): void {
     if (!yamlData || typeof yamlData !== 'object') {
-      logger.error('YAML 数据格式无效');
+      void handleError(new Error('YAML 数据格式无效'), {
+        module: 'ai:capability',
+        action: 'validateYamlSchema:invalidFormat',
+      });
       return;
     }
 
@@ -384,7 +397,13 @@ export class CapabilityService {
       for (let i = 0; i < caps.length; i++) {
         const cap = caps[i] as Record<string, unknown>;
         if (!cap.key || !cap.category || !cap.labelKey) {
-          logger.error(`YAML 能力配置第 ${i + 1} 条缺少必要字段`, { cap });
+          void handleError(
+            new Error(`YAML 能力配置第 ${i + 1} 条缺少必要字段`),
+            {
+              module: 'ai:capability',
+              action: 'validateYamlSchema:missingCapField',
+            }
+          );
         }
       }
     }
@@ -394,7 +413,13 @@ export class CapabilityService {
       for (let i = 0; i < mappings.length; i++) {
         const mapping = mappings[i] as Record<string, unknown>;
         if (!mapping.taskType) {
-          logger.error(`YAML 任务映射第 ${i + 1} 条缺少必要字段`, { mapping });
+          void handleError(
+            new Error(`YAML 任务映射第 ${i + 1} 条缺少必要字段`),
+            {
+              module: 'ai:capability',
+              action: 'validateYamlSchema:missingMappingField',
+            }
+          );
         }
       }
     }
@@ -403,7 +428,9 @@ export class CapabilityService {
   /**
    * 从 YAML 数据创建能力
    */
-  private async createFromYaml(yamlCap: any): Promise<void> {
+  private async createFromYaml(
+    yamlCap: Record<string, unknown>
+  ): Promise<void> {
     if (!this.db) return;
 
     await new Promise<void>((resolve, reject) => {
@@ -414,18 +441,19 @@ export class CapabilityService {
           task_types, sort_order, since_version, deprecated_since, dependencies, version
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          yamlCap.key,
-          yamlCap.category,
-          yamlCap.labelKey || `capability.${yamlCap.key}`,
-          yamlCap.descriptionKey || `capability.${yamlCap.key}.desc`,
-          yamlCap.labelFallback || yamlCap.key,
-          yamlCap.descriptionFallback || '',
+          yamlCap.key as string,
+          yamlCap.category as string,
+          (yamlCap.labelKey as string) || `capability.${yamlCap.key as string}`,
+          (yamlCap.descriptionKey as string) ||
+            `capability.${yamlCap.key as string}.desc`,
+          (yamlCap.labelFallback as string) || (yamlCap.key as string),
+          (yamlCap.descriptionFallback as string) || '',
           yamlCap.isDefault ? 1 : 0,
           yamlCap.enabled !== false ? 1 : 0,
           JSON.stringify(yamlCap.taskTypes || []),
-          yamlCap.sortOrder || 0,
-          yamlCap.sinceVersion,
-          yamlCap.deprecatedSince,
+          (yamlCap.sortOrder as number) || 0,
+          yamlCap.sinceVersion as string | undefined,
+          yamlCap.deprecatedSince as string | undefined,
           JSON.stringify(yamlCap.dependencies || []),
           1,
         ],
@@ -440,7 +468,9 @@ export class CapabilityService {
   /**
    * 从 YAML 数据创建任务映射
    */
-  private async createTaskMappingFromYaml(yamlMapping: any): Promise<void> {
+  private async createTaskMappingFromYaml(
+    yamlMapping: Record<string, unknown>
+  ): Promise<void> {
     if (!this.db) return;
 
     await new Promise<void>((resolve, reject) => {
@@ -449,10 +479,10 @@ export class CapabilityService {
           task_type, required_capabilities, optional_capabilities, sort_order
         ) VALUES (?, ?, ?, ?)`,
         [
-          yamlMapping.taskType,
+          yamlMapping.taskType as string,
           JSON.stringify(yamlMapping.requiredCapabilities || []),
           JSON.stringify(yamlMapping.optionalCapabilities || []),
-          yamlMapping.sortOrder || 0,
+          (yamlMapping.sortOrder as number) || 0,
         ],
         (err) => {
           if (err) reject(err);
@@ -910,7 +940,7 @@ export class CapabilityService {
     return new Promise((resolve, reject) => {
       this.db?.all(
         `SELECT * FROM ${CAPABILITIES_TABLE}`,
-        (err: Error | null, rows: any[]) => {
+        (err: Error | null, rows: Record<string, unknown>[]) => {
           if (err) reject(err);
           else resolve(this.mapRowsToDefinitions(rows));
         }
@@ -927,7 +957,7 @@ export class CapabilityService {
     return new Promise((resolve, reject) => {
       this.db?.all(
         `SELECT * FROM ${TASK_MAPPINGS_TABLE}`,
-        (err: Error | null, rows: any[]) => {
+        (err: Error | null, rows: Record<string, unknown>[]) => {
           if (err) reject(err);
           else resolve(this.mapRowsToMappings(rows));
         }
@@ -938,38 +968,44 @@ export class CapabilityService {
   /**
    * 将数据库行映射为能力定义
    */
-  private mapRowsToDefinitions(rows: any[]): ModelCapabilityDefinition[] {
+  private mapRowsToDefinitions(
+    rows: Record<string, unknown>[]
+  ): ModelCapabilityDefinition[] {
     return rows.map((row) => ({
-      key: row.key,
+      key: row.key as string,
       category: row.category as CapabilityCategory,
-      labelKey: row.label_key,
-      descriptionKey: row.description_key,
-      labelFallback: row.label_fallback,
-      descriptionFallback: row.description_fallback || '',
+      labelKey: row.label_key as string,
+      descriptionKey: row.description_key as string,
+      labelFallback: row.label_fallback as string,
+      descriptionFallback: (row.description_fallback as string) || '',
       isDefault: row.is_default === 1,
       enabled: row.enabled === 1,
-      taskTypes: row.task_types ? JSON.parse(row.task_types) : [],
-      sortOrder: row.sort_order || 0,
-      sinceVersion: row.since_version,
-      deprecatedSince: row.deprecated_since,
-      dependencies: row.dependencies ? JSON.parse(row.dependencies) : [],
-      version: row.version || 1,
+      taskTypes: row.task_types ? JSON.parse(row.task_types as string) : [],
+      sortOrder: (row.sort_order as number) || 0,
+      sinceVersion: row.since_version as string | undefined,
+      deprecatedSince: row.deprecated_since as string | undefined,
+      dependencies: row.dependencies
+        ? JSON.parse(row.dependencies as string)
+        : [],
+      version: (row.version as number) || 1,
     }));
   }
 
   /**
    * 将数据库行映射为任务映射
    */
-  private mapRowsToMappings(rows: any[]): TaskCapabilityMapping[] {
+  private mapRowsToMappings(
+    rows: Record<string, unknown>[]
+  ): TaskCapabilityMapping[] {
     return rows.map((row) => ({
-      taskType: row.task_type,
+      taskType: row.task_type as string,
       requiredCapabilities: row.required_capabilities
-        ? JSON.parse(row.required_capabilities)
+        ? JSON.parse(row.required_capabilities as string)
         : [],
       optionalCapabilities: row.optional_capabilities
-        ? JSON.parse(row.optional_capabilities)
+        ? JSON.parse(row.optional_capabilities as string)
         : [],
-      sortOrder: row.sort_order || 0,
+      sortOrder: (row.sort_order as number) || 0,
     }));
   }
 }

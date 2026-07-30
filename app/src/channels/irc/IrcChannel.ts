@@ -400,7 +400,10 @@ class IrcChannelPlugin extends BaseChannelPlugin {
           this.logger.info('IRC 将在 10 秒后自动重连...');
           setTimeout(() => {
             this.connectSocket().catch((err) => {
-              this.logger.error('IRC 重连失败', { error: String(err) });
+              handleError(err, {
+                module: 'channels:irc',
+                action: 'IRC 重连失败',
+              });
             });
           }, 10000);
         }
@@ -564,7 +567,10 @@ class IrcChannelPlugin extends BaseChannelPlugin {
     };
 
     this.handleIncomingMessage(ctx).catch((err) => {
-      this.logger.error('IRC 消息处理异常', { error: String(err) });
+      handleError(err, {
+        module: 'channels:irc',
+        action: 'IRC 消息处理异常',
+      });
     });
   }
 

@@ -688,9 +688,10 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
 
         // 异步下载图片（不阻塞消息处理）
         this.downloadFeishuImage(imageKey, baseMessage).catch((err) => {
-          this.logger.error('飞书图片下载失败', {
-            imageKey,
-            error: String(err),
+          handleError(err, {
+            module: 'channels:feishu',
+            action: '飞书图片下载失败',
+            context: { imageKey },
           });
         });
 
@@ -710,9 +711,10 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
 
         // 异步下载文件（不阻塞消息处理）
         this.downloadFeishuFile(fileKey, fileName, baseMessage).catch((err) => {
-          this.logger.error('飞书文件下载失败', {
-            fileKey,
-            error: String(err),
+          handleError(err, {
+            module: 'channels:feishu',
+            action: '飞书文件下载失败',
+            context: { fileKey },
           });
         });
 
@@ -948,8 +950,9 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
               | undefined;
             if (eventBody) {
               this.processFeishuEvent(eventBody).catch((err) => {
-                this.logger.error('飞书 WS 事件处理失败', {
-                  error: String(err),
+                handleError(err, {
+                  module: 'channels:feishu',
+                  action: '飞书 WS 事件处理失败',
                 });
               });
             }
@@ -1007,7 +1010,10 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
 
     this.wsReconnectTimer = setTimeout(() => {
       this.startWebSocket().catch((err) => {
-        this.logger.error('飞书 WebSocket 重连失败', { error: String(err) });
+        handleError(err, {
+          module: 'channels:feishu',
+          action: '飞书 WebSocket 重连失败',
+        });
       });
     }, delay);
   }
@@ -1134,7 +1140,10 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
           if (!event) return;
 
           self.processFeishuEvent(event).catch((err) => {
-            self.logger.error('飞书消息处理异常', { error: String(err) });
+            handleError(err, {
+              module: 'channels:feishu',
+              action: '飞书消息处理异常',
+            });
           });
         } catch {
           self.logger.warn('飞书 Webhook 消息解析失败');

@@ -6,6 +6,7 @@
 
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { resolveProjectRoot } from '@modules/core';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
@@ -68,7 +69,10 @@ export function auditModelHygiene(
 
     logger.info(`模型卫生审计完成，发现 ${findings.length} 个问题`);
   } catch (error) {
-    logger.error('模型卫生审计失败', error as Error);
+    void handleError(error, {
+      module: 'security:audit:model',
+      action: '模型卫生审计失败',
+    });
   }
 
   return findings;

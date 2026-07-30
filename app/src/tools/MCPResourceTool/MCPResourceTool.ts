@@ -16,7 +16,12 @@ import type {
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 const logger = new Logger({
   module: 'tools:mcpResource',
@@ -306,10 +311,10 @@ export class MCPResourceTool extends BaseTool<
                   }))
                 );
               } catch (error: unknown) {
-                logger.warning(
-                  `Failed to list resources from ${serverName}`,
-                  error instanceof Error ? error : new Error(String(error))
-                );
+                void handleError(error, {
+                  module: 'tools:mcpResource',
+                  action: 'listResources',
+                });
               }
             }
 
@@ -380,10 +385,10 @@ export class MCPResourceTool extends BaseTool<
                   }))
                 );
               } catch (error: unknown) {
-                logger.warning(
-                  `Failed to list prompts from ${serverName}`,
-                  error instanceof Error ? error : new Error(String(error))
-                );
+                void handleError(error, {
+                  module: 'tools:mcpResource',
+                  action: 'listPrompts',
+                });
               }
             }
 

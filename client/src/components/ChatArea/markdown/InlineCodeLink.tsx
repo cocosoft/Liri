@@ -51,7 +51,7 @@ export function InlineCodeLink({
     // 支持正斜杠 / 和反斜杠 \ 两种路径分隔符
     // \p{L} = 任意 Unicode 字母（含中文），\p{N} = 任意 Unicode 数字
     const pathLike =
-      /^(?:[A-Za-z]:)?[\\/]?(?:[\p{L}\p{N}\w\-.]+[\\/])*[\p{L}\p{N}\w\-.]+\.(?:[a-zA-Z0-9]{1,10})?$/u;
+      /^(?:[A-Za-z]:)?[\\/]?(?:[\p{L}\p{N}\w\-.]+[\\/])*[\p{L}\p{N}\w\-.]+(?:\.[a-zA-Z0-9]{1,10})?$/u;
     if (pathLike.test(codeContent) && !checking) {
       const cacheKey = sessionId
         ? getCacheKey(sessionId, codeContent)
@@ -83,8 +83,8 @@ export function InlineCodeLink({
             if (sessionId) {
               setPathCache(sessionId, codeContent, resolved);
             } else {
-              // 无 sessionId 时退化为全局缓存
-              const now = Date.now();
+              // 无 sessionId 时退化为全局缓存（monotonic clock）
+              const now = performance.now();
               pathResolveCache.set(cacheKey, {
                 canonical: resolved,
                 aliases: new Set(),
@@ -94,7 +94,7 @@ export function InlineCodeLink({
             }
             setConfirmedPath(resolved);
           } else {
-            const now = Date.now();
+            const now = performance.now();
             pathResolveCache.set(cacheKey, {
               canonical: "",
               aliases: new Set(),
@@ -104,7 +104,7 @@ export function InlineCodeLink({
           }
         })
         .catch(() => {
-          const now = Date.now();
+          const now = performance.now();
           pathResolveCache.set(cacheKey, {
             canonical: "",
             aliases: new Set(),
@@ -116,13 +116,13 @@ export function InlineCodeLink({
           pathResolvePending.delete(cacheKey);
         });
     }
-  }, [codeContent, knownFilePaths, checking, sessionId]);
+  }, [codeContent, knownFilePaths, checking]); // sessionId 不在依赖中：缓存 key 已含 sessionId，切换会话时组件随消息重新挂载，无需重触发
 
   if (confirmedPath) {
     return (
       <FileLink
         filePath={confirmedPath}
-        onPreview={onPreviewFile || (() => {})}
+        onPreview={onPreviewFile}
       />
     );
   }

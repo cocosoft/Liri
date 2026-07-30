@@ -8,6 +8,7 @@ import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
 import { extractPdfPages } from '../pdf/PdfPageExtractor';
+import type { PdfExtractOptions } from '../pdf/PdfPageExtractor';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import fs from 'fs';
@@ -107,7 +108,10 @@ export function createPdfExtractTool(): Tool {
         if (input.dpi !== undefined) options.dpi = input.dpi as number;
         if (input.format !== undefined) options.format = input.format as string;
 
-        const pages = await extractPdfPages(safeInput.path!, options as any);
+        const pages = await extractPdfPages(
+          safeInput.path!,
+          options as PdfExtractOptions
+        );
 
         const totalSize = pages.reduce((sum, p) => {
           try {

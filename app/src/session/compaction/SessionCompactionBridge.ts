@@ -18,6 +18,7 @@ import type {
   AutoCompactServiceRef,
 } from './CompactionTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { SummaryCompactor } from './SummaryCompactor';
 import { LayeredCompactor } from './LayeredCompactor';
 import { KeyInfoExtractor } from './KeyInfoExtractor';
@@ -187,9 +188,9 @@ export class SessionCompactionBridge {
       } catch (e) {
         record.success = false;
         record.error = String(e);
-        logger.error('Compaction error', {
-          sessionId: session.id,
-          error: String(e),
+        await handleError(e, {
+          module: 'sessions:compaction',
+          action: '执行压缩失败',
         });
       }
     } else if (this.engines.length > 0) {

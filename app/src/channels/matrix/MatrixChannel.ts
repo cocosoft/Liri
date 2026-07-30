@@ -197,7 +197,10 @@ class MatrixChannelPlugin extends BaseChannelPlugin {
     };
 
     poll().catch((err) => {
-      this.logger.error('Matrix Sync 循环异常退出', { error: String(err) });
+      handleError(err, {
+        module: 'channels:matrix',
+        action: 'Matrix Sync 循环异常退出',
+      });
     });
 
     this.logger.info('Matrix Sync 长轮询已启动');
@@ -303,7 +306,10 @@ class MatrixChannelPlugin extends BaseChannelPlugin {
     };
 
     this.handleIncomingMessage(ctx).catch((err) => {
-      this.logger.error('Matrix 消息处理异常', { error: String(err) });
+      handleError(err, {
+        module: 'channels:matrix',
+        action: 'Matrix 消息处理异常',
+      });
     });
   }
 

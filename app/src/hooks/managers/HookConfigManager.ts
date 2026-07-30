@@ -41,10 +41,10 @@ export class HookConfigManager {
    * 加载Hook配置
    * @param config 配置对象
    */
-  public loadConfig(config: any): void {
-    if (config && Array.isArray(config.hooks)) {
-      this.hooks = config.hooks.map((hook: any) =>
-        this.validateHookConfig(hook)
+  public loadConfig(config: unknown): void {
+    if (config && Array.isArray((config as Record<string, unknown>).hooks)) {
+      this.hooks = ((config as Record<string, unknown>).hooks as unknown[]).map(
+        (hook: unknown) => this.validateHookConfig(hook)
       );
     }
   }
@@ -54,9 +54,10 @@ export class HookConfigManager {
    * @param hook Hook配置对象
    * @returns 验证后的Hook配置
    */
-  private validateHookConfig(hook: any): IndividualHookConfig {
+  private validateHookConfig(hook: unknown): IndividualHookConfig {
+    const h = hook as Record<string, unknown>;
     // 验证事件类型
-    if (!hook.event) {
+    if (!h.event) {
       throw new AppError(
         'Hook must have an event',
         ErrorCategory.EXECUTION,
@@ -66,7 +67,7 @@ export class HookConfigManager {
     }
 
     // 验证配置
-    if (!hook.config) {
+    if (!h.config) {
       throw new AppError(
         'Hook must have a config',
         ErrorCategory.EXECUTION,
@@ -75,8 +76,9 @@ export class HookConfigManager {
       );
     }
 
+    const hc = h.config as Record<string, unknown>;
     // 验证配置类型
-    if (!['command', 'prompt', 'http', 'agent'].includes(hook.config.type)) {
+    if (!['command', 'prompt', 'http', 'agent'].includes(hc.type as string)) {
       throw new AppError(
         'Hook config type must be one of: command, prompt, http, agent',
         ErrorCategory.EXECUTION,
@@ -86,7 +88,7 @@ export class HookConfigManager {
     }
 
     // 验证命令类型Hook
-    if (hook.config.type === 'command' && !hook.config.command) {
+    if (hc.type === 'command' && !hc.command) {
       throw new AppError(
         'Command type hook must have a command',
         ErrorCategory.EXECUTION,
@@ -97,8 +99,8 @@ export class HookConfigManager {
 
     // 验证HTTP类型Hook
     if (
-      hook.config.type === 'http' &&
-      (!hook.config.http || !hook.config.http.url)
+      hc.type === 'http' &&
+      (!hc.http || !(hc.http as Record<string, unknown>).url)
     ) {
       throw new AppError(
         'HTTP type hook must have a url',
@@ -110,8 +112,8 @@ export class HookConfigManager {
 
     // 验证代理类型Hook
     if (
-      hook.config.type === 'agent' &&
-      (!hook.config.agent || !hook.config.agent.id)
+      hc.type === 'agent' &&
+      (!hc.agent || !(hc.agent as Record<string, unknown>).id)
     ) {
       throw new AppError(
         'Agent type hook must have an agent id',
@@ -122,24 +124,26 @@ export class HookConfigManager {
     }
 
     return {
-      id: hook.name || `${hook.event}:${hook.matcher || 'default'}`,
-      name: hook.name || `${hook.event} hook`,
-      enabled: hook.config.enabled !== false,
-      priority: hook.config.priority || 0,
-      event: hook.event,
-      matcher: hook.matcher,
+      id: (h.name as string) || `${h.event}:${h.matcher || 'default'}`,
+      name: (h.name as string) || `${h.event} hook`,
+      enabled: hc.enabled !== false,
+      priority: ((hc.priority as number) ||
+        0) as unknown as IndividualHookConfig['priority'],
+      event: h.event as IndividualHookConfig['event'],
+      matcher: h.matcher as IndividualHookConfig['matcher'],
       config: {
-        type: hook.config.type,
-        command: hook.config.command,
-        prompt: hook.config.prompt,
-        http: hook.config.http,
-        agent: hook.config.agent,
-        timeout: hook.config.timeout || 30000,
-        enabled: hook.config.enabled !== false,
-        priority: hook.config.priority || 0,
+        type: hc.type as IndividualHookConfig['config']['type'],
+        command: hc.command as string | undefined,
+        prompt: hc.prompt as string | undefined,
+        http: hc.http as IndividualHookConfig['config']['http'],
+        agent: hc.agent as IndividualHookConfig['config']['agent'],
+        timeout: (hc.timeout as number) || 30000,
+        enabled: hc.enabled !== false,
+        priority: ((hc.priority as number) ||
+          0) as unknown as IndividualHookConfig['config']['priority'],
       },
-      source: hook.source || 'user',
-      pluginName: hook.pluginName,
+      source: (h.source as string) || 'user',
+      pluginName: h.pluginName as string | undefined,
     };
   }
 
@@ -175,7 +179,8 @@ export class HookConfigManager {
     return this.hooks.filter(
       (hook) =>
         hook.event === event &&
-        (matcher === undefined || (hook.matcher as any) === matcher) &&
+        (matcher === undefined ||
+          (hook.matcher as unknown as string) === matcher) &&
         hook.config.enabled
     );
   }

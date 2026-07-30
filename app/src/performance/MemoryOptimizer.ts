@@ -87,7 +87,11 @@ export class MemoryOptimizer {
     }
 
     try {
-      const config = getPerformanceConfig();
+      const config = getPerformanceConfig() as unknown as Record<
+        string,
+        unknown
+      >;
+      const cfg = config as unknown as Record<string, Record<string, number>>;
       const snapshots = memoryManager.getSnapshots();
 
       if (snapshots.length === 0) {
@@ -120,7 +124,11 @@ export class MemoryOptimizer {
   /**
    * 检查内存使用情况
    */
-  private checkMemoryUsage(snapshot: MemorySnapshot, config: any): void {
+  private checkMemoryUsage(
+    snapshot: MemorySnapshot,
+    config: Record<string, unknown>
+  ): void {
+    const cfg = config as unknown as Record<string, Record<string, number>>;
     // 更新内存使用峰值
     this.updateMemoryPeaks(snapshot);
 
@@ -128,20 +136,18 @@ export class MemoryOptimizer {
     this.updateMemoryTrends(snapshot);
 
     // 检查内存使用是否超过阈值
-    if (snapshot.memory.rss > config.memoryManagement.thresholdMb) {
+    if (snapshot.memory.rss > cfg.memoryManagement.thresholdMb) {
       logForDebugging(
-        `内存使用超过阈值: ${snapshot.memory.rss.toFixed(2)}MB > ${config.memoryManagement.thresholdMb}MB`,
+        `内存使用超过阈值: ${snapshot.memory.rss.toFixed(2)}MB > ${cfg.memoryManagement.thresholdMb}MB`,
         { level: 'warn' }
       );
       this.performEmergencyCleanup();
     }
 
     // 检查堆使用百分比是否过高
-    if (
-      snapshot.heapUsagePercent > config.memoryManagement.heapUsageThreshold
-    ) {
+    if (snapshot.heapUsagePercent > cfg.memoryManagement.heapUsageThreshold) {
       logForDebugging(
-        `堆使用百分比过高: ${snapshot.heapUsagePercent.toFixed(2)}% > ${config.memoryManagement.heapUsageThreshold}%`,
+        `堆使用百分比过高: ${snapshot.heapUsagePercent.toFixed(2)}% > ${cfg.memoryManagement.heapUsageThreshold}%`,
         { level: 'warn' }
       );
       this.forceGarbageCollection();
@@ -149,11 +155,10 @@ export class MemoryOptimizer {
 
     // 检查内存增长率是否异常
     if (
-      Math.abs(snapshot.growthRate) >
-      config.memoryManagement.growthRateThreshold
+      Math.abs(snapshot.growthRate) > cfg.memoryManagement.growthRateThreshold
     ) {
       logForDebugging(
-        `内存增长率异常: ${snapshot.growthRate.toFixed(2)}% > ${config.memoryManagement.growthRateThreshold}%`,
+        `内存增长率异常: ${snapshot.growthRate.toFixed(2)}% > ${cfg.memoryManagement.growthRateThreshold}%`,
         { level: 'warn' }
       );
       this.analyzeMemoryGrowth();
@@ -355,15 +360,16 @@ export class MemoryOptimizer {
   private optimizeMemoryUsage(
     snapshot: MemorySnapshot,
     snapshots: MemorySnapshot[],
-    config: any
+    config: Record<string, unknown>
   ): void {
+    const mm = config.memoryManagement as Record<string, unknown>;
     // 检查是否需要执行垃圾回收
-    if (snapshot.heapUsagePercent > config.memoryManagement.gcThreshold) {
+    if (snapshot.heapUsagePercent > (mm.gcThreshold as number)) {
       this.forceGarbageCollection();
     }
 
     // 清理历史数据
-    if (snapshots.length > config.memoryManagement.maxSnapshots) {
+    if (snapshots.length > (mm.maxSnapshots as number)) {
       memoryManager.cleanupHistory();
     }
 

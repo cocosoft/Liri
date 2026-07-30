@@ -222,9 +222,6 @@ export class VideoGenerateTool extends BaseTool {
       const result = await this.runVideoGeneration(params);
       return this.buildToolResult(result);
     } catch (error) {
-      logger.error('VideoGenerateTool . execute() 异常', {
-        error: error instanceof Error ? error.message : String(error),
-      });
       await handleError(error, {
         module: 'tools:videoGenerate',
         action: 'execute',
@@ -357,12 +354,6 @@ export class VideoGenerateTool extends BaseTool {
         clearTimeout(maxTimer);
 
         const errorMsg = error instanceof Error ? error.message : String(error);
-        logger.error('VideoGenerateTool 异步任务异常崩溃', {
-          taskId,
-          mode,
-          error: errorMsg,
-          stack: error instanceof Error ? error.stack : undefined,
-        });
         await handleError(error, {
           module: 'tools:videoGenerate',
           action: 'executeAsync',
@@ -552,10 +543,6 @@ export class VideoGenerateTool extends BaseTool {
 
       return result;
     } catch (e) {
-      logger.error('VideoGenerateTool . Router 模式异常', {
-        error: e instanceof Error ? e.message : String(e),
-        stack: e instanceof Error ? e.stack : undefined,
-      });
       await handleError(e, {
         module: 'tools:videoGenerate',
         action: 'generate',
@@ -817,8 +804,9 @@ export class VideoGenerateTool extends BaseTool {
           mappedType,
         });
       } catch (error) {
-        logger.error('VideoGenerateTool . 创建 Router 失败', {
-          error: error instanceof Error ? error.message : String(error),
+        await handleError(error, {
+          module: 'tools:videoGenerate',
+          action: '创建Router失败',
         });
         throw error;
       }

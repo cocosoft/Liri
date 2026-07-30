@@ -20,7 +20,6 @@
 // SOFTWARE.
 /**
  * Agent Harness
- * 对标OpenClaw agents/harness/
  * v2 循环/注册表/生命周期/hooks 子系统
  */
 

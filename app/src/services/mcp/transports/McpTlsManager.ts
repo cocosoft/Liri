@@ -1,6 +1,7 @@
 import fs from 'fs';
 import tls from 'tls';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
   module: 'services:mcp:tlsManager',
@@ -55,7 +56,10 @@ export class McpTlsManager {
         options.cert = fs.readFileSync(this.config.certPath);
         options.key = fs.readFileSync(this.config.keyPath);
       } catch (err) {
-        logger.error('读取客户端证书失败', { error: err });
+        handleError(err, {
+          module: 'services:mcp:tls',
+          action: '读取客户端证书失败',
+        });
         return null;
       }
     }
@@ -64,7 +68,10 @@ export class McpTlsManager {
       try {
         options.ca = fs.readFileSync(this.config.caPath);
       } catch (err) {
-        logger.error('读取 CA 证书失败', { error: err });
+        handleError(err, {
+          module: 'services:mcp:tls',
+          action: '读取CA证书失败',
+        });
         return null;
       }
     }

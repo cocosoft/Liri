@@ -80,7 +80,6 @@ export class PersistentTaskQueue {
         module: 'tasks:persistentQueue',
         action: 'init',
       });
-      logger.error('[PersistentTaskQueue] 初始化失败', e);
     }
   }
 

@@ -131,8 +131,9 @@ export class ModelRegistry {
       }
       otel.endSpan(span, SpanStatusCode.OK);
     } catch (err) {
-      logger.warning('DB 定价加载失败，将使用空缓存', {
-        error: (err as Error).message,
+      void handleError(err, {
+        module: 'ai:registry',
+        action: 'loadDbPricing',
       });
       otel.endSpan(span, SpanStatusCode.ERROR, (err as Error).message);
     }
@@ -310,8 +311,9 @@ export class ModelRegistry {
         };
       }
     } catch (err) {
-      logger.warning('DB 实时定价查询失败，回退到缓存', {
-        error: (err as Error).message,
+      void handleError(err, {
+        module: 'ai:registry',
+        action: 'getDbPricingFresh',
       });
     }
     return this.getModelPricing(modelName);

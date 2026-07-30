@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Bash 工具
  *
  * 提供安全的 Shell 命令执行功能
@@ -377,9 +377,9 @@ export class BashTool extends BaseTool {
       });
 
       // 安全审计修复：安全检查强制运行，不可绕过
-      // 对标CC：路径安全检查（适配 Windows 盘符路径）
+      // BUG08 修复：增强路径提取，支持 UNC、空格、--path= 形式
       const pathMatch = command.match(
-        /['"]?((?:\/[^\s'"]+|[A-Za-z]:\\[^\s'"]*))['"]?/
+        /(?:--?\w+=)?['"]?((?:\/[^\s'"]*|[A-Za-z]:[\\/][^\s'"]*|\\\\[^\s'"]+))['"]?/
       );
       if (pathMatch && !isPathSafe(pathMatch[1])) {
         return createToolResult('路径安全检查失败: 禁止访问系统敏感目录', {
@@ -632,7 +632,9 @@ export class BashTool extends BaseTool {
       return true;
     }
 
-    const pathMatch = command.match(/['"]?(\/[^\s'"]+)['"]?/);
+    const pathMatch = command.match(
+      /(?:--?\w+=)?['"]?((?:\/[^\s'"]*|[A-Za-z]:[\\/][^\s'"]*|\\\\[^\s'"]+))['"]?/
+    );
     if (pathMatch && !isPathSafe(pathMatch[1])) {
       return true;
     }

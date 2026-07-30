@@ -29,6 +29,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { AIProvider, ChatOptions } from './AIProvider';
 import { providerRegistry } from './ProviderRegistry';
 import type { ProviderRecord } from './ProviderManager';
@@ -160,8 +161,9 @@ export class PriorityBasedFailover {
         .sort((a, b) => a.sortIndex - b.sortIndex)
         .map((p) => p.id);
     } catch (err) {
-      logger.warning('获取供应商列表失败，使用默认Provider', {
-        error: (err as Error).message,
+      void handleError(err, {
+        module: 'ai:providers:priorityBasedFailover',
+        action: 'getActiveProviderIds',
       });
       return [];
     }

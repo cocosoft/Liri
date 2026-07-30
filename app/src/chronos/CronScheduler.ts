@@ -561,11 +561,13 @@ export function createInMemoryScheduler(
         options.onTaskComplete(updated, 'success');
       }
     } else {
-      if (canRetryTask(task as any)) {
-        const nextRetry = calculateNextRetryTime(task as any);
+      if (canRetryTask(task)) {
+        const nextRetry = calculateNextRetryTime(task);
         const retryTask = {
           ...task,
-          retryCount: (task as any).retryCount || 0 + 1,
+          retryCount:
+            (((task as unknown as Record<string, unknown>)
+              .retryCount as number) || 0) + 1,
           nextRetryAt: nextRetry,
         };
         tasks.set(task.id, retryTask);
@@ -592,9 +594,9 @@ export function createInMemoryScheduler(
   async function processTask(task: ScheduledTask): Promise<void> {
     if (taskExecutionPromises.has(task.id)) return;
 
-    const ext = task as any;
+    const ext = task as unknown as Record<string, unknown>;
     if (ext.nextRetryAt) {
-      if (Date.now() >= ext.nextRetryAt) {
+      if (Date.now() >= (ext.nextRetryAt as number)) {
         taskExecutionPromises.set(task.id, executeTask(task));
         await taskExecutionPromises.get(task.id);
         taskExecutionPromises.delete(task.id);
@@ -609,8 +611,8 @@ export function createInMemoryScheduler(
     if (nextRun === null) return;
     if (Date.now() < nextRun) return;
 
-    if (ext.dependencies && ext.dependencies.length > 0) {
-      const depCheck = checkTaskDependencies(task as any, tasks as any);
+    if (ext.dependencies && (ext.dependencies as unknown[]).length > 0) {
+      const depCheck = checkTaskDependencies(task, tasks);
       if (!depCheck.satisfied) {
         if (options.onDependencyFailure) {
           options.onDependencyFailure(task, depCheck.failedDependencies);

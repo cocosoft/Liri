@@ -21,6 +21,7 @@ import type {
 } from '../providers/AIProvider';
 import { AppError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { ScrubberPipeline } from '@modules/streaming/scrubbers';
 import { createDefaultScrubberPipeline } from '@modules/streaming/scrubbers';
@@ -57,7 +58,7 @@ export class AIServiceImpl implements AIService {
 
   private convertToChatMessages(messages: AIMessage[]): ChatMessage[] {
     return messages.map((msg) => ({
-      role: msg.role as any,
+      role: msg.role as ChatMessage['role'],
       content: msg.content,
       tool_calls: msg.tool_calls,
       tool_call_id: msg.tool_call_id,
@@ -260,7 +261,10 @@ export class AIServiceImpl implements AIService {
 
     // 映射表无匹配时，抛明确错误而非静默 fallback 到 openai
     const msg = `未知模型 "${model}"，无法匹配到对应的 AI Provider。请检查模型名拼写或配置新的 Provider。`;
-    logger.error(msg);
+    void handleError(new Error(msg), {
+      module: 'ai:service',
+      action: 'getClientForModel',
+    });
     throw AppError.fromCode(ErrorCodes.INVALID_INPUT, {
       context: { message: msg },
     });

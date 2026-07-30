@@ -126,7 +126,7 @@ export class ScriptHookExecutor {
 
       const { stdout, stderr } = await execPromise(command, {
         env,
-        shell: true as any,
+        shell: true as unknown as string,
         timeout: (scriptConfig.timeout || 30) * 1000,
         cwd: scriptConfig.cwd || context.workingDirectory,
       });
@@ -151,12 +151,13 @@ export class ScriptHookExecutor {
       }
 
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as Record<string, unknown>;
       return {
         success: false,
-        output: error.stdout?.trim(),
-        error: error.stderr?.trim() || error.message,
-        exitCode: error.code || 1,
+        output: (err.stdout as string)?.trim(),
+        error: (err.stderr as string)?.trim() || (err.message as string),
+        exitCode: (err.code as number) || 1,
       };
     } finally {
       if (tempFile) {

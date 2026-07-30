@@ -159,29 +159,38 @@ export class ChatCompletionsTransport extends BaseTransport {
    * @param raw - 原始的 API 响应对象，结构可能因提供商而异
    * @returns 标准化后的响应对象，包含内容、工具调用、用量信息及元数据
    */
-  normalizeResponse(raw: any): NormalizedResponse {
-    const choice = raw.choices?.[0];
-    const message = choice?.message ?? {};
-    const usage = raw.usage ?? {};
+  normalizeResponse(raw: unknown): NormalizedResponse {
+    const r = raw as Record<string, unknown>;
+    const choice = (r.choices as Array<Record<string, unknown>>)?.[0];
+    const message = (choice?.message ?? {}) as Record<string, unknown>;
+    const usage = (r.usage ?? {}) as Record<string, number>;
 
     let content: string | null = null;
     const toolCalls: NormalizedToolCall[] = [];
 
     // 提取文本消息内容
     if (message.content) {
-      content = message.content;
+      content = message.content as string;
     }
 
     // 解析并标准化工具调用列表，处理参数字符串化及字段兼容性
     if (message.tool_calls) {
-      for (const tc of message.tool_calls) {
+      for (const tc of message.tool_calls as Array<Record<string, unknown>>) {
         toolCalls.push({
-          id: tc.id,
-          name: tc.function?.name ?? tc.name ?? '',
+          id: tc.id as string,
+          name:
+            ((tc.function as Record<string, unknown>)?.name as string) ??
+            (tc.name as string) ??
+            '',
           arguments:
-            typeof tc.function?.arguments === 'string'
-              ? tc.function.arguments
-              : JSON.stringify(tc.function?.arguments ?? tc.arguments ?? {}),
+            typeof (tc.function as Record<string, unknown>)?.arguments ===
+            'string'
+              ? ((tc.function as Record<string, unknown>).arguments as string)
+              : JSON.stringify(
+                  (tc.function as Record<string, unknown>)?.arguments ??
+                    tc.arguments ??
+                    {}
+                ),
         });
       }
     }
@@ -192,14 +201,21 @@ export class ChatCompletionsTransport extends BaseTransport {
       usage: {
         inputTokens: usage.prompt_tokens ?? 0,
         outputTokens: usage.completion_tokens ?? 0,
-        cacheReadTokens: usage.prompt_tokens_details?.cached_tokens ?? 0,
+        cacheReadTokens:
+          (
+            (r.usage as Record<string, unknown>)?.prompt_tokens_details as
+              | Record<string, number>
+              | undefined
+          )?.cached_tokens ?? 0,
         cacheCreationTokens: 0,
         totalTokens: usage.total_tokens ?? 0,
       },
-      reasoning: message.reasoning_content ?? null,
-      finishReason: choice?.finish_reason ?? 'stop',
-      model: raw.model ?? '',
-      id: raw.id ?? '',
+      reasoning: (message.reasoning_content as string) ?? null,
+      finishReason:
+        ((choice as Record<string, unknown>)?.finish_reason as string) ??
+        'stop',
+      model: (r.model as string) ?? '',
+      id: (r.id as string) ?? '',
     };
   }
 

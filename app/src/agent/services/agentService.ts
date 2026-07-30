@@ -3,6 +3,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { AgentService, AgentConfig, AIAgent } from '../models/types';
 import { AIAgentImpl } from '../agent';
 import { ToolFactory } from '../tools/agentTool';
@@ -109,7 +110,9 @@ export class AgentServiceImpl implements AgentService {
     const agent = this.agents.get(agentId);
     if (agent) {
       // 类型断言，因为AIAgent接口没有updateConfig方法
-      (agent as any).updateConfig(config);
+      (
+        agent as unknown as { updateConfig(c: Partial<AgentConfig>): void }
+      ).updateConfig(config);
       this.saveAgent(agent);
       return agent;
     }
@@ -162,11 +165,18 @@ export class AgentServiceImpl implements AgentService {
     try {
       writeFileSync(
         agentPath,
-        JSON.stringify((agent as any).serialize(), null, 2),
+        JSON.stringify(
+          (agent as unknown as { serialize(): unknown }).serialize(),
+          null,
+          2
+        ),
         'utf-8'
       );
     } catch (error) {
-      logger.error('Failed to save agent:', error);
+      handleError(error, {
+        module: 'agent:service',
+        action: '保存Agent到文件',
+      });
     }
   }
 
@@ -181,7 +191,7 @@ export class AgentServiceImpl implements AgentService {
         unlinkSync(agentPath);
       }
     } catch (error) {
-      logger.error('Failed to delete agent file:', error);
+      handleError(error, { module: 'agent:service', action: '删除Agent文件' });
     }
   }
 
@@ -201,7 +211,7 @@ export class AgentServiceImpl implements AgentService {
         }
       }
     } catch (error) {
-      logger.error('Failed to load agents:', error);
+      handleError(error, { module: 'agent:service', action: '加载Agent列表' });
     }
   }
 }

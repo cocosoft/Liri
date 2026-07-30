@@ -247,7 +247,14 @@ export class RealtimeTerminalOutput {
     content: string,
     options?: { padding?: number; borderColor?: string }
   ): void {
-    (TerminalComponents as any).printBox([content], options);
+    (
+      TerminalComponents as unknown as {
+        printBox: (
+          content: string[],
+          options?: Record<string, unknown>
+        ) => void;
+      }
+    ).printBox([content], options);
   }
 
   /**
@@ -271,14 +278,25 @@ export class RealtimeTerminalOutput {
     pairs: Array<[string, string]>,
     options?: { keyColor?: string; valueColor?: string; indent?: number }
   ): void {
-    (TerminalComponents as any).printKeyValue(pairs, options);
+    (
+      TerminalComponents as unknown as {
+        printKeyValue: (
+          pairs: Array<[string, string]>,
+          options?: Record<string, unknown>
+        ) => void;
+      }
+    ).printKeyValue(pairs, options);
   }
 
   /**
    * 显示徽章
    */
   showBadge(text: string, color: string): void {
-    (TerminalComponents as any).printBadge(text, { color });
+    (
+      TerminalComponents as unknown as {
+        printBadge: (text: string, options: Record<string, unknown>) => void;
+      }
+    ).printBadge(text, { color });
   }
 }
 

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 模拟 Bridge API 客户端
  * 提供本地模拟的 API 实现，无需网络通信即可让整个 Bridge 系统运行
  */
@@ -165,7 +165,7 @@ export function createSimulatedBridgeApi(
 
     async sendPermissionResponseEvent(
       _sessionId: string,
-      _event: any,
+      _event: unknown,
       _sessionToken: string
     ): Promise<void> {
       debug('[sim-api] 发送权限响应事件');

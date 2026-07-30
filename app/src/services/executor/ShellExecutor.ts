@@ -177,7 +177,15 @@ export interface SnapshotConfig {
 export const DEFAULT_SNAPSHOT_CONFIG: SnapshotConfig = {
   enabled: true,
   minFileCount: 10,
-  backupLocation: join(homedir(), '.trae', 'snapshots'),
+  // BUG15 修复：使用 paths.ts 集中管理路径
+  get backupLocation() {
+    try {
+      const { resolveSnapshotsDir } = require('@modules/core/paths');
+      return resolveSnapshotsDir();
+    } catch {
+      return join(homedir(), '.trae', 'snapshots');
+    }
+  },
   autoCleanupDays: 7,
   maxSnapshotSize: 1024 * 1024 * 1024, // 1GB
   mode: 'manifest',

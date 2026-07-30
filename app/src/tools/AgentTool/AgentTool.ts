@@ -852,6 +852,10 @@ export class AgentTool implements Tool {
             logger.info('Background agent completed', { agentId, taskId });
           })
           .catch((error) => {
+            handleError(error, {
+              module: 'tools:agent',
+              action: '后台Agent任务异常',
+            });
             bgTask.syncFromBgInfo({
               ...bgInfo,
               status: 'failed',
@@ -860,11 +864,6 @@ export class AgentTool implements Tool {
               durationMs: Date.now() - bgInfo.createdAt,
             });
             this.activeAgents.get(agentId)!.status = 'failed';
-            logger.error('Background agent failed', {
-              agentId,
-              taskId,
-              error: error instanceof Error ? error.message : String(error),
-            });
           });
 
         return {
@@ -977,12 +976,6 @@ export class AgentTool implements Tool {
       handleError(error, {
         module: 'tools:agentTool',
         action: 'execute',
-      });
-
-      logger.error('Agent execution failed', {
-        agentId,
-        agentType: effectiveType,
-        error: errorMessage,
       });
 
       onProgress?.({

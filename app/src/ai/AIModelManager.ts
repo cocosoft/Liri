@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AI模型管理服务
  * 实现模型别名、上下文窗口管理和模型显示优化
  * 模型数据统一委托给 ModelManager（ModelConfigs 为唯一数据源）
@@ -107,13 +107,13 @@ export class AIModelManager {
     }
 
     if (this.isModelAlias(lower)) {
-      return parseModelAlias(lower as any);
+      return parseModelAlias(lower as ModelAlias);
     }
 
     const baseInput = lower.replace(/\[1m]$/i, '').trim();
 
     if (this.isModelFamilyAlias(baseInput)) {
-      return parseModelAlias(baseInput as any);
+      return parseModelAlias(baseInput as ModelAlias);
     }
 
     return trimmed;

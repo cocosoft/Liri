@@ -13,7 +13,8 @@ const simplifySkill: Skill = {
   version: '1.0.0',
   impl: {
     kind: 'executable',
-    execute: async (args: unknown[]) => {
+    execute: async (context: unknown) => {
+      const args = context as unknown[];
       return `Simplifying code...\n\nTarget: ${args.join(' ') || 'current selection'}\n\nSimplification approach:\n1. Remove redundant code\n2. Improve readability\n3. Optimize structure\n4. Add comments where needed`;
     },
   },

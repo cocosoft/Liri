@@ -376,8 +376,12 @@ export class PCMAudioPlayer {
     this.isProcessing = true;
     queueMicrotask(() => {
       this.processQueue().catch((error) => {
-        logger.error('播放队列处理异常', {
-          error: error instanceof Error ? error.message : String(error),
+        void handleError(error, {
+          module: 'services:voice:player',
+          action: '播放队列处理异常',
+          context: {
+            error: error instanceof Error ? error.message : String(error),
+          },
         });
         this.isProcessing = false;
         this.setState('stopped');

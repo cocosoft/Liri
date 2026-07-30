@@ -8,12 +8,6 @@ import { configManager } from '@modules/config';
 import { BUILTIN_TRANSLATIONS } from './extended-translations';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'system:i18n:extended',
-  level: LogLevel.INFO,
-});
-
 /**
  * 翻译键类型 — 从内置翻译数据自动推导，提供编译期类型检查
  */

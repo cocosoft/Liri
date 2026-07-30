@@ -35,6 +35,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
+import { trackUsage } from '@modules/ai';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'ai:judge' });
 
@@ -130,9 +131,16 @@ export class JudgeService {
   private async classifyCloud(message: string): Promise<JudgeResult> {
     const prompt = CLASSIFY_PROMPT_TEMPLATE.replace('{MESSAGE}', message);
 
+    const _trackStart = Date.now();
     const response = await this.cloudProvider!.chat([
       { role: 'user', content: prompt },
     ]);
+
+    trackUsage(response, {
+      model: response.model || 'unknown',
+      providerId: this.cloudProvider!.id,
+      latencyMs: Date.now() - _trackStart,
+    });
 
     const parsed = this.parseResponse(response.content);
     logger.debug('JudgeService: 云端分类结果', {

@@ -33,7 +33,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   private pendingRequests = new Map<
     string,
     {
-      resolve: (value: any) => void;
+      resolve: (value: unknown) => void;
       reject: (error: Error) => void;
       timeout: NodeJS.Timeout;
     }
@@ -386,7 +386,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
       pendingRequest.resolve(response.result);
     } else if (response.type === 'error') {
       const error = new Error(response.error?.message || 'Unknown error');
-      (error as any).code = response.error?.code;
+      (error as unknown as Record<string, unknown>).code = response.error?.code;
       pendingRequest.reject(error);
     } else if (response.type === 'progress') {
       // 处理进度更新
@@ -482,7 +482,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   /**
    * 发射事件
    */
-  private emitEvent(type: MCPEventType, data?: any): void {
+  private emitEvent(type: MCPEventType, data?: unknown): void {
     const event: MCPEvent = {
       type,
       data,

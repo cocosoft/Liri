@@ -368,7 +368,9 @@ export function getAssistantMessageText(message: Message): string {
  * @returns 工具调用次数
  */
 export function countToolCalls(messages: Message[]): number {
-  return messages.filter((m) => (m as any).type === 'tool_use').length;
+  return messages.filter(
+    (m) => (m as unknown as Record<string, unknown>).type === 'tool_use'
+  ).length;
 }
 
 /**

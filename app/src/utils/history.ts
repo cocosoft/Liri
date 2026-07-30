@@ -144,7 +144,7 @@ export class HistoryManager {
 const HISTORY_MANAGER_SYMBOL = Symbol.for('Liri_HISTORY_MANAGER');
 
 export const historyManager: HistoryManager = (() => {
-  const globalObj = globalThis as any;
+  const globalObj = globalThis as unknown as Record<symbol, HistoryManager>;
   if (!globalObj[HISTORY_MANAGER_SYMBOL]) {
     globalObj[HISTORY_MANAGER_SYMBOL] = new HistoryManager();
   }

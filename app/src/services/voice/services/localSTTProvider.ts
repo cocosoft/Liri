@@ -572,7 +572,10 @@ export class LocalSTTProvider implements STTProvider {
         setTimeout(() => {
           if (!this._disposing) {
             this.startWorker().catch((err) => {
-              logger.error('重启工作进程失败', { error: String(err) });
+              void handleError(err, {
+                module: 'services:voice:localSTT',
+                action: '重启工作进程失败',
+              });
             });
           }
         }, RESTART_DELAY_MS);
@@ -580,7 +583,10 @@ export class LocalSTTProvider implements STTProvider {
     });
 
     proc.on('error', (err) => {
-      logger.error('Whisper 工作进程错误', { error: err.message });
+      void handleError(err, {
+        module: 'services:voice:localSTT',
+        action: '工作进程错误',
+      });
     });
 
     // 发送初始配置

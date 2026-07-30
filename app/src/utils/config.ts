@@ -22,8 +22,8 @@ export interface ConfigValidationRule {
   key: string;
   type: 'string' | 'number' | 'boolean' | 'array' | 'object';
   required?: boolean;
-  default?: any;
-  validate?: (value: any) => boolean;
+  default?: unknown;
+  validate?: (value: unknown) => boolean;
   message?: string;
 }
 
@@ -54,7 +54,7 @@ export function getConfig(key?: string): any {
   return merged;
 }
 
-export function setConfig(key: string, value: any): void {
+export function setConfig(key: string, value: unknown): void {
   profileCheckpoint('config_set_start');
   delete runtimeOverrides[key];
   configManager.setConfigValue(key, value);

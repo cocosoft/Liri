@@ -332,14 +332,14 @@ export class PerformanceAnalyzer {
  */
 export function measurePerformance(name?: string) {
   return function (
-    target: any,
+    target: object,
     propertyKey: string,
     descriptor: PropertyDescriptor
   ) {
     const originalMethod = descriptor.value;
     const methodName = name || `${target.constructor.name}.${propertyKey}`;
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (...args: unknown[]) {
       const timer = new PerformanceTimer(methodName);
 
       try {

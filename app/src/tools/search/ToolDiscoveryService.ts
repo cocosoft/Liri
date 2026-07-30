@@ -11,6 +11,7 @@ import {
 } from './ToolSearchConfig';
 import { createToolRegistry } from '../ToolRegistry.js';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'tools:discoveryService',
@@ -132,7 +133,10 @@ export class ToolDiscoveryService {
         }
         return tool;
       } catch (error) {
-        logger.error(`Failed to load deferred tool ${toolName}:`, { error });
+        await handleError(error, {
+          module: 'tools:discovery',
+          action: 'loadDeferredTool',
+        });
         return null;
       }
     }

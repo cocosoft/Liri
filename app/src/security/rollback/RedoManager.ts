@@ -243,12 +243,10 @@ export async function executeRedo(
       failures,
     };
   } catch (error) {
-    logger.error('重做执行失败', { roundId, sessionId, error: String(error) });
+    // @ignore-catch — handleError已处理，异步抛错无需再处理
     handleError(error, {
-      // @ignore-catch — handleError已处理，异步抛错无需再处理
-      module: 'RedoManager',
-      action: 'executeRedo',
-      context: { roundId, sessionId, walId },
+      module: 'security:rollback:redo',
+      action: '重做执行失败',
     }).catch(() => {});
 
     await updateWal(walId, {

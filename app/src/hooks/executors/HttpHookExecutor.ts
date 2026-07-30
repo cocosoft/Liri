@@ -54,7 +54,7 @@ export class HttpHookExecutor {
 
       // 构建请求选项
       const parsedUrl = new URL(url);
-      const options: any = {
+      const options = {
         hostname: parsedUrl.hostname,
         port: parsedUrl.port,
         path: parsedUrl.pathname + parsedUrl.search,
@@ -68,7 +68,7 @@ export class HttpHookExecutor {
       // 准备请求体
       const requestBody = body || context.data;
       const bodyString = JSON.stringify(requestBody);
-      options.headers['Content-Length'] =
+      (options.headers as Record<string, string>)['Content-Length'] =
         Buffer.byteLength(bodyString).toString();
 
       // 发送请求
@@ -95,17 +95,23 @@ export class HttpHookExecutor {
    * @param body 请求体
    * @returns 响应内容
    */
-  private sendRequest(options: any, body: string): Promise<string> {
+  private sendRequest(
+    options: Record<string, unknown>,
+    body: string
+  ): Promise<string> {
     return new Promise((resolve, reject) => {
-      const req = request(options, (res) => {
-        let data = '';
-        res.on('data', (chunk) => {
-          data += chunk;
-        });
-        res.on('end', () => {
-          resolve(data);
-        });
-      });
+      const req = request(
+        options as unknown as Parameters<typeof request>[0],
+        (res) => {
+          let data = '';
+          res.on('data', (chunk) => {
+            data += chunk;
+          });
+          res.on('end', () => {
+            resolve(data);
+          });
+        }
+      );
 
       req.on('error', (error) => {
         reject(error);

@@ -16,6 +16,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { BootPhase, BOOT_PHASES, getBootPhaseMeta } from './BootPhase';
 
 const logger = getLogger('BootPipeline');
@@ -325,10 +326,9 @@ export class BootPipeline {
             handlerCount++;
           } catch (err) {
             failedCount++;
-            const errorMsg = err instanceof Error ? err.message : String(err);
-            logger.error(`[Boot] 处理器失败: ${desc.id}`, {
-              phase: meta.phase,
-              error: errorMsg,
+            await handleError(err, {
+              module: 'core:boot',
+              action: `handler:${desc.id}`,
             });
 
             // 如果启用了 debug 模式，抛出错终止
@@ -338,7 +338,7 @@ export class BootPipeline {
               this.emit({
                 type: 'boot:error',
                 phase: meta.phase,
-                error: err instanceof Error ? err : new Error(errorMsg),
+                error: err instanceof Error ? err : new Error(String(err)),
                 ctx,
                 timestamp: Date.now(),
               });

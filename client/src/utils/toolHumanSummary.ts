@@ -56,6 +56,7 @@ const TOOL_NAME_MAP: Record<string, string> = {
 
   // ---- 内容生成类 ----
   image_generate: "生成图片",
+  doc_generate: "生成文档",
   image_analysis: "分析图片",
   image_svg_generate: "生成 SVG 图片",
   image_display: "预览图片",
@@ -185,6 +186,8 @@ export function getToolHumanSummary(toolCall: ToolCall): string {
     // ---- 内容生成类 ----
     case "image_generate":
       return formatSummary("正在生成图片", getArgStr(args, "prompt"));
+    case "doc_generate":
+      return formatSummary("正在生成文档", getArgStr(args, "title"));
     case "image":
       return formatSummary("正在编辑图片", getArgStr(args, "action"));
     case "image_analysis":

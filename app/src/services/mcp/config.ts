@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
   module: 'services:mcp:config',
@@ -40,10 +41,10 @@ export class MCPConfigManager {
       this.configs = configs;
       return configs;
     } catch (error) {
-      logger.error(
-        'Failed to load MCP configs:',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, {
+        module: 'services:mcp:config',
+        action: '加载MCP配置失败',
+      });
       return {};
     }
   }
@@ -97,10 +98,10 @@ export class MCPConfigManager {
 
       return scopedConfigs;
     } catch (error) {
-      logger.error(
-        `Failed to load MCP config file ${path}:`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, {
+        module: 'services:mcp:config',
+        action: '加载MCP配置文件失败',
+      });
       return {};
     }
   }
@@ -141,10 +142,10 @@ export class MCPConfigManager {
       McpServerConfigSchema.parse(config);
       return true;
     } catch (error) {
-      logger.error(
-        'Invalid MCP config:',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, {
+        module: 'services:mcp:config',
+        action: '验证MCP配置失败',
+      });
       return false;
     }
   }

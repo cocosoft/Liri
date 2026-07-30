@@ -655,7 +655,10 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
     };
 
     this.handleIncomingMessage(message).catch((err) => {
-      this.logger.error('Discord 消息处理异常', { error: String(err) });
+      handleError(err, {
+        module: 'channels:discord',
+        action: 'Discord 消息处理异常',
+      });
     });
   }
 
@@ -802,9 +805,10 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
       this.logger.info('Discord 已离开语音频道', { guildId });
       return true;
     } catch (error) {
-      this.logger.error('Discord 离开语音频道失败', {
-        guildId,
-        error: String(error),
+      await handleError(error, {
+        module: 'channels:discord',
+        action: 'Discord 离开语音频道失败',
+        context: { guildId },
       });
       return false;
     }

@@ -76,8 +76,8 @@ const convertCommand = {
         success: true,
         message: result.markdown,
       };
-    } catch (error: any) {
-      const message = error.message || String(error);
+    } catch (error: unknown) {
+      const message = (error as Error).message || String(error);
       if (message.includes('MISSING_DEPENDENCY')) {
         return {
           success: false,

@@ -153,7 +153,7 @@ export class BalanceStore {
          FROM ${BALANCES_TABLE}
          WHERE provider_id = ?`,
         [providerId],
-        (err: Error | null, row: any) => {
+        (err: Error | null, row: unknown) => {
           if (err) reject(err);
           else if (row) {
             const r = row as Record<string, unknown>;
@@ -184,7 +184,7 @@ export class BalanceStore {
         `SELECT provider_id, remaining, total, used, unit, queried_at, is_supported, below_threshold
          FROM ${BALANCES_TABLE}
          ORDER BY provider_id`,
-        (err: Error | null, rows: any[]) => {
+        (err: Error | null, rows: unknown[]) => {
           if (err) reject(err);
           else {
             resolve(

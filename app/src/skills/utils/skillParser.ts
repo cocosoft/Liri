@@ -222,7 +222,7 @@ export class SkillParser {
             break;
 
           default:
-            (frontmatter as any)[key] = value;
+            (frontmatter as unknown as Record<string, unknown>)[key] = value;
         }
       }
     }

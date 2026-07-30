@@ -126,7 +126,7 @@ export interface StreamEvent {
   /**
    * 事件数据
    */
-  data?: any;
+  data?: unknown;
 }
 
 /**
@@ -140,7 +140,7 @@ export interface StreamResult {
   /**
    * 内容块
    */
-  contentBlock?: any;
+  contentBlock?: unknown;
   /**
    * 是否完成
    */

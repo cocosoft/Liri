@@ -1,6 +1,8 @@
 import { Database } from 'bun:sqlite';
+import { homedir } from 'os';
+import { join } from 'path';
 
-const userDb = new Database('C:/Users/Administrator/.pyapp/data/app.db');
+const userDb = new Database(join(homedir(), '.pyapp', 'data', 'app.db'));
 const tables = userDb.query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all();
 console.log('=== User Home DB Tables ===');
 console.log(JSON.stringify(tables, null, 2));

@@ -8,6 +8,7 @@ import { ToolFactory } from '../ToolFactory';
 import { profileCheckpoint } from '@modules/performance/StartupProfiler.js';
 import { loadBuiltinTools as loadBuiltinToolsFromUtils } from './ToolManagerUtils.js';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'tools:optimizedUtils',
@@ -24,10 +25,10 @@ async function lazyLoadToolModule(modulePath: string): Promise<unknown> {
     const module = await import(modulePath);
     return module;
   } catch (error) {
-    logger.warning(
-      `Failed to load tool module ${modulePath}`,
-      error instanceof Error ? error : new Error(String(error))
-    );
+    void handleError(error, {
+      module: 'tools:optimizedUtils',
+      action: 'lazyLoadModule',
+    });
     return null;
   }
 }
@@ -119,9 +120,9 @@ export async function optimizedExecuteTool(
   try {
     result = await tool.execute(input, context, onProgress);
   } catch (err) {
-    logger.error('optimizedExecuteTool 执行失败', {
-      toolName: tool.name,
-      error: err instanceof Error ? err.message : String(err),
+    await handleError(err, {
+      module: 'tools:utils',
+      action: 'optimizedExecute',
     });
     return {
       error: err instanceof Error ? err.message : String(err),

@@ -1,13 +1,11 @@
-﻿/**
+/**
  * startup.yaml 加载器
  * 提供纯内置 YAML 解析 + 文件加载 + 校验能力
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
-
 import { readFileSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
-import { Logger } from '../monitoring/logs/Logger.js';
+import { Logger, LogLevel } from '../monitoring/logs/Logger.js';
 import { configManager } from '@modules/config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { StartupConfig, PluginSource } from './StartupConfig.js';
@@ -420,7 +418,7 @@ function mergeWithDefault(parsed: Record<string, unknown>): StartupConfig {
 
   if (parsed.ai && typeof parsed.ai === 'object') {
     const a = parsed.ai as Record<string, unknown>;
-    const c = config as any;
+    const c = config as unknown as Record<string, Record<string, unknown>>;
     if (typeof a.provider === 'string') c.ai.provider = a.provider;
     if (typeof a.model === 'string') c.ai.model = a.model;
     if (typeof a.baseUrl === 'string') c.ai.baseUrl = a.baseUrl;
@@ -428,7 +426,7 @@ function mergeWithDefault(parsed: Record<string, unknown>): StartupConfig {
 
   if (parsed.features && typeof parsed.features === 'object') {
     const f = parsed.features as Record<string, unknown>;
-    const c = config as any;
+    const c = config as unknown as Record<string, Record<string, unknown>>;
     if (typeof f.autoCompact === 'boolean')
       c.features.autoCompact = f.autoCompact;
     if (typeof f.telemetry === 'boolean') c.features.telemetry = f.telemetry;
@@ -440,7 +438,7 @@ function mergeWithDefault(parsed: Record<string, unknown>): StartupConfig {
 
   if (parsed.performance && typeof parsed.performance === 'object') {
     const perf = parsed.performance as Record<string, unknown>;
-    const c = config as any;
+    const c = config as unknown as Record<string, Record<string, unknown>>;
     if (typeof perf.startupTimeoutMs === 'number')
       c.performance.startupTimeoutMs = perf.startupTimeoutMs;
     if (typeof perf.deferredPrefetch === 'boolean')
@@ -449,7 +447,7 @@ function mergeWithDefault(parsed: Record<string, unknown>): StartupConfig {
 
   if (parsed.security && typeof parsed.security === 'object') {
     const s = parsed.security as Record<string, unknown>;
-    const c = config as any;
+    const c = config as unknown as Record<string, Record<string, unknown>>;
     if (typeof s.sandboxIsolation === 'string')
       c.security.sandboxIsolation = s.sandboxIsolation;
     if (typeof s.mtlsEnabled === 'boolean')

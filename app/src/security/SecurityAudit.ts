@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'security:SecurityAudit',
   level: LogLevel.INFO,
@@ -157,7 +158,15 @@ export interface SecurityAuditLogConfig {
 
 /** 默认审计日志配置 */
 export const DEFAULT_AUDIT_LOG_CONFIG: SecurityAuditLogConfig = {
-  logFilePath: join(homedir(), '.trae', 'security-audit.log'),
+  // BUG15 修复：使用 paths.ts 集中管理路径
+  get logFilePath() {
+    try {
+      const { resolveSecurityDir } = require('@modules/core/paths');
+      return join(resolveSecurityDir(), 'security-audit.log');
+    } catch {
+      return join(homedir(), '.trae', 'security-audit.log');
+    }
+  },
   maxFileSize: 10 * 1024 * 1024, // 10MB
   maxBackupFiles: 10,
 };
@@ -167,7 +176,7 @@ export const DEFAULT_AUDIT_LOG_CONFIG: SecurityAuditLogConfig = {
  * 主路径不可写时回退到系统临时目录
  */
 export function getAuditLogPath(): string {
-  const primaryPath = join(homedir(), '.trae', 'security-audit.log');
+  const primaryPath = DEFAULT_AUDIT_LOG_CONFIG.logFilePath;
   try {
     const dir = dirname(primaryPath);
     if (!existsSync(dir)) {
@@ -336,8 +345,10 @@ export class SecurityAudit {
       logger.info('Initializing security audit');
       logger.info('Security audit initialized');
     } catch (error) {
-      const e = error instanceof Error ? error : new Error(String(error));
-      logger.error('Failed to initialize security audit:', e);
+      void handleError(error, {
+        module: 'security:audit',
+        action: '初始化安全审计失败',
+      });
       throw error;
     }
   }
@@ -851,8 +862,10 @@ export class SecurityAudit {
       this.clearEvents();
       logger.info('Security audit stopped');
     } catch (error) {
-      const e = error instanceof Error ? error : new Error(String(error));
-      logger.error('Failed to stop security audit:', e);
+      void handleError(error, {
+        module: 'security:audit',
+        action: '停止安全审计失败',
+      });
       throw error;
     }
   }

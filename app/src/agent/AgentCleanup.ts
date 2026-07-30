@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 
@@ -109,7 +110,7 @@ export class AgentCleanup {
         }
         logger.info(`全局清理完成，清理目录: ${tempDir}`);
       } catch (error) {
-        logger.error('全局清理失败', error as Error);
+        handleError(error, { module: 'agent:cleanup', action: '全局清理' });
       }
     }
   }

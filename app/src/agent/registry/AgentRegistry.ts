@@ -7,6 +7,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ module: 'AgentRegistry', level: LogLevel.INFO });
 
@@ -264,10 +265,9 @@ export class AgentRegistry {
       try {
         listener(action, agent);
       } catch (error) {
-        logger.error('AgentRegistry 变更监听器执行失败', {
-          action,
-          agentId: agent.agentId,
-          error: String(error),
+        handleError(error, {
+          module: 'agent:registry',
+          action: '变更监听器回调',
         });
       }
     }

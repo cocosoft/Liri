@@ -112,7 +112,7 @@ export class CronTaskStore {
   query(filter: Partial<StoredTask>): StoredTask[] {
     return this.getAll().filter((task) => {
       for (const [key, value] of Object.entries(filter)) {
-        if ((task as any)[key] !== value) {
+        if ((task as unknown as Record<string, unknown>)[key] !== value) {
           return false;
         }
       }

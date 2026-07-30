@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 本地设置管理（gitignored）
  * 管理项目级别的本地配置（不提交到版本控制），存储在 ~/.pyapp/settings.local.json
  */
@@ -6,6 +6,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { Logger } from '../../monitoring/logs/Logger.js';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'LocalSettings' });
 import { deepMerge } from '@modules/utils/common.js';
@@ -40,10 +41,10 @@ export function loadLocalSettings(
     const content = readFileSync(filePath, 'utf-8');
     return JSON.parse(content);
   } catch (error) {
-    logger.error(
-      'Failed to load local settings:',
-      error instanceof Error ? error : new Error(String(error))
-    );
+    void handleError(error, {
+      module: 'config:settings:local',
+      action: '加载本地设置失败',
+    });
     return {};
   }
 }
@@ -66,10 +67,10 @@ export function saveLocalSettings(
     writeFileSync(filePath, JSON.stringify(settings, null, 2), 'utf-8');
     logger.info('Local settings saved');
   } catch (error) {
-    logger.error(
-      'Failed to save local settings:',
-      error instanceof Error ? error : new Error(String(error))
-    );
+    void handleError(error, {
+      module: 'config:settings:local',
+      action: '保存本地设置失败',
+    });
     throw error;
   }
 }

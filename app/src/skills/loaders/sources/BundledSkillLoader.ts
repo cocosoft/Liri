@@ -19,7 +19,7 @@ interface BundledSkillDefinition {
   userInvocable?: boolean;
   getPromptForCommand: (
     args: string,
-    context: any
+    context: unknown
   ) => Promise<{ type: string; text: string }[]>;
 }
 
@@ -436,7 +436,8 @@ export class BundledSkillLoader extends SkillLoader {
         isHidden: !(def.userInvocable ?? true),
         impl: {
           kind: 'prompt',
-          getPromptForCommand: def.getPromptForCommand,
+          getPromptForCommand: (args: unknown, toolUseContext: unknown) =>
+            def.getPromptForCommand(args as string, toolUseContext),
         },
       })
     );

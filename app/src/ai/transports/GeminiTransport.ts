@@ -74,10 +74,11 @@ export class GeminiTransport extends BaseTransport {
     return request;
   }
 
-  normalizeResponse(raw: any): NormalizedResponse {
-    const candidate = raw.candidates?.[0];
-    const content = candidate?.content;
-    const parts = content?.parts ?? [];
+  normalizeResponse(raw: unknown): NormalizedResponse {
+    const r = raw as Record<string, unknown>;
+    const candidate = (r.candidates as Array<Record<string, unknown>>)?.[0];
+    const content = candidate?.content as Record<string, unknown> | undefined;
+    const parts = (content?.parts ?? []) as Array<Record<string, unknown>>;
 
     let textContent: string | null = null;
     const toolCalls: NormalizedToolCall[] = [];
@@ -87,17 +88,18 @@ export class GeminiTransport extends BaseTransport {
       if (part.text) {
         textContent = (textContent || '') + part.text;
       } else if (part.functionCall) {
+        const fc = part.functionCall as Record<string, unknown>;
         toolCalls.push({
           id: `call_${toolCalls.length}`,
-          name: part.functionCall.name,
-          arguments: JSON.stringify(part.functionCall.args ?? {}),
+          name: fc.name as string,
+          arguments: JSON.stringify(fc.args ?? {}),
         });
       } else if (part.thought) {
         reasoning = (reasoning || '') + part.thought;
       }
     }
 
-    const usageMetadata = raw.usageMetadata ?? {};
+    const usageMetadata = (r.usageMetadata ?? {}) as Record<string, number>;
 
     return {
       content: textContent,
@@ -110,9 +112,11 @@ export class GeminiTransport extends BaseTransport {
         totalTokens: usageMetadata.totalTokenCount ?? 0,
       },
       reasoning,
-      finishReason: candidate?.finishReason ?? 'STOP',
-      model: raw.modelVersion ?? '',
-      id: raw.responseId ?? '',
+      finishReason:
+        ((candidate as Record<string, unknown>)?.finishReason as string) ??
+        'STOP',
+      model: (r.modelVersion as string) ?? '',
+      id: (r.responseId as string) ?? '',
     };
   }
 

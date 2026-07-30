@@ -5,13 +5,14 @@
 
 import type { ChatMessage } from '../models/types.js';
 import type { AIProvider } from '../providers/AIProvider.js';
-import { OllamaProvider } from '@modules/ai';
+import { OllamaProvider, trackUsage } from '@modules/ai';
 import type {
   Intent,
   RouteDecision,
   LocalAgentConfig,
   LocalAgentResult,
   CommandMatch,
+  CommandAction,
   IRuleEngine,
 } from './types.js';
 import { KeywordRuleEngine } from './KeywordRuleEngine.js';
@@ -393,8 +394,15 @@ export class LocalAgent {
 
     try {
       if (messages && messages.length > 0) {
+        const _trackStart = Date.now();
         const response = await this.ollamaProvider.chat(messages, {
           model: routeDecision.model,
+        });
+
+        trackUsage(response, {
+          model: routeDecision.model || 'ollama',
+          providerId: 'ollama',
+          latencyMs: Date.now() - _trackStart,
         });
 
         return {
@@ -404,9 +412,28 @@ export class LocalAgent {
           source: 'ollama',
         };
       } else {
+        const _trackStart = Date.now();
         const response = await this.ollamaProvider.generate(input, {
           model: routeDecision.model,
         });
+
+        trackUsage(
+          {
+            model: response.model || routeDecision.model,
+            content: response.response,
+            usage: {
+              prompt_tokens: response.promptEvalCount || 0,
+              completion_tokens: response.evalCount || 0,
+              total_tokens:
+                (response.promptEvalCount || 0) + (response.evalCount || 0),
+            },
+          },
+          {
+            model: routeDecision.model || 'ollama',
+            providerId: 'ollama',
+            latencyMs: Date.now() - _trackStart,
+          }
+        );
 
         return {
           response: response.response,
@@ -448,8 +475,15 @@ export class LocalAgent {
         { role: 'user', content: input },
       ];
 
+      const _trackStart = Date.now();
       const response = await this.llmClient.chat(chatMessages, {
         model: routeDecision.model || '',
+      });
+
+      trackUsage(response, {
+        model: routeDecision.model || '',
+        providerId: this.llmClient.id,
+        latencyMs: Date.now() - _trackStart,
       });
 
       return {
@@ -532,11 +566,29 @@ export class LocalAgent {
     const prompt = `Classify this message into one of: simple, medium, complex, reasoning. Reply with ONLY the single word.
 Message: ${message}`;
 
+    const _trackStart = Date.now();
     const result = await this.ollamaProvider.generate(prompt, {
       model: this.config.ollama?.defaultModel || undefined,
       temperature: 0.1,
       maxTokens: 10,
     });
+
+    trackUsage(
+      {
+        model: result.model || this.config.ollama?.defaultModel || 'ollama',
+        content: result.response,
+        usage: {
+          prompt_tokens: result.promptEvalCount || 0,
+          completion_tokens: result.evalCount || 0,
+          total_tokens: (result.promptEvalCount || 0) + (result.evalCount || 0),
+        },
+      },
+      {
+        model: this.config.ollama?.defaultModel || 'ollama',
+        providerId: 'ollama',
+        latencyMs: Date.now() - _trackStart,
+      }
+    );
 
     const tier = result.response.trim().toLowerCase();
 

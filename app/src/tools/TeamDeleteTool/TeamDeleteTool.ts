@@ -13,6 +13,7 @@ import { join } from 'path';
 import { unlinkSync, existsSync, readFileSync } from 'fs';
 import { resolveDataSubDir } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
 
 const logger = new Logger({ module: 'tools:teamDelete', level: LogLevel.INFO });
@@ -174,10 +175,10 @@ export class TeamDeleteTool extends BaseTool<
           await manager.killTeammate(teammate.id);
           terminatedTeammates.push(teammate.name);
         } catch (error) {
-          logger.error(
-            `Failed to terminate teammate ${teammate.name}`,
-            error instanceof Error ? error : new Error(String(error))
-          );
+          await handleError(error, {
+            module: 'tools:teamDelete',
+            action: 'terminateTeammate',
+          });
         }
       }
 

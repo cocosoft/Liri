@@ -5,6 +5,7 @@
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { queryAuditLogs, getAuditLogStats } from '@modules/security';
 
 const logger = new Logger({ module: 'http:security', level: LogLevel.INFO });
@@ -57,7 +58,10 @@ export async function handleSecurityDashboard(
       })
     );
   } catch (error) {
-    logger.error('获取安全仪表盘数据失败', error as Error);
+    await handleError(error, {
+      module: 'infra:handler:security',
+      action: 'dashboard',
+    });
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
@@ -87,8 +91,15 @@ export async function handleQueryAuditLogs(
     );
     const sessionId = url.searchParams.get('sessionId') || undefined;
     const riskLevel = url.searchParams.get('riskLevel') || undefined;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const decision = (url.searchParams.get('decision') as any) || undefined;
+
+    const decision = url.searchParams.get('decision') as
+      | 'pending'
+      | 'approved'
+      | 'rejected'
+      | 'auto_allowed'
+      | 'auto_denied'
+      | 'timeout_denied'
+      | undefined;
     const limitStr = url.searchParams.get('limit');
     const limit = limitStr ? parseInt(limitStr, 10) : undefined;
 
@@ -102,7 +113,10 @@ export async function handleQueryAuditLogs(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(events));
   } catch (error) {
-    logger.error('查询审计日志失败', error as Error);
+    await handleError(error, {
+      module: 'infra:handler:security',
+      action: 'audit_logs',
+    });
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: '查询审计日志失败' }));
   }

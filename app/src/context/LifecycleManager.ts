@@ -54,7 +54,7 @@ export class LifecycleManager {
   }
 
   async initialize(context: Context, hooks?: LifecycleHook): Promise<void> {
-    const id = (context as any).id || context.type;
+    const id = (context as unknown as { id?: string }).id || context.type;
 
     if (this.entries.size >= this.maxEntries) {
       const destroyedCount = this.cleanup();
@@ -84,7 +84,7 @@ export class LifecycleManager {
   }
 
   async activate(context: Context): Promise<void> {
-    const id = (context as any).id || context.type;
+    const id = (context as unknown as { id?: string }).id || context.type;
     const entry = this.entries.get(id);
 
     if (!entry) {
@@ -105,7 +105,7 @@ export class LifecycleManager {
   }
 
   async suspend(context: Context): Promise<void> {
-    const id = (context as any).id || context.type;
+    const id = (context as unknown as { id?: string }).id || context.type;
     const entry = this.entries.get(id);
 
     if (!entry) {
@@ -126,7 +126,7 @@ export class LifecycleManager {
   }
 
   async destroy(context: Context): Promise<void> {
-    const id = (context as any).id || context.type;
+    const id = (context as unknown as { id?: string }).id || context.type;
     const entry = this.entries.get(id);
 
     if (!entry) {
@@ -155,7 +155,7 @@ export class LifecycleManager {
   }
 
   getState(context: Context): LifecycleState {
-    const id = (context as any).id || context.type;
+    const id = (context as unknown as { id?: string }).id || context.type;
     const entry = this.entries.get(id);
     return entry?.state ?? LifecycleState.PENDING;
   }

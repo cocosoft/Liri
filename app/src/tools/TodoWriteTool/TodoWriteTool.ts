@@ -15,6 +15,7 @@ import { resolveDbPath, ensureDir } from '@modules/core';
 import { dirname } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { SimpleMutex } from '@modules/core';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'tools:todoWrite', level: LogLevel.INFO });
 
@@ -89,7 +90,7 @@ class TodoManager {
     try {
       this.db.exec(TODO_TABLE_SCHEMA);
     } catch (e) {
-      logger.error('TodoManager: 建表失败', { error: String(e) });
+      handleError(e, { module: 'tools:todoWrite', action: '建表失败' });
     }
   }
 
@@ -125,7 +126,10 @@ class TodoManager {
         }
       );
     } catch (e) {
-      logger.error('TodoManager: 恢复异常', { error: String(e) });
+      handleError(e, {
+        module: 'tools:todoWrite',
+        action: '从数据库恢复Todo失败',
+      });
       this.initialized = true;
     }
   }
@@ -333,7 +337,10 @@ class TodoManager {
     try {
       this.db.close();
     } catch (e) {
-      logger.error('TodoManager: 关闭数据库失败', { error: String(e) });
+      handleError(e, {
+        module: 'tools:todoWrite',
+        action: '关闭数据库连接失败',
+      });
     }
   }
 }

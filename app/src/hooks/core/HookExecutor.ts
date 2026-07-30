@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 支持Hook的并发执行、超时控制、错误处理、性能监控等功能
  */
 
@@ -208,7 +208,7 @@ export class HookExecutor {
   /**
    * 检查数据安全性
    */
-  private isSafeData(data: any): boolean {
+  private isSafeData(data: unknown): boolean {
     try {
       // 检查数据大小（防止内存耗尽）
       const dataSize = JSON.stringify(data).length;
@@ -231,15 +231,16 @@ export class HookExecutor {
   /**
    * 获取对象深度
    */
-  private getObjectDepth(obj: any): number {
+  private getObjectDepth(obj: unknown): number {
     if (typeof obj !== 'object' || obj === null) {
       return 0;
     }
 
+    const o = obj as Record<string, unknown>;
     let maxDepth = 0;
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        const depth = this.getObjectDepth(obj[key]) + 1;
+    for (const key in o) {
+      if (Object.prototype.hasOwnProperty.call(o, key)) {
+        const depth = this.getObjectDepth(o[key]) + 1;
         maxDepth = Math.max(maxDepth, depth);
       }
     }

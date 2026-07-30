@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Bridge API客户端
  * 提供与Bridge服务通信的客户端接口
  */
@@ -207,10 +207,10 @@ export function createBridgeApiClient(deps: {
         if (typeof data.error === 'string') {
           return data.error;
         } else if (typeof data.error === 'object' && 'message' in data.error) {
-          return String((data.error as any).message);
+          return String((data.error as Record<string, unknown>).message);
         }
       } else if ('message' in data) {
-        return String((data as any).message);
+        return String((data as Record<string, unknown>).message);
       }
     }
     return undefined;
@@ -223,9 +223,9 @@ export function createBridgeApiClient(deps: {
         data.error &&
         typeof data.error === 'object' &&
         'type' in data.error &&
-        typeof (data.error as any).type === 'string'
+        typeof (data.error as Record<string, unknown>).type === 'string'
       ) {
-        return (data.error as any).type;
+        return (data.error as Record<string, unknown>).type as string;
       }
     }
     return undefined;

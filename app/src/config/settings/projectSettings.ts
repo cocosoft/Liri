@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 项目级设置管理
  * 管理项目级别的共享配置，存储在 app/settings.json（通过 resolveProjectSettingsPath() 解析）
  */
@@ -6,6 +6,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { Logger } from '../../monitoring/logs/Logger.js';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'ProjectSettings' });
 import { deepMerge } from '@modules/utils/common.js';
@@ -35,10 +36,10 @@ export function loadProjectSettings(
     const content = readFileSync(filePath, 'utf-8');
     return JSON.parse(content);
   } catch (error) {
-    logger.error(
-      'Failed to load project settings:',
-      error instanceof Error ? error : new Error(String(error))
-    );
+    void handleError(error, {
+      module: 'config:settings:project',
+      action: '加载项目设置失败',
+    });
     return {};
   }
 }
@@ -61,10 +62,10 @@ export function saveProjectSettings(
     writeFileSync(filePath, JSON.stringify(settings, null, 2), 'utf-8');
     logger.info('Project settings saved');
   } catch (error) {
-    logger.error(
-      'Failed to save project settings:',
-      error instanceof Error ? error : new Error(String(error))
-    );
+    void handleError(error, {
+      module: 'config:settings:project',
+      action: '保存项目设置失败',
+    });
     throw error;
   }
 }

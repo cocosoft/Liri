@@ -47,6 +47,7 @@ import type {
 } from './AIProvider';
 import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveModelRoute, RouteKey } from '../router/resolveModelRoute.js';
 import type { RouteKey as RouteKeyType } from '../router/routes.js';
@@ -466,10 +467,10 @@ export abstract class BaseAIProvider implements AIProvider {
         if (error instanceof TypeError && attempt < maxRetries) {
           const delay = 1000 * Math.pow(2, attempt);
 
-          logger.warning(`fetch 连接失败，第 ${attempt + 1} 次重试`, {
-            url,
-            delayMs: delay,
-            error: lastError.message,
+          void handleError(error, {
+            module: 'ai:baseProvider',
+            action: 'fetchRetry',
+            context: { url, attempt: attempt + 1, delayMs: delay },
           });
 
           await new Promise<void>((resolve) => setTimeout(resolve, delay));

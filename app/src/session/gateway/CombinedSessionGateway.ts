@@ -14,6 +14,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { SessionGateway } from '../SessionGateway';
 import type { SessionGatewayConfig } from '../SessionGateway';
 import { SessionType } from '../types/Session';
@@ -113,9 +114,9 @@ export class CombinedSessionGateway {
         try {
           await gateway.initialize();
         } catch (err) {
-          logger.error('Agent 网关初始化失败', {
-            agentId,
-            error: String(err),
+          await handleError(err, {
+            module: 'sessions:gateway:combined',
+            action: 'Agent 网关初始化失败',
           });
         }
       })

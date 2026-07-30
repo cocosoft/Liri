@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import {
   readFileSync,
   writeFileSync,
@@ -96,7 +97,7 @@ export class AgentConfigManager {
         return validatedConfig;
       }
     } catch (error) {
-      logger.error(`加载Agent配置失败: ${agentId}`, error);
+      handleError(error, { module: 'agent:config', action: '加载Agent配置' });
     }
 
     // 返回默认配置
@@ -129,7 +130,7 @@ export class AgentConfigManager {
       this.configCache.set(agentId, validatedConfig);
       this.lastModified.set(agentId, Date.now());
     } catch (error) {
-      logger.error(`保存Agent配置失败: ${agentId}`, error);
+      handleError(error, { module: 'agent:config', action: '保存Agent配置' });
     }
   }
 
@@ -149,7 +150,7 @@ export class AgentConfigManager {
       this.configCache.delete(agentId);
       this.lastModified.delete(agentId);
     } catch (error) {
-      logger.error(`删除Agent配置失败: ${agentId}`, error);
+      handleError(error, { module: 'agent:config', action: '删除Agent配置' });
     }
   }
 
@@ -158,26 +159,31 @@ export class AgentConfigManager {
    * @param config 配置对象
    * @returns 验证后的配置
    */
-  private validateConfig(config: any): AgentConfig {
+  private validateConfig(config: Record<string, unknown>): AgentConfig {
+    const c = config as {
+      model?: AIModelType;
+      temperature?: number;
+      maxTokens?: number;
+      timeout?: number;
+      memoryPath?: string;
+      defaultStrategy?: string;
+      tools?: AgentConfig['tools'];
+    };
     const defaultConfig = this.getDefaultConfig();
 
     return {
-      model: config.model || defaultConfig.model,
+      model: c.model || defaultConfig.model,
       temperature:
-        typeof config.temperature === 'number'
-          ? config.temperature
+        typeof c.temperature === 'number'
+          ? c.temperature
           : defaultConfig.temperature,
       maxTokens:
-        typeof config.maxTokens === 'number'
-          ? config.maxTokens
-          : defaultConfig.maxTokens,
+        typeof c.maxTokens === 'number' ? c.maxTokens : defaultConfig.maxTokens,
       timeout:
-        typeof config.timeout === 'number'
-          ? config.timeout
-          : defaultConfig.timeout,
-      memoryPath: config.memoryPath || defaultConfig.memoryPath,
-      defaultStrategy: config.defaultStrategy || defaultConfig.defaultStrategy,
-      tools: Array.isArray(config.tools) ? config.tools : defaultConfig.tools,
+        typeof c.timeout === 'number' ? c.timeout : defaultConfig.timeout,
+      memoryPath: c.memoryPath || defaultConfig.memoryPath,
+      defaultStrategy: c.defaultStrategy || defaultConfig.defaultStrategy,
+      tools: Array.isArray(c.tools) ? c.tools : defaultConfig.tools,
     };
   }
 
@@ -210,7 +216,7 @@ export class AgentConfigManager {
           .map((file) => file.replace('.json', ''));
       }
     } catch (error) {
-      logger.error('列出Agent配置失败', error);
+      handleError(error, { module: 'agent:config', action: '列出Agent配置' });
     }
     return [];
   }

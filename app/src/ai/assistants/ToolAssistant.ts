@@ -3,6 +3,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { Tool, ToolInfo } from '@modules/tools/types/Tool';
 import { aiService } from '../services/aiService';
 import { AIMessage, AIMessageRole, AIResponse } from '../models/types';
@@ -26,7 +27,7 @@ export interface ToolRecommendation {
  */
 export interface ParameterSuggestion {
   parameter: string;
-  value: any;
+  value: unknown;
   reason: string;
   confidence: number;
 }
@@ -134,7 +135,10 @@ ${toolsDescription}
       );
       return recommendations;
     } catch (error) {
-      logger.error('工具推荐失败:', error);
+      void handleError(error, {
+        module: 'ai:assistant',
+        action: 'recommendTools',
+      });
       return [];
     }
   }
@@ -202,7 +206,10 @@ ${Object.entries(partialParams)
 
       return this.parseParameterSuggestions(response.content);
     } catch (error) {
-      logger.error('参数填充失败:', error);
+      void handleError(error, {
+        module: 'ai:assistant',
+        action: 'fillParameters',
+      });
       return [];
     }
   }
@@ -255,7 +262,10 @@ ${toolsDescription}
 
       return this.parseToolUsageSuggestion(response.content);
     } catch (error) {
-      logger.error('工具使用建议生成失败:', error);
+      void handleError(error, {
+        module: 'ai:assistant',
+        action: 'suggestToolUsage',
+      });
       return null;
     }
   }
@@ -290,7 +300,10 @@ ${toolsDescription}
           .filter((r: any) => r !== null);
       }
     } catch (error) {
-      logger.error('解析工具推荐失败:', error);
+      void handleError(error, {
+        module: 'ai:assistant',
+        action: 'parseRecommendations',
+      });
     }
     return [];
   }
@@ -305,15 +318,18 @@ ${toolsDescription}
       const jsonMatch = content.match(/\[[\s\S]*?\]/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        return parsed.map((item: any) => ({
-          parameter: item.parameter || '',
+        return parsed.map((item: Record<string, unknown>) => ({
+          parameter: (item.parameter as string) || '',
           value: item.value,
           reason: item.reason || '',
           confidence: item.confidence || 0.5,
         }));
       }
     } catch (error) {
-      logger.error('解析参数建议失败:', error);
+      void handleError(error, {
+        module: 'ai:assistant',
+        action: 'parseParameterSuggestions',
+      });
     }
     return [];
   }
@@ -338,7 +354,10 @@ ${toolsDescription}
         };
       }
     } catch (error) {
-      logger.error('解析工具使用建议失败:', error);
+      void handleError(error, {
+        module: 'ai:assistant',
+        action: 'parseToolUsageSuggestion',
+      });
     }
     return null;
   }

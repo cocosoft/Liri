@@ -81,14 +81,14 @@ export class SkillService {
       isEnabled: definition.isEnabled,
       impl: {
         kind: 'prompt',
-        getPromptForCommand: async (args: any, toolUseContext: any) => {
+        getPromptForCommand: async (args: unknown, toolUseContext: unknown) => {
           const result = await definition.getPromptForCommand(
-            args,
+            args as string,
             toolUseContext ?? args
           );
-          return result.map((r: any) => ({
-            type: r.type || 'text',
-            text: r.text || String(r),
+          return result.map((r: unknown) => ({
+            type: (r as { type?: string }).type || 'text',
+            text: (r as { text?: string }).text || String(r),
           }));
         },
       },

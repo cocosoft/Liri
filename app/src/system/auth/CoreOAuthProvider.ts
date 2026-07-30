@@ -1,4 +1,3 @@
-//
 /**
  * Core OAuth提供者
  * 实现统一的OAuthProvider接口
@@ -13,13 +12,7 @@ import {
 } from '@modules/oauth';
 import { OAuthClient, OAuthConfig } from '@modules/oauth';
 import { configManager } from '@modules/config';
-
-import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'system:auth:CoreOAuthProvider',
-  level: LogLevel.INFO,
-});
 
 /**
  * Core OAuth提供者

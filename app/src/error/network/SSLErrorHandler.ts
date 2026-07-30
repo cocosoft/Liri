@@ -174,7 +174,7 @@ function extractSSLCode(error: Error): string | undefined {
 
   while (current && depth < maxDepth) {
     if (current instanceof Error && 'code' in current) {
-      const code = (current as any).code;
+      const code = (current as Error & { code?: string }).code;
       if (typeof code === 'string' && code in SSL_CODE_TO_TYPE) {
         return code;
       }

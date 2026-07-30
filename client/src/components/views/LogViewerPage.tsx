@@ -12,13 +12,14 @@ import SearchInput from "../common/SearchInput";
 import LogViewer from "../common/LogViewer";
 import { OTELSpanViewer } from "../common/OTELSpanViewer";
 import { OTELTraceViewer } from "../common/OTELTraceViewer";
+import SecurityDashboard from "./SecurityDashboard";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("components:logViewer");
 
 const ENABLE_TRACE_REDESIGN = true;
 
-type TabType = "logs" | "frontend" | "sessions" | "cost" | "otel";
+type TabType = "logs" | "frontend" | "sessions" | "security" | "otel";
 
 function LogViewerPage() {
   const { t, i18n } = useTranslation();
@@ -268,7 +269,7 @@ function LogViewerPage() {
     { key: "logs" as TabType, label: t("settings.logViewerTabLogs") },
     { key: "frontend" as TabType, label: t("settings.logViewerTabFrontend") },
     { key: "sessions" as TabType, label: t("settings.logViewerTabSessions") },
-    { key: "cost" as TabType, label: t("settings.logViewerTabCost") },
+    { key: "security" as TabType, label: t("settings.securityLog") },
     { key: "otel" as TabType, label: t("settings.logViewerTabOtel") },
   ];
 
@@ -668,24 +669,10 @@ function LogViewerPage() {
           </>
         )}
 
-        {/* 成本统计标签 */}
-        {activeTab === "cost" && (
-          <div className="flex flex-col items-center justify-center py-16">
-            <div
-              className={`text-lg font-medium mb-4 ${isDark ? "text-gray-300" : "text-gray-600"}`}
-            >
-              成本统计已迁移到用量中心
-            </div>
-            <a
-              href="/usage?tab=cost"
-              onClick={(e) => {
-                e.preventDefault();
-                window.location.href = "/usage?tab=cost";
-              }}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-            >
-              前往用量中心 →
-            </a>
+        {/* 安全日志 */}
+        {activeTab === "security" && (
+          <div className="-mx-6 -mb-6">
+            <SecurityDashboard />
           </div>
         )}
       </div>

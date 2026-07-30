@@ -168,10 +168,11 @@ export class RemoteSessionManagerUI {
    * 获取会话目标主机
    */
   private getSessionHost(session: TerminalSession): string {
-    if (session.type === 'ssh' && session.config.host) {
-      return `${session.config.username}@${session.config.host}`;
-    } else if (session.type === 'direct_connect' && session.config.url) {
-      return session.config.url;
+    const cfg = session.config as Record<string, unknown>;
+    if (session.type === 'ssh' && cfg.host) {
+      return `${cfg.username}@${cfg.host}`;
+    } else if (session.type === 'direct_connect' && cfg.url) {
+      return String(cfg.url);
     }
     return '-';
   }
@@ -264,12 +265,13 @@ export class RemoteSessionManagerUI {
       details.push(['开始时间', new Date(session.startTime).toLocaleString()]);
 
       if (session.config) {
+        const cfg = session.config as Record<string, unknown>;
         if (session.type === 'ssh') {
-          details.push(['主机', session.config.host || '-']);
-          details.push(['端口', session.config.port?.toString() || '22']);
-          details.push(['用户名', session.config.username || '-']);
+          details.push(['主机', String(cfg.host || '-')]);
+          details.push(['端口', String(cfg.port) || '22']);
+          details.push(['用户名', String(cfg.username || '-')]);
         } else if (session.type === 'direct_connect') {
-          details.push(['URL', session.config.url || '-']);
+          details.push(['URL', String(cfg.url || '-')]);
         }
       }
     } else if (historyEntry) {

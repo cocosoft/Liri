@@ -341,15 +341,11 @@ export class SSEReassembler {
     if (fn?.name) block.name = fn.name;
     const argsStr = fn?.arguments as string | undefined;
     if (argsStr) {
+      // 仅在 JSON 完整时解析 — 流式传输中 arguments 跨 chunk 断裂是预期行为，静默跳过
       try {
         block.input = JSON.parse(argsStr);
-      } catch (err) {
-        // 参数仍在流式传输中
-
-        handleError(err, {
-          module: 'trace-recording:sse',
-          action: 'parseStreamingArgs',
-        });
+      } catch {
+        // 参数仍在流式传输中，JSON 不完整，不记录日志
       }
     }
   }

@@ -1,11 +1,16 @@
-﻿/**
+/**
  * 模块依赖管理系统
  *
  * @deprecated 由 ModuleRegistry + DIContainer 替代。保留用于 --use-legacy-module-system 回退路径。
  * 负责管理模块的依赖关系、加载顺序和循环依赖检测
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'ModuleDependencyManager' });
@@ -92,6 +97,14 @@ export class ModuleDependencyManager {
   private dependencyGraph: Map<string, DependencyNode> = new Map();
   private initOrder: string[] = [];
 
+  constructor() {
+    process.emitWarning(
+      'ModuleDependencyManager 已废弃，由 ModuleRegistry + DIContainer 替代。' +
+        '请使用 getDIContainer() 进行服务注册与获取。',
+      'DeprecationWarning'
+    );
+  }
+
   /**
    * 注册模块
    */
@@ -145,10 +158,10 @@ export class ModuleDependencyManager {
       try {
         await instance.definition.destroy();
       } catch (error) {
-        logger.error(
-          `Error destroying module ${name}:`,
-          error instanceof Error ? error : undefined
-        );
+        await handleError(error, {
+          module: 'core:deprecated',
+          action: 'destroy',
+        });
       }
     }
 
@@ -317,10 +330,10 @@ export class ModuleDependencyManager {
         instance.status = ModuleStatus.ERROR;
         instance.error = error instanceof Error ? error.message : String(error);
         steps[i].status = 'error';
-        logger.error(
-          `Failed to initialize module ${name}:`,
-          error instanceof Error ? error : undefined
-        );
+        await handleError(error, {
+          module: 'core:deprecated',
+          action: 'init',
+        });
 
         // 检查是否是可选依赖
         const isOptional = this.isOptionalDependency(name);

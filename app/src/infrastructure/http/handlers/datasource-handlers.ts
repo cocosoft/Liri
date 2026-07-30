@@ -15,6 +15,7 @@ import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
+import { handleError } from '@modules/error';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { resolveDataSubDir } from '@modules/core';
@@ -66,7 +67,10 @@ export async function handleListDataSources(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(configs));
   } catch (err) {
-    logger.error('获取数据源列表失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'infra:handler:datasource',
+      action: 'list',
+    });
     sendError(res, (err as Error).message, 500);
   }
 }
@@ -102,7 +106,10 @@ export async function handleCreateDataSource(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(entry));
   } catch (err) {
-    logger.error('创建数据源失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'infra:handler:datasource',
+      action: 'create',
+    });
     sendError(res, (err as Error).message, 500);
   }
 }
@@ -129,7 +136,10 @@ export async function handleDeleteDataSource(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ deleted: true }));
   } catch (err) {
-    logger.error('删除数据源失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'infra:handler:datasource',
+      action: 'delete',
+    });
     sendError(res, (err as Error).message, 500);
   }
 }
@@ -177,7 +187,10 @@ export async function handleSyncDataSource(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
   } catch (err) {
-    logger.error('同步数据源失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'infra:handler:datasource',
+      action: 'sync',
+    });
     sendError(res, (err as Error).message, 500);
   }
 }

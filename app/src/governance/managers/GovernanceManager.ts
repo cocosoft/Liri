@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 治理闭环管理器
  * 统一管理工具治理的各个组件（权限、Hook、沙箱）
  */
@@ -27,6 +27,7 @@ import {
 import {
   GovernanceAuditService,
   governanceAuditService,
+  type AuditStatistics,
 } from './GovernanceAuditService';
 import {
   GovernanceStrategyManager,
@@ -137,7 +138,9 @@ export class GovernanceManager {
 
     if (this.config.enforcePermission) {
       const permissionDecision = await this.permissionManager.checkPermission(
-        tool as any,
+        tool as unknown as Parameters<
+          typeof this.permissionManager.checkPermission
+        >[0],
         context.input
       );
 
@@ -368,7 +371,7 @@ export class GovernanceManager {
     activeCount: number;
     completedCount: number;
     violations: Record<string, number>;
-    auditStats: any;
+    auditStats: AuditStatistics;
   } {
     return {
       activeCount: this.state.activeExecutions.size,

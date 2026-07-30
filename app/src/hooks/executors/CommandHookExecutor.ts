@@ -63,7 +63,7 @@ export class CommandHookExecutor {
       const { stdout, stderr } = await execPromise(command, {
         env,
         timeout: timeout * 1000, // 转换为毫秒
-        shell: true as any,
+        shell: true as unknown as string,
       });
 
       // 解析JSON输出并构建结果
@@ -87,12 +87,13 @@ export class CommandHookExecutor {
       }
 
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as Record<string, unknown>;
       return {
         success: false,
-        output: error.stdout?.trim(),
-        error: error.stderr?.trim() || error.message,
-        exitCode: error.code || 1,
+        output: (err.stdout as string)?.trim(),
+        error: (err.stderr as string)?.trim() || (err.message as string),
+        exitCode: (err.code as number) || 1,
       };
     }
   }
@@ -104,44 +105,54 @@ export class CommandHookExecutor {
    * @returns 处理后的结果
    */
   private processHookJsonOutput(
-    json: any,
+    json: unknown,
     result: HookExecutionResult
   ): HookExecutionResult {
+    const j = json as Record<string, unknown>;
     const processed: HookExecutionResult = {
       ...result,
       success: true,
-      hookSpecificOutput: json,
+      hookSpecificOutput: j,
     };
 
     // 处理通用字段
-    if (json.continue !== undefined) processed.continue = json.continue;
-    if (json.suppressOutput !== undefined)
-      processed.suppressOutput = json.suppressOutput;
-    if (json.stopReason !== undefined) processed.stopReason = json.stopReason;
-    if (json.decision !== undefined) processed.decision = json.decision;
-    if (json.systemMessage !== undefined)
-      processed.systemMessage = json.systemMessage;
+    if (j.continue !== undefined) processed.continue = j.continue as boolean;
+    if (j.suppressOutput !== undefined)
+      processed.suppressOutput = j.suppressOutput as boolean;
+    if (j.stopReason !== undefined)
+      processed.stopReason = j.stopReason as string;
+    if (j.decision !== undefined) processed.decision = j.decision as string;
+    if (j.systemMessage !== undefined)
+      processed.systemMessage = j.systemMessage as string;
 
     // 处理hookSpecificOutput中的字段
-    if (json.hookSpecificOutput) {
-      const hso = json.hookSpecificOutput;
+    if (j.hookSpecificOutput) {
+      const hso = j.hookSpecificOutput as Record<string, unknown>;
       if (hso.additionalContext !== undefined)
-        processed.additionalContext = hso.additionalContext;
+        processed.additionalContext = hso.additionalContext as string;
       if (hso.updatedInput !== undefined)
-        processed.updatedInput = hso.updatedInput;
+        processed.updatedInput = hso.updatedInput as Record<string, unknown>;
       if (hso.updatedMCPToolOutput !== undefined)
-        processed.updatedMCPToolOutput = hso.updatedMCPToolOutput;
+        processed.updatedMCPToolOutput = hso.updatedMCPToolOutput as Record<
+          string,
+          unknown
+        >;
       if (hso.initialUserMessage !== undefined)
-        processed.initialUserMessage = hso.initialUserMessage;
-      if (hso.watchPaths !== undefined) processed.watchPaths = hso.watchPaths;
-      if (hso.retry !== undefined) processed.retry = hso.retry;
+        processed.initialUserMessage = hso.initialUserMessage as string;
+      if (hso.watchPaths !== undefined)
+        processed.watchPaths = hso.watchPaths as string[];
+      if (hso.retry !== undefined) processed.retry = hso.retry as boolean;
 
       // 处理权限决定
       if (hso.permissionDecision !== undefined) {
-        processed.permissionBehavior = hso.permissionDecision;
+        processed.permissionBehavior = hso.permissionDecision as
+          | 'allow'
+          | 'deny'
+          | 'ask';
       }
       if (hso.permissionDecisionReason !== undefined) {
-        processed.hookPermissionDecisionReason = hso.permissionDecisionReason;
+        processed.hookPermissionDecisionReason =
+          hso.permissionDecisionReason as string;
       }
     }
 

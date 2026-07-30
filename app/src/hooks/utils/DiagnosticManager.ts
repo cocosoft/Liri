@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 诊断日志管理器
  * 提供钩子系统的诊断和日志功能
  */
@@ -38,7 +38,7 @@ export interface DiagnosticEventData {
   hookEvent?: string;
   duration?: number;
   error?: string;
-  details?: any;
+  details?: unknown;
 }
 
 /**

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 协调器模块
  * 支持多Agent协作，实现任务的并行处理和结果汇总
  */
@@ -6,6 +6,7 @@
 import { randomUUID } from 'crypto';
 import { lazySingleton } from '../utils/common';
 import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'Coordinator' });
 
@@ -262,9 +263,10 @@ export class Coordinator {
       }
       task.status = 'failed';
       task.error = error instanceof Error ? error.message : String(error);
-      logger.error(
-        `Coordinator: Task ${taskId} failed with exception - ${task.error}`
-      );
+      await handleError(error, {
+        module: 'core:coordinator',
+        action: 'execute_task',
+      });
     } finally {
       if (task.timeoutId) {
         clearTimeout(task.timeoutId);

@@ -7,6 +7,7 @@
 import { EventEmitter } from 'events';
 import { taskJitterService } from './TaskJitterService.js';
 import { taskExpirationService } from './TaskExpirationService.js';
+import type { Task } from './TaskExpirationService.js';
 import { sessionTaskService } from './SessionTaskService.js';
 
 /**
@@ -110,7 +111,7 @@ export class TaskScheduler extends EventEmitter {
     this.stats.pendingTasks++;
 
     if (this.options.enableExpiration && taskExpirationService) {
-      taskExpirationService.addTask(task as any);
+      taskExpirationService.addTask(task as unknown as Task);
     }
 
     this.calculateNextFireTime(task.id);
@@ -155,7 +156,10 @@ export class TaskScheduler extends EventEmitter {
     this.tasks.set(taskId, updatedTask);
 
     if (this.options.enableExpiration) {
-      taskExpirationService.updateTask(taskId, updates as any);
+      taskExpirationService.updateTask(
+        taskId,
+        updates as unknown as Partial<Task>
+      );
     }
 
     this.calculateNextFireTime(taskId);

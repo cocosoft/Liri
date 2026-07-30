@@ -7,8 +7,6 @@
  * 此位置具有误导性，后续应考虑迁移至 modules/ 下的合适位置。
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
-
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
@@ -274,6 +272,38 @@ export interface LocalHTTPConfig {
   port: number;
 }
 
+/** ClawHubAdapter 方法的最小接口 */
+interface ClawHubAdapterLike {
+  getInstalledSkills(): Promise<unknown[]>;
+  searchSkills(
+    query: string,
+    opts: Record<string, unknown>
+  ): Promise<unknown[]>;
+  getSearchEngine(): {
+    searchRemote(
+      query: string,
+      opts: Record<string, unknown>
+    ): Promise<unknown[]>;
+    getSourceNames(): string[];
+    addCustomSource(name: string, url: string): void;
+    removeCustomSource(name: string): void;
+  };
+  getSkillDetail(id: string): Promise<unknown>;
+  installSkill(id: string, sourceUrl?: string): Promise<unknown>;
+  uninstallSkill(id: string): Promise<void>;
+  updateSkill(id: string): Promise<unknown>;
+  enableSkill(id: string): Promise<void>;
+  disableSkill(id: string): Promise<void>;
+}
+
+/** PDCA Orchestrator 方法的最小接口 */
+interface PdcaOrchestratorLike {
+  getStatus(): unknown;
+  generateReport(): unknown;
+  reviewStep(stepId: string): Promise<unknown>;
+  decideStep(stepId: string, decision: unknown): Promise<void>;
+}
+
 /**
  * LocalHTTPService 类
  * 提供本地 HTTP API 服务，对接 CoreAPI
@@ -285,7 +315,7 @@ export class LocalHTTPService {
   /** 应用是否已完全就绪（launch 完成前前端请求返回 503） */
   static _appReady = false;
   private readonly apiSecret: string;
-  private compileScheduler: any = null;
+  private compileScheduler: unknown = null;
   /** handler 上下文（提供 sendError, readRequestBody, broadcastEvent 等） */
   private readonly _handlerCtx: HandlerCtx = createHandlerCtx();
 
@@ -391,15 +421,19 @@ export class LocalHTTPService {
           `LocalHTTPService 已启动: http://${this.config.host}:${this.config.port}`
         );
         // 异步初始化知识库种子，不阻塞启动
-        this.seedKnowledgeBaseIfEmpty().catch((err) =>
-          logger.warning('知识库种子初始化失败（非关键错误）', {
-            error: String(err),
-          })
+        this.seedKnowledgeBaseIfEmpty().catch(
+          (err) =>
+            void handleError(err, {
+              module: 'infrastructure:http:local',
+              action: 'seedKnowledge',
+            })
         );
-        this.startCompileScheduler().catch((err) =>
-          logger.warning('编译调度器启动失败（非关键错误）', {
-            error: String(err),
-          })
+        this.startCompileScheduler().catch(
+          (err) =>
+            void handleError(err, {
+              module: 'infrastructure:http:local',
+              action: 'startCompileScheduler',
+            })
         );
         resolve();
       });
@@ -417,7 +451,7 @@ export class LocalHTTPService {
    */
   async stop(): Promise<void> {
     if (this.compileScheduler) {
-      this.compileScheduler.stop();
+      (this.compileScheduler as { stop(): void }).stop();
       this.compileScheduler = null;
     }
     stopSSE();
@@ -496,7 +530,8 @@ export class LocalHTTPService {
       res,
       url,
       this as unknown as Record<string, Function>,
-      (event: string, data: any) => this.broadcastEvent(event, data),
+      (event: string, data: unknown) =>
+        this.broadcastEvent(event, data as Record<string, unknown>),
       this._handlerCtx
     );
     if (matched) return;
@@ -2679,7 +2714,7 @@ export class LocalHTTPService {
       const { getCommandManager } = await import('@modules/commands');
       const commandManager = getCommandManager();
       const commands = await commandManager.getAllCommands();
-      const result = commands.map((cmd: any) => ({
+      const result = commands.map((cmd) => ({
         name: cmd.name,
         description: cmd.description,
         aliases: cmd.aliases || [],
@@ -2761,8 +2796,16 @@ export class LocalHTTPService {
   private copyDirectory(
     src: string,
     dest: string,
-    fs: any,
-    path: any
+    fs: {
+      existsSync(p: string): boolean;
+      mkdirSync(p: string, opts?: { recursive?: boolean }): void;
+      readdirSync(
+        p: string,
+        opts?: { withFileTypes?: boolean }
+      ): Array<{ name: string; isDirectory(): boolean }>;
+      copyFileSync(src: string, dest: string): void;
+    },
+    path: { join(...segments: string[]): string }
   ): { copied: number; skipped: number; errors: string[] } {
     let copied = 0;
     let skipped = 0;
@@ -2956,8 +2999,16 @@ export class LocalHTTPService {
    */
   private rollbackMigration(
     destDir: string,
-    fs: any,
-    path: any,
+    fs: {
+      existsSync(p: string): boolean;
+      readdirSync(
+        p: string,
+        opts?: { withFileTypes?: boolean }
+      ): Array<{ name: string; isDirectory(): boolean }>;
+      rmSync(p: string, opts?: { recursive?: boolean; force?: boolean }): void;
+      unlinkSync(p: string): void;
+    },
+    path: { join(...segments: string[]): string },
     _oldDir: string
   ): void {
     try {
@@ -2991,14 +3042,14 @@ export class LocalHTTPService {
    * 获取 ClawHubAdapter 实例
    * 优先从 ThirdPartyAdapterRegistry 获取，fallback 到直接 import
    */
-  private async getClawHubAdapter(): Promise<any> {
+  private async getClawHubAdapter(): Promise<ClawHubAdapterLike> {
     // 优先从注册表获取
     try {
       const { thirdPartyAdapterRegistry } =
         await import('@modules/skills/loaders/adapter/ThirdPartyAdapterRegistry');
       const registered = thirdPartyAdapterRegistry.get('clawhub');
       if (registered) {
-        return registered;
+        return registered as unknown as ClawHubAdapterLike;
       }
     } catch (err) {
       // 注册表不可用时 fallback
@@ -3008,9 +3059,13 @@ export class LocalHTTPService {
     const { ClawHubAdapter } =
       await import('@modules/skills/loaders/adapter/clawhub/ClawHubAdapter');
 
-    const adapter = ClawHubAdapter.getInstance();
+    const adapter =
+      ClawHubAdapter.getInstance() as unknown as ClawHubAdapterLike & {
+        initialized?: boolean;
+        initialize(): Promise<void>;
+      };
 
-    if (!adapter['initialized']) {
+    if (!adapter.initialized) {
       await adapter.initialize();
     }
 
@@ -3053,7 +3108,7 @@ export class LocalHTTPService {
       const { existsSync } = await import('fs');
       const { join } = await import('path');
 
-      const skills: Record<string, any>[] = [];
+      const skills: Record<string, unknown>[] = [];
       const seen = new Set<string>();
 
       const scanDir = async (dir: string, source: string) => {
@@ -3070,7 +3125,7 @@ export class LocalHTTPService {
               const parsed = parseSkillFrontmatter(content);
               const name = entry.name;
               const description = parsed.frontmatter?.description || '';
-              const fm = parsed.frontmatter as Record<string, any>;
+              const fm = parsed.frontmatter as Record<string, unknown>;
               const version = fm?.version || '1.0.0';
               const author = fm?.author || '';
               const category = fm?.category || 'general';
@@ -3119,7 +3174,7 @@ export class LocalHTTPService {
             const parsed = parseSkillFrontmatter(content);
             const name = entry.name.replace(/\.md$/, '');
             const description = parsed.frontmatter?.description || '';
-            const fm = parsed.frontmatter as Record<string, any>;
+            const fm = parsed.frontmatter as Record<string, unknown>;
             const version = fm?.version || '1.0.0';
             const author = fm?.author || '';
             const category = fm?.category || 'general';
@@ -3310,15 +3365,23 @@ export class LocalHTTPService {
 
       const adapter = await this.getClawHubAdapter();
       const installed = await adapter.getInstalledSkills();
-      const installedIds = new Set(installed.map((s: any) => s.meta.id));
+      const installedIds = new Set(
+        installed.map((s: unknown) => (s as { meta: { id: string } }).meta.id)
+      );
 
       const searchEngine = adapter.getSearchEngine();
       const allResults = await searchEngine.searchRemote('', {});
 
       const recommended = allResults
-        .filter((r: any) => !installedIds.has(r.skill.id))
+        .filter(
+          (r: unknown) =>
+            !installedIds.has((r as { skill: { id: string } }).skill.id)
+        )
         .slice(0, limit)
-        .map((r: any) => ({ ...r, installed: false }));
+        .map((r: unknown) => ({
+          ...(r as Record<string, unknown>),
+          installed: false,
+        }));
 
       const categories = this.getSkillCategoryMap(installed);
 
@@ -3448,11 +3511,12 @@ export class LocalHTTPService {
    * 构建插件分类统计映射
    * 所有技能统一归入 skill 分类，不再按来源分裂
    */
-  private getSkillCategoryMap(installed: any[]): Record<string, number> {
+  private getSkillCategoryMap(installed: unknown[]): Record<string, number> {
     const map: Record<string, number> = {};
 
     for (const skill of installed) {
-      const source = skill.meta.source || 'third_party';
+      const s = skill as { meta: { source?: string } };
+      const source = s.meta.source || 'third_party';
 
       if (source === 'builtin') {
         map['builtin'] = (map['builtin'] || 0) + 1;
@@ -3468,11 +3532,12 @@ export class LocalHTTPService {
    * 构建技能来源分布统计
    * 按 source 字段统计各来源的技能数量
    */
-  private getSkillSourceMap(installed: any[]): Record<string, number> {
+  private getSkillSourceMap(installed: unknown[]): Record<string, number> {
     const map: Record<string, number> = {};
 
     for (const skill of installed) {
-      const source = skill.meta.source || 'unknown';
+      const s = skill as { meta: { source?: string } };
+      const source = s.meta.source || 'unknown';
       map[source] = (map[source] || 0) + 1;
     }
 
@@ -3778,7 +3843,10 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(categories));
     } catch (err) {
-      logger.error('获取 MCP 分类列表失败', err as Error);
+      await handleError(err, {
+        module: 'infra:http',
+        action: 'mcp_categories',
+      });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(
         JSON.stringify({
@@ -3821,7 +3889,10 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(detail));
     } catch (err) {
-      logger.error('获取 MCP 服务器详情失败', err as Error);
+      await handleError(err, {
+        module: 'infra:http',
+        action: 'mcp_server_detail',
+      });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(
         JSON.stringify({
@@ -3954,7 +4025,11 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, serverId }));
     } catch (err) {
-      logger.error(`卸载 MCP 服务器失败: ${serverId}`, err as Error);
+      await handleError(err, {
+        module: 'infra:http',
+        action: 'mcp_uninstall',
+        context: { serverId },
+      });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(
         JSON.stringify({
@@ -4337,13 +4412,27 @@ export class LocalHTTPService {
       try {
         const coreAPI = getCoreAPI();
         reply =
-          (await (coreAPI as any).sendTaskMessage?.(taskId, message)) || '';
+          (await (
+            coreAPI as unknown as {
+              sendTaskMessage?: (
+                taskId: string,
+                msg: string
+              ) => Promise<string>;
+            }
+          ).sendTaskMessage?.(taskId, message)) || '';
       } catch (err) {
         // 降级：通过 executor 直接执行
         const { coordinator } = await import('@modules/core/Coordinator');
-        const task = (coordinator as any).getTask(taskId);
-        if (task && typeof (task as any).sendMessage === 'function') {
-          reply = await (task as any).sendMessage(message);
+        const task = (
+          coordinator as unknown as { getTask(id: string): unknown }
+        ).getTask(taskId);
+        if (
+          task &&
+          typeof (task as { sendMessage: unknown }).sendMessage === 'function'
+        ) {
+          reply = await (
+            task as { sendMessage(msg: string): Promise<string> }
+          ).sendMessage(message);
         }
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -4387,10 +4476,11 @@ export class LocalHTTPService {
     taskId: string
   ): Promise<void> {
     try {
-      let orchestrator: any = null;
+      let orchestrator: PdcaOrchestratorLike | null = null;
       try {
         const mod = await import('@modules/tasks/LongRunningTaskOrchestrator');
-        orchestrator = mod.getOrchestrator(taskId);
+        orchestrator = (mod.getOrchestrator(taskId) ??
+          null) as PdcaOrchestratorLike | null;
       } catch (err) {
         // 模块加载失败或无 orchestrator
       }
@@ -4414,10 +4504,11 @@ export class LocalHTTPService {
     taskId: string
   ): Promise<void> {
     try {
-      let orchestrator: any = null;
+      let orchestrator: PdcaOrchestratorLike | null = null;
       try {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
-        orchestrator = m.getOrchestrator(taskId);
+        orchestrator = (m.getOrchestrator(taskId) ??
+          null) as PdcaOrchestratorLike | null;
       } catch (err) {
         handleError(err, {
           module: 'infrastructure:http:LocalHTTPService',
@@ -4444,10 +4535,11 @@ export class LocalHTTPService {
     stepId: string
   ): Promise<void> {
     try {
-      let orchestrator: any = null;
+      let orchestrator: PdcaOrchestratorLike | null = null;
       try {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
-        orchestrator = m.getOrchestrator(taskId);
+        orchestrator = (m.getOrchestrator(taskId) ??
+          null) as PdcaOrchestratorLike | null;
       } catch (err) {
         handleError(err, {
           module: 'infrastructure:http:LocalHTTPService',
@@ -4477,10 +4569,11 @@ export class LocalHTTPService {
     try {
       const body = await this.readRequestBody(req);
       const { decision } = JSON.parse(body);
-      let orchestrator: any = null;
+      let orchestrator: PdcaOrchestratorLike | null = null;
       try {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
-        orchestrator = m.getOrchestrator(taskId);
+        orchestrator = (m.getOrchestrator(taskId) ??
+          null) as PdcaOrchestratorLike | null;
       } catch (err) {
         handleError(err, {
           module: 'infrastructure:http:LocalHTTPService',
@@ -4506,10 +4599,12 @@ export class LocalHTTPService {
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      let list: any[] = [];
+      let list: unknown[] = [];
       try {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
-        list = m.getAllOrchestrators().map((o: any) => o.getStatus());
+        list = m
+          .getAllOrchestrators()
+          .map((o: PdcaOrchestratorLike) => o.getStatus());
       } catch (err) {
         handleError(err, {
           module: 'infrastructure:http:LocalHTTPService',
@@ -4529,10 +4624,11 @@ export class LocalHTTPService {
     taskId: string
   ): Promise<void> {
     try {
-      let orchestrator: any = null;
+      let orchestrator: PdcaOrchestratorLike | null = null;
       try {
         const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
-        orchestrator = m.getOrchestrator(taskId);
+        orchestrator = (m.getOrchestrator(taskId) ??
+          null) as PdcaOrchestratorLike | null;
       } catch (err) {
         handleError(err, {
           module: 'infrastructure:http:LocalHTTPService',
@@ -5060,7 +5156,11 @@ export class LocalHTTPService {
           connectedCount++;
         } catch (e) {
           const msg = `连接通道失败: ${channel.name} — ${e instanceof Error ? e.message : String(e)}`;
-          logger.warning(msg);
+          void handleError(e, {
+            module: 'infrastructure:http:local',
+            action: 'connectChannel',
+            context: { channelName: channel.name },
+          });
           errors.push(msg);
         }
       }
@@ -5081,7 +5181,10 @@ export class LocalHTTPService {
         })
       );
     } catch (err) {
-      logger.error('通道配置应用失败', err as Error);
+      await handleError(err, {
+        module: 'infra:http',
+        action: 'apply_channel_config',
+      });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(
         JSON.stringify({
@@ -5318,8 +5421,10 @@ export class LocalHTTPService {
 
       return true;
     } catch (err) {
-      logger.error(`tryDynamicRegister(${channelType}) 失败`, {
-        error: String(err),
+      await handleError(err, {
+        module: 'infra:http',
+        action: 'try_dynamic_register',
+        context: { channelType },
       });
       return false;
     }
@@ -5912,7 +6017,7 @@ export class LocalHTTPService {
       };
 
       const withVectors = allMemories.filter(
-        (m: any) => !!m.metadata?.vectorId
+        (m) => !!(m.metadata as unknown as Record<string, unknown>)['vectorId']
       ).length;
       const byType: Record<string, number> = {};
       for (const m of allMemories) {
@@ -5923,16 +6028,13 @@ export class LocalHTTPService {
         byType[ft] = (byType[ft] || 0) + 1;
       }
       const recentCount = allMemories.filter(
-        (m: any) =>
-          now - new Date(m.createdAt).getTime() < 7 * 24 * 60 * 60 * 1000
+        (m) => now - new Date(m.createdAt).getTime() < 7 * 24 * 60 * 60 * 1000
       ).length;
 
       const expiring = await mm.getExpiringMemories();
       const oldestMs =
         allMemories.length > 0
-          ? Math.min(
-              ...allMemories.map((m: any) => new Date(m.createdAt).getTime())
-            )
+          ? Math.min(...allMemories.map((m) => new Date(m.createdAt).getTime()))
           : now;
       const oldestMemoryAge = Math.floor(
         (now - oldestMs) / (24 * 60 * 60 * 1000)
@@ -5940,7 +6042,7 @@ export class LocalHTTPService {
 
       const indexedCount = mm.getRetriever().getIndexSize();
       const vectorCacheSize = allMemories.filter(
-        (m: any) => !!m.metadata?.vectorId
+        (m) => !!(m.metadata as unknown as Record<string, unknown>)['vectorId']
       ).length;
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -6002,7 +6104,7 @@ export class LocalHTTPService {
         similarityThreshold: 0.85,
       });
       const dedupResult = consolidator.findDuplicates(
-        allMemories.map((m: any) => ({
+        allMemories.map((m) => ({
           id: m.id,
           content: m.content,
           createdAt: new Date(m.createdAt).getTime(),
@@ -6141,16 +6243,54 @@ export class LocalHTTPService {
         return;
       }
 
-      const { exec } = await import('child_process');
-      const { promisify } = await import('util');
-      const execAsync = promisify(exec);
+      // 安全校验：路径必须在 pyappHome 范围内
+      const { isPathWithin, resolvePyappHome } =
+        await import('@modules/core/paths');
+      const home = resolvePyappHome();
+      if (!isPathWithin(home, filePath)) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: { message: 'Access denied: path outside allowed directory' },
+          })
+        );
+        return;
+      }
 
+      // 安全校验：禁止文件名含双引号，防止命令注入
+      if (filePath.includes('"')) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: { message: 'Invalid path: contains illegal characters' },
+          })
+        );
+        return;
+      }
+
+      // 使用 spawn 替代 exec 避免 shell 解析注入（& | ; 等字符）
+      const { spawn } = await import('child_process');
       if (process.platform === 'win32') {
-        await execAsync(`start "" "${filePath}"`);
+        const child = spawn('cmd', ['/c', 'start', '""', filePath], {
+          shell: false,
+          stdio: 'ignore',
+          detached: true,
+        });
+        child.unref();
       } else if (process.platform === 'darwin') {
-        await execAsync(`open "${filePath}"`);
+        const child = spawn('open', [filePath], {
+          shell: false,
+          stdio: 'ignore',
+          detached: true,
+        });
+        child.unref();
       } else {
-        await execAsync(`xdg-open "${filePath}"`);
+        const child = spawn('xdg-open', [filePath], {
+          shell: false,
+          stdio: 'ignore',
+          detached: true,
+        });
+        child.unref();
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -6193,6 +6333,16 @@ export class LocalHTTPService {
         res.end(
           JSON.stringify({ error: { message: 'Missing path parameter' } })
         );
+        return;
+      }
+
+      // 安全校验：路径必须在 pyappHome 范围内
+      const { isPathWithin, resolvePyappHome } =
+        await import('@modules/core/paths');
+      const home = resolvePyappHome();
+      if (!isPathWithin(home, filePath)) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Access denied' } }));
         return;
       }
 
@@ -6348,7 +6498,11 @@ export class LocalHTTPService {
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      logger.error('读取文件失败', { path: req.url, error: message });
+      await handleError(err, {
+        module: 'infra:http',
+        action: 'file_read',
+        context: { path: req.url },
+      });
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
@@ -6422,35 +6576,28 @@ export class LocalHTTPService {
         resolveDownloadsDir,
         resolveDataDir,
         resolveDocsDir,
+        isPathWithin,
+        containsPathTraversal,
       } = await import('@modules/core/paths');
 
+      // BUG-C 修复：绝对路径必须验证在允许范围内
       if (path.isAbsolute(rawPath)) {
+        const pyappHome = resolvePyappHome();
+        if (!isPathWithin(pyappHome, rawPath)) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              resolvedPath: rawPath,
+              exists: false,
+              restricted: true,
+            })
+          );
+          return;
+        }
         if (fs.existsSync(rawPath)) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ resolvedPath: rawPath, exists: true }));
           return;
-        }
-        // 绝对路径不存在时，提取文件名尝试在基础目录中搜索
-        // 处理文件被移动/重命名的情况
-        const fileName = path.basename(rawPath);
-        const projectRoot = resolveProjectRoot();
-        const baseDirs = [
-          projectRoot,
-          resolvePyappHome(),
-          resolveOutputDir(),
-          resolveDownloadsDir(),
-          resolveDataDir(),
-          resolveDocsDir(),
-          path.join(projectRoot, 'app'),
-          path.join(projectRoot, 'client'),
-        ];
-        for (const baseDir of baseDirs) {
-          const candidate = path.join(baseDir, fileName);
-          if (fs.existsSync(candidate)) {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ resolvedPath: candidate, exists: true }));
-            return;
-          }
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ resolvedPath: rawPath, exists: false }));
@@ -6460,6 +6607,18 @@ export class LocalHTTPService {
       if (rawPath.startsWith('~')) {
         const pyappHome = resolvePyappHome();
         const withoutTilde = rawPath.replace(/^~[/\\]?/, '');
+        // BUG-D 修复：禁止 tilde 展开后的路径遍历
+        if (containsPathTraversal(withoutTilde)) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              resolvedPath: rawPath,
+              exists: false,
+              restricted: true,
+            })
+          );
+          return;
+        }
         const fullPath = path.join(pyappHome, withoutTilde);
         if (fs.existsSync(fullPath)) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -6494,7 +6653,11 @@ export class LocalHTTPService {
       res.end(JSON.stringify({ resolvedPath: guessedPath, exists: false }));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      logger.error('解析文件路径失败', { path: req.url, error: message });
+      await handleError(err, {
+        module: 'infra:http',
+        action: 'file_resolve_path',
+        context: { path: req.url },
+      });
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
@@ -6529,6 +6692,16 @@ export class LocalHTTPService {
         return;
       }
 
+      // 安全校验：路径必须在 pyappHome 范围内
+      const { isPathWithin, resolvePyappHome } =
+        await import('@modules/core/paths');
+      const home = resolvePyappHome();
+      if (!isPathWithin(home, filePath)) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Access denied' } }));
+        return;
+      }
+
       if (!fs.existsSync(filePath)) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(
@@ -6541,7 +6714,7 @@ export class LocalHTTPService {
       const ext = path.extname(filePath).toLowerCase();
 
       // Office 文件扩展名：使用 ConverterEngine 转为 Markdown
-      const officeExts = ['.pdf', '.docx', '.pptx'];
+      const officeExts = ['.pdf', '.docx', '.pptx', '.xlsx'];
 
       if (officeExts.includes(ext)) {
         const coreAPI = getCoreAPI();
@@ -6638,9 +6811,13 @@ export class LocalHTTPService {
     try {
       const chatManager = createChatManager();
       const allCheckpoints = await chatManager.listCheckpoints('');
-      let checkpoint = allCheckpoints.find((cp) => cp.id === cpId);
+      let checkpoint: unknown = allCheckpoints.find((cp) => cp.id === cpId);
       if (!checkpoint) {
-        const cp = await (chatManager as any).getCheckpoint?.(cpId);
+        const cp = await (
+          chatManager as unknown as {
+            getCheckpoint?: (id: string) => Promise<unknown>;
+          }
+        ).getCheckpoint?.(cpId);
         if (cp) checkpoint = cp;
       }
       if (!checkpoint) {

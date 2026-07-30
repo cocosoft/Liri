@@ -9,6 +9,7 @@
  */
 import type http from 'http';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'http:trace', level: LogLevel.INFO });
 
@@ -47,8 +48,9 @@ export async function handleTraceStats(
       })
     );
   } catch (err) {
-    logger.error('handleTraceStats error', {
-      error: err instanceof Error ? err.message : String(err),
+    await handleError(err, {
+      module: 'infra:handler:trace',
+      action: 'trace_stats',
     });
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(

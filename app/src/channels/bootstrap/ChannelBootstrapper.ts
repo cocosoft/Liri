@@ -1,8 +1,9 @@
-﻿/**
+/**
  * ChannelBootstrapper — 通道自动注册启动器
  * 根据配置文件自动创建并注册已启用通道到 ChannelRegistry
  */
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import type { IChannelPlugin } from '../types/IChannel';
 
@@ -108,7 +109,10 @@ export class ChannelBootstrapper {
         );
       } catch (error) {
         const msg = `注册通道失败: ${entry.type} — ${error instanceof Error ? error.message : String(error)}`;
-        logger.error(msg);
+        handleError(error instanceof Error ? error : new Error(String(error)), {
+          module: 'channels:bootstrap',
+          action: msg,
+        });
         result.errors.push(msg);
       }
     }

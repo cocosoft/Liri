@@ -435,7 +435,7 @@ export async function launchRepl(
 
       if (envProvider) {
         provider = providerRegistry.getOrCreate(
-          envProvider.providerType as any,
+          envProvider.providerType as unknown as string,
           {
             apiKey: envProvider.apiKey || '',
             baseUrl: envProvider.baseUrl,
@@ -447,7 +447,9 @@ export async function launchRepl(
 
     // 防御：若 provider 仍为空，回退到默认执行器（不依赖 AI provider）
     if (!provider) {
-      logger.warn('Cron AI 执行器初始化失败：无可用的 AI Provider，降级为默认执行器');
+      logger.warn(
+        'Cron AI 执行器初始化失败：无可用的 AI Provider，降级为默认执行器'
+      );
       await ensureGlobalCronSchedulerStarted();
       ui.showWarning('Cron 调度器已启动（默认执行模式 — 无 AI Provider 可用）');
       return; // 外层 try/catch 不会执行后续代码
@@ -463,7 +465,16 @@ export async function launchRepl(
 
     const { getDeliveryRouter } = await import('../channels/DeliveryRouter');
     const deliveryRouter = getDeliveryRouter();
-    const dispatchDelivery = async (job: any, result: any): Promise<void> => {
+    const dispatchDelivery = async (
+      job: {
+        name: string;
+        deliver?: string;
+        origin?: { platform?: string; chatId?: string };
+        sessionKey?: string;
+        id?: string;
+      },
+      result: { output?: string; finalResponse?: string }
+    ): Promise<void> => {
       const content =
         result.output ||
         result.finalResponse ||
@@ -826,9 +837,12 @@ export async function launchRepl(
               await import('../session/types/Message.js');
             const container = getDIContainer();
             if (container.has('combinedSessionGateway')) {
-              const combinedGateway = container.resolve<any>(
-                'combinedSessionGateway'
-              );
+              const combinedGateway = container.resolve<{
+                sendMessage?: (
+                  sessionId: string,
+                  msg: unknown
+                ) => Promise<unknown>;
+              }>('combinedSessionGateway');
               if (typeof combinedGateway.sendMessage === 'function') {
                 await combinedGateway.sendMessage('shared-context', {
                   id: randomUUID(),

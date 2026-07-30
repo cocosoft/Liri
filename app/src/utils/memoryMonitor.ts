@@ -103,7 +103,7 @@ export class MemoryMonitor {
    * 注册缓存
    * @param cache 缓存实例
    */
-  registerCache(cache: MultiLevelCache<any>): void {
+  registerCache(cache: MultiLevelCache<unknown>): void {
     this.caches.add(cache);
   }
 
@@ -262,8 +262,10 @@ export class MemoryMonitor {
  */
 export class ResourceManager {
   private static instance: ResourceManager;
-  private resources: Map<string, { resource: any; cleanup: CleanupCallback }> =
-    new Map();
+  private resources: Map<
+    string,
+    { resource: unknown; cleanup: CleanupCallback }
+  > = new Map();
 
   /**
    * 私有构造函数
@@ -318,8 +320,8 @@ export class ResourceManager {
    * @param name 资源名称
    * @returns 资源对象或undefined
    */
-  getResource<T = any>(name: string): T | undefined {
-    return this.resources.get(name)?.resource;
+  getResource<T = unknown>(name: string): T | undefined {
+    return this.resources.get(name)?.resource as unknown as T;
   }
 
   /**

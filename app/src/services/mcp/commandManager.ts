@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
   module: 'services:mcp:commandManager',
@@ -52,10 +53,10 @@ export class CommandManager {
               );
               return { success: true, data: result };
             } catch (error) {
-              logger.error(
-                `Failed to execute command ${prompt.name}:`,
-                error instanceof Error ? error : new Error(String(error))
-              );
+              handleError(error, {
+                module: 'services:mcp:command',
+                action: '执行命令失败',
+              });
               return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error',
@@ -73,10 +74,10 @@ export class CommandManager {
       );
       return commands;
     } catch (error) {
-      logger.error(
-        `Failed to load commands from server ${serverName}:`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, {
+        module: 'services:mcp:command',
+        action: '从服务器加载命令失败',
+      });
       return [];
     }
   }
@@ -110,10 +111,10 @@ export class CommandManager {
     try {
       return await command.execute(args);
     } catch (error) {
-      logger.error(
-        `Failed to execute command ${name}:`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, {
+        module: 'services:mcp:command',
+        action: 'executeCommand失败',
+      });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

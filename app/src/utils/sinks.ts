@@ -11,7 +11,7 @@ import { AnalyticsService } from '../analytics/AnalyticsService';
 export function initSinks() {
   // 初始化分析服务
   const analyticsService = new AnalyticsService();
-  (analyticsService as any).initialize();
+  (analyticsService as unknown as { initialize: () => void }).initialize();
 
   // 可以在这里添加更多的接收端
   // 例如：日志接收端、监控接收端等

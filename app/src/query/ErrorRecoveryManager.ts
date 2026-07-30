@@ -83,7 +83,8 @@ const DEFAULT_MAX_RETRIES: Record<RecoveryType, number> = {
 
 /** 错误分类规则 */
 function classifyError(error: Error): RecoveryType {
-  const msg = error.message + ((error as any).code ?? '');
+  const msg =
+    error.message + ((error as unknown as Record<string, unknown>).code ?? '');
 
   if (/empty.?response|no.?content/i.test(msg)) return 'empty_response';
   if (/context.?length|400|413|too.?large/i.test(msg))

@@ -11,6 +11,7 @@ import { ReactiveCompactService } from './reactiveCompact';
 import { evaluateTimeBasedTrigger } from './microCompact';
 import { roughTokenCountEstimationForMessages } from './utils';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'services:compact:orchestrator',
@@ -242,9 +243,10 @@ export class CompactOrchestrator {
       };
 
       this.recordCompact(sessionId, record);
-      logger.error(
-        `Compact failed [${decision.strategy}]: ${error instanceof Error ? error.message : String(error)}`
-      );
+      void handleError(error, {
+        module: 'services:compact',
+        action: '压缩失败',
+      });
 
       return {
         strategy: decision.strategy,

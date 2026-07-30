@@ -100,7 +100,8 @@ export class RunLogger {
 
   /**
    * 记录一条运行日志
-   * 使用 Promise 链串行化写入，防止多会话并发交错
+   * 使用 Promise 链串行化写入，防止多会话并发交错。
+   * .catch() 确保 writeQueue 始终 resolved，后续写入不会被阻断。
    */
   async record(entry: RunLogEntry): Promise<void> {
     this.writeQueue = this.writeQueue

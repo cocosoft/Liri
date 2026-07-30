@@ -165,12 +165,23 @@ export class MediaStore {
     };
 
     try {
-      this.walkDir(this.config.basePath, stats as any);
+      this.walkDir(
+        this.config.basePath,
+        stats as {
+          totalFiles: number;
+          totalSize: number;
+          categories: Record<string, { count: number; size: number }>;
+        }
+      );
     } catch (err) {
       void handleError(err, { module: 'media:store', action: 'catch_error' });
     }
 
-    return stats as any;
+    return stats as {
+      totalFiles: number;
+      totalSize: number;
+      categories: Record<string, { count: number; size: number }>;
+    };
   }
 
   /**

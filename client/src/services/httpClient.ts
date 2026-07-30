@@ -106,53 +106,96 @@ async function request<T>(
         config?.timeout ?? globalConfig.timeout ?? DEFAULT_TIMEOUT;
       const headers = buildHeaders(config?.headers);
 
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeout);
+      const fetchOptions: RequestInit = {
+        method,
+        headers,
+      };
 
-      try {
-        const fetchOptions: RequestInit = {
-          method,
-          headers,
-          signal: controller.signal,
-        };
-
-        if (body !== undefined && method !== "GET") {
-          fetchOptions.body = JSON.stringify(body);
-        }
-
-        const res = await fetch(url, fetchOptions);
-
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          return { ok: false, error: formatError(res.status, text) };
-        }
-
-        // 204 No Content
-        if (res.status === 204) {
-          return { ok: true, data: undefined as unknown as T };
-        }
-
-        const data = await res.json().catch(() => null);
-        return { ok: true, data: data as T };
-      } catch (err) {
-        handleClientError(err, {
-          module: "services:httpClient",
-          action: "request",
-        });
-        if (err instanceof DOMException && err.name === "AbortError") {
-          return {
-            ok: false,
-            error: { code: 408, message: `请求超时 (${timeout}ms)` },
-          };
-        }
-        const message = err instanceof Error ? err.message : String(err);
-        return { ok: false, error: { code: 0, message } };
-      } finally {
-        clearTimeout(timer);
+      if (body !== undefined && method !== "GET") {
+        fetchOptions.body = JSON.stringify(body);
       }
+
+      return (await fetchWithRetry(url, fetchOptions, timeout)) as ApiResponse<T>;
     },
     { "http.method": method, "http.url": path },
   );
+}
+
+/**
+ * 带指数退避重试的 fetch 包装器
+ * 可重试状态码: 429, 503, 504
+ * 网络错误也重试（AbortError 除外）
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  timeout: number,
+): Promise<ApiResponse<unknown>> {
+  const RETRYABLE_STATUSES = new Set([429, 503, 504]);
+  const MAX_RETRIES = 3;
+  const BASE_BACKOFF_MS = 1000;
+
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const res = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+
+      // 可重试的 HTTP 错误状态码
+      if (!res.ok && RETRYABLE_STATUSES.has(res.status) && attempt < MAX_RETRIES) {
+        const delay = BASE_BACKOFF_MS * Math.pow(2, attempt);
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        return { ok: false, error: formatError(res.status, text) };
+      }
+
+      // 204 No Content
+      if (res.status === 204) {
+        return { ok: true, data: undefined };
+      }
+
+      const data = await res.json().catch(() => null);
+      return { ok: true, data: data as unknown };
+    } catch (err) {
+      clearTimeout(timer);
+      lastError = err;
+
+      // AbortError（超时）不重试
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return {
+          ok: false,
+          error: { code: 408, message: `请求超时 (${timeout}ms)` },
+        };
+      }
+
+      // 网络错误：重试
+      if (attempt < MAX_RETRIES) {
+        const delay = BASE_BACKOFF_MS * Math.pow(2, attempt);
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+    }
+  }
+
+  // 所有重试耗尽
+  handleClientError(lastError, {
+    module: "services:httpClient",
+    action: "request",
+  });
+  const message =
+    lastError instanceof Error ? lastError.message : String(lastError);
+  return { ok: false, error: { code: 0, message } };
 }
 
 // ─── httpLegacy（旧 API，后向兼容，抛异常）─────────────────────

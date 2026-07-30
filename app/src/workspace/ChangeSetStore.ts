@@ -17,11 +17,6 @@ import { join } from 'path';
 import type { ChangeSet, FileChange, FileChangeType } from './types';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'workspace:ChangeSetStore',
-  level: LogLevel.INFO,
-});
 
 /** 变更集存储子目录 */
 const CHANGESETS_DIR = 'changesets';

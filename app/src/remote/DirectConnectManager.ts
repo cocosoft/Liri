@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 直接连接管理器
  * 负责处理cc://协议直接连接
  */
@@ -159,7 +159,8 @@ export class DirectConnectManager {
       ws.onerror = (error) => {
         this.connected = false;
         const errorMsg =
-          (error as any).message || 'WebSocket connection failed';
+          (error as unknown as { message?: string }).message ||
+          'WebSocket connection failed';
         logger.error('Direct connect WebSocket error: ' + errorMsg);
         reject(new DirectConnectError('WebSocket connection failed'));
       };
@@ -188,7 +189,7 @@ export class DirectConnectManager {
   /**
    * 发送消息
    */
-  sendMessage(message: any): void {
+  sendMessage(message: unknown): void {
     if (this.connected && this.ws) {
       try {
         this.ws.send(JSON.stringify(message));
@@ -206,7 +207,7 @@ export class DirectConnectManager {
   /**
    * 监听消息
    */
-  onMessage(callback: (message: any) => void): void {
+  onMessage(callback: (message: unknown) => void): void {
     if (this.ws) {
       this.ws.onmessage = (event) => {
         try {

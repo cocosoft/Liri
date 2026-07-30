@@ -104,7 +104,7 @@ export interface Tool {
   name: string;
   description?: string;
   inputSchema?: Record<string, unknown>;
-  execute(input: any, context: ToolContext): Promise<ToolResult>;
+  execute(input: unknown, context: ToolContext): Promise<ToolResult>;
 }
 
 /**
@@ -196,7 +196,7 @@ export class DefaultToolExecutor implements IToolExecutor {
 
   private async executeWithTimeout(
     tool: Tool,
-    input: any,
+    input: unknown,
     context: ToolContext,
     attempt: number = 1
   ): Promise<ToolResult> {

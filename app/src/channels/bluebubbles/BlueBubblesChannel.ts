@@ -356,9 +356,9 @@ export class BlueBubblesChannel
 
         self.monitor.on('message', (msg: MessageContext) => {
           self.handleIncomingMessage(msg).catch((err) => {
-            self.logger.error('处理入站消息失败', {
-              error: String(err),
-              channel: 'bluebubbles',
+            handleError(err, {
+              module: 'channels:bluebubbles',
+              action: '处理入站消息失败',
             });
           });
         });

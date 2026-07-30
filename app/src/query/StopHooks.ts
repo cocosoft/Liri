@@ -7,6 +7,7 @@
  */
 
 import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'query:stopHooks' });
 
@@ -80,8 +81,9 @@ export class StopHookManager {
         try {
           await hook.hook(context);
         } catch (error) {
-          logger.error(`Stop hook "${hook.name}" failed`, {
-            error: error instanceof Error ? error.message : String(error),
+          await handleError(error, {
+            module: 'query:stopHooks',
+            action: '执行停止钩子',
           });
         }
       }

@@ -16,6 +16,7 @@ import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
+import { handleError } from '@modules/error';
 
 const logger = new OTelAwareLogger({
   module: 'knowledge:faq:handler',
@@ -80,7 +81,7 @@ export async function handleListFAQ(
 
     sendJson(res, 200, { entries, total, offset, limit });
   } catch (err) {
-    logger.error('列出 FAQ 失败', { error: (err as Error).message });
+    await handleError(err, { module: 'infra:handler:faq', action: 'list' });
     sendError(res, (err as Error).message, 500);
   }
 }
@@ -123,7 +124,7 @@ export async function handleCreateFAQ(
       sendError(res, 'FAQ 条目重复', 409);
       return;
     }
-    logger.error('创建 FAQ 失败', { error: (err as Error).message });
+    await handleError(err, { module: 'infra:handler:faq', action: 'create' });
     sendError(res, (err as Error).message, 500);
   }
 }
@@ -154,7 +155,7 @@ export async function handleUpdateFAQ(
 
     sendJson(res, 200, entry);
   } catch (err) {
-    logger.error('更新 FAQ 失败', { error: (err as Error).message });
+    await handleError(err, { module: 'infra:handler:faq', action: 'update' });
     sendError(res, (err as Error).message, 500);
   }
 }
@@ -177,7 +178,7 @@ export async function handleDeleteFAQ(
 
     sendJson(res, 200, { deleted: true });
   } catch (err) {
-    logger.error('删除 FAQ 失败', { error: (err as Error).message });
+    await handleError(err, { module: 'infra:handler:faq', action: 'delete' });
     sendError(res, (err as Error).message, 500);
   }
 }
@@ -202,7 +203,10 @@ export async function handleBatchDeleteFAQ(
 
     sendJson(res, 200, { deleted: count });
   } catch (err) {
-    logger.error('批量删除 FAQ 失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'infra:handler:faq',
+      action: 'batch_delete',
+    });
     sendError(res, (err as Error).message, 500);
   }
 }
@@ -233,7 +237,7 @@ export async function handleImportFAQ(
 
     sendJson(res, 200, report);
   } catch (err) {
-    logger.error('批量导入 FAQ 失败', { error: (err as Error).message });
+    await handleError(err, { module: 'infra:handler:faq', action: 'import' });
     sendError(res, (err as Error).message, 500);
   }
 }
@@ -271,7 +275,7 @@ export async function handleSearchFAQ(
 
     sendJson(res, 200, { entries, query });
   } catch (err) {
-    logger.error('搜索 FAQ 失败', { error: (err as Error).message });
+    await handleError(err, { module: 'infra:handler:faq', action: 'search' });
     sendError(res, (err as Error).message, 500);
   }
 }
@@ -294,7 +298,10 @@ export async function handleFAQCategories(
 
     sendJson(res, 200, { categories });
   } catch (err) {
-    logger.error('获取 FAQ 分类失败', { error: (err as Error).message });
+    await handleError(err, {
+      module: 'infra:handler:faq',
+      action: 'categories',
+    });
     sendError(res, (err as Error).message, 500);
   }
 }

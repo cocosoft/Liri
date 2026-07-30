@@ -10,6 +10,7 @@ import { OAuthDiscovery, createOAuthStorage } from '@modules/oauth';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 const logger = new Logger({
   module: 'services:mcp:auth:MCPAuth',
   level: LogLevel.INFO,
@@ -457,10 +458,10 @@ export class MCPAuthManager {
       logger.info(`MCP OAuth discovery successful for ${authServerUrl}`);
       return result;
     } catch (error) {
-      logger.error(
-        `MCP OAuth discovery failed for ${authServerUrl}:`,
-        error as Error
-      );
+      handleError(error, {
+        module: 'services:mcp:auth',
+        action: 'MCP OAuth发现失败',
+      });
       throw error;
     }
   }

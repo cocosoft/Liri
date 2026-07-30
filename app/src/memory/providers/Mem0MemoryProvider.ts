@@ -93,7 +93,7 @@ export class Mem0MemoryProvider implements ExternalMemoryProvider {
           ? data
           : [];
 
-      return results.map((item: any) => ({
+      return results.map((item: Record<string, unknown>) => ({
         id: String(item.id || ''),
         content: String(item.memory || item.content || ''),
         tags: Array.isArray(item.tags) ? item.tags : [],

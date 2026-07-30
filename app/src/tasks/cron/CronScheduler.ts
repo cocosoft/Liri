@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type {
   CronJob,
   CronJobResult,
@@ -245,15 +246,17 @@ export class CronScheduler {
             nextRun,
           });
         } catch (jobErr) {
-          logger.error('[CronScheduler] 恢复作业失败', {
-            jobId: job.id,
-            error: jobErr instanceof Error ? jobErr.message : String(jobErr),
+          handleError(jobErr, {
+            module: 'tasks:cron:scheduler',
+            action: '恢复作业失败',
+            context: { jobId: job.id },
           });
         }
       }
     } catch (err) {
-      logger.error('[CronScheduler] 恢复中断作业失败', {
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'tasks:cron:scheduler',
+        action: '恢复中断作业失败',
       });
     }
   }
@@ -315,15 +318,17 @@ export class CronScheduler {
           this.pendingJobs.add(jobPromise);
           jobPromise.finally(() => this.pendingJobs.delete(jobPromise));
         } catch (err) {
-          logger.error('[CronScheduler] 追赶作业失败', {
-            jobId: job.id,
-            error: err instanceof Error ? err.message : String(err),
+          handleError(err, {
+            module: 'tasks:cron:scheduler',
+            action: '追赶作业失败',
+            context: { jobId: job.id },
           });
         }
       }
     } catch (err) {
-      logger.error('[CronScheduler] 追赶遗漏作业失败', {
-        error: err instanceof Error ? err.message : String(err),
+      handleError(err, {
+        module: 'tasks:cron:scheduler',
+        action: '追赶遗漏作业失败',
       });
     }
   }
@@ -347,6 +352,10 @@ export class CronScheduler {
 
       return earliest;
     } catch (err) {
+      handleError(err, {
+        module: 'tasks:cron:scheduler',
+        action: 'getFirstUpcomingRunMs',
+      });
       return undefined;
     }
   }
@@ -386,8 +395,9 @@ export class CronScheduler {
 
       return toRun.length;
     } catch (error) {
-      logger.error('[CronScheduler] tick 检查失败', {
-        error: error instanceof Error ? error.message : String(error),
+      handleError(error, {
+        module: 'tasks:cron:scheduler',
+        action: 'tick 检查失败',
       });
       return 0;
     } finally {
@@ -496,9 +506,10 @@ export class CronScheduler {
         durationMs: Date.now() - startTime,
       };
 
-      logger.error('[CronScheduler] 作业执行异常', {
-        jobId: job.id,
-        error: result.error,
+      handleError(error, {
+        module: 'tasks:cron:scheduler',
+        action: '作业执行异常',
+        context: { jobId: job.id },
       });
     } finally {
       this.activeJobs--;
@@ -572,9 +583,10 @@ export class CronScheduler {
           deliveryError_ instanceof Error
             ? deliveryError_.message
             : String(deliveryError_);
-        logger.error('[CronScheduler] 投递失败', {
-          jobId: job.id,
-          error: deliveryError,
+        handleError(deliveryError_, {
+          module: 'tasks:cron:scheduler',
+          action: '投递失败',
+          context: { jobId: job.id },
         });
         await this.store.markJobRun(
           job.id,

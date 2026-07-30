@@ -419,7 +419,7 @@ export function createLSPClient(
         initializationOptions: {},
       });
 
-      capabilities = (result as any)?.capabilities as
+      capabilities = (result as Record<string, unknown>)?.capabilities as
         | Record<string, unknown>
         | undefined;
 

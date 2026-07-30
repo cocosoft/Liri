@@ -91,11 +91,6 @@ export class VideoGenerationRouter {
 
     const allErrors = `所有视频生成 Provider 均失败 (${errors.length} 个已尝试): ${errors.join('; ')}`;
 
-    logger.error('VideoGenerationRouter . 全部 Provider 失败', {
-      providerCount: this.providers.length,
-      errors,
-      prompt: (params as any).prompt?.slice(0, 80),
-    });
     await handleError(
       new AppError(
         allErrors,

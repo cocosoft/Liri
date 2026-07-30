@@ -41,7 +41,12 @@ function getRegistryPath(): string {
  * 获取默认工作空间根目录
  */
 export function getDefaultWorkspaceRoot(): string {
-  return join(os.homedir(), 'workspace');
+  try {
+    const { resolveDataSubDir } = require('@modules/core/paths');
+    return resolveDataSubDir('workspaces');
+  } catch {
+    return join(os.homedir(), 'workspace');
+  }
 }
 
 /**

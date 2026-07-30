@@ -3,6 +3,7 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error/handleError';
 import {
   AIAgent,
   AgentConfig,
@@ -156,10 +157,7 @@ export class AIAgentImpl implements AIAgent {
       // 增强错误处理
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      logger.error(
-        `Agent ${this.name} failed to execute task ${task.name}:`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      handleError(error, { module: 'agent:impl', action: 'Agent执行任务' });
 
       await this.emitEvent('agent:execute:error', {
         taskId: task.id,
@@ -587,7 +585,7 @@ export class AIAgentImpl implements AIAgent {
    * 序列化代理
    * @returns 序列化的数据
    */
-  serialize(): any {
+  serialize(): unknown {
     return {
       id: this.id,
       name: this.name,
@@ -604,27 +602,35 @@ export class AIAgentImpl implements AIAgent {
    * @param data 序列化的数据
    * @returns AI代理实例
    */
-  static deserialize(data: any): AIAgent {
-    const agent = new AIAgentImpl(data.config);
-    agent.id = data.id;
-    agent.name = data.name;
-    agent.state = data.state;
+  static deserialize(data: unknown): AIAgent {
+    const d = data as {
+      config: AgentConfig;
+      id: string;
+      name: string;
+      state: AgentState;
+      memory?: Record<string, unknown>;
+      createdAt: number;
+      updatedAt: number;
+    };
+    const agent = new AIAgentImpl(d.config);
+    agent.id = d.id;
+    agent.name = d.name;
+    agent.state = d.state;
 
     // 恢复内存数据
-    if (data.memory) {
-      for (const [key, value] of Object.entries(data.memory)) {
+    if (d.memory) {
+      for (const [key, value] of Object.entries(d.memory)) {
         agent.memory.add(key, value);
       }
     }
 
-    agent.createdAt = data.createdAt;
-    agent.updatedAt = data.updatedAt;
+    agent.createdAt = d.createdAt;
+    agent.updatedAt = d.updatedAt;
     return agent;
   }
 
   /**
    * 保存 Agent 状态到磁盘
-   * 对标 Hermes AIAgent.save_state()
    * @param path 保存路径（可选，默认 app/data/sessions/<id>.json）
    * @returns 保存路径
    */
@@ -655,7 +661,6 @@ export class AIAgentImpl implements AIAgent {
 
   /**
    * 导出 Agent 状态为可序列化 JSON 对象
-   * 对标 Hermes AIAgent.export_state()
    * @returns 可序列化的状态对象
    */
   exportState(): Record<string, unknown> {
@@ -674,7 +679,6 @@ export class AIAgentImpl implements AIAgent {
 
   /**
    * 从磁盘加载 Agent 状态
-   * 对标 Hermes AIAgent.load_state()
    * @param path 保存路径
    * @returns 恢复的 Agent 实例
    */
@@ -711,7 +715,6 @@ export class AIAgentImpl implements AIAgent {
 
   /**
    * 保存对话轨迹
-   * 对标 Hermes trajectory.save_trajectory()
    * @param messages 对话消息列表
    * @param completed 是否正常完成
    */

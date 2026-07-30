@@ -4,6 +4,7 @@
  */
 import * as path from 'path';
 import * as os from 'os';
+import { containsPathTraversal, expandTilde } from '@modules/core/paths';
 
 /**
  * 路径类型
@@ -28,7 +29,8 @@ export interface PathCheckResult {
 export function normalizePath(inputPath: string): string {
   let normalized = inputPath.trim();
 
-  normalized = normalized.replace(/^~\//, os.homedir() + '/');
+  // 使用统一的 tilde 展开函数（支持 ~/ 和 ~\）
+  normalized = expandTilde(normalized);
 
   normalized = path.normalize(normalized);
 
@@ -291,14 +293,15 @@ export function validatePathSafety(
   targetPath: string,
   baseDirectory: string
 ): { safe: boolean; reason?: string } {
+  // Step 1: 先检测路径遍历（在 normalize 之前，防止 .. 被解析掉）
+  if (containsPathTraversal(targetPath)) {
+    return { safe: false, reason: '禁止使用路径遍历' };
+  }
+
   const normalized = normalizePath(targetPath);
 
   if (normalized === '/') {
     return { safe: false, reason: '禁止访问根目录' };
-  }
-
-  if (normalized.includes('..')) {
-    return { safe: false, reason: '禁止使用路径遍历' };
   }
 
   for (const sensitiveDir of SENSITIVE_DIRECTORIES) {

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 用户反馈模块
  * 实现用户反馈收集、处理和管理功能
  */
@@ -107,7 +107,10 @@ export class FeedbackManager {
       const entries = Array.from(this.cache.values());
       writeFileSync(this.feedbackFile, JSON.stringify(entries, null, 2));
     } catch (error) {
-      logger.error('Failed to save feedback data:', error as any);
+      logger.error(
+        'Failed to save feedback data:',
+        error as unknown as Record<string, unknown>
+      );
     }
   }
 
@@ -357,7 +360,10 @@ export class FeedbackManager {
       this.saveFeedback();
       this.stats = null;
     } catch (error) {
-      logger.error('Failed to import feedback:', error as any);
+      logger.error(
+        'Failed to import feedback:',
+        error as unknown as Record<string, unknown>
+      );
     }
 
     return { imported, skipped };

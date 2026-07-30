@@ -393,7 +393,8 @@ export class OpenAIProvider extends BaseAIProvider {
       params.format === 'png' &&
       params.quality === 'standard' &&
       model === 'gpt-image-2' &&
-      (params as any).background === 'transparent'
+      (params as unknown as Record<string, unknown>).background ===
+        'transparent'
     ) {
       logger.info('OpenAIProvider.generateImage() · 透明背景自动路由', {
         from: model,

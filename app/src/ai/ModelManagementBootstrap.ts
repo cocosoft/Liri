@@ -33,6 +33,7 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import type { ProviderType } from '@modules/ai/providers/ProviderManager.js';
 
 const logger = new Logger({
   module: 'ai:modelManagementBootstrap',
@@ -45,7 +46,7 @@ interface EnvPreset {
   baseUrlKey: string;
   defaultBaseUrl: string;
   name: string;
-  providerType: string;
+  providerType: ProviderType;
 }
 
 const ENV_PRESETS: EnvPreset[] = [
@@ -134,7 +135,7 @@ async function seedEnvProvidersToDB(dedupNames: Set<string>): Promise<number> {
       try {
         await providerManager.createProvider({
           name: preset.name,
-          providerType: preset.providerType as any,
+          providerType: preset.providerType,
           baseUrl,
           apiKey,
         });
@@ -149,8 +150,9 @@ async function seedEnvProvidersToDB(dedupNames: Set<string>): Promise<number> {
 
     return seeded;
   } catch (err) {
-    logger.warning('环境变量 seed 失败', {
-      error: (err as Error).message,
+    void handleError(err, {
+      module: 'ai:modelManagementBootstrap',
+      action: 'seedEnvProviders',
     });
     return 0;
   }
@@ -246,8 +248,10 @@ export async function initializeModelManagementServices(): Promise<void> {
       initialized++;
       logger.debug(`模型管理服务已初始化: ${svc.name}`);
     } catch (err) {
-      logger.warning(`模型管理服务初始化失败（非关键）: ${svc.name}`, {
-        error: (err as Error).message,
+      void handleError(err, {
+        module: 'ai:modelManagementBootstrap',
+        action: 'initService',
+        context: { serviceName: svc.name },
       });
     }
   }
@@ -264,8 +268,9 @@ export async function initializeModelManagementServices(): Promise<void> {
     );
     seeded = await seedEnvProvidersToDB(dedupNames);
   } catch (err) {
-    logger.warning('seed 流程失败（非关键）', {
-      error: (err as Error).message,
+    void handleError(err, {
+      module: 'ai:modelManagementBootstrap',
+      action: 'seedProvidersToDB',
     });
   }
 
@@ -279,8 +284,9 @@ export async function initializeModelManagementServices(): Promise<void> {
       logger.info(`已同步 ${synced} 个 DB 供应商到 ProviderRegistry`);
     }
   } catch (err) {
-    logger.warning('DB供应商同步失败（非关键）', {
-      error: (err as Error).message,
+    void handleError(err, {
+      module: 'ai:modelManagementBootstrap',
+      action: 'syncDBProvidersToRegistry',
     });
   }
 

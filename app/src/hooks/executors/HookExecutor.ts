@@ -204,7 +204,7 @@ export class HookExecutor {
    * 检查异步Hook响应
    * @returns 响应列表
    */
-  public async checkAsyncHookResponses(): Promise<any[]> {
+  public async checkAsyncHookResponses(): Promise<unknown[]> {
     const responses = await asyncHookRegistry.checkForAsyncHookResponses();
     return responses;
   }

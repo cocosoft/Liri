@@ -9,6 +9,7 @@ import { mkdir, readFile, writeFile, unlink, readdir, stat } from 'fs/promises';
 import { join, extname } from 'path';
 import { createHash } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'channels:media' });
 
@@ -190,8 +191,9 @@ export class MediaCache {
 
     this.cleanupTimer = setInterval(() => {
       this.cleanup().catch((err) => {
-        logger.error('MediaCache 清理失败', {
-          error: String(err),
+        handleError(err, {
+          module: 'channels:cache',
+          action: 'MediaCache 清理失败',
         });
       });
     }, this.config.cleanupInterval);
@@ -522,9 +524,10 @@ export class MediaCache {
       await writeFile(this.diskPath(key), data);
       await writeFile(this.metaPath(key), JSON.stringify(meta));
     } catch (err) {
-      logger.warning('MediaCache 磁盘写入失败', {
-        key,
-        error: String(err),
+      void handleError(err, {
+        module: 'channels:media',
+        action: 'writeToDisk',
+        context: { key },
       });
     }
   }
@@ -615,9 +618,10 @@ export class MediaCache {
 
     // 异步写入磁盘（不阻塞返回）
     this.writeToDisk(key, data, meta).catch((err) => {
-      logger.warning('MediaCache 异步磁盘写入失败', {
-        error: String(err),
-        url,
+      void handleError(err, {
+        module: 'channels:media',
+        action: 'asyncWriteToDisk',
+        context: { url },
       });
     });
 

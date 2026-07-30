@@ -16,8 +16,10 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import type { ChatMessage } from '@modules/ai';
 import type { AIProvider } from '@modules/ai';
+import { trackUsage } from '@modules/ai';
 
 const logger = new Logger({ module: 'agent:btwHandler', level: LogLevel.INFO });
 
@@ -122,8 +124,15 @@ export class BtwHandler {
     ];
 
     try {
+      const _trackStart = Date.now();
       const response = await this.provider.chat(messages, {
         model: this.config.model,
+      });
+
+      trackUsage(response, {
+        model: this.config.model,
+        providerId: this.provider.id,
+        latencyMs: Date.now() - _trackStart,
       });
 
       logger.info('侧问处理完成', {
@@ -136,10 +145,7 @@ export class BtwHandler {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
 
-      logger.error('侧问处理失败', {
-        error: errorMessage,
-        question: question.slice(0, 100),
-      });
+      handleError(error, { module: 'agent:btw', action: '侧问处理' });
 
       return `处理侧问时出错：${errorMessage}`;
     }

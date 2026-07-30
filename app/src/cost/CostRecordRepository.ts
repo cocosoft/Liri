@@ -407,7 +407,7 @@ export class CostRecordRepository {
       this.db?.get(
         `SELECT * FROM ${COST_SESSION_SUMMARY_TABLE} WHERE session_id = ?`,
         [sessionId],
-        (err: Error | null, row: any) => {
+        (err: Error | null, row: unknown) => {
           if (err) {
             reject(err);
           } else {
@@ -438,7 +438,7 @@ export class CostRecordRepository {
         ORDER BY timestamp DESC
         LIMIT ? OFFSET ?`,
         [sessionId, limit, offset],
-        (err: Error | null, rows: any[]) => {
+        (err: Error | null, rows: unknown[]) => {
           if (err) {
             reject(err);
           } else {
@@ -448,7 +448,9 @@ export class CostRecordRepository {
       );
     });
 
-    return rows.map((row) => this.rowToCostRecord(row));
+    return rows.map((row) =>
+      this.rowToCostRecord(row as Record<string, unknown>)
+    );
   }
 
   async getCostRecords(filter: CostQueryFilter): Promise<CostRecordRow[]> {
@@ -489,7 +491,7 @@ export class CostRecordRepository {
         ORDER BY timestamp DESC
         ${limitClause} ${offsetClause}`,
         params,
-        (err: Error | null, rows: any[]) => {
+        (err: Error | null, rows: unknown[]) => {
           if (err) {
             reject(err);
           } else {
@@ -499,7 +501,9 @@ export class CostRecordRepository {
       );
     });
 
-    return rows.map((row) => this.rowToCostRecord(row));
+    return rows.map((row) =>
+      this.rowToCostRecord(row as Record<string, unknown>)
+    );
   }
 
   async getAggregatedCosts(filter: CostQueryFilter): Promise<CostAggregation> {
@@ -543,7 +547,7 @@ export class CostRecordRepository {
         FROM ${COST_RECORDS_TABLE}
         ${whereClause}`,
         params,
-        (err: Error | null, row: any) => {
+        (err: Error | null, row: unknown) => {
           if (err) {
             reject(err);
           } else {
@@ -567,7 +571,7 @@ export class CostRecordRepository {
         GROUP BY model
         ORDER BY total_cost DESC`,
         params,
-        (err: Error | null, rows: any[]) => {
+        (err: Error | null, rows: unknown[]) => {
           if (err) {
             reject(err);
           } else {
@@ -671,7 +675,7 @@ export class CostRecordRepository {
         ORDER BY updated_at DESC
         LIMIT ? OFFSET ?`,
         [limit, offset],
-        (err: Error | null, rows: any[]) => {
+        (err: Error | null, rows: unknown[]) => {
           if (err) {
             reject(err);
           } else {
@@ -693,20 +697,20 @@ export class CostRecordRepository {
     }
   }
 
-  private rowToCostRecord(row: any): CostRecordRow {
+  private rowToCostRecord(row: Record<string, unknown>): CostRecordRow {
     return {
-      id: row.id,
-      sessionId: row.session_id,
-      model: row.model,
-      inputTokens: row.input_tokens,
-      outputTokens: row.output_tokens,
-      cacheReadTokens: row.cache_read_tokens,
-      cacheCreationTokens: row.cache_creation_tokens,
-      costUSD: row.cost_usd,
-      durationMs: row.duration_ms,
-      requestId: row.request_id || undefined,
-      timestamp: row.timestamp,
-      createdAt: row.created_at,
+      id: row.id as string,
+      sessionId: row.session_id as string,
+      model: row.model as string,
+      inputTokens: row.input_tokens as number,
+      outputTokens: row.output_tokens as number,
+      cacheReadTokens: row.cache_read_tokens as number,
+      cacheCreationTokens: row.cache_creation_tokens as number,
+      costUSD: row.cost_usd as number,
+      durationMs: row.duration_ms as number,
+      requestId: (row.request_id as string | null) || undefined,
+      timestamp: row.timestamp as number,
+      createdAt: row.created_at as number,
     };
   }
 

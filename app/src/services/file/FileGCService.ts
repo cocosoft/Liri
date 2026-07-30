@@ -99,7 +99,11 @@ export class FileGCService {
             } catch (err) {
               const msg = `清理失败: ${filePath} - ${(err as Error).message}`;
               result.errors.push(msg);
-              logger.warning(msg);
+              void handleError(err, {
+                module: 'services:file:gc',
+                action: 'cleanOrphan',
+                context: { filePath },
+              });
             }
           }
         }

@@ -1,5 +1,6 @@
 import type { Memory } from '@modules/memory/types/Memory';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'services:teamMemorySync',
@@ -85,10 +86,10 @@ export class TeamMemorySyncServiceImpl implements TeamMemorySyncService {
       logger.info('[TeamMemorySync] Sync completed successfully');
       return true;
     } catch (error) {
-      logger.error(
-        '[TeamMemorySync] Sync failed',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      void handleError(error, {
+        module: 'services:teamMemory',
+        action: '同步团队记忆失败',
+      });
       this.syncState.lastError = (error as Error).message;
       return false;
     }
@@ -136,10 +137,10 @@ export class TeamMemorySyncServiceImpl implements TeamMemorySyncService {
 
       return true;
     } catch (error) {
-      logger.error(
-        '[TeamMemorySync] Conflict resolution failed',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      void handleError(error, {
+        module: 'services:teamMemory',
+        action: '解决同步冲突失败',
+      });
       return false;
     }
   }
@@ -169,10 +170,10 @@ export class TeamMemorySyncServiceImpl implements TeamMemorySyncService {
 
       return true;
     } catch (error) {
-      logger.error(
-        '[TeamMemorySync] Share to team failed',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      void handleError(error, {
+        module: 'services:teamMemory',
+        action: '分享记忆到团队失败',
+      });
       return false;
     }
   }
@@ -194,10 +195,10 @@ export class TeamMemorySyncServiceImpl implements TeamMemorySyncService {
 
       return memory || null;
     } catch (error) {
-      logger.error(
-        '[TeamMemorySync] Get from team failed',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      void handleError(error, {
+        module: 'services:teamMemory',
+        action: '从团队获取记忆失败',
+      });
       return null;
     }
   }

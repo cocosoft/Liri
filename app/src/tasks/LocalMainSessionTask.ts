@@ -18,6 +18,7 @@ import { BaseTask } from './BaseTask';
 import { TaskType, TaskStatus } from './types';
 import { taskRegistry } from './TaskRegistry';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'tasks:localMainSession',
@@ -65,7 +66,7 @@ export function registerMainSessionTask(
   task.markBackgrounded(true);
   taskRegistry.register(task);
   task.spawn().catch((error: Error) => {
-    logger.error('Main session task spawn failed', error);
+    handleError(error, { module: 'tasks:localMainSession', action: 'spawn' });
   });
   return taskId;
 }

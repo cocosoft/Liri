@@ -14,6 +14,7 @@ import {
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { resolvePyappHome } from '@modules/core';
 
 const logger = new Logger({
@@ -183,10 +184,7 @@ export class TeammateMailbox {
       writeFileSync(mailboxPath, JSON.stringify(messages, null, 2), 'utf-8');
       logger.debug(`Wrote message to mailbox ${recipientId}: ${message.type}`);
     } catch (error) {
-      logger.error(
-        `Failed to write to mailbox ${recipientId}:`,
-        error as Error
-      );
+      handleError(error, { module: 'agent:mailbox', action: '写入Mailbox' });
     }
   }
 
@@ -234,7 +232,7 @@ export class TeammateMailbox {
         unlinkSync(mailboxPath);
       }
     } catch (error) {
-      logger.error(`Failed to clear mailbox ${recipientId}:`, error as Error);
+      handleError(error, { module: 'agent:mailbox', action: '清空Mailbox' });
     }
   }
 

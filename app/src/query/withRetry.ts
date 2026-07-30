@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 实现指数退避重试、529过载处理、瞬态错误检测
  * 支持可配置的重试条件和自定义重试判断
  *
@@ -104,7 +104,7 @@ export const DEFAULT_RETRY_CONFIG: RetryConfig = {
  * 判断是否为529过载错误
  */
 export function is529Error(error: unknown): boolean {
-  const err = error as any;
+  const err = error as Record<string, unknown>;
   return err?.status === 529 || err?.statusCode === 529;
 }
 
@@ -112,7 +112,7 @@ export function is529Error(error: unknown): boolean {
  * 判断是否为瞬态容量错误（529或429）
  */
 export function isTransientCapacityError(error: unknown): boolean {
-  const err = error as any;
+  const err = error as Record<string, unknown>;
   const status = err?.status || err?.statusCode;
   return status === 529 || status === 429;
 }
@@ -121,8 +121,8 @@ export function isTransientCapacityError(error: unknown): boolean {
  * 判断是否为过期连接错误（ECONNRESET/EPIPE）
  */
 export function isStaleConnectionError(error: unknown): boolean {
-  const err = error as any;
-  const msg = (err?.message || '').toLowerCase();
+  const err = error as Record<string, unknown>;
+  const msg = String(err?.message || '').toLowerCase();
   return msg.includes('econnreset') || msg.includes('epipe');
 }
 
@@ -152,8 +152,8 @@ export class CannotRetryError extends AppError {
  * @returns 错误分类结果
  */
 export function categorizeAPIError(error: unknown): APIErrorClassification {
-  const err = error as any;
-  const msg = (err.message || '').toString().toLowerCase();
+  const err = error as Record<string, unknown>;
+  const msg = String(err.message || '').toLowerCase();
   const statusCode = err.status || err.statusCode;
 
   // 速率限制
@@ -162,11 +162,15 @@ export function categorizeAPIError(error: unknown): APIErrorClassification {
     msg.includes('rate_limit') ||
     msg.includes('rate limit')
   ) {
-    const retryAfter = err.retryAfterMs || err.headers?.['retry-after'];
+    const retryAfter =
+      err.retryAfterMs ||
+      (err.headers as Record<string, unknown>)?.['retry-after'];
     return {
       type: RetryableErrorType.RATE_LIMIT,
       retryable: true,
-      retryAfterMs: retryAfter ? parseInt(retryAfter) * 1000 : undefined,
+      retryAfterMs: retryAfter
+        ? parseInt(String(retryAfter)) * 1000
+        : undefined,
     };
   }
 
@@ -228,7 +232,7 @@ export function categorizeAPIError(error: unknown): APIErrorClassification {
   }
 
   // 客户端错误（4xx，除429外）不可重试
-  if (statusCode && statusCode >= 400 && statusCode < 500) {
+  if (statusCode && Number(statusCode) >= 400 && Number(statusCode) < 500) {
     return {
       type: RetryableErrorType.UNKNOWN,
       retryable: false,

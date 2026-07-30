@@ -6,6 +6,7 @@
 import type { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { McpTlsConfig } from './McpTlsManager';
 
@@ -105,12 +106,18 @@ export class WebSocketTransport extends MCPTransport {
               this.pendingRequests.delete(requestId);
             }
           } catch (error) {
-            logger.error(`Failed to parse WebSocket response: ${event.data}`);
+            handleError(error, {
+              module: 'services:mcp:ws',
+              action: '解析WebSocket响应失败',
+            });
           }
         };
 
         this.socket.onerror = (error) => {
-          logger.error('WebSocket error:', { error });
+          handleError(
+            error instanceof Error ? error : new Error('WebSocket error'),
+            { module: 'services:mcp:ws', action: 'WebSocket连接错误' }
+          );
         };
 
         this.socket.onclose = (event) => {
@@ -148,7 +155,10 @@ export class WebSocketTransport extends MCPTransport {
       try {
         await this.connect();
       } catch (error) {
-        logger.error('WebSocket reconnect failed:', { error });
+        handleError(error, {
+          module: 'services:mcp:ws',
+          action: 'WebSocket重连失败',
+        });
       }
     }, delay);
   }
@@ -180,7 +190,10 @@ export class WebSocketTransport extends MCPTransport {
           }
         }, this.heartbeatTimeout);
       } catch (error) {
-        logger.error('WebSocket 心跳发送失败', { error });
+        handleError(error, {
+          module: 'services:mcp:ws',
+          action: 'WebSocket心跳发送失败',
+        });
       }
     }, this.heartbeatInterval);
   }

@@ -1,5 +1,6 @@
 import { execSync } from 'child_process';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'core:delivery:monitor:diskSpaceMonitor',
@@ -66,10 +67,10 @@ export class DiskSpaceMonitor {
 
       return disks;
     } catch (err) {
-      logger.error(
-        '磁盘空间检查失败',
-        err instanceof Error ? err : new Error(String(err))
-      );
+      handleError(err, {
+        module: 'core:monitor',
+        action: 'check_disk',
+      });
       return [];
     }
   }

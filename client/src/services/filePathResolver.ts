@@ -13,6 +13,10 @@ export async function resolveFilePath(rawPath: string): Promise<string> {
   );
   if (res.ok) {
     const data = await res.json();
+    // 检查后端返回的 exists 和 restricted 标志
+    if (data.restricted || data.exists === false) {
+      return rawPath; // 文件不在允许范围内或不存在，返回原始路径让后续 file-read 给出准确错误
+    }
     return data.resolvedPath;
   }
   return rawPath;

@@ -1,10 +1,15 @@
-﻿/**
+/**
  * 延迟加载服务
  * 参考CC源码的延迟加载模式（如defer_loading工具、懒加载模块等）
  * 提供按需加载、缓存、状态追踪等功能
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'LazyService' });
@@ -295,10 +300,10 @@ export class LazyService {
       item.status = 'failed';
       item.error = (error as Error).message;
 
-      logger.error(
-        `Lazy item failed: ${key}`,
-        error instanceof Error ? error : new Error(String(error))
-      );
+      await handleError(error, {
+        module: 'core:lazy',
+        action: 'load_item',
+      });
       throw error;
     }
   }

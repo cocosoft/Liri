@@ -34,6 +34,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
   level: LogLevel.INFO,
@@ -254,8 +255,11 @@ export class ImageInputRouter {
         extremeSize: `${(extreme.length / 1024).toFixed(0)}KB`,
       });
       return { buffer: extreme, shrunk: true };
-    } catch {
-      logger.error('ImageInputRouter · 极端压缩失败，返回原图');
+    } catch (err) {
+      await handleError(err, {
+        module: 'tools:imageInput',
+        action: '极端压缩失败',
+      });
       return { buffer: image, shrunk: false };
     }
   }

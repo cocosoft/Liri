@@ -103,7 +103,8 @@ export abstract class BaseTask extends EventEmitter {
     };
   }
 
-  protected updateState(updates: Partial<TaskState>): void {
+  // BUG-8 fix: 从 protected 改为 public，TaskRegistry 不需要字符串索引绕过
+  public updateState(updates: Partial<TaskState>): void {
     this.state = { ...this.state, ...updates };
     this.emit('stateChanged', this.state);
   }

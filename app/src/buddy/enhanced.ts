@@ -53,7 +53,9 @@ export class EnhancedCompanionSystem {
   }
 
   validateAttributes(attributes: Record<string, number>): boolean {
-    return this.attributeSystem.validateAttributes(attributes as any);
+    return this.attributeSystem.validateAttributes(
+      attributes as unknown as Record<string, number>
+    );
   }
 
   getAttributeDistribution(samples: CompanionBones[]): AttributeDistribution {

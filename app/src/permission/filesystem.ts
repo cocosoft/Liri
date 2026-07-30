@@ -3,6 +3,10 @@ import { PermissionBehavior } from './types/PermissionRule';
 import type { PermissionDecision, PermissionResult } from './PermissionResult';
 import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
+import { isPathWithin, containsPathTraversal } from '@modules/core/paths';
+
+// 重新导出，供 permission/index.ts 使用
+export { containsPathTraversal };
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -72,39 +76,29 @@ export function isInDangerousDirectory(filePath: string): boolean {
   return parts.some((p) => (merged as readonly string[]).includes(p));
 }
 
-export function containsPathTraversal(filePath: string): boolean {
-  return filePath.includes('..');
-}
-
 export function isWithinWorkingDirectory(
   filePath: string,
   cwd: string
 ): boolean {
-  const resolved = path.resolve(cwd, filePath);
-  // 检查是否在 cwd 内
-  if (resolved.startsWith(path.resolve(cwd))) return true;
+  if (isPathWithin(cwd, filePath)) return true;
 
   // 检查是否在任何信任工作区内（多工作区支持）
   try {
     const permission = configManager.getConfigValue<any>('permission');
     const workspaces = permission?.trustedWorkspaces;
     if (workspaces && workspaces.length > 0) {
+      const resolved = path.resolve(cwd, filePath);
       const normalizedPath = resolved.replace(/\\/g, '/');
       for (const ws of workspaces) {
         if (!ws.enabled) continue;
-        // 用 path.resolve 解析工作区路径，确保与 resolvedPath 在同一前缀级别（含盘符）
         const wsResolved = path.resolve(ws.path).replace(/\\/g, '/');
-        if (
-          normalizedPath === wsResolved ||
-          normalizedPath.startsWith(wsResolved + '/')
-        ) {
+        if (isPathWithin(wsResolved, normalizedPath)) {
           return true;
         }
       }
     }
   } catch (err) {
     // config 不可用时静默降级，仅使用 cwd 检查
-
     handleError(err, {
       module: 'permission:filesystem',
       action: 'loadWorkspaceConfig',

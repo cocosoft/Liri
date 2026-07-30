@@ -44,7 +44,7 @@ export class LLMOutputValidator {
     return { valid: errors.length === 0, errors, warnings };
   }
 
-  static validateToolCalls(toolCalls: any[]): OutputValidationResult {
+  static validateToolCalls(toolCalls: unknown[]): OutputValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 
@@ -54,17 +54,18 @@ export class LLMOutputValidator {
     }
 
     for (const tc of toolCalls) {
-      if (!tc.id) {
+      const call = tc as Record<string, unknown>;
+      if (!call.id) {
         errors.push('工具调用缺少id');
       }
 
-      if (!tc.name) {
+      if (!call.name) {
         errors.push('工具调用缺少name');
       }
 
-      if (tc.arguments && typeof tc.arguments === 'string') {
+      if (call.arguments && typeof call.arguments === 'string') {
         try {
-          JSON.parse(tc.arguments);
+          JSON.parse(call.arguments as string);
         } catch {
           errors.push('工具调用参数不是有效的JSON');
         }

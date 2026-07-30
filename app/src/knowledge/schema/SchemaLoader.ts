@@ -19,7 +19,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
 /**
  * Schema 加载器 — SchemaLoader
  *
@@ -197,15 +196,18 @@ export class SchemaLoader {
     }
 
     try {
-      const doc = load(readFileSync(filePath, 'utf-8')) as any;
+      const doc = load(readFileSync(filePath, 'utf-8')) as Record<
+        string,
+        unknown
+      >;
       if (!doc || !Array.isArray(doc.entities)) {
         logger.warning('entities.yaml 格式无效：缺少 entities 数组');
         return map;
       }
 
-      for (const item of doc.entities) {
+      for (const item of doc.entities as Array<Record<string, unknown>>) {
         if (item.kind) {
-          map.set(item.kind, item as EntitySchema);
+          map.set(item.kind as string, item as unknown as EntitySchema);
         }
       }
       logger.info(`已加载 ${map.size} 个实体类型定义`);
@@ -232,15 +234,18 @@ export class SchemaLoader {
     }
 
     try {
-      const doc = load(readFileSync(filePath, 'utf-8')) as any;
+      const doc = load(readFileSync(filePath, 'utf-8')) as Record<
+        string,
+        unknown
+      >;
       if (!doc || !Array.isArray(doc.edges)) {
         logger.warning('edges.yaml 格式无效：缺少 edges 数组');
         return map;
       }
 
-      for (const item of doc.edges) {
+      for (const item of doc.edges as Array<Record<string, unknown>>) {
         if (item.type) {
-          map.set(item.type, item as EdgeSchema);
+          map.set(item.type as string, item as unknown as EdgeSchema);
         }
       }
       logger.info(`已加载 ${map.size} 个关系类型定义`);
@@ -266,14 +271,17 @@ export class SchemaLoader {
     }
 
     try {
-      const doc = load(readFileSync(filePath, 'utf-8')) as any;
+      const doc = load(readFileSync(filePath, 'utf-8')) as Record<
+        string,
+        unknown
+      >;
       if (!doc || !Array.isArray(doc.xref)) {
         logger.warning('xref.yaml 格式无效：缺少 xref 数组');
         return [];
       }
 
-      logger.info(`已加载 ${doc.xref.length} 个链接契约`);
-      return doc.xref as XrefRule[];
+      logger.info(`已加载 ${(doc.xref as unknown[]).length} 个链接契约`);
+      return doc.xref as unknown as XrefRule[];
     } catch (err) {
       await handleError(err, {
         module: 'knowledge:schema',

@@ -325,7 +325,6 @@ export class TTSTool extends BaseTool<Record<string, unknown>> {
                 } catch (error) {
                   const errorMsg =
                     error instanceof Error ? error.message : String(error);
-                  logger.error('TTSTool · 语音保存失败', { error: errorMsg });
                   void handleError(error, {
                     module: 'tools:tts',
                     action: 'save',
@@ -368,7 +367,6 @@ export class TTSTool extends BaseTool<Record<string, unknown>> {
               } catch (error) {
                 const errorMsg =
                   error instanceof Error ? error.message : String(error);
-                logger.error('TTSTool · 语音合成失败', { error: errorMsg });
                 void handleError(error, {
                   module: 'tools:tts',
                   action: 'speak',
@@ -393,7 +391,6 @@ export class TTSTool extends BaseTool<Record<string, unknown>> {
         } catch (error) {
           const errorMsg =
             error instanceof Error ? error.message : String(error);
-          logger.error('TTSTool · 执行失败', { error: errorMsg });
           void handleError(error, {
             module: 'tools:tts',
             action: 'execute',

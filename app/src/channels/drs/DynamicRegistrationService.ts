@@ -179,7 +179,11 @@ export class DynamicRegistrationService extends EventEmitter {
       } catch (error) {
         const msg = `${candidate.type}: ${error instanceof Error ? error.message : String(error)}`;
         result.errors.push(msg);
-        logger.error('DRS 通道注册失败', { type: candidate.type, error: msg });
+        handleError(error, {
+          module: 'channels:drs',
+          action: 'DRS 通道注册失败',
+          context: { type: candidate.type },
+        });
       }
     }
 
@@ -253,9 +257,10 @@ export class DynamicRegistrationService extends EventEmitter {
       try {
         await plugin.lifecycle.disconnect();
       } catch (error) {
-        logger.warning('DRS 断开连接时出错', {
-          id,
-          error: String(error),
+        void handleError(error, {
+          module: 'channels:drs',
+          action: 'disconnect',
+          context: { id },
         });
       }
     }
@@ -302,10 +307,9 @@ export class DynamicRegistrationService extends EventEmitter {
         reg.error = errMsg;
       }
 
-      logger.error('DRS: 通道连接失败', { id, error: errMsg });
       await handleError(error, {
         module: 'channels:drs',
-        action: 'connect',
+        action: 'DRS: 通道连接失败',
         context: { id },
       });
       this.emit('channel:error', { id, error: errMsg });

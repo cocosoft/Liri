@@ -18,7 +18,6 @@ import { join, dirname } from 'path';
 import { existsSync } from 'fs';
 import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
 import { LLMPerformanceMonitor } from '@modules/ai/utils/LLMPerformanceMonitor';
 import { handleError } from '@modules/error';
 import type { AIService, AIMessage } from '@modules/ai';
@@ -203,7 +202,7 @@ export class KnowledgeCompiler {
               mtime: rawStat.mtimeMs,
               compiledAt: compileState?.docs[rawFile]?.compiledAt ?? Date.now(),
             };
-          } catch (err) {
+          } catch (_err) {
             // stat 失败忽略
           }
           result.skipped++;
@@ -223,7 +222,7 @@ export class KnowledgeCompiler {
             mtime: rawStat.mtimeMs,
             compiledAt: Date.now(),
           };
-        } catch (err) {
+        } catch (_err) {
           // stat 失败忽略
         }
 
@@ -357,7 +356,7 @@ export class KnowledgeCompiler {
         if (rawStat.mtimeMs > pageStat.mtimeMs) return true;
       }
       return false;
-    } catch (err) {
+    } catch (_err) {
       return true;
     }
   }
@@ -433,7 +432,7 @@ export class KnowledgeCompiler {
           storeZone: 'inbound',
         });
       }
-    } catch (err) {
+    } catch (_err) {
       // 注册失败不影响编译主流程
     }
 
@@ -486,7 +485,7 @@ export class KnowledgeCompiler {
           );
         }
       }
-    } catch (err) {
+    } catch (_err) {
       // 元数据文件损坏或缺失，忽略
     }
 
@@ -708,7 +707,7 @@ summary: 概念简介
               pagesRemoved: pages.length,
             });
           }
-        } catch (err) {
+        } catch (_err) {
           // 清理失败不阻塞编译
         }
       }
@@ -724,7 +723,7 @@ summary: 概念简介
       if (!existsSync(COMPILE_STATE_PATH)) return null;
       const raw = await readFile(COMPILE_STATE_PATH, 'utf-8');
       return JSON.parse(raw) as CompileState;
-    } catch (err) {
+    } catch (_err) {
       return null;
     }
   }

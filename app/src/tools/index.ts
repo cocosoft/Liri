@@ -28,6 +28,7 @@ export type { ToolDefinition, ToolExecutionContext } from './types/ToolTypes';
 
 import { feature } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ module: 'tools:index', level: LogLevel.INFO });
 import { ToolManager, globalToolManager } from './core/ToolManager';
@@ -78,7 +79,10 @@ export async function initializeToolSystem(config?: any): Promise<void> {
 
     logger.info('✅ 工具系统初始化完成');
   } catch (error) {
-    logger.error('❌ 工具系统初始化失败:', { error });
+    await handleError(error as Error, {
+      module: 'tools:index',
+      action: '工具系统初始化失败',
+    });
     throw error;
   }
 }
@@ -93,7 +97,10 @@ export async function shutdownToolSystem(): Promise<void> {
 
     logger.info('✅ 工具系统已关闭');
   } catch (error) {
-    logger.error('❌ 工具系统关闭失败:', { error });
+    await handleError(error as Error, {
+      module: 'tools:index',
+      action: '工具系统关闭失败',
+    });
     throw error;
   }
 }

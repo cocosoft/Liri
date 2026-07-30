@@ -1,4 +1,4 @@
-﻿/**
+/**
  * GeminiLiveAdapter
  * Gemini Multimodal Live API WebSocket 适配器
  * 实现 VoiceProviderAdapter 接口，对接 Gemini BidiGenerateContent API
@@ -227,7 +227,7 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
           message: msg.error.message ?? 'Gemini API 返回错误',
         });
       }
-    } catch (err) {
+    } catch (_err) {
       this.logger.warn('Gemini 消息解析失败', {
         data: String(event.data).slice(0, 100),
       });
@@ -336,7 +336,7 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
     this.reconnect.timer = setTimeout(async () => {
       try {
         await this.createConnection();
-      } catch (err) {
+      } catch (_err) {
         // 重连失败由 onclose 处理
       }
     }, delay);
@@ -467,7 +467,7 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
     let parsed: unknown;
     try {
       parsed = JSON.parse(output);
-    } catch (err) {
+    } catch (_err) {
       parsed = { result: output };
     }
 

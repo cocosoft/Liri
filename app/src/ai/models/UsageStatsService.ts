@@ -279,7 +279,7 @@ export class UsageStatsService {
 
   private allAsync<T>(sql: string, params?: unknown[]): Promise<T[]> {
     return new Promise<T[]>((resolve, reject) => {
-      this.db!.all(sql, params || [], (err: Error | null, rows: any[]) => {
+      this.db!.all(sql, params || [], (err: Error | null, rows: unknown[]) => {
         if (err) reject(err);
         else resolve(rows as T[]);
       });

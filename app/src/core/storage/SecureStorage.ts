@@ -1,4 +1,4 @@
-﻿import { EventEmitter } from 'events';
+import { EventEmitter } from 'events';
 import {
   createCipheriv,
   createDecipheriv,
@@ -10,7 +10,12 @@ import {
 import { readFile, writeFile, mkdir, access, stat } from 'fs/promises';
 import { existsSync, chmodSync } from 'fs';
 import { join, dirname } from 'path';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'SecureStorage' });
@@ -178,7 +183,10 @@ export class SecureStorage extends EventEmitter {
 
       return { success: true };
     } catch (error) {
-      logger.error('Failed to update secure storage:', error as Error);
+      await handleError(error, {
+        module: 'core:storage',
+        action: 'update',
+      });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -204,10 +212,10 @@ export class SecureStorage extends EventEmitter {
       ) {
         return true;
       }
-      logger.error(
-        'Failed to delete secure storage:',
-        error instanceof Error ? error : undefined
-      );
+      await handleError(error, {
+        module: 'core:storage',
+        action: 'delete',
+      });
       return false;
     }
   }

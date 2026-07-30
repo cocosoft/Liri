@@ -994,7 +994,11 @@ export class TTSRegistry {
     const provider = TTSRegistry.getProvider(providerName);
     if (!provider) {
       const error = `TTSRegistry · Provider 不可用${providerName ? `: "${providerName}" 未注册` : '（无默认 Provider）'}`;
-      logger.error(error, { providerName });
+      void handleError(new Error(error), {
+        module: 'services:voice:ttsProv',
+        action: 'Provider 不可用',
+        context: { providerName },
+      });
       return { success: false, error };
     }
 
@@ -1127,7 +1131,10 @@ export class TTSRegistry {
         const mergedAudio = chunkedSynthesizer.concatenateResults(results);
         if (!mergedAudio) {
           const error = 'TTS 分片合成全部失败，无音频输出';
-          logger.error(error);
+          void handleError(new Error(error), {
+            module: 'services:voice:ttsProv',
+            action: '分片合成全部失败',
+          });
           return { success: false, error };
         }
 
@@ -1191,7 +1198,11 @@ export class TTSRegistry {
     const provider = TTSRegistry.getProvider(providerName);
     if (!provider) {
       const error = `TTSRegistry · 保存 Provider 不可用${providerName ? `: "${providerName}" 未注册` : '（无默认 Provider）'}`;
-      logger.error(error, { providerName });
+      void handleError(new Error(error), {
+        module: 'services:voice:ttsProv',
+        action: '保存 Provider 不可用',
+        context: { providerName },
+      });
       return { success: false, error };
     }
 

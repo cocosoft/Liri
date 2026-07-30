@@ -71,7 +71,8 @@ const DEFAULT_CONFIG: FallbackConfig = {
  * 判断错误是否触发故障转移
  */
 function shouldFallback(error: Error, config: FallbackConfig): boolean {
-  const msg = error.message + ((error as any).code ?? '');
+  const msg =
+    error.message + ((error as unknown as Record<string, unknown>).code ?? '');
   return config.retryOnErrors.some((pattern) => msg.includes(pattern));
 }
 

@@ -336,10 +336,6 @@ export class ToolExecutor {
         module: 'tools:executor',
         action: 'executePreToolUseHooks',
       });
-      logger.error(
-        'Error executing PreToolUse hooks',
-        error instanceof Error ? error : new Error(String(error))
-      );
     }
 
     return result;
@@ -371,10 +367,6 @@ export class ToolExecutor {
         module: 'tools:executor',
         action: 'executePostToolUseHooks',
       });
-      logger.error(
-        'Error executing PostToolUse hooks',
-        error instanceof Error ? error : new Error(String(error))
-      );
     }
   }
 

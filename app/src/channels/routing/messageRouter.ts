@@ -454,7 +454,7 @@ export async function routeChannelMessage(
     // 标记消息处理完成
     finalizeMessage(message.messageId, true);
 
-    routeSpan.end();
+    otel.endSpan(routeSpan);
     return { valid: true, response: response.content };
   } catch (error) {
     // 释放消息锁
@@ -464,7 +464,7 @@ export async function routeChannelMessage(
       routeSpan,
       error instanceof Error ? error : new Error(String(error))
     );
-    routeSpan.end();
+    otel.endSpan(routeSpan);
     await handleError(error, {
       module: 'channels:routing',
       action: 'routeChannelMessage',

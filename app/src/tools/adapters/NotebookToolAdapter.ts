@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Notebook工具适配器
  */
 
@@ -15,9 +15,7 @@ import { ToolTag } from '../types/Tool.js';
 import { NotebookToolImpl } from '../notebook/NotebookToolImpl.js';
 import type { Notebook, CodeCell } from '../notebook/types/index.js';
 import { notebookManager } from '../notebook/NotebookManager.js';
-import { getLogger } from '@modules/monitoring';
-
-const logger = getLogger('NotebookToolAdapter');
+import { handleError } from '@modules/error/handleError';
 
 /**
  * Notebook工具适配器
@@ -472,9 +470,9 @@ export class NotebookToolAdapter implements Tool {
             notebook,
             safeFormat
           ).catch((err) => {
-            logger.error('注册 Notebook 导出文件失败', {
-              notebookId: notebook.id,
-              error: String(err),
+            handleError(err, {
+              module: 'tools:notebook',
+              action: '注册Notebook导出文件失败',
             });
           });
           return {

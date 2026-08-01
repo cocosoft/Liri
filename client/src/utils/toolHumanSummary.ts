@@ -350,7 +350,7 @@ function summarizeTodoWrite(args: Record<string, unknown>): string {
       }
       return "创建任务";
     case "update":
-      if (todos && todos.length > 0) {
+      if (Array.isArray(todos) && todos.length > 0) {
         const first = todos[0];
         const status = first["status"];
         if (status === "completed")

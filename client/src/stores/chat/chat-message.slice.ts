@@ -704,8 +704,9 @@ export const createMessageSlice: StateCreator<
             const args = chunk.toolCall.arguments as
               Record<string, unknown> | undefined;
             if (args?.action === "write" && args?.todos) {
-              const todos =
-                (args.todos as Array<Record<string, unknown>>) || [];
+            const todos = Array.isArray(args.todos)
+              ? (args.todos as Array<Record<string, unknown>>)
+              : [];
               const tasks = todos.map((t, idx) => ({
                 id: String(t.id || idx + 1),
                 name: String(t.name || t.content || `步骤 ${idx + 1}`),

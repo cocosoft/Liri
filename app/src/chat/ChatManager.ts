@@ -6204,7 +6204,9 @@ function getToolExecErrorMessage(err: unknown): string {
         if (body.code) detail = ` (${body.code})`;
         if (body.message) detail = ` (${body.code || ''}: ${body.message})`;
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     return `AI 服务繁忙，请稍后重试${detail}`;
   }
 

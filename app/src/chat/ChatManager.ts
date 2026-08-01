@@ -1036,6 +1036,13 @@ export class ChatManagerImpl implements ChatManager {
             dedupMap.set(msg.id, msg);
           }
           const dedupedMessages = Array.from(dedupMap.values());
+          // 从最新消息时间戳推导 updatedAt（磁盘上的 updatedAt 从未被更新，重启后恒为创建时间）
+          let latestTimestamp = new Date(stored.updatedAt || stored.createdAt);
+          for (const msg of dedupedMessages) {
+            if (msg.createdAt > latestTimestamp) {
+              latestTimestamp = msg.createdAt;
+            }
+          }
           const chatSession: ChatSession = {
             id: stored.id,
             title: stored.title,
@@ -1048,7 +1055,7 @@ export class ChatManagerImpl implements ChatManager {
             },
             messages: dedupedMessages,
             createdAt: new Date(stored.createdAt),
-            updatedAt: new Date(stored.updatedAt),
+            updatedAt: latestTimestamp,
           };
           this._chatSessions.set(stored.id, chatSession);
 

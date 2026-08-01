@@ -1354,3 +1354,128 @@ export async function handleCreateProjectWorkItem(
     }
   }
 }
+
+/**
+ * AI 项目分解
+ * POST /v1/workspaces/:id/projects/:projectId/decompose
+ *
+ * 使用 LLM 分析项目需求，拆解为结构化任务树（ProjectNode[]）。
+ */
+export async function handleDecomposeProject(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _workspaceId: string,
+  _projectId: string
+): Promise<void> {
+  try {
+    const body = await ctx.readRequestBody(req);
+    const { requirements } = JSON.parse(body || '{}');
+
+    if (!requirements || typeof requirements !== 'string') {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'requirements (string) is required' },
+        })
+      );
+      return;
+    }
+
+    const coreAPI = getCoreAPI();
+    const modelRouter = (
+      await import('@modules/ai/modelRouter')
+    ).ModelRouter.getInstance();
+    const model = modelRouter.resolve('default');
+
+    const response = await coreAPI.chat({
+      content: [
+        '你是一个项目管理专家。分析用户给出的项目需求，将其分解为结构化的任务树。',
+        '',
+        '输出格式要求：返回一个 JSON 对象，格式为 { "nodes": [...] }。',
+        '每个 node 包含以下字段：',
+        '- id: 唯一 ID（字符串，如 "task-1"）',
+        '- type: "project" | "phase" | "story" | "task"',
+        '- title: 任务标题（中文，简洁）',
+        '- description: 任务描述（中文，50-100字）',
+        '- priority: "P0" | "P1" | "P2" | "P3"',
+        '- children: 子节点 ID 数组',
+        '- dependsOn: 前置依赖节点 ID 数组',
+        '- tags: 标签数组',
+        '- estimatedEffort: 预估工时',
+        '',
+        '规则：',
+        '1. 先拆成 2-4 个 phase，每个 phase 下拆 2-5 个 task。',
+        '2. 节点 ID 格式：phase-1, task-1-1, task-1-2 等。',
+        '3. 按优先级排列：P0 核心、P1 重要、P2 一般、P3 可选。',
+        '4. 只返回 JSON，不要输出任何其他文字。',
+        '',
+        `请拆解以下项目需求：\n${requirements}`,
+      ].join('\n'),
+      stream: false,
+      sessionId: `decompose-${_projectId}-${Date.now()}`,
+      model,
+    });
+
+    // 提取 AI 回复中的 JSON
+    const replyText = response.content || '';
+    const jsonMatch = replyText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: 'LLM 未返回有效 JSON',
+            reply: replyText.slice(0, 200),
+          },
+        })
+      );
+      return;
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    const rawNodes: Array<Record<string, unknown>> = parsed.nodes || [];
+
+    // 补充节点默认值，确保与前端 ProjectNode 接口对齐
+    const nodes = rawNodes.map((n) => ({
+      id:
+        n.id || `auto-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      projectId: _projectId,
+      type: n.type || 'task',
+      title: String(n.title || '未命名任务'),
+      description: String(n.description || ''),
+      priority: n.priority || 'P2',
+      status: 'planning',
+      progress: 0,
+      children: Array.isArray(n.children) ? n.children : [],
+      dependsOn: Array.isArray(n.dependsOn) ? n.dependsOn : [],
+      tags: Array.isArray(n.tags) ? n.tags : [],
+      estimatedEffort: String(n.estimatedEffort || '1d'),
+      assignee: '',
+      startedAt: 0,
+      completedAt: 0,
+      createdAt: Date.now(),
+    }));
+
+    logger.info('项目分解完成', {
+      projectId: _projectId,
+      nodeCount: nodes.length,
+    });
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ data: { nodes } }));
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'project_decompose',
+    });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: '项目分解失败', detail: (err as Error).message },
+        })
+      );
+    }
+  }
+}

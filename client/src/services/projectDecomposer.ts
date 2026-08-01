@@ -1,33 +1,35 @@
 import type { ProjectNode } from "../types/work";
+import { http } from "./httpClient";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("services:projectDecomposer");
 
 export interface DecomposeOptions {
   projectId: string;
-}
-
-/**
- * 基于规则的离线兜底分解。
- * CS04: 原 400 行硬编码电网流程监控模板节点已移除。
- * CS05-ROOTFIX: 改为调用后端 LLM API（POST /v1/projects/:id/decompose）。
- *   本函数应降级为 LLM 不可用时的离线兜底（规则引擎/模板匹配）。
- */
-function ruleBasedDecompose(
-  _requirements: string,
-  _options: { projectId: string },
-): ProjectNode[] {
-  return [];
+  workspaceId?: string;
 }
 
 /**
  * 项目分解入口。
- * CS05-ROOTFIX: 当前返回空数组，需对接后端 LLM 分解 API。
- * 根因方案: POST /v1/projects/:id/decompose → 后端 LLM → 返回结构化 ProjectNode[]。
- * 关联: P3（项目模块双体系混乱优化方案）。
+ * 调用后端 LLM API，将项目需求拆解为结构化任务树（ProjectNode[]）。
+ * LLM 不可用时回退到空数组。
  */
 export async function decompose(
   requirements: string,
   options: DecomposeOptions,
 ): Promise<ProjectNode[]> {
-  return ruleBasedDecompose(requirements, options);
+  const workspaceId = options.workspaceId || 'default';
+
+  try {
+    const res = await http.post<{ nodes: ProjectNode[] }>(
+      `/v1/workspaces/${workspaceId}/projects/${options.projectId}/decompose`,
+      { requirements },
+    );
+    return res.data?.nodes || [];
+  } catch (err) {
+    logger.warn("decompose failed", { error: String(err) });
+    return [];
+  }
 }
 
 export const projectDecomposer = {

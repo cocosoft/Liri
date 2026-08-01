@@ -145,6 +145,7 @@ import {
   handleUpdateProjectRules,
   handleGetTemplates,
   handleCreateProjectWorkItem,
+  handleDecomposeProject,
 } from './handlers/workspaces-handlers';
 import {
   handleOrchestrationStream,
@@ -1514,6 +1515,21 @@ export class LocalHTTPService {
     projectId: string
   ): Promise<void> {
     return handleCreateProjectWorkItem(
+      this._handlerCtx,
+      req,
+      res,
+      workspaceId,
+      projectId
+    );
+  }
+
+  private async handleDecomposeProject(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    workspaceId: string,
+    projectId: string
+  ): Promise<void> {
+    return handleDecomposeProject(
       this._handlerCtx,
       req,
       res,

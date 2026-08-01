@@ -1195,6 +1195,16 @@ export async function dispatchRoute(
     return true;
   }
   if (
+    method === 'POST' &&
+    url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)\/decompose$/)
+  ) {
+    const match = url.match(
+      /^\/v1\/workspaces\/(.+)\/projects\/(.+)\/decompose$/
+    )!;
+    await self['handleDecomposeProject'](req, res, match[1], match[2]);
+    return true;
+  }
+  if (
     method === 'GET' &&
     url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)$/)
   ) {

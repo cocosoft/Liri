@@ -20,6 +20,15 @@ import { useModelStore } from "../../stores/modelStore";
 /** 默认上下文窗口大小（模型未加载时使用，与后端 ContextWindowResolver 一致） */
 const DEFAULT_CONTEXT = 200_000;
 
+/** 文件写操作工具名集合 — 用于结构化统计文件数 (CS02) */
+const FILE_WRITE_TOOLS = new Set([
+  'file_write', 'file_edit', 'file_copy',
+  'temp_file', 'file_convert',
+  'image_generate', 'image_svg_generate', 'video_generate',
+  'pdf', 'tts',
+  'update_soul_or_user',
+]);
+
 /** 从消息列表聚合 Token 用量 */
 function aggregateTokens(messages: Message[]) {
   let totalInput = 0;
@@ -401,21 +410,18 @@ function ContextTab() {
     [messages.length],
   );
 
-  // TODO: CS02-ROOTFIX — fileCount 目前靠字符串匹配（.py/.ts/output）猜测文件数，
-  // 应使用消息 blocks 中的结构化 filePath/attachment 元数据。
+  // 基于 blocks 结构化数据统计文件操作数 (CS02)
+  // deliverable 块有 files[] 数组，diff 块有 file 字段，tool_call 块按工具名判断
   const fileCount = useMemo(
     () =>
       messages.filter((m) => {
-        if (m.role !== "assistant") return false;
-        const text = m.blocks
-          ?.filter((b) => b.type === "text")
-          .map((b) => b.content)
-          .join(" ");
-        return (
-          text?.includes("/output/") ||
-          text?.includes(".py") ||
-          text?.includes(".ts")
-        );
+        if (m.role !== 'assistant') return false;
+        return m.blocks?.some((b) => {
+          if (b.type === 'deliverable' && b.deliverableData?.files?.length) return true;
+          if (b.type === 'diff' && b.diffData?.file) return true;
+          if (b.type === 'tool_call' && b.toolCall?.name && FILE_WRITE_TOOLS.has(b.toolCall.name)) return true;
+          return false;
+        });
       }).length,
     [messages.length],
   );

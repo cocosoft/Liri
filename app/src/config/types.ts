@@ -577,7 +577,7 @@ export function createDefaultGlobalConfig(): GlobalConfig {
       cachedStatsigGates: {},
     },
     ai: {
-      provider: '',   // 空字符串 → 从 DB/环境变量自动检测
+      provider: '', // 空字符串 → 从 DB/环境变量自动检测
       model: '',
       deepseek: {
         apiKey: process.env['DEEPSEEK_API_KEY'] || '',

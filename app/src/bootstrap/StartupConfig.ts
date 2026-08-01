@@ -139,7 +139,7 @@ export const DEFAULT_STARTUP_CONFIG: StartupConfig = {
     },
   },
   ai: {
-    provider: '',   // 空字符串 → 从 DB/环境变量自动检测
+    provider: '', // 空字符串 → 从 DB/环境变量自动检测
     model: '',
   },
   features: {

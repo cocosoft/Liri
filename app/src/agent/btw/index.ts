@@ -85,7 +85,7 @@ export interface BtwContextMessage {
 
 const DEFAULT_CONFIG: BtwProcessorConfig = {
   model: '',
-  provider: 'openai',
+  provider: '',   // 空 → 从 DB/环境变量自动检测
   maxContextMessages: 10,
   timeoutMs: 30000,
   enabled: true,

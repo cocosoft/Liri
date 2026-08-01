@@ -102,7 +102,7 @@ function registerAiSettings(): void {
     key: 'ai.provider',
     description: 'AI 提供商',
     type: 'string',
-    defaultValue: '',   // 空 → 从 DB Provider 列表自动检测
+    defaultValue: '', // 空 → 从 DB Provider 列表自动检测
     enum: ['anthropic', 'openai', 'deepseek', 'ollama', 'azure', 'vertex'],
     example: 'openai',
   });

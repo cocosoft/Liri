@@ -1386,7 +1386,8 @@ export async function handleDecomposeProject(
     const modelRouter = (
       await import('@modules/ai/modelRouter')
     ).ModelRouter.getInstance();
-    const model = modelRouter.resolve('default');
+    const model = modelRouter.resolve('default') || undefined;
+    // model 为空时由 SmartRouter 自动选择，不阻塞功能
 
     const response = await coreAPI.chat({
       content: [
@@ -1417,8 +1418,11 @@ export async function handleDecomposeProject(
       model,
     });
 
-    // 提取 AI 回复中的 JSON
-    const replyText = response.content || '';
+    // 提取 AI 回复中的 JSON（去除可能的 markdown 代码块包裹）
+    const replyText = (response.content || '')
+      .replace(/```(?:json)?\s*/gi, '')
+      .replace(/```/g, '')
+      .trim();
     const jsonMatch = replyText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       res.writeHead(500, { 'Content-Type': 'application/json' });

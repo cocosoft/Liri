@@ -10,6 +10,6 @@ export function sendNotification(title: string, body: string): void {
       if (permission === "granted") {
         new Notification(title, { body });
       }
-    });
+    }).catch(() => { /* 浏览器拒绝或 API 不可用，静默忽略 */ });
   }
 }

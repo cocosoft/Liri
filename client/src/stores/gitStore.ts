@@ -297,7 +297,7 @@ setTimeout(() => {
               state.initRepo(newId, wt.gitRepo.path).then(() => {
                 state.refreshStatus(newId);
                 state.startPolling(newId);
-              });
+              }).catch(() => { /* initRepo 失败不影响订阅 */ });
             } else {
               state.refreshStatus(newId);
               state.startPolling(newId);

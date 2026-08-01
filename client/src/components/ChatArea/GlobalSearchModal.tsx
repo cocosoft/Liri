@@ -8,6 +8,9 @@ import { getModuleMeta } from "../../stores/root-store/moduleRegistry";
 import { fileService } from "../../services/fileService";
 import { knowledgeService } from "../../services/knowledgeService";
 import { getOTelTracing } from "../../monitoring/otel/OTelTracing";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("GlobalSearchModal");
 import { handleClientError } from "../../utils/handleError";
 import type { Session } from "../../types";
 import type { FileRegistryRecord } from "../../types/file";
@@ -173,7 +176,7 @@ export default function GlobalSearchModal({
         onClose();
       } catch (error) {
         if (import.meta.env.DEV)
-          console.error("[SessionSwitch] 全局搜索切换会话失败", {
+          logger.error("[SessionSwitch] 全局搜索切换会话失败", {
             sessionId: session.id,
             sessionTitle: session.title,
             error: String(error),

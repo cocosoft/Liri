@@ -476,7 +476,7 @@ export const createSessionSlice: StateCreator<
             });
         } catch (e) {
           if (import.meta.env.DEV)
-            console.warn("[Diag:switch] ⑥ 模型恢复失败", e);
+            logger.warn("[Diag:switch] ⑥ 模型恢复失败", e);
           const { handleClientError } = await import("@/utils/handleError");
           handleClientError(
             e,
@@ -555,7 +555,7 @@ export const createSessionSlice: StateCreator<
         });
     } catch (error) {
       if (import.meta.env.DEV)
-        console.error("[Diag:switch] ❌ 切换失败", {
+        logger.error("[Diag:switch] ❌ 切换失败", {
           sessionId: id,
           error: String(error),
           totalMs: (performance.now() - t0).toFixed(1),

@@ -305,7 +305,8 @@ export const sessionService = {
     if (result !== null) return flattenSession(result);
     return createMemorySessionService()
       .list()
-      .then((sessions) => sessions.find((s) => s.id === id) || null);
+      .then((sessions) => sessions.find((s) => s.id === id) || null)
+      .catch(() => null);
   },
 
   getMessages: (sessionId: string): Promise<Message[]> => {

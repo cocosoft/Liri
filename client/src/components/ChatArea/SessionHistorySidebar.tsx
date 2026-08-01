@@ -6,6 +6,9 @@ import { useRootStore } from "../../stores/root-store";
 import { sessionService } from "../../services/sessionService";
 import { getOTelTracing } from "../../monitoring/otel/OTelTracing";
 import { handleClientError } from "../../utils/handleError";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("SessionHistorySidebar");
 import ConfirmDialog from "../common/ConfirmDialog";
 import SessionContextMenu from "./SessionContextMenu";
 import SessionListItem from "./SessionListItem";
@@ -408,7 +411,7 @@ function SessionHistorySidebar({
       navigate(basePath);
     } catch (error) {
       if (import.meta.env.DEV)
-        console.error("[SessionSwitch] 会话切换失败", {
+        logger.error("[SessionSwitch] 会话切换失败", {
           sessionId: id,
           prevSessionId: currentSession?.id ?? "none",
           error: String(error),

@@ -5,19 +5,22 @@ import "./i18n";
 import App from "./App";
 import "./index.css";
 import { getOTelTracing } from "./monitoring/otel";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("main");
 
 // 初始化前端 OTEL 追踪
 getOTelTracing().init();
 
 // 全局崩溃捕获：unhandledrejection + error 事件 — STATUS_BREAKPOINT 等进程级崩溃的兜底日志
 window.addEventListener("unhandledrejection", (event) => {
-  console.error("[Crash] unhandledrejection", {
+  logger.error("[Crash] unhandledrejection", {
     reason: String(event.reason),
     stack: event.reason?.stack?.slice(0, 500),
   });
 });
 window.addEventListener("error", (event) => {
-  console.error("[Crash] global error", {
+  logger.error("[Crash] global error", {
     message: event.message,
     filename: event.filename,
     lineno: event.lineno,

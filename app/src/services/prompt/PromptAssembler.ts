@@ -88,11 +88,10 @@ function resolveProviderFromModel(modelName: string): string {
   try {
     const resolved = providerRegistry.getByModel(modelName);
     if (resolved) return resolved.id;
-  } catch {
-    /* ProviderRegistry 不可用时回退 */
-  }
+  } catch { /* ProviderRegistry 不可用时回退 */ }
 
   // 回退：名称前缀启发式（仅用于未注册的临时模型名）
+  logger.debug('PromptAssembler: ProviderRegistry 未命中，回退启发式', { modelName });
   const lower = modelName.toLowerCase();
   if (
     lower.startsWith('claude-') ||

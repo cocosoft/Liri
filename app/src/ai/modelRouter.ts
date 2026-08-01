@@ -43,6 +43,8 @@
 
 import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { SpanStatusCode } from '@opentelemetry/api';
 import { ModelRegistry } from '@modules/ai';
 import type { APIProvider } from '@modules/ai';
 import type { AppModelConfigService } from './models/AppModelConfigService';
@@ -659,49 +661,87 @@ export class ModelRouter {
    * 适合作为 resolveModelRoute() 等关键路径的入口。
    */
   async resolveAsync(taskType: TaskType): Promise<string> {
-    const result = this.resolve(taskType);
-    if (result) return result;
-
-    // resolve() 返回空 → 可能是 UUID 缓存 miss → 查 DB 兜底
-    const tasks = this.readTasks();
-    const value = tasks[taskType] || tasks.default;
-    if (value && this.isUUID(value)) {
-      try {
-        const { modelPricingService } =
-          await import('./models/ModelPricingService');
-        await modelPricingService.initialize();
-        const record = await modelPricingService.getPricingById(value);
-        if (record?.modelId) {
-          this.uuidToModelName.set(value, record.modelId);
-          logger.debug(
-            `ModelRouter.resolveAsync: UUID ${value} → DB 解析 → ${record.modelId}`
-          );
-          return record.modelId;
-        }
-      } catch (err) {
-        logger.warning('ModelRouter.resolveAsync: UUID DB 解析失败', {
-          uuid: value,
-          error: (err as Error).message,
-        });
+    const otel = getOTelTracing();
+    const span = otel.startSpan('modelRouter.resolveAsync', {
+      'task.type': taskType,
+    });
+    try {
+      const result = this.resolve(taskType);
+      if (result) {
+        otel.endSpan(span, SpanStatusCode.OK);
+        return result;
       }
-    }
 
-    // DB 兜底也失败，回退到 current/default
-    const current = this.readCurrentModel();
-    if (current && this.isUUID(current)) {
-      try {
-        const { modelPricingService } =
-          await import('./models/ModelPricingService');
-        const record = await modelPricingService.getPricingById(current);
-        if (record?.modelId) {
-          this.uuidToModelName.set(current, record.modelId);
-          return record.modelId;
+      // resolve() 返回空 → 可能是 UUID 缓存 miss → 查 DB 兜底
+      const tasks = this.readTasks();
+      const value = tasks[taskType] || tasks.default;
+      if (value && this.isUUID(value)) {
+        try {
+          const { modelPricingService } =
+            await import('./models/ModelPricingService');
+          await modelPricingService.initialize();
+          const record = await modelPricingService.getPricingById(value);
+          if (record?.modelId) {
+            this.uuidToModelName.set(value, record.modelId);
+            logger.debug(
+              `ModelRouter.resolveAsync: UUID ${value} → DB 解析 → ${record.modelId}`
+            );
+            otel.endSpan(span, SpanStatusCode.OK);
+            return record.modelId;
+          }
+          logger.warning('ModelRouter.resolveAsync: UUID DB 查无此记录', {
+            uuid: value,
+            taskType,
+          });
+        } catch (err) {
+          await handleError(err, {
+            module: 'ai:model-router',
+            action: 'resolveAsync:dbLookup',
+            context: { uuid: value, taskType },
+          });
         }
-      } catch {
-        /* ignore */
       }
+
+      // DB 兜底也失败，回退到 current/default
+      const current = this.readCurrentModel();
+      if (current && this.isUUID(current)) {
+        try {
+          const { modelPricingService } =
+            await import('./models/ModelPricingService');
+          const record = await modelPricingService.getPricingById(current);
+          if (record?.modelId) {
+            this.uuidToModelName.set(current, record.modelId);
+            logger.debug(
+              `ModelRouter.resolveAsync: current UUID ${current} → DB 解析 → ${record.modelId}`
+            );
+            otel.endSpan(span, SpanStatusCode.OK);
+            return record.modelId;
+          }
+        } catch (err) {
+          await handleError(err, {
+            module: 'ai:model-router',
+            action: 'resolveAsync:currentFallback',
+            context: { uuid: current, taskType },
+          });
+        }
+      }
+
+      const finalResult = current || this.defaultModel;
+      logger.warning('ModelRouter.resolveAsync: 所有路径均未解析到有效模型', {
+        taskType,
+        current,
+        defaultModel: this.defaultModel,
+      });
+      otel.endSpan(span, SpanStatusCode.ERROR, 'all paths exhausted');
+      return finalResult;
+    } catch (err) {
+      otel.recordError(
+        span,
+        err instanceof Error ? err : new Error(String(err))
+      );
+      otel.endSpan(span, SpanStatusCode.ERROR, String(err));
+      throw err;
     }
-    return current || this.defaultModel;
   }
 
   /**
@@ -747,49 +787,57 @@ export class ModelRouter {
    *                    确保 resolve() 的 UUID→名称转换能命中
    */
   async setCurrentModel(modelId: string, modelName?: string): Promise<void> {
-    const { appModelConfigService } =
-      await import('./models/AppModelConfigService.js');
-    await appModelConfigService.initialize();
+    try {
+      const { appModelConfigService } =
+        await import('./models/AppModelConfigService.js');
+      await appModelConfigService.initialize();
 
-    await appModelConfigService.setConfig('current', { model: modelId });
-    this._currentModel = modelId;
+      await appModelConfigService.setConfig('current', { model: modelId });
+      this._currentModel = modelId;
 
-    await appModelConfigService.setConfig('default', { model: modelId });
-    this._taskCache.set('default', modelId);
+      await appModelConfigService.setConfig('default', { model: modelId });
+      this._taskCache.set('default', modelId);
 
-    // 同步更新 UUID→模型名 缓存，避免 resolve() 查 UUID 时返回空
-    if (modelName && this.isUUID(modelId)) {
-      this.uuidToModelName.set(modelId, modelName);
-    }
-
-    // 仅清除与被替换模型相同的聊天任务（从 default 继承来的），
-    // 保留用户显式配置的任务分工（如 chat→GPT-4, default→DeepSeek 时切换不改 chat）
-    const previousDefault = this._taskCache.get('default');
-    const chatOverrides = [
-      'chat',
-      'coding',
-      'quick',
-      'agent',
-      'scheduled',
-      'local',
-      'translation',
-    ];
-    for (const t of chatOverrides) {
-      const current = this._taskCache.get(t);
-      // 仅当任务无显式配置，或配置值等于旧 default（即从 default 继承的）时才清除
-      if (!current || current === previousDefault) {
-        this._taskCache.delete(t);
-        await appModelConfigService.deleteConfig(t).catch(() => {
-          /* 条目不存在则跳过 */
-        });
+      // 同步更新 UUID→模型名 缓存，避免 resolve() 查 UUID 时返回空
+      if (modelName && this.isUUID(modelId)) {
+        this.uuidToModelName.set(modelId, modelName);
       }
-    }
 
-    logger.info(
-      `ModelRouter: 当前模型已设置为 ${modelId}` +
-        (modelName ? ` (${modelName})` : '') +
-        `（同步写入 tasks.default，保留非继承的聊天任务分工）`
-    );
+      // 仅清除与被替换模型相同的聊天任务（从 default 继承来的），
+      // 保留用户显式配置的任务分工（如 chat→GPT-4, default→DeepSeek 时切换不改 chat）
+      const previousDefault = this._taskCache.get('default');
+      const chatOverrides = [
+        'chat', 'coding', 'quick', 'agent', 'scheduled', 'local', 'translation',
+      ];
+      let preservedCount = 0;
+      let clearedCount = 0;
+      for (const t of chatOverrides) {
+        const current = this._taskCache.get(t);
+        // 仅当任务无显式配置，或配置值等于旧 default（即从 default 继承的）时才清除
+        if (!current || current === previousDefault) {
+          this._taskCache.delete(t);
+          await appModelConfigService.deleteConfig(t).catch(() => {
+            /* 条目不存在则跳过 */
+          });
+          clearedCount++;
+        } else {
+          preservedCount++;
+        }
+      }
+
+      logger.info(
+        `ModelRouter: 当前模型已设置为 ${modelId}` +
+          (modelName ? ` (${modelName})` : '') +
+          ` | 清除继承任务: ${clearedCount} | 保留显式任务: ${preservedCount}`
+      );
+    } catch (err) {
+      await handleError(err, {
+        module: 'ai:model-router',
+        action: 'setCurrentModel',
+        context: { modelId, modelName },
+      });
+      throw err;
+    }
   }
 
   /**

@@ -571,9 +571,10 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
     todos: Todo[],
     title: string = '任务计划'
   ): Record<string, unknown> {
+    const safeTodos = Array.isArray(todos) ? todos : [];
     const allDone =
-      todos.length > 0 && todos.every((t) => t.status === 'completed');
-    const anyActive = todos.some(
+      safeTodos.length > 0 && safeTodos.every((t) => t.status === 'completed');
+    const anyActive = safeTodos.some(
       (t) => t.status === 'in_progress' || t.status === 'completed'
     );
     const phase = allDone
@@ -585,7 +586,7 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
     return {
       title,
       phase,
-      tasks: todos.map((t) => ({
+      tasks: safeTodos.map((t) => ({
         id: t.id,
         name: t.content,
         status: t.status as 'pending' | 'in_progress' | 'completed',

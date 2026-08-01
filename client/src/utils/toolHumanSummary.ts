@@ -344,7 +344,7 @@ function summarizeTodoWrite(args: Record<string, unknown>): string {
 
   switch (action) {
     case "create":
-      if (todos && todos.length > 0) {
+      if (Array.isArray(todos) && todos.length > 0) {
         const names = todos.map((t) => t["content"] || "").filter(Boolean);
         return `创建了 ${todos.length} 个任务：${names.slice(0, 3).join("、")}${names.length > 3 ? "等" : ""}`;
       }

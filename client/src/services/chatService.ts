@@ -131,6 +131,10 @@ export interface StreamChunk {
     ratio: number;
     severity: "normal" | "warn" | "compact";
   };
+  /** 状态子类型 — SSE 协议增强字段 (CS02)，替代前端字符串匹配 */
+  statusType?: "ai_thinking" | "retry" | "task_all_done" | "resume";
+  /** 结构化错误码 — SSE 协议增强字段 (CS02)，替代前端字符串匹配 */
+  errorCode?: "UNKNOWN" | "RATE_LIMITED" | "AUTH_ERROR" | "QUOTA_EXCEEDED" | "CONNECTION_RESET" | "BACKEND_UNREACHABLE";
 }
 
 async function getTauriCore() {
@@ -391,6 +395,7 @@ export const chatService = {
                   yield {
                     type: "status",
                     content: chunk.choices?.[0]?.delta?.content || "",
+                    statusType: chunk.__pyapp_status_type || undefined,
                   };
                 } else if (pyappType === "context_state") {
                   yield {
@@ -444,6 +449,7 @@ export const chatService = {
                     type: "error",
                     content:
                       chunk.choices?.[0]?.delta?.content || "Unknown error",
+                    errorCode: chunk.__pyapp_error_code || "UNKNOWN",
                   };
                 } else if (pyappType === "tool_call") {
                   const tc = chunk.choices?.[0]?.delta?.tool_calls?.[0];
@@ -549,23 +555,29 @@ export const chatService = {
           action: "streamMessage-readerLoop",
         });
         if (e instanceof DOMException && e.name === "AbortError") {
-          yield { type: "error", content: "请求已取消" };
+          yield { type: "error", content: "请求已取消", errorCode: "UNKNOWN" };
           return;
         }
-        // TODO: CS02-ROOTFIX — 浏览器网络错误无结构化错误码，
-        // 后端 SSE 断开时应发送带 errorCode 的 error 事件，前端据此判断。
-        // 处理连接意外关闭的情况
+        // 使用结构化 errorCode 替代字符串匹配 (CS02)
         const errorMessage = e instanceof Error ? e.message : String(e);
-        if (
+        const isConnectionReset =
           errorMessage.includes("socket connection was closed unexpectedly") ||
           errorMessage.includes("ERR_CONNECTION_RESET") ||
-          errorMessage.includes("net::ERR_INCOMPLETE_CHUNKED_ENCODING")
-        ) {
-          yield { type: "error", content: "连接已断开，请重试" };
+          errorMessage.includes("net::ERR_INCOMPLETE_CHUNKED_ENCODING");
+        if (isConnectionReset) {
+          yield {
+            type: "error",
+            content: "连接已断开，请重试",
+            errorCode: "CONNECTION_RESET",
+          };
           return;
         }
         // 其他网络错误
-        yield { type: "error", content: `网络错误: ${errorMessage}` };
+        yield {
+          type: "error",
+          content: `网络错误: ${errorMessage}`,
+          errorCode: "BACKEND_UNREACHABLE",
+        };
       } finally {
         reader.releaseLock();
       }
@@ -645,6 +657,7 @@ export const chatService = {
                     yield {
                       type: "error",
                       content: chunk.content || "",
+                      errorCode: chunk.__pyapp_error_code || "UNKNOWN",
                     } as StreamChunk;
                   } else if (pyappType === "status" || chunk.content) {
                     yield {

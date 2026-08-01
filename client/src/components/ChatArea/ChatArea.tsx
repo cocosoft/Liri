@@ -26,6 +26,7 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
   const {
     messages,
     error,
+    errorCode,
     isStreaming,
     recoverySessionId,
     dismissRecovery,
@@ -151,16 +152,11 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
     playResponse,
   ]);
 
-  // TODO: CS02-ROOTFIX — 后端应返回结构化错误码（如 errorCode: "BACKEND_UNREACHABLE"），
-  // 前端根据 errorCode 判断而非字符串匹配浏览器错误消息。
+  // 使用结构化 errorCode 判断后端状态 (CS02)，取代字符串匹配
   const displayError =
     error &&
     !backendRunning &&
-    (error.includes("fetch") ||
-      error.includes("connect") ||
-      error.includes("NetworkError") ||
-      error.includes("typo") ||
-      error.includes("url or port"))
+    errorCode === "BACKEND_UNREACHABLE"
       ? t("chat.backendNotRunning")
       : error;
 

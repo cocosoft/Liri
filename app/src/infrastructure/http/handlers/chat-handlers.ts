@@ -27,7 +27,7 @@ import type http from 'http';
 import { randomUUID } from 'crypto';
 import type { HandlerCtx } from './handler-utils';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError, AppError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
@@ -336,6 +336,7 @@ async function handleStreamingChat(
       created,
       model,
       __pyapp_type: 'status',
+      __pyapp_status_type: 'ai_thinking',
       choices: [
         {
           index: 0,
@@ -481,6 +482,9 @@ async function handleStreamingChat(
                 created,
                 model,
                 __pyapp_type: chunk.type,
+                ...(chunk.statusType
+                  ? { __pyapp_status_type: chunk.statusType }
+                  : {}),
                 choices: [
                   {
                     index: 0,
@@ -502,6 +506,7 @@ async function handleStreamingChat(
                 created,
                 model,
                 __pyapp_type: 'error',
+                __pyapp_error_code: chunk.errorCode || 'UNKNOWN',
                 choices: [
                   {
                     index: 0,
@@ -671,6 +676,11 @@ async function handleStreamingChat(
         object: 'chat.completion.chunk',
         created,
         model,
+        __pyapp_type: 'error',
+        __pyapp_error_code:
+          err instanceof AppError && err.category
+            ? `APP_${err.category.toUpperCase()}`
+            : 'UNKNOWN',
         choices: [
           {
             index: 0,

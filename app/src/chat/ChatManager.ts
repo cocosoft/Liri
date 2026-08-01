@@ -3145,6 +3145,7 @@ export class ChatManagerImpl implements ChatManager {
         });
         yield {
           type: 'status',
+          statusType: 'retry',
           content: `输出截断，正在以更大 token 限制重试（第 ${retryState.retryCount} 次，maxTokens=${retryState.nextMaxTokens}）...`,
           sessionId: session.id,
         } as ChatStreamChunk;
@@ -3932,6 +3933,7 @@ export class ChatManagerImpl implements ChatManager {
         try {
           yield {
             type: 'status',
+            statusType: 'task_all_done',
             content: '任务已全部完成',
             sessionId,
           } as ChatStreamChunk;
@@ -3979,6 +3981,7 @@ export class ChatManagerImpl implements ChatManager {
 
       yield {
         type: 'status',
+        statusType: 'resume',
         content: `从第 ${stepIndex} 步恢复 — 剩余 ${remainingToolCalls.length} 个工具`,
         sessionId,
       } as ChatStreamChunk;

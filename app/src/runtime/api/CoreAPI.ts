@@ -139,6 +139,16 @@ export interface ChatStreamChunk {
     ratio: number;
     severity: 'normal' | 'warn' | 'compact';
   };
+  /** 状态子类型 — 替代前端对 content 的字符串匹配 (CS02) */
+  statusType?: 'ai_thinking' | 'retry' | 'task_all_done' | 'resume';
+  /** 结构化错误码 — 替代前端对 error message 的字符串匹配 (CS02) */
+  errorCode?:
+    | 'UNKNOWN'
+    | 'RATE_LIMITED'
+    | 'AUTH_ERROR'
+    | 'QUOTA_EXCEEDED'
+    | 'CONNECTION_RESET'
+    | 'BACKEND_UNREACHABLE';
 }
 
 /** 执行阶段数据 */

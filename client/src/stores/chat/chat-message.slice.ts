@@ -107,6 +107,8 @@ export interface MessageSlice {
     description: string;
   } | null;
   error: string | null;
+  /** 结构化错误码 — SSE 协议增强 (CS02)，替代 ChatArea 字符串匹配 */
+  errorCode: string | null;
   replyMessage: Message | null;
   /** 待设置的回复引用 ID（streamMessage 中创建用户消息时读取） */
   pendingReplyToId: string | null;
@@ -179,6 +181,7 @@ export const createMessageSlice: StateCreator<
   streamingStatus: "",
   executionPhase: null,
   error: null,
+  errorCode: null,
   replyMessage: null,
   pendingReplyToId: null,
   editTarget: null,
@@ -214,7 +217,7 @@ export const createMessageSlice: StateCreator<
     // 标记当前 session 缓存为 stale（发送新消息后缓存将过期）
     if (currentSid) staleSessionCache(currentSid);
 
-    set({ isSending: true, isInputBlocked: !messageQueueEnabled, error: null });
+    set({ isSending: true, isInputBlocked: !messageQueueEnabled, error: null, errorCode: null });
 
     const pendingReplyId = get().pendingReplyToId;
     const userMessage: Message = {
@@ -324,7 +327,16 @@ export const createMessageSlice: StateCreator<
         { module: "stores:chat:message", action: "sendMessage" },
         "warn",
       );
-      set({ error: String(error), isSending: false, isInputBlocked: false });
+      set({
+        error: String(error),
+        errorCode:
+          error instanceof Error &&
+          (error.message.includes("fetch") || error.message.includes("connect"))
+            ? "BACKEND_UNREACHABLE"
+            : "UNKNOWN",
+        isSending: false,
+        isInputBlocked: false,
+      });
     }
   },
 
@@ -378,6 +390,7 @@ export const createMessageSlice: StateCreator<
       isInputBlocked: !messageQueueEnabled,
       isStreaming: true,
       error: null,
+      errorCode: null,
       abortController,
     });
 
@@ -575,7 +588,7 @@ export const createMessageSlice: StateCreator<
             blocks: blockBuilder.getBlocks(),
           };
         } else if (chunk.type === "status") {
-          blockBuilder.addStatus(chunk.content);
+          blockBuilder.addStatus(chunk.content, chunk.statusType);
           set({ streamingStatus: chunk.content });
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === "reconnect_status") {
@@ -675,7 +688,7 @@ export const createMessageSlice: StateCreator<
             content: msg.content + stripStructuralTags(chunk.content),
             blocks: blockBuilder.getBlocks(),
           };
-          set({ error: chunk.content });
+          set({ error: chunk.content, errorCode: chunk.errorCode || "UNKNOWN" });
         } else if (chunk.type === "tool_call" && chunk.toolCall) {
           // 实时转换：todo_write 的 tool_call 直接转 todo block，不等流结束
           let skipDefault = false;
@@ -995,7 +1008,7 @@ export const createMessageSlice: StateCreator<
   },
 
   clearMessages: () => {
-    set({ messages: [], error: null });
+    set({ messages: [], error: null, errorCode: null });
   },
 
   /**

@@ -101,16 +101,37 @@ export class ChronologicalBlockBuilder {
   }
 
   /** 添加状态块，自动过滤冗余/瞬态状态：
-   *  1. "🔧 Running tool: xxx" 中间态 → 丢弃
-   *  2. "✅ Tool xxx completed" / "❌ Tool xxx failed" 冗余完成/失败态 → 丢弃（tool_call 块已展示状态）
-   *  3. "AI is thinking..." / "🎨 AI is generating..." 等瞬态加载态 → 丢弃
-   *  4. 连续重复内容跳过
-   *
-   *  TODO: CS02-ROOTFIX — 后端应在 status 消息中携带 statusType 字段
-   *  （如 "tool_started" / "tool_completed" / "ai_thinking"），
-   *  前端根据 statusType 过滤而非字符串匹配 content。
+   *  利用 SSE 协议的 statusType 字段进行结构化过滤（CS02），
+   *  仅当 statusType 缺失时才回退到字符串匹配（兼容旧后端）。
    */
-  addStatus(status: string): void {
+  addStatus(status: string, statusType?: string): void {
+    // 结构化过滤 (CS02) — 新 SSE 协议路径
+    if (statusType) {
+      // 瞬态/冗余状态类型 → 丢弃
+      if (
+        statusType === 'ai_thinking' ||
+        statusType === 'tool_started' ||
+        statusType === 'tool_completed'
+      ) {
+        return;
+      }
+      // 可渲染的状态类型 → 正常添加
+      const lastBlock = this.blocks[this.blocks.length - 1];
+      if (lastBlock?.type === 'status' && lastBlock.content === status) {
+        return; // 去重
+      }
+      this.blocks.push({
+        id: generateBlockId(),
+        type: 'status',
+        content: status,
+        isStreaming: true,
+        toolCallId: this.currentToolCallId ?? undefined,
+        groupId: this.currentGroupId,
+      });
+      return;
+    }
+
+    // 回退：字符串匹配（兼容旧后端，statusType 缺失时使用）
     // 丢弃中间态 "🔧 Running tool: xxx"
     if (status.includes("🔧") && status.includes("Running tool")) {
       return;

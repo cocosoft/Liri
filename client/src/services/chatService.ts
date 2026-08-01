@@ -134,7 +134,13 @@ export interface StreamChunk {
   /** 状态子类型 — SSE 协议增强字段 (CS02)，替代前端字符串匹配 */
   statusType?: "ai_thinking" | "retry" | "task_all_done" | "resume";
   /** 结构化错误码 — SSE 协议增强字段 (CS02)，替代前端字符串匹配 */
-  errorCode?: "UNKNOWN" | "RATE_LIMITED" | "AUTH_ERROR" | "QUOTA_EXCEEDED" | "CONNECTION_RESET" | "BACKEND_UNREACHABLE";
+  errorCode?:
+    | "UNKNOWN"
+    | "RATE_LIMITED"
+    | "AUTH_ERROR"
+    | "QUOTA_EXCEEDED"
+    | "CONNECTION_RESET"
+    | "BACKEND_UNREACHABLE";
 }
 
 async function getTauriCore() {

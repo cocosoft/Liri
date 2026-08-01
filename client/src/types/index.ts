@@ -135,6 +135,7 @@ export type { BackendStatus } from "../api/types/config";
 
 // ─── 工作模块类型 ─
 export type {
+  // 旧类型（@deprecated）
   Project,
   ProjectNode,
   ProjectNodeType,
@@ -142,7 +143,16 @@ export type {
   ProjectStatus,
   WorkItemFilter,
   ProjectViewMode,
+  // 统一任务模型（Phase A 新增）
+  TaskType,
+  TaskStatus,
+  TaskPriority,
+  TaskNode,
+  ProjectV2,
+  TaskStatusFilter,
+  TaskViewMode,
 } from "./work";
+export { TASK_PRIORITY_LABELS } from "./work";
 
 // ─── 编排时间线 ───
 export type {

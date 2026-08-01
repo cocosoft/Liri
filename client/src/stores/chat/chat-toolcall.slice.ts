@@ -109,20 +109,20 @@ export class ChronologicalBlockBuilder {
     if (statusType) {
       // 瞬态/冗余状态类型 → 丢弃
       if (
-        statusType === 'ai_thinking' ||
-        statusType === 'tool_started' ||
-        statusType === 'tool_completed'
+        statusType === "ai_thinking" ||
+        statusType === "tool_started" ||
+        statusType === "tool_completed"
       ) {
         return;
       }
       // 可渲染的状态类型 → 正常添加
       const lastBlock = this.blocks[this.blocks.length - 1];
-      if (lastBlock?.type === 'status' && lastBlock.content === status) {
+      if (lastBlock?.type === "status" && lastBlock.content === status) {
         return; // 去重
       }
       this.blocks.push({
         id: generateBlockId(),
-        type: 'status',
+        type: "status",
         content: status,
         isStreaming: true,
         toolCallId: this.currentToolCallId ?? undefined,

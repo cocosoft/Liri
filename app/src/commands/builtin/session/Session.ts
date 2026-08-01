@@ -81,7 +81,7 @@ Examples:
     }
 
     try {
-      const session = chatManager.createSession({ title });
+      const session = await chatManager.createSession({ title });
       return {
         type: 'text',
         value: `Session created successfully!\nID: ${session.id}\nTitle: ${session.title}`,

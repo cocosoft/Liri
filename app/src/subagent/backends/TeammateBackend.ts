@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Teammate后端接口
  * 定义不同类型teammate的通用接口
  * */
@@ -89,7 +89,7 @@ export abstract class BaseTeammateBackend implements TeammateBackend {
       id,
       name: config.name,
       backend: this,
-      agent: null as any,
+      agent: null as unknown as SubAgent,
       config,
       status: 'pending',
       createdAt: Date.now(),

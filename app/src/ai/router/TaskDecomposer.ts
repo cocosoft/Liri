@@ -118,6 +118,15 @@ User message: {MESSAGE}`;
 /**
  * TaskDecomposer 分解复杂请求为结构化子任务
  */
+
+/** LLM 返回的 JSON 中单个子任务的结构 */
+interface ParsedSubTaskJson {
+  id?: string;
+  description?: string;
+  tier?: string;
+  dependsOn?: string[];
+}
+
 export class TaskDecomposer {
   /**
    * @param classifyFn - Judge 分类函数，用于单消息 tier 分配
@@ -211,10 +220,10 @@ export class TaskDecomposer {
       const parsed = JSON.parse(json);
 
       const subTasks: SubTask[] = (parsed.subTasks || []).map(
-        (st: any, index: number) => ({
+        (st: ParsedSubTaskJson, index: number) => ({
           id: st.id || `step-${index + 1}`,
           description: st.description || '',
-          tier: this.normalizeTier(st.tier),
+          tier: this.normalizeTier(st.tier || ''),
           dependsOn: Array.isArray(st.dependsOn) ? st.dependsOn : [],
           status: 'pending' as const,
         })

@@ -10,7 +10,7 @@
 import { Logger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { ToolCall, ToolResult } from '../chat/types/tool.js';
-import type { ChatMessage } from '../ai/models/types';
+import type { ChatMessage, ToolDefinition } from '../ai/models/types';
 import type { TAORLoopDeps, TAORLoopResult } from './TAORLoop.js';
 import { createTAORLoopDeps } from './TAORLoop.js';
 import { CascadeAbortManager } from './CascadeAbortManager.js';
@@ -57,7 +57,7 @@ export interface ChatManagerTAORContext {
   sessionId: string;
 
   /** 工具定义列表 */
-  toolDefinitions: Array<Record<string, unknown>>;
+  toolDefinitions: ToolDefinition[];
 
   /** 进度通知回调 */
   onProgress?: (progress: {

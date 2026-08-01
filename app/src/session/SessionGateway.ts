@@ -428,12 +428,20 @@ export class SessionGateway {
 
       this.eventBus.on('session:deleted', (event: SessionLifecycleEvent) => {
         const sessionId = event.sessionId;
-        this.storage.getMessages(sessionId).then((messages) => {
-          const engine = getFTS5SearchEngine();
-          for (const msg of messages) {
-            engine.remove(`msg_${msg.id}`);
-          }
-        });
+        this.storage
+          .getMessages(sessionId)
+          .then((messages) => {
+            const engine = getFTS5SearchEngine();
+            for (const msg of messages) {
+              engine.remove(`msg_${msg.id}`);
+            }
+          })
+          .catch((err) => {
+            handleError(err, {
+              module: 'session:gateway',
+              action: 'fts5Cleanup',
+            });
+          });
       });
 
       // 单条/批量消息删除时的 FTS5 索引清理

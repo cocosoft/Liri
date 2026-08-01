@@ -848,7 +848,7 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   async createSession(params?: SessionCreateParams): Promise<SessionInfo> {
-    const session = this.chatManager.createSession({
+    const session = await this.chatManager.createSession({
       title: params?.title || 'New Session',
       tags: params?.tags,
       mode: params?.mode,

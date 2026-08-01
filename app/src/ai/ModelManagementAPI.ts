@@ -41,6 +41,7 @@ import {
   getModelContextWindow,
 } from './models/ModelConfigs';
 import { modelPricingService } from './models/ModelPricingService.js';
+import type { UpsertPricingParams } from './models/ModelPricingService.js';
 import {
   readSoulMd,
   writeSoulMd,
@@ -980,21 +981,28 @@ async function handleUpdateModel(
       return;
     }
 
-    const params: Record<string, unknown> = { modelId: existing.modelId };
+    const params: UpsertPricingParams = {
+      modelId: existing.modelId,
+      inputCostPerMillion: existing.inputCostPerMillion ?? 0,
+      outputCostPerMillion: existing.outputCostPerMillion ?? 0,
+      providerId: existing.providerId,
+    };
     if (body.capabilities !== undefined)
-      params.capabilities = body.capabilities;
-    if (body.displayName !== undefined) params.displayName = body.displayName;
-    if (body.providerId !== undefined) params.providerId = body.providerId;
+      params.capabilities = body.capabilities as string[];
+    if (body.displayName !== undefined)
+      params.displayName = body.displayName as string;
+    if (body.providerId !== undefined)
+      params.providerId = body.providerId as string;
     if (body.contextWindow !== undefined)
-      params.contextWindow = body.contextWindow;
+      params.contextWindow = body.contextWindow as number;
     if (body.maxOutputTokens !== undefined)
-      params.maxOutputTokens = body.maxOutputTokens;
+      params.maxOutputTokens = body.maxOutputTokens as number;
     if (body.inputCostPerMillion !== undefined)
-      params.inputCostPerMillion = body.inputCostPerMillion;
+      params.inputCostPerMillion = body.inputCostPerMillion as number;
     if (body.outputCostPerMillion !== undefined)
-      params.outputCostPerMillion = body.outputCostPerMillion;
+      params.outputCostPerMillion = body.outputCostPerMillion as number;
 
-    const record = await modelPricingService.upsertPricing(params as any);
+    const record = await modelPricingService.upsertPricing(params);
 
     // 刷新 ModelRegistry 定价缓存
     const { ModelRegistry } = await import('./models/ModelRegistry.js');
@@ -1991,9 +1999,9 @@ async function handleUpdateCapability(
       action: 'updateCapability',
     });
     const status =
-      (err as any)?.errorCode === 'CAPS_005'
+      (err as AppError)?.code === 'CAPS_005'
         ? 404
-        : (err as any)?.errorCode === 'CAPS_006'
+        : (err as AppError)?.code === 'CAPS_006'
           ? 409
           : 500;
     sendError(res, `更新能力失败: ${(err as Error).message}`, status);

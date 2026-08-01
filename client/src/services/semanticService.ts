@@ -93,8 +93,11 @@ export const semanticService = {
         `/v1/semantic/search?q=${encodeURIComponent(query)}&topK=${topK}`,
       );
       if (Array.isArray(res)) return res as SemanticSearchResult[];
-      if (res && Array.isArray((res as any).data))
-        return (res as any).data as SemanticSearchResult[];
+      // 兼容包装响应格式 { data: [...] }
+      if (res && typeof res === "object" && "data" in res) {
+        const wrapped = res as unknown as { data: SemanticSearchResult[] };
+        if (Array.isArray(wrapped.data)) return wrapped.data;
+      }
       return [];
     } catch (e) {
       handleClientError(e, { module: "services:semantic", action: "search" });

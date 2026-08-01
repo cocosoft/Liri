@@ -217,7 +217,12 @@ export const createMessageSlice: StateCreator<
     // 标记当前 session 缓存为 stale（发送新消息后缓存将过期）
     if (currentSid) staleSessionCache(currentSid);
 
-    set({ isSending: true, isInputBlocked: !messageQueueEnabled, error: null, errorCode: null });
+    set({
+      isSending: true,
+      isInputBlocked: !messageQueueEnabled,
+      error: null,
+      errorCode: null,
+    });
 
     const pendingReplyId = get().pendingReplyToId;
     const userMessage: Message = {
@@ -688,7 +693,10 @@ export const createMessageSlice: StateCreator<
             content: msg.content + stripStructuralTags(chunk.content),
             blocks: blockBuilder.getBlocks(),
           };
-          set({ error: chunk.content, errorCode: chunk.errorCode || "UNKNOWN" });
+          set({
+            error: chunk.content,
+            errorCode: chunk.errorCode || "UNKNOWN",
+          });
         } else if (chunk.type === "tool_call" && chunk.toolCall) {
           // 实时转换：todo_write 的 tool_call 直接转 todo block，不等流结束
           let skipDefault = false;
@@ -1197,29 +1205,33 @@ export const createMessageSlice: StateCreator<
           .reverse()
           .find((m) => m.role === "assistant");
         if (assistantMsg) {
-          import("../../services/backendUrl").then(({ getBackendBaseUrl }) => {
-            fetch(
-              `${getBackendBaseUrl()}/v1/sessions/${sessionId}/checkpoints/latest`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  label: `abort_${Date.now()}`,
-                  autoCreated: true,
-                  metadata: { abortRecovery: true },
-                }),
-              },
-            ).catch((err) => {
-              handleClientError(
-                err,
+          import("../../services/backendUrl")
+            .then(({ getBackendBaseUrl }) => {
+              fetch(
+                `${getBackendBaseUrl()}/v1/sessions/${sessionId}/checkpoints/latest`,
                 {
-                  module: "stores:chat:message",
-                  action: "stopMessage:saveCheckpoint",
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    label: `abort_${Date.now()}`,
+                    autoCreated: true,
+                    metadata: { abortRecovery: true },
+                  }),
                 },
-                "warn",
-              );
+              ).catch((err) => {
+                handleClientError(
+                  err,
+                  {
+                    module: "stores:chat:message",
+                    action: "stopMessage:saveCheckpoint",
+                  },
+                  "warn",
+                );
+              });
+            })
+            .catch(() => {
+              /* backendUrl 动态加载失败，静默忽略 */
             });
-          });
         }
       }
 
@@ -1403,11 +1415,18 @@ export const createMessageSlice: StateCreator<
     const sid = get().recoverySessionId;
     set({ recoverySessionId: null });
     if (sid) {
-      import("../../services/backendUrl").then(({ getBackendBaseUrl }) => {
-        fetch(`${getBackendBaseUrl()}/v1/sessions/${sid}/checkpoints/latest`, {
-          method: "DELETE",
-        }).catch(() => {});
-      });
+      import("../../services/backendUrl")
+        .then(({ getBackendBaseUrl }) => {
+          fetch(
+            `${getBackendBaseUrl()}/v1/sessions/${sid}/checkpoints/latest`,
+            {
+              method: "DELETE",
+            },
+          ).catch(() => {});
+        })
+        .catch(() => {
+          /* backendUrl 动态加载失败，静默忽略 */
+        });
     }
   },
 

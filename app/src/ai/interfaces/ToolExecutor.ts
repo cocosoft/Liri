@@ -232,9 +232,16 @@ export class DefaultToolExecutor implements IToolExecutor {
         .catch((error) => {
           clearTimeout(timeout);
           if (attempt < this.retries) {
-            this.executeWithTimeout(tool, input, context, attempt + 1).then(
-              resolve
-            );
+            this.executeWithTimeout(tool, input, context, attempt + 1)
+              .then(resolve)
+              .catch((e) =>
+                resolve({
+                  result: undefined,
+                  content: e instanceof Error ? e.message : String(e),
+                  error: e instanceof Error ? e.message : String(e),
+                  success: false,
+                })
+              );
           } else {
             resolve({
               result: undefined,

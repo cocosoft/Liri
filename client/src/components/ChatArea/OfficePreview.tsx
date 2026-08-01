@@ -231,7 +231,6 @@ export default function OfficePreview({ file }: OfficePreviewProps) {
   return (
     <div
       className="flex-1 overflow-auto p-4 office-preview-content dark:invert-[0.9]"
-      // eslint-disable-next-line react/no-danger
       dangerouslySetInnerHTML={{ __html: html! }}
     />
   );

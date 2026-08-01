@@ -99,9 +99,13 @@ class SSEService {
         }
         // 如果之前曾断开过，提示连接已恢复
         if (wasReconnecting) {
-          import("../stores/toastStore").then(({ toastInfo }) => {
-            toastInfo("实时连接已恢复");
-          });
+          import("../stores/toastStore")
+            .then(({ toastInfo }) => {
+              toastInfo("实时连接已恢复");
+            })
+            .catch(() => {
+              /* toastStore 动态加载失败，静默忽略 */
+            });
         }
       };
 
@@ -110,15 +114,23 @@ class SSEService {
         this.reconnectFailCount++;
         // 首次断开：即时提示正在重连
         if (this.reconnectFailCount === 1) {
-          import("../stores/toastStore").then(({ toastWarning }) => {
-            toastWarning("实时连接已断开，正在重连...");
-          });
+          import("../stores/toastStore")
+            .then(({ toastWarning }) => {
+              toastWarning("实时连接已断开，正在重连...");
+            })
+            .catch(() => {
+              /* toastStore 动态加载失败，静默忽略 */
+            });
         }
         // 连续失败 3 次后显示详细错误
         if (this.reconnectFailCount === 3) {
-          import("../stores/toastStore").then(({ toastError }) => {
-            toastError(new Error("Failed to fetch"));
-          });
+          import("../stores/toastStore")
+            .then(({ toastError }) => {
+              toastError(new Error("Failed to fetch"));
+            })
+            .catch(() => {
+              /* toastStore 动态加载失败，静默忽略 */
+            });
         }
         // 断开时启动轮询兜底 + 调度重连
         this.startPolling();

@@ -18,7 +18,7 @@ export async function decompose(
   requirements: string,
   options: DecomposeOptions,
 ): Promise<ProjectNode[]> {
-  const workspaceId = options.workspaceId || 'default';
+  const workspaceId = options.workspaceId || "default";
 
   try {
     const res = await http.post<{ nodes: ProjectNode[] }>(

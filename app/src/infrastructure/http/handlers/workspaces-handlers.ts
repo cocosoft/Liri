@@ -1483,3 +1483,229 @@ export async function handleDecomposeProject(
     }
   }
 }
+
+// ========== Tasks API（Phase B: TaskNode 统一模型） ==========
+
+import { taskStore } from '@modules/workspace/TaskStore';
+import type { TaskNode, TaskStatus } from '@modules/workspace/types';
+
+/**
+ * 列出任务
+ * GET /v1/tasks?workspaceId=xxx&projectId=xxx&status=xxx
+ */
+export async function handleListTasks(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    await taskStore.initialize();
+
+    const url = new URL(req.url || '/', 'http://localhost');
+    const workspaceId = url.searchParams.get('workspaceId');
+    const projectId = url.searchParams.get('projectId');
+    const status = url.searchParams.get('status');
+
+    let tasks: TaskNode[] = [];
+
+    if (projectId) {
+      tasks = await taskStore.listByProject(projectId);
+    } else if (workspaceId && status) {
+      tasks = await taskStore.listByStatus(workspaceId, status as TaskStatus);
+    } else if (workspaceId) {
+      tasks = await taskStore.listByWorkspace(workspaceId);
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ data: { tasks, total: tasks.length } }));
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'task_list' });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '获取任务列表失败' } }));
+    }
+  }
+}
+
+/**
+ * 获取单个任务
+ * GET /v1/tasks/:taskId
+ */
+export async function handleGetTask(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  taskId: string
+): Promise<void> {
+  try {
+    await taskStore.initialize();
+
+    const task = await taskStore.get(taskId);
+    if (!task) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '任务不存在' } }));
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ data: task }));
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'task_get' });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '获取任务失败' } }));
+    }
+  }
+}
+
+/**
+ * 创建任务
+ * POST /v1/tasks
+ */
+export async function handleCreateTask(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    await taskStore.initialize();
+
+    const body = await ctx.readRequestBody(req);
+    const data = JSON.parse(body || '{}');
+
+    if (!data.workspaceId || !data.title) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'workspaceId and title are required' },
+        })
+      );
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const task: TaskNode = {
+      id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      workspaceId: data.workspaceId,
+      projectId: data.projectId,
+      title: data.title,
+      description: data.description || '',
+      type: data.type || 'task',
+      status: data.status || 'planning',
+      priority: data.priority ?? 3,
+      tags: data.tags || [],
+      parentId: data.parentId,
+      dependsOn: data.dependsOn || [],
+      estimatedEffort: data.estimatedEffort,
+      assignee: data.assignee,
+      sessionId: data.sessionId,
+      progress: data.progress ?? 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await taskStore.save(task);
+
+    res.writeHead(201, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ data: task }));
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'task_create' });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '创建任务失败' } }));
+    }
+  }
+}
+
+/**
+ * 更新任务
+ * PATCH /v1/tasks/:taskId
+ */
+export async function handleUpdateTask(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  taskId: string
+): Promise<void> {
+  try {
+    await taskStore.initialize();
+
+    const body = await ctx.readRequestBody(req);
+    const updates = JSON.parse(body || '{}');
+
+    const updated = await taskStore.update(taskId, updates);
+    if (!updated) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '任务不存在' } }));
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ data: updated }));
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'task_update' });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '更新任务失败' } }));
+    }
+  }
+}
+
+/**
+ * 删除任务
+ * DELETE /v1/tasks/:taskId
+ */
+export async function handleDeleteTask(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  taskId: string
+): Promise<void> {
+  try {
+    await taskStore.initialize();
+
+    const deleted = await taskStore.delete(taskId);
+    if (!deleted) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '任务不存在' } }));
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ data: { deleted: true } }));
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'task_delete' });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '删除任务失败' } }));
+    }
+  }
+}
+
+/**
+ * 列出任务的子任务
+ * GET /v1/tasks/:taskId/children
+ */
+export async function handleListTaskChildren(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  taskId: string
+): Promise<void> {
+  try {
+    await taskStore.initialize();
+
+    const children = await taskStore.listChildren(taskId);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({ data: { tasks: children, total: children.length } })
+    );
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'task_children' });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '获取子任务失败' } }));
+    }
+  }
+}

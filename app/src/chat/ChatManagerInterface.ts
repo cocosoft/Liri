@@ -66,7 +66,7 @@ export interface ChatManager {
    * @param params 创建会话的参数
    * @returns 会话对象
    */
-  createSession(params: CreateSessionParams): ChatSession;
+  createSession(params: CreateSessionParams): Promise<ChatSession>;
 
   /**
    * 切换会话

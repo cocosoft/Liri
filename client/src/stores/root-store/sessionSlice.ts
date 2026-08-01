@@ -419,9 +419,11 @@ export const createSessionSlice: StateCreator<
       // 记录离开当前会话（用于回切摘要）
       if (prevId) {
         const lastMsgId = msgs.length > 0 ? msgs[msgs.length - 1].id : null;
-        import("@/components/ChatArea/ReEntryBanner").then((m) =>
-          m.recordSessionLeave(prevId, lastMsgId),
-        );
+        import("@/components/ChatArea/ReEntryBanner")
+          .then((m) => m.recordSessionLeave(prevId, lastMsgId))
+          .catch(() => {
+            /* ReEntryBanner 动态加载失败，静默忽略 */
+          });
       }
 
       const t2 = performance.now();
@@ -455,9 +457,11 @@ export const createSessionSlice: StateCreator<
         });
 
       // 清除路径缓存
-      import("@/components/ChatArea/markdown/pathCache").then((m) =>
-        m.clearPathCache(),
-      );
+      import("@/components/ChatArea/markdown/pathCache")
+        .then((m) => m.clearPathCache())
+        .catch(() => {
+          /* pathCache 动态加载失败，静默忽略 */
+        });
 
       // 懒加载恢复模型
       if (session.modelId) {

@@ -22,11 +22,17 @@ const DEFAULT_CONTEXT = 200_000;
 
 /** 文件写操作工具名集合 — 用于结构化统计文件数 (CS02) */
 const FILE_WRITE_TOOLS = new Set([
-  'file_write', 'file_edit', 'file_copy',
-  'temp_file', 'file_convert',
-  'image_generate', 'image_svg_generate', 'video_generate',
-  'pdf', 'tts',
-  'update_soul_or_user',
+  "file_write",
+  "file_edit",
+  "file_copy",
+  "temp_file",
+  "file_convert",
+  "image_generate",
+  "image_svg_generate",
+  "video_generate",
+  "pdf",
+  "tts",
+  "update_soul_or_user",
 ]);
 
 /** 从消息列表聚合 Token 用量 */
@@ -415,11 +421,17 @@ function ContextTab() {
   const fileCount = useMemo(
     () =>
       messages.filter((m) => {
-        if (m.role !== 'assistant') return false;
+        if (m.role !== "assistant") return false;
         return m.blocks?.some((b) => {
-          if (b.type === 'deliverable' && b.deliverableData?.files?.length) return true;
-          if (b.type === 'diff' && b.diffData?.file) return true;
-          if (b.type === 'tool_call' && b.toolCall?.name && FILE_WRITE_TOOLS.has(b.toolCall.name)) return true;
+          if (b.type === "deliverable" && b.deliverableData?.files?.length)
+            return true;
+          if (b.type === "diff" && b.diffData?.file) return true;
+          if (
+            b.type === "tool_call" &&
+            b.toolCall?.name &&
+            FILE_WRITE_TOOLS.has(b.toolCall.name)
+          )
+            return true;
           return false;
         });
       }).length,

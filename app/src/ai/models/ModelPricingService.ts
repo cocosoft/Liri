@@ -36,6 +36,12 @@
 import { Database } from '@modules/core/external/sqlite3';
 import { randomUUID } from 'crypto';
 import { resolveDbPath } from '@modules/core';
+
+/** sqlite3 db.run() 回调中的 this 上下文 */
+interface SqliteRunContext {
+  changes: number;
+  lastID: number;
+}
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
@@ -303,9 +309,9 @@ export class ModelPricingService {
       (resolve, reject) => {
         this.db!.all(
           `SELECT model_id FROM ${REGISTRY_TABLE} WHERE id = '' OR id IS NULL`,
-          (err: Error | null, rows: any[]) => {
+          (err: Error | null, rows: unknown[]) => {
             if (err) reject(err);
-            else resolve(rows);
+            else resolve(rows as { model_id: string }[]);
           }
         );
       }
@@ -695,7 +701,7 @@ export class ModelPricingService {
     return new Promise<ModelPricingRecord[]>((resolve, reject) => {
       this.db!.all(
         `SELECT * FROM ${REGISTRY_TABLE} WHERE enabled = 1 ORDER BY model_id ASC`,
-        (err: Error | null, rows: any[]) => {
+        (err: Error | null, rows: unknown[]) => {
           if (err) reject(err);
           else {
             resolve((rows as Record<string, unknown>[]).map(rowToRecord));
@@ -713,7 +719,7 @@ export class ModelPricingService {
       this.db!.run(
         `DELETE FROM ${REGISTRY_TABLE} WHERE model_id = ? AND is_custom = 1`,
         [modelId],
-        function (this: any, err: Error | null) {
+        function (this: SqliteRunContext, err: Error | null) {
           if (err) reject(err);
           else resolve(this.changes > 0);
         }

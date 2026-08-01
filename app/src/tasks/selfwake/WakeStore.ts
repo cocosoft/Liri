@@ -44,7 +44,10 @@ export class WakeStore {
     });
     this.fileMutex.set(
       sessionId,
-      prev.then(() => next)
+      prev.then(
+        () => next,
+        () => next
+      )
     );
     await prev;
     try {

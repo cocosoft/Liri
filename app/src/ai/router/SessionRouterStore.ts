@@ -28,6 +28,23 @@
  */
 
 import { Database } from '@modules/core/external/sqlite3';
+
+/** sqlite3 run() 回调中的 this 上下文 */
+interface SqliteRunContext {
+  changes: number;
+  lastID: number;
+}
+
+/** session_route 表的数据库行类型 */
+interface SessionRouteRow {
+  session_id: string;
+  tier: string;
+  provider: string;
+  model: string;
+  created_at: number;
+  updated_at: number;
+  hit_count: number;
+}
 import { resolveDbPath } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { RouterTier, SessionRouteRecord } from './types.js';
@@ -99,18 +116,19 @@ export class SessionRouterStore {
       this.db!.get(
         `SELECT * FROM ${TABLE_NAME} WHERE session_id = ?`,
         [sessionId],
-        (err: Error | null, row: any) => {
+        (err: Error | null, row: unknown) => {
           if (err) reject(err);
           else if (!row) resolve(null);
           else {
+            const r = row as SessionRouteRow;
             const record: SessionRouteRecord = {
-              sessionId: row.session_id,
-              tier: row.tier as RouterTier,
-              provider: row.provider,
-              model: row.model,
-              createdAt: row.created_at,
-              updatedAt: row.updated_at,
-              hitCount: row.hit_count,
+              sessionId: r.session_id,
+              tier: r.tier as RouterTier,
+              provider: r.provider,
+              model: r.model,
+              createdAt: r.created_at,
+              updatedAt: r.updated_at,
+              hitCount: r.hit_count,
             };
 
             // 检查是否过期
@@ -186,7 +204,7 @@ export class SessionRouterStore {
       this.db!.run(
         `DELETE FROM ${TABLE_NAME} WHERE updated_at < ?`,
         [cutoff],
-        function (this: any, err: Error | null) {
+        function (this: SqliteRunContext, err: Error | null) {
           if (err) reject(err);
           else resolve(this.changes || 0);
         }

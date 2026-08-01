@@ -901,9 +901,13 @@ export class PluginSystem {
 export const pluginSystem = new PluginSystem();
 
 // 将自身注入 PluginManager（DI 模式，避免循环依赖）
-import('./managers/PluginManager').then(({ setPluginSystem }) => {
-  setPluginSystem(pluginSystem);
-});
+import('./managers/PluginManager')
+  .then(({ setPluginSystem }) => {
+    setPluginSystem(pluginSystem);
+  })
+  .catch((err) => {
+    logger.warning('PluginManager 动态加载失败', { error: String(err) });
+  });
 
 export type {
   PluginState,

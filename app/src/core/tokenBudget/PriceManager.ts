@@ -106,9 +106,13 @@ export class PriceManager {
       if (provider.supports(model)) {
         const result = provider.getPricing(model);
         if (result) {
-          result.then((r) => {
-            if (r) this.priceCache.set(model, r);
-          });
+          result
+            .then((r) => {
+              if (r) this.priceCache.set(model, r);
+            })
+            .catch(() => {
+              /* 定价查询失败，静默忽略 */
+            });
         }
       }
     }

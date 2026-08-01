@@ -89,6 +89,27 @@ function withListCache(
   });
 }
 
+/** 视频任务详情 */
+interface VideoTaskDetail {
+  taskId: string;
+  status: "pending" | "queued" | "running" | "completed" | "failed";
+  mode?: string;
+  progress?: number;
+  sourceImageUrl?: string | null;
+  resultVideoUrl?: string | null;
+  prompt?: string;
+  error?: string | null;
+  createdAt?: string;
+  completedAt?: string | null;
+}
+
+/** 视频任务列表响应 */
+interface VideoTaskListResponse {
+  tasks: VideoTaskDetail[];
+  total: number;
+  hasMore: boolean;
+}
+
 export const videoService = {
   /**
    * 视频生成（文生视频 / 图生视频）
@@ -197,13 +218,13 @@ export const videoService = {
     createdAt?: string;
     completedAt?: string | null;
   }> {
-    const res = await http.get<any>(
+    const res = await http.get<VideoTaskDetail>(
       `/v1/video/tasks/${encodeURIComponent(taskId)}`,
     );
     if (!res.ok) {
       throw new Error(String(res.error || "查询任务失败"));
     }
-    return res.data as any;
+    return res.data as unknown as VideoTaskDetail;
   },
 
   /**
@@ -234,11 +255,13 @@ export const videoService = {
     if (params?.limit) query.set("limit", String(params.limit));
     if (params?.offset) query.set("offset", String(params.offset));
 
-    const res = await http.get<any>(`/v1/video/tasks?${query.toString()}`);
+    const res = await http.get<VideoTaskListResponse>(
+      `/v1/video/tasks?${query.toString()}`,
+    );
     if (!res.ok) {
       throw new Error(String(res.error || "查询任务列表失败"));
     }
-    return res.data as any;
+    return res.data as unknown as VideoTaskListResponse;
   },
 
   /**

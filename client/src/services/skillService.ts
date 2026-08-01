@@ -207,7 +207,7 @@ const skillService = {
       return response.map((c) =>
         typeof c === "string"
           ? c
-          : (c as any).id || (c as any).capability || "",
+          : (c as SkillCategory).id || (c as SkillCategory).capability || "",
       );
     }
     if (response && Array.isArray(response.categories)) {

@@ -322,6 +322,115 @@ export interface ProjectBoard {
   columns: ProjectBoardColumn[];
 }
 
+// ========== 统一任务模型（Phase A: 与 WorkItem/ProjectNode 并存） ==========
+
+/**
+ * 任务类型（合并 WorkItemType + 前端 ProjectNodeType）
+ * - 规划层: project, phase, story
+ * - 执行层: task, bug, feature, refactor, docs, decision
+ */
+export type TaskType =
+  | 'project'
+  | 'phase'
+  | 'story'
+  | 'task'
+  | 'bug'
+  | 'feature'
+  | 'refactor'
+  | 'docs'
+  | 'decision';
+
+/**
+ * 任务状态（合并 WorkItemStatus + 前端 ProjectStatus）
+ * 流水线: planning → pending → active → review → completed → archived
+ * 旁路: paused (暂停), failed (异常终止)
+ */
+export type TaskStatus =
+  | 'planning'
+  | 'pending'
+  | 'active'
+  | 'paused'
+  | 'review'
+  | 'completed'
+  | 'archived'
+  | 'failed';
+
+/** 任务优先级（0=最高/P0, 3=最低/P3，前端展示映射） */
+export type TaskPriority = 0 | 1 | 2 | 3;
+
+/**
+ * 统一任务节点（替代 WorkItem + 前端 ProjectNode）
+ *
+ * 同时承载"规划分解"（parentId, dependsOn, estimatedEffort）
+ * 和"执行跟踪"（sessionId, changeSet, assignment）两种视角。
+ */
+export interface TaskNode {
+  // ── 核心标识 ──
+  id: string;
+  workspaceId: string;
+  /** 所属项目 ID（可选——独立 WorkItem 无项目） */
+  projectId?: string;
+
+  // ── 内容 ──
+  title: string;
+  description: string;
+  type: TaskType;
+  status: TaskStatus;
+  priority: TaskPriority;
+  tags: string[];
+
+  // ── 树结构（原前端 ProjectNode）──
+  /** 父节点 ID（单向引用，替代 children[] 数组） */
+  parentId?: string;
+  /** 依赖节点 ID 列表 */
+  dependsOn: string[];
+  /** 预估工时（如 "2d", "4h"） */
+  estimatedEffort?: string;
+
+  // ── 执行跟踪（原 WorkItem）──
+  /** 负责人 */
+  assignee?: string;
+  /** 关联会话 ID */
+  sessionId?: string;
+  /** 变更集 */
+  changeSet?: ChangeSet;
+  /** 预估影响范围 */
+  estimatedImpact?: string;
+  /** 风险提示 */
+  riskWarnings?: string[];
+
+  // ── 进度 ──
+  /** 完成百分比 0-100 */
+  progress: number;
+
+  // ── 时间戳（统一 ISO 8601 字符串）──
+  startedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * 项目 V2（含 TaskNode 树）
+ *
+ * 与现有 Project 并存，Phase C 后替换。
+ */
+export interface ProjectV2 {
+  id: string;
+  workspaceId: string;
+  name: string;
+  description: string;
+  /** 原始需求文本 */
+  sourceRequirements?: string;
+  /** 顶层 TaskNode ID 列表 */
+  rootTaskIds: string[];
+  status: 'planning' | 'active' | 'paused' | 'completed' | 'archived';
+  /** 聚合进度 0-100 */
+  progress: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ========== 团队（Team） ==========
 
 /** 团队成员角色 */

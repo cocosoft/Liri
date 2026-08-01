@@ -154,9 +154,7 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
 
   // 使用结构化 errorCode 判断后端状态 (CS02)，取代字符串匹配
   const displayError =
-    error &&
-    !backendRunning &&
-    errorCode === "BACKEND_UNREACHABLE"
+    error && !backendRunning && errorCode === "BACKEND_UNREACHABLE"
       ? t("chat.backendNotRunning")
       : error;
 

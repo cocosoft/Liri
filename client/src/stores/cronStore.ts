@@ -88,7 +88,9 @@ export const useCronStore = create<CronStore>()((set) => ({
   createTask: async (task) => {
     set({ saving: true });
     try {
-      const created = await cronService.create(task as any);
+      const created = await cronService.create(
+        task as unknown as Parameters<typeof cronService.create>[0],
+      );
       set((state) => ({ tasks: [...state.tasks, created] }));
     } catch (e) {
       handleClientError(

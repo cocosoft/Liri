@@ -240,7 +240,14 @@ export const agentService = {
         action: "getTaskAuditLogs",
       });
       const result = await tryTauri("get_task_audit_logs", { taskId });
-      if (result) return result as any[];
+      if (result)
+        return result as unknown as {
+          taskId: string;
+          eventType: string;
+          oldStatus: string | null;
+          newStatus: string;
+          timestamp: number;
+        }[];
       return [];
     }
   },
@@ -282,7 +289,20 @@ export const agentService = {
         action: "getTaskState",
       });
       const result = await tryTauri("get_task_state", { taskId });
-      return (result as any) || null;
+      return (
+        (result as unknown as {
+          id: string;
+          type: string;
+          status: string;
+          description: string;
+          startTime: number;
+          endTime?: number;
+          toolUseCount: number;
+          tokenCount: number;
+          outputFile: string;
+          error?: string;
+        } | null) || null
+      );
     }
   },
 

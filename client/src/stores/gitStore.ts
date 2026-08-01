@@ -294,10 +294,15 @@ setTimeout(() => {
             const state = useGitStore.getState();
             // 如果尚未初始化，先 init 再 refresh + 启动轮询
             if (!state.repos[newId]) {
-              state.initRepo(newId, wt.gitRepo.path).then(() => {
-                state.refreshStatus(newId);
-                state.startPolling(newId);
-              }).catch(() => { /* initRepo 失败不影响订阅 */ });
+              state
+                .initRepo(newId, wt.gitRepo.path)
+                .then(() => {
+                  state.refreshStatus(newId);
+                  state.startPolling(newId);
+                })
+                .catch(() => {
+                  /* initRepo 失败不影响订阅 */
+                });
             } else {
               state.refreshStatus(newId);
               state.startPolling(newId);

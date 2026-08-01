@@ -1056,6 +1056,36 @@ export async function dispatchRoute(
     return true;
   }
 
+  // ---- Tasks API (Phase B) ----
+  if (method === 'GET' && url.match(/^\/v1\/tasks\/(.+)\/children$/)) {
+    const match = url.match(/^\/v1\/tasks\/(.+)\/children$/);
+    await self['handleListTaskChildren'](req, res, match![1]);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/tasks\/(.+)$/)) {
+    const match = url.match(/^\/v1\/tasks\/(.+)$/);
+    await self['handleGetTask'](req, res, match![1]);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/tasks') {
+    await self['handleListTasks'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/tasks') {
+    await self['handleCreateTask'](req, res);
+    return true;
+  }
+  if (method === 'PATCH' && url.match(/^\/v1\/tasks\/(.+)$/)) {
+    const match = url.match(/^\/v1\/tasks\/(.+)$/);
+    await self['handleUpdateTask'](req, res, match![1]);
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/tasks\/(.+)$/)) {
+    const match = url.match(/^\/v1\/tasks\/(.+)$/);
+    await self['handleDeleteTask'](req, res, match![1]);
+    return true;
+  }
+
   // ---- .liri/ Config ----
   if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/liri\/detect$/)) {
     const workspaceId = url.match(/^\/v1\/workspaces\/(.+)\/liri\/detect$/)![1];

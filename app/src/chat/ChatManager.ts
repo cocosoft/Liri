@@ -116,7 +116,7 @@ import {
   type DegradationState,
 } from '../ai/ContextDegradation';
 import type { IToolExecutor } from '@modules/ai';
-import type { ToolRegistry } from '@modules/tools/ToolRegistry';
+import type { ToolRegistry, ToolSchema } from '@modules/tools/ToolRegistry';
 import type {
   ChatMessage,
   ParsedToolCall,
@@ -569,7 +569,7 @@ export class ChatManagerImpl implements ChatManager {
    */
   private _buildTAORContext(
     sessionId: string,
-    toolDefinitions: Record<string, unknown>[],
+    toolDefinitions: ToolDefinition[],
     options?: SendMessageOptions
   ): ChatManagerTAORContext {
     return {
@@ -1116,6 +1116,26 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * 将 ToolSchema[] 转换为 OpenAI 兼容的 ToolDefinition[]
+   */
+  private _buildToolDefinitions(schemas: ToolSchema[]): ToolDefinition[] {
+    return schemas.map((schema) => ({
+      type: 'function' as const,
+      function: {
+        name: schema.name,
+        description: schema.description,
+        parameters: {
+          type: 'object' as const,
+          properties:
+            (schema.input_schema as { properties?: unknown })?.properties || {},
+          required:
+            (schema.input_schema as { required?: string[] })?.required || [],
+        },
+      },
+    }));
+  }
+
+  /**
    * 上下文长度保护（委托给 MessageContextPipeline）
    * 压缩失败或压缩不足时退化为截断旧消息（保留 system prompt + 最近 N 条消息）。
    * 截断后重新 sanitize 以修复 tool/tool_calls 配对完整性。
@@ -1571,42 +1591,10 @@ export class ChatManagerImpl implements ChatManager {
         // 过滤孤立的 tool 消息（没有前置 tool_calls 的 assistant 消息）
         this._sanitizeApiMessages(apiMessages);
 
-        // 准备工具定义
-
         // 获取工具定义
-        let toolDefinitions: Record<string, unknown>[] = [];
-        if (this.toolRegistry) {
-          const registry = this.toolRegistry as unknown as {
-            getToolSchemas: () => Array<Record<string, unknown>>;
-          };
-          const schemas = registry.getToolSchemas?.() || [];
-          for (const schema of schemas) {
-            toolDefinitions.push({
-              type: 'function',
-              function: {
-                name: schema.name as string,
-                description: schema.description as string,
-                parameters: {
-                  type: 'object',
-                  properties:
-                    (
-                      schema.input_schema as {
-                        properties?: unknown;
-                        required?: string[];
-                      }
-                    )?.properties || {},
-                  required:
-                    (
-                      schema.input_schema as {
-                        properties?: unknown;
-                        required?: string[];
-                      }
-                    )?.required || [],
-                },
-              },
-            });
-          }
-        }
+        const toolDefinitions: ToolDefinition[] = this.toolRegistry
+          ? this._buildToolDefinitions(this.toolRegistry.getToolSchemas())
+          : [];
 
         // 注入注册表查询工具（仅在当前会话有工具执行记录时）
         if (toolResultRegistry.getRoundCount(session.id) > 0) {
@@ -1785,7 +1773,7 @@ export class ChatManagerImpl implements ChatManager {
         }
 
         logger.debug('准备调用 activeClient.sendMessage', {
-          constructor: (activeClient as any)?.constructor?.name,
+          constructor: activeClient?.constructor?.name as string,
           providerId: activeClient?.getProviderId(),
         });
 
@@ -2283,7 +2271,7 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * 注册表查询工具：按 tool_call_id 获取完整工具执行结果
    */
-  private static readonly QUERY_TOOL_GET_RESULT: Record<string, unknown> = {
+  private static readonly QUERY_TOOL_GET_RESULT: ToolDefinition = {
     type: 'function',
     function: {
       name: 'get_tool_result',
@@ -2306,7 +2294,7 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * 注册表查询工具：列出当前会话的所有工具调用记录
    */
-  private static readonly QUERY_TOOL_LIST_CALLS: Record<string, unknown> = {
+  private static readonly QUERY_TOOL_LIST_CALLS: ToolDefinition = {
     type: 'function',
     function: {
       name: 'list_tool_calls',
@@ -2326,44 +2314,11 @@ export class ChatManagerImpl implements ChatManager {
     },
   };
 
-  private buildToolDefinitions(
-    sessionId?: string
-  ): Array<Record<string, unknown>> {
-    const definitions: Array<Record<string, unknown>> = [];
-
-    // 从工具注册表获取标准工具定义
-    if (this.toolRegistry) {
-      const registry = this.toolRegistry as unknown as {
-        getToolSchemas: () => Array<Record<string, unknown>>;
-      };
-      const schemas = registry.getToolSchemas?.() || [];
-      for (const schema of schemas) {
-        definitions.push({
-          type: 'function',
-          function: {
-            name: schema.name as string,
-            description: schema.description as string,
-            parameters: {
-              type: 'object',
-              properties:
-                (
-                  schema.input_schema as {
-                    properties?: unknown;
-                    required?: string[];
-                  }
-                )?.properties || {},
-              required:
-                (
-                  schema.input_schema as {
-                    properties?: unknown;
-                    required?: string[];
-                  }
-                )?.required || [],
-            },
-          },
-        });
-      }
-    }
+  // TODO: CS01-DEAD — 此方法在 ChatManager 中零引用，可能是死代码
+  private buildToolDefinitions(sessionId?: string): ToolDefinition[] {
+    const definitions: ToolDefinition[] = this.toolRegistry
+      ? this._buildToolDefinitions(this.toolRegistry.getToolSchemas())
+      : [];
 
     // 注入注册表查询工具
     // 只有当会话中已有工具执行记录时才注入，避免不必要地暴露查询能力
@@ -2782,39 +2737,9 @@ export class ChatManagerImpl implements ChatManager {
       this._sanitizeApiMessages(apiMessages);
 
       // 获取工具定义
-      let toolDefinitions: Record<string, unknown>[] = [];
-      if (this.toolRegistry) {
-        const registry = this.toolRegistry as unknown as {
-          getToolSchemas: () => Array<Record<string, unknown>>;
-        };
-        const schemas = registry.getToolSchemas?.() || [];
-        for (const schema of schemas) {
-          toolDefinitions.push({
-            type: 'function',
-            function: {
-              name: schema.name as string,
-              description: schema.description as string,
-              parameters: {
-                type: 'object',
-                properties:
-                  (
-                    schema.input_schema as {
-                      properties?: unknown;
-                      required?: string[];
-                    }
-                  )?.properties || {},
-                required:
-                  (
-                    schema.input_schema as {
-                      properties?: unknown;
-                      required?: string[];
-                    }
-                  )?.required || [],
-              },
-            },
-          });
-        }
-      }
+      const toolDefinitions: ToolDefinition[] = this.toolRegistry
+        ? this._buildToolDefinitions(this.toolRegistry.getToolSchemas())
+        : [];
 
       // 注入注册表查询工具（仅在当前会话有工具执行记录时）
       if (toolResultRegistry.getRoundCount(session.id) > 0) {
@@ -3945,31 +3870,9 @@ export class ChatManagerImpl implements ChatManager {
 
       // 4. 获取工具定义
       const activeClient = this.getLLMClient();
-      let toolDefinitions: Record<string, unknown>[] = [];
-      if (this.toolRegistry) {
-        const registry = this.toolRegistry as unknown as {
-          getToolSchemas: () => Array<Record<string, unknown>>;
-        };
-        const schemas = registry.getToolSchemas?.() || [];
-        for (const schema of schemas) {
-          toolDefinitions.push({
-            type: 'function',
-            function: {
-              name: schema.name as string,
-              description: schema.description as string,
-              parameters: {
-                type: 'object',
-                properties:
-                  (schema.input_schema as { properties?: unknown })
-                    ?.properties || {},
-                required:
-                  (schema.input_schema as { required?: string[] })?.required ||
-                  [],
-              },
-            },
-          });
-        }
-      }
+      const toolDefinitions: ToolDefinition[] = this.toolRegistry
+        ? this._buildToolDefinitions(this.toolRegistry.getToolSchemas())
+        : [];
 
       logger.info('resumeStream: 开始恢复执行', {
         sessionId,
@@ -5126,13 +5029,13 @@ export class ChatManagerImpl implements ChatManager {
    * @param params 创建会话的参数
    * @returns 会话对象
    */
-  createSession(params: CreateSessionParams): ChatSession {
+  async createSession(params: CreateSessionParams): Promise<ChatSession> {
     const now = new Date();
     const sessionId =
       params.id ||
       'session_' +
         Date.now().toString(36) +
-        Math.random().toString(36).substr(2);
+        Math.random().toString(36).slice(2);
     const session: ChatSession = {
       id: sessionId,
       title: params.title,
@@ -5160,7 +5063,7 @@ export class ChatManagerImpl implements ChatManager {
     this._currentSessionId = session.id;
 
     // 持久化会话到 FileSystemUnifiedStorage
-    this.sessionGateway
+    await this.sessionGateway
       .createSession({
         id: session.id,
         title: params.title ?? session.title,
@@ -5258,7 +5161,7 @@ export class ChatManagerImpl implements ChatManager {
 
     // Step 3: Gateway 也未找到 → 创建新会话
     logger.warn('会话未找到，创建新会话', { sessionId });
-    return this.createSession({
+    return await this.createSession({
       title: 'New Session',
       id: sessionId,
     });
@@ -5353,8 +5256,8 @@ export class ChatManagerImpl implements ChatManager {
       });
     }
 
-    return this.createSession({
-      title: 'New Session',
+    return await this.createSession({
+      title: 'New Session', // <-- loadSession fallback
       id: sessionId,
       metadata,
     });
@@ -5846,7 +5749,8 @@ export class ChatManagerImpl implements ChatManager {
 
     // 创建或获取会话
     const sessionId =
-      options?.sessionId || this.createSession({ title: 'Query Session' }).id;
+      options?.sessionId ||
+      (await this.createSession({ title: 'Query Session' })).id;
 
     // 使用QueryEngine处理消息
     const messages = queryEngine.submitMessage(content, { sessionId });
@@ -5913,7 +5817,7 @@ export class ChatManagerImpl implements ChatManager {
     // 创建或获取会话
     const sessionId =
       options?.sessionId ||
-      this.createSession({ title: 'Stream Query Session' }).id;
+      (await this.createSession({ title: 'Stream Query Session' })).id;
 
     // 使用QueryEngine处理消息
     const messages = queryEngine.submitMessage(content, { sessionId });
@@ -6103,7 +6007,7 @@ export class ChatManagerImpl implements ChatManager {
     return {
       session:
         this._getLocalSession(checkpoint.sessionId) ||
-        this.createSession({ title: 'Rollback Session' }),
+        (await this.createSession({ title: 'Rollback Session' })),
       diff: {
         addedMessages: 0,
         removedMessages: checkpoint.messages?.length || 0,
@@ -6176,8 +6080,8 @@ export class ChatManagerImpl implements ChatManager {
               const extractor = this.sessionAccess.createMemoryExtractor({
                 sendMessage: (msgs) =>
                   llmClient
-                    .sendMessage(msgs as never)
-                    .then((r: { content: string }) => r.content),
+                    .sendMessage(msgs as ChatMessage[])
+                    .then((r) => r.content),
               });
               const memoryContent = await extractor.extract(
                 conversationText,

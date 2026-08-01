@@ -146,6 +146,12 @@ import {
   handleGetTemplates,
   handleCreateProjectWorkItem,
   handleDecomposeProject,
+  handleListTasks,
+  handleGetTask,
+  handleCreateTask,
+  handleUpdateTask,
+  handleDeleteTask,
+  handleListTaskChildren,
 } from './handlers/workspaces-handlers';
 import {
   handleOrchestrationStream,
@@ -1536,6 +1542,58 @@ export class LocalHTTPService {
       workspaceId,
       projectId
     );
+  }
+
+  /** GET /v1/tasks */
+  private async handleListTasks(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleListTasks(this._handlerCtx, req, res);
+  }
+
+  /** GET /v1/tasks/:taskId */
+  private async handleGetTask(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    taskId: string
+  ): Promise<void> {
+    return handleGetTask(this._handlerCtx, req, res, taskId);
+  }
+
+  /** POST /v1/tasks */
+  private async handleCreateTask(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    return handleCreateTask(this._handlerCtx, req, res);
+  }
+
+  /** PATCH /v1/tasks/:taskId */
+  private async handleUpdateTask(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    taskId: string
+  ): Promise<void> {
+    return handleUpdateTask(this._handlerCtx, req, res, taskId);
+  }
+
+  /** DELETE /v1/tasks/:taskId */
+  private async handleDeleteTask(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    taskId: string
+  ): Promise<void> {
+    return handleDeleteTask(this._handlerCtx, req, res, taskId);
+  }
+
+  /** GET /v1/tasks/:taskId/children */
+  private async handleListTaskChildren(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    taskId: string
+  ): Promise<void> {
+    return handleListTaskChildren(this._handlerCtx, req, res, taskId);
   }
 
   // ========== Orchestration Handlers ==========

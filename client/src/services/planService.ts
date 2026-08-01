@@ -134,7 +134,7 @@ export const pdcaService = {
         description,
         sessionId,
       });
-      return (res as any)?.taskId ?? null;
+      return (res as { taskId?: string } | null)?.taskId ?? null;
     } catch {
       return null;
     }

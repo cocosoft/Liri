@@ -8,6 +8,7 @@ import { EventEmitter } from 'events';
 import {
   sessionMetadataService,
   type PermissionModeListener,
+  type PermissionMode,
 } from './SessionMetadataService.js';
 import { eventNotificationService } from './EventNotificationService.js';
 
@@ -77,14 +78,14 @@ export class PermissionModeIntegrationService extends EventEmitter {
     this.emit('permissionModeChanged', event);
     this.emit('modeChanged', mode);
 
-    (eventNotificationService as any).emitPermissionModeChanged(mode);
+    eventNotificationService.emitPermissionModeChanged(mode as PermissionMode);
   }
 
   /**
    * 设置权限模式
    */
   setPermissionMode(mode: string): void {
-    (sessionMetadataService as any).setPermissionMode(mode);
+    sessionMetadataService.setPermissionMode(mode as PermissionMode);
   }
 
   /**

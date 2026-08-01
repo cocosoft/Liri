@@ -319,10 +319,17 @@ export class SmartRouter {
     this.config = config;
     this.tierResolver.updateConfig(config);
     this.adaptiveRouter.updateConfig(config);
+    // 重建 JudgeService 时需从旧实例提取 private 字段（classifyLocal、cloudProvider）
+    const oldJudge = this.judgeService;
+    type JudgeInternals = {
+      classifyLocal: ((message: string) => Promise<RouterTier>) | null;
+      cloudProvider: unknown;
+    };
+    const internals = oldJudge as unknown as JudgeInternals;
     this.judgeService = new JudgeService(
-      (this.judgeService as any).classifyLocal ?? null,
+      internals.classifyLocal ?? null,
       config.judge,
-      (this.judgeService as any).cloudProvider
+      internals.cloudProvider as AIProvider | undefined
     );
   }
 

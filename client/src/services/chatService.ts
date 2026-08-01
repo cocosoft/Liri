@@ -1,6 +1,7 @@
 import type { Message, BackendStatus, ToolCall, AttachedImage } from "../types";
 import { getBackendBaseUrl, getBackendPort, setApiSecret } from "./backendUrl";
 import { useModelSwitchStore } from "../stores/modelSwitchStore";
+import { useConfigStore } from "../stores/configStore";
 import { createLogger } from "../utils/logger";
 import { handleClientError } from "../utils/handleError";
 import { getOTelTracing } from "../monitoring/otel";
@@ -275,7 +276,9 @@ export const chatService = {
       const body: Record<string, unknown> = {
         model: getModelFromConfig(),
         messages: [{ role: "user", content }],
-        max_tokens: 4096,
+        max_tokens: useConfigStore.getState().chatParams.maxTokens,
+        temperature: useConfigStore.getState().chatParams.temperature,
+        top_p: useConfigStore.getState().chatParams.topP,
       };
       if (sessionId) body.session_id = sessionId;
       if (workspacePath) body.workspace_path = workspacePath;
@@ -339,7 +342,9 @@ export const chatService = {
       const body: Record<string, unknown> = {
         model: getModelFromConfig(),
         messages: [{ role: "user", content }],
-        max_tokens: 8192,
+        max_tokens: useConfigStore.getState().chatParams.maxTokens,
+        temperature: useConfigStore.getState().chatParams.temperature,
+        top_p: useConfigStore.getState().chatParams.topP,
         stream: true,
       };
       if (sessionId) body.session_id = sessionId;

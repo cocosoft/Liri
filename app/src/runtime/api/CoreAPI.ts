@@ -60,6 +60,12 @@ export interface ChatRequest {
   /** 前端指定的模型名（用户在状态栏/侧边栏选择的模型）。
    *  设置后优先于 SmartRouter/ModelRouter 的自动决策。 */
   model?: string;
+  /** LLM 温度参数 (0-2)，控制输出随机性 */
+  temperature?: number;
+  /** LLM top_p 参数 (0-1)，核采样阈值 */
+  top_p?: number;
+  /** 最大输出 token 数 */
+  max_tokens?: number;
 }
 
 /** 聊天响应 */

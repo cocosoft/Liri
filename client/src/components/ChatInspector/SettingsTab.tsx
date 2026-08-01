@@ -4,8 +4,9 @@
  */
 
 import React from "react";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useModelSwitchStore } from "../../stores/modelSwitchStore";
+import { useConfigStore } from "../../stores/configStore";
 
 const SAVE_SCOPES = [
   { value: "session", label: "仅当前会话（不持久化）" },
@@ -68,14 +69,19 @@ function SliderControlImpl({
 const SliderControl = React.memo(SliderControlImpl);
 
 function SettingsTab() {
+  const chatParams = useConfigStore((s) => s.chatParams);
+  const setChatParams = useConfigStore((s) => s.setChatParams);
   const { isLoading } = useModelSwitchStore();
-  const [temperature, setTemperature] = useState(0.7);
-  const [topP, setTopP] = useState(0.9);
-  const [maxTokens, setMaxTokens] = useState(4096);
-  const [systemPrompt, setSystemPrompt] = useState(
-    "你是一个有帮助的AI助手，请用中文回答用户的问题。",
-  );
-  const [saveScope, setSaveScope] = useState<string>("session");
+
+  const [temperature, setTemperature] = useState(chatParams.temperature);
+  const [topP, setTopP] = useState(chatParams.topP);
+  const [maxTokens, setMaxTokens] = useState(chatParams.maxTokens);
+  const [systemPrompt, setSystemPrompt] = useState(chatParams.systemPrompt);
+  const [saveScope, setSaveScope] = useState<string>("global");
+
+  const handleSave = useCallback(async () => {
+    await setChatParams({ temperature, topP, maxTokens, systemPrompt });
+  }, [temperature, topP, maxTokens, systemPrompt, setChatParams]);
 
   return (
     <div className="p-3 space-y-5">
@@ -86,7 +92,7 @@ function SettingsTab() {
         max={2}
         step={0.1}
         onChange={setTemperature}
-        hint="实时生效"
+        hint="保存后生效"
       />
       <SliderControl
         label="多样性 Top P"
@@ -95,7 +101,7 @@ function SettingsTab() {
         max={1}
         step={0.05}
         onChange={setTopP}
-        hint="实时生效"
+        hint="保存后生效"
       />
       <div className="space-y-1.5">
         <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -112,12 +118,12 @@ function SettingsTab() {
             </option>
           ))}
         </select>
-        <p className="text-xs text-gray-400">实时生效</p>
+        <p className="text-xs text-gray-400">保存后生效</p>
       </div>
       <hr className="border-gray-200 dark:border-gray-700" />
       <div className="space-y-1.5">
         <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-          系统提示词（唯一编辑入口）
+          系统提示词
         </h4>
         <textarea
           value={systemPrompt}
@@ -156,6 +162,7 @@ function SettingsTab() {
       <button
         className="w-full py-2 px-4 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50"
         disabled={isLoading}
+        onClick={handleSave}
       >
         保存
       </button>

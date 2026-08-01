@@ -304,6 +304,14 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   /**
+   * 确保会话已从磁盘加载（幂等）
+   * 与 LLM 客户端初始化解耦，用于在 HTTP session handler 中提前加载会话列表。
+   */
+  async ensureSessionsLoaded(): Promise<void> {
+    await this.chatManager.ensureSessionsLoaded();
+  }
+
+  /**
    * 使用 SmartRouter 决策模型（若 SmartRouter 启用且可用）。
    * 若前端已指定 model（用户在状态栏选择的默认模型），直接使用。
    * SmartRouter tiers 保持独立，用户选择不覆盖分级配置。
@@ -358,6 +366,8 @@ export class CoreAPIImpl implements CoreAPI {
         model,
         onProgress: request.onProgress,
         images: request.images,
+        temperature: request.temperature,
+        maxTokens: request.max_tokens,
       });
 
       // 检查是否返回了待处理的用户交互（非流式路径）
@@ -489,6 +499,8 @@ export class CoreAPIImpl implements CoreAPI {
         model,
         images: request.images,
         onProgress: request.onProgress,
+        temperature: request.temperature,
+        maxTokens: request.max_tokens,
         onUsage: (usage) => {
           capturedUsage = {
             inputTokens: usage.inputTokens,

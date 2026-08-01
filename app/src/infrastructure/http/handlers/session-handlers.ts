@@ -39,6 +39,7 @@ export async function handleListSessions(
 ): Promise<void> {
   try {
     const coreAPI = getCoreAPI();
+    await coreAPI.ensureSessionsLoaded();
     const url = new URL(
       req.url || '/',
       `http://${req.headers.host || 'localhost'}`
@@ -81,6 +82,7 @@ export async function handleCreateSession(
     const data = JSON.parse(body);
     const { title, model, workspaceId, workspace_path } = data;
     const coreAPI = getCoreAPI();
+    await coreAPI.ensureSessionsLoaded();
 
     // 将 model、workspaceId 和 workspacePath 存入 session metadata
     const metadata: Record<string, unknown> = {};
@@ -121,6 +123,7 @@ export async function handleGetSession(
 ): Promise<void> {
   try {
     const coreAPI = getCoreAPI();
+    await coreAPI.ensureSessionsLoaded();
     const session = await coreAPI.getSession(sessionId);
     if (!session) {
       res.writeHead(404, { 'Content-Type': 'application/json' });

@@ -809,13 +809,34 @@ export class ChatManagerImpl implements ChatManager {
     return extractCurrentGoal(session, currentMessage);
   }
 
+  private _sessionsLoaded = false;
+
+  /**
+   * 确保会话已从磁盘加载（幂等）
+   *
+   * 与 LLM 客户端初始化解耦，使 GET /v1/sessions 等接口
+   * 在首次聊天消息前即可返回持久化的会话列表。
+   */
+  async ensureSessionsLoaded(): Promise<void> {
+    if (this._sessionsLoaded) return;
+    try {
+      await this.sessionGateway.initialize();
+      await this._loadSessionsFromGateway();
+      this._sessionsLoaded = true;
+    } catch (err) {
+      await handleError(err, {
+        module: 'chat:manager',
+        action: 'ensureSessionsLoaded',
+      });
+    }
+  }
+
   /**
    * 初始化
    */
   async initialize(): Promise<void> {
     this.llmClient?.initialize();
-    await this.sessionGateway.initialize();
-    await this._loadSessionsFromGateway();
+    await this.ensureSessionsLoaded();
 
     // 启动会话活跃度追踪（心跳 + 并发控制）
     this.sessionAccess.ensureActivityTracker();
@@ -2497,13 +2518,12 @@ export class ChatManagerImpl implements ChatManager {
     );
     this._streamingCheckpoint = streamingCheckpoint;
 
-    // 获取会话互斥锁
+    // 获取会话互斥锁（仅保护工具执行循环，setup 阶段无需锁）
     let mutex = this._sessionMutexes.get(session.id);
     if (!mutex) {
       mutex = new SimpleMutex();
       this._sessionMutexes.set(session.id, mutex);
     }
-    await mutex.acquire();
 
     // 触发 ChatPreMessage Hook
     const preMsgResult = await this.hookChainManager.execute('chat', {
@@ -2960,6 +2980,8 @@ export class ChatManagerImpl implements ChatManager {
           });
         });
 
+        // 获取会话互斥锁（保护工具执行循环，防止并发请求同时修改会话消息）
+        await mutex.acquire();
         try {
           while (!result.done) {
             const chunk = result.value as string | ThinkingProviderChunk;
@@ -6163,6 +6185,67 @@ function getToolExecErrorMessage(err: unknown): string {
     return `工具执行异常: ${String(err).slice(0, 200)}`;
   }
   const msg = err.message;
+  const lower = msg.toLowerCase();
+
+  // ── 服务商过载/不可用 ──
+  if (
+    lower.includes('503') ||
+    lower.includes('overloaded') ||
+    lower.includes('too busy') ||
+    lower.includes('server error') ||
+    lower.includes('service unavailable') ||
+    lower.includes('capacity')
+  ) {
+    let detail = '';
+    try {
+      const jsonMatch = msg.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const body = JSON.parse(jsonMatch[0]);
+        if (body.code) detail = ` (${body.code})`;
+        if (body.message) detail = ` (${body.code || ''}: ${body.message})`;
+      }
+    } catch { /* ignore */ }
+    return `AI 服务繁忙，请稍后重试${detail}`;
+  }
+
+  // ── 频率限制 ──
+  if (
+    lower.includes('429') ||
+    lower.includes('rate limit') ||
+    lower.includes('too many requests')
+  ) {
+    return '请求过于频繁，请稍后重试';
+  }
+
+  // ── 认证/权限 ──
+  if (
+    lower.includes('401') ||
+    lower.includes('403') ||
+    lower.includes('unauthorized') ||
+    lower.includes('invalid api key')
+  ) {
+    return 'AI 服务认证失败，请检查模型配置中的 API Key';
+  }
+
+  // ── 上下文溢出 ──
+  if (
+    lower.includes('context length') ||
+    lower.includes('too long') ||
+    lower.includes('maximum context') ||
+    lower.includes('token limit')
+  ) {
+    return '输入内容过长，请缩短输入或开启会话压缩';
+  }
+
+  // ── 超时 ──
+  if (lower.includes('timeout') || lower.includes('timed out')) {
+    return 'AI 服务响应超时，请稍后重试';
+  }
+
+  // ── mutex 死锁 ──
+  if (lower.includes('simplemutex') || lower.includes('acquire timeout')) {
+    return '会话正在处理中，请等待上一条消息完成后重试';
+  }
 
   // socket 连接意外关闭 → AI 服务响应中断
   if (msg.includes('socket connection was closed')) {

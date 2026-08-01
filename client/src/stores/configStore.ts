@@ -3,18 +3,36 @@ import { persist } from "zustand/middleware";
 import { configService } from "../services/configService";
 import { handleClientError } from "@/utils/handleError";
 
+/** 聊天参数（SettingsTab 设置项） */
+export interface ChatParams {
+  temperature: number;
+  topP: number;
+  maxTokens: number;
+  systemPrompt: string;
+}
+
+const DEFAULT_CHAT_PARAMS: ChatParams = {
+  temperature: 0.7,
+  topP: 0.9,
+  maxTokens: 8192,
+  systemPrompt: "你是一个有帮助的AI助手，请用中文回答用户的问题。",
+};
+
 interface ConfigStore {
   config: Record<string, unknown>;
+  chatParams: ChatParams;
   isLoading: boolean;
   error: string | null;
   loadConfig: () => Promise<void>;
   setConfig: (key: string, value: unknown) => Promise<void>;
+  setChatParams: (params: ChatParams) => Promise<void>;
 }
 
 export const useConfigStore = create<ConfigStore>()(
   persist(
     (set, get) => ({
       config: {},
+      chatParams: { ...DEFAULT_CHAT_PARAMS },
       isLoading: false,
       error: null,
 
@@ -22,7 +40,13 @@ export const useConfigStore = create<ConfigStore>()(
         set({ isLoading: true, error: null });
         try {
           const config = await configService.list();
-          set({ config, isLoading: false });
+          // 加载持久化的 chatParams（后端优先，本地 persist 兜底）
+          const persistedParams = config["chat.params"] as ChatParams | undefined;
+          set({
+            config,
+            chatParams: persistedParams ?? get().chatParams,
+            isLoading: false,
+          });
         } catch (error) {
           handleClientError(error, {
             module: "stores:config",
@@ -48,10 +72,22 @@ export const useConfigStore = create<ConfigStore>()(
           set({ error: String(error), isLoading: false });
         }
       },
+
+      setChatParams: async (params: ChatParams) => {
+        // 先更新 localStorage（persist 中间件自动处理）
+        set({ chatParams: params });
+        // 异步持久化到后端（失败不影响本地状态）
+        configService.set("chat.params", params).catch(() => {
+          // configService 内部有 memory fallback + handleClientError
+        });
+      },
     }),
     {
       name: "liri-config",
-      partialize: (state) => ({ config: state.config }),
+      partialize: (state) => ({
+        config: state.config,
+        chatParams: state.chatParams,
+      }),
     },
   ),
 );

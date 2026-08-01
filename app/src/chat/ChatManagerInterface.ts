@@ -405,6 +405,12 @@ export interface ChatManager {
   ): Promise<import('./types/checkpoint').SessionCheckpoint | null>;
 
   /**
+   * 确保会话已从磁盘加载（幂等）
+   * 与 LLM 客户端初始化解耦，使 session handler 在首次聊天消息前即可返回持久化会话列表。
+   */
+  ensureSessionsLoaded(): Promise<void>;
+
+  /**
    * 初始化
    */
   initialize(): void;

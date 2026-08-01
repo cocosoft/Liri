@@ -176,6 +176,9 @@ async function handleNormalChat(
         : undefined,
       images: request.images,
       model: request.model,
+      temperature: request.temperature,
+      top_p: request.top_p,
+      max_tokens: request.max_tokens,
     };
 
     const response = await coreAPI.chat(chatRequest);
@@ -399,6 +402,9 @@ async function handleStreamingChat(
         : undefined,
       images: request.images,
       model: request.model,
+      temperature: request.temperature,
+      top_p: request.top_p,
+      max_tokens: request.max_tokens,
       /** 上下文水位监测 → SSE context_state 事件桥接 */
       onProgress: (event) => {
         if (event.watermarkState) {

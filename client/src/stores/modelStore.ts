@@ -7,6 +7,7 @@
 
 import { create } from "zustand";
 import { modelService } from "../services/modelService";
+import type { UpdateModelParams } from "../services/modelService";
 import { handleClientError } from "@/utils/handleError";
 import type { ModelInfo } from "../types";
 
@@ -20,6 +21,7 @@ interface ModelState {
   loadModels: () => Promise<void>;
   toggleModel: (id: string) => Promise<boolean>;
   deleteModel: (id: string) => Promise<void>;
+  updateModel: (id: string, params: UpdateModelParams) => Promise<ModelInfo>;
   clearError: () => void;
 }
 
@@ -75,6 +77,24 @@ export const useModelStore = create<ModelState>((set) => ({
         "warn",
       );
       set({ error: e instanceof Error ? e.message : "删除模型失败" });
+      throw e;
+    }
+  },
+
+  updateModel: async (id: string, params: UpdateModelParams) => {
+    try {
+      const updated = await modelService.update(id, params);
+      set((state) => ({
+        models: state.models.map((m) => (m.id === id ? updated : m)),
+      }));
+      return updated;
+    } catch (e) {
+      handleClientError(
+        e,
+        { module: "stores:modelStore", action: "updateModel" },
+        "warn",
+      );
+      set({ error: e instanceof Error ? e.message : "更新模型失败" });
       throw e;
     }
   },

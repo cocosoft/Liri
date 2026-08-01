@@ -33,8 +33,9 @@
  *
  */
 export function isThinkingModeModel(model: string): boolean {
-  if (model.includes('reasoner')) return true;
-  if (model === 'deepseek-v4-flash' || model === 'deepseek-v4-pro') return true;
+  if (model.includes('reasoner') || model.includes('reasoning')) return true;
+  // 广义推理模型启发式匹配（替换原本 hardcoded deepseek-v4-flash/pro）
+  if (model.includes('-v4-') || model.match(/-pro$/i)) return true;
   return false;
 }
 
@@ -50,9 +51,7 @@ export function thinkingModeForModel(
   model: string
 ): 'enabled' | 'disabled' | undefined {
   if (!model) return undefined;
-  if (model.includes('reasoner')) return 'enabled';
-  if (model === 'deepseek-v4-flash' || model === 'deepseek-v4-pro')
-    return 'enabled';
+  if (isThinkingModeModel(model)) return 'enabled';
   return 'disabled';
 }
 

@@ -588,7 +588,8 @@ export class ModelRouter {
   /**
    * 根据任务类型解析模型名
    * 优先级：显式任务配置 > default 兜底 > 当前模型（旧格式） > 硬编码默认
-   * UUID 解析：三级兜底（缓存 → 实时 DB 查询 → 原值）
+   * UUID 解析：三级兜底（缓存 → 预加载重试 → 空字符串）
+   *   返回空字符串（非 UUID 原文）防止下游 getByModel(UUID) 匹配失败
    */
   resolve(taskType: TaskType): string {
     const tasks = this.readTasks();
@@ -603,11 +604,12 @@ export class ModelRouter {
           );
           return modelName;
         }
+        // 缓存未命中 → 触发异步预加载（下次调用可用），当前次返回空
         this.preloadUuidCache();
         logger.warning(
-          `ModelRouter: 任务 ${taskType} UUID ${value} 缓存未命中，返回原值兜底`
+          `ModelRouter: 任务 ${taskType} UUID ${value} 缓存未命中，已触发预加载，本次返回空`
         );
-        return value;
+        return '';
       }
       logger.debug(`ModelRouter: 任务 ${taskType} → ${value}`);
       return value;
@@ -628,7 +630,10 @@ export class ModelRouter {
         const modelName = this.uuidToModelName.get(defaultVal);
         if (modelName) return modelName;
         this.preloadUuidCache();
-        return defaultVal;
+        logger.warning(
+          `ModelRouter: 任务 ${taskType} 回退 default UUID ${defaultVal} 缓存未命中，返回空`
+        );
+        return '';
       }
       logger.debug(`ModelRouter: 任务 ${taskType} 回退默认 → ${defaultVal}`);
       return defaultVal;
@@ -644,6 +649,59 @@ export class ModelRouter {
       `ModelRouter: 任务 ${taskType} 使用硬编码默认 → ${this.defaultModel || '(空)'}`
     );
     return this.defaultModel;
+  }
+
+  /**
+   * 异步解析模型名（带 UUID 缓存 miss 时的 DB 兜底）
+   *
+   * 与 resolve() 的区别：UUID 缓存未命中时，resolve() 返回空字符串并异步预加载；
+   * resolveAsync() 则同步查 DB 并填充缓存，确保当前请求不返回空。
+   * 适合作为 resolveModelRoute() 等关键路径的入口。
+   */
+  async resolveAsync(taskType: TaskType): Promise<string> {
+    const result = this.resolve(taskType);
+    if (result) return result;
+
+    // resolve() 返回空 → 可能是 UUID 缓存 miss → 查 DB 兜底
+    const tasks = this.readTasks();
+    const value = tasks[taskType] || tasks.default;
+    if (value && this.isUUID(value)) {
+      try {
+        const { modelPricingService } =
+          await import('./models/ModelPricingService');
+        await modelPricingService.initialize();
+        const record = await modelPricingService.getPricingById(value);
+        if (record?.modelId) {
+          this.uuidToModelName.set(value, record.modelId);
+          logger.debug(
+            `ModelRouter.resolveAsync: UUID ${value} → DB 解析 → ${record.modelId}`
+          );
+          return record.modelId;
+        }
+      } catch (err) {
+        logger.warning('ModelRouter.resolveAsync: UUID DB 解析失败', {
+          uuid: value,
+          error: (err as Error).message,
+        });
+      }
+    }
+
+    // DB 兜底也失败，回退到 current/default
+    const current = this.readCurrentModel();
+    if (current && this.isUUID(current)) {
+      try {
+        const { modelPricingService } =
+          await import('./models/ModelPricingService');
+        const record = await modelPricingService.getPricingById(current);
+        if (record?.modelId) {
+          this.uuidToModelName.set(current, record.modelId);
+          return record.modelId;
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    return current || this.defaultModel;
   }
 
   /**
@@ -683,8 +741,12 @@ export class ModelRouter {
 
   /**
    * 设置当前模型 ID（持久化到 DB ai_app_model_configs 的 current + default）
+   *
+   * @param modelId - 模型 UUID
+   * @param modelName - 可选模型名，传入时同步更新 uuidToModelName 缓存，
+   *                    确保 resolve() 的 UUID→名称转换能命中
    */
-  async setCurrentModel(modelId: string): Promise<void> {
+  async setCurrentModel(modelId: string, modelName?: string): Promise<void> {
     const { appModelConfigService } =
       await import('./models/AppModelConfigService.js');
     await appModelConfigService.initialize();
@@ -695,8 +757,38 @@ export class ModelRouter {
     await appModelConfigService.setConfig('default', { model: modelId });
     this._taskCache.set('default', modelId);
 
+    // 同步更新 UUID→模型名 缓存，避免 resolve() 查 UUID 时返回空
+    if (modelName && this.isUUID(modelId)) {
+      this.uuidToModelName.set(modelId, modelName);
+    }
+
+    // 仅清除与被替换模型相同的聊天任务（从 default 继承来的），
+    // 保留用户显式配置的任务分工（如 chat→GPT-4, default→DeepSeek 时切换不改 chat）
+    const previousDefault = this._taskCache.get('default');
+    const chatOverrides = [
+      'chat',
+      'coding',
+      'quick',
+      'agent',
+      'scheduled',
+      'local',
+      'translation',
+    ];
+    for (const t of chatOverrides) {
+      const current = this._taskCache.get(t);
+      // 仅当任务无显式配置，或配置值等于旧 default（即从 default 继承的）时才清除
+      if (!current || current === previousDefault) {
+        this._taskCache.delete(t);
+        await appModelConfigService.deleteConfig(t).catch(() => {
+          /* 条目不存在则跳过 */
+        });
+      }
+    }
+
     logger.info(
-      `ModelRouter: 当前模型已设置为 ${modelId}（同步写入 tasks.default）`
+      `ModelRouter: 当前模型已设置为 ${modelId}` +
+        (modelName ? ` (${modelName})` : '') +
+        `（同步写入 tasks.default，保留非继承的聊天任务分工）`
     );
   }
 
@@ -801,10 +893,27 @@ export class ModelRouter {
         'local',
         'translation',
       ];
+      // 非聊天能力标签（与 handleGetCurrentModel 保持一致）
+      const nonChatCaps = new Set([
+        'embedding',
+        'image_generation',
+        'video_generation',
+        'text_to_speech',
+        'speech_recognition',
+        'reranking',
+        'moderation',
+        'image_editing',
+      ]);
       const usedModels = new Set(Object.values(tasks));
-      const chatModel = allModels.find(
-        (m) => m.enabled && !usedModels.has(m.id || m.modelId)
-      );
+      const chatModel = allModels.find((m) => {
+        if (!m.enabled) return false;
+        if (usedModels.has(m.id || m.modelId)) return false;
+        // 排除只有非聊天能力的模型（如纯 embedding 模型）
+        const caps = m.capabilities || [];
+        if (caps.length > 0 && caps.every((c) => nonChatCaps.has(c)))
+          return false;
+        return true;
+      });
       if (chatModel) {
         for (const t of chatTasks) {
           if (!tasks[t]) tasks[t] = chatModel.id || chatModel.modelId; // 优先 UUID

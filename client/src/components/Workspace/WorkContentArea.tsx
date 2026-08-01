@@ -15,6 +15,7 @@ import AgentCardGrid from "./AgentCardGrid";
 
 interface WorkContentAreaProps {
   className?: string;
+  workspaceId?: string;
 }
 
 /** Tab 配置 */
@@ -82,7 +83,13 @@ function DoContentArea() {
 /**
  * 根据 contentView 渲染对应的内容视图
  */
-function ContentViewRenderer({ contentView }: { contentView: ContentView }) {
+function ContentViewRenderer({
+  contentView,
+  workspaceId,
+}: {
+  contentView: ContentView;
+  workspaceId?: string;
+}) {
   const { t } = useTranslation();
   switch (contentView) {
     case "welcome":
@@ -100,7 +107,7 @@ function ContentViewRenderer({ contentView }: { contentView: ContentView }) {
         </div>
       );
     case "project":
-      return <WorkBoardView projectId="default" />;
+      return <WorkBoardView projectId={workspaceId || "default"} />;
     case "team":
       return <TeamView />;
     case "cost":
@@ -293,7 +300,10 @@ function NotificationBell() {
  * 工作内容区容器
  * 顶部 Tab 导航 + 面包屑 + 底部内容视图
  */
-export default function WorkContentArea({ className }: WorkContentAreaProps) {
+export default function WorkContentArea({
+  className,
+  workspaceId,
+}: WorkContentAreaProps) {
   const contentView = useWorkStore((s) => s.contentView);
   const setContentView = useWorkStore((s) => s.setContentView);
   const mode = useWorkStore((s) => s.mode);
@@ -359,7 +369,10 @@ export default function WorkContentArea({ className }: WorkContentAreaProps) {
 
       {/* 内容视图 */}
       <div className="flex-1 overflow-hidden">
-        <ContentViewRenderer contentView={contentView} />
+        <ContentViewRenderer
+          contentView={contentView}
+          workspaceId={workspaceId}
+        />
       </div>
     </div>
   );

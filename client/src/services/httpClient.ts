@@ -115,7 +115,11 @@ async function request<T>(
         fetchOptions.body = JSON.stringify(body);
       }
 
-      return (await fetchWithRetry(url, fetchOptions, timeout)) as ApiResponse<T>;
+      return (await fetchWithRetry(
+        url,
+        fetchOptions,
+        timeout,
+      )) as ApiResponse<T>;
     },
     { "http.method": method, "http.url": path },
   );
@@ -149,7 +153,11 @@ async function fetchWithRetry(
       clearTimeout(timer);
 
       // 可重试的 HTTP 错误状态码
-      if (!res.ok && RETRYABLE_STATUSES.has(res.status) && attempt < MAX_RETRIES) {
+      if (
+        !res.ok &&
+        RETRYABLE_STATUSES.has(res.status) &&
+        attempt < MAX_RETRIES
+      ) {
         const delay = BASE_BACKOFF_MS * Math.pow(2, attempt);
         await new Promise((r) => setTimeout(r, delay));
         continue;

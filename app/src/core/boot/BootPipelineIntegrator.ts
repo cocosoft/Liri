@@ -229,10 +229,8 @@ export function registerStandardHandlers(): void {
         const { ModelRegistry } =
           await import('@modules/ai/models/ModelRegistry');
         const registry = ModelRegistry.getInstance();
-        registry.loadDefaultModels();
-        registry.loadUserConfigs();
 
-        // 初始化模型注册表 DB
+        // 初始化 DB
         const { modelPricingService } =
           await import('@modules/ai/models/ModelPricingService.js').catch(
             () => ({
@@ -243,9 +241,16 @@ export function registerStandardHandlers(): void {
           );
         if (modelPricingService) {
           await modelPricingService.initialize();
+          const hasDbData = await registry.loadModelsFromDb();
+          if (!hasDbData) {
+            registry.loadDefaultModels();
+            registry.loadUserConfigs();
+          }
         } else {
-          await registry.loadDbPricing();
+          registry.loadDefaultModels();
+          registry.loadUserConfigs();
         }
+        await registry.loadDbPricing();
         logger.info('[Phase 5] ModelRegistry 加载完成');
       } catch (e) {
         void handleError(e, {
@@ -283,11 +288,14 @@ export function registerStandardHandlers(): void {
           defaultTier: ((routerCfg?.defaultTier as RouterTier) ||
             'medium') as RouterTier,
           sessionSticky: routerCfg?.sessionSticky !== false,
+          // @deprecated — 此初始化路径仅被 benchmark-startup.ts 使用。
+          // main.ts 已自行初始化 SmartRouter。若未来迁移启动逻辑到此，
+          // 需从 DB model_registry 动态填充 tiers，禁止硬编码供应商名。
           tiers: {
-            simple: { model: 'deepseek-v4-flash', providerHint: 'deepseek' },
-            medium: { model: 'deepseek-v4-flash', providerHint: 'deepseek' },
-            complex: { model: 'deepseek-v4-pro', providerHint: 'deepseek' },
-            reasoning: { model: 'deepseek-reasoner', providerHint: 'deepseek' },
+            simple: { model: '', providerHint: '' },
+            medium: { model: '', providerHint: '' },
+            complex: { model: '', providerHint: '' },
+            reasoning: { model: '', providerHint: '' },
           },
         };
 

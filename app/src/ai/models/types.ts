@@ -19,16 +19,64 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /**
- * AI模型类型定义（整合llm/types.ts）
+ * AI模型类型 — 字符串别名
+ *
+ * 此前为硬编码枚举（CLAUDE_3_* / GPT_3_5_TURBO / GPT_4 / GPT_4_TURBO），
+ * 已删除。模型名现在完全由 DB model_registry 定义，代码中不硬编码具体名称。
  */
+export type AIModelType = string;
 
-export enum AIModelType {
-  CLAUDE_3_HAIKU = 'claude-3-haiku-20240307',
-  CLAUDE_3_SONNET = 'claude-3-sonnet-20240229',
-  CLAUDE_3_OPUS = 'claude-3-opus-20240229',
-  GPT_3_5_TURBO = 'gpt-3.5-turbo',
-  GPT_4 = 'gpt-4',
-  GPT_4_TURBO = 'gpt-4-turbo',
+/**
+ * API 供应商列表 — 唯一事实来源
+ * APIProvider 类型由此推导
+ */
+export const API_PROVIDER_KEYS = [
+  'firstParty',
+  'bedrock',
+  'vertex',
+  'azure',
+  'openai',
+  'deepseek',
+  'google',
+  'grok',
+  'moonshot',
+  'ollama',
+] as const;
+
+export type APIProvider = (typeof API_PROVIDER_KEYS)[number];
+
+/** 模型键类型 */
+export type ModelKey = string;
+
+/**
+ * 模型配置接口（运行时内存缓存格式）
+ * 字段按供应商拆分（遗留兼容），新代码优先用 DB 模型记录。
+ */
+export interface ModelConfig {
+  firstParty: string;
+  bedrock: string;
+  vertex: string;
+  azure: string;
+  openai: string;
+  deepseek: string;
+  google: string;
+  grok: string;
+  moonshot: string;
+  ollama: string;
+  displayName: string;
+  contextWindow: number;
+  maxOutputTokens: number;
+  capabilities?: ModelCapability[];
+  pricing?: {
+    inputPer1M: number;
+    outputPer1M: number;
+    cacheReadPer1M?: number;
+    cacheWritePer1M?: number;
+  };
+  extendedContextWindows?: Array<{
+    suffix: string;
+    windowSize: number;
+  }>;
 }
 
 /**

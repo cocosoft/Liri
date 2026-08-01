@@ -3,6 +3,15 @@ import type { ModelInfo } from "../types";
 
 export type { ModelInfo };
 
+export interface UpdateModelParams {
+  capabilities?: string[];
+  displayName?: string;
+  inputCostPerMillion?: number;
+  outputCostPerMillion?: number;
+  contextWindow?: number;
+  maxOutputTokens?: number;
+}
+
 export const modelService = {
   async list(): Promise<ModelInfo[]> {
     const response = await http.get<{ object: string; data: ModelInfo[] }>(
@@ -17,6 +26,14 @@ export const modelService = {
   async get(id: string): Promise<ModelInfo | null> {
     const models = await this.list();
     return models.find((m) => m.id === id) || null;
+  },
+
+  async update(id: string, params: UpdateModelParams): Promise<ModelInfo> {
+    const resp = await http.put<{ data: ModelInfo }>(
+      `/v1/models/${encodeURIComponent(id)}`,
+      params,
+    );
+    return resp.data;
   },
 
   async toggle(id: string): Promise<boolean> {

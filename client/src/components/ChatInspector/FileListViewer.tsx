@@ -85,16 +85,21 @@ function FileList({
 // ─── 主组件 ───────────────────────────────────────
 
 export default function FileListViewer() {
-  const { previewFile, sessionFiles, readFileToPreview, setPreviewFile, clearSessionFiles } =
-    useChatStore(
-      useShallow((s) => ({
-        previewFile: s.previewFile,
-        sessionFiles: s.sessionFiles,
-        readFileToPreview: s.readFileToPreview,
-        setPreviewFile: s.setPreviewFile,
-        clearSessionFiles: s.clearSessionFiles,
-      })),
-    );
+  const {
+    previewFile,
+    sessionFiles,
+    readFileToPreview,
+    setPreviewFile,
+    clearSessionFiles,
+  } = useChatStore(
+    useShallow((s) => ({
+      previewFile: s.previewFile,
+      sessionFiles: s.sessionFiles,
+      readFileToPreview: s.readFileToPreview,
+      setPreviewFile: s.setPreviewFile,
+      clearSessionFiles: s.clearSessionFiles,
+    })),
+  );
 
   const handleClose = useCallback(() => {
     setPreviewFile(null);

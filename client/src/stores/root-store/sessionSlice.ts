@@ -12,6 +12,7 @@ import type { RootState } from "./index";
 import type { Session } from "@/types";
 import { createLogger } from "@/utils/logger";
 import { useModelSwitchStore } from "../modelSwitchStore";
+import { chatCoordinator } from "@/stores/chat/chatCoordinator";
 
 const logger = createLogger("root-store:sessionSlice");
 
@@ -197,13 +198,20 @@ export const createSessionSlice: StateCreator<
 
   getOrCreateSession: (moduleType, title) => {
     const wtId = get().currentWorktreeId;
-    const existing = Object.values(get().sessions).find(
-      (s) => s.worktreeId === wtId && s.moduleType === moduleType,
-    );
-    if (existing) {
-      set({ currentSessionId: existing.id });
-      return existing.id;
+    const wt = wtId ? get().worktrees[wtId] : undefined;
+
+    // 系统模块（非 chat）：复用唯一会话
+    if (wt?.workspaceSource === "system" && wt?.workspaceType !== "chat") {
+      const existing = Object.values(get().sessions).find(
+        (s) => s.worktreeId === wtId && s.moduleType === moduleType,
+      );
+      if (existing) {
+        set({ currentSessionId: existing.id });
+        return existing.id;
+      }
     }
+
+    // chat 模块 + 用户项目：创建新会话
     return get().createSession(moduleType, title);
   },
 
@@ -248,7 +256,11 @@ export const createSessionSlice: StateCreator<
             title: s.title,
             createdAt: new Date(s.createdAt).getTime(),
             updatedAt: new Date(s.updatedAt).getTime(),
-            context: { moduleType: "chat" as const, modelId: s.modelId, agentId: s.agentId },
+            context: {
+              moduleType: "chat" as const,
+              modelId: s.modelId,
+              agentId: s.agentId,
+            },
           };
         }
       }
@@ -342,8 +354,7 @@ export const createSessionSlice: StateCreator<
 
       // 清空 chatStore 消息
       try {
-        const { useChatStore } = await import("@/stores/chat");
-        useChatStore.getState().clearMessages();
+        await chatCoordinator.clearMessages();
       } catch (e) {
         const { handleClientError } = await import("@/utils/handleError");
         handleClientError(
@@ -388,26 +399,25 @@ export const createSessionSlice: StateCreator<
   switchChatSession: async (id: string) => {
     const t0 = performance.now();
     const prevId = get().currentSessionId;
-    if (import.meta.env.DEV) console.info("[Diag:switch] ═══ 开始切换会话", {
-      sessionId: id,
-      prevId,
-      t0,
-    });
+    if (import.meta.env.DEV)
+      console.info("[Diag:switch] ═══ 开始切换会话", {
+        sessionId: id,
+        prevId,
+        t0,
+      });
     set({ switching: true, error: null });
 
     try {
       // 中止当前流 + flush 未持久化 blocks
       const t1 = performance.now();
-      const { useChatStore } = await import("@/stores/chat");
-      useChatStore.getState().stopMessage();
-      await useChatStore.getState().flushPendingSaves();
-      if (import.meta.env.DEV) console.info("[Diag:switch] ① stopMessage + flushPendingSaves", {
-        ms: (performance.now() - t1).toFixed(1),
-      });
+      const msgs = await chatCoordinator.stopAndFlush();
+      if (import.meta.env.DEV)
+        console.info("[Diag:switch] ① stopMessage + flushPendingSaves", {
+          ms: (performance.now() - t1).toFixed(1),
+        });
 
       // 记录离开当前会话（用于回切摘要）
       if (prevId) {
-        const msgs = useChatStore.getState().messages;
         const lastMsgId = msgs.length > 0 ? msgs[msgs.length - 1].id : null;
         import("@/components/ChatArea/ReEntryBanner").then((m) =>
           m.recordSessionLeave(prevId, lastMsgId),
@@ -417,11 +427,12 @@ export const createSessionSlice: StateCreator<
       const t2 = performance.now();
       const { sessionService } = await import("@/services/sessionService");
       const session = await sessionService.switch(id);
-      if (import.meta.env.DEV) console.info("[Diag:switch] ② POST /v1/sessions/:id/switch", {
-        ms: (performance.now() - t2).toFixed(1),
-        title: session?.title,
-        hasWorkspace: !!session?.workspaceId,
-      });
+      if (import.meta.env.DEV)
+        console.info("[Diag:switch] ② POST /v1/sessions/:id/switch", {
+          ms: (performance.now() - t2).toFixed(1),
+          title: session?.title,
+          hasWorkspace: !!session?.workspaceId,
+        });
 
       // 获取消息（优先缓存）
       const t3 = performance.now();
@@ -429,17 +440,19 @@ export const createSessionSlice: StateCreator<
       const cached = _getCachedMessages(id);
       const fromCache = cached != null;
       const messages = cached ?? (await sessionService.getMessages(id));
-      if (import.meta.env.DEV) console.info("[Diag:switch] ③ getMessages", {
-        ms: (performance.now() - t3).toFixed(1),
-        count: messages.length,
-        fromCache,
-      });
+      if (import.meta.env.DEV)
+        console.info("[Diag:switch] ③ getMessages", {
+          ms: (performance.now() - t3).toFixed(1),
+          count: messages.length,
+          fromCache,
+        });
 
       const t4 = performance.now();
-      useChatStore.getState().setMessages(messages);
-      if (import.meta.env.DEV) console.info("[Diag:switch] ④ setMessages 完成", {
-        ms: (performance.now() - t4).toFixed(1),
-      });
+      await chatCoordinator.loadMessages(messages);
+      if (import.meta.env.DEV)
+        console.info("[Diag:switch] ④ setMessages 完成", {
+          ms: (performance.now() - t4).toFixed(1),
+        });
 
       // 清除路径缓存
       import("@/components/ChatArea/markdown/pathCache").then((m) =>
@@ -456,12 +469,14 @@ export const createSessionSlice: StateCreator<
           if (current.modelId !== session.modelId) {
             await modelSwitchService.switch(session.modelId);
           }
-          if (import.meta.env.DEV) console.info("[Diag:switch] ⑥ 模型恢复", {
-            ms: (performance.now() - t6).toFixed(1),
-            modelId: session.modelId,
-          });
+          if (import.meta.env.DEV)
+            console.info("[Diag:switch] ⑥ 模型恢复", {
+              ms: (performance.now() - t6).toFixed(1),
+              modelId: session.modelId,
+            });
         } catch (e) {
-          if (import.meta.env.DEV) console.warn("[Diag:switch] ⑥ 模型恢复失败", e);
+          if (import.meta.env.DEV)
+            console.warn("[Diag:switch] ⑥ 模型恢复失败", e);
           const { handleClientError } = await import("@/utils/handleError");
           handleClientError(
             e,
@@ -473,7 +488,8 @@ export const createSessionSlice: StateCreator<
           );
         }
       } else {
-        if (import.meta.env.DEV) console.info("[Diag:switch] ⑥ 模型恢复跳过（无 modelId）");
+        if (import.meta.env.DEV)
+          console.info("[Diag:switch] ⑥ 模型恢复跳过（无 modelId）");
       }
 
       // 刷新路由状态（异步 fire-and-forget、不阻塞会话切换）
@@ -484,9 +500,10 @@ export const createSessionSlice: StateCreator<
         .catch(() => {
           /* 静默失败：路由刷新不影响会话切换 */
         });
-      if (import.meta.env.DEV) console.info("[Diag:switch] ⑦ 路由刷新", {
-        ms: (performance.now() - t7).toFixed(1),
-      });
+      if (import.meta.env.DEV)
+        console.info("[Diag:switch] ⑦ 路由刷新", {
+          ms: (performance.now() - t7).toFixed(1),
+        });
 
       // 联动工作空间
       if (session.workspaceId) {
@@ -526,20 +543,23 @@ export const createSessionSlice: StateCreator<
       const t5 = performance.now();
       set({ currentSessionId: id });
       get().createSession("chat", session.title, id);
-      if (import.meta.env.DEV) console.info("[Diag:switch] ⑤ store 更新 + SessionHub 同步", {
-        ms: (performance.now() - t5).toFixed(1),
-      });
+      if (import.meta.env.DEV)
+        console.info("[Diag:switch] ⑤ store 更新 + SessionHub 同步", {
+          ms: (performance.now() - t5).toFixed(1),
+        });
 
-      if (import.meta.env.DEV) console.info("[Diag:switch] ✅ 切换完成（数据就绪）", {
-        sessionId: id,
-        totalMs: (performance.now() - t0).toFixed(1),
-      });
+      if (import.meta.env.DEV)
+        console.info("[Diag:switch] ✅ 切换完成（数据就绪）", {
+          sessionId: id,
+          totalMs: (performance.now() - t0).toFixed(1),
+        });
     } catch (error) {
-      if (import.meta.env.DEV) console.error("[Diag:switch] ❌ 切换失败", {
-        sessionId: id,
-        error: String(error),
-        totalMs: (performance.now() - t0).toFixed(1),
-      });
+      if (import.meta.env.DEV)
+        console.error("[Diag:switch] ❌ 切换失败", {
+          sessionId: id,
+          error: String(error),
+          totalMs: (performance.now() - t0).toFixed(1),
+        });
       const { handleClientError } = await import("@/utils/handleError");
       handleClientError(
         error,
@@ -559,8 +579,7 @@ export const createSessionSlice: StateCreator<
 
   deleteChatSession: async (id: string) => {
     try {
-      const { useChatStore } = await import("@/stores/chat");
-      useChatStore.getState().stopMessage();
+      await chatCoordinator.stopMessage();
     } catch {
       /* ignore */
     }
@@ -576,8 +595,7 @@ export const createSessionSlice: StateCreator<
         if (sessions[0]) {
           try {
             const messages = await sessionService.getMessages(sessions[0].id);
-            const { useChatStore } = await import("@/stores/chat");
-            useChatStore.getState().setMessages(messages);
+            await chatCoordinator.loadMessages(messages);
           } catch {
             /* ignore */
           }
@@ -589,8 +607,7 @@ export const createSessionSlice: StateCreator<
           });
         } else {
           try {
-            const { useChatStore } = await import("@/stores/chat");
-            useChatStore.getState().clearMessages();
+            await chatCoordinator.clearMessages();
           } catch {
             /* ignore */
           }
@@ -645,8 +662,7 @@ export const createSessionSlice: StateCreator<
 
   clearAllChatSessions: async () => {
     try {
-      const { useChatStore } = await import("@/stores/chat");
-      useChatStore.getState().stopMessage();
+      await chatCoordinator.stopMessage();
     } catch {
       /* ignore */
     }
@@ -656,8 +672,7 @@ export const createSessionSlice: StateCreator<
       const { sessionService } = await import("@/services/sessionService");
       await sessionService.clearAll();
       try {
-        const { useChatStore } = await import("@/stores/chat");
-        useChatStore.getState().clearMessages();
+        await chatCoordinator.clearMessages();
       } catch {
         /* ignore */
       }
@@ -665,7 +680,9 @@ export const createSessionSlice: StateCreator<
 
       // P1: 同步清除 SessionHub 中的 chat 会话（保留其他模块会话）
       const nonChatSessions = Object.fromEntries(
-        Object.entries(get().sessions).filter(([, v]) => v.moduleType !== "chat"),
+        Object.entries(get().sessions).filter(
+          ([, v]) => v.moduleType !== "chat",
+        ),
       );
       set({ sessions: nonChatSessions });
     } catch (error) {

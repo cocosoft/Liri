@@ -9,19 +9,13 @@
 import { useState, useMemo } from "react";
 import { useRootStore } from "@/stores/root-store";
 import { useNavigationStore } from "@/stores/navigationStore";
+import {
+  getModuleMeta,
+  MODULE_TYPES,
+} from "@/stores/root-store/moduleRegistry";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("SessionSliceList");
-
-/** 模块类型 → 图标和中文标签映射 */
-const MODULE_META: Record<string, { icon: string; label: string }> = {
-  chat: { icon: "💬", label: "对话" },
-  media: { icon: "🎨", label: "媒体" },
-  office: { icon: "📄", label: "办公" },
-  calendar: { icon: "📅", label: "日历" },
-  translation: { icon: "🌐", label: "翻译" },
-  knowledge: { icon: "📚", label: "知识库" },
-};
 
 /** 模块类型 → 导航路径映射（session 切换时跳转） */
 const MODULE_PATH: Record<string, string> = {
@@ -80,10 +74,7 @@ export function SessionSliceList({
 
   /** 可用的模块类型列表（只显示有会话的模块） */
   const availableModuleTypes = useMemo(() => {
-    return [
-      "all",
-      ...Object.keys(MODULE_META).filter((t) => moduleCounts[t] > 0),
-    ];
+    return ["all", ...MODULE_TYPES.filter((t) => moduleCounts[t] > 0)];
   }, [moduleCounts]);
 
   if (!currentWorktreeId || sessions.length === 0) {
@@ -108,7 +99,7 @@ export function SessionSliceList({
       {/* 模块类型筛选标签 */}
       <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-none">
         {availableModuleTypes.map((type) => {
-          const meta = MODULE_META[type];
+          const meta = getModuleMeta(type);
           const count = moduleCounts[type] ?? 0;
           const isActive = filterModule === type;
 
@@ -127,7 +118,7 @@ export function SessionSliceList({
                 <>全部</>
               ) : (
                 <>
-                  <span className="text-xs leading-none">{meta?.icon}</span>
+                  <span className="text-xs leading-none">{meta?.emoji}</span>
                   <span>{meta?.label}</span>
                 </>
               )}
@@ -149,12 +140,12 @@ export function SessionSliceList({
           <div className="px-4 py-8 text-center text-xs text-gray-400 dark:text-gray-500">
             {filterModule === "all"
               ? "暂无会话"
-              : `暂无${MODULE_META[filterModule]?.label ?? filterModule}会话`}
+              : `暂无${getModuleMeta(filterModule).label}会话`}
           </div>
         ) : (
           displaySessions.map((s) => {
             const isActive = s.id === currentSessionId;
-            const meta = MODULE_META[s.moduleType];
+            const meta = getModuleMeta(s.moduleType);
 
             return (
               <button
@@ -169,7 +160,7 @@ export function SessionSliceList({
               >
                 {/* 模块图标 */}
                 <span className="text-sm leading-none flex-shrink-0">
-                  {meta?.icon ?? "📌"}
+                  {meta?.emoji ?? "📌"}
                 </span>
 
                 {/* 标题 + 时间 */}
@@ -198,7 +189,7 @@ export function SessionSliceList({
       <div className="px-3 py-1.5 border-t border-gray-200 dark:border-gray-700 text-[10px] text-gray-400 dark:text-gray-500">
         {filterModule === "all"
           ? `共 ${sessions.length} 个会话`
-          : `${MODULE_META[filterModule]?.label ?? filterModule} · ${filteredSessions.length} 个会话`}
+          : `${getModuleMeta(filterModule).label} · ${filteredSessions.length} 个会话`}
       </div>
     </div>
   );

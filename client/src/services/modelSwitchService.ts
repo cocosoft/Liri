@@ -15,8 +15,13 @@ export const modelSwitchService = {
     return http.get<CurrentModelInfo>("/v1/models/current");
   },
 
-  async switch(modelId: string): Promise<void> {
-    await http.post("/v1/models/switch", { modelId });
+  async switch(
+    modelId: string,
+  ): Promise<{ modelId: string; modelName: string }> {
+    const res = await http.post<{
+      data: { modelId: string; modelName: string };
+    }>("/v1/models/switch", { modelId });
+    return res.data;
   },
 
   async getTasks(): Promise<TaskModelConfig> {

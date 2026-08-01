@@ -34,6 +34,10 @@ use uuid::Uuid;
 
 static BACKEND_URL: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new("http://127.0.0.1:7890".to_string()));
 
+/// 哨兵值：同步自 app/src/constants/common.ts 的 DEFAULT_MODEL_SENTINEL = 'pyapp-default'
+/// 表示"未选择具体模型，由后端 SmartRouter 自动决策"
+const DEFAULT_MODEL_SENTINEL: &str = "pyapp-default";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub role: String,
@@ -126,7 +130,7 @@ pub async fn send_message(
     let backend_url = get_backend_url();
 
     let request = ChatCompletionRequest {
-        model: Some("pyapp-default".to_string()),
+        model: Some(DEFAULT_MODEL_SENTINEL.to_string()),
         messages: vec![ChatMessage {
             role: "user".to_string(),
             content,
@@ -135,7 +139,6 @@ pub async fn send_message(
         max_tokens: Some(2000),
         stream: Some(false),
     };
-
     let client = reqwest::Client::new();
     let response = client
         .post(format!("{}/v1/chat/completions", backend_url))
@@ -188,7 +191,7 @@ pub async fn stream_message(
     let session_id = session_id.unwrap_or_else(|| "default".to_string());
 
     let request = ChatCompletionRequest {
-        model: Some("pyapp-default".to_string()),
+        model: Some(DEFAULT_MODEL_SENTINEL.to_string()),
         messages: vec![ChatMessage {
             role: "user".to_string(),
             content,

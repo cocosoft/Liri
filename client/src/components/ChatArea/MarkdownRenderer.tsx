@@ -183,7 +183,11 @@ function MarkdownRenderer({
                 <span
                   key={key++}
                   className="inline-block"
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderedFormula) as unknown as string }}
+                  dangerouslySetInnerHTML={{
+                    __html: DOMPurify.sanitize(
+                      renderedFormula,
+                    ) as unknown as string,
+                  }}
                 />,
               );
             } else {
@@ -263,7 +267,11 @@ function MarkdownRenderer({
                 <span
                   key={key++}
                   className="inline-block"
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderedFormula) as unknown as string }}
+                  dangerouslySetInnerHTML={{
+                    __html: DOMPurify.sanitize(
+                      renderedFormula,
+                    ) as unknown as string,
+                  }}
                 />,
               );
             } else {

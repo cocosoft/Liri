@@ -12,7 +12,6 @@ import {
   SearchIcon,
 } from "../../assets/icons";
 import GlobalSearchModal from "../ChatArea/GlobalSearchModal";
-import WorkspaceSwitcher from "./WorkspaceSwitcher";
 
 /**
  * 页面顶部 Header
@@ -79,9 +78,6 @@ function Header() {
           <DashboardIcon size={16} />
           <span>{t("nav.dashboard")}</span>
         </button>
-
-        {/* 工作空间切换器（Phase 7.3：集成到 root store） */}
-        <WorkspaceSwitcher />
 
         {/* 分隔线 */}
         <span className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-1" />

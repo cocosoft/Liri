@@ -38,6 +38,14 @@ export const MAX_FILENAME_LENGTH = 255;
 
 export const TOKEN_ENCODING = 'o200k_base'; // P1-13: upgraded from cl100k_base
 export const DEFAULT_MODEL = '';
+
+/**
+ * 哨兵值：表示"未选择具体模型，由 SmartRouter 自动决策"。
+ * 前端传此值时，后端 resolveSmartModel() 通过 SmartRouter 动态选择模型。
+ * 客户端同步定义在 client/src/services/chatService.ts，Rust 侧同步定义在 client/src-tauri/src/commands/chat.rs。
+ */
+export const DEFAULT_MODEL_SENTINEL = 'pyapp-default';
+
 export const DEFAULT_MAX_TOKENS = 4096;
 
 export const USER_AGENT = 'Liri/1.0.0';

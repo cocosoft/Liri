@@ -745,7 +745,7 @@ export class AIAgentImpl implements AIAgent {
  */
 export function createAIAgent(config: Partial<AgentConfig> = {}): AIAgent {
   const defaultConfig: AgentConfig = {
-    model: AIModelType.GPT_3_5_TURBO,
+    model: '',
     temperature: 0.7,
     maxTokens: 1000,
     timeout: 60000,

@@ -27,7 +27,9 @@ const htmlCache = new Map<string, string>();
 const MAX_CACHE = 10;
 
 export default function OfficePreview({ file }: OfficePreviewProps) {
-  const [html, setHtml] = useState<string | null>(() => htmlCache.get(file.path) ?? null);
+  const [html, setHtml] = useState<string | null>(
+    () => htmlCache.get(file.path) ?? null,
+  );
   const [loading, setLoading] = useState(!htmlCache.has(file.path));
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
@@ -76,7 +78,9 @@ export default function OfficePreview({ file }: OfficePreviewProps) {
           );
           content = result.value;
         } else if (file.type === "xlsx") {
-          const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: "array" });
+          const workbook = XLSX.read(new Uint8Array(arrayBuffer), {
+            type: "array",
+          });
           const sheets = workbook.SheetNames.map((name) => {
             const sheet = workbook.Sheets[name];
             const sheetHtml = XLSX.utils.sheet_to_html(sheet, { id: name });
@@ -103,8 +107,70 @@ export default function OfficePreview({ file }: OfficePreviewProps) {
 
         if (!cancelled) {
           const sanitized = DOMPurify.sanitize(content, {
-            ADD_TAGS: ["img", "h3", "hr", "div", "svg", "g", "path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "text", "tspan", "defs", "clipPath", "linearGradient", "radialGradient", "stop", "use", "image", "foreignObject"],
-            ADD_ATTR: ["src", "alt", "style", "id", "border", "d", "x", "y", "width", "height", "viewBox", "fill", "stroke", "stroke-width", "transform", "cx", "cy", "r", "rx", "ry", "x1", "y1", "x2", "y2", "points", "href", "clip-path", "clip-rule", "fill-rule", "stroke-linecap", "stroke-linejoin", "font-size", "font-family", "text-anchor", "dominant-baseline", "opacity", "xmlns"],
+            ADD_TAGS: [
+              "img",
+              "h3",
+              "hr",
+              "div",
+              "svg",
+              "g",
+              "path",
+              "rect",
+              "circle",
+              "ellipse",
+              "line",
+              "polyline",
+              "polygon",
+              "text",
+              "tspan",
+              "defs",
+              "clipPath",
+              "linearGradient",
+              "radialGradient",
+              "stop",
+              "use",
+              "image",
+              "foreignObject",
+            ],
+            ADD_ATTR: [
+              "src",
+              "alt",
+              "style",
+              "id",
+              "border",
+              "d",
+              "x",
+              "y",
+              "width",
+              "height",
+              "viewBox",
+              "fill",
+              "stroke",
+              "stroke-width",
+              "transform",
+              "cx",
+              "cy",
+              "r",
+              "rx",
+              "ry",
+              "x1",
+              "y1",
+              "x2",
+              "y2",
+              "points",
+              "href",
+              "clip-path",
+              "clip-rule",
+              "fill-rule",
+              "stroke-linecap",
+              "stroke-linejoin",
+              "font-size",
+              "font-family",
+              "text-anchor",
+              "dominant-baseline",
+              "opacity",
+              "xmlns",
+            ],
           });
           // 写入缓存（LRU 淘汰）
           if (htmlCache.size >= MAX_CACHE) {

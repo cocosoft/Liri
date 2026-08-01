@@ -1,15 +1,16 @@
 /**
  * 运行时模型注册表
  *
- * 模型定义（displayName, contextWindow, capabilities, providerMappings）从 YAML 加载。
- * 模型定价 + 启停状态统一从 DB（model_registry 表，通过 ModelPricingService）加载。
+ * DB（model_registry 表）是模型定义的唯一事实来源。
+ * YAML 仅作为首次运行（DB 为空）时的兜底数据。
  *
- * YAML 是模型定义的播种源，DB 是定价和启停的单一事实来源。
- * 删除旧的 4 级定价回退链，改为单一路径：DB → 内存缓存。
+ * 数据流：ModelPricingService.initialize() → YAML 种子 → DB
+ *         → ModelRegistry.loadModelsFromDb() → 内存缓存
  */
 
-import { ModelConfig, APIProvider } from './ModelConfigs.js';
 import { ModelCapability } from './types.js';
+import type { ModelConfig, APIProvider, ModelKey } from './types.js';
+import { API_PROVIDER_KEYS } from './types.js';
 import {
   loadDefaultModels,
   type ModelYamlConfig,
@@ -25,19 +26,6 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'ai:registry' });
-
-const API_PROVIDER_KEYS: APIProvider[] = [
-  'firstParty',
-  'bedrock',
-  'vertex',
-  'azure',
-  'openai',
-  'deepseek',
-  'google',
-  'grok',
-  'moonshot',
-  'ollama',
-];
 
 /** 将 YAML 格式的 providers 映射转换为平面字段 */
 function yamlEntryToModelConfig(
@@ -104,12 +92,64 @@ export class ModelRegistry {
     return ModelRegistry.instance;
   }
 
-  /** 从 YAML 加载内置默认模型 */
+  /** 从 YAML 加载内置默认模型（兜底：仅 DB 无数据时使用） */
   loadDefaultModels(): void {
     const data = loadDefaultModels();
     for (const [key, entry] of Object.entries(data.models)) {
       this.builtinModels.set(key, yamlEntryToModelConfig(entry, key));
     }
+  }
+
+  /**
+   * 从 DB（model_registry 表）加载模型定义
+   * @returns true 表示成功从 DB 加载了数据，false 表示 DB 为空
+   */
+  async loadModelsFromDb(): Promise<boolean> {
+    const { modelPricingService } =
+      await import('@modules/ai/models/ModelPricingService.js');
+    await modelPricingService.initialize();
+    const all = await modelPricingService.getAllPricing();
+
+    if (all.length === 0) {
+      logger.debug('DB 中无模型记录');
+      return false;
+    }
+
+    // 用 DB 数据重建 builtinModels
+    const dbModels = new Map<string, ModelConfig>();
+    for (const rec of all) {
+      // 将 providerMappings 展开为 per-provider 字段
+      const providers: Record<string, string> = {};
+      for (const pk of API_PROVIDER_KEYS) {
+        providers[pk] = rec.providerMappings?.[pk] ?? '';
+      }
+      // 如果有 providerId 且映射中无对应 key，用 modelId 填充 firstParty
+      if (rec.providerId && !Object.values(rec.providerMappings ?? {}).length) {
+        providers.firstParty = rec.modelId;
+      }
+
+      const caps: ModelCapability[] = [];
+      if (rec.capabilities?.length) {
+        for (const c of rec.capabilities) {
+          const upper = c.toUpperCase() as keyof typeof ModelCapability;
+          if (ModelCapability[upper] !== undefined) {
+            caps.push(ModelCapability[upper]);
+          }
+        }
+      }
+
+      dbModels.set(rec.modelId, {
+        ...(providers as unknown as ModelConfig),
+        displayName: rec.displayName || rec.modelId,
+        contextWindow: rec.contextWindow || 200000,
+        maxOutputTokens: rec.maxOutputTokens || 4096,
+        ...(caps.length > 0 && { capabilities: caps }),
+      });
+    }
+
+    this.builtinModels = dbModels;
+    logger.info(`从 DB 加载了 ${dbModels.size} 个模型定义`);
+    return true;
   }
 
   /** 从 ModelPricingService（DB）加载定价到内存缓存 */

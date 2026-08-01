@@ -129,7 +129,11 @@ function App() {
     if (rootCurrentWorktreeId) return;
 
     // 创建默认工作空间
-    const wtId = rootCreateWorktree({ name: "默认工作空间", path: "." });
+    const wtId = rootCreateWorktree({
+      name: "默认工作空间",
+      path: ".",
+      workspaceSource: "system",
+    });
     rootSwitchWorktree(wtId);
   }, [
     initState.phase,

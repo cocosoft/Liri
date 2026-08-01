@@ -37,6 +37,7 @@ import type {
 } from '@modules/runtime/api/CoreAPI';
 import { SandboxConfigBuilder } from '@modules/sandbox/SandboxConfigBuilder';
 import { eventNotificationService } from '@modules/chat/services/EventNotificationService';
+import { DEFAULT_MODEL_SENTINEL } from '@modules/constants/common.js';
 
 const logger = new Logger({ module: 'http:chat', level: LogLevel.INFO });
 
@@ -174,6 +175,7 @@ async function handleNormalChat(
         ? { workspacePath: request.workspace_path }
         : undefined,
       images: request.images,
+      model: request.model,
     };
 
     const response = await coreAPI.chat(chatRequest);
@@ -190,7 +192,7 @@ async function handleNormalChat(
           id: `chatcmpl-${randomUUID().slice(0, 8)}`,
           object: 'chat.completion',
           created: Math.floor(Date.now() / 1000),
-          model: request.model || 'pyapp-default',
+          model: request.model || DEFAULT_MODEL_SENTINEL,
           choices: [
             {
               index: 0,
@@ -219,7 +221,7 @@ async function handleNormalChat(
     }
 
     logger.info('Chat completed', {
-      model: request.model || 'pyapp-default',
+      model: request.model || DEFAULT_MODEL_SENTINEL,
       durationMs: chatDurationMs,
       contentLength: response.content?.length ?? 0,
       sessionId: request.session_id,
@@ -229,7 +231,7 @@ async function handleNormalChat(
       id: `chatcmpl-${randomUUID().slice(0, 8)}`,
       object: 'chat.completion',
       created: Math.floor(Date.now() / 1000),
-      model: request.model || 'pyapp-default',
+      model: request.model || DEFAULT_MODEL_SENTINEL,
       choices: [
         {
           index: 0,
@@ -311,7 +313,7 @@ async function handleStreamingChat(
 
   const responseId = `chatcmpl-${randomUUID().slice(0, 8)}`;
   const created = Math.floor(Date.now() / 1000);
-  const model = request.model || 'pyapp-default';
+  const model = request.model || DEFAULT_MODEL_SENTINEL;
 
   // 发送 role 和状态事件
   res.write(
@@ -395,6 +397,7 @@ async function handleStreamingChat(
         ? { workspacePath: request.workspace_path }
         : undefined,
       images: request.images,
+      model: request.model,
       /** 上下文水位监测 → SSE context_state 事件桥接 */
       onProgress: (event) => {
         if (event.watermarkState) {

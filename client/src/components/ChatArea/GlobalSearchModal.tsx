@@ -1,7 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessionStore } from "../../stores/sessionStore";
+import { useRootStore } from "../../stores/root-store";
 import { useNavigationStore } from "../../stores/navigationStore";
+import type { AppPage } from "../../stores/navigationStore";
+import { getModuleMeta } from "../../stores/root-store/moduleRegistry";
 import { fileService } from "../../services/fileService";
 import { knowledgeService } from "../../services/knowledgeService";
 import { getOTelTracing } from "../../monitoring/otel/OTelTracing";
@@ -38,9 +41,24 @@ export default function GlobalSearchModal({
   const [fileResults, setFileResults] = useState<FileRegistryRecord[]>([]);
   const [knowledgeResults, setKnowledgeResults] = useState<KnowledgeItem[]>([]);
   const [searching, setSearching] = useState(false);
-  const sessions = useSessionStore((s) => s.sessions);
+  // P1-10: 搜索源从 chatSessions 改为 SessionHub 全量（含 media/office 等模块会话）
+  const sessionsRecord = useRootStore((s) => s.sessions);
+  const worktrees = useRootStore((s) => s.worktrees);
+  const allSessions = useMemo(
+    () => Object.values(sessionsRecord),
+    [sessionsRecord],
+  );
+  const switchWorktree = useRootStore((s) => s.switchWorktree);
   const switchSession = useSessionStore((s) => s.switchSession);
   const setActivePage = useNavigationStore((s) => s.setActivePage);
+
+  /** 模块类型 → AppPage 映射 */
+  const MODULE_PAGE: Record<string, AppPage> = {
+    chat: "chat",
+    knowledge: "knowledge",
+    files: "files",
+    workspace: "workspace",
+  };
 
   /** 聚焦输入框 */
   useEffect(() => {
@@ -66,11 +84,26 @@ export default function GlobalSearchModal({
       setSearching(true);
       const q = query.toLowerCase();
 
-      // 1. 客户端过滤会话标题
-      const matchedSessions = sessions.filter((s) =>
-        s.title?.toLowerCase().includes(q),
+      // 1. 客户端过滤所有模块会话标题（SessionHub 全量）
+      //    SessionRecord 有 title 字段，转为 Session-like 结构用于搜索
+      const matchedSessions = allSessions
+        .filter((s) => s.title?.toLowerCase().includes(q))
+        .slice(0, 5);
+      setSessionResults(
+        matchedSessions.map(
+          (s) =>
+            ({
+              id: s.id,
+              title: s.title,
+              createdAt: new Date(s.createdAt).toISOString(),
+              updatedAt: new Date(s.updatedAt).toISOString(),
+              messageCount: 0,
+              roundCount: 0,
+              // 携带归属信息
+              workspaceId: s.worktreeId,
+            }) as Session,
+        ),
       );
-      setSessionResults(matchedSessions.slice(0, 5));
 
       // 2. 异步搜索文件
       try {
@@ -100,9 +133,9 @@ export default function GlobalSearchModal({
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [query, sessions]);
+  }, [query, allSessions]);
 
-  /** 点击会话结果：切换到该会话 */
+  /** 点击会话结果：切换工作空间 + 会话 + 跳转正确模块页面 */
   const handleSessionClick = useCallback(
     async (session: Session) => {
       const otel = getOTelTracing();
@@ -112,30 +145,41 @@ export default function GlobalSearchModal({
       });
 
       try {
-        if (import.meta.env.DEV) console.info("[SessionSwitch] 全局搜索切换会话", {
-          sessionId: session.id,
-          sessionTitle: session.title,
-          timestamp: Date.now(),
-        });
+        if (import.meta.env.DEV)
+          console.info("[SessionSwitch] 全局搜索切换会话", {
+            sessionId: session.id,
+            sessionTitle: session.title,
+            workspaceId: session.workspaceId,
+            timestamp: Date.now(),
+          });
 
+        // P1-11: 先切换工作空间（如果有），再切换会话，再导航到正确模块
+        if (session.workspaceId) {
+          await switchWorktree(session.workspaceId);
+        }
         await switchSession(session.id);
+        // 根据 workspaceId 确定目标页面
+        const page = MODULE_PAGE[session.workspaceId ?? "chat"] ?? "chat";
 
-        if (import.meta.env.DEV) console.info("[SessionSwitch] 全局搜索切换会话成功", {
-          sessionId: session.id,
-          timestamp: Date.now(),
-        });
+        if (import.meta.env.DEV)
+          console.info("[SessionSwitch] 全局搜索切换会话成功", {
+            sessionId: session.id,
+            page,
+            timestamp: Date.now(),
+          });
 
         span.setAttribute("status", "success");
-        setActivePage("chat");
+        setActivePage(page);
         onClose();
       } catch (error) {
-        if (import.meta.env.DEV) console.error("[SessionSwitch] 全局搜索切换会话失败", {
-          sessionId: session.id,
-          sessionTitle: session.title,
-          error: String(error),
-          stack: (error as Error)?.stack,
-          timestamp: Date.now(),
-        });
+        if (import.meta.env.DEV)
+          console.error("[SessionSwitch] 全局搜索切换会话失败", {
+            sessionId: session.id,
+            sessionTitle: session.title,
+            error: String(error),
+            stack: (error as Error)?.stack,
+            timestamp: Date.now(),
+          });
 
         span.setAttribute("status", "error");
         handleClientError(error, {
@@ -147,8 +191,18 @@ export default function GlobalSearchModal({
         otel.endSpan(span);
       }
     },
-    [switchSession, setActivePage, onClose],
+    [switchSession, switchWorktree, setActivePage, onClose],
   );
+
+  /** 获取会话的归属显示信息 */
+  const getSessionContext = (session: Session) => {
+    if (session.workspaceId) {
+      const ws = worktrees[session.workspaceId];
+      if (ws) return { icon: "📁", name: ws.name, type: "workspace" };
+    }
+    // 默认为聊天模块
+    return { icon: getModuleMeta("chat").emoji, name: "聊天", type: "module" };
+  };
 
   /** 点击文件结果：跳转文件页面 */
   const handleFileClick = useCallback(() => {
@@ -235,25 +289,31 @@ export default function GlobalSearchModal({
                 <div className="px-4 py-2 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                   {t("chat.sessions")}
                 </div>
-                {sessionResults.map((session) => (
-                  <button
-                    key={session.id}
-                    onClick={() => handleSessionClick(session)}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                  >
-                    <span className="text-base shrink-0">💬</span>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm text-gray-800 dark:text-gray-200 truncate">
-                        {session.title || t("chat.untitledSession")}
+                {sessionResults.map((session) => {
+                  const ctx = getSessionContext(session);
+                  return (
+                    <button
+                      key={session.id}
+                      onClick={() => handleSessionClick(session)}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                    >
+                      <span className="text-base shrink-0">{ctx.icon}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm text-gray-800 dark:text-gray-200 truncate">
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500 mr-1">
+                            {ctx.name} /
+                          </span>
+                          {session.title || t("chat.untitledSession")}
+                        </div>
+                        <div className="text-xs text-gray-400 dark:text-gray-500">
+                          {session.messageCount != null
+                            ? `${session.messageCount} ${t("chat.messages")}`
+                            : ""}
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-400 dark:text-gray-500">
-                        {session.messageCount != null
-                          ? `${session.messageCount} ${t("chat.messages")}`
-                          : ""}
-                      </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             )}
 

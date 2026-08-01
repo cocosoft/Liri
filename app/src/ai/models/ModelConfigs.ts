@@ -1,63 +1,20 @@
 /**
- * 模型配置定义（纯类型 + 运行时代理）
+ * 模型配置查询函数 + ALL_MODEL_CONFIGS Proxy
  *
- * ALL_MODEL_CONFIGS 不再包含硬编码数据，
- * 改为 Proxy 代理到 ModelRegistry（数据源为 YAML 文件）
+ * ALL_MODEL_CONFIGS 通过 Proxy 代理到 ModelRegistry（DB 驱动），
+ * 运行时数据来源为 DB model_registry 表。
+ * 类型定义在 types.ts（消除与 ModelRegistry 的循环依赖）。
  */
 
 import { ModelCapability } from './types.js';
+import type { ModelConfig, ModelKey, APIProvider } from './types.js';
+import { API_PROVIDER_KEYS } from './types.js';
+
+// 重导出以保持向后兼容
+export type { ModelConfig, ModelKey, APIProvider };
+export { API_PROVIDER_KEYS };
 
 import { handleError } from '@modules/error';
-
-/**
- * API提供商类型
- */
-export type APIProvider =
-  | 'firstParty'
-  | 'bedrock'
-  | 'vertex'
-  | 'azure'
-  | 'openai'
-  | 'deepseek'
-  | 'google'
-  | 'ollama'
-  | 'grok'
-  | 'moonshot';
-
-/**
- * 模型配置接口
- */
-export interface ModelConfig {
-  firstParty: string;
-  bedrock: string;
-  vertex: string;
-  azure: string;
-  openai: string;
-  deepseek: string;
-  google: string;
-  grok: string;
-  moonshot: string;
-  ollama: string;
-  displayName: string;
-  contextWindow: number;
-  maxOutputTokens: number;
-  capabilities?: ModelCapability[];
-  pricing?: {
-    inputPer1M: number;
-    outputPer1M: number;
-    cacheReadPer1M?: number;
-    cacheWritePer1M?: number;
-  };
-  extendedContextWindows?: Array<{
-    suffix: string;
-    windowSize: number;
-  }>;
-}
-
-/**
- * 模型键类型（字符串，不再枚举）
- */
-export type ModelKey = string;
 
 function _getRegistry(): unknown {
   try {
@@ -96,10 +53,8 @@ function _getAllFromRegistry(): Record<string, ModelConfig> {
 /**
  * ALL_MODEL_CONFIGS - 运行时模型配置集合
  *
- * 由 Proxy 代理到 ModelRegistry，数据源为 YAML 文件
- * 支持 ALL_MODEL_CONFIGS[key] 的读写方式，保持向后兼容
- *
- * @deprecated 推荐使用 ModelRegistry.getInstance() 替代直接访问
+ * Proxy 代理到 ModelRegistry（数据源为 DB model_registry 表）。
+ * 支持 ALL_MODEL_CONFIGS[key] 的读写方式，保持向后兼容。
  */
 export const ALL_MODEL_CONFIGS: Record<ModelKey, ModelConfig> = new Proxy(
   {} as Record<ModelKey, ModelConfig>,
@@ -151,19 +106,7 @@ export function getModelConfig(modelKey: ModelKey): ModelConfig | undefined {
 export function getModelKeyByName(modelName: string): ModelKey | null {
   const data = _getAllFromRegistry();
   for (const [key, config] of Object.entries(data)) {
-    const providerKeys: (keyof ModelConfig)[] = [
-      'firstParty',
-      'bedrock',
-      'vertex',
-      'azure',
-      'openai',
-      'deepseek',
-      'google',
-      'grok',
-      'moonshot',
-      'ollama',
-    ];
-    for (const pk of providerKeys) {
+    for (const pk of API_PROVIDER_KEYS) {
       if (
         (config as unknown as Record<string, string>)[pk as string] ===
         modelName
@@ -262,40 +205,6 @@ export interface CompleteModelPricing {
   cacheReadPer1M: number;
   cacheWritePer1M: number;
 }
-
-/**
- * 成本层级常量
- */
-export const PRICING_TIER_SONNET = {
-  inputPer1M: 3,
-  outputPer1M: 15,
-  cacheReadPer1M: 0.3,
-  cacheWritePer1M: 3.75,
-};
-export const PRICING_TIER_OPUS = {
-  inputPer1M: 15,
-  outputPer1M: 75,
-  cacheReadPer1M: 1.5,
-  cacheWritePer1M: 18.75,
-};
-export const PRICING_TIER_OPUS45 = {
-  inputPer1M: 5,
-  outputPer1M: 25,
-  cacheReadPer1M: 0.5,
-  cacheWritePer1M: 6.25,
-};
-export const PRICING_TIER_HAIKU45 = {
-  inputPer1M: 1,
-  outputPer1M: 5,
-  cacheReadPer1M: 0.1,
-  cacheWritePer1M: 1.25,
-};
-export const PRICING_TIER_HAIKU35 = {
-  inputPer1M: 0.8,
-  outputPer1M: 4,
-  cacheReadPer1M: 0.08,
-  cacheWritePer1M: 1,
-};
 
 /**
  * 获取模型的完整定价（含缓存）

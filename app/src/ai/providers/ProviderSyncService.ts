@@ -29,187 +29,13 @@
  */
 
 import { providerRegistry } from './ProviderRegistry';
-import { AnthropicProvider } from './AnthropicProvider';
-import { OpenAIProvider } from './OpenAIProvider';
-import { DeepSeekProvider } from './DeepSeekProvider';
-import { GoogleProvider } from './GoogleProvider';
-import { OllamaProvider } from './OllamaProvider';
-import { MoonshotProvider } from './MoonshotProvider';
-import { GrokProvider } from './GrokProvider';
-import { BedrockProvider } from './BedrockProvider';
-import { VertexAIProvider } from './VertexAIProvider';
-import { AzureOpenAIProvider } from './AzureOpenAIProvider';
-import { FALProvider } from './FALProvider';
-import { StabilityProvider } from './StabilityProvider';
-import { ReplicateProvider } from './ReplicateProvider';
+import { createProviderByType } from './ProviderFactory';
 import type { AIProvider, ProviderConfig } from './AIProvider';
-import type { ProviderRecord, ProviderType } from './ProviderManager';
+import type { ProviderRecord } from './ProviderManager';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { configManager } from '@modules/config';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'ai:provider-sync' });
-
-/** DB providerType → AIProvider 构造函数映射 */
-function createProviderByType(
-  type: ProviderType,
-  config: ProviderConfig
-): AIProvider | null {
-  switch (type) {
-    case 'anthropic':
-      return new AnthropicProvider({
-        providerId: 'anthropic',
-        displayName: 'Anthropic Claude',
-        defaultBaseUrl: 'https://api.anthropic.com',
-        envApiKey: 'ANTHROPIC_API_KEY',
-        defaultModel: (config?.model as string) || '',
-      });
-    case 'openai':
-      return new OpenAIProvider({
-        providerId: 'openai',
-        displayName: 'OpenAI',
-        defaultBaseUrl: 'https://api.openai.com/v1',
-        envApiKey: 'OPENAI_API_KEY',
-        defaultModel: (config?.model as string) || '',
-      });
-    case 'deepseek':
-      return new DeepSeekProvider({
-        providerId: 'deepseek',
-        displayName: 'DeepSeek',
-        defaultBaseUrl: 'https://api.deepseek.com',
-        envApiKey: 'DEEPSEEK_API_KEY',
-        defaultModel: (config?.model as string) || '',
-      });
-    case 'google':
-      return new GoogleProvider({
-        providerId: 'google',
-        displayName: 'Google Gemini',
-        defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-        envApiKey: 'GOOGLE_API_KEY',
-        defaultModel: (config?.model as string) || '',
-      });
-    case 'ollama':
-      return new OllamaProvider({
-        providerId: 'ollama',
-        displayName: 'Ollama (Local)',
-        defaultBaseUrl: 'http://localhost:11434',
-        defaultModel: (config?.model as string) || '',
-      });
-    case 'moonshot':
-      return new MoonshotProvider({
-        providerId: 'moonshot',
-        displayName: 'Moonshot (Kimi)',
-        defaultBaseUrl: 'https://api.moonshot.cn/v1',
-        envApiKey: 'MOONSHOT_API_KEY',
-        defaultModel: (config?.model as string) || '',
-      });
-    case 'grok':
-      return new GrokProvider({
-        providerId: 'grok',
-        displayName: 'Grok (X.AI)',
-        defaultBaseUrl: 'https://api.x.ai/v1',
-        envApiKey: 'GROK_API_KEY',
-        defaultModel: (config?.model as string) || '',
-      });
-    case 'bedrock':
-      return new BedrockProvider(
-        {
-          providerId: 'bedrock',
-          displayName: 'AWS Bedrock',
-          defaultModel: (config?.model as string) || '',
-        },
-        config
-      );
-    case 'vertex':
-      return new VertexAIProvider(
-        {
-          providerId: 'vertex-ai',
-          displayName: 'Google Vertex AI',
-          defaultBaseUrl: 'https://us-central1-aiplatform.googleapis.com',
-          defaultModel: (config?.model as string) || '',
-        },
-        config
-      );
-    case 'azure':
-      return new AzureOpenAIProvider(
-        {
-          providerId: 'azure-openai',
-          displayName: 'Azure OpenAI',
-          defaultModel: (config?.model as string) || '',
-        },
-        config
-      );
-    // 图像生成专用 Provider
-    case 'fal':
-      return new FALProvider({
-        providerId: 'fal',
-        displayName: 'FAL.ai',
-        defaultBaseUrl: 'https://fal.run',
-        envApiKey: 'FAL_API_KEY',
-        defaultModel: (config?.model as string) || '',
-      });
-    case 'stability':
-      return new StabilityProvider({
-        providerId: 'stability',
-        displayName: 'Stability AI',
-        defaultBaseUrl: 'https://api.stability.ai',
-        envApiKey: 'STABILITY_API_KEY',
-        defaultModel: (config?.model as string) || '',
-      });
-    case 'replicate':
-      return new ReplicateProvider({
-        providerId: 'replicate',
-        displayName: 'Replicate',
-        defaultBaseUrl: 'https://api.replicate.com/v1',
-        envApiKey: 'REPLICATE_API_TOKEN',
-        defaultModel: (config?.model as string) || '',
-      });
-    case 'comfy':
-      // ComfyUI 延迟导入（避免启动时必然加载）
-
-      const { ComfyUIProvider } =
-        require('./ComfyUIProvider') as typeof import('./ComfyUIProvider');
-      return new ComfyUIProvider({
-        providerId: 'comfy',
-        displayName: 'ComfyUI (本地)',
-        defaultBaseUrl: (config?.baseUrl as string) || 'http://127.0.0.1:8188',
-        defaultModel: (config?.model as string) || '',
-      });
-    case 'openrouter': {
-      return new OpenAIProvider({
-        providerId: 'openrouter',
-        displayName: 'OpenRouter',
-        defaultBaseUrl:
-          (config?.baseUrl as string) || 'https://openrouter.ai/api/v1',
-        envApiKey: 'OPENROUTER_API_KEY',
-        defaultModel: (config?.model as string) || '',
-      });
-    }
-    case 'siliconflow': {
-      return new OpenAIProvider({
-        providerId: 'siliconflow',
-        displayName: 'SiliconFlow (硅基流动)',
-        defaultBaseUrl:
-          (config?.baseUrl as string) || 'https://api.siliconflow.cn/v1',
-        envApiKey: 'SILICONFLOW_API_KEY',
-        defaultModel: (config?.model as string) || '',
-      });
-    }
-    default: {
-      // custom / unknown → 默认用 OpenAI 兼容格式
-      // generateImage() 自然继承 OpenAIProvider 的实现（调 /v1/images/generations）
-      // 对 OpenRouter、SiliconFlow 等兼容 Provider 有效
-      return new OpenAIProvider({
-        providerId: 'custom',
-        displayName: 'Custom OpenAI-compatible',
-        defaultBaseUrl:
-          (config?.baseUrl as string) || 'https://api.openai.com/v1',
-        envApiKey: 'OPENAI_API_KEY',
-        defaultModel: (config?.model as string) || '',
-      });
-    }
-  }
-}
 
 /**
  * 将 DB ProviderRecord 转换为 ProviderConfig
@@ -275,8 +101,7 @@ function syncOneProvider(record: ProviderRecord): void {
 
   providerRegistry.register(wrapped);
 
-  // 注册类型别名，使 getByModel() 能通过模型前缀（如 'qwen'→'ollama'）查找到
-  // 该 DB 同步的 Provider（硬编码映射表用的 providerType，而非 db:uuid）
+  // 注册类型别名，使 getByModel() 能通过 providerType 精确查找 DB 同步的 Provider
   providerRegistry.setProviderTypeAlias(record.providerType, registryId);
 
   logger.debug(`DB供应商已同步: ${record.name} (${registryId})`);
@@ -290,6 +115,10 @@ const dbToRegistry: Map<string, string> = new Map();
  *
  * 保留环境变量注册的预置 Provider（id: anthropic/openai/deepseek 等），
  * 但优先使用 DB 中 active 的供应商。
+ *
+ * 同步内容：
+ *   1. 供应商注册（providers 表 → ProviderRegistry）
+ *   2. 模型→Provider 映射（model_registry 表 → getByModel 精确查找）
  *
  * @returns 同步的供应商数量
  */
@@ -316,6 +145,9 @@ export async function syncDBProvidersToRegistry(): Promise<number> {
       }
     }
 
+    // 同步模型→Provider 映射（model_registry.model_id → providerType）
+    await syncModelToProviderMappings(providers);
+
     if (count > 0) {
       logger.info(`已同步 ${count} 个 DB 供应商到 ProviderRegistry`);
     }
@@ -327,6 +159,44 @@ export async function syncDBProvidersToRegistry(): Promise<number> {
       action: 'syncDBProvidersToRegistry',
     });
     return 0;
+  }
+}
+
+/**
+ * 从 model_registry 表构建模型名→Provider 类型映射
+ * 注入到 ProviderRegistry 供 getByModel() 精确查找
+ */
+async function syncModelToProviderMappings(
+  providerRecords: ProviderRecord[]
+): Promise<void> {
+  try {
+    const { modelPricingService } =
+      await import('@modules/ai/models/ModelPricingService.js');
+    await modelPricingService.initialize();
+    const allModels = await modelPricingService.getAllPricing();
+
+    // 构建 providerId → providerType 的快速查找
+    const providerTypeById = new Map<string, string>();
+    for (const p of providerRecords) {
+      providerTypeById.set(p.id, p.providerType);
+    }
+
+    const mappings = new Map<string, string>();
+    for (const m of allModels) {
+      if (!m.modelId || !m.providerId) continue;
+      const providerType = providerTypeById.get(m.providerId);
+      if (providerType) {
+        mappings.set(m.modelId.toLowerCase(), providerType);
+      }
+    }
+
+    providerRegistry.setModelMappings(mappings);
+    logger.debug(`模型→Provider 映射已同步: ${mappings.size} 条`);
+  } catch (err) {
+    void handleError(err, {
+      module: 'ai:provider-sync',
+      action: 'syncModelToProviderMappings',
+    });
   }
 }
 

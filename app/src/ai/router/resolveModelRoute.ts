@@ -64,7 +64,10 @@ export async function resolveModelRoute(
         message: options?.message,
         sessionId: options?.sessionId,
       });
-      return decision.model;
+      // SmartRouter 返回有效模型 → 直接使用；返回空 → fall through 到 modelRouter
+      if (decision.model) {
+        return decision.model;
+      }
     }
   } catch (err) {
     // SmartRouter 不可用时静默回退到 ModelRouter
@@ -72,7 +75,7 @@ export async function resolveModelRoute(
   }
 
   const mr = await getModelRouter();
-  return mr.resolve(ROUTE_TO_TASK[route]);
+  return mr.resolveAsync(ROUTE_TO_TASK[route]);
 }
 
 export { RouteKey };

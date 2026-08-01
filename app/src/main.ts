@@ -811,6 +811,89 @@ async function launchTest(_options: LaunchOptions): Promise<void> {
 }
 
 /**
+ * 从 DB model_registry 查询已启用聊天模型，为 SmartRouter tiers 提供默认值。
+ * 仅在用户未手动配置 tiers（config.models.router.tiers 为空）时起作用。
+ *
+ * 分类逻辑：
+ * - simple / medium: 第一个启用的通用聊天模型
+ * - complex / reasoning: 优先选含 reasoning capability 或名称含 reasoner/pro 的模型
+ * - 排除非聊天模型（image_generation, embedding, tts 等）
+ * - DB 查询失败或无可选模型时返回空（SmartRouter 走 fallback 链）
+ */
+async function resolveDefaultTiersFromDb(): Promise<
+  Record<string, { model: string; providerHint: string }>
+> {
+  const emptyTiers = {
+    simple: { model: '', providerHint: '' },
+    medium: { model: '', providerHint: '' },
+    complex: { model: '', providerHint: '' },
+    reasoning: { model: '', providerHint: '' },
+  };
+
+  try {
+    const { modelPricingService } =
+      await import('@modules/ai/models/ModelPricingService');
+    await modelPricingService.initialize();
+    const allModels = await modelPricingService.getAllPricing();
+    const enabled = allModels.filter((m) => m.enabled && m.modelId);
+    if (enabled.length === 0) return emptyTiers;
+
+    // 排除非聊天能力模型
+    const nonChatCaps = [
+      'image_generation',
+      'video_generation',
+      'embedding',
+      'text_to_speech',
+      'speech_recognition',
+      'reranking',
+      'moderation',
+      'image_editing',
+    ];
+    const chatModels = enabled
+      .filter((m) => m.enabled && m.modelId)
+      .filter((m) => {
+        if (m.capabilities?.some((c) => nonChatCaps.includes(c))) return false;
+        return true;
+      });
+    if (chatModels.length === 0) return emptyTiers;
+
+    // 推理模型：capabilities 含 thinking/extended_thinking 或名称含 reasoner/reasoning/pro
+    const reasoningModels = chatModels.filter(
+      (m) =>
+        m.capabilities?.includes('thinking') ||
+        m.capabilities?.includes('extended_thinking') ||
+        m.modelId.toLowerCase().includes('reasoner') ||
+        m.modelId.toLowerCase().includes('reasoning') ||
+        /-pro$/i.test(m.modelId)
+    );
+
+    const defaultModel = chatModels[0].modelId;
+    const providerHint = chatModels[0].providerId || '';
+    const reasoningModel =
+      reasoningModels.length > 0 ? reasoningModels[0].modelId : defaultModel;
+
+    logger.info('SmartRouter tiers 已从 DB 填充', {
+      simple: defaultModel,
+      medium: defaultModel,
+      complex: reasoningModel,
+      reasoning: reasoningModel,
+    });
+
+    return {
+      simple: { model: defaultModel, providerHint },
+      medium: { model: defaultModel, providerHint },
+      complex: { model: reasoningModel, providerHint },
+      reasoning: { model: reasoningModel, providerHint },
+    };
+  } catch (err) {
+    logger.debug('从 DB 填充 tiers 失败，使用空默认值', {
+      error: (err as Error).message,
+    });
+    return emptyTiers;
+  }
+}
+
+/**
  * 统一应用启动入口
  *
  * 根据指定的启动模式，执行环境检测、配置加载、模块系统初始化，
@@ -1058,10 +1141,8 @@ export async function launch(options: LaunchOptions): Promise<void> {
       const { ModelRegistry } =
         await import('@modules/ai/models/ModelRegistry');
       const registry = ModelRegistry.getInstance();
-      registry.loadDefaultModels();
-      registry.loadUserConfigs();
 
-      // 初始化模型注册表 DB（创建 model_registry 表、从 YAML 种子、迁移旧表）
+      // 初始化 DB（创建 model_registry 表、从 YAML 种子）
       const { modelPricingService } =
         await import('@modules/ai/models/ModelPricingService.js').catch(() => {
           return {
@@ -1071,10 +1152,18 @@ export async function launch(options: LaunchOptions): Promise<void> {
         });
       if (modelPricingService) {
         await modelPricingService.initialize();
+        const hasDbData = await registry.loadModelsFromDb();
+        if (!hasDbData) {
+          // DB 为空（首次运行），YAML 作为兜底
+          registry.loadDefaultModels();
+          registry.loadUserConfigs();
+        }
       } else {
-        // 将 DB 定价加载到 ModelRegistry 内存缓存（定价单一事实来源）
-        await registry.loadDbPricing();
+        // DB 不可用，YAML 作为兜底
+        registry.loadDefaultModels();
+        registry.loadUserConfigs();
       }
+      await registry.loadDbPricing();
     });
 
     // T1.26: 初始化通知持久化（建表 + FTS5 + 过期调度）
@@ -1114,6 +1203,9 @@ export async function launch(options: LaunchOptions): Promise<void> {
           await import('@modules/ai/providers/ProviderRegistry');
         const { configManager } = await import('@modules/config/ConfigManager');
 
+        // 从 DB 动态获取 tiers 默认值（替代空字符串）
+        const dbTiers = await resolveDefaultTiersFromDb();
+
         // 从 configManager 读取路由配置，若无则使用默认值
         const savedRouter = (configManager.getGlobalConfig().models?.router ??
           {}) as Partial<import('@modules/ai/router/types').RouterConfig>;
@@ -1122,22 +1214,10 @@ export async function launch(options: LaunchOptions): Promise<void> {
           defaultTier: savedRouter.defaultTier || 'medium',
           sessionSticky: savedRouter.sessionSticky !== false,
           tiers: {
-            simple: savedRouter.tiers?.simple ?? {
-              model: 'deepseek-v4-flash',
-              providerHint: 'deepseek',
-            },
-            medium: savedRouter.tiers?.medium ?? {
-              model: 'deepseek-v4-flash',
-              providerHint: 'deepseek',
-            },
-            complex: savedRouter.tiers?.complex ?? {
-              model: 'deepseek-v4-pro',
-              providerHint: 'deepseek',
-            },
-            reasoning: savedRouter.tiers?.reasoning ?? {
-              model: 'deepseek-reasoner',
-              providerHint: 'deepseek',
-            },
+            simple: savedRouter.tiers?.simple ?? dbTiers.simple,
+            medium: savedRouter.tiers?.medium ?? dbTiers.medium,
+            complex: savedRouter.tiers?.complex ?? dbTiers.complex,
+            reasoning: savedRouter.tiers?.reasoning ?? dbTiers.reasoning,
           },
           fallback: savedRouter.fallback,
           judge: savedRouter.judge,

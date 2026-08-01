@@ -38,10 +38,9 @@ function FileLink({ filePath, onPreview }: FileLinkProps) {
     } else {
       const baseUrl = getBackendBaseUrl();
       const encodedPath = encodeURIComponent(filePath);
-      const resp = await fetch(
-        `${baseUrl}/api/file/open?path=${encodedPath}`,
-        { headers: authHeaders() },
-      );
+      const resp = await fetch(`${baseUrl}/api/file/open?path=${encodedPath}`, {
+        headers: authHeaders(),
+      });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     }
   }, [filePath, authHeaders]);

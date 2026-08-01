@@ -108,26 +108,12 @@ export function compareModels(
 }
 
 /**
- * 获取模型推荐
- * @param useCase 使用场景
- * @returns 推荐模型
+ * 获取模型推荐（DB 驱动）
  */
-export function getModelRecommendation(
-  useCase: 'speed' | 'quality' | 'cost' | 'context'
-): string {
-  switch (useCase) {
-    case 'speed':
-      return modelManager.getSmallFastModel();
-    case 'quality':
-      return modelManager.getBestModel();
-    case 'cost':
-      return modelManager.getDefaultHaikuModel();
-    case 'context':
-      const opus = modelManager.getDefaultOpusModel();
-      return `${opus}[1m]`;
-    default:
-      return modelManager.getDefaultSonnetModel();
-  }
+export async function getModelRecommendation(
+  _useCase: 'speed' | 'quality' | 'cost' | 'context'
+): Promise<string> {
+  return modelManager.getDefaultModel();
 }
 
 /**

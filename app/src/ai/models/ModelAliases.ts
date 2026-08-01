@@ -44,19 +44,20 @@ export function isModelFamilyAlias(model: string): boolean {
 
 /**
  * 解析模型别名
+ * TODO: CS05-ROOTFIX — 目前 fallback 到通用别名（default-pro / default-fast），
+ * 由 ModelRouter.resolve() 按任务分工配置动态路由到实际模型。
+ * 根因方案：从 DB model_registry 按 capability 查询最匹配的模型（如 reasoning=best）。
  * @param alias 模型别名
- * @returns 实际模型名称
+ * @returns 实际模型名称或通用别名（由 ModelRouter 进一步解析）
  */
 export function parseModelAlias(alias: ModelAlias): string {
   switch (alias) {
     case 'best':
-      return 'deepseek-v4-pro';
-    case 'fast':
-      return 'deepseek-v4-flash';
     case 'pro':
-      return 'deepseek-v4-pro';
+      return 'default-pro';
+    case 'fast':
     case 'flash':
-      return 'deepseek-v4-flash';
+      return 'default-fast';
     default:
       return alias;
   }
@@ -85,16 +86,12 @@ export function getModelFamily(modelName: string): ModelFamilyAlias | null {
 }
 
 /**
- * 检查模型是否支持1M上下文
- * 优先从 ModelConfig 的 extendedContextWindows 读取，回退到旧版字符串匹配
+ * 检查模型是否支持扩展上下文
+ * 从 ModelConfig 的 extendedContextWindows 读取。
  * @param modelName 模型名称
- * @returns 是否支持1M上下文
+ * @returns 是否支持扩展上下文
  */
 export function supports1MContext(modelName: string): boolean {
-  const lowerModel = modelName.toLowerCase();
-  if (!lowerModel.includes('opus-4') && !lowerModel.includes('sonnet-4')) {
-    return false;
-  }
   const modelKey = getModelKeyByName(modelName);
   if (modelKey) {
     const config = ALL_MODEL_CONFIGS[modelKey];
@@ -102,7 +99,8 @@ export function supports1MContext(modelName: string): boolean {
       return config.extendedContextWindows.some((w) => w.suffix === '1m');
     }
   }
-  return true;
+  // 无法从配置判断时，保守返回 false
+  return false;
 }
 
 /**

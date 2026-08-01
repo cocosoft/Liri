@@ -22,6 +22,50 @@ import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("root-store:workspaceSlice");
 
+// ─── 系统工作空间（内置模块，不持久化） ─────────────────
+
+function defaultLayout(): WorktreeLayout {
+  return {
+    activeModuleId: null,
+    sidebarCollapsed: false,
+    sidebarWidth: 280,
+    rightPanelOpen: false,
+    uiSnapshots: {},
+  };
+}
+
+function systemWorkspace(
+  id: string,
+  name: string,
+  workspaceType: "chat" | "module",
+): Worktree {
+  return {
+    id,
+    name,
+    path: "",
+    workspaceSource: "system",
+    workspaceType,
+    modelConfig: { modelId: "", providerId: "" },
+    agentId: "",
+    knowledgeBaseIds: [],
+    workItems: [],
+    executionPhase: null,
+    sessionIds: [],
+    layout: defaultLayout(),
+    createdAt: 0,
+    updatedAt: 0,
+  };
+}
+
+export const SYSTEM_WORKSPACES: Record<string, Worktree> = {
+  chat: systemWorkspace("chat", "聊天", "chat"),
+  media: systemWorkspace("media", "媒体", "module"),
+  office: systemWorkspace("office", "办公", "module"),
+  calendar: systemWorkspace("calendar", "日历", "module"),
+  translation: systemWorkspace("translation", "翻译", "module"),
+  knowledge: systemWorkspace("knowledge", "知识库", "module"),
+};
+
 // ─── Slice 接口 ────────────────────────────────────────
 
 export interface WorkspaceSlice {
@@ -56,9 +100,11 @@ export interface WorkspaceSlice {
     name: string;
     path: string;
     description?: string;
+    workspaceSource?: "system" | "user";
+    workspaceType?: "module" | "project" | "chat";
   }) => string;
   switchWorktree: (id: string) => Promise<void>;
-  deleteWorktree: (id: string) => void;
+  deleteWorktree: (id: string) => Promise<void>;
   /** 更新工作空间名称或路径 */
   updateWorktree: (
     id: string,
@@ -108,8 +154,8 @@ export const createWorkspaceSlice: StateCreator<
   WorkspaceSlice
 > = (set, get) => ({
   // ── 初始状态 ──
-  currentWorktreeId: null,
-  worktrees: {},
+  currentWorktreeId: "chat",
+  worktrees: { ...SYSTEM_WORKSPACES },
   recentWorktreeIds: [],
   transition: null,
   error: null,
@@ -128,6 +174,8 @@ export const createWorkspaceSlice: StateCreator<
       name: config.name,
       path: config.path,
       description: config.description,
+      workspaceSource: config.workspaceSource ?? "user",
+      workspaceType: config.workspaceType ?? "project",
       modelConfig: { modelId: "", providerId: "" },
       agentId: "",
       knowledgeBaseIds: [],
@@ -250,14 +298,31 @@ export const createWorkspaceSlice: StateCreator<
     });
   },
 
-  deleteWorktree: (id) => {
+  deleteWorktree: async (id) => {
+    const wt = get().worktrees[id];
+    if (wt?.workspaceSource === "system") {
+      logger.warn("禁止删除系统工作空间", { worktreeId: id });
+      return;
+    }
+
+    // 调用后端 API（失败时仅记录日志，前端状态仍会清理）
+    try {
+      const { workspaceService } = await import("@/services/workspaceService");
+      await workspaceService.deleteWorkspace(id);
+    } catch (e) {
+      logger.warn("后端删除工作空间失败，继续前端清理", {
+        worktreeId: id,
+        error: String(e),
+      });
+    }
+
     const { [id]: _removed, ...rest } = get().worktrees;
 
     set((state) => ({
       worktrees: rest,
       recentWorktreeIds: state.recentWorktreeIds.filter((rid) => rid !== id),
       currentWorktreeId:
-        state.currentWorktreeId === id ? null : state.currentWorktreeId,
+        state.currentWorktreeId === id ? "chat" : state.currentWorktreeId,
     }));
 
     logger.info("工作空间删除", { worktreeId: id });
@@ -521,8 +586,8 @@ export const createWorkspaceSlice: StateCreator<
 
   resetWorkspace: () => {
     set({
-      currentWorktreeId: null,
-      worktrees: {},
+      currentWorktreeId: "chat",
+      worktrees: { ...SYSTEM_WORKSPACES },
       workspaceList: [],
       isLoading: false,
       error: null,

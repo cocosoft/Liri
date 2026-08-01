@@ -38,7 +38,7 @@ export const ALL_ROUTER_TIERS: RouterTier[] = [
 export interface TierModelConfig {
   /** 模型 ID */
   model: string;
-  /** 可选：供应商提示（如 'deepseek'、'ollama'），不指定则由 ProviderRegistry 根据模型前缀自动匹配 */
+  /** 可选：供应商提示（如 'deepseek'、'ollama'），不指定则由 ProviderRegistry 根据 DB 模型映射自动匹配 */
   providerHint?: string;
 }
 

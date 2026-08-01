@@ -57,6 +57,9 @@ export interface ChatRequest {
   images?: Array<{ path: string; url: string; filename: string; size: number }>;
   /** 进度回调，用于在非流式路径中获取 AI 处理阶段信息 */
   onProgress?: (event: ProgressEvent) => void;
+  /** 前端指定的模型名（用户在状态栏/侧边栏选择的模型）。
+   *  设置后优先于 SmartRouter/ModelRouter 的自动决策。 */
+  model?: string;
 }
 
 /** 聊天响应 */

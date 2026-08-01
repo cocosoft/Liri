@@ -24,7 +24,7 @@
  *
  * 职责：根据 RouterConfig.tiers 配置，将 Judge 输出的 tier 解析为
  * 具体的 model + provider。支持 providerHint 显式指定供应商，
- * 否则通过 ProviderRegistry 的模型前缀匹配自动推导。
+ * 否则通过 ProviderRegistry 的 DB 驱动模型映射自动推导。
  */
 
 import { ProviderRegistry } from '@modules/ai';
@@ -60,7 +60,7 @@ export class TierResolver {
     // 确定 provider
     let providerId = tierConfig.providerHint || '';
     if (!providerId) {
-      // 通过模型前缀匹配 ProviderRegistry
+      // 通过模型名精确匹配 ProviderRegistry（DB 驱动）
       providerId = this.inferProvider(tierConfig.model);
     }
 
@@ -79,7 +79,7 @@ export class TierResolver {
   }
 
   /**
-   * 通过模型名前缀从 ProviderRegistry 自动匹配 provider
+   * 通过模型名从 ProviderRegistry 的 DB 驱动映射自动匹配 provider
    *
    * 委托给 ProviderRegistry.resolveModelToProviderId()，消除重复实现。
    * resolveModelToProviderId 包含 toLowerCase 归一化处理。

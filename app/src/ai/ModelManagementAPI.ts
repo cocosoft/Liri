@@ -27,6 +27,7 @@
  */
 
 import type http from 'http';
+import type { AIProvider } from './providers/AIProvider.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError } from '@modules/error';
@@ -961,6 +962,68 @@ async function handleToggleModel(
   }
 }
 
+/**
+ * PUT /v1/models/:id — 更新模型信息（能力标签、显示名、定价等）
+ */
+async function handleUpdateModel(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  match: RegExpMatchArray | null
+): Promise<void> {
+  const id = decodeURIComponent(match![1]); // UUID
+  try {
+    const body = (await parseBody(req)) as Record<string, unknown>;
+    await modelPricingService.initialize();
+    const existing = await modelPricingService.getPricingById(id);
+    if (!existing) {
+      sendError(res, '模型不存在', 404);
+      return;
+    }
+
+    const params: Record<string, unknown> = { modelId: existing.modelId };
+    if (body.capabilities !== undefined)
+      params.capabilities = body.capabilities;
+    if (body.displayName !== undefined) params.displayName = body.displayName;
+    if (body.providerId !== undefined) params.providerId = body.providerId;
+    if (body.contextWindow !== undefined)
+      params.contextWindow = body.contextWindow;
+    if (body.maxOutputTokens !== undefined)
+      params.maxOutputTokens = body.maxOutputTokens;
+    if (body.inputCostPerMillion !== undefined)
+      params.inputCostPerMillion = body.inputCostPerMillion;
+    if (body.outputCostPerMillion !== undefined)
+      params.outputCostPerMillion = body.outputCostPerMillion;
+
+    const record = await modelPricingService.upsertPricing(params as any);
+
+    // 刷新 ModelRegistry 定价缓存
+    const { ModelRegistry } = await import('./models/ModelRegistry.js');
+    ModelRegistry.getInstance()
+      .refreshDbPricing()
+      .catch((er: unknown) => {
+        logger.warning('refreshDbPricing 失败', {
+          error: (er as Error).message,
+        });
+      });
+
+    // 刷新 ModelRouter UUID 缓存
+    const { modelRouter } = await import('./modelRouter.js');
+    await modelRouter.invalidateUuidCache().catch((er: unknown) => {
+      logger.warning('invalidateUuidCache 失败', {
+        error: (er as Error).message,
+      });
+    });
+
+    sendJson(res, { data: record });
+  } catch (err) {
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'updateModel',
+    });
+    sendError(res, `更新模型失败: ${(err as Error).message}`, 500);
+  }
+}
+
 async function handleDeleteModel(
   _req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -1396,24 +1459,49 @@ async function handleGetCurrentModel(
       routingMode = 'off';
     }
 
+    // 优先级：用户显式选择的模型 > 上次路由决策 > 静态路由解析
+    // 用户通过状态栏/侧边栏切换模型时，handleSwitchModel 调 setModelName 存储
+    // lastDecision 仅在聊天流式过程中设置，轮询时可能为空或指向旧模型
+    const explicitModel = coreAPI.getModelName();
     const currentModel =
-      lastDecision?.model ?? (await resolveModelRoute(RouteKey.CHAT));
+      explicitModel ||
+      lastDecision?.model ||
+      (await resolveModelRoute(RouteKey.CHAT));
     const defaultProviderId =
       lastDecision?.provider ?? providerRegistry.getDefaultProviderId() ?? '';
 
-    // 查找当前模型的 UUID
+    // 查找当前模型的 UUID 并验证是否为聊天模型
     await modelPricingService.initialize();
-    const currentRecord = await modelPricingService.getPricing(currentModel);
+    let currentRecord = currentModel
+      ? await modelPricingService.getPricing(currentModel)
+      : undefined;
+
+    // 若当前模型为非聊天模型（如 Embedding），标记 isNonChat 让前端展示警告
+    // 不再清空 currentRecord — 前端据此显示模型名 + 黄色警告而非空白
+    const nonChatCaps = [
+      'image_generation',
+      'video_generation',
+      'embedding',
+      'text_to_speech',
+      'speech_recognition',
+      'reranking',
+      'moderation',
+      'image_editing',
+    ];
+    const isNonChat =
+      currentRecord?.capabilities?.some((c) => nonChatCaps.includes(c)) ??
+      false;
 
     const response = {
-      modelId: currentModel, // 模型名
-      modelUuid: currentRecord?.id || '', // 新增 UUID
+      modelId: currentRecord?.modelId || '',
+      modelUuid: currentRecord?.id || '',
       provider: defaultProviderId,
       routerTier: lastDecision?.tier ?? null,
       routingMode,
       taskType: 'chat',
       costThisSession: getTotalCostUSD(),
       availableTasks: TASK_DEFINITIONS,
+      isNonChat,
     };
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -1430,6 +1518,9 @@ async function handleGetCurrentModel(
 
 /**
  * POST /v1/models/switch — 切换模型
+ *
+ * 查找 Provider 的正确链路：模型记录 → providerId → ProviderRegistry，
+ * 而非从模型名猜测（getByModel 只适用于无 DB 记录的临时模型）。
  */
 async function handleSwitchModel(
   req: http.IncomingMessage,
@@ -1438,31 +1529,54 @@ async function handleSwitchModel(
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, string>;
-    const { modelId } = body; // 这是 UUID
+    const { modelId } = body; // UUID
     await modelPricingService.initialize();
     const record = await modelPricingService.getPricingById(modelId);
-    const modelName = record?.modelId || modelId; // 回退到原值
+    if (!record?.modelId) {
+      sendError(res, '模型不存在', 404);
+      return;
+    }
+    const modelName = record.modelId;
 
     const { providerRegistry } =
       await import('./providers/ProviderRegistry.js');
     const { modelRouter } = await import('./modelRouter.js');
 
-    const resolvedProvider = providerRegistry.getByModel(modelName);
-    if (resolvedProvider) {
-      providerRegistry.setDefaultProvider(resolvedProvider.id);
-
-      const { getCoreAPI } =
-        await import('@modules/runtime/api/CoreAPIImpl.js');
-      getCoreAPI().setModelName(modelName);
-    } else {
-      providerRegistry.setDefaultProvider(modelName);
+    // 正确路径：从模型记录的 providerId 查找已注册的 Provider
+    let resolvedProvider: AIProvider | undefined;
+    if (record.providerId) {
+      const { getRegistryId, registerProviderFromDB } =
+        await import('./providers/ProviderSyncService.js');
+      const registryId = getRegistryId(record.providerId);
+      if (registryId && providerRegistry.has(registryId)) {
+        resolvedProvider = providerRegistry.get(registryId);
+      } else {
+        // Provider 未同步到 Registry，实时同步
+        await registerProviderFromDB(record.providerId);
+        const syncedId = getRegistryId(record.providerId);
+        if (syncedId) {
+          resolvedProvider = providerRegistry.get(syncedId);
+        }
+      }
     }
 
-    // 持久化到 DB（current + default）
-    await modelRouter.setCurrentModel(modelId); // 存 UUID
+    if (!resolvedProvider) {
+      const msg = record.providerId
+        ? `模型 ${modelName} 的供应商 (${record.providerId}) 未找到或未启用`
+        : `模型 ${modelName} 缺少供应商绑定`;
+      sendError(res, msg, 400);
+      return;
+    }
 
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ success: true }));
+    providerRegistry.setDefaultProvider(resolvedProvider.id);
+
+    const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
+    getCoreAPI().setModelName(modelName);
+
+    // 持久化到 DB（current + default），同时更新 UUID→模型名 缓存
+    await modelRouter.setCurrentModel(modelId, modelName);
+
+    sendJson(res, { data: { modelId, modelName } });
   } catch (err) {
     await handleError(err, {
       module: 'ai:modelManagement',
@@ -1573,6 +1687,9 @@ async function handleValidateTasks(
 
 /**
  * PUT /v1/models/default — 设置默认模型
+ *
+ * 同步更新 ProviderRegistry、CoreAPI 和 ModelRouter，
+ * 确保状态栏轮询和任务路由均能感知到变更。
  */
 async function handleSetDefaultModel(
   req: http.IncomingMessage,
@@ -1581,10 +1698,43 @@ async function handleSetDefaultModel(
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, string>;
-    const { modelId } = body;
-    const { providerRegistry } =
-      await import('./providers/ProviderRegistry.js');
-    providerRegistry.setDefaultProvider(modelId);
+    const { modelId, providerId } = body;
+    if (!modelId) {
+      sendError(res, 'modelId 不能为空', 400);
+      return;
+    }
+
+    await modelPricingService.initialize();
+
+    // modelId 可以是模型名（如 "deepseek-chat"）或 UUID
+    let record = await modelPricingService.getPricing(modelId);
+    if (!record) {
+      record = await modelPricingService.getPricingById(modelId);
+    }
+    if (!record) {
+      sendError(res, `模型 ${modelId} 不存在`, 404);
+      return;
+    }
+
+    // 设置 CoreAPI 当前模型名（状态栏轮询依赖）
+    const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
+    getCoreAPI().setModelName(record.modelId);
+
+    // 持久化到 DB 并更新 UUID 缓存
+    const { modelRouter } = await import('./modelRouter.js');
+    await modelRouter.setCurrentModel(record.id, record.modelId);
+
+    // 设置默认 Provider
+    if (providerId) {
+      const { providerRegistry } =
+        await import('./providers/ProviderRegistry.js');
+      try {
+        providerRegistry.setDefaultProvider(providerId);
+      } catch {
+        // provider 不在 Registry 中，跳过（不影响模型设置）
+      }
+    }
+
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {
@@ -2397,6 +2547,11 @@ const ROUTES: RouteEntry[] = [
     method: 'PATCH',
     pattern: /^\/v1\/models\/([^/]+)\/toggle$/,
     handler: handleToggleModel,
+  },
+  {
+    method: 'PUT',
+    pattern: /^\/v1\/models\/([^/]+)$/,
+    handler: handleUpdateModel,
   },
   {
     method: 'DELETE',

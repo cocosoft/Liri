@@ -1,7 +1,0 @@
-param([int]$Days = 7)
-Set-Location "E:\PY\CODES\PY_APP"
-$weekAgo = (Get-D).AddDays(-$).ToString("yyyy-MM-dd")
-$today = (Get-D).ToString("yyyy-MM-dd")
-Write-Host "Weekly Review ($weekAgo ~ $today)"
-Write-Host============================"
-git log --oneline --since="$weekAgo" --untiltoday"

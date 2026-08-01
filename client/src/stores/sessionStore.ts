@@ -60,24 +60,22 @@ function deriveState(root: ReturnType<typeof useRootStore.getState>): {
  * 所有持久化由 rootStore（liri-root-store）统一管理。
  * 首次创建时执行一次性迁移：将旧的 liri-sessions 数据迁移到 rootStore。
  */
-export const useSessionStore = create<SessionStore>()(
-  () => ({
-    ...deriveState(useRootStore.getState()),
+export const useSessionStore = create<SessionStore>()(() => ({
+  ...deriveState(useRootStore.getState()),
 
-    loadSessions: () => useRootStore.getState().loadChatSessions(),
-    createSession: (title) =>
-      useRootStore.getState().createChatSession(title),
-    switchSession: (id) => useRootStore.getState().switchChatSession(id),
-    deleteSession: (id) => useRootStore.getState().deleteChatSession(id),
-    renameSession: (id, title) =>
-      useRootStore.getState().renameChatSession(id, title),
-    clearAllSessions: () => useRootStore.getState().clearAllChatSessions(),
-    togglePin: (id) => useRootStore.getState().togglePin(id),
-    isPinned: (id) => useRootStore.getState().isPinned(id),
-  }),
-);
+  loadSessions: () => useRootStore.getState().loadChatSessions(),
+  createSession: (title) => useRootStore.getState().createChatSession(title),
+  switchSession: (id) => useRootStore.getState().switchChatSession(id),
+  deleteSession: (id) => useRootStore.getState().deleteChatSession(id),
+  renameSession: (id, title) =>
+    useRootStore.getState().renameChatSession(id, title),
+  clearAllSessions: () => useRootStore.getState().clearAllChatSessions(),
+  togglePin: (id) => useRootStore.getState().togglePin(id),
+  isPinned: (id) => useRootStore.getState().isPinned(id),
+}));
 
 // P12: 一次性迁移 — 将旧的 liri-sessions localStorage 数据迁移到 rootStore
+// NOTE: 迁移代码自清洁（完成后删除 key），无副作用。可在全面迁移确认后移除。
 try {
   const oldData = localStorage.getItem("liri-sessions");
   if (oldData) {

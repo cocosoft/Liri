@@ -68,7 +68,7 @@ const CHAT_MODES = [
 
 type ChatMode = (typeof CHAT_MODES)[number]["key"];
 
-function ChatInput() {
+function ChatInput({ fluid = false }: { fluid?: boolean }) {
   const { t } = useTranslation();
   const [showCommands, setShowCommands] = useState(false);
   const [commandIndex, setCommandIndex] = useState(0);
@@ -781,7 +781,7 @@ function ChatInput() {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <div className="max-w-3xl mx-auto">
+      <div className={fluid ? "w-full" : "max-w-3xl mx-auto"}>
         <div className="rounded-2xl bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 shadow-lg p-2">
           {/* 图片缩略图预览条 */}
           {imageItems.length > 0 && (

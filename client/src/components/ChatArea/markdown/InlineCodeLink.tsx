@@ -119,12 +119,7 @@ export function InlineCodeLink({
   }, [codeContent, knownFilePaths, checking]); // sessionId 不在依赖中：缓存 key 已含 sessionId，切换会话时组件随消息重新挂载，无需重触发
 
   if (confirmedPath) {
-    return (
-      <FileLink
-        filePath={confirmedPath}
-        onPreview={onPreviewFile}
-      />
-    );
+    return <FileLink filePath={confirmedPath} onPreview={onPreviewFile} />;
   }
 
   return <code>{codeContent}</code>;

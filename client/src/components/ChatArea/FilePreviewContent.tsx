@@ -56,7 +56,9 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4" />
           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-1/3" />
           <div className="pt-3">
-            <p className="text-xs text-gray-400 dark:text-gray-500 text-center">加载中...</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+              加载中...
+            </p>
           </div>
         </div>
       </div>
@@ -272,7 +274,9 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500">
               {file.name}
-              {file.size ? ` · ${file.size >= 1024 ? `${(file.size / 1024).toFixed(1)} KB` : `${file.size} B`}` : ""}
+              {file.size
+                ? ` · ${file.size >= 1024 ? `${(file.size / 1024).toFixed(1)} KB` : `${file.size} B`}`
+                : ""}
             </p>
           </div>
         </div>

@@ -76,7 +76,7 @@ export default function WorkPageLayout() {
     >
       {/* 左栏：文件树 + 工作项列表 */}
       <div style={{ width: leftWidth }} className="flex-shrink-0 h-full">
-        <WorkSpaceSidebar className="h-full" />
+        <WorkSpaceSidebar className="h-full" workspaceId={workspaceId} />
       </div>
 
       {/* 左拖拽手柄 */}
@@ -91,7 +91,7 @@ export default function WorkPageLayout() {
 
       {/* 中间：内容区 */}
       <div className="flex-1 min-w-0 h-full">
-        <WorkContentArea className="h-full" />
+        <WorkContentArea className="h-full" workspaceId={workspaceId} />
       </div>
 
       {/* 右拖拽手柄 */}

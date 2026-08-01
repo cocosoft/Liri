@@ -209,6 +209,11 @@ export const workspaceService = {
     return await http.post<WorkspaceInfo>("/v1/workspaces", data);
   },
 
+  /** 删除工作空间 */
+  async deleteWorkspace(id: string): Promise<{ success: boolean }> {
+    return await http.delete<{ success: boolean }>(`/v1/workspaces/${id}`);
+  },
+
   /** 获取工作空间的 session 列表 */
   async getSessions(workspaceId: string): Promise<WorkspaceSession[]> {
     return await http.get<WorkspaceSession[]>(
@@ -395,6 +400,10 @@ export const workspaceService = {
     return await http.get<Project[]>(`/v1/workspaces/${workspaceId}/projects`);
   },
 
+  // TODO: CS05-ROOTFIX — createProject / createProjectWorkItem 已定义但前端 0 调用者。
+  // 当前通过 rootStore.createWorktree 直接创建工作空间（内存+后端），绕过了此 API。
+  // 根因方案：合并 worktree 与 Project 数据模型后，项目创建统一走此 API。
+  // 关联问题：P9（项目模块双体系混乱优化方案）
   /** 创建项目 */
   async createProject(
     workspaceId: string,

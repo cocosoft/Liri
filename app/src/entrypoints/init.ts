@@ -424,7 +424,7 @@ async function startDeferredPrefetches(): Promise<void> {
       // 预加载AI客户�?
       (async () => {
         try {
-          await import('../ai/providers/DeepSeekProvider.js');
+          await import('../ai/providers/OpenAIProvider.js');
         } catch (error) {
           // 忽略预加载错�?
         }

@@ -38,8 +38,13 @@ export type {
   ToolDefinition,
   ParsedToolCall,
 } from './models/types';
-export { AIModelType, AIMessageRole } from './models/types';
-export type { AIMessage, AIResponse, AIClient } from './models/types';
+export { AIMessageRole } from './models/types';
+export type {
+  AIModelType,
+  AIMessage,
+  AIResponse,
+  AIClient,
+} from './models/types';
 export { ModelRegistry } from './models/ModelRegistry';
 export { ModelManager, modelManager } from './models/ModelManager';
 export type { APIProvider, ModelKey } from './models/ModelConfigs';
@@ -70,7 +75,6 @@ export { AnthropicProvider } from './providers/AnthropicProvider';
 export { OpenAIProvider } from './providers/OpenAIProvider';
 export { GoogleProvider } from './providers/GoogleProvider';
 export { OllamaProvider } from './providers/OllamaProvider';
-export { DeepSeekProvider } from './providers/DeepSeekProvider';
 
 // transports/ — 统一传输抽象层（对标 Hermes ProviderTransport）
 export { BaseTransport } from './transports/BaseTransport';

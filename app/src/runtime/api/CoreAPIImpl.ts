@@ -63,6 +63,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
+import { DEFAULT_MODEL_SENTINEL } from '@modules/constants/common.js';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { SmartRouter } from '@modules/ai';
 import type { RouteDecision } from '@modules/ai';
@@ -133,6 +134,9 @@ export class CoreAPIImpl implements CoreAPI {
   private converterEngine: ReturnType<typeof getConverterEngine>;
   private fileTypeDetector: FileTypeDetector;
   private _modelName: string;
+  // NOTE: _modelName 与 modelRouter._currentModel 双轨并存，均由 handleSwitchModel /
+  // handleSetDefaultModel 同步写入。getModelName() 用于 handleGetCurrentModel 的 explicitModel
+  // 优先判断。TODO: P3-UNIFY — 收敛为 modelRouter 单源，getModelName() 委托 modelRouter.getCurrentModel()。
 
   /** SmartRouter 智能路由实例（可选，未设置时使用 modelRouter.resolve 静态路由） */
   private smartRouter: SmartRouter | null = null;
@@ -241,9 +245,12 @@ export class CoreAPIImpl implements CoreAPI {
         ? providerRegistry.getByModel(currentModel)
         : undefined;
 
-      // 模型未匹配时回退到 deepseek 类型
+      // 模型未匹配时，按已注册的 Provider 依次尝试
       if (!provider) {
-        provider = providerRegistry.getByType('deepseek');
+        const allProviders = providerRegistry.list();
+        if (allProviders.length > 0) {
+          provider = allProviders[0];
+        }
       }
 
       // DB 中无 Provider 时，从环境变量检测创建
@@ -297,13 +304,21 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   /**
-   * 使用 SmartRouter 决策模型（若 SmartRouter 启用且可用）
+   * 使用 SmartRouter 决策模型（若 SmartRouter 启用且可用）。
+   * 若前端已指定 model（用户在状态栏选择的默认模型），直接使用。
+   * SmartRouter tiers 保持独立，用户选择不覆盖分级配置。
    * @returns 模型名；若 SmartRouter 未启用则返回从 modelRouter 解析的模型
    */
   private async resolveSmartModel(
     content: string,
-    sessionId?: string
+    sessionId?: string,
+    preferredModel?: string
   ): Promise<{ model: string; tier: string }> {
+    // 用户在前端显式选择了模型 → 直接使用
+    if (preferredModel && preferredModel !== DEFAULT_MODEL_SENTINEL) {
+      return { model: preferredModel, tier: 'user-selected' };
+    }
+
     if (this.smartRouter?.isEnabled()) {
       try {
         const decision = await this.smartRouter.resolve(RouteKey.CHAT, {
@@ -333,7 +348,8 @@ export class CoreAPIImpl implements CoreAPI {
       await this.ensureLLMClientInitialized();
       const { model, tier } = await this.resolveSmartModel(
         request.content,
-        request.sessionId
+        request.sessionId,
+        request.model
       );
       const message = await this.chatManager.sendMessage(request.content, {
         sessionId: request.sessionId,
@@ -451,7 +467,8 @@ export class CoreAPIImpl implements CoreAPI {
 
       const { model, tier } = await this.resolveSmartModel(
         request.content,
-        request.sessionId
+        request.sessionId,
+        request.model
       );
 
       yield {

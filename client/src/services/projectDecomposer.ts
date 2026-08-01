@@ -445,6 +445,9 @@ function ruleBasedDecompose(
   return nodes;
 }
 
+// TODO: CS05-ROOTFIX — 当前 decompose 返回硬编码的电网流程监控模板，根本不是 AI 分解。
+// 根因方案：改为调用后端 LLM（POST /v1/projects/:id/decompose），将 ruleBasedDecompose 降级为离线兜底。
+// 关联问题：P3（项目模块双体系混乱优化方案）
 export async function decompose(
   requirements: string,
   options: DecomposeOptions,

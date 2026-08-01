@@ -193,7 +193,7 @@ export class AgentConfigManager {
    */
   private getDefaultConfig(): AgentConfig {
     return {
-      model: AIModelType.GPT_3_5_TURBO,
+      model: '',
       temperature: 0.7,
       maxTokens: 1000,
       timeout: 60000,

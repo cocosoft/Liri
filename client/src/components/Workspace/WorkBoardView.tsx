@@ -760,7 +760,7 @@ export function WorkBoardView({
       await import("../../services/projectDecomposer");
     const nodes = await projectDecomposer.decompose(text, { projectId });
     importNodesDirect(
-      "default",
+      projectId,
       projectId === "default" ? "项目" : projectId,
       text,
       nodes,

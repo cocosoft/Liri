@@ -444,7 +444,7 @@ function ContextTab() {
       <div className="p-3 space-y-4">
         <div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
           <p className="mb-2">
-            {hasModel ? "开始第一次对话" : "请先在设置 Tab 中选择模型"}
+            {hasModel ? "开始第一次对话" : "请在底部状态栏中选择模型"}
           </p>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
             <div
@@ -456,12 +456,13 @@ function ContextTab() {
             0 / {contextLength.toLocaleString()} tokens
           </p>
           {!hasModel && (
-            <button
-              onClick={() => setActiveTab("settings")}
-              className="mt-3 text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 underline"
-            >
-              前往设置
-            </button>
+            <p className="mt-3 text-xs text-gray-400">
+              按{" "}
+              <kbd className="px-1 py-0.5 text-[10px] bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600">
+                Ctrl+M
+              </kbd>{" "}
+              打开模型切换面板
+            </p>
           )}
         </div>
       </div>

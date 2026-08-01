@@ -66,16 +66,18 @@ function TaskProgress({ data }: { data: TaskCardData }) {
 function TaskMiniPanel({
   data,
   onClose,
+  fluid,
 }: {
   data: TaskCardData;
   onClose: () => void;
+  fluid?: boolean;
 }) {
   return (
     <div
       className="absolute bottom-full left-0 right-0 px-3 pb-1"
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="max-w-3xl mx-auto">
+      <div className={fluid ? "w-full" : "max-w-3xl mx-auto"}>
         <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-md p-3 space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -138,7 +140,7 @@ function TaskMiniPanel({
  * - 任务进度：从最后一条 assistant 消息的 todo 块中提取，显示完成数/总数
  * - 点击任务进度可展开 Mini 面板查看具体任务状态
  */
-export default function StatusFloatBar() {
+export default function StatusFloatBar({ fluid = false }: { fluid?: boolean }) {
   const isSending = useChatStore((s) => s.isSending);
   const isStreaming = useChatStore((s) => s.isStreaming);
   const isUploading = useChatStore((s) => s.isUploading);
@@ -210,7 +212,7 @@ export default function StatusFloatBar() {
         className={`w-full px-3 transition-opacity duration-1000 ease-in-out ${fadingOut ? "opacity-0" : "opacity-100"}`}
         onClick={() => setShowTaskPanel(!showTaskPanel)}
       >
-        <div className="max-w-3xl mx-auto">
+        <div className={fluid ? "w-full" : "max-w-3xl mx-auto"}>
           <div className="flex items-center gap-2.5 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             {/* 状态指示点：绿色脉冲 = 运行中 */}
             <span className="relative flex h-2.5 w-2.5">
@@ -275,6 +277,7 @@ export default function StatusFloatBar() {
         <TaskMiniPanel
           data={taskCard}
           onClose={() => setShowTaskPanel(false)}
+          fluid={fluid}
         />
       )}
     </div>

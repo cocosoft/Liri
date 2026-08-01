@@ -763,13 +763,22 @@ const ChatMessageMemo = memo(
     const prevBlocks = prevProps.message.blocks;
     const nextBlocks = nextProps.message.blocks;
     if ((prevBlocks?.length ?? 0) !== (nextBlocks?.length ?? 0)) return false;
-    // P9: 用 block id/content/isStreaming 浅比较替代引用比较
-    // 避免全量 setMessages 导致所有历史消息 memo 失效
-    if (prevBlocks && nextBlocks) {
-      for (let i = 0; i < prevBlocks.length; i++) {
-        if (prevBlocks[i].id !== nextBlocks[i].id) return false;
-        if (prevBlocks[i].content !== nextBlocks[i].content) return false;
-        if (prevBlocks[i].isStreaming !== nextBlocks[i].isStreaming) return false;
+    // P9+1: 用 O(1) checksum（长度+首尾id）快速跳过未变化的 blocks
+    if (prevBlocks && nextBlocks && prevBlocks.length > 0) {
+      const prevHead = prevBlocks[0].id;
+      const nextHead = nextBlocks[0].id;
+      const prevTail = prevBlocks[prevBlocks.length - 1].id;
+      const nextTail = nextBlocks[nextBlocks.length - 1].id;
+      if (prevHead === nextHead && prevTail === nextTail) {
+        // 首尾 id 相同且长度相同 → blocks 结构未变，跳过 O(n) 遍历
+      } else {
+        // 首尾变化时才做 O(n) 逐项比较
+        for (let i = 0; i < prevBlocks.length; i++) {
+          if (prevBlocks[i].id !== nextBlocks[i].id) return false;
+          if (prevBlocks[i].content !== nextBlocks[i].content) return false;
+          if (prevBlocks[i].isStreaming !== nextBlocks[i].isStreaming)
+            return false;
+        }
       }
     }
     // sessionUsage 引用变化时更新（仅显示用，不影响用户交互）

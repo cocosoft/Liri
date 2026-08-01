@@ -2,15 +2,12 @@
  * Model Switch Store — 独立 Zustand Store
  *
  * 当前模型状态、模型切换、任务分工策略管理。
- * 原状态从 appStore 迁出，现已为真实独立 Store。
- *
- * 跨 Store 依赖：switchModel() 通过 useModelStore 查找模型名。
+ * 模型名以后端 switch API 返回值为准。
  */
 
 import { create } from "zustand";
 import { modelSwitchService } from "../services/modelSwitchService";
 import { handleClientError } from "@/utils/handleError";
-import { useModelStore } from "./modelStore";
 import type { CurrentModelInfo, TaskModelConfig } from "../types";
 
 interface ModelSwitchState {
@@ -73,14 +70,12 @@ export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
   switchModel: async (modelId) => {
     set({ error: null });
     try {
-      await modelSwitchService.switch(modelId);
+      const { modelId: uuid, modelName } =
+        await modelSwitchService.switch(modelId);
       const tasks = await modelSwitchService.getTasks();
-      const model = useModelStore
-        .getState()
-        .models.find((m) => m.id === modelId);
       set({
-        currentModelId: modelId,
-        currentModelName: model?.modelId || model?.name || modelId,
+        currentModelId: uuid,
+        currentModelName: modelName,
         tasks,
       });
     } catch (e) {

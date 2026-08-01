@@ -22,7 +22,6 @@ export {
 
 // Re-export history utilities
 export {
-  shouldAutoRename,
   doAutoRename,
   _getCachedMessages,
   flushSaveBlocks,

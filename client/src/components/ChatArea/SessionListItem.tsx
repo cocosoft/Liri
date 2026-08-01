@@ -2,12 +2,14 @@
  * 会话列表项组件
  *
  * 从 SessionHistorySidebar 中提取，渲染单个会话条目的：
- * - 固定标识、来源标签、标题、时间、轮次
+ * - 工作空间归属前缀、来源标签、标题、时间、轮次
  * - 编辑态（双击重命名）
  * - 删除按钮（hover 显示）
  * - 右键菜单触发
  */
 import { formatRelativeTime } from "../../utils/formatTime";
+import { useRootStore } from "../../stores/root-store";
+import { getModuleMeta } from "../../stores/root-store/moduleRegistry";
 
 interface SessionListItemProps {
   session: {
@@ -17,6 +19,8 @@ interface SessionListItemProps {
     source?: string;
     roundCount?: number;
     messageCount: number;
+    workspaceId?: string | null;
+    moduleType?: string;
   };
   isActive: boolean;
   isEditing: boolean;
@@ -49,6 +53,15 @@ function SessionListItem({
   onDelete,
   onContextMenu,
 }: SessionListItemProps) {
+  // 工作空间归属信息（用于显示归属前缀）
+  const worktrees = useRootStore((s) => s.worktrees);
+  const workspaceName = session.workspaceId
+    ? worktrees[session.workspaceId]?.name
+    : null;
+  const moduleMeta = session.moduleType
+    ? getModuleMeta(session.moduleType)
+    : null;
+
   return (
     <div
       key={session.id}
@@ -84,6 +97,14 @@ function SessionListItem({
                   className="inline-block w-2 h-2 rounded-full bg-green-400 dark:bg-green-500 flex-shrink-0"
                   title="已被梦境凝练"
                 />
+              )}
+              {/* 工作空间归属前缀 */}
+              {(workspaceName || moduleMeta) && (
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0 mr-0.5">
+                  {moduleMeta?.emoji}
+                  {workspaceName ?? moduleMeta?.label}
+                  <span className="mx-0.5 opacity-50">/</span>
+                </span>
               )}
               {session.title || "未命名会话"}
             </div>

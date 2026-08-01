@@ -21,7 +21,7 @@ import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("components:chatArea");
 
-function ChatArea() {
+function ChatArea({ fluid = false }: { fluid?: boolean }) {
   const { t } = useTranslation();
   const {
     messages,
@@ -38,11 +38,12 @@ function ChatArea() {
 
   /** 诊断：会话变化时记录 */
   useEffect(() => {
-    if (import.meta.env.DEV) console.info("[Diag:chatArea] 会话变更", {
-      sessionId: currentSession?.id,
-      title: currentSession?.title,
-      msgCount: messages.length,
-    });
+    if (import.meta.env.DEV)
+      console.info("[Diag:chatArea] 会话变更", {
+        sessionId: currentSession?.id,
+        title: currentSession?.title,
+        msgCount: messages.length,
+      });
   }, [currentSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** 上下文面板点击消息摘要 → 滚动到对应消息 */
@@ -334,44 +335,48 @@ function ChatArea() {
 
       {/* 错误提示 */}
       {displayError && (
-        <div className="absolute bottom-[140px] left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 z-20 pointer-events-none">
-          <div className="p-4 bg-red-50 dark:bg-red-900/50 backdrop-blur-xl border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3 shadow-lg pointer-events-auto">
-            <span className="text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5">
-              ⚠
-            </span>
-            <div className="flex-1 min-w-0">
-              <span className="text-sm text-red-700 dark:text-red-300 block">
-                {displayError}
+        <div
+          className={`absolute bottom-[140px] left-0 right-0 z-20 pointer-events-none ${fluid ? "px-4" : "flex justify-center"}`}
+        >
+          <div className={fluid ? "w-full" : "w-full max-w-3xl px-4"}>
+            <div className="p-4 bg-red-50 dark:bg-red-900/50 backdrop-blur-xl border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3 shadow-lg pointer-events-auto">
+              <span className="text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5">
+                ⚠
               </span>
-              <div className="flex items-center gap-2 mt-2">
-                <button
-                  onClick={() => useBackendStore.getState().checkStatus()}
-                  className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
-                >
-                  🔄 {t("common.retry")}
-                </button>
-                <button
-                  onClick={() => navigator.clipboard.writeText(displayError)}
-                  className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
-                >
-                  📋 {t("chat.copyMessage")}
-                </button>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm text-red-700 dark:text-red-300 block">
+                  {displayError}
+                </span>
+                <div className="flex items-center gap-2 mt-2">
+                  <button
+                    onClick={() => useBackendStore.getState().checkStatus()}
+                    className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
+                  >
+                    🔄 {t("common.retry")}
+                  </button>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(displayError)}
+                    className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
+                  >
+                    📋 {t("chat.copyMessage")}
+                  </button>
+                </div>
               </div>
+              <button
+                onClick={handleDismissError}
+                className="text-red-400 hover:text-red-600 dark:hover:text-red-200 flex-shrink-0"
+                title={t("common.close")}
+              >
+                ✕
+              </button>
             </div>
-            <button
-              onClick={handleDismissError}
-              className="text-red-400 hover:text-red-600 dark:hover:text-red-200 flex-shrink-0"
-              title={t("common.close")}
-            >
-              ✕
-            </button>
           </div>
         </div>
       )}
 
       {/* 底部区域：AI 状态栏 + 输入区（flex-col，StatusFloatBar 自然贴着输入区上方） */}
       <div className="shrink-0 flex flex-col bg-gray-50 dark:bg-gray-900">
-        <StatusFloatBar />
+        <StatusFloatBar fluid={fluid} />
 
         {/* 上下文水位指示器 — 紧凑圆点，居中，hover 展开详情 */}
         <div className="flex justify-center">
@@ -388,7 +393,7 @@ function ChatArea() {
           position="bottom"
         />
 
-        <ChatInput />
+        <ChatInput fluid={fluid} />
       </div>
     </div>
   );

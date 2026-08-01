@@ -2,18 +2,19 @@
  * Chat History Slice — 会话历史与重命名工具函数
  *
  * 无 Zustand 状态字段，仅提供工具函数导出。
- * 被 chat-message.slice 引用（flushSaveBlocks、shouldAutoRename 等）。
+ * 被 chat-message.slice 引用（flushSaveBlocks、doAutoRename 等）。
  */
-import { useRootStore } from "../root-store";
-import { chatService } from "../../services/chatService";
-import { sessionService } from "../../services/sessionService";
+import { useRootStore } from "@/stores/root-store";
+import { chatService } from "@/services/chatService";
+import { sessionService } from "@/services/sessionService";
 import { handleClientError } from "@/utils/handleError";
-import type { Message } from "../../types";
-import type { MessageBlock } from "../../types";
+import { chatCoordinator } from "./chatCoordinator";
+import type { Message } from "@/types";
+import type { MessageBlock } from "@/types";
 
 // 会话消息缓存：避免快速切换时重复 fetch
 const _sessionMessageCache = new Map<string, Message[]>();
-const MAX_CACHED_SESSIONS = 5;
+const MAX_CACHED_SESSIONS = 15;
 
 /** 导出供 sessionStore 使用：获取缓存的会话消息 */
 export function _getCachedMessages(sessionId: string): Message[] | null {
@@ -37,116 +38,131 @@ export function setSessionCache(sessionId: string, messages: Message[]): void {
   _sessionMessageCache.set(sessionId, messages);
 }
 
-// 防抖保存 blocks：流式传输中实时持久化，避免用户切换会话时丢失
-let _pendingSaveSessionId: string | null = null;
-let _pendingSaveMessageId: string | null = null;
-let _pendingSaveBlocksVal: MessageBlock[] | null = null;
-let hasPendingSave = false;
-let _saveIsFlushing = false;
+// ─── SaveQueue：防抖持久化 blocks，避免切会话时丢失 ───
 
-/** 设置待保存的 blocks */
-export function setPendingSave(
-  sessionId: string | null,
-  messageId: string | null,
-  blocks: MessageBlock[] | null,
-): void {
-  _pendingSaveSessionId = sessionId;
-  _pendingSaveMessageId = messageId;
-  _pendingSaveBlocksVal = blocks;
-}
+export class SaveQueue {
+  private _sessionId: string | null = null;
+  private _messageId: string | null = null;
+  private _blocks: MessageBlock[] | null = null;
+  private _timer: ReturnType<typeof setTimeout> | null = null;
+  private _isFlushing = false;
+  private _hasPending = false;
+  private readonly _debounceMs: number;
 
-/** 获取待保存的 blocks（供 flush 内部使用） */
-export function getPendingSave(): {
-  sessionId: string | null;
-  messageId: string | null;
-  blocks: MessageBlock[] | null;
-} {
-  return {
-    sessionId: _pendingSaveSessionId,
-    messageId: _pendingSaveMessageId,
-    blocks: _pendingSaveBlocksVal,
-  };
-}
+  constructor(debounceMs: number = 200) {
+    this._debounceMs = debounceMs;
+  }
 
-/** 设置 hasPendingSave 标记 */
-export function setHasPendingSave(value: boolean): void {
-  hasPendingSave = value;
-}
+  /** 入队待保存（immediate=true 时跳过防抖，直接保存） */
+  enqueue(
+    sessionId: string,
+    messageId: string,
+    blocks: MessageBlock[],
+    immediate: boolean = false,
+  ): void {
+    this._sessionId = sessionId;
+    this._messageId = messageId;
+    this._blocks = blocks;
+    this._hasPending = true;
+    if (immediate) {
+      if (this._timer) clearTimeout(this._timer);
+      this._timer = null;
+      this._doFlush();
+      return;
+    }
+    if (this._timer) clearTimeout(this._timer);
+    this._timer = setTimeout(() => this._doFlush(), this._debounceMs);
+  }
 
-/** 获取 hasPendingSave 标记 */
-export function getHasPendingSave(): boolean {
-  return hasPendingSave;
-}
+  /** 立即 flush（会清除防抖 timer） */
+  async flush(): Promise<void> {
+    if (this._timer) {
+      clearTimeout(this._timer);
+      this._timer = null;
+    }
+    await this._doFlush();
+  }
 
-/** 获取 _saveIsFlushing 标记 */
-export function getIsFlushing(): boolean {
-  return _saveIsFlushing;
-}
-
-/** 设置 _saveIsFlushing 标记 */
-export function setIsFlushing(value: boolean): void {
-  _saveIsFlushing = value;
-}
-
-/**
- * 立即 flush 待保存的 blocks
- */
-export async function flushSaveBlocks(): Promise<void> {
-  // 重入锁：防止高频触发导致并发写入冲突
-  if (_saveIsFlushing) return;
-  _saveIsFlushing = true;
-  try {
-    const { sessionId, messageId, blocks } = getPendingSave();
-    if (sessionId && messageId && blocks) {
-      setPendingSave(null, null, null);
-      try {
-        await chatService.updateMessageBlocks(
-          sessionId,
-          messageId,
-          blocks as unknown as Array<Record<string, unknown>>,
-        );
-      } catch (err) {
-        handleClientError(
-          err,
-          { module: "stores:chat:history", action: "flushSaveBlocks" },
-          "warn",
-        );
+  private async _doFlush(): Promise<void> {
+    if (this._isFlushing) return;
+    this._isFlushing = true;
+    try {
+      if (this._sessionId && this._messageId && this._blocks) {
+        const sid = this._sessionId;
+        const mid = this._messageId;
+        const blk = this._blocks;
+        this._sessionId = null;
+        this._messageId = null;
+        this._blocks = null;
+        this._hasPending = false;
+        try {
+          await chatService.updateMessageBlocks(
+            sid,
+            mid,
+            blk as unknown as Array<Record<string, unknown>>,
+          );
+        } catch (err) {
+          handleClientError(
+            err,
+            { module: "stores:chat:history", action: "SaveQueue.flush" },
+            "warn",
+          );
+        }
+      }
+    } finally {
+      this._isFlushing = false;
+      if (this._hasPending) {
+        await this._doFlush();
       }
     }
-  } finally {
-    _saveIsFlushing = false;
-    // 如果在 flush 期间有新的待保存数据，递归处理
-    if (hasPendingSave) {
-      await flushSaveBlocks();
-    }
+  }
+
+  get hasPending(): boolean {
+    return this._hasPending;
+  }
+
+  get isFlushing(): boolean {
+    return this._isFlushing;
+  }
+
+  /** 取消所有待保存操作（流中断时使用） */
+  reset(): void {
+    if (this._timer) clearTimeout(this._timer);
+    this._timer = null;
+    this._sessionId = null;
+    this._messageId = null;
+    this._blocks = null;
+    this._hasPending = false;
   }
 }
 
-/**
- * 根据持久化的 titleAutoGenerated 标记判断是否需要自动重命名
- */
-export async function shouldAutoRename(sessionId?: string): Promise<boolean> {
-  if (!sessionId) {
-    return false;
-  }
+// ─── 全局 SaveQueue 实例（供 flushPendingSaves 使用）───
 
-  // 动态导入避免循环依赖（chat → sessionStore）
-  const { useSessionStore } = await import("../sessionStore");
-  const store = useSessionStore.getState();
+const _globalSaveQueue = new SaveQueue();
 
-  // 优先从 currentSession 查找
-  if (store.currentSession?.id === sessionId) {
-    return store.currentSession.titleAutoGenerated === false;
-  }
+/** 将 blocks 入队到全局 SaveQueue（流式传输中使用） */
+export function enqueueSaveBlocks(
+  sessionId: string,
+  messageId: string,
+  blocks: MessageBlock[],
+  immediate: boolean = false,
+): void {
+  _globalSaveQueue.enqueue(sessionId, messageId, blocks, immediate);
+}
 
-  // 降级：从 sessions 列表中按 sessionId 查找
-  const found = store.sessions.find((s) => s.id === sessionId);
-  if (found) {
-    return found.titleAutoGenerated === false;
-  }
+/** 立即 flush 全局 SaveQueue（切会话时使用） */
+export function flushSaveBlocks(): Promise<void> {
+  return _globalSaveQueue.flush();
+}
 
-  // 会话未找到，不触发自动重命名
-  return false;
+/** 全局 SaveQueue 是否有待保存数据 */
+export function getHasPendingSave(): boolean {
+  return _globalSaveQueue.hasPending;
+}
+
+/** Reset 全局 SaveQueue */
+export function resetSaveQueue(): void {
+  _globalSaveQueue.reset();
 }
 
 /**
@@ -162,7 +178,7 @@ export async function doAutoRename(
   await new Promise((r) => setTimeout(r, 2000));
 
   // 二次检查：后端可能已通过 SSE 更新了标记
-  if (!(await shouldAutoRename(sessionId))) {
+  if (!chatCoordinator.shouldAutoRename(sessionId)) {
     return;
   }
 

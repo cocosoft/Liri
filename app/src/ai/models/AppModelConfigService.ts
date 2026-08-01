@@ -140,6 +140,7 @@ export class AppModelConfigService {
       // 先标记已初始化，再调用 ensureDefaultEntry（内部需要 getConfig）
       this.initialized = true;
       await this.ensureDefaultEntry();
+      await this.cleanNonChatModelEntries();
       logger.info('AppModelConfigService 初始化完成');
     } catch (error) {
       await handleError(error, {
@@ -181,18 +182,111 @@ export class AppModelConfigService {
   }
 
   private async ensureDefaultEntry(): Promise<void> {
+    // 从 model_registry 获取第一个启用的聊天模型（排除 embedding/生图等非聊天能力）
+    const { modelPricingService } = await import('./ModelPricingService.js');
+    await modelPricingService.initialize();
+    const allModels = await modelPricingService.getAllPricing();
+    const nonChatCaps = [
+      'image_generation',
+      'video_generation',
+      'embedding',
+      'text_to_speech',
+      'speech_recognition',
+      'reranking',
+      'moderation',
+      'image_editing',
+    ];
+    const chatModels = allModels
+      .filter((m) => m.enabled && m.modelId)
+      .filter((m) => {
+        if (m.capabilities?.some((c) => nonChatCaps.includes(c))) return false;
+        return true;
+      });
+    const validDefaultId = chatModels.length > 0 ? chatModels[0].modelId : '';
+
+    // 检查已有默认条目：若非聊天模型则清理重选
     const existing = await this.getConfig('default');
-    if (existing && existing.model) return;
+    if (existing?.model) {
+      const isNonChat = allModels.some(
+        (m) =>
+          m.modelId === existing.model &&
+          m.capabilities?.some((c) => nonChatCaps.includes(c))
+      );
+      if (!isNonChat) return; // 已是有效聊天模型，无需重选
+      logger.warning('默认模型为非聊天模型，自动清理重选', {
+        oldModel: existing.model,
+      });
+      await this.setConfig('default', { model: validDefaultId });
+      return;
+    }
 
-    // 从 ActiveModelService 获取第一个可用模型
-    const { activeModelService } = await import('./ActiveModelService.js');
-    const effectiveModel = await activeModelService.getEffectiveModel(
-      undefined,
-      'ollama'
-    );
-    const modelId = effectiveModel || '';
+    // 无默认条目 → 新建
+    await this.setConfig('default', { model: validDefaultId });
+  }
 
-    await this.setConfig('default', { model: modelId });
+  /**
+   * 清理所有对话类任务条目中的非聊天模型（如 Embedding 模型被误设为对话模型）。
+   * 确保 modelRouter 不会把 BAAI/bge-m3 之类的模型返回给 ChatManager。
+   *
+   * 对话类任务：chat/coding/translation/quick/agent/scheduled/local/default/current
+   * 能力类任务（不清理）：embedding/image/vision/ocr/text_to_video/image_to_video
+   */
+  private async cleanNonChatModelEntries(): Promise<void> {
+    const nonChatCaps = [
+      'image_generation',
+      'video_generation',
+      'embedding',
+      'text_to_speech',
+      'speech_recognition',
+      'reranking',
+      'moderation',
+      'image_editing',
+    ];
+
+    // 对话类任务类型（需要聊天模型，不能是 embedding 等非聊天模型）
+    const chatTaskTypes = [
+      'current',
+      'default',
+      'chat',
+      'coding',
+      'translation',
+      'quick',
+      'agent',
+      'scheduled',
+      'local',
+    ];
+
+    try {
+      const { modelPricingService } = await import('./ModelPricingService.js');
+      await modelPricingService.initialize();
+      const allModels = await modelPricingService.getAllPricing();
+
+      for (const appType of chatTaskTypes) {
+        const config = await this.getConfig(appType);
+        if (!config?.model) continue;
+
+        const isNonChat = allModels.some(
+          (m) =>
+            m.modelId === config.model &&
+            m.capabilities?.some((c) => nonChatCaps.includes(c))
+        );
+        if (isNonChat) {
+          logger.warning(
+            `AppModelConfig: ${appType} 条目为非聊天模型，自动清理`,
+            { model: config.model }
+          );
+          await this.setConfig(appType, { model: '' });
+          this.cache.delete(appType);
+        }
+      }
+    } catch (err) {
+      logger.debug(
+        'cleanNonChatModelEntries 跳过（modelPricingService 未就绪）',
+        {
+          error: (err as Error).message,
+        }
+      );
+    }
   }
 
   private ensureInitialized(): void {

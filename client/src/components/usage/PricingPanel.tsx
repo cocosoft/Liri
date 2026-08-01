@@ -164,7 +164,7 @@ function PricingPanel() {
               <input
                 value={form.modelId}
                 onChange={(e) => setForm({ ...form, modelId: e.target.value })}
-                placeholder="deepseek-v4-pro"
+                placeholder="例如: gpt-4o"
                 className={`w-full px-2 py-1.5 rounded border text-sm ${isDark ? "bg-gray-700 border-gray-600 text-gray-200" : "bg-white border-gray-300 text-gray-900"}`}
               />
             </div>

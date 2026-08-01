@@ -14,34 +14,16 @@ export class ProviderRegistry {
   /**
    * DB 同步 Provider 的类型别名映射
    * providerType (如 'ollama') → registryId (如 'db:uuid')
-   * 使 getByModel() 能通过模型前缀查找 DB 同步的 Provider
+   * 使 getByModel() 能通过 providerType 查找 DB 同步的 Provider
    */
   private providerTypeToId: Map<string, string> = new Map();
 
   /**
-   * 模型前缀 → Provider ID 映射表（按优先级排序）
-   * getByModel() 依次匹配，返回第一个命中
+   * 模型名 → Provider 类型映射表（数据来源：model_registry 表）
+   * 在 syncDBProvidersToRegistry 时从 DB 同步填充。
+   * 精确匹配，不做前缀推断。
    */
-  private modelToProvider: Array<[string, string]> = [
-    ['claude-', 'anthropic'],
-    ['opus', 'anthropic'],
-    ['sonnet', 'anthropic'],
-    ['haiku', 'anthropic'],
-    ['gpt-', 'openai'],
-    ['o1', 'openai'],
-    ['o3', 'openai'],
-    ['o4', 'openai'],
-    ['gemini-', 'google'],
-    ['deepseek', 'deepseek'],
-    ['azure-', 'azure-openai'],
-    ['moonshot', 'moonshot'],
-    ['grok', 'grok'],
-    ['bedrock-', 'bedrock'],
-    ['vertex-', 'vertex-ai'],
-    ['qwen', 'ollama'],
-    ['llama', 'ollama'],
-    ['mistral', 'ollama'],
-  ];
+  private modelToProviderType: Map<string, string> = new Map();
 
   register(provider: AIProvider): void {
     if (this.providers.has(provider.id)) {
@@ -97,50 +79,36 @@ export class ProviderRegistry {
   }
 
   /**
-   * 按模型名自动匹配 Provider
-   * 遍历 modelToProvider 映射表，返回第一个匹配的已注册 Provider
+   * 按模型名精确匹配 Provider
    *
-   * 匹配优先级:
-   *   1. 直接 ID 匹配（如 'deepseek'）
-   *   2. 类型别名匹配（DB 同步的 Provider，如 'ollama' → 'db:uuid'）
+   * 数据来源：model_registry.model_id → providerType，在 syncDBProvidersToRegistry 时同步。
+   * 查找优先级:
+   *   1. modelToProviderType 精确匹配 → providerType
+   *   2. providerType → providers 直接 ID 匹配
+   *   3. providerType → providerTypeToId 别名匹配（DB 同步的 Provider）
    */
   getByModel(model: string): AIProvider | undefined {
-    const normalized = model.toLowerCase();
-    for (const [prefix, providerId] of this.modelToProvider) {
-      if (normalized.startsWith(prefix)) {
-        // 优先：直接 ID 匹配
-        if (this.providers.has(providerId)) {
-          return this.providers.get(providerId);
-        }
-        // 回退：类型别名匹配（DB 同步的 Provider）
-        const aliasedId = this.providerTypeToId.get(providerId);
-        if (aliasedId && this.providers.has(aliasedId)) {
-          return this.providers.get(aliasedId);
-        }
-      }
+    const providerType = this.modelToProviderType.get(model.toLowerCase());
+    if (!providerType) return undefined;
+
+    // 优先：直接 ID 匹配
+    if (this.providers.has(providerType)) {
+      return this.providers.get(providerType);
     }
-    logger.debug(`模型未匹配到 Provider: ${model}`);
+    // 回退：类型别名匹配（DB 同步的 Provider，如 'ollama' → 'db:uuid'）
+    const aliasedId = this.providerTypeToId.get(providerType);
+    if (aliasedId && this.providers.has(aliasedId)) {
+      return this.providers.get(aliasedId);
+    }
     return undefined;
   }
 
   /**
-   * 根据模型名解析对应 Provider ID（仅查映射表，不检查是否已注册）
-   *
-   * 用于调用方在 getByModel() 返回 undefined 后，
-   * 通过 getOrCreate() 动态创建未注册的 Provider。
-   * 消除 aiService.ts 中重复的 startsWith 硬编码。
-   *
-   * @param model 模型名
-   * @returns Provider ID，无匹配返回 undefined
+   * 根据模型名解析对应 Provider 类型
+   * 数据来源：model_registry 表，精确匹配。
    */
   resolveModelToProviderId(model: string): string | undefined {
-    const normalized = model.toLowerCase();
-    for (const [prefix, providerId] of this.modelToProvider) {
-      if (normalized.startsWith(prefix)) {
-        return providerId;
-      }
-    }
-    return undefined;
+    return this.modelToProviderType.get(model.toLowerCase());
   }
 
   /**
@@ -192,141 +160,10 @@ export class ProviderRegistry {
     if (this.has(providerId)) {
       return this.get(providerId);
     }
-    // 动态创建（import 延迟加载，避免循环依赖）
-    const createFn = this.getCreatorFn(providerId);
-    if (createFn) {
-      const provider = createFn(config || {});
-      this.register(provider);
-      return provider;
-    }
-    throw new AppError(
-      `Cannot create provider: ${providerId}`,
-      ErrorCategory.EXECUTION,
-      ErrorSeverity.HIGH,
-      '1000'
-    );
-  }
-
-  private getCreatorFn(
-    providerId: string
-  ): ((config: ProviderConfig) => AIProvider) | null {
-    switch (providerId) {
-      case 'anthropic':
-        return (cfg) => {
-          const { AnthropicProvider: AP } = require('./AnthropicProvider');
-          return new AP({
-            providerId: 'anthropic',
-            displayName: 'Anthropic Claude',
-            defaultBaseUrl: 'https://api.anthropic.com',
-            envApiKey: 'ANTHROPIC_API_KEY',
-            defaultModel: (cfg?.model as string) || '',
-          });
-        };
-      case 'openai':
-        return (cfg) => {
-          const { OpenAIProvider: OP } = require('./OpenAIProvider');
-          return new OP({
-            providerId: 'openai',
-            displayName: 'OpenAI',
-            defaultBaseUrl: 'https://api.openai.com/v1',
-            envApiKey: 'OPENAI_API_KEY',
-            defaultModel: (cfg?.model as string) || '',
-          });
-        };
-      case 'google':
-        return (cfg) => {
-          const { GoogleProvider: GP } = require('./GoogleProvider');
-          return new GP({
-            providerId: 'google',
-            displayName: 'Google Gemini',
-            defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-            envApiKey: 'GOOGLE_API_KEY',
-            defaultModel: (cfg?.model as string) || '',
-          });
-        };
-      case 'deepseek':
-        return (cfg) => {
-          const { DeepSeekProvider: DSP } = require('./DeepSeekProvider');
-          return new DSP({
-            providerId: 'deepseek',
-            displayName: 'DeepSeek',
-            defaultBaseUrl: 'https://api.deepseek.com',
-            envApiKey: 'DEEPSEEK_API_KEY',
-            defaultModel: (cfg?.model as string) || '',
-          });
-        };
-      case 'bedrock':
-        return (cfg) => {
-          const { BedrockProvider: BP } = require('./BedrockProvider');
-          return new BP(
-            {
-              providerId: 'bedrock',
-              displayName: 'AWS Bedrock',
-              defaultModel: (cfg?.model as string) || '',
-            },
-            cfg
-          );
-        };
-      case 'azure-openai':
-        return (cfg) => {
-          const { AzureOpenAIProvider: AZ } = require('./AzureOpenAIProvider');
-          return new AZ(
-            {
-              providerId: 'azure-openai',
-              displayName: 'Azure OpenAI',
-              defaultModel: (cfg?.model as string) || '',
-            },
-            cfg
-          );
-        };
-      case 'moonshot':
-        return (cfg) => {
-          const { MoonshotProvider: MP } = require('./MoonshotProvider');
-          return new MP({
-            providerId: 'moonshot',
-            displayName: 'Moonshot (Kimi)',
-            defaultBaseUrl: 'https://api.moonshot.cn/v1',
-            envApiKey: 'MOONSHOT_API_KEY',
-            defaultModel: (cfg?.model as string) || '',
-          });
-        };
-      case 'grok':
-        return (cfg) => {
-          const { GrokProvider: GP } = require('./GrokProvider');
-          return new GP({
-            providerId: 'grok',
-            displayName: 'Grok (X.AI)',
-            defaultBaseUrl: 'https://api.x.ai/v1',
-            envApiKey: 'GROK_API_KEY',
-            defaultModel: (cfg?.model as string) || '',
-          });
-        };
-      case 'ollama':
-        return (cfg) => {
-          const { OllamaProvider: OP } = require('./OllamaProvider');
-          return new OP({
-            providerId: 'ollama',
-            displayName: 'Ollama (Local)',
-            defaultBaseUrl: 'http://localhost:11434',
-            defaultModel: (cfg?.model as string) || '',
-          });
-        };
-      case 'vertex-ai':
-        return (cfg) => {
-          const { VertexAIProvider: VP } = require('./VertexAIProvider');
-          return new VP(
-            {
-              providerId: 'vertex-ai',
-              displayName: 'Google Vertex AI',
-              defaultBaseUrl: 'https://us-central1-aiplatform.googleapis.com',
-              defaultModel: (cfg?.model as string) || '',
-            },
-            cfg
-          );
-        };
-      default:
-        return null;
-    }
+    const { createProviderByType } = require('./ProviderFactory');
+    const provider = createProviderByType(providerId, config || {});
+    this.register(provider);
+    return provider;
   }
 
   list(): AIProvider[] {
@@ -370,7 +207,17 @@ export class ProviderRegistry {
     this.providers.clear();
     this.defaultProviderId = null;
     this.providerTypeToId.clear();
+    this.modelToProviderType.clear();
     logger.info('All providers cleared');
+  }
+
+  /**
+   * 设置模型→Provider 类型映射（数据来源：model_registry 表）
+   * 在 syncDBProvidersToRegistry 时调用，从 DB 同步。
+   */
+  setModelMappings(mappings: Map<string, string>): void {
+    this.modelToProviderType = mappings;
+    logger.debug(`模型→Provider 映射已更新: ${mappings.size} 条`);
   }
 
   get size(): number {

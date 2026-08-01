@@ -12,7 +12,11 @@
 
 import { create } from "zustand";
 import { subscribeWithSelector, persist } from "zustand/middleware";
-import { createWorkspaceSlice, type WorkspaceSlice } from "./workspaceSlice";
+import {
+  createWorkspaceSlice,
+  type WorkspaceSlice,
+  SYSTEM_WORKSPACES,
+} from "./workspaceSlice";
 import { createSessionSlice, type SessionSlice } from "./sessionSlice";
 import { createFeatureSlice, type FeatureSlice } from "./featureSlice";
 import { loggingMiddleware } from "../middleware/logging";
@@ -44,7 +48,12 @@ export const useRootStore = create<RootState>()(
           currentSessionId: state.currentSessionId,
           sessions: state.sessions, // 核心：会话记录必须持久化
           chatSessions: state.chatSessions, // 旧 sessionStore 兼容数据
-          worktrees: state.worktrees,
+          // 仅持久化用户创建的工作空间，系统模块在初始化时重建
+          worktrees: Object.fromEntries(
+            Object.entries(state.worktrees).filter(
+              ([, wt]) => wt.workspaceSource === "user",
+            ),
+          ),
           recentWorktreeIds: state.recentWorktreeIds,
           moduleOrder: state.moduleOrder,
           pinnedSessionIds: state.pinnedSessionIds,
@@ -90,6 +99,13 @@ export const useRootStore = create<RootState>()(
           }
 
           return state;
+        },
+
+        /** 水合后合并系统工作空间（persist 仅保存 user workspace） */
+        onRehydrateStorage: () => (state) => {
+          if (state) {
+            state.worktrees = { ...SYSTEM_WORKSPACES, ...state.worktrees };
+          }
         },
       },
     ),

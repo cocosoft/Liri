@@ -186,7 +186,7 @@ export class AgentModuleTest {
 
     try {
       const config: AgentConfig = {
-        model: AIModelType.GPT_3_5_TURBO,
+        model: '',
         temperature: 0.7,
         maxTokens: 1000,
         timeout: 60000,
@@ -251,7 +251,7 @@ export class AgentModuleTest {
       console.log('✅ 记忆与搜索集成测试通过');
 
       const config: AgentConfig = {
-        model: AIModelType.GPT_3_5_TURBO,
+        model: '',
         temperature: 0.7,
         maxTokens: 1000,
         timeout: 60000,

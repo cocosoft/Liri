@@ -8,11 +8,6 @@ interface ProjectStore {
   decomposingProjectId: string | null;
   error: string | null;
 
-  createProject: (
-    workspaceId: string,
-    name: string,
-    description: string,
-  ) => Project;
   importNodesDirect: (
     workspaceId: string,
     name: string,
@@ -49,28 +44,6 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   isDecomposing: false,
   decomposingProjectId: null,
   error: null,
-
-  createProject: (workspaceId, name, description) => {
-    const id = genId();
-    const project: Project = {
-      id,
-      workspaceId,
-      name,
-      description,
-      sourceRequirements: "",
-      rootNodes: [],
-      nodes: {},
-      status: "planning",
-      progress: 0,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    set((s) => ({
-      projects: { ...s.projects, [id]: project },
-      activeProjectId: id,
-    }));
-    return project;
-  },
 
   importNodesDirect: (workspaceId, name, requirements, nodes) => {
     const id = genId();

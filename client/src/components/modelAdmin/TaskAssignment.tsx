@@ -27,6 +27,14 @@ function TaskAssignment() {
       });
   }, []);
 
+  /** 默认模型名（用于未设置任务的提示） */
+  const defaultModelName = useMemo(() => {
+    const defaultId = tasks["default" as keyof TaskModelConfig];
+    if (!defaultId) return null;
+    const model = models.find((m) => m.id === defaultId);
+    return model?.name || model?.modelId || null;
+  }, [tasks, models]);
+
   const modelsByProvider = useMemo(() => {
     const groups: Record<string, ModelInfo[]> = {};
     for (const m of models) {
@@ -118,9 +126,19 @@ function TaskAssignment() {
               <select
                 value={tasks[task.type as keyof TaskModelConfig] || ""}
                 onChange={(e) => handleTaskChange(task.type, e.target.value)}
-                className="px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px]"
+                className={`px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px] ${
+                  !tasks[task.type as keyof TaskModelConfig] && defaultModelName
+                    ? "text-gray-400 dark:text-gray-500"
+                    : ""
+                }`}
               >
-                <option value="">— 未设置 —</option>
+                <option value="">
+                  — 未设置
+                  {defaultModelName && task.type !== "default"
+                    ? `（跟随默认: ${defaultModelName}）`
+                    : ""}{" "}
+                  —
+                </option>
                 {Object.entries(modelsByProvider).map(
                   ([provider, providerModels]) => {
                     const available = getAvailableModels(

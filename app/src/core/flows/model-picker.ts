@@ -49,7 +49,7 @@ function loadModelCatalog(): Map<string, ModelCatalogEntry> {
         provider,
         name: info.name,
         contextWindow: parseContextWindow(info.description),
-        capabilities: ['text'],
+        capabilities: ['text'], // TODO: getModelInfoList 暂无 capabilities 字段
       });
     }
   } catch (err) {
@@ -64,32 +64,32 @@ function loadModelCatalog(): Map<string, ModelCatalogEntry> {
 }
 
 /**
- * 从模型 ID 推断提供商
+ * 从模型 ID 获取提供商名称（优先从 ModelRegistry 查询，回退到模型名推断）
  */
 function extractProviderFromId(modelId: string): string {
-  const lower = modelId.toLowerCase();
-  if (
-    lower.startsWith('claude-') ||
-    lower.includes('opus') ||
-    lower.includes('sonnet') ||
-    lower.includes('haiku')
-  )
-    return 'anthropic';
-  if (
-    lower.startsWith('gpt-') ||
-    lower.startsWith('o1') ||
-    lower.startsWith('o3') ||
-    lower.startsWith('o4')
-  )
-    return 'openai';
-  if (lower.startsWith('gemini-')) return 'google';
-  if (lower.includes('deepseek')) return 'deepseek';
-  if (lower.includes('llama')) return 'meta';
-  if (lower.includes('mistral')) return 'mistral';
-  if (lower.includes('command')) return 'cohere';
-  if (lower.includes('moonshot')) return 'moonshot';
-  if (lower.includes('grok')) return 'grok';
-  return 'other';
+  try {
+    // 从 DB 驱动的 ModelRegistry 查询
+    const registry = modelManager.getModelRegistry();
+    const allModels = registry.getAllModels();
+    for (const m of allModels) {
+      // ModelConfig 的 per-provider 字段中有对应模型名
+      for (const pk of [
+        'firstParty',
+        'openai',
+        'deepseek',
+        'google',
+        'grok',
+        'moonshot',
+        'ollama',
+      ] as const) {
+        if (m[pk] === modelId) return pk;
+      }
+    }
+  } catch {
+    // ModelRegistry 不可用时回退
+  }
+  // 简单推断
+  return modelId.split('/')[0] || modelId.split('-')[0] || 'other';
 }
 
 /**

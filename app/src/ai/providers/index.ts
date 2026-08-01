@@ -33,11 +33,8 @@ export { OpenAIProvider } from './OpenAIProvider';
 export { GoogleProvider } from './GoogleProvider';
 export { OllamaProvider } from './OllamaProvider';
 export { VertexAIProvider } from './VertexAIProvider';
-export { DeepSeekProvider } from './DeepSeekProvider';
 export { BedrockProvider } from './BedrockProvider';
 export { AzureOpenAIProvider } from './AzureOpenAIProvider';
-export { MoonshotProvider } from './MoonshotProvider';
-export { GrokProvider } from './GrokProvider';
 export {
   syncDBProvidersToRegistry,
   registerProviderFromDB,

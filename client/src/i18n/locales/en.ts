@@ -58,6 +58,7 @@ const en = {
   nav: {
     home: "Home",
     chat: "Chat",
+    projects: "Projects",
     calendar: "Calendar",
     agent: "Agents",
     tasks: "Tasks",
@@ -360,7 +361,7 @@ const en = {
     dark: "Dark",
     debugMode: "Debug Mode",
     defaultModel: "Default Model",
-    defaultModelPlaceholder: "e.g. gpt-4o, deepseek-v4-pro, qwen-max",
+    defaultModelPlaceholder: "e.g. gpt-4o, claude-sonnet, qwen-max",
     desktopNotification: "Desktop Notification",
     disableModel: "Disable Model",
     diskUsage: "Disk Usage",

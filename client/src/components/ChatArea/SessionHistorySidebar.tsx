@@ -42,12 +42,22 @@ function getSourceLabel(source?: string): string {
   return label ? `【${label}】` : "";
 }
 
+interface SessionHistorySidebarProps {
+  /** 会话作用域：缺省=普通对话（排除所有项目会话）；传项目 worktreeId=仅该项目会话 */
+  scopeWorktreeId?: string;
+  /** 点击会话/新建会话后的导航基础路径 */
+  basePath?: string;
+}
+
 /**
- * 会话历史侧边栏组件
- * 位于聊天界面左侧，展示当前用户的所有会话记录。
+ * 会话历史侧栏组件
+ * 位于聊天界面左侧，展示当前作用域内的会话记录。
  * 支持新建、切换、重命名、删除会话，可折叠/展开。
  */
-function SessionHistorySidebar() {
+function SessionHistorySidebar({
+  scopeWorktreeId,
+  basePath = "/chat",
+}: SessionHistorySidebarProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const {
@@ -65,7 +75,7 @@ function SessionHistorySidebar() {
 
   // 从 rootStore SessionHub 获取 moduleType，用于过滤非 chat 会话
   const rootSessions = useRootStore((s) => s.sessions);
-  const currentWorktreeId = useRootStore((s) => s.currentWorktreeId);
+  const worktrees = useRootStore((s) => s.worktrees);
 
   // 已被梦境处理的会话 ID 集合
   const dreamProcessedIds = useDreamSessionIds();
@@ -111,11 +121,22 @@ function SessionHistorySidebar() {
   const ESTIMATED_ITEM_HEIGHT = 56;
   // P10: 实测高度缓存，避免标题换行时虚拟列表偏移量不准
   const measuredHeights = useRef<Record<number, number>>({});
-  const measureItem = useCallback((index: number, el: HTMLDivElement | null) => {
-    if (el) {
-      measuredHeights.current[index] = el.getBoundingClientRect().height;
-    }
-  }, []);
+  // P1-4: 首次测量后触发重新计算，修正基于预估值的不准确偏移量
+  const [measuredCount, setMeasuredCount] = useState(0);
+  const measureItem = useCallback(
+    (index: number, el: HTMLDivElement | null) => {
+      if (el) {
+        const h = el.getBoundingClientRect().height;
+        const prev = measuredHeights.current[index];
+        measuredHeights.current[index] = h;
+        // 首次测量或高度变化时触发虚拟列表重新计算偏移量
+        if (prev == null || prev !== h) {
+          setMeasuredCount((c) => c + 1);
+        }
+      }
+    },
+    [],
+  );
   // 右键菜单状态
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -232,17 +253,23 @@ function SessionHistorySidebar() {
   const filteredSessions = useMemo(() => {
     let result = sessions;
 
-    // 0. 过滤非 chat 类型的会话（通过 rootStore SessionHub 的 moduleType 识别）
-    //    避免日历/办公等其他模块的会话混入聊天历史
-    const nonChatIds = new Set(
-      Object.values(rootSessions)
-        .filter(
-          (s) => s.worktreeId === currentWorktreeId && s.moduleType !== "chat",
-        )
-        .map((s) => s.id),
-    );
-    if (nonChatIds.size > 0) {
-      result = result.filter((s) => !nonChatIds.has(s.id));
+    // 0. 会话作用域过滤（按 worktreeId 隔离项目会话 vs 普通对话）
+    //    建立 sessionId → worktreeId 映射
+    const wtIdBySession: Record<string, string> = {};
+    for (const s of Object.values(rootSessions)) {
+      wtIdBySession[s.id] = s.worktreeId;
+    }
+    if (scopeWorktreeId) {
+      // 项目作用域：仅该项目下的会话
+      result = result.filter((s) => wtIdBySession[s.id] === scopeWorktreeId);
+    } else {
+      // 普通对话作用域（/chat 页）：排除所有用户项目的会话
+      result = result.filter((s) => {
+        const wtId = wtIdBySession[s.id];
+        if (!wtId) return true; // 无归属 = 普通对话
+        const wt = worktrees[wtId];
+        return !(wt?.workspaceSource === "user");
+      });
     }
 
     // 1. 过滤 tab：仅保留"已固定"筛选
@@ -275,7 +302,8 @@ function SessionHistorySidebar() {
     pinnedSessionIds,
     filterTab,
     rootSessions,
-    currentWorktreeId,
+    worktrees,
+    scopeWorktreeId,
   ]);
 
   // 虚拟列表计算：仅当会话数 > 50 时启用，减少小列表开销
@@ -321,7 +349,11 @@ function SessionHistorySidebar() {
       const h = measuredHeights.current[i] ?? ESTIMATED_ITEM_HEIGHT;
       visibleCumulative += h;
       endIdx = i + 1;
-      if (visibleCumulative >= scrollTop + viewportHeight + overscan * ESTIMATED_ITEM_HEIGHT) break;
+      if (
+        visibleCumulative >=
+        scrollTop + viewportHeight + overscan * ESTIMATED_ITEM_HEIGHT
+      )
+        break;
     }
 
     // 计算总高度（实测 + 估算）
@@ -337,7 +369,7 @@ function SessionHistorySidebar() {
       startIdx,
       totalHeight,
     };
-  }, [filteredSessions, scrollTop]);
+  }, [filteredSessions, scrollTop, measuredCount]);
 
   useEffect(() => {
     loadSessions();
@@ -346,7 +378,7 @@ function SessionHistorySidebar() {
   const handleNewSession = async () => {
     const title = t("chat.newSession") + ` ${sessions.length + 1}`;
     await createSession(title);
-    navigate("/chat");
+    navigate(basePath);
   };
 
   const handleSwitchSession = async (id: string) => {
@@ -357,29 +389,32 @@ function SessionHistorySidebar() {
     });
 
     try {
-      if (import.meta.env.DEV) console.info("[SessionSwitch] 开始切换会话", {
-        sessionId: id,
-        prevSessionId: currentSession?.id ?? "none",
-        timestamp: Date.now(),
-      });
+      if (import.meta.env.DEV)
+        console.info("[SessionSwitch] 开始切换会话", {
+          sessionId: id,
+          prevSessionId: currentSession?.id ?? "none",
+          timestamp: Date.now(),
+        });
 
       await switchSession(id);
 
-      if (import.meta.env.DEV) console.info("[SessionSwitch] 会话切换成功", {
-        sessionId: id,
-        timestamp: Date.now(),
-      });
+      if (import.meta.env.DEV)
+        console.info("[SessionSwitch] 会话切换成功", {
+          sessionId: id,
+          timestamp: Date.now(),
+        });
 
       span.setAttribute("status", "success");
-      navigate("/chat");
+      navigate(basePath);
     } catch (error) {
-      if (import.meta.env.DEV) console.error("[SessionSwitch] 会话切换失败", {
-        sessionId: id,
-        prevSessionId: currentSession?.id ?? "none",
-        error: String(error),
-        stack: (error as Error)?.stack,
-        timestamp: Date.now(),
-      });
+      if (import.meta.env.DEV)
+        console.error("[SessionSwitch] 会话切换失败", {
+          sessionId: id,
+          prevSessionId: currentSession?.id ?? "none",
+          error: String(error),
+          stack: (error as Error)?.stack,
+          timestamp: Date.now(),
+        });
 
       span.setAttribute("status", "error");
       handleClientError(error, {
@@ -643,22 +678,22 @@ function SessionHistorySidebar() {
                       : undefined
                   }
                 >
-                <SessionListItem
-                  session={session}
-                  isActive={currentSession?.id === session.id}
-                  isEditing={editingId === session.id}
-                  editTitle={editTitle}
-                  pinned={isPinned(session.id)}
-                  isDreamProcessed={dreamProcessedIds.has(session.id)}
-                  getSourceLabel={getSourceLabel}
-                  onSwitch={handleSwitchSession}
-                  onDoubleClick={handleDoubleClick}
-                  onEditTitleChange={setEditTitle}
-                  onEditBlur={handleRenameBlur}
-                  onEditKeyDown={handleRenameKeyDown}
-                  onDelete={handleDeleteSession}
-                  onContextMenu={handleContextMenu}
-                />
+                  <SessionListItem
+                    session={session}
+                    isActive={currentSession?.id === session.id}
+                    isEditing={editingId === session.id}
+                    editTitle={editTitle}
+                    pinned={isPinned(session.id)}
+                    isDreamProcessed={dreamProcessedIds.has(session.id)}
+                    getSourceLabel={getSourceLabel}
+                    onSwitch={handleSwitchSession}
+                    onDoubleClick={handleDoubleClick}
+                    onEditTitleChange={setEditTitle}
+                    onEditBlur={handleRenameBlur}
+                    onEditKeyDown={handleRenameKeyDown}
+                    onDelete={handleDeleteSession}
+                    onContextMenu={handleContextMenu}
+                  />
                 </div>
               ))}
             </div>

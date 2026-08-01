@@ -1,17 +1,14 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import DirectoryTree from "../views/DirectoryTree";
 import { useWorkStore } from "../../stores/workStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
+import { useRootStore } from "../../stores/root-store";
 
 interface WorkSpaceSidebarProps {
   className?: string;
+  workspaceId?: string;
 }
-
-/** 工作界面默认根目录列表 */
-const DEFAULT_ROOTS = [
-  { key: "workspace", label: "工作区", path: ".", icon: "\u{1F4C1}" },
-];
 
 /** 工作项状态标签映射（key → i18n key） */
 const STATUS_LABEL_KEYS: Record<string, string> = {
@@ -34,13 +31,25 @@ const STATUS_COLORS: Record<string, string> = {
  * 上部：工作项列表（从 workspaceStore 读取，支持创建新工作项）
  * 下部：文件树（复用 DirectoryTree 组件）
  */
-export default function WorkSpaceSidebar({ className }: WorkSpaceSidebarProps) {
+export default function WorkSpaceSidebar({
+  className,
+  workspaceId,
+}: WorkSpaceSidebarProps) {
   const { t } = useTranslation();
   const activeWorkItem = useWorkStore((s) => s.activeWorkItem);
   const setActiveWorkItem = useWorkStore((s) => s.setActiveWorkItem);
 
   const workItems = useWorkspaceStore((s) => s.workItems);
   const createWorkItem = useWorkspaceStore((s) => s.createWorkItem);
+
+  // 读取 worktree 的真实路径，替代硬编码的 "."
+  const worktrees = useRootStore((s) => s.worktrees);
+  const workspacePath = useMemo(() => {
+    if (workspaceId && worktrees[workspaceId]?.path) {
+      return worktrees[workspaceId].path;
+    }
+    return ".";
+  }, [workspaceId, worktrees]);
 
   const [newTitle, setNewTitle] = useState("");
   const [showInput, setShowInput] = useState(false);
@@ -171,9 +180,16 @@ export default function WorkSpaceSidebar({ className }: WorkSpaceSidebarProps) {
           </h4>
         </div>
         <DirectoryTree
-          currentPath="."
+          currentPath={workspacePath}
           onNavigate={() => {}}
-          roots={DEFAULT_ROOTS}
+          roots={[
+            {
+              key: "workspace",
+              label: "工作区",
+              path: workspacePath,
+              icon: "\u{1F4C1}",
+            },
+          ]}
           currentRoot="workspace"
           onRootChange={() => {}}
         />

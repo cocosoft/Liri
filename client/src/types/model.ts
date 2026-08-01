@@ -78,13 +78,14 @@ export interface EndpointLatency {
 
 export interface CurrentModelInfo {
   modelId: string; // 模型名
-  modelUuid: string; // UUID（新增）
+  modelUuid: string; // UUID
   provider: string;
   routerTier?: string;
   routingMode?: "dynamic" | "static" | "off";
   taskType: string;
   costThisSession: number;
   availableTasks: Array<{ type: string; label: string; icon: string }>;
+  isNonChat?: boolean; // 模型是否有非聊天能力标签，前端据此显示警告
 }
 
 export interface TaskModelConfig {

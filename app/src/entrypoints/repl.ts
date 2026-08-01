@@ -29,7 +29,6 @@ import chalk from 'chalk';
 import { commandExecutor } from '../commands/executor/index.js';
 import type { CommandContext } from '../commands/types/index.js';
 import type { ChatManager } from '../chat/ChatManager.js';
-import { ToolAwareClient } from '../ai/clients/ToolAwareClient.js';
 import { providerRegistry } from '../ai/providers/ProviderRegistry.js';
 import { getToolManager } from '../tools/ToolManager.js';
 import { getLogger } from '../monitoring/logs/Logger.js';
@@ -113,49 +112,12 @@ export async function initializeChatManager(): Promise<ChatManager> {
 
   const toolManager = getToolManager();
   toolManager.loadBuiltinTools();
-  const registry = toolManager.getRegistry();
 
-  // Step 1: 从 DB 同步所有活跃 Provider 到运行时 ProviderRegistry
+  // 从 DB 同步所有活跃 Provider 到运行时
+  // CoreAPIImpl 在首次 chat/chatStream 调用时自动延迟初始化 LLM 客户端
   const { syncDBProvidersToRegistry } =
     await import('../ai/providers/ProviderSyncService.js');
   await syncDBProvidersToRegistry();
-
-  // Step 2: 从 ModelRouter 获取当前全局模型，按模型匹配 Provider
-  const currentModel = await resolveModelRoute(RouteKey.CHAT);
-  const provider = currentModel
-    ? providerRegistry.getByModel(currentModel)
-    : undefined;
-
-  if (!provider) {
-    throw new Error(
-      `REPL 初始化失败：任务分工中"对话"模型（${currentModel || '未配置'}）无法匹配到已注册的供应商。` +
-        '请在「模型管理→任务分工」中配置对话模型，并确保对应供应商已启用。'
-    );
-  }
-
-  const llmClient = new ToolAwareClient(
-    provider,
-    registry as unknown as import('@modules/ai/interfaces/ToolExecutor').ToolRegistry,
-    null
-  );
-
-  if (registry) {
-    if (provider.setToolRegistry)
-      provider.setToolRegistry(
-        registry as unknown as Parameters<
-          NonNullable<typeof provider.setToolRegistry>
-        >[0]
-      );
-  }
-
-  chatManager.setLLMClient(llmClient);
-  if (registry) {
-    chatManager.setToolRegistry(registry);
-  }
-  chatManager.setToolExecutor(null);
-  chatManager.setPermissionManager(null);
-
-  await chatManager.initialize();
 
   // 初始化子Agent管理器并注入ChatManager
   try {
@@ -167,46 +129,8 @@ export async function initializeChatManager(): Promise<ChatManager> {
     await handleError(error, { module: 'repl', action: 'subAgentInit' });
     logger.warn(
       'SubAgentManager initialization failed, continuing without it',
-      {
-        error: String(error),
-      }
+      { error: String(error) }
     );
-  }
-
-  // P0-1/P0-2: CG3 自主执行闭环 — 连线 SelfWake + AlwaysOnRuntime
-  try {
-    const { startCg3 } = await import('../tasks/Cg3Bootstrap.js');
-    const cg3 = await startCg3(
-      chatManager as unknown as { onTurnEnd?: () => void }
-    );
-    // 将 CG3 挂载到 chatManager 上，供 teardown 时使用
-    (chatManager as unknown as Record<string, unknown>)._cg3 = cg3;
-    logger.info('CG3 autonomous loop wired: SelfWake → Cron, AlwaysOn → Chat');
-  } catch (error) {
-    await handleError(error, { module: 'repl', action: 'cg3Bootstrap' });
-    logger.warn('CG3 bootstrap failed, continuing without autonomous loop', {
-      error: String(error),
-    });
-  }
-
-  try {
-    let sessions = chatManager.getSessions();
-    if (sessions.length === 0) {
-      const session = chatManager.createSession({ title: 'Default Session' });
-      if (session && session.id) {
-        chatManager.switchSession(session.id);
-      }
-    } else {
-      const current = chatManager.getCurrentSession();
-      if (!current) {
-        chatManager.switchSession(sessions[0].id);
-      }
-    }
-  } catch (error) {
-    await handleError(error, { module: 'repl', action: 'sessionInit' });
-    logger.warn('Session initialization issue, will use default', {
-      error: String(error),
-    });
   }
 
   return chatManager;

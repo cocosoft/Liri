@@ -10,7 +10,6 @@ interface AIConfigProps {
   isDark: boolean;
   config: {
     provider?: string;
-    model?: string;
     deepseek?: { apiKey?: string; baseUrl?: string; model?: string };
     anthropic?: { apiKey?: string; baseUrl?: string; model?: string };
     openai?: { apiKey?: string; baseUrl?: string; model?: string };
@@ -72,15 +71,6 @@ function AIConfigPanel({
           />
         </ConfigItem>
 
-        <ConfigItem label={t("settings.defaultModel")} isDark={isDark}>
-          <TextConfig
-            isDark={isDark}
-            value={config.model || ""}
-            onChange={(value) => onUpdate({ model: value })}
-            placeholder={t("settings.defaultModelPlaceholder")}
-          />
-        </ConfigItem>
-
         {(config.provider === "deepseek" || !config.provider) && (
           <div
             className={`p-3 rounded border ${isDark ? "border-gray-700 bg-gray-700/30" : "border-gray-200 bg-gray-50"}`}
@@ -113,7 +103,7 @@ function AIConfigPanel({
                   isDark={isDark}
                   value={config.deepseek?.model || ""}
                   onChange={(v) => handleDeepseekChange("model", v)}
-                  placeholder="deepseek-v4-pro"
+                  placeholder="例如: gpt-4o"
                 />
               </ConfigItem>
             </div>

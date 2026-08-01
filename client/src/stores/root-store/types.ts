@@ -7,7 +7,9 @@
 
 import type { Message, ToolCall } from "@/types/message";
 
-// ─── Worktree ──────────────────────────────────────────
+// ─── Worktree / Workspace ─────────────────────────────
+// Workspace 是新规范名称，Worktree 保留向后兼容。
+// 新代码请使用 Workspace / WorkspaceLayout / WorkspaceTransition。
 
 /** 工作项状态 */
 export type WorkItemStatus =
@@ -44,6 +46,11 @@ export interface Worktree {
   /** 关联的文件夹路径（必填，工作空间的核心绑定） */
   path: string;
   description?: string;
+
+  /** 工作空间来源：system = 内置模块，user = 用户创建的 */
+  workspaceSource?: "system" | "user";
+  /** 工作空间类型：module = 功能模块，project = 用户项目，chat = 聊天模块（例外） */
+  workspaceType?: "module" | "project" | "chat";
 
   /** 环境隔离 */
   modelConfig: {
@@ -89,6 +96,15 @@ export interface WorktreeTransition {
   status: "idle" | "pending" | "completed" | "partial";
   errors: { source: string; error: string }[];
 }
+
+// ── 新规范名称（类型别名，零风险迁移） ──
+
+/** 工作空间统一模型，等价于 Worktree。新代码请使用此名称。 */
+export type Workspace = Worktree;
+/** 工作空间布局状态，等价于 WorktreeLayout。新代码请使用此名称。 */
+export type WorkspaceLayout = WorktreeLayout;
+/** 工作空间切换过渡状态，等价于 WorktreeTransition。新代码请使用此名称。 */
+export type WorkspaceTransition = WorktreeTransition;
 
 // ─── Session Context（受歧视联合类型） ─────────────────
 

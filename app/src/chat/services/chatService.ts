@@ -235,7 +235,7 @@ export function createChatService(
   config: Partial<ChatServiceConfig> = {}
 ): ChatService {
   const defaultConfig: ChatServiceConfig = {
-    defaultModel: AIModelType.GPT_3_5_TURBO,
+    defaultModel: '',
     defaultHistoryLimit: 100,
     storagePath: join(resolveProjectRoot(), 'chat_sessions'),
     autoSave: true,

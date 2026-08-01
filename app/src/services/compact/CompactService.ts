@@ -111,7 +111,7 @@ export interface CompactConversationOptions {
   isAutoCompact?: boolean;
 }
 
-const DEFAULT_COMPACT_MODEL = AIModelType.GPT_4;
+const DEFAULT_COMPACT_MODEL = '';
 const SUMMARY_MAX_OUTPUT_TOKENS = 20000;
 
 export class CompactServiceImpl implements CompactService {

@@ -13,7 +13,8 @@ export interface Alert {
   source?: string;
 }
 
-export type LogSource = "logger" | "structured" | "otel" | "llm" | "context" | "runlog" | "all";
+export type LogSource =
+  "logger" | "structured" | "otel" | "llm" | "context" | "runlog" | "all";
 
 export interface LogEntry {
   id: string;

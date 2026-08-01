@@ -1,14 +1,24 @@
 import type { Message, BackendStatus, ToolCall, AttachedImage } from "../types";
 import { getBackendBaseUrl, getBackendPort, setApiSecret } from "./backendUrl";
-import { useConfigStore } from "../stores/configStore";
+import { useModelSwitchStore } from "../stores/modelSwitchStore";
 import { createLogger } from "../utils/logger";
 import { handleClientError } from "../utils/handleError";
 import { getOTelTracing } from "../monitoring/otel";
 
 const logger = createLogger("chatService");
 
+/** 哨兵值：同步自 app/src/constants/common.ts 的 DEFAULT_MODEL_SENTINEL */
+const DEFAULT_MODEL_SENTINEL = "pyapp-default";
+
+/**
+ * 获取当前选择的模型名。
+ * modelSwitchStore 为唯一事实源（状态栏/侧边栏切换的模型）。
+ * 未选择时返回哨兵值，由后端 SmartRouter 自动决策。
+ */
 function getModelFromConfig(): string {
-  return (useConfigStore.getState().config.model as string) || "pyapp-default";
+  return (
+    useModelSwitchStore.getState().currentModelName || DEFAULT_MODEL_SENTINEL
+  );
 }
 
 /**
@@ -40,7 +50,8 @@ async function ensureSessionModelSync(sessionId?: string): Promise<void> {
 
     const { modelSwitchService } = await import("./modelSwitchService");
     const current = await modelSwitchService.getCurrent();
-    if (current.modelId !== session.modelId) {
+    // 用 UUID 比较（current.modelId 是模型名，session.modelId 是 UUID）
+    if (current.modelUuid && current.modelUuid !== session.modelId) {
       await modelSwitchService.switch(session.modelId);
     }
   } catch (e) {

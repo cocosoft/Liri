@@ -6,6 +6,7 @@ import { useConfigStore } from "../../stores/configStore";
 import { useNotificationStore } from "../../stores/notificationStore";
 import {
   HomeIcon,
+  DashboardIcon,
   ChatIcon,
   KnowledgeIcon,
   ImageIcon,
@@ -20,7 +21,6 @@ import {
   CouncilIcon,
   OfficeIcon,
   CalendarIcon,
-  BuddyIcon,
   BellIcon,
 } from "../../assets/icons";
 
@@ -30,12 +30,12 @@ interface MenuItem {
   icon: React.ComponentType<{ className?: string; size?: number }>;
   path?: string;
   action?: () => void;
-  badge?: number;
 }
 
 const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
   { id: "home", label: "首页", icon: HomeIcon, path: "/" },
   { id: "chat", label: "聊天", icon: ChatIcon, path: "/chat" },
+  { id: "projects", label: "项目", icon: DashboardIcon, path: "/projects" },
   { id: "calendar", label: "日历", icon: CalendarIcon, path: "/calendar" },
   { id: "office", label: "办公", icon: OfficeIcon, path: "/office" },
   { id: "media", label: "媒体", icon: ImageIcon, path: "/media" },
@@ -45,6 +45,7 @@ const HIGH_FREQUENCY_ITEMS: MenuItem[] = [
 
 /** 菜单项 id 到 i18n key 的映射 */
 const MENU_LABEL_KEYS: Record<string, string> = {
+  projects: "nav.projects",
   home: "nav.home",
   chat: "nav.chat",
   calendar: "nav.calendar",
@@ -77,8 +78,6 @@ const MANAGEMENT_ITEMS: MenuItem[] = [
 ];
 
 const SYSTEM_ITEMS: MenuItem[] = [
-  { id: "liri", label: "Liri", icon: BuddyIcon, path: "/liri" },
-  { id: "loops", label: "Loops", icon: BuddyIcon, path: "/loops" },
   { id: "theme", label: "主题", icon: ThemeIcon },
   { id: "settings", label: "设置", icon: SettingsIcon, path: "/settings" },
 ];
@@ -142,33 +141,20 @@ function MenuButton({
   return (
     <button
       onClick={handleClick}
-      className={`relative flex flex-col items-center justify-center py-2 px-2 rounded transition-colors h-14 w-full flex-shrink-0 ${
+      className={`flex flex-col items-center justify-center py-2 px-2 rounded transition-colors h-14 w-full flex-shrink-0 ${
         isActive
           ? "bg-blue-600 text-white"
           : "text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
       }`}
       title={labelText}
     >
-      <div className="relative">
-        <IconComponent size={20} />
-        {item.badge != null && item.badge > 0 && (
-          <span className="absolute -top-1.5 -right-3 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1 leading-none">
-            {item.badge > 99 ? "99+" : item.badge}
-          </span>
-        )}
-      </div>
+      <IconComponent size={20} />
       <span className="text-xs mt-1 truncate w-full text-center h-4 flex items-center justify-center">
         {labelText}
       </span>
     </button>
   );
 }
-
-/**
- * 工作空间选择器：侧栏顶部图标按钮 + 下拉菜单
- * 已迁移至 Header 右上角的 WorkspaceSwitcher 组件。
- * 保留空壳避免 Sidebar 布局变化。
- */
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslation();
@@ -259,13 +245,24 @@ function MobileBottomNav() {
   const openPanel = useNotificationStore((s) => s.openPanel);
   const unreadTotal = useNotificationStore((s) => s.counts.total);
 
-  const items: MenuItem[] = [
-    { id: "home", label: t("nav.home"), icon: HomeIcon, path: "/" },
-    { id: "chat", label: t("nav.chat"), icon: ChatIcon, path: "/chat" },
+  type MItem = {
+    id: string;
+    label: string;
+    icon: React.ComponentType<{ className?: string; size?: number }>;
+    path?: string;
+    onClick?: () => void;
+    badge?: number;
+  };
+
+  const items: MItem[] = [
+    { id: "projects", label: "项目", icon: HomeIcon, path: "/projects" },
+    { id: "chat", label: "对话", icon: ChatIcon, path: "/chat" },
     {
       id: "notifications",
       label: "通知",
       icon: BellIcon,
+      onClick: openPanel,
+      badge: unreadTotal,
     },
     {
       id: "settings",
@@ -285,8 +282,8 @@ function MobileBottomNav() {
           <button
             key={item.id}
             onClick={() => {
-              if (item.id === "notifications") {
-                openPanel();
+              if (item.onClick) {
+                item.onClick();
               } else {
                 navigate(item.path!);
               }

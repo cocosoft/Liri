@@ -7,7 +7,7 @@
 import { getGlobalStore } from '../system/state/AppStateStore.js';
 import type { AppState } from '../system/state/AppState.js';
 import { getAIModelManager } from './AIModelManager.js';
-import { getModelStringService } from './ModelStringService.js';
+import { modelManager } from './models/ModelManager.js';
 
 /**
  * AI状态
@@ -39,7 +39,6 @@ export interface AIState {
 export class AIStateSyncService {
   private store = getGlobalStore();
   private modelManager = getAIModelManager();
-  private modelStringService = getModelStringService();
 
   /**
    * 更新AI状态
@@ -67,8 +66,7 @@ export class AIStateSyncService {
    */
   getAIState(): AIState {
     const state = this.store.getState();
-    const currentModel =
-      state.model || this.modelStringService.getDefaultMainLoopModel();
+    const currentModel = state.model || modelManager.getDefaultMainLoopModel();
     const resolvedModel =
       this.modelManager.parseUserSpecifiedModel(currentModel);
 
@@ -89,7 +87,7 @@ export class AIStateSyncService {
    * 重置AI状态
    */
   resetAIState(): void {
-    const defaultModel = this.modelStringService.getDefaultMainLoopModel();
+    const defaultModel = modelManager.getDefaultMainLoopModel();
     this.updateAIState(defaultModel);
   }
 
@@ -105,7 +103,7 @@ export class AIStateSyncService {
    */
   getCurrentModel(): string {
     const state = this.store.getState();
-    return state.model || this.modelStringService.getDefaultMainLoopModel();
+    return state.model || modelManager.getDefaultMainLoopModel();
   }
 
   /**

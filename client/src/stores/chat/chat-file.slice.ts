@@ -5,12 +5,12 @@
  * 使用 Zustand StateCreator 模式。
  */
 import type { StateCreator } from "zustand";
-import type { MessageBlock, ToolCall } from "../../types";
-import type { FilePreview } from "../../types";
-import { httpLegacy as http } from "../../services/httpClient";
-import { resolveFilePath } from "../../services/filePathResolver";
+import type { MessageBlock, ToolCall } from "@/types";
+import type { FilePreview } from "@/types";
+import { httpLegacy as http } from "@/services/httpClient";
+import { resolveFilePath } from "@/services/filePathResolver";
 import { handleClientError } from "@/utils/handleError";
-import { useChatInspectorStore } from "../chatInspectorStore";
+import { useChatInspectorStore } from "@/stores/chatInspectorStore";
 
 /** 扩展名 → 文件类型映射表 */
 export type FileType =
@@ -138,9 +138,20 @@ export function inferFileType(filePath: string): FileType {
 
 /** 二进制/不可预览文件的扩展名（防止误当作文本渲染导致乱码） */
 const BINARY_EXTS: string[] = [
-  ".exe", ".dll", ".so", ".dylib",
-  ".zip", ".tar", ".gz", ".7z", ".rar",
-  ".bin", ".dat", ".wasm", ".class", ".pyc",
+  ".exe",
+  ".dll",
+  ".so",
+  ".dylib",
+  ".zip",
+  ".tar",
+  ".gz",
+  ".7z",
+  ".rar",
+  ".bin",
+  ".dat",
+  ".wasm",
+  ".class",
+  ".pyc",
 ];
 
 /**
@@ -387,7 +398,11 @@ export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (
       }
 
       // 客户端直渲 Office 文件（docx/xlsx/pptx）：不调后端 API，由 OfficePreview 自行下载二进制
-      if (inferredType === "docx" || inferredType === "xlsx" || inferredType === "pptx") {
+      if (
+        inferredType === "docx" ||
+        inferredType === "xlsx" ||
+        inferredType === "pptx"
+      ) {
         const filePreview: FilePreview = {
           path: resolvedPath,
           name: extractFileName(resolvedPath),

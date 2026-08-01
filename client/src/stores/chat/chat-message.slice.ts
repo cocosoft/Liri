@@ -5,18 +5,15 @@
  * 使用 Zustand StateCreator 模式。
  */
 import type { StateCreator } from "zustand";
-import { Message, MessageBlock, AttachedImage } from "../../types";
-import type { FilePreview } from "../../types";
+import { Message, MessageBlock, AttachedImage } from "@/types";
+import type { FilePreview } from "@/types";
 import type { FileSlice } from "./chat-file.slice";
-import { chatService } from "../../services/chatService";
-import { sessionService } from "../../services/sessionService";
-import { useFeatureFlagStore } from "../featureFlags";
-import {
-  playWarningSound,
-  playCompletionSound,
-} from "../../services/SoundService";
-import { createLogger } from "../../utils/logger";
-import { useContextWatermarkStore } from "../contextWatermarkStore";
+import { chatService } from "@/services/chatService";
+import { sessionService } from "@/services/sessionService";
+import { useFeatureFlagStore } from "@/stores/featureFlags";
+import { playWarningSound, playCompletionSound } from "@/services/SoundService";
+import { createLogger } from "@/utils/logger";
+import { useContextWatermarkStore } from "@/stores/contextWatermarkStore";
 import { handleClientError } from "@/utils/handleError";
 import {
   ChronologicalBlockBuilder,
@@ -28,16 +25,15 @@ import {
 } from "./chat-toolcall.slice";
 import { addFilePathsFromBlocks } from "./chat-file.slice";
 import {
-  shouldAutoRename,
   doAutoRename,
   staleSessionCache,
   setSessionCache,
   flushSaveBlocks,
-  setPendingSave,
-  setHasPendingSave,
   getHasPendingSave,
-  setIsFlushing,
+  enqueueSaveBlocks,
+  SaveQueue,
 } from "./chat-history.slice";
+import { chatCoordinator } from "./chatCoordinator";
 
 const logger = createLogger("stores:chat:message");
 
@@ -56,6 +52,8 @@ let _pendingSwitchChunks: Array<{
  * 渲染时按需通过 toolCallId 获取，避免大内容（grep 全量匹配、file_read 整个文件）撑爆 DOM。
  */
 const _toolResultFullCache = new Map<string, string>();
+/** 全量结果缓存上限（LRU 淘汰，防止长对话内存无限增长） */
+const MAX_TOOL_RESULT_CACHE = 500;
 
 /** block 内联结果最大长度，超出部分截断 */
 const MAX_INLINE_RESULT_LENGTH = 2000;
@@ -274,7 +272,11 @@ export const createMessageSlice: StateCreator<
       // 非流式路径也持久化 blocks，避免下次全量加载时重建丢失结构
       const assistantMsg = response as Message;
       // P7: 非流式路径 blocks 重建 — 若后端返回 content 但无 blocks，构建 fallback text block
-      if (assistantMsg.role === "assistant" && !assistantMsg.blocks?.length && assistantMsg.content) {
+      if (
+        assistantMsg.role === "assistant" &&
+        !assistantMsg.blocks?.length &&
+        assistantMsg.content
+      ) {
         assistantMsg.blocks = [
           {
             id: `fallback-${assistantMsg.id}`,
@@ -303,7 +305,7 @@ export const createMessageSlice: StateCreator<
       }
 
       // 再执行自动重命名（不阻塞 UI 状态）
-      if (await shouldAutoRename(sessionId)) {
+      if (chatCoordinator.shouldAutoRename(sessionId)) {
         doAutoRename(sessionId!, content, (response as Message).content).catch(
           (e) =>
             handleClientError(
@@ -434,63 +436,8 @@ export const createMessageSlice: StateCreator<
 
     set({ messages: [...get().messages, userMessage, assistantMessage] });
 
-    // J3: 将模块级竞态变量改为闭包内的局部变量
-    let saveBlocksTimer: ReturnType<typeof setTimeout> | null = null;
-    let pendingSaveSessionId: string | null = null;
-    let pendingSaveMessageId: string | null = null;
-    let pendingSaveBlocks: MessageBlock[] | null = null;
-
-    const flushSaveBlocksLocal = async (): Promise<void> => {
-      if (pendingSaveSessionId && pendingSaveMessageId && pendingSaveBlocks) {
-        const sid = pendingSaveSessionId;
-        const mid = pendingSaveMessageId;
-        const blk = pendingSaveBlocks;
-        pendingSaveSessionId = null;
-        pendingSaveMessageId = null;
-        pendingSaveBlocks = null;
-        try {
-          await chatService.updateMessageBlocks(
-            sid,
-            mid,
-            blk as unknown as Array<Record<string, unknown>>,
-          );
-        } catch (err) {
-          handleClientError(
-            err,
-            {
-              module: "stores:chat:message",
-              action: "streamMessage:saveBlocks",
-            },
-            "warn",
-          );
-        }
-      }
-    };
-
-    const debouncedSaveBlocksLocal = (
-      sid: string,
-      mid: string,
-      blk: MessageBlock[],
-      immediate: boolean = false,
-    ): void => {
-      pendingSaveSessionId = sid;
-      pendingSaveMessageId = mid;
-      pendingSaveBlocks = blk;
-      if (immediate) {
-        // 关键节点即时落盘：tool_call 完成 / finish_reason 到达 / 截断
-        // 确保切走时不丢失，符合"先落盘再渲染"原则（方案 C）
-        if (saveBlocksTimer) clearTimeout(saveBlocksTimer);
-        saveBlocksTimer = null;
-        flushSaveBlocksLocal();
-        return;
-      }
-      if (saveBlocksTimer) {
-        clearTimeout(saveBlocksTimer);
-      }
-      saveBlocksTimer = setTimeout(() => {
-        flushSaveBlocksLocal();
-      }, 200); // 200ms 防抖，比 800ms 更及时
-    };
+    // J3: 用 SaveQueue 管理防抖持久化
+    const saveQueue = new SaveQueue();
 
     // J4: 批量 set 更新——使用版本号机制，防止过期 rAF 覆盖最终状态
     let batchVersion = 0;
@@ -796,7 +743,7 @@ export const createMessageSlice: StateCreator<
             chunk.toolCall.status === "failed"
           ) {
             if (sessionId) {
-              debouncedSaveBlocksLocal(
+              saveQueue.enqueue(
                 sessionId,
                 assistantId,
                 blockBuilder.getBlocks(),
@@ -833,7 +780,7 @@ export const createMessageSlice: StateCreator<
             blockBuilder.addText(truncatedSuffix, false);
             // 关键节点即时落盘：截断时立即持久化，确保截断前的 blocks 不丢失（方案 C）
             if (sessionId) {
-              debouncedSaveBlocksLocal(
+              saveQueue.enqueue(
                 sessionId,
                 assistantId,
                 blockBuilder.getBlocks(),
@@ -874,23 +821,15 @@ export const createMessageSlice: StateCreator<
               blocks: updatedMsg.blocks,
             });
           } else {
-            debouncedSaveBlocksLocal(sessionId, assistantId, updatedMsg.blocks);
+            saveQueue.enqueue(sessionId, assistantId, updatedMsg.blocks);
           }
-          // 标记有未保存数据，保证 flushPendingSaves 仍可工作
-          setPendingSave(sessionId, assistantId, updatedMsg.blocks);
-          setHasPendingSave(true);
         }
       }
 
-      // J3：清除局部防抖定时器，确保最终 blocks 被保存
-      if (saveBlocksTimer) {
-        clearTimeout(saveBlocksTimer);
-        saveBlocksTimer = null;
-      }
+      // 清除防抖定时器已在 SaveQueue.flush() 内部处理
       // P1-5: 清除幽灵块检测定时器
       clearInterval(ghostCheckTimer);
-      setHasPendingSave(false);
-      await flushSaveBlocksLocal();
+      await saveQueue.flush();
 
       // 流结束，冻结所有块
       blockBuilder.freezeAll();
@@ -980,7 +919,7 @@ export const createMessageSlice: StateCreator<
       }
 
       // 再执行自动重命名（不阻塞 UI 状态）
-      if (await shouldAutoRename(sessionId)) {
+      if (chatCoordinator.shouldAutoRename(sessionId)) {
         const finalMsgs = get().messages;
         const finalMI = finalMsgs.findIndex((m) => m.id === assistantId);
         const assistantResponse =
@@ -1257,7 +1196,16 @@ export const createMessageSlice: StateCreator<
                   metadata: { abortRecovery: true },
                 }),
               },
-            ).catch(() => {});
+            ).catch((err) => {
+              handleClientError(
+                err,
+                {
+                  module: "stores:chat:message",
+                  action: "stopMessage:saveCheckpoint",
+                },
+                "warn",
+              );
+            });
           });
         }
       }
@@ -1302,7 +1250,6 @@ export const createMessageSlice: StateCreator<
    */
   flushPendingSaves: async (): Promise<void> => {
     if (getHasPendingSave()) {
-      setHasPendingSave(false);
       // 超时保护：最多等待 3 秒，防止 HTTP 挂起阻塞会话切换（方案 C）
       const timeout = new Promise<void>((_, reject) =>
         setTimeout(() => reject(new Error("flushPendingSaves 超时")), 3000),
@@ -1313,8 +1260,6 @@ export const createMessageSlice: StateCreator<
           { module: "stores:chat:message", action: "flushPendingSaves" },
           "warn",
         );
-        // 超时后重置锁，让会话切换继续
-        setIsFlushing(false);
       });
     }
   },
@@ -1511,7 +1456,11 @@ export const createMessageSlice: StateCreator<
         if (msg.role === "tool" && msg.toolCallId) {
           const rawContent = typeof msg.content === "string" ? msg.content : "";
           toolResultsByCallId.set(msg.toolCallId, rawContent);
-          // 全量结果存入独立缓存，不在 block 中内联
+          // 全量结果存入独立缓存（LRU 淘汰），不在 block 中内联
+          if (_toolResultFullCache.size >= MAX_TOOL_RESULT_CACHE) {
+            const oldest = _toolResultFullCache.keys().next().value;
+            if (oldest) _toolResultFullCache.delete(oldest);
+          }
           _toolResultFullCache.set(msg.toolCallId, rawContent);
         } else {
           filteredMessages.push(msg);
@@ -1688,14 +1637,14 @@ export const createMessageSlice: StateCreator<
       // 释放会话切换锁后刷新暂存的流式 chunk
       _sessionSwitchLock = false;
       if (_pendingSwitchChunks.length > 0) {
-        // 暂存 chunk 的 sessionId 可能与当前会话不一致（跨会话切换），只标记待保存
+        // 暂存 chunk 的 sessionId 可能与当前会话不一致（跨会话切换），入队到全局 SaveQueue
         const lastChunk = _pendingSwitchChunks[_pendingSwitchChunks.length - 1];
-        setPendingSave(
+        enqueueSaveBlocks(
           lastChunk.sessionId,
           lastChunk.assistantId,
           lastChunk.blocks,
+          true, // immediate 保存
         );
-        setHasPendingSave(true);
         _pendingSwitchChunks = [];
       }
       logger.info("[Diag:setMsg] ✅ 处理完成", {

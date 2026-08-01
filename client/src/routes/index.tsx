@@ -1,8 +1,40 @@
-import { lazy } from "react";
-import { Navigate } from "react-router-dom";
+import { lazy, useEffect } from "react";
+import {
+  Navigate,
+  useNavigate,
+  useParams,
+  useLocation,
+} from "react-router-dom";
 import type { RouteObject } from "react-router-dom";
 import AuthGuard from "../components/common/AuthGuard";
 import ChatPageLayout from "../components/layout/ChatPageLayout";
+import { useRootStore } from "../stores/root-store";
+
+/** /workspace/:id → /projects/:id 重定向 */
+function WorkspaceRedirect() {
+  const { workspaceId, sessionId } = useParams<{
+    workspaceId: string;
+    sessionId?: string;
+  }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  useEffect(() => {
+    const target = `/projects/${workspaceId}${sessionId ? `/${sessionId}` : ""}${location.search}`;
+    navigate(target, { replace: true });
+  }, []);
+  return null;
+}
+
+/** /work → /workspace/:currentWorktreeId/work 重定向 */
+function WorkRedirect() {
+  const currentWorktreeId = useRootStore((s) => s.currentWorktreeId);
+  const navigate = useNavigate();
+  useEffect(() => {
+    const target = `/workspace/${currentWorktreeId || "default"}/work`;
+    navigate(target, { replace: true });
+  }, []);
+  return null;
+}
 
 // 页面组件懒加载（减少首屏体积）
 const HomePage = lazy(() => import("../components/views/HomePage"));
@@ -38,6 +70,10 @@ const LoopPanel = lazy(() => import("../components/views/LoopPanel"));
 const TaskCenterPage = lazy(() => import("../components/views/TaskCenterPage"));
 const WorkPageLayout = lazy(
   () => import("../components/Workspace/WorkPageLayout"),
+);
+const ProjectsPage = lazy(() => import("../components/views/ProjectsPage"));
+const ProjectOutputPage = lazy(
+  () => import("../components/views/ProjectOutputPage"),
 );
 const ChannelsPage = lazy(() => import("../components/views/ChannelsPage"));
 const SettingsPage = lazy(() => import("../components/views/SettingsPage"));
@@ -87,6 +123,29 @@ export const routes: RouteObject[] = [
         <HomePage />
       </AuthGuard>
     ),
+  },
+
+  // 项目列表
+  { path: "/projects", element: <ProjectsPage /> },
+  { path: "/projects/:projectId", element: <ProjectsPage /> },
+  // 项目输出子页（摘要/播客/学习指南/测验/闪卡，outputType URL 通用参数）
+  {
+    path: "/projects/:projectId/output/:outputType",
+    element: (
+      <AuthGuard>
+        <ProjectOutputPage />
+      </AuthGuard>
+    ),
+  },
+
+  // 旧工作空间路由 → 重定向到新项目路由
+  {
+    path: "/workspace/:workspaceId/:sessionId",
+    element: <WorkspaceRedirect />,
+  },
+  {
+    path: "/workspace/:workspaceId",
+    element: <WorkspaceRedirect />,
   },
 
   // 聊天（无 AuthGuard，含内联布局）
@@ -368,8 +427,8 @@ export const routes: RouteObject[] = [
     ),
   },
 
-  // 工作模块快捷入口（无工作空间时使用 "default" 占位，WorkPageLayout 内部处理）
-  { path: "/work", element: <Navigate to="/workspace/default/work" replace /> },
+  // 工作模块快捷入口
+  { path: "/work", element: <WorkRedirect /> },
 
   // 工作界面（功能开关：VITE_FEATURE_WORK_MODULE=disabled 时不注册）
   ...(import.meta.env.VITE_FEATURE_WORK_MODULE !== "disabled"

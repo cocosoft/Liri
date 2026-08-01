@@ -1,12 +1,11 @@
 /**
- * 设置 Tab — 模型切换 + 参数调整 + 系统提示词编辑（唯一编辑入口）
+ * 设置 Tab — 参数调整 + 系统提示词编辑
+ * 模型选择已统一收敛到 Footer ModelSwitcher 作为唯一入口
  */
 
 import React from "react";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useModelSwitchStore } from "../../stores/modelSwitchStore";
-import { modelService } from "../../services/modelService";
-import type { ModelInfo } from "../../types";
 
 const SAVE_SCOPES = [
   { value: "session", label: "仅当前会话（不持久化）" },
@@ -69,15 +68,7 @@ function SliderControlImpl({
 const SliderControl = React.memo(SliderControlImpl);
 
 function SettingsTab() {
-  const {
-    currentModelId,
-    currentModelName,
-    switchModel,
-    isLoading,
-    loadCurrent,
-  } = useModelSwitchStore();
-  const [models, setModels] = useState<ModelInfo[]>([]);
-  const [modelsLoading, setModelsLoading] = useState(true);
+  const { isLoading } = useModelSwitchStore();
   const [temperature, setTemperature] = useState(0.7);
   const [topP, setTopP] = useState(0.9);
   const [maxTokens, setMaxTokens] = useState(4096);
@@ -86,59 +77,8 @@ function SettingsTab() {
   );
   const [saveScope, setSaveScope] = useState<string>("session");
 
-  useEffect(() => {
-    let mounted = true;
-    setModelsLoading(true);
-    modelService
-      .list()
-      .then((data) => {
-        if (mounted) {
-          setModels(data.filter((m) => m.type === "chat" && m.enabled));
-          setModelsLoading(false);
-        }
-      })
-      .catch(() => {
-        if (mounted) setModelsLoading(false);
-      });
-    loadCurrent().catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, [loadCurrent]);
-
-  const handleModelChange = useCallback(
-    (modelId: string) => {
-      switchModel(modelId).catch(() => {});
-    },
-    [switchModel],
-  );
-
   return (
     <div className="p-3 space-y-5">
-      <div className="space-y-1.5">
-        <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-          模型
-        </h4>
-        {modelsLoading ? (
-          <div className="h-9 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-        ) : (
-          <select
-            value={currentModelId}
-            onChange={(e) => handleModelChange(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={isLoading}
-          >
-            <option value="">{currentModelName || "请选择模型"}</option>
-            {models.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name || m.modelId}
-              </option>
-            ))}
-          </select>
-        )}
-        <p className="text-xs text-amber-500">将在新对话中生效</p>
-      </div>
-      <hr className="border-gray-200 dark:border-gray-700" />
       <SliderControl
         label="温度 Temperature"
         value={temperature}

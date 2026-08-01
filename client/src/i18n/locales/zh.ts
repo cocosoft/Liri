@@ -60,6 +60,7 @@ const zh = {
   nav: {
     home: "首页",
     chat: "对话",
+    projects: "项目",
     calendar: "日历",
     agent: "Agent 管理",
     tasks: "任务中心",
@@ -355,7 +356,7 @@ const zh = {
     dark: "深色",
     debugMode: "调试模式",
     defaultModel: "默认模型",
-    defaultModelPlaceholder: "例如: gpt-4o, deepseek-v4-pro, qwen-max",
+    defaultModelPlaceholder: "例如: gpt-4o, claude-sonnet, qwen-max",
     desktopNotification: "桌面通知",
     disableModel: "禁用模型",
     diskUsage: "磁盘使用率",

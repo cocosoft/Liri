@@ -462,12 +462,12 @@ export async function initializeTelemetry() {
   process.on('beforeExit', async () => {
     // Flush traces - they use BatchSpanProcessor which needs explicit flush
     const tracerProvider = trace.getTracerProvider();
-    await (tracerProvider as any)?.forceFlush();
+    await (tracerProvider as any)?.forceFlush?.();
   });
 
   process.on('exit', () => {
     // Final attempt to flush traces
-    void (trace.getTracerProvider() as any)?.forceFlush();
+    void (trace.getTracerProvider() as any)?.forceFlush?.();
   });
 
   // BUG 修复: 始终初始化 TracerProvider（ConsoleSpanExporter + FileSpanExporter），

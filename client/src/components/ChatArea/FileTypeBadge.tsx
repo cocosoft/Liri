@@ -20,7 +20,8 @@ function FileTypeBadge({ type }: { type: string }) {
     pptx: "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
     xlsx: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
     audio: "bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400",
-    video: "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400",
+    video:
+      "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400",
   };
 
   const labels: Record<string, string> = {

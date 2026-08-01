@@ -250,7 +250,7 @@ export class AIServiceImpl implements AIService {
     if (resolved) return resolved;
 
     // 通过反向索引解析 Provider ID，替代旧 startsWith 硬编码
-    // 映射表由 ProviderRegistry.modelToProvider 统一维护，新增 Provider 无需改此处代码
+    // 映射表由 model_registry 驱动，ProviderRegistry.modelToProviderType 统一维护
     const providerId = providerRegistry.resolveModelToProviderId(model);
     if (providerId) {
       return providerRegistry.getOrCreate(providerId, {

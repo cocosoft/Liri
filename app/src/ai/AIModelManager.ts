@@ -255,7 +255,7 @@ export class AIModelManager {
     const resolved = this.parseUserSpecifiedModel(model);
 
     // 统一委托给 ProviderRegistry 的集中式映射表
-    // modelToProvider 是模型→Provider 的唯一事实来源
+    // modelToProviderType（DB-driven 精确映射）是模型→Provider 的唯一事实来源
     return providerRegistry.getByModel(resolved);
   }
 

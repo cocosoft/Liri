@@ -235,10 +235,14 @@ export function getToolUseGuidance(
   provider: string,
   _modelName: string
 ): string {
-
   // 支持工具强制调用的 provider 列表（非穷举，ProviderRegistry 可动态扩展）
   const toolEnforcementProviders = new Set([
-    'deepseek', 'anthropic', 'openai', 'google', 'azure', 'vertex',
+    'deepseek',
+    'anthropic',
+    'openai',
+    'google',
+    'azure',
+    'vertex',
   ]);
   if (toolEnforcementProviders.has(provider)) {
     return TOOL_USE_ENFORCEMENT_GUIDANCE;

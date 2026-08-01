@@ -1,6 +1,6 @@
 # 前后端接口清单
 
-> **版本**: 2.2.0 | **更新**: 2026-07-28 | **状态**: 持续维护
+> **版本**: 2.3.0 | **更新**: 2026-08-01 | **状态**: 持续维护
 >
 > 本文档是前后端通信的**唯一事实来源**。涉及前后端通信的开发、测试、调试场景时，**必须先查阅本文档**，确认接口是否存在、参数是否对齐，再进行编码。
 
@@ -109,7 +109,9 @@
 | GET | `/v1/models` | ✅ | `modelService.list`, `chatService.fetchModels` |
 | POST | `/v1/models/test` | ✅ | 无前端调用方 |
 | GET | `/v1/models/current` | ✅ | `modelSwitchService.getCurrent` |
+|  | 响应新增 `isNonChat: boolean` 字段（v2.3） |  | 非聊天模型标记，前端据此显示警告 |
 | POST | `/v1/models/switch` | ✅ | `modelSwitchService.switch` |
+|  | 响应 `{ data: { modelId, modelName } }` |  | modelId=UUID, modelName=模型名 |
 | GET | `/v1/models/tasks` | ✅ | `modelSwitchService.getTasks` |
 | PUT | `/v1/models/tasks` | ✅ | `modelSwitchService.saveTasks` |
 | PUT | `/v1/models/default` | ✅ | `modelSwitchService.setDefaultModel` |

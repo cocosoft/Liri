@@ -88,18 +88,34 @@ function resolveProviderFromModel(modelName: string): string {
   try {
     const resolved = providerRegistry.getByModel(modelName);
     if (resolved) return resolved.id;
-  } catch { /* ProviderRegistry 不可用时回退 */ }
+  } catch {
+    /* ProviderRegistry 不可用时回退 */
+  }
 
   // 回退：名称前缀启发式（仅用于未注册的临时模型名）
   const lower = modelName.toLowerCase();
-  if (lower.startsWith('claude-') || lower.startsWith('opus') || lower.startsWith('sonnet') || lower.startsWith('haiku'))
+  if (
+    lower.startsWith('claude-') ||
+    lower.startsWith('opus') ||
+    lower.startsWith('sonnet') ||
+    lower.startsWith('haiku')
+  )
     return 'anthropic';
-  if (lower.startsWith('gpt-') || lower.startsWith('o1') || lower.startsWith('o3') || lower.startsWith('o4'))
+  if (
+    lower.startsWith('gpt-') ||
+    lower.startsWith('o1') ||
+    lower.startsWith('o3') ||
+    lower.startsWith('o4')
+  )
     return 'openai';
   if (lower.startsWith('gemini-')) return 'google';
   if (lower.startsWith('deepseek-') || lower.includes('deepseek'))
     return 'deepseek';
-  if (lower.includes('llama') || lower.includes('mistral') || lower.includes('mixtral'))
+  if (
+    lower.includes('llama') ||
+    lower.includes('mistral') ||
+    lower.includes('mixtral')
+  )
     return 'groq';
   return 'unknown';
 }

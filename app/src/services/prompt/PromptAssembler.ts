@@ -7,6 +7,7 @@ import {
 import { buildSystemPrompt, type SystemPromptContext } from '@modules/ai';
 import { providerPromptRegistry } from './ProviderPromptPlugin';
 import { modelManager } from '@modules/ai';
+import { providerRegistry } from '@modules/ai';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { setCurrentSessionContext } from './MemoryPromptProvider';
 import type { SessionContext } from '@modules/memory/types/SessionContext';
@@ -79,34 +80,26 @@ function filterSectionsByMode(
 }
 
 /**
- * 从模型名称解析提供商
+ * 从模型名称解析提供商。
+ * CS02 FIXED: 优先从 ProviderRegistry 查询，未命中时回退到名称前缀启发式。
  */
 function resolveProviderFromModel(modelName: string): string {
+  // 优先从 ProviderRegistry 查（DB 注册的模型都有精确的 provider）
+  try {
+    const resolved = providerRegistry.getByModel(modelName);
+    if (resolved) return resolved.id;
+  } catch { /* ProviderRegistry 不可用时回退 */ }
+
+  // 回退：名称前缀启发式（仅用于未注册的临时模型名）
   const lower = modelName.toLowerCase();
-  if (
-    lower.startsWith('claude-') ||
-    lower.startsWith('opus') ||
-    lower.startsWith('sonnet') ||
-    lower.startsWith('haiku')
-  )
+  if (lower.startsWith('claude-') || lower.startsWith('opus') || lower.startsWith('sonnet') || lower.startsWith('haiku'))
     return 'anthropic';
-  // TODO: CS02-ROOTFIX — 通过模型名前缀匹配推断 provider 违反 CS02。
-  // 根因方案：从 ProviderRegistry.getByModel() 查询，或从 model_registry 获取 providerId。
-  if (
-    lower.startsWith('gpt-') ||
-    lower.startsWith('o1') ||
-    lower.startsWith('o3') ||
-    lower.startsWith('o4')
-  )
+  if (lower.startsWith('gpt-') || lower.startsWith('o1') || lower.startsWith('o3') || lower.startsWith('o4'))
     return 'openai';
   if (lower.startsWith('gemini-')) return 'google';
   if (lower.startsWith('deepseek-') || lower.includes('deepseek'))
     return 'deepseek';
-  if (
-    lower.includes('llama') ||
-    lower.includes('mistral') ||
-    lower.includes('mixtral')
-  )
+  if (lower.includes('llama') || lower.includes('mistral') || lower.includes('mixtral'))
     return 'groq';
   return 'unknown';
 }

@@ -151,7 +151,8 @@ export class TokenBudgetController {
   constructor(
     model: string,
     budget: TokenBudgetParams,
-    contextWindow?: number
+    contextWindow?: number,
+    provider?: APIProviderType
   ) {
     this.model = model;
     this.budget = {
@@ -163,12 +164,12 @@ export class TokenBudgetController {
     };
     this.contextWindow = contextWindow || this.getContextWindowForModel(model);
     this.spent = this.budget.used || 0;
-    this.provider = this.detectProvider(model);
+    this.provider = provider || this.detectProvider(model);
     this.contextStats = createContextStatsCollector();
   }
 
-  // TODO: CS02-ROOTFIX — 通过模型名字符串匹配推断 provider 类型违反 CS02。
-  // 根因方案：调用方传入 provider 参数，或从 model_registry.capabilities 查询。
+  // FIXED CS02: 调用方传入 provider 参数时直接使用；
+  // 未传入时回退到 detectProvider (兼容旧调用方)。
   private detectProvider(model: string): APIProviderType {
     const lower = model.toLowerCase();
     if (lower.includes('deepseek')) return 'deepseek';

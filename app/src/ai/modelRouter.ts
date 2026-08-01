@@ -807,7 +807,13 @@ export class ModelRouter {
       // 保留用户显式配置的任务分工（如 chat→GPT-4, default→DeepSeek 时切换不改 chat）
       const previousDefault = this._taskCache.get('default');
       const chatOverrides = [
-        'chat', 'coding', 'quick', 'agent', 'scheduled', 'local', 'translation',
+        'chat',
+        'coding',
+        'quick',
+        'agent',
+        'scheduled',
+        'local',
+        'translation',
       ];
       let preservedCount = 0;
       let clearedCount = 0;

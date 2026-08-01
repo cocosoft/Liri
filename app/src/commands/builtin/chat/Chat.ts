@@ -318,7 +318,7 @@ export class ChatCommand {
 
   private showHelp(): ChatResult {
     const config = getConfig();
-    const currentProvider = config.ai?.provider || 'deepseek';
+    const currentProvider = config.ai?.provider || '';
     const currentModel = config.ai?.model || modelManager.getCurrentModel();
     const availableModels = modelManager.getModelInfoList();
 

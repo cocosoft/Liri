@@ -167,6 +167,8 @@ export class TokenBudgetController {
     this.contextStats = createContextStatsCollector();
   }
 
+  // TODO: CS02-ROOTFIX — 通过模型名字符串匹配推断 provider 类型违反 CS02。
+  // 根因方案：调用方传入 provider 参数，或从 model_registry.capabilities 查询。
   private detectProvider(model: string): APIProviderType {
     const lower = model.toLowerCase();
     if (lower.includes('deepseek')) return 'deepseek';

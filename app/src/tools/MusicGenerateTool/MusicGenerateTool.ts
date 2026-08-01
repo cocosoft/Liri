@@ -1,4 +1,4 @@
-﻿/**
+/**
  * MusicGenerateTool
  * 对标OpenClaw music-generate 工具
  * AI音乐生成工具
@@ -100,7 +100,7 @@ export class MusicGenerateTool extends BaseTool {
       enum: ['openai', 'suno', 'udio'],
       description: 'AI provider to use',
       required: false,
-      default: 'openai',
+      default: '',
     },
   ];
 
@@ -154,7 +154,7 @@ export class MusicGenerateTool extends BaseTool {
             duration,
             tempo: params.tempo ?? 'medium',
             format: params.format ?? 'mp3',
-            provider: params.provider ?? 'openai',
+            provider: params.provider ?? '',
           },
           params,
         },

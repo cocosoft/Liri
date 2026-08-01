@@ -383,7 +383,7 @@ export async function assembleContextualSystemPrompt(
   imageContextService: ImageContextService,
   getMemoryContext?: (sessionId: string) => string
 ): Promise<string> {
-  const providerId = llmClient?.getProviderId() || 'deepseek';
+  const providerId = llmClient?.getProviderId() || '';
   const sessionContext: SessionContext = {
     sessionId: session.id,
     turnCount: session.messages.length,

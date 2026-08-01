@@ -623,7 +623,7 @@ export class ImageGenerateTool extends BaseTool {
         alt: params.prompt.slice(0, 100),
         size: params.size ?? '1024x1024',
         format: params.format ?? 'png',
-        provider: params.provider ?? 'openai',
+        provider: params.provider ?? '',
       });
     }
 
@@ -697,7 +697,7 @@ export class ImageGenerateTool extends BaseTool {
           alt: img.alt,
           size: img.size,
           format: img.format,
-          provider: params.provider ?? 'openai',
+          provider: params.provider ?? '',
         })),
         model: result.model,
         prompt: params.prompt,

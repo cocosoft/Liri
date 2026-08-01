@@ -102,9 +102,9 @@ function registerAiSettings(): void {
     key: 'ai.provider',
     description: 'AI 提供商',
     type: 'string',
-    defaultValue: 'deepseek',
+    defaultValue: '',   // 空 → 从 DB Provider 列表自动检测
     enum: ['anthropic', 'openai', 'deepseek', 'ollama', 'azure', 'vertex'],
-    example: 'deepseek',
+    example: 'openai',
   });
 
   configSchema.registerItem('AI 设置', {

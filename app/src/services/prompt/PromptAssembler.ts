@@ -90,6 +90,8 @@ function resolveProviderFromModel(modelName: string): string {
     lower.startsWith('haiku')
   )
     return 'anthropic';
+  // TODO: CS02-ROOTFIX — 通过模型名前缀匹配推断 provider 违反 CS02。
+  // 根因方案：从 ProviderRegistry.getByModel() 查询，或从 model_registry 获取 providerId。
   if (
     lower.startsWith('gpt-') ||
     lower.startsWith('o1') ||

@@ -111,8 +111,9 @@ export type DiffTool = 'terminal' | 'auto';
  * AI 模块配置
  */
 export interface AIConfig {
-  /** AI 提供商 */
+  /** AI 提供商（空字符串 = 从 DB/环境变量自动检测） */
   provider?:
+    | ''
     | 'anthropic'
     | 'openai'
     | 'deepseek'
@@ -576,7 +577,7 @@ export function createDefaultGlobalConfig(): GlobalConfig {
       cachedStatsigGates: {},
     },
     ai: {
-      provider: 'deepseek',
+      provider: '',   // 空字符串 → 从 DB/环境变量自动检测
       model: '',
       deepseek: {
         apiKey: process.env['DEEPSEEK_API_KEY'] || '',

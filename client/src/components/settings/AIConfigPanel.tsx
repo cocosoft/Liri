@@ -59,10 +59,10 @@ function AIConfigPanel({
         <ConfigItem label={t("settings.providers")} isDark={isDark}>
           <SelectConfig
             isDark={isDark}
-            value={config.provider || "openai"}
+            value={config.provider || ""}
             onChange={handleProviderChange}
             options={[
-              { value: "openai", label: "OpenAI" },
+              { value: "", label: "自动检测" },
               { value: "anthropic", label: "Anthropic" },
               { value: "deepseek", label: "DeepSeek" },
               { value: "ollama", label: t("settings.providersOllama") },

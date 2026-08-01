@@ -237,6 +237,8 @@ export function getToolUseGuidance(
 ): string {
   const modelLower = modelName.toLowerCase();
 
+  // TODO: CS02-ROOTFIX — 通过 modelLower.includes() 匹配违反 CS02。
+  // 根因方案：从 model_registry.capabilities 查询模型能力，而非按名称匹配。
   if (
     modelLower.includes('deepseek') ||
     provider === 'deepseek' ||

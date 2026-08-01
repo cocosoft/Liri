@@ -6,8 +6,9 @@
 /** 启动模式 */
 export type StartupMode = 'cli' | 'repl' | 'mcp' | 'daemon';
 
-/** AI 提供商 */
+/** AI 提供商（'' = 从 DB/环境变量自动检测） */
 export type StartupAiProvider =
+  | ''
   | 'deepseek'
   | 'anthropic'
   | 'openai'
@@ -138,7 +139,7 @@ export const DEFAULT_STARTUP_CONFIG: StartupConfig = {
     },
   },
   ai: {
-    provider: 'deepseek',
+    provider: '',   // 空字符串 → 从 DB/环境变量自动检测
     model: '',
   },
   features: {

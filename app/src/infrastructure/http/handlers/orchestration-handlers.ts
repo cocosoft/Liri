@@ -330,9 +330,9 @@ export async function handleGetAgentModelBindings(
       },
     ];
 
-    const availableModels = config.availableModels || [
-      { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai' },
-    ];
+    // CS04: 禁止 Mock 数据。config.availableModels 为空时返回空列表，
+    // 前端自行从 /v1/models 获取真实模型列表。
+    const availableModels = config.availableModels || [];
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ bindings, availableModels }));

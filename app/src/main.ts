@@ -1235,6 +1235,16 @@ export async function launch(options: LaunchOptions): Promise<void> {
         const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
         getCoreAPI().setSmartRouter(smartRouter);
 
+        // 从 settings.json 恢复用户自定义数据目录（优先于 LIRI_HOME 环境变量）
+        const { loadUserSettings } = await import('./config/settings/userSettings.js');
+        const { setUserDataDirOverride } = await import('./core/paths.js');
+        const settings = loadUserSettings();
+        const dataDirectory = settings.dataDirectory as string | undefined;
+        if (dataDirectory && typeof dataDirectory === 'string' && dataDirectory.trim()) {
+          setUserDataDirOverride(dataDirectory.trim());
+          logger.info(`用户数据目录已从设置恢复: ${dataDirectory}`);
+        }
+
         // 预热：确保会话从磁盘加载，HTTP handler 首次请求即可返回
         await getCoreAPI().ensureSessionsLoaded();
       },

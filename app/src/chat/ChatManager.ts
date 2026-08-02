@@ -901,7 +901,21 @@ export class ChatManagerImpl implements ChatManager {
       if (!existsSync(curDataDir)) return;
 
       // 递归迁移：创建目标 → 移动文件 → 成功后删除旧目录
+      mkdirSync(newHome, { recursive: true });
       mkdirSync(newDataDir, { recursive: true });
+
+      // 迁移 home 根目录文件（settings.json 等）
+      for (const entry of readdirSync(curHome, { withFileTypes: true })) {
+        if (entry.isFile()) {
+          const srcPath = join(curHome, entry.name);
+          const dstPath = join(newHome, entry.name);
+          if (!existsSync(dstPath)) {
+            try { renameSync(srcPath, dstPath); } catch { /* skip */ }
+          }
+        }
+      }
+
+      // 迁移 data 子目录
       const migrateDir = (src: string, dst: string): void => {
         if (!existsSync(src)) return;
         mkdirSync(dst, { recursive: true });
@@ -911,13 +925,19 @@ export class ChatManagerImpl implements ChatManager {
           if (entry.isDirectory()) {
             migrateDir(srcPath, dstPath);
           } else {
-            try { renameSync(srcPath, dstPath); } catch { /* 单项失败跳过 */ }
+            try {
+              renameSync(srcPath, dstPath);
+            } catch {
+              /* 单项失败跳过 */
+            }
           }
         }
       };
       migrateDir(curDataDir, newDataDir);
 
-      logger.info(`会话数据已从项目路径迁移到用户主目录: ${curDataDir} → ${newDataDir}`);
+      logger.info(
+        `会话数据已从项目路径迁移到用户主目录: ${curDataDir} → ${newDataDir}`
+      );
     } catch {
       // 非致命，迁移失败不影响启动
     }

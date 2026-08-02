@@ -90,6 +90,8 @@ import {
   handleSaveArtifact,
   handleDeleteArtifact,
   handleGetProjectContext,
+  handleSaveProjectContext,
+  handleEngineHook,
 } from './project-artifact-handlers';
 
 // Channel handlers（直接函数调用，部分需要 broadcastEvent 回调）
@@ -1271,6 +1273,16 @@ export async function dispatchRoute(
   if (method === 'GET' && url.match(/^\/v1\/projects\/(.+)\/context$/)) {
     const match = url.match(/^\/v1\/projects\/(.+)\/context$/)!;
     await handleGetProjectContext(req, res, match[1]);
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/projects\/(.+)\/context$/)) {
+    const match = url.match(/^\/v1\/projects\/(.+)\/context$/)!;
+    await handleSaveProjectContext(req, res, match[1]);
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/projects\/(.+)\/engine-hook$/)) {
+    const match = url.match(/^\/v1\/projects\/(.+)\/engine-hook$/)!;
+    await handleEngineHook(req, res, match[1]);
     return true;
   }
   if (method === 'GET' && url.match(/^\/v1\/projects\/(.+)\/artifacts$/)) {

@@ -66,3 +66,22 @@ export async function fetchProjectContext(
   if (!res.ok) return [];
   return res.json();
 }
+
+/**
+ * 隐性引擎钩子：分析消息文本，自动写入 rules.md 和 artifacts
+ * 建议在 AI 回复完成后调用（fire-and-forget）
+ */
+export async function triggerEngineHook(
+  projectId: string,
+  text: string
+): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/${projectId}/engine-hook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+  } catch {
+    /* 引擎钩子失败不影响主流程 */
+  }
+}

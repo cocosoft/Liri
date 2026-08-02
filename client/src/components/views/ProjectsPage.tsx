@@ -14,6 +14,7 @@ import { useChatStore } from "@/stores/chat";
 import { chatCoordinator } from "@/stores/chat/chatCoordinator";
 import { sessionService } from "@/services/sessionService";
 import { handleClientError } from "@/utils/handleError";
+import { triggerEngineHook } from "@/services/projectArtifactService";
 import CreateProjectModal from "@/components/Workspace/CreateProjectModal";
 import ChatArea from "@/components/ChatArea/ChatArea";
 import { ProjectMaterialsPanel } from "@/components/project/ProjectMaterialsPanel";
@@ -93,6 +94,7 @@ export default function ProjectsPage() {
   const [deleting, setDeleting] = useState(false);
   const [showSmartMenu, setShowSmartMenu] = useState(false);
   const inited = useRef<string | null>(null);
+  const lastProcessedMsgId = useRef<string | null>(null);
 
   // Root Store 订阅
   const worktrees = useRootStore((s) => s.worktrees);
@@ -108,6 +110,22 @@ export default function ProjectsPage() {
     enterModule({ moduleType: "project" });
     return () => leaveModule();
   }, [enterModule, leaveModule]);
+
+  // 隐性引擎钩子：检测新 assistant 消息并触发分析
+  useEffect(() => {
+    if (!selectedProjectId || messages.length === 0) return;
+
+    const lastAssistantMsg = [...messages]
+      .reverse()
+      .find((m) => m.role === "assistant");
+    if (!lastAssistantMsg) return;
+    if (lastProcessedMsgId.current === lastAssistantMsg.id) return;
+    lastProcessedMsgId.current = lastAssistantMsg.id;
+
+    triggerEngineHook(selectedProjectId, lastAssistantMsg.content).catch(() => {
+      /* 隐性引擎失败不阻塞 UI */
+    });
+  }, [messages, selectedProjectId]);
 
   // 仅显示用户创建的项目（workspaceSource === "user"）
   const projects = useMemo(

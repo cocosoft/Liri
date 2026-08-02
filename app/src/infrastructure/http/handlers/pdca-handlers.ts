@@ -94,7 +94,12 @@ export async function handlePdcaStart(
       });
 
     // 持久化检查点
-    writeCheckpoint(taskId, { taskId, status: 'started', description, sessionId });
+    writeCheckpoint(taskId, {
+      taskId,
+      status: 'started',
+      description,
+      sessionId,
+    });
 
     // 立即返回 taskId，前端可轮询 GET /v1/pdca/:taskId 获取进度
     res.writeHead(202, { 'Content-Type': 'application/json' });

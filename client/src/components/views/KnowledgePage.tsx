@@ -9,6 +9,7 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useKnowledgeStore } from "../../stores/knowledgeStore";
 import { useConfigStore } from "../../stores/configStore";
+import { useRootStore } from "../../stores/root-store";
 import { knowledgeService } from "../../services/knowledgeService";
 import type { KnowledgeFile } from "../../types";
 import { createLogger } from "@/utils/logger";
@@ -57,6 +58,13 @@ function KnowledgePage() {
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
   const navigate = useNavigate();
+
+  const enterModule = useRootStore((s) => s.enterModule);
+  const leaveModule = useRootStore((s) => s.leaveModule);
+  useEffect(() => {
+    enterModule({ moduleType: "knowledge" });
+    return () => leaveModule();
+  }, [enterModule, leaveModule]);
 
   const view = useKnowledgeStore((s) => s.view);
   const setView = useKnowledgeStore((s) => s.setView);

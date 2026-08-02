@@ -104,7 +104,14 @@ export default function ProjectsPage() {
   const switchWorktree = useRootStore((s) => s.switchWorktree);
   const createChatSession = useRootStore((s) => s.createChatSession);
   const deleteWorktree = useRootStore((s) => s.deleteWorktree);
+  const enterModule = useRootStore((s) => s.enterModule);
+  const leaveModule = useRootStore((s) => s.leaveModule);
   const messages = useChatStore((s) => s.messages);
+
+  useEffect(() => {
+    enterModule({ moduleType: "project" });
+    return () => leaveModule();
+  }, [enterModule, leaveModule]);
 
   // 仅显示用户创建的项目（workspaceSource === "user"）
   const projects = useMemo(

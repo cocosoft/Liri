@@ -19,12 +19,12 @@ export default function LoopPanel() {
       .then((r) => r.json())
       .then((data) => {
         const mapped: LoopTask[] = (Array.isArray(data) ? data : []).map(
-          (j: any) => ({
-            id: j.id || "",
-            description: j.prompt || j.description || "",
-            interval: j.expression || j.schedule || "",
+          (j: Record<string, unknown>) => ({
+            id: (j.id as string) || "",
+            description: (j.prompt || j.description || "") as string,
+            interval: (j.expression || j.schedule || "") as string,
             status: j.enabled ? "running" : "paused",
-            lastRun: j.lastRun,
+            lastRun: j.lastRun as string | undefined,
           }),
         );
         setTasks(mapped);

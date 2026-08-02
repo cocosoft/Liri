@@ -134,6 +134,8 @@ export const sessionService = {
       modelId?: string;
       workspaceId?: string;
       workspacePath?: string;
+      moduleType?: string;
+      projectId?: string;
     },
   ): Promise<Session> => {
     return getOTelTracing().asyncWrap(
@@ -145,6 +147,8 @@ export const sessionService = {
           if (options?.workspaceId) body.workspaceId = options.workspaceId;
           if (options?.workspacePath)
             body.workspace_path = options.workspacePath;
+          if (options?.moduleType) body.moduleType = options.moduleType;
+          if (options?.projectId) body.projectId = options.projectId;
           const res = await apiHttp.post<Session>("/v1/sessions", body);
           if (res.ok) {
             _isUsingFallback = false;

@@ -104,6 +104,17 @@ function DirectoryTree({
               next[parentPath] = nodes;
               return next;
             });
+          }).catch(() => {
+            // 加载失败：恢复节点状态
+            setTreeData((p) => {
+              const next = { ...p };
+              const nodes = [...(next[parentPath] || [])];
+              const i = nodes.findIndex((n) => n.path === nodePath);
+              if (i === -1) return p;
+              nodes[i] = { ...nodes[i], loading: false, expanded: false };
+              next[parentPath] = nodes;
+              return next;
+            });
           });
 
           return updated;

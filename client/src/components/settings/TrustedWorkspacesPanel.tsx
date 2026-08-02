@@ -47,7 +47,7 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
   const loadConfig = async () => {
     try {
       const res = await http.get<{ key: string; value: PermissionConfig }>(
-        "/v1/config/permission",
+        "/v1/config/permission.workspaces",
       );
       if (res?.value) {
         setPermission(res.value);
@@ -67,7 +67,7 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
     setSaved(false);
     setError(null);
     try {
-      await http.put("/v1/config/permission", { value: permission });
+      await http.put("/v1/config/permission.workspaces", { value: permission });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e) {

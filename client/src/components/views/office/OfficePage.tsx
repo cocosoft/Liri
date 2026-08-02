@@ -7,6 +7,7 @@
 import { useEffect, useCallback, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useOfficeStore } from "../../../stores/officeStore";
+import { useRootStore } from "../../../stores/root-store";
 import { useChatStore } from "../../../stores/chat";
 import { useSessionStore } from "../../../stores/sessionStore";
 import { officeService } from "../../../services/officeService";
@@ -32,6 +33,13 @@ export default function OfficePage() {
     setResponsiveMode,
     refreshFileList,
   } = useOfficeStore();
+
+  const enterModule = useRootStore((s) => s.enterModule);
+  const leaveModule = useRootStore((s) => s.leaveModule);
+  useEffect(() => {
+    enterModule({ moduleType: "office" });
+    return () => leaveModule();
+  }, [enterModule, leaveModule]);
 
   /** 注册快捷键 */
   useOfficeHotkeys();

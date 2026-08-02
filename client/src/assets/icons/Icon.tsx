@@ -89,6 +89,8 @@ export default function Icon({
     let cancelled = false;
     resolveIcon(lowerName).then((comp) => {
       if (!cancelled) setComponent(() => comp);
+    }).catch(() => {
+      // 图标解析失败，组件返回 null（不渲染）
     });
     return () => {
       cancelled = true;

@@ -1,13 +1,11 @@
 /**
  * 统一根 Store (useRootStore)
  *
- * 合并 Workspace/Session/Feature 三个低-中频变更的核心 Slice。
+ * 合并 Workspace/Session/Feature/ModuleContext 四个核心 Slice。
  * 通过 subscribeWithSelector + persist 实现持久化和跨 Store 联动。
  *
  * GitStore、ChannelStore、chatStore 等高频 IO 型 Store 保持独立，
  * 通过 subscribeWithSelector 与根 Store 联动。
- *
- * Phase 1：与现有 workspaceStore、sessionStore 并行运行，互不依赖。
  */
 
 import { create } from "zustand";
@@ -19,6 +17,13 @@ import {
 } from "./workspaceSlice";
 import { createSessionSlice, type SessionSlice } from "./sessionSlice";
 import { createFeatureSlice, type FeatureSlice } from "./featureSlice";
+import {
+  createModuleContextSlice,
+  type ModuleContextState,
+  type ModuleContextActions,
+  inferModuleTypeFromWorktreeId,
+  isProjectWorktree,
+} from "./moduleContextSlice";
 import { loggingMiddleware } from "../middleware/logging";
 import { createLogger } from "@/utils/logger";
 
@@ -26,7 +31,12 @@ const logger = createLogger("root-store");
 
 // ─── 根 State 类型 ─────────────────────────────────────
 
-export interface RootState extends WorkspaceSlice, SessionSlice, FeatureSlice {}
+export interface RootState
+  extends WorkspaceSlice,
+    SessionSlice,
+    FeatureSlice,
+    ModuleContextState,
+    ModuleContextActions {}
 
 // ─── 根 Store 创建 ─────────────────────────────────────
 
@@ -37,18 +47,19 @@ export const useRootStore = create<RootState>()(
         ...createWorkspaceSlice(...args),
         ...createSessionSlice(...args),
         ...createFeatureSlice(...args),
+        ...createModuleContextSlice(...args),
       })),
       {
         name: "liri-root-store",
-        version: 1,
+        version: 4,
 
         /** 仅持久化需要跨会话保留的状态 */
         partialize: (state) => ({
           currentWorktreeId: state.currentWorktreeId,
           currentSessionId: state.currentSessionId,
-          sessions: state.sessions, // 核心：会话记录必须持久化
-          chatSessions: state.chatSessions, // 旧 sessionStore 兼容数据
-          // 仅持久化用户创建的工作空间，系统模块在初始化时重建
+          sessions: state.sessions,
+          moduleContext: state.moduleContext, // 新增：模块上下文持久化
+          // chatSessions 每次刷新从 API 获取，不持久化
           worktrees: Object.fromEntries(
             Object.entries(state.worktrees).filter(
               ([, wt]) => wt.workspaceSource === "user",
@@ -60,12 +71,37 @@ export const useRootStore = create<RootState>()(
           pinnedModuleIds: state.pinnedModuleIds,
         }),
 
-        /** 版本迁移：处理数据结构升级和孤儿数据清理 */
+        /** 版本迁移 */
         migrate: (persisted, version) => {
           const state = persisted as RootState;
 
+          if (version < 4) {
+            // v3→v4: moduleType + projectId 迁移
+            if (state.sessions) {
+              for (const s of Object.values(state.sessions)) {
+                // 补全 moduleType（旧 Hub 条目不包含此字段）
+                if (!s.moduleType) {
+                  (
+                    s as unknown as Record<string, unknown>
+                  ).moduleType = inferModuleTypeFromWorktreeId(s.worktreeId);
+                }
+                // 补全 projectId（仅 project 类 worktree，避免 media/office 被误判）
+                if (!s.projectId && isProjectWorktree(s.worktreeId)) {
+                  (
+                    s as unknown as Record<string, unknown>
+                  ).projectId = s.worktreeId;
+                }
+              }
+            }
+            // 清除 chatSessions 旧残留
+            state.chatSessions = [];
+          }
+
+          if (version < 3) {
+            state.chatSessions = [];
+          }
+
           if (version < 1) {
-            // 验证 gitRepo.path 是否仍有效
             if (state.worktrees) {
               for (const wt of Object.values(state.worktrees)) {
                 if (wt.gitRepo?.path) {
@@ -76,9 +112,14 @@ export const useRootStore = create<RootState>()(
             }
           }
 
-          // 清理孤儿数据：session 引用的 worktree 必须存在
+          // 清理孤儿数据
           if (state.sessions) {
-            const validWtIds = new Set(Object.keys(state.worktrees ?? {}));
+            const systemIds = new Set(Object.keys(SYSTEM_WORKSPACES));
+            const validWtIds = new Set([
+              ...Object.keys(state.worktrees ?? {}),
+              ...systemIds,
+              "",
+            ]);
             const filtered: Record<string, (typeof state.sessions)[string]> =
               {};
             for (const [id, s] of Object.entries(state.sessions)) {
@@ -89,7 +130,6 @@ export const useRootStore = create<RootState>()(
             (state as unknown as Record<string, unknown>).sessions = filtered;
           }
 
-          // pinned 引用的 session 必须存在
           if (state.pinnedSessionIds && state.sessions) {
             const validSessionIds = new Set(Object.keys(state.sessions));
             (state as unknown as Record<string, unknown>).pinnedSessionIds =
@@ -101,11 +141,16 @@ export const useRootStore = create<RootState>()(
           return state;
         },
 
-        /** 水合后合并系统工作空间（persist 仅保存 user workspace） */
+        /** 水合后：合并系统工作空间，标记上下文未就绪 */
         onRehydrateStorage: () => (state) => {
           if (state) {
             state.worktrees = { ...SYSTEM_WORKSPACES, ...state.worktrees };
+            // 等待页面 mount 后 enterModule 覆盖才标记就绪，避免刷新时闪现旧模块会话
+            state._contextReady = false;
           }
+          setTimeout(() => {
+            useRootStore.getState().loadChatSessions();
+          }, 0);
         },
       },
     ),
@@ -124,5 +169,6 @@ logger.info("Root Store 初始化完成", {
     "moduleOrder",
     "pinnedSessionIds",
     "pinnedModuleIds",
+    "moduleContext",
   ],
 });

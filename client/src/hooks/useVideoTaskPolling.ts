@@ -52,16 +52,16 @@ export function useVideoTaskPolling(
       });
 
       if (response.tasks && response.tasks.length > 0) {
-        const mapped: VideoTaskItem[] = response.tasks.map((t: any) => ({
+        const mapped: VideoTaskItem[] = response.tasks.map((t) => ({
           taskId: t.taskId,
-          status: t.status,
-          mode: t.mode || "text-to-video",
+          status: t.status as VideoTaskItem["status"],
+          mode: (t.mode || "text-to-video") as VideoTaskItem["mode"],
           progress: t.progress || 0,
           sourceImageUrl: t.sourceImageUrl || null,
           resultVideoUrl: t.resultVideoUrl || null,
           prompt: t.prompt || "",
           error: t.error || null,
-          createdAt: t.createdAt,
+          createdAt: t.createdAt ?? "",
           completedAt: t.completedAt || null,
         }));
         setActiveTasks(mapped);

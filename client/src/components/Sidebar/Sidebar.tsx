@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useNavigationStore } from "../../stores/navigationStore";
+import type { AppPage } from "../../stores/navigationStore";
 import { useConfigStore } from "../../stores/configStore";
 import { useNotificationStore } from "../../stores/notificationStore";
 import {
@@ -107,7 +108,7 @@ function MenuButton({
         setActivePage("home");
       } else {
         const pageId = actualPath.replace("/", "") || "chat";
-        setActivePage(pageId as any);
+        setActivePage(pageId as AppPage);
       }
       navigate(actualPath);
       onNavigate?.();

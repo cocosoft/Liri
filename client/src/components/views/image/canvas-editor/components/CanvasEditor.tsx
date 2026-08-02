@@ -725,6 +725,8 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
             recoveredSnapRef.current = snap;
             setShowRecover(true);
           }
+        }).catch(() => {
+          // 快照恢复失败静默忽略（非关键功能）
         });
       }
     }, [canvasId]);

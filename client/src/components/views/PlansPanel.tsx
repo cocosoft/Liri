@@ -26,13 +26,13 @@ export default function PlansPanel() {
     const load = async () => {
       try {
         const [plansRes, flowsRes] = await Promise.all([
-          http.get("/v1/plans"),
-          http.get("/v1/flows"),
+          http.get<{ data: PlanFlowItem[] }>("/v1/plans"),
+          http.get<{ data: PlanFlowItem[] }>("/v1/flows"),
         ]);
         if (cancelled) return;
 
-        const pData = (plansRes as any)?.data;
-        const fData = (flowsRes as any)?.data;
+        const pData = plansRes?.data;
+        const fData = flowsRes?.data;
         setPlans(Array.isArray(pData) ? pData : []);
         setFlows(Array.isArray(fData) ? fData : []);
       } catch {

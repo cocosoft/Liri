@@ -53,10 +53,6 @@ export interface Project {
 }
 
 /** @deprecated 使用 TaskStatus 替代 */
-export type WorkItemFilter =
-  "all" | "pending" | "in_progress" | "review" | "done" | "blocked";
-
-/** @deprecated 使用 TaskStatus 替代 */
 export type ProjectViewMode = "board" | "dag" | "list";
 
 // ========== 统一任务模型（Phase A 新增） ==========
@@ -166,40 +162,7 @@ export type TaskStatusFilter = "all" | TaskStatus;
 /** 视图模式 */
 export type TaskViewMode = "board" | "dag" | "list";
 
-// ========== 规范 WorkItem 类型（与后端 app/src/workspace/types.ts 一致） ==========
-
-/**
- * 工作项状态
- *
- * @deprecated 新代码使用 TaskStatus。旧代码仍可用。
- */
-export type WorkItemStatus =
-  "pending" | "running" | "paused" | "review" | "done" | "failed";
-
-/**
- * 工作项类型
- *
- * @deprecated 新代码使用 TaskType。旧代码仍可用。
- */
-export type WorkItemType =
-  "task" | "bug" | "feature" | "refactor" | "docs" | "decision";
-
-/**
- * 工作项（与后端 WorkItem 类型一致）
- *
- * @deprecated 新代码使用 TaskNode。Phase D 移除。
- */
-export interface WorkItem {
-  id: string;
-  workspaceId: string;
-  title: string;
-  description: string;
-  type: WorkItemType;
-  status: WorkItemStatus;
-  sessionId?: string;
-  createdAt: string;
-  updatedAt: string;
-  completedAt?: string;
-  tags?: string[];
-  priority?: number;
-}
+// ========== 规范 WorkItem 类型（已废弃，Phase D 移除） ==========
+//
+// 以下类型已无外部消费者，保留仅作文档参考。
+// 删除时间: 2026-08-02

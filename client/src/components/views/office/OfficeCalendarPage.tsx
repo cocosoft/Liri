@@ -7,6 +7,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { CalendarIcon } from "../../../assets/icons/navigation";
+import { useRootStore } from "../../../stores/root-store";
 import { officeService } from "../../../services/officeService";
 import { notificationService } from "../../../services/notificationService";
 import { cronService } from "../../../services/cronService";
@@ -115,6 +116,13 @@ export default function OfficeCalendarPage() {
 
   const config = useConfigStore((s) => s.config);
   const configTimezone = (config.timezone as string) || undefined;
+
+  const enterModule = useRootStore((s) => s.enterModule);
+  const leaveModule = useRootStore((s) => s.leaveModule);
+  useEffect(() => {
+    enterModule({ moduleType: "calendar" });
+    return () => leaveModule();
+  }, [enterModule, leaveModule]);
 
   const layout = useCalendarLayout();
   /** 窄屏侧栏折叠状态 */

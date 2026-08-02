@@ -6,6 +6,12 @@ import {
   ToggleConfig,
 } from "./ConfigComponents";
 
+/** Ollama 默认端点（与 config/providerPresets.ts 中 PRESETS 对齐） */
+const OLLAMA_ENDPOINTS = [
+  { value: "http://localhost:11434", label: "localhost:11434" },
+  { value: "http://127.0.0.1:11434", label: "127.0.0.1:11434" },
+];
+
 interface RoutingConfig {
   strategy: "cloud-first" | "ollama-first" | "local-first";
   fallbackToCloud: boolean;
@@ -184,10 +190,7 @@ function LocalAgentPanel({
                 isDark={isDark}
                 value={ollama.baseUrl}
                 onChange={(value) => onUpdateOllama({ baseUrl: value })}
-                options={[
-                  { value: "http://localhost:11434", label: "localhost:11434" },
-                  { value: "http://127.0.0.1:11434", label: "127.0.0.1:11434" },
-                ]}
+                options={OLLAMA_ENDPOINTS}
               />
             </ConfigItem>
 

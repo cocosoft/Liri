@@ -284,7 +284,8 @@ export const useGitStore = create<GitStore>()((set, get) => ({
 
 // 延迟导入避免循环依赖
 setTimeout(() => {
-  import("./root-store").then(({ useRootStore }) => {
+  import("./root-store")
+    .then(({ useRootStore }) => {
     void useRootStore.subscribe(
       (state) => state.currentWorktreeId,
       (newId) => {
@@ -311,5 +312,8 @@ setTimeout(() => {
         }
       },
     );
+  })
+  .catch(() => {
+    /* 延迟加载 root-store 失败，Git 状态将不会自动刷新 */
   });
 }, 0);

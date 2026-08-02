@@ -828,9 +828,11 @@ export const createMessageSlice: StateCreator<
         // J4：批量更新——仅在无挂起 flush 时调度微任务
         if (!batchPending) {
           batchPending = true;
-          Promise.resolve().then(() =>
-            requestAnimationFrame(() => flushSet(++batchVersion)),
-          );
+          Promise.resolve()
+            .then(() => requestAnimationFrame(() => flushSet(++batchVersion)))
+            .catch(() => {
+              /* flushSet 异常不阻塞后续更新 */
+            });
         }
 
         // J3：流式传输中实时防抖保存 blocks，使用闭包内局部变量避免竞态

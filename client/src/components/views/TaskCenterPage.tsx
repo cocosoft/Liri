@@ -13,6 +13,28 @@ import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("components:taskCenter");
 
+interface PlanItem {
+  id: string;
+  status: string;
+  description?: string;
+  steps?: PlanStep[];
+}
+
+interface PlanStep {
+  id: string;
+  status: string;
+  description?: string;
+  agent?: string;
+}
+
+interface FlowItem {
+  flowId: string;
+  status: string;
+  goal?: string;
+  ownerKey?: string;
+  currentStep?: string;
+}
+
 function TaskCenterPage() {
   const {
     tasks: agentTasks,
@@ -88,8 +110,8 @@ function TaskCenterPage() {
   const [detailTab, setDetailTab] = useState<
     "info" | "audit" | "output" | "chat" | "orchestrate"
   >("info");
-  const [plans, setPlans] = useState<any[]>([]);
-  const [flows, setFlows] = useState<any[]>([]);
+  const [plans, setPlans] = useState<PlanItem[]>([]);
+  const [flows, setFlows] = useState<FlowItem[]>([]);
   const [auditLogs, setAuditLogs] = useState<
     Array<{
       taskId: string;
@@ -601,8 +623,8 @@ function TaskCenterPage() {
   const loadOrchestrationData = async () => {
     try {
       const [plansData, flowsData] = await Promise.all([
-        http.get<any[]>("/v1/plans").then((r: any) => (r?.ok ? r.data : [])),
-        http.get<any[]>("/v1/flows").then((r: any) => (r?.ok ? r.data : [])),
+        http.get<PlanItem[]>("/v1/plans"),
+        http.get<FlowItem[]>("/v1/flows"),
       ]);
       setPlans(Array.isArray(plansData) ? plansData : []);
       setFlows(Array.isArray(flowsData) ? flowsData : []);
@@ -914,7 +936,7 @@ function TaskCenterPage() {
                   <select
                     value={agentStatusFilter}
                     onChange={(e) =>
-                      setAgentStatusFilter(e.target.value as any)
+                      setAgentStatusFilter(e.target.value as typeof agentStatusFilter)
                     }
                     className="px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100"
                   >
@@ -1254,7 +1276,7 @@ function TaskCenterPage() {
                       {selectedTask.name}
                     </h3>
                     <button
-                      onClick={() => selectAgentTask(null as any)}
+                      onClick={() => selectAgentTask(null)}
                       className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
                     >
                       <svg
@@ -1541,7 +1563,7 @@ function TaskCenterPage() {
                           </p>
                         ) : (
                           <div className="space-y-2">
-                            {plans.map((plan: any) => (
+                            {plans.map((plan) => (
                               <div
                                 key={plan.id}
                                 className="border border-gray-200 dark:border-gray-700 rounded p-2"
@@ -1556,7 +1578,7 @@ function TaskCenterPage() {
                                 </div>
                                 {plan.steps && (
                                   <div className="space-y-1">
-                                    {plan.steps.map((step: any, si: number) => (
+                                    {plan.steps.map((step, si: number) => (
                                       <div
                                         key={step.id}
                                         className="flex items-center gap-1.5"
@@ -1596,7 +1618,7 @@ function TaskCenterPage() {
                           </p>
                         ) : (
                           <div className="space-y-2 mt-2">
-                            {flows.map((flow: any) => (
+                            {flows.map((flow) => (
                               <div
                                 key={flow.flowId}
                                 className="border border-gray-200 dark:border-gray-700 rounded p-2"

@@ -103,6 +103,7 @@ export interface WorkspaceSlice {
     workspaceSource?: "system" | "user";
     workspaceType?: "module" | "project" | "chat";
   }) => string;
+  /** @deprecated 使用 enterModule() 替代模块级操作。此方法仅保留工作空间级联动（gitStore/knowledge）。 */
   switchWorktree: (id: string) => Promise<void>;
   deleteWorktree: (id: string) => Promise<void>;
   /** 更新工作空间名称或路径 */
@@ -214,7 +215,13 @@ export const createWorkspaceSlice: StateCreator<
     logger.info("工作空间更新", { worktreeId: id, ...updates });
   },
 
+  /** @deprecated 使用 enterModule() 替代模块级操作。此方法仅保留工作空间级联动（gitStore/knowledge）。 */
   switchWorktree: async (id) => {
+    if (import.meta.env.DEV) {
+      console.warn(
+        "[Deprecated] switchWorktree() 已标记废弃，模块级操作请用 enterModule()。workspace 级切换仍可用。",
+      );
+    }
     if (!get().worktrees[id]) {
       set({ error: `工作空间 ${id} 不存在` });
       return;

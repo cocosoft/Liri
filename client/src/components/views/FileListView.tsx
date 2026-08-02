@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useFileStore } from "../../stores/fileStore";
-import type { FileRegistryRecord, StoreZone } from "../../types";
+import type { FileRegistryRecord, StoreZone, FileSearchParams } from "../../types";
 import SearchInput from "../common/SearchInput";
 
 /**
@@ -55,8 +55,8 @@ function FileListView() {
     const params: Record<string, unknown> = {};
     if (searchText.trim()) params.query = searchText.trim();
     if (activeSource) params.source = activeSource;
-    if (storeZone) params.store_zone = storeZone;
-    setRegistryParams(params as any);
+    if (storeZone) params.storeZone = storeZone;
+    setRegistryParams(params as FileSearchParams);
   }, [searchText, activeSource, storeZone, setRegistryParams]);
 
   /** 初始加载 */

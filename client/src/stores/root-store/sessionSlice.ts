@@ -9,6 +9,7 @@
 import type { StateCreator } from "zustand";
 import type { SessionRecord, SessionContext } from "./types";
 import type { RootState } from "./index";
+import type { ModuleType } from "./moduleContextSlice";
 import type { Session } from "@/types";
 import { createLogger } from "@/utils/logger";
 import { useModelSwitchStore } from "../modelSwitchStore";
@@ -46,7 +47,12 @@ export interface SessionSlice {
   switching: boolean;
 
   // ─── SessionHub 动作 ───
-  createSession: (moduleType: string, title?: string, id?: string) => string;
+  createSession: (
+    moduleType: string,
+    title?: string,
+    id?: string,
+    worktreeIdOverride?: string,
+  ) => string;
   switchSession: (sessionId: string) => void;
   deleteSession: (sessionId: string) => void;
   renameSession: (id: string, title: string) => void;
@@ -99,8 +105,8 @@ export const createSessionSlice: StateCreator<
 
   // ─── SessionHub 动作 ────────────────────────────────
 
-  createSession: (moduleType, title, overrideId) => {
-    const wtId = get().currentWorktreeId;
+  createSession: (moduleType, title, overrideId, worktreeIdOverride) => {
+    const wtId = worktreeIdOverride ?? get().currentWorktreeId;
     const id =
       overrideId ??
       `sess-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -200,8 +206,9 @@ export const createSessionSlice: StateCreator<
     const wtId = get().currentWorktreeId;
     const wt = wtId ? get().worktrees[wtId] : undefined;
 
-    // 系统模块（非 chat）：复用唯一会话
-    if (wt?.workspaceSource === "system" && wt?.workspaceType !== "chat") {
+    // 系统 worktree（chat 或 module）：复用该 worktree 下的当前模块会话，
+    // 避免每次进入 /chat 等页面重复创建空会话
+    if (wt?.workspaceSource === "system") {
       const existing = Object.values(get().sessions).find(
         (s) => s.worktreeId === wtId && s.moduleType === moduleType,
       );
@@ -211,7 +218,7 @@ export const createSessionSlice: StateCreator<
       }
     }
 
-    // chat 模块 + 用户项目：创建新会话
+    // 用户项目 worktree（workspaceSource === "user"）：创建新会话（项目内多会话）
     return get().createSession(moduleType, title);
   },
 
@@ -234,6 +241,7 @@ export const createSessionSlice: StateCreator<
   // ─── 旧 sessionStore 兼容动作（异步）────────────────
 
   loadChatSessions: async () => {
+    if (get().chatSessions.length > 0 && !get().error) return;
     set({ isLoading: true, error: null });
     try {
       const { sessionService } = await import("@/services/sessionService");
@@ -244,25 +252,26 @@ export const createSessionSlice: StateCreator<
       );
       const currentSession = await sessionService.getCurrent();
 
-      // P1: 同步后端会话到 SessionHub sessions（SessionRecord），确保 sidebar moduleType 过滤一致
-      const existingHubIds = new Set(Object.keys(get().sessions));
+      // Hub 同步：moduleType 从 API metadata 或现有 Hub 读取，不再硬编码 "chat"
+      // projectId 从 metadata 读取；worktreeId 使用 resolveWorktreeId 统一计算
       const hubSync: Record<string, SessionRecord> = {};
       for (const s of sessions) {
-        if (!existingHubIds.has(s.id)) {
-          hubSync[s.id] = {
-            id: s.id,
-            moduleType: "chat",
-            worktreeId: s.workspaceId ?? "",
-            title: s.title,
-            createdAt: new Date(s.createdAt).getTime(),
-            updatedAt: new Date(s.updatedAt).getTime(),
-            context: {
-              moduleType: "chat" as const,
-              modelId: s.modelId,
-              agentId: s.agentId,
-            },
-          };
-        }
+        const existing = get().sessions[s.id];
+        const md = s.metadata as Record<string, unknown> | undefined;
+        hubSync[s.id] = {
+          id: s.id,
+          moduleType: (md?.moduleType as ModuleType) ?? existing?.moduleType ?? "chat",
+          projectId: (md?.projectId as string) ?? existing?.projectId,
+          worktreeId: s.workspaceId ?? "",
+          title: s.title,
+          createdAt: new Date(s.createdAt).getTime(),
+          updatedAt: new Date(s.updatedAt).getTime(),
+          context: {
+            moduleType: "chat" as const,
+            modelId: s.modelId,
+            agentId: s.agentId,
+          },
+        };
       }
 
       set({
@@ -326,20 +335,17 @@ export const createSessionSlice: StateCreator<
         );
       }
 
-      // 获取当前工作空间
-      let workspaceId: string | undefined;
-      let workspacePath: string | undefined;
-      const currentWtId = get().currentWorktreeId;
-      const wt = currentWtId ? get().worktrees[currentWtId] : undefined;
-      if (wt) {
-        workspaceId = wt.id;
-        workspacePath = wt.name;
-      }
+      // 获取当前工作空间 — 从 moduleContext 读取，不再依赖 currentWorktreeId
+      const ctx = get().moduleContext;
+      const workspaceId = ctx.moduleType === "project" ? ctx.projectId : undefined;
+      const workspacePath = ctx.moduleType === "project" ? ctx.projectName : undefined;
 
       const session = await sessionService.create(title, {
         modelId,
         workspaceId,
         workspacePath,
+        moduleType: ctx.moduleType,
+        projectId: ctx.projectId,
       });
       const sessionWithTasks: Session = tasksOverride
         ? {
@@ -380,8 +386,13 @@ export const createSessionSlice: StateCreator<
         isLoading: false,
       });
 
-      // 同步到 SessionHub
-      get().createSession("chat", title, sessionWithTasks.id);
+      // 同步到 SessionHub：注入 moduleType + projectId（从 moduleContext 读取）
+      get().createSession(
+        ctx.moduleType,
+        title,
+        sessionWithTasks.id,
+        sessionWithTasks.workspaceId ?? "",
+      );
 
       return sessionWithTasks;
     } catch (error) {
@@ -546,7 +557,10 @@ export const createSessionSlice: StateCreator<
       // 更新当前会话 ID + 同步 SessionHub（最后执行，触发 React 渲染）
       const t5 = performance.now();
       set({ currentSessionId: id });
-      get().createSession("chat", session.title, id);
+      // 同步 SessionHub：以「后端 workspaceId」为权威标记会话归属，而非当前
+      // currentWorktreeId —— 防止在项目 worktree 上下文中切换普通会话时
+      // 被误标为用户项目会话（导致 /chat 页侧栏过滤隐藏）。
+      get().createSession("chat", session.title, id, session.workspaceId ?? get().sessions[id]?.worktreeId ?? "");
       if (import.meta.env.DEV)
         console.info("[Diag:switch] ⑤ store 更新 + SessionHub 同步", {
           ms: (performance.now() - t5).toFixed(1),

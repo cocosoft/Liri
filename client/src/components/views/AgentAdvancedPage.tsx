@@ -56,6 +56,8 @@ function AgentAdvancedPage() {
             }>,
           );
         }
+      }).catch(() => {
+        setSwarmAgents([]);
       });
     }
   }, [activeWorkspaceId]);

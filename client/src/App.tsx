@@ -17,6 +17,7 @@ import { useConfigStore } from "./stores/configStore";
 import { useChatStore } from "./stores/chat";
 import { useSessionStore } from "./stores/sessionStore";
 import { useNavigationStore } from "./stores/navigationStore";
+import type { AppPage } from "./stores/navigationStore";
 import { useRootStore } from "./stores/root-store";
 import { registerBuiltinModules } from "./stores/root-store/moduleRegistry";
 import { useKeyboard } from "./hooks/useKeyboard";
@@ -79,7 +80,7 @@ function App() {
   useEffect(() => {
     const path = location.pathname.replace("/", "");
     const page = path === "" ? "home" : path;
-    setActivePage(page as any);
+    setActivePage(page as AppPage);
   }, [location.pathname, setActivePage]);
 
   // 知识库"发送到对话"事件监听

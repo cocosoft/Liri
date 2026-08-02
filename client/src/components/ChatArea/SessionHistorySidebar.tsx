@@ -7,6 +7,7 @@ import { sessionService } from "../../services/sessionService";
 import { getOTelTracing } from "../../monitoring/otel/OTelTracing";
 import { handleClientError } from "../../utils/handleError";
 import { createLogger } from "@/utils/logger";
+import { inferModuleTypeFromWorktreeId } from "@/stores/root-store/moduleContextSlice";
 
 const logger = createLogger("SessionHistorySidebar");
 import ConfirmDialog from "../common/ConfirmDialog";
@@ -46,8 +47,10 @@ function getSourceLabel(source?: string): string {
 }
 
 interface SessionHistorySidebarProps {
-  /** 会话作用域：缺省=普通对话（排除所有项目会话）；传项目 worktreeId=仅该项目会话 */
-  scopeWorktreeId?: string;
+  /** 模块类型覆盖（缺省从 moduleContext 读取） */
+  scopeModuleType?: import("@/stores/root-store/moduleContextSlice").ModuleType;
+  /** 项目 ID 覆盖（仅 scopeModuleType === "project" 时有效） */
+  scopeProjectId?: string;
   /** 点击会话/新建会话后的导航基础路径 */
   basePath?: string;
 }
@@ -58,7 +61,8 @@ interface SessionHistorySidebarProps {
  * 支持新建、切换、重命名、删除会话，可折叠/展开。
  */
 function SessionHistorySidebar({
-  scopeWorktreeId,
+  scopeModuleType,
+  scopeProjectId,
   basePath = "/chat",
 }: SessionHistorySidebarProps) {
   const { t } = useTranslation();
@@ -76,9 +80,10 @@ function SessionHistorySidebar({
     pinnedSessionIds,
   } = useSessionStore();
 
-  // 从 rootStore SessionHub 获取 moduleType，用于过滤非 chat 会话
+  // 从 rootStore 获取模块上下文 + Hub 记录
   const rootSessions = useRootStore((s) => s.sessions);
-  const worktrees = useRootStore((s) => s.worktrees);
+  const moduleContext = useRootStore((s) => s.moduleContext);
+  const contextReady = useRootStore((s) => s._contextReady);
 
   // 已被梦境处理的会话 ID 集合
   const dreamProcessedIds = useDreamSessionIds();
@@ -256,24 +261,27 @@ function SessionHistorySidebar({
   const filteredSessions = useMemo(() => {
     let result = sessions;
 
-    // 0. 会话作用域过滤（按 worktreeId 隔离项目会话 vs 普通对话）
-    //    建立 sessionId → worktreeId 映射
-    const wtIdBySession: Record<string, string> = {};
-    for (const s of Object.values(rootSessions)) {
-      wtIdBySession[s.id] = s.worktreeId;
-    }
-    if (scopeWorktreeId) {
-      // 项目作用域：仅该项目下的会话
-      result = result.filter((s) => wtIdBySession[s.id] === scopeWorktreeId);
-    } else {
-      // 普通对话作用域（/chat 页）：排除所有用户项目的会话
-      result = result.filter((s) => {
-        const wtId = wtIdBySession[s.id];
-        if (!wtId) return true; // 无归属 = 普通对话
-        const wt = worktrees[wtId];
-        return !(wt?.workspaceSource === "user");
-      });
-    }
+    const effectiveModuleType = scopeModuleType ?? moduleContext.moduleType;
+    const effectiveProjectId = scopeProjectId ?? moduleContext.projectId;
+
+    // 0. 模块类型 + 项目过滤（替代旧的 worktree 作用域过滤）
+    result = result.filter((s) => {
+      const hub = rootSessions[s.id];
+      if (!hub) {
+        // 无 Hub 记录：按 worktreeId 推断 moduleType（迁移过渡期兜底）
+        const inferred = inferModuleTypeFromWorktreeId(s.workspaceId ?? "");
+        if (inferred !== effectiveModuleType) return false;
+        if (effectiveModuleType === "project" && effectiveProjectId) {
+          return s.workspaceId === effectiveProjectId;
+        }
+        return true;
+      }
+      if (hub.moduleType !== effectiveModuleType) return false;
+      if (effectiveModuleType === "project" && effectiveProjectId) {
+        return hub.projectId === effectiveProjectId;
+      }
+      return true;
+    });
 
     // 1. 过滤 tab：仅保留"已固定"筛选
     if (filterTab === "pinned") {
@@ -291,7 +299,7 @@ function SessionHistorySidebar({
       );
     }
 
-    // 3. 固定会话优先（非"已固定" tab 时）
+    // 3. 固定会话优先（非"已固定" tab 时，仅在过滤后的结果中置顶）
     if (filterTab !== "pinned" && pinnedSessionIds.length > 0) {
       const pinnedSet = new Set(pinnedSessionIds);
       const pinnedItems = result.filter((s) => pinnedSet.has(s.id));
@@ -305,8 +313,9 @@ function SessionHistorySidebar({
     pinnedSessionIds,
     filterTab,
     rootSessions,
-    worktrees,
-    scopeWorktreeId,
+    moduleContext,
+    scopeModuleType,
+    scopeProjectId,
   ]);
 
   // 虚拟列表计算：仅当会话数 > 50 时启用，减少小列表开销
@@ -628,7 +637,12 @@ function SessionHistorySidebar({
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto p-2"
       >
-        {sessions.length === 0 ? (
+        {!contextReady && sessions.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mb-2" />
+            <p className="text-sm text-gray-400">加载中...</p>
+          </div>
+        ) : sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <svg
               className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2"

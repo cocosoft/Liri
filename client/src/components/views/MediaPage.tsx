@@ -13,6 +13,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useConfigStore } from "../../stores/configStore";
+import { useRootStore } from "../../stores/root-store";
 import { useMediaStore, type GalleryItem } from "../../stores/mediaStore";
 import { useVideoTaskPolling } from "../../hooks/useVideoTaskPolling";
 import { useSessionContextSync } from "../../hooks/useSessionContextSync";
@@ -84,6 +85,22 @@ interface ContextMenuState {
   item: GalleryItem;
 }
 
+/** API 响应中的图片条目 */
+interface ImageApiItem {
+  path?: string;
+  url: string;
+  width?: number;
+  height?: number;
+  alt?: string;
+}
+
+/** API 响应中的视频条目 */
+interface VideoApiItem {
+  path?: string;
+  url: string;
+  duration?: number;
+}
+
 /** 元数据响应 */
 interface ImageMetadata {
   path: string;
@@ -98,6 +115,13 @@ interface ImageMetadata {
 function MediaPage() {
   const { config } = useConfigStore();
   const isDark = config.theme === "dark";
+
+  const enterModule = useRootStore((s) => s.enterModule);
+  const leaveModule = useRootStore((s) => s.leaveModule);
+  useEffect(() => {
+    enterModule({ moduleType: "media" });
+    return () => leaveModule();
+  }, [enterModule, leaveModule]);
 
   // ──── Store ────
   const galleryItems = useMediaStore((s) => s.galleryItems);
@@ -295,13 +319,13 @@ function MediaPage() {
       q.set("page", String(page));
 
       const [imgRes, vidRes] = await Promise.all([
-        http.get<any>(`/v1/images/list?${q.toString()}`),
-        http.get<any>(`/v1/videos/list?${q.toString()}`),
+        http.get<{ images: ImageApiItem[] }>(`/v1/images/list?${q.toString()}`),
+        http.get<{ videos: VideoApiItem[] }>(`/v1/videos/list?${q.toString()}`),
       ]);
 
       const images: GalleryItem[] = (
         imgRes.ok && imgRes.data?.images ? imgRes.data.images : []
-      ).map((img: any) => ({
+      ).map((img) => ({
         id: `img:${img.path || img.url}`,
         type: "image" as const,
         url: img.url,
@@ -313,7 +337,7 @@ function MediaPage() {
 
       const videos: GalleryItem[] = (
         vidRes.ok && vidRes.data?.videos ? vidRes.data.videos : []
-      ).map((vid: any) => ({
+      ).map((vid) => ({
         id: `vid:${vid.path || vid.url}`,
         type: "video" as const,
         url: vid.url,
@@ -469,7 +493,7 @@ function MediaPage() {
         }
         const result = await imageService.generate(
           prompt.trim() || "生成一张图片",
-          genOptions as any,
+          genOptions as Parameters<typeof imageService.generate>[1],
         );
         if (result.images?.length > 0) {
           updateGenerationTask(taskId, {

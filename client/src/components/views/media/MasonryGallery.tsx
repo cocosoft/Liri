@@ -52,6 +52,8 @@ const CachedImage: React.FC<{
     // 异步生成并缓存
     generateAndCacheThumb(src).then((dataUrl) => {
       if (!cancelled) setImgSrc(dataUrl);
+    }).catch(() => {
+      // 缩略图生成失败，保持原图
     });
 
     return () => {

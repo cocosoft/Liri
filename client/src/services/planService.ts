@@ -30,12 +30,17 @@ export interface CreatePlanInput {
   steps?: string[];
 }
 
+/** 计划列表 API 响应（可能直接返回数组，或包裹在 data 字段中） */
+interface PlanListResponse {
+  data?: Plan[];
+}
+
 export const planService = {
   /** 获取所有计划 */
   list: async (): Promise<Plan[]> => {
-    const res = await http.get<any>("/v1/plans");
-    if (Array.isArray(res)) return res as Plan[];
-    if (res && Array.isArray(res.data)) return res.data as Plan[];
+    const res = await http.get<Plan[] | PlanListResponse>("/v1/plans");
+    if (Array.isArray(res)) return res;
+    if (res && Array.isArray(res.data)) return res.data;
     return [];
   },
 
@@ -159,9 +164,9 @@ export interface KanbanCard {
 export const kanbanService = {
   /** 获取所有看板卡片 */
   list: async (): Promise<KanbanCard[]> => {
-    const res: any = await http.get("/v1/kanban");
-    if (Array.isArray(res)) return res as KanbanCard[];
-    if (res?.data && Array.isArray(res.data)) return res.data as KanbanCard[];
+    const res = await http.get<KanbanCard[] | { data: KanbanCard[] }>("/v1/kanban");
+    if (Array.isArray(res)) return res;
+    if (res?.data && Array.isArray(res.data)) return res.data;
     return [];
   },
 

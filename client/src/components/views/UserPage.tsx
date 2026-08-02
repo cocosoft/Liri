@@ -77,8 +77,8 @@ function UserPage() {
       .get<{ version: string; dataDir: string; pyappHome: string }>(
         "/v1/app/info",
       )
-      .then((r: any) => {
-        if (r?.ok) setAppInfo(r.data);
+      .then((r) => {
+        setAppInfo(r);
       })
       .catch(() => {});
   }, []);

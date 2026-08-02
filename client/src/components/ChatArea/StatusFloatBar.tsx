@@ -29,7 +29,7 @@ const STATUS_COLORS: Record<string, string> = {
 /**
  * 从消息中提取最新的 TaskCard（遍历所有消息的 blocks 寻找最后一个 todo 块）
  */
-function findLatestTaskCard(messages: any[]): TaskCardData | null {
+function findLatestTaskCard(messages: Array<{ blocks?: Array<{ taskCard?: TaskCardData }> }>): TaskCardData | null {
   for (let i = messages.length - 1; i >= 0; i--) {
     const blocks = messages[i].blocks;
     if (!blocks) continue;

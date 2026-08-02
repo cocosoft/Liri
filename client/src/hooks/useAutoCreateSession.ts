@@ -17,14 +17,14 @@ const logger = createLogger("hooks:useAutoCreateSession");
 
 /**
  * 根据当前 URL 路径，自动在 SessionHub 中获取或创建对应模块的 session。
- * 仅在根 Store 已初始化（currentWorktreeId 存在）时生效。
+ * 仅在根 Store 已初始化时生效。
  *
  * URL → moduleType 映射来自 FeatureSlice 的模块注册表（CS01 归一化），
  * 而非硬编码。新增模块只需在 moduleRegistry.ts 中注册 paths 即可。
  */
 export function useAutoCreateSession(): void {
   const location = useLocation();
-  const rootCurrentWorktreeId = useRootStore((s) => s.currentWorktreeId);
+  const moduleContext = useRootStore((s) => s.moduleContext);
   const modules = useRootStore((s) => s.modules);
   const getOrCreateSession = useRootStore((s) => s.getOrCreateSession);
 
@@ -42,8 +42,6 @@ export function useAutoCreateSession(): void {
   }, [modules]);
 
   useEffect(() => {
-    if (!rootCurrentWorktreeId) return;
-
     // 精确匹配或前缀匹配（如 /office/doc → office）
     let moduleType: string | undefined;
     for (const [path, type] of Object.entries(pathToModule)) {
@@ -58,6 +56,15 @@ export function useAutoCreateSession(): void {
 
     if (!moduleType) return; // 首页等非模块页面跳过
 
+    // chat 模块：使用 enterModule 设置上下文，替代 switchWorktree
+    if (moduleType === "chat") {
+      const state = useRootStore.getState();
+      if (state.moduleContext.moduleType !== "chat") {
+        state.enterModule({ moduleType: "chat" });
+        return;
+      }
+    }
+
     const sessionId = getOrCreateSession(moduleType);
     logger.debug("Session 自动创建/恢复", {
       path: location.pathname,
@@ -66,7 +73,7 @@ export function useAutoCreateSession(): void {
     });
   }, [
     location.pathname,
-    rootCurrentWorktreeId,
+    moduleContext,
     pathToModule,
     getOrCreateSession,
   ]);

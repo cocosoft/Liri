@@ -25,6 +25,8 @@ interface ConfigStore {
   sessionChatParams: Record<string, ChatParams>;
   isLoading: boolean;
   error: string | null;
+  /** Phase 3.2: ConfigManager 数据是否已从后端加载完成 */
+  configHydrated: boolean;
   loadConfig: () => Promise<void>;
   setConfig: (key: string, value: unknown) => Promise<void>;
   setChatParams: (params: ChatParams) => Promise<void>;
@@ -32,6 +34,10 @@ interface ConfigStore {
   setSessionChatParams: (sessionId: string, params: ChatParams) => void;
   /** 读取会话级别的 chatParams（优先 session，fallback global） */
   getEffectiveChatParams: (sessionId?: string) => ChatParams;
+  /** 命名空间级设置写入（自动路由到对应后端） */
+  setSettings: (namespace: string, values: Record<string, unknown>) => Promise<void>;
+  /** 命名空间级设置读取 */
+  getSettings: <T>(namespace: string) => Promise<T>;
 }
 
 export const useConfigStore = create<ConfigStore>()(
@@ -42,6 +48,7 @@ export const useConfigStore = create<ConfigStore>()(
       sessionChatParams: {},
       isLoading: false,
       error: null,
+      configHydrated: false,
 
       loadConfig: async () => {
         set({ isLoading: true, error: null });
@@ -53,6 +60,7 @@ export const useConfigStore = create<ConfigStore>()(
             config,
             chatParams: persistedParams ?? get().chatParams,
             isLoading: false,
+            configHydrated: true,
           });
         } catch (error) {
           handleClientError(error, {
@@ -102,14 +110,63 @@ export const useConfigStore = create<ConfigStore>()(
         }
         return get().chatParams;
       },
+
+      /** 命名空间级设置写入。对 "config" namespace 逐 key 写入 config.json；
+       *  其他 namespace（soul/user/voice/system）路由到 /v1/settings/{namespace}。 */
+      setSettings: async (namespace: string, values: Record<string, unknown>) => {
+        set({ isLoading: true, error: null });
+        try {
+          if (namespace === "config") {
+            for (const [key, value] of Object.entries(values)) {
+              await configService.set(key, value);
+            }
+          } else {
+            const { httpLegacy } = await import("../services/httpClient");
+            await httpLegacy.put(`/v1/settings/${namespace}`, values);
+          }
+          set({ config: { ...get().config, ...values }, isLoading: false });
+        } catch (error) {
+          handleClientError(error, {
+            module: "stores:config",
+            action: "setSettings",
+          });
+          set({ error: String(error), isLoading: false });
+        }
+      },
+
+      /** 命名空间级设置读取 */
+      getSettings: async <T>(namespace: string): Promise<T> => {
+        if (namespace === "config") {
+          const cfg = get().config;
+          if (Object.keys(cfg).length > 0) return cfg as T;
+          await get().loadConfig();
+          return get().config as T;
+        }
+        const { httpLegacy } = await import("../services/httpClient");
+        const res = await httpLegacy.get<T>(`/v1/settings/${namespace}`);
+        return res;
+      },
     }),
     {
       name: "liri-config",
+      version: 2,
+      // Phase 3.1: 仅保留前端专用字段在 localStorage 中
+      // config 子树从后端 API (ConfigManager) 加载，不在 localStorage 冗余存储
       partialize: (state) => ({
-        config: state.config,
         chatParams: state.chatParams,
         sessionChatParams: state.sessionChatParams,
       }),
+      migrate: (persistedState: unknown, version: number) => {
+        if (version < 2) {
+          // v1→v2: 移除 config 子树，避免与 ConfigManager 不一致
+          const old = persistedState as Record<string, unknown>;
+          return {
+            chatParams: old.chatParams,
+            sessionChatParams: old.sessionChatParams,
+          };
+        }
+        return persistedState as Record<string, unknown>;
+      },
     },
   ),
 );

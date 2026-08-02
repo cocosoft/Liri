@@ -141,7 +141,6 @@ export type {
   ProjectNodeType,
   ProjectPriority,
   ProjectStatus,
-  WorkItemFilter,
   ProjectViewMode,
   // 统一任务模型（Phase A 新增）
   TaskType,

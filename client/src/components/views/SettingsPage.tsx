@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
+import { useRootStore } from "../../stores/root-store";
 import { chatService } from "../../services/chatService";
 import { appConfigService } from "../../services/appConfigService";
 import { setBackendPort as setBackendUrlPort } from "../../services/backendUrl";
@@ -262,6 +263,13 @@ function getPersistedNav(fallback: string): string {
 function SettingsPage() {
   const { t } = useTranslation();
   const { config, setConfig } = useConfigStore();
+  const enterModule = useRootStore((s) => s.enterModule);
+  const leaveModule = useRootStore((s) => s.leaveModule);
+  useEffect(() => {
+    enterModule({ moduleType: "system" });
+    return () => leaveModule();
+  }, [enterModule, leaveModule]);
+
   const [activeNav, setActiveNav] = useState(() => getPersistedNav("config"));
   const [backendStatus, setBackendStatus] = useState<BackendStatus>({
     running: false,
@@ -350,8 +358,9 @@ function SettingsPage() {
           setMigrationResult(null);
         }, 8000);
       }
-    } catch (e: any) {
-      setDataDirError(e.response?.data?.error?.message || "保存失败");
+    } catch (e) {
+      const err = e as { response?: { data?: { error?: { message?: string } } } };
+      setDataDirError(err.response?.data?.error?.message || "保存失败");
     } finally {
       setMigrating(false);
     }
@@ -473,7 +482,7 @@ function SettingsPage() {
               {(() => {
                 for (const group of NAV_GROUPS) {
                   const item = group.items.find((i) => i.id === activeNav);
-                  if (item) return t(item.labelKey as any);
+                  if (item) return t(item.labelKey);
                 }
                 return "";
               })()}
@@ -489,7 +498,7 @@ function SettingsPage() {
                 return (
                   <div className="px-6 pt-6 pb-4">
                     <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                      {t(item.labelKey as any)}
+                      {t(item.labelKey)}
                     </h1>
                     {(() => {
                       const desc = PAGE_DESCRIPTIONS[activeNav];

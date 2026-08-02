@@ -13,6 +13,7 @@ import {
   getModuleMeta,
   MODULE_TYPES,
 } from "@/stores/root-store/moduleRegistry";
+import { resolveWorktreeId } from "@/stores/root-store/moduleContextSlice";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("SessionSliceList");
@@ -41,21 +42,28 @@ export interface SessionSliceListProps {
 export function SessionSliceList({
   maxItems = 100,
 }: SessionSliceListProps): React.ReactElement | null {
-  const currentWorktreeId = useRootStore((s) => s.currentWorktreeId);
+  const moduleContext = useRootStore((s) => s.moduleContext);
+  const contextReady = useRootStore((s) => s._contextReady);
   const allSessions = useRootStore((s) => s.sessions);
   const currentSessionId = useRootStore((s) => s.currentSessionId);
   const switchSession = useRootStore((s) => s.switchSession);
+
+  // 从 moduleContext 派生当前 worktree 作用域（替代直接读 currentWorktreeId）
+  const scopeWorktreeId = useMemo(
+    () => resolveWorktreeId(moduleContext.moduleType, moduleContext.projectId),
+    [moduleContext.moduleType, moduleContext.projectId],
+  );
 
   // 模块类型筛选状态：默认显示全部
   const [filterModule, setFilterModule] = useState<string>("all");
 
   // 派生当前 worktree 下的 session 列表
   const sessions = useMemo(() => {
-    if (!currentWorktreeId) return [];
+    if (!scopeWorktreeId) return [];
     return Object.values(allSessions).filter(
-      (s) => s.worktreeId === currentWorktreeId,
+      (s) => s.worktreeId === scopeWorktreeId,
     );
-  }, [allSessions, currentWorktreeId]);
+  }, [allSessions, scopeWorktreeId]);
 
   // 按模块类型筛选
   const filteredSessions = useMemo(() => {
@@ -77,7 +85,8 @@ export function SessionSliceList({
     return ["all", ...MODULE_TYPES.filter((t) => moduleCounts[t] > 0)];
   }, [moduleCounts]);
 
-  if (!currentWorktreeId || sessions.length === 0) {
+  // 等待 context 就绪（rehydrate 完成后才渲染，避免闪烁旧数据）
+  if (!contextReady || !scopeWorktreeId || sessions.length === 0) {
     return null;
   }
 

@@ -347,19 +347,43 @@ export function disconnectVoiceWebSocket(): void {
 }
 
 const voiceService = {
+  /**
+   * 获取语音设置
+   * Phase 2.3: 端点从 /v1/voice/settings 迁移到统一设置端点
+   *   GET /v1/settings/voice，存储后端为 ConfigManager。
+   *   响应格式: { namespace, value: VoiceSettings }
+   */
   async getSettings(): Promise<VoiceSettings> {
-    const response = await http.get<VoiceSettings>("/v1/voice/settings");
-    return response;
+    const response = await http.get<{ namespace: string; value: VoiceSettings; success?: boolean }>("/v1/settings/voice");
+    if (response?.value && response.value.config) {
+      return response.value;
+    }
+    // 回退：旧端点格式
+    const legacyResponse = await http.get<VoiceSettings>("/v1/voice/settings");
+    return legacyResponse;
   },
 
+  /**
+   * 更新语音设置
+   * Phase 2.3: 端点从 /v1/voice/settings 迁移到统一设置端点
+   */
   async updateSettings(
     settings: Partial<VoiceSettings>,
   ): Promise<VoiceSettings> {
-    const response = await http.put<VoiceSettings>(
+    const response = await http.put<{ success: boolean; value: VoiceSettings; namespace: string }>(
+      "/v1/settings/voice",
+      settings,
+    );
+    // 新 API 返回 { success, namespace, value }，value 中即为 VoiceSettings
+    if (response?.value && response.value.config) {
+      return response.value;
+    }
+    // 回退：旧端点格式
+    const legacyResponse = await http.put<VoiceSettings>(
       "/v1/voice/settings",
       settings,
     );
-    return response;
+    return legacyResponse;
   },
 
   async startSession(): Promise<VoiceSession> {

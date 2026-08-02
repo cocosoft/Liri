@@ -23,6 +23,7 @@ export default function ProjectView() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const enterModule = useRootStore((s) => s.enterModule);
   const switchWorktree = useRootStore((s) => s.switchWorktree);
   const switchSession = useRootStore((s) => s.switchSession);
   const createChatSession = useRootStore((s) => s.createChatSession);
@@ -38,6 +39,9 @@ export default function ProjectView() {
     const wid = workspaceId;
 
     async function init() {
+      // 设置模块上下文：moduleType=project + projectId
+      enterModule({ moduleType: "project", projectId: wid, projectName: wt!.name });
+      // workspace 级加载（git/knowledge 等，保留向后兼容）
       await switchWorktree(wid);
 
       const state = useRootStore.getState();
@@ -134,7 +138,7 @@ export default function ProjectView() {
 
       {/* 主体 */}
       <div className="flex flex-1 min-h-0">
-        <SessionHistorySidebar />
+        <SessionHistorySidebar scopeModuleType="project" scopeProjectId={workspaceId} />
         <ChatArea />
       </div>
 

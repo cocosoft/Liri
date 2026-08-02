@@ -20,6 +20,8 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
     appConfigService.get().then((config) => {
       setDataDir(config.dataDir);
       setHttpPort(config.httpPort);
+    }).catch((e) => {
+      setError(String(e));
     });
   }, []);
 

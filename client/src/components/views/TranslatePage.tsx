@@ -1059,6 +1059,8 @@ function TranslatePage() {
                     a.download = "translate-history.json";
                     a.click();
                     URL.revokeObjectURL(url);
+                  }).catch(() => {
+                    // 导出失败静默降级
                   });
                 }}
                 className={`w-full px-3 py-1.5 rounded-lg text-xs border-0 cursor-pointer ${btnSecondary}`}

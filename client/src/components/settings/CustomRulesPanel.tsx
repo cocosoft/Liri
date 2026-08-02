@@ -66,7 +66,7 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
   const loadConfig = async () => {
     try {
       const res = await http.get<{ key: string; value: PermissionConfig }>(
-        "/v1/config/permission",
+        "/v1/config/permission.rules",
       );
       if (res?.value?.customRules) {
         setConfig(res.value.customRules);
@@ -92,12 +92,8 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
     setSaved(false);
     setError(null);
     try {
-      const res = await http.get<{ key: string; value: PermissionConfig }>(
-        "/v1/config/permission",
-      );
-      const existing = res?.value || {};
-      await http.put("/v1/config/permission", {
-        value: { ...existing, customRules: config },
+      await http.put("/v1/config/permission.rules", {
+        value: { customRules: config },
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);

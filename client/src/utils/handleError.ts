@@ -12,6 +12,9 @@
 import { AppError, ErrorCategory, ErrorSeverity } from "../error/types";
 import { getOTelTracing } from "../monitoring/otel/OTelTracing";
 import { getBackendBaseUrl, getApiSecret } from "../services/backendUrl";
+import { createLogger } from "./logger";
+
+const logger = createLogger("error:handler");
 
 /**
  * 统一错误处理选项
@@ -197,11 +200,11 @@ export function handleClientError(
   };
 
   if (appError.severity === ErrorSeverity.CRITICAL) {
-    console.error(`[${module}] ${appError.message}`, logMeta, appError.stack);
+    logger.error(appError.message, { ...logMeta, stack: appError.stack });
   } else if (appError.severity === ErrorSeverity.HIGH) {
-    console.warn(`[${module}] ${appError.message}`, logMeta);
+    logger.warn(appError.message, logMeta);
   } else {
-    console.log(`[${module}] ${appError.message}`, logMeta);
+    logger.info(appError.message, logMeta);
   }
 
   // 4. 内存统计

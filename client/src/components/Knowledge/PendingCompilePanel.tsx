@@ -82,7 +82,7 @@ function PendingCompilePanel({
       setCompileResult({
         message: msg,
         hasError,
-        failedDocs: (result as any).failedDocs || [],
+        failedDocs: [],
       });
       await loadRawFiles();
       onCompileComplete?.();

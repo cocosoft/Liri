@@ -162,6 +162,8 @@ export interface SessionRecord {
   id: string;
   moduleType: string;
   worktreeId: string;
+  /** 所属项目 ID（仅 project 模块） */
+  projectId?: string;
   title: string;
   createdAt: number;
   updatedAt: number;

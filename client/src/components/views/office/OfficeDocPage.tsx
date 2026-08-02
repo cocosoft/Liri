@@ -80,11 +80,11 @@ export default function OfficeDocPage() {
   async function fetchDocStatus() {
     try {
       const res = await officeService.getDocStatus();
-      if ((res as any)?.ok === false) {
+      if (res.ok === false) {
         setError(t("office.docStatusError", "获取文档状态失败"));
         return;
       }
-      const data = (res as any)?.data?.data || (res as any)?.data || {};
+      const data = res.data?.data ?? {};
       setDocStatus(
         data?.officeCliInfo?.installed ? "active" : "degraded",
         data?.templates ?? [],

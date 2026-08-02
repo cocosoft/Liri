@@ -20,6 +20,7 @@ export interface ChatOptions {
   model?: string;
   maxTokens?: number;
   temperature?: number;
+  top_p?: number;
   thinking?: ThinkingConfig;
   /** AbortSignal 用于取消进行中的 LLM 请求 */
   signal?: AbortSignal;

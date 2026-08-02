@@ -626,9 +626,19 @@ export interface SendMessageOptions {
   temperature?: number;
 
   /**
+   * Top P 核采样阈值 (0-1)
+   */
+  top_p?: number;
+
+  /**
    * 最大token数
    */
   maxTokens?: number;
+
+  /**
+   * 自定义系统提示词（覆盖默认）
+   */
+  systemPrompt?: string;
 
   /**
    * 是否使用共享上下文

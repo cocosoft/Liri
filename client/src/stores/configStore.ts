@@ -21,11 +21,17 @@ const DEFAULT_CHAT_PARAMS: ChatParams = {
 interface ConfigStore {
   config: Record<string, unknown>;
   chatParams: ChatParams;
+  /** 会话级别的 chatParams 覆盖（sessionId → ChatParams） */
+  sessionChatParams: Record<string, ChatParams>;
   isLoading: boolean;
   error: string | null;
   loadConfig: () => Promise<void>;
   setConfig: (key: string, value: unknown) => Promise<void>;
   setChatParams: (params: ChatParams) => Promise<void>;
+  /** 保存会话级别的 chatParams */
+  setSessionChatParams: (sessionId: string, params: ChatParams) => void;
+  /** 读取会话级别的 chatParams（优先 session，fallback global） */
+  getEffectiveChatParams: (sessionId?: string) => ChatParams;
 }
 
 export const useConfigStore = create<ConfigStore>()(
@@ -33,6 +39,7 @@ export const useConfigStore = create<ConfigStore>()(
     (set, get) => ({
       config: {},
       chatParams: { ...DEFAULT_CHAT_PARAMS },
+      sessionChatParams: {},
       isLoading: false,
       error: null,
 
@@ -81,12 +88,27 @@ export const useConfigStore = create<ConfigStore>()(
           // configService 内部有 memory fallback + handleClientError
         });
       },
+
+      setSessionChatParams: (sessionId: string, params: ChatParams) => {
+        set({
+          sessionChatParams: { ...get().sessionChatParams, [sessionId]: params },
+        });
+      },
+
+      getEffectiveChatParams: (sessionId?: string): ChatParams => {
+        if (sessionId) {
+          const sessionParams = get().sessionChatParams[sessionId];
+          if (sessionParams) return sessionParams;
+        }
+        return get().chatParams;
+      },
     }),
     {
       name: "liri-config",
       partialize: (state) => ({
         config: state.config,
         chatParams: state.chatParams,
+        sessionChatParams: state.sessionChatParams,
       }),
     },
   ),

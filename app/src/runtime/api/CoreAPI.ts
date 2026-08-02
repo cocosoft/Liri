@@ -66,6 +66,8 @@ export interface ChatRequest {
   top_p?: number;
   /** 最大输出 token 数 */
   max_tokens?: number;
+  /** 自定义系统提示词（覆盖默认） */
+  systemPrompt?: string;
 }
 
 /** 聊天响应 */

@@ -368,6 +368,8 @@ export class CoreAPIImpl implements CoreAPI {
         images: request.images,
         temperature: request.temperature,
         maxTokens: request.max_tokens,
+        top_p: request.top_p,
+        systemPrompt: request.systemPrompt,
       });
 
       // 检查是否返回了待处理的用户交互（非流式路径）
@@ -501,6 +503,8 @@ export class CoreAPIImpl implements CoreAPI {
         onProgress: request.onProgress,
         temperature: request.temperature,
         maxTokens: request.max_tokens,
+        top_p: request.top_p,
+        systemPrompt: request.systemPrompt,
         onUsage: (usage) => {
           capturedUsage = {
             inputTokens: usage.inputTokens,

@@ -111,6 +111,8 @@ export interface TransportRequestParams {
   systemPrompt?: string;
   /** 采样温度 */
   temperature?: number;
+  /** Top P 核采样阈值 (0-1) */
+  top_p?: number;
   /** 最大输出Token数 */
   maxTokens?: number;
   /** 停止序列 */

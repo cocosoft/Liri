@@ -134,6 +134,11 @@ export class ChatCompletionsTransport extends BaseTransport {
       temperature: params.temperature ?? 1.0,
     };
 
+    // 传递 top_p（若指定）
+    if (params.top_p !== undefined) {
+      request.top_p = params.top_p;
+    }
+
     // 仅在存在有效工具时添加工具字段
     if (tools && tools.length > 0) {
       request.tools = tools;

@@ -273,12 +273,14 @@ export const chatService = {
       // 获取当前工作空间路径，注入工具默认 cwd
       const workspacePath = await getWorkspacePath();
 
+      const chatParams = useConfigStore.getState().getEffectiveChatParams(sessionId);
       const body: Record<string, unknown> = {
         model: getModelFromConfig(),
         messages: [{ role: "user", content }],
-        max_tokens: useConfigStore.getState().chatParams.maxTokens,
-        temperature: useConfigStore.getState().chatParams.temperature,
-        top_p: useConfigStore.getState().chatParams.topP,
+        max_tokens: chatParams.maxTokens,
+        temperature: chatParams.temperature,
+        top_p: chatParams.topP,
+        system_prompt: chatParams.systemPrompt || undefined,
       };
       if (sessionId) body.session_id = sessionId;
       if (workspacePath) body.workspace_path = workspacePath;
@@ -339,12 +341,14 @@ export const chatService = {
       // 获取当前工作空间路径，注入工具默认 cwd
       const workspacePath = await getWorkspacePath();
 
+      const chatParams = useConfigStore.getState().getEffectiveChatParams(sessionId);
       const body: Record<string, unknown> = {
         model: getModelFromConfig(),
         messages: [{ role: "user", content }],
-        max_tokens: useConfigStore.getState().chatParams.maxTokens,
-        temperature: useConfigStore.getState().chatParams.temperature,
-        top_p: useConfigStore.getState().chatParams.topP,
+        max_tokens: chatParams.maxTokens,
+        temperature: chatParams.temperature,
+        top_p: chatParams.topP,
+        system_prompt: chatParams.systemPrompt || undefined,
         stream: true,
       };
       if (sessionId) body.session_id = sessionId;

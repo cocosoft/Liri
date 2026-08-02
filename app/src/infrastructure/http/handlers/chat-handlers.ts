@@ -63,8 +63,9 @@ interface ChatCompletionRequest {
   top_p?: number;
   stream?: boolean;
   session_id?: string;
-  workspace_path?: string; // 方案 C：工作空间路径，用于工具执行默认 cwd
+  workspace_path?: string;
   images?: Array<{ path: string; url: string; filename: string; size: number }>;
+  system_prompt?: string;
 }
 
 interface ChatCompletionResponse {
@@ -179,6 +180,7 @@ async function handleNormalChat(
       temperature: request.temperature,
       top_p: request.top_p,
       max_tokens: request.max_tokens,
+      systemPrompt: request.system_prompt,
     };
 
     const response = await coreAPI.chat(chatRequest);
@@ -405,6 +407,7 @@ async function handleStreamingChat(
       temperature: request.temperature,
       top_p: request.top_p,
       max_tokens: request.max_tokens,
+      systemPrompt: request.system_prompt,
       /** 上下文水位监测 → SSE context_state 事件桥接 */
       onProgress: (event) => {
         if (event.watermarkState) {

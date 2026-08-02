@@ -1637,10 +1637,8 @@ export class ChatManagerImpl implements ChatManager {
         );
 
         if (!hasSystemMessage) {
-          const sysPrompt = await this.getOrAssembleSystemPrompt(
-            session,
-            content
-          );
+          const sysPrompt = options?.systemPrompt
+            || await this.getOrAssembleSystemPrompt(session, content);
           apiMessages.unshift({ role: 'system', content: sysPrompt });
         }
 
@@ -2787,10 +2785,8 @@ export class ChatManagerImpl implements ChatManager {
         (m: Record<string, unknown>) => m.role === 'system'
       );
       if (!hasSystemMessage) {
-        const sysPrompt = await this.getOrAssembleSystemPrompt(
-          session,
-          content
-        );
+        const sysPrompt = options?.systemPrompt
+          || await this.getOrAssembleSystemPrompt(session, content);
         apiMessages.unshift({ role: 'system', content: sysPrompt });
       }
 

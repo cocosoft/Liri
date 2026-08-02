@@ -4,12 +4,13 @@
  */
 
 import React from "react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useModelSwitchStore } from "../../stores/modelSwitchStore";
 import { useConfigStore } from "../../stores/configStore";
+import { useSessionStore } from "../../stores/sessionStore";
 
 const SAVE_SCOPES = [
-  { value: "session", label: "仅当前会话（不持久化）" },
+  { value: "session", label: "仅当前会话" },
   { value: "global", label: "全局默认（影响新对话）" },
   { value: "model", label: "模型预设（切换模型时自动应用）" },
 ] as const;
@@ -69,19 +70,36 @@ function SliderControlImpl({
 const SliderControl = React.memo(SliderControlImpl);
 
 function SettingsTab() {
-  const chatParams = useConfigStore((s) => s.chatParams);
   const setChatParams = useConfigStore((s) => s.setChatParams);
+  const setSessionChatParams = useConfigStore((s) => s.setSessionChatParams);
+  const getEffectiveChatParams = useConfigStore((s) => s.getEffectiveChatParams);
+  const currentSession = useSessionStore((s) => s.currentSession);
   const { isLoading } = useModelSwitchStore();
 
-  const [temperature, setTemperature] = useState(chatParams.temperature);
-  const [topP, setTopP] = useState(chatParams.topP);
-  const [maxTokens, setMaxTokens] = useState(chatParams.maxTokens);
-  const [systemPrompt, setSystemPrompt] = useState(chatParams.systemPrompt);
+  const effectiveParams = getEffectiveChatParams(currentSession?.id);
+  const [temperature, setTemperature] = useState(effectiveParams.temperature);
+  const [topP, setTopP] = useState(effectiveParams.topP);
+  const [maxTokens, setMaxTokens] = useState(effectiveParams.maxTokens);
+  const [systemPrompt, setSystemPrompt] = useState(effectiveParams.systemPrompt);
   const [saveScope, setSaveScope] = useState<string>("global");
 
   const handleSave = useCallback(async () => {
-    await setChatParams({ temperature, topP, maxTokens, systemPrompt });
-  }, [temperature, topP, maxTokens, systemPrompt, setChatParams]);
+    const params = { temperature, topP, maxTokens, systemPrompt };
+    if (saveScope === "session" && currentSession?.id) {
+      setSessionChatParams(currentSession.id, params);
+    } else {
+      await setChatParams(params);
+    }
+  }, [temperature, topP, maxTokens, systemPrompt, saveScope, currentSession?.id, setChatParams, setSessionChatParams]);
+
+  // 会话切换时同步参数到编辑区
+  useEffect(() => {
+    const p = getEffectiveChatParams(currentSession?.id);
+    setTemperature(p.temperature);
+    setTopP(p.topP);
+    setMaxTokens(p.maxTokens);
+    setSystemPrompt(p.systemPrompt);
+  }, [currentSession?.id, getEffectiveChatParams]);
 
   return (
     <div className="p-3 space-y-5">

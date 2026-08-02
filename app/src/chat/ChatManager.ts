@@ -660,6 +660,12 @@ export class ChatManagerImpl implements ChatManager {
       session.updatedAt = new Date();
       session.metadata.lastActivityAt = new Date();
       session.metadata.totalMessages = session.messages.length;
+      // 会话恢复后清除崩溃标记（正常使用说明已恢复）
+      if (session.metadata.crashRecovery) {
+        delete session.metadata.crashRecovery;
+        delete session.metadata.crashedAt;
+        delete session.metadata.lastActivityBeforeCrash;
+      }
     }
     const persistPromise = (async () => {
       try {
@@ -832,11 +838,54 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * 清理超过 24 小时的残留 PID 锁文件
+   * 这些文件由非正常退出（崩溃/强杀）留下，过期后无意义
+   */
+  private async _cleanStalePidFiles(): Promise<void> {
+    try {
+      const { resolveSessionsDir } = await import('@modules/core');
+      const { readdirSync, statSync, unlinkSync, existsSync } = require('fs');
+      const { join } = require('path');
+      const pidDir = join(resolveSessionsDir(), 'pid');
+      if (!existsSync(pidDir)) return;
+
+      const now = Date.now();
+      const STALE_MS = 24 * 60 * 60 * 1000; // 24 小时
+      const entries = readdirSync(pidDir);
+      let cleaned = 0;
+
+      for (const entry of entries) {
+        try {
+          const filePath = join(pidDir, entry);
+          const stat = statSync(filePath);
+          if (now - stat.mtimeMs > STALE_MS) {
+            unlinkSync(filePath);
+            cleaned++;
+          }
+        } catch {
+          // 单项清理失败，跳过
+        }
+      }
+
+      if (cleaned > 0) {
+        logger.info(`清理了 ${cleaned} 个过期 PID 锁文件`);
+      }
+    } catch {
+      // 非关键路径，静默降级
+    }
+  }
+
+  /**
    * 初始化
    */
   async initialize(): Promise<void> {
     this.llmClient?.initialize();
     await this.ensureSessionsLoaded();
+
+    // 清理超过 24 小时的残留 PID 锁文件
+    this._cleanStalePidFiles().catch((err) => {
+      handleError(err, { module: 'chat:manager', action: 'cleanPidFiles' });
+    });
 
     // 启动会话活跃度追踪（心跳 + 并发控制）
     this.sessionAccess.ensureActivityTracker();
@@ -1637,8 +1686,9 @@ export class ChatManagerImpl implements ChatManager {
         );
 
         if (!hasSystemMessage) {
-          const sysPrompt = options?.systemPrompt
-            || await this.getOrAssembleSystemPrompt(session, content);
+          const sysPrompt =
+            options?.systemPrompt ||
+            (await this.getOrAssembleSystemPrompt(session, content));
           apiMessages.unshift({ role: 'system', content: sysPrompt });
         }
 
@@ -2785,8 +2835,9 @@ export class ChatManagerImpl implements ChatManager {
         (m: Record<string, unknown>) => m.role === 'system'
       );
       if (!hasSystemMessage) {
-        const sysPrompt = options?.systemPrompt
-          || await this.getOrAssembleSystemPrompt(session, content);
+        const sysPrompt =
+          options?.systemPrompt ||
+          (await this.getOrAssembleSystemPrompt(session, content));
         apiMessages.unshift({ role: 'system', content: sysPrompt });
       }
 

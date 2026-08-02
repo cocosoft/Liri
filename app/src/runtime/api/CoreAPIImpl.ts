@@ -1221,16 +1221,25 @@ export class CoreAPIImpl implements CoreAPI {
   async listSessions(): Promise<SessionInfo[]> {
     const sessions = this.sessionManager.getSessions();
 
-    return sessions.map((session) => ({
-      id: session.id,
-      title: session.title,
-      createdAt: session.createdAt,
-      updatedAt: session.updatedAt,
-      messageCount: countConversationMessages(session.messages),
-      roundCount: countUserMessages(session.messages),
-      source: this._resolveSessionSource(session),
-      metadata: session.metadata,
-    }));
+    return sessions
+      // 过滤空壳会话：崩溃残留，有 session.json 但无消息
+      .filter((session) => {
+        const msgCount = countConversationMessages(session.messages);
+        if (msgCount > 0) return true;
+        // 有消息的会话一定保留；无消息但有崩溃标记的是空壳，过滤掉
+        const crashRecovery = (session.metadata as Record<string, unknown> | undefined)?.crashRecovery;
+        return !crashRecovery;
+      })
+      .map((session) => ({
+        id: session.id,
+        title: session.title,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+        messageCount: countConversationMessages(session.messages),
+        roundCount: countUserMessages(session.messages),
+        source: this._resolveSessionSource(session),
+        metadata: session.metadata,
+      }));
   }
 
   /** 轻量列出会话元数据 — 只读文件头 64KB，不加载完整会话 */

@@ -1305,7 +1305,7 @@ export class CoreAPIImpl implements CoreAPI {
     } else {
       logger.warn(
         `renameSession: 会话 ${sessionId} 不在内存中，仅持久化到存储`,
-        { sessionId, title },
+        { sessionId, title }
       );
     }
 
@@ -1324,7 +1324,7 @@ export class CoreAPIImpl implements CoreAPI {
         } else {
           logger.warn(
             `renameSession: 会话 ${sessionId} 不在存储中，持久化被跳过`,
-            { sessionId, title },
+            { sessionId, title }
           );
         }
       }

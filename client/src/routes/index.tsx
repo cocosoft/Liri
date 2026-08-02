@@ -8,7 +8,6 @@ import {
 import type { RouteObject } from "react-router-dom";
 import AuthGuard from "../components/common/AuthGuard";
 import ChatPageLayout from "../components/layout/ChatPageLayout";
-import { useRootStore } from "../stores/root-store";
 
 /** /workspace/:id → /projects/:id 重定向 */
 function WorkspaceRedirect() {
@@ -20,17 +19,6 @@ function WorkspaceRedirect() {
   const location = useLocation();
   useEffect(() => {
     const target = `/projects/${workspaceId}${sessionId ? `/${sessionId}` : ""}${location.search}`;
-    navigate(target, { replace: true });
-  }, []);
-  return null;
-}
-
-/** /work → /workspace/:currentWorktreeId/work 重定向 */
-function WorkRedirect() {
-  const currentWorktreeId = useRootStore((s) => s.currentWorktreeId);
-  const navigate = useNavigate();
-  useEffect(() => {
-    const target = `/workspace/${currentWorktreeId || "default"}/work`;
     navigate(target, { replace: true });
   }, []);
   return null;
@@ -68,9 +56,6 @@ const LiriPage = lazy(() => import("../components/views/LiriPage"));
 const LoopPanel = lazy(() => import("../components/views/LoopPanel"));
 
 const TaskCenterPage = lazy(() => import("../components/views/TaskCenterPage"));
-const WorkPageLayout = lazy(
-  () => import("../components/Workspace/WorkPageLayout"),
-);
 const ProjectsPage = lazy(() => import("../components/views/ProjectsPage"));
 const ProjectOutputPage = lazy(
   () => import("../components/views/ProjectOutputPage"),
@@ -426,23 +411,6 @@ export const routes: RouteObject[] = [
       </AuthGuard>
     ),
   },
-
-  // 工作模块快捷入口
-  { path: "/work", element: <WorkRedirect /> },
-
-  // 工作界面（功能开关：VITE_FEATURE_WORK_MODULE=disabled 时不注册）
-  ...(import.meta.env.VITE_FEATURE_WORK_MODULE !== "disabled"
-    ? [
-        {
-          path: "/workspace/:id/work",
-          element: (
-            <AuthGuard>
-              <WorkPageLayout />
-            </AuthGuard>
-          ),
-        } as RouteObject,
-      ]
-    : []),
 
   // 频道管理
   {

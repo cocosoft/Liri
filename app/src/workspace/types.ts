@@ -256,6 +256,29 @@ export interface LiriDetectionResult {
 /** 项目状态 */
 export type ProjectStatus = 'active' | 'paused' | 'completed' | 'archived';
 
+/** 项目阶段 */
+export type ProjectPhase = 'draft' | 'active' | 'archived' | 'completed';
+
+/** 项目上下文类型（映射到 rules.md ### [type] 标记） */
+export type ProjectContextType =
+  | 'goal'
+  | 'scope'
+  | 'constraint'
+  | 'requirement'
+  | 'knowledge';
+
+/** 项目上下文条目（从 rules.md 解析的结构化视图） */
+export interface ProjectContext {
+  /** 上下文类型对应的 type 标记 */
+  type: ProjectContextType;
+  /** 条目内容 */
+  content: string;
+  /** 所属领域（rules.md 的 ## 节标题） */
+  domain?: string;
+  /** 来源行号 */
+  line: number;
+}
+
 /** 项目 */
 export interface Project {
   /** 唯一标识 */
@@ -268,6 +291,8 @@ export interface Project {
   description: string;
   /** 项目状态 */
   status: ProjectStatus;
+  /** 项目阶段（内部字段，不暴露到 UI） */
+  phase: ProjectPhase;
   /** 关联的工作项 ID 列表 */
   workItemIds: string[];
   /** 项目级规则文件路径（相对于 .liri/） */

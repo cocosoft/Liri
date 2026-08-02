@@ -24,8 +24,6 @@ import type {
 } from './types';
 import { WorkItemStore } from './WorkItemStore';
 
-import { handleError } from '@modules/error';
-
 /** 项目存储子目录 */
 const PROJECTS_DIR = 'projects';
 
@@ -129,9 +127,16 @@ export class ProjectStore {
   }
 
   /**
-   * 获取项目文件路径
+   * 获取项目文件路径（v3.1: 目录结构 <id>/project.json）
    */
   private getFilePath(id: string): string {
+    return join(this.storeDir, id, 'project.json');
+  }
+
+  /**
+   * 获取旧版项目文件路径（<id>.json，惰性迁移用）
+   */
+  private getLegacyFilePath(id: string): string {
     return join(this.storeDir, `${id}.json`);
   }
 
@@ -143,30 +148,99 @@ export class ProjectStore {
   }
 
   /**
+   * 读取项目（兼容旧路径，惰性迁移到新路径）
+   */
+  private _readProject(id: string): Project | null {
+    const newPath = this.getFilePath(id);
+    if (existsSync(newPath)) {
+      try {
+        return JSON.parse(readFileSync(newPath, 'utf-8')) as Project;
+      } catch {
+        return null;
+      }
+    }
+
+    // 惰性迁移：旧路径存在则迁移到新路径
+    const legacyPath = this.getLegacyFilePath(id);
+    if (existsSync(legacyPath)) {
+      try {
+        const project = JSON.parse(
+          readFileSync(legacyPath, 'utf-8')
+        ) as Project;
+        // 补足可能缺失的 phase 字段
+        if (!project.phase) {
+          project.phase =
+            project.status === 'completed'
+              ? 'completed'
+              : project.status === 'archived'
+                ? 'archived'
+                : 'active';
+        }
+        this.save(project); // 写入新路径
+        // 不删除旧文件以保安全，后续版本清理
+        return project;
+      } catch {
+        return null;
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * 列出工作空间中所有项目
    */
   list(workspaceId: string): Project[] {
     this.ensureDir();
 
     try {
-      const files = readdirSync(this.storeDir);
+      const entries = readdirSync(this.storeDir, { withFileTypes: true });
       const projects: Project[] = [];
+      const seen = new Set<string>();
 
-      for (const file of files) {
-        if (!file.endsWith('.json')) continue;
-        try {
-          const content = readFileSync(join(this.storeDir, file), 'utf-8');
-          const project = JSON.parse(content) as Project;
-          if (project.workspaceId === workspaceId) {
-            projects.push(project);
+      for (const entry of entries) {
+        // 新路径：子目录中的 project.json
+        if (entry.isDirectory()) {
+          const projectPath = join(this.storeDir, entry.name, 'project.json');
+          if (existsSync(projectPath)) {
+            try {
+              const content = readFileSync(projectPath, 'utf-8');
+              const project = JSON.parse(content) as Project;
+              if (project.workspaceId === workspaceId) {
+                projects.push(project);
+                seen.add(project.id);
+              }
+            } catch {
+              // skip corrupted
+            }
           }
-        } catch (err) {
-          // 跳过损坏的文件
+        }
+        // 旧路径：<id>.json 文件（惰性迁移）
+        else if (entry.isFile() && entry.name.endsWith('.json')) {
+          const legacyPath = join(this.storeDir, entry.name);
+          const id = entry.name.replace(/\.json$/, '');
+          if (seen.has(id)) continue; // 新路径已有
 
-          handleError(err, {
-            module: 'workspace:ProjectStore',
-            action: 'skipCorruptedFile',
-          });
+          try {
+            const content = readFileSync(legacyPath, 'utf-8');
+            const project = JSON.parse(content) as Project;
+            if (project.workspaceId === workspaceId) {
+              // 补足缺失字段并迁移
+              if (!project.phase) {
+                project.phase =
+                  project.status === 'completed'
+                    ? 'completed'
+                    : project.status === 'archived'
+                      ? 'archived'
+                      : 'active';
+              }
+              this.save(project); // 写入新路径
+              projects.push(project);
+              seen.add(project.id);
+            }
+          } catch {
+            // skip corrupted
+          }
         }
       }
 
@@ -185,22 +259,18 @@ export class ProjectStore {
    * 获取单个项目
    */
   get(id: string): Project | null {
-    const filePath = this.getFilePath(id);
-    if (!existsSync(filePath)) return null;
-
-    try {
-      const content = readFileSync(filePath, 'utf-8');
-      return JSON.parse(content) as Project;
-    } catch {
-      return null;
-    }
+    return this._readProject(id);
   }
 
   /**
-   * 保存项目
+   * 保存项目（写入新目录结构 <id>/project.json）
    */
   save(project: Project): void {
     this.ensureDir();
+    const dirPath = join(this.storeDir, project.id);
+    if (!existsSync(dirPath)) {
+      mkdirSync(dirPath, { recursive: true });
+    }
     const filePath = this.getFilePath(project.id);
     writeFileSync(filePath, JSON.stringify(project, null, 2), 'utf-8');
   }
@@ -226,6 +296,7 @@ export class ProjectStore {
       name: params.name,
       description: params.description || '',
       status: 'active',
+      phase: 'active',
       workItemIds: [],
       template: params.template,
       tags: params.tags || [],
@@ -267,15 +338,29 @@ export class ProjectStore {
    * 删除项目
    */
   delete(id: string): boolean {
-    const filePath = this.getFilePath(id);
-    if (!existsSync(filePath)) return false;
+    const newPath = this.getFilePath(id);
+    const legacyPath = this.getLegacyFilePath(id);
+    let deleted = false;
 
     try {
-      unlinkSync(filePath);
-      return true;
+      if (existsSync(newPath)) {
+        unlinkSync(newPath);
+        deleted = true;
+      }
     } catch {
-      return false;
+      /* ignore */
     }
+
+    try {
+      if (existsSync(legacyPath)) {
+        unlinkSync(legacyPath);
+        deleted = true;
+      }
+    } catch {
+      /* ignore */
+    }
+
+    return deleted;
   }
 
   /**

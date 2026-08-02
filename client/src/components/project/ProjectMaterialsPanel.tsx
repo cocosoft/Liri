@@ -11,6 +11,7 @@ import { fetchProjectContext, type ProjectContext } from '../../services/project
 
 interface Props {
   projectId: string;
+  refreshKey?: number;
 }
 
 /** type → icon 映射 */
@@ -31,14 +32,14 @@ const TYPE_LABELS: Record<string, string> = {
   knowledge: '知识',
 };
 
-export const ProjectMaterialsPanel: React.FC<Props> = ({ projectId }) => {
+export const ProjectMaterialsPanel: React.FC<Props> = ({ projectId, refreshKey }) => {
   const [contexts, setContexts] = useState<ProjectContext[]>([]);
 
   useEffect(() => {
     fetchProjectContext(projectId)
       .then(setContexts)
       .catch(() => {});
-  }, [projectId]);
+  }, [projectId, refreshKey]);
 
   if (contexts.length === 0) {
     return (

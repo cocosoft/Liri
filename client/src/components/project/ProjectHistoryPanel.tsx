@@ -16,6 +16,7 @@ import {
 
 interface Props {
   projectId: string;
+  refreshKey?: number;
 }
 
 const TYPE_CONFIG: Record<string, { icon: string; label: string }> = {
@@ -26,7 +27,7 @@ const TYPE_CONFIG: Record<string, { icon: string; label: string }> = {
   context_change: { icon: '📋', label: '资料' },
 };
 
-export const ProjectHistoryPanel: React.FC<Props> = ({ projectId }) => {
+export const ProjectHistoryPanel: React.FC<Props> = ({ projectId, refreshKey }) => {
   const [groups, setGroups] = useState<HistoryGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
@@ -39,7 +40,7 @@ export const ProjectHistoryPanel: React.FC<Props> = ({ projectId }) => {
       .then(setGroups)
       .catch(() => setGroups([]))
       .finally(() => setLoading(false));
-  }, [projectId]);
+  }, [projectId, refreshKey]);
 
   const toggleSession = (sessionId: string) => {
     setExpandedSessions((prev) => {

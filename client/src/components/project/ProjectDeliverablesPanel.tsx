@@ -10,14 +10,15 @@ import { fetchArtifacts, type ProjectArtifact } from '../../services/projectArti
 
 interface Props {
   projectId: string;
+  refreshKey?: number;
 }
 
-export const ProjectDeliverablesPanel: React.FC<Props> = ({ projectId }) => {
+export const ProjectDeliverablesPanel: React.FC<Props> = ({ projectId, refreshKey }) => {
   const [artifacts, setArtifacts] = useState<ProjectArtifact[]>([]);
 
   useEffect(() => {
     fetchArtifacts(projectId, 'output').then(setArtifacts).catch(() => {});
-  }, [projectId]);
+  }, [projectId, refreshKey]);
 
   if (artifacts.length === 0) {
     return (

@@ -93,6 +93,7 @@ export default function ProjectsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showSmartMenu, setShowSmartMenu] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const inited = useRef<string | null>(null);
   const lastProcessedMsgId = useRef<string | null>(null);
 
@@ -125,6 +126,8 @@ export default function ProjectsPage() {
     triggerEngineHook(selectedProjectId, lastAssistantMsg.content).catch(() => {
       /* 隐性引擎失败不阻塞 UI */
     });
+    // 引擎写入后刷新右侧面板
+    setRefreshKey((k) => k + 1);
   }, [messages, selectedProjectId]);
 
   // 仅显示用户创建的项目（workspaceSource === "user"）
@@ -393,7 +396,7 @@ export default function ProjectsPage() {
           </div>
           <div className="max-h-40 overflow-y-auto">
             {selectedProjectId ? (
-              <ProjectMaterialsPanel projectId={selectedProjectId} />
+              <ProjectMaterialsPanel projectId={selectedProjectId} refreshKey={refreshKey} />
             ) : (
               <div className="p-4 text-sm text-gray-400 text-center">请先选择项目</div>
             )}
@@ -409,7 +412,7 @@ export default function ProjectsPage() {
             成果
           </div>
           {selectedProjectId ? (
-            <ProjectDeliverablesPanel projectId={selectedProjectId} />
+            <ProjectDeliverablesPanel projectId={selectedProjectId} refreshKey={refreshKey} />
           ) : (
             <div className="p-4 text-sm text-gray-400 text-center">请先选择项目</div>
           )}
@@ -424,7 +427,7 @@ export default function ProjectsPage() {
             讨论记录
           </div>
           {selectedProjectId ? (
-            <ProjectHistoryPanel projectId={selectedProjectId} />
+            <ProjectHistoryPanel projectId={selectedProjectId} refreshKey={refreshKey} />
           ) : (
             <div className="p-4 text-sm text-gray-400 text-center">请先选择项目</div>
           )}

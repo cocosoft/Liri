@@ -424,7 +424,7 @@ export default function ProjectsPage() {
             讨论记录
           </div>
           {selectedProjectId ? (
-            <ProjectHistoryPanel projectId={selectedProjectId} turns={[]} />
+            <ProjectHistoryPanel projectId={selectedProjectId} />
           ) : (
             <div className="p-4 text-sm text-gray-400 text-center">请先选择项目</div>
           )}

@@ -2745,7 +2745,12 @@ export class ChatManagerImpl implements ChatManager {
     // 隐性引擎钩子：项目会话的消息完成后，触发 Plan/Do/Check/Act 分析
     const workspaceId = session.metadata?.workspaceId as string | undefined;
     if (workspaceId && assistantMessage.content) {
-      ImplicitEngineHook.persist(workspaceId, assistantMessage.content as string).catch(() => {
+      ImplicitEngineHook.persist(
+        workspaceId,
+        assistantMessage.content as string,
+        undefined,
+        session.id
+      ).catch(() => {
         /* 隐性引擎失败不阻塞消息流 */
       });
     }

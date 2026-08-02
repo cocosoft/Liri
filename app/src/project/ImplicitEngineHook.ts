@@ -12,6 +12,7 @@ import { homedir } from 'node:os';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { randomUUID } from 'crypto';
 import type { ProjectContextType } from '@modules/workspace/types';
+import { createProjectHistoryStore } from './ProjectHistoryStore';
 
 /** 意图分类 */
 export type ImplicitIntent = 'plan' | 'do' | 'check' | 'act' | 'none';
@@ -159,7 +160,8 @@ export class ImplicitEngineHook {
   static async persist(
     projectId: string,
     text: string,
-    projectsDir?: string
+    projectsDir?: string,
+    sessionId?: string
   ): Promise<{ contexts: number; deliverables: number }> {
     const result = { contexts: 0, deliverables: 0 };
     const { contexts, deliverables } = this.process(text);
@@ -195,7 +197,14 @@ export class ImplicitEngineHook {
 
     // 写入 artifacts (deliverables)
     const artifactsPath = join(projectDir, 'artifacts.json');
-    interface ArtifactEntry { id: string; projectId: string; kind: string; title: string; content: string; createdAt: string }
+    interface ArtifactEntry {
+      id: string;
+      projectId: string;
+      kind: string;
+      title: string;
+      content: string;
+      createdAt: string;
+    }
     let artifacts: ArtifactEntry[] = [];
     if (existsSync(artifactsPath)) {
       try {
@@ -223,6 +232,29 @@ export class ImplicitEngineHook {
 
     if (result.deliverables > 0) {
       writeFileSync(artifactsPath, JSON.stringify(artifacts, null, 2), 'utf-8');
+    }
+
+    // 记录讨论历史
+    if (sessionId && (result.contexts > 0 || result.deliverables > 0)) {
+      const history = createProjectHistoryStore(projectId);
+      for (const ctx of contexts) {
+        history.append({
+          sessionId,
+          type: 'context_change',
+          summary: `资料更新 [${ctx.type}]: ${ctx.content.slice(0, 60)}`,
+          detail: ctx.content,
+          internal: true,
+        });
+      }
+      for (const del of deliverables) {
+        history.append({
+          sessionId,
+          type: 'decision',
+          summary: `产出: ${del.slice(0, 60)}`,
+          detail: del,
+          internal: true,
+        });
+      }
     }
 
     return result;

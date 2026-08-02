@@ -67,6 +67,38 @@ export async function fetchProjectContext(
   return res.json();
 }
 
+/** 讨论记录历史条目 */
+export interface HistoryEntry {
+  ts: string;
+  sessionId: string;
+  type: 'message' | 'decision' | 'tool_call' | 'pdca_phase' | 'context_change';
+  summary: string;
+  detail?: string;
+  messageId?: string;
+  pdcaPhase?: string;
+  internal?: boolean;
+}
+
+/** 按 sessionId 分组的历史记录 */
+export interface HistoryGroup {
+  sessionId: string;
+  dates: string[];
+  itemCount: number;
+  summary: string;
+  items: HistoryEntry[];
+}
+
+/** 获取项目讨论记录（按 session 分组） */
+export async function fetchProjectHistory(
+  projectId: string,
+  since?: string
+): Promise<HistoryGroup[]> {
+  const params = since ? `?since=${encodeURIComponent(since)}` : '';
+  const res = await fetch(`${API_BASE}/${projectId}/history${params}`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
 /**
  * 隐性引擎钩子：分析消息文本，自动写入 rules.md 和 artifacts
  * 建议在 AI 回复完成后调用（fire-and-forget）

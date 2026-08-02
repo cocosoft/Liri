@@ -219,12 +219,34 @@ export async function handleEngineHook(
       return;
     }
 
-    const result = await ImplicitEngineHook.persist(projectId, text, LIRI_PROJECTS_DIR);
+    const result = await ImplicitEngineHook.persist(
+      projectId,
+      text,
+      LIRI_PROJECTS_DIR
+    );
     json(res, 200, {
       processed: result.contexts > 0 || result.deliverables > 0,
       ...result,
     });
   } catch {
     json(res, 500, { error: '引擎钩子执行失败' });
+  }
+}
+
+/** GET /v1/projects/:projectId/history — 返回分组后的讨论记录 */
+export async function handleGetProjectHistory(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  projectId: string
+): Promise<void> {
+  try {
+    const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+    const since = url.searchParams.get('since') || undefined;
+    const { createProjectHistoryStore } = await import('../../../project/ProjectHistoryStore');
+    const store = createProjectHistoryStore(projectId);
+    const groups = store.getGrouped(since);
+    json(res, 200, groups);
+  } catch {
+    json(res, 500, { error: '读取讨论记录失败' });
   }
 }

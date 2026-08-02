@@ -20,9 +20,40 @@
 // SOFTWARE.
 
 import type http from 'http';
+import { join } from 'path';
+import { mkdirSync, existsSync, writeFileSync, readFileSync } from 'fs';
+import { resolveDataSubDir } from '@modules/core';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
 import { handleError } from '@modules/error';
+
+/** PDCA 检查点目录 */
+const PDCA_CHECKPOINT_DIR = join(resolveDataSubDir('pdca'));
+
+function ensureCheckpointDir(): void {
+  if (!existsSync(PDCA_CHECKPOINT_DIR)) {
+    mkdirSync(PDCA_CHECKPOINT_DIR, { recursive: true });
+  }
+}
+
+function writeCheckpoint(taskId: string, data: Record<string, unknown>): void {
+  ensureCheckpointDir();
+  writeFileSync(
+    join(PDCA_CHECKPOINT_DIR, `${taskId}.json`),
+    JSON.stringify({ ...data, updatedAt: new Date().toISOString() }, null, 2),
+    'utf-8'
+  );
+}
+
+function readCheckpoint(taskId: string): Record<string, unknown> | null {
+  const path = join(PDCA_CHECKPOINT_DIR, `${taskId}.json`);
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, 'utf-8'));
+  } catch {
+    return null;
+  }
+}
 
 type OrchestratorLike = {
   getStatus(): unknown;
@@ -62,6 +93,9 @@ export async function handlePdcaStart(
         });
       });
 
+    // 持久化检查点
+    writeCheckpoint(taskId, { taskId, status: 'started', description, sessionId });
+
     // 立即返回 taskId，前端可轮询 GET /v1/pdca/:taskId 获取进度
     res.writeHead(202, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ taskId, status: 'started' }));
@@ -94,9 +128,13 @@ export async function handlePdcaStatus(
       });
     }
     if (!orchestrator) {
+      // 回退到检查点文件
+      const checkpoint = readCheckpoint(taskId);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
-        JSON.stringify({ taskId, phase: 'none', planId: '', lifecycle: [] })
+        JSON.stringify(
+          checkpoint || { taskId, phase: 'none', planId: '', lifecycle: [] }
+        )
       );
       return;
     }

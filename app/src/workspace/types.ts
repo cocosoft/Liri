@@ -199,7 +199,8 @@ export type WorkItemType =
   | 'feature'
   | 'refactor'
   | 'docs'
-  | 'decision';
+  | 'decision'
+  | 'pdca';
 
 /** 工作项 */
 export interface WorkItem {

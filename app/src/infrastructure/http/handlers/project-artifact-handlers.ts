@@ -7,14 +7,19 @@
  */
 
 import type http from 'http';
+import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { resolveDataSubDir } from '@modules/core';
+import { resolvePyappHome } from '@modules/core';
 import { ProjectArtifactStore } from '../../../project/ProjectArtifactStore';
-import type { ProjectArtifact, ArtifactKind } from '../../../project/ProjectArtifactStore';
+import type {
+  ProjectArtifact,
+  ArtifactKind,
+} from '../../../project/ProjectArtifactStore';
+import { ProjectContextService } from '../../../project/ProjectContextService';
 
-const artifactStore = new ProjectArtifactStore(
-  resolveDataSubDir('projects')
-);
+/** 与 ProjectStore 保持一致的存储路径：~/.pyapp/projects/ */
+const LIRI_PROJECTS_DIR = join(resolvePyappHome(), 'projects');
+const artifactStore = new ProjectArtifactStore(LIRI_PROJECTS_DIR);
 
 async function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve) => {
@@ -35,7 +40,10 @@ export async function handleListArtifacts(
   res: http.ServerResponse,
   projectId: string
 ): Promise<void> {
-  const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  const url = new URL(
+    req.url || '/',
+    `http://${req.headers.host || 'localhost'}`
+  );
   const kind = url.searchParams.get('kind') as ArtifactKind | null;
 
   const artifacts = artifactStore.list(
@@ -86,5 +94,24 @@ export async function handleDeleteArtifact(
   artifactId: string
 ): Promise<void> {
   const deleted = artifactStore.delete(projectId, artifactId);
-  json(res, deleted ? 200 : 404, deleted ? { ok: true } : { error: '构件不存在' });
+  json(
+    res,
+    deleted ? 200 : 404,
+    deleted ? { ok: true } : { error: '构件不存在' }
+  );
+}
+
+/** GET /v1/projects/:projectId/context — 返回 rules.md 解析后的 ProjectContext */
+export async function handleGetProjectContext(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  projectId: string
+): Promise<void> {
+  try {
+    const rulesPath = join(LIRI_PROJECTS_DIR, projectId, 'rules.md');
+    const entries = ProjectContextService.parseRulesFile(rulesPath);
+    json(res, 200, entries);
+  } catch {
+    json(res, 500, { error: '解析项目上下文失败' });
+  }
 }

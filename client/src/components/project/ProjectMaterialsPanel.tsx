@@ -1,13 +1,13 @@
 /**
  * 项目资料面板 — 右侧「项目资料」区
  *
- * 显示 rules.md 解析出的目标/范围/约束等结构化上下文
- * + 上传的资料文件（Artifact kind=input）
+ * 从 GET /v1/projects/:id/context 获取 rules.md 解析后的结构化上下文。
+ * 显示目标/范围/约束等。无数据时提供写入引导。
  */
 
 import React, { useEffect, useState } from 'react';
-import { FileText, Target, Crosshair, AlertTriangle } from 'lucide-react';
-import { fetchArtifacts, type ProjectArtifact } from '../../services/projectArtifactService';
+import { Target, Crosshair, AlertTriangle, FileText, Lightbulb } from 'lucide-react';
+import { fetchProjectContext, type ProjectContext } from '../../services/projectArtifactService';
 
 interface Props {
   projectId: string;
@@ -15,9 +15,11 @@ interface Props {
 
 /** type → icon 映射 */
 const TYPE_ICONS: Record<string, React.ReactNode> = {
-  goal: <Target size={14} className="text-amber-500" />,
-  scope: <Crosshair size={14} className="text-blue-500" />,
-  constraint: <AlertTriangle size={14} className="text-red-400" />,
+  goal: <Target size={14} className="text-amber-500 shrink-0" />,
+  scope: <Crosshair size={14} className="text-blue-500 shrink-0" />,
+  constraint: <AlertTriangle size={14} className="text-red-400 shrink-0" />,
+  requirement: <FileText size={14} className="text-purple-400 shrink-0" />,
+  knowledge: <Lightbulb size={14} className="text-yellow-400 shrink-0" />,
 };
 
 /** type → 中文标签 */
@@ -30,35 +32,39 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export const ProjectMaterialsPanel: React.FC<Props> = ({ projectId }) => {
-  const [artifacts, setArtifacts] = useState<ProjectArtifact[]>([]);
+  const [contexts, setContexts] = useState<ProjectContext[]>([]);
 
   useEffect(() => {
-    fetchArtifacts(projectId, 'input').then(setArtifacts).catch(() => {});
+    fetchProjectContext(projectId)
+      .then(setContexts)
+      .catch(() => {});
   }, [projectId]);
 
-  if (artifacts.length === 0) {
+  if (contexts.length === 0) {
     return (
-      <div className="p-4 text-sm text-gray-400 text-center">
-        暂无资料。在聊天中上传文件或设定目标后自动生成。
+      <div className="p-4 text-sm text-gray-400 text-center leading-relaxed">
+        暂无资料。
+        <br />
+        在聊天中描述项目目标、范围、约束，AI 会自动写入 rules.md。
       </div>
     );
   }
 
   return (
-    <div className="p-2 space-y-1.5">
-      {artifacts.map((a) => (
+    <div className="p-2 space-y-1">
+      {contexts.map((ctx, i) => (
         <div
-          key={a.id}
-          className="px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-sm"
+          key={i}
+          className="px-2.5 py-1.5 rounded-md bg-gray-50 dark:bg-gray-800/50 text-sm flex items-start gap-1.5"
         >
-          <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 mb-0.5">
-            {TYPE_ICONS[a.sessionId || ''] || <FileText size={14} />}
-            <span className="text-xs">
-              {TYPE_LABELS[a.sessionId || ''] || a.sessionId || '资料'}
+          {TYPE_ICONS[ctx.type] || <FileText size={14} className="shrink-0" />}
+          <div className="min-w-0">
+            <span className="text-xs text-gray-400">
+              {TYPE_LABELS[ctx.type] || ctx.type}
             </span>
-          </div>
-          <div className="text-gray-700 dark:text-gray-300 truncate">
-            {a.title}
+            <div className="text-gray-700 dark:text-gray-300 truncate text-xs mt-0.5">
+              {ctx.content}
+            </div>
           </div>
         </div>
       ))}

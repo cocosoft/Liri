@@ -2,6 +2,7 @@
  * 项目构件前端服务
  *
  * 调用后端 /v1/projects/:projectId/artifacts API
+ *        /v1/projects/:projectId/context API
  */
 
 export interface ProjectArtifact {
@@ -13,6 +14,13 @@ export interface ProjectArtifact {
   title: string;
   content: string;
   createdAt: string;
+}
+
+export interface ProjectContext {
+  type: 'goal' | 'scope' | 'constraint' | 'requirement' | 'knowledge';
+  content: string;
+  domain?: string;
+  line: number;
 }
 
 const API_BASE = '/v1/projects';
@@ -48,4 +56,13 @@ export async function deleteArtifact(
     { method: 'DELETE' }
   );
   if (!res.ok) throw new Error(`删除构件失败: ${res.status}`);
+}
+
+/** 获取项目的结构化上下文（rules.md 解析结果） */
+export async function fetchProjectContext(
+  projectId: string
+): Promise<ProjectContext[]> {
+  const res = await fetch(`${API_BASE}/${projectId}/context`);
+  if (!res.ok) return [];
+  return res.json();
 }

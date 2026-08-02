@@ -7,6 +7,8 @@
  */
 export type Platform = 'win32' | 'darwin' | 'linux' | 'wsl' | 'unknown';
 
+import { existsSync, readFileSync } from 'node:fs';
+
 /**
  * 获取当前平台
  */
@@ -17,10 +19,9 @@ export function getPlatform(): Platform {
     // 检查是否是WSL
     if (platform === 'linux') {
       try {
-        const fs = require('fs');
         const isWSL =
-          fs.existsSync('/proc/version') &&
-          fs.readFileSync('/proc/version', 'utf8').includes('microsoft');
+          existsSync('/proc/version') &&
+          readFileSync('/proc/version', 'utf8').includes('microsoft');
         if (isWSL) {
           return 'wsl';
         }
@@ -71,9 +72,8 @@ export function getWslVersion(): string | null {
   }
 
   try {
-    const fs = require('fs');
-    if (fs.existsSync('/proc/version')) {
-      const versionInfo = fs.readFileSync('/proc/version', 'utf8');
+    if (existsSync('/proc/version')) {
+      const versionInfo = readFileSync('/proc/version', 'utf8');
       const match = versionInfo.match(/Microsoft WSL (\d+)/);
       if (match && match[1]) {
         return match[1];

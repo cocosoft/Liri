@@ -549,13 +549,19 @@ export class ChannelRegistry extends EventEmitter {
       this.configs.set(adapted.name, config);
 
       // 异步持久化（不阻塞调用者，失败时自动记录错误日志）
-      this.persistConfig(config).then((ok) => {
-        if (!ok) {
-          logger.warning(
-            `注册通道 ${adapted.name}: 内存已更新但 DB 持久化失败`
-          );
-        }
-      });
+      this.persistConfig(config)
+        .then((ok) => {
+          if (!ok) {
+            logger.warning(
+              `注册通道 ${adapted.name}: 内存已更新但 DB 持久化失败`
+            );
+          }
+        })
+        .catch((err) => {
+          logger.warning(`注册通道 ${adapted.name}: DB 持久化异常`, {
+            error: String(err),
+          });
+        });
     }
 
     // 仅首次注册时发出事件，避免双重注册路径（ChannelManager + ChannelPluginRegistry 同步）产生重复事件
@@ -583,11 +589,17 @@ export class ChannelRegistry extends EventEmitter {
       this.configs.delete(name);
 
       // 异步删除持久化配置（不阻塞调用者，失败时自动记录错误日志）
-      this.deletePersistedConfig(name).then((deleted) => {
-        if (!deleted) {
-          logger.warning(`注销通道 ${name}: 内存已更新但 DB 删除失败`);
-        }
-      });
+      this.deletePersistedConfig(name)
+        .then((deleted) => {
+          if (!deleted) {
+            logger.warning(`注销通道 ${name}: 内存已更新但 DB 删除失败`);
+          }
+        })
+        .catch((err) => {
+          logger.warning(`注销通道 ${name}: DB 删除异常`, {
+            error: String(err),
+          });
+        });
 
       this.emit('channel:unregistered', { name });
       channelEventBus.publish(ChannelEvents.CHANNEL_UNREGISTERED, { name });
@@ -664,11 +676,17 @@ export class ChannelRegistry extends EventEmitter {
     }
 
     // 异步持久化（不阻塞调用者，失败时自动记录错误日志）
-    this.persistConfig(config).then((ok) => {
-      if (!ok) {
-        logger.warning(`更新通道配置 ${name}: 内存已更新但 DB 持久化失败`);
-      }
-    });
+    this.persistConfig(config)
+      .then((ok) => {
+        if (!ok) {
+          logger.warning(`更新通道配置 ${name}: 内存已更新但 DB 持久化失败`);
+        }
+      })
+      .catch((err) => {
+        logger.warning(`更新通道配置 ${name}: DB 持久化异常`, {
+          error: String(err),
+        });
+      });
 
     return true;
   }

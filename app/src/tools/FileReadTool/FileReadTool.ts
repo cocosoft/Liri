@@ -91,7 +91,7 @@ export function readFile(input: FileReadInput): FileReadResult {
       throw new Error(result.error || '编码检测失败');
     }
     content = result.content;
-  } catch (e: any) {
+  } catch (e) {
     // 若原生模块不可用或调用失败，回退到 UTF-8 读取
     try {
       content = fs.readFileSync(resolved, 'utf-8');
@@ -101,7 +101,7 @@ export function readFile(input: FileReadInput): FileReadResult {
         action: 'utf8FallbackRead',
       });
       throw new AppError(
-        `读取文件失败: ${e.message}`,
+        `读取文件失败: ${e instanceof Error ? e.message : String(e)}`,
         ErrorCategory.FILESYSTEM,
         ErrorSeverity.HIGH,
         '100'
@@ -304,24 +304,25 @@ export class FileReadTool extends BaseTool {
           },
         ],
       });
-    } catch (error: any) {
+    } catch (error) {
       handleError(error, {
         module: 'tools:FileReadTool',
         action: 'execute',
       });
+      const msg = error instanceof Error ? error.message : String(error);
       if (onProgress) {
         onProgress({
           toolUseID: 'file-read-tool',
           data: {
             type: 'file_read',
-            error: error.message,
+            error: msg,
             isRunning: false,
             isComplete: true,
           },
         });
       }
-      return createToolResult(error.message, {
-        newMessages: [{ role: 'system', content: `Error: ${error.message}` }],
+      return createToolResult(msg, {
+        newMessages: [{ role: 'system', content: `Error: ${msg}` }],
       });
     }
   }
@@ -374,18 +375,17 @@ export class FileReadTool extends BaseTool {
           },
         ],
       });
-    } catch (error: any) {
+    } catch (error) {
       handleError(error, {
         module: 'tools:FileReadTool',
         action: 'convertFile',
       });
-      return createToolResult(error.message, {
+      const msg = error instanceof Error ? error.message : String(error);
+      return createToolResult(msg, {
         success: false,
-        error: error.message,
-        output: `自动转换失败: ${error.message}`,
-        newMessages: [
-          { role: 'system', content: `转换失败: ${error.message}` },
-        ],
+        error: msg,
+        output: `自动转换失败: ${msg}`,
+        newMessages: [{ role: 'system', content: `转换失败: ${msg}` }],
       });
     }
   }

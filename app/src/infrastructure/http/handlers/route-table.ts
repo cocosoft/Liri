@@ -1886,6 +1886,23 @@ export async function dispatchRoute(
     );
     return true;
   }
+  // 统一设置端点
+  if (method === 'GET' && url.match(/^\/v1\/settings\/(.+)$/)) {
+    await self['handleGetSettings'](
+      req,
+      res,
+      url.match(/^\/v1\/settings\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'PUT' && url.match(/^\/v1\/settings\/(.+)$/)) {
+    await self['handleSetSettings'](
+      req,
+      res,
+      url.match(/^\/v1\/settings\/(.+)$/)![1]
+    );
+    return true;
+  }
 
   // ---- Router（智能路由）----
   if (method === 'GET' && url === '/v1/router/config') {

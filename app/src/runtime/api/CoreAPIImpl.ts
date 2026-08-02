@@ -64,7 +64,7 @@ import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { DEFAULT_MODEL_SENTINEL } from '@modules/constants/common.js';
-import { resolveModelRoute, RouteKey } from '@modules/ai';
+import { resolveModelRoute, RouteKey, modelRouter } from '@modules/ai';
 import { SmartRouter } from '@modules/ai';
 import type { RouteDecision } from '@modules/ai';
 import { ToolAwareClient } from '@modules/ai';
@@ -133,10 +133,8 @@ export class CoreAPIImpl implements CoreAPI {
   private coordinator: Coordinator;
   private converterEngine: ReturnType<typeof getConverterEngine>;
   private fileTypeDetector: FileTypeDetector;
+  /** 模型名内存缓存（仅作后备，事实来源为 ModelRouter DB） */
   private _modelName: string;
-  // NOTE: _modelName 与 modelRouter._currentModel 双轨并存，均由 handleSwitchModel /
-  // handleSetDefaultModel 同步写入。getModelName() 用于 handleGetCurrentModel 的 explicitModel
-  // 优先判断。TODO: P3-UNIFY — 收敛为 modelRouter 单源，getModelName() 委托 modelRouter.getCurrentModel()。
 
   /** SmartRouter 智能路由实例（可选，未设置时使用 modelRouter.resolve 静态路由） */
   private smartRouter: SmartRouter | null = null;
@@ -171,7 +169,7 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   /**
-   * 设置当前模型名称
+   * 设置当前模型名称（同步更新内存缓存，调用方需同时写 ModelRouter DB）
    */
   setModelName(modelName: string): void {
     this._modelName = modelName;
@@ -179,8 +177,11 @@ export class CoreAPIImpl implements CoreAPI {
 
   /**
    * 获取当前模型名称
+   * 收敛为 ModelRouter 单源：优先从 DB 读取 default 任务模型，_modelName 仅作后备
    */
   getModelName(): string {
+    const routerModel = modelRouter.resolve('default');
+    if (routerModel) return routerModel;
     return this._modelName;
   }
 
@@ -1221,25 +1222,29 @@ export class CoreAPIImpl implements CoreAPI {
   async listSessions(): Promise<SessionInfo[]> {
     const sessions = this.sessionManager.getSessions();
 
-    return sessions
-      // 过滤空壳会话：崩溃残留，有 session.json 但无消息
-      .filter((session) => {
-        const msgCount = countConversationMessages(session.messages);
-        if (msgCount > 0) return true;
-        // 有消息的会话一定保留；无消息但有崩溃标记的是空壳，过滤掉
-        const crashRecovery = (session.metadata as Record<string, unknown> | undefined)?.crashRecovery;
-        return !crashRecovery;
-      })
-      .map((session) => ({
-        id: session.id,
-        title: session.title,
-        createdAt: session.createdAt,
-        updatedAt: session.updatedAt,
-        messageCount: countConversationMessages(session.messages),
-        roundCount: countUserMessages(session.messages),
-        source: this._resolveSessionSource(session),
-        metadata: session.metadata,
-      }));
+    return (
+      sessions
+        // 过滤空壳会话：崩溃残留，有 session.json 但无消息
+        .filter((session) => {
+          const msgCount = countConversationMessages(session.messages);
+          if (msgCount > 0) return true;
+          // 有消息的会话一定保留；无消息但有崩溃标记的是空壳，过滤掉
+          const crashRecovery = (
+            session.metadata as Record<string, unknown> | undefined
+          )?.crashRecovery;
+          return !crashRecovery;
+        })
+        .map((session) => ({
+          id: session.id,
+          title: session.title,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt,
+          messageCount: countConversationMessages(session.messages),
+          roundCount: countUserMessages(session.messages),
+          source: this._resolveSessionSource(session),
+          metadata: session.metadata,
+        }))
+    );
   }
 
   /** 轻量列出会话元数据 — 只读文件头 64KB，不加载完整会话 */

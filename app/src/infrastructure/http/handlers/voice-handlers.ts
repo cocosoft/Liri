@@ -216,35 +216,49 @@ export async function handleSTTTranscribe(
 
 /**
  * 处理获取语音设置请求 GET /v1/voice/settings
+ *
+ * Phase 2.3: 主存储从 VoiceService 迁移到 ConfigManager (settings.voice)。
+ *   read: ConfigManager → VoiceService 回退
  */
 export async function handleGetVoiceSettings(
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
   try {
+    // 优先从 ConfigManager 读取
+    const voiceSettings = configManager.getConfigValue('settings.voice') as
+      | Record<string, unknown>
+      | undefined;
+    if (voiceSettings && voiceSettings.config) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(voiceSettings));
+      return;
+    }
+
+    // 回退到 VoiceService（兼容旧数据）
     const { createVoiceService } = await import('../../../services/voice');
     const voiceService = createVoiceService();
     const config = voiceService.getConfig();
 
+    const defaultSettings = {
+      config: {
+        provider: 'default',
+        inputDeviceId: undefined,
+        outputDeviceId: undefined,
+        wakeWordEnabled: false,
+        wakeWord: '你好',
+        autoPlayTTS: true,
+        voiceId: 'zh-CN-XiaoxiaoNeural',
+        inputLanguage: config.language || 'zh-CN',
+        outputLanguage: config.language || 'zh-CN',
+        sttProviderId: config.sttProvider || 'local',
+      },
+      wakeWords: [],
+      hotkeys: {},
+    };
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(
-      JSON.stringify({
-        config: {
-          provider: 'default',
-          inputDeviceId: undefined,
-          outputDeviceId: undefined,
-          wakeWordEnabled: false,
-          wakeWord: '你好',
-          autoPlayTTS: true,
-          voiceId: 'zh-CN-XiaoxiaoNeural',
-          inputLanguage: config.language || 'zh-CN',
-          outputLanguage: config.language || 'zh-CN',
-          sttProviderId: config.sttProvider || 'local',
-        },
-        wakeWords: [],
-        hotkeys: {},
-      })
-    );
+    res.end(JSON.stringify(defaultSettings));
   } catch (err) {
     void handleError(err, { module: 'http:voice', action: 'get_settings' });
     sendError(res, err);
@@ -253,6 +267,9 @@ export async function handleGetVoiceSettings(
 
 /**
  * 处理更新语音设置请求 PUT /v1/voice/settings
+ *
+ * Phase 2.3: 主存储为 ConfigManager (settings.voice)，
+ *   同时同步到 VoiceService 以保持运行时兼容。
  */
 export async function handleUpdateVoiceSettings(
   req: http.IncomingMessage,
@@ -262,6 +279,10 @@ export async function handleUpdateVoiceSettings(
     const body = await readRequestBody(req);
     const settings = JSON.parse(body);
 
+    // 主存储: ConfigManager
+    configManager.setConfigValue('settings.voice', settings);
+
+    // 同步到 VoiceService（保持运行时兼容）
     const { createVoiceService } = await import('../../../services/voice');
     const voiceService = createVoiceService();
     voiceService.updateConfig({

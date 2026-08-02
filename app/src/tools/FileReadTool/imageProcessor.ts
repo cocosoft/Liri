@@ -205,8 +205,11 @@ export function validateImageFile(filePath: string): {
     }
 
     return { valid: true };
-  } catch (error: any) {
-    return { valid: false, error: error.message ?? 'Unknown error' };
+  } catch (error: unknown) {
+    return {
+      valid: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
   }
 }
 

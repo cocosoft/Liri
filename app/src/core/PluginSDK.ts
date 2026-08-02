@@ -14,6 +14,9 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
+import fs from 'node:fs';
+import path from 'node:path';
+
 import { Logger } from '@modules/monitoring';
 import { pluginSystem } from '@modules/plugins/index.js';
 import type { PluginState } from '@modules/plugins/types/PluginTypes';
@@ -454,8 +457,6 @@ export class PluginSDK {
    */
   private loadPluginConfig(pluginId: string): Record<string, unknown> {
     try {
-      const fs = require('fs');
-      const path = require('path');
       const configPath = path.join(this.configPath, `${pluginId}.json`);
 
       if (fs.existsSync(configPath)) {
@@ -479,9 +480,6 @@ export class PluginSDK {
     config: Record<string, unknown>
   ): Promise<void> {
     try {
-      const fs = require('fs');
-      const path = require('path');
-
       if (!fs.existsSync(this.configPath)) {
         fs.mkdirSync(this.configPath, { recursive: true });
       }

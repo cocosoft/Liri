@@ -683,8 +683,7 @@ function bindChannelMessageHandler(channelType: string, plugin: any): void {
     try {
       const sender = message.senderName || message.senderId || 'unknown';
       const label = channelType.toUpperCase();
-      console.log(`\n── [${label}] ${sender} ──`);
-      console.log(message.content);
+      logger.info(`[${label}] ${sender}`, { content: message.content });
 
       const coreAPI = getCoreAPI();
 
@@ -735,9 +734,7 @@ function bindChannelMessageHandler(channelType: string, plugin: any): void {
       }
 
       if (response.content && plugin.outbound) {
-        console.log(`\n── [${label}] Liri ──`);
-        console.log(response.content);
-        console.log('');
+        logger.info(`[${label}] Liri reply`, { content: response.content });
 
         // 2. 发送回复（失败时加入重试队列）
         const target = message.conversationId ?? message.senderId;

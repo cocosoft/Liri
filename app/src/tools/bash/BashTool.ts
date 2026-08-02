@@ -573,25 +573,27 @@ export class BashTool extends BaseTool {
           },
         ],
       });
-    } catch (error: any) {
+    } catch (error) {
       const executionTime = ToolUtils.calculateExecutionTime(startTime);
+      const msg = error instanceof Error ? error.message : String(error);
+      const stderr = (error as { stderr?: string }).stderr;
 
       // 报告执行错误
       onProgress?.({
         toolUseID: context.toolUseId || 'bash-tool',
-        data: createBashProgress('', error.message, 1, false, true),
+        data: createBashProgress('', msg, 1, false, true),
       });
 
-      return ToolUtils.createFailureResult(error.message, {
+      return ToolUtils.createFailureResult(msg, {
         executionTime,
-        errorOutput: error.stderr || error.message,
+        errorOutput: stderr || msg,
         toolName: 'bash',
         executionId: ToolUtils.generateExecutionId('bash'),
         timestamp: Date.now(),
         newMessages: [
           {
             role: 'system',
-            content: `Error: ${error.message}`,
+            content: `Error: ${msg}`,
           },
         ],
       });

@@ -2,7 +2,8 @@
  * 规则管理器
  * 负责管理权限规则的加载、保存、添加、删除等操作
  */
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolveDataDir } from '@modules/core';
 import {
   PermissionRule,
@@ -84,18 +85,15 @@ export class RuleManager {
    */
   loadRules(): PermissionRule[] {
     try {
-      const fs = require('fs');
-      const path = require('path');
-
       // 确保数据目录存在
-      const dataDir = path.dirname(this.ruleSource);
-      if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
+      const dataDir = dirname(this.ruleSource);
+      if (!existsSync(dataDir)) {
+        mkdirSync(dataDir, { recursive: true });
       }
 
       // 读取规则文件
-      if (fs.existsSync(this.ruleSource)) {
-        const rulesData = fs.readFileSync(this.ruleSource, 'utf8');
+      if (existsSync(this.ruleSource)) {
+        const rulesData = readFileSync(this.ruleSource, 'utf8');
         this.rules = JSON.parse(rulesData);
 
         // 转换日期字符串为Date对象
@@ -123,18 +121,15 @@ export class RuleManager {
    */
   saveRules(rules: PermissionRule[]): void {
     try {
-      const fs = require('fs');
-      const path = require('path');
-
       // 确保数据目录存在
-      const dataDir = path.dirname(this.ruleSource);
-      if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
+      const dataDir = dirname(this.ruleSource);
+      if (!existsSync(dataDir)) {
+        mkdirSync(dataDir, { recursive: true });
       }
 
       // 保存规则文件
       const rulesData = JSON.stringify(rules, null, 2);
-      fs.writeFileSync(this.ruleSource, rulesData);
+      writeFileSync(this.ruleSource, rulesData);
       this.rules = rules;
     } catch (error) {
       void handleError(error, {

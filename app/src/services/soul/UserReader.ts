@@ -1,11 +1,17 @@
-﻿/**
+/**
  * USER.md 读取器
- * 从 ~/.pyapp/USER.md 读取用户身份定义
+ * 主要从 ConfigManager (settings.user) 读取用户身份定义，
+ * 文件系统 (~/.pyapp/USER.md) 仅作为降级回退。
  * 对标 OpenClaw USER.md 工作区文件
+ *
+ * Phase 2.2: 存储从文件系统迁移到 ConfigManager。
+ *   read: ConfigManager → 文件回退
+ *   write: ConfigManager（主）+ 文件（向后兼容）
  */
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveUserProfilePath } from '@modules/core';
+import { configManager } from '@modules/config';
 
 const USER_FILE_PATH = resolveUserProfilePath();
 
@@ -28,10 +34,34 @@ const DEFAULT_USER = `# USER.md — 用户身份
 `;
 
 /**
+ * 从 ConfigManager 读取 USER 内容
+ * @returns 内容字符串，无数据时返回 undefined
+ */
+function readUserFromConfig(): string | undefined {
+  try {
+    const settings = configManager.getConfigValue('settings.user') as
+      | { content?: string }
+      | undefined;
+    if (settings?.content && typeof settings.content === 'string') {
+      return settings.content;
+    }
+  } catch {
+    // ConfigManager 不可用时返回 undefined，走文件回退
+  }
+  return undefined;
+}
+
+/**
  * 读取 USER.md 内容
+ * 优先级: ConfigManager > 文件缓存 > 文件系统 > 默认值
  * @returns USER.md 内容字符串，文件不存在时返回默认
  */
 export function readUserMd(): string {
+  // 优先从 ConfigManager 读取
+  const configContent = readUserFromConfig();
+  if (configContent !== undefined) return configContent;
+
+  // 降级到文件系统
   try {
     const stat = fs.statSync(USER_FILE_PATH);
     if (stat.mtimeMs !== cachedMtime) {
@@ -80,8 +110,18 @@ export function clearUserCache(): void {
 
 /**
  * 写入 USER.md 内容
+ * 主存储: ConfigManager (settings.user.content)
+ * 向后兼容: 同时写入文件系统 (~/.pyapp/USER.md)
  */
 export function writeUserMd(content: string): void {
+  // 主存储: ConfigManager
+  try {
+    configManager.setConfigValue('settings.user', { content });
+  } catch {
+    // ConfigManager 写入失败不阻塞（文件系统兜底）
+  }
+
+  // 向后兼容: 文件系统
   const dir = path.dirname(USER_FILE_PATH);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -91,9 +131,15 @@ export function writeUserMd(content: string): void {
 }
 
 /**
- * 确保 USER.md 文件存在，不存在则创建默认版本
+ * 确保 USER.md 默认内容存在
+ * 检查 ConfigManager 和文件系统，都不存在时创建默认版本
  */
 export function ensureDefaultUserMd(): void {
+  // 先检查 ConfigManager
+  const configContent = readUserFromConfig();
+  if (configContent !== undefined) return;
+
+  // 文件系统兜底
   if (!fs.existsSync(USER_FILE_PATH)) {
     writeUserMd(DEFAULT_USER);
   }

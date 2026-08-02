@@ -185,10 +185,13 @@ export class GrepTool extends BaseTool {
         executionTime: result.durationMs,
         output: summary,
       });
-    } catch (error: any) {
-      return createFailureResult(error.message, {
-        executionTime: Date.now() - startTime,
-      });
+    } catch (error: unknown) {
+      return createFailureResult(
+        error instanceof Error ? error.message : String(error),
+        {
+          executionTime: Date.now() - startTime,
+        }
+      );
     }
   }
 

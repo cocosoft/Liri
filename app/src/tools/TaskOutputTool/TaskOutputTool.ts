@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 任务输出工具
  * 获取运行中或已完成任务的输出
  * 参考CC源码 cc_code/backend/tools/TaskOutputTool/TaskOutputTool.tsx 实现
@@ -344,7 +344,7 @@ export class TaskOutputTool extends BaseTool<
         },
         { success: true }
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       return createToolResult(
         {
           retrieval_status: 'timeout' as const,
@@ -352,7 +352,7 @@ export class TaskOutputTool extends BaseTool<
         },
         {
           success: false,
-          error: `Failed to get task output: ${error.message}`,
+          error: `Failed to get task output: ${error instanceof Error ? error.message : String(error)}`,
         }
       );
     }

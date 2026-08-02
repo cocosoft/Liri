@@ -5,6 +5,8 @@
  */
 
 import { BaseChannelPlugin } from '@modules/channels/base';
+import fs from 'node:fs';
+import path from 'node:path';
 import type {
   IChannelPlugin,
   ChannelMeta,
@@ -402,8 +404,6 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
   ): Promise<SendResult> {
     if (!this.st.botToken) return { success: false, error: '未连接' };
     try {
-      const fs = require('fs');
-      const path = require('path');
       const fileContent = fs.readFileSync(filePath);
       const fileName = path.basename(filePath);
 

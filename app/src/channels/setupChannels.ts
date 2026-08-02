@@ -486,10 +486,10 @@ export async function lazyConnectChannels(): Promise<void> {
           // 终端回显：显示来源通道、发送者、消息内容
           const senderDisplay =
             message.senderName || message.senderId || 'unknown';
-          console.log(
-            `\n── [${channel.name.toUpperCase()}] ${senderDisplay} ──`
+          logger.info(
+            `── [${channel.name.toUpperCase()}] ${senderDisplay} ──\n${message.content}`,
+            { module: 'channels:setup' }
           );
-          console.log(message.content);
 
           const coreAPI = getCoreAPI();
           const result = await routeChannelMessage(message, {
@@ -504,10 +504,11 @@ export async function lazyConnectChannels(): Promise<void> {
                 hasOutbound: !!plugin.outbound,
               });
 
-              // 终端回显：显示AI回复
-              console.log(`\n── [${channel.name.toUpperCase()}] Liri ──`);
-              console.log(content);
-              console.log(''); // 空行分隔
+              // AI 回复回显
+              logger.info(
+                `── [${channel.name.toUpperCase()}] Liri ──\n${content}`,
+                { module: 'channels:setup' }
+              );
 
               if (useDeliveryRouterOutbound()) {
                 // Phase 2: 走 DeliveryRouter 统一出站路径（降级、并发控制、OTel 追踪）

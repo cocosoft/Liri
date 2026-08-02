@@ -353,15 +353,16 @@ export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
         success: result.success,
         output: result.message,
       });
-    } catch (error: any) {
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       return createToolResult(
         {
           success: false,
-          message: `Browser operation failed: ${error.message}`,
+          message: `Browser operation failed: ${msg}`,
         },
         {
           success: false,
-          error: `Browser operation failed: ${error.message}`,
+          error: `Browser operation failed: ${msg}`,
         }
       );
     }

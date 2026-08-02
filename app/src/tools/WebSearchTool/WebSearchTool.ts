@@ -290,12 +290,18 @@ export class WebSearchTool extends BaseTool {
             },
           ],
         });
-      } catch (networkError: any) {
+      } catch (networkError) {
         clearTimeout(timeoutId);
         await handleError(networkError, {
           module: 'tools:webSearch',
           action: '网络错误',
         });
+
+        const nwMsg =
+          networkError instanceof Error
+            ? networkError.message
+            : String(networkError);
+        const nwCode = (networkError as NodeJS.ErrnoException).code;
 
         // 报告执行错误
         onProgress?.({
@@ -303,7 +309,7 @@ export class WebSearchTool extends BaseTool {
           data: {
             type: 'web_search',
             query,
-            error: networkError.message,
+            error: nwMsg,
             isRunning: false,
             isComplete: true,
           },
@@ -311,8 +317,8 @@ export class WebSearchTool extends BaseTool {
 
         // 处理网络连接错误
         if (
-          networkError.code === 'ConnectionRefused' ||
-          networkError.message.includes('Unable to connect')
+          nwCode === 'ConnectionRefused' ||
+          nwMsg.includes('Unable to connect')
         ) {
           return createToolResult(
             '网络连接失败，无法访问搜索服务。请检查网络连接后重试。',
@@ -329,7 +335,10 @@ export class WebSearchTool extends BaseTool {
         }
 
         // 处理超时错误
-        if (networkError.name === 'AbortError') {
+        if (
+          networkError instanceof Error &&
+          networkError.name === 'AbortError'
+        ) {
           return createToolResult(
             `搜索超时，请检查网络连接或尝试更短的超时时间。`,
             {
@@ -345,37 +354,39 @@ export class WebSearchTool extends BaseTool {
         }
 
         // 其他网络错误
-        return createToolResult(`搜索失败：${networkError.message}`, {
+        return createToolResult(`搜索失败：${nwMsg}`, {
           newMessages: [
             {
               role: 'system',
-              content: `Error: 搜索失败：${networkError.message}`,
+              content: `Error: 搜索失败：${nwMsg}`,
             },
           ],
         });
       }
-    } catch (error: any) {
+    } catch (error) {
       await handleError(error, {
         module: 'tools:webSearch',
         action: '搜索错误',
       });
+
+      const msg = error instanceof Error ? error.message : String(error);
 
       // 报告执行错误
       onProgress?.({
         toolUseID: context.toolUseId || 'web-search-tool',
         data: {
           type: 'web_search',
-          error: error.message,
+          error: msg,
           isRunning: false,
           isComplete: true,
         },
       });
 
-      return createToolResult(`搜索功能出现错误：${error.message}`, {
+      return createToolResult(`搜索功能出现错误：${msg}`, {
         newMessages: [
           {
             role: 'system',
-            content: `Error: 搜索功能出现错误：${error.message}`,
+            content: `Error: 搜索功能出现错误：${msg}`,
           },
         ],
       });

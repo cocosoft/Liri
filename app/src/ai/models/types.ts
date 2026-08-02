@@ -18,6 +18,8 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+import { readFileSync } from 'node:fs';
+
 /**
  * AI模型类型 — 字符串别名
  *
@@ -299,8 +301,7 @@ export function imageToContentPart(
       return { type: 'image_url', image_url: { url: input, detail } };
     }
 
-    const fs = require('fs');
-    const buffer = fs.readFileSync(input);
+    const buffer = readFileSync(input);
     const ext = input.split('.').pop()?.toLowerCase() || 'png';
     const mimeMap: Record<string, string> = {
       png: 'image/png',

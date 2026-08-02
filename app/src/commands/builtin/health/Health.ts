@@ -2,6 +2,7 @@
  * Health命令实现
  * 系统健康检查与状态诊断
  */
+import { cpus } from 'node:os';
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { getSystemCpuPercent } from '@modules/monitoring';
 
@@ -282,7 +283,7 @@ const healthCommand = {
    */
   getSystemInfo(): SystemInfo {
     const memory = process.memoryUsage();
-    const cpuCores = require('os').cpus().length;
+    const cpuCores = cpus().length;
     const cpuLoad = getSystemCpuPercent();
 
     return {

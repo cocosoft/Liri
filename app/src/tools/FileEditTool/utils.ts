@@ -180,12 +180,12 @@ export async function applyEdit(
       lineChanges,
       charChanges,
     };
-  } catch (error: any) {
+  } catch (error) {
     return {
       success: false,
       path: command.path,
       operation: command.type,
-      error: error.message ?? String(error),
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }
@@ -273,14 +273,14 @@ export async function applyBatchEdits(
       }
 
       results.push(result);
-    } catch (error: any) {
+    } catch (error) {
       errorCount++;
 
       results.push({
         success: false,
         path: edit.path,
         operation: edit.type,
-        error: error.message ?? String(error),
+        error: error instanceof Error ? error.message : String(error),
       });
 
       if (!batch.continueOnError) break;

@@ -8,7 +8,7 @@
 
 import { execSync } from 'child_process';
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { dirname, basename, extname, join } from 'path';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -319,11 +319,8 @@ export class AudioFormatConverter {
     inputPath: string,
     extension: string
   ): string {
-    const dir = require('path').dirname(inputPath);
-    const base = require('path').basename(
-      inputPath,
-      require('path').extname(inputPath)
-    );
+    const dir = dirname(inputPath);
+    const base = basename(inputPath, extname(inputPath));
     return join(dir, `${base}_converted${extension}`);
   }
 }

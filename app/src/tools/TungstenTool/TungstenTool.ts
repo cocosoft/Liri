@@ -451,12 +451,12 @@ export class TungstenTool implements Tool {
             ],
           });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       return createToolResult(null, {
         newMessages: [
           {
             role: 'system',
-            content: `Error: Tungsten operation failed: ${error.message}`,
+            content: `Error: Tungsten operation failed: ${error instanceof Error ? error.message : String(error)}`,
           },
         ],
       });

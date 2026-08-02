@@ -1,3 +1,6 @@
+import crypto from 'node:crypto';
+import type { BinaryToTextEncoding } from 'node:crypto';
+
 import {
   makeTool,
   booleanParam,
@@ -166,8 +169,8 @@ export function collectDataTools(tools: Tool[]): void {
       execute: (input) => {
         const text = input.text as string;
         if (!text) return { success: false, error: 'text is required' };
-        const crypto = require('crypto');
-        const encoding = (input.encoding as string) || 'hex';
+        const encoding = ((input.encoding as string) ||
+          'hex') as BinaryToTextEncoding;
         return {
           success: true,
           output: crypto.createHash('md5').update(text).digest(encoding),
@@ -189,8 +192,8 @@ export function collectDataTools(tools: Tool[]): void {
       execute: (input) => {
         const text = input.text as string;
         if (!text) return { success: false, error: 'text is required' };
-        const crypto = require('crypto');
-        const encoding = (input.encoding as string) || 'hex';
+        const encoding = ((input.encoding as string) ||
+          'hex') as BinaryToTextEncoding;
         return {
           success: true,
           output: crypto.createHash('sha1').update(text).digest(encoding),
@@ -213,8 +216,8 @@ export function collectDataTools(tools: Tool[]): void {
       execute: (input) => {
         const text = input.text as string;
         if (!text) return { success: false, error: 'text is required' };
-        const crypto = require('crypto');
-        const encoding = (input.encoding as string) || 'hex';
+        const encoding = ((input.encoding as string) ||
+          'hex') as BinaryToTextEncoding;
         return {
           success: true,
           output: crypto.createHash('sha256').update(text).digest(encoding),
@@ -417,8 +420,11 @@ export function collectDataTools(tools: Tool[]): void {
         try {
           JSON.parse(json);
           return { success: true, output: 'Valid JSON' };
-        } catch (e: any) {
-          return { success: false, error: `Invalid JSON: ${e.message}` };
+        } catch (e) {
+          return {
+            success: false,
+            error: `Invalid JSON: ${e instanceof Error ? e.message : String(e)}`,
+          };
         }
       },
     })
@@ -444,8 +450,11 @@ export function collectDataTools(tools: Tool[]): void {
             success: true,
             output: JSON.stringify(parsed, null, indent),
           };
-        } catch (e: any) {
-          return { success: false, error: `Invalid JSON: ${e.message}` };
+        } catch (e) {
+          return {
+            success: false,
+            error: `Invalid JSON: ${e instanceof Error ? e.message : String(e)}`,
+          };
         }
       },
     })
@@ -480,8 +489,11 @@ export function collectDataTools(tools: Tool[]): void {
             obj = obj[part];
           }
           return { success: true, output: JSON.stringify(obj) };
-        } catch (e: any) {
-          return { success: false, error: `Query failed: ${e.message}` };
+        } catch (e) {
+          return {
+            success: false,
+            error: `Query failed: ${e instanceof Error ? e.message : String(e)}`,
+          };
         }
       },
     })
@@ -501,7 +513,6 @@ export function collectDataTools(tools: Tool[]): void {
       aliases: ['uuid', 'gen_uuid'],
       tags: [TT.CODE],
       execute: (input) => {
-        const crypto = require('crypto');
         const count = Math.min(Math.max((input.count as number) || 1, 1), 100);
         const uuids: string[] = [];
         for (let i = 0; i < count; i++) {

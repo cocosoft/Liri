@@ -2,6 +2,9 @@
  * 代理工具基类
  */
 
+import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+
 import { AgentTool } from '../models/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -62,14 +65,14 @@ export class FileReadTool extends BaseAgentTool {
     params: Record<string, unknown>
   ): Promise<Record<string, unknown>> {
     const { path } = params;
-    const fs = require('fs');
+    const filePath = path as string;
 
     try {
-      const content = fs.readFileSync(path, 'utf-8');
+      const content = readFileSync(filePath, 'utf-8');
       return {
         success: true,
         content,
-        path,
+        path: filePath,
       };
     } catch (error) {
       return {
@@ -110,29 +113,30 @@ export class FileWriteTool extends BaseAgentTool {
     params: Record<string, unknown>
   ): Promise<Record<string, unknown>> {
     const { path, content, overwrite = false } = params;
-    const fs = require('fs');
-    const pathModule = require('path');
+    const filePath = path as string;
+    const fileContent = content as string;
+    const shouldOverwrite = overwrite === true;
 
     try {
       // 确保目录存在
-      const dir = pathModule.dirname(path);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+      const dir = dirname(filePath);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
       }
 
       // 检查文件是否存在
-      if (fs.existsSync(path) && !overwrite) {
+      if (existsSync(filePath) && !shouldOverwrite) {
         return {
           success: false,
           error: '文件已存在，请设置 overwrite 为 true',
-          path,
+          path: filePath,
         };
       }
 
-      fs.writeFileSync(path, content, 'utf-8');
+      writeFileSync(filePath, fileContent, 'utf-8');
       return {
         success: true,
-        path,
+        path: filePath,
       };
     } catch (error) {
       return {

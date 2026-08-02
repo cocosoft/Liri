@@ -120,7 +120,7 @@ export async function handleCreateFAQ(
 
     sendJson(res, 201, entry);
   } catch (err) {
-    if ((err as any)?.code === 'KNOWLEDGE_FAQ_DUPLICATE') {
+    if ((err as Record<string, unknown>)?.code === 'KNOWLEDGE_FAQ_DUPLICATE') {
       sendError(res, 'FAQ 条目重复', 409);
       return;
     }

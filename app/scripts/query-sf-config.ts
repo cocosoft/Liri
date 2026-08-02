@@ -38,8 +38,8 @@ console.log('\n=== model_routing 表 ===');
 try {
   const mr = db.query(`SELECT * FROM model_routing LIMIT 20`).all();
   console.log(JSON.stringify(mr, null, 2));
-} catch (e: any) {
-  console.log('model_routing error:', e.message);
+} catch (e) {
+  console.log('model_routing error:', e instanceof Error ? e.message : String(e));
 }
 
 // 6. video_tasks 表结构
@@ -47,8 +47,8 @@ console.log('\n=== video_tasks 表 ===');
 try {
   const vt = db.query(`SELECT * FROM video_tasks LIMIT 5`).all();
   console.log(JSON.stringify(vt, null, 2));
-} catch (e: any) {
-  console.log('video_tasks error:', e.message);
+} catch (e) {
+  console.log('video_tasks error:', e instanceof Error ? e.message : String(e));
 }
 
 // 7. channels 中是否有 siliconflow key
@@ -56,8 +56,8 @@ console.log('\n=== Channels ===');
 try {
   const ch = db.query(`SELECT id, name, channel_type, config FROM channels LIMIT 5`).all();
   console.log(JSON.stringify(ch, null, 2));
-} catch (e: any) {
-  console.log('channels error:', e.message);
+} catch (e) {
+  console.log('channels error:', e instanceof Error ? e.message : String(e));
 }
 
 db.close();

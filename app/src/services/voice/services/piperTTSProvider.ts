@@ -23,7 +23,13 @@ import { spawn, execSync } from 'child_process';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import { randomUUID } from 'crypto';
-import { existsSync, unlinkSync, readFileSync } from 'fs';
+import {
+  existsSync,
+  unlinkSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+} from 'fs';
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type {
@@ -268,10 +274,9 @@ export class PiperTTSProvider implements TTSProvider {
       return [];
     }
 
-    const fs = require('fs');
     const files: string[] = [];
     try {
-      fs.readdirSync(dir).forEach((file: string) => {
+      readdirSync(dir).forEach((file: string) => {
         if (file.endsWith('.onnx')) {
           files.push(file.replace(/\.onnx$/, ''));
         }
@@ -573,17 +578,16 @@ export class PiperTTSProvider implements TTSProvider {
       return [];
     }
 
-    const fs = require('fs');
     const entries: ModelIndexEntry[] = [];
 
     try {
-      const files: string[] = fs.readdirSync(dir);
+      const files: string[] = readdirSync(dir);
       for (const file of files) {
         if (!file.endsWith('.onnx')) continue;
 
         const modelId = file.replace('.onnx', '');
         const known = PIPER_VOICES.find((v) => v.id === modelId);
-        const stat = require('fs').statSync(require('path').join(dir, file));
+        const stat = statSync(join(dir, file));
 
         entries.push({
           id: modelId,

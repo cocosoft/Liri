@@ -36,9 +36,9 @@ export class FileSystemStorage implements SessionStorage {
   private async ensureDir(dir: string): Promise<void> {
     try {
       await fs.mkdir(dir, { recursive: true });
-    } catch (error: any) {
+    } catch (error) {
       // 目录已存在，忽略错误
-      if (error.code !== 'EEXIST') {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
         throw error;
       }
     }
@@ -105,7 +105,7 @@ export class FileSystemStorage implements SessionStorage {
       const content = await fs.readFile(sessionFilePath, 'utf-8');
       const data = JSON.parse(content);
       return Session.fromJSON(data);
-    } catch (error: any) {
+    } catch (error) {
       await handleError(error, {
         module: 'sessions:storage',
         action: `加载会话失败: ${sessionId}`,

@@ -112,8 +112,12 @@ export function registerSkillsCommands(program: Command): void {
           console.log(chalk.cyan('─'.repeat(80)));
         });
         console.log(chalk.bold(`Total skills: ${skills.length}`));
-      } catch (error: any) {
-        console.error(chalk.red(`Error listing skills: ${error.message}`));
+      } catch (error) {
+        console.error(
+          chalk.red(
+            `Error listing skills: ${error instanceof Error ? error.message : String(error)}`
+          )
+        );
         // @ignore-catch — CLI 命令失败，不预期抛出中断程序
         await handleError(error, { module: 'skills:cli', action: 'list' });
       }
@@ -171,8 +175,12 @@ export function registerSkillsCommands(program: Command): void {
           chalk.cyan(`Content length: ${skill.contentLength || 0} characters`)
         );
         console.log(chalk.cyan('═'.repeat(80)));
-      } catch (error: any) {
-        console.error(chalk.red(`Error getting skill info: ${error.message}`));
+      } catch (error) {
+        console.error(
+          chalk.red(
+            `Error getting skill info: ${error instanceof Error ? error.message : String(error)}`
+          )
+        );
         // @ignore-catch — CLI 命令失败，不预期抛出中断程序
         await handleError(error, { module: 'skills:cli', action: 'info' });
       }
@@ -216,8 +224,12 @@ export function registerSkillsCommands(program: Command): void {
         }
 
         console.log(chalk.cyan('═'.repeat(80)));
-      } catch (error: any) {
-        console.error(chalk.red(`Error running skill: ${error.message}`));
+      } catch (error) {
+        console.error(
+          chalk.red(
+            `Error running skill: ${error instanceof Error ? error.message : String(error)}`
+          )
+        );
         // @ignore-catch — CLI 命令失败，不预期抛出中断程序
         await handleError(error, { module: 'skills:cli', action: 'run' });
       }
@@ -235,8 +247,12 @@ export function registerSkillsCommands(program: Command): void {
         console.log(
           chalk.green(`Successfully reloaded ${skills.length} skills.`)
         );
-      } catch (error: any) {
-        console.error(chalk.red(`Error reloading skills: ${error.message}`));
+      } catch (error) {
+        console.error(
+          chalk.red(
+            `Error reloading skills: ${error instanceof Error ? error.message : String(error)}`
+          )
+        );
         // @ignore-catch — CLI 命令失败，不预期抛出中断程序
         await handleError(error, { module: 'skills:cli', action: 'reload' });
       }

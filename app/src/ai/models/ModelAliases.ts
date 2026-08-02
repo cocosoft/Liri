@@ -3,6 +3,100 @@
  */
 
 import { ALL_MODEL_CONFIGS, getModelKeyByName } from './ModelConfigs.js';
+import { ModelRegistry } from './ModelRegistry.js';
+
+/** 非聊天能力标签（用于排除专用模型） */
+const NON_CHAT_CAPABILITIES = new Set([
+  'image_generation',
+  'video_generation',
+  'embedding',
+  'text_to_speech',
+  'speech_recognition',
+  'reranking',
+  'moderation',
+  'image_editing',
+  'text_to_video',
+  'image_to_video',
+]);
+
+/** 高性能模型名称关键词 */
+const BEST_KEYWORDS = ['pro', 'reasoner', 'opus', 'preview', 'max'];
+
+/** 轻量/快速模型名称关键词 */
+const FAST_KEYWORDS = ['flash', 'mini', 'turbo', 'haiku', 'nano', 'lite'];
+
+/**
+ * 从 ModelRegistry 同步查询最匹配的模型
+ *
+ * 根据别名语义（best=最强推理, fast=轻量快速）从已注册模型中筛选。
+ * ModelRegistry 是启动时从 DB 加载的内存缓存，可同步访问。
+ *
+ * @param alias 模型别名
+ * @returns 实际模型名，或 fallback 到通用占位符
+ */
+export function resolveModelAliasFromRegistry(alias: ModelAlias): string {
+  try {
+    const registry = ModelRegistry.getInstance();
+    const allModels = registry.getAllModels();
+
+    // 筛选纯聊天模型（无专用能力的模型）
+    const chatModels = allModels.filter((m) => {
+      const caps = m.capabilities || [];
+      return (
+        caps.length === 0 || !caps.every((c) => NON_CHAT_CAPABILITIES.has(c))
+      );
+    });
+
+    if (chatModels.length === 0) return fallbackFor(alias);
+
+    if (alias === 'best' || alias === 'pro') {
+      // 优先级：名称含 pro/reasoner/opus > 最大 contextWindow > 第一个
+      const best = chatModels.find((m) =>
+        BEST_KEYWORDS.some((kw) => m.firstParty.toLowerCase().includes(kw))
+      );
+      if (best) return best.firstParty;
+
+      // 按 contextWindow 降序取最大
+      const sorted = [...chatModels].sort(
+        (a, b) => (b.contextWindow || 0) - (a.contextWindow || 0)
+      );
+      return sorted[0].firstParty;
+    }
+
+    if (alias === 'fast' || alias === 'flash') {
+      // 优先级：名称含 flash/mini/turbo > 最小 contextWindow > 第一个
+      const fast = chatModels.find((m) =>
+        FAST_KEYWORDS.some((kw) => m.firstParty.toLowerCase().includes(kw))
+      );
+      if (fast) return fast.firstParty;
+
+      // 按 contextWindow 升序取最小（越便宜通常窗口越小）
+      const sorted = [...chatModels].sort(
+        (a, b) => (a.contextWindow || 0) - (b.contextWindow || 0)
+      );
+      return sorted[0].firstParty;
+    }
+
+    return fallbackFor(alias);
+  } catch {
+    // ModelRegistry 不可用时回退到原有行为
+    return fallbackFor(alias);
+  }
+}
+
+/** 无法从 registry 解析时的兜底占位符 */
+function fallbackFor(alias: ModelAlias): string {
+  switch (alias) {
+    case 'best':
+    case 'pro':
+      return 'default-pro';
+    case 'fast':
+    case 'flash':
+      return 'default-fast';
+    default:
+      return alias;
+  }
+}
 
 /**
  * 模型别名列表
@@ -44,23 +138,17 @@ export function isModelFamilyAlias(model: string): boolean {
 
 /**
  * 解析模型别名
- * TODO: CS05-ROOTFIX — 目前 fallback 到通用别名（default-pro / default-fast），
- * 由 ModelRouter.resolve() 按任务分工配置动态路由到实际模型。
- * 根因方案：从 DB model_registry 按 capability 查询最匹配的模型（如 reasoning=best）。
+ *
+ * 从 ModelRegistry（DB 内存缓存）中按别名语义查询实际模型名。
+ * best/pro → 高能力推理模型；fast/flash → 轻量快速模型。
+ * ModelRegistry 为空时回退到通用占位符（default-pro/default-fast），
+ * 由 ModelRouter 按任务分工进一步路由。
+ *
  * @param alias 模型别名
- * @returns 实际模型名称或通用别名（由 ModelRouter 进一步解析）
+ * @returns 实际模型名称或通用别名
  */
 export function parseModelAlias(alias: ModelAlias): string {
-  switch (alias) {
-    case 'best':
-    case 'pro':
-      return 'default-pro';
-    case 'fast':
-    case 'flash':
-      return 'default-fast';
-    default:
-      return alias;
-  }
+  return resolveModelAliasFromRegistry(alias);
 }
 
 /**

@@ -922,12 +922,12 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
             },
           });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       onProgress?.({
         toolUseID: toolUseId,
         data: {
           percentage: 100,
-          message: `Todo 操作失败: ${error.message}`,
+          message: `Todo 操作失败: ${error instanceof Error ? error.message : String(error)}`,
           stage: 'error',
         },
       });
@@ -935,7 +935,7 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
         newMessages: [
           {
             role: 'system',
-            content: `Error: Todo operation failed: ${error.message}`,
+            content: `Error: Todo operation failed: ${error instanceof Error ? error.message : String(error)}`,
           },
         ],
         errorLevel: ErrorLevel.RETRYABLE,

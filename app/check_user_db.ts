@@ -12,8 +12,8 @@ try {
   const cc = userDb.query('SELECT * FROM channel_configs').all();
   console.log('\n=== channel_configs rows ===');
   console.log(JSON.stringify(cc, null, 2));
-} catch (e: any) {
-  console.log('\nchannel_configs table:', e.message);
+} catch (e) {
+  console.log('\nchannel_configs table:', e instanceof Error ? e.message : String(e));
 }
 
 userDb.close();

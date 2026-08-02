@@ -2625,6 +2625,51 @@ export class LocalHTTPService {
     }
   }
 
+  // ========== 统一设置端点 ==========
+
+  /**
+   * 获取命名空间设置
+   * GET /v1/settings/{namespace}
+   */
+  private async handleGetSettings(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    namespace: string
+  ): Promise<void> {
+    try {
+      const { configManager } = await import('@modules/config/ConfigManager');
+      const settingsKey = `settings.${namespace}`;
+      const value = configManager.getConfigValue(settingsKey);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ namespace, value: value ?? {} }));
+    } catch {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ namespace, value: {} }));
+    }
+  }
+
+  /**
+   * 设置命名空间配置
+   * PUT /v1/settings/{namespace}
+   */
+  private async handleSetSettings(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    namespace: string
+  ): Promise<void> {
+    try {
+      const body = await this.readRequestBody(req);
+      const values = JSON.parse(body || '{}');
+      const { configManager } = await import('@modules/config/ConfigManager');
+      const settingsKey = `settings.${namespace}`;
+      configManager.setConfigValue(settingsKey, values);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, namespace, value: values }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
   // ========== Router（智能路由）==========
 
   /**
@@ -3043,7 +3088,9 @@ export class LocalHTTPService {
       // 设置全局覆盖
       setUserDataDirOverride(resolvedDir);
 
-      // 持久化到用户设置
+      // 持久化：ConfigManager（新） + settings.json（向后兼容）
+      const { configManager } = await import('@modules/config/ConfigManager');
+      configManager.setConfigValue('system.dataDirectory', resolvedDir);
       const { updateUserSettings } =
         await import('@modules/config/settings/userSettings');
       await updateUserSettings({ dataDirectory: resolvedDir });

@@ -93,8 +93,8 @@ function main(): void {
             writeFileSync(filePath, content, 'utf-8');
             console.log(`  ✓ 已更新: ${target.file} → v${version}`);
             successCount++;
-        } catch (err: any) {
-            console.error(`  ✗ 失败: ${target.file} — ${err.message}`);
+        } catch (err) {
+            console.error(`  ✗ 失败: ${target.file} — ${err instanceof Error ? err.message : String(err)}`);
             errorCount++;
         }
     }

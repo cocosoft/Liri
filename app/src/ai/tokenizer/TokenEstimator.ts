@@ -173,9 +173,9 @@ export async function estimateMessagesTokensPrecise(
   messages: readonly { role?: string; content?: string | unknown }[]
 ): Promise<number> {
   // 如果 tiktoken 可用，对所有消息内容做精确计算
-  const encoder = await import('./TiktokenEstimator').then((m) =>
-    m.getTiktokenEncoder()
-  );
+  const encoder = await import('./TiktokenEstimator')
+    .then((m) => m.getTiktokenEncoder())
+    .catch(() => null);
   if (encoder) {
     let total = 0;
     for (const msg of messages) {

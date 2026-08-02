@@ -1,11 +1,17 @@
-﻿/**
+/**
  * SOUL.md 读取器
- * 从 ~/.pyapp/SOUL.md 读取 AI 人格定义
+ * 主要从 ConfigManager (settings.soul) 读取 AI 人格定义，
+ * 文件系统 (~/.pyapp/SOUL.md) 仅作为降级回退。
  * 对标 OpenClaw SOUL.md 体系
+ *
+ * Phase 2.2: 存储从文件系统迁移到 ConfigManager。
+ *   read: ConfigManager → 文件回退
+ *   write: ConfigManager（主）+ 文件（向后兼容）
  */
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveSoulPath } from '@modules/core';
+import { configManager } from '@modules/config';
 
 const SOUL_FILE_PATH = resolveSoulPath();
 
@@ -43,10 +49,34 @@ const DEFAULT_SOUL = `# SOUL.md — Liri 的人格
 `;
 
 /**
+ * 从 ConfigManager 读取 SOUL 内容
+ * @returns 内容字符串，无数据时返回 undefined
+ */
+function readSoulFromConfig(): string | undefined {
+  try {
+    const settings = configManager.getConfigValue('settings.soul') as
+      | { content?: string }
+      | undefined;
+    if (settings?.content && typeof settings.content === 'string') {
+      return settings.content;
+    }
+  } catch {
+    // ConfigManager 不可用时返回 undefined，走文件回退
+  }
+  return undefined;
+}
+
+/**
  * 读取 SOUL.md 内容
- * @returns SOUL.md 内容字符串，如果文件不存在则返回默认人格
+ * 优先级: ConfigManager > 文件缓存 > 文件系统 > 默认值
+ * @returns SOUL.md 内容字符串
  */
 export function readSoulMd(): string {
+  // 优先从 ConfigManager 读取
+  const configContent = readSoulFromConfig();
+  if (configContent !== undefined) return configContent;
+
+  // 降级到文件系统
   try {
     const stat = fs.statSync(SOUL_FILE_PATH);
     if (stat.mtimeMs !== cachedMtime) {
@@ -130,8 +160,18 @@ export function clearSoulCache(): void {
 
 /**
  * 写入 SOUL.md 内容
+ * 主存储: ConfigManager (settings.soul.content)
+ * 向后兼容: 同时写入文件系统 (~/.pyapp/SOUL.md)
  */
 export function writeSoulMd(content: string): void {
+  // 主存储: ConfigManager
+  try {
+    configManager.setConfigValue('settings.soul', { content });
+  } catch {
+    // ConfigManager 写入失败不阻塞（文件系统兜底）
+  }
+
+  // 向后兼容: 文件系统
   const dir = path.dirname(SOUL_FILE_PATH);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -141,9 +181,15 @@ export function writeSoulMd(content: string): void {
 }
 
 /**
- * 确保 SOUL.md 文件存在，不存在则创建默认版本
+ * 确保 SOUL.md 默认内容存在
+ * 检查 ConfigManager 和文件系统，都不存在时创建默认版本
  */
 export function ensureDefaultSoulMd(): void {
+  // 先检查 ConfigManager
+  const configContent = readSoulFromConfig();
+  if (configContent !== undefined) return;
+
+  // 文件系统兜底
   if (!fs.existsSync(SOUL_FILE_PATH)) {
     writeSoulMd(DEFAULT_SOUL);
   }

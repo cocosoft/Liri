@@ -232,24 +232,25 @@ export class FileWriteTool extends BaseTool {
           },
         ],
       });
-    } catch (error: any) {
+    } catch (error) {
       handleError(error, {
         module: 'tools:FileWriteTool',
         action: 'execute',
       });
+      const msg = error instanceof Error ? error.message : String(error);
       if (onProgress) {
         onProgress({
           toolUseID: 'file-write-tool',
           data: {
             type: 'file_write',
-            error: error.message,
+            error: msg,
             isRunning: false,
             isComplete: true,
           },
         });
       }
-      return createToolResult(error.message, {
-        newMessages: [{ role: 'system', content: `Error: ${error.message}` }],
+      return createToolResult(msg, {
+        newMessages: [{ role: 'system', content: `Error: ${msg}` }],
       });
     }
   }

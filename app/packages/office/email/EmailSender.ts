@@ -74,8 +74,8 @@ export class EmailSender {
         accepted: (mailResult.accepted as string[]) || [],
         rejected: (mailResult.rejected as string[]) || [],
       };
-    } catch (error: any) {
-      throw new Error(`MAIL_SEND_FAILED: ${error.message}`);
+    } catch (error) {
+      throw new Error(`MAIL_SEND_FAILED: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

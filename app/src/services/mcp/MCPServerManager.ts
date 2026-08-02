@@ -133,7 +133,7 @@ export class MCPServerManager {
             logger.info(`Connected to MCP server: ${name}`);
             await this.refreshServerTools(name);
           }
-        } catch (error: any) {
+        } catch (error) {
           // P2-4: 连接错误消息脱敏后记录，防止凭据泄露到日志
           const rawMsg = error instanceof Error ? error.message : String(error);
           const { stripCredentials } = await import('./MCPSecurityFilter');
@@ -305,7 +305,7 @@ export class MCPServerManager {
       logger.debug(
         `Refreshed tools for server ${serverName}: ${tools.length} tools`
       );
-    } catch (error: any) {
+    } catch (error) {
       await handleError(error, {
         module: 'services:mcp:server',
         action: 'refresh_server_tools',
@@ -413,7 +413,7 @@ export class MCPServerManager {
               logger.info(`Successfully reconnected to MCP server: ${name}`);
               await this.refreshServerTools(name);
             }
-          } catch (error: any) {
+          } catch (error) {
             await handleError(error, {
               module: 'services:mcp:server',
               action: 'reconnect_server',

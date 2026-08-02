@@ -98,8 +98,11 @@ for (let i = 0; i < TEST_COMMANDS.length; i++) {
         failed.push({ label, err: errMsg });
       }
     }
-  } catch (err: any) {
-    const msg = (err.message || String(err)).substring(0, 60);
+  } catch (err) {
+    const msg = (err instanceof Error ? err.message : String(err)).substring(
+      0,
+      60
+    );
     console.log(`❌ ${label.padEnd(20)} ${msg}`);
     failed.push({ label, err: msg });
   }

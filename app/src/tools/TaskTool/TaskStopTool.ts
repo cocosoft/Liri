@@ -221,13 +221,13 @@ export class TaskStopTool extends BaseTool<
         success: true,
         output: output.message,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       const output: TaskStopToolOutput = {
         task_id: input.task_id,
         previous_status: 'unknown',
         current_status: 'error',
         success: false,
-        message: `Failed to stop task ${input.task_id}: ${error.message}`,
+        message: `Failed to stop task ${input.task_id}: ${error instanceof Error ? error.message : String(error)}`,
       };
       return createToolResult(output, {
         success: false,

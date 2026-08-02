@@ -294,6 +294,64 @@ async function checkCriticalDependencies(): Promise<{
 }
 
 /**
+ * Phase 2.2: 将 SOUL.md / USER.md 从文件系统迁移到 ConfigManager
+ *
+ * 仅在 ConfigManager 中无数据且文件系统有旧文件时执行迁移。
+ * 迁移后将内容写入 ConfigManager，旧文件保留不删除（向后兼容）。
+ */
+async function migrateSoulAndUserToConfigManager(
+  configMgr: typeof configManager
+): Promise<void> {
+  try {
+    const { resolveSoulPath, resolveUserProfilePath } =
+      await import('@modules/core');
+
+    // 迁移 SOUL.md
+    const soulConfig = configMgr.getConfigValue('settings.soul') as
+      | { content?: string }
+      | undefined;
+    if (!soulConfig?.content) {
+      const soulPath = resolveSoulPath();
+      if (existsSync(soulPath)) {
+        try {
+          const content = readFileSync(soulPath, 'utf-8');
+          if (content.trim()) {
+            configMgr.setConfigValue('settings.soul', { content });
+            logger.info('SOUL.md 已迁移到 ConfigManager');
+          }
+        } catch (err) {
+          logger.warn('SOUL.md 迁移失败', { error: String(err) });
+        }
+      }
+    }
+
+    // 迁移 USER.md
+    const userConfig = configMgr.getConfigValue('settings.user') as
+      | { content?: string }
+      | undefined;
+    if (!userConfig?.content) {
+      const userPath = resolveUserProfilePath();
+      if (existsSync(userPath)) {
+        try {
+          const content = readFileSync(userPath, 'utf-8');
+          if (content.trim()) {
+            configMgr.setConfigValue('settings.user', { content });
+            logger.info('USER.md 已迁移到 ConfigManager');
+          }
+        } catch (err) {
+          logger.warn('USER.md 迁移失败', { error: String(err) });
+        }
+      }
+    }
+  } catch (err) {
+    // 迁移非关键，失败不影响启动
+    logger.warn('SOUL/USER 迁移到 ConfigManager 失败', {
+      error: String(err),
+    });
+  }
+}
+
+/**
  * 检查是否为首次运行（无配置的初始化）
  *
  * 通过检查 app/data/.onboarded 标记文件来判断。
@@ -1235,15 +1293,41 @@ export async function launch(options: LaunchOptions): Promise<void> {
         const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
         getCoreAPI().setSmartRouter(smartRouter);
 
-        // 从 settings.json 恢复用户自定义数据目录（优先于 LIRI_HOME 环境变量）
-        const { loadUserSettings } = await import('./config/settings/userSettings.js');
+        // 从 ConfigManager 或 settings.json 恢复用户自定义数据目录
+        const { loadUserSettings } =
+          await import('./config/settings/userSettings.js');
         const { setUserDataDirOverride } = await import('./core/paths.js');
-        const settings = loadUserSettings();
-        const dataDirectory = settings.dataDirectory as string | undefined;
-        if (dataDirectory && typeof dataDirectory === 'string' && dataDirectory.trim()) {
+
+        // 优先读取 ConfigManager（新），fallback settings.json（旧，自动迁移）
+        let dataDirectory = configManager.getConfigValue(
+          'system.dataDirectory'
+        ) as string | undefined;
+        if (!dataDirectory) {
+          const settings = loadUserSettings();
+          dataDirectory = settings.dataDirectory as string | undefined;
+          // 自动迁移：settings.json → ConfigManager
+          if (
+            dataDirectory &&
+            typeof dataDirectory === 'string' &&
+            dataDirectory.trim()
+          ) {
+            configManager.setConfigValue(
+              'system.dataDirectory',
+              dataDirectory.trim()
+            );
+          }
+        }
+        if (
+          dataDirectory &&
+          typeof dataDirectory === 'string' &&
+          dataDirectory.trim()
+        ) {
           setUserDataDirOverride(dataDirectory.trim());
           logger.info(`用户数据目录已从设置恢复: ${dataDirectory}`);
         }
+
+        // Phase 2.2: SOUL.md / USER.md → ConfigManager 自动迁移
+        await migrateSoulAndUserToConfigManager(configManager);
 
         // 预热：确保会话从磁盘加载，HTTP handler 首次请求即可返回
         await getCoreAPI().ensureSessionsLoaded();

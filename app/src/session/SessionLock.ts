@@ -97,8 +97,9 @@ export class SessionLock {
             holder: this.instanceId,
             acquiredAt: lockData.acquiredAt,
           };
-        } catch (err: any) {
-          if (err.code === 'EEXIST' || err.code === 'EWOULDBLOCK') {
+        } catch (err) {
+          const code = (err as NodeJS.ErrnoException).code;
+          if (code === 'EEXIST' || code === 'EWOULDBLOCK') {
             await this.sleep(this.retryInterval);
             continue;
           }

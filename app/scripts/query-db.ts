@@ -48,8 +48,8 @@ for (const t of tables) {
     try {
       const rows = db.query(`SELECT * FROM "${name}" LIMIT 5`).all();
       console.log(JSON.stringify(rows, null, 2));
-    } catch (e: any) {
-      console.log('error:', e.message);
+    } catch (e) {
+      console.log('error:', e instanceof Error ? e.message : String(e));
     }
   }
 }

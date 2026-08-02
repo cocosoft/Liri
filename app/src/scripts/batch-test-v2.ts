@@ -94,9 +94,9 @@ for (const { cmd, label } of TEST_COMMANDS) {
       console.log(`❌ ${label.padEnd(20)} ${errMsg}`);
       failed++;
     }
-  } catch (err: any) {
+  } catch (err) {
     console.log(
-      `❌ ${label.padEnd(20)} ${(err.message || '').substring(0, 50)}`
+      `❌ ${label.padEnd(20)} ${(err instanceof Error ? err.message : '').substring(0, 50)}`
     );
     failed++;
   }

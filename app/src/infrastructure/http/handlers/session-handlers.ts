@@ -45,10 +45,32 @@ export async function handleListSessions(
       `http://${req.headers.host || 'localhost'}`
     );
     const lite = url.searchParams.get('lite') === 'true';
+    const moduleType = url.searchParams.get('moduleType');
+    const projectId = url.searchParams.get('projectId');
 
-    const sessions = lite
-      ? await coreAPI.listLiteSessions()
-      : await coreAPI.listSessions();
+    let sessions: unknown;
+    if (lite) {
+      sessions = await coreAPI.listLiteSessions();
+    } else {
+      let full = await coreAPI.listSessions();
+      if (moduleType || projectId) {
+        full = full.filter((s) => {
+          const md = s.metadata as Record<string, unknown> | undefined;
+          if (moduleType && (md?.moduleType || 'chat') !== moduleType)
+            return false;
+          if (
+            projectId &&
+            (md?.projectId ??
+              (s as unknown as Record<string, unknown>).workspaceId) !==
+              projectId
+          )
+            return false;
+          return true;
+        });
+      }
+      sessions = full;
+    }
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(sessions));
   } catch (err) {
@@ -80,15 +102,18 @@ export async function handleCreateSession(
   try {
     const body = await ctx.readRequestBody(req);
     const data = JSON.parse(body);
-    const { title, model, workspaceId, workspace_path } = data;
+    const { title, model, workspaceId, workspace_path, moduleType, projectId } =
+      data;
     const coreAPI = getCoreAPI();
     await coreAPI.ensureSessionsLoaded();
 
-    // 将 model、workspaceId 和 workspacePath 存入 session metadata
+    // 将 model、workspaceId、moduleType、projectId 存入 session metadata
     const metadata: Record<string, unknown> = {};
     if (model) metadata.model = model;
     if (workspaceId) metadata.workspaceId = workspaceId;
     if (workspace_path) metadata.workspacePath = workspace_path;
+    if (moduleType) metadata.moduleType = moduleType;
+    if (projectId) metadata.projectId = projectId;
 
     const session = await coreAPI.createSession({ title, metadata });
     res.writeHead(200, { 'Content-Type': 'application/json' });

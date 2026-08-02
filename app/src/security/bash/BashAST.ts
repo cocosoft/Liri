@@ -116,8 +116,11 @@ export function parseForSecurity(command: string): ParseForSecurityResult {
     }
 
     return { kind: 'simple', commands: simpleCommands };
-  } catch (e: any) {
-    return { kind: 'too-complex', reason: e.message || 'parse error' };
+  } catch (e) {
+    return {
+      kind: 'too-complex',
+      reason: e instanceof Error ? e.message : 'parse error',
+    };
   }
 }
 

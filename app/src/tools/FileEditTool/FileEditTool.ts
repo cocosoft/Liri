@@ -280,13 +280,14 @@ export class FileEditTool extends BaseTool {
           output: `File edited successfully: ${result.canonicalPath}`,
         }
       );
-    } catch (error: any) {
+    } catch (error) {
       handleError(error, {
         module: 'tools:FileEditTool',
         action: 'execute',
       });
-      return createToolResult(error.message, {
-        newMessages: [{ role: 'system', content: `Error: ${error.message}` }],
+      const msg = error instanceof Error ? error.message : String(error);
+      return createToolResult(msg, {
+        newMessages: [{ role: 'system', content: `Error: ${msg}` }],
       });
     }
   }

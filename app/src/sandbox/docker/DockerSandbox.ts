@@ -250,17 +250,25 @@ export class DockerSandbox implements Sandbox {
         durationMs: Date.now() - startTime,
         timedOut: false,
       };
-    } catch (error: any) {
-      const isTimeout = error.killed || error.message?.includes('timeout');
+    } catch (error) {
+      const execErr = error as {
+        code?: number;
+        status?: number;
+        stdout?: string;
+        stderr?: string;
+        message?: string;
+        killed?: boolean;
+      };
+      const isTimeout = execErr.killed || execErr.message?.includes('timeout');
       return {
         success: false,
-        exitCode: error.code || error.status || 1,
-        stdout: error.stdout || '',
-        stderr: error.stderr || error.message || String(error),
+        exitCode: execErr.code || execErr.status || 1,
+        stdout: execErr.stdout || '',
+        stderr: execErr.stderr || execErr.message || String(error),
         executionTime: Date.now() - startTime,
         durationMs: Date.now() - startTime,
         timedOut: !!isTimeout,
-        error: error.stderr || error.message || String(error),
+        error: execErr.stderr || execErr.message || String(error),
       };
     }
   }

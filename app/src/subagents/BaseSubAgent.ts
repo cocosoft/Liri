@@ -198,17 +198,18 @@ export abstract class BaseSubAgent implements SubAgent {
         toolUsages: result.toolUsages,
         metadata: result.metadata,
       };
-    } catch (error: any) {
+    } catch (error) {
       // 更新统计信息
       this.stats.totalExecutions++;
       this.stats.failedExecutions++;
+      const msg = error instanceof Error ? error.message : String(error);
 
       // 记录错误到内存
       await this.addMemory({
         type: 'task',
         content: {
           ...request,
-          error: error.message,
+          error: msg,
         },
         priority: 10,
         tags: ['task', 'execution', 'error'],
@@ -221,7 +222,7 @@ export abstract class BaseSubAgent implements SubAgent {
         subAgentId: this.id,
         result: null,
         status: 'failure',
-        error: error.message,
+        error: msg,
         executionTime: Date.now() - startTime,
       };
     }

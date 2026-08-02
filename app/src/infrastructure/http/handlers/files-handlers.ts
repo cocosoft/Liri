@@ -129,7 +129,7 @@ export async function handleFileList(
 
     const names = readdirSync(absPath, { withFileTypes: true });
     const entries = names.map((dirent: Dirent) => {
-      const fullPath = require('path').join(absPath, dirent.name);
+      const fullPath = path.join(absPath, dirent.name);
       let size: number | undefined;
       let modifiedAt: number | undefined;
       try {

@@ -1,4 +1,10 @@
-﻿import {
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import dnsPromises from 'node:dns/promises';
+
+import {
   makeTool,
   booleanParam,
   stringParam,
@@ -59,8 +65,11 @@ export function collectIoTools(tools: Tool[]): void {
               body: body.slice(0, 10000),
             }),
           };
-        } catch (e: any) {
-          return { success: false, error: `HTTP request failed: ${e.message}` };
+        } catch (e) {
+          return {
+            success: false,
+            error: `HTTP request failed: ${e instanceof Error ? e.message : String(e)}`,
+          };
         }
       },
     })
@@ -103,8 +112,11 @@ export function collectIoTools(tools: Tool[]): void {
               })(),
             }),
           };
-        } catch (e: any) {
-          return { success: false, error: `HEAD request failed: ${e.message}` };
+        } catch (e) {
+          return {
+            success: false,
+            error: `HEAD request failed: ${e instanceof Error ? e.message : String(e)}`,
+          };
         }
       },
     })
@@ -128,7 +140,6 @@ export function collectIoTools(tools: Tool[]): void {
         const hostname = input.hostname as string;
         if (!hostname) return { success: false, error: 'hostname is required' };
         try {
-          const dnsPromises = require('dns/promises') as any;
           const addresses: string[] = await dnsPromises.resolve4(hostname);
           let addresses6: string[] = [];
           try {
@@ -147,8 +158,11 @@ export function collectIoTools(tools: Tool[]): void {
               addresses6,
             }),
           };
-        } catch (e: any) {
-          return { success: false, error: `DNS lookup failed: ${e.message}` };
+        } catch (e) {
+          return {
+            success: false,
+            error: `DNS lookup failed: ${e instanceof Error ? e.message : String(e)}`,
+          };
         }
       },
     })
@@ -163,7 +177,6 @@ export function collectIoTools(tools: Tool[]): void {
       aliases: ['myip', 'ipconfig'],
       tags: [TT.NETWORK],
       execute: () => {
-        const os = require('os') as typeof import('os');
         const interfaces = os.networkInterfaces();
         const result: Record<string, string[]> = {};
         for (const [name, addrs] of Object.entries(interfaces)) {
@@ -336,8 +349,11 @@ export function collectIoTools(tools: Tool[]): void {
             }
           }
           return { success: true, output: JSON.stringify(result, null, 2) };
-        } catch (e: any) {
-          return { success: false, error: `YAML parse error: ${e.message}` };
+        } catch (e) {
+          return {
+            success: false,
+            error: `YAML parse error: ${e instanceof Error ? e.message : String(e)}`,
+          };
         }
       },
     })
@@ -354,7 +370,6 @@ export function collectIoTools(tools: Tool[]): void {
       aliases: ['stat', 'file_stat'],
       tags: [TT.FILE],
       execute: (input) => {
-        const fs = require('fs');
         const targetPath = input.path as string;
         if (!targetPath) return { success: false, error: 'path is required' };
         try {
@@ -404,8 +419,6 @@ export function collectIoTools(tools: Tool[]): void {
       aliases: ['ls', 'list_dir'],
       tags: [TT.FILE],
       execute: (input) => {
-        const fs = require('fs');
-        const path = require('path');
         const dirPath = (input.path as string) || process.cwd();
         const recursive = input.recursive === true;
 
@@ -435,8 +448,13 @@ export function collectIoTools(tools: Tool[]): void {
               }
               return info;
             });
-          } catch (e: any) {
-            return [{ name: `Error: ${e.message}`, type: 'error' }];
+          } catch (e) {
+            return [
+              {
+                name: `Error: ${e instanceof Error ? e.message : String(e)}`,
+                type: 'error',
+              },
+            ];
           }
         }
 
@@ -465,8 +483,6 @@ export function collectIoTools(tools: Tool[]): void {
       aliases: ['checksum', 'file_checksum'],
       tags: [TT.FILE],
       execute: (input) => {
-        const fs = require('fs');
-        const crypto = require('crypto');
         const filePath = input.path as string;
         if (!filePath) return { success: false, error: 'path is required' };
         const algorithm = (input.algorithm as string) || 'sha256';
@@ -485,8 +501,11 @@ export function collectIoTools(tools: Tool[]): void {
               size: content.length,
             }),
           };
-        } catch (e: any) {
-          return { success: false, error: `File hash failed: ${e.message}` };
+        } catch (e) {
+          return {
+            success: false,
+            error: `File hash failed: ${e instanceof Error ? e.message : String(e)}`,
+          };
         }
       },
     })
@@ -504,7 +523,6 @@ export function collectIoTools(tools: Tool[]): void {
       aliases: ['cp', 'copy_file'],
       tags: [TT.FILE],
       execute: (input) => {
-        const fs = require('fs');
         const src = input.source as string;
         const dest = input.destination as string;
         if (!src || !dest)
@@ -522,8 +540,11 @@ export function collectIoTools(tools: Tool[]): void {
           }
           fs.copyFileSync(src, dest);
           return { success: true, output: `Copied "${src}" → "${dest}"` };
-        } catch (e: any) {
-          return { success: false, error: `Copy failed: ${e.message}` };
+        } catch (e) {
+          return {
+            success: false,
+            error: `Copy failed: ${e instanceof Error ? e.message : String(e)}`,
+          };
         }
       },
     })
@@ -542,9 +563,6 @@ export function collectIoTools(tools: Tool[]): void {
       aliases: ['mktemp', 'create_temp'],
       tags: [TT.FILE],
       execute: (input) => {
-        const fs = require('fs');
-        const os = require('os');
-        const path = require('path');
         const content = input.content as string;
         if (content === undefined)
           return { success: false, error: 'content is required' };
@@ -562,10 +580,10 @@ export function collectIoTools(tools: Tool[]): void {
               dir: tmpDir,
             }),
           };
-        } catch (e: any) {
+        } catch (e) {
           return {
             success: false,
-            error: `Temp file creation failed: ${e.message}`,
+            error: `Temp file creation failed: ${e instanceof Error ? e.message : String(e)}`,
           };
         }
       },
@@ -745,8 +763,11 @@ export function collectIoTools(tools: Tool[]): void {
               .join(' | ')
           );
           return { success: true, output: [line, sep, ...rows].join('\n') };
-        } catch (e: any) {
-          return { success: false, error: `Table format error: ${e.message}` };
+        } catch (e) {
+          return {
+            success: false,
+            error: `Table format error: ${e instanceof Error ? e.message : String(e)}`,
+          };
         }
       },
     })

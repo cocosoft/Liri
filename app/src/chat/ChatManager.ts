@@ -22,6 +22,8 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { homedir } from 'node:os';
+
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { repairModelJson } from '@modules/utils/json';
@@ -881,52 +883,53 @@ export class ChatManagerImpl implements ChatManager {
    */
   private async _migrateHomeFromProjectToUser(): Promise<void> {
     try {
-      const { readdirSync, existsSync, renameSync, mkdirSync } = require('fs');
-      const { join } = require('path');
       const { resolvePyappHome } = await import('@modules/core');
 
-      const homedir = require('os').homedir();
-      const newHome = join(homedir(), '.pyapp');
+      const newHome = path.join(homedir(), '.pyapp');
       const curHome = resolvePyappHome();
 
       // 当前已在用户主目录，无需迁移
-      if (curHome.startsWith(homedir)) return;
+      if (curHome.startsWith(homedir())) return;
 
-      const curDataDir = join(curHome, 'data');
-      const newDataDir = join(newHome, 'data');
+      const curDataDir = path.join(curHome, 'data');
+      const newDataDir = path.join(newHome, 'data');
 
       // 新路径已有数据 → 已迁移，跳过
-      if (existsSync(newDataDir)) return;
+      if (fs.existsSync(newDataDir)) return;
       // 旧路径无数据 → 无需迁移
-      if (!existsSync(curDataDir)) return;
+      if (!fs.existsSync(curDataDir)) return;
 
       // 递归迁移：创建目标 → 移动文件 → 成功后删除旧目录
-      mkdirSync(newHome, { recursive: true });
-      mkdirSync(newDataDir, { recursive: true });
+      fs.mkdirSync(newHome, { recursive: true });
+      fs.mkdirSync(newDataDir, { recursive: true });
 
       // 迁移 home 根目录文件（settings.json 等）
-      for (const entry of readdirSync(curHome, { withFileTypes: true })) {
+      for (const entry of fs.readdirSync(curHome, { withFileTypes: true })) {
         if (entry.isFile()) {
-          const srcPath = join(curHome, entry.name);
-          const dstPath = join(newHome, entry.name);
-          if (!existsSync(dstPath)) {
-            try { renameSync(srcPath, dstPath); } catch { /* skip */ }
+          const srcPath = path.join(curHome, entry.name);
+          const dstPath = path.join(newHome, entry.name);
+          if (!fs.existsSync(dstPath)) {
+            try {
+              fs.renameSync(srcPath, dstPath);
+            } catch {
+              /* skip */
+            }
           }
         }
       }
 
       // 迁移 data 子目录
       const migrateDir = (src: string, dst: string): void => {
-        if (!existsSync(src)) return;
-        mkdirSync(dst, { recursive: true });
-        for (const entry of readdirSync(src, { withFileTypes: true })) {
-          const srcPath = join(src, entry.name);
-          const dstPath = join(dst, entry.name);
+        if (!fs.existsSync(src)) return;
+        fs.mkdirSync(dst, { recursive: true });
+        for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+          const srcPath = path.join(src, entry.name);
+          const dstPath = path.join(dst, entry.name);
           if (entry.isDirectory()) {
             migrateDir(srcPath, dstPath);
           } else {
             try {
-              renameSync(srcPath, dstPath);
+              fs.renameSync(srcPath, dstPath);
             } catch {
               /* 单项失败跳过 */
             }
@@ -2462,24 +2465,6 @@ export class ChatManagerImpl implements ChatManager {
       },
     },
   };
-
-  // TODO: CS01-DEAD — 此方法在 ChatManager 中零引用，可能是死代码
-  private buildToolDefinitions(sessionId?: string): ToolDefinition[] {
-    const definitions: ToolDefinition[] = this.toolRegistry
-      ? this._buildToolDefinitions(this.toolRegistry.getToolSchemas())
-      : [];
-
-    // 注入注册表查询工具
-    // 只有当会话中已有工具执行记录时才注入，避免不必要地暴露查询能力
-    if (sessionId && toolResultRegistry.getRoundCount(sessionId) > 0) {
-      definitions.push(
-        ChatManagerImpl.QUERY_TOOL_GET_RESULT,
-        ChatManagerImpl.QUERY_TOOL_LIST_CALLS
-      );
-    }
-
-    return definitions;
-  }
 
   /**
    * P2-3.5: 将 session.messages 转换为 API 格式消息列表

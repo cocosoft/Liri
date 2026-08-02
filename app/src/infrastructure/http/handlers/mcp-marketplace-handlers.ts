@@ -6,6 +6,7 @@ import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 import { handleError } from '@modules/error';
 import { Logger, LogLevel } from '@modules/monitoring';
+import type { RegistryType, ThirdPartyRegistry } from '@modules/services/mcp';
 
 const logger = new Logger({
   module: 'infrastructure:http:handlers:mcp-marketplace-handlers',
@@ -27,11 +28,10 @@ export async function handleMCPMarketplaceSearch(
     const query = parsedUrl.searchParams.get('query') || '';
     const category = parsedUrl.searchParams.get('category') || undefined;
     const registry =
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (parsedUrl.searchParams.get('registry') as any) || undefined;
+      (parsedUrl.searchParams.get('registry') as RegistryType) || undefined;
     const sourceRegistry =
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (parsedUrl.searchParams.get('sourceRegistry') as any) || undefined;
+      (parsedUrl.searchParams.get('sourceRegistry') as ThirdPartyRegistry) ||
+      undefined;
 
     const { mcpSystem } = await import('@modules/services/mcp');
 

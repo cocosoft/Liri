@@ -142,14 +142,20 @@ export class SSHWorkspace extends WorkspaceBase {
         stderr,
         executionTime: Date.now() - startTime,
       };
-    } catch (error: any) {
+    } catch (error) {
+      const execErr = error as {
+        code?: number;
+        stdout?: string;
+        stderr?: string;
+        message?: string;
+      };
       return {
         success: false,
-        exitCode: error.code || 1,
-        stdout: error.stdout || '',
-        stderr: error.stderr || error.message,
+        exitCode: execErr.code || 1,
+        stdout: execErr.stdout || '',
+        stderr: execErr.stderr || execErr.message || '',
         executionTime: Date.now() - startTime,
-        error: error.message,
+        error: execErr.message || String(error),
       };
     }
   }

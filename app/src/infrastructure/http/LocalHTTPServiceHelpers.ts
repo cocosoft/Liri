@@ -441,8 +441,9 @@ function bindInboundMessageHandler(
       try {
         const sender = message.senderName || message.senderId || 'unknown';
         const label = channelType.toUpperCase();
-        console.log(`\n── [${label}] ${sender} ──`);
-        console.log(message.content);
+        logger.info(
+          `[${label}] ${sender}: ${message.content?.substring(0, 200)}`
+        );
 
         const coreAPI = getCoreAPI();
         const response = await coreAPI.chat({
@@ -458,9 +459,9 @@ function bindInboundMessageHandler(
         });
 
         if (response.content && plugin.outbound) {
-          console.log(`\n── [${label}] Liri ──`);
-          console.log(response.content);
-          console.log('');
+          logger.info(
+            `[${label}] Liri → ${sender}: ${response.content?.substring(0, 200)}`
+          );
 
           await plugin.outbound.sendText(
             message.conversationId ?? message.senderId,

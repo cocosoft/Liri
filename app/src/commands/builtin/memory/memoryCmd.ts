@@ -62,7 +62,7 @@ export function readMemoryFile(): MemoryCommandResult {
       freshness: getMemoryFreshness(filePath, stat.mtimeMs).freshnessNote,
       truncated: truncated.wasLineTruncated || truncated.wasByteTruncated,
     };
-  } catch (e: any) {
+  } catch (e) {
     return {
       success: false,
       filePath,
@@ -70,7 +70,7 @@ export function readMemoryFile(): MemoryCommandResult {
       lineCount: 0,
       byteCount: 0,
       truncated: false,
-      freshness: `Error: ${e.message}`,
+      freshness: `Error: ${e instanceof Error ? e.message : String(e)}`,
     };
   }
 }
@@ -83,7 +83,7 @@ export function updateMemoryFile(content: string): MemoryCommandResult {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(filePath, content, 'utf-8');
     return readMemoryFile();
-  } catch (e: any) {
+  } catch (e) {
     return {
       success: false,
       filePath,
@@ -91,7 +91,7 @@ export function updateMemoryFile(content: string): MemoryCommandResult {
       lineCount: 0,
       byteCount: 0,
       truncated: false,
-      freshness: `Error: ${e.message}`,
+      freshness: `Error: ${e instanceof Error ? e.message : String(e)}`,
     };
   }
 }

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Git仓库加载工具
  * 支持分支/标签指定、浅克隆等功能
  * 参考CC源码 cc_code/backend/utils/plugins/pluginLoader.ts 实现
@@ -21,8 +21,13 @@ async function execFileNoThrow(
   try {
     const { stdout, stderr } = await execFileAsync(command, args);
     return { stdout, stderr };
-  } catch (error: any) {
-    return { stdout: error.stdout || '', stderr: error.stderr || '', error };
+  } catch (error) {
+    const execError = error as { stdout?: string; stderr?: string };
+    return {
+      stdout: execError.stdout || '',
+      stderr: execError.stderr || '',
+      error: error instanceof Error ? error : undefined,
+    };
   }
 }
 

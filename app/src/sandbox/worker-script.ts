@@ -65,16 +65,22 @@ parentPort.on('message', async (request: ExecuteRequest) => {
     };
 
     parentPort!.postMessage(response);
-  } catch (error: any) {
+  } catch (error) {
+    const execErr = error as {
+      code?: number;
+      stdout?: string;
+      stderr?: string;
+      message?: string;
+    };
     const response: ExecuteResponse = {
       type: 'result',
       requestId: request.requestId,
       success: false,
-      exitCode: error.code || 1,
-      stdout: error.stdout || '',
-      stderr: error.stderr || error.message || String(error),
+      exitCode: execErr.code || 1,
+      stdout: execErr.stdout || '',
+      stderr: execErr.stderr || execErr.message || String(error),
       executionTime: Date.now() - startTime,
-      error: error.message || String(error),
+      error: execErr.message || String(error),
     };
 
     parentPort!.postMessage(response);

@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { configManager } from '@modules/config';
@@ -142,7 +143,6 @@ export class ChronosRemoteTrigger {
   private computeSignature(payload: string): string {
     if (!this.config.webhookSecret) return '';
 
-    const crypto = require('crypto');
     return crypto
       .createHmac('sha256', this.config.webhookSecret)
       .update(payload)

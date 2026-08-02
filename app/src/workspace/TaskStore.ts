@@ -396,7 +396,9 @@ export class TaskStore {
       }
 
       if (setClauses.length === 0) {
-        this.get(id).then(resolve);
+        this.get(id)
+          .then(resolve)
+          .catch(() => resolve(null));
         return;
       }
 
@@ -434,7 +436,9 @@ export class TaskStore {
             });
             resolve(null);
           } else {
-            this.get(id).then(resolve);
+            this.get(id)
+              .then(resolve)
+              .catch(() => resolve(null));
           }
         }
       );

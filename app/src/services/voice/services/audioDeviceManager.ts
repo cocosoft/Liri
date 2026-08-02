@@ -9,7 +9,13 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  renameSync,
+} from 'fs';
 import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -77,8 +83,7 @@ function saveConfig(config: AudioDeviceConfig): void {
     const tmpPath = configPath + '.tmp';
     writeFileSync(tmpPath, JSON.stringify(config, null, 2), 'utf-8');
     // 原子替换
-    const fs = require('fs');
-    fs.renameSync(tmpPath, configPath);
+    renameSync(tmpPath, configPath);
   } catch (error) {
     void handleError(error, {
       module: 'services:voice:audio',

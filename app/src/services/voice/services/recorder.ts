@@ -253,7 +253,7 @@ export class Recorder {
       '-',
     ];
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const child = spawn('ffmpeg', args, {
         stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -274,8 +274,18 @@ export class Recorder {
           error: String(err),
         });
         this.process = null;
-        this.startPowerShellStream(onData, onEnd, options).then(resolve);
-        return;
+        this.startPowerShellStream(onData, onEnd, options)
+          .then(resolve)
+          .catch((psErr) => {
+            logger.error('PowerShell 录音回退也失败', {
+              error: String(psErr),
+            });
+            reject(
+              new Error(
+                `录音失败: FFmpeg(${String(err)}), PowerShell(${String(psErr)})`
+              )
+            );
+          });
       });
 
       resolve(true);

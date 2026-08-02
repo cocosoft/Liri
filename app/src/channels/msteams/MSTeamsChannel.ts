@@ -179,7 +179,6 @@ class ConversationStore {
   }
 
   private getStorePath(): string {
-    const path = require('path') as typeof import('path');
     return path.join(resolveDataDir(), 'msteams-conversations.json');
   }
 

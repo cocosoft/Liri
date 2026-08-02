@@ -53,8 +53,7 @@ export async function handleListKnowledge(
     const result = [];
 
     for (let i = 0; i < docs.length; i++) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const doc: any = docs[i];
+      const doc = docs[i];
       const docPath = doc.relativePath || '';
       const baseName = docPath.split(/[/\\]/)[0];
 

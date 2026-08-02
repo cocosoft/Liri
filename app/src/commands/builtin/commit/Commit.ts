@@ -422,8 +422,9 @@ export class CommitCommand {
       }
 
       return { type: 'text', value: output };
-    } catch (error: any) {
-      const errorMessage = error.stderr || error.message;
+    } catch (error) {
+      const execErr = error as { stderr?: string; message?: string };
+      const errorMessage = execErr.stderr || execErr.message || '';
 
       if (errorMessage.includes('nothing to commit')) {
         return {

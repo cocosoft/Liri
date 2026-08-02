@@ -8,6 +8,7 @@
  * 4. 安全性验证
  * 5. 缓存和性能优化
  */
+import { statSync } from 'node:fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { readFile } from 'fs/promises';
@@ -74,8 +75,7 @@ function findGitRootImpl(
   while (current !== root) {
     try {
       const gitPath = join(current, '.git');
-      const fs = require('fs');
-      const stat = fs.statSync(gitPath);
+      const stat = statSync(gitPath);
       if (stat.isDirectory() || stat.isFile()) {
         return current;
       }
@@ -94,8 +94,7 @@ function findGitRootImpl(
 
   try {
     const gitPath = join(root, '.git');
-    const fs = require('fs');
-    const stat = fs.statSync(gitPath);
+    const stat = statSync(gitPath);
     if (stat.isDirectory() || stat.isFile()) {
       return root;
     }
@@ -244,10 +243,11 @@ export class GitCommand {
         encoding: 'utf-8',
       });
       return { stdout: stdout.trim(), stderr: stderr.trim() };
-    } catch (error: any) {
+    } catch (error) {
+      const execErr = error as { message?: string; stderr?: string };
       return {
         stdout: '',
-        stderr: error.message || error.stderr || '命令执行失败',
+        stderr: execErr.message || execErr.stderr || '命令执行失败',
       };
     }
   }

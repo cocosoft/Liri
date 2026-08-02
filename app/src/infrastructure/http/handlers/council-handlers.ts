@@ -299,8 +299,9 @@ export async function handleSubmitStatement(
     session.statements.push(statement);
 
     // 发射 SSE 事件，确保前端 SSE 客户端能收到手动注入的发言
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const emit = (getCouncilEngine() as any).emit;
+
+    const emit = (getCouncilEngine() as unknown as Record<string, unknown>)
+      .emit as (...args: unknown[]) => void;
     if (typeof emit === 'function') {
       try {
         emit({

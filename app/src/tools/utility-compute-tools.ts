@@ -1,19 +1,16 @@
+import crypto from 'node:crypto';
+import os from 'node:os';
+import fs from 'node:fs';
+
 import {
   makeTool,
   booleanParam,
   stringParam,
   numberParam,
-  anyParam,
   type ToolExecResult,
 } from './utility-helpers';
 import type { Tool } from './types/Tool';
 import { ToolTag as TT } from './types/Tool';
-
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:utility-compute-tools',
-  level: LogLevel.INFO,
-});
 
 export function collectComputeTools(tools: Tool[]): void {
   // ========== 数学工具 (6) ==========
@@ -45,8 +42,11 @@ export function collectComputeTools(tools: Tool[]): void {
         try {
           const result = Function(`"use strict"; return (${expr})`)();
           return { success: true, output: String(result) };
-        } catch (e: any) {
-          return { success: false, error: `Evaluation failed: ${e.message}` };
+        } catch (e) {
+          return {
+            success: false,
+            error: `Evaluation failed: ${e instanceof Error ? e.message : String(e)}`,
+          };
         }
       },
     })
@@ -76,7 +76,6 @@ export function collectComputeTools(tools: Tool[]): void {
         const max = (input.max as number) ?? 100;
         const asInt = input.integer !== false;
         const count = Math.min(Math.max((input.count as number) || 1, 1), 1000);
-        const crypto = require('crypto');
         const results: number[] = [];
         for (let i = 0; i < count; i++) {
           const buf = crypto.randomBytes(4);
@@ -477,7 +476,6 @@ export function collectComputeTools(tools: Tool[]): void {
       aliases: ['system_info', 'sysinfo'],
       tags: [TT.SYSTEM],
       execute: () => {
-        const os = require('os');
         return {
           success: true,
           output: JSON.stringify({
@@ -547,7 +545,6 @@ export function collectComputeTools(tools: Tool[]): void {
       aliases: ['disk', 'df'],
       tags: [TT.SYSTEM],
       execute: (input) => {
-        const fs = require('fs');
         const targetPath = (input.path as string) || process.cwd();
         try {
           const stats = fs.statSync(targetPath);
@@ -560,8 +557,11 @@ export function collectComputeTools(tools: Tool[]): void {
               mode: stats.mode.toString(8),
             }),
           };
-        } catch (e: any) {
-          return { success: false, error: `Cannot access path: ${e.message}` };
+        } catch (e) {
+          return {
+            success: false,
+            error: `Cannot access path: ${e instanceof Error ? e.message : String(e)}`,
+          };
         }
       },
     })
@@ -623,7 +623,6 @@ export function collectComputeTools(tools: Tool[]): void {
       aliases: ['up'],
       tags: [TT.SYSTEM],
       execute: () => {
-        const os = require('os');
         const sysSec = os.uptime();
         const procSec = process.uptime();
         const fmt = (s: number) => {
@@ -666,7 +665,6 @@ export function collectComputeTools(tools: Tool[]): void {
       aliases: ['gen_password', 'genpwd'],
       tags: [TT.SYSTEM],
       execute: (input) => {
-        const crypto = require('crypto');
         const length = Math.min(
           Math.max((input.length as number) || 16, 8),
           128
@@ -713,7 +711,6 @@ export function collectComputeTools(tools: Tool[]): void {
       aliases: ['gen_token', 'gentkn'],
       tags: [TT.SYSTEM],
       execute: (input) => {
-        const crypto = require('crypto');
         const bytes = Math.min(
           Math.max((input.bytes as number) || 32, 16),
           256
@@ -747,7 +744,6 @@ export function collectComputeTools(tools: Tool[]): void {
         const hash = input.hash as string;
         if (!text || !hash)
           return { success: false, error: 'text and hash are required' };
-        const crypto = require('crypto');
         const algorithm = (input.algorithm as string) || 'sha256';
         const computed = crypto
           .createHash(algorithm)

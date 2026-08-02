@@ -1,3 +1,7 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolvePyappHome } from '@modules/core';
@@ -42,11 +46,7 @@ export class MCPMarketplace {
         action: 'constructor',
       });
       // 使用空存储和注册表作为降级方案
-      const fs = require('fs');
-      const os = require('os');
-      const tempDir = fs.mkdtempSync(
-        `${os.tmpdir()}${require('path').sep}mcp_`
-      );
+      const tempDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}mcp_`);
       this.store = new LocalServerStore(tempDir);
       this.configWriter = new ConfigWriter();
       this.registryHub = new RegistryHub(true); // 安全模式
@@ -59,7 +59,6 @@ export class MCPMarketplace {
     if (!pyappHome) {
       throw new Error('无法解析 pyapp 主目录');
     }
-    const path = require('path');
     const mcpDir = path.join(pyappHome, 'mcp');
 
     return mcpDir;

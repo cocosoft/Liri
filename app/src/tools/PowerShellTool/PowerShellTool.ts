@@ -483,20 +483,19 @@ export class PowerShellTool extends BaseTool {
         executionTime: Date.now() - startTime,
         output,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       onProgress?.({
         toolUseID: toolUseId,
         data: {
           percentage: 100,
-          message: `执行失败: ${error.message}`,
+          message: `执行失败: ${error instanceof Error ? error.message : String(error)}`,
           stage: 'error',
         },
       });
 
-      if (
-        error.message?.includes('ETIMEDOUT') ||
-        error.message?.includes('timeout')
-      ) {
+      const psMsg = error instanceof Error ? error.message : String(error);
+
+      if (psMsg.includes('ETIMEDOUT') || psMsg.includes('timeout')) {
         return createFailureResult('Command timed out', {
           executionTime: Date.now() - startTime,
           errorLevel: ErrorLevel.RETRYABLE,
@@ -504,7 +503,7 @@ export class PowerShellTool extends BaseTool {
         });
       }
 
-      return createFailureResult(error.message, {
+      return createFailureResult(psMsg, {
         executionTime: Date.now() - startTime,
         errorLevel: ErrorLevel.RETRYABLE,
         metadata: { errorCategory: 'execution', errorCode: 'EXECUTION_FAILED' },

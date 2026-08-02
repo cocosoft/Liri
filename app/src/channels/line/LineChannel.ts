@@ -407,31 +407,58 @@ class LineChannelPlugin extends BaseChannelPlugin {
                 }
 
                 // 异步获取用户档案
-                self.profileCache.get(userId).then((name) => {
-                  const ctx: MessageContext = {
-                    channelId: 'line',
-                    senderId: userId,
-                    senderName: name,
-                    groupId:
-                      sourceType === 'group'
-                        ? String(source['groupId'] || '')
-                        : undefined,
-                    conversationId: userId,
-                    messageId,
-                    messageType: 'text',
-                    content: String(message['text'] || ''),
-                    timestamp: (event['timestamp'] as number) || Date.now(),
-                    isDirectMessage: sourceType === 'user',
-                    rawPayload: event,
-                  };
+                self.profileCache
+                  .get(userId)
+                  .then((name) => {
+                    const ctx: MessageContext = {
+                      channelId: 'line',
+                      senderId: userId,
+                      senderName: name,
+                      groupId:
+                        sourceType === 'group'
+                          ? String(source['groupId'] || '')
+                          : undefined,
+                      conversationId: userId,
+                      messageId,
+                      messageType: 'text',
+                      content: String(message['text'] || ''),
+                      timestamp: (event['timestamp'] as number) || Date.now(),
+                      isDirectMessage: sourceType === 'user',
+                      rawPayload: event,
+                    };
 
-                  self.handleIncomingMessage(ctx).catch((err) => {
-                    handleError(err, {
-                      module: 'channels:line',
-                      action: 'handleIncomingMessage',
+                    self.handleIncomingMessage(ctx).catch((err) => {
+                      handleError(err, {
+                        module: 'channels:line',
+                        action: 'handleIncomingMessage',
+                      });
+                    });
+                  })
+                  .catch((err) => {
+                    // profileCache 获取失败时，降级为无名称消息
+                    const ctx: MessageContext = {
+                      channelId: 'line',
+                      senderId: userId,
+                      senderName: undefined,
+                      groupId:
+                        sourceType === 'group'
+                          ? String(source['groupId'] || '')
+                          : undefined,
+                      conversationId: userId,
+                      messageId,
+                      messageType: 'text',
+                      content: String(message['text'] || ''),
+                      timestamp: (event['timestamp'] as number) || Date.now(),
+                      isDirectMessage: sourceType === 'user',
+                      rawPayload: event,
+                    };
+                    self.handleIncomingMessage(ctx).catch((err) => {
+                      handleError(err, {
+                        module: 'channels:line',
+                        action: 'handleIncomingMessage',
+                      });
                     });
                   });
-                });
               }
             } catch (parseErr) {
               handleError(parseErr, {

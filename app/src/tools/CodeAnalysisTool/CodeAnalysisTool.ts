@@ -262,8 +262,10 @@ export class CodeAnalysisTool implements Tool {
         toolName: this.name,
         timestamp: Date.now(),
       };
-    } catch (error: any) {
-      return createFailureResult(`Analysis failed: ${error.message}`);
+    } catch (error: unknown) {
+      return createFailureResult(
+        `Analysis failed: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 

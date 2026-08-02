@@ -3,6 +3,8 @@
  * 支持宏录制、播放和管理功能
  */
 
+import { existsSync, readFileSync } from 'node:fs';
+
 export interface MacroRecord {
   name: string;
   commands: string[];
@@ -111,9 +113,8 @@ export class MacroManager {
    * 从文件加载宏
    */
   loadFromFile(filePath: string): void {
-    const fs = require('fs');
-    if (fs.existsSync(filePath)) {
-      const data = fs.readFileSync(filePath, 'utf-8');
+    if (existsSync(filePath)) {
+      const data = readFileSync(filePath, 'utf-8');
       this.macros = JSON.parse(data);
     }
   }

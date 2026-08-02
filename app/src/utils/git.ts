@@ -5,6 +5,7 @@
  * 参考 CC源码 cc_code/backend/utils/git.ts
  */
 
+import crypto from 'node:crypto';
 import { execSync } from 'child_process';
 
 export interface GitInfo {
@@ -77,7 +78,6 @@ function isWorkingTreeDirty(cwd: string): boolean {
 }
 
 export function getRepoRemoteHash(url: string): string {
-  const crypto = require('crypto');
   return crypto.createHash('sha256').update(url).digest('hex').substring(0, 16);
 }
 

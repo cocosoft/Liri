@@ -70,8 +70,8 @@ export class EmailReader {
 
       await client.logout();
       return messages;
-    } catch (error: any) {
-      throw new Error(`MAIL_SEND_FAILED: IMAP 读取失败 - ${error.message}`);
+    } catch (error) {
+      throw new Error(`MAIL_SEND_FAILED: IMAP 读取失败 - ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

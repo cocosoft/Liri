@@ -101,19 +101,18 @@ export class FileConvertTool extends BaseTool {
           { role: 'system', content: `转换完成: ${filePath} → Markdown` },
         ],
       });
-    } catch (error: any) {
+    } catch (error) {
       const isUnsupported =
         error instanceof AppError &&
         error.code === String(ErrorCodes.UNSUPPORTED_FORMAT.code);
       const prefix = isUnsupported ? '格式不支持' : '转换失败';
+      const msg = error instanceof Error ? error.message : String(error);
 
-      return createToolResult(error.message, {
+      return createToolResult(msg, {
         success: false,
-        error: error.message,
-        output: error.message,
-        newMessages: [
-          { role: 'system', content: `${prefix}: ${error.message}` },
-        ],
+        error: msg,
+        output: msg,
+        newMessages: [{ role: 'system', content: `${prefix}: ${msg}` }],
       });
     }
   }

@@ -19,6 +19,7 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { handleError } from '@modules/error';
+import { createReadStream } from 'node:fs';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -528,7 +529,7 @@ class TelegramChannel extends BaseChannelPlugin {
     target: string,
     filePath: string
   ): Promise<SendResult> {
-    const file = require('fs').createReadStream(filePath);
+    const file = createReadStream(filePath);
     const formData = new FormData();
     formData.append('chat_id', target);
     formData.append('document', file as unknown as Blob);

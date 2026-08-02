@@ -160,7 +160,7 @@ export class DeliveryRouter {
     if (this.localOutputFn) {
       this.localOutputFn(text);
     } else {
-      console.log(`[LOCAL] ${text}`);
+      logger.info(`[LOCAL] ${text}`);
     }
 
     return {

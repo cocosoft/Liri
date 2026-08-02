@@ -327,8 +327,9 @@ export class WebFetchTool extends BaseTool {
           },
         ],
       });
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
+    } catch (error) {
+      const isAbort = error instanceof Error && error.name === 'AbortError';
+      if (isAbort) {
         // 报告执行超时
         onProgress?.({
           toolUseID: context.toolUseId || 'web-fetch-tool',
@@ -354,21 +355,22 @@ export class WebFetchTool extends BaseTool {
       }
 
       // 报告执行错误
+      const msg = error instanceof Error ? error.message : String(error);
       onProgress?.({
         toolUseID: context.toolUseId || 'web-fetch-tool',
         data: {
           type: 'web_fetch',
-          error: error.message,
+          error: msg,
           isRunning: false,
           isComplete: true,
         },
       });
 
-      return createToolResult(error.message, {
+      return createToolResult(msg, {
         newMessages: [
           {
             role: 'system',
-            content: `Error: ${error.message}`,
+            content: `Error: ${msg}`,
           },
         ],
       });

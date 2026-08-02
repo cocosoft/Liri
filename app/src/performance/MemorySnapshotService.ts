@@ -5,6 +5,7 @@
 
 import path from 'path';
 import fs from 'fs';
+import os from 'node:os';
 import { resolveDataSubDir } from '@modules/core';
 import { configManager } from '@modules/config';
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -164,7 +165,6 @@ export class MemorySnapshotService {
 
     if (this.config.includeSystemInfo) {
       try {
-        const os = require('os');
         snapshot.systemInfo = {
           platform: process.platform,
           arch: process.arch,

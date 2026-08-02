@@ -692,9 +692,9 @@ export class ShellExecutor {
             securityResult.preview.targets,
             snapshotConfig
           );
-        } catch (snapshotError: any) {
+        } catch (snapshotError) {
           // 快照失败不影响主流程，只记录警告
-          const warningMsg = `[WARN] 删除前快照创建失败: ${snapshotError.message}`;
+          const warningMsg = `[WARN] 删除前快照创建失败: ${snapshotError instanceof Error ? snapshotError.message : String(snapshotError)}`;
           if (!securityResult.warnings.includes(warningMsg)) {
             securityResult.warnings.push(warningMsg);
           }

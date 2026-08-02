@@ -3,6 +3,8 @@
  * 提供多级缓存系统，包括内存缓存、带过期的内存缓存和持久化缓存
  */
 
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+
 import { jsonStringify } from './json.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { ICache, CacheStats } from '@modules/cache/types';
@@ -643,9 +645,8 @@ export class PersistentCache<T = unknown> {
    */
   private save(): void {
     try {
-      const fs = require('fs');
       const data = Array.from(this.cache.entries());
-      fs.writeFileSync(this.filePath, JSON.stringify(data));
+      writeFileSync(this.filePath, JSON.stringify(data));
     } catch (error) {
       logger.error(
         'Failed to save cache',
@@ -659,9 +660,8 @@ export class PersistentCache<T = unknown> {
    */
   private load(): void {
     try {
-      const fs = require('fs');
-      if (fs.existsSync(this.filePath)) {
-        const data = fs.readFileSync(this.filePath, 'utf-8');
+      if (existsSync(this.filePath)) {
+        const data = readFileSync(this.filePath, 'utf-8');
         const entries = JSON.parse(data) as [string, TTLCacheEntry<T>][];
 
         this.cache = new Map(entries);

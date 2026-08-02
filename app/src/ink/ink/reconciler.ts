@@ -46,8 +46,8 @@ import applyStyles, { type Styles, type TextStyles } from './styles.js';
 if (configManager.env('NODE_ENV') === 'development') {
   try {
     void import('./devtools.js');
-  } catch (error: any) {
-    if (error.code === 'ERR_MODULE_NOT_FOUND') {
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ERR_MODULE_NOT_FOUND') {
       logger.warning(
         `
 The environment variable DEV is set to true, so Ink tried to import \`react-devtools-core\`,

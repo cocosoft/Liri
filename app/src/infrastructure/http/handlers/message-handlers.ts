@@ -22,13 +22,7 @@
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-
-const logger = new Logger({
-  module: 'infra:http:message-handlers',
-  level: LogLevel.INFO,
-});
 
 /**
  * 处理删除单条消息请求

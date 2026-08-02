@@ -30,12 +30,6 @@ import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { createChatManager } from '@modules/chat/ChatManager';
 import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'infrastructure:http:handlers:file-upload-handlers',
-  level: LogLevel.INFO,
-});
-
 // ========== File Upload Handlers ==========
 
 /**

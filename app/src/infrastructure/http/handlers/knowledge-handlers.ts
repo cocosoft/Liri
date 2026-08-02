@@ -14,11 +14,6 @@ import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'infrastructure:http:handlers:knowledge-handlers',
-  level: LogLevel.INFO,
-});
 
 export async function handleListKnowledge(
   req: http.IncomingMessage,
@@ -140,7 +135,7 @@ export async function handleSearchKnowledge(
 
     // 解析 URL 查询参数（base, domain, tags 等）
     const url = new URL(req.url!, `http://${req.headers.host ?? 'localhost'}`);
-    const base = url.searchParams.get('base') ?? undefined;
+    const _base = url.searchParams.get('base') ?? undefined;
     const domain = url.searchParams.get('domain') ?? undefined;
     const urlTags = url.searchParams
       .get('tags')

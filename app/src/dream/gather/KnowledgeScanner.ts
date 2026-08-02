@@ -25,7 +25,7 @@
  * 支持 git-style diff 检测（小变更只返回 diff）。
  */
 
-import { readdir, stat, readFile, writeFile, mkdir } from 'fs/promises';
+import { stat, readFile, writeFile, mkdir } from 'fs/promises';
 import { join, relative } from 'path';
 import { createHash } from 'crypto';
 import { resolvePyappHome } from '@modules/core';
@@ -227,7 +227,7 @@ export class KnowledgeScanner {
   }
 
   /** 从 delta 记录中恢复旧内容行 */
-  private getContentLines(delta: KnowledgeDelta): string[] {
+  private getContentLines(_delta: KnowledgeDelta): string[] {
     // 简化实现：从 source content 中重建
     // 实际上需要存储完整旧内容或仅用 hash 比较
     return [];

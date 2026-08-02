@@ -24,11 +24,6 @@ import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 import type { Skill } from '@modules/skills/types';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'infrastructure:http:handlers:skill-handlers',
-  level: LogLevel.INFO,
-});
 
 /**
  * ClawHub Adapter 接口类型

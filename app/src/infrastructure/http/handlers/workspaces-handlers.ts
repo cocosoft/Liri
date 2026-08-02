@@ -343,7 +343,7 @@ export async function resolveWorkspacePath(
     const entries = await buildEntries();
     const entry = entries.find((e) => e.meta.id === workspaceId);
     return entry ? entry.path : null;
-  } catch (err) {
+  } catch (_err) {
     return null;
   }
 }

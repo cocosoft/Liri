@@ -18,12 +18,9 @@ import {
   unlinkSync,
   mkdirSync,
 } from 'fs';
-import { Logger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveTempDir } from '@modules/core/paths';
 import { videoProcessor } from '../../../media/video/VideoProcessor';
-
-const logger = new Logger({ module: 'http:media' });
 
 /** 支持的媒体文件扩展名 */
 const SUPPORTED_AUDIO_EXTS = new Set([
@@ -259,7 +256,7 @@ export async function handleMediaSubtitleGenerate(
         // 清理视频临时文件
         try {
           unlinkSync(inputPath);
-        } catch (err) {
+        } catch (_err) {
           /* 清理失败不影响主流程 */
         }
       } else {
@@ -305,7 +302,7 @@ export async function handleMediaSubtitleGenerate(
       // 清理音频临时文件
       try {
         unlinkSync(audioPath);
-      } catch (err) {
+      } catch (_err) {
         /* 清理失败不影响主流程 */
       }
 
@@ -326,7 +323,7 @@ export async function handleMediaSubtitleGenerate(
       // 清理临时文件
       try {
         unlinkSync(inputPath);
-      } catch (err) {
+      } catch (_err) {
         /* ignore */
       }
       throw err;

@@ -4,11 +4,8 @@
 
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
-import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { queryAuditLogs, getAuditLogStats } from '@modules/security';
-
-const logger = new Logger({ module: 'http:security', level: LogLevel.INFO });
 
 /**
  * GET /v1/security/dashboard — 安全仪表盘数据

@@ -12,7 +12,6 @@
  */
 
 import type http from 'http';
-import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { HandlerCtx } from './handler-utils';
 import {
@@ -22,11 +21,6 @@ import {
   escalationManager,
   resourceScheduler,
 } from '@modules/workspace/OrchIntelligence';
-
-const logger = new Logger({
-  module: 'OrchIntelligenceHandlers',
-  level: LogLevel.INFO,
-});
 
 /**
  * POST /v1/workspaces/:id/intelligence/impact

@@ -14,14 +14,7 @@
 
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
-import { LogLevel } from '@modules/monitoring';
-import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import { handleError } from '@modules/error';
-
-const logger = new OTelAwareLogger({
-  module: 'knowledge:faq:handler',
-  level: LogLevel.INFO,
-});
 
 /** 从 URL 路径中提取知识库名称 */
 function extractBaseName(url: string): string | null {

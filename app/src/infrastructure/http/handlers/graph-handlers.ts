@@ -11,14 +11,7 @@
 
 import type http from 'http';
 import { sendError } from './handler-utils';
-import { LogLevel } from '@modules/monitoring';
-import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import { handleError } from '@modules/error';
-
-const logger = new OTelAwareLogger({
-  module: 'http:graph-handlers',
-  level: LogLevel.INFO,
-});
 
 /** GET /v1/knowledge/graph/edges?domain=&limit=&entityId=&type= */
 export async function handleListGraphEdges(

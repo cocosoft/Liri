@@ -2558,7 +2558,7 @@ export class LocalHTTPService {
       const globalConfig = configManager.getGlobalConfig();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(globalConfig || {}));
-    } catch (err) {
+    } catch (_err) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({}));
     }
@@ -2577,7 +2577,7 @@ export class LocalHTTPService {
       const value = configManager.getConfigValue(key);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ key, value }));
-    } catch (err) {
+    } catch (_err) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ key, value: null }));
     }
@@ -2867,7 +2867,7 @@ export class LocalHTTPService {
       let parsedBody;
       try {
         parsedBody = JSON.parse(body);
-      } catch (err) {
+      } catch (_err) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(
           JSON.stringify({ error: { message: 'invalid JSON in request body' } })
@@ -3046,7 +3046,7 @@ export class LocalHTTPService {
             Date.now().toString(),
             'utf-8'
           );
-        } catch (err) {
+        } catch (_err) {
           // 非致命：令牌写入失败不影响迁移
         }
 
@@ -3080,7 +3080,7 @@ export class LocalHTTPService {
             Date.now().toString(),
             'utf-8'
           );
-        } catch (err) {
+        } catch (_err) {
           // 非致命：标记写入失败不影响目录切换
         }
       }
@@ -3145,12 +3145,12 @@ export class LocalHTTPService {
             } else {
               fs.unlinkSync(entryPath);
             }
-          } catch (err) {
+          } catch (_err) {
             // 静默忽略清理中的个别错误
           }
         }
       }
-    } catch (err) {
+    } catch (_err) {
       // 回滚清理失败不影响主流程，数据保留在原目录
     }
   }
@@ -3172,7 +3172,7 @@ export class LocalHTTPService {
       if (registered) {
         return registered as unknown as ClawHubAdapterLike;
       }
-    } catch (err) {
+    } catch (_err) {
       // 注册表不可用时 fallback
     }
 
@@ -3260,7 +3260,7 @@ export class LocalHTTPService {
                 const st = await stat(skillMdPath);
                 createdAt = st.birthtimeMs;
                 updatedAt = st.mtimeMs;
-              } catch (err) {
+              } catch (_err) {
                 /* use defaults */
               }
 
@@ -3280,7 +3280,7 @@ export class LocalHTTPService {
                 filePath: skillMdPath,
                 frontmatter: { author, version, category },
               });
-            } catch (err) {
+            } catch (_err) {
               // 没有 SKILL.md 的子目录跳过
               continue;
             }
@@ -3309,7 +3309,7 @@ export class LocalHTTPService {
               const st = await stat(filePath);
               createdAt = st.birthtimeMs;
               updatedAt = st.mtimeMs;
-            } catch (err) {
+            } catch (_err) {
               /* use defaults */
             }
 
@@ -3329,7 +3329,7 @@ export class LocalHTTPService {
               filePath,
               frontmatter: { author, version, category },
             });
-          } catch (err) {
+          } catch (_err) {
             /* skip malformed files */
           }
         }
@@ -3422,7 +3422,7 @@ export class LocalHTTPService {
             linkedFiles.push(entry.name);
           }
         }
-      } catch (err) {
+      } catch (_err) {
         /* ignore */
       }
 
@@ -4541,7 +4541,7 @@ export class LocalHTTPService {
               ) => Promise<string>;
             }
           ).sendTaskMessage?.(taskId, message)) || '';
-      } catch (err) {
+      } catch (_err) {
         // 降级：通过 executor 直接执行
         const { coordinator } = await import('@modules/core/Coordinator');
         const task = (
@@ -4602,7 +4602,7 @@ export class LocalHTTPService {
         const mod = await import('@modules/tasks/LongRunningTaskOrchestrator');
         orchestrator = (mod.getOrchestrator(taskId) ??
           null) as PdcaOrchestratorLike | null;
-      } catch (err) {
+      } catch (_err) {
         // 模块加载失败或无 orchestrator
       }
       if (!orchestrator) {

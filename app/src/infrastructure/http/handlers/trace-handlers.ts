@@ -8,10 +8,7 @@
  * GET /v1/trace/stats  — Trace 统计快照
  */
 import type http from 'http';
-import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-
-const logger = new Logger({ module: 'http:trace', level: LogLevel.INFO });
 
 export async function handleTraceStats(
   _req: http.IncomingMessage,

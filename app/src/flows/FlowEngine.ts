@@ -6,8 +6,6 @@
 /**
  * 流程步骤
  */
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'flows:FlowEngine', level: LogLevel.INFO });
 
 export interface FlowStep {
   id: string;

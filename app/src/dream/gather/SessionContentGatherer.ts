@@ -29,12 +29,6 @@ import { readdir, stat, readFile } from 'fs/promises';
 import { join } from 'path';
 import { resolveSessionsDir } from '@modules/core';
 import type { SessionDigest } from '../types';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'dream:gather:sessionContent',
-  level: LogLevel.INFO,
-});
 
 interface ReadSessionOpts {
   maxTokens?: number;

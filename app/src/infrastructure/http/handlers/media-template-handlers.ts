@@ -13,12 +13,6 @@ import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { getMediaTemplates } from '@modules/tools/VideoGenerateTool/MediaTemplates';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'infrastructure\http\handlers\media-template-handlers',
-  level: LogLevel.INFO,
-});
-
 /** 发送 JSON 响应 */
 function json(res: http.ServerResponse, status: number, data: unknown): void {
   res.writeHead(status, {

@@ -102,7 +102,7 @@ export function handleGetErrorStats(
     const stats = getErrorStats();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(stats));
-  } catch (err) {
+  } catch (_err) {
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'failed to get error stats' }));
   }

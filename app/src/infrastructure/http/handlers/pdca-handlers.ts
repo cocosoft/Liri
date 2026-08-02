@@ -23,11 +23,6 @@ import type http from 'http';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'infrastructure:http:handlers:pdca-handlers',
-  level: LogLevel.INFO,
-});
 
 type OrchestratorLike = {
   getStatus(): unknown;

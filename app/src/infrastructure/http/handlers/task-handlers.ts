@@ -31,13 +31,7 @@
 import type http from 'http';
 import { sendError } from './handler-utils';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
-import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-
-const logger = new Logger({
-  module: 'infrastructure:http:handlers:task-handlers',
-  level: LogLevel.INFO,
-});
 
 export async function handleListTasks(
   req: http.IncomingMessage,

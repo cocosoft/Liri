@@ -312,7 +312,7 @@ export async function handleSubmitStatement(
           statement,
           timestamp: Date.now(),
         });
-      } catch (err) {
+      } catch (_err) {
         // emit 失败不阻塞请求
       }
     }

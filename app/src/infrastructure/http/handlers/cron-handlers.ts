@@ -25,11 +25,6 @@ import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'infrastructure:http:handlers:cron-handlers',
-  level: LogLevel.INFO,
-});
 
 /** 将 CronJob 转为前端 CronTask 响应格式 */
 function jobToCronTask(job: any): any {

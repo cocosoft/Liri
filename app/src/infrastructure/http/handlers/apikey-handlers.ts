@@ -22,12 +22,6 @@
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'infrastructure:http:handlers:apikey-handlers',
-  level: LogLevel.INFO,
-});
-
 const apiKeys = new Map<
   string,
   { name: string; key: string; createdAt: number }

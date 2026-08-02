@@ -153,7 +153,7 @@ export async function handleMonitorSummary(
         avgResponseTime: 0,
       })
     );
-  } catch (err) {
+  } catch (_err) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
@@ -215,7 +215,7 @@ export async function handleMonitorMetrics(
         appMemory: filterMetric(appMemoryHistory, range), // 应用内存
       })
     );
-  } catch (err) {
+  } catch (_err) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
@@ -250,7 +250,7 @@ export async function handleMonitorAlerts(
     }));
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(alerts));
-  } catch (err) {
+  } catch (_err) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify([]));
   }
@@ -334,7 +334,7 @@ export async function handleMonitorLogs(
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ logs, total }));
-  } catch (err) {
+  } catch (_err) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ logs: [], total: 0 }));
   }
@@ -625,7 +625,7 @@ export async function handleInfrastructureStatus(
       const { systemHealthChecker } =
         await import('@modules/diagnostics/SystemHealthChecker');
       sysHealth = await systemHealthChecker.performFullCheck();
-    } catch (err) {
+    } catch (_err) {
       sysHealth = null;
     }
 
@@ -634,7 +634,7 @@ export async function handleInfrastructureStatus(
     try {
       const healthMonitor = getHealthMonitor();
       channelStatuses = healthMonitor.getAllHealthStatuses();
-    } catch (err) {
+    } catch (_err) {
       channelStatuses = [];
     }
 
@@ -644,7 +644,7 @@ export async function handleInfrastructureStatus(
       otelEnabled =
         (getOTelMetrics() as unknown as { enabled?: boolean })?.enabled ??
         false;
-    } catch (err) {
+    } catch (_err) {
       // 默认 false
     }
 

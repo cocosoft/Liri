@@ -13,12 +13,6 @@ import {
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'infrastructure:http:handlers:memory-handlers',
-  level: LogLevel.INFO,
-});
 
 /** v1.3: 后端 MemoryType → 前端类型名映射 */
 const MEMORY_TYPE_TO_FRONTEND: Record<string, string> = {

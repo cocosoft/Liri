@@ -23,12 +23,6 @@ import {
   isPathWithin,
 } from '@modules/core/paths';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'infrastructure:http:handlers:image-handlers',
-  level: LogLevel.INFO,
-});
-
 /** 图片输出根目录（上传） */
 const IMAGES_ROOT = path.join(resolveOutputDir(), 'images');
 

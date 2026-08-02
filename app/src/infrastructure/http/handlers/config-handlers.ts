@@ -24,12 +24,6 @@ import type { HandlerCtx } from './handler-utils';
 import { broadcastEvent } from './handler-utils';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'infrastructure:http:handlers:config-handlers',
-  level: LogLevel.INFO,
-});
-
 // ========== Config Handlers ==========
 
 export async function handleListConfig(

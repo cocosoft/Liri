@@ -4,15 +4,9 @@
  * POST /v1/workspaces/:id/intelligence/bottleneck
  */
 import type http from 'http';
-import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { HandlerCtx } from './handler-utils';
 import { bottleneckAnalyzer } from '@modules/workspace/BottleneckAnalyzer';
-
-const logger = new Logger({
-  module: 'BottleneckHandlers',
-  level: LogLevel.INFO,
-});
 
 /**
  * POST /v1/workspaces/:id/intelligence/bottleneck

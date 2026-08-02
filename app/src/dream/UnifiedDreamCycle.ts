@@ -37,7 +37,7 @@ import {
   executeAutoDream,
   runKnowledgeRain,
 } from '../chronos/autoDream/AutoDream';
-import { resolvePyappHome, resolveDataSubDir } from '@modules/core';
+import { resolveDataSubDir } from '@modules/core';
 import { globalEventBus, SystemEvents } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { broadcastEvent } from '@modules/infrastructure/http/LocalHTTPServiceSSE.js';
@@ -120,8 +120,11 @@ export class UnifiedDreamCycle {
     // ──── 检查点 ────
     const checkpointDir = join(resolveDataSubDir('dream'), 'checkpoints');
     const checkpointPath = join(checkpointDir, `checkpoint_${cycleId}.json`);
-    let checkpointPhase: 'gathered' | 'analyzed' | 'generated' | 'written_all' =
-      'gathered';
+    let _checkpointPhase:
+      | 'gathered'
+      | 'analyzed'
+      | 'generated'
+      | 'written_all' = 'gathered';
 
     try {
       // ── 阶段 0: Gather ──
@@ -213,7 +216,7 @@ export class UnifiedDreamCycle {
         /* SSE 不可用 */
       }
 
-      checkpointPhase = 'analyzed';
+      _checkpointPhase = 'analyzed';
       await this.writeCheckpoint(checkpointPath, {
         cycleId,
         phase: 'analyzed',
@@ -252,7 +255,7 @@ export class UnifiedDreamCycle {
         }
       }
 
-      checkpointPhase = 'generated';
+      _checkpointPhase = 'generated';
       await this.writeCheckpoint(checkpointPath, {
         cycleId,
         phase: 'generated',
@@ -340,7 +343,7 @@ export class UnifiedDreamCycle {
         /* SSE 不可用 */
       }
 
-      checkpointPhase = 'written_all';
+      _checkpointPhase = 'written_all';
 
       // 运行知识雨
       try {

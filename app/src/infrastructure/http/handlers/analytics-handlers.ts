@@ -179,7 +179,7 @@ export async function handleHealthReport(
         timestamp: Date.now(),
       })
     );
-  } catch (err) {
+  } catch (_err) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
@@ -366,7 +366,7 @@ export async function handleAnalyticsDashboard(
         generatedAt: Date.now(),
       })
     );
-  } catch (err) {
+  } catch (_err) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({

@@ -14,12 +14,6 @@ import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { resolveMediaDir, isPathWithin } from '@modules/core/paths';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'infrastructure\http\handlers\audio-handlers',
-  level: LogLevel.INFO,
-});
-
 /** 音频根目录 */
 const AUDIO_ROOT = path.join(resolveMediaDir(), 'audio');
 

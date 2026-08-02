@@ -24,12 +24,6 @@ import type { HandlerCtx } from './handler-utils';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'infrastructure:http:handlers:tools-handlers',
-  level: LogLevel.INFO,
-});
-
 // ========== Tools Handlers ==========
 
 export async function handleListTools(

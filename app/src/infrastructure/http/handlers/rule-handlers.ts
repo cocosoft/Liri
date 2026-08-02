@@ -11,15 +11,12 @@
  */
 
 import type http from 'http';
-import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { HandlerCtx } from './handler-utils';
 import {
   getRuleEngine,
   type RuleSpecialization,
 } from '@modules/workspace/RuleEngine';
-
-const logger = new Logger({ module: 'RuleHandlers', level: LogLevel.INFO });
 
 /**
  * GET /v1/workspaces/:id/rules

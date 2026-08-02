@@ -24,12 +24,6 @@ import type { HandlerCtx } from './handler-utils';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'infrastructure:http:handlers:agent1-handlers',
-  level: LogLevel.INFO,
-});
-
 // ========== Agent1 Handlers ==========
 
 export async function handleListAgentTasks(

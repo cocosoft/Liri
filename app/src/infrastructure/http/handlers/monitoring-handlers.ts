@@ -26,19 +26,13 @@
 import type http from 'http';
 import os from 'os';
 import type { HandlerCtx } from './handler-utils';
-import { Logger, LogLevel } from '@modules/monitoring';
-import { StructuredLogger } from '@modules/monitoring';
+import { LogLevel, StructuredLogger } from '@modules/monitoring';
 import { getMonitoringService } from '@modules/monitoring';
 import {
   getSystemCpuPercentAsync,
   getDiskInfoAsync,
 } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-
-const logger = new Logger({
-  module: 'infrastructure:http:handlers:monitoring-handlers',
-  level: LogLevel.INFO,
-});
 
 // ── 指标数据环形缓冲区 ────────────────────────────────────────────
 

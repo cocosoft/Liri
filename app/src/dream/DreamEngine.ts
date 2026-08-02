@@ -41,7 +41,6 @@ import {
 } from '../chronos/autoDream/AutoDream';
 import { globalEventBus, SystemEvents } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = new Logger({
   module: 'dream:dreamEngine',

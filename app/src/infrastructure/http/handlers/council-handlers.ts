@@ -11,7 +11,6 @@
 
 import type http from 'http';
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { HandlerCtx } from './handler-utils';
 import {
@@ -20,8 +19,6 @@ import {
 } from '@modules/workspace/CouncilEngine';
 import type { CouncilStreamEvent } from '@modules/workspace/CouncilTypes';
 import { CouncilOrchestrator } from '@modules/workspace/CouncilOrchestrator';
-
-const logger = new Logger({ module: 'CouncilHandlers', level: LogLevel.INFO });
 
 /** SSE 客户端连接池 */
 const sseClients = new Map<string, Set<http.ServerResponse>>();

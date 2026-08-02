@@ -1,10 +1,4 @@
-﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'auto-reply\AutoReplyEngine',
-  level: LogLevel.INFO,
-});
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**
  * AutoReplyEngine 自动回复引擎

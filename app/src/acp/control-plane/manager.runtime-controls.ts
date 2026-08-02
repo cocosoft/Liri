@@ -5,12 +5,6 @@ import type {
 } from '../runtime/types.js';
 import { AcpRuntimeError } from '../runtime/errors.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'acp:control-plane:manager.runtime-controls',
-  level: LogLevel.INFO,
-});
-
 export interface RuntimeControlRequest {
   control: AcpRuntimeControl;
   handle: AcpRuntimeHandle;

@@ -5,7 +5,7 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
-import { Logger, LogLevel } from '../monitoring/logs/Logger.js';
+import { Logger } from '../monitoring/logs/Logger.js';
 import { configManager } from '@modules/config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { StartupConfig, PluginSource } from './StartupConfig.js';

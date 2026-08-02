@@ -52,9 +52,9 @@ const logger = new Logger({
 /** 首次运行回溯天数 */
 const INITIAL_BACKTRACK_DAYS = 7;
 /** 梦境周期超时（毫秒） */
-const CYCLE_TIMEOUT_MS = 120_000;
+const _CYCLE_TIMEOUT_MS = 120_000;
 /** 连续失败告警阈值 */
-const CONSECUTIVE_FAILURE_ALERT_THRESHOLD = 3;
+const _CONSECUTIVE_FAILURE_ALERT_THRESHOLD = 3;
 
 export class UnifiedDreamCycle {
   private gatherer: SessionContentGatherer;

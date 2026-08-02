@@ -12,7 +12,6 @@
  * - diff → DiffBlock
  * - text / default → MarkdownRenderer
  */
-import { useNavigate } from "react-router-dom";
 import type { MessageBlock } from "../../types";
 import MarkdownRenderer from "./MarkdownRenderer";
 import ThinkingBlock from "./ThinkingBlock";
@@ -25,7 +24,6 @@ import DeliverableCard from "./DeliverableCard";
 import DiffBlock from "./DiffBlock";
 import InboxBlock from "./InboxBlock";
 import { useChatStore } from "../../stores/chat";
-import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("BlockRenderer");
@@ -44,23 +42,8 @@ function BlockRenderer({
   onQuestionResponse,
 }: BlockRendererProps) {
   const readFileToPreview = useChatStore((s) => s.readFileToPreview);
-  const navigate = useNavigate();
-  const backendReady = useWorkspaceStore((s) => s.backendReady);
 
-  /** 功能开关：VITE_FEATURE_WORK_MODULE=disabled 时隐藏工作模块入口 */
-  const workModuleEnabled =
-    import.meta.env.VITE_FEATURE_WORK_MODULE !== "disabled";
-
-  /**
-   * 进入工作模式：从聊天界面跳转到工作界面
-   */
-  const handleEnterWorkMode = () => {
-    if (sessionId) {
-      navigate(`/workspace/${sessionId}/work`);
-    }
-  };
-
-  switch (block.type) {
+switch (block.type) {
     case "thinking":
       return (
         <ThinkingBlock
@@ -141,10 +124,6 @@ function BlockRenderer({
         return (
           <DeliverableCard
             data={block.deliverableData}
-            onEnterWorkMode={
-              workModuleEnabled ? handleEnterWorkMode : undefined
-            }
-            workModeReady={backendReady}
           />
         );
       }

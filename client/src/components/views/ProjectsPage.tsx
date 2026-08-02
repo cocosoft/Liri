@@ -20,7 +20,6 @@ import ChatArea from "@/components/ChatArea/ChatArea";
 import {
   DashboardIcon,
   ModelIcon,
-  SettingsIcon,
   KnowledgeIcon,
   FileIcon,
   ZapIcon,
@@ -329,16 +328,6 @@ export default function ProjectsPage() {
                     </svg>
                   </button>
                 </div>
-                {/* 跳转工作台 */}
-                <button
-                  onClick={() =>
-                    navigate(`/workspace/${selectedProjectId}/work`)
-                  }
-                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  title="工作台"
-                >
-                  <SettingsIcon size={16} />
-                </button>
               </div>
             </header>
 

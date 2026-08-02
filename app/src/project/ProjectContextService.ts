@@ -18,7 +18,8 @@ import type {
 } from '@modules/workspace/types';
 
 /** type 标记正则：匹配 ### [xxx] 的内容 */
-const TYPE_MARKER_RE = /^###\s+\[(goal|scope|constraint|requirement|knowledge)\]\s+(.+)/;
+const TYPE_MARKER_RE =
+  /^###\s+\[(goal|scope|constraint|requirement|knowledge)\]\s+(.+)/;
 
 export class ProjectContextService {
   /**

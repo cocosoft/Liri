@@ -84,6 +84,13 @@ import {
 // Steering handler (Phase 3)
 import { handleSteerSession } from './steer-handlers';
 
+// Project artifact handlers（直接函数调用）
+import {
+  handleListArtifacts,
+  handleSaveArtifact,
+  handleDeleteArtifact,
+} from './project-artifact-handlers';
+
 // Channel handlers（直接函数调用，部分需要 broadcastEvent 回调）
 import {
   handleListChannels,
@@ -1256,6 +1263,32 @@ export async function dispatchRoute(
   ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)$/)!;
     await self['handleDeleteProject'](req, res, match[1], match[2]);
+    return true;
+  }
+
+  // ---- Project Artifacts ----
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/projects\/(.+)\/artifacts$/)
+  ) {
+    const match = url.match(/^\/v1\/projects\/(.+)\/artifacts$/)!;
+    await handleListArtifacts(req, res, match[1]);
+    return true;
+  }
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/projects\/(.+)\/artifacts$/)
+  ) {
+    const match = url.match(/^\/v1\/projects\/(.+)\/artifacts$/)!;
+    await handleSaveArtifact(req, res, match[1]);
+    return true;
+  }
+  if (
+    method === 'DELETE' &&
+    url.match(/^\/v1\/projects\/(.+)\/artifacts\/(.+)$/)
+  ) {
+    const match = url.match(/^\/v1\/projects\/(.+)\/artifacts\/(.+)$/)!;
+    await handleDeleteArtifact(req, res, match[1], match[2]);
     return true;
   }
 

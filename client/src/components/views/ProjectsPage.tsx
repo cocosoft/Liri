@@ -9,7 +9,6 @@
  *  └───────────┴─────────────────────────────────────┴───────────────────┘
  */
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import { useRootStore } from "@/stores/root-store";
 import { useChatStore } from "@/stores/chat";
 import { chatCoordinator } from "@/stores/chat/chatCoordinator";
@@ -17,6 +16,9 @@ import { sessionService } from "@/services/sessionService";
 import { handleClientError } from "@/utils/handleError";
 import CreateProjectModal from "@/components/Workspace/CreateProjectModal";
 import ChatArea from "@/components/ChatArea/ChatArea";
+import { ProjectMaterialsPanel } from "@/components/project/ProjectMaterialsPanel";
+import { ProjectDeliverablesPanel } from "@/components/project/ProjectDeliverablesPanel";
+import { ProjectHistoryPanel } from "@/components/project/ProjectHistoryPanel";
 import {
   DashboardIcon,
   ModelIcon,
@@ -27,8 +29,6 @@ import {
 } from "@/assets/icons";
 
 /* ---------- 常量 ---------- */
-
-type RightTab = "sources" | "creations";
 
 interface CreationItem {
   id: string;
@@ -84,8 +84,6 @@ export function getCreationItem(id: string): CreationItem | undefined {
 /* ---------- 组件 ---------- */
 
 export default function ProjectsPage() {
-  const navigate = useNavigate();
-
   // 模态框 & 选中状态
   const [showCreate, setShowCreate] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
@@ -93,7 +91,6 @@ export default function ProjectsPage() {
   );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [rightTab, setRightTab] = useState<RightTab>("creations");
   const [showSmartMenu, setShowSmartMenu] = useState(false);
   const inited = useRef<string | null>(null);
 
@@ -365,115 +362,53 @@ export default function ProjectsPage() {
       </main>
 
       {/* ======================================== */}
-      {/*  右栏：Sources / Creations 面板            */}
+      {/*  右栏：资料 / 成果 / 讨论记录              */}
       {/* ======================================== */}
       <aside className="w-72 border-l border-gray-200 dark:border-gray-700 flex flex-col flex-shrink-0 bg-white dark:bg-gray-900">
-        {/* Tabs */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-md p-0.5 text-xs">
-            <button
-              onClick={() => setRightTab("sources")}
-              className={`px-3 py-1 rounded transition-colors ${
-                rightTab === "sources"
-                  ? "bg-white dark:bg-gray-700 shadow-sm font-medium text-gray-800 dark:text-gray-100"
-                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-              }`}
-            >
-              输入
-            </button>
-            <button
-              onClick={() => setRightTab("creations")}
-              className={`px-3 py-1 rounded transition-colors ${
-                rightTab === "creations"
-                  ? "bg-white dark:bg-gray-700 shadow-sm font-medium text-gray-800 dark:text-gray-100"
-                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-              }`}
-            >
-              输出
-            </button>
-          </div>
-          {/* 关闭图标（装饰） */}
-          <button className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+        {/* -- 项目资料 -- */}
+        <div className="border-b border-gray-100 dark:border-gray-800">
+          <div className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-          </button>
+            项目资料
+          </div>
+          <div className="max-h-40 overflow-y-auto">
+            {selectedProjectId ? (
+              <ProjectMaterialsPanel projectId={selectedProjectId} />
+            ) : (
+              <div className="p-4 text-sm text-gray-400 text-center">请先选择项目</div>
+            )}
+          </div>
         </div>
 
-        {/* 内容区域 */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {rightTab === "creations" ? (
-            <div>
-              {/* 5 个生成操作按钮：网格布局 (3+2) */}
-              <div className="grid grid-cols-3 gap-2 mb-8">
-                {CREATION_ITEMS.map((item) => {
-                  const Icon = item.icon;
-                  const disabled = !selectedProjectId;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        if (!selectedProjectId) return;
-                        navigate(
-                          `/projects/${selectedProjectId}/output/${item.path}`,
-                        );
-                      }}
-                      disabled={disabled}
-                      className={`flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-lg border transition-all text-gray-700 dark:text-gray-300 ${
-                        disabled
-                          ? "border-gray-200 dark:border-gray-700 opacity-40 cursor-not-allowed"
-                          : "border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                      }`}
-                      title={disabled ? "请先选择项目" : item.description}
-                    >
-                      <div className="p-1.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                        <Icon size={18} />
-                      </div>
-                      <span className="text-xs font-medium leading-tight text-center">
-                        {item.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* 空状态说明 */}
-              <div className="text-center px-2">
-                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                  暂无输出
-                </h4>
-                <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-                  点击上方按钮开始为项目生成内容。先向项目添加输入可获得更好的效果。
-                </p>
-              </div>
-            </div>
+        {/* -- 成果 -- */}
+        <div className="flex-1 overflow-y-auto border-b border-gray-100 dark:border-gray-800">
+          <div className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            成果
+          </div>
+          {selectedProjectId ? (
+            <ProjectDeliverablesPanel projectId={selectedProjectId} />
           ) : (
-            /* Sources Tab */
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <KnowledgeIcon
-                size={36}
-                className="mb-3 text-gray-300 dark:text-gray-700"
-              />
-              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                暂无输入
-              </h4>
-              <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400 px-4">
-                上传文档、网页或其他内容，为项目提供知识支撑。
-              </p>
-              <button className="mt-4 px-3 py-1.5 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium">
-                + 添加输入
-              </button>
-            </div>
+            <div className="p-4 text-sm text-gray-400 text-center">请先选择项目</div>
+          )}
+        </div>
+
+        {/* -- 讨论记录 -- */}
+        <div className="max-h-48 overflow-y-auto">
+          <div className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            讨论记录
+          </div>
+          {selectedProjectId ? (
+            <ProjectHistoryPanel projectId={selectedProjectId} turns={[]} />
+          ) : (
+            <div className="p-4 text-sm text-gray-400 text-center">请先选择项目</div>
           )}
         </div>
       </aside>

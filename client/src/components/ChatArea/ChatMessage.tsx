@@ -13,6 +13,8 @@ import { useConfigStore } from "../../stores/configStore";
 import { useChatStore } from "../../stores/chat";
 import { useShallow } from "zustand/shallow";
 import { useSessionStore } from "../../stores/sessionStore";
+import { useRootStore } from "../../stores/root-store";
+import { saveArtifact } from "../../services/projectArtifactService";
 
 const SaveKnowledgeModal = React.lazy(() => import("./SaveKnowledgeModal"));
 
@@ -111,6 +113,7 @@ const ChatMessageMemo = memo(
       5 - ((currentSession?.metadata?.rollbackCount as number) ?? 0);
     const createSession = useSessionStore((s) => s.createSession);
     const switchSession = useSessionStore((s) => s.switchSession);
+    const projectId = useRootStore((s) => s.moduleContext.projectId);
     const [showSaveModal, setShowSaveModal] = useState(false);
     const [branching, setBranching] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
@@ -120,6 +123,7 @@ const ChatMessageMemo = memo(
     const [copyToast, setCopyToast] = useState<"copied" | "failed" | null>(
       null,
     );
+    const [captureToast, setCaptureToast] = useState(false);
     const [showUndo, setShowUndo] = useState(false);
     const [undoWarning, setUndoWarning] = useState<string | null>(null);
     /** 移动端长按/右键菜单 */
@@ -194,6 +198,24 @@ const ChatMessageMemo = memo(
 
     const handleContinue = () => {
       setReplyMessage(message);
+    };
+
+    /** 沉淀为成果：手动将 AI 回复保存到项目成果区 */
+    const handleCaptureAsDeliverable = async () => {
+      if (!projectId) return;
+      try {
+        await saveArtifact({
+          projectId,
+          kind: 'output',
+          title: message.content.slice(0, 80) || '未命名成果',
+          content: message.content,
+          sessionId: message.session_id,
+        });
+        setCaptureToast(true);
+        setTimeout(() => setCaptureToast(false), 2000);
+      } catch {
+        /* 沉淀失败静默处理 */
+      }
     };
 
     /** 创建分支：从当前消息处创建新会话并切换过去 */
@@ -493,6 +515,18 @@ const ChatMessageMemo = memo(
                 </button>
               )}
 
+              {/* AI 消息：沉淀为成果（仅项目上下文） */}
+              {!isUser && !isTool && projectId && (
+                <button
+                  onClick={handleCaptureAsDeliverable}
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                  aria-label="沉淀为成果"
+                  title="将当前回复保存到项目成果区"
+                >
+                  📌 沉淀
+                </button>
+              )}
+
               {/* ⋯ 更多菜单 */}
               <div className="relative">
                 <button
@@ -531,6 +565,13 @@ const ChatMessageMemo = memo(
                   {copyToast === "copied"
                     ? t("chat.toastCopied")
                     : t("chat.toastCopyFailed")}
+                </span>
+              )}
+
+              {/* 沉淀 toast */}
+              {captureToast && (
+                <span className="text-emerald-500 animate-pulse text-xs">
+                  已沉淀到成果区
                 </span>
               )}
             </div>

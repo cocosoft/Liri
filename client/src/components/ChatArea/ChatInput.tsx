@@ -11,11 +11,16 @@ import { useShallow } from "zustand/shallow";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useConfigStore } from "../../stores/configStore";
 import { useNavigationStore } from "../../stores/navigationStore";
+import { useRootStore } from "../../stores/root-store";
 import { useVoiceStore } from "../../stores/voiceStore";
 import { useFeatureFlagStore } from "../../stores/featureFlags";
 import { fileService } from "../../services/fileService";
 import { imageService } from "../../services/imageService";
 import { chatService } from "../../services/chatService";
+import {
+  fetchArtifacts,
+  fetchProjectContext,
+} from "../../services/projectArtifactService";
 import VoiceInputButton, { type VoiceInputHandle } from "../VoiceInputButton";
 import FileAttachmentBar from "./FileAttachmentBar";
 import type { FileAttachmentBarHandle } from "./FileAttachmentBar";
@@ -118,6 +123,51 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
   const setActivePage = useNavigationStore((s) => s.setActivePage);
   const messageQueueEnabled = useFeatureFlagStore((s) => s.flags.message_queue);
   const voiceIsRecording = useVoiceStore((s) => s.isRecording);
+  const projectId = useRootStore((s) => s.moduleContext.projectId);
+
+  // 项目引用条目（资料 + 成果）
+  const [projectMentionItems, setProjectMentionItems] = useState<MentionItem[]>(
+    [],
+  );
+
+  // 项目上下文变化时加载引用条目
+  useEffect(() => {
+    if (!projectId) {
+      setProjectMentionItems([]);
+      return;
+    }
+    let cancelled = false;
+    async function load() {
+      try {
+        const [context, artifacts] = await Promise.all([
+          fetchProjectContext(projectId!),
+          fetchArtifacts(projectId!, "output"),
+        ]);
+        if (cancelled) return;
+        const items: MentionItem[] = [
+          ...context.map((c) => ({
+            id: `ctx-${c.type}-${c.line}`,
+            label: `[${c.type}] ${c.content}`,
+            type: "context" as const,
+            content: c.content,
+          })),
+          ...artifacts.map((a) => ({
+            id: `art-${a.id}`,
+            label: a.title,
+            type: "artifact" as const,
+            content: a.content,
+          })),
+        ];
+        setProjectMentionItems(items);
+      } catch {
+        /* 加载失败静默处理 */
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
 
   // 草稿持久化
   const { input, setInput, setInputWithDraft, clearDraft } = useChatDraft(
@@ -739,7 +789,8 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
       if (/\s/.test(value[i])) break;
     }
 
-    if (atPos >= 0 && sessionFiles.length > 0) {
+    const hasMentionItems = sessionFiles.length > 0 || projectMentionItems.length > 0;
+    if (atPos >= 0 && hasMentionItems) {
       const query = value.slice(atPos + 1, cursorPos);
       if (!query.includes(" ")) {
         setShowMentions(true);
@@ -752,12 +803,19 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
     setShowMentions(false);
   };
 
-  /** @ 引用选中回调：替换 @query 为 Markdown 链接 */
+  /** @ 引用选中回调：根据类型替换 @query 为对应引用格式 */
   const handleMentionSelect = useCallback(
     (item: MentionItem) => {
       const before = input.slice(0, mentionStartPos);
       const after = input.slice(mentionStartPos + 1 + mentionQuery.length);
-      const reference = `[${item.label}](file://${item.path})`;
+      let reference: string;
+      if (item.type === "file") {
+        reference = `[${item.label}](file://${item.path})`;
+      } else if (item.type === "context") {
+        reference = `@资料: ${item.content || item.label}`;
+      } else {
+        reference = `@成果: ${item.label}`;
+      }
       const newValue = before + reference + after;
       setInput(newValue);
       setShowMentions(false);
@@ -862,6 +920,7 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
               show={showMentions}
               selectedIndex={mentionIndex}
               sessionFiles={sessionFiles}
+              projectItems={projectMentionItems}
               onSelect={handleMentionSelect}
               onHover={setMentionIndex}
             />

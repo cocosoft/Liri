@@ -131,7 +131,7 @@ export default function ProjectOutputPage() {
   };
 
   return (
-    <div className="flex h-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+    <div className="flex flex-1 h-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       {/* ======================================== */}
       {/*  左栏：项目列表（保持与 ProjectsPage 一致） */}
       {/* ======================================== */}

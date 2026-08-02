@@ -21,13 +21,8 @@
 
 import type http from 'http';
 import { join } from 'path';
-import {
-  mkdirSync,
-  existsSync,
-  writeFileSync,
-  readdirSync,
-} from 'fs';
-import { resolveDataSubDir } from '@modules/core';
+import { mkdirSync, existsSync, writeFileSync, readFileSync, readdirSync } from 'fs';
+import { resolveDataSubDir, resolvePyappHome } from '@modules/core';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
 import { handleError } from '@modules/error';
@@ -230,6 +225,24 @@ export async function handlePdcaStart(
       workspaceId: workspaceId || 'default',
       projectId,
     });
+
+    // 关联到项目（归属打通）
+    if (projectId) {
+      try {
+        const projPath = join(resolvePyappHome(), 'projects', projectId, 'project.json');
+        if (existsSync(projPath)) {
+          const proj = JSON.parse(readFileSync(projPath, 'utf-8'));
+          if (!proj.pdcaIds) proj.pdcaIds = [];
+          if (!proj.pdcaIds.includes(taskId)) {
+            proj.pdcaIds.push(taskId);
+            proj.updatedAt = new Date().toISOString();
+            writeFileSync(projPath, JSON.stringify(proj, null, 2), 'utf-8');
+          }
+        }
+      } catch {
+        /* 项目关联失败不影响 PDCA 启动 */
+      }
+    }
 
     // 立即返回 taskId，前端可轮询 GET /v1/pdca/:taskId 获取进度
     res.writeHead(202, { 'Content-Type': 'application/json' });

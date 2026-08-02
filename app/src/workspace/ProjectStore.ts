@@ -298,6 +298,7 @@ export class ProjectStore {
       status: 'active',
       phase: 'active',
       workItemIds: [],
+      pdcaIds: [],
       template: params.template,
       tags: params.tags || [],
       createdAt: now,
@@ -390,6 +391,30 @@ export class ProjectStore {
     project.updatedAt = new Date().toISOString();
     this.save(project);
     return project;
+  }
+
+  /**
+   * 将 PDCA 任务关联到项目
+   */
+  addPdca(projectId: string, pdcaId: string): Project | null {
+    const project = this.get(projectId);
+    if (!project) return null;
+
+    if (!project.pdcaIds.includes(pdcaId)) {
+      project.pdcaIds.push(pdcaId);
+      project.updatedAt = new Date().toISOString();
+      this.save(project);
+    }
+    return project;
+  }
+
+  /**
+   * 列出项目下所有 PDCA 任务 ID
+   */
+  listPdcaIds(projectId: string): string[] {
+    const project = this.get(projectId);
+    if (!project) return [];
+    return [...project.pdcaIds];
   }
 
   /**

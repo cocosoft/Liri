@@ -296,6 +296,8 @@ export interface Project {
   phase: ProjectPhase;
   /** 关联的工作项 ID 列表 */
   workItemIds: string[];
+  /** 关联的 PDCA 任务 ID 列表 */
+  pdcaIds: string[];
   /** 项目级规则文件路径（相对于 .liri/） */
   rulesFile?: string;
   /** 项目模板类型 */

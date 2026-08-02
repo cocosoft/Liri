@@ -1234,6 +1234,9 @@ export async function launch(options: LaunchOptions): Promise<void> {
         // 注入 CoreAPIImpl 全局单例
         const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
         getCoreAPI().setSmartRouter(smartRouter);
+
+        // 预热：确保会话从磁盘加载，HTTP handler 首次请求即可返回
+        await getCoreAPI().ensureSessionsLoaded();
       },
       { fallbackMsg: '使用静态路由' }
     );

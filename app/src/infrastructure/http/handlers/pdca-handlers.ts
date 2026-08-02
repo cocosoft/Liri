@@ -49,11 +49,21 @@ export async function handlePdcaStart(
     const { getOrCreateOrchestrator } =
       await import('@modules/tasks/LongRunningTaskOrchestrator');
     const orchestrator = getOrCreateOrchestrator(taskId);
-    const status = await orchestrator.runFullPdca(description, sessionId || '');
 
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(status));
-    broadcastEvent('pdca:started', { taskId, status });
+    // 异步执行 PDCA，不阻塞 HTTP 响应
+    void orchestrator.runFullPdca(description, sessionId || '').catch(async (e) => {
+      const { handleError } = await import('@modules/error');
+      handleError(e, {
+        module: 'infrastructure:http:handlers:pdca-handlers',
+        action: 'runFullPdca',
+        context: { taskId },
+      });
+    });
+
+    // 立即返回 taskId，前端可轮询 GET /v1/pdca/:taskId 获取进度
+    res.writeHead(202, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ taskId, status: 'started' }));
+    broadcastEvent('pdca:started', { taskId });
   } catch (err) {
     sendError(res, err);
   }

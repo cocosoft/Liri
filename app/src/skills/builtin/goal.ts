@@ -136,9 +136,16 @@ const goalSkill: Skill = {
   impl: {
     kind: 'executable',
     execute: async (context: unknown) => {
-      const args = context as unknown[];
-      const raw = args.join(' ');
-      const sessionId = `goal_${Date.now().toString(36)}`;
+      // 从 ToolUseContext 中提取真实会话 ID 和参数
+      const ctx = context as Record<string, unknown>;
+      const raw = typeof ctx.toolInput === 'object' && ctx.toolInput !== null
+        ? String((ctx.toolInput as Record<string, unknown>).command || '')
+        : Array.isArray(context)
+          ? (context as unknown[]).join(' ')
+          : String(context);
+      const sessionId = typeof ctx.sessionId === 'string'
+        ? ctx.sessionId
+        : `goal_${Date.now().toString(36)}`;
 
       const otel = getOTelTracing();
       const span = otel.startSpan('goal.execute', {

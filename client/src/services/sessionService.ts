@@ -230,16 +230,17 @@ export const sessionService = {
             return;
           }
           logger.warn("重命名会话失败", { id, error: res.error });
+          throw new Error(`重命名会话失败: ${res.error || "HTTP error"}`);
         } catch (e) {
           handleClientError(e, {
             module: "services:session",
             action: "rename",
           });
-          // 网络错误
+          // 尝试 Tauri fallback
+          const result = await tryTauri<void>("rename_session", { id, title });
+          if (result !== null) return;
+          throw e instanceof Error ? e : new Error("重命名会话失败");
         }
-        const result = await tryTauri<void>("rename_session", { id, title });
-        if (result !== null) return;
-        return createMemorySessionService().rename(id, title);
       },
     );
   },

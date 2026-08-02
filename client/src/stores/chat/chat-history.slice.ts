@@ -191,7 +191,7 @@ export async function doAutoRename(
 
     const finalTitle =
       title || userMessage.slice(0, 30) + (userMessage.length > 30 ? "…" : "");
-    useRootStore.getState().renameSession(sessionId, finalTitle);
+    useRootStore.getState().renameChatSession(sessionId, finalTitle);
   } catch (_error) {
     handleClientError(
       _error,
@@ -201,6 +201,6 @@ export async function doAutoRename(
     // LLM 生成标题失败，用用户消息前30字符降级
     const fallbackTitle =
       userMessage.length > 30 ? userMessage.slice(0, 30) + "…" : userMessage;
-    useRootStore.getState().renameSession(sessionId, fallbackTitle);
+    useRootStore.getState().renameChatSession(sessionId, fallbackTitle);
   }
 }

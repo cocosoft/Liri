@@ -876,6 +876,54 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * 迁移：旧版项目路径 → 用户主目录
+   * 当 LIRI_HOME 变更时，将 app/data/pyapp/data/ 下的 sessions 移到 ~/.pyapp/data/
+   */
+  private async _migrateHomeFromProjectToUser(): Promise<void> {
+    try {
+      const { readdirSync, existsSync, renameSync, mkdirSync } = require('fs');
+      const { join } = require('path');
+      const { resolvePyappHome } = await import('@modules/core');
+
+      const homedir = require('os').homedir();
+      const newHome = join(homedir(), '.pyapp');
+      const curHome = resolvePyappHome();
+
+      // 当前已在用户主目录，无需迁移
+      if (curHome.startsWith(homedir)) return;
+
+      const curDataDir = join(curHome, 'data');
+      const newDataDir = join(newHome, 'data');
+
+      // 新路径已有数据 → 已迁移，跳过
+      if (existsSync(newDataDir)) return;
+      // 旧路径无数据 → 无需迁移
+      if (!existsSync(curDataDir)) return;
+
+      // 递归迁移：创建目标 → 移动文件 → 成功后删除旧目录
+      mkdirSync(newDataDir, { recursive: true });
+      const migrateDir = (src: string, dst: string): void => {
+        if (!existsSync(src)) return;
+        mkdirSync(dst, { recursive: true });
+        for (const entry of readdirSync(src, { withFileTypes: true })) {
+          const srcPath = join(src, entry.name);
+          const dstPath = join(dst, entry.name);
+          if (entry.isDirectory()) {
+            migrateDir(srcPath, dstPath);
+          } else {
+            try { renameSync(srcPath, dstPath); } catch { /* 单项失败跳过 */ }
+          }
+        }
+      };
+      migrateDir(curDataDir, newDataDir);
+
+      logger.info(`会话数据已从项目路径迁移到用户主目录: ${curDataDir} → ${newDataDir}`);
+    } catch {
+      // 非致命，迁移失败不影响启动
+    }
+  }
+
+  /**
    * 初始化
    */
   async initialize(): Promise<void> {
@@ -885,6 +933,11 @@ export class ChatManagerImpl implements ChatManager {
     // 清理超过 24 小时的残留 PID 锁文件
     this._cleanStalePidFiles().catch((err) => {
       handleError(err, { module: 'chat:manager', action: 'cleanPidFiles' });
+    });
+
+    // 迁移：旧版项目路径 → 用户主目录（LIRI_HOME 统一后的一次性操作）
+    await this._migrateHomeFromProjectToUser().catch((err) => {
+      handleError(err, { module: 'chat:manager', action: 'migrateHome' });
     });
 
     // 启动会话活跃度追踪（心跳 + 并发控制）

@@ -117,6 +117,11 @@ if (!existsSync(projectRoot)) {
 
 // 设置环境变量供后续模块使用
 process.env.LIRI_PROJECT_DIR = projectRoot;
+// 用户数据目录统一到 ~/.pyapp/（符合 project_rules.md §1.5 三层分离架构）
+if (!process.env.LIRI_HOME) {
+  const { homedir } = require('os');
+  process.env.LIRI_HOME = join(homedir(), '.pyapp');
+}
 
 // 额外环境变量兜底：某些库/模块可能使用 PWD 或 INIT_CWD
 process.env.PWD = projectRoot;

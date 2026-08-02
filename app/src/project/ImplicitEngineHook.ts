@@ -7,6 +7,10 @@
  * 触发策略：仅对"有产出意图"的消息触发（规则匹配命中），普通闲聊跳过。
  */
 
+import { join } from 'path';
+import { homedir } from 'node:os';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { randomUUID } from 'crypto';
 import type { ProjectContextType } from '@modules/workspace/types';
 
 /** 意图分类 */
@@ -47,14 +51,10 @@ const DO_PATTERNS = [
 ];
 
 // ──── Check 检测规则 ────
-const CHECK_PATTERNS = [
-  /检查|验证|对照|审核|比对|核实/,
-];
+const CHECK_PATTERNS = [/检查|验证|对照|审核|比对|核实/];
 
 // ──── Act 检测规则 ────
-const ACT_PATTERNS = [
-  /调整|修改|改进|优化|纠正|修复/,
-];
+const ACT_PATTERNS = [/调整|修改|改进|优化|纠正|修复/];
 
 export class ImplicitEngineHook {
   /**
@@ -69,7 +69,12 @@ export class ImplicitEngineHook {
       if (m?.[1]) {
         const content = m[1].trim().slice(0, 200);
         if (content.length >= 2) {
-          matches.push({ intent: 'plan', contextType: type, content, confidence: 0.7 });
+          matches.push({
+            intent: 'plan',
+            contextType: type,
+            content,
+            confidence: 0.7,
+          });
         }
       }
     }
@@ -89,7 +94,11 @@ export class ImplicitEngineHook {
     // Check 检测
     for (const pattern of CHECK_PATTERNS) {
       if (pattern.test(text)) {
-        matches.push({ intent: 'check', content: text.slice(0, 100), confidence: 0.5 });
+        matches.push({
+          intent: 'check',
+          content: text.slice(0, 100),
+          confidence: 0.5,
+        });
         break;
       }
     }
@@ -97,7 +106,11 @@ export class ImplicitEngineHook {
     // Act 检测
     for (const pattern of ACT_PATTERNS) {
       if (pattern.test(text)) {
-        matches.push({ intent: 'act', content: text.slice(0, 100), confidence: 0.4 });
+        matches.push({
+          intent: 'act',
+          content: text.slice(0, 100),
+          confidence: 0.4,
+        });
         break;
       }
     }
@@ -134,5 +147,84 @@ export class ImplicitEngineHook {
     }
 
     return { contexts, deliverables };
+  }
+
+  /**
+   * 分析消息并持久化到 rules.md 和 artifacts 文件
+   *
+   * @param projectId 项目 ID（worktree ID）
+   * @param text 消息文本
+   * @returns 写入的 contexts 和 deliverables 数量
+   */
+  static async persist(
+    projectId: string,
+    text: string,
+    projectsDir?: string
+  ): Promise<{ contexts: number; deliverables: number }> {
+    const result = { contexts: 0, deliverables: 0 };
+    const { contexts, deliverables } = this.process(text);
+    if (contexts.length === 0 && deliverables.length === 0) return result;
+
+    const root = projectsDir || join(homedir(), '.pyapp', 'projects');
+    const projectDir = join(root, projectId);
+
+    // 确保项目目录存在
+    if (!existsSync(projectDir)) {
+      mkdirSync(projectDir, { recursive: true });
+    }
+
+    // 写入 rules.md
+    const rulesPath = join(projectDir, 'rules.md');
+    let existingLines: string[] = [];
+    if (existsSync(rulesPath)) {
+      existingLines = readFileSync(rulesPath, 'utf-8').split('\n');
+    }
+
+    for (const ctx of contexts) {
+      const marker = `### [${ctx.type}] ${ctx.content}`;
+      // 去重：检查是否已存在相同条目
+      if (!existingLines.some((l) => l.trim() === marker)) {
+        existingLines.push(marker);
+        result.contexts++;
+      }
+    }
+
+    if (result.contexts > 0) {
+      writeFileSync(rulesPath, existingLines.join('\n') + '\n', 'utf-8');
+    }
+
+    // 写入 artifacts (deliverables)
+    const artifactsPath = join(projectDir, 'artifacts.json');
+    interface ArtifactEntry { id: string; projectId: string; kind: string; title: string; content: string; createdAt: string }
+    let artifacts: ArtifactEntry[] = [];
+    if (existsSync(artifactsPath)) {
+      try {
+        artifacts = JSON.parse(readFileSync(artifactsPath, 'utf-8'));
+      } catch {
+        artifacts = [];
+      }
+    }
+
+    for (const del of deliverables) {
+      // 去重：检查 title
+      const exists = artifacts.some((a) => a.title === del.slice(0, 80));
+      if (!exists) {
+        artifacts.push({
+          id: randomUUID(),
+          projectId,
+          kind: 'output',
+          title: del.slice(0, 80),
+          content: del,
+          createdAt: new Date().toISOString(),
+        });
+        result.deliverables++;
+      }
+    }
+
+    if (result.deliverables > 0) {
+      writeFileSync(artifactsPath, JSON.stringify(artifacts, null, 2), 'utf-8');
+    }
+
+    return result;
   }
 }

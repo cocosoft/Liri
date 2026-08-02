@@ -132,9 +132,18 @@ export async function handleSaveProjectContext(
       domain?: string;
     };
 
-    const validTypes = ['goal', 'scope', 'constraint', 'requirement', 'knowledge'];
+    const validTypes = [
+      'goal',
+      'scope',
+      'constraint',
+      'requirement',
+      'knowledge',
+    ];
     if (!type || !validTypes.includes(type) || !content) {
-      json(res, 400, { error: '缺少或无效的 type（需为 goal/scope/constraint/requirement/knowledge）或 content' });
+      json(res, 400, {
+        error:
+          '缺少或无效的 type（需为 goal/scope/constraint/requirement/knowledge）或 content',
+      });
       return;
     }
 
@@ -165,7 +174,10 @@ export async function handleSaveProjectContext(
       if (domainIdx >= 0) {
         // 在 domain 节的末尾插入（下一个 ## 或文件末尾之前）
         let insertIdx = domainIdx + 1;
-        while (insertIdx < lines.length && !lines[insertIdx].trim().startsWith('## ')) {
+        while (
+          insertIdx < lines.length &&
+          !lines[insertIdx].trim().startsWith('## ')
+        ) {
           insertIdx++;
         }
         lines.splice(insertIdx, 0, marker);
@@ -207,61 +219,11 @@ export async function handleEngineHook(
       return;
     }
 
-    const { contexts, deliverables } = ImplicitEngineHook.process(text);
-    if (contexts.length === 0 && deliverables.length === 0) {
-      json(res, 200, { processed: false, reason: 'no intent detected' });
-      return;
-    }
-
-    const results: { contexts: number; deliverables: number } = {
-      contexts: 0,
-      deliverables: 0,
-    };
-
-    // 写入 rules.md
-    for (const ctx of contexts) {
-      try {
-        // 直接通过 handleSaveProjectContext 的逻辑写入
-        const projectDir = join(LIRI_PROJECTS_DIR, projectId);
-        if (!existsSync(projectDir)) {
-          mkdirSync(projectDir, { recursive: true });
-        }
-        const rulesPath = join(projectDir, 'rules.md');
-        let existingLines: string[] = [];
-        if (existsSync(rulesPath)) {
-          existingLines = readFileSync(rulesPath, 'utf-8').split('\n');
-        }
-        const marker = `### [${ctx.type}] ${ctx.content}`;
-        const lines = [...existingLines];
-        if (lines.length > 0 && lines[lines.length - 1] !== '') {
-          lines.push('');
-        }
-        lines.push(marker);
-        writeFileSync(rulesPath, lines.join('\n') + '\n', 'utf-8');
-        results.contexts++;
-      } catch {
-        /* skip failed write */
-      }
-    }
-
-    // 写入 deliverables
-    for (const del of deliverables) {
-      try {
-        artifactStore.save({
-          id: randomUUID(),
-          projectId,
-          kind: 'output',
-          title: del.slice(0, 80),
-          content: del,
-          createdAt: new Date().toISOString(),
-        });
-        results.deliverables++;
-      } catch {
-        /* skip failed write */
-      }
-    }
-
-    json(res, 200, { processed: true, ...results });
+    const result = await ImplicitEngineHook.persist(projectId, text, LIRI_PROJECTS_DIR);
+    json(res, 200, {
+      processed: result.contexts > 0 || result.deliverables > 0,
+      ...result,
+    });
   } catch {
     json(res, 500, { error: '引擎钩子执行失败' });
   }

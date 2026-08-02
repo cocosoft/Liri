@@ -61,6 +61,7 @@ import { TaskFacade } from './facades/TaskFacade';
 
 const logger = new Logger({ module: 'chat:manager', level: LogLevel.INFO });
 import { SimpleMutex } from '@modules/core/SimpleMutex';
+import { ImplicitEngineHook } from '../project/ImplicitEngineHook';
 
 import type { ChatManager } from './ChatManagerInterface.js';
 
@@ -2740,6 +2741,14 @@ export class ChatManagerImpl implements ChatManager {
     );
 
     options?.onComplete?.(assistantMessage);
+
+    // 隐性引擎钩子：项目会话的消息完成后，触发 Plan/Do/Check/Act 分析
+    const workspaceId = session.metadata?.workspaceId as string | undefined;
+    if (workspaceId && assistantMessage.content) {
+      ImplicitEngineHook.persist(workspaceId, assistantMessage.content as string).catch(() => {
+        /* 隐性引擎失败不阻塞消息流 */
+      });
+    }
 
     // Phase 2: Telemetry + Trajectory 完成
     if (this.ENABLE_TELEMETRY) {

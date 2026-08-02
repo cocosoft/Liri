@@ -47,6 +47,7 @@ import { VerifierAgent, createVerifierAgent } from '../query/VerifierAgent.js';
 import type { VerificationResult } from '../query/VerifierAgent.js';
 import { FileLockManager, fileLockManager } from './FileLockManager.js';
 import { inboxManager } from '@modules/runtime/InboxManager.js';
+import { syncPdcaWorkItemStatus } from './PdcaWorkItemBridge';
 
 const logger = new Logger({ module: 'tasks:longRunning' });
 
@@ -210,6 +211,12 @@ export class LongRunningTaskOrchestrator {
       });
   }
 
+  /** 设置阶段并同步 WorkItem 状态 */
+  private setPhase(phase: PdcaPhase): void {
+    this.phase = phase;
+    syncPdcaWorkItemStatus(this.taskId, phase);
+  }
+
   getTaskId(): string {
     return this.taskId;
   }
@@ -236,7 +243,7 @@ export class LongRunningTaskOrchestrator {
     sessionId: string
   ): Promise<Plan> {
     throwIfAborted(this.isolation);
-    this.phase = 'plan';
+    this.setPhase('plan');
     this.lifecycle.record('started', TaskStatus.RUNNING, 'Plan phase started');
 
     const otel = getOTelTracing();
@@ -320,7 +327,7 @@ export class LongRunningTaskOrchestrator {
     throwIfAborted(this.isolation);
     if (!this.planId) throw new Error('No plan created');
 
-    this.phase = 'execute';
+    this.setPhase('execute');
     const plan = taskOrchestrator.getPlan(this.planId)!;
     plan.status = 'running';
 
@@ -340,7 +347,7 @@ export class LongRunningTaskOrchestrator {
     }
 
     // 检查全部完成
-    this.phase = 'review';
+    this.setPhase('review');
     return taskOrchestrator.getPlan(this.planId)!;
   }
 
@@ -769,11 +776,11 @@ export class LongRunningTaskOrchestrator {
 
     // Plan
     const plan = await this.executePlanPhase(description, sessionId);
-    this.phase = 'plan';
+    this.setPhase('plan');
 
     // 计划前置审批：在 EXECUTE 前插入审批断点
     if (requireApproval) {
-      this.phase = 'plan_pending';
+      this.setPhase('plan_pending');
 
       // 提交到 Inbox
       const planSummary = plan.steps
@@ -869,7 +876,7 @@ export class LongRunningTaskOrchestrator {
     }
 
     // 生成审计报告
-    this.phase = 'completed';
+    this.setPhase('completed');
     this.auditReport = this.generateReport();
     this.persistAuditReport(this.auditReport);
     this.lifecycle.record('finalized', TaskStatus.COMPLETED, 'PDCA completed');
@@ -1034,7 +1041,7 @@ export class LongRunningTaskOrchestrator {
       );
     }
 
-    this.phase = 'execute';
+    this.setPhase('execute');
     logger.info('Plan approved, resuming PDCA execution', {
       taskId: this.taskId,
       planId: this.planId,
@@ -1080,7 +1087,7 @@ export class LongRunningTaskOrchestrator {
       }
     }
 
-    this.phase = 'completed';
+    this.setPhase('completed');
     this.auditReport = this.generateReport();
     this.persistAuditReport(this.auditReport);
     this.lifecycle.record('finalized', TaskStatus.COMPLETED, 'PDCA completed');

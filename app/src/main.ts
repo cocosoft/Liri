@@ -1399,6 +1399,16 @@ export async function launch(options: LaunchOptions): Promise<void> {
       // LocalHTTPService 导入失败不影响主流程
     }
 
+    // PDCA 启动扫描：标记残留的运行中任务为 abort
+    try {
+      const { scanAndAbortStalePdcaTasks } = await import(
+        './infrastructure/http/handlers/pdca-handlers.js'
+      );
+      scanAndAbortStalePdcaTasks();
+    } catch {
+      // 扫描失败不影响主流程
+    }
+
     profileReport();
   } catch (error) {
     // 增强错误日志：记录原始错误类型和栈信息

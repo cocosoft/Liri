@@ -155,17 +155,19 @@ export class ImplicitEngineHook {
    *
    * @param projectId 项目 ID（worktree ID）
    * @param text 消息文本
-   * @returns 写入的 contexts 和 deliverables 数量
+   * @returns 写入的 contexts/deliverables 数量，以及是否检测到 goal（可用于升级为完整 PDCA）
    */
   static async persist(
     projectId: string,
     text: string,
     projectsDir?: string,
     sessionId?: string
-  ): Promise<{ contexts: number; deliverables: number }> {
-    const result = { contexts: 0, deliverables: 0 };
+  ): Promise<{ contexts: number; deliverables: number; hasGoal: boolean }> {
+    const result = { contexts: 0, deliverables: 0, hasGoal: false };
     const { contexts, deliverables } = this.process(text);
     if (contexts.length === 0 && deliverables.length === 0) return result;
+
+    result.hasGoal = contexts.some((c) => c.type === 'goal');
 
     const root = projectsDir || join(homedir(), '.pyapp', 'projects');
     const projectDir = join(root, projectId);

@@ -2750,7 +2750,16 @@ export class ChatManagerImpl implements ChatManager {
         assistantMessage.content as string,
         undefined,
         session.id
-      ).catch(() => {
+      ).then((result) => {
+        // 升级通道：检测到目标时自动发起完整 PDCA 循环（隐性模式，无需审批）
+        if (result.hasGoal) {
+          this._launchImplicitPdca(
+            workspaceId,
+            assistantMessage.content as string,
+            session.id
+          ).catch(() => {});
+        }
+      }).catch(() => {
         /* 隐性引擎失败不阻塞消息流 */
       });
     }
@@ -2790,6 +2799,63 @@ export class ChatManagerImpl implements ChatManager {
     this._streamingCheckpoint = null;
 
     return assistantMessage;
+  }
+
+  /**
+   * 隐性引擎升级通道：检测到 goal 后自动发起完整 PDCA 循环
+   * 隐性模式：requirePlanApproval=false，结果写入讨论记录（internal trail）
+   */
+  private async _launchImplicitPdca(
+    workspaceId: string,
+    description: string,
+    sessionId: string
+  ): Promise<void> {
+    const taskId = `pdca_${Date.now().toString(36)}`;
+    const now = new Date().toISOString();
+
+    try {
+      // 写入检查点
+      const { writePdcaCheckpoint } =
+        await import('../tasks/PdcaWorkItemBridge');
+      writePdcaCheckpoint(taskId, {
+        taskId,
+        status: 'started',
+        description,
+        sessionId,
+        workspaceId,
+        autoLaunched: true,
+      });
+
+      // 关联到项目 pdcaIds
+      try {
+        const projPath = path.join(homedir(), '.pyapp', 'projects', workspaceId, 'project.json');
+        if (fs.existsSync(projPath)) {
+          const proj = JSON.parse(fs.readFileSync(projPath, 'utf-8'));
+          if (!proj.pdcaIds) proj.pdcaIds = [];
+          if (!proj.pdcaIds.includes(taskId)) {
+            proj.pdcaIds.push(taskId);
+            proj.updatedAt = now;
+            fs.writeFileSync(projPath, JSON.stringify(proj, null, 2), 'utf-8');
+          }
+        }
+      } catch { /* skip */ }
+
+      // 启动编排器（隐性模式：不需要审批，不打断用户）
+      const { getOrCreateOrchestrator } =
+        await import('../tasks/LongRunningTaskOrchestrator');
+      const orchestrator = getOrCreateOrchestrator(taskId);
+      void orchestrator.runFullPdca(description, sessionId, {
+        requirePlanApproval: false,
+      }).catch((e) => {
+        logger.error('隐性 PDCA 执行失败', {
+          taskId,
+          workspaceId,
+          error: (e as Error)?.message ?? String(e),
+        });
+      });
+    } catch {
+      /* 隐性 PDCA 启动失败不影响主流程 */
+    }
   }
 
   /**

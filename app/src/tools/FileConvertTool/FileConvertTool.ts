@@ -13,6 +13,7 @@ import type {
 import { createToolResult } from '../types/ToolResult';
 import { getConverterEngine } from '../../tools/converter/engine/ConverterEngine';
 import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector';
+import { truncateToolResult } from '../../query/ToolResultTruncator';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -82,6 +83,11 @@ export class FileConvertTool extends BaseTool {
 
       const result = await engine.convertContent(fileInfo, content);
 
+      // 源头截断：docx 等大文件转换结果可达 800KB+，直接进上下文/持久化
+      // 会推高内存峰值触发 GC 停摆（事件循环阻塞 70s → 任务中断）。
+      // 此处截断后，API 消息与 messages.jsonl 持久化均为小结果。
+      const markdown = truncateToolResult(result.markdown);
+
       if (onProgress) {
         onProgress({
           toolUseID: 'file-convert-tool',
@@ -94,9 +100,9 @@ export class FileConvertTool extends BaseTool {
         });
       }
 
-      return createToolResult(result.markdown, {
+      return createToolResult(markdown, {
         success: true,
-        output: result.markdown,
+        output: markdown,
         newMessages: [
           { role: 'system', content: `转换完成: ${filePath} → Markdown` },
         ],

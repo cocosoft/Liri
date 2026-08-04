@@ -71,24 +71,16 @@ export class AtomicWriter {
     const dir = path.dirname(targetPath);
     await fs.mkdir(dir, { recursive: true });
 
-    const suffix = crypto.randomBytes(4).toString('hex');
-    const tmpPath = path.join(dir, `.tmp.append.${suffix}`);
-
+    // 追加场景（如 messages.jsonl）为 append-only，直接 O_APPEND 追加即可。
+    // 旧实现 tmp+rename 每次全量读改写（大文件 O(n²) 复制 → 内存翻倍 + GC 停摆，
+    // 曾导致 7MB messages.jsonl 下事件循环阻塞、任务卡死）。追加行是完整 JSON，
+    // 崩溃时最多丢失最后一行，不会损坏已有数据。
     try {
-      let existing = '';
-      try {
-        existing = await fs.readFile(targetPath, 'utf-8');
-      } catch {
-        // 文件尚不存在（新会话首次访问），静默处理
-      }
-      await fs.writeFile(tmpPath, existing + data, 'utf-8');
-      await fs.rename(tmpPath, targetPath);
+      await fs.appendFile(targetPath, data, 'utf-8');
     } catch (err) {
-      // @ignore-catch — 原子追加失败时清理临时文件，best-effort非关键
-      await fs.unlink(tmpPath).catch(() => {});
       throw new AtomicWriteError('Atomic append failed', {
         path: targetPath,
-        tmpPath,
+        tmpPath: '',
         cause: err,
       });
     }

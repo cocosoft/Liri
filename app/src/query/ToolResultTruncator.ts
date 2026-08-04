@@ -22,11 +22,14 @@
 /**
  * ToolResultTruncator — 工具结果截断器
  *
- * 从 ChatManager 提取的纯函数。防止超大工具结果导致 token 溢出。
+ * 从 ChatManager 提取的纯函数。防止超大工具结果导致 token 溢出
+ * 与内存峰值（docx 转换结果可达 800KB+，曾引发 GC 停摆 70s、任务中断）。
  * 保留头尾各 50%，中间插入截断标记。
+ *
+ * 上限 30KB（此前 100KB 仍偏大：82KB+147KB 结果同时进上下文 → 1.5GB 内存）。
  */
 
-export const MAX_TOOL_RESULT_CHARS = 100_000;
+export const MAX_TOOL_RESULT_CHARS = 30_000;
 
 export function truncateToolResult(result: string): string {
   if (result.length <= MAX_TOOL_RESULT_CHARS) return result;

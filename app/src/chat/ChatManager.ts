@@ -54,6 +54,7 @@ import {
   assembleContextualSystemPrompt,
   ensureThinkResponseTags,
   stripThinkResponseTags,
+  stripOrphanToolTags,
 } from './services/MessageContextPipeline';
 import { StreamingToolCallScrubber } from '../streaming/scrubbers/StreamingToolCallScrubber';
 import { SessionAccessFacade } from './services/SessionAccessFacade';
@@ -3737,7 +3738,8 @@ ${llmPhaseSummary}`;
         isComplete: true,
       });
       const residual = toolCallScrubber.flush();
-      const finalContent = scrubbed.content + residual;
+      // 兜底清理：剥离 scrubber 遗漏的孤立工具调用标签残片（如 </parameter></invoke>）
+      const finalContent = stripOrphanToolTags(scrubbed.content + residual);
       options?.onStream?.(finalContent);
       yield finalContent;
 
@@ -4247,59 +4249,109 @@ ${llmPhaseSummary}`;
               );
             }
             llmCallCount++; // P2-1: 追踪 LLM 调用次数
-            const toolGen = activeClient.streamMessage(
-              updatedMessages as unknown as ChatMessage[],
-              {
-                ...options,
-                signal: streamAbortController.signal,
-                tools:
-                  toolDefinitions.length > 0
-                    ? (toolDefinitions as unknown as ToolDefinition[])
-                    : undefined,
-              }
-            );
 
-            const toolGenResult = await toolGen.next();
-            let toolResultIter = toolGenResult;
-            try {
-              while (!toolResultIter.done) {
-                const chunk = toolResultIter.value as
-                  | string
-                  | ThinkingProviderChunk;
-                if (typeof chunk === 'string') {
-                  toolResultAccumulatedContent += chunk;
-                } else if (chunk?.type === 'thinking') {
-                  yield {
-                    type: 'thinking',
-                    content: chunk.content,
-                    sessionId: session.id,
-                  } as unknown as string;
+            // P3 修复（2026-08-05）：工具轮次残缺工具调用自动重试
+            // 现象：模型输出不完整工具调用 XML（如仅输出 </parameter></invoke></tool_calls>
+            // 闭合标签、缺失开标签），导致解析不出 tool_calls，任务静默中断。
+            // 处理：无 tool_calls 且内容以工具调用标签结尾时判定为残缺，加大 maxTokens 重试一次。
+            const toolRoundBaseMaxTokens =
+              (options?.maxTokens as number | undefined) ?? 4096;
+            let toolResultResponse = null as unknown as ChatResponse;
+            let toolRoundRetried = false;
+
+            for (;;) {
+              const toolGen = activeClient.streamMessage(
+                updatedMessages as unknown as ChatMessage[],
+                {
+                  ...options,
+                  maxTokens: toolRoundRetried
+                    ? Math.min(
+                        Math.max(toolRoundBaseMaxTokens * 2, 8192),
+                        64000
+                      )
+                    : toolRoundBaseMaxTokens,
+                  signal: streamAbortController.signal,
+                  tools:
+                    toolDefinitions.length > 0
+                      ? (toolDefinitions as unknown as ToolDefinition[])
+                      : undefined,
                 }
-                toolResultIter = await toolGen.next();
+              );
+
+              const toolGenResult = await toolGen.next();
+              let toolResultIter = toolGenResult;
+              let roundContent = '';
+              try {
+                while (!toolResultIter.done) {
+                  const chunk = toolResultIter.value as
+                    | string
+                    | ThinkingProviderChunk;
+                  if (typeof chunk === 'string') {
+                    roundContent += chunk;
+                  } else if (chunk?.type === 'thinking') {
+                    yield {
+                      type: 'thinking',
+                      content: chunk.content,
+                      sessionId: session.id,
+                    } as unknown as string;
+                  }
+                  toolResultIter = await toolGen.next();
+                }
+              } catch (toolGenErr) {
+                await handleError(toolGenErr, {
+                  module: 'chat:ChatManager',
+                  action: 'streamMessage_toolGenIteration',
+                  context: { sessionId: session.id },
+                });
+                roundContent += `\n\n[工具轮次流式响应中断: ${toolGenErr instanceof Error ? toolGenErr.message.slice(0, 200) : String(toolGenErr).slice(0, 200)}]`;
               }
-            } catch (toolGenErr) {
-              await handleError(toolGenErr, {
-                module: 'chat:ChatManager',
-                action: 'streamMessage_toolGenIteration',
-                context: { sessionId: session.id },
-              });
-              toolResultAccumulatedContent += `\n\n[工具轮次流式响应中断: ${toolGenErr instanceof Error ? toolGenErr.message.slice(0, 200) : String(toolGenErr).slice(0, 200)}]`;
+              const toolGenResponse =
+                toolResultIter.value as unknown as ChatResponse;
+
+              // 残缺工具调用检测：无 tool_calls 但内容以工具调用 XML 标签结尾
+              const truncatedToolCall =
+                !toolGenResponse?.tool_calls?.length &&
+                /<\/?(?:parameter|invoke|tool_call|tool_calls)\b[^>]*>\s*$/i.test(
+                  roundContent.trimEnd()
+                );
+              if (truncatedToolCall && !toolRoundRetried) {
+                toolRoundRetried = true;
+                logger.warn('toolRound:truncated_tool_call_retry', {
+                  sessionId: session.id,
+                  contentTail: roundContent.slice(-160),
+                });
+                yield {
+                  type: 'status',
+                  statusType: 'tool_retry',
+                  content: '工具调用输出不完整，正在重新生成...',
+                  sessionId: session.id,
+                } as unknown as string;
+                continue;
+              }
+
+              toolResultAccumulatedContent = roundContent;
+              toolResultResponse = toolGenResponse;
+              break;
             }
-            const toolResultResponse =
-              toolResultIter.value as unknown as ChatResponse;
 
             // yield 累积文本
             const repairedToolContent = ensureThinkResponseTags(
               repairImageUrls(toolResultAccumulatedContent)
             );
+            // 剥离 response 标签（与主流程一致），避免持久化原始标签
+            const strippedToolContent =
+              stripThinkResponseTags(repairedToolContent);
             // 擦洗工具调用标签，防止在工具轮次中暴露给用户
             const toolRoundScrubber = new StreamingToolCallScrubber();
             const toolScrubbed = toolRoundScrubber.scrub({
-              content: repairedToolContent,
+              content: strippedToolContent,
               isComplete: true,
             });
             const toolResidual = toolRoundScrubber.flush();
-            const cleanToolContent = toolScrubbed.content + toolResidual;
+            // 兜底清理：剥离 scrubber 遗漏的孤立工具调用标签残片
+            const cleanToolContent = stripOrphanToolTags(
+              toolScrubbed.content + toolResidual
+            );
             options?.onStream?.(cleanToolContent);
             yield cleanToolContent;
 

@@ -93,6 +93,9 @@ export const DEFAULT_PHASE_TASK_MAP: Record<PdcaPhase, TaskType> = {
   act: 'chat', // 总结/反馈用默认模型
 };
 
+/** PDCA 阶段枚举（持久化 app_type = phase_<phase>） */
+export const PHASE_KEYS: PdcaPhase[] = ['plan', 'do', 'check', 'act'];
+
 /**
  * S3: 从用户消息内容推断 PDCA 阶段（关键词匹配，MVP 方案）
  * 增强方案可用 embedding 语义相似度替代关键词匹配
@@ -511,6 +514,9 @@ export class ModelRouter {
 
       await this._loadTaskCacheFromDb(appModelConfigService);
 
+      // S3: 加载阶段→模型直配映射（持久化在 ai_app_model_configs，app_type = phase_<phase>）
+      await this._loadPhaseMappingFromDb(appModelConfigService);
+
       if (this._taskCache.size === 0) {
         await this._migrateFromConfigJson(appModelConfigService);
       }
@@ -575,6 +581,16 @@ export class ModelRouter {
         }
       }
 
+      // S3: 级联清理阶段直配映射引用
+      for (const phase of PHASE_KEYS) {
+        const config = await appModelConfigService.getConfig(`phase_${phase}`);
+        if (config && config.model === modelId) {
+          await appModelConfigService.deleteConfig(`phase_${phase}`);
+          delete this._phaseMapping[phase];
+          logger.info('ModelRouter: 级联清理阶段引用', { phase, modelId });
+        }
+      }
+
       const currentConfig = await appModelConfigService.getConfig('current');
       if (currentConfig && currentConfig.model === modelId) {
         await appModelConfigService.deleteConfig('current');
@@ -605,6 +621,19 @@ export class ModelRouter {
     const currentConfig = await svc.getConfig('current');
     if (currentConfig?.model) {
       this._currentModel = currentConfig.model;
+    }
+  }
+
+  /** 从 DB 加载阶段→模型直配映射（app_type = phase_<phase>） */
+  private async _loadPhaseMappingFromDb(
+    svc: AppModelConfigService
+  ): Promise<void> {
+    this._phaseMapping = {};
+    for (const phase of PHASE_KEYS) {
+      const config = await svc.getConfig(`phase_${phase}`);
+      if (config?.model) {
+        this._phaseMapping[phase] = config.model;
+      }
     }
   }
 
@@ -1018,13 +1047,37 @@ export class ModelRouter {
   }
 
   /**
-   * S3: 保存阶段→模型自定义映射（内存缓存，值为模型 UUID 或模型名）
+   * S3: 保存阶段→模型自定义映射（持久化到 DB + 更新内存缓存）
+   *
+   * 与任务分工一致：每个阶段以 app_type = phase_<phase> 存到
+   * ai_app_model_configs 表，后端重启后自动恢复（由 initFromDb 加载）。
    */
   async setPhaseMapping(
     mapping: Partial<Record<PdcaPhase, string>>
   ): Promise<void> {
     this._phaseMapping = { ...mapping };
     logger.info('ModelRouter: 阶段映射已保存', mapping);
+
+    try {
+      const { appModelConfigService } =
+        await import('./models/AppModelConfigService.js');
+      await appModelConfigService.initialize();
+
+      for (const phase of PHASE_KEYS) {
+        const model = mapping[phase];
+        if (model) {
+          await appModelConfigService.setConfig(`phase_${phase}`, { model });
+        } else {
+          await appModelConfigService.deleteConfig(`phase_${phase}`);
+        }
+      }
+    } catch (err) {
+      // 持久化失败不阻断内存更新（内存映射已生效，重启后可能丢失）
+      await handleError(err, {
+        module: 'ai:modelRouter',
+        action: 'setPhaseMappingPersist',
+      });
+    }
   }
 
   // ============================================================

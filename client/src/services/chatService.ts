@@ -636,6 +636,10 @@ export const chatService = {
     let checkpointId: string | null = null;
     let retryCount = 0;
     const maxRetries = 3;
+    // 已生成内容统计（断线且无检查点时用于提示，避免报"无可用检查点"后用户无从判断进度）
+    let receivedTextChars = 0;
+    let receivedToolCalls = 0;
+    let receivedThinkingBlocks = 0;
 
     while (retryCount <= maxRetries) {
       // 恢复路径：直接 fetch resume 端点
@@ -708,9 +712,23 @@ export const chatService = {
           // 恢复失败 → 进入重试逻辑
         }
       } else {
-        // 正常路径：委托现有 streamMessage
+        // 正常路径：委托现有 streamMessage，并统计已生成内容（断线时用于进度提示）
         try {
-          yield* chatService.streamMessage(content, sessionId, signal, options);
+          for await (const chunk of chatService.streamMessage(
+            content,
+            sessionId,
+            signal,
+            options,
+          )) {
+            if (chunk.type === "text" && chunk.content) {
+              receivedTextChars += chunk.content.length;
+            } else if (chunk.type === "tool_call") {
+              receivedToolCalls++;
+            } else if (chunk.type === "thinking" && chunk.content) {
+              receivedThinkingBlocks++;
+            }
+            yield chunk;
+          }
           return; // 正常结束
         } catch (err: unknown) {
           const e = err as Error & { name?: string };
@@ -751,9 +769,24 @@ export const chatService = {
         // 检查点查询失败
       }
 
+      // 无可用检查点：保留已生成内容并给出进度提示，而不是简单报错
+      const progressParts: string[] = [];
+      if (receivedTextChars > 0) {
+        progressParts.push(`已生成 ${receivedTextChars} 字符内容`);
+      }
+      if (receivedToolCalls > 0) {
+        progressParts.push(`完成 ${receivedToolCalls} 次工具调用`);
+      }
+      if (receivedThinkingBlocks > 0) {
+        progressParts.push(`${receivedThinkingBlocks} 次思考`);
+      }
+      const progressInfo =
+        progressParts.length > 0
+          ? progressParts.join("、")
+          : "尚未产生内容";
       yield {
         type: "error",
-        content: "连接已断开，且无可用检查点",
+        content: `连接已断开，且无可用检查点。${progressInfo}，请重新发送以继续任务（将从当前进度重新生成）`,
       } as StreamChunk;
       return;
     }

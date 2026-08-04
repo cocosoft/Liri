@@ -1,6 +1,6 @@
 [package]
 name = "liri-native"
-version = "0.4.36"
+version = "0.4.37"
 edition = "2021"
 description = "Liri Rust performance core - C ABI bindings (Bun FFI)"
 authors = ["Liri Team"]

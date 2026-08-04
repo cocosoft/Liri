@@ -553,3 +553,20 @@ export function stripThinkResponseTags(content: string): string {
 
   return result.trim();
 }
+
+/**
+ * 剥离残留的工具调用 XML 标签（兜底清理）
+ *
+ * 当模型输出残缺工具调用（如仅输出 </parameter></invoke></tool_calls> 闭合标签、
+ * 或被 scrubber 拒绝后残留的 <tool_calls> 开标签）时，这些标签不应暴露给用户
+ * 或持久化到会话。StreamingToolCallScrubber 只擦除被验证为真实工具调用的块，
+ * 孤立的闭合标签（</parameter>、</invoke>、</tool_calls>、</tool_call>）不在其擦除
+ * 范围内，此处统一剥离，与前端 stripStructuralTags 行为对齐。
+ */
+export function stripOrphanToolTags(text: string): string {
+  if (!text) return text;
+  if (!text.trim()) return '';
+  return text
+    .replace(/<\/?(?:parameter|invoke|tool_call|tool_calls)\b[^>]*>/gi, '')
+    .trim();
+}

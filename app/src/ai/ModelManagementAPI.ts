@@ -2595,16 +2595,6 @@ const ROUTES: RouteEntry[] = [
     pattern: /^\/v1\/models\/([^/]+)\/toggle$/,
     handler: handleToggleModel,
   },
-  {
-    method: 'PUT',
-    pattern: /^\/v1\/models\/([^/]+)$/,
-    handler: handleUpdateModel,
-  },
-  {
-    method: 'DELETE',
-    pattern: /^\/v1\/models\/([^/]+)$/,
-    handler: handleDeleteModel,
-  },
 
   // Model runtime routes (merged from model-handlers.ts)
   {
@@ -2807,6 +2797,18 @@ const ROUTES: RouteEntry[] = [
     method: 'GET',
     pattern: /^\/v1\/translate\/history$/,
     handler: handleTranslateHistory,
+  },
+
+  // 通用路由 :id 必须放在最后（否则会劫持 /v1/models/tasks、phase-mapping、default 等特定路由）
+  {
+    method: 'PUT',
+    pattern: /^\/v1\/models\/([^/]+)$/,
+    handler: handleUpdateModel,
+  },
+  {
+    method: 'DELETE',
+    pattern: /^\/v1\/models\/([^/]+)$/,
+    handler: handleDeleteModel,
   },
 ];
 

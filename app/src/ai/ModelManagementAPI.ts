@@ -1671,7 +1671,7 @@ async function handleSaveTasks(
 }
 
 /**
- * S3: GET /v1/models/phase-mapping — 获取阶段→TaskType 映射
+ * S3: GET /v1/models/phase-mapping — 获取阶段→模型直配映射
  */
 async function handleGetPhaseMapping(
   _req: http.IncomingMessage,
@@ -1690,7 +1690,7 @@ async function handleGetPhaseMapping(
 }
 
 /**
- * S3: PUT /v1/models/phase-mapping — 保存阶段→TaskType 映射
+ * S3: PUT /v1/models/phase-mapping — 保存阶段→模型直配映射
  */
 async function handleSavePhaseMapping(
   req: http.IncomingMessage,

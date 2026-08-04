@@ -44,9 +44,6 @@ function TaskAssignment() {
     },
   ];
 
-  /** 可用任务类型（用于阶段映射下拉） */
-  const phaseTaskTypes = ["coding", "quick", "chat", "agent"] as const;
-
   useEffect(() => {
     Promise.all([
       modelService.list(),
@@ -139,14 +136,6 @@ function TaskAssignment() {
     } finally {
       setPhaseSaving(false);
     }
-  };
-
-  /** 阶段→TaskType 映射到 taskType 中文标签 */
-  const taskTypeLabels: Record<string, string> = {
-    coding: "推理编程 (coding)",
-    quick: "快速响应 (quick)",
-    chat: "默认对话 (chat)",
-    agent: "智能代理 (agent)",
   };
 
   return (
@@ -254,14 +243,31 @@ function TaskAssignment() {
                   if (!e.target.value) delete next[phase.key];
                   setPhaseMapping(next);
                 }}
-                className="ml-4 shrink-0 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px]"
+                className={`ml-4 shrink-0 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px] ${
+                  !phaseMapping[phase.key] ? "text-gray-400 dark:text-gray-500" : ""
+                }`}
               >
-                <option value="">— 默认 —</option>
-                {phaseTaskTypes.map((tt) => (
-                  <option key={tt} value={tt}>
-                    {taskTypeLabels[tt]}
-                  </option>
-                ))}
+                <option value="">
+                  — 默认 —
+                </option>
+                {Object.entries(modelsByProvider).map(
+                  ([provider, providerModels]) => {
+                    const available = getAvailableModels(
+                      phase.key,
+                      providerModels,
+                    );
+                    if (available.length === 0) return null;
+                    return (
+                      <optgroup key={provider} label={provider}>
+                        {available.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name || m.modelId || m.id}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  },
+                )}
               </select>
             </div>
           ))}

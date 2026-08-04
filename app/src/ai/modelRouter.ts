@@ -75,8 +75,7 @@ export type TaskType =
   | 'tts' // 语音合成（ElevenLabs / OpenAI TTS 等）
   | 'stt' // 语音识别（Whisper / Deepgram 等）
   | 'reranking' // 重排序（Cohere Rerank / BGE 等）
-  | 'knowledge_compile' // 知识库编译（raw 文档 → many-to-many wiki 页面）
-;
+  | 'knowledge_compile'; // 知识库编译（raw 文档 → many-to-many wiki 页面）
 
 /** PDCA 阶段上下文（S3 ModelPhaseRouter） */
 export type PdcaPhase = 'plan' | 'do' | 'check' | 'act';
@@ -432,8 +431,8 @@ export class ModelRouter {
   /** 缓存旧配置迁移 Promise，避免重复触发 */
   private _legacyMigrationPromise: Promise<void> | null = null;
 
-  /** S3: 用户自定义阶段→TaskType 映射（空则使用 DEFAULT_PHASE_TASK_MAP） */
-  private _phaseMapping: Partial<Record<PdcaPhase, TaskType>> = {};
+  /** S3: 用户自定义阶段→模型直配映射（值为模型 UUID 或模型名；空则回退 DEFAULT_PHASE_TASK_MAP） */
+  private _phaseMapping: Partial<Record<PdcaPhase, string>> = {};
 
   private constructor(options?: ModelRouterOptions) {
     this.defaultModel = options?.defaultModel || '';
@@ -730,7 +729,8 @@ export class ModelRouter {
 
   /**
    * S3: 阶段感知解析 — 根据 PDCA 阶段选择模型
-   * 置信度 < 0.7 时降级为原始 taskType
+   * 优先使用阶段直配模型（模型管理 → 任务分工 → 阶段偏好），
+   * 未配置时回退到阶段默认任务类型；置信度 < 0.7 降级为原始 taskType
    */
   resolveWithPhase(taskType: TaskType, phaseContext?: PhaseContext): string {
     // 无阶段上下文或无置信度 → 用原始 taskType
@@ -741,9 +741,34 @@ export class ModelRouter {
       return this.resolve(taskType);
     }
 
-    const phaseTaskType =
-      this._phaseMapping[phaseContext.phase] ??
-      DEFAULT_PHASE_TASK_MAP[phaseContext.phase];
+    // 阶段直配模型（值可能是模型 UUID 或模型名）
+    const phaseModel = this._phaseMapping[phaseContext.phase];
+    if (phaseModel) {
+      // 兼容旧配置：值若是任务类型（如 'coding'），按任务解析
+      if ((ALL_TASK_TYPES as readonly string[]).includes(phaseModel)) {
+        const legacy = this.resolve(phaseModel as TaskType);
+        if (legacy) {
+          logger.debug(
+            `ModelRouter: 阶段 ${phaseContext.phase} → 旧任务类型 ${phaseModel} → ${legacy}`
+          );
+          return legacy;
+        }
+      } else {
+        // 模型直配：UUID → 模型名，或直接是模型名
+        const resolved =
+          (this.isUUID(phaseModel) && this.uuidToModelName.get(phaseModel)) ||
+          phaseModel;
+        if (resolved) {
+          logger.debug(
+            `ModelRouter: 阶段直配模型 ${phaseContext.phase}(${phaseContext.confidence}) → ${resolved}`
+          );
+          return resolved;
+        }
+      }
+    }
+
+    // 回退：阶段 → 默认任务类型 → 任务模型
+    const phaseTaskType = DEFAULT_PHASE_TASK_MAP[phaseContext.phase];
     const result = this.resolve(phaseTaskType);
 
     // 如果阶段映射的 taskType 未配置模型，回退到原始 taskType
@@ -986,17 +1011,17 @@ export class ModelRouter {
   }
 
   /**
-   * S3: 获取阶段→TaskType 自定义映射
+   * S3: 获取阶段→模型自定义映射
    */
-  getPhaseMapping(): Partial<Record<PdcaPhase, TaskType>> {
+  getPhaseMapping(): Partial<Record<PdcaPhase, string>> {
     return { ...this._phaseMapping };
   }
 
   /**
-   * S3: 保存阶段→TaskType 自定义映射（内存缓存）
+   * S3: 保存阶段→模型自定义映射（内存缓存，值为模型 UUID 或模型名）
    */
   async setPhaseMapping(
-    mapping: Partial<Record<PdcaPhase, TaskType>>
+    mapping: Partial<Record<PdcaPhase, string>>
   ): Promise<void> {
     this._phaseMapping = { ...mapping };
     logger.info('ModelRouter: 阶段映射已保存', mapping);

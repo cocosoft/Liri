@@ -923,8 +923,8 @@ async function resolveDefaultTiersFromDb(): Promise<
     const chatModels = enabled
       .filter((m) => m.enabled && m.modelId)
       .filter((m) => {
-        // 排除无能力声明的残留模型（如无效的 Pro/moonshotai/Kimi-K2.6，capabilities=[]，
-        // 会被误选为 SmartRouter 默认档位导致决策调用 503）
+        // 排除无能力声明的残留模型（capabilities=[]，无法确定用途，
+        // 曾被误选为 SmartRouter 档位导致决策异常）
         if (!m.capabilities || m.capabilities.length === 0) return false;
         if (m.capabilities.some((c) => nonChatCaps.includes(c))) return false;
         return true;

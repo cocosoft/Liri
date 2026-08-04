@@ -89,6 +89,7 @@ export async function rerankDocs(
     // 3. 调用 rerank API
     const contents = docs.map((d) => d.content);
     const request: RerankRequest = {
+      model: modelKey, // 模型名（resolve 已解析 UUID → 模型名）
       query,
       documents: contents,
       topN: topN ?? Math.min(docs.length, 10),

@@ -35,6 +35,8 @@ import type {
 import type {
   ProviderConfig,
   ProviderValidationResult,
+  RerankRequest,
+  RerankResult,
   ThinkingProviderChunk,
   VideoGenerationParams,
   VideoGenerationResult,
@@ -85,6 +87,75 @@ export class OpenAIProvider extends BaseAIProvider {
   /** 运行时更新 API Key（供 ProviderSyncService 从 DB 同步后注入） */
   override setApiKey(key: string): void {
     this.apiKey = key || '';
+  }
+
+  /**
+   * 重排序（OpenAI/Cohere 兼容 rerank API）
+   *
+   * 供 KnowledgeRouter 检索后二次精排；SiliconFlow 等平台已支持 /rerank 端点。
+   * 模型名由调用方通过 modelRouter.resolve('reranking') 解析后传入 request.model。
+   */
+  async rerank(request: RerankRequest): Promise<RerankResult> {
+    if (!this.apiKey) {
+      throw new AppError(
+        'Rerank 需要 API Key，当前 Provider 未配置',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+    if (!request.model) {
+      throw new AppError(
+        'Rerank 需要 model 参数（由任务分工 reranking 配置解析）',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+
+    const res = await fetch(`${this.baseUrl}/rerank`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: request.model,
+        query: request.query,
+        documents: request.documents,
+        top_n: request.topN,
+        return_documents: request.returnDocuments,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new AppError(
+        `Rerank API 调用失败: ${res.status} ${res.statusText} ${errText.slice(0, 200)}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+
+    const json = (await res.json()) as {
+      results?: Array<{
+        index?: number;
+        relevance_score?: number;
+        document?: string;
+      }>;
+      usage?: { total_tokens?: number };
+    };
+
+    return {
+      results: (json.results ?? []).map((r) => ({
+        index: r.index ?? 0,
+        relevanceScore: r.relevance_score ?? 0,
+        document: r.document,
+      })),
+      model: request.model,
+      usage: { totalTokens: json.usage?.total_tokens ?? 0 },
+    };
   }
 
   async chat(

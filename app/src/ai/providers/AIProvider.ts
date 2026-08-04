@@ -229,6 +229,8 @@ export interface AIProvider {
  * 重排序请求参数
  */
 export interface RerankRequest {
+  /** 重排序模型名（由调用方通过 modelRouter.resolve('reranking') 解析后传入） */
+  model?: string;
   /** 查询文本 */
   query: string;
   /** 候选文档列表 */

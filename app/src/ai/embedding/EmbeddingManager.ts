@@ -108,9 +108,17 @@ export class EmbeddingManager {
     }
 
     // 其他 Provider（openai, deepseek 等）→ 使用对应 Provider 的 API 凭据
+    // 优先取 provider 实例的 apiKey/baseUrl（ProviderSyncService 已从 DB 注入），
+    // 环境变量仅作兜底（历史配置可能只设置环境变量）
+    const providerCreds = provider as unknown as {
+      apiKey?: string;
+      baseUrl?: string;
+    };
     const upper = pid.toUpperCase().replace(/-/g, '_');
-    const apiKey = configManager.env(`${upper}_API_KEY`);
-    const baseUrl = configManager.env(`${upper}_BASE_URL`);
+    const apiKey =
+      providerCreds.apiKey || configManager.env(`${upper}_API_KEY`);
+    const baseUrl =
+      providerCreds.baseUrl || configManager.env(`${upper}_BASE_URL`);
 
     // 无 API key 时降级到本地
     if (!apiKey) {

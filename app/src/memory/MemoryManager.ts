@@ -607,8 +607,13 @@ export class MemoryManagerImpl {
     // P2-6: 候选超过 limit 时，用 LLM 精选最相关的记忆
     if (combined.length > limit) {
       try {
-        const { providerRegistry } = await import('@modules/ai');
-        const provider = providerRegistry.getDefaultProvider();
+        const { providerRegistry, modelRouter } = await import('@modules/ai');
+        // 精选模型显式通过模型路由解析（DB 唯一事实来源）并匹配对应 provider，
+        // 避免 model: undefined 回退默认 provider 的不可控默认模型（曾导致 Kimi-K2.6 400）
+        const selectModel = await modelRouter.resolveAsync('quick');
+        const provider =
+          (selectModel && providerRegistry.getByModel(selectModel)) ||
+          providerRegistry.getDefaultProvider();
 
         if (provider) {
           const items: MemoryItem[] = combined.map((m) => ({
@@ -630,7 +635,7 @@ export class MemoryManagerImpl {
               { role: 'user', content: prompt },
             ],
             {
-              model: undefined,
+              model: selectModel,
               temperature: 0.3,
               maxTokens: 512,
             }

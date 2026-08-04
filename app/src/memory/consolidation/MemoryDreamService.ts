@@ -11,7 +11,7 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { providerRegistry } from '@modules/ai';
+import { providerRegistry, modelRouter } from '@modules/ai';
 import { ToolAwareClient } from '@modules/ai';
 import { resolvePyappHome } from '@modules/core';
 import { join } from 'path';
@@ -231,7 +231,12 @@ export async function runMemoryDream(
     groups.get(type)!.push(m);
   }
 
-  const provider = providerRegistry.getDefaultProvider();
+  // 精炼模型显式通过模型路由解析（DB 唯一事实来源），并匹配对应 provider，
+  // 避免回退默认 provider 的不可控默认模型（曾导致 Kimi-K2.6 调 SiliconFlow 端点 400）
+  const refineModel = await modelRouter.resolveAsync('quick');
+  const provider =
+    (refineModel && providerRegistry.getByModel(refineModel)) ||
+    providerRegistry.getDefaultProvider();
   if (!provider) {
     logger.warn('MemoryDream: 无可用 AI Provider');
     return {
@@ -276,7 +281,7 @@ export async function runMemoryDream(
             ),
           },
         ],
-        { temperature: 0.3, maxTokens: 4096 }
+        { model: refineModel, temperature: 0.3, maxTokens: 4096 }
       );
 
       const jsonMatch = response.content.match(/\[[\s\S]*\]/);

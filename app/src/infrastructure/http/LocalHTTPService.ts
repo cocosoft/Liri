@@ -1803,6 +1803,27 @@ export class LocalHTTPService {
         await import('@modules/cost/DailyCostCache');
       const dailyCache = getDailyCostCache();
 
+      // 模型 → 供应商名称映射（DB 唯一事实来源：model_registry.provider_id → providers.name）
+      const { modelPricingService } =
+        await import('@modules/ai/models/ModelPricingService');
+      const { providerManager } =
+        await import('@modules/ai/providers/ProviderManager');
+      await Promise.all([
+        modelPricingService.initialize(),
+        providerManager.initialize(),
+      ]);
+      const [pricingAll, providers] = await Promise.all([
+        modelPricingService.getAllPricing(),
+        providerManager.listProviders(),
+      ]);
+      const providerNameById = new Map(providers.map((p) => [p.id, p.name]));
+      const providerNameByModel = new Map<string, string>();
+      for (const rec of pricingAll) {
+        if (providerNameByModel.has(rec.modelId)) continue;
+        const pName = providerNameById.get(rec.providerId);
+        if (pName) providerNameByModel.set(rec.modelId, pName);
+      }
+
       const [todayAgg, weekAgg, monthAgg, allAgg, dailyRows, sessionCount] =
         await Promise.all([
           repo.getAggregatedCosts({ startTime: todayStart.getTime() }),
@@ -1813,10 +1834,12 @@ export class LocalHTTPService {
           repo.countSessionSummaries(),
         ]);
 
-      // 构建 topProviders
+      // 构建 topProviders（modelBreakdown 按模型键聚合 → 补充供应商名称；过滤零成本项）
       const topProviders = Object.entries(allAgg.modelBreakdown)
-        .map(([provider, data]) => ({
-          provider,
+        .filter(([, data]) => data.totalCost > 0)
+        .map(([modelKey, data]) => ({
+          provider: modelKey,
+          providerName: providerNameByModel.get(modelKey) || modelKey,
           cost: data.totalCost,
           inputTokens: data.inputTokens,
           outputTokens: data.outputTokens,

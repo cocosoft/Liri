@@ -33,6 +33,8 @@ export interface CostRecord {
 
 export interface ProviderBreakdown {
   provider: string;
+  /** 供应商名称（后端按 model_registry.provider_id → providers.name 解析） */
+  providerName?: string;
   cost: number;
   inputTokens: number;
   outputTokens: number;

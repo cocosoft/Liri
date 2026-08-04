@@ -533,7 +533,7 @@ export default function UsageCenterPage() {
                     </h3>
                     <PieChart
                       data={summary.topProviders.slice(0, 6).map((p, i) => ({
-                        label: p.provider,
+                        label: p.providerName || p.provider,
                         value: p.cost,
                         color: [
                           "#3B82F6",
@@ -607,6 +607,9 @@ export default function UsageCenterPage() {
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
                             模型
                           </th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                            供应商
+                          </th>
                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
                             输入
                           </th>
@@ -632,6 +635,9 @@ export default function UsageCenterPage() {
                           >
                             <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-200">
                               {provider.provider}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-500">
+                              {provider.providerName || provider.provider}
                             </td>
                             <td className="px-4 py-3 text-sm text-right text-gray-500">
                               {formatTokens(provider.inputTokens)}

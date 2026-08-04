@@ -255,7 +255,7 @@ function Footer() {
                 Out:{formatTokens(costSummary.sessionOutputTokens)}
               </span>
               <span className="text-red-500">
-                {formatCost(costSummary.sessionCost, "$")}
+                {formatCost(costSummary.sessionCost, currency)}
               </span>
             </button>
 
@@ -345,7 +345,7 @@ function Footer() {
                 {t("footer.sessionCost")}
               </span>
               <span className="text-red-500 font-medium">
-                {formatCost(costSummary.sessionCost, "$")}
+                {formatCost(costSummary.sessionCost, currency)}
               </span>
             </div>
             <div className="border-t border-gray-200 dark:border-gray-700 my-1.5" />

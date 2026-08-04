@@ -60,6 +60,7 @@ import {
   resolvePyappHome,
   ensureDataDirectories,
   validatePathConsistency,
+  syncSeedData,
 } from '@modules/core';
 import { modelRouter } from '@modules/ai';
 import { configManager } from './config/index.js';
@@ -1489,6 +1490,9 @@ export async function main(): Promise<void> {
 
   // 确保所有依赖路径的目录结构存在
   ensureDataDirectories();
+
+  // 首启种子数据同步（幂等）：把打包内种子模板落到用户数据目录
+  syncSeedData();
 
   let mode: LaunchMode;
   let args: string[];

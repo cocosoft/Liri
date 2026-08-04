@@ -26,6 +26,7 @@
 
 export * from '@modules/system/state';
 export * from './paths';
+export * from './seedSync';
 export type { Message, ToolCall, ToolResult, ToolContext } from './types';
 export * from './events/EventBus';
 export * from './events/UiEvents';

@@ -78,10 +78,18 @@ function determineProjectRoot(): string {
   const envDir = process.env.LIRI_PROJECT_DIR?.trim();
   if (envDir) return resolve(envDir);
 
-  // 3. 从 exe 路径推断（argv[0] 指向用户硬盘上的实际 exe）
+  // 3. 从可执行文件路径推断（argv[0] 指向用户硬盘上的实际二进制）
+  //    仅编译产物可推断：--compile 模式下 argv[0] 是实际二进制
+  //    （Windows .exe / macOS·Linux 无后缀），开发模式（bun run）argv[0]
+  //    指向 bun 自身，跳过推断，避免把 bun 安装目录当项目根。
   const argv0 = argv[0] || '';
-  if (argv0.endsWith('.exe')) {
-    const exeDir = dirname(argv0);
+  if (isCompiledBinary && argv0) {
+    const exeDir = dirname(resolve(argv0));
+    // macOS .app bundle：sidecar 位于 Contents/MacOS，资源在 ../Resources
+    const resourcesDir = resolve(exeDir, '..', 'Resources');
+    if (existsSync(resourcesDir)) {
+      return resourcesDir;
+    }
     // exe 在 dist/ 下，项目根为父目录
     const baseName = exeDir.split(/[\\/]/).pop() || '';
     if (baseName === 'dist') {
@@ -406,17 +414,14 @@ if (isCompiledBinary) {
 
     const exeDir = path.dirname(process.execPath);
 
-    const EXTERNAL_REDIRECTS = [
-      'sqlite3',
-      'bindings',
-      'file-uri-to-path',
-      'sharp',
-      'pdfjs-dist',
-    ];
+    // 运行时所需的外部依赖（bun:sqlite 为 Bun 内置，无需在此列出）
+    const EXTERNAL_REDIRECTS = ['sharp', 'pdfjs-dist'];
 
-    // 在多个位置搜索 deps/（编译二进制 vs bun bundle 模式）
+    // 在多个位置搜索 deps/（编译二进制 vs bun bundle 模式 vs macOS app bundle）
     const SEARCH_DIRS = [
-      path.join(exeDir, 'deps'), // --compile 二进制
+      path.join(exeDir, 'deps'), // --compile 二进制（Windows/Linux：与二进制同级）
+      path.join(exeDir, 'binaries', 'deps'), // 开发/未打包的 Tauri binaries
+      path.join(exeDir, '..', 'Resources', 'deps'), // macOS .app bundle（Contents/Resources/deps）
       path.join(process.env.LIRI_PROJECT_DIR ?? '', 'dist', 'deps'), // Docker/开发 bundle
     ].filter((d) => d.split(path.sep).length > 1); // 过滤无效路径
 

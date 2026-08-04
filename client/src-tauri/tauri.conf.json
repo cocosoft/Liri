@@ -31,10 +31,12 @@
     "externalBin": [
       "binaries/liri_terminal"
     ],
-    "resources": [
-      "../../app/docs",
-      "../../app/config"
-    ],
+    "resources": {
+      "../../app/docs": "app/docs",
+      "../../app/config": "app/config",
+      "../../app/seed/pyapp": "app/data/pyapp",
+      "binaries/deps": "deps"
+    },
     "icon": [
       "icons/icon.png",
       "icons/32x32.png",

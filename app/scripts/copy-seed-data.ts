@@ -1,8 +1,12 @@
 /**
  * copy-seed-data.ts — 复制第一层只读种子数据到分发包
  *
- * 复制 .env.example、docs/、config/、SOUL.md、USER.md、knowledge/、
- * memory-index.json、credentials/.key 等首次分发资源。
+ * 复制 .env.example、docs/、config/、以及 git 跟踪的种子模板
+ * seed/pyapp/（SOUL.md、USER.md、knowledge/、skills/、memory-index.json）
+ * 等首次分发资源。
+ *
+ * 注意：种子数据源为 app/seed/pyapp（模板目录），不复制运行时数据目录
+ * app/data/pyapp（含用户私有数据），也不复制 credentials/ 凭证文件。
  *
  * 排除技能外部目录、运行时产物（db、lock、logs、cache 等）和测试文件。
  *
@@ -102,7 +106,9 @@ function main(): void {
   }
 
   const appRoot = path.resolve(__dirname, '..');
-  const dataRoot = path.join(appRoot, 'data', 'pyapp');
+  // 种子数据源：git 跟踪的模板目录（app/seed/pyapp）
+  // 不直接复制运行时数据目录 app/data/pyapp（含用户私有数据与凭证）
+  const dataRoot = path.join(appRoot, 'seed', 'pyapp');
 
   console.log('\n=== 复制种子数据到分发包 ===');
   console.log(`源目录: ${appRoot}`);
@@ -126,8 +132,15 @@ function main(): void {
     console.warn(`[跳过] .env.example 不存在: ${envExampleSrc}`);
   }
 
-  // docs/ — 不放入发布包，文档在 openliri.com 独立分发
-  console.log(`[跳过] docs/ — 文档独立分发，不打包`);
+  // docs/ — 第一层代码文档，随安装包分发（resolveDocsDir() 期望 projectRoot/app/docs）
+  const docsSrc = path.join(appRoot, 'docs');
+  const docsDest = path.join(targetAppDir, 'docs');
+  if (fs.existsSync(docsSrc)) {
+    copyRecursive(docsSrc, docsDest);
+    console.log(`[复制] docs/`);
+  } else {
+    console.warn(`[跳过] docs/ 不存在: ${docsSrc}`);
+  }
 
   // config/startup.yaml 和 permissions.yaml
   const configSrc = path.join(appRoot, 'config');
@@ -215,18 +228,7 @@ function main(): void {
     console.warn(`[跳过] memory-index.json 不存在`);
   }
 
-  // credentials/.key
-  const keySrc = path.join(dataRoot, 'credentials', '.key');
-  const keyDest = path.join(targetDataDir, 'credentials', '.key');
-  if (fs.existsSync(keySrc)) {
-    if (!fs.existsSync(path.dirname(keyDest))) {
-      fs.mkdirSync(path.dirname(keyDest), { recursive: true });
-    }
-    fs.copyFileSync(keySrc, keyDest);
-    console.log(`[复制] data/pyapp/credentials/.key`);
-  } else {
-    console.warn(`[跳过] credentials/.key 不存在`);
-  }
+  // 注意：不复制 credentials/（含 .key 等凭证文件），避免把密钥分发进安装包
 
   console.log('\n[完成] 种子数据复制完成');
 }

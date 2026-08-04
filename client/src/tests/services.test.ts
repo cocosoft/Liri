@@ -134,24 +134,29 @@ describe("FileService (fallback)", () => {
   });
 });
 
-describe("KnowledgeService (fallback)", () => {
-  it("list returns empty array", async () => {
-    const items = await knowledgeService.list();
-    expect(items).toEqual([]);
+describe("KnowledgeService (backend unavailable)", () => {
+  // KnowledgeService 为 HTTP-only（服务层职责边界：unwrap 失败即抛错），
+  // 后端不可用时错误向上传播，由调用方（页面）展示错误状态。
+  it("list throws when backend unavailable", async () => {
+    await expect(knowledgeService.list()).rejects.toThrow("Mocked: no backend");
   });
 
-  it("get returns null", async () => {
-    const item = await knowledgeService.get("any-id");
-    expect(item).toBeNull();
+  it("get throws when backend unavailable", async () => {
+    await expect(knowledgeService.get("any-id")).rejects.toThrow(
+      "Mocked: no backend",
+    );
   });
 
-  it("delete resolves successfully", async () => {
-    await expect(knowledgeService.delete("any-id")).resolves.toBeUndefined();
+  it("delete throws when backend unavailable", async () => {
+    await expect(knowledgeService.delete("any-id")).rejects.toThrow(
+      "Mocked: no backend",
+    );
   });
 
-  it("search returns empty array", async () => {
-    const results = await knowledgeService.search("test");
-    expect(results).toEqual([]);
+  it("search throws when backend unavailable", async () => {
+    await expect(knowledgeService.search("test")).rejects.toThrow(
+      "Mocked: no backend",
+    );
   });
 });
 

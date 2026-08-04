@@ -19,6 +19,12 @@ vi.mock("../services/agentService", () => ({
   },
 }));
 
+vi.mock("../services/knowledgeService", () => ({
+  knowledgeService: {
+    listBases: vi.fn().mockResolvedValue([]),
+  },
+}));
+
 describe("DashboardPage", () => {
   it("renders title and refresh button", () => {
     render(
@@ -52,11 +58,17 @@ describe("FileExplorerPage", () => {
 });
 
 describe("KnowledgePage", () => {
-  it("renders title", () => {
-    render(<KnowledgePage />);
+  it("renders title", async () => {
+    render(
+      <MemoryRouter>
+        <KnowledgePage />
+      </MemoryRouter>,
+    );
 
-    const titles = screen.getAllByText("知识库");
-    expect(titles.length).toBeGreaterThanOrEqual(1);
+    await waitFor(() => {
+      const titles = screen.getAllByText("知识库");
+      expect(titles.length).toBeGreaterThanOrEqual(1);
+    });
   });
 });
 

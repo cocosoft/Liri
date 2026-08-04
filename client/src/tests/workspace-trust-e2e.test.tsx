@@ -49,7 +49,9 @@ describe("P2.5 — 端到端测试：UI 配置 → 安全检查生效", () => {
       render(<TrustedWorkspacesPanel isDark={false} />);
 
       await waitFor(() => {
-        expect(mockGet).toHaveBeenCalledWith("/v1/config/permission");
+        expect(mockGet).toHaveBeenCalledWith(
+          "/v1/config/permission.workspaces",
+        );
       });
     });
 
@@ -174,9 +176,12 @@ describe("P2.5 — 端到端测试：UI 配置 → 安全检查生效", () => {
       await user.click(saveBtn);
 
       await waitFor(() => {
-        expect(mockPut).toHaveBeenCalledWith("/v1/config/permission", {
-          value: defaultPermissionConfig.value,
-        });
+        expect(mockPut).toHaveBeenCalledWith(
+          "/v1/config/permission.workspaces",
+          {
+            value: defaultPermissionConfig.value,
+          },
+        );
       });
     });
 
@@ -224,7 +229,7 @@ describe("P2.5 — 端到端测试：UI 配置 → 安全检查生效", () => {
       render(<CustomRulesPanel isDark={false} />);
 
       await waitFor(() => {
-        expect(mockGet).toHaveBeenCalledWith("/v1/config/permission");
+        expect(mockGet).toHaveBeenCalledWith("/v1/config/permission.rules");
       });
     });
 
@@ -349,7 +354,7 @@ describe("P2.5 — 端到端测试：UI 配置 → 安全检查生效", () => {
       await user.click(saveBtn);
 
       await waitFor(() => {
-        expect(mockPut).toHaveBeenCalledWith("/v1/config/permission", {
+        expect(mockPut).toHaveBeenCalledWith("/v1/config/permission.rules", {
           value: defaultCustomRulesConfig.value,
         });
       });

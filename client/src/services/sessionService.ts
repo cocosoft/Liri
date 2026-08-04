@@ -239,7 +239,8 @@ export const sessionService = {
           // 尝试 Tauri fallback
           const result = await tryTauri<void>("rename_session", { id, title });
           if (result !== null) return;
-          throw e instanceof Error ? e : new Error("重命名会话失败");
+          // 内存 fallback（与 delete/switch 一致）
+          return createMemorySessionService().rename(id, title);
         }
       },
     );

@@ -612,7 +612,7 @@ function DashboardPage() {
                   <div className="p-4">
                     {analytics ? (
                       <>
-                        {analytics.tokens.totalTokens === 0 &&
+                        {(costSummary?.totalTokens ?? 0) === 0 &&
                           analytics.tools.totalToolCalls === 0 && (
                             <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-sm text-yellow-700 dark:text-yellow-300">
                               ⏳ 分析数据收集中，请等待指标采集完成后刷新
@@ -631,7 +631,9 @@ function DashboardPage() {
                                   总输入 Tokens
                                 </span>
                                 <span className="font-medium text-gray-900 dark:text-white">
-                                  {analytics.tokens.totalInputTokens.toLocaleString()}
+                                  {(
+                                    costSummary?.totalInputTokens ?? 0
+                                  ).toLocaleString()}
                                 </span>
                               </div>
                               <div className="flex justify-between text-sm">
@@ -639,7 +641,9 @@ function DashboardPage() {
                                   总输出 Tokens
                                 </span>
                                 <span className="font-medium text-gray-900 dark:text-white">
-                                  {analytics.tokens.totalOutputTokens.toLocaleString()}
+                                  {(
+                                    costSummary?.totalOutputTokens ?? 0
+                                  ).toLocaleString()}
                                 </span>
                               </div>
                               <div className="flex justify-between text-sm border-t border-gray-200 dark:border-gray-600 pt-2">
@@ -647,7 +651,9 @@ function DashboardPage() {
                                   合计 Tokens
                                 </span>
                                 <span className="font-bold text-blue-600 dark:text-blue-400">
-                                  {analytics.tokens.totalTokens.toLocaleString()}
+                                  {(
+                                    costSummary?.totalTokens ?? 0
+                                  ).toLocaleString()}
                                 </span>
                               </div>
                               <div className="flex justify-between text-sm">
@@ -655,7 +661,9 @@ function DashboardPage() {
                                   LLM 请求次数
                                 </span>
                                 <span className="font-medium text-gray-900 dark:text-white">
-                                  {analytics.tokens.totalLLMRequests.toLocaleString()}
+                                  {(
+                                    costSummary?.totalRequests ?? 0
+                                  ).toLocaleString()}
                                 </span>
                               </div>
                             </div>
@@ -862,17 +870,14 @@ function DashboardPage() {
                                 </p>
                                 <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
                                   {formatCost(
-                                    analytics.cost.totalCostUSD,
+                                    costSummary?.yearlyCost ?? 0,
                                     currency,
                                   )}
                                 </p>
                               </div>
                             </div>
                             <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
-                              数据更新于{" "}
-                              {new Date(analytics.generatedAt).toLocaleString(
-                                "zh-CN",
-                              )}
+                              基于成本记录实时统计
                             </p>
                           </div>
                         </div>

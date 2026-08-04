@@ -552,7 +552,8 @@ export function createThinkExtractor() {
               afterLen: afterTag.trimStart().length,
               max: MAX_PENDING_CHARS,
             });
-            output += remaining.slice(tagStart, tagStart + tagLen);
+            // 丢弃原始标签本身，内容作为普通文本继续输出，
+            // 防止 <response>/<think> 等协议标签以原始形式泄漏到用户界面
             remaining = afterTag;
             continue;
           }
@@ -646,12 +647,15 @@ export function createThinkExtractor() {
 
 /**
  * 兜底过滤：去除内容中残留的结构化标签
- * <response>、<think>、<thinking> 及其闭合标签不应显示给用户
+ * <response>、<think>、<thinking> 及其闭合标签不应显示给用户；
+ * 工具调用包装标签（<invoke>/<tool_call>/<tool_calls>/<parameter>）也不应暴露，
+ * 流被中断时可能残留半截 XML 片段（如 </parameter>）。
  */
 export function stripStructuralTags(text: string): string {
   return text
     .replace(/<\/?response>/gi, "")
-    .replace(/<\/?think(?:ing)?>/gi, "");
+    .replace(/<\/?think(?:ing)?>/gi, "")
+    .replace(/<\/?(?:invoke|tool_call|tool_calls|parameter)\b[^>]*>/gi, "");
 }
 
 /**

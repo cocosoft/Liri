@@ -586,10 +586,13 @@ export const createMessageSlice: StateCreator<
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === "text") {
           blockBuilder.freezeThinking();
-          blockBuilder.addText(chunk.content, true);
+          // 先剥离结构化标签再进 blocks/content，确保任何泄漏的 <response>/<think>/<invoke>
+          // 片段都不会显示给用户（blocks 渲染与 msg.content 保持一致）
+          const cleanContent = stripStructuralTags(chunk.content);
+          blockBuilder.addText(cleanContent, true);
           updatedMsg = {
             ...msg,
-            content: msg.content + stripStructuralTags(chunk.content),
+            content: msg.content + cleanContent,
             blocks: blockBuilder.getBlocks(),
           };
         } else if (chunk.type === "status") {

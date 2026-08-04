@@ -274,8 +274,8 @@ function convertTable(
   $el: cheerio.Cheerio<Element>,
   opts: MarkdownifyOptions
 ): string {
-  const rows: string[][] = [];
-  const headerCells: string[] = [];
+  const allRows: string[][] = [];
+  let headerIndex = -1;
 
   $el.find('tr').each((_i, tr) => {
     const $tr = $(tr);
@@ -284,28 +284,32 @@ function convertTable(
       cells.push(convertInline($, $(cell), opts).trim());
     });
     if (cells.length === 0) return;
-    if ($tr.find('th').length > 0) {
-      headerCells.push(...cells);
-    } else {
-      rows.push(cells);
+    allRows.push(cells);
+    // 记录首个含 <th> 的行作为表头（mammoth 等转换器输出的表格可能全用 <td>，无 <th>）
+    if (headerIndex === -1 && $tr.find('th').length > 0) {
+      headerIndex = allRows.length - 1;
     }
   });
 
-  if (headerCells.length === 0) {
-    return '';
-  }
+  if (allRows.length === 0) return '';
 
-  const colCount = headerCells.length;
-  const separator = `| ${headerCells.map(() => '---').join(' | ')} |`;
-  const headerMd = `| ${headerCells.join(' | ')} |`;
+  // 无 <th> 时把第一行作为表头，避免整个表格被丢弃（原逻辑直接 return ''）
+  const hasHeader = headerIndex !== -1;
+  const header = hasHeader ? allRows[headerIndex] : allRows[0];
+  const body = hasHeader
+    ? allRows.filter((_, i) => i !== headerIndex)
+    : allRows.slice(1);
 
-  const bodyMd = rows
-    .map((row) => {
-      const padded = [...row];
-      while (padded.length < colCount) padded.push('');
-      return `| ${padded.join(' | ')} |`;
-    })
-    .join('\n');
+  const colCount = Math.max(header.length, ...body.map((row) => row.length));
+  const padRow = (row: string[]): string => {
+    const padded = [...row];
+    while (padded.length < colCount) padded.push('');
+    return `| ${padded.join(' | ')} |`;
+  };
+
+  const headerMd = padRow(header);
+  const separator = `| ${Array(colCount).fill('---').join(' | ')} |`;
+  const bodyMd = body.map(padRow).join('\n');
 
   return `\n\n${headerMd}\n${separator}\n${bodyMd}\n\n`;
 }

@@ -3833,9 +3833,11 @@ ${llmPhaseSummary}`;
         });
       }
 
-      // 创建助手消息（使用上方已修复过 URL 的 repairedContent）
+      // 创建助手消息（使用已剥离标签、已擦洗工具调用 XML 的 finalContent）
+      // 与前端展示内容一致；原始 <think>/<response>/<invoke> 标签不应持久化，
+      // 否则会话重载时前端会显示原始标签（已确认 messages.jsonl 残留 <response> 的根因）
       assistantMessage = this.messageService.createAssistantMessage(
-        repairedContent,
+        finalContent,
         {
           sessionId: session.id,
         }
@@ -4312,7 +4314,7 @@ ${llmPhaseSummary}`;
             }).catch(() => {});
 
             const toolResultAssistantMsg =
-              this.messageService.createAssistantMessage(repairedToolContent, {
+              this.messageService.createAssistantMessage(cleanToolContent, {
                 sessionId: session.id,
               });
             toolResultAssistantMsg.finishReason =
@@ -4691,7 +4693,7 @@ ${llmPhaseSummary}`;
       this._streamingCheckpoint = null;
 
       const assistantMessage = this.messageService.createAssistantMessage(
-        accumulatedContent,
+        stripThinkResponseTags(repairImageUrls(accumulatedContent)),
         { sessionId }
       );
       assistantMessage.sessionId = sessionId;
@@ -4930,11 +4932,15 @@ ${llmPhaseSummary}`;
         });
       });
 
-      // 创建本轮 assistant 消息
-      const toolResultAssistantContent =
-        typeof toolResultResponse.content === 'string'
-          ? toolResultResponse.content
-          : JSON.stringify(toolResultResponse.content);
+      // 创建本轮 assistant 消息（剥离 think/response 标签 + 修复图片 URL，
+      // 与主消息一致，避免原始标签持久化后在前端展示）
+      const toolResultAssistantContent = stripThinkResponseTags(
+        repairImageUrls(
+          typeof toolResultResponse.content === 'string'
+            ? toolResultResponse.content
+            : JSON.stringify(toolResultResponse.content)
+        )
+      );
 
       const toolResultAssistantMsg = this.messageService.createAssistantMessage(
         toolResultAssistantContent,

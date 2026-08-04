@@ -143,10 +143,11 @@ describe("createThinkExtractor — 标签误判修复", () => {
     expect(textContent(results)).toContain("继续文本");
   });
 
-  it("超过 300 字符无闭合 → 立即放弃", () => {
+  it("超过 300 字符无闭合 → 立即放弃且不泄漏原始标签", () => {
     const afterTag = "B".repeat(350);
     const results = extractAll([`<think>${afterTag}后续`]);
-    expect(textContent(results)).toContain("<think>");
+    // 标签本身被丢弃，内容作为普通文本保留（防止 <think>/<response> 原始标签泄漏到界面）
+    expect(textContent(results)).not.toContain("<think>");
     expect(textContent(results)).toContain("后续");
     expect(thinkContent(results)).toBe("");
   });

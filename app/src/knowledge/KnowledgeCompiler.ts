@@ -27,7 +27,7 @@ import { FileRegistry } from '@modules/services/file/FileRegistry';
 import { FileSource } from '@modules/services/file/types';
 import { IndexManager } from './IndexManager';
 import { WikiLinter, defaultRules } from './lint/WikiLinter';
-import { providerRegistry } from '@modules/ai';
+import { providerRegistry, modelRouter } from '@modules/ai';
 import type { GraphExtractor } from './graph/GraphExtractor';
 import {
   startCompileProgress,
@@ -127,6 +127,11 @@ export class KnowledgeCompiler {
   async compile(options: CompileOptions = {}): Promise<CompileResult> {
     const { force = false, model } = options;
 
+    // 编译模型解析：显式通过模型路由（DB 唯一事实来源）解析，
+    // 避免回退到 ProviderRegistry 默认 provider 的不可控默认模型
+    // （曾导致无效模型名 Pro/moonshotai/Kimi-K2.6 调 SiliconFlow 端点 400）
+    const resolvedModel = model || (await modelRouter.resolveAsync('quick')) || undefined;
+
     const result: CompileResult = {
       compiled: 0,
       skipped: 0,
@@ -165,7 +170,7 @@ export class KnowledgeCompiler {
     }
 
     // 检查是否有可用 Provider：options.model 显式指定时不检查
-    if (!model && providerRegistry.size === 0) {
+    if (!resolvedModel && providerRegistry.size === 0) {
       const errMsg =
         '未找到可用供应商，跳过编译。请通过 /provider 命令配置供应商（如 deepseek/openai）。';
       logger.error('知识编译失败', { error: errMsg });
@@ -210,7 +215,7 @@ export class KnowledgeCompiler {
           continue;
         }
 
-        const pages = await this.compileFile(rawFile, model);
+        const pages = await this.compileFile(rawFile, resolvedModel);
         result.compiled++;
         result.pagesCreated += pages.length;
         result.compiledFiles.push(...pages);

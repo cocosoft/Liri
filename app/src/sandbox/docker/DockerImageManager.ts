@@ -29,7 +29,10 @@ export class DockerImageManager {
       });
       return true;
     } catch {
-      void handleError(new Error(`Docker image not found: ${name}`), { module: 'sandbox:image', action: 'imageExists' });
+      void handleError(new Error(`Docker image not found: ${name}`), {
+        module: 'sandbox:image',
+        action: 'imageExists',
+      });
       return false;
     }
   }
@@ -66,7 +69,10 @@ export class DockerImageManager {
           return { repository, tag, imageId, created, size };
         });
     } catch (error) {
-      void handleError(error, { module: 'sandbox:image', action: 'listImages' });
+      void handleError(error, {
+        module: 'sandbox:image',
+        action: 'listImages',
+      });
       logger.error('列出 Docker 镜像失败', error as Error);
       return [];
     }
@@ -83,7 +89,10 @@ export class DockerImageManager {
       logger.info(`Docker 镜像已删除: ${name}`);
       return true;
     } catch (error) {
-      void handleError(error, { module: 'sandbox:image', action: 'removeImage' });
+      void handleError(error, {
+        module: 'sandbox:image',
+        action: 'removeImage',
+      });
       logger.error(`Docker 镜像删除失败: ${name}`, error as Error);
       return false;
     }
@@ -122,7 +131,10 @@ export class DockerImageManager {
       logger.info(`Docker 镜像构建完成: ${options.tag || context}`);
       return true;
     } catch (error) {
-      void handleError(error, { module: 'sandbox:image', action: 'buildImage' });
+      void handleError(error, {
+        module: 'sandbox:image',
+        action: 'buildImage',
+      });
       logger.error(`Docker 镜像构建失败: ${context}`, error as Error);
       return false;
     }
@@ -143,7 +155,10 @@ export class DockerImageManager {
       logger.info(`Docker 镜像清理完成，回收空间: ${reclaimed}`);
       return 0;
     } catch (error) {
-      void handleError(error, { module: 'sandbox:image', action: 'pruneImages' });
+      void handleError(error, {
+        module: 'sandbox:image',
+        action: 'pruneImages',
+      });
       logger.error('Docker 镜像清理失败', error as Error);
       return -1;
     }
@@ -157,7 +172,10 @@ export class DockerImageManager {
       );
       return output.trim();
     } catch {
-      void handleError(new Error(`Failed to get Docker image size: ${name}`), { module: 'sandbox:image', action: 'getImageSize' });
+      void handleError(new Error(`Failed to get Docker image size: ${name}`), {
+        module: 'sandbox:image',
+        action: 'getImageSize',
+      });
       return null;
     }
   }

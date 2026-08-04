@@ -125,7 +125,10 @@ export class TempFileManager {
         size: stat.size,
       };
     } catch {
-      void handleError(new Error('Failed to get file info'), { module: 'media:tempFile', action: 'info' });
+      void handleError(new Error('Failed to get file info'), {
+        module: 'media:tempFile',
+        action: 'info',
+      });
       return null;
     }
   }

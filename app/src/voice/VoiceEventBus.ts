@@ -93,14 +93,20 @@ export class VoiceEventBus
         const result: unknown = listener(data);
         if (result instanceof Promise) {
           result.catch((error: Error) => {
-            void handleError(error, { module: 'voice:eventbus', action: 'publishAsync' });
+            void handleError(error, {
+              module: 'voice:eventbus',
+              action: 'publishAsync',
+            });
             this.emitError(
               error instanceof Error ? error : new Error(String(error))
             );
           });
         }
       } catch (error) {
-        void handleError(error, { module: 'voice:eventbus', action: 'publishSync' });
+        void handleError(error, {
+          module: 'voice:eventbus',
+          action: 'publishSync',
+        });
         this.emitError(
           error instanceof Error ? error : new Error(String(error))
         );

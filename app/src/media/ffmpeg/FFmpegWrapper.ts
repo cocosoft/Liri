@@ -114,7 +114,10 @@ export class FFmpegWrapper {
         try {
           resolve(JSON.parse(stdout));
         } catch {
-          void handleError(new Error('Failed to parse ffprobe output'), { module: 'media:ffmpeg', action: 'probeParse' });
+          void handleError(new Error('Failed to parse ffprobe output'), {
+            module: 'media:ffmpeg',
+            action: 'probeParse',
+          });
           resolve(null);
         }
       });

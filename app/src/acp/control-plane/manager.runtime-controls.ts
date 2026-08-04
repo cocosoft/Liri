@@ -102,7 +102,10 @@ export async function executeRuntimeControl(
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    void handleError(error, { module: 'acp:controls', action: 'executeRuntimeControl' });
+    void handleError(error, {
+      module: 'acp:controls',
+      action: 'executeRuntimeControl',
+    });
     return { success: false, error: message };
   }
 }

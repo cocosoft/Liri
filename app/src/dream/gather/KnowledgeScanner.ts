@@ -98,7 +98,10 @@ export class KnowledgeScanner {
         isDirectory: () => boolean;
       }[];
     } catch {
-      void handleError(new Error('读取目录失败'), { module: 'dream:scanner', action: 'readDir' });
+      void handleError(new Error('读取目录失败'), {
+        module: 'dream:scanner',
+        action: 'readDir',
+      });
       return;
     }
 
@@ -137,7 +140,10 @@ export class KnowledgeScanner {
         results.push(scanned);
       } catch {
         /* skip unreadable files */
-        void handleError(new Error('读取知识文件失败'), { module: 'dream:scanner', action: 'readKnowledgeFile' });
+        void handleError(new Error('读取知识文件失败'), {
+          module: 'dream:scanner',
+          action: 'readKnowledgeFile',
+        });
       }
     }
   }
@@ -162,7 +168,10 @@ export class KnowledgeScanner {
       previous = JSON.parse(data) as KnowledgeDelta;
     } catch {
       /* first time scanning */
-      void handleError(new Error('读取delta文件失败'), { module: 'dream:scanner', action: 'computeDelta' });
+      void handleError(new Error('读取delta文件失败'), {
+        module: 'dream:scanner',
+        action: 'computeDelta',
+      });
     }
 
     if (!previous) {

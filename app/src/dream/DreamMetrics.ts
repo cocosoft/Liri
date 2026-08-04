@@ -87,7 +87,10 @@ export async function readMetrics(): Promise<DreamMetricsData> {
     const parsed = JSON.parse(data);
     return { ...DEFAULT_METRICS, ...parsed };
   } catch {
-    void handleError(new Error('读取指标文件失败'), { module: 'dream:metrics', action: 'readMetrics' });
+    void handleError(new Error('读取指标文件失败'), {
+      module: 'dream:metrics',
+      action: 'readMetrics',
+    });
     return { ...DEFAULT_METRICS };
   }
 }

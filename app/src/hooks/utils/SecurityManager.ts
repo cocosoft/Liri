@@ -237,7 +237,10 @@ export class SecurityManager extends EventEmitter {
         'Failed to load security config',
         error instanceof Error ? error : undefined
       );
-      void handleError(error, { module: 'hooks:security', action: 'loadSecurityConfig' });
+      void handleError(error, {
+        module: 'hooks:security',
+        action: 'loadSecurityConfig',
+      });
     }
   }
 
@@ -257,7 +260,10 @@ export class SecurityManager extends EventEmitter {
         'Failed to save security config',
         error instanceof Error ? error : undefined
       );
-      void handleError(error, { module: 'hooks:security', action: 'saveSecurityConfig' });
+      void handleError(error, {
+        module: 'hooks:security',
+        action: 'saveSecurityConfig',
+      });
     }
   }
 
@@ -526,7 +532,10 @@ export class SecurityManager extends EventEmitter {
         error: 'Path is outside workspace and not in allowed paths',
       };
     } catch {
-      void handleError(new Error('路径解析失败'), { module: 'hooks:security', action: 'validatePath' });
+      void handleError(new Error('路径解析失败'), {
+        module: 'hooks:security',
+        action: 'validatePath',
+      });
       return { valid: false, error: 'Failed to resolve path' };
     }
   }
@@ -584,7 +593,10 @@ export class SecurityManager extends EventEmitter {
       const parsedUrl = new URL(url);
       return ['http:', 'https:'].includes(parsedUrl.protocol);
     } catch {
-      void handleError(new Error('URL 验证失败'), { module: 'hooks:security', action: 'validateUrl' });
+      void handleError(new Error('URL 验证失败'), {
+        module: 'hooks:security',
+        action: 'validateUrl',
+      });
       return false;
     }
   }
@@ -786,7 +798,10 @@ export class SecurityManager extends EventEmitter {
         'Failed to set workspace as trusted',
         error instanceof Error ? error : undefined
       );
-      void handleError(error, { module: 'hooks:security', action: 'setWorkspaceTrusted' });
+      void handleError(error, {
+        module: 'hooks:security',
+        action: 'setWorkspaceTrusted',
+      });
     }
   }
 

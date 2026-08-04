@@ -122,7 +122,10 @@ export class VoiceToolBridge {
       try {
         input = JSON.parse(call.arguments);
       } catch (e) {
-        void handleError(e, { module: 'voice:toolbridge', action: 'parseArgs' });
+        void handleError(e, {
+          module: 'voice:toolbridge',
+          action: 'parseArgs',
+        });
         input = { _raw: call.arguments };
       }
 
@@ -143,7 +146,10 @@ export class VoiceToolBridge {
         this.onToolResult(call.id, output);
       }
     } catch (err) {
-      void handleError(err, { module: 'voice:toolbridge', action: 'executeTool' });
+      void handleError(err, {
+        module: 'voice:toolbridge',
+        action: 'executeTool',
+      });
       clearTimeout(timeoutId);
       this.activeTools.delete(call.id);
       const msg = err instanceof Error ? err.message : String(err);

@@ -25,7 +25,10 @@ export function debugBody(body: unknown): string {
   try {
     return JSON.stringify(body, null, 2);
   } catch (error) {
-    void handleError(error as Error, { module: 'bridge:debug', action: 'debugBody' });
+    void handleError(error as Error, {
+      module: 'bridge:debug',
+      action: 'debugBody',
+    });
     return String(body);
   }
 }
@@ -222,7 +225,10 @@ export class DebugStatusChecker {
       };
     } catch (error) {
       clearTimeout(timeout);
-      void handleError(error as Error, { module: 'bridge:debug', action: 'checkNetwork' });
+      void handleError(error as Error, {
+        module: 'bridge:debug',
+        action: 'checkNetwork',
+      });
       return {
         success: false,
         latencyMs: Date.now() - startTime,

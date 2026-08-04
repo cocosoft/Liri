@@ -66,7 +66,10 @@ export function initializeTaskResultDelivery(): void {
         );
       })
       .catch((error) => {
-        void handleError(error, { module: 'chronos:deliver', action: 'broadcastTaskCompleted' });
+        void handleError(error, {
+          module: 'chronos:deliver',
+          action: 'broadcastTaskCompleted',
+        });
       });
   });
 
@@ -85,7 +88,10 @@ export function initializeTaskResultDelivery(): void {
         );
       })
       .catch((error) => {
-        void handleError(error, { module: 'chronos:deliver', action: 'broadcastTaskFailed' });
+        void handleError(error, {
+          module: 'chronos:deliver',
+          action: 'broadcastTaskFailed',
+        });
       });
   });
 

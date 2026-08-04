@@ -82,7 +82,10 @@ export async function cleanupOldMessageFilesInBackground(): Promise<void> {
           cleaned++;
         }
       } catch (err) {
-        void handleError(err, { module: 'chronos:cleanup', action: 'statSessionFile' });
+        void handleError(err, {
+          module: 'chronos:cleanup',
+          action: 'statSessionFile',
+        });
         // Skip problematic files
       }
     }
@@ -91,7 +94,10 @@ export async function cleanupOldMessageFilesInBackground(): Promise<void> {
       logger.info(`清理了 ${cleaned} 个旧会话文件`);
     }
   } catch (e) {
-    void handleError(e, { module: 'chronos:cleanup', action: 'cleanupOldMessages' });
+    void handleError(e, {
+      module: 'chronos:cleanup',
+      action: 'cleanupOldMessages',
+    });
     logger.warn('清理过程出错', { error: (e as Error).message });
   }
 }
@@ -126,7 +132,10 @@ export async function cleanupStaleLocks(): Promise<void> {
       }
     }
   } catch (err) {
-    void handleError(err, { module: 'chronos:cleanup', action: 'cleanStaleLocks' });
+    void handleError(err, {
+      module: 'chronos:cleanup',
+      action: 'cleanStaleLocks',
+    });
     // Ignore errors
   }
 }

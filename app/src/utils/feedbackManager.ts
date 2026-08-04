@@ -95,7 +95,10 @@ export class FeedbackManager {
           this.cache.set(entry.id, entry);
         }
       } catch (error) {
-        void handleError(error, { module: 'utils:feedback', action: 'loadFeedback' });
+        void handleError(error, {
+          module: 'utils:feedback',
+          action: 'loadFeedback',
+        });
         logger.warn('Failed to load feedback data:', { error: String(error) });
       }
     }
@@ -109,7 +112,10 @@ export class FeedbackManager {
       const entries = Array.from(this.cache.values());
       writeFileSync(this.feedbackFile, JSON.stringify(entries, null, 2));
     } catch (error) {
-      void handleError(error, { module: 'utils:feedback', action: 'saveFeedback' });
+      void handleError(error, {
+        module: 'utils:feedback',
+        action: 'saveFeedback',
+      });
       logger.error(
         'Failed to save feedback data:',
         error as unknown as Record<string, unknown>
@@ -363,7 +369,10 @@ export class FeedbackManager {
       this.saveFeedback();
       this.stats = null;
     } catch (error) {
-      void handleError(error, { module: 'utils:feedback', action: 'importFeedback' });
+      void handleError(error, {
+        module: 'utils:feedback',
+        action: 'importFeedback',
+      });
       logger.error(
         'Failed to import feedback:',
         error as unknown as Record<string, unknown>

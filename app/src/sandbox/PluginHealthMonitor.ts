@@ -374,7 +374,10 @@ export class PluginHealthMonitor {
           break;
         }
       } catch (error) {
-        void handleError(error, { module: 'sandbox:health', action: 'attemptRecovery' });
+        void handleError(error, {
+          module: 'sandbox:health',
+          action: 'attemptRecovery',
+        });
         logger.error(
           `Recovery attempt ${attempt} for plugin ${pluginId} failed:`,
           { error }

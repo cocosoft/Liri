@@ -34,7 +34,10 @@ async function executeShutdownHandlers() {
       try {
         await handler();
       } catch (error) {
-        void handleError(error, { module: 'utils:shutdown', action: 'handler' });
+        void handleError(error, {
+          module: 'utils:shutdown',
+          action: 'handler',
+        });
         logger.error('关闭处理函数执行失败:', error as Error);
       }
     }

@@ -107,7 +107,10 @@ export class StaggerScheduler extends EventEmitter {
 
       this.emit('stagger:complete', { taskId: task.id, taskName: task.name });
     } catch (error) {
-      void handleError(error, { module: 'chronos:stagger', action: 'executeWithDelay' });
+      void handleError(error, {
+        module: 'chronos:stagger',
+        action: 'executeWithDelay',
+      });
       const message = error instanceof Error ? error.message : String(error);
 
       this.emit('stagger:error', {

@@ -109,7 +109,10 @@ export function createMemoryExtractionHook(
         }
       } catch (err) {
         // Deep extraction failure is non-fatal
-        void handleError(new Error('深度记忆提取失败'), { module: 'hooks:memory', action: 'extractMemories' });
+        void handleError(new Error('深度记忆提取失败'), {
+          module: 'hooks:memory',
+          action: 'extractMemories',
+        });
       }
     }
 

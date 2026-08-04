@@ -204,7 +204,10 @@ export class DataCollector {
         this.events.push(...parsedData.events);
       }
     } catch (error) {
-      void handleError(error instanceof Error ? error : new Error(String(error)), { module: 'analytics:collector', action: 'importData' });
+      void handleError(
+        error instanceof Error ? error : new Error(String(error)),
+        { module: 'analytics:collector', action: 'importData' }
+      );
       logger.error('导入数据失败:', error);
     }
   }

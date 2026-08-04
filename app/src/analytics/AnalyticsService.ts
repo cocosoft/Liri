@@ -314,7 +314,10 @@ export class AnalyticsService {
         try {
           handler(data);
         } catch (err) {
-          void handleError(err instanceof Error ? err : new Error(String(err)), { module: 'analytics:service', action: 'emit' });
+          void handleError(
+            err instanceof Error ? err : new Error(String(err)),
+            { module: 'analytics:service', action: 'emit' }
+          );
           logger.error(`事件处理器执行失败 [${event}]`, err as Error);
         }
       }

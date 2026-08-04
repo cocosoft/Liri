@@ -188,7 +188,10 @@ export async function executeWithTimeout<T>(
       timedOut: false,
     };
   } catch (error) {
-    void handleError(error, { module: 'sandbox:timeout', action: 'executeWithTimeout' });
+    void handleError(error, {
+      module: 'sandbox:timeout',
+      action: 'executeWithTimeout',
+    });
     if (timeoutId) {
       clearTimeout(timeoutId);
     }

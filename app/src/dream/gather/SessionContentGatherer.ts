@@ -70,12 +70,18 @@ export class SessionContentGatherer {
             }
           } catch {
             /* skip corrupted */
-            void handleError(new Error('读取挂起会话失败'), { module: 'dream:gather', action: 'readPendingSession' });
+            void handleError(new Error('读取挂起会话失败'), {
+              module: 'dream:gather',
+              action: 'readPendingSession',
+            });
           }
         }
       } catch {
         /* pending dir not exists */
-        void handleError(new Error('挂起目录不存在'), { module: 'dream:gather', action: 'readPendingDir' });
+        void handleError(new Error('挂起目录不存在'), {
+          module: 'dream:gather',
+          action: 'readPendingDir',
+        });
       }
     }
 
@@ -92,12 +98,18 @@ export class SessionContentGatherer {
           if (digest) digests.push(digest);
         } catch {
           /* skip */
-          void handleError(new Error('读取会话状态失败'), { module: 'dream:gather', action: 'statSession' });
+          void handleError(new Error('读取会话状态失败'), {
+            module: 'dream:gather',
+            action: 'statSession',
+          });
         }
       }
     } catch {
       /* sessions dir not exists */
-      void handleError(new Error('会话目录不存在'), { module: 'dream:gather', action: 'readSessionsDir' });
+      void handleError(new Error('会话目录不存在'), {
+        module: 'dream:gather',
+        action: 'readSessionsDir',
+      });
     }
 
     return digests;
@@ -143,17 +155,26 @@ export class SessionContentGatherer {
             if (digest.hasToolCalls && digest.hasCodeBlocks) break;
           } catch {
             /* skip malformed lines */
-            void handleError(new Error('解析消息行失败'), { module: 'dream:gather', action: 'parseMessageLine' });
+            void handleError(new Error('解析消息行失败'), {
+              module: 'dream:gather',
+              action: 'parseMessageLine',
+            });
           }
         }
       } catch {
         /* no messages file */
-        void handleError(new Error('消息文件不存在'), { module: 'dream:gather', action: 'readMessagesFile' });
+        void handleError(new Error('消息文件不存在'), {
+          module: 'dream:gather',
+          action: 'readMessagesFile',
+        });
       }
 
       return digest;
     } catch {
-      void handleError(new Error('构建摘要失败'), { module: 'dream:gather', action: 'buildDigest' });
+      void handleError(new Error('构建摘要失败'), {
+        module: 'dream:gather',
+        action: 'buildDigest',
+      });
       return null;
     }
   }
@@ -179,7 +200,10 @@ export class SessionContentGatherer {
           try {
             return JSON.parse(l);
           } catch {
-            void handleError(new Error('解析消息JSON失败'), { module: 'dream:gather', action: 'parseMessageJson' });
+            void handleError(new Error('解析消息JSON失败'), {
+              module: 'dream:gather',
+              action: 'parseMessageJson',
+            });
             return null;
           }
         })
@@ -210,7 +234,10 @@ export class SessionContentGatherer {
 
       return this.formatMessages(messages.slice(-20), maxTokens);
     } catch {
-      void handleError(new Error('读取会话内容失败'), { module: 'dream:gather', action: 'readSessionContent' });
+      void handleError(new Error('读取会话内容失败'), {
+        module: 'dream:gather',
+        action: 'readSessionContent',
+      });
       return '';
     }
   }

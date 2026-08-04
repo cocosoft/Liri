@@ -133,7 +133,10 @@ export class SSHSandbox {
       return this.connected;
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      void handleError(err instanceof Error ? err : new Error(errMsg), { module: 'sandbox:ssh', action: 'connect' });
+      void handleError(err instanceof Error ? err : new Error(errMsg), {
+        module: 'sandbox:ssh',
+        action: 'connect',
+      });
       logger.error(`SSH 连接失败: ${errMsg}`);
 
       if (this.fallbackHost) {
@@ -243,7 +246,10 @@ export class SSHSandbox {
       };
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      void handleError(err instanceof Error ? err : new Error(errMsg), { module: 'sandbox:ssh', action: 'execute' });
+      void handleError(err instanceof Error ? err : new Error(errMsg), {
+        module: 'sandbox:ssh',
+        action: 'execute',
+      });
 
       return {
         success: false,

@@ -137,7 +137,10 @@ export class UnifiedDreamCycle {
         });
       } catch {
         /* SSE 不可用 */
-        void handleError(new Error(''), { module: 'dream:cycle', action: 'broadcastPhaseChanged' });
+        void handleError(new Error(''), {
+          module: 'dream:cycle',
+          action: 'broadcastPhaseChanged',
+        });
       }
 
       await this.writeCheckpoint(checkpointPath, {
@@ -181,7 +184,10 @@ export class UnifiedDreamCycle {
           }
         } catch (e) {
           errors.push(`读取会话 ${digest.sessionId} 失败: ${String(e)}`);
-          void handleError(e, { module: 'dream:cycle', action: 'readSessionContent' });
+          void handleError(e, {
+            module: 'dream:cycle',
+            action: 'readSessionContent',
+          });
         }
       }
       sessionsProcessed = sessionContents.length;
@@ -217,7 +223,10 @@ export class UnifiedDreamCycle {
         });
       } catch {
         /* SSE 不可用 */
-        void handleError(new Error(''), { module: 'dream:cycle', action: 'broadcastPhaseChanged' });
+        void handleError(new Error(''), {
+          module: 'dream:cycle',
+          action: 'broadcastPhaseChanged',
+        });
       }
 
       _checkpointPhase = 'analyzed';
@@ -232,7 +241,10 @@ export class UnifiedDreamCycle {
         await executeAutoDream();
       } catch (e) {
         errors.push(`AutoDream 执行失败: ${String(e)}`);
-        void handleError(e, { module: 'dream:cycle', action: 'executeAutoDream' });
+        void handleError(e, {
+          module: 'dream:cycle',
+          action: 'executeAutoDream',
+        });
         status = errors.length > 0 ? 'partial' : 'failed';
         if (status === 'failed') {
           return this.buildRecord(
@@ -277,7 +289,10 @@ export class UnifiedDreamCycle {
         });
       } catch {
         /* SSE 不可用 */
-        void handleError(new Error(''), { module: 'dream:cycle', action: 'broadcastPhaseChanged' });
+        void handleError(new Error(''), {
+          module: 'dream:cycle',
+          action: 'broadcastPhaseChanged',
+        });
       }
 
       // SOUL/USER 纠偏
@@ -347,7 +362,10 @@ export class UnifiedDreamCycle {
         });
       } catch {
         /* SSE 不可用 */
-        void handleError(new Error(''), { module: 'dream:cycle', action: 'broadcastPhaseChanged' });
+        void handleError(new Error(''), {
+          module: 'dream:cycle',
+          action: 'broadcastPhaseChanged',
+        });
       }
 
       _checkpointPhase = 'written_all';
@@ -358,7 +376,10 @@ export class UnifiedDreamCycle {
         knowledgeFilesUpdated = knowledgeFiles.length;
       } catch (e) {
         errors.push(`知识雨失败: ${String(e)}`);
-        void handleError(e, { module: 'dream:cycle', action: 'runKnowledgeRain' });
+        void handleError(e, {
+          module: 'dream:cycle',
+          action: 'runKnowledgeRain',
+        });
         status = 'partial';
       }
 
@@ -368,7 +389,10 @@ export class UnifiedDreamCycle {
         insights.push('记忆回写已完成');
       } catch (e) {
         errors.push(`记忆回写失败: ${String(e)}`);
-        void handleError(e, { module: 'dream:cycle', action: 'triggerMemoryDream' });
+        void handleError(e, {
+          module: 'dream:cycle',
+          action: 'triggerMemoryDream',
+        });
       }
 
       // 清理旧数据
@@ -379,7 +403,10 @@ export class UnifiedDreamCycle {
         }
       } catch (e) {
         errors.push(`旧记录清理失败: ${String(e)}`);
-        void handleError(e, { module: 'dream:cycle', action: 'pruneOldCycles' });
+        void handleError(e, {
+          module: 'dream:cycle',
+          action: 'pruneOldCycles',
+        });
       }
 
       // 冷存储归档：60 天无更新的记忆移入冷存储
@@ -393,7 +420,10 @@ export class UnifiedDreamCycle {
         }
       } catch (e) {
         errors.push(`冷存储归档失败: ${String(e)}`);
-        void handleError(e, { module: 'dream:cycle', action: 'coldStorageArchive' });
+        void handleError(e, {
+          module: 'dream:cycle',
+          action: 'coldStorageArchive',
+        });
       }
 
       // Write checkpoint
@@ -423,7 +453,10 @@ export class UnifiedDreamCycle {
         });
       } catch {
         /* SSE 不可用 */
-        void handleError(new Error(''), { module: 'dream:cycle', action: 'broadcastCycleCompleted' });
+        void handleError(new Error(''), {
+          module: 'dream:cycle',
+          action: 'broadcastCycleCompleted',
+        });
       }
 
       logger.info(`梦境周期完成: ${cycleId}`, {
@@ -440,7 +473,10 @@ export class UnifiedDreamCycle {
         broadcastEvent('dream:cycle:failed', { cycleId, error: errMsg });
       } catch {
         /* SSE 不可用 */
-        void handleError(new Error(''), { module: 'dream:cycle', action: 'broadcastCycleFailed' });
+        void handleError(new Error(''), {
+          module: 'dream:cycle',
+          action: 'broadcastCycleFailed',
+        });
       }
       logger.error(
         `梦境周期失败: ${cycleId}`,
@@ -494,7 +530,10 @@ export class UnifiedDreamCycle {
       await unlink(checkpointPath);
     } catch {
       /* ignore */
-      void handleError(new Error('清理检查点文件失败'), { module: 'dream:cycle', action: 'unlinkCheckpoint' });
+      void handleError(new Error('清理检查点文件失败'), {
+        module: 'dream:cycle',
+        action: 'unlinkCheckpoint',
+      });
     }
 
     return record;
@@ -577,7 +616,10 @@ export class UnifiedDreamCycle {
       }
     } catch {
       /* ignore */
-      void handleError(new Error('清理挂起会话失败'), { module: 'dream:cycle', action: 'cleanupPendingSessions' });
+      void handleError(new Error('清理挂起会话失败'), {
+        module: 'dream:cycle',
+        action: 'cleanupPendingSessions',
+      });
     }
   }
 
@@ -592,7 +634,10 @@ export class UnifiedDreamCycle {
       logger.info('梦境后记忆回写完成');
     } catch (e) {
       logger.warn('梦境后记忆回写失败', { error: String(e) });
-      void handleError(e, { module: 'dream:cycle', action: 'triggerMemoryDreamInternal' });
+      void handleError(e, {
+        module: 'dream:cycle',
+        action: 'triggerMemoryDreamInternal',
+      });
       throw e;
     }
   }

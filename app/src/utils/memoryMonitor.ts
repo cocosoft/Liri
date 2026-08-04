@@ -193,7 +193,10 @@ export class MemoryMonitor {
       try {
         await callback();
       } catch (error) {
-        handleError(error, { module: 'utils:memory', action: 'cleanupCallback' });
+        handleError(error, {
+          module: 'utils:memory',
+          action: 'cleanupCallback',
+        });
         logger.error('Failed to execute cleanup callback', error as Error);
       }
     }
@@ -314,7 +317,10 @@ export class ResourceManager {
         this.resources.delete(name);
         logger.debug('Resource unregistered', { name });
       } catch (error) {
-        handleError(error, { module: 'utils:memory', action: 'unregisterResource' });
+        handleError(error, {
+          module: 'utils:memory',
+          action: 'unregisterResource',
+        });
         logger.error('Failed to cleanup resource: ' + String(error), { name });
       }
     }
@@ -346,7 +352,10 @@ export class ResourceManager {
               result
                 .then(() => resolve())
                 .catch((error) => {
-                  handleError(error, { module: 'utils:memory', action: 'cleanupAll' });
+                  handleError(error, {
+                    module: 'utils:memory',
+                    action: 'cleanupAll',
+                  });
                   logger.error('Failed to cleanup resource: ' + String(error), {
                     name,
                   });
@@ -356,7 +365,10 @@ export class ResourceManager {
               resolve();
             }
           } catch (error) {
-            handleError(error, { module: 'utils:memory', action: 'cleanupAll' });
+            handleError(error, {
+              module: 'utils:memory',
+              action: 'cleanupAll',
+            });
             logger.error('Failed to cleanup resource: ' + String(error), {
               name,
             });

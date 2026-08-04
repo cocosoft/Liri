@@ -123,7 +123,10 @@ export class ColdStorage {
       const data = await readFile(this.storagePath, 'utf-8');
       return JSON.parse(data) as ArchivedMemory[];
     } catch {
-      void handleError(new Error('读取冷存储文件失败'), { module: 'dream:coldstorage', action: 'readAll' });
+      void handleError(new Error('读取冷存储文件失败'), {
+        module: 'dream:coldstorage',
+        action: 'readAll',
+      });
       return [];
     }
   }

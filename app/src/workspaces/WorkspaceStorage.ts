@@ -40,7 +40,10 @@ import { listAll, getActive, getDefaultRoot } from './WorkspaceRegistry';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'workspaces:storage', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'workspaces:storage',
+  level: LogLevel.INFO,
+});
 
 /**
  * 生成工作空间唯一ID
@@ -104,7 +107,10 @@ export async function readMeta(wsPath: string): Promise<WorkspaceMeta | null> {
     const raw = await readFile(metaPath, 'utf8');
     return JSON.parse(raw) as WorkspaceMeta;
   } catch {
-    void handleError(new Error('读取工作空间元数据失败'), { module: 'workspaces:storage', action: 'readMeta' });
+    void handleError(new Error('读取工作空间元数据失败'), {
+      module: 'workspaces:storage',
+      action: 'readMeta',
+    });
     return null;
   }
 }
@@ -143,7 +149,10 @@ export async function countFiles(wsPath: string): Promise<number> {
     return entries.filter((e) => e.isFile() && e.name !== '.workspace.json')
       .length;
   } catch {
-    void handleError(new Error('统计文件数失败'), { module: 'workspaces:storage', action: 'countFiles' });
+    void handleError(new Error('统计文件数失败'), {
+      module: 'workspaces:storage',
+      action: 'countFiles',
+    });
     return 0;
   }
 }
@@ -158,7 +167,10 @@ export async function getLastModified(wsPath: string): Promise<string> {
     const s = await stat(wsPath);
     return s.mtime.toISOString();
   } catch {
-    void handleError(new Error('获取最后修改时间失败'), { module: 'workspaces:storage', action: 'getLastModified' });
+    void handleError(new Error('获取最后修改时间失败'), {
+      module: 'workspaces:storage',
+      action: 'getLastModified',
+    });
     return '';
   }
 }

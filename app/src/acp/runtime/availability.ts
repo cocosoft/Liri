@@ -48,7 +48,10 @@ export async function checkRuntimeAvailability(
 
     return { available: true, latencyMs: Date.now() - start };
   } catch (error) {
-    void handleError(error, { module: 'acp:availability', action: 'checkRuntimeAvailability' });
+    void handleError(error, {
+      module: 'acp:availability',
+      action: 'checkRuntimeAvailability',
+    });
     return {
       available: false,
       reason: error instanceof Error ? error.message : String(error),

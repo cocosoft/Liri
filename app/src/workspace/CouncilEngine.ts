@@ -351,7 +351,10 @@ export class CouncilEngine {
 
       return session;
     } catch (error) {
-      void handleError(error, { module: 'workspace:engine', action: 'runDebate' });
+      void handleError(error, {
+        module: 'workspace:engine',
+        action: 'runDebate',
+      });
       const errorMsg = error instanceof Error ? error.message : String(error);
 
       this.emit({

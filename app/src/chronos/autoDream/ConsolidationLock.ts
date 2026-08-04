@@ -143,7 +143,10 @@ export async function recordConsolidation(): Promise<void> {
     await mkdir(getAutoMemPath(), { recursive: true });
     await writeFile(lockPath(), String(process.pid));
   } catch (e: unknown) {
-    void handleError(e, { module: 'chronos:lock', action: 'recordConsolidation' });
+    void handleError(e, {
+      module: 'chronos:lock',
+      action: 'recordConsolidation',
+    });
     logger.warn('记录整合时间写入失败', { error: (e as Error).message });
   }
 }

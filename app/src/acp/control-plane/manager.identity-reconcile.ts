@@ -77,7 +77,10 @@ export async function reconcilePendingSessionIdentities(
       pendingIdentities.delete(key);
       reconciled.push(key);
     } catch (error) {
-      void handleError(error, { module: 'acp:reconcile', action: 'reconcileSession' });
+      void handleError(error, {
+        module: 'acp:reconcile',
+        action: 'reconcileSession',
+      });
       errors.push(
         `failed to reconcile session ${identity.sessionKey}: ${error instanceof Error ? error.message : String(error)}`
       );

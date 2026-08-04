@@ -191,7 +191,10 @@ export class DockerSandbox implements Sandbox {
       this.isInitializedFlag = true;
       return true;
     } catch (error) {
-      void handleError(error, { module: 'sandbox:docker', action: 'initialize' });
+      void handleError(error, {
+        module: 'sandbox:docker',
+        action: 'initialize',
+      });
       logger.error('Docker 沙箱初始化失败', error as Error);
       this.isInitializedFlag = false;
       return false;

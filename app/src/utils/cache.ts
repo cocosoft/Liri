@@ -649,7 +649,10 @@ export class PersistentCache<T = unknown> {
       const data = Array.from(this.cache.entries());
       writeFileSync(this.filePath, JSON.stringify(data));
     } catch (error) {
-      void handleError(error, { module: 'utils:cache', action: 'persistentCache' });
+      void handleError(error, {
+        module: 'utils:cache',
+        action: 'persistentCache',
+      });
       logger.error(
         'Failed to save cache',
         error instanceof Error ? error : new Error(String(error))
@@ -673,7 +676,10 @@ export class PersistentCache<T = unknown> {
         this.cleanup();
       }
     } catch (error) {
-      void handleError(error, { module: 'utils:cache', action: 'persistentCache' });
+      void handleError(error, {
+        module: 'utils:cache',
+        action: 'persistentCache',
+      });
       logger.error(
         'Failed to load cache',
         error instanceof Error ? error : new Error(String(error))

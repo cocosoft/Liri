@@ -128,7 +128,10 @@ export class ProjectArtifactStore {
       return true;
     } catch (e) {
       span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
-      void handleError(e, { module: 'project:ArtifactStore', action: 'delete' });
+      void handleError(e, {
+        module: 'project:ArtifactStore',
+        action: 'delete',
+      });
       return false;
     } finally {
       span.end();

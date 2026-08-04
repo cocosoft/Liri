@@ -216,7 +216,10 @@ export class AsyncHookRegistry extends EventEmitter {
             }
           } catch (error) {
             logger.error(`Hooks: Failed to parse hook output: ${error}`);
-            void handleError(error, { module: 'hooks:async', action: 'parseHookOutput' });
+            void handleError(error, {
+              module: 'hooks:async',
+              action: 'parseHookOutput',
+            });
           }
 
           return {
@@ -336,7 +339,10 @@ export class AsyncHookRegistry extends EventEmitter {
         });
       } catch (error) {
         logger.error(`Hooks: Error getting hook progress: ${error}`);
-        void handleError(error, { module: 'hooks:async', action: 'getHookProgress' });
+        void handleError(error, {
+          module: 'hooks:async',
+          action: 'getHookProgress',
+        });
       }
     }, 1000);
 

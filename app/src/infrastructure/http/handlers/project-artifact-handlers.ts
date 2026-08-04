@@ -442,7 +442,10 @@ export async function handleUploadProjectFile(
   span.setAttribute('projectId', projectId);
   try {
     const body = await readBody(req);
-    const { filename, data } = JSON.parse(body) as { filename?: string; data?: string };
+    const { filename, data } = JSON.parse(body) as {
+      filename?: string;
+      data?: string;
+    };
     if (!filename || !data) {
       span.setStatus({ code: SpanStatusCode.OK });
       json(res, 400, { error: '缺少 filename 或 data 参数' });
@@ -450,15 +453,24 @@ export async function handleUploadProjectFile(
     }
 
     // 安全：拒绝含路径穿越的文件名
-    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+    if (
+      filename.includes('..') ||
+      filename.includes('/') ||
+      filename.includes('\\')
+    ) {
       span.setStatus({ code: SpanStatusCode.OK });
       json(res, 400, { error: '文件名不允许包含路径' });
       return;
     }
 
-    const { createProjectStore } = await import('../../../workspace/ProjectStore.js');
-    const { WorkItemStore } = await import('../../../workspace/WorkItemStore.js');
-    const store = createProjectStore(resolveDataDir(), new WorkItemStore(resolveDataDir()));
+    const { createProjectStore } =
+      await import('../../../workspace/ProjectStore.js');
+    const { WorkItemStore } =
+      await import('../../../workspace/WorkItemStore.js');
+    const store = createProjectStore(
+      resolveDataDir(),
+      new WorkItemStore(resolveDataDir())
+    );
     const project = store.get(projectId);
     if (!project || !project.sandboxPath) {
       span.setStatus({ code: SpanStatusCode.OK });
@@ -475,12 +487,19 @@ export async function handleUploadProjectFile(
     const buffer = Buffer.from(data, 'base64');
     writeFileSync(destPath, buffer);
 
-    logger.info('文件已上传到项目', { projectId, filename, size: buffer.length });
+    logger.info('文件已上传到项目', {
+      projectId,
+      filename,
+      size: buffer.length,
+    });
     span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, { path: destPath, filename, size: buffer.length });
   } catch (e) {
     logger.error('上传项目文件失败', { projectId, error: String(e) });
-    await handleError(e, { module: 'project:artifactHandlers', action: 'uploadFile' });
+    await handleError(e, {
+      module: 'project:artifactHandlers',
+      action: 'uploadFile',
+    });
     span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
     json(res, 500, { error: '上传文件失败' });
   } finally {

@@ -1,4 +1,9 @@
-import { AppError, ErrorCategory, ErrorSeverity, handleError } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 /**
  * AutoReplyEngine 自动回复引擎
@@ -142,7 +147,10 @@ export class AutoReplyEngine {
           latency: Date.now() - startTime,
         };
       } catch {
-        void handleError(new Error('process'), { module: 'auto-reply:engine', action: 'process' });
+        void handleError(new Error('process'), {
+          module: 'auto-reply:engine',
+          action: 'process',
+        });
         this.stats.failed++;
       }
     }

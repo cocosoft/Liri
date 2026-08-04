@@ -109,7 +109,10 @@ export class WorkerSandbox implements Sandbox {
       logger.info(`WorkerSandbox initialized for platform ${config.platform}`);
       return true;
     } catch (error) {
-      void handleError(error, { module: 'sandbox:worker', action: 'initialize' });
+      void handleError(error, {
+        module: 'sandbox:worker',
+        action: 'initialize',
+      });
       logger.error('Failed to initialize WorkerSandbox:', { error });
       this.isInitialized = false;
       return false;
@@ -242,7 +245,10 @@ export class WorkerSandbox implements Sandbox {
       try {
         this.worker!.postMessage(request);
       } catch (error) {
-        void handleError(error, { module: 'sandbox:worker', action: 'execute' });
+        void handleError(error, {
+          module: 'sandbox:worker',
+          action: 'execute',
+        });
         clearTimeout(timer);
         this.pendingRequests.delete(requestId);
         resolve({

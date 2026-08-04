@@ -32,7 +32,10 @@ import os from 'os';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'workspaces:registry', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'workspaces:registry',
+  level: LogLevel.INFO,
+});
 
 /**
  * 获取注册表文件路径
@@ -79,7 +82,10 @@ async function loadRegistry(): Promise<WorkspaceRegistryData> {
     const raw = await readFile(filePath, 'utf8');
     return JSON.parse(raw) as WorkspaceRegistryData;
   } catch (err) {
-    void handleError(err instanceof Error ? err : new Error(String(err)), { module: 'workspaces:registry', action: 'loadRegistry' });
+    void handleError(err instanceof Error ? err : new Error(String(err)), {
+      module: 'workspaces:registry',
+      action: 'loadRegistry',
+    });
     logger.error('工作空间注册表读取失败', { error: String(err) });
     return {
       workspaces: {},

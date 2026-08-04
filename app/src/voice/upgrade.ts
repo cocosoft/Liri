@@ -163,7 +163,10 @@ function handleDataFrame(conn: InternalConnection): void {
           const event = JSON.parse(text) as VoiceClientEvent;
           conn.messageHandler?.(event);
         } catch (e) {
-          void handleError(e, { module: 'voice:upgrade', action: 'parseFrame' });
+          void handleError(e, {
+            module: 'voice:upgrade',
+            action: 'parseFrame',
+          });
           logger.warn('无法解析 WebSocket 消息', { text: text.slice(0, 100) });
         }
         break;

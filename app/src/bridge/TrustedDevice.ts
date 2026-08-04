@@ -34,7 +34,10 @@ export function loadTrustedDevices(): TrustedDevice[] {
     // 过滤过期设备
     return devices.filter((d) => !isDeviceExpired(d));
   } catch {
-    void handleError(new Error('Failed to load trusted devices'), { module: 'bridge:device', action: 'loadTrustedDevices' });
+    void handleError(new Error('Failed to load trusted devices'), {
+      module: 'bridge:device',
+      action: 'loadTrustedDevices',
+    });
     return [];
   }
 }

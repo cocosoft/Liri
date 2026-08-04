@@ -216,7 +216,10 @@ export class HookDiagnosticService {
       fs.appendFileSync(this.logPath, line, 'utf-8');
     } catch (error) {
       logger.error('Failed to write hook diagnostic log:', { error });
-      void handleError(error, { module: 'hooks:diag', action: 'writeLogToFile' });
+      void handleError(error, {
+        module: 'hooks:diag',
+        action: 'writeLogToFile',
+      });
     }
   }
 

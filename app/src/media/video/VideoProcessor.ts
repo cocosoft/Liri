@@ -56,7 +56,10 @@ export class VideoProcessor {
         fileSize: stat.size,
       };
     } catch {
-      void handleError(new Error('Failed to get video info'), { module: 'media:video', action: 'getInfo' });
+      void handleError(new Error('Failed to get video info'), {
+        module: 'media:video',
+        action: 'getInfo',
+      });
       return null;
     }
   }
@@ -96,7 +99,10 @@ export class VideoProcessor {
 
       return await this.runFfmpeg(args);
     } catch {
-      void handleError(new Error('Failed to compress video'), { module: 'media:video', action: 'compress' });
+      void handleError(new Error('Failed to compress video'), {
+        module: 'media:video',
+        action: 'compress',
+      });
       return false;
     }
   }
@@ -118,7 +124,10 @@ export class VideoProcessor {
 
       return await this.runFfmpeg(args);
     } catch {
-      void handleError(new Error('Failed to extract audio'), { module: 'media:video', action: 'extractAudio' });
+      void handleError(new Error('Failed to extract audio'), {
+        module: 'media:video',
+        action: 'extractAudio',
+      });
       return false;
     }
   }
@@ -145,7 +154,10 @@ export class VideoProcessor {
 
       return await this.runFfmpeg(args);
     } catch {
-      void handleError(new Error('Failed to extract thumbnail'), { module: 'media:video', action: 'extractThumbnail' });
+      void handleError(new Error('Failed to extract thumbnail'), {
+        module: 'media:video',
+        action: 'extractThumbnail',
+      });
       return false;
     }
   }

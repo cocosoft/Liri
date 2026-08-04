@@ -502,7 +502,10 @@ export function loadStartupConfig(): StartupLoadResult {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     result.parseErrors = [message];
-    void handleError(err, { module: 'bootstrap:startupYaml', action: 'loadStartupConfig' });
+    void handleError(err, {
+      module: 'bootstrap:startupYaml',
+      action: 'loadStartupConfig',
+    });
     logger.error('加载 startup.yaml 失败', { error: message });
     return result;
   }

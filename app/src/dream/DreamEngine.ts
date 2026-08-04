@@ -148,7 +148,10 @@ export class DreamEngine {
         `[DreamEngine] 梦境执行失败: ${errMsg}`,
         e instanceof Error ? e : new Error(errMsg)
       );
-      void handleError(e, { module: 'dream:engine', action: 'executeDreamCycle' });
+      void handleError(e, {
+        module: 'dream:engine',
+        action: 'executeDreamCycle',
+      });
     }
 
     // 保存兼容 DreamRecord

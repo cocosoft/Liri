@@ -80,7 +80,10 @@ async function runVerySlowOps(): Promise<void> {
       });
     }
   } catch (e) {
-    void handleError(e, { module: 'chronos:housekeeping', action: 'archiveTranscripts' });
+    void handleError(e, {
+      module: 'chronos:housekeeping',
+      action: 'archiveTranscripts',
+    });
     logger.error('转录归档失败', e instanceof Error ? e : new Error(String(e)));
   }
 
@@ -139,12 +142,18 @@ async function refreshBalancesInBackground(): Promise<void> {
           }
         }
       } catch (err) {
-        void handleError(err, { module: 'chronos:housekeeping', action: 'checkBalance' });
+        void handleError(err, {
+          module: 'chronos:housekeeping',
+          action: 'checkBalance',
+        });
         // 单个查询失败不影响其他
       }
     }
   } catch (err) {
-    void handleError(new Error('余额刷新失败'), { module: 'chronos:housekeeping', action: 'refreshBalances' });
+    void handleError(new Error('余额刷新失败'), {
+      module: 'chronos:housekeeping',
+      action: 'refreshBalances',
+    });
     // 静默失败
   }
 }
@@ -172,7 +181,10 @@ export function startBackgroundHousekeeping(): void {
     void cleanupNpmCacheForAnthropicPackages();
     void cleanupOldVersionsThrottled();
     void transcriptArchiver.archiveOldTranscripts().catch((e) => {
-      void handleError(e, { module: 'chronos:housekeeping', action: 'archiveTranscriptsInterval' });
+      void handleError(e, {
+        module: 'chronos:housekeeping',
+        action: 'archiveTranscriptsInterval',
+      });
       logger.error(
         '定时转录归档失败',
         e instanceof Error ? e : new Error(String(e))

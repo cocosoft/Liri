@@ -125,7 +125,10 @@ export class CronTaskTimer {
 
       handle.nextRun = Date.now() + handle.interval;
       this.callback(taskId).catch((e) => {
-        void handleError(e, { module: 'chronos:timer', action: 'timerCallback' });
+        void handleError(e, {
+          module: 'chronos:timer',
+          action: 'timerCallback',
+        });
       });
     }, 60000);
 

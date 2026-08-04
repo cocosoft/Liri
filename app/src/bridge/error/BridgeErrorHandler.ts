@@ -1,5 +1,10 @@
 import { Logger, LogLevel } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity, handleError } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 const logger = new Logger({
   module: 'bridge:error:bridgeErrorHandler',
@@ -397,7 +402,10 @@ export class BridgeErrorHandler {
       try {
         listener(error, options);
       } catch (e) {
-        void handleError(e as Error, { module: 'bridge:error', action: 'notifyListeners' });
+        void handleError(e as Error, {
+          module: 'bridge:error',
+          action: 'notifyListeners',
+        });
         logger.error(
           'Error in error handler listener',
           e instanceof Error ? e : new Error(String(e))

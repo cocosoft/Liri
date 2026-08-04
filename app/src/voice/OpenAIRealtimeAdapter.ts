@@ -157,7 +157,10 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
           reject(new Error('WebSocket 连接失败'));
         };
       } catch (err) {
-        void handleError(err, { module: 'voice:openai', action: 'createConnection' });
+        void handleError(err, {
+          module: 'voice:openai',
+          action: 'createConnection',
+        });
         this.logger.error('OpenAI Realtime WebSocket 创建异常', {
           error: String(err),
         });

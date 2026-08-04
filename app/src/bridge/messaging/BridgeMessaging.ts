@@ -4,7 +4,12 @@
  */
 
 import type { Message } from '@modules/types/message.js';
-import { AppError, ErrorCategory, ErrorSeverity, handleError } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -184,7 +189,10 @@ export function parseBridgeMessage(str: string): BridgeMessage | null {
 
     return json as BridgeMessage;
   } catch {
-    void handleError(new Error('Failed to parse bridge message'), { module: 'bridge:messaging', action: 'parseBridgeMessage' });
+    void handleError(new Error('Failed to parse bridge message'), {
+      module: 'bridge:messaging',
+      action: 'parseBridgeMessage',
+    });
     return null;
   }
 }

@@ -307,7 +307,10 @@ export class EnhancedSandboxManager {
         await this.analyzeSandboxSecurity(sandboxId);
       }
     } catch (error) {
-      void handleError(error, { module: 'sandbox:enhanced', action: 'performSecurityAnalysis' });
+      void handleError(error, {
+        module: 'sandbox:enhanced',
+        action: 'performSecurityAnalysis',
+      });
       logger.error('Failed to perform security analysis:', { error });
     }
   }
@@ -324,7 +327,10 @@ export class EnhancedSandboxManager {
         await this.detectThreats(sandboxId);
       }
     } catch (error) {
-      void handleError(error, { module: 'sandbox:enhanced', action: 'performThreatDetection' });
+      void handleError(error, {
+        module: 'sandbox:enhanced',
+        action: 'performThreatDetection',
+      });
       logger.error('Failed to perform threat detection:', { error });
     }
   }
@@ -477,7 +483,10 @@ export class EnhancedSandboxManager {
 
       this.securityAssessments.set(sandboxId, assessment);
     } catch (error) {
-      void handleError(error, { module: 'sandbox:enhanced', action: 'analyzeSandboxSecurity' });
+      void handleError(error, {
+        module: 'sandbox:enhanced',
+        action: 'analyzeSandboxSecurity',
+      });
       logger.error(`Failed to analyze security for sandbox ${sandboxId}:`, {
         error,
       });
@@ -505,7 +514,10 @@ export class EnhancedSandboxManager {
 
       this.threatDetections.set(sandboxId, threats);
     } catch (error) {
-      void handleError(error, { module: 'sandbox:enhanced', action: 'detectThreats' });
+      void handleError(error, {
+        module: 'sandbox:enhanced',
+        action: 'detectThreats',
+      });
       logger.error(`Failed to detect threats for sandbox ${sandboxId}:`, {
         error,
       });
@@ -580,7 +592,10 @@ export class EnhancedSandboxManager {
 
       this.performanceMetrics.set(sandboxId, metrics);
     } catch (error) {
-      void handleError(error, { module: 'sandbox:enhanced', action: 'collectPerformanceMetrics' });
+      void handleError(error, {
+        module: 'sandbox:enhanced',
+        action: 'collectPerformanceMetrics',
+      });
       logger.error(
         `Failed to collect performance metrics for sandbox ${sandboxId}:`,
         { error }
@@ -624,7 +639,10 @@ export class EnhancedSandboxManager {
 
       this.recommendations.set(sandboxId, recommendations);
     } catch (error) {
-      void handleError(error, { module: 'sandbox:enhanced', action: 'generateRecommendations' });
+      void handleError(error, {
+        module: 'sandbox:enhanced',
+        action: 'generateRecommendations',
+      });
       logger.error(
         `Failed to generate recommendations for sandbox ${sandboxId}:`,
         { error }

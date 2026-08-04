@@ -87,7 +87,10 @@ export class BridgeChannelReporter {
       }
       return sendResult;
     } catch (error) {
-      void handleError(error as Error, { module: 'bridge:reporter', action: 'reportTask' });
+      void handleError(error as Error, {
+        module: 'bridge:reporter',
+        action: 'reportTask',
+      });
       logger.error(`Bridge→Channel 上报失败: ${report.taskId}`, error as Error);
       return false;
     }
@@ -158,7 +161,10 @@ export class BridgeChannelReporter {
         lines.join('\n')
       );
     } catch (error) {
-      void handleError(error as Error, { module: 'bridge:reporter', action: 'reportSummary' });
+      void handleError(error as Error, {
+        module: 'bridge:reporter',
+        action: 'reportSummary',
+      });
       logger.error('摘要上报失败', error as Error);
       return false;
     }

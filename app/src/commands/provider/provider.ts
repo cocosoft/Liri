@@ -694,7 +694,10 @@ async function handleSeed(): Promise<CommandResult> {
     } catch (err) {
       // 预置失败不阻塞
       logger.error('预置AI提供商失败', { error: String(err) });
-      void handleError(err, { module: 'commands:provider', action: 'presetProviders' });
+      void handleError(err, {
+        module: 'commands:provider',
+        action: 'presetProviders',
+      });
     }
   }
 

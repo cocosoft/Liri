@@ -127,10 +127,16 @@ export class FirstPartyEventLogger implements FirstPartyEventSink {
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
-        void handleError(error, { module: 'analytics:events', action: 'flush' });
+        void handleError(error, {
+          module: 'analytics:events',
+          action: 'flush',
+        });
         logger.warn('[1PEvent] Flush 超时');
       } else {
-        void handleError(error instanceof Error ? error : new Error(String(error)), { module: 'analytics:events', action: 'flush' });
+        void handleError(
+          error instanceof Error ? error : new Error(String(error)),
+          { module: 'analytics:events', action: 'flush' }
+        );
         logger.error('[1PEvent] Flush error:', error);
       }
     }

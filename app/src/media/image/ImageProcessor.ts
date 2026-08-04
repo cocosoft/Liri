@@ -506,7 +506,10 @@ export class ImageProcessor {
       });
       return outPath;
     } catch (error) {
-      void handleError(error, { module: 'media:image', action: 'normalizeExifOrientation' });
+      void handleError(error, {
+        module: 'media:image',
+        action: 'normalizeExifOrientation',
+      });
       logger.warn('ImageProcessor.normalizeExifOrientation() · 失败', {
         error: (error as Error).message,
       });

@@ -23,7 +23,10 @@ export function execSyncWithOutput(
     const stdout = cpExecSync(command, { ...options, encoding: 'utf8' });
     return { stdout, stderr: '' };
   } catch (error: unknown) {
-    void handleError(error, { module: 'utils:exec', action: 'execSyncWithOutput' });
+    void handleError(error, {
+      module: 'utils:exec',
+      action: 'execSyncWithOutput',
+    });
     return {
       stdout: (error as { stdout?: string }).stdout || '',
       stderr: (error as { stderr?: string }).stderr || '',

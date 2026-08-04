@@ -161,7 +161,10 @@ export class DiagnosticManager extends EventEmitter {
       this.eventBuffer = [];
     } catch (error) {
       logger.error(`Failed to write diagnostic log: ${error}`);
-      void handleError(error, { module: 'hooks:diagnostic', action: 'flushBuffer' });
+      void handleError(error, {
+        module: 'hooks:diagnostic',
+        action: 'flushBuffer',
+      });
     }
   }
 

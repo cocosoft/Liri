@@ -121,7 +121,10 @@ export async function executeHookChainWithIsolation<T>(
         hook: hook.name,
         error: errors[errors.length - 1].error,
       });
-      void handleError(err, { module: 'hooks:permguard', action: 'executeHookChainWithIsolation' });
+      void handleError(err, {
+        module: 'hooks:permguard',
+        action: 'executeHookChainWithIsolation',
+      });
     }
   }
 

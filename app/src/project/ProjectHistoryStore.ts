@@ -124,7 +124,10 @@ export class ProjectHistoryStore {
       } catch {
         /* skip unreadable file */
         logger.warn('读取历史文件失败', { file });
-        void handleError(new Error(`读取历史文件失败: ${file}`), { module: 'project:HistoryStore', action: 'read' });
+        void handleError(new Error(`读取历史文件失败: ${file}`), {
+          module: 'project:HistoryStore',
+          action: 'read',
+        });
       }
     }
 

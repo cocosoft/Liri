@@ -11,7 +11,10 @@ export function jsonParse<T = unknown>(text: string): T | null {
   try {
     return JSON.parse(text) as T;
   } catch {
-    void handleError(new Error('JSON parse failed'), { module: 'utils:json', action: 'jsonParse' });
+    void handleError(new Error('JSON parse failed'), {
+      module: 'utils:json',
+      action: 'jsonParse',
+    });
     return null;
   }
 }
@@ -37,7 +40,10 @@ export function repairModelJson(raw: string): string {
     JSON.parse(raw);
     return raw;
   } catch {
-    void handleError(new Error('JSON repair: first pass needed'), { module: 'utils:json', action: 'repairModelJson:check' });
+    void handleError(new Error('JSON repair: first pass needed'), {
+      module: 'utils:json',
+      action: 'repairModelJson:check',
+    });
     // pass to first repair
   }
 
@@ -49,7 +55,10 @@ export function repairModelJson(raw: string): string {
     JSON.parse(repaired);
     return repaired;
   } catch {
-    void handleError(new Error('JSON repair: second pass needed'), { module: 'utils:json', action: 'repairModelJson:escapeFix' });
+    void handleError(new Error('JSON repair: second pass needed'), {
+      module: 'utils:json',
+      action: 'repairModelJson:escapeFix',
+    });
     // pass to second repair
   }
 
@@ -64,7 +73,10 @@ export function repairModelJson(raw: string): string {
     JSON.parse(repaired);
     return repaired;
   } catch {
-    void handleError(new Error('JSON repair all passes failed'), { module: 'utils:json', action: 'repairModelJson:pathFix' });
+    void handleError(new Error('JSON repair all passes failed'), {
+      module: 'utils:json',
+      action: 'repairModelJson:pathFix',
+    });
     // 修复后仍失败，返回原字符串（由调用方处理）
     return raw;
   }

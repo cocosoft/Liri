@@ -221,7 +221,10 @@ export class VoiceCommandRouter {
             return rule;
           }
         } catch (e) {
-          void handleError(e, { module: 'voice:commandrouter', action: 'matchRule' });
+          void handleError(e, {
+            module: 'voice:commandrouter',
+            action: 'matchRule',
+          });
           logger.warning('命令规则正则编译失败', { pattern: rule.pattern });
         }
       } else {
@@ -272,7 +275,10 @@ export class VoiceCommandRouter {
           };
       }
     } catch (error) {
-      void handleError(error, { module: 'voice:commandrouter', action: 'executeAction' });
+      void handleError(error, {
+        module: 'voice:commandrouter',
+        action: 'executeAction',
+      });
       const errorMsg = error instanceof Error ? error.message : String(error);
       logger.error('命令执行失败', { error: errorMsg, pattern: rule.pattern });
       return {
@@ -331,7 +337,10 @@ export class VoiceCommandRouter {
         error: null,
       };
     } catch (error) {
-      void handleError(error, { module: 'voice:commandrouter', action: 'executeToolAction' });
+      void handleError(error, {
+        module: 'voice:commandrouter',
+        action: 'executeToolAction',
+      });
       const errorMsg = error instanceof Error ? error.message : String(error);
       return {
         matched: true,

@@ -43,8 +43,14 @@ export class HistoryManager {
     try {
       await fs.mkdir(dir, { recursive: true });
     } catch (error) {
-      // 目录已存在，忽略错误
-      handleError(error, { module: 'utils:history', action: 'ensureConfigDir' });
+      // EEXIST: 目录已存在，忽略
+      const code = (error as NodeJS.ErrnoException)?.code;
+      if (code !== 'EEXIST') {
+        handleError(error, {
+          module: 'utils:history',
+          action: 'ensureConfigDir',
+        });
+      }
     }
   }
 
@@ -55,10 +61,15 @@ export class HistoryManager {
     try {
       const data = await fs.readFile(this.historyFile, 'utf8');
       this.history = JSON.parse(data);
-      // 限制历史记录大小
       this.history = this.history.slice(-this.maxHistorySize);
     } catch (error) {
-      // 文件不存在或解析失败，使用空历史
+      // ENOENT: 首次运行文件不存在，使用空历史
+      const code = (error as NodeJS.ErrnoException)?.code;
+      if (code === 'ENOENT') {
+        this.history = [];
+        return;
+      }
+      // 解析失败等其他错误
       handleError(error, { module: 'utils:history', action: 'loadHistory' });
       this.history = [];
     }

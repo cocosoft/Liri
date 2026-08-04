@@ -35,7 +35,12 @@ import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, renameSync } from 'fs';
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { AppError, ErrorCategory, ErrorSeverity, handleError } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 const logger = new Logger({
   module: 'workspace:ProjectItemStore',
@@ -286,7 +291,10 @@ export class ProjectItemStore {
 
       span.setStatus({ code: SpanStatusCode.OK });
     } catch (e) {
-      void handleError(e, { module: 'workspace:ProjectItemStore', action: 'init' });
+      void handleError(e, {
+        module: 'workspace:ProjectItemStore',
+        action: 'init',
+      });
       span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
       throw e;
     } finally {
@@ -403,7 +411,10 @@ export class ProjectItemStore {
       }
       span.setStatus({ code: SpanStatusCode.OK });
     } catch (e) {
-      void handleError(e, { module: 'workspace:ProjectItemStore', action: 'upsert' });
+      void handleError(e, {
+        module: 'workspace:ProjectItemStore',
+        action: 'upsert',
+      });
       span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
       throw e;
     } finally {
@@ -441,7 +452,10 @@ export class ProjectItemStore {
       }
       span.setStatus({ code: SpanStatusCode.OK });
     } catch (e) {
-      void handleError(e, { module: 'workspace:ProjectItemStore', action: 'upsertBatch' });
+      void handleError(e, {
+        module: 'workspace:ProjectItemStore',
+        action: 'upsertBatch',
+      });
       span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
       throw e;
     } finally {
@@ -455,20 +469,25 @@ export class ProjectItemStore {
     const span = otel.startSpan('ProjectItemStore.get');
     span.setAttribute('projectId', this.projectId);
     try {
-      const result = await new Promise<ProjectItem | null>((resolve, reject) => {
-        this.db!.get(
-          `SELECT * FROM ${TABLE_NAME} WHERE id = ?`,
-          id,
-          (err: Error | null, row: ItemRow | undefined) => {
-            if (err) reject(err);
-            else resolve(row ? rowToItem(row) : null);
-          }
-        );
-      });
+      const result = await new Promise<ProjectItem | null>(
+        (resolve, reject) => {
+          this.db!.get(
+            `SELECT * FROM ${TABLE_NAME} WHERE id = ?`,
+            id,
+            (err: Error | null, row: ItemRow | undefined) => {
+              if (err) reject(err);
+              else resolve(row ? rowToItem(row) : null);
+            }
+          );
+        }
+      );
       span.setStatus({ code: SpanStatusCode.OK });
       return result;
     } catch (e) {
-      void handleError(e, { module: 'workspace:ProjectItemStore', action: 'get' });
+      void handleError(e, {
+        module: 'workspace:ProjectItemStore',
+        action: 'get',
+      });
       span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
       throw e;
     } finally {
@@ -495,7 +514,10 @@ export class ProjectItemStore {
       span.setStatus({ code: SpanStatusCode.OK });
       return result;
     } catch (e) {
-      void handleError(e, { module: 'workspace:ProjectItemStore', action: 'list' });
+      void handleError(e, {
+        module: 'workspace:ProjectItemStore',
+        action: 'list',
+      });
       span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
       throw e;
     } finally {
@@ -575,7 +597,10 @@ export class ProjectItemStore {
       span.setStatus({ code: SpanStatusCode.OK });
       return result;
     } catch (e) {
-      void handleError(e, { module: 'workspace:ProjectItemStore', action: 'search' });
+      void handleError(e, {
+        module: 'workspace:ProjectItemStore',
+        action: 'search',
+      });
       span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
       throw e;
     } finally {
@@ -606,7 +631,10 @@ export class ProjectItemStore {
       }
       span.setStatus({ code: SpanStatusCode.OK });
     } catch (e) {
-      void handleError(e, { module: 'workspace:ProjectItemStore', action: 'delete' });
+      void handleError(e, {
+        module: 'workspace:ProjectItemStore',
+        action: 'delete',
+      });
       span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
       throw e;
     } finally {
@@ -790,7 +818,10 @@ export class ProjectItemStore {
       span.setStatus({ code: SpanStatusCode.OK });
       return { migrated };
     } catch (e) {
-      void handleError(e, { module: 'workspace:ProjectItemStore', action: 'migrateFromLegacy' });
+      void handleError(e, {
+        module: 'workspace:ProjectItemStore',
+        action: 'migrateFromLegacy',
+      });
       span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
       throw e;
     } finally {

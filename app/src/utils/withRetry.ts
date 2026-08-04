@@ -111,7 +111,10 @@ export async function withRetry<T>(
       return await fn();
     } catch (error: unknown) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      void handleError(lastError, { module: 'utils:retry', action: 'withRetry' });
+      void handleError(lastError, {
+        module: 'utils:retry',
+        action: 'withRetry',
+      });
 
       if (attempt === fullConfig.maxRetries) {
         throw lastError;
@@ -161,7 +164,10 @@ export async function withRetryAsync<T>(
     } catch (error: unknown) {
       state.lastError =
         error instanceof Error ? error : new Error(String(error));
-      void handleError(state.lastError, { module: 'utils:retry', action: 'withRetryAsync' });
+      void handleError(state.lastError, {
+        module: 'utils:retry',
+        action: 'withRetryAsync',
+      });
 
       if (attempt === fullConfig.maxRetries) {
         state.endTime = Date.now();

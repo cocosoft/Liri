@@ -74,7 +74,10 @@ export class AnalyticsPersistenceService {
       await appendFile(this.currentFile, line, { encoding: 'utf-8' });
       this.currentFileSize += line.length;
     } catch (error) {
-      void handleError(error, { module: 'analytics:persistence', action: 'persistEvent' });
+      void handleError(error, {
+        module: 'analytics:persistence',
+        action: 'persistEvent',
+      });
       logger.error('[AnalyticsPersistence] Failed to persist event:', error);
     }
   }
@@ -121,12 +124,18 @@ export class AnalyticsPersistenceService {
           if (options.endTime && event.timestamp > options.endTime) continue;
           results.push(event);
         } catch {
-          void handleError(new Error('JSON parse failed in queryEvents'), { module: 'analytics:persistence', action: 'queryEventsParse' });
+          void handleError(new Error('JSON parse failed in queryEvents'), {
+            module: 'analytics:persistence',
+            action: 'queryEventsParse',
+          });
           continue;
         }
       }
     } catch {
-      void handleError(new Error('Failed to read analytics log for queryEvents'), { module: 'analytics:persistence', action: 'queryEventsRead' });
+      void handleError(
+        new Error('Failed to read analytics log for queryEvents'),
+        { module: 'analytics:persistence', action: 'queryEventsRead' }
+      );
       return [];
     }
 
@@ -166,12 +175,18 @@ export class AnalyticsPersistenceService {
             stats.latestTimestamp = event.timestamp;
           }
         } catch {
-          void handleError(new Error('JSON parse failed in getStats'), { module: 'analytics:persistence', action: 'getStatsParse' });
+          void handleError(new Error('JSON parse failed in getStats'), {
+            module: 'analytics:persistence',
+            action: 'getStatsParse',
+          });
           continue;
         }
       }
     } catch {
-      void handleError(new Error('Failed to read analytics log for getStats'), { module: 'analytics:persistence', action: 'getStatsRead' });
+      void handleError(new Error('Failed to read analytics log for getStats'), {
+        module: 'analytics:persistence',
+        action: 'getStatsRead',
+      });
       return stats;
     }
 

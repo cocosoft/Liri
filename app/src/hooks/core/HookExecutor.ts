@@ -77,7 +77,10 @@ export class HookExecutor {
         durationMs,
       };
     } catch (error) {
-      void handleError(error, { module: 'hooks:executor', action: 'executeHook' });
+      void handleError(error, {
+        module: 'hooks:executor',
+        action: 'executeHook',
+      });
       const durationMs = Date.now() - startTime;
       const errorResult: HookResult = {
         success: false,

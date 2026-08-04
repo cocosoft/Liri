@@ -185,7 +185,10 @@ export class PostSamplingHookManager {
         error instanceof Error ? error.message : String(error);
 
       this.log(`Hook ${hookItem.name} failed: ${errorMessage}`);
-      void handleError(error, { module: 'hooks:postsampling', action: 'executeSingleHook' });
+      void handleError(error, {
+        module: 'hooks:postsampling',
+        action: 'executeSingleHook',
+      });
 
       return {
         hookName: hookItem.name,

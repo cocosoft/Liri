@@ -348,7 +348,10 @@ export class ConfigService extends EventEmitter {
         await updateFn();
         this.emit('hotUpdateComplete');
       } catch (error) {
-        void handleError(error, { module: 'chronos:config', action: 'hotUpdate' });
+        void handleError(error, {
+          module: 'chronos:config',
+          action: 'hotUpdate',
+        });
         this.emit('hotUpdateError', error);
       }
     }, intervalMs);

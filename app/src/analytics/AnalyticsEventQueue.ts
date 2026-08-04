@@ -119,7 +119,10 @@ export class AnalyticsEventQueue {
           this.sink.logEvent(event.eventName, event.metadata);
         }
       } catch (error) {
-        void handleError(error instanceof Error ? error : new Error(String(error)), { module: 'analytics:queue', action: 'drainQueue' });
+        void handleError(
+          error instanceof Error ? error : new Error(String(error)),
+          { module: 'analytics:queue', action: 'drainQueue' }
+        );
         logger.error('Error processing analytics event:', error);
       }
     }

@@ -100,7 +100,10 @@ export class ChronosRemoteTrigger {
           durationMs: Date.now() - startTime,
         };
       } catch (error) {
-        void handleError(error, { module: 'chronos:remote', action: 'triggerTask' });
+        void handleError(error, {
+          module: 'chronos:remote',
+          action: 'triggerTask',
+        });
         return {
           success: false,
           taskId,
@@ -198,7 +201,10 @@ export class PushNotificationService {
       }
       return this.sendLinuxNotification(options);
     } catch (e) {
-      void handleError(new Error('发送通知失败'), { module: 'chronos:remote', action: 'sendNotification' });
+      void handleError(new Error('发送通知失败'), {
+        module: 'chronos:remote',
+        action: 'sendNotification',
+      });
       return false;
     }
   }
@@ -215,7 +221,10 @@ export class PushNotificationService {
       await execAsync(command);
       return true;
     } catch (e) {
-      void handleError(new Error('Windows通知发送失败'), { module: 'chronos:remote', action: 'sendWindowsNotification' });
+      void handleError(new Error('Windows通知发送失败'), {
+        module: 'chronos:remote',
+        action: 'sendWindowsNotification',
+      });
       return false;
     }
   }
@@ -232,7 +241,10 @@ export class PushNotificationService {
       await execAsync(command);
       return true;
     } catch (e) {
-      void handleError(new Error('Mac通知发送失败'), { module: 'chronos:remote', action: 'sendMacNotification' });
+      void handleError(new Error('Mac通知发送失败'), {
+        module: 'chronos:remote',
+        action: 'sendMacNotification',
+      });
       return false;
     }
   }
@@ -248,7 +260,10 @@ export class PushNotificationService {
       await execAsync(command);
       return true;
     } catch (e) {
-      void handleError(new Error('Linux通知发送失败'), { module: 'chronos:remote', action: 'sendLinuxNotification' });
+      void handleError(new Error('Linux通知发送失败'), {
+        module: 'chronos:remote',
+        action: 'sendLinuxNotification',
+      });
       return false;
     }
   }

@@ -104,7 +104,10 @@ export class WebhookManager extends EventEmitter {
 
         lastError = `HTTP ${result.statusCode}`;
       } catch (error) {
-        void handleError(error, { module: 'chronos:webhook', action: 'sendRequest' });
+        void handleError(error, {
+          module: 'chronos:webhook',
+          action: 'sendRequest',
+        });
         lastError = error instanceof Error ? error.message : String(error);
 
         const errorEvent: WebhookEvent = {

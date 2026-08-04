@@ -404,15 +404,13 @@ export function createCronScheduler(
 
     if (!isOwner) {
       lockProbeTimer = setInterval(async () => {
-        const owned = await tryAcquireSchedulerLock(lockOpts).catch(
-          () => {
-            void handleError(new Error('获取调度器锁失败(probe)'), {
-              module: 'chronos:scheduler',
-              action: 'enable.lockProbe',
-            });
-            return false;
-          }
-        );
+        const owned = await tryAcquireSchedulerLock(lockOpts).catch(() => {
+          void handleError(new Error('获取调度器锁失败(probe)'), {
+            module: 'chronos:scheduler',
+            action: 'enable.lockProbe',
+          });
+          return false;
+        });
         if (stopped) {
           if (owned) void releaseSchedulerLock(lockOpts);
           return;

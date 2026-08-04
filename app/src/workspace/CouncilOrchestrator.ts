@@ -600,9 +600,7 @@ export class CouncilOrchestrator {
       };
     } catch (_err) {
       void handleError(
-        _err instanceof Error
-          ? _err
-          : new Error('Consensus JSON parse failed'),
+        _err instanceof Error ? _err : new Error('Consensus JSON parse failed'),
         { module: 'workspace:council', action: 'parseConsensusResponse' }
       );
       logger.warn('Consensus JSON 解析失败，使用文本回退');

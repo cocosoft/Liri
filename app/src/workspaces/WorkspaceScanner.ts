@@ -79,7 +79,10 @@ function readCached(filePath: string): WorkspaceFile | null {
       truncated,
     };
   } catch (_err) {
-    void handleError(new Error('readCached'), { module: 'workspaces:scanner', action: 'readCached' });
+    void handleError(new Error('readCached'), {
+      module: 'workspaces:scanner',
+      action: 'readCached',
+    });
     return null;
   }
 }
@@ -115,7 +118,10 @@ function readAgentsDir(dir: string): WorkspaceFile[] {
       if (file) files.push(file);
     }
   } catch (_err) {
-    void handleError(new Error('readAgentsDir'), { module: 'workspaces:scanner', action: 'readAgentsDir' });
+    void handleError(new Error('readAgentsDir'), {
+      module: 'workspaces:scanner',
+      action: 'readAgentsDir',
+    });
     // directory not accessible
   }
   return files;

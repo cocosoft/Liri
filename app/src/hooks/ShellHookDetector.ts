@@ -330,7 +330,10 @@ export class ShellHookDetector {
 
         return output.split('\n')[1]?.trim() || '';
       } catch (error) {
-        handleError(error, { module: 'hooks:shell', action: 'getParentProcessName' });
+        handleError(error, {
+          module: 'hooks:shell',
+          action: 'getParentProcessName',
+        });
         return '';
       }
     }
@@ -343,7 +346,10 @@ export class ShellHookDetector {
 
       return output.trim();
     } catch (error) {
-      handleError(error, { module: 'hooks:shell', action: 'getParentProcessName' });
+      handleError(error, {
+        module: 'hooks:shell',
+        action: 'getParentProcessName',
+      });
       return '';
     }
   }

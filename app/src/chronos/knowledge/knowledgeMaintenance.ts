@@ -114,7 +114,10 @@ export async function runKnowledgeMaintenance(): Promise<KnowledgeMaintenanceRes
       await digestService.buildDigest();
       result.digestUpdated = true;
     } catch (err) {
-      void handleError(new Error('摘要缓存更新失败'), { module: 'chronos:knowledge', action: 'buildDigest' });
+      void handleError(new Error('摘要缓存更新失败'), {
+        module: 'chronos:knowledge',
+        action: 'buildDigest',
+      });
       logger.warning('摘要缓存更新失败，跳过');
     }
 
@@ -129,7 +132,10 @@ export async function runKnowledgeMaintenance(): Promise<KnowledgeMaintenanceRes
         });
       }
     } catch (err) {
-      void handleError(new Error('知识库健康检查失败'), { module: 'chronos:knowledge', action: 'lint' });
+      void handleError(new Error('知识库健康检查失败'), {
+        module: 'chronos:knowledge',
+        action: 'lint',
+      });
       // 健康检查失败不阻止主流程
     }
 
@@ -145,7 +151,10 @@ export async function runKnowledgeMaintenance(): Promise<KnowledgeMaintenanceRes
       durationMs: result.durationMs,
     });
   } catch (error) {
-    void handleError(error, { module: 'chronos:knowledge', action: 'runMaintenance' });
+    void handleError(error, {
+      module: 'chronos:knowledge',
+      action: 'runMaintenance',
+    });
     result.errors.push(error instanceof Error ? error.message : String(error));
     result.durationMs = Date.now() - startTime;
     logger.error('知识库维护失败', { error: result.errors[0] });

@@ -46,7 +46,10 @@ export function decodeToken(token: string): TokenPayload | null {
     if (parts.length !== 3) return null;
     return JSON.parse(base64Decode(parts[1]));
   } catch {
-    void handleError(new Error('Failed to decode JWT token'), { module: 'bridge:jwtutil', action: 'decodeToken' });
+    void handleError(new Error('Failed to decode JWT token'), {
+      module: 'bridge:jwtutil',
+      action: 'decodeToken',
+    });
     return null;
   }
 }

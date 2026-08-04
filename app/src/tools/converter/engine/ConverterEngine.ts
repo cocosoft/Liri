@@ -1,4 +1,5 @@
 import { Logger } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type {
   ConversionResult,
   ConversionContext,
@@ -27,6 +28,9 @@ import { RssConverter } from '../converters/RssConverter';
 import { OutlookMsgConverter } from '../converters/OutlookMsgConverter';
 
 const logger = new Logger({ module: 'tools:converter:engine' });
+
+/** 文件转换大小上限：超过则拒绝转换，避免大文件解析导致内存/CPU 耗尽（死机） */
+const MAX_CONVERT_FILE_SIZE = 50 * 1024 * 1024;
 
 export class ConverterEngine {
   private static instance: ConverterEngine;
@@ -94,6 +98,17 @@ export class ConverterEngine {
     this.ensureInitialized();
     const fs = await import('fs');
     const stats = fs.statSync(filePath);
+
+    if (stats.size > MAX_CONVERT_FILE_SIZE) {
+      const sizeMB = (stats.size / 1024 / 1024).toFixed(1);
+      throw new AppError(
+        `文件过大（${sizeMB}MB），超过转换上限 ${MAX_CONVERT_FILE_SIZE / 1024 / 1024}MB，请拆分文件或转换为文本格式`,
+        ErrorCategory.FILESYSTEM,
+        ErrorSeverity.HIGH,
+        'FILE_TOO_LARGE',
+        { context: { path: filePath, size: stats.size } }
+      );
+    }
 
     const fileInfo = this.detector.detect(filePath, stats.size);
     const content = fs.readFileSync(filePath);

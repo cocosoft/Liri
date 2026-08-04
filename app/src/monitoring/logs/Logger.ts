@@ -122,15 +122,26 @@ async function flushFileBuffer(filePath: string): Promise<void> {
   const lines = buffer.splice(0);
   fileWriteBuffers.delete(filePath);
 
-  try {
-    await appendFile(filePath, lines.join('\n') + '\n', 'utf-8');
-  } catch (err) {
-    // 文件写入失败时静默处理
+  const writeLines = (): Promise<void> =>
+    appendFile(filePath, lines.join('\n') + '\n', 'utf-8');
 
-    console.warn('Logger file write failed', {
-      context: '文件写入失败时静默处理',
-      error: err instanceof Error ? err.message : String(err),
-    });
+  try {
+    await writeLines();
+  } catch (err) {
+    // appendFile 不会创建父目录 — 目录缺失时先创建再重试一次，避免日志静默丢失
+    try {
+      const { dirname } = await import('path');
+      const { mkdir } = await import('fs/promises');
+      await mkdir(dirname(filePath), { recursive: true });
+      await writeLines();
+    } catch (retryErr) {
+      // 文件写入失败时静默处理
+      // @ignore-catch: 日志写入失败不应影响主流程
+      console.warn('Logger file write failed', {
+        context: '文件写入失败时静默处理',
+        error: retryErr instanceof Error ? retryErr.message : String(retryErr),
+      });
+    }
   }
 }
 

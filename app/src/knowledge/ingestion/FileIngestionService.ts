@@ -1,5 +1,10 @@
 /**
- * FileIngestionService - 文件自动摄取服务
+ * 摄取大小上限：超过则跳过，避免大文件复制/元数据写入拖垮并发上传（6 个附件同时摄取）
+ */
+const MAX_INGEST_FILE_SIZE = 50 * 1024 * 1024;
+
+/**
+ * 文件自动摄取服务
  * 当文件被读取或上传时，自动将其内容整理到知识库 raw/ 目录，
  * 为后续 KnowledgeCompiler 编译和做梦整理提供原料。
  */
@@ -283,6 +288,20 @@ export class FileIngestionService {
       await mkdir(this.rawDir, { recursive: true });
 
       const fileName = basename(resolvedPath);
+
+      // 大文件跳过摄取（避免大文件复制 + 元数据写入拖垮并发上传）
+      const ingestStats = await stat(resolvedPath).catch(() => null);
+      if (ingestStats && ingestStats.size > MAX_INGEST_FILE_SIZE) {
+        return {
+          success: false,
+          rawPath: '',
+          fileName,
+          category: 'other',
+          action: 'skipped',
+          error: '文件过大，跳过知识库摄取',
+        };
+      }
+
       const rawTargetPath = join(this.rawDir, fileName);
 
       if (!options.force && existsSync(rawTargetPath)) {

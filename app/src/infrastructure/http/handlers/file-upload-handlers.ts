@@ -32,6 +32,9 @@ import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
 
 // ========== File Upload Handlers ==========
 
+/** 上传文件大小上限：超过拒绝，避免大文件 base64 解码/写盘导致内存耗尽 */
+const MAX_UPLOAD_SIZE = 100 * 1024 * 1024;
+
 /**
  * 处理文件上传请求
  * 遵循「用户上传文件仅保存到用户目录」规则，使用 AttachmentManager 保存到 ~/.pyapp/attachments/
@@ -54,6 +57,18 @@ export async function handleFileUpload(
       return;
     }
     const buffer = Buffer.from(data, 'base64');
+    if (buffer.length > MAX_UPLOAD_SIZE) {
+      const sizeMB = (buffer.length / 1024 / 1024).toFixed(1);
+      res.writeHead(413, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: `文件过大（${sizeMB}MB），超过上传上限 ${MAX_UPLOAD_SIZE / 1024 / 1024}MB`,
+          },
+        })
+      );
+      return;
+    }
     const safeName = path.basename(filename);
     // 使用 AttachmentManager 保存到用户附件目录（第三层：~/.pyapp/attachments/）
     const attachment = attachmentManager.saveAttachment(

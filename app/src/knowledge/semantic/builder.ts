@@ -34,7 +34,7 @@ import type { ChunkOptions } from './chunker';
 import { globalEmbeddingManager } from '@modules/ai';
 import { SemanticStore, readIndexMeta, wipeStoreFiles } from './store';
 import type { IndexEntry } from './store';
-import { resolveDataSubDir } from '@modules/core';
+import { resolveDataSubDir, resolvePyappHome } from '@modules/core';
 
 const logger = new Logger({ module: 'knowledge:semantic:builder' });
 
@@ -80,6 +80,9 @@ export class IndexBuilder {
     const incremental = config.incremental ?? true;
     const embedProvider = config.embedProvider ?? 'local';
     const embedModel = config.embedModel ?? 'nomic-embed-text';
+    // rootDir 空/缺失时兜底到用户数据目录，
+    // 避免 path.resolve('') 落到进程工作目录（项目根）误扫海量文件（曾产出 50 万 chunk）
+    const rootDir = config.rootDir || resolvePyappHome();
 
     // 确保 EmbeddingManager 已初始化
     await globalEmbeddingManager.initialize();
@@ -88,7 +91,7 @@ export class IndexBuilder {
       // Phase 1: 分块
       config.onProgress?.('chunking', 0, 1);
       const chunkOpts = config.chunkOptions ?? {};
-      const chunks = await chunkDirectory(config.rootDir, chunkOpts);
+      const chunks = await chunkDirectory(rootDir, chunkOpts);
       config.onProgress?.('chunking', chunks.length, chunks.length);
 
       if (chunks.length === 0) {
@@ -144,13 +147,20 @@ export class IndexBuilder {
       const embeddings: Array<Float32Array | null> = [];
       let embeddedCount = 0;
 
+      // 连续失败熔断：embedding 服务不可用（如 Ollama 未启动）时，
+      // 中止构建而非对全部 chunk 逐个无效调用，避免日志刷屏与长时间空转
+      const MAX_CONSECUTIVE_EMBED_FAILURES = 5;
+      let consecutiveEmbedFailures = 0;
+
       for (let i = 0; i < texts.length; i++) {
         try {
           const vec = await globalEmbeddingManager.embedOne(texts[i]!);
           if (vec && vec.length > 0) {
             embeddings.push(new Float32Array(vec));
+            consecutiveEmbedFailures = 0;
           } else {
             embeddings.push(null);
+            consecutiveEmbedFailures++;
           }
         } catch (err) {
           logger.warn('Embedding failed for chunk', {
@@ -158,9 +168,27 @@ export class IndexBuilder {
             error: String(err),
           });
           embeddings.push(null);
+          consecutiveEmbedFailures++;
         }
 
         config.onProgress?.('embedding', i + 1, texts.length);
+
+        if (consecutiveEmbedFailures >= MAX_CONSECUTIVE_EMBED_FAILURES) {
+          const abortMsg =
+            `语义索引构建中止：embedding 连续失败 ${MAX_CONSECUTIVE_EMBED_FAILURES} 次` +
+            '（嵌入服务不可用，如 Ollama 未启动或嵌入模型未配置）。' +
+            `已处理 ${i + 1}/${texts.length} 条，未写入索引。`;
+          logger.error(abortMsg);
+          return {
+            ok: false,
+            chunkCount: chunks.length,
+            embeddedCount,
+            skippedCount,
+            durationMs: Date.now() - t0,
+            indexDir,
+            error: abortMsg,
+          };
+        }
       }
 
       // Phase 4: 组装条目

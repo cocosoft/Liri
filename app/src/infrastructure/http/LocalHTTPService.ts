@@ -7089,6 +7089,8 @@ export class LocalHTTPService {
         incremental,
         embedProvider: 'local',
         onProgress: (phase, done, total) => {
+          // 进度日志节流：embedding 阶段每 100 条或最后一条才记录，避免高频刷屏
+          if (phase === 'embedding' && done < total && done % 100 !== 0) return;
           logger.info(`Semantic index building: ${phase} ${done}/${total}`);
         },
       });

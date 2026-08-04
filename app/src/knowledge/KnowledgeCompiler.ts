@@ -130,7 +130,8 @@ export class KnowledgeCompiler {
     // 编译模型解析：显式通过模型路由（DB 唯一事实来源）解析，
     // 避免回退到 ProviderRegistry 默认 provider 的不可控默认模型
     // （曾导致无效模型名 Pro/moonshotai/Kimi-K2.6 调 SiliconFlow 端点 400）
-    const resolvedModel = model || (await modelRouter.resolveAsync('quick')) || undefined;
+    const resolvedModel =
+      model || (await modelRouter.resolveAsync('quick')) || undefined;
 
     const result: CompileResult = {
       compiled: 0,

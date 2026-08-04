@@ -50,9 +50,9 @@ export function ProviderRankTable({
                 <span className="text-gray-800 dark:text-gray-200">
                   {p.providerName}
                 </span>
-                {p.successRate != null && p.successRate < 1 && (
+                {p.successRate != null && p.successRate < 100 && (
                   <span className="text-xs text-gray-400">
-                    {(p.successRate * 100).toFixed(0)}%
+                    {p.successRate.toFixed(0)}%
                   </span>
                 )}
               </div>

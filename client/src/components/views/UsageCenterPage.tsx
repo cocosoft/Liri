@@ -365,7 +365,7 @@ export default function UsageCenterPage() {
                   <div className="p-3 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                     <p className="text-xs text-gray-500">成功率</p>
                     <p className="text-lg font-semibold">
-                      {(usageData.successRate * 100).toFixed(1)}%
+                      {usageData.successRate.toFixed(1)}%
                     </p>
                   </div>
                 </div>

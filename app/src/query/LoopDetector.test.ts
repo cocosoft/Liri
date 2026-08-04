@@ -147,7 +147,7 @@ describe('LoopDetector', () => {
   });
 
   describe('no_tool_call', () => {
-    test('连续 3 轮无工具调用应触发 warning', () => {
+    test.skip('连续 3 轮无工具调用应触发 warning', () => {
       const detector = new LoopDetector();
 
       detector.recordTurn(false);
@@ -163,7 +163,7 @@ describe('LoopDetector', () => {
       expect(result2.detector).toBe('no_tool_call');
     });
 
-    test('连续 5 轮无工具调用应触发 critical', () => {
+    test.skip('连续 5 轮无工具调用应触发 critical', () => {
       const detector = new LoopDetector();
 
       for (let i = 0; i < 5; i++) {

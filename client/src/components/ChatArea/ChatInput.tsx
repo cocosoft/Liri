@@ -789,7 +789,8 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
       if (/\s/.test(value[i])) break;
     }
 
-    const hasMentionItems = sessionFiles.length > 0 || projectMentionItems.length > 0;
+    const hasMentionItems =
+      sessionFiles.length > 0 || projectMentionItems.length > 0;
     if (atPos >= 0 && hasMentionItems) {
       const query = value.slice(atPos + 1, cursorPos);
       if (!query.includes(" ")) {

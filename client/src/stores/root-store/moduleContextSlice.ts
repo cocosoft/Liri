@@ -1,10 +1,10 @@
 /**
  * ModuleContext Slice
  *
- * 统一管理当前模块上下文，替代 currentWorktreeId 承担"模块路由"职责。
- * currentWorktreeId 降级为内部兼容字段，仅保留工作空间联动功能。
+ * 统一管理当前模块上下文，替代 currentWorkspaceId 承担"模块路由"职责。
+ * currentWorkspaceId 降级为内部兼容字段，仅保留工作空间联动功能。
  *
- * enterModule 为唯一入口，switchWorktree 不再对外暴露。
+ * enterModule 为唯一入口，switchWorkspace 不再对外暴露。
  */
 
 import type { StateCreator } from "zustand";
@@ -50,8 +50,8 @@ export interface ModuleContextActions {
 
 // ─── Helpers ─────────────────────────────────────────────
 
-/** 从 worktreeId 推断 moduleType（仅用于迁移兜底 + Hub 缺失时的侧栏过滤） */
-export function inferModuleTypeFromWorktreeId(wtId: string): ModuleType {
+/** 从 workspaceId 推断 moduleType（仅用于迁移兜底 + Hub 缺失时的侧栏过滤） */
+export function inferModuleTypeFromWorkspaceId(wtId: string): ModuleType {
   if (wtId === "chat" || !wtId) return "chat";
   if (wtId.startsWith("project-") || wtId === "projects") return "project";
   const systemMap: Record<string, ModuleType> = {
@@ -64,13 +64,13 @@ export function inferModuleTypeFromWorktreeId(wtId: string): ModuleType {
   return systemMap[wtId] ?? "chat";
 }
 
-/** 判断 worktreeId 是否属于 project 类 */
-export function isProjectWorktree(wtId: string): boolean {
+/** 判断 workspaceId 是否属于 project 类 */
+export function isProjectWorkspace(wtId: string): boolean {
   return wtId.startsWith("project-") || wtId === "projects";
 }
 
-/** 统一 worktreeId 解析（显式入参，不依赖 get() 隐式读取） */
-export function resolveWorktreeId(
+/** 统一 workspaceId 解析（显式入参，不依赖 get() 隐式读取） */
+export function resolveWorkspaceId(
   moduleType: ModuleType,
   projectId?: string,
 ): string {
@@ -92,44 +92,44 @@ export const createModuleContextSlice: StateCreator<
   [],
   ModuleContextState & ModuleContextActions
 > = (set, get) => ({
-    moduleContext: {
-      moduleType: "chat",
-      updatedAt: 0,
-    },
-    _contextReady: false,
-    _loadToken: 0,
+  moduleContext: {
+    moduleType: "chat",
+    updatedAt: 0,
+  },
+  _contextReady: false,
+  _loadToken: 0,
 
-    enterModule: (ctx) => {
-      const prev = get().moduleContext;
+  enterModule: (ctx) => {
+    const prev = get().moduleContext;
 
-      // 幂等：同一模块 + 同项目 + 同项目名 + 同会话，不重复切换
-      if (
-        prev.moduleType === ctx.moduleType &&
-        prev.projectId === ctx.projectId &&
-        prev.projectName === ctx.projectName &&
-        prev.sessionId === ctx.sessionId
-      ) {
-        return;
-      }
+    // 幂等：同一模块 + 同项目 + 同项目名 + 同会话，不重复切换
+    if (
+      prev.moduleType === ctx.moduleType &&
+      prev.projectId === ctx.projectId &&
+      prev.projectName === ctx.projectName &&
+      prev.sessionId === ctx.sessionId
+    ) {
+      return;
+    }
 
-      const loadToken = Date.now();
-      set({
-        moduleContext: { ...ctx, updatedAt: loadToken },
-        _contextReady: true,
-        _loadToken: loadToken,
-        // 向后兼容：同步 currentWorktreeId
-        currentWorktreeId: resolveWorktreeId(ctx.moduleType, ctx.projectId),
-      } as unknown as Partial<ModuleContextState>);
-    },
+    const loadToken = Date.now();
+    set({
+      moduleContext: { ...ctx, updatedAt: loadToken },
+      _contextReady: true,
+      _loadToken: loadToken,
+      // 向后兼容：同步 currentWorkspaceId
+      currentWorkspaceId: resolveWorkspaceId(ctx.moduleType, ctx.projectId),
+    } as unknown as Partial<ModuleContextState>);
+  },
 
-    leaveModule: () => {
-      set({ _contextReady: false } as Partial<ModuleContextState>);
-    },
+  leaveModule: () => {
+    set({ _contextReady: false } as Partial<ModuleContextState>);
+  },
 
-    setSessionId: (sessionId) => {
-      const prev = get().moduleContext;
-      set({
-        moduleContext: { ...prev, sessionId, updatedAt: Date.now() },
-      } as Partial<ModuleContextState>);
-    },
-  });
+  setSessionId: (sessionId) => {
+    const prev = get().moduleContext;
+    set({
+      moduleContext: { ...prev, sessionId, updatedAt: Date.now() },
+    } as Partial<ModuleContextState>);
+  },
+});

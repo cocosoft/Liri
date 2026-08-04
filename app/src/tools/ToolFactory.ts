@@ -134,6 +134,9 @@ import {
   BroadcastTool,
   createBroadcastTool,
 } from './BroadcastTool/BroadcastTool';
+import { CreateProjectTool } from './CreateProjectTool/CreateProjectTool';
+import { ReadProjectFileTool } from './ReadProjectFileTool/ReadProjectFileTool';
+import { WriteProjectFileTool } from './WriteProjectFileTool/WriteProjectFileTool';
 import { TraceRecordingTool } from './TraceRecordingTool/TraceRecordingTool.js';
 import {
   sendNotification,
@@ -1032,6 +1035,23 @@ export class ToolFactory {
    */
   createBroadcastTool(): Tool {
     return new BroadcastTool();
+  }
+
+  /**
+   * 创建 create_project 工具实例
+   */
+  createProjectTool(): Tool {
+    return CreateProjectTool.create();
+  }
+
+  /** 创建 read_project_file 工具实例 */
+  createReadProjectFileTool(): Tool {
+    return ReadProjectFileTool.create();
+  }
+
+  /** 创建 write_project_file 工具实例 */
+  createWriteProjectFileTool(): Tool {
+    return WriteProjectFileTool.create();
   }
 }
 

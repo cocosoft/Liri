@@ -12,12 +12,29 @@
  */
 
 import { join } from 'path';
-import { existsSync, mkdirSync, appendFileSync, readFileSync, readdirSync } from 'fs';
+import {
+  existsSync,
+  mkdirSync,
+  appendFileSync,
+  readFileSync,
+  readdirSync,
+} from 'fs';
 import { resolveDataSubDir } from '@modules/core';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({
+  module: 'project:HistoryStore',
+  level: LogLevel.INFO,
+});
 
 const HISTORY_ROOT = join(resolveDataSubDir('history'));
 
-export type HistoryEntryType = 'message' | 'decision' | 'tool_call' | 'pdca_phase' | 'context_change';
+export type HistoryEntryType =
+  | 'message'
+  | 'decision'
+  | 'tool_call'
+  | 'pdca_phase'
+  | 'context_change';
 
 export interface HistoryEntry {
   /** 时间戳 */
@@ -88,9 +105,14 @@ export class ProjectHistoryStore {
             const entry = JSON.parse(line) as HistoryEntry;
             if (since && entry.ts < since) continue;
             entries.push(entry);
-          } catch { /* skip malformed line */ }
+          } catch {
+            /* skip malformed line */
+          }
         }
-      } catch { /* skip unreadable file */ }
+      } catch {
+        /* skip unreadable file */
+        logger.warn('读取历史文件失败', { file });
+      }
     }
 
     return entries;
@@ -111,22 +133,26 @@ export class ProjectHistoryStore {
       groups.set(key, group);
     }
 
-    return Array.from(groups.entries()).map(([sessionId, items]) => {
-      const dates = [...new Set(items.map((i) => i.ts.slice(0, 10)))].sort().reverse();
-      return {
-        sessionId,
-        dates,
-        itemCount: items.length,
-        // L1 摘要：取最近3条非内部记录的 summary
-        summary: items
-          .filter((i) => !i.internal)
-          .slice(-3)
-          .map((i) => i.summary)
-          .join(' | '),
-        // L2 详情：全部记录（内部轨迹标记 internal=true，默认隐藏）
-        items: items.reverse(),
-      };
-    }).sort((a, b) => b.dates[0]?.localeCompare(a.dates[0] || '') || 0);
+    return Array.from(groups.entries())
+      .map(([sessionId, items]) => {
+        const dates = [...new Set(items.map((i) => i.ts.slice(0, 10)))]
+          .sort()
+          .reverse();
+        return {
+          sessionId,
+          dates,
+          itemCount: items.length,
+          // L1 摘要：取最近3条非内部记录的 summary
+          summary: items
+            .filter((i) => !i.internal)
+            .slice(-3)
+            .map((i) => i.summary)
+            .join(' | '),
+          // L2 详情：全部记录（内部轨迹标记 internal=true，默认隐藏）
+          items: items.reverse(),
+        };
+      })
+      .sort((a, b) => b.dates[0]?.localeCompare(a.dates[0] || '') || 0);
   }
 }
 
@@ -139,6 +165,8 @@ export interface HistoryGroup {
 }
 
 /** 便捷工厂 */
-export function createProjectHistoryStore(projectId: string): ProjectHistoryStore {
+export function createProjectHistoryStore(
+  projectId: string
+): ProjectHistoryStore {
   return new ProjectHistoryStore(projectId);
 }

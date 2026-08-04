@@ -704,9 +704,9 @@ export const createMessageSlice: StateCreator<
             const args = chunk.toolCall.arguments as
               Record<string, unknown> | undefined;
             if (args?.action === "write" && args?.todos) {
-            const todos = Array.isArray(args.todos)
-              ? (args.todos as Array<Record<string, unknown>>)
-              : [];
+              const todos = Array.isArray(args.todos)
+                ? (args.todos as Array<Record<string, unknown>>)
+                : [];
               const tasks = todos.map((t, idx) => ({
                 id: String(t.id || idx + 1),
                 name: String(t.name || t.content || `步骤 ${idx + 1}`),
@@ -773,6 +773,15 @@ export const createMessageSlice: StateCreator<
               );
             }
           }
+
+          // _meta 导航建议：create_project 完成后触发前端提示
+          if (chunk._meta?.action === "suggest_navigate") {
+            window.dispatchEvent(
+              new CustomEvent("pyapp:navigate-suggest", {
+                detail: chunk._meta,
+              }),
+            );
+          }
         } else if (chunk.type === "question" && chunk.questionData) {
           logger.debug("收到 question chunk", {
             questionId: chunk.questionData.questionId,
@@ -817,6 +826,15 @@ export const createMessageSlice: StateCreator<
             ...usageUpdate,
             blocks: blockBuilder.getBlocks(),
           };
+
+          // P0 增强：自动建项目后触发前端导航提示（_meta 在 usage 块中）
+          if (chunk._meta?.action === "suggest_navigate") {
+            window.dispatchEvent(
+              new CustomEvent("pyapp:navigate-suggest", {
+                detail: chunk._meta,
+              }),
+            );
+          }
         } else {
           updatedMsg = msg;
         }

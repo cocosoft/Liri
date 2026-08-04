@@ -21,7 +21,13 @@
 
 import type http from 'http';
 import { join } from 'path';
-import { mkdirSync, existsSync, writeFileSync, readFileSync, readdirSync } from 'fs';
+import {
+  mkdirSync,
+  existsSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+} from 'fs';
 import { resolveDataSubDir, resolvePyappHome } from '@modules/core';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
@@ -229,7 +235,12 @@ export async function handlePdcaStart(
     // 关联到项目（归属打通）
     if (projectId) {
       try {
-        const projPath = join(resolvePyappHome(), 'projects', projectId, 'project.json');
+        const projPath = join(
+          resolvePyappHome(),
+          'projects',
+          projectId,
+          'project.json'
+        );
         if (existsSync(projPath)) {
           const proj = JSON.parse(readFileSync(projPath, 'utf-8'));
           if (!proj.pdcaIds) proj.pdcaIds = [];

@@ -354,7 +354,11 @@ const voiceService = {
    *   响应格式: { namespace, value: VoiceSettings }
    */
   async getSettings(): Promise<VoiceSettings> {
-    const response = await http.get<{ namespace: string; value: VoiceSettings; success?: boolean }>("/v1/settings/voice");
+    const response = await http.get<{
+      namespace: string;
+      value: VoiceSettings;
+      success?: boolean;
+    }>("/v1/settings/voice");
     if (response?.value && response.value.config) {
       return response.value;
     }
@@ -370,10 +374,11 @@ const voiceService = {
   async updateSettings(
     settings: Partial<VoiceSettings>,
   ): Promise<VoiceSettings> {
-    const response = await http.put<{ success: boolean; value: VoiceSettings; namespace: string }>(
-      "/v1/settings/voice",
-      settings,
-    );
+    const response = await http.put<{
+      success: boolean;
+      value: VoiceSettings;
+      namespace: string;
+    }>("/v1/settings/voice", settings);
     // 新 API 返回 { success, namespace, value }，value 中即为 VoiceSettings
     if (response?.value && response.value.config) {
       return response.value;

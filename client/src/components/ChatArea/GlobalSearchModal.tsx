@@ -51,7 +51,7 @@ export default function GlobalSearchModal({
     () => Object.values(sessionsRecord),
     [sessionsRecord],
   );
-  const switchWorktree = useRootStore((s) => s.switchWorktree);
+  const switchWorkspace = useRootStore((s) => s.switchWorkspace);
   const switchSession = useSessionStore((s) => s.switchSession);
   const setActivePage = useNavigationStore((s) => s.setActivePage);
 
@@ -103,7 +103,7 @@ export default function GlobalSearchModal({
               messageCount: 0,
               roundCount: 0,
               // 携带归属信息
-              workspaceId: s.worktreeId,
+              workspaceId: s.workspaceId,
             }) as Session,
         ),
       );
@@ -158,7 +158,7 @@ export default function GlobalSearchModal({
 
         // P1-11: 先切换工作空间（如果有），再切换会话，再导航到正确模块
         if (session.workspaceId) {
-          await switchWorktree(session.workspaceId);
+          await switchWorkspace(session.workspaceId);
         }
         await switchSession(session.id);
         // 根据 workspaceId 确定目标页面
@@ -194,7 +194,7 @@ export default function GlobalSearchModal({
         otel.endSpan(span);
       }
     },
-    [switchSession, switchWorktree, setActivePage, onClose],
+    [switchSession, switchWorkspace, setActivePage, onClose],
   );
 
   /** 获取会话的归属显示信息 */

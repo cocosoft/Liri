@@ -466,7 +466,7 @@ export class CronJobStore {
           last_error = ?,
           last_delivery_error = ?,
           updated_at = ?
-      WHERE id = ? AND state = 'running'`;
+      WHERE id = ?`;
 
     return new Promise((resolve, reject) => {
       db.run(

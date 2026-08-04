@@ -46,7 +46,7 @@
 
 import type { AIProvider } from '../providers/AIProvider.js';
 import { ProviderRegistry } from '@modules/ai';
-import { ModelRouter } from '@modules/ai';
+import { ModelRouter, type PhaseContext } from '@modules/ai';
 import { JudgeService } from './JudgeService.js';
 import { TierResolver } from './TierResolver.js';
 import { SessionRouterStore } from './SessionRouterStore.js';
@@ -264,12 +264,15 @@ export class SmartRouter {
       message?: string;
       sessionId?: string;
       providerId?: string;
+      phaseContext?: PhaseContext;
     }
   ): Promise<RouteDecision> {
     // 开关关闭 → 全部回退 ModelRouter 静态路由
     if (!this.config.enabled) {
       const taskType = ROUTE_TO_TASK[route];
-      const model = this.modelRouter.resolve(taskType);
+      const model = options?.phaseContext
+        ? this.modelRouter.resolveWithPhase(taskType, options.phaseContext)
+        : this.modelRouter.resolve(taskType);
       return Promise.resolve({
         provider: options?.providerId ?? '',
         model,

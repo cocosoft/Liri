@@ -62,6 +62,11 @@ import { TaskFacade } from './facades/TaskFacade';
 const logger = new Logger({ module: 'chat:manager', level: LogLevel.INFO });
 import { SimpleMutex } from '@modules/core/SimpleMutex';
 import { ImplicitEngineHook } from '../project/ImplicitEngineHook';
+import { createProjectStore } from '../workspace/ProjectStore.js';
+import { WorkItemStore } from '../workspace/WorkItemStore.js';
+import { resolveDataDir } from '@modules/core/paths';
+import { writeFileSync } from 'fs';
+import { join } from 'path';
 
 import type { ChatManager } from './ChatManagerInterface.js';
 
@@ -2743,25 +2748,59 @@ export class ChatManagerImpl implements ChatManager {
     options?.onComplete?.(assistantMessage);
 
     // 隐性引擎钩子：项目会话的消息完成后，触发 Plan/Do/Check/Act 分析
-    const workspaceId = session.metadata?.workspaceId as string | undefined;
-    if (workspaceId && assistantMessage.content) {
+    // P0-4: 优先使用 projectId（项目上下文），兜底 workspaceId（UI 环境）
+    const contextId =
+      (session.metadata?.projectId as string | undefined) ??
+      (session.metadata?.workspaceId as string | undefined);
+    if (contextId && assistantMessage.content) {
       ImplicitEngineHook.persist(
-        workspaceId,
+        contextId,
         assistantMessage.content as string,
         undefined,
         session.id
-      ).then((result) => {
-        // 升级通道：检测到目标时自动发起完整 PDCA 循环（隐性模式，无需审批）
-        if (result.hasGoal) {
-          this._launchImplicitPdca(
-            workspaceId,
-            assistantMessage.content as string,
-            session.id
-          ).catch(() => {});
-        }
-      }).catch(() => {
-        /* 隐性引擎失败不阻塞消息流 */
-      });
+      )
+        .then((result) => {
+          // P0: 自动建项目 — 检测到 goal + deliverable 且会话未关联项目时自动创建
+          // P3-1: 用户消息含明确项目意图时降阈值为 1，否则保持 2
+          const userMessages =
+            session.messages?.filter((m) => m.role === 'user') ?? [];
+          const lastUserContent =
+            userMessages.length > 0
+              ? (((
+                  userMessages[userMessages.length - 1] as unknown as Record<
+                    string,
+                    unknown
+                  >
+                ).content as string) ?? '')
+              : '';
+          const hasExplicitIntent =
+            /(?:帮我|我要|我想|给我)\s*(?:做|开发|规划|设计|建|创建|写|整理|实现|搭建|部署)/.test(
+              lastUserContent
+            );
+          const deliverableThreshold = hasExplicitIntent ? 1 : 2;
+
+          if (
+            result.hasGoal &&
+            result.deliverables >= deliverableThreshold &&
+            !session.metadata?.projectId
+          ) {
+            this._autoCreateProject(session, contextId, result).catch(() => {
+              /* 自动建项目失败不阻塞消息流 */
+            });
+          }
+
+          // 升级通道：检测到目标时自动发起完整 PDCA 循环（仅显式 create_project 路径触发）
+          if (result.hasGoal && session.metadata?.projectId) {
+            this._launchImplicitPdca(
+              session.metadata.projectId as string,
+              assistantMessage.content as string,
+              session.id
+            ).catch(() => {});
+          }
+        })
+        .catch(() => {
+          /* 隐性引擎失败不阻塞消息流 */
+        });
     }
 
     // Phase 2: Telemetry + Trajectory 完成
@@ -2774,6 +2813,14 @@ export class ChatManagerImpl implements ChatManager {
         });
       }
     }
+
+    // S6: 会话摘要生成（异步，不阻塞消息流）
+    if (session.metadata?.projectId) {
+      this._generateSessionSummary(session, assistantMessage).catch(() => {
+        /* 摘要生成失败不阻塞 */
+      });
+    }
+
     if (this.ENABLE_TRAJECTORY) {
       try {
         trajectoryRecorder.recordStep(session.id, {
@@ -2806,7 +2853,7 @@ export class ChatManagerImpl implements ChatManager {
    * 隐性模式：requirePlanApproval=false，结果写入讨论记录（internal trail）
    */
   private async _launchImplicitPdca(
-    workspaceId: string,
+    projectId: string,
     description: string,
     sessionId: string
   ): Promise<void> {
@@ -2822,39 +2869,409 @@ export class ChatManagerImpl implements ChatManager {
         status: 'started',
         description,
         sessionId,
-        workspaceId,
+        workspaceId: projectId,
         autoLaunched: true,
       });
 
-      // 关联到项目 pdcaIds
+      // 关联到项目 pdcaIds（通过 ProjectStore 统一 API，不再硬编码路径）
       try {
-        const projPath = path.join(homedir(), '.pyapp', 'projects', workspaceId, 'project.json');
-        if (fs.existsSync(projPath)) {
-          const proj = JSON.parse(fs.readFileSync(projPath, 'utf-8'));
-          if (!proj.pdcaIds) proj.pdcaIds = [];
-          if (!proj.pdcaIds.includes(taskId)) {
-            proj.pdcaIds.push(taskId);
-            proj.updatedAt = now;
-            fs.writeFileSync(projPath, JSON.stringify(proj, null, 2), 'utf-8');
-          }
+        const dataDir = resolveDataDir();
+        const wiStore = new WorkItemStore(dataDir);
+        const pjStore = createProjectStore(dataDir, wiStore);
+        if (!pjStore.listPdcaIds(projectId).includes(taskId)) {
+          pjStore.addPdca(projectId, taskId);
         }
-      } catch { /* skip */ }
+      } catch {
+        /* skip */
+      }
 
       // 启动编排器（隐性模式：不需要审批，不打断用户）
       const { getOrCreateOrchestrator } =
         await import('../tasks/LongRunningTaskOrchestrator');
       const orchestrator = getOrCreateOrchestrator(taskId);
-      void orchestrator.runFullPdca(description, sessionId, {
-        requirePlanApproval: false,
-      }).catch((e) => {
-        logger.error('隐性 PDCA 执行失败', {
-          taskId,
-          workspaceId,
-          error: (e as Error)?.message ?? String(e),
+      void orchestrator
+        .runFullPdca(description, sessionId, {
+          requirePlanApproval: false,
+        })
+        .catch((e) => {
+          logger.error('隐性 PDCA 执行失败', {
+            taskId,
+            projectId,
+            error: (e as Error)?.message ?? String(e),
+          });
         });
-      });
     } catch {
       /* 隐性 PDCA 启动失败不影响主流程 */
+    }
+  }
+
+  /**
+   * P0 跨会话去重：提取关键词集合（归一化后分词）
+   */
+  private _extractKeywords(text: string): Set<string> {
+    if (!text) return new Set();
+    const normalized = text
+      .toLowerCase()
+      .replace(/[^a-z0-9\u4e00-\u9fff]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 1)
+      .slice(0, 10);
+    return new Set(normalized);
+  }
+
+  /**
+   * P3-2: Jaccard 相似度 — 替代精确 hash 匹配，语义相近项目可被识别
+   */
+  private _jaccardSimilarity(a: Set<string>, b: Set<string>): number {
+    if (a.size === 0 && b.size === 0) return 1;
+    if (a.size === 0 || b.size === 0) return 0;
+    let intersection = 0;
+    for (const k of a) {
+      if (b.has(k)) intersection++;
+    }
+    return intersection / (a.size + b.size - intersection);
+  }
+
+  /**
+   * P0: 自动建项目 — 检测到 goal + deliverables 时静默创建项目
+   * 不启动 PDCA，不打断用户，仅关联 session 并弹 toast 提示
+   */
+  private async _autoCreateProject(
+    session: ChatSession,
+    workspaceId: string | undefined,
+    result: { hasGoal: boolean; deliverables: number; goalSummary?: string }
+  ): Promise<void> {
+    try {
+      const dataDir = resolveDataDir();
+      const workItemStore = new WorkItemStore(dataDir);
+      const projectStore = createProjectStore(dataDir, workItemStore);
+
+      // 项目名：优先使用引擎提取的 goal 摘要，否则用产出物数生成默认名
+      const projectName =
+        result.goalSummary || `项目 ${result.deliverables} 个产出`;
+      const newKeywords = this._extractKeywords(projectName);
+      if (newKeywords.size > 0) {
+        const existingProjects = projectStore.list(workspaceId ?? 'default');
+        const matched = existingProjects.find((p) => {
+          const pKeywords = this._extractKeywords(p.description ?? p.name);
+          return this._jaccardSimilarity(newKeywords, pKeywords) >= 0.6;
+        });
+        if (matched) {
+          // 命中已有项目：关联 session，不新建
+          if (!session.metadata) {
+            (session as unknown as Record<string, unknown>).metadata = {};
+          }
+          session.metadata.projectId = matched.id;
+          logger.info('P0 跨会话去重 — 关联到已有项目', {
+            existingProjectId: matched.id,
+            sessionId: session.id,
+          });
+          return;
+        }
+      }
+
+      const project = projectStore.create({
+        workspaceId: workspaceId ?? 'default',
+        name: projectName,
+        description:
+          result.goalSummary || `自动创建：${result.deliverables} 个产出物`,
+        delaySandbox: true,
+      });
+
+      // 关联 session 到新项目
+      if (!session.metadata) {
+        (session as unknown as Record<string, unknown>).metadata = {};
+      }
+      session.metadata.projectId = project.id;
+
+      // S5b: 写入项目上下文文件（供 system prompt 读取）
+      // P0: 迁移已有 context/artifacts 到新项目目录
+      try {
+        const {
+          mkdirSync,
+          copyFileSync,
+          existsSync: _exists,
+        } = await import('fs');
+        const projDir = join(dataDir, 'projects', project.id);
+        mkdirSync(projDir, { recursive: true });
+        writeFileSync(
+          join(projDir, 'project-context.md'),
+          `## 项目上下文\n\n**名称**: ${project.name}\n**目标**: ${project.description}\n**文件夹**: ${project.sandboxPath}\n**创建时间**: ${project.createdAt}\n`,
+          'utf-8'
+        );
+
+        // P0 context 迁移：复制 ImplicitEngineHook 已写入的 rules/artifacts
+        // S2 上线前：物理复制（S2 后改为 items.db 引用）
+        if (workspaceId) {
+          const srcDir = join(homedir(), '.pyapp', 'projects', workspaceId);
+          for (const file of ['rules.md', 'artifacts.json']) {
+            const srcPath = join(srcDir, file);
+            const dstPath = join(projDir, file);
+            if (_exists(srcPath) && !_exists(dstPath)) {
+              copyFileSync(srcPath, dstPath);
+            }
+          }
+        }
+      } catch {
+        /* 写上下文文件失败不影响主流程 */
+      }
+
+      logger.info('P0 自动建项目', {
+        projectId: project.id,
+        sessionId: session.id,
+        deliverables: result.deliverables,
+      });
+
+      // P0 增强：通知前端导航到新项目
+      eventNotificationService.emitCustomEvent('project:auto_created', {
+        projectId: project.id,
+        name: project.name,
+      });
+      // P0b-3: 同步广播到全局 SSE 事件总线，前端 worktree 同步创建
+      try {
+        const { broadcastEvent } =
+          await import('../infrastructure/http/LocalHTTPServiceSSE');
+        broadcastEvent('project:auto_created', {
+          projectId: project.id,
+          name: project.name,
+        });
+      } catch {
+        /* SSE 广播失败不影响主流程 */
+      }
+    } catch (e) {
+      logger.warn('P0 自动建项目失败', {
+        error: (e as Error)?.message ?? String(e),
+      });
+    }
+  }
+
+  /**
+   * S6: 生成会话摘要 + 决策记录 + 阶段性小结
+   *
+   * 三级沉淀：
+   * 1. 会话摘要 — 每轮对话后生成，提取式 + 预留 LLM 接口
+   * 2. 决策记录 — 检测用户做出选择/决定时自动提取
+   * 3. 阶段性小结 — 同一项目累计 3 次会话摘要后触发
+   *
+   * 持久化到 projects/<id>/summaries.json
+   */
+  private async _generateSessionSummary(
+    session: ChatSession,
+    assistantMessage: Message
+  ): Promise<void> {
+    const messageCount = session.messages?.length ?? 0;
+    if (messageCount < 3) return;
+
+    try {
+      const projectId = session.metadata?.projectId as string | undefined;
+      if (!projectId) return;
+
+      // S2: 惰性迁移
+      try {
+        const { ProjectItemStore } =
+          await import('../workspace/ProjectItemStore.js');
+        const itemStore = new ProjectItemStore(projectId);
+        if (itemStore.needsMigration()) {
+          await itemStore.initialize();
+          const { migrated } = await itemStore.migrateFromLegacy();
+          if (migrated > 0) {
+            logger.info('S2 惰性迁移完成', { projectId, migrated });
+          }
+          await itemStore.close();
+        }
+      } catch {
+        /* 迁移失败不影响 */
+      }
+
+      const messages = session.messages ?? [];
+      let lastUserContent = '';
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === 'user') {
+          lastUserContent =
+            ((messages[i] as unknown as Record<string, unknown>)
+              .content as string) ?? '';
+          break;
+        }
+      }
+
+      const assistantContent =
+        typeof assistantMessage.content === 'string'
+          ? assistantMessage.content
+          : '';
+
+      // ─── 0. 5 分钟合并检查（避免重复 LLM 调用）───
+      const {
+        readFileSync: _readFs,
+        writeFileSync: _writeFs,
+        existsSync: _existsFs,
+        mkdirSync: _mkdirFs,
+      } = await import('fs');
+      const projDir = join(resolveDataDir(), 'projects', projectId);
+      if (!_existsFs(projDir)) {
+        _mkdirFs(projDir, { recursive: true });
+      }
+      const summariesPath = join(projDir, 'summaries.json');
+      interface SummaryEntry {
+        sessionId: string;
+        summary: string;
+        messageCount: number;
+        createdAt: string;
+        decision?: string;
+        phaseSummary?: boolean;
+      }
+      let summaries: SummaryEntry[] = [];
+      if (_existsFs(summariesPath)) {
+        try {
+          summaries = JSON.parse(_readFs(summariesPath, 'utf-8'));
+        } catch {
+          /* 重建 */
+        }
+      }
+
+      if (summaries.some((s) => s.sessionId === session.id)) return;
+
+      const lastSessionSummary = summaries
+        .filter((s) => !s.phaseSummary)
+        .slice(-1)[0];
+      if (lastSessionSummary) {
+        const lastTime = new Date(lastSessionSummary.createdAt).getTime();
+        if (Date.now() - lastTime < 5 * 60 * 1000) {
+          // 合并到上一条摘要：跳过 LLM 调用，仅更新消息计数
+          lastSessionSummary.messageCount += messageCount;
+          lastSessionSummary.createdAt = new Date().toISOString();
+          _writeFs(summariesPath, JSON.stringify(summaries, null, 2), 'utf-8');
+          logger.debug('S6 5分钟内连续会话，合并摘要（跳过 LLM）', {
+            sessionId: session.id,
+            mergedInto: lastSessionSummary.sessionId,
+          });
+          return;
+        }
+      }
+
+      // ─── 1. 会话摘要（LLM 优先，提取式兜底） ───
+      const userBrief = lastUserContent.slice(0, 500).replace(/\n/g, ' ');
+      const aiBrief = assistantContent.slice(0, 500).replace(/\n/g, ' ');
+
+      let summary = lastUserContent
+        ? `用户问"${userBrief.slice(0, 80)}${lastUserContent.length > 80 ? '...' : ''}" — AI 回应：${aiBrief.slice(0, 120)}${assistantContent.length > 120 ? '...' : ''}`
+        : aiBrief.slice(0, 200);
+
+      // 尝试 LLM 摘要
+      if (this.llmClient) {
+        try {
+          const llmResponse = await this.llmClient.chat([
+            {
+              role: 'system' as const,
+              content:
+                '你是一个项目助理。用1-2句话概括以下对话的核心内容（不含任何前缀，直接输出摘要）：',
+            },
+            {
+              role: 'user' as const,
+              content: `用户：${userBrief}\nAI：${aiBrief}`,
+            },
+          ]);
+          const llmSummary = (llmResponse.content as string)?.trim();
+          if (llmSummary && llmSummary.length > 5) {
+            summary = llmSummary;
+          }
+        } catch {
+          /* LLM 失败回退提取式 */
+        }
+      }
+
+      // ─── 2. 决策检测 ───
+      let decision: string | null = null;
+      const decisionKeywords =
+        /(决定|选择|采用|确定|选定)(?!不了|不下来|哪个|什么|谁|怎样|如何)/;
+      if (decisionKeywords.test(lastUserContent)) {
+        const decisionMatch = lastUserContent.match(
+          /(?:决定|选择|采用|确定|选定).{0,50}/
+        );
+        if (decisionMatch) {
+          decision = `用户决定：${decisionMatch[0].slice(0, 100)}`;
+        }
+      }
+
+      // ─── 3. 持久化 ───
+      const entry: SummaryEntry = {
+        sessionId: session.id,
+        summary,
+        messageCount,
+        createdAt: new Date().toISOString(),
+      };
+      if (decision) {
+        entry.decision = decision;
+      }
+      summaries.push(entry);
+
+      // ─── 3. 阶段性小结（3 次会话后触发） ───
+      const sessionSummaries = summaries.filter((s) => !s.phaseSummary);
+      if (sessionSummaries.length >= 3 && sessionSummaries.length % 3 === 0) {
+        const recentSummaries = sessionSummaries.slice(-3);
+        const phaseText = recentSummaries
+          .map((s, i) => `${i + 1}. ${s.summary}`)
+          .join('\n');
+
+        let phaseSummary = `项目阶段性小结（最近 ${recentSummaries.length} 次会话）：
+${phaseText}`;
+
+        // 尝试 LLM 生成综合摘要
+        if (this.llmClient) {
+          try {
+            const llmResponse = await this.llmClient.chat([
+              {
+                role: 'system' as const,
+                content:
+                  '你是一个项目助理。根据以下最近几次会话摘要，写一段3-5句话的项目阶段性小结，概括主要进展、关键决策和待办事项。',
+              },
+              { role: 'user' as const, content: phaseText },
+            ]);
+            const llmPhaseSummary = (llmResponse.content as string)?.trim();
+            if (llmPhaseSummary && llmPhaseSummary.length > 10) {
+              phaseSummary = `项目阶段性小结（最近 ${recentSummaries.length} 次会话）：
+
+${llmPhaseSummary}`;
+            }
+          } catch {
+            /* LLM 失败回退拼接 */
+          }
+        }
+
+        summaries.push({
+          sessionId: `phase_${Date.now()}`,
+          summary: phaseSummary,
+          messageCount: recentSummaries.reduce(
+            (sum, s) => sum + s.messageCount,
+            0
+          ),
+          createdAt: new Date().toISOString(),
+          phaseSummary: true,
+        });
+
+        logger.info('S6 阶段性小结已生成', {
+          projectId,
+          sessionCount: sessionSummaries.length,
+        });
+      }
+
+      if (summaries.length > 50) {
+        summaries = summaries.slice(-50);
+      }
+
+      _writeFs(summariesPath, JSON.stringify(summaries, null, 2), 'utf-8');
+
+      const hasDecision = decision ? ' + 决策' : '';
+      logger.info(`S6 会话摘要已生成${hasDecision}`, {
+        sessionId: session.id,
+        projectId,
+        messageCount,
+        totalSummaries: sessionSummaries.length + 1,
+      });
+    } catch (e) {
+      logger.warn('S6 会话摘要生成失败', {
+        sessionId: session.id,
+        error: (e as Error)?.message ?? String(e),
+      });
     }
   }
 
@@ -5177,12 +5594,13 @@ export class ChatManagerImpl implements ChatManager {
             );
           }
 
-          // 多媒体展示/生成完成后通知前端刷新
+          // 多媒体展示/生成完成后通知前端刷新 + create_project 完成后通知跳转
           if (
             normalizedToolCall.name === 'image_generate' ||
             normalizedToolCall.name === 'image_display' ||
             normalizedToolCall.name === 'video_display' ||
-            normalizedToolCall.name === 'audio_play'
+            normalizedToolCall.name === 'audio_play' ||
+            normalizedToolCall.name === 'create_project'
           ) {
             eventNotificationService.emitCustomEvent('tool:completed', {
               toolName: normalizedToolCall.name,

@@ -47,4 +47,14 @@ export const modelSwitchService = {
   async getTaskDefinitions(): Promise<TaskDefinition[]> {
     return http.get<TaskDefinition[]>("/v1/models/tasks/definitions");
   },
+
+  /** S3: 获取阶段→TaskType 自定义映射 */
+  async getPhaseMapping(): Promise<Record<string, string>> {
+    return http.get<Record<string, string>>("/v1/models/phase-mapping");
+  },
+
+  /** S3: 保存阶段→TaskType 自定义映射 */
+  async savePhaseMapping(mapping: Record<string, string>): Promise<void> {
+    await http.put("/v1/models/phase-mapping", mapping);
+  },
 };

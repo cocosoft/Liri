@@ -1,15 +1,15 @@
 /**
  * Workspace Slice — 工作空间统一状态管理 + 旧 workspaceStore 状态
  *
- * 合并环境隔离 + 任务管理 + 会话历史 + UI 布局为一个 Worktree 模型。
+ * 合并环境隔离 + 任务管理 + 会话历史 + UI 布局为一个 Workspace 模型。
  * workspaceStore.ts 作为薄镜像，通过 subscribe 自动同步。
  */
 
 import type { StateCreator } from "zustand";
 import type {
-  Worktree,
-  WorktreeLayout,
-  WorktreeTransition,
+  Workspace,
+  WorkspaceLayout,
+  WorkspaceTransition,
   WorkItem as RootWorkItem,
 } from "./types";
 import type { RootState } from "./index";
@@ -24,7 +24,7 @@ const logger = createLogger("root-store:workspaceSlice");
 
 // ─── 系统工作空间（内置模块，不持久化） ─────────────────
 
-function defaultLayout(): WorktreeLayout {
+function defaultLayout(): WorkspaceLayout {
   return {
     activeModuleId: null,
     sidebarCollapsed: false,
@@ -38,7 +38,7 @@ function systemWorkspace(
   id: string,
   name: string,
   workspaceType: "chat" | "module",
-): Worktree {
+): Workspace {
   return {
     id,
     name,
@@ -57,7 +57,7 @@ function systemWorkspace(
   };
 }
 
-export const SYSTEM_WORKSPACES: Record<string, Worktree> = {
+export const SYSTEM_WORKSPACES: Record<string, Workspace> = {
   chat: systemWorkspace("chat", "聊天", "chat"),
   media: systemWorkspace("media", "媒体", "module"),
   office: systemWorkspace("office", "办公", "module"),
@@ -69,18 +69,18 @@ export const SYSTEM_WORKSPACES: Record<string, Worktree> = {
 // ─── Slice 接口 ────────────────────────────────────────
 
 export interface WorkspaceSlice {
-  // ── Worktree 字段 ──
+  // ── Workspace 字段 ──
   /** 当前工作空间 ID */
-  currentWorktreeId: string | null;
+  currentWorkspaceId: string | null;
 
   /** 所有工作空间 */
-  worktrees: Record<string, Worktree>;
+  worktrees: Record<string, Workspace>;
 
   /** 最近使用的工作空间 ID */
-  recentWorktreeIds: string[];
+  recentWorkspaceIds: string[];
 
   /** 当前 worktree 切换的状态 */
-  transition: WorktreeTransition | null;
+  transition: WorkspaceTransition | null;
 
   /** 加载/切换过程中的错误信息 */
   error: string | null;
@@ -95,28 +95,36 @@ export interface WorkspaceSlice {
   /** 后端 API 是否就绪 */
   backendReady: boolean;
 
-  // ─── Worktree 动作 ───
-  createWorktree: (config: {
+  // ─── Workspace 动作 ───
+  createWorkspace: (config: {
     name: string;
     path: string;
     description?: string;
     workspaceSource?: "system" | "user";
     workspaceType?: "module" | "project" | "chat";
+    /** P0b: 使用后端返回的 projectId 作为 worktree ID，统一前后端 */
+    id?: string;
   }) => string;
   /** @deprecated 使用 enterModule() 替代模块级操作。此方法仅保留工作空间级联动（gitStore/knowledge）。 */
-  switchWorktree: (id: string) => Promise<void>;
-  deleteWorktree: (id: string) => Promise<void>;
+  switchWorkspace: (id: string) => Promise<void>;
+  deleteWorkspace: (id: string) => Promise<void>;
   /** 更新工作空间名称或路径 */
-  updateWorktree: (
+  updateWorkspace: (
     id: string,
     updates: { name?: string; path?: string; description?: string },
   ) => void;
-  updateWorktreeLayout: (layout: Partial<WorktreeLayout>) => void;
-  bindGitRepo: (worktreeId: string, repoPath: string) => void;
-  bindModel: (worktreeId: string, modelId: string, providerId: string) => void;
-  bindAgent: (worktreeId: string, agentId: string) => void;
-  addKnowledgeBase: (worktreeId: string, kbId: string) => void;
-  removeKnowledgeBase: (worktreeId: string, kbId: string) => void;
+  /** S7: 标记项目为已完成 */
+  completeWorkspace: (id: string) => void;
+  /** S7: 取消项目完成标记 */
+  uncompleteWorkspace: (id: string) => void;
+  /** P2/S7: 置顶项目 */
+  togglePinWorkspace: (id: string) => void;
+  updateWorkspaceLayout: (layout: Partial<WorkspaceLayout>) => void;
+  bindGitRepo: (workspaceId: string, repoPath: string) => void;
+  bindModel: (workspaceId: string, modelId: string, providerId: string) => void;
+  bindAgent: (workspaceId: string, agentId: string) => void;
+  addKnowledgeBase: (workspaceId: string, kbId: string) => void;
+  removeKnowledgeBase: (workspaceId: string, kbId: string) => void;
 
   // ─── 旧 workspaceStore 兼容动作（异步，调用 workspaceService）───
   /** 获取工作空间列表 */
@@ -138,7 +146,7 @@ export interface WorkspaceSlice {
 
 // ─── 默认布局 ──────────────────────────────────────────
 
-const DEFAULT_LAYOUT: WorktreeLayout = {
+const DEFAULT_LAYOUT: WorkspaceLayout = {
   activeModuleId: null,
   sidebarCollapsed: false,
   sidebarWidth: 280,
@@ -155,22 +163,24 @@ export const createWorkspaceSlice: StateCreator<
   WorkspaceSlice
 > = (set, get) => ({
   // ── 初始状态 ──
-  currentWorktreeId: "chat",
+  currentWorkspaceId: "chat",
   worktrees: { ...SYSTEM_WORKSPACES },
-  recentWorktreeIds: [],
+  recentWorkspaceIds: [],
   transition: null,
   error: null,
   isLoading: false,
   workspaceList: [],
   backendReady: false,
 
-  // ─── Worktree 动作 ──────────────────────────────────
+  // ─── Workspace 动作 ──────────────────────────────────
 
-  createWorktree: (config) => {
-    const id = `wt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  createWorkspace: (config) => {
+    // P0b: 使用后端返回的 projectId，否则自动生成
+    const id =
+      config.id ?? `wt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const now = Date.now();
 
-    const worktree: Worktree = {
+    const worktree: Workspace = {
       id,
       name: config.name,
       path: config.path,
@@ -190,18 +200,18 @@ export const createWorkspaceSlice: StateCreator<
 
     set((state) => ({
       worktrees: { ...state.worktrees, [id]: worktree },
-      recentWorktreeIds: [id, ...state.recentWorktreeIds].slice(0, 20),
+      recentWorkspaceIds: [id, ...state.recentWorkspaceIds].slice(0, 20),
     }));
 
     logger.info("工作空间创建", {
-      worktreeId: id,
+      workspaceId: id,
       name: config.name,
       path: config.path,
     });
     return id;
   },
 
-  updateWorktree: (id, updates) => {
+  updateWorkspace: (id, updates) => {
     set((state) => {
       const wt = state.worktrees[id];
       if (!wt) return state;
@@ -212,14 +222,60 @@ export const createWorkspaceSlice: StateCreator<
         },
       };
     });
-    logger.info("工作空间更新", { worktreeId: id, ...updates });
+    logger.info("工作空间更新", { workspaceId: id, ...updates });
+  },
+
+  completeWorkspace: (id) => {
+    set((state) => {
+      const wt = state.worktrees[id];
+      if (!wt) return state;
+      return {
+        worktrees: {
+          ...state.worktrees,
+          [id]: { ...wt, status: "completed" as const, updatedAt: Date.now() },
+        },
+      };
+    });
+    logger.info("项目已标记完成", { workspaceId: id });
+  },
+
+  uncompleteWorkspace: (id) => {
+    set((state) => {
+      const wt = state.worktrees[id];
+      if (!wt) return state;
+      return {
+        worktrees: {
+          ...state.worktrees,
+          [id]: { ...wt, status: "active" as const, updatedAt: Date.now() },
+        },
+      };
+    });
+    logger.info("项目已取消完成", { workspaceId: id });
+  },
+
+  togglePinWorkspace: (id) => {
+    set((state) => {
+      const wt = state.worktrees[id];
+      if (!wt) return state;
+      return {
+        worktrees: {
+          ...state.worktrees,
+          [id]: { ...wt, pinned: !wt.pinned, updatedAt: Date.now() },
+        },
+      };
+    });
+    const name = get().worktrees[id]?.name ?? id;
+    logger.info(get().worktrees[id]?.pinned ? "项目已置顶" : "取消置顶", {
+      workspaceId: id,
+      name,
+    });
   },
 
   /** @deprecated 使用 enterModule() 替代模块级操作。此方法仅保留工作空间级联动（gitStore/knowledge）。 */
-  switchWorktree: async (id) => {
+  switchWorkspace: async (id) => {
     if (import.meta.env.DEV) {
       console.warn(
-        "[Deprecated] switchWorktree() 已标记废弃，模块级操作请用 enterModule()。workspace 级切换仍可用。",
+        "[Deprecated] switchWorkspace() 已标记废弃，模块级操作请用 enterModule()。workspace 级切换仍可用。",
       );
     }
     if (!get().worktrees[id]) {
@@ -281,10 +337,10 @@ export const createWorkspaceSlice: StateCreator<
     const transitionStatus = errors.length === 0 ? "completed" : "partial";
 
     set({
-      currentWorktreeId: id,
-      recentWorktreeIds: [
+      currentWorkspaceId: id,
+      recentWorkspaceIds: [
         id,
-        ...get().recentWorktreeIds.filter((rid) => rid !== id),
+        ...get().recentWorkspaceIds.filter((rid) => rid !== id),
       ].slice(0, 20),
       transition: {
         targetId: id,
@@ -299,16 +355,16 @@ export const createWorkspaceSlice: StateCreator<
     });
 
     logger.info("工作空间切换", {
-      worktreeId: id,
+      workspaceId: id,
       status: transitionStatus,
       errors: errors.length,
     });
   },
 
-  deleteWorktree: async (id) => {
+  deleteWorkspace: async (id) => {
     const wt = get().worktrees[id];
     if (wt?.workspaceSource === "system") {
-      logger.warn("禁止删除系统工作空间", { worktreeId: id });
+      logger.warn("禁止删除系统工作空间", { workspaceId: id });
       return;
     }
 
@@ -318,7 +374,7 @@ export const createWorkspaceSlice: StateCreator<
       await workspaceService.deleteWorkspace(id);
     } catch (e) {
       logger.warn("后端删除工作空间失败，继续前端清理", {
-        worktreeId: id,
+        workspaceId: id,
         error: String(e),
       });
     }
@@ -327,16 +383,16 @@ export const createWorkspaceSlice: StateCreator<
 
     set((state) => ({
       worktrees: rest,
-      recentWorktreeIds: state.recentWorktreeIds.filter((rid) => rid !== id),
-      currentWorktreeId:
-        state.currentWorktreeId === id ? "chat" : state.currentWorktreeId,
+      recentWorkspaceIds: state.recentWorkspaceIds.filter((rid) => rid !== id),
+      currentWorkspaceId:
+        state.currentWorkspaceId === id ? "chat" : state.currentWorkspaceId,
     }));
 
-    logger.info("工作空间删除", { worktreeId: id });
+    logger.info("工作空间删除", { workspaceId: id });
   },
 
-  updateWorktreeLayout: (layout) => {
-    const id = get().currentWorktreeId;
+  updateWorkspaceLayout: (layout) => {
+    const id = get().currentWorkspaceId;
     if (!id) return;
 
     set((state) => {
@@ -355,14 +411,14 @@ export const createWorkspaceSlice: StateCreator<
     });
   },
 
-  bindGitRepo: (worktreeId, repoPath) => {
+  bindGitRepo: (workspaceId, repoPath) => {
     set((state) => {
-      const wt = state.worktrees[worktreeId];
+      const wt = state.worktrees[workspaceId];
       if (!wt) return state;
       return {
         worktrees: {
           ...state.worktrees,
-          [worktreeId]: {
+          [workspaceId]: {
             ...wt,
             gitRepo: { path: repoPath, currentBranch: "" },
             updatedAt: Date.now(),
@@ -372,14 +428,14 @@ export const createWorkspaceSlice: StateCreator<
     });
   },
 
-  bindModel: (worktreeId, modelId, providerId) => {
+  bindModel: (workspaceId, modelId, providerId) => {
     set((state) => {
-      const wt = state.worktrees[worktreeId];
+      const wt = state.worktrees[workspaceId];
       if (!wt) return state;
       return {
         worktrees: {
           ...state.worktrees,
-          [worktreeId]: {
+          [workspaceId]: {
             ...wt,
             modelConfig: { modelId, providerId },
             updatedAt: Date.now(),
@@ -389,28 +445,28 @@ export const createWorkspaceSlice: StateCreator<
     });
   },
 
-  bindAgent: (worktreeId, agentId) => {
+  bindAgent: (workspaceId, agentId) => {
     set((state) => {
-      const wt = state.worktrees[worktreeId];
+      const wt = state.worktrees[workspaceId];
       if (!wt) return state;
       return {
         worktrees: {
           ...state.worktrees,
-          [worktreeId]: { ...wt, agentId, updatedAt: Date.now() },
+          [workspaceId]: { ...wt, agentId, updatedAt: Date.now() },
         },
       };
     });
   },
 
-  addKnowledgeBase: (worktreeId, kbId) => {
+  addKnowledgeBase: (workspaceId, kbId) => {
     set((state) => {
-      const wt = state.worktrees[worktreeId];
+      const wt = state.worktrees[workspaceId];
       if (!wt) return state;
       if (wt.knowledgeBaseIds.includes(kbId)) return state;
       return {
         worktrees: {
           ...state.worktrees,
-          [worktreeId]: {
+          [workspaceId]: {
             ...wt,
             knowledgeBaseIds: [...wt.knowledgeBaseIds, kbId],
             updatedAt: Date.now(),
@@ -420,14 +476,14 @@ export const createWorkspaceSlice: StateCreator<
     });
   },
 
-  removeKnowledgeBase: (worktreeId, kbId) => {
+  removeKnowledgeBase: (workspaceId, kbId) => {
     set((state) => {
-      const wt = state.worktrees[worktreeId];
+      const wt = state.worktrees[workspaceId];
       if (!wt) return state;
       return {
         worktrees: {
           ...state.worktrees,
-          [worktreeId]: {
+          [workspaceId]: {
             ...wt,
             knowledgeBaseIds: wt.knowledgeBaseIds.filter((id) => id !== kbId),
             updatedAt: Date.now(),
@@ -463,7 +519,7 @@ export const createWorkspaceSlice: StateCreator<
 
       // 确保 worktree 存在
       if (!get().worktrees[wtId]) {
-        get().createWorktree({
+        get().createWorkspace({
           name: ws?.path ?? "工作空间",
           path: ws?.path ?? workspaceId,
         });
@@ -475,7 +531,7 @@ export const createWorkspaceSlice: StateCreator<
         title: item.title,
         description: item.description ?? "",
         status: item.status,
-        worktreeId: wtId,
+        workspaceId: wtId,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt ?? item.createdAt,
       }));
@@ -485,7 +541,7 @@ export const createWorkspaceSlice: StateCreator<
         const wt = s.worktrees[wtId];
         if (!wt) return s;
         return {
-          currentWorktreeId: wtId,
+          currentWorkspaceId: wtId,
           worktrees: {
             ...s.worktrees,
             [wtId]: { ...wt, workItems: mappedItems, updatedAt: Date.now() },
@@ -495,10 +551,10 @@ export const createWorkspaceSlice: StateCreator<
       });
     } catch (err) {
       if (!get().worktrees[workspaceId]) {
-        get().createWorktree({ name: workspaceId, path: workspaceId });
+        get().createWorkspace({ name: workspaceId, path: workspaceId });
       }
       set({
-        currentWorktreeId: workspaceId,
+        currentWorkspaceId: workspaceId,
         isLoading: false,
         error: String(err),
       });
@@ -506,7 +562,7 @@ export const createWorkspaceSlice: StateCreator<
   },
 
   createWorkItem: async (title: string) => {
-    const wtId = get().currentWorktreeId;
+    const wtId = get().currentWorkspaceId;
     if (!wtId) return;
 
     set({ isLoading: true, error: null });
@@ -532,7 +588,7 @@ export const createWorkspaceSlice: StateCreator<
         title: item.title,
         description: item.description ?? "",
         status: item.status,
-        worktreeId: wtId,
+        workspaceId: wtId,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt ?? item.createdAt,
       };
@@ -552,7 +608,7 @@ export const createWorkspaceSlice: StateCreator<
   },
 
   updateWorkItemStatus: async (itemId: string, status: WorkItemStatus) => {
-    const wtId = get().currentWorktreeId;
+    const wtId = get().currentWorkspaceId;
     if (!wtId) return;
 
     // 乐观更新本地
@@ -593,7 +649,7 @@ export const createWorkspaceSlice: StateCreator<
 
   resetWorkspace: () => {
     set({
-      currentWorktreeId: "chat",
+      currentWorkspaceId: "chat",
       worktrees: { ...SYSTEM_WORKSPACES },
       workspaceList: [],
       isLoading: false,

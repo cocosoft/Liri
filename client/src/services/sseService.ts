@@ -156,6 +156,8 @@ class SSEService {
         "knowledge:compile:completed",
         "knowledge:compile:aborted",
         "task:queue:progress",
+        // P0b-3: AI 自动建项目通知 — 前端监听后同步创建 worktree
+        "project:auto_created",
       ];
       for (const evt of progressEvents) {
         this.eventSource.addEventListener(evt, (e: Event) => {

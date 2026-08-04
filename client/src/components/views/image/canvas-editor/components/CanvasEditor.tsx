@@ -720,14 +720,16 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
     useEffect(() => {
       if (initRef.current) {
         const keyPrefix = canvasId || "default";
-        getLatestSnapshot(keyPrefix).then((snap) => {
-          if (snap) {
-            recoveredSnapRef.current = snap;
-            setShowRecover(true);
-          }
-        }).catch(() => {
-          // 快照恢复失败静默忽略（非关键功能）
-        });
+        getLatestSnapshot(keyPrefix)
+          .then((snap) => {
+            if (snap) {
+              recoveredSnapRef.current = snap;
+              setShowRecover(true);
+            }
+          })
+          .catch(() => {
+            // 快照恢复失败静默忽略（非关键功能）
+          });
       }
     }, [canvasId]);
 

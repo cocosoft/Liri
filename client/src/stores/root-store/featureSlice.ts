@@ -175,8 +175,8 @@ export const createFeatureSlice: StateCreator<
 
   // ─── UI 状态持久化注册 ───
   registerPersistentState: (_moduleId, _keys) => {
-    // 注册的 keys 供 WorktreeLayout.uiSnapshots 读写
-    // 实际存储逻辑在 workspaceSlice.updateWorktreeLayout 中
+    // 注册的 keys 供 WorkspaceLayout.uiSnapshots 读写
+    // 实际存储逻辑在 workspaceSlice.updateWorkspaceLayout 中
     logger.debug("UI 状态注册", { moduleId: _moduleId, keys: _keys });
   },
 

@@ -72,7 +72,9 @@ const SliderControl = React.memo(SliderControlImpl);
 function SettingsTab() {
   const setChatParams = useConfigStore((s) => s.setChatParams);
   const setSessionChatParams = useConfigStore((s) => s.setSessionChatParams);
-  const getEffectiveChatParams = useConfigStore((s) => s.getEffectiveChatParams);
+  const getEffectiveChatParams = useConfigStore(
+    (s) => s.getEffectiveChatParams,
+  );
   const currentSession = useSessionStore((s) => s.currentSession);
   const { isLoading } = useModelSwitchStore();
 
@@ -80,7 +82,9 @@ function SettingsTab() {
   const [temperature, setTemperature] = useState(effectiveParams.temperature);
   const [topP, setTopP] = useState(effectiveParams.topP);
   const [maxTokens, setMaxTokens] = useState(effectiveParams.maxTokens);
-  const [systemPrompt, setSystemPrompt] = useState(effectiveParams.systemPrompt);
+  const [systemPrompt, setSystemPrompt] = useState(
+    effectiveParams.systemPrompt,
+  );
   const [saveScope, setSaveScope] = useState<string>("global");
 
   const handleSave = useCallback(async () => {
@@ -90,7 +94,16 @@ function SettingsTab() {
     } else {
       await setChatParams(params);
     }
-  }, [temperature, topP, maxTokens, systemPrompt, saveScope, currentSession?.id, setChatParams, setSessionChatParams]);
+  }, [
+    temperature,
+    topP,
+    maxTokens,
+    systemPrompt,
+    saveScope,
+    currentSession?.id,
+    setChatParams,
+    setSessionChatParams,
+  ]);
 
   // 会话切换时同步参数到编辑区
   useEffect(() => {

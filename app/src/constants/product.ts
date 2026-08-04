@@ -70,7 +70,7 @@ export function getRemoteSessionUrl(
 /**
  * GitHub 仓库信息
  */
-export const GITHUB_OWNER = 'pyapp';
+export const GITHUB_OWNER = 'cocosoft';
 export const GITHUB_REPO = 'Liri';
 export const GITHUB_API_BASE = 'https://api.github.com';
 export const GITHUB_RELEASES_URL = `${GITHUB_API_BASE}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases`;

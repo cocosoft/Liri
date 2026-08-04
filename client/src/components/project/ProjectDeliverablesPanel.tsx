@@ -4,20 +4,28 @@
  * 显示 Artifact kind=output 的 AI 产出物（计划/原型/代码/文档/报告）
  */
 
-import React, { useEffect, useState } from 'react';
-import { FileOutput } from 'lucide-react';
-import { fetchArtifacts, type ProjectArtifact } from '../../services/projectArtifactService';
+import React, { useEffect, useState } from "react";
+import { FileOutput } from "lucide-react";
+import {
+  fetchArtifacts,
+  type ProjectArtifact,
+} from "../../services/projectArtifactService";
 
 interface Props {
   projectId: string;
   refreshKey?: number;
 }
 
-export const ProjectDeliverablesPanel: React.FC<Props> = ({ projectId, refreshKey }) => {
+export const ProjectDeliverablesPanel: React.FC<Props> = ({
+  projectId,
+  refreshKey,
+}) => {
   const [artifacts, setArtifacts] = useState<ProjectArtifact[]>([]);
 
   useEffect(() => {
-    fetchArtifacts(projectId, 'output').then(setArtifacts).catch(() => {});
+    fetchArtifacts(projectId, "output")
+      .then(setArtifacts)
+      .catch(() => {});
   }, [projectId, refreshKey]);
 
   if (artifacts.length === 0) {

@@ -310,6 +310,8 @@ export interface Project {
   completedAt?: string;
   /** 标签 */
   tags?: string[];
+  /** 项目专属文件夹路径（用户可访问的真实目录） */
+  sandboxPath?: string;
 }
 
 /** 工作项模板 */

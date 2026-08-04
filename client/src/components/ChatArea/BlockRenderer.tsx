@@ -43,7 +43,7 @@ function BlockRenderer({
 }: BlockRendererProps) {
   const readFileToPreview = useChatStore((s) => s.readFileToPreview);
 
-switch (block.type) {
+  switch (block.type) {
     case "thinking":
       return (
         <ThinkingBlock
@@ -121,11 +121,7 @@ switch (block.type) {
       );
     case "deliverable":
       if (block.deliverableData) {
-        return (
-          <DeliverableCard
-            data={block.deliverableData}
-          />
-        );
+        return <DeliverableCard data={block.deliverableData} />;
       }
       if (import.meta.env.DEV)
         logger.warn(

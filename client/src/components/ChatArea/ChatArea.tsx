@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef } from "react";
+import { useMemo, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useChatStore } from "../../stores/chat";
 import { useSessionStore } from "../../stores/sessionStore";
@@ -18,6 +18,7 @@ import ChatInput from "./ChatInput";
 import { ContextWatermark } from "../chat/ContextWatermark";
 import VoiceSubtitleOverlay from "../VoiceSubtitleOverlay";
 import { createLogger } from "@/utils/logger";
+import { useNavigate } from "react-router-dom";
 
 const logger = createLogger("components:chatArea");
 
@@ -188,6 +189,25 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
       : undefined;
   }, [messages]);
 
+  // 导航建议：create_project 工具完成后显示跳转提示
+  const navigate = useNavigate();
+  const [navSuggestion, setNavSuggestion] = useState<{
+    target: string;
+    label: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as Record<string, unknown>;
+      setNavSuggestion({
+        target: String(detail.target || "/projects"),
+        label: String(detail.label || "查看项目"),
+      });
+    };
+    window.addEventListener("pyapp:navigate-suggest", handler);
+    return () => window.removeEventListener("pyapp:navigate-suggest", handler);
+  }, []);
+
   return (
     <div className="flex-1 relative bg-gray-50 dark:bg-gray-900 flex flex-col min-h-0">
       <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto">
@@ -224,6 +244,32 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
               >
                 ✕
               </button>
+            </div>
+          )}
+
+          {/* 导航建议：create_project 完成后提示跳转 */}
+          {navSuggestion && (
+            <div className="m-4 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center justify-between">
+              <span className="text-sm text-blue-700 dark:text-blue-300">
+                项目已创建 —{" "}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    navigate(navSuggestion.target);
+                    setNavSuggestion(null);
+                  }}
+                  className="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                >
+                  {navSuggestion.label}
+                </button>
+                <button
+                  onClick={() => setNavSuggestion(null)}
+                  className="text-xs text-blue-400 hover:text-blue-600 dark:hover:text-blue-200"
+                >
+                  忽略
+                </button>
+              </div>
             </div>
           )}
 

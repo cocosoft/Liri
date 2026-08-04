@@ -20,4 +20,7 @@ export interface SessionContext {
 
   /** 近期讨论主题 */
   recentTopics?: string[];
+
+  /** 关联的项目 ID（用于注入项目上下文到 system prompt） */
+  projectId?: string;
 }

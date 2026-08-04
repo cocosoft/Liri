@@ -12,8 +12,10 @@ import {
   writeFileSync,
   readdirSync,
   unlinkSync,
+  rmSync,
 } from 'fs';
 import { join } from 'path';
+import { homedir } from 'os';
 import type {
   Project,
   ProjectBoard,
@@ -23,6 +25,13 @@ import type {
   WorkItemStatus,
 } from './types';
 import { WorkItemStore } from './WorkItemStore';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+
+const logger = new Logger({
+  module: 'workspace:ProjectStore',
+  level: LogLevel.INFO,
+});
 
 /** 项目存储子目录 */
 const PROJECTS_DIR = 'projects';
@@ -284,29 +293,53 @@ export class ProjectStore {
     description?: string;
     template?: Project['template'];
     tags?: string[];
+    sandboxPath?: string;
+    /** P0-5: 延迟创建 sandbox 文件夹（自动建项目时设为 true，等首次使用再 mkdir） */
+    delaySandbox?: boolean;
   }): Project {
-    this.ensureDir();
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ProjectStore.create');
+    try {
+      this.ensureDir();
 
-    const now = new Date().toISOString();
-    const id = `proj_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const now = new Date().toISOString();
+      const id = `proj_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-    const project: Project = {
-      id,
-      workspaceId: params.workspaceId,
-      name: params.name,
-      description: params.description || '',
-      status: 'active',
-      phase: 'active',
-      workItemIds: [],
-      pdcaIds: [],
-      template: params.template,
-      tags: params.tags || [],
-      createdAt: now,
-      updatedAt: now,
-    };
+      // 解析 sandboxPath：用户指定 > 默认路径（~/Documents/LiriProjects/<projectId>）
+      const sandboxPath =
+        params.sandboxPath ?? join(homedir(), 'Documents', 'LiriProjects', id);
+      if (!params.delaySandbox && !existsSync(sandboxPath)) {
+        mkdirSync(sandboxPath, { recursive: true });
+      }
 
-    this.save(project);
-    return project;
+      const project: Project = {
+        id,
+        workspaceId: params.workspaceId,
+        name: params.name,
+        description: params.description || '',
+        status: 'active',
+        phase: 'active',
+        workItemIds: [],
+        pdcaIds: [],
+        template: params.template,
+        tags: params.tags || [],
+        sandboxPath,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      this.save(project);
+      logger.info('项目已创建', { projectId: id, name: params.name });
+      span.setAttribute('projectId', id);
+      span.setStatus({ code: SpanStatusCode.OK });
+      return project;
+    } catch (e) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+      logger.error('创建项目失败', { error: String(e), name: params.name });
+      throw e;
+    } finally {
+      span.end();
+    }
   }
 
   /**
@@ -339,29 +372,28 @@ export class ProjectStore {
    * 删除项目
    */
   delete(id: string): boolean {
-    const newPath = this.getFilePath(id);
-    const legacyPath = this.getLegacyFilePath(id);
-    let deleted = false;
-
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ProjectStore.delete');
+    span.setAttribute('projectId', id);
     try {
-      if (existsSync(newPath)) {
-        unlinkSync(newPath);
-        deleted = true;
-      }
-    } catch {
-      /* ignore */
-    }
+      const dirPath = join(this.storeDir, id);
+      let deleted = false;
 
-    try {
-      if (existsSync(legacyPath)) {
-        unlinkSync(legacyPath);
-        deleted = true;
+      try {
+        if (existsSync(dirPath)) {
+          rmSync(dirPath, { recursive: true, force: true });
+          deleted = true;
+          logger.info('项目已删除', { projectId: id });
+        }
+      } catch (e) {
+        logger.error('删除项目目录失败', { projectId: id, error: String(e) });
       }
-    } catch {
-      /* ignore */
-    }
 
-    return deleted;
+      span.setStatus({ code: SpanStatusCode.OK });
+      return deleted;
+    } finally {
+      span.end();
+    }
   }
 
   /**

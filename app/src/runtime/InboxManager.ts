@@ -92,6 +92,10 @@ export class InboxManager {
           offline_capable INTEGER NOT NULL DEFAULT 1,
           source TEXT NOT NULL DEFAULT '',
           metadata TEXT,
+          channel_id TEXT,
+          channel_session_id TEXT,
+          channel_conversation_id TEXT,
+          trace_id TEXT,
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL,
           replied_at INTEGER

@@ -75,7 +75,7 @@ function deriveState(root: ReturnType<typeof useRootStore.getState>): {
   isLoading: boolean;
   error: string | null;
 } {
-  const wtId = root.currentWorktreeId;
+  const wtId = root.currentWorkspaceId;
   const wt = wtId ? root.worktrees[wtId] : undefined;
 
   // 映射 RootWorkItem → old WorkItem
@@ -84,7 +84,7 @@ function deriveState(root: ReturnType<typeof useRootStore.getState>): {
     title: item.title,
     status: item.status,
     description: item.description,
-    worktreeId: item.worktreeId,
+    workspaceId: item.workspaceId,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   }));
@@ -130,7 +130,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(() => ({
 
   clearWorkspaceFilter: () => {
     // 兼容旧 API：重置当前 workspace
-    useRootStore.setState((s) => ({ ...s, currentWorktreeId: null }));
+    useRootStore.setState((s) => ({ ...s, currentWorkspaceId: null }));
   },
 }));
 

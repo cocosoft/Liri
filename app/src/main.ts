@@ -1401,9 +1401,8 @@ export async function launch(options: LaunchOptions): Promise<void> {
 
     // PDCA 启动扫描：标记残留的运行中任务为 abort
     try {
-      const { scanAndAbortStalePdcaTasks } = await import(
-        './infrastructure/http/handlers/pdca-handlers.js'
-      );
+      const { scanAndAbortStalePdcaTasks } =
+        await import('./infrastructure/http/handlers/pdca-handlers.js');
       scanAndAbortStalePdcaTasks();
     } catch {
       // 扫描失败不影响主流程

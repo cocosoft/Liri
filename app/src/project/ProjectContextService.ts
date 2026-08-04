@@ -16,6 +16,12 @@ import type {
   ProjectContext,
   ProjectContextType,
 } from '@modules/workspace/types';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({
+  module: 'project:ContextService',
+  level: LogLevel.INFO,
+});
 
 /** type 标记正则：匹配 ### [xxx] 的内容 */
 const TYPE_MARKER_RE =
@@ -28,10 +34,18 @@ export class ProjectContextService {
    * @returns 解析出的结构化上下文条目列表
    */
   static parseRulesFile(rulesPath: string): ProjectContext[] {
-    if (!existsSync(rulesPath)) return [];
+    if (!existsSync(rulesPath)) {
+      logger.debug('rules.md 不存在，跳过解析', { path: rulesPath });
+      return [];
+    }
 
     const lines = readFileSync(rulesPath, 'utf-8').split('\n');
-    return this.parseLines(lines);
+    const entries = this.parseLines(lines);
+    logger.debug('解析 rules.md 完成', {
+      path: rulesPath,
+      entries: entries.length,
+    });
+    return entries;
   }
 
   /**

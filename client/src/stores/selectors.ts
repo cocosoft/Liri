@@ -4,32 +4,32 @@
  * 所有跨 Slice 的派生数据计算统一放在此文件，
  * 组件中使用 shallow 作为 equalityFn 避免不必要的 re-render。
  *
- * 使用方式: useRootStore(selectCurrentWorktree, shallow)
+ * 使用方式: useRootStore(selectCurrentWorkspace, shallow)
  */
 
 import type { RootState } from "./root-store";
-import type { SessionRecord, Worktree } from "./root-store/types";
+import type { SessionRecord, Workspace } from "./root-store/types";
 
-// ─── Worktree Selectors ────────────────────────────────
+// ─── Workspace Selectors ────────────────────────────────
 
 /** 当前工作空间 */
-export const selectCurrentWorktree = (state: RootState): Worktree | null => {
-  return state.currentWorktreeId
-    ? (state.worktrees[state.currentWorktreeId] ?? null)
+export const selectCurrentWorkspace = (state: RootState): Workspace | null => {
+  return state.currentWorkspaceId
+    ? (state.worktrees[state.currentWorkspaceId] ?? null)
     : null;
 };
 
 /** 当前工作空间的 Git 状态 */
 export const selectCurrentGitStatus = (state: RootState) => {
-  const wt = selectCurrentWorktree(state);
+  const wt = selectCurrentWorkspace(state);
   return wt?.gitRepo ?? null;
 };
 
 /** 最近使用的工作空间列表 */
-export const selectRecentWorktrees = (state: RootState): Worktree[] => {
-  return state.recentWorktreeIds
+export const selectRecentWorkspaces = (state: RootState): Workspace[] => {
+  return state.recentWorkspaceIds
     .map((id) => state.worktrees[id])
-    .filter(Boolean) as Worktree[];
+    .filter(Boolean) as Workspace[];
 };
 
 // ─── Session Selectors ─────────────────────────────────
@@ -44,23 +44,23 @@ export const selectCurrentSession = (
 };
 
 /** 当前 worktree 下指定类型的 session 列表 */
-export const selectSessionsByCurrentWorktreeAndType =
+export const selectSessionsByCurrentWorkspaceAndType =
   (moduleType: string) =>
   (state: RootState): SessionRecord[] => {
-    const wtId = state.currentWorktreeId;
+    const wtId = state.currentWorkspaceId;
     if (!wtId) return [];
     return Object.values(state.sessions).filter(
-      (s) => s.worktreeId === wtId && s.moduleType === moduleType,
+      (s) => s.workspaceId === wtId && s.moduleType === moduleType,
     );
   };
 
 /** 当前 worktree 下所有 session */
-export const selectSessionsByCurrentWorktree = (
+export const selectSessionsByCurrentWorkspace = (
   state: RootState,
 ): SessionRecord[] => {
-  const wtId = state.currentWorktreeId;
+  const wtId = state.currentWorkspaceId;
   if (!wtId) return [];
-  return Object.values(state.sessions).filter((s) => s.worktreeId === wtId);
+  return Object.values(state.sessions).filter((s) => s.workspaceId === wtId);
 };
 
 /** 按模块类型筛选的 session 列表 */

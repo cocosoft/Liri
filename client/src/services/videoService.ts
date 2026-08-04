@@ -81,12 +81,20 @@ function withListCache(
   if (cached && Date.now() - cached.ts < LIST_CACHE_TTL) {
     return Promise.resolve(cached.data);
   }
-  return fetcher().then((res) => {
-    if (res.ok) {
-      listCache.set(key, { data: res, ts: Date.now() });
-    }
-    return res;
-  });
+  return fetcher()
+    .then((res) => {
+      if (res.ok) {
+        listCache.set(key, { data: res, ts: Date.now() });
+      }
+      return res;
+    })
+    .catch((err) => {
+      return {
+        ok: false,
+        error: { code: 0, message: String(err) },
+        data: null as unknown as VideoListResponse,
+      };
+    });
 }
 
 /** 视频任务详情 */
@@ -152,12 +160,16 @@ export const videoService = {
         `/v1/videos/list?page=${page}&pageSize=${pageSize}`,
       );
 
-    return withListCache(cacheKey, fetcher).then((res) => {
-      if (!res.ok) {
+    return withListCache(cacheKey, fetcher)
+      .then((res) => {
+        if (!res.ok) {
+          return { videos: [], total: 0, page, pageSize, hasMore: false };
+        }
+        return res.data as VideoListResponse;
+      })
+      .catch(() => {
         return { videos: [], total: 0, page, pageSize, hasMore: false };
-      }
-      return res.data as VideoListResponse;
-    });
+      });
   },
 
   /**

@@ -404,8 +404,14 @@ export type {
   TaskType,
   TaskModelConfig,
   ModelRouterOptions,
+  PhaseContext,
+  PdcaPhase,
 } from './modelRouter';
-export { ALL_TASK_TYPES } from './modelRouter';
+export {
+  ALL_TASK_TYPES,
+  DEFAULT_PHASE_TASK_MAP,
+  detectPhase,
+} from './modelRouter';
 
 // embedding/ — 嵌入模型支持（可选依赖，零启动开销）
 export {

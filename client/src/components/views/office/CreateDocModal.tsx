@@ -35,9 +35,7 @@ export default function CreateDocModal({
     officeService
       .getDocStatus()
       .then((res) => {
-        const installed =
-          res.data?.data?.officeCliInfo?.installed ||
-          false;
+        const installed = res.data?.data?.officeCliInfo?.installed || false;
         setStatusCheck(installed ? "ready" : "degraded");
       })
       .catch(() => setStatusCheck("degraded"));

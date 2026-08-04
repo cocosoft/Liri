@@ -393,6 +393,19 @@ async function handleStreamingChat(
     }
   };
 
+  // P0 增强：监听自动建项目事件
+  let autoCreatedProjectMeta: Record<string, unknown> | null = null;
+  const onAutoProjectCreated = (data: unknown) => {
+    const d = data as Record<string, unknown>;
+    if (d?.projectId) {
+      autoCreatedProjectMeta = {
+        action: 'suggest_navigate',
+        target: `/projects?open=${d.projectId}`,
+        label: '查看项目',
+      };
+    }
+  };
+
   try {
     const coreAPI = getCoreAPI();
     const chatRequest: ChatRequest = {
@@ -436,6 +449,7 @@ async function handleStreamingChat(
     const generator = coreAPI.chatStream(chatRequest);
 
     eventNotificationService.on('tool:completed', onToolCompleted);
+    eventNotificationService.on('project:auto_created', onAutoProjectCreated);
 
     let result = await generator.next();
     let streamUsage:
@@ -530,35 +544,38 @@ async function handleStreamingChat(
           break;
         case 'tool_call':
           if (chunk.toolCall) {
-            res.write(
-              `data: ${JSON.stringify({
-                id: responseId,
-                object: 'chat.completion.chunk',
-                created,
-                model,
-                __pyapp_type: 'tool_call',
-                __pyapp_tool_status: chunk.toolCall.status || 'running',
-                choices: [
-                  {
-                    index: 0,
-                    delta: {
-                      content: '',
-                      tool_calls: [
-                        {
-                          id: chunk.toolCall.id,
-                          type: 'function',
-                          function: {
-                            name: chunk.toolCall.name,
-                            arguments: JSON.stringify(chunk.toolCall.arguments),
-                          },
+            const sseData: Record<string, unknown> = {
+              id: responseId,
+              object: 'chat.completion.chunk',
+              created,
+              model,
+              __pyapp_type: 'tool_call',
+              __pyapp_tool_status: chunk.toolCall.status || 'running',
+              choices: [
+                {
+                  index: 0,
+                  delta: {
+                    content: '',
+                    tool_calls: [
+                      {
+                        id: chunk.toolCall.id,
+                        type: 'function',
+                        function: {
+                          name: chunk.toolCall.name,
+                          arguments: JSON.stringify(chunk.toolCall.arguments),
                         },
-                      ],
-                    },
-                    finish_reason: null,
+                      },
+                    ],
                   },
-                ],
-              })}\n\n`
-            );
+                  finish_reason: null,
+                },
+              ],
+            };
+            // 转发 _meta（如 create_project 的导航建议）
+            if (chunk._meta) {
+              sseData.__pyapp_meta = chunk._meta;
+            }
+            res.write(`data: ${JSON.stringify(sseData)}\n\n`);
             safeFlush(res);
           }
           break;
@@ -621,45 +638,54 @@ async function handleStreamingChat(
     const finalFinishReason = chunkFinishReason || 'stop';
     if (res.destroyed || res.writableEnded) {
       eventNotificationService.off('tool:completed', onToolCompleted);
+      eventNotificationService.off(
+        'project:auto_created',
+        onAutoProjectCreated
+      );
       otel.endSpan(streamSpan, SpanStatusCode.OK, 'client disconnected');
       return;
     }
     if (streamUsage) {
-      res.write(
-        `data: ${JSON.stringify({
-          id: responseId,
-          object: 'chat.completion.chunk',
-          created,
-          model,
-          __pyapp_type: 'usage',
-          usage: {
-            prompt_tokens: streamUsage.inputTokens,
-            completion_tokens: streamUsage.outputTokens,
-            total_tokens: streamUsage.totalTokens,
-            estimated_cost_usd: streamUsage.estimatedCostUsd,
-            cache_read_input_tokens: streamUsage.cacheReadInputTokens,
-            cache_creation_input_tokens: streamUsage.cacheCreationInputTokens,
-          },
-          choices: [{ index: 0, delta: {}, finish_reason: finalFinishReason }],
-        })}\n\n`
-      );
+      const usageData: Record<string, unknown> = {
+        id: responseId,
+        object: 'chat.completion.chunk',
+        created,
+        model,
+        __pyapp_type: 'usage',
+        usage: {
+          prompt_tokens: streamUsage.inputTokens,
+          completion_tokens: streamUsage.outputTokens,
+          total_tokens: streamUsage.totalTokens,
+          estimated_cost_usd: streamUsage.estimatedCostUsd,
+          cache_read_input_tokens: streamUsage.cacheReadInputTokens,
+          cache_creation_input_tokens: streamUsage.cacheCreationInputTokens,
+        },
+        choices: [{ index: 0, delta: {}, finish_reason: finalFinishReason }],
+      };
+      if (autoCreatedProjectMeta) {
+        usageData.__pyapp_meta = autoCreatedProjectMeta;
+      }
+      res.write(`data: ${JSON.stringify(usageData)}\n\n`);
       safeFlush(res);
     } else {
-      res.write(
-        `data: ${JSON.stringify({
-          id: responseId,
-          object: 'chat.completion.chunk',
-          created,
-          model,
-          choices: [{ index: 0, delta: {}, finish_reason: finalFinishReason }],
-        })}\n\n`
-      );
+      const doneData: Record<string, unknown> = {
+        id: responseId,
+        object: 'chat.completion.chunk',
+        created,
+        model,
+        choices: [{ index: 0, delta: {}, finish_reason: finalFinishReason }],
+      };
+      if (autoCreatedProjectMeta) {
+        doneData.__pyapp_meta = autoCreatedProjectMeta;
+      }
+      res.write(`data: ${JSON.stringify(doneData)}\n\n`);
       safeFlush(res);
     }
 
     res.write('data: [DONE]\n\n');
     safeFlush(res);
     eventNotificationService.off('tool:completed', onToolCompleted);
+    eventNotificationService.off('project:auto_created', onAutoProjectCreated);
     logger.info('Stream chat completed', {
       model,
       sessionId: request.session_id,
@@ -668,6 +694,7 @@ async function handleStreamingChat(
     res.end();
   } catch (err) {
     eventNotificationService.off('tool:completed', onToolCompleted);
+    eventNotificationService.off('project:auto_created', onAutoProjectCreated);
     otel.recordError(
       streamSpan,
       err instanceof Error ? err : new Error(String(err))

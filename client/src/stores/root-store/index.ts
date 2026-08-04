@@ -21,8 +21,8 @@ import {
   createModuleContextSlice,
   type ModuleContextState,
   type ModuleContextActions,
-  inferModuleTypeFromWorktreeId,
-  isProjectWorktree,
+  inferModuleTypeFromWorkspaceId,
+  isProjectWorkspace,
 } from "./moduleContextSlice";
 import { loggingMiddleware } from "../middleware/logging";
 import { createLogger } from "@/utils/logger";
@@ -32,7 +32,8 @@ const logger = createLogger("root-store");
 // ─── 根 State 类型 ─────────────────────────────────────
 
 export interface RootState
-  extends WorkspaceSlice,
+  extends
+    WorkspaceSlice,
     SessionSlice,
     FeatureSlice,
     ModuleContextState,
@@ -55,7 +56,7 @@ export const useRootStore = create<RootState>()(
 
         /** 仅持久化需要跨会话保留的状态 */
         partialize: (state) => ({
-          currentWorktreeId: state.currentWorktreeId,
+          currentWorkspaceId: state.currentWorkspaceId,
           currentSessionId: state.currentSessionId,
           sessions: state.sessions,
           moduleContext: state.moduleContext, // 新增：模块上下文持久化
@@ -65,7 +66,7 @@ export const useRootStore = create<RootState>()(
               ([, wt]) => wt.workspaceSource === "user",
             ),
           ),
-          recentWorktreeIds: state.recentWorktreeIds,
+          recentWorkspaceIds: state.recentWorkspaceIds,
           moduleOrder: state.moduleOrder,
           pinnedSessionIds: state.pinnedSessionIds,
           pinnedModuleIds: state.pinnedModuleIds,
@@ -81,15 +82,13 @@ export const useRootStore = create<RootState>()(
               for (const s of Object.values(state.sessions)) {
                 // 补全 moduleType（旧 Hub 条目不包含此字段）
                 if (!s.moduleType) {
-                  (
-                    s as unknown as Record<string, unknown>
-                  ).moduleType = inferModuleTypeFromWorktreeId(s.worktreeId);
+                  (s as unknown as Record<string, unknown>).moduleType =
+                    inferModuleTypeFromWorkspaceId(s.workspaceId);
                 }
                 // 补全 projectId（仅 project 类 worktree，避免 media/office 被误判）
-                if (!s.projectId && isProjectWorktree(s.worktreeId)) {
-                  (
-                    s as unknown as Record<string, unknown>
-                  ).projectId = s.worktreeId;
+                if (!s.projectId && isProjectWorkspace(s.workspaceId)) {
+                  (s as unknown as Record<string, unknown>).projectId =
+                    s.workspaceId;
                 }
               }
             }
@@ -123,7 +122,7 @@ export const useRootStore = create<RootState>()(
             const filtered: Record<string, (typeof state.sessions)[string]> =
               {};
             for (const [id, s] of Object.entries(state.sessions)) {
-              if (validWtIds.has(s.worktreeId)) {
+              if (validWtIds.has(s.workspaceId)) {
                 filtered[id] = s;
               }
             }
@@ -161,11 +160,11 @@ export const useRootStore = create<RootState>()(
 
 logger.info("Root Store 初始化完成", {
   persistedKeys: [
-    "currentWorktreeId",
+    "currentWorkspaceId",
     "currentSessionId",
     "sessions",
     "worktrees",
-    "recentWorktreeIds",
+    "recentWorkspaceIds",
     "moduleOrder",
     "pinnedSessionIds",
     "pinnedModuleIds",

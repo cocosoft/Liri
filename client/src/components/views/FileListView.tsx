@@ -1,6 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { useFileStore } from "../../stores/fileStore";
-import type { FileRegistryRecord, StoreZone, FileSearchParams } from "../../types";
+import type {
+  FileRegistryRecord,
+  StoreZone,
+  FileSearchParams,
+} from "../../types";
 import SearchInput from "../common/SearchInput";
 
 /**

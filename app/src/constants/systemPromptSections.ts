@@ -31,6 +31,8 @@ import { getGitInfo } from '@modules/context/GitDetector';
 import { readProjectFiles } from '@modules/context/ProjectFileReader';
 import { basename, join } from 'path';
 import { resolveProjectRoot } from '@modules/core';
+import { resolveDataDir } from '@modules/core/paths';
+import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { SkillInjectionService } from '@modules/skills/services/SkillInjectionService';
 import { SkillRegistry } from '@modules/skills/SkillRegistry';
 import { FileSkillLoader } from '@modules/skills/loaders/sources/FileSkillLoader';
@@ -293,18 +295,12 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
 ### 完成总结
 - 全部完成后，生成一段自然语言总结（关键结果 + 输出文件路径），追加到会话中
 
-### 项目创建建议（丝滑过渡）
-当任务满足以下条件时，在回复末尾自然地建议用户创建项目来跟踪：
-- 任务涉及 3 个以上子步骤或产出物
-- 任务可能需要在多轮对话中持续迭代
-- 用户提到了明确的长期目标
+### 项目创建（工具优先）
+当用户表达明确的"创建项目/管理任务/追踪进度"意图时：
+- 有 create_project 工具可用时：**直接调用工具创建项目**，不要只建议用户手动操作
+- 仅当没有工具可用时：引导用户在左侧点击"+"创建（每个会话最多建议一次）
 
-建议方式示例：
-- "这个任务涉及多个步骤，要不要我帮你建个项目来跟踪进度？"
-- "这个功能开发可能需要几轮迭代，建个项目会更方便管理，在左侧项目列表点'+'就行。"
-
-不要频繁建议，每个会话最多建议一次。`;
-
+示例：用户说"帮我建一个XX项目" → 直接调用 create_project 工具，参数 name="XX"。`;
   }),
 
   systemPromptSection('pdcaThinking', () => {
@@ -439,6 +435,202 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
       return parts.join('\n');
     },
     'Session state changes every turn'
+  ),
+
+  DANGEROUS_uncachedSystemPromptSection(
+    'projectContext',
+    () => {
+      const ctx = getCurrentSessionContext();
+      if (!ctx?.projectId) return null;
+
+      const contextPath = join(
+        resolveDataDir(),
+        'projects',
+        ctx.projectId,
+        'project-context.md'
+      );
+      if (!existsSync(contextPath)) return null;
+
+      try {
+        const content = readFileSync(contextPath, 'utf-8').trim();
+        if (!content) return null;
+
+        // 提取 sandboxPath
+        const sandboxMatch = content.match(/\*\*文件夹\*\*:\s*(.+)/);
+        const sandboxPath = sandboxMatch?.[1]?.trim();
+
+        // S5b: 查询项目阶段与进度（来自 ProjectStore）
+        let phaseInfo = '';
+        try {
+          const {
+            createProjectStore,
+          } = require('../../workspace/ProjectStore.js');
+          const { WorkItemStore } = require('../../workspace/WorkItemStore.js');
+          const store = createProjectStore(
+            resolveDataDir(),
+            new WorkItemStore(resolveDataDir())
+          );
+          const project = store.get(ctx.projectId);
+          if (project) {
+            const phaseLabel: Record<string, string> = {
+              plan: '规划中',
+              do: '执行中',
+              check: '审查中',
+              act: '反馈中',
+              active: '活跃',
+              completed: '已完成',
+            };
+            const pdcaCount = project.pdcaIds?.length ?? 0;
+            const workItemCount = project.workItemIds?.length ?? 0;
+            const lines: string[] = [];
+            lines.push(
+              `**阶段**: ${phaseLabel[project.phase ?? 'active'] ?? project.phase ?? '活跃'}`
+            );
+            if (pdcaCount > 0) lines.push(`**PDCA 任务**: ${pdcaCount} 个`);
+            if (workItemCount > 0)
+              lines.push(`**工作项**: ${workItemCount} 个`);
+            if (project.status === 'completed') lines.push('**状态**: 已完成');
+            if (lines.length > 0) {
+              phaseInfo = '\n\n## 项目状态\n\n' + lines.join('\n');
+            }
+          }
+        } catch {
+          /* ProjectStore 查询失败不影响主流程 */
+        }
+
+        // P3-5: 附加最近摘要（最近 1 条阶段性小结 + 2 条决策）
+        let summaryInfo = '';
+        try {
+          const summariesPath = join(
+            resolveDataDir(),
+            'projects',
+            ctx.projectId,
+            'summaries.json'
+          );
+          if (existsSync(summariesPath)) {
+            const raw = readFileSync(summariesPath, 'utf-8');
+            const all: Array<{
+              type?: string;
+              title?: string;
+              content?: string;
+            }> = JSON.parse(raw);
+            const decisions = all
+              .filter((s) => s.type === 'decision')
+              .slice(-2);
+            const phaseSummaries = all
+              .filter((s) => s.type === 'phase_summary')
+              .slice(-1);
+
+            const lines: string[] = [];
+            if (phaseSummaries.length > 0) {
+              lines.push('## 最近阶段性小结');
+              for (const s of phaseSummaries) {
+                lines.push(
+                  `- ${s.title ?? '小结'}: ${(s.content ?? '').slice(0, 150)}`
+                );
+              }
+            }
+            if (decisions.length > 0) {
+              lines.push('## 最近决策');
+              for (const d of decisions) {
+                lines.push(
+                  `- ${d.title ?? '决策'}: ${(d.content ?? '').slice(0, 100)}`
+                );
+              }
+            }
+            if (lines.length > 0) {
+              summaryInfo = '\n\n' + lines.join('\n');
+            }
+          }
+        } catch {
+          /* 读取摘要失败不影响主流程 */
+        }
+
+        // 扫描文件列表
+        let fileList = '';
+        if (sandboxPath && existsSync(sandboxPath)) {
+          try {
+            const entries = readdirSync(sandboxPath, { withFileTypes: true });
+            const MAX_FILES = 20;
+            const files = entries.filter((e) => e.isFile()).slice(0, MAX_FILES);
+            const dirs = entries
+              .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+              .slice(0, 5);
+
+            if (files.length > 0 || dirs.length > 0) {
+              const lines: string[] = ['**项目文件**：'];
+              for (const d of dirs) {
+                lines.push(`- ${d.name}/`);
+              }
+              for (const f of files) {
+                try {
+                  const size = statSync(join(sandboxPath, f.name)).size;
+                  const sizeStr =
+                    size < 1024
+                      ? `${size}B`
+                      : size < 1024 * 1024
+                        ? `${(size / 1024).toFixed(0)}KB`
+                        : `${(size / (1024 * 1024)).toFixed(1)}MB`;
+                  lines.push(`- ${f.name} (${sizeStr})`);
+                } catch {
+                  lines.push(`- ${f.name}`);
+                }
+              }
+              if (entries.filter((e) => e.isFile()).length > MAX_FILES) {
+                lines.push(
+                  `(+${entries.filter((e) => e.isFile()).length - MAX_FILES} 个文件未列出)`
+                );
+              }
+              fileList = '\n' + lines.join('\n');
+            }
+          } catch {
+            /* 目录扫描失败不影响 */
+          }
+        }
+
+        const toolGuidance = [
+          '## 项目上下文',
+          '',
+          content,
+          phaseInfo,
+          summaryInfo,
+          fileList,
+          '',
+          '**可用工具**：',
+          '- `read_project_file` — 读取项目文件夹中的文件（传入 projectId + relativePath）',
+          '- `write_project_file` — 向项目文件夹写入文件（传入 projectId + relativePath + content）',
+          '- 以上工具已做路径安全校验，仅允许在项目文件夹范围内读写',
+          `- 当前项目 ID: \`${ctx.projectId}\``,
+        ].join('\n');
+
+        // P3-8: 上下文总量字符上限 4000，防止大项目 prompt 膨胀
+        const MAX_CONTEXT_CHARS = 4000;
+        const footer = [
+          '',
+          '**可用工具**：',
+          '- `read_project_file` — 读取项目文件夹中的文件',
+          '- `write_project_file` — 向项目文件夹写入文件',
+          `- 当前项目 ID: \`${ctx.projectId}\``,
+        ].join('\n');
+
+        if (toolGuidance.length > MAX_CONTEXT_CHARS) {
+          const bodyEnd = toolGuidance.lastIndexOf(footer.trim());
+          const body =
+            bodyEnd > 0 ? toolGuidance.slice(0, bodyEnd) : toolGuidance;
+          const maxBody = MAX_CONTEXT_CHARS - footer.length - 50;
+          return (
+            (body.length > maxBody
+              ? body.slice(0, maxBody) + '\n\n*(上下文已截断)*'
+              : body) + footer
+          );
+        }
+
+        return toolGuidance;
+      } catch {
+        return null;
+      }
+    },
+    'P1-4: 项目文件随时变更，不可缓存 — 文件写入后 prompt 立即反映'
   ),
 
   DANGEROUS_uncachedSystemPromptSection(

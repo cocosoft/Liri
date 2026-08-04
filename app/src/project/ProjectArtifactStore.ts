@@ -7,6 +7,12 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { Logger, LogLevel } from '@modules/monitoring';
+
+const logger = new Logger({
+  module: 'project:ArtifactStore',
+  level: LogLevel.INFO,
+});
 
 export type ArtifactKind = 'input' | 'output';
 

@@ -1671,6 +1671,45 @@ async function handleSaveTasks(
 }
 
 /**
+ * S3: GET /v1/models/phase-mapping — 获取阶段→TaskType 映射
+ */
+async function handleGetPhaseMapping(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null
+): Promise<void> {
+  try {
+    const { modelRouter } = await import('./modelRouter.js');
+    const mapping = modelRouter.getPhaseMapping();
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(mapping));
+  } catch (err) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: (err as Error).message }));
+  }
+}
+
+/**
+ * S3: PUT /v1/models/phase-mapping — 保存阶段→TaskType 映射
+ */
+async function handleSavePhaseMapping(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  _match: RegExpMatchArray | null
+): Promise<void> {
+  try {
+    const body = (await parseBody(req)) as Record<string, string>;
+    const { modelRouter } = await import('./modelRouter.js');
+    await modelRouter.setPhaseMapping(body);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ success: true }));
+  } catch (err) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: (err as Error).message }));
+  }
+}
+
+/**
  * GET /v1/models/tasks/validate — 校验任务分工（检查模型能力匹配）
  */
 async function handleValidateTasks(
@@ -2580,6 +2619,19 @@ const ROUTES: RouteEntry[] = [
   },
   { method: 'GET', pattern: /^\/v1\/models\/tasks$/, handler: handleGetTasks },
   { method: 'PUT', pattern: /^\/v1\/models\/tasks$/, handler: handleSaveTasks },
+
+  // S3: Phase mapping routes
+  {
+    method: 'GET',
+    pattern: /^\/v1\/models\/phase-mapping$/,
+    handler: handleGetPhaseMapping,
+  },
+  {
+    method: 'PUT',
+    pattern: /^\/v1\/models\/phase-mapping$/,
+    handler: handleSavePhaseMapping,
+  },
+
   {
     method: 'GET',
     pattern: /^\/v1\/models\/current$/,

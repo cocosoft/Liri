@@ -359,7 +359,9 @@ function SettingsPage() {
         }, 8000);
       }
     } catch (e) {
-      const err = e as { response?: { data?: { error?: { message?: string } } } };
+      const err = e as {
+        response?: { data?: { error?: { message?: string } } };
+      };
       setDataDirError(err.response?.data?.error?.message || "保存失败");
     } finally {
       setMigrating(false);

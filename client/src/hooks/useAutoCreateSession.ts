@@ -56,7 +56,7 @@ export function useAutoCreateSession(): void {
 
     if (!moduleType) return; // 首页等非模块页面跳过
 
-    // chat 模块：使用 enterModule 设置上下文，替代 switchWorktree
+    // chat 模块：使用 enterModule 设置上下文，替代 switchWorkspace
     if (moduleType === "chat") {
       const state = useRootStore.getState();
       if (state.moduleContext.moduleType !== "chat") {
@@ -71,10 +71,5 @@ export function useAutoCreateSession(): void {
       moduleType,
       sessionId,
     });
-  }, [
-    location.pathname,
-    moduleContext,
-    pathToModule,
-    getOrCreateSession,
-  ]);
+  }, [location.pathname, moduleContext, pathToModule, getOrCreateSession]);
 }

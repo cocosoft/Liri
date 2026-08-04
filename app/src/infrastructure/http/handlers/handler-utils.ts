@@ -330,3 +330,27 @@ export function parseMultipartBody(
 
   return parts;
 }
+
+/**
+ * P0b: 读取 HTTP 请求体（简化版 — 不 reject，静默解析）
+ * 适用于 fire-and-forget 场景或不需要错误传播的 handler
+ */
+export function readBody(req: http.IncomingMessage): Promise<string> {
+  return new Promise((resolve) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks).toString()));
+  });
+}
+
+/**
+ * P0b: 发送 JSON 响应（简洁版）
+ */
+export function json(
+  res: http.ServerResponse,
+  status: number,
+  data: unknown
+): void {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(data));
+}

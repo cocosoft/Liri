@@ -10,7 +10,7 @@ import type http from 'http';
 import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { randomUUID } from 'crypto';
-import { resolvePyappHome } from '@modules/core';
+import { resolveDataDir } from '@modules/core';
 import { ProjectArtifactStore } from '../../../project/ProjectArtifactStore';
 import type {
   ProjectArtifact,
@@ -18,23 +18,20 @@ import type {
 } from '../../../project/ProjectArtifactStore';
 import { ProjectContextService } from '../../../project/ProjectContextService';
 import { ImplicitEngineHook } from '../../../project/ImplicitEngineHook';
+import { ProjectItemStore } from '../../../workspace/ProjectItemStore';
+import type { ProjectContext } from '@modules/workspace/types';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import { readBody, json } from './handler-utils';
 
-/** 与 ProjectStore 保持一致的存储路径：~/.pyapp/projects/ */
-const LIRI_PROJECTS_DIR = join(resolvePyappHome(), 'projects');
+const logger = new Logger({
+  module: 'project:artifactHandlers',
+  level: LogLevel.INFO,
+});
+
+/** P0-3: 存储路径收敛到 resolveDataDir()/projects/ */
+const LIRI_PROJECTS_DIR = join(resolveDataDir(), 'projects');
 const artifactStore = new ProjectArtifactStore(LIRI_PROJECTS_DIR);
-
-async function readBody(req: http.IncomingMessage): Promise<string> {
-  return new Promise((resolve) => {
-    const chunks: Buffer[] = [];
-    req.on('data', (chunk: Buffer) => chunks.push(chunk));
-    req.on('end', () => resolve(Buffer.concat(chunks).toString()));
-  });
-}
-
-function json(res: http.ServerResponse, status: number, data: unknown): void {
-  res.writeHead(status, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify(data));
-}
 
 /** GET /v1/projects/:projectId/artifacts */
 export async function handleListArtifacts(
@@ -82,8 +79,14 @@ export async function handleSaveArtifact(
     };
 
     artifactStore.save(artifact);
+    logger.info('构件已保存', { projectId, artifactId: artifact.id });
     json(res, 200, artifact);
-  } catch {
+  } catch (e) {
+    logger.error('保存构件失败', { projectId, error: String(e) });
+    await handleError(e, {
+      module: 'project:artifactHandlers',
+      action: 'saveArtifact',
+    });
     json(res, 500, { error: '保存构件失败' });
   }
 }
@@ -103,7 +106,7 @@ export async function handleDeleteArtifact(
   );
 }
 
-/** GET /v1/projects/:projectId/context — 返回 rules.md 解析后的 ProjectContext */
+/** GET /v1/projects/:projectId/context — 返回 rules.md 或 items.db 的 ProjectContext */
 export async function handleGetProjectContext(
   _req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -111,9 +114,33 @@ export async function handleGetProjectContext(
 ): Promise<void> {
   try {
     const rulesPath = join(LIRI_PROJECTS_DIR, projectId, 'rules.md');
-    const entries = ProjectContextService.parseRulesFile(rulesPath);
+    if (existsSync(rulesPath)) {
+      const entries = ProjectContextService.parseRulesFile(rulesPath);
+      json(res, 200, entries);
+      return;
+    }
+
+    // P2-4: rules.md 已迁移到 items.db，从 SQLite 读取
+    const itemStore = new ProjectItemStore(projectId, resolveDataDir());
+    if (itemStore.needsMigration()) {
+      await itemStore.initialize();
+      await itemStore.migrateFromLegacy();
+    } else {
+      await itemStore.initialize();
+    }
+    const items = await itemStore.list('context');
+    const entries: ProjectContext[] = items.map((item, idx) => ({
+      type: (item.type as ProjectContext['type']) ?? 'constraint',
+      content: item.content,
+      line: idx + 1,
+    }));
     json(res, 200, entries);
-  } catch {
+  } catch (e) {
+    logger.error('解析项目上下文失败', { projectId, error: String(e) });
+    await handleError(e, {
+      module: 'project:artifactHandlers',
+      action: 'getContext',
+    });
     json(res, 500, { error: '解析项目上下文失败' });
   }
 }
@@ -199,7 +226,12 @@ export async function handleSaveProjectContext(
 
     writeFileSync(rulesPath, lines.join('\n') + '\n', 'utf-8');
     json(res, 200, { ok: true, marker });
-  } catch {
+  } catch (e) {
+    logger.error('写入项目上下文失败', { projectId, error: String(e) });
+    await handleError(e, {
+      module: 'project:artifactHandlers',
+      action: 'saveContext',
+    });
     json(res, 500, { error: '写入项目上下文失败' });
   }
 }
@@ -228,7 +260,12 @@ export async function handleEngineHook(
       processed: result.contexts > 0 || result.deliverables > 0,
       ...result,
     });
-  } catch {
+  } catch (e) {
+    logger.error('引擎钩子执行失败', { projectId, error: String(e) });
+    await handleError(e, {
+      module: 'project:artifactHandlers',
+      action: 'engineHook',
+    });
     json(res, 500, { error: '引擎钩子执行失败' });
   }
 }
@@ -240,13 +277,107 @@ export async function handleGetProjectHistory(
   projectId: string
 ): Promise<void> {
   try {
-    const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+    const url = new URL(
+      req.url || '/',
+      `http://${req.headers.host || 'localhost'}`
+    );
     const since = url.searchParams.get('since') || undefined;
-    const { createProjectHistoryStore } = await import('../../../project/ProjectHistoryStore');
+    const { createProjectHistoryStore } =
+      await import('../../../project/ProjectHistoryStore');
     const store = createProjectHistoryStore(projectId);
     const groups = store.getGrouped(since);
     json(res, 200, groups);
-  } catch {
+  } catch (e) {
+    logger.error('读取讨论记录失败', { projectId, error: String(e) });
+    await handleError(e, {
+      module: 'project:artifactHandlers',
+      action: 'getHistory',
+    });
     json(res, 500, { error: '读取讨论记录失败' });
+  }
+}
+
+/** GET /v1/projects/:projectId/summaries — 读取项目会话摘要/决策/小结 */
+export async function handleGetSummaries(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  projectId: string
+): Promise<void> {
+  try {
+    const summariesPath = join(
+      resolveDataDir(),
+      'projects',
+      projectId,
+      'summaries.json'
+    );
+    if (!existsSync(summariesPath)) {
+      json(res, 200, []);
+      return;
+    }
+    const raw = readFileSync(summariesPath, 'utf-8');
+    const summaries = JSON.parse(raw);
+    json(res, 200, summaries);
+  } catch (e) {
+    logger.error('读取摘要失败', { projectId, error: String(e) });
+    await handleError(e, {
+      module: 'project:artifactHandlers',
+      action: 'getSummaries',
+    });
+    json(res, 500, { error: '读取摘要失败' });
+  }
+}
+
+/** GET /v1/projects/:projectId/files — 列出项目 sandbox 文件夹中的文件（S4 chokidar 降级） */
+export async function handleListProjectFiles(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  projectId: string
+): Promise<void> {
+  try {
+    const { createProjectStore } =
+      await import('../../../workspace/ProjectStore.js');
+    const { WorkItemStore } =
+      await import('../../../workspace/WorkItemStore.js');
+    const store = createProjectStore(
+      resolveDataDir(),
+      new WorkItemStore(resolveDataDir())
+    );
+    const project = store.get(projectId);
+    if (!project || !project.sandboxPath) {
+      json(res, 404, { error: '项目或文件夹不存在' });
+      return;
+    }
+    if (!existsSync(project.sandboxPath)) {
+      json(res, 200, []);
+      return;
+    }
+    const { readdirSync: _readdir, statSync: _stat } = await import('fs');
+    const entries = _readdir(project.sandboxPath, { withFileTypes: true });
+    const files = entries
+      .filter((e) => e.isFile())
+      .map((f) => {
+        let size = 0;
+        try {
+          size = _stat(join(project.sandboxPath!, f.name)).size;
+        } catch {
+          /* 忽略 */
+        }
+        return {
+          name: f.name,
+          size,
+          type: f.name.split('.').pop()?.toLowerCase() ?? 'other',
+        };
+      });
+    const dirs = entries
+      .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+      .map((d) => ({ name: d.name, type: 'dir' }));
+    json(res, 200, { files, dirs, sandboxPath: project.sandboxPath });
+  } catch (e) {
+    logger.error('读取文件列表失败', { projectId, error: String(e) });
+    await handleError(e, {
+      module: 'project:artifactHandlers',
+      action: 'listFiles',
+    });
+    json(res, 500, { error: '读取文件列表失败' });
   }
 }

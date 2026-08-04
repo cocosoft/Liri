@@ -17,12 +17,15 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
   const checkBackendStatus = useBackendStore((s) => s.checkStatus);
 
   useEffect(() => {
-    appConfigService.get().then((config) => {
-      setDataDir(config.dataDir);
-      setHttpPort(config.httpPort);
-    }).catch((e) => {
-      setError(String(e));
-    });
+    appConfigService
+      .get()
+      .then((config) => {
+        setDataDir(config.dataDir);
+        setHttpPort(config.httpPort);
+      })
+      .catch((e) => {
+        setError(String(e));
+      });
   }, []);
 
   const handleComplete = async () => {

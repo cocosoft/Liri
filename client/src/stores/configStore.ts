@@ -35,7 +35,10 @@ interface ConfigStore {
   /** 读取会话级别的 chatParams（优先 session，fallback global） */
   getEffectiveChatParams: (sessionId?: string) => ChatParams;
   /** 命名空间级设置写入（自动路由到对应后端） */
-  setSettings: (namespace: string, values: Record<string, unknown>) => Promise<void>;
+  setSettings: (
+    namespace: string,
+    values: Record<string, unknown>,
+  ) => Promise<void>;
   /** 命名空间级设置读取 */
   getSettings: <T>(namespace: string) => Promise<T>;
 }
@@ -55,7 +58,8 @@ export const useConfigStore = create<ConfigStore>()(
         try {
           const config = await configService.list();
           // 加载持久化的 chatParams（后端优先，本地 persist 兜底）
-          const persistedParams = config["chat.params"] as ChatParams | undefined;
+          const persistedParams = config["chat.params"] as
+            ChatParams | undefined;
           set({
             config,
             chatParams: persistedParams ?? get().chatParams,
@@ -99,7 +103,10 @@ export const useConfigStore = create<ConfigStore>()(
 
       setSessionChatParams: (sessionId: string, params: ChatParams) => {
         set({
-          sessionChatParams: { ...get().sessionChatParams, [sessionId]: params },
+          sessionChatParams: {
+            ...get().sessionChatParams,
+            [sessionId]: params,
+          },
         });
       },
 
@@ -113,7 +120,10 @@ export const useConfigStore = create<ConfigStore>()(
 
       /** 命名空间级设置写入。对 "config" namespace 逐 key 写入 config.json；
        *  其他 namespace（soul/user/voice/system）路由到 /v1/settings/{namespace}。 */
-      setSettings: async (namespace: string, values: Record<string, unknown>) => {
+      setSettings: async (
+        namespace: string,
+        values: Record<string, unknown>,
+      ) => {
         set({ isLoading: true, error: null });
         try {
           if (namespace === "config") {

@@ -2,8 +2,10 @@ import { useEffect, useReducer } from "react";
 import { useSessionStore } from "../stores/sessionStore";
 import { useBackendStore } from "../stores/backendStore";
 import { useConfigStore } from "../stores/configStore";
+import { useRootStore } from "../stores/root-store";
 import { sseService } from "../services/sseService";
 import { appConfigService } from "../services/appConfigService";
+import { migrateLegacyData } from "../services/projectArtifactService";
 import { initBackendUrlFromConfig } from "../services/backendUrl";
 
 // 初始化阶段状态机
@@ -112,6 +114,8 @@ export function useInitApp() {
         if (!status.running) {
           await startBackend();
         }
+        // P0b-4: 后端就绪后执行旧数据迁移（幂等，仅首次执行）
+        migrateLegacyData().catch(() => {});
         dispatch({ type: "PHASE2_DONE" });
       } catch (e) {
         dispatch({ type: "ERROR", error: String(e) });
@@ -126,6 +130,24 @@ export function useInitApp() {
 
     try {
       sseService.on("heartbeat", () => checkBackendStatus());
+      // P0b-3: AI 自动建项目时，前端同步创建 worktree
+      sseService.on("project:auto_created", (data) => {
+        const { projectId, name } = data;
+        if (projectId && name) {
+          const { createWorkspace } = useRootStore.getState();
+          const worktrees = useRootStore.getState().workspaceList;
+          // 去重：已存在则跳过
+          if (!worktrees.some((w) => w.id === String(projectId))) {
+            createWorkspace({
+              id: String(projectId),
+              name: String(name),
+              path: String(projectId),
+              workspaceSource: "system",
+              workspaceType: "project",
+            });
+          }
+        }
+      });
       sseService.connect();
       loadSessions();
       dispatch({ type: "PHASE3_DONE" });
@@ -135,6 +157,7 @@ export function useInitApp() {
 
     return () => {
       sseService.off("heartbeat", checkBackendStatus);
+      sseService.off("project:auto_created", () => {});
       sseService.disconnect();
     };
   }, [initState.phase, checkBackendStatus, loadSessions]);

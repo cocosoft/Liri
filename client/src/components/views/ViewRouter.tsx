@@ -22,7 +22,7 @@ function WelcomeScreen(): React.ReactElement {
       <div className="text-center">
         <p className="text-lg mb-2">选择一个功能模块开始</p>
         {wt && (
-          <p className="text-sm">当前工作空间: {wt.worktreeId ?? "未选择"}</p>
+          <p className="text-sm">当前工作空间: {wt.workspaceId ?? "未选择"}</p>
         )}
       </div>
     </div>

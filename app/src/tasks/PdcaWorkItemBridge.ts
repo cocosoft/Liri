@@ -14,8 +14,22 @@ const WORKITEM_DIR = join(resolveDataSubDir('workitems'));
 
 // ──── 类型 ────
 
-type PdcaPhase = 'plan' | 'plan_pending' | 'execute' | 'review' | 'decide' | 'completed' | 'abort' | 'failed';
-type WorkItemStatus = 'pending' | 'running' | 'paused' | 'review' | 'done' | 'failed';
+type PdcaPhase =
+  | 'plan'
+  | 'plan_pending'
+  | 'execute'
+  | 'review'
+  | 'decide'
+  | 'completed'
+  | 'abort'
+  | 'failed';
+type WorkItemStatus =
+  | 'pending'
+  | 'running'
+  | 'paused'
+  | 'review'
+  | 'done'
+  | 'failed';
 
 const PDCA_TO_WORKITEM: Record<PdcaPhase, WorkItemStatus> = {
   plan: 'pending',
@@ -36,7 +50,11 @@ function ensureDir(dir: string): void {
 
 function readJson<T>(filePath: string): T | null {
   if (!existsSync(filePath)) return null;
-  try { return JSON.parse(readFileSync(filePath, 'utf-8')); } catch { return null; }
+  try {
+    return JSON.parse(readFileSync(filePath, 'utf-8'));
+  } catch {
+    return null;
+  }
 }
 
 function writeJson(filePath: string, data: unknown): void {
@@ -45,12 +63,17 @@ function writeJson(filePath: string, data: unknown): void {
 }
 
 /** 读取 PDCA 检查点 */
-export function readPdcaCheckpoint(taskId: string): Record<string, unknown> | null {
+export function readPdcaCheckpoint(
+  taskId: string
+): Record<string, unknown> | null {
   return readJson(join(PDCA_CHECKPOINT_DIR, `${taskId}.json`));
 }
 
 /** 写入 PDCA 检查点 */
-export function writePdcaCheckpoint(taskId: string, data: Record<string, unknown>): void {
+export function writePdcaCheckpoint(
+  taskId: string,
+  data: Record<string, unknown>
+): void {
   writeJson(join(PDCA_CHECKPOINT_DIR, `${taskId}.json`), {
     ...data,
     updatedAt: new Date().toISOString(),
@@ -63,12 +86,19 @@ export function writePdcaCheckpoint(taskId: string, data: Record<string, unknown
  * @param taskId PDCA 任务 ID
  * @param pdcaPhase 当前 PDCA 阶段
  */
-export function syncPdcaWorkItemStatus(taskId: string, pdcaPhase: PdcaPhase): void {
+export function syncPdcaWorkItemStatus(
+  taskId: string,
+  pdcaPhase: PdcaPhase
+): void {
   const ck = readPdcaCheckpoint(taskId);
   if (!ck?.workItemId) return;
 
   const wiPath = join(WORKITEM_DIR, `${ck.workItemId}.json`);
-  const wi = readJson<{ status?: string; updatedAt?: string; completedAt?: string }>(wiPath);
+  const wi = readJson<{
+    status?: string;
+    updatedAt?: string;
+    completedAt?: string;
+  }>(wiPath);
   if (!wi) return;
 
   const newStatus = PDCA_TO_WORKITEM[pdcaPhase] || 'running';

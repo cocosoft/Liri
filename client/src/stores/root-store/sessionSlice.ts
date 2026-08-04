@@ -51,14 +51,14 @@ export interface SessionSlice {
     moduleType: string,
     title?: string,
     id?: string,
-    worktreeIdOverride?: string,
+    workspaceIdOverride?: string,
   ) => string;
   switchSession: (sessionId: string) => void;
   deleteSession: (sessionId: string) => void;
   renameSession: (id: string, title: string) => void;
   updateSessionContext: (id: string, updates: Partial<SessionContext>) => void;
   getOrCreateSession: (moduleType: string, title?: string) => string;
-  getSessionsByWorktree: (worktreeId: string) => SessionRecord[];
+  getSessionsByWorkspace: (workspaceId: string) => SessionRecord[];
   getSessionsByModule: (moduleType: string) => SessionRecord[];
   togglePin: (id: string) => void;
   isPinned: (id: string) => boolean;
@@ -105,8 +105,8 @@ export const createSessionSlice: StateCreator<
 
   // ─── SessionHub 动作 ────────────────────────────────
 
-  createSession: (moduleType, title, overrideId, worktreeIdOverride) => {
-    const wtId = worktreeIdOverride ?? get().currentWorktreeId;
+  createSession: (moduleType, title, overrideId, workspaceIdOverride) => {
+    const wtId = workspaceIdOverride ?? get().currentWorkspaceId;
     const id =
       overrideId ??
       `sess-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -136,7 +136,7 @@ export const createSessionSlice: StateCreator<
     const session: SessionRecord = {
       id,
       moduleType,
-      worktreeId: wtId ?? "",
+      workspaceId: wtId ?? "",
       title: title ?? `新${getNameByModuleType(moduleType)}`,
       createdAt: now,
       updatedAt: now,
@@ -148,7 +148,7 @@ export const createSessionSlice: StateCreator<
       currentSessionId: overrideId ? state.currentSessionId : id,
     }));
 
-    logger.info("会话创建", { sessionId: id, moduleType, worktreeId: wtId });
+    logger.info("会话创建", { sessionId: id, moduleType, workspaceId: wtId });
     return id;
   },
 
@@ -203,14 +203,14 @@ export const createSessionSlice: StateCreator<
   },
 
   getOrCreateSession: (moduleType, title) => {
-    const wtId = get().currentWorktreeId;
+    const wtId = get().currentWorkspaceId;
     const wt = wtId ? get().worktrees[wtId] : undefined;
 
     // 系统 worktree（chat 或 module）：复用该 worktree 下的当前模块会话，
     // 避免每次进入 /chat 等页面重复创建空会话
     if (wt?.workspaceSource === "system") {
       const existing = Object.values(get().sessions).find(
-        (s) => s.worktreeId === wtId && s.moduleType === moduleType,
+        (s) => s.workspaceId === wtId && s.moduleType === moduleType,
       );
       if (existing) {
         set({ currentSessionId: existing.id });
@@ -222,8 +222,8 @@ export const createSessionSlice: StateCreator<
     return get().createSession(moduleType, title);
   },
 
-  getSessionsByWorktree: (worktreeId) =>
-    Object.values(get().sessions).filter((s) => s.worktreeId === worktreeId),
+  getSessionsByWorkspace: (workspaceId) =>
+    Object.values(get().sessions).filter((s) => s.workspaceId === workspaceId),
 
   getSessionsByModule: (moduleType) =>
     Object.values(get().sessions).filter((s) => s.moduleType === moduleType),
@@ -253,16 +253,17 @@ export const createSessionSlice: StateCreator<
       const currentSession = await sessionService.getCurrent();
 
       // Hub 同步：moduleType 从 API metadata 或现有 Hub 读取，不再硬编码 "chat"
-      // projectId 从 metadata 读取；worktreeId 使用 resolveWorktreeId 统一计算
+      // projectId 从 metadata 读取；workspaceId 使用 resolveWorkspaceId 统一计算
       const hubSync: Record<string, SessionRecord> = {};
       for (const s of sessions) {
         const existing = get().sessions[s.id];
         const md = s.metadata as Record<string, unknown> | undefined;
         hubSync[s.id] = {
           id: s.id,
-          moduleType: (md?.moduleType as ModuleType) ?? existing?.moduleType ?? "chat",
+          moduleType:
+            (md?.moduleType as ModuleType) ?? existing?.moduleType ?? "chat",
           projectId: (md?.projectId as string) ?? existing?.projectId,
-          worktreeId: s.workspaceId ?? "",
+          workspaceId: s.workspaceId ?? "",
           title: s.title,
           createdAt: new Date(s.createdAt).getTime(),
           updatedAt: new Date(s.updatedAt).getTime(),
@@ -335,10 +336,12 @@ export const createSessionSlice: StateCreator<
         );
       }
 
-      // 获取当前工作空间 — 从 moduleContext 读取，不再依赖 currentWorktreeId
+      // 获取当前工作空间 — 从 moduleContext 读取，不再依赖 currentWorkspaceId
       const ctx = get().moduleContext;
-      const workspaceId = ctx.moduleType === "project" ? ctx.projectId : undefined;
-      const workspacePath = ctx.moduleType === "project" ? ctx.projectName : undefined;
+      const workspaceId =
+        ctx.moduleType === "project" ? ctx.projectId : undefined;
+      const workspacePath =
+        ctx.moduleType === "project" ? ctx.projectName : undefined;
 
       const session = await sessionService.create(title, {
         modelId,
@@ -558,9 +561,14 @@ export const createSessionSlice: StateCreator<
       const t5 = performance.now();
       set({ currentSessionId: id });
       // 同步 SessionHub：以「后端 workspaceId」为权威标记会话归属，而非当前
-      // currentWorktreeId —— 防止在项目 worktree 上下文中切换普通会话时
+      // currentWorkspaceId —— 防止在项目 worktree 上下文中切换普通会话时
       // 被误标为用户项目会话（导致 /chat 页侧栏过滤隐藏）。
-      get().createSession("chat", session.title, id, session.workspaceId ?? get().sessions[id]?.worktreeId ?? "");
+      get().createSession(
+        "chat",
+        session.title,
+        id,
+        session.workspaceId ?? get().sessions[id]?.workspaceId ?? "",
+      );
       if (import.meta.env.DEV)
         console.info("[Diag:switch] ⑤ store 更新 + SessionHub 同步", {
           ms: (performance.now() - t5).toFixed(1),

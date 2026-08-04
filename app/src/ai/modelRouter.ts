@@ -76,6 +76,68 @@ export type TaskType =
   | 'stt' // 语音识别（Whisper / Deepgram 等）
   | 'reranking'; // 重排序（Cohere Rerank / BGE 等）
 
+/** PDCA 阶段上下文（S3 ModelPhaseRouter） */
+export type PdcaPhase = 'plan' | 'do' | 'check' | 'act';
+
+export interface PhaseContext {
+  phase: PdcaPhase;
+  confidence?: number; // 意图置信度 0~1，<0.7 时建议降级
+}
+
+/** 阶段 → TaskType 默认映射 */
+export const DEFAULT_PHASE_TASK_MAP: Record<PdcaPhase, TaskType> = {
+  plan: 'coding', // 规划阶段用推理强模型（用户可改为 reasoning 专用模型）
+  do: 'quick', // 执行阶段用性价比模型
+  check: 'chat', // 审查阶段用默认对话模型（结合 temperature 控制）
+  act: 'chat', // 总结/反馈用默认模型
+};
+
+/**
+ * S3: 从用户消息内容推断 PDCA 阶段（关键词匹配，MVP 方案）
+ * 增强方案可用 embedding 语义相似度替代关键词匹配
+ */
+export function detectPhase(content: string): PhaseContext | undefined {
+  const text = content.slice(0, 500); // 仅分析前 500 字符
+
+  // Plan: 分析、设计、规划、调研
+  if (
+    /分析|设计|规划|方案|架构|调研|评估|选型|比较|对比|review.*方案|设计.*模式/.test(
+      text
+    )
+  ) {
+    return { phase: 'plan', confidence: 0.75 };
+  }
+
+  // Do: 实现、写代码、修改、修复、开发
+  if (
+    /实现|写.*代码|开发|修改|修复|创建|新建|添加|删除|重构|迁移|升级|集成|配置/.test(
+      text
+    )
+  ) {
+    return { phase: 'do', confidence: 0.75 };
+  }
+
+  // Check: 检查、验证、测试、审查
+  if (
+    /检查|验证|测试|审查|review|排查|调试|debug|问题|报错|错误|bug|异常/.test(
+      text
+    )
+  ) {
+    return { phase: 'check', confidence: 0.75 };
+  }
+
+  // Act: 优化、改进、总结、调整
+  if (
+    /优化|改进|改善|总结|调整|整理|归纳|文档|readme|changelog|发布|部署/.test(
+      text
+    )
+  ) {
+    return { phase: 'act', confidence: 0.75 };
+  }
+
+  return undefined;
+}
+
 /** 所有任务类型列表 */
 export const ALL_TASK_TYPES: TaskType[] = [
   'default',
@@ -359,6 +421,9 @@ export class ModelRouter {
 
   /** 缓存旧配置迁移 Promise，避免重复触发 */
   private _legacyMigrationPromise: Promise<void> | null = null;
+
+  /** S3: 用户自定义阶段→TaskType 映射（空则使用 DEFAULT_PHASE_TASK_MAP） */
+  private _phaseMapping: Partial<Record<PdcaPhase, TaskType>> = {};
 
   private constructor(options?: ModelRouterOptions) {
     this.defaultModel = options?.defaultModel || '';
@@ -654,6 +719,38 @@ export class ModelRouter {
   }
 
   /**
+   * S3: 阶段感知解析 — 根据 PDCA 阶段选择模型
+   * 置信度 < 0.7 时降级为原始 taskType
+   */
+  resolveWithPhase(taskType: TaskType, phaseContext?: PhaseContext): string {
+    // 无阶段上下文或无置信度 → 用原始 taskType
+    if (
+      !phaseContext ||
+      (phaseContext.confidence != null && phaseContext.confidence < 0.7)
+    ) {
+      return this.resolve(taskType);
+    }
+
+    const phaseTaskType =
+      this._phaseMapping[phaseContext.phase] ??
+      DEFAULT_PHASE_TASK_MAP[phaseContext.phase];
+    const result = this.resolve(phaseTaskType);
+
+    // 如果阶段映射的 taskType 未配置模型，回退到原始 taskType
+    if (!result) {
+      logger.debug(
+        `ModelRouter: 阶段 ${phaseContext.phase} → ${phaseTaskType} 未配置，回退 ${taskType}`
+      );
+      return this.resolve(taskType);
+    }
+
+    logger.debug(
+      `ModelRouter: 阶段路由 ${phaseContext.phase}(${phaseContext.confidence}) → ${phaseTaskType} → ${result}`
+    );
+    return result;
+  }
+
+  /**
    * 异步解析模型名（带 UUID 缓存 miss 时的 DB 兜底）
    *
    * 与 resolve() 的区别：UUID 缓存未命中时，resolve() 返回空字符串并异步预加载；
@@ -875,6 +972,23 @@ export class ModelRouter {
     }
 
     logger.info('ModelRouter: 任务分工已保存', { taskCount: entries.length });
+  }
+
+  /**
+   * S3: 获取阶段→TaskType 自定义映射
+   */
+  getPhaseMapping(): Partial<Record<PdcaPhase, TaskType>> {
+    return { ...this._phaseMapping };
+  }
+
+  /**
+   * S3: 保存阶段→TaskType 自定义映射（内存缓存）
+   */
+  async setPhaseMapping(
+    mapping: Partial<Record<PdcaPhase, TaskType>>
+  ): Promise<void> {
+    this._phaseMapping = { ...mapping };
+    logger.info('ModelRouter: 阶段映射已保存', mapping);
   }
 
   // ============================================================

@@ -10,7 +10,7 @@ import { useRootStore } from "@/stores/root-store";
  * 聊天页面布局：左侧会话历史 + 中间聊天区 + 右侧 ChatInspector
  *
  * 进入 /chat 页时通过 enterModule 设置 moduleType="chat"，
- * 替代 switchWorktree，消除与 loadChatSessions 的 isLoading 冲突。
+ * 替代 switchWorkspace，消除与 loadChatSessions 的 isLoading 冲突。
  */
 export default function ChatPageLayout() {
   const enterModule = useRootStore((s) => s.enterModule);

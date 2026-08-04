@@ -89,33 +89,35 @@ function DirectoryTree({
           updated[parentPath] = parentNodes;
 
           // 异步加载子节点
-          loadChildren(nodePath).then((children) => {
-            setTreeData((p) => {
-              const next = { ...p };
-              const nodes = [...(next[parentPath] || [])];
-              const i = nodes.findIndex((n) => n.path === nodePath);
-              if (i === -1) return p;
-              nodes[i] = {
-                ...nodes[i],
-                children,
-                expanded: true,
-                loading: false,
-              };
-              next[parentPath] = nodes;
-              return next;
+          loadChildren(nodePath)
+            .then((children) => {
+              setTreeData((p) => {
+                const next = { ...p };
+                const nodes = [...(next[parentPath] || [])];
+                const i = nodes.findIndex((n) => n.path === nodePath);
+                if (i === -1) return p;
+                nodes[i] = {
+                  ...nodes[i],
+                  children,
+                  expanded: true,
+                  loading: false,
+                };
+                next[parentPath] = nodes;
+                return next;
+              });
+            })
+            .catch(() => {
+              // 加载失败：恢复节点状态
+              setTreeData((p) => {
+                const next = { ...p };
+                const nodes = [...(next[parentPath] || [])];
+                const i = nodes.findIndex((n) => n.path === nodePath);
+                if (i === -1) return p;
+                nodes[i] = { ...nodes[i], loading: false, expanded: false };
+                next[parentPath] = nodes;
+                return next;
+              });
             });
-          }).catch(() => {
-            // 加载失败：恢复节点状态
-            setTreeData((p) => {
-              const next = { ...p };
-              const nodes = [...(next[parentPath] || [])];
-              const i = nodes.findIndex((n) => n.path === nodePath);
-              if (i === -1) return p;
-              nodes[i] = { ...nodes[i], loading: false, expanded: false };
-              next[parentPath] = nodes;
-              return next;
-            });
-          });
 
           return updated;
         }

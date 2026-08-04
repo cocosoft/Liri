@@ -157,6 +157,8 @@ export interface ChatStreamChunk {
     | 'QUOTA_EXCEEDED'
     | 'CONNECTION_RESET'
     | 'BACKEND_UNREACHABLE';
+  /** 前端导航/提示元数据（如 create_project 完成后建议跳转到项目页） */
+  _meta?: Record<string, unknown>;
 }
 
 /** 执行阶段数据 */

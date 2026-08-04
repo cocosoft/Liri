@@ -2,7 +2,7 @@
  * Zustand 日志中间件
  *
  * 拦截所有 set() 调用，自动检测关键状态变更并记录结构化日志。
- * 仅记录关键事件（Worktree 切换、Session 切换、WorkItems 变更），
+ * 仅记录关键事件（Workspace 切换、Session 切换、WorkItems 变更），
  * 避免高频更新产生日志噪音。
  *
  * 使用方式：
@@ -32,10 +32,10 @@ export const loggingMiddleware =
         set(partial, replace as any);
         const next = get() as unknown as RootState;
 
-        if (prev.currentWorktreeId !== next.currentWorktreeId) {
-          storeLogger.info("Worktree 切换", {
-            from: prev.currentWorktreeId,
-            to: next.currentWorktreeId,
+        if (prev.currentWorkspaceId !== next.currentWorkspaceId) {
+          storeLogger.info("Workspace 切换", {
+            from: prev.currentWorkspaceId,
+            to: next.currentWorkspaceId,
             transition: next.transition?.status,
           });
         }
@@ -47,8 +47,8 @@ export const loggingMiddleware =
           });
         }
 
-        const wtId = next.currentWorktreeId;
-        if (wtId && wtId === prev.currentWorktreeId) {
+        const wtId = next.currentWorkspaceId;
+        if (wtId && wtId === prev.currentWorkspaceId) {
           const nextWt = next.worktrees[wtId];
           const prevWt = prev.worktrees[wtId];
           if (
@@ -57,7 +57,7 @@ export const loggingMiddleware =
             nextWt.workItems?.length !== prevWt.workItems?.length
           ) {
             storeLogger.debug("WorkItems 变更", {
-              worktreeId: wtId,
+              workspaceId: wtId,
               prevCount: prevWt.workItems?.length,
               nextCount: nextWt.workItems?.length,
             });

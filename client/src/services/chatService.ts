@@ -142,6 +142,8 @@ export interface StreamChunk {
     | "QUOTA_EXCEEDED"
     | "CONNECTION_RESET"
     | "BACKEND_UNREACHABLE";
+  /** 后端注入的前端导航/提示元数据（如 create_project 后建议跳转） */
+  _meta?: Record<string, unknown>;
 }
 
 async function getTauriCore() {
@@ -273,7 +275,9 @@ export const chatService = {
       // 获取当前工作空间路径，注入工具默认 cwd
       const workspacePath = await getWorkspacePath();
 
-      const chatParams = useConfigStore.getState().getEffectiveChatParams(sessionId);
+      const chatParams = useConfigStore
+        .getState()
+        .getEffectiveChatParams(sessionId);
       const body: Record<string, unknown> = {
         model: getModelFromConfig(),
         messages: [{ role: "user", content }],
@@ -341,7 +345,9 @@ export const chatService = {
       // 获取当前工作空间路径，注入工具默认 cwd
       const workspacePath = await getWorkspacePath();
 
-      const chatParams = useConfigStore.getState().getEffectiveChatParams(sessionId);
+      const chatParams = useConfigStore
+        .getState()
+        .getEffectiveChatParams(sessionId);
       const body: Record<string, unknown> = {
         model: getModelFromConfig(),
         messages: [{ role: "user", content }],
@@ -492,6 +498,9 @@ export const chatService = {
                         arguments: parsedArgs,
                         status: chunk.__pyapp_tool_status || "running",
                       },
+                      // 转发后端 _meta（如 create_project 的导航建议）
+                      _meta: chunk.__pyapp_meta as
+                        Record<string, unknown> | undefined,
                     };
                   }
                 } else if (pyappType === "usage" && chunk.usage) {
@@ -509,6 +518,9 @@ export const chatService = {
                     },
                     finishReason:
                       chunk.choices?.[0]?.finish_reason || undefined,
+                    // 转发后端 _meta（如自动建项目的导航建议）
+                    _meta: chunk.__pyapp_meta as
+                      Record<string, unknown> | undefined,
                   };
                 } else if (chunk.choices?.[0]?.finish_reason === "error") {
                   // error 必须在通用 finish_reason 之前检测，否则被通用分支拦截
@@ -522,6 +534,9 @@ export const chatService = {
                     type: "usage",
                     content: "",
                     finishReason: chunk.choices[0].finish_reason, // guarded by above ?
+                    // 转发后端 _meta（如自动建项目的导航建议）
+                    _meta: chunk.__pyapp_meta as
+                      Record<string, unknown> | undefined,
                   };
                 } else if (pyappType === "question" && chunk.__pyapp_question) {
                   logger.debug("解析到 question chunk", {

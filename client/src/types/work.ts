@@ -152,6 +152,7 @@ export interface ProjectV2 {
   rootTaskIds: string[];
   status: "planning" | "active" | "paused" | "completed" | "archived";
   progress: number;
+  sandboxPath?: string;
   createdAt: string;
   updatedAt: string;
 }

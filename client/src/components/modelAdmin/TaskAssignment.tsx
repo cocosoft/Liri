@@ -11,16 +11,54 @@ function TaskAssignment() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // S3: 阶段偏好
+  const [phaseMapping, setPhaseMapping] = useState<Record<string, string>>({});
+  const [phaseSaving, setPhaseSaving] = useState(false);
+  const [phaseSaved, setPhaseSaved] = useState(false);
+
+  /** PDCA 阶段定义 */
+  const phaseDefs = [
+    {
+      key: "plan",
+      label: "Plan 规划",
+      desc: "分析、设计、规划、调研时使用",
+      icon: "📋",
+    },
+    {
+      key: "do",
+      label: "Do 执行",
+      desc: "实现、写代码、修改、开发时使用",
+      icon: "⚡",
+    },
+    {
+      key: "check",
+      label: "Check 审查",
+      desc: "检查、验证、测试、审查时使用",
+      icon: "🔍",
+    },
+    {
+      key: "act",
+      label: "Act 总结",
+      desc: "优化、改进、总结、调整时使用",
+      icon: "📝",
+    },
+  ];
+
+  /** 可用任务类型（用于阶段映射下拉） */
+  const phaseTaskTypes = ["coding", "quick", "chat", "agent"] as const;
+
   useEffect(() => {
     Promise.all([
       modelService.list(),
       modelSwitchService.getTasks(),
       modelSwitchService.getTaskDefinitions(),
+      modelSwitchService.getPhaseMapping().catch(() => ({})),
     ])
-      .then(([modelList, taskConfig, definitions]) => {
+      .then(([modelList, taskConfig, definitions, phaseMap]) => {
         setModels(modelList.filter((m) => m.enabled));
         setTasks(taskConfig);
         setTaskDefs(definitions);
+        setPhaseMapping(phaseMap);
       })
       .catch((e) => {
         setError(e instanceof Error ? e.message : "加载失败");
@@ -78,14 +116,37 @@ function TaskAssignment() {
     setError(null);
     try {
       // 从后端获取默认任务分工（后端无配置时返回系统默认值）
+
       const taskConfig = await modelSwitchService.getTasks();
       setTasks(taskConfig);
       setSaved(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "重置失败");
+      setError(e instanceof Error ? e.message : "加载默认策略失败");
     } finally {
       setSaving(false);
     }
+  };
+
+  /** S3: 保存阶段偏好 */
+  const handleSavePhaseMapping = async () => {
+    setPhaseSaving(true);
+    try {
+      await modelSwitchService.savePhaseMapping(phaseMapping);
+      setPhaseSaved(true);
+      setTimeout(() => setPhaseSaved(false), 2000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "保存阶段偏好失败");
+    } finally {
+      setPhaseSaving(false);
+    }
+  };
+
+  /** 阶段→TaskType 映射到 taskType 中文标签 */
+  const taskTypeLabels: Record<string, string> = {
+    coding: "推理编程 (coding)",
+    quick: "快速响应 (quick)",
+    chat: "默认对话 (chat)",
+    agent: "智能代理 (agent)",
   };
 
   return (
@@ -161,6 +222,63 @@ function TaskAssignment() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* S3: 阶段偏好 — 配置每个 PDCA 阶段应使用哪个任务类型的模型 */}
+      <div className="mt-6">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+          🔄 阶段偏好
+          <span className="text-xs text-gray-400 font-normal">
+            自动检测对话阶段，切换到对应模型
+          </span>
+        </h3>
+        <div className="space-y-2">
+          {phaseDefs.map((phase) => (
+            <div
+              key={phase.key}
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex items-center justify-between"
+            >
+              <div className="min-w-0 flex items-center gap-2">
+                <span className="text-lg">{phase.icon}</span>
+                <div>
+                  <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
+                    {phase.label}
+                  </span>
+                  <p className="text-xs text-gray-400">{phase.desc}</p>
+                </div>
+              </div>
+              <select
+                value={phaseMapping[phase.key] || ""}
+                onChange={(e) => {
+                  const next = { ...phaseMapping, [phase.key]: e.target.value };
+                  if (!e.target.value) delete next[phase.key];
+                  setPhaseMapping(next);
+                }}
+                className="ml-4 shrink-0 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px]"
+              >
+                <option value="">— 默认 —</option>
+                {phaseTaskTypes.map((tt) => (
+                  <option key={tt} value={tt}>
+                    {taskTypeLabels[tt]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3">
+          <button
+            onClick={handleSavePhaseMapping}
+            disabled={phaseSaving}
+            className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-lg transition-colors"
+          >
+            {phaseSaving
+              ? "保存中..."
+              : phaseSaved
+                ? "✅ 已保存"
+                : "保存阶段偏好"}
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-3 mt-6">

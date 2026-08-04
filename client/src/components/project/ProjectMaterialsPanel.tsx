@@ -5,9 +5,29 @@
  * 显示目标/范围/约束等。无数据时提供写入引导。
  */
 
-import React, { useEffect, useState } from 'react';
-import { Target, Crosshair, AlertTriangle, FileText, Lightbulb } from 'lucide-react';
-import { fetchProjectContext, type ProjectContext } from '../../services/projectArtifactService';
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import {
+  Target,
+  Crosshair,
+  AlertTriangle,
+  FileText,
+  Lightbulb,
+  MessageSquare,
+  GitCommit,
+  BookOpen,
+  Folder,
+  RefreshCw,
+} from "lucide-react";
+import {
+  fetchProjectContext,
+  type ProjectContext,
+} from "../../services/projectArtifactService";
+import {
+  fetchSummaries,
+  fetchProjectFiles,
+  type ProjectSummary,
+  type ProjectFilesResult,
+} from "../../services/projectArtifactService";
 
 interface Props {
   projectId: string;
@@ -25,23 +45,61 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
 
 /** type → 中文标签 */
 const TYPE_LABELS: Record<string, string> = {
-  goal: '目标',
-  scope: '范围',
-  constraint: '约束',
-  requirement: '需求',
-  knowledge: '知识',
+  goal: "目标",
+  scope: "范围",
+  constraint: "约束",
+  requirement: "需求",
+  knowledge: "知识",
 };
 
-export const ProjectMaterialsPanel: React.FC<Props> = ({ projectId, refreshKey }) => {
+export const ProjectMaterialsPanel: React.FC<Props> = ({
+  projectId,
+  refreshKey,
+}) => {
   const [contexts, setContexts] = useState<ProjectContext[]>([]);
+  const [summaries, setSummaries] = useState<ProjectSummary[]>([]);
+  const [fileResult, setFileResult] = useState<ProjectFilesResult | null>(null);
+  const [fileLoading, setFileLoading] = useState(false);
+  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const loadFiles = useCallback(async () => {
+    setFileLoading(true);
+    try {
+      const result = await fetchProjectFiles(projectId);
+      setFileResult(result);
+    } catch {
+      /* 文件列表加载失败不阻塞 */
+    } finally {
+      setFileLoading(false);
+    }
+  }, [projectId]);
 
   useEffect(() => {
     fetchProjectContext(projectId)
       .then(setContexts)
       .catch(() => {});
+    fetchSummaries(projectId)
+      .then(setSummaries)
+      .catch(() => {});
+    loadFiles();
   }, [projectId, refreshKey]);
 
-  if (contexts.length === 0) {
+  // S4 chokidar 降级：30 秒轮询 sandbox 文件变化
+  useEffect(() => {
+    pollTimer.current = setInterval(loadFiles, 30_000);
+    return () => {
+      if (pollTimer.current) clearInterval(pollTimer.current);
+    };
+  }, [loadFiles]);
+
+  const sessionSummaries = summaries.filter((s) => !s.phaseSummary).slice(-10);
+  const phaseSummaries = summaries.filter((s) => s.phaseSummary).slice(-3);
+  const decisions = summaries.filter((s) => s.decision).slice(-5);
+
+  const hasFiles =
+    fileResult && (fileResult.files.length > 0 || fileResult.dirs.length > 0);
+
+  if (contexts.length === 0 && summaries.length === 0 && !hasFiles) {
     return (
       <div className="p-4 text-sm text-gray-400 text-center leading-relaxed">
         暂无资料。
@@ -51,24 +109,138 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({ projectId, refreshKey }
     );
   }
 
+  /** 格式化文件大小 */
+  const fmtSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  };
+
   return (
-    <div className="p-2 space-y-1">
-      {contexts.map((ctx, i) => (
-        <div
-          key={i}
-          className="px-2.5 py-1.5 rounded-md bg-gray-50 dark:bg-gray-800/50 text-sm flex items-start gap-1.5"
-        >
-          {TYPE_ICONS[ctx.type] || <FileText size={14} className="shrink-0" />}
-          <div className="min-w-0">
-            <span className="text-xs text-gray-400">
-              {TYPE_LABELS[ctx.type] || ctx.type}
+    <div className="p-2 space-y-3">
+      {/* S4: sandbox 文件列表（30秒轮询 + 手动刷新） */}
+      {hasFiles && (
+        <div className="space-y-1">
+          <div className="text-xs text-gray-400 px-1 font-medium flex items-center justify-between">
+            <span className="flex items-center gap-1">
+              <Folder size={12} /> 项目文件
             </span>
-            <div className="text-gray-700 dark:text-gray-300 truncate text-xs mt-0.5">
-              {ctx.content}
-            </div>
+            <button
+              onClick={loadFiles}
+              disabled={fileLoading}
+              className={`p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${fileLoading ? "animate-spin" : ""}`}
+              title="手动刷新"
+            >
+              <RefreshCw size={12} />
+            </button>
           </div>
+          {fileResult!.dirs.map((d) => (
+            <div
+              key={`dir-${d.name}`}
+              className="px-2.5 py-1 rounded-md bg-gray-50 dark:bg-gray-800/50 text-xs flex items-center gap-1.5"
+            >
+              <Folder size={12} className="text-blue-400 shrink-0" />
+              <span className="text-gray-600 dark:text-gray-400 truncate">
+                {d.name}/
+              </span>
+            </div>
+          ))}
+          {fileResult!.files.map((f) => (
+            <div
+              key={`file-${f.name}`}
+              className="px-2.5 py-1 rounded-md bg-gray-50 dark:bg-gray-800/50 text-xs flex items-center gap-1.5"
+            >
+              <FileText size={12} className="text-gray-400 shrink-0" />
+              <span className="text-gray-700 dark:text-gray-300 truncate flex-1">
+                {f.name}
+              </span>
+              <span className="text-gray-400 flex-shrink-0">
+                {fmtSize(f.size)}
+              </span>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
+
+      {/* 项目上下文 */}
+      {contexts.length > 0 && (
+        <div className="space-y-1">
+          <div className="text-xs text-gray-400 px-1 font-medium">项目资料</div>
+          {contexts.map((ctx, i) => (
+            <div
+              key={i}
+              className="px-2.5 py-1.5 rounded-md bg-gray-50 dark:bg-gray-800/50 text-sm flex items-start gap-1.5"
+            >
+              {TYPE_ICONS[ctx.type] || (
+                <FileText size={14} className="shrink-0" />
+              )}
+              <div className="min-w-0">
+                <span className="text-xs text-gray-400">
+                  {TYPE_LABELS[ctx.type] || ctx.type}
+                </span>
+                <div className="text-gray-700 dark:text-gray-300 truncate text-xs mt-0.5">
+                  {ctx.content}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 决策记录 */}
+      {decisions.length > 0 && (
+        <div className="space-y-1">
+          <div className="text-xs text-gray-400 px-1 font-medium flex items-center gap-1">
+            <GitCommit size={12} /> 关键决策
+          </div>
+          {decisions.map((d, i) => (
+            <div
+              key={i}
+              className="px-2.5 py-1.5 rounded-md bg-amber-50 dark:bg-amber-900/20 text-xs text-amber-800 dark:text-amber-200"
+            >
+              {d.decision}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 阶段性小结 */}
+      {phaseSummaries.length > 0 && (
+        <div className="space-y-1">
+          <div className="text-xs text-gray-400 px-1 font-medium flex items-center gap-1">
+            <BookOpen size={12} /> 阶段性小结
+          </div>
+          {phaseSummaries.map((ps, i) => (
+            <div
+              key={i}
+              className="px-2.5 py-1.5 rounded-md bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-800 dark:text-blue-200 whitespace-pre-wrap"
+            >
+              {ps.summary}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 最近会话摘要 */}
+      {sessionSummaries.length > 0 && (
+        <div className="space-y-1">
+          <div className="text-xs text-gray-400 px-1 font-medium flex items-center gap-1">
+            <MessageSquare size={12} /> 最近讨论
+          </div>
+          {sessionSummaries.map((s, i) => (
+            <div
+              key={i}
+              className="px-2.5 py-1.5 rounded-md bg-gray-50 dark:bg-gray-800/50 text-xs text-gray-600 dark:text-gray-400"
+            >
+              <div className="truncate">{s.summary}</div>
+              <div className="text-gray-400 mt-0.5">
+                {new Date(s.createdAt).toLocaleDateString("zh-CN")} ·{" "}
+                {s.messageCount} 条消息
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

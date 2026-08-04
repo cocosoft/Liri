@@ -44,21 +44,24 @@ function AgentAdvancedPage() {
 
   useEffect(() => {
     if (activeWorkspaceId) {
-      workspaceService.getSwarmStatus(activeWorkspaceId).then((data) => {
-        if (data.agents && Array.isArray(data.agents)) {
-          setSwarmAgents(
-            data.agents as Array<{
-              id: string;
-              name: string;
-              role: string;
-              status: "idle" | "running" | "completed" | "error";
-              connections: string[];
-            }>,
-          );
-        }
-      }).catch(() => {
-        setSwarmAgents([]);
-      });
+      workspaceService
+        .getSwarmStatus(activeWorkspaceId)
+        .then((data) => {
+          if (data.agents && Array.isArray(data.agents)) {
+            setSwarmAgents(
+              data.agents as Array<{
+                id: string;
+                name: string;
+                role: string;
+                status: "idle" | "running" | "completed" | "error";
+                connections: string[];
+              }>,
+            );
+          }
+        })
+        .catch(() => {
+          setSwarmAgents([]);
+        });
     }
   }, [activeWorkspaceId]);
 

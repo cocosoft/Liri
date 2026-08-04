@@ -87,11 +87,13 @@ export default function Icon({
 
   useEffect(() => {
     let cancelled = false;
-    resolveIcon(lowerName).then((comp) => {
-      if (!cancelled) setComponent(() => comp);
-    }).catch(() => {
-      // 图标解析失败，组件返回 null（不渲染）
-    });
+    resolveIcon(lowerName)
+      .then((comp) => {
+        if (!cancelled) setComponent(() => comp);
+      })
+      .catch(() => {
+        // 图标解析失败，组件返回 null（不渲染）
+      });
     return () => {
       cancelled = true;
     };

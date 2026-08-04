@@ -7,9 +7,7 @@
 
 import type { Message, ToolCall } from "@/types/message";
 
-// ─── Worktree / Workspace ─────────────────────────────
-// Workspace 是新规范名称，Worktree 保留向后兼容。
-// 新代码请使用 Workspace / WorkspaceLayout / WorkspaceTransition。
+// ─── Workspace ──────────────────────────────────────
 
 /** 工作项状态 */
 export type WorkItemStatus =
@@ -21,7 +19,7 @@ export interface WorkItem {
   title: string;
   description: string;
   status: WorkItemStatus;
-  worktreeId: string;
+  workspaceId: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -40,12 +38,21 @@ export interface ExecutionPhaseData {
 }
 
 /** 工作空间统一模型：环境隔离 + 任务管理 + 会话历史 + UI 布局 */
-export interface Worktree {
+export interface Workspace {
   id: string;
   name: string;
   /** 关联的文件夹路径（必填，工作空间的核心绑定） */
   path: string;
   description?: string;
+
+  /** 项目状态：active=活跃, completed=已完成 */
+  status?: "active" | "completed";
+
+  /** 置顶标记 */
+  pinned?: boolean;
+
+  /** 自动创建时间戳（用于30分钟撤销） */
+  autoCreatedAt?: number;
 
   /** 工作空间来源：system = 内置模块，user = 用户创建的 */
   workspaceSource?: "system" | "user";
@@ -74,14 +81,14 @@ export interface Worktree {
   sessionIds: string[];
 
   /** 布局状态 */
-  layout: WorktreeLayout;
+  layout: WorkspaceLayout;
 
   /** 元数据 */
   createdAt: number;
   updatedAt: number;
 }
 
-export interface WorktreeLayout {
+export interface WorkspaceLayout {
   activeModuleId: string | null;
   sidebarCollapsed: boolean;
   sidebarWidth: number;
@@ -90,21 +97,12 @@ export interface WorktreeLayout {
   uiSnapshots: Record<string, Record<string, unknown>>;
 }
 
-/** Worktree 切换过程中的资源加载状态 */
-export interface WorktreeTransition {
+/** 工作空间切换过程中的资源加载状态 */
+export interface WorkspaceTransition {
   targetId: string;
   status: "idle" | "pending" | "completed" | "partial";
   errors: { source: string; error: string }[];
 }
-
-// ── 新规范名称（类型别名，零风险迁移） ──
-
-/** 工作空间统一模型，等价于 Worktree。新代码请使用此名称。 */
-export type Workspace = Worktree;
-/** 工作空间布局状态，等价于 WorktreeLayout。新代码请使用此名称。 */
-export type WorkspaceLayout = WorktreeLayout;
-/** 工作空间切换过渡状态，等价于 WorktreeTransition。新代码请使用此名称。 */
-export type WorkspaceTransition = WorktreeTransition;
 
 // ─── Session Context（受歧视联合类型） ─────────────────
 
@@ -161,7 +159,7 @@ export type SessionContext =
 export interface SessionRecord {
   id: string;
   moduleType: string;
-  worktreeId: string;
+  workspaceId: string;
   /** 所属项目 ID（仅 project 模块） */
   projectId?: string;
   title: string;
@@ -213,7 +211,7 @@ export interface UnifiedMessage {
   id: string;
   channelId: string;
   channelType: "telegram" | "discord" | "email" | "webhook" | "github" | "web";
-  worktreeId?: string;
+  workspaceId?: string;
   direction: "inbound" | "outbound";
   content: string;
   metadata: Record<string, unknown>;

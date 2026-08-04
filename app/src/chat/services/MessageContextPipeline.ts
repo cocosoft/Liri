@@ -390,6 +390,8 @@ export async function assembleContextualSystemPrompt(
     duration: Date.now() - (session.createdAt?.getTime() ?? Date.now()),
     startedAt: session.createdAt?.getTime() ?? Date.now(),
     tags: session.metadata?.tags,
+    projectId: (session.metadata as Record<string, unknown> | undefined)
+      ?.projectId as string | undefined,
   };
 
   if (currentMessage) {

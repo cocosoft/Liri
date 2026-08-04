@@ -164,7 +164,9 @@ export interface KanbanCard {
 export const kanbanService = {
   /** 获取所有看板卡片 */
   list: async (): Promise<KanbanCard[]> => {
-    const res = await http.get<KanbanCard[] | { data: KanbanCard[] }>("/v1/kanban");
+    const res = await http.get<KanbanCard[] | { data: KanbanCard[] }>(
+      "/v1/kanban",
+    );
     if (Array.isArray(res)) return res;
     if (res?.data && Array.isArray(res.data)) return res.data;
     return [];

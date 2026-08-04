@@ -7,7 +7,7 @@ import { sessionService } from "../../services/sessionService";
 import { getOTelTracing } from "../../monitoring/otel/OTelTracing";
 import { handleClientError } from "../../utils/handleError";
 import { createLogger } from "@/utils/logger";
-import { inferModuleTypeFromWorktreeId } from "@/stores/root-store/moduleContextSlice";
+import { inferModuleTypeFromWorkspaceId } from "@/stores/root-store/moduleContextSlice";
 
 const logger = createLogger("SessionHistorySidebar");
 import ConfirmDialog from "../common/ConfirmDialog";
@@ -268,8 +268,8 @@ function SessionHistorySidebar({
     result = result.filter((s) => {
       const hub = rootSessions[s.id];
       if (!hub) {
-        // 无 Hub 记录：按 worktreeId 推断 moduleType（迁移过渡期兜底）
-        const inferred = inferModuleTypeFromWorktreeId(s.workspaceId ?? "");
+        // 无 Hub 记录：按 workspaceId 推断 moduleType（迁移过渡期兜底）
+        const inferred = inferModuleTypeFromWorkspaceId(s.workspaceId ?? "");
         if (inferred !== effectiveModuleType) return false;
         if (effectiveModuleType === "project" && effectiveProjectId) {
           return s.workspaceId === effectiveProjectId;

@@ -8,11 +8,19 @@
  */
 
 import { join } from 'path';
-import { homedir } from 'node:os';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { resolveDataDir } from '@modules/core/paths';
 import { randomUUID } from 'crypto';
 import type { ProjectContextType } from '@modules/workspace/types';
 import { createProjectHistoryStore } from './ProjectHistoryStore';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
+
+const logger = new Logger({
+  module: 'project:ImplicitEngine',
+  level: LogLevel.INFO,
+});
 
 /** 意图分类 */
 export type ImplicitIntent = 'plan' | 'do' | 'check' | 'act' | 'none';
@@ -162,103 +170,147 @@ export class ImplicitEngineHook {
     text: string,
     projectsDir?: string,
     sessionId?: string
-  ): Promise<{ contexts: number; deliverables: number; hasGoal: boolean }> {
-    const result = { contexts: 0, deliverables: 0, hasGoal: false };
-    const { contexts, deliverables } = this.process(text);
-    if (contexts.length === 0 && deliverables.length === 0) return result;
+  ): Promise<{
+    contexts: number;
+    deliverables: number;
+    hasGoal: boolean;
+    goalSummary?: string;
+  }> {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ImplicitEngineHook.persist');
+    span.setAttribute('projectId', projectId);
 
-    result.hasGoal = contexts.some((c) => c.type === 'goal');
-
-    const root = projectsDir || join(homedir(), '.pyapp', 'projects');
-    const projectDir = join(root, projectId);
-
-    // 确保项目目录存在
-    if (!existsSync(projectDir)) {
-      mkdirSync(projectDir, { recursive: true });
-    }
-
-    // 写入 rules.md
-    const rulesPath = join(projectDir, 'rules.md');
-    let existingLines: string[] = [];
-    if (existsSync(rulesPath)) {
-      existingLines = readFileSync(rulesPath, 'utf-8').split('\n');
-    }
-
-    for (const ctx of contexts) {
-      const marker = `### [${ctx.type}] ${ctx.content}`;
-      // 去重：检查是否已存在相同条目
-      if (!existingLines.some((l) => l.trim() === marker)) {
-        existingLines.push(marker);
-        result.contexts++;
+    try {
+      const result = {
+        contexts: 0,
+        deliverables: 0,
+        hasGoal: false,
+        goalSummary: undefined as string | undefined,
+      };
+      const { contexts, deliverables } = this.process(text);
+      if (contexts.length === 0 && deliverables.length === 0) {
+        span.setStatus({ code: SpanStatusCode.OK });
+        return result;
       }
-    }
 
-    if (result.contexts > 0) {
-      writeFileSync(rulesPath, existingLines.join('\n') + '\n', 'utf-8');
-    }
-
-    // 写入 artifacts (deliverables)
-    const artifactsPath = join(projectDir, 'artifacts.json');
-    interface ArtifactEntry {
-      id: string;
-      projectId: string;
-      kind: string;
-      title: string;
-      content: string;
-      createdAt: string;
-    }
-    let artifacts: ArtifactEntry[] = [];
-    if (existsSync(artifactsPath)) {
-      try {
-        artifacts = JSON.parse(readFileSync(artifactsPath, 'utf-8'));
-      } catch {
-        artifacts = [];
+      result.hasGoal = contexts.some((c) => c.type === 'goal');
+      const goalCtx = contexts.find((c) => c.type === 'goal');
+      if (goalCtx) {
+        result.goalSummary = goalCtx.content
+          .replace(/^goal\s*/i, '')
+          .slice(0, 40);
       }
-    }
 
-    for (const del of deliverables) {
-      // 去重：检查 title
-      const exists = artifacts.some((a) => a.title === del.slice(0, 80));
-      if (!exists) {
-        artifacts.push({
-          id: randomUUID(),
-          projectId,
-          kind: 'output',
-          title: del.slice(0, 80),
-          content: del,
-          createdAt: new Date().toISOString(),
-        });
-        result.deliverables++;
+      const root = projectsDir || join(resolveDataDir(), 'projects');
+      const projectDir = join(root, projectId);
+
+      if (!existsSync(projectDir)) {
+        mkdirSync(projectDir, { recursive: true });
       }
-    }
 
-    if (result.deliverables > 0) {
-      writeFileSync(artifactsPath, JSON.stringify(artifacts, null, 2), 'utf-8');
-    }
+      // 写入 rules.md
+      const rulesPath = join(projectDir, 'rules.md');
+      let existingLines: string[] = [];
+      if (existsSync(rulesPath)) {
+        existingLines = readFileSync(rulesPath, 'utf-8').split('\n');
+      }
 
-    // 记录讨论历史
-    if (sessionId && (result.contexts > 0 || result.deliverables > 0)) {
-      const history = createProjectHistoryStore(projectId);
       for (const ctx of contexts) {
-        history.append({
-          sessionId,
-          type: 'context_change',
-          summary: `资料更新 [${ctx.type}]: ${ctx.content.slice(0, 60)}`,
-          detail: ctx.content,
-          internal: true,
-        });
+        const marker = `### [${ctx.type}] ${ctx.content}`;
+        if (!existingLines.some((l) => l.trim() === marker)) {
+          existingLines.push(marker);
+          result.contexts++;
+        }
       }
-      for (const del of deliverables) {
-        history.append({
-          sessionId,
-          type: 'decision',
-          summary: `产出: ${del.slice(0, 60)}`,
-          detail: del,
-          internal: true,
-        });
-      }
-    }
 
-    return result;
+      if (result.contexts > 0) {
+        writeFileSync(rulesPath, existingLines.join('\n') + '\n', 'utf-8');
+      }
+
+      // 写入 artifacts
+      const artifactsPath = join(projectDir, 'artifacts.json');
+      interface ArtifactEntry {
+        id: string;
+        projectId: string;
+        kind: string;
+        title: string;
+        content: string;
+        createdAt: string;
+      }
+      let artifacts: ArtifactEntry[] = [];
+      if (existsSync(artifactsPath)) {
+        try {
+          artifacts = JSON.parse(readFileSync(artifactsPath, 'utf-8'));
+        } catch {
+          artifacts = [];
+        }
+      }
+
+      for (const del of deliverables) {
+        const exists = artifacts.some((a) => a.title === del.slice(0, 80));
+        if (!exists) {
+          artifacts.push({
+            id: randomUUID(),
+            projectId,
+            kind: 'output',
+            title: del.slice(0, 80),
+            content: del,
+            createdAt: new Date().toISOString(),
+          });
+          result.deliverables++;
+        }
+      }
+
+      if (result.deliverables > 0) {
+        writeFileSync(
+          artifactsPath,
+          JSON.stringify(artifacts, null, 2),
+          'utf-8'
+        );
+      }
+
+      // 记录讨论历史
+      if (sessionId && (result.contexts > 0 || result.deliverables > 0)) {
+        const history = createProjectHistoryStore(projectId);
+        for (const ctx of contexts) {
+          history.append({
+            sessionId,
+            type: 'context_change',
+            summary: `资料更新 [${ctx.type}]: ${ctx.content.slice(0, 60)}`,
+            detail: ctx.content,
+            internal: true,
+          });
+        }
+        for (const del of deliverables) {
+          history.append({
+            sessionId,
+            type: 'decision',
+            summary: `产出: ${del.slice(0, 60)}`,
+            detail: del,
+            internal: true,
+          });
+        }
+      }
+
+      logger.info('隐性引擎持久化完成', {
+        projectId,
+        contexts: result.contexts,
+        deliverables: result.deliverables,
+        hasGoal: result.hasGoal,
+      });
+      span.setAttribute('contexts', result.contexts);
+      span.setAttribute('deliverables', result.deliverables);
+      span.setStatus({ code: SpanStatusCode.OK });
+      return result;
+    } catch (e) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+      await handleError(e, {
+        module: 'project:ImplicitEngine',
+        action: 'persist',
+      });
+      return { contexts: 0, deliverables: 0, hasGoal: false };
+    } finally {
+      span.end();
+    }
   }
 }

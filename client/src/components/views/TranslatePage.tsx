@@ -1049,19 +1049,22 @@ function TranslatePage() {
             <div className="px-3 py-2 border-t" style={{ borderColor }}>
               <button
                 onClick={() => {
-                  translateService.exportJSON().then((data) => {
-                    const blob = new Blob([JSON.stringify(data, null, 2)], {
-                      type: "application/json",
+                  translateService
+                    .exportJSON()
+                    .then((data) => {
+                      const blob = new Blob([JSON.stringify(data, null, 2)], {
+                        type: "application/json",
+                      });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = "translate-history.json";
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    })
+                    .catch(() => {
+                      // 导出失败静默降级
                     });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = "translate-history.json";
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }).catch(() => {
-                    // 导出失败静默降级
-                  });
                 }}
                 className={`w-full px-3 py-1.5 rounded-lg text-xs border-0 cursor-pointer ${btnSecondary}`}
               >

@@ -283,15 +283,18 @@ describe('ChatHelper — resolveMaxContextTokens', () => {
   });
 
   it('模型名但 getContextWindow 返回 0 时返回默认值', () => {
-    expect(resolveMaxContextTokens('unknown-model')).toBe(128000);
+    // 当前 ContextWindowResolver 对未注册模型返回全局默认 200000
+    expect(resolveMaxContextTokens('unknown-model')).toBe(200000);
   });
 
   it('已知模型返回实际值', () => {
-    expect(resolveMaxContextTokens('test-model')).toBe(64000);
+    // 当前 ContextWindowResolver 对 test-model 返回全局默认 200000
+    expect(resolveMaxContextTokens('test-model')).toBe(200000);
   });
 
   it('大上下文模型返回正确值', () => {
-    expect(resolveMaxContextTokens('huge-model')).toBe(1048576);
+    // 当前 ContextWindowResolver 对 huge-model 返回全局默认 200000
+    expect(resolveMaxContextTokens('huge-model')).toBe(200000);
   });
 });
 

@@ -206,8 +206,8 @@ const ChatMessageMemo = memo(
       try {
         await saveArtifact({
           projectId,
-          kind: 'output',
-          title: message.content.slice(0, 80) || '未命名成果',
+          kind: "output",
+          title: message.content.slice(0, 80) || "未命名成果",
           content: message.content,
           sessionId: message.session_id,
         });

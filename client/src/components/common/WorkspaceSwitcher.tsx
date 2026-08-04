@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useRootStore } from "@/stores/root-store";
-import type { Worktree } from "@/stores/root-store/types";
+import type { Workspace } from "@/stores/root-store/types";
 
 /**
  * 工作空间切换器
@@ -10,13 +10,13 @@ import type { Worktree } from "@/stores/root-store/types";
  * 支持新建（需指定文件夹）、重命名、修改路径、删除。
  */
 export default function WorkspaceSwitcher() {
-  const currentWtId = useRootStore((s) => s.currentWorktreeId);
+  const currentWtId = useRootStore((s) => s.currentWorkspaceId);
   const worktrees = useRootStore((s) => s.worktrees);
-  const recentWorktreeIds = useRootStore((s) => s.recentWorktreeIds);
-  const switchWorktree = useRootStore((s) => s.switchWorktree);
-  const createWorktree = useRootStore((s) => s.createWorktree);
-  const updateWorktree = useRootStore((s) => s.updateWorktree);
-  const deleteWorktree = useRootStore((s) => s.deleteWorktree);
+  const recentWorkspaceIds = useRootStore((s) => s.recentWorkspaceIds);
+  const switchWorkspace = useRootStore((s) => s.switchWorkspace);
+  const createWorkspace = useRootStore((s) => s.createWorkspace);
+  const updateWorkspace = useRootStore((s) => s.updateWorkspace);
+  const deleteWorkspace = useRootStore((s) => s.deleteWorkspace);
   const transition = useRootStore((s) => s.transition);
 
   const [open, setOpen] = useState(false);
@@ -46,17 +46,17 @@ export default function WorkspaceSwitcher() {
   const currentWt = currentWtId ? worktrees[currentWtId] : undefined;
   const isSwitching = transition !== null && transition.status === "pending";
 
-  const sortedWorktrees: Worktree[] = recentWorktreeIds
+  const sortedWorkspaces: Workspace[] = recentWorkspaceIds
     .map((id) => worktrees[id])
     .filter(Boolean);
 
   const handleSelect = useCallback(
-    async (wt: Worktree) => {
+    async (wt: Workspace) => {
       setOpen(false);
       if (wt.id === currentWtId) return;
-      await switchWorktree(wt.id);
+      await switchWorkspace(wt.id);
     },
-    [switchWorktree, currentWtId],
+    [switchWorkspace, currentWtId],
   );
 
   // 打开创建弹窗
@@ -68,7 +68,7 @@ export default function WorkspaceSwitcher() {
   };
 
   // 打开编辑弹窗（不关闭下拉，弹窗 z-index 更高会覆盖）
-  const openEditDialog = (wt: Worktree) => {
+  const openEditDialog = (wt: Workspace) => {
     setDialogMode("edit");
     setEditTargetId(wt.id);
     setFormName(wt.name);
@@ -78,15 +78,18 @@ export default function WorkspaceSwitcher() {
   // 确认创建
   const handleCreateConfirm = () => {
     if (!formName.trim() || !formPath.trim()) return;
-    const id = createWorktree({ name: formName.trim(), path: formPath.trim() });
+    const id = createWorkspace({
+      name: formName.trim(),
+      path: formPath.trim(),
+    });
     setDialogMode(null);
-    switchWorktree(id);
+    switchWorkspace(id);
   };
 
   // 确认编辑
   const handleEditConfirm = () => {
     if (!editTargetId || !formName.trim() || !formPath.trim()) return;
-    updateWorktree(editTargetId, {
+    updateWorkspace(editTargetId, {
       name: formName.trim(),
       path: formPath.trim(),
     });
@@ -96,7 +99,7 @@ export default function WorkspaceSwitcher() {
   // 确认删除
   const handleDeleteConfirm = () => {
     if (!deleteTargetId) return;
-    deleteWorktree(deleteTargetId);
+    deleteWorkspace(deleteTargetId);
     setDeleteTargetId(null);
   };
 
@@ -148,13 +151,13 @@ export default function WorkspaceSwitcher() {
             </button>
           </div>
 
-          {sortedWorktrees.length === 0 ? (
+          {sortedWorkspaces.length === 0 ? (
             <div className="px-3 py-4 text-sm text-gray-400 text-center">
               暂无工作空间，点击右上角 + 创建
             </div>
           ) : (
             <div className="py-1">
-              {sortedWorktrees.map((wt) => {
+              {sortedWorkspaces.map((wt) => {
                 const isActive = currentWtId === wt.id;
                 const wtActiveCount = wt.workItems.filter(
                   (wi) => wi.status === "running" || wi.status === "pending",

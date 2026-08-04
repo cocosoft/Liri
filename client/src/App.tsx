@@ -47,9 +47,9 @@ function App() {
   }, [initState.phase, llmGuideChecked]);
 
   // Root Store: 工作空间初始化（与现有 stores 并行）
-  const rootCurrentWorktreeId = useRootStore((s) => s.currentWorktreeId);
-  const rootCreateWorktree = useRootStore((s) => s.createWorktree);
-  const rootSwitchWorktree = useRootStore((s) => s.switchWorktree);
+  const rootCurrentWorkspaceId = useRootStore((s) => s.currentWorkspaceId);
+  const rootCreateWorkspace = useRootStore((s) => s.createWorkspace);
+  const rootSwitchWorkspace = useRootStore((s) => s.switchWorkspace);
 
   // ⚠️ useRoutes 必须无条件调用，放在条件 return 之前
   // 否则初始化阶段走 early return 时不调用 useRoutes，
@@ -60,7 +60,7 @@ function App() {
   useBuddyNotification();
   useNotificationSSE();
   useAutoCreateSession(); // Phase 7: URL 导航 → SessionHub 自动创建模块 session
-  // useSessionBridge / useWorktreeSync 已移除：同步逻辑已内置到 sessionStore / workspaceStore 中
+  // useSessionBridge / useWorkspaceSync 已移除：同步逻辑已内置到 sessionStore / workspaceStore 中
 
   // 主题切换
   useEffect(() => {
@@ -127,20 +127,20 @@ function App() {
     // 注册内置模块视图组件
     registerBuiltinModules();
 
-    if (rootCurrentWorktreeId) return;
+    if (rootCurrentWorkspaceId) return;
 
     // 创建默认工作空间
-    const wtId = rootCreateWorktree({
+    const wtId = rootCreateWorkspace({
       name: "默认工作空间",
       path: ".",
       workspaceSource: "system",
     });
-    rootSwitchWorktree(wtId);
+    rootSwitchWorkspace(wtId);
   }, [
     initState.phase,
-    rootCurrentWorktreeId,
-    rootCreateWorktree,
-    rootSwitchWorktree,
+    rootCurrentWorkspaceId,
+    rootCreateWorkspace,
+    rootSwitchWorkspace,
   ]);
 
   // 初始化未完成 / 加载失败时显示过渡态

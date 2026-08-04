@@ -238,6 +238,13 @@ export function getBuiltinToolLoaders(): ToolLoader[] {
       createToolLoader(ToolFactory.prototype.createExitWorktreeTool)
     ),
 
+    // 项目创建工具
+    createToolLoader(ToolFactory.prototype.createProjectTool),
+
+    // 项目文件读写工具
+    createToolLoader(ToolFactory.prototype.createReadProjectFileTool),
+    createToolLoader(ToolFactory.prototype.createWriteProjectFileTool),
+
     // 通道/网关工具
     createToolLoader(ToolFactory.prototype.createGatewayTool),
     createToolLoader(ToolFactory.prototype.createChannelManagerTool),

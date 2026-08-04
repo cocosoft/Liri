@@ -1,9 +1,11 @@
 /**
  * CreateProjectModal — 新建项目弹窗
+ * P0b: 同时创建后端 Project 实体 + 前端 worktree，ID 统一
  */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRootStore } from "@/stores/root-store";
+import { createProject } from "@/services/projectArtifactService";
 
 interface Props {
   onClose: () => void;
@@ -16,7 +18,7 @@ export default function CreateProjectModal({ onClose }: Props) {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const createWorktree = useRootStore((s) => s.createWorktree);
+  const createWorkspace = useRootStore((s) => s.createWorkspace);
   const navigate = useNavigate();
 
   const handleSubmit = async () => {
@@ -33,14 +35,22 @@ export default function CreateProjectModal({ onClose }: Props) {
 
     setSubmitting(true);
     try {
-      const id = createWorktree({
+      // P0b: 先调用后端创建 Project 实体，获得 projectId
+      const project = await createProject({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        sandboxPath: path.trim(),
+      });
+      // 用 projectId 作为 worktree ID，前端同步创建 worktree
+      createWorkspace({
+        id: project.id,
         name: name.trim(),
         path: path.trim(),
         description: description.trim() || undefined,
         workspaceSource: "user",
         workspaceType: "project",
       });
-      navigate(`/projects/${id}`);
+      navigate(`/projects/${project.id}`);
       onClose();
     } catch (e) {
       setError(String(e));

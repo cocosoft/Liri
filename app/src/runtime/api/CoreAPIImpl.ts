@@ -64,7 +64,12 @@ import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { DEFAULT_MODEL_SENTINEL } from '@modules/constants/common.js';
-import { resolveModelRoute, RouteKey, modelRouter } from '@modules/ai';
+import {
+  resolveModelRoute,
+  RouteKey,
+  modelRouter,
+  detectPhase,
+} from '@modules/ai';
 import { SmartRouter } from '@modules/ai';
 import type { RouteDecision } from '@modules/ai';
 import { ToolAwareClient } from '@modules/ai';
@@ -321,18 +326,23 @@ export class CoreAPIImpl implements CoreAPI {
   private async resolveSmartModel(
     content: string,
     sessionId?: string,
-    preferredModel?: string
+    preferredModel?: string,
+    phaseContext?: import('@modules/ai').PhaseContext
   ): Promise<{ model: string; tier: string }> {
     // 用户在前端显式选择了模型 → 直接使用
     if (preferredModel && preferredModel !== DEFAULT_MODEL_SENTINEL) {
       return { model: preferredModel, tier: 'user-selected' };
     }
 
+    // S3: 自动检测 PDCA 阶段（当调用方未显式传入 phaseContext 时）
+    const effectivePhase = phaseContext ?? detectPhase(content);
+
     if (this.smartRouter?.isEnabled()) {
       try {
         const decision = await this.smartRouter.resolve(RouteKey.CHAT, {
           message: content,
           sessionId,
+          phaseContext: effectivePhase,
         });
         this.lastRouteDecision = {
           ...decision,
@@ -344,6 +354,14 @@ export class CoreAPIImpl implements CoreAPI {
       } catch (error) {
         logger.warning('SmartRouter 决策失败，回退 modelRouter', { error });
       }
+    }
+    // S3: 回退到 modelRouter，支持阶段感知
+    if (effectivePhase) {
+      const phaseModel = modelRouter.resolveWithPhase(
+        RouteKey.CHAT,
+        effectivePhase
+      );
+      if (phaseModel) return { model: phaseModel, tier: 'phase-routed' };
     }
     return { model: await resolveModelRoute(RouteKey.CHAT), tier: 'fallback' };
   }
@@ -639,7 +657,51 @@ export class CoreAPIImpl implements CoreAPI {
                   ? { success: true, data: cachedResult }
                   : undefined,
               },
+              // create_project 工具完成后注入导航建议元数据 + 关联 session
+              _meta:
+                toolName === 'create_project' && cachedResult
+                  ? (() => {
+                      // cachedResult 是 toolResult.data — 对于 create_project 是 JSON 字符串
+                      const rawData =
+                        typeof cachedResult === 'string'
+                          ? JSON.parse(cachedResult as unknown as string)
+                          : (cachedResult as Record<string, unknown>);
+                      return {
+                        action: 'suggest_navigate',
+                        target: `/projects?open=${rawData?.projectId}`,
+                        label: '查看项目',
+                      };
+                    })()
+                  : undefined,
             } as ChatStreamChunk);
+
+            // create_project 工具完成后关联 session 到新项目
+            if (
+              toolName === 'create_project' &&
+              cachedResult &&
+              finalSessionId
+            ) {
+              try {
+                const rawData =
+                  typeof cachedResult === 'string'
+                    ? JSON.parse(cachedResult as unknown as string)
+                    : (cachedResult as Record<string, unknown>);
+                const projectId = rawData?.projectId as string | undefined;
+                if (projectId) {
+                  const s = this.chatManager
+                    .getSessions()
+                    .find((s) => s.id === finalSessionId);
+                  if (s && !s.metadata?.projectId) {
+                    if (!s.metadata) {
+                      (s as unknown as Record<string, unknown>).metadata = {};
+                    }
+                    s.metadata.projectId = projectId;
+                  }
+                }
+              } catch {
+                /* 关联失败不影响主流程 */
+              }
+            }
           }
         },
       });

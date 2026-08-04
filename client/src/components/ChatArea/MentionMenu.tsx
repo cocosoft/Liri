@@ -66,13 +66,12 @@ export default function MentionMenu({
         path: f.path,
       }));
 
-    const projItems: MentionItem[] = (projectItems || [])
-      .filter((p) => p.label.toLowerCase().includes(q));
+    const projItems: MentionItem[] = (projectItems || []).filter((p) =>
+      p.label.toLowerCase().includes(q),
+    );
 
     return [...fileItems, ...projItems];
   }, [query, sessionFiles, projectItems]);
-
-  if (!show || filteredItems.length === 0) return null;
 
   /** 按 type 分组 */
   const groups = useMemo(() => {
@@ -84,6 +83,8 @@ export default function MentionMenu({
     }
     return map;
   }, [filteredItems]);
+
+  if (!show || filteredItems.length === 0) return null;
 
   let globalIdx = 0;
 

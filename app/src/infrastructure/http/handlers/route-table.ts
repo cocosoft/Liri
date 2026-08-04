@@ -93,7 +93,20 @@ import {
   handleSaveProjectContext,
   handleEngineHook,
   handleGetProjectHistory,
+  handleGetSummaries,
+  handleListProjectFiles,
 } from './project-artifact-handlers';
+
+// P0b: Project CRUD handlers
+import {
+  handleListProjects,
+  handleCreateProject,
+  handleGetProject,
+  handleUpdateProject,
+  handleDeleteProject,
+  handleMigrateProjects,
+  handleMigrateFiles,
+} from './project-handlers';
 
 // Channel handlers（直接函数调用，部分需要 broadcastEvent 回调）
 import {
@@ -1271,6 +1284,26 @@ export async function dispatchRoute(
   }
 
   // ---- Project Artifacts ----
+  // P0b: Project CRUD（list/create 精确匹配，在子路由之前）
+  if (method === 'GET' && url === '/v1/projects') {
+    await handleListProjects(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/projects') {
+    await handleCreateProject(req, res);
+    return true;
+  }
+
+  // P0b-4: 迁移路由（必须在 /v1/projects/:id 之前）
+  if (method === 'POST' && url === '/v1/projects/migrate') {
+    await handleMigrateProjects(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/projects/migrate-files') {
+    await handleMigrateFiles(req, res);
+    return true;
+  }
+
   if (method === 'GET' && url.match(/^\/v1\/projects\/(.+)\/context$/)) {
     const match = url.match(/^\/v1\/projects\/(.+)\/context$/)!;
     await handleGetProjectContext(req, res, match[1]);
@@ -1291,6 +1324,16 @@ export async function dispatchRoute(
     await handleGetProjectHistory(req, res, match[1]);
     return true;
   }
+  if (method === 'GET' && url.match(/^\/v1\/projects\/(.+)\/summaries$/)) {
+    const match = url.match(/^\/v1\/projects\/(.+)\/summaries$/)!;
+    await handleGetSummaries(req, res, match[1]);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/projects\/(.+)\/files$/)) {
+    const match = url.match(/^\/v1\/projects\/(.+)\/files$/)!;
+    await handleListProjectFiles(req, res, match[1]);
+    return true;
+  }
   if (method === 'GET' && url.match(/^\/v1\/projects\/(.+)\/artifacts$/)) {
     const match = url.match(/^\/v1\/projects\/(.+)\/artifacts$/)!;
     await handleListArtifacts(req, res, match[1]);
@@ -1307,6 +1350,23 @@ export async function dispatchRoute(
   ) {
     const match = url.match(/^\/v1\/projects\/(.+)\/artifacts\/(.+)$/)!;
     await handleDeleteArtifact(req, res, match[1], match[2]);
+    return true;
+  }
+
+  // P0b: Project CRUD（单项目操作，在子路由之后避免冲突）
+  if (method === 'GET' && url.match(/^\/v1\/projects\/(.+)$/)) {
+    const match = url.match(/^\/v1\/projects\/(.+)$/)!;
+    await handleGetProject(req, res, match[1]);
+    return true;
+  }
+  if (method === 'PATCH' && url.match(/^\/v1\/projects\/(.+)$/)) {
+    const match = url.match(/^\/v1\/projects\/(.+)$/)!;
+    await handleUpdateProject(req, res, match[1]);
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/projects\/(.+)$/)) {
+    const match = url.match(/^\/v1\/projects\/(.+)$/)!;
+    await handleDeleteProject(req, res, match[1]);
     return true;
   }
 

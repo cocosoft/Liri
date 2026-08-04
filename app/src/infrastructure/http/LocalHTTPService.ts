@@ -1803,13 +1803,14 @@ export class LocalHTTPService {
         await import('@modules/cost/DailyCostCache');
       const dailyCache = getDailyCostCache();
 
-      const [todayAgg, weekAgg, monthAgg, allAgg, dailyRows] =
+      const [todayAgg, weekAgg, monthAgg, allAgg, dailyRows, sessionCount] =
         await Promise.all([
           repo.getAggregatedCosts({ startTime: todayStart.getTime() }),
           repo.getAggregatedCosts({ startTime: weekAgo }),
           repo.getAggregatedCosts({ startTime: monthAgo }),
           repo.getAggregatedCosts({}),
           dailyCache.get(repo, weekAgo),
+          repo.countSessionSummaries(),
         ]);
 
       // 构建 topProviders
@@ -1832,7 +1833,7 @@ export class LocalHTTPService {
       });
 
       const response = {
-        totalSessions: 0,
+        totalSessions: sessionCount,
         todayCost: todayAgg.totalCostUSD,
         weeklyCost: weekAgg.totalCostUSD,
         monthlyCost: monthAgg.totalCostUSD,

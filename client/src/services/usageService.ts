@@ -78,6 +78,22 @@ export interface CostRecordsResponse {
   total: number;
 }
 
+/** 对账结果（GET /v1/usage/cost/reconcile） */
+export interface CostReconcileResult {
+  matched: number;
+  onlyInUsage: number;
+  onlyInCost: number;
+  costDiffs: Array<{
+    requestId: string;
+    model: string;
+    costUsageLogs: number;
+    costRecords: number;
+    diff: number;
+  }>;
+  total: number;
+  matchRate: string;
+}
+
 export interface ModelPricingRecord {
   id: string;
   modelId: string;
@@ -209,6 +225,36 @@ export const usageService = {
       async () => {
         return http.get<CostRecord[]>("/v1/usage/cost/range", {
           params: { startDate, endDate },
+        });
+      },
+    );
+  },
+
+  /** 对账：校验用量日志与成本记录一致性（GET /v1/usage/cost/reconcile） */
+  async getCostReconcile(
+    startDate?: string,
+    endDate?: string,
+  ): Promise<CostReconcileResult> {
+    return getOTelTracing().asyncWrap(
+      "services:usage:getCostReconcile",
+      async () => {
+        return http.get<CostReconcileResult>("/v1/usage/cost/reconcile", {
+          params: { startDate, endDate },
+        });
+      },
+    );
+  },
+
+  /** 成本报表导出（GET /v1/usage/cost/report） */
+  async getCostReport(
+    format: "json" | "text" | "csv" | "prometheus" = "json",
+    period: "today" | "week" | "month" | "custom" = "month",
+  ): Promise<string> {
+    return getOTelTracing().asyncWrap(
+      "services:usage:getCostReport",
+      async () => {
+        return http.get<string>("/v1/usage/cost/report", {
+          params: { format, period },
         });
       },
     );

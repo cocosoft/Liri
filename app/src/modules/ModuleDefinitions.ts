@@ -343,6 +343,11 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     description: '成本模块，提供成本监控和分析功能',
     dependencies: ['core', 'infrastructure'],
     optionalDependencies: ['memory', 'monitoring'],
+    // 初始化成本跟踪系统：注册 COST_RECORDED 事件订阅，将成本事件持久化到 cost_records 表
+    initialize: async () => {
+      const { initializeCostTrackingSystem } = await import('../cost/index.js');
+      await initializeCostTrackingSystem();
+    },
   },
 
   docs: {

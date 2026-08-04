@@ -5,6 +5,7 @@ import {
   usageService,
   type CostSummary,
   type CostRecord,
+  type CostReconcileResult,
 } from "../../services/usageService";
 import type { UsageSummary } from "../../types";
 import { sseService } from "../../services/sseService";
@@ -193,6 +194,28 @@ export default function UsageCenterPage() {
     }
   }, []);
 
+  // 对账：校验用量日志与成本记录一致性
+  const [reconcile, setReconcile] = useState<CostReconcileResult | null>(null);
+  const [reconcileLoading, setReconcileLoading] = useState(false);
+  const [reconcileError, setReconcileError] = useState<string | null>(null);
+
+  const runReconcile = useCallback(async () => {
+    setReconcileLoading(true);
+    setReconcileError(null);
+    try {
+      const r = await usageService.getCostReconcile();
+      setReconcile(r);
+    } catch (e) {
+      handleClientError(e, {
+        module: "components:views:UsageCenterPage",
+        action: "runReconcile",
+      });
+      setReconcileError(e instanceof Error ? e.message : "对账失败");
+    } finally {
+      setReconcileLoading(false);
+    }
+  }, []);
+
   const refreshAll = useCallback(
     async (silent = false) => {
       await fetchCostData(silent);
@@ -364,6 +387,109 @@ export default function UsageCenterPage() {
               </div>
             ) : summary ? (
               <>
+                {/* 成本对账：校验用量日志与成本记录一致性 */}
+                <div
+                  className={`mb-4 p-4 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-medium">成本对账</h3>
+                    <button
+                      onClick={runReconcile}
+                      disabled={reconcileLoading}
+                      className="px-3 py-1.5 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50"
+                    >
+                      {reconcileLoading ? "对账中..." : "运行对账"}
+                    </button>
+                  </div>
+                  {reconcileError && (
+                    <p className="text-sm text-red-500 mb-2">
+                      {reconcileError}
+                    </p>
+                  )}
+                  {reconcile && (
+                    <>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
+                          <p className="text-xs text-gray-500">匹配记录</p>
+                          <p className="text-lg font-semibold text-green-600">
+                            {reconcile.matched}
+                          </p>
+                        </div>
+                        <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
+                          <p className="text-xs text-gray-500">仅用量侧</p>
+                          <p className="text-lg font-semibold text-orange-500">
+                            {reconcile.onlyInUsage}
+                          </p>
+                        </div>
+                        <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
+                          <p className="text-xs text-gray-500">仅成本侧</p>
+                          <p className="text-lg font-semibold text-purple-500">
+                            {reconcile.onlyInCost}
+                          </p>
+                        </div>
+                        <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
+                          <p className="text-xs text-gray-500">匹配率</p>
+                          <p className="text-lg font-semibold">
+                            {reconcile.matchRate}
+                          </p>
+                        </div>
+                      </div>
+                      {reconcile.onlyInUsage > 0 && (
+                        <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
+                          提示：仅用量侧记录表示用量已记录但成本未落库（历史数据未回填或定价缺失），新记录将随成本链路自动持久化。
+                        </p>
+                      )}
+                      {reconcile.costDiffs.length > 0 && (
+                        <div className="mt-3 overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr
+                                className={
+                                  isDark ? "bg-gray-700" : "bg-gray-50"
+                                }
+                              >
+                                <th className="px-3 py-1.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                                  模型
+                                </th>
+                                <th className="px-3 py-1.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
+                                  用量侧成本
+                                </th>
+                                <th className="px-3 py-1.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
+                                  成本侧
+                                </th>
+                                <th className="px-3 py-1.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
+                                  差异
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                              {reconcile.costDiffs.slice(0, 20).map((d) => (
+                                <tr
+                                  key={d.requestId}
+                                  className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                >
+                                  <td className="px-3 py-1.5 text-sm text-gray-900 dark:text-gray-200">
+                                    {d.model}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-sm text-right text-gray-500">
+                                    {d.costUsageLogs.toFixed(4)}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-sm text-right text-gray-500">
+                                    {d.costRecords.toFixed(4)}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-sm text-right font-medium text-red-500">
+                                    {d.diff.toFixed(4)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
                 {/* 成本统计卡片 */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                   <MetricCard

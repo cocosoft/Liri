@@ -704,6 +704,18 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   // --http-only 模式：仅启动 HTTP 服务，不进入 REPL
   if (httpOnly) {
     logger.info('HTTP-only 模式，HTTP 服务已在运行，等待信号退出');
+    // http-only 模式在此等待信号，launchREPL 无法返回，launch() 末尾的
+    // `LocalHTTPService._appReady = true`（main.ts 1408）不会执行，
+    // 导致所有业务请求持续返回 503 "Service starting"。此处手动标记就绪。
+    if (httpService) {
+      try {
+        const { LocalHTTPService } =
+          await import('./infrastructure/http/LocalHTTPService.js');
+        LocalHTTPService._appReady = true;
+      } catch {
+        // @ignore-catch — 就绪标记失败不影响进程存活
+      }
+    }
     // 保持进程存活，直到收到 SIGINT/SIGTERM
     await new Promise<void>((resolve) => {
       const onSignal = () => {
@@ -911,7 +923,10 @@ async function resolveDefaultTiersFromDb(): Promise<
     const chatModels = enabled
       .filter((m) => m.enabled && m.modelId)
       .filter((m) => {
-        if (m.capabilities?.some((c) => nonChatCaps.includes(c))) return false;
+        // 排除无能力声明的残留模型（如无效的 Pro/moonshotai/Kimi-K2.6，capabilities=[]，
+        // 会被误选为 SmartRouter 默认档位导致决策调用 503）
+        if (!m.capabilities || m.capabilities.length === 0) return false;
+        if (m.capabilities.some((c) => nonChatCaps.includes(c))) return false;
         return true;
       });
     if (chatModels.length === 0) return emptyTiers;

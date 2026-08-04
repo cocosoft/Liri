@@ -387,22 +387,33 @@ async function handleProviderModels(
 
 // ─── Usage 路由 ────────────────────────────────────────
 
+/**
+ * 解析秒级时间参数：前端 getDateRange 产生毫秒，model_usage_logs.timestamp 为秒。
+ * 统一在 HTTP 边界转秒，避免时间过滤失效（与 usagestats 命令的秒级约定一致）。
+ */
+function parseSecondsParam(raw: string | null): number | undefined {
+  if (!raw) return undefined;
+  const v = parseInt(raw, 10);
+  return Number.isNaN(v) ? undefined : Math.floor(v / 1000);
+}
+
 async function handleUsageSummary(
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
   try {
     const url = new URL(req.url || '/', 'http://localhost');
-    const startDate = url.searchParams.get('startDate');
-    const endDate = url.searchParams.get('endDate');
+    // model_usage_logs.timestamp 为秒，前端 getDateRange 传毫秒 → 统一转秒
+    const startDate = parseSecondsParam(url.searchParams.get('startDate'));
+    const endDate = parseSecondsParam(url.searchParams.get('endDate'));
     const model = url.searchParams.get('model') || undefined;
     const providerId = url.searchParams.get('providerId') || undefined;
 
     const { usageStatsService } = await import('./models/UsageStatsService.js');
     await usageStatsService.initialize();
     const summary = await usageStatsService.getUsageSummary(
-      startDate ? parseInt(startDate) : undefined,
-      endDate ? parseInt(endDate) : undefined,
+      startDate,
+      endDate,
       model,
       providerId
     );
@@ -422,15 +433,15 @@ async function handleUsageTrend(
 ): Promise<void> {
   try {
     const url = new URL(req.url || '/', 'http://localhost');
-    const startDate = url.searchParams.get('startDate');
-    const endDate = url.searchParams.get('endDate');
+    const startDate = parseSecondsParam(url.searchParams.get('startDate'));
+    const endDate = parseSecondsParam(url.searchParams.get('endDate'));
     const model = url.searchParams.get('model') || undefined;
 
     const { usageStatsService } = await import('./models/UsageStatsService.js');
     await usageStatsService.initialize();
     const trends = await usageStatsService.getDailyTrends(
-      startDate ? parseInt(startDate) : undefined,
-      endDate ? parseInt(endDate) : undefined,
+      startDate,
+      endDate,
       model
     );
     sendJson(res, { data: trends });
@@ -449,15 +460,12 @@ async function handleUsageModelStats(
 ): Promise<void> {
   try {
     const url = new URL(req.url || '/', 'http://localhost');
-    const startDate = url.searchParams.get('startDate');
-    const endDate = url.searchParams.get('endDate');
+    const startDate = parseSecondsParam(url.searchParams.get('startDate'));
+    const endDate = parseSecondsParam(url.searchParams.get('endDate'));
 
     const { usageStatsService } = await import('./models/UsageStatsService.js');
     await usageStatsService.initialize();
-    const stats = await usageStatsService.getModelStats(
-      startDate ? parseInt(startDate) : undefined,
-      endDate ? parseInt(endDate) : undefined
-    );
+    const stats = await usageStatsService.getModelStats(startDate, endDate);
     sendJson(res, { data: stats });
   } catch (err) {
     await handleError(err, {
@@ -474,15 +482,12 @@ async function handleUsageProviderStats(
 ): Promise<void> {
   try {
     const url = new URL(req.url || '/', 'http://localhost');
-    const startDate = url.searchParams.get('startDate');
-    const endDate = url.searchParams.get('endDate');
+    const startDate = parseSecondsParam(url.searchParams.get('startDate'));
+    const endDate = parseSecondsParam(url.searchParams.get('endDate'));
 
     const { usageStatsService } = await import('./models/UsageStatsService.js');
     await usageStatsService.initialize();
-    const stats = await usageStatsService.getProviderStats(
-      startDate ? parseInt(startDate) : undefined,
-      endDate ? parseInt(endDate) : undefined
-    );
+    const stats = await usageStatsService.getProviderStats(startDate, endDate);
     sendJson(res, { data: stats });
   } catch (err) {
     await handleError(err, {

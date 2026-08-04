@@ -64,7 +64,7 @@ function Footer() {
   }, []);
 
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | undefined;
+    // 状态栏 In/Out/成本实时展示：初始加载 + 每 5 秒轮询新成本链路（/v1/usage/cost/summary）
     const fetchCostSummary = async () => {
       try {
         const data = await usageService.getCostSummary();
@@ -73,16 +73,10 @@ function Footer() {
         logger.error("获取成本摘要失败:", err);
       }
     };
-    // 初始加载
     fetchCostSummary();
-    // 仅当成本详情弹窗展开时轮询，关闭后立即停止（之前 || 导致一边关闭另一边仍在轮询）
-    if (showCostDetail) {
-      interval = setInterval(fetchCostSummary, 5000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [showCostDetail, isExpanded]);
+    const interval = setInterval(fetchCostSummary, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const getStatusDot = (running: boolean) => (
     <span

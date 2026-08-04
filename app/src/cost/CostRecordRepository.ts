@@ -690,6 +690,30 @@ export class CostRecordRepository {
     );
   }
 
+  /**
+   * 统计有成本记录的会话总数（session_cost_summaries 行数）
+   */
+  async countSessionSummaries(): Promise<number> {
+    await this.initDatabase();
+
+    const row = await new Promise<Record<string, unknown> | undefined>(
+      (resolve, reject) => {
+        this.db?.get(
+          `SELECT COUNT(*) AS cnt FROM ${COST_SESSION_SUMMARY_TABLE}`,
+          (err: Error | null, row: unknown) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(row as Record<string, unknown> | undefined);
+            }
+          }
+        );
+      }
+    );
+
+    return Number(row?.cnt || 0);
+  }
+
   async close(): Promise<void> {
     if (this.db) {
       this.db.close();

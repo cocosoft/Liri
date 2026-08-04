@@ -146,7 +146,8 @@
 | GET | `/v1/usage/cost/summary` | ✅ **v3 新增** | `usageService.getCostSummary` |
 | GET | `/v1/usage/cost/records` | ✅ **v3 新增** | `usageService.getCostRecords` |
 | GET | `/v1/usage/cost/range` | ✅ **v3 新增** | `usageService.getCostByDateRange` |
-| GET | `/v1/usage/cost/report` | ✅ **v3 新增** | — |
+| GET | `/v1/usage/cost/report` | ✅ **v3 新增** | `usageService.getCostReport` |
+| GET | `/v1/usage/cost/reconcile` | ✅ **v1.2 新增** | `usageService.getCostReconcile` |
 | GET | `/v1/usage/balances` | ✅ **v3 新增** | `usageService.batchCheckBalance` |
 | POST | `/v1/usage/balance` | ✅ **v3 新增** | `usageService.checkBalance` |
 | GET | `/v1/balances` | ⚠️ 301→`/v1/usage/balances` | 旧路径，保留兼容 |

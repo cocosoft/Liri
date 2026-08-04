@@ -46,8 +46,6 @@ export * from './PricingManager.js';
 // 导出成本报告生成器
 export {
   CostReporter,
-  CostTrend,
-  CostReportOptions,
   addCostTrend,
   getCostTrends,
   analyzeCostTrend,
@@ -55,6 +53,9 @@ export {
   generateCostReport,
   costReporter,
 } from './CostReporter.js';
+// 类型导出（interface 不能值导出，否则 Bun 运行时加载报
+// "export 'CostReportOptions' not found" → cost 延迟模块加载失败）
+export type { CostTrend, CostReportOptions } from './CostReporter.js';
 export type { CostPrediction as CostReportPrediction } from './CostReporter.js';
 
 export type { CostPrediction } from './EnhancedCostManager.js';

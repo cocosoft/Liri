@@ -74,7 +74,9 @@ export type TaskType =
   | 'video' // 视频生成（兼容旧配置，优先用 text_to_video / image_to_video）
   | 'tts' // 语音合成（ElevenLabs / OpenAI TTS 等）
   | 'stt' // 语音识别（Whisper / Deepgram 等）
-  | 'reranking'; // 重排序（Cohere Rerank / BGE 等）
+  | 'reranking' // 重排序（Cohere Rerank / BGE 等）
+  | 'knowledge_compile' // 知识库编译（raw 文档 → many-to-many wiki 页面）
+;
 
 /** PDCA 阶段上下文（S3 ModelPhaseRouter） */
 export type PdcaPhase = 'plan' | 'do' | 'check' | 'act';
@@ -158,6 +160,7 @@ export const ALL_TASK_TYPES: TaskType[] = [
   'tts',
   'stt',
   'reranking',
+  'knowledge_compile',
 ];
 
 // ============================================================
@@ -184,6 +187,7 @@ export interface TaskModelConfig {
   tts?: string;
   stt?: string;
   reranking?: string;
+  knowledge_compile?: string;
 }
 
 /**
@@ -304,6 +308,12 @@ export const TASK_DEFINITIONS: TaskDefinition[] = [
     label: '重排序',
     description: '检索结果重排序（Cohere Rerank / BGE 等）',
     icon: '📊',
+  },
+  {
+    type: 'knowledge_compile',
+    label: '知识库编译',
+    description: '知识库定时/手动编译（raw 文档 → many-to-many wiki 页面生成）',
+    icon: '📚',
   },
 ];
 
@@ -911,6 +921,7 @@ export class ModelRouter {
         'scheduled',
         'local',
         'translation',
+        'knowledge_compile',
       ];
       let preservedCount = 0;
       let clearedCount = 0;
@@ -1060,6 +1071,7 @@ export class ModelRouter {
         'scheduled',
         'local',
         'translation',
+        'knowledge_compile',
       ];
       // 非聊天能力标签（与 handleGetCurrentModel 保持一致）
       const nonChatCaps = new Set([

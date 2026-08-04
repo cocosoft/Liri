@@ -107,6 +107,7 @@ export interface TaskModelConfig {
   tts?: string;
   stt?: string;
   reranking?: string;
+  knowledge_compile?: string;
 }
 
 export interface TaskDefinition {

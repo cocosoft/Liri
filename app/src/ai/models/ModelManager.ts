@@ -22,6 +22,9 @@ import {
 } from './ModelConfigs.js';
 import { ModelRegistry } from './ModelRegistry.js';
 import { configManager } from '@modules/config';
+// eslint-disable-next-line module-registry/no-direct-module-import
+import { calculateTotalCost } from '@modules/cost/calculateCost.js';
+import type { ModelPricing } from '@modules/cost/ModelPricing.js';
 
 export type SubscriptionType =
   | 'free'
@@ -184,10 +187,14 @@ export class ModelManager {
   ): number | null {
     const pricing = this.getModelPricing(modelName);
     if (!pricing) return null;
-    return (
-      (inputTokens / 1000000) * pricing.inputPer1M +
-      (outputTokens / 1000000) * pricing.outputPer1M
-    );
+    const modelPricing: ModelPricing = {
+      inputPricePerMillion: pricing.inputPer1M,
+      outputPricePerMillion: pricing.outputPer1M,
+      cacheReadPricePerMillion: 0,
+      cacheCreationPricePerMillion: 0,
+      webSearchPricePerRequest: 0.01,
+    };
+    return calculateTotalCost(modelPricing, inputTokens, outputTokens);
   }
 
   getAvailableModels(): string[] {

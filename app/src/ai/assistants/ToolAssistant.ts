@@ -284,9 +284,14 @@ ${toolsDescription}
       const jsonMatch = content.match(/\[[\s\S]*?\]/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        return parsed
+        type ParsedToolEntry = {
+          toolName?: string;
+          reason?: string;
+          confidence?: number;
+        };
+        return (parsed as ParsedToolEntry[])
           .slice(0, limit)
-          .map((item: any) => {
+          .map((item) => {
             const tool = this.tools.find((t) => t.name === item.toolName);
             if (tool) {
               return {
@@ -297,7 +302,7 @@ ${toolsDescription}
             }
             return null;
           })
-          .filter((r: any) => r !== null);
+          .filter((r): r is NonNullable<typeof r> => r !== null);
       }
     } catch (error) {
       void handleError(error, {

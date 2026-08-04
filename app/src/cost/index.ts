@@ -26,7 +26,6 @@
 
 // 导出模型定价配置（排除与EnhancedCostManager重复的导出）
 export {
-  calculateModelCost,
   formatCost,
   getModelPricing,
   getCanonicalModelName,
@@ -146,11 +145,12 @@ export async function initializeCostTrackingSystem(): Promise<void> {
     await repository.initDatabase();
     costTracker.setRecordRepository(repository);
 
-    // 注册成本记录事件订阅者（事件驱动持久化）
+    // 注册成本记录事件订阅者（事件驱动持久化 + 告警 + OTel 指标）
     globalEventBus.subscribe(
       SystemEvents.COST_RECORDED,
       async (event: CostRecordedEvent) => {
         try {
+          // SQLite 持久化（已有）
           await repository.recordCost({
             model: event.model,
             inputTokens: event.inputTokens,
@@ -159,9 +159,44 @@ export async function initializeCostTrackingSystem(): Promise<void> {
             cacheCreationTokens: event.cacheCreationInputTokens,
             costUSD: event.costUSD,
             sessionId: event.sessionId,
+            requestId: event.requestId,
           });
         } catch (error) {
           await handleError(error, { module: 'cost:index', action: 'persist' });
+        }
+
+        try {
+          // [v1.2] OTel/Prometheus 成本指标桥接（迁移自 CoreAPIImpl.onUsage）
+          const { getCostMetricsBridge: getBridge } =
+            await import('./CostMetricsBridge.js');
+          getBridge().record(
+            event.model,
+            {
+              inputTokens: event.inputTokens,
+              outputTokens: event.outputTokens,
+              cacheReadInputTokens: event.cacheReadInputTokens,
+              cacheCreationInputTokens: event.cacheCreationInputTokens,
+            },
+            event.costUSD
+          );
+        } catch {
+          // OTel 记录失败不阻塞持久化
+        }
+
+        try {
+          // [v1.2] 成本预算告警检测（迁移自 CoreAPIImpl.onUsage）
+          const { recordCost } = await import('./CostMonitor.js');
+          recordCost(event.costUSD, event.inputTokens, event.outputTokens);
+        } catch {
+          // 告警检测失败不阻塞持久化
+        }
+
+        // [v1.2] 成本数据新增时失效每日聚合缓存
+        try {
+          const { getDailyCostCache } = await import('./DailyCostCache.js');
+          getDailyCostCache().invalidate();
+        } catch {
+          // 缓存失效失败不阻塞
         }
       }
     );

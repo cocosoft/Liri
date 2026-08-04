@@ -6,19 +6,18 @@
 
 import { OTelAwareLogger } from '../monitoring/logs/OTelAwareLogger.js';
 import {
-  calculateModelCost,
   formatCost,
   getModelPricing,
   getCanonicalModelName,
   hasUnknownModel,
   resetUnknownModelFlag,
 } from './ModelPricing.js';
+import { calculateTotalCost } from './calculateCost.js';
 import type { CostRecordRepository } from './CostRecordRepository.js';
 import { globalEventBus, SystemEvents } from '@modules/core';
 import type { CostRecordedEvent } from '@modules/core';
 
 import { Logger, LogLevel } from '@modules/monitoring';
-import { handleError } from '@modules/error';
 const logger = new Logger({ module: 'cost:CostTracker', level: LogLevel.INFO });
 
 /**
@@ -93,17 +92,20 @@ export class CostTracker {
     cacheCreationTokens: number = 0,
     webSearchRequests: number = 0,
     isFastMode: boolean = false,
-    reasoningTokens: number = 0
+    reasoningTokens: number = 0,
+    requestId?: string
   ): number {
     const canonicalModelName = getCanonicalModelName(modelName);
-    const cost = calculateModelCost(
-      canonicalModelName,
+    // [v1.2] 使用统一成本计算（safe clamp + 精度 + cache 启发式兜底）
+    const pricing = getModelPricing(canonicalModelName, isFastMode);
+    const cost = calculateTotalCost(
+      pricing,
       inputTokens,
       outputTokens,
-      cacheReadTokens,
       cacheCreationTokens,
+      cacheReadTokens,
       webSearchRequests,
-      isFastMode
+      isFastMode ? 'fast' : 'standard'
     );
 
     this.totalCostUSD += cost;
@@ -150,6 +152,7 @@ export class CostTracker {
       costUSD: cost,
       timestamp: Date.now(),
       sessionId: this.currentSessionId || undefined,
+      requestId,
     };
     globalEventBus.publish(SystemEvents.COST_RECORDED, eventData);
 
@@ -168,36 +171,6 @@ export class CostTracker {
     });
 
     return cost;
-  }
-
-  /**
-   * 持久化成本记录到SQLite
-   */
-  private async persistCostRecord(
-    model: string,
-    inputTokens: number,
-    outputTokens: number,
-    cacheReadTokens: number,
-    cacheCreationTokens: number,
-    costUSD: number
-  ): Promise<void> {
-    if (!this.recordRepository) {
-      return;
-    }
-
-    try {
-      await this.recordRepository.recordCost({
-        model,
-        inputTokens,
-        outputTokens,
-        cacheReadTokens,
-        cacheCreationTokens,
-        costUSD,
-        sessionId: this.currentSessionId || undefined,
-      });
-    } catch (error) {
-      await handleError(error, { module: 'cost:tracker', action: 'persist' });
-    }
   }
 
   /**

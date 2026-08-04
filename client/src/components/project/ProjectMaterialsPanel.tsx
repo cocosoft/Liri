@@ -78,21 +78,24 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
     }
   }, [projectId]);
 
-  const handleUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      await uploadProjectFile(projectId, file);
-      await loadFiles(); // 上传后刷新文件列表
-    } catch {
-      /* 上传失败静默，文件列表不更新即为反馈 */
-    } finally {
-      setUploading(false);
-      // 重置 input，允许重复上传同名文件
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }, [projectId, loadFiles]);
+  const handleUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setUploading(true);
+      try {
+        await uploadProjectFile(projectId, file);
+        await loadFiles(); // 上传后刷新文件列表
+      } catch {
+        /* 上传失败静默，文件列表不更新即为反馈 */
+      } finally {
+        setUploading(false);
+        // 重置 input，允许重复上传同名文件
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    },
+    [projectId, loadFiles],
+  );
 
   useEffect(() => {
     fetchProjectContext(projectId)

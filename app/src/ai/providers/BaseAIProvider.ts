@@ -708,13 +708,27 @@ export abstract class BaseAIProvider implements AIProvider {
     if (usage) {
       const inputTokens = usage.prompt_tokens || 0;
       const outputTokens = usage.completion_tokens || 0;
+      // [v1.2] 三级回退 cache 提取（OpenAI → Anthropic → DeepSeek）
+      const cacheRead =
+        (
+          (json.usage as Record<string, unknown>)?.prompt_tokens_details as
+            | Record<string, number>
+            | undefined
+        )?.cached_tokens ??
+        usage.cache_read_input_tokens ??
+        usage.prompt_cache_hit_tokens ??
+        0;
+      const cacheCreation =
+        usage.cache_creation_input_tokens ??
+        usage.prompt_cache_miss_tokens ??
+        0;
       onEvent({
         type: 'usage',
         usage: {
           inputTokens,
           outputTokens,
-          cacheReadTokens: 0,
-          cacheCreationTokens: 0,
+          cacheReadTokens: cacheRead,
+          cacheCreationTokens: cacheCreation,
           totalTokens: inputTokens + outputTokens,
         },
       });

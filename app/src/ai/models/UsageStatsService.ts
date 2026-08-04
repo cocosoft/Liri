@@ -126,6 +126,8 @@ export interface CreateUsageLogParams {
   statusCode?: number;
   isStreaming?: boolean;
   errorMessage?: string;
+  /** [v1.2] 请求唯一标识，用于与 cost_records 表对账 */
+  requestId?: string;
 }
 
 /** 查询过滤器 */
@@ -226,9 +228,19 @@ export class UsageStatsService {
         status_code INTEGER NOT NULL DEFAULT 200,
         is_streaming INTEGER NOT NULL DEFAULT 0,
         timestamp INTEGER NOT NULL,
-        error_message TEXT
+        error_message TEXT,
+        request_id TEXT
       )
     `);
+
+    // [v1.2] 为已有数据库新增 request_id 列（如果不存在）
+    try {
+      await run(`
+        ALTER TABLE ${USAGE_LOGS_TABLE} ADD COLUMN request_id TEXT
+      `);
+    } catch {
+      // 列已存在时忽略（SQLite 不支持 IF NOT EXISTS for ALTER TABLE）
+    }
 
     await run(`
       CREATE INDEX IF NOT EXISTS idx_usage_logs_model
@@ -299,8 +311,8 @@ export class UsageStatsService {
       `INSERT INTO ${USAGE_LOGS_TABLE}
        (id, model, provider_id, input_tokens, output_tokens, cache_read_tokens,
         cache_creation_tokens, cost_usd, latency_ms, status_code, is_streaming,
-        timestamp, error_message)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        timestamp, error_message, request_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         params.model,
@@ -315,6 +327,7 @@ export class UsageStatsService {
         params.isStreaming ? 1 : 0,
         timestamp,
         params.errorMessage || null,
+        params.requestId || null,
       ]
     );
 

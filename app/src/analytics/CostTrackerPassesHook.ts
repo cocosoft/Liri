@@ -1,3 +1,9 @@
+/**
+ * [@deprecated — v1.2] 成本跟踪 Passes 钩子
+ * 全库无调用方，已由 UsageTracker + COST_RECORDED 事件替代。
+ * 计划在后续版本移除。
+ * @deprecated Use UsageTracker.trackUsage + COST_RECORDED event subscription instead.
+ */
 import { PassesService } from './PassesService';
 import type { TokenUsage } from './CostAnalyticsTracker';
 import { priceManager } from '../core/tokenBudget/PriceManager';

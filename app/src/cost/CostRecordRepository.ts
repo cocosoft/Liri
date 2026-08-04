@@ -697,6 +697,203 @@ export class CostRecordRepository {
     }
   }
 
+  // ============================================================
+  // [v1.2] 按天聚合查询（UTC 日界，供成本 API 使用）
+  // ============================================================
+
+  /**
+   * 按 UTC 日界聚合每日成本数据
+   * SQLite `date(timestamp/1000, 'unixepoch')` 返回 UTC 日期
+   */
+  async getDailyAggregatedCosts(
+    startTime?: number,
+    endTime?: number
+  ): Promise<
+    Array<{
+      date: string;
+      cost: number;
+      inputTokens: number;
+      outputTokens: number;
+      cacheReadTokens: number;
+      cacheCreationTokens: number;
+      requests: number;
+    }>
+  > {
+    await this.initDatabase();
+
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+
+    if (startTime !== undefined) {
+      conditions.push('timestamp >= ?');
+      params.push(startTime);
+    }
+    if (endTime !== undefined) {
+      conditions.push('timestamp <= ?');
+      params.push(endTime);
+    }
+
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const rows = await new Promise<unknown[]>((resolve, reject) => {
+      this.db?.all(
+        `SELECT
+          date(timestamp / 1000, 'unixepoch') as date,
+          COALESCE(SUM(cost_usd), 0) as cost,
+          COALESCE(SUM(input_tokens), 0) as input_tokens,
+          COALESCE(SUM(output_tokens), 0) as output_tokens,
+          COALESCE(SUM(cache_read_tokens), 0) as cache_read_tokens,
+          COALESCE(SUM(cache_creation_tokens), 0) as cache_creation_tokens,
+          COUNT(*) as requests
+        FROM ${COST_RECORDS_TABLE}
+        ${whereClause}
+        GROUP BY date
+        ORDER BY date ASC`,
+        params,
+        (err: Error | null, rows: unknown[]) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(rows || []);
+          }
+        }
+      );
+    });
+
+    return rows.map((r) => {
+      const row = r as Record<string, unknown>;
+      return {
+        date: row.date as string,
+        cost: row.cost as number,
+        inputTokens: row.input_tokens as number,
+        outputTokens: row.output_tokens as number,
+        cacheReadTokens: row.cache_read_tokens as number,
+        cacheCreationTokens: row.cache_creation_tokens as number,
+        requests: row.requests as number,
+      };
+    });
+  }
+
+  /**
+   * 获取成本记录列表（分页，供 API 使用）
+   */
+  async getCostRecordsWithPagination(
+    startTime?: number,
+    endTime?: number,
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<Array<CostRecordRow & { date: string }>> {
+    return this.getCostRecords({
+      startTime,
+      endTime,
+      limit,
+      offset,
+    }) as Promise<Array<CostRecordRow & { date: string }>>;
+  }
+
+  // ============================================================
+  // [v1.2] 对账查询（model_usage_logs vs cost_records）
+  // ============================================================
+
+  async reconcileUsageAndCost(
+    startTime?: number,
+    endTime?: number
+  ): Promise<{
+    matched: number;
+    onlyInUsage: number;
+    onlyInCost: number;
+    costDiffs: Array<{
+      requestId: string;
+      model: string;
+      costUsageLogs: number;
+      costRecords: number;
+      diff: number;
+    }>;
+  }> {
+    await this.initDatabase();
+
+    const conds: string[] = ['u.status_code < 400'];
+    const params: unknown[] = [];
+
+    if (startTime !== undefined) {
+      conds.push('u.timestamp >= ?');
+      params.push(Math.floor(startTime / 1000));
+    }
+    if (endTime !== undefined) {
+      conds.push('u.timestamp <= ?');
+      params.push(Math.floor(endTime / 1000));
+    }
+    const where = conds.join(' AND ');
+
+    interface DiffRow {
+      request_id: string;
+      model: string;
+      cost_usage: number;
+      cost_cost: number;
+    }
+    const diffs = await new Promise<DiffRow[]>((resolve, reject) => {
+      this.db?.all(
+        `SELECT u.request_id, u.model, u.cost_usd as cost_usage, c.cost_usd as cost_cost
+         FROM model_usage_logs u
+         INNER JOIN cost_records c ON u.request_id = c.request_id
+         WHERE ${where} AND u.request_id IS NOT NULL AND c.request_id IS NOT NULL
+           AND ABS(u.cost_usd - c.cost_usd) > 0.000001`,
+        params,
+        (err: Error | null, rows: unknown[]) => {
+          if (err) reject(err);
+          else resolve((rows || []) as DiffRow[]);
+        }
+      );
+    });
+
+    const s = startTime ?? 0,
+      e = endTime ?? 9999999999999;
+    const counts = await new Promise<{
+      matched: number;
+      only_usage: number;
+      only_cost: number;
+    }>((resolve, reject) => {
+      this.db?.get(
+        `SELECT
+          (SELECT COUNT(*) FROM model_usage_logs u
+           INNER JOIN cost_records c ON u.request_id = c.request_id
+           WHERE ${where} AND u.request_id IS NOT NULL) as matched,
+          (SELECT COUNT(*) FROM model_usage_logs u
+           WHERE ${where} AND u.request_id IS NOT NULL
+           AND u.request_id NOT IN (SELECT request_id FROM cost_records WHERE request_id IS NOT NULL)) as only_usage,
+          (SELECT COUNT(*) FROM cost_records c
+           WHERE c.timestamp >= ? AND c.timestamp <= ? AND c.request_id IS NOT NULL
+           AND c.request_id NOT IN (SELECT request_id FROM model_usage_logs WHERE request_id IS NOT NULL)) as only_cost`,
+        [...params, s, e],
+        (err: Error | null, row: unknown) => {
+          if (err) reject(err);
+          else
+            resolve(
+              (row || { matched: 0, only_usage: 0, only_cost: 0 }) as {
+                matched: number;
+                only_usage: number;
+                only_cost: number;
+              }
+            );
+        }
+      );
+    });
+
+    return {
+      matched: counts.matched,
+      onlyInUsage: counts.only_usage,
+      onlyInCost: counts.only_cost,
+      costDiffs: diffs.map((d) => ({
+        requestId: d.request_id,
+        model: d.model,
+        costUsageLogs: d.cost_usage,
+        costRecords: d.cost_cost,
+        diff: Math.abs(d.cost_usage - d.cost_cost),
+      })),
+    };
+  }
+
   private rowToCostRecord(row: Record<string, unknown>): CostRecordRow {
     return {
       id: row.id as string,

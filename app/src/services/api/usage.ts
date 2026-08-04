@@ -5,6 +5,10 @@
  * 参考 CC源码 cc_code/backend/services/api/usage.ts
  */
 
+// eslint-disable-next-line module-registry/no-direct-module-import
+import { calculateTotalCost } from '@modules/cost/calculateCost.js';
+import type { ModelPricing } from '@modules/cost/ModelPricing.js';
+
 export interface TokenUsage {
   input: number;
   output: number;
@@ -96,8 +100,20 @@ export class UsageTracker {
     for (const record of this.records) {
       const costs = modelCosts[record.model];
       if (costs) {
-        totalCost += (record.tokens.input / 1000000) * costs.input;
-        totalCost += (record.tokens.output / 1000000) * costs.output;
+        const pricing: ModelPricing = {
+          inputPricePerMillion: costs.input,
+          outputPricePerMillion: costs.output,
+          cacheReadPricePerMillion: 0,
+          cacheCreationPricePerMillion: 0,
+          webSearchPricePerRequest: 0.01,
+        };
+        totalCost += calculateTotalCost(
+          pricing,
+          record.tokens.input,
+          record.tokens.output,
+          record.tokens.cacheWrite ?? 0,
+          record.tokens.cacheRead ?? 0
+        );
       }
     }
     return totalCost;

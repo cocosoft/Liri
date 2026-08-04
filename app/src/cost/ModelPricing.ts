@@ -46,11 +46,17 @@ function getPricingFromRegistry(modelName: string): ModelPricing | null {
         return null;
       }
       const model = registry.getModel(modelName);
+      // 启发式兜底：无明确定价时，缓存读 = 输入×0.1、缓存写 = 输入×1.25（参考 codeburn）
+      const cacheRead = model?.pricing?.cacheReadPer1M;
+      const cacheWrite = model?.pricing?.cacheWritePer1M;
+      const inputPrice = pricing.inputPer1M;
       return {
-        inputPricePerMillion: pricing.inputPer1M,
+        inputPricePerMillion: inputPrice,
         outputPricePerMillion: pricing.outputPer1M,
-        cacheReadPricePerMillion: model?.pricing?.cacheReadPer1M ?? 0,
-        cacheCreationPricePerMillion: model?.pricing?.cacheWritePer1M ?? 0,
+        cacheReadPricePerMillion:
+          cacheRead && cacheRead > 0 ? cacheRead : inputPrice * 0.1,
+        cacheCreationPricePerMillion:
+          cacheWrite && cacheWrite > 0 ? cacheWrite : inputPrice * 1.25,
         webSearchPricePerRequest: 0.01,
       };
     }
@@ -101,46 +107,6 @@ export function getModelPricing(
   };
   hasUnknownModelCost = true;
   return defaultPricing;
-}
-
-export function calculateModelCost(
-  modelName: string,
-  inputTokens: number,
-  outputTokens: number,
-  cacheReadTokens: number = 0,
-  cacheCreationTokens: number = 0,
-  webSearchRequests: number = 0,
-  isFastMode?: boolean
-): number {
-  const pricing = getModelPricing(modelName, isFastMode);
-
-  let cost = 0;
-  cost += (inputTokens / 1_000_000) * pricing.inputPricePerMillion;
-  cost += (outputTokens / 1_000_000) * pricing.outputPricePerMillion;
-  cost += (cacheReadTokens / 1_000_000) * pricing.cacheReadPricePerMillion;
-  cost +=
-    (cacheCreationTokens / 1_000_000) * pricing.cacheCreationPricePerMillion;
-  cost += webSearchRequests * pricing.webSearchPricePerRequest;
-
-  return cost;
-}
-
-export function calculateCostFromTokens(
-  pricing: ModelPricing,
-  inputTokens: number,
-  outputTokens: number,
-  cacheReadTokens: number = 0,
-  cacheCreationTokens: number = 0,
-  webSearchRequests: number = 0
-): number {
-  let cost = 0;
-  cost += (inputTokens / 1_000_000) * pricing.inputPricePerMillion;
-  cost += (outputTokens / 1_000_000) * pricing.outputPricePerMillion;
-  cost += (cacheReadTokens / 1_000_000) * pricing.cacheReadPricePerMillion;
-  cost +=
-    (cacheCreationTokens / 1_000_000) * pricing.cacheCreationPricePerMillion;
-  cost += webSearchRequests * pricing.webSearchPricePerRequest;
-  return cost;
 }
 
 export function formatPrice(price: number): string {

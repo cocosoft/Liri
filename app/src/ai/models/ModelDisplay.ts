@@ -13,6 +13,9 @@ import {
 } from './ModelConfigs.js';
 import { priceManager } from '@modules/core/tokenBudget/PriceManager';
 import { getCacheEfficiency as getCacheEfficiencyFromBudget } from '@modules/core/tokenBudget/CacheAwareBudget';
+// eslint-disable-next-line module-registry/no-direct-module-import
+import { calculateTotalCost } from '@modules/cost/calculateCost.js';
+import type { ModelPricing } from '@modules/cost/ModelPricing.js';
 
 /**
  * 格式化模型价格
@@ -203,11 +206,20 @@ export function calculateCostFromPriceManager(
     return 'N/A';
   }
 
-  const cost =
-    (inputTokens / 1_000_000) * pricing.inputPer1M +
-    (outputTokens / 1_000_000) * pricing.outputPer1M +
-    ((cacheReadTokens || 0) / 1_000_000) * pricing.cacheReadPer1M +
-    ((cacheCreationTokens || 0) / 1_000_000) * pricing.cacheWritePer1M;
+  const modelPricing: ModelPricing = {
+    inputPricePerMillion: pricing.inputPer1M,
+    outputPricePerMillion: pricing.outputPer1M,
+    cacheReadPricePerMillion: pricing.cacheReadPer1M,
+    cacheCreationPricePerMillion: pricing.cacheWritePer1M,
+    webSearchPricePerRequest: 0.01,
+  };
+  const cost = calculateTotalCost(
+    modelPricing,
+    inputTokens,
+    outputTokens,
+    cacheCreationTokens ?? 0,
+    cacheReadTokens ?? 0
+  );
 
   return formatCost(cost);
 }

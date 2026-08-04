@@ -13,7 +13,9 @@
  */
 
 import { AnalyticsEventQueue } from './AnalyticsEventQueue';
-import { calculateModelCost } from '../cost/ModelPricing.js';
+import { calculateTotalCost } from '../cost/calculateCost.js';
+import { getModelPricing } from '../cost/ModelPricing.js';
+import type { ModelPricing } from '../cost/ModelPricing.js';
 import { globalEventBus, SystemEvents } from '../core/events/EventBus';
 import type { CostRecordedEvent } from '../core/events/EventBus';
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -188,40 +190,39 @@ export class CostAnalyticsTracker {
   }
 
   calculateCost(model: string, usage: TokenUsage): number {
-    const pricing = this.config.pricing[model];
+    const configPricing = this.config.pricing[model];
 
-    // 无配置时回退到 ModelPricing 统一定价
-    if (!pricing) {
-      return calculateModelCost(
-        model,
+    // 无配置时回退到 ModelPricing 统一定价（含 Registry 兜底）
+    if (!configPricing) {
+      const pricing = getModelPricing(model);
+      return calculateTotalCost(
+        pricing,
         usage.inputTokens,
         usage.outputTokens,
-        usage.cacheReadInputTokens,
-        usage.cacheCreationInputTokens
+        usage.cacheCreationInputTokens ?? 0,
+        usage.cacheReadInputTokens ?? 0
       );
     }
 
-    let inputCost: number;
-    let outputCost: number;
-
-    if (pricing.perMillion) {
-      inputCost = (usage.inputTokens / 1_000_000) * pricing.input;
-      outputCost = (usage.outputTokens / 1_000_000) * pricing.output;
-    } else {
-      inputCost = usage.inputTokens * pricing.input;
-      outputCost = usage.outputTokens * pricing.output;
-    }
-
-    if (this.config.trackCacheTokens && usage.cacheReadInputTokens) {
-      const cacheDiscount = 0.9;
-      const cacheCost =
-        (usage.cacheReadInputTokens / 1_000_000) *
-        pricing.input *
-        cacheDiscount;
-      inputCost -= cacheCost;
-    }
-
-    return inputCost + outputCost;
+    // config 定价 → 转换为 ModelPricing 统一计算
+    const modelPricing: ModelPricing = {
+      inputPricePerMillion: configPricing.perMillion
+        ? configPricing.input
+        : configPricing.input * 1_000_000,
+      outputPricePerMillion: configPricing.perMillion
+        ? configPricing.output
+        : configPricing.output * 1_000_000,
+      cacheReadPricePerMillion: 0, // 使用 calculateTotalCost 启发式兜底
+      cacheCreationPricePerMillion: 0,
+      webSearchPricePerRequest: 0.01,
+    };
+    return calculateTotalCost(
+      modelPricing,
+      usage.inputTokens,
+      usage.outputTokens,
+      usage.cacheCreationInputTokens ?? 0,
+      usage.cacheReadInputTokens ?? 0
+    );
   }
 
   getModelCost(model: string): ModelCost | undefined {

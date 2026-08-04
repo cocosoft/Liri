@@ -77,9 +77,7 @@ import { providerRegistry } from '@modules/ai';
 import { getToolManager } from '@modules/tools/ToolManager';
 import { getTitleGenerator } from '@modules/agent/TitleGenerator';
 
-import { costTracker } from '@modules/cost/CostTracker.js';
-import { recordCost } from '@modules/cost/CostMonitor.js';
-import { getCostMetricsBridge } from '@modules/cost/CostMetricsBridge.js';
+// [v1.2] costTracker.addCost / recordCost / getCostMetricsBridge 已迁移到 COST_RECORDED 事件订阅者（cost/index.ts）
 import { eventNotificationService } from '@modules/chat/services/EventNotificationService';
 
 const logger = new Logger({
@@ -534,36 +532,11 @@ export class CoreAPIImpl implements CoreAPI {
             cacheCreationTokens: usage.cacheCreationInputTokens ?? 0,
           };
 
-          // 持久化成本记录到 SQLite
-          costTracker.addCost(
-            this._modelName,
-            usage.inputTokens,
-            usage.outputTokens,
-            usage.cacheReadInputTokens ?? 0,
-            usage.cacheCreationInputTokens ?? 0
-          );
-
-          // 触发成本监控告警检测
-          recordCost(
-            usage.estimatedCostUsd ?? 0,
-            usage.inputTokens,
-            usage.outputTokens
-          );
-
-          // 桥接成本数据到 OTel Metrics
-          getCostMetricsBridge().record(
-            this._modelName,
-            {
-              inputTokens: usage.inputTokens,
-              outputTokens: usage.outputTokens,
-              cacheReadInputTokens: usage.cacheReadInputTokens,
-              cacheCreationInputTokens: usage.cacheCreationInputTokens,
-            },
-            usage.estimatedCostUsd ?? 0
-          );
-
-          // [ADR-001] CostAnalyticsTracker 已迁移为 COST_RECORDED 事件只读消费者
-          // 不再直接调用 trackModelUsage()，成本数据通过 costTracker.addCost → COST_RECORDED 事件同步
+          // [v1.2] 成本统计已由 UsageTracker.trackUsage 统一处理（唯一入口 + 算法统一）
+          // 不再在此回调中重复调用 costTracker.addCost / getCostMetricsBridge / recordCost
+          // costTracker.addCost → UsageTracker.syncToTrackers（第 1 步已迁移为唯一入口）
+          // getCostMetricsBridge.record → COST_RECORDED 事件订阅者（cost/index.ts）
+          // recordCost（预算告警）→ COST_RECORDED 事件订阅者（cost/index.ts）
         },
         onToolCall: (phase, toolName, toolCallId, detail) => {
           if (phase === 'start') {

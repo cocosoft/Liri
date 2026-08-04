@@ -305,11 +305,20 @@ function handleCommandLineArgs() {
           // 直接列出技能
           const registry = new SkillRegistry();
           const bundledLoader = new BundledSkillLoader();
-          bundledLoader.loadSkills().then((skills) => {
-            registry.registerBatch(skills);
-            listSkills(registry);
-            ui.cleanup();
-          });
+          bundledLoader
+            .loadSkills()
+            .then((skills) => {
+              registry.registerBatch(skills);
+              listSkills(registry);
+              ui.cleanup();
+            })
+            .catch((err) => {
+              console.error(
+                '技能列表加载失败:',
+                err instanceof Error ? err.message : String(err)
+              );
+              ui.cleanup();
+            });
           return;
         }
         break;

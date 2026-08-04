@@ -422,12 +422,34 @@ export class ChronologicalBlockBuilder {
  *   <thinking>...</thinking>   → <think> 的别名变体
  *   <response>...</response>   → 用户可见的最终回复内容，转为 text 块
  *   标签外内容                  → 作为普通 text 块
+ *
+ * P1 修复（2026-08-04）：消除正文标签误判风险。
+ *   开标签后要求闭合标签在近距内出现（同chunk 或下一chunk 前 300 字符），
+ *   否则作为普通文本输出。防止文档/代码示例中的标签被误解析。
  */
 export function createThinkExtractor() {
   let thinkBuffer = "";
   let responseBuffer = "";
   let inThink = false;
   let inResponse = false;
+
+  // P1 修复：标签验证状态
+  /** 等待闭合标签验证的缓冲内容（含开标签） */
+  let pendingBuffer = "";
+  /** 放弃验证的字符上限 */
+  const MAX_PENDING_CHARS = 300;
+
+  // ─── 调试日志（仅开发环境） ──────────────────────
+  const dbg = (msg: string, detail?: Record<string, unknown>) => {
+    if (
+      typeof process !== "undefined" &&
+      process.env?.NODE_ENV === "production"
+    )
+      return;
+    const extra = detail ? ` ${JSON.stringify(detail)}` : "";
+    // eslint-disable-next-line no-console
+    console.debug(`[think-extractor] ${msg}${extra}`);
+  };
 
   return {
     extract: function* (
@@ -438,7 +460,17 @@ export function createThinkExtractor() {
         return;
       }
 
-      const content = chunk.content;
+      // P1：合并待验证缓冲
+      const hadPending = pendingBuffer.length > 0;
+      let content = pendingBuffer + chunk.content;
+      if (hadPending) {
+        dbg("RESOLVE pending", {
+          bufferedLen: pendingBuffer.length,
+          chunkLen: chunk.content.length,
+        });
+      }
+      pendingBuffer = "";
+
       let remaining = content;
       let output = "";
 
@@ -459,28 +491,83 @@ export function createThinkExtractor() {
           }
 
           // 找到更靠前的标签
-          if (
+          const isThink =
             thinkStart !== -1 &&
-            (thinkStart < responseStart || responseStart === -1)
-          ) {
-            output += remaining.slice(0, thinkStart);
-            // 跳过 <think> 或 <thinking>（7 或 9 字符）
-            const tagLen = remaining
-              .slice(thinkStart, thinkStart + 9)
-              .toLowerCase()
-              .startsWith("<thinking")
+            (thinkStart < responseStart || responseStart === -1);
+          const tagStart = isThink ? thinkStart : responseStart;
+          const tagType = isThink ? "think" : "response";
+          const tagLen = isThink
+            ? remaining
+                .slice(thinkStart, thinkStart + 10)
+                .toLowerCase()
+                .startsWith("<thinking")
               ? 10
-              : 7;
-            remaining = remaining.slice(thinkStart + tagLen);
-            inThink = true;
-            thinkBuffer = "";
-          } else {
-            output += remaining.slice(0, responseStart);
-            remaining = remaining.slice(responseStart + 10); // "<response>" = 10 chars
-            inResponse = true;
-            responseBuffer = "";
+              : 7
+            : 10; // "<response>" = 10 chars
+
+          // 标签前的文本原样输出
+          output += remaining.slice(0, tagStart);
+          const afterTag = remaining.slice(tagStart + tagLen);
+
+          // P1 修复：搜索闭合标签是否在近距内
+          const closePattern =
+            tagType === "think" ? /<\/(think|thinking)>/i : /<\/response>/i;
+          const closeMatch = afterTag.match(closePattern);
+
+          if (closeMatch) {
+            dbg("ENTER", {
+              tagType,
+              contentLen: afterTag.slice(0, closeMatch.index!).length,
+            });
+            // 闭合标签在同 chunk 内 → 真实标签，进入对应模式
+            const tagContent = afterTag.slice(0, closeMatch.index!);
+            const closeLen =
+              tagType === "think"
+                ? afterTag
+                    .slice(closeMatch.index!, closeMatch.index! + 12)
+                    .toLowerCase()
+                    .startsWith("</thinking")
+                  ? 12
+                  : 8
+                : 11; // "</response>" = 11 chars
+
+            if (tagType === "think") {
+              if (tagContent) {
+                yield { type: "thinking" as const, content: tagContent };
+              }
+              remaining = afterTag.slice(closeMatch.index! + closeLen);
+            } else {
+              if (tagContent) {
+                yield { type: "text" as const, content: tagContent };
+              }
+              remaining = afterTag.slice(closeMatch.index! + closeLen);
+            }
+            continue;
           }
-          continue;
+
+          // 闭合标签不在当前 chunk → 检查就近文本是否像真实块
+          if (afterTag.trimStart().length > MAX_PENDING_CHARS) {
+            dbg("REJECT too-far", {
+              tagType,
+              afterLen: afterTag.trimStart().length,
+              max: MAX_PENDING_CHARS,
+            });
+            output += remaining.slice(tagStart, tagStart + tagLen);
+            remaining = afterTag;
+            continue;
+          }
+
+          // 缓冲待验证：下一 chunk 验证
+          pendingBuffer = remaining.slice(tagStart);
+          dbg("PENDING", {
+            tagType,
+            bufferedLen: pendingBuffer.length,
+            remaining: afterTag.trimStart().slice(0, 30),
+          });
+          if (output) {
+            yield { type: "text" as const, content: output };
+          }
+          return; // 等待下一个 chunk
         }
 
         if (inThink) {
@@ -493,6 +580,7 @@ export function createThinkExtractor() {
           }
           thinkBuffer += remaining.slice(0, endMatch.index!);
           if (thinkBuffer) {
+            dbg("EXIT think", { contentLen: thinkBuffer.length });
             yield { type: "thinking" as const, content: thinkBuffer };
           }
           thinkBuffer = "";
@@ -517,6 +605,7 @@ export function createThinkExtractor() {
           }
           responseBuffer += remaining.slice(0, endIdx);
           if (responseBuffer) {
+            dbg("EXIT response", { contentLen: responseBuffer.length });
             yield { type: "text" as const, content: responseBuffer };
           }
           responseBuffer = "";
@@ -531,14 +620,22 @@ export function createThinkExtractor() {
       }
     },
     flush: function* (): Generator<StreamChunk, void, unknown> {
+      // P1：flush 时释放所有待验证缓冲为普通文本
+      if (pendingBuffer) {
+        dbg("FLUSH pending → text", { len: pendingBuffer.length });
+        yield { type: "text" as const, content: pendingBuffer };
+        pendingBuffer = "";
+      }
       // 未闭合的 think 标签 → 作为 thinking 输出
       if (inThink && thinkBuffer) {
+        dbg("FLUSH unclosed think", { len: thinkBuffer.length });
         yield { type: "thinking" as const, content: thinkBuffer };
         inThink = false;
         thinkBuffer = "";
       }
       // 未闭合的 response 标签 → 作为 text 输出
       if (inResponse && responseBuffer) {
+        dbg("FLUSH unclosed response", { len: responseBuffer.length });
         yield { type: "text" as const, content: responseBuffer };
         inResponse = false;
         responseBuffer = "";

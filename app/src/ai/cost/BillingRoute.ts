@@ -4,6 +4,9 @@
  * 实现多模型 → 多定价策略的动态路由
  */
 import type { ModelTokenUsage } from '../../cost/types';
+// eslint-disable-next-line module-registry/no-direct-module-import
+import { calculateTotalCost } from '@modules/cost/calculateCost.js';
+import type { ModelPricing } from '@modules/cost/ModelPricing.js';
 
 /**
  * 计费路由决策
@@ -211,10 +214,20 @@ export class BillingRoute {
     inputTokens: number,
     outputTokens: number
   ): number {
-    const inputCost = (inputTokens / 1_000_000) * pricing.inputTokens;
-    const outputCost = (outputTokens / 1_000_000) * pricing.outputTokens;
-
-    return inputCost + outputCost;
+    const modelPricing: ModelPricing = {
+      inputPricePerMillion: pricing.inputTokens,
+      outputPricePerMillion: pricing.outputTokens,
+      cacheReadPricePerMillion: pricing.cacheReadTokens || 0,
+      cacheCreationPricePerMillion: pricing.cacheWriteTokens || 0,
+      webSearchPricePerRequest: 0.01,
+    };
+    return calculateTotalCost(
+      modelPricing,
+      inputTokens,
+      outputTokens,
+      pricing.cacheWriteTokens || 0,
+      pricing.cacheReadTokens || 0
+    );
   }
 
   /**

@@ -329,6 +329,8 @@ export interface CostRecordedEvent {
   timestamp: number;
   /** 会话ID */
   sessionId?: string;
+  /** [v1.2] 请求唯一标识，用于与 model_usage_logs 表对账 */
+  requestId?: string;
 }
 
 /**

@@ -34,6 +34,20 @@ export class EmailReader {
   }
 
   /**
+   * 动态加载 imapflow（可选原生模块）
+   * 构建时标记为 external，运行时按需加载。
+   */
+  private async getImapFlow(): Promise<any> {
+    try {
+      return await import('imapflow');
+    } catch {
+      throw new Error(
+        'MAIL_MODULE: imapflow 未安装。请运行 bun add imapflow',
+      );
+    }
+  }
+
+  /**
    * 读取收件箱
    */
   async inbox(limit: number = 20): Promise<EmailSummary[]> {
@@ -46,7 +60,7 @@ export class EmailReader {
     logger.info('IMAP 收件箱读取', { limit });
 
     try {
-      const { ImapFlow } = await import('imapflow');
+      const { ImapFlow } = await this.getImapFlow();
       const client = new ImapFlow(this.buildImapConfig(account));
       await client.connect();
 
@@ -91,7 +105,7 @@ export class EmailReader {
     const accounts = this.configService.getAccounts();
     if (accounts.length === 0) throw new Error('未配置邮箱账户');
 
-    const { ImapFlow } = await import('imapflow');
+    const { ImapFlow } = await this.getImapFlow();
     const client = new ImapFlow(this.buildImapConfig(accounts[0]));
 
     try {

@@ -67,6 +67,9 @@ import { WorkItemStore } from '../workspace/WorkItemStore.js';
 import { resolveDataDir } from '@modules/core/paths';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
+import { getModelPricing } from '@modules/cost/ModelPricing.js';
+// eslint-disable-next-line module-registry/no-direct-module-import
+import { calculateTotalCost } from '@modules/cost/calculateCost.js';
 
 import type { ChatManager } from './ChatManagerInterface.js';
 
@@ -2019,8 +2022,20 @@ export class ChatManagerImpl implements ChatManager {
             cacheReadInputTokens: u.cache_read_input_tokens,
             cacheCreationInputTokens: u.cache_creation_input_tokens,
             totalTokens: inputTokens + outputTokens,
-            estimatedCostUsd:
-              (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15,
+            // [v1.2] 使用统一定价计算，不再硬编码 3/15
+            estimatedCostUsd: (() => {
+              try {
+                return calculateTotalCost(
+                  getModelPricing(response.model ?? ''),
+                  inputTokens,
+                  outputTokens,
+                  u.cache_creation_input_tokens ?? 0,
+                  u.cache_read_input_tokens ?? 0
+                );
+              } catch {
+                return 0;
+              }
+            })(),
           });
         }
 
@@ -3799,8 +3814,22 @@ ${llmPhaseSummary}`;
             0,
           totalTokens:
             u.total_tokens ?? u.totalTokens ?? inputTokens + outputTokens,
-          estimatedCostUsd:
-            (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15,
+          // [v1.2] 使用统一定价计算，不再硬编码 3/15
+          estimatedCostUsd: (() => {
+            try {
+              return calculateTotalCost(
+                getModelPricing(options.model ?? ''),
+                inputTokens,
+                outputTokens,
+                u.cache_creation_input_tokens ??
+                  u.cacheCreationInputTokens ??
+                  0,
+                u.cache_read_input_tokens ?? u.cacheReadInputTokens ?? 0
+              );
+            } catch {
+              return 0;
+            }
+          })(),
         });
       }
 

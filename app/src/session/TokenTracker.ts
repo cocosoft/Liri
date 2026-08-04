@@ -19,6 +19,9 @@ import {
 import { Logger, LogLevel } from '@modules/monitoring';
 import { globalEventBus, SystemEvents } from '../core/events/EventBus';
 import type { CostRecordedEvent } from '../core/events/EventBus';
+// eslint-disable-next-line module-registry/no-direct-module-import
+import { calculateTotalCost } from '@modules/cost/calculateCost.js';
+import type { ModelPricing } from '@modules/cost/ModelPricing.js';
 
 const logger = new Logger({
   module: 'session:tokenTracker',
@@ -116,13 +119,23 @@ export class SessionTokenTracker {
 
     if (config?.modelPricing) {
       const p = config.modelPricing;
-      estimatedCostUsd =
-        (input.inputTokens / 1_000_000) * p.inputPerMillion +
-        (input.outputTokens / 1_000_000) * p.outputPerMillion +
-        ((input.cacheReadInputTokens ?? 0) / 1_000_000) *
-          (p.cacheReadPerMillion ?? p.inputPerMillion * 0.1) +
-        ((input.cacheCreationInputTokens ?? 0) / 1_000_000) *
-          (p.cacheWritePerMillion ?? p.inputPerMillion * 0.5);
+      // [v1.2] 使用统一成本计算（含 safe clamp + roundCost）
+      const pricing: ModelPricing = {
+        inputPricePerMillion: p.inputPerMillion,
+        outputPricePerMillion: p.outputPerMillion,
+        cacheReadPricePerMillion:
+          p.cacheReadPerMillion ?? p.inputPerMillion * 0.1,
+        cacheCreationPricePerMillion:
+          p.cacheWritePerMillion ?? p.inputPerMillion * 1.25,
+        webSearchPricePerRequest: 0.01,
+      };
+      estimatedCostUsd = calculateTotalCost(
+        pricing,
+        input.inputTokens,
+        input.outputTokens,
+        input.cacheCreationInputTokens ?? 0,
+        input.cacheReadInputTokens ?? 0
+      );
       costStatus = 'estimated';
     }
 
@@ -265,9 +278,17 @@ export class SessionTokenTracker {
     outputTokens: number,
     pricing: NonNullable<TrackerConfig['modelPricing']>
   ): number {
-    return (
-      (inputTokens / 1_000_000) * pricing.inputPerMillion +
-      (outputTokens / 1_000_000) * pricing.outputPerMillion
+    // [v1.2] 使用统一成本计算
+    return calculateTotalCost(
+      {
+        inputPricePerMillion: pricing.inputPerMillion,
+        outputPricePerMillion: pricing.outputPerMillion,
+        cacheReadPricePerMillion: 0,
+        cacheCreationPricePerMillion: 0,
+        webSearchPricePerRequest: 0.01,
+      },
+      inputTokens,
+      outputTokens
     );
   }
 }

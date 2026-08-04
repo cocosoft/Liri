@@ -195,6 +195,9 @@ export class PerformanceManager extends EventEmitter {
             .then((result) => {
               results.push(result);
             })
+            .catch((_err) => {
+              // 任务失败时静默跳过，避免 Promise.race 抛出异常导致剩余任务丢弃
+            })
             .finally(() => {
               const index = executing.indexOf(promise);
               if (index > -1) {

@@ -1072,15 +1072,21 @@ export async function launch(options: LaunchOptions): Promise<void> {
 
     // 注册工具调用解析器（Hermes / InvokeXml / LlamaJson 等）
     // 必须在 TAORLoop / ChatManager 使用 parserRegistry.parseFallback() 前注册
-    import('./ai/parsers/registerParsers.js').then(({ registerAllParsers }) =>
-      registerAllParsers()
-    );
+    import('./ai/parsers/registerParsers.js')
+      .then(({ registerAllParsers }) => registerAllParsers())
+      .catch((err) => {
+        logger.warning('工具调用解析器注册失败（非致命）', {
+          error: String(err),
+        });
+      });
 
     // Phase 3 token-tracking-unification: 启动时预加载 tiktoken wasm
     // 不在首次 API 请求路径上 lazy init，失败时 30s 自动重试
-    import('./ai/tokenizer/TiktokenEstimator.js').then(({ preloadTiktoken }) =>
-      preloadTiktoken()
-    );
+    import('./ai/tokenizer/TiktokenEstimator.js')
+      .then(({ preloadTiktoken }) => preloadTiktoken())
+      .catch((err) => {
+        logger.warning('Tiktoken 预加载失败（非致命）', { error: String(err) });
+      });
 
     // T1: 模块系统初始化
     profileCheckpoint('module_init_start');
@@ -1242,15 +1248,19 @@ export async function launch(options: LaunchOptions): Promise<void> {
     profileCheckpoint('T1_await_prefetch_end');
 
     // T1.75: 初始化 ACP 模块桥接（非阻塞，失败不影响主流程）
-    import('./bridge/ModuleBridgeSetup.js').then(
-      ({ setupModuleBridgeOnStartup }) => {
+    import('./bridge/ModuleBridgeSetup.js')
+      .then(({ setupModuleBridgeOnStartup }) => {
         setupModuleBridgeOnStartup().catch((err) => {
           logger.warning('ACP 模块桥接初始化异常（非致命）', {
             error: String(err),
           });
         });
-      }
-    );
+      })
+      .catch((err) => {
+        logger.warning('ACP 模块桥接加载失败（非致命）', {
+          error: String(err),
+        });
+      });
 
     // T1.8: 初始化 SmartRouter 智能路由（非阻塞，失败不影响主流程）
     await wrapInit(

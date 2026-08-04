@@ -2,8 +2,8 @@
  * Cost HTTP 端点 /api/cost/report
  * 对标平安科技，对外暴露成本报告 HTTP 接口
  */
-import { CostTracker } from './CostTracker';
 import { CostMetricsBridge, getCostMetricsBridge } from './CostMetricsBridge';
+import { getCostRecordRepository } from './CostRecordRepository';
 import { canViewBillingCosts } from './BillingAccessControl';
 import { handleError } from '@modules/error';
 import {
@@ -59,6 +59,8 @@ export interface CostReportData {
     model: string;
     cost: number;
     tokens: number;
+    inputTokens?: number;
+    outputTokens?: number;
     requests: number;
   }>;
   dashboard?: ReturnType<CostMetricsBridge['generateDashboard']>;
@@ -69,16 +71,10 @@ export interface CostReportData {
  * Cost HTTP 端点处理器
  */
 export class CostReportEndpoint {
-  private costTracker: CostTracker;
   private metricsBridge: CostMetricsBridge;
   private departmentReporter: DepartmentCostReporter;
 
-  /**
-   * 构造函数
-   * @param costTracker 成本跟踪器
-   */
-  constructor(costTracker: CostTracker) {
-    this.costTracker = costTracker;
+  constructor() {
     this.metricsBridge = getCostMetricsBridge();
     this.departmentReporter = getDepartmentCostReporter();
   }
@@ -92,7 +88,7 @@ export class CostReportEndpoint {
     request: CostReportRequest = {}
   ): Promise<CostReportResponse> {
     try {
-      const data = this.buildReportData(request);
+      const data = await this.buildReportData(request);
 
       return {
         success: true,
@@ -123,8 +119,8 @@ export class CostReportEndpoint {
    * @param request 请求
    * @returns 文本格式报告
    */
-  handleTextReport(request: CostReportRequest): string {
-    const data = this.buildReportData(request);
+  async handleTextReport(request: CostReportRequest): Promise<string> {
+    const data = await this.buildReportData(request);
     const lines: string[] = [];
 
     lines.push('=== Liri 成本报告 ===');
@@ -150,17 +146,18 @@ export class CostReportEndpoint {
 
   /**
    * 处理 GET /api/cost/report?format=csv
-   * @param _request 请求
-   * @returns CSV 格式文本
    */
-  handleCSVReport(_request: CostReportRequest): string {
-    const data = this.buildReportData(_request);
+  async handleCSVReport(_request: CostReportRequest): Promise<string> {
+    const data = await this.buildReportData(_request);
     const lines: string[] = [];
 
     lines.push('model,cost_usd,input_tokens,output_tokens,total_tokens');
     for (const entry of data.byModel) {
+      // [v1.2] 修正：input/output 输出各自真实值（此前 input=total, output=0）
+      const input = entry.inputTokens ?? 0;
+      const output = entry.outputTokens ?? 0;
       lines.push(
-        `${entry.model},${entry.cost.toFixed(6)},${entry.tokens.toLocaleString()},0,${entry.tokens.toLocaleString()}`
+        `${entry.model},${entry.cost.toFixed(6)},${input.toLocaleString()},${output.toLocaleString()},${entry.tokens.toLocaleString()}`
       );
     }
 
@@ -177,9 +174,9 @@ export class CostReportEndpoint {
       case 'prometheus':
         return this.handlePrometheusReport();
       case 'text':
-        return this.handleTextReport(request);
+        return await this.handleTextReport(request);
       case 'csv':
-        return this.handleCSVReport(request);
+        return await this.handleCSVReport(request);
       case 'json':
       default:
         return JSON.stringify(await this.handleReport(request), null, 2);
@@ -191,35 +188,48 @@ export class CostReportEndpoint {
    * @param request 请求
    * @returns 报告数据
    */
-  private buildReportData(request: CostReportRequest): CostReportData {
-    const modelUsage = this.costTracker.getModelUsage();
-    const byModel: CostReportData['byModel'] = [];
+  private async buildReportData(
+    request: CostReportRequest
+  ): Promise<CostReportData> {
+    // [v1.2] 从 SQLite cost_records 聚合，不再读内存
+    const repo = getCostRecordRepository();
+    const startTime = request.startDate
+      ? new Date(request.startDate).getTime()
+      : undefined;
+    const endTime = request.endDate
+      ? new Date(request.endDate).getTime()
+      : undefined;
 
-    for (const [model, usage] of Object.entries(modelUsage)) {
+    const agg = await repo.getAggregatedCosts({
+      startTime,
+      endTime,
+    });
+
+    const byModel: CostReportData['byModel'] = [];
+    for (const [model, m] of Object.entries(agg.modelBreakdown)) {
       byModel.push({
         model,
-        cost: usage.costUSD,
-        tokens: usage.inputTokens + usage.outputTokens,
-        requests: 1,
+        cost: m.totalCost,
+        tokens: m.totalTokens,
+        inputTokens: m.inputTokens,
+        outputTokens: m.outputTokens,
+        requests: m.requestCount,
       });
     }
-
     byModel.sort((a, b) => b.cost - a.cost);
 
     const data: CostReportData = {
       totalCost: {
-        allTime: this.costTracker.getTotalCostUSD(),
-        period: 0,
+        allTime: agg.totalCostUSD,
+        period: agg.totalCostUSD,
         currency: 'USD',
       },
       tokenUsage: {
-        input: this.costTracker.getTotalInputTokens(),
-        output: this.costTracker.getTotalOutputTokens(),
-        cacheRead: this.costTracker.getTotalCacheReadInputTokens(),
-        cacheCreation: this.costTracker.getTotalCacheCreationInputTokens(),
-        reasoning:
-          (this.costTracker as unknown as { totalReasoningTokens: number })
-            .totalReasoningTokens || 0,
+        input: agg.totalInputTokens,
+        output: agg.totalOutputTokens,
+        cacheRead: agg.totalCacheReadTokens,
+        cacheCreation: agg.totalCacheCreationTokens,
+        reasoning: 0,
       },
       byModel,
     };

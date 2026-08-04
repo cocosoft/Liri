@@ -5,6 +5,9 @@
 
 import { priceManager } from './PriceManager';
 import type { ModelPriceTable, TokenUsageDetail } from './types';
+// eslint-disable-next-line module-registry/no-direct-module-import
+import { calculateTotalCost } from '@modules/cost/calculateCost.js';
+import type { ModelPricing } from '@modules/cost/ModelPricing.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -56,13 +59,20 @@ export function calculateCost(
   cacheCreationTokens: number,
   pricing: ModelPriceTable
 ): number {
-  const inputCost = (inputTokens / 1_000_000) * pricing.inputPer1M;
-  const outputCost = (outputTokens / 1_000_000) * pricing.outputPer1M;
-  const cacheReadCost = (cacheReadTokens / 1_000_000) * pricing.cacheReadPer1M;
-  const cacheCreationCost =
-    (cacheCreationTokens / 1_000_000) * pricing.cacheWritePer1M;
-
-  return inputCost + outputCost + cacheReadCost + cacheCreationCost;
+  const modelPricing: ModelPricing = {
+    inputPricePerMillion: pricing.inputPer1M,
+    outputPricePerMillion: pricing.outputPer1M,
+    cacheReadPricePerMillion: pricing.cacheReadPer1M,
+    cacheCreationPricePerMillion: pricing.cacheWritePer1M,
+    webSearchPricePerRequest: 0.01,
+  };
+  return calculateTotalCost(
+    modelPricing,
+    inputTokens,
+    outputTokens,
+    cacheCreationTokens,
+    cacheReadTokens
+  );
 }
 
 export function getCacheEfficiency(

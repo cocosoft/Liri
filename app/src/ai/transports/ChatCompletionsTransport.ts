@@ -206,13 +206,20 @@ export class ChatCompletionsTransport extends BaseTransport {
       usage: {
         inputTokens: usage.prompt_tokens ?? 0,
         outputTokens: usage.completion_tokens ?? 0,
+        // [v1.2] 三级回退 cache 提取（OpenAI → Anthropic → DeepSeek）
         cacheReadTokens:
           (
             (r.usage as Record<string, unknown>)?.prompt_tokens_details as
               | Record<string, number>
               | undefined
-          )?.cached_tokens ?? 0,
-        cacheCreationTokens: 0,
+          )?.cached_tokens ??
+          (r.usage as Record<string, number>)?.cache_read_input_tokens ??
+          (r.usage as Record<string, number>)?.prompt_cache_hit_tokens ??
+          0,
+        cacheCreationTokens:
+          (r.usage as Record<string, number>)?.cache_creation_input_tokens ??
+          (r.usage as Record<string, number>)?.prompt_cache_miss_tokens ??
+          0,
         totalTokens: usage.total_tokens ?? 0,
       },
       reasoning: (message.reasoning_content as string) ?? null,

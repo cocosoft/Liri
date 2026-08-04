@@ -1,13 +1,35 @@
 // 自动生成的分版 Feature Flags
-// 变体: enterprise — 企业版 — Coding + Slack/Discord + Auth + Audit + Sandbox + Office
-// 生成时间: 2026-07-16T23:02:56.434Z
+// 变体: core — 核心版 — 最小功能集，仅 CLI + 基础工具
+// 生成时间: 2026-08-04T07:38:45.161Z
 
 export const BUILD_VARIANT_FLAGS = {
-  AGENT_TRIGGERS: true,
-  SEND_MESSAGE: true,
-  COORDINATOR_MODE: true,
-  DOC_MODULE: true,
-  DOC_TEMPLATE: true,
-  MAIL_MODULE: true,
-  CALENDAR_MODULE: true,
+  BASH: true,
+  FILE_READ: true,
+  FILE_WRITE: true,
+  FILE_EDIT: true,
+  GREP: true,
+  GLOB: true,
+  WEB_FETCH: true,
+  WEB_SEARCH: true,
+  TASK: true,
+  TODO: true,
+  ASK: true,
+  AGENT: false,
+  AGENT_SWARMS: false,
+  AGENT_TRIGGERS: false,
+  ENABLE_PLUGINS: false,
+  ENABLE_SKILLS: false,
+  MCP_SYSTEM: false,
+  LSP: false,
+  NOTEBOOK: false,
+  BROWSER: false,
+  CODE_ANALYSIS: false,
+  TEAM_CREATE: false,
+  TEAM_DELETE: false,
+  SEND_MESSAGE: false,
+  FILE_CONVERTER: false,
+  CHRONOS: false,
+  TUNGSTEN: false,
+  PLAN: false,
+  BRIEF: false,
 } as const;

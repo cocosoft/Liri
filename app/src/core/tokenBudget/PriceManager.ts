@@ -13,6 +13,9 @@ import type { IPriceProvider, PricingResult } from './providers/IPriceProvider';
 import { ConfigPriceProvider } from './providers/ConfigPriceProvider';
 import type { ModelPriceTable } from './types';
 import { ModelRegistry } from '@modules/ai';
+// eslint-disable-next-line module-registry/no-direct-module-import
+import { calculateCost } from '@modules/cost/calculateCost.js';
+import type { ModelPricing } from '@modules/cost/ModelPricing.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -169,21 +172,29 @@ export class PriceManager {
     const priceResult = await this.getPrice(model);
     const { pricing } = priceResult;
 
-    const inputCost = (tokens.input / 1_000_000) * pricing.inputPer1M;
-    const outputCost = (tokens.output / 1_000_000) * pricing.outputPer1M;
-    const cacheReadCost =
-      ((tokens.cacheRead || 0) / 1_000_000) * pricing.cacheReadPer1M;
-    const cacheCreationCost =
-      ((tokens.cacheCreation || 0) / 1_000_000) * pricing.cacheWritePer1M;
+    const modelPricing: ModelPricing = {
+      inputPricePerMillion: pricing.inputPer1M,
+      outputPricePerMillion: pricing.outputPer1M,
+      cacheReadPricePerMillion: pricing.cacheReadPer1M,
+      cacheCreationPricePerMillion: pricing.cacheWritePer1M,
+      webSearchPricePerRequest: 0.01,
+    };
+    const breakdown = calculateCost(
+      modelPricing,
+      tokens.input,
+      tokens.output,
+      tokens.cacheCreation ?? 0,
+      tokens.cacheRead ?? 0
+    );
 
     return {
-      cost: inputCost + outputCost + cacheReadCost + cacheCreationCost,
+      cost: breakdown.total,
       pricing,
       details: {
-        inputCost,
-        outputCost,
-        cacheReadCost,
-        cacheCreationCost,
+        inputCost: breakdown.inputCost,
+        outputCost: breakdown.outputCost,
+        cacheReadCost: breakdown.cacheReadCost,
+        cacheCreationCost: breakdown.cacheCreationCost,
       },
     };
   }

@@ -17,6 +17,29 @@ export interface ExtractedUsage {
   outputTokens: number;
   totalTokens: number;
   source: 'api' | 'header' | 'estimated';
+  // [v1.2] 缓存 token 字段（三级回退：OpenAI / Anthropic / DeepSeek/GLM）
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+}
+
+// [v1.2] 三级回退 cache 字段提取
+function extractCacheTokens(usage: Record<string, unknown>): {
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+} {
+  const cacheRead =
+    (usage.cache_read_input_tokens as number) ??
+    (usage.cacheReadInputTokens as number) ??
+    (usage.prompt_cache_hit_tokens as number) ??
+    (usage.prompt_tokens_details as Record<string, number> | undefined)
+      ?.cached_tokens ??
+    0;
+  const cacheCreation =
+    (usage.cache_creation_input_tokens as number) ??
+    (usage.cacheCreationInputTokens as number) ??
+    (usage.prompt_cache_miss_tokens as number) ??
+    0;
+  return { cacheReadTokens: cacheRead, cacheCreationTokens: cacheCreation };
 }
 
 /**
@@ -31,6 +54,7 @@ export function extractOpenAIUsage(
 
   // OpenAI 原生格式: prompt_tokens + completion_tokens
   if (typeof usage.prompt_tokens === 'number') {
+    const cache = extractCacheTokens(usage);
     return {
       inputTokens: usage.prompt_tokens,
       outputTokens: usage.completion_tokens ?? 0,
@@ -38,17 +62,20 @@ export function extractOpenAIUsage(
         usage.total_tokens ??
         usage.prompt_tokens + (usage.completion_tokens ?? 0),
       source: 'api',
+      ...cache,
     };
   }
 
   // 内部归一化格式: inputTokens + outputTokens（如 UnifiedTokenTracker.recordPostRequest）
   if (typeof usage.inputTokens === 'number') {
+    const cache = extractCacheTokens(usage);
     return {
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens ?? 0,
       totalTokens:
         usage.totalTokens ?? usage.inputTokens + (usage.outputTokens ?? 0),
       source: 'api',
+      ...cache,
     };
   }
 
@@ -63,11 +90,13 @@ export function extractAnthropicUsage(
 ): ExtractedUsage | null {
   const usage = body.usage as Record<string, number> | undefined;
   if (usage && typeof usage.input_tokens === 'number') {
+    const cache = extractCacheTokens(usage);
     return {
       inputTokens: usage.input_tokens,
       outputTokens: usage.output_tokens ?? 0,
       totalTokens: usage.input_tokens + (usage.output_tokens ?? 0),
       source: 'api',
+      ...cache,
     };
   }
   return null;
@@ -88,6 +117,9 @@ export function extractGeminiUsage(
         meta.totalTokenCount ??
         meta.promptTokenCount + (meta.candidatesTokenCount ?? 0),
       source: 'api',
+      // Gemini 格式无专用 cache 字段，沿用默认 0
+      cacheReadTokens: 0,
+      cacheCreationTokens: 0,
     };
   }
   return null;
@@ -107,11 +139,13 @@ export function extractDeepSeekUsage(
   ) {
     const input = usage.prompt_tokens ?? usage.input_tokens ?? 0;
     const output = usage.completion_tokens ?? usage.output_tokens ?? 0;
+    const cache = extractCacheTokens(usage);
     return {
       inputTokens: input,
       outputTokens: output,
       totalTokens: usage.total_tokens ?? input + output,
       source: 'api',
+      ...cache,
     };
   }
   return null;

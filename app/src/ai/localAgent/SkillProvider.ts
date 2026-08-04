@@ -25,7 +25,7 @@ export interface SkillResult {
 
 export interface SkillProviderConfig {
   enabled: boolean;
-  skillRegistry?: any;
+  skillRegistry?: ISkillRegistry;
 }
 
 export interface SkillMatch {
@@ -51,7 +51,7 @@ export class SkillProvider {
 
   constructor(config: SkillProviderConfig) {
     this.enabled = config.enabled;
-    this.registry = (config.skillRegistry as ISkillRegistry) || null;
+    this.registry = config.skillRegistry || null;
   }
 
   isEnabled(): boolean {

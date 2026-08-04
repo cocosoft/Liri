@@ -1780,6 +1780,11 @@ export async function dispatchRoute(
     await self['handleCostReport'](req, res);
     return true;
   }
+  // [v1.2] 对账 API
+  if (method === 'GET' && url === '/v1/usage/cost/reconcile') {
+    await self['handleCostReconcile']?.(req, res);
+    return true;
+  }
 
   // ---- Legacy Cost Routes (301 → /v1/usage/cost/*) ----
   if (method === 'GET' && url === '/api/cost/summary') {

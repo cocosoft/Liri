@@ -200,4 +200,4 @@ security-remediation-report.md
 temp _url.txt
 temp_url2.txt
 test.txt
-dev_docs/
+dev_docs/*

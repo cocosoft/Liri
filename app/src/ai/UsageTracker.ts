@@ -34,11 +34,79 @@
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger.js';
 import { LogLevel } from '@modules/monitoring';
 import { extractUsage } from './tokenizer/UsageExtractor.js';
+import { getCanonicalModelName } from '@modules/cost/ModelPricing.js';
 
 const logger = new OTelAwareLogger({
   module: 'ai:usageTracker',
   level: LogLevel.INFO,
 });
+
+// ============================================================
+// [v1.2] 懒加载单例缓存（避免每次 LLM 调用都动态 import + initialize）
+// ============================================================
+
+let _usageStatsService: any = null;
+let _costTracker: any = null;
+let _costRecordRepo: any = null;
+let _llmTracker: any = null;
+
+async function getUsageStatsService() {
+  if (!_usageStatsService) {
+    const mod = await import('./models/UsageStatsService.js');
+    await mod.usageStatsService.initialize();
+    _usageStatsService = mod.usageStatsService;
+  }
+  return _usageStatsService!;
+}
+
+async function getOrInitCostTracker(sessionId?: string) {
+  if (!_costTracker) {
+    const mod = await import('@modules/cost/CostTracker');
+    _costTracker = mod.costTracker;
+  }
+  if (!_costRecordRepo) {
+    const mod = await import('@modules/cost/CostRecordRepository');
+    _costRecordRepo = mod.getCostRecordRepository();
+  }
+  await _costRecordRepo.initDatabase();
+  _costTracker.setRecordRepository(_costRecordRepo, sessionId);
+  return _costTracker;
+}
+
+async function getOrInitLLMTracker() {
+  if (!_llmTracker) {
+    const mod = await import('@modules/monitoring/llm/getLLMTracker');
+    _llmTracker = mod.getLLMTracker();
+  }
+  return _llmTracker;
+}
+
+// [v1.2] 写入失败计数器（成本数据丢失感知）
+let writeFailureCount = 0;
+let lastFailureLogTime = 0;
+const FAILURE_LOG_INTERVAL_MS = 60_000; // 每分钟最多报告一次
+
+function incrementWriteFailure(context: string) {
+  writeFailureCount++;
+  const now = Date.now();
+  if (now - lastFailureLogTime > FAILURE_LOG_INTERVAL_MS) {
+    logger.warn('UsageTracker: 写入失败累计', {
+      totalFailures: writeFailureCount,
+      lastContext: context,
+    });
+    lastFailureLogTime = now;
+  }
+}
+
+/** 获取写入失败计数（供健康检查） */
+export function getWriteFailureCount(): number {
+  return writeFailureCount;
+}
+
+/** 重置写入失败计数 */
+export function resetWriteFailureCount(): void {
+  writeFailureCount = 0;
+}
 
 /** 使用量追踪参数 */
 export interface TrackUsageParams {
@@ -83,67 +151,74 @@ export async function trackUsage(
   params: TrackUsageParams
 ): Promise<void> {
   try {
-    const { usageStatsService } = await import('./models/UsageStatsService.js');
-    await usageStatsService.initialize();
+    // [v1.2] 使用懒加载单例（首次动态 import + initialize，后续命中缓存）
+    const usageStatsService = await getUsageStatsService();
 
-    // Phase 5+: 多格式 Token 直接提取（OpenAI/Anthropic/Gemini）
-    // 优先从 API 响应中提取精确 usage，回退到兼容字段名
     const rawUsage = extractUsage(response as Record<string, unknown>);
     const usage = response.usage;
     let inputTokens: number;
     let outputTokens: number;
     let tokenSource: string;
+    let cacheReadTokens: number;
+    let cacheCreationTokens: number;
 
     if (rawUsage && rawUsage.totalTokens > 0) {
       inputTokens = rawUsage.inputTokens;
       outputTokens = rawUsage.outputTokens;
       tokenSource = rawUsage.source;
+      // [v1.2] cache 字段优先从 rawUsage 取（三级回退已在 extractUsage 中完成）
+      cacheReadTokens = rawUsage.cacheReadTokens;
+      cacheCreationTokens = rawUsage.cacheCreationTokens;
     } else {
       inputTokens = usage?.prompt_tokens ?? usage?.inputTokens ?? 0;
       outputTokens = usage?.completion_tokens ?? usage?.outputTokens ?? 0;
       tokenSource = inputTokens > 0 || outputTokens > 0 ? 'api' : 'estimated';
+      cacheReadTokens = usage?.cache_read_input_tokens ?? 0;
+      cacheCreationTokens = usage?.cache_creation_input_tokens ?? 0;
     }
-    const cacheReadTokens = usage?.cache_read_input_tokens ?? 0;
-    const cacheCreationTokens = usage?.cache_creation_input_tokens ?? 0;
 
-    // 估算成本（优先 DB 定价 > registry > 兜底）
-    let costUSD = 0;
-    try {
-      // 1. 优先从 ModelPricingService (DB) 获取
-      try {
-        const { modelPricingService } =
-          await import('./models/ModelPricingService.js');
-        await modelPricingService.initialize();
-        const dbPricing = await modelPricingService.getPricing(params.model);
-        if (dbPricing) {
-          costUSD =
-            (inputTokens / 1_000_000) * dbPricing.inputCostPerMillion +
-            (outputTokens / 1_000_000) * dbPricing.outputCostPerMillion;
-        }
-      } catch (err) {
-        // DB 不可用，回退到 registry
-      }
-
-      // 2. 回退到 ModelRegistry
-      if (costUSD === 0) {
-        const { ModelRegistry } = await import('./models/ModelRegistry.js');
-        const registry = ModelRegistry.getInstance();
-        const pricing = registry.getModelPricing(params.model);
-        if (pricing) {
-          costUSD =
-            (inputTokens / 1_000_000) * pricing.inputPer1M +
-            (outputTokens / 1_000_000) * pricing.outputPer1M;
-        }
-      }
-    } catch (err) {
-      // 定价查询失败，成本记 0
-    }
+    // 统一模型名规范化（确保两表一致）
+    const canonicalModel = getCanonicalModelName(params.model);
 
     const isError = !!response.error;
     const statusCode = params.statusCode ?? (isError ? 500 : 200);
 
+    // [v1.2] 数据流反转：addCost 为唯一计算+累计点
+    // 先调 addCost 取返回值，再写 model_usage_logs（两表同源）
+    // requestId 贯通两表 + LLMTracker
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    let costUSD = 0;
+    if (!isError) {
+      try {
+        // [v1.2] 使用单例缓存
+        const costTracker = await getOrInitCostTracker(params.sessionId);
+
+        costUSD = costTracker.addCost(
+          canonicalModel,
+          inputTokens,
+          outputTokens,
+          cacheReadTokens,
+          cacheCreationTokens,
+          0, // webSearchRequests
+          false, // isFastMode
+          0, // reasoningTokens
+          requestId
+        );
+
+        // 使用 addCost 返回值作为 model_usage_logs 的 cost_usd
+        // 确保两表 cost 值一致（同一算法、同一数据源）
+      } catch (err) {
+        // addCost 失败时成本记 0，不阻塞主流程
+        incrementWriteFailure('addCost');
+        logger.debug('UsageTracker: addCost 失败，成本记 0', {
+          model: canonicalModel,
+          error: (err as Error).message,
+        });
+      }
+    }
+
     await usageStatsService.logUsage({
-      model: params.model,
+      model: canonicalModel,
       providerId: params.providerId,
       inputTokens,
       outputTokens,
@@ -158,9 +233,10 @@ export async function trackUsage(
           ? response.error
           : (response.error as Error)?.message
         : undefined,
+      requestId,
     });
 
-    // 同步数据到 CostTracker + LLMTracker（绕过 PostSampling 管道，直接在此处调用）
+    // 同步到 LLMTracker（非错误请求，成本已由 addCost 记录）
     if (!isError) {
       await syncToTrackers(params, {
         inputTokens,
@@ -168,6 +244,8 @@ export async function trackUsage(
         cacheReadTokens,
         cacheCreationTokens,
         costUSD,
+        canonicalModel,
+        requestId,
       });
 
       // 实时日志输出（用户可见，自动注入 traceId/spanId）
@@ -186,59 +264,42 @@ export async function trackUsage(
     }
   } catch (err) {
     // 使用量记录失败不阻塞主流程
+    incrementWriteFailure('trackUsage');
     logger.debug('UsageTracker: 记录失败（非关键）', {
       error: (err as Error).message,
     });
   }
 }
 
-/** 追踪数据（用于同步到 CostTracker / LLMTracker） */
+/** 追踪数据（用于同步到 LLMTracker） */
 interface TrackUsageData {
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;
   cacheCreationTokens: number;
   costUSD: number;
+  canonicalModel: string;
+  requestId: string;
 }
 
 /**
- * 将使用量数据同步到 CostTracker 和 LLMTracker
- * 绕过 PostSampling 管道直接调用，确保数据流不依赖 QueryEngine
+ * 将使用量数据同步到 LLMTracker
+ * 注意：成本已由 trackUsage 主流程通过 addCost 统一计算+持久化
+ * syncToTrackers 仅处理 LLMTracker 记录（不重复调 addCost）
  */
 async function syncToTrackers(
   params: TrackUsageParams,
   data: TrackUsageData
 ): Promise<void> {
   try {
-    // 同步到 CostTracker（累计统计）
-    const { costTracker } = await import('@modules/cost/CostTracker');
-    const { getCostRecordRepository } =
-      await import('@modules/cost/CostRecordRepository');
-
-    // 确保 recordRepository 已初始化（防止启动时序问题导致静默跳过持久化）
-    const repository = getCostRecordRepository();
-    await repository.initDatabase();
-    costTracker.setRecordRepository(repository, params.sessionId);
-
-    costTracker.addCost(
-      params.model,
-      data.inputTokens,
-      data.outputTokens,
-      data.cacheReadTokens,
-      data.cacheCreationTokens
-    );
-
-    // 同步到 LLMTracker（按会话分组）
-    const { getLLMTracker } =
-      await import('@modules/monitoring/llm/getLLMTracker');
-    const llmTracker = getLLMTracker();
+    // [v1.2] 使用单例缓存
+    const llmTracker = await getOrInitLLMTracker();
     const sessionId = params.sessionId || 'default';
-    const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     llmTracker.recordLLMCall({
       sessionId,
-      requestId,
-      model: params.model,
+      requestId: data.requestId,
+      model: data.canonicalModel,
       provider: params.providerId || 'unknown',
       inputTokens: data.inputTokens,
       outputTokens: data.outputTokens,
@@ -249,6 +310,7 @@ async function syncToTrackers(
     });
   } catch (err) {
     // 同步失败不阻塞主流程，记录诊断日志
+    incrementWriteFailure('LLMTracker');
     logger.info('UsageTracker: syncToTrackers 同步失败', {
       model: params.model,
       error: (err as Error).message,
@@ -266,4 +328,9 @@ export function extractModelFromResponse(
   return response.model || fallback;
 }
 
-export const UsageTracker = { trackUsage, extractModelFromResponse };
+export const UsageTracker = {
+  trackUsage,
+  extractModelFromResponse,
+  getWriteFailureCount,
+  resetWriteFailureCount,
+};

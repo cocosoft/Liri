@@ -82,7 +82,11 @@ export class EmailTool {
   async testConnection(
     account: Record<string, unknown>
   ): Promise<{ ok: boolean }> {
-    const { ImapFlow } = await import('imapflow');
+    try {
+      var { ImapFlow } = await import('imapflow');
+    } catch {
+      throw new Error('MAIL_MODULE: imapflow 未安装，无法测试 IMAP 连接。请运行 bun add imapflow');
+    }
 
     const client = new ImapFlow({
       host: account.imapHost || 'imap.gmail.com',

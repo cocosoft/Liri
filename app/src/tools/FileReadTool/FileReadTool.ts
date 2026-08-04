@@ -160,6 +160,26 @@ const logger = new Logger({
   level: LogLevel.INFO,
 });
 
+/** 二进制文件转换结果最大字符数：超过则源头截断（保留头尾，中间省略提示） */
+const MAX_CONVERT_OUTPUT_CHARS = 30_000;
+
+/**
+ * 截断二进制转换结果
+ * 大文档（如 docx 技术规范书）转换结果可达数万 token，直接进入上下文会导致
+ * tokenize 开销大、内存峰值高、GC 停顿阻塞事件循环（死机）。此处源头截断，
+ * 保留头尾内容并提示可用 offset/limit 分段读取。
+ */
+function truncateConvertOutput(markdown: string): string {
+  if (markdown.length <= MAX_CONVERT_OUTPUT_CHARS) return markdown;
+  const headLen = Math.floor(MAX_CONVERT_OUTPUT_CHARS * 0.7);
+  const tailLen = MAX_CONVERT_OUTPUT_CHARS - headLen;
+  return (
+    markdown.slice(0, headLen) +
+    `\n\n[... 内容过长，已截断 ${markdown.length - MAX_CONVERT_OUTPUT_CHARS} 字符 ...]\n\n` +
+    markdown.slice(-tailLen)
+  );
+}
+
 const BINARY_EXTENSIONS = new Set([
   '.docx',
   '.xlsx',
@@ -365,13 +385,18 @@ export class FileReadTool extends BaseTool {
 
       this.autoIngestFile(filePath);
 
-      return createToolResult(result.markdown, {
+      // 源头截断：限制转换结果进入上下文的体积，避免大文本 tokenize + 高内存 GC 停顿导致事件循环阻塞
+      const markdown = truncateConvertOutput(result.markdown);
+
+      return createToolResult(markdown, {
         success: true,
-        output: result.markdown,
+        output: markdown,
         newMessages: [
           {
             role: 'system',
-            content: `文件 [${filePath}] 为二进制格式，已自动转换为 Markdown`,
+            content: `文件 [${filePath}] 为二进制格式，已自动转换为 Markdown${
+              markdown !== result.markdown ? '（内容过长已截断）' : ''
+            }`,
           },
         ],
       });

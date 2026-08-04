@@ -314,6 +314,22 @@ export async function handleAnalyticsDashboard(
       }
     }
 
+    // 工具调用统计：优先持久化 query_logs（重启不清零），回退内存累计器
+    let persistedToolStats: Awaited<
+      ReturnType<
+        import('@modules/query/QueryLogStore').QueryLogStore['getToolStats']
+      >
+    > | null = null;
+    try {
+      const { getQueryLogStore } = await import('@modules/query/QueryLogStore');
+      persistedToolStats = await getQueryLogStore().getToolStats();
+    } catch (err) {
+      // 查询日志不可用时回退内存统计
+      void handleError(err, {
+        module: 'infrastructure:http:analytics',
+        action: 'loadPersistedToolStats',
+      });
+    }
     // 使用独立累计器作为工具调用数据的回退（不受事件队列清空影响）
     const toolCallStats = analyticsService!.getToolCallStats();
 
@@ -329,12 +345,23 @@ export async function handleAnalyticsDashboard(
         },
         tools: {
           totalToolCalls:
-            toolEvents.length > 0
-              ? toolEvents.length
-              : toolCallStats.totalCalls,
+            persistedToolStats && persistedToolStats.totalToolCalls > 0
+              ? persistedToolStats.totalToolCalls
+              : toolEvents.length > 0
+                ? toolEvents.length
+                : toolCallStats.totalCalls,
           uniqueToolsUsed:
-            toolEvents.length > 0 ? toolCounts.size : toolCallStats.uniqueTools,
-          topTools: toolEvents.length > 0 ? topTools : toolCallStats.topTools,
+            persistedToolStats && persistedToolStats.uniqueToolsUsed > 0
+              ? persistedToolStats.uniqueToolsUsed
+              : toolEvents.length > 0
+                ? toolCounts.size
+                : toolCallStats.uniqueTools,
+          topTools:
+            persistedToolStats && persistedToolStats.topTools.length > 0
+              ? persistedToolStats.topTools
+              : toolEvents.length > 0
+                ? topTools
+                : toolCallStats.topTools,
         },
         errors: {
           totalErrors: errorEvents.length,

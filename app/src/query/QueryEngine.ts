@@ -1575,6 +1575,14 @@ export function createQueryEngine(
 ): QueryEngine {
   const engine = new QueryEngine(chatManager, config);
 
+  // 接线查询日志持久化：工具调用/API 调用统计落库（query_logs 表），
+  // 供仪表盘工具统计在重启后仍保留。此前 setQueryLogStore 无调用方 → 统计从未落库。
+  try {
+    engine.setQueryLogStore(getQueryLogStore());
+  } catch (err) {
+    // 接线失败不阻塞引擎创建（查询日志为辅助功能）
+  }
+
   // 注册 AI 调用聚合日志 Hook（在每次 AI 调用后输出汇总日志）
   try {
     engine.registerPostSamplingHook(

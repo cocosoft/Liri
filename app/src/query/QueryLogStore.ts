@@ -356,6 +356,85 @@ export class QueryLogStore {
   }
 
   /**
+   * 工具调用统计（按工具名聚合，持久化来源 query_logs，重启不清零）
+   * @param limit 返回 Top N 工具
+   */
+  async getToolStats(limit: number = 10): Promise<{
+    totalToolCalls: number;
+    uniqueToolsUsed: number;
+    toolErrorCount: number;
+    topTools: Array<{
+      name: string;
+      count: number;
+      successCount: number;
+      errorCount: number;
+    }>;
+  }> {
+    await this.init();
+    if (!this.db) {
+      throw new AppError(
+        '数据库未初始化',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'QLS_006'
+      );
+    }
+
+    const rows = await new Promise<Array<Record<string, unknown>>>(
+      (resolve, reject) => {
+        this.db?.all(
+          `SELECT tool_name,
+                  COUNT(*) AS cnt,
+                  SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS ok
+           FROM ${QUERY_LOG_TABLE}
+           WHERE type = 'tool_call' AND tool_name IS NOT NULL AND tool_name != ''
+           GROUP BY tool_name
+           ORDER BY cnt DESC
+           LIMIT ?`,
+          [limit],
+          (err: Error | null, rows: unknown[]) => {
+            if (err) reject(err);
+            else resolve((rows || []) as Array<Record<string, unknown>>);
+          }
+        );
+      }
+    );
+
+    const topTools = rows.map((r) => ({
+      name: r.tool_name as string,
+      count: Number(r.cnt || 0),
+      successCount: Number(r.ok || 0),
+      errorCount: Number(r.cnt || 0) - Number(r.ok || 0),
+    }));
+
+    const totals = await new Promise<Record<string, number>>(
+      (resolve, reject) => {
+        this.db?.get(
+          `SELECT COUNT(*) AS cnt,
+                  COUNT(DISTINCT tool_name) AS uniq,
+                  SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS errs
+           FROM ${QUERY_LOG_TABLE}
+           WHERE type = 'tool_call'`,
+          (err: Error | null, row: unknown) => {
+            if (err) reject(err);
+            else
+              resolve(
+                (row || { cnt: 0, uniq: 0, errs: 0 }) as Record<string, number>
+              );
+          }
+        );
+      }
+    );
+
+    return {
+      totalToolCalls: Number(totals.cnt || 0),
+      uniqueToolsUsed: Number(totals.uniq || 0),
+      toolErrorCount: Number(totals.errs || 0),
+      topTools,
+    };
+  }
+
+  /**
    * 清理指定时间之前的日志
    */
   async prune(beforeTimestamp: number): Promise<number> {

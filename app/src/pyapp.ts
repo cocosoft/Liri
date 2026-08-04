@@ -143,9 +143,7 @@ process.env.INIT_CWD = process.env.INIT_CWD || projectRoot;
 // JS 层 process.cwd() 由策略 2 统一返回 projectRoot，业务代码不受影响。
 try {
   process.chdir(
-    isCompiledBinary
-      ? dirname(resolve(process.execPath || ''))
-      : projectRoot
+    isCompiledBinary ? dirname(resolve(process.execPath || '')) : projectRoot
   );
 } catch (e) {
   if (process.env['LIRI_DEBUG']) {

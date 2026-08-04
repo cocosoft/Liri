@@ -7,6 +7,7 @@
 import { execSync, exec } from 'child_process';
 import { promisify } from 'util';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error/handleError';
 import type {
   Sandbox,
   SandboxConfig,
@@ -190,6 +191,7 @@ export class DockerSandbox implements Sandbox {
       this.isInitializedFlag = true;
       return true;
     } catch (error) {
+      void handleError(error, { module: 'sandbox:docker', action: 'initialize' });
       logger.error('Docker 沙箱初始化失败', error as Error);
       this.isInitializedFlag = false;
       return false;
@@ -251,6 +253,7 @@ export class DockerSandbox implements Sandbox {
         timedOut: false,
       };
     } catch (error) {
+      void handleError(error, { module: 'sandbox:docker', action: 'execute' });
       const execErr = error as {
         code?: number;
         status?: number;
@@ -283,6 +286,7 @@ export class DockerSandbox implements Sandbox {
       this.isInitializedFlag = false;
       return true;
     } catch (error) {
+      void handleError(error, { module: 'sandbox:docker', action: 'close' });
       logger.error('Docker 容器销毁失败', error as Error);
       this.isInitializedFlag = false;
       return false;

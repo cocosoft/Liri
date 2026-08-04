@@ -7,6 +7,7 @@
 import { getLogger } from '@modules/monitoring';
 import { IndividualHookConfig, HookEvent } from '../types';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('hooksSettings');
 
@@ -25,6 +26,7 @@ export function readHookConfig(configPath: string): any {
     return JSON.parse(content);
   } catch (error) {
     logger.error('Error reading hook config', { error: String(error) });
+    void handleError(error, { module: 'hooks:settings', action: 'readHookConfig' });
     return { hooks: [] };
   }
 }
@@ -40,6 +42,7 @@ export function writeHookConfig(configPath: string, config: unknown): void {
     writeFileSync(configPath, content, 'utf8');
   } catch (error) {
     logger.error('Error writing hook config:', error);
+    void handleError(error, { module: 'hooks:settings', action: 'writeHookConfig' });
   }
 }
 

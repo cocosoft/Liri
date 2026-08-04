@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'gracefulShutdown' });
 
@@ -33,12 +34,14 @@ async function executeShutdownHandlers() {
       try {
         await handler();
       } catch (error) {
+        void handleError(error, { module: 'utils:shutdown', action: 'handler' });
         logger.error('关闭处理函数执行失败:', error as Error);
       }
     }
 
     logger.info('优雅关闭完成');
   } catch (error) {
+    void handleError(error, { module: 'utils:shutdown', action: 'shutdown' });
     logger.error('优雅关闭失败:', error as Error);
   } finally {
     process.exit(0);

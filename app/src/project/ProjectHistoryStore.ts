@@ -20,7 +20,9 @@ import {
   readdirSync,
 } from 'fs';
 import { resolveDataSubDir } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'project:HistoryStore',
@@ -75,9 +77,19 @@ export class ProjectHistoryStore {
 
   /** 追加一条历史记录 */
   append(entry: Omit<HistoryEntry, 'ts'>): void {
-    this.ensureDir();
-    const record: HistoryEntry = { ...entry, ts: new Date().toISOString() };
-    appendFileSync(this.todayFile, JSON.stringify(record) + '\n', 'utf-8');
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ProjectHistoryStore.append');
+    try {
+      this.ensureDir();
+      const record: HistoryEntry = { ...entry, ts: new Date().toISOString() };
+      appendFileSync(this.todayFile, JSON.stringify(record) + '\n', 'utf-8');
+      span.setStatus({ code: SpanStatusCode.OK });
+    } catch (e) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+      void handleError(e, { module: 'project:HistoryStore', action: 'append' });
+    } finally {
+      span.end();
+    }
   }
 
   /** 读取指定日期范围内的历史记录 */
@@ -112,6 +124,7 @@ export class ProjectHistoryStore {
       } catch {
         /* skip unreadable file */
         logger.warn('读取历史文件失败', { file });
+        void handleError(new Error(`读取历史文件失败: ${file}`), { module: 'project:HistoryStore', action: 'read' });
       }
     }
 

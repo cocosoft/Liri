@@ -5,6 +5,10 @@
 import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
+
+const logger = new Logger({ level: LogLevel.INFO, module: 'media:video' });
 
 /**
  * 视频信息
@@ -52,6 +56,7 @@ export class VideoProcessor {
         fileSize: stat.size,
       };
     } catch {
+      void handleError(new Error('Failed to get video info'), { module: 'media:video', action: 'getInfo' });
       return null;
     }
   }
@@ -91,6 +96,7 @@ export class VideoProcessor {
 
       return await this.runFfmpeg(args);
     } catch {
+      void handleError(new Error('Failed to compress video'), { module: 'media:video', action: 'compress' });
       return false;
     }
   }
@@ -112,6 +118,7 @@ export class VideoProcessor {
 
       return await this.runFfmpeg(args);
     } catch {
+      void handleError(new Error('Failed to extract audio'), { module: 'media:video', action: 'extractAudio' });
       return false;
     }
   }
@@ -138,6 +145,7 @@ export class VideoProcessor {
 
       return await this.runFfmpeg(args);
     } catch {
+      void handleError(new Error('Failed to extract thumbnail'), { module: 'media:video', action: 'extractThumbnail' });
       return false;
     }
   }

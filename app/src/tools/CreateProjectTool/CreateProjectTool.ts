@@ -10,7 +10,9 @@
 import type { Tool } from '../types/Tool';
 import { createToolResult } from '../types/ToolResult';
 import type { ToolUseContext } from '../types/ToolUseContext';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 import { resolveDataDir } from '@modules/core/paths';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
@@ -63,6 +65,8 @@ export class CreateProjectTool {
         input: Record<string, unknown>,
         context: ToolUseContext
       ) => {
+        const otel = getOTelTracing();
+        const span = otel.startSpan('CreateProjectTool.execute');
         try {
           const name = String(input.name || '未命名项目');
           const description = String(input.description || '');
@@ -77,12 +81,15 @@ export class CreateProjectTool {
             description,
           });
 
+          span.setAttribute('projectId', project.id);
+
           logger.info('项目已创建', {
             projectId: project.id,
             name,
             workspaceId,
           });
 
+          span.setStatus({ code: SpanStatusCode.OK });
           return createToolResult(
             JSON.stringify({
               projectId: project.id,
@@ -99,6 +106,14 @@ export class CreateProjectTool {
             }
           );
         } catch (error) {
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: String(error),
+          });
+          void handleError(error, {
+            module: 'tools:create_project',
+            action: 'execute',
+          });
           const msg = error instanceof Error ? error.message : '未知错误';
           logger.error('创建项目失败', { error: msg });
           return createToolResult(null, {
@@ -109,6 +124,8 @@ export class CreateProjectTool {
               },
             ],
           });
+        } finally {
+          span.end();
         }
       },
 

@@ -14,6 +14,7 @@ import {
 } from '../types/ToolHooks';
 import { PermissionBehavior } from '@modules/permission/types/PermissionRule';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = getLogger('ToolHookManager');
 
@@ -139,6 +140,10 @@ export class ToolHookManager {
           };
         }
       } catch (error) {
+        void handleError(error, {
+          module: 'hooks:tool',
+          action: 'executePreToolUseHook',
+        });
         logger.error(
           `Error executing PreToolUse hook for ${context.toolName}:`,
           { error }
@@ -197,6 +202,10 @@ export class ToolHookManager {
           yield { type: 'updatedToolOutput', output: result.updatedToolOutput };
         }
       } catch (error) {
+        void handleError(error, {
+          module: 'hooks:tool',
+          action: 'executePostToolUseHook',
+        });
         logger.error(
           `Error executing PostToolUse hook for ${context.toolName}:`,
           { error }
@@ -251,6 +260,10 @@ export class ToolHookManager {
           };
         }
       } catch (error) {
+        void handleError(error, {
+          module: 'hooks:tool',
+          action: 'executePostToolUseFailureHook',
+        });
         logger.error(
           `Error executing PostToolUseFailure hook for ${context.toolName}:`,
           { error }
@@ -287,6 +300,7 @@ export class ToolHookManager {
 
       return createToolHookSuccessResult();
     } catch (error) {
+      void handleError(error, { module: 'hooks:tool', action: 'executeHook' });
       return {
         outcome: 'non_blocking_error',
         message: error instanceof Error ? error.message : String(error),
@@ -357,6 +371,10 @@ export class ToolHookManager {
           });
         });
       } catch (error) {
+        void handleError(error, {
+          module: 'hooks:tool',
+          action: 'executeCommandHook',
+        });
         clearTimeout(timeout);
         resolve({
           outcome: 'non_blocking_error',

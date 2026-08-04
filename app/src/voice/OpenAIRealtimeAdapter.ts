@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import type {
   VoiceSessionConfigEvent,
   VoiceServerEvent,
@@ -156,6 +157,7 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
           reject(new Error('WebSocket 连接失败'));
         };
       } catch (err) {
+        void handleError(err, { module: 'voice:openai', action: 'createConnection' });
         this.logger.error('OpenAI Realtime WebSocket 创建异常', {
           error: String(err),
         });
@@ -213,6 +215,10 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
     try {
       parsed = JSON.parse(raw);
     } catch {
+      void handleError(new Error('OpenAI 消息解析失败'), {
+        module: 'voice:openai',
+        action: 'parseMessage',
+      });
       this.logger.warn('OpenAI 消息解析失败', { raw: raw.slice(0, 100) });
       return;
     }

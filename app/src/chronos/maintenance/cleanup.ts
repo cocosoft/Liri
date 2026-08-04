@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Chronos清理模块
  * 负责周期性清理任务
  */
@@ -7,7 +7,8 @@ import { mkdir, readdir, rm, stat, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { resolveDataDir } from '@modules/core';
-import { getLogger } from '@modules/monitoring';
+import { Logger, LogLevel, getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = getLogger('ChronosCleanup');
 
@@ -45,6 +46,7 @@ async function tryAcquireCleanupLock(): Promise<boolean> {
     await writeFile(lockPath, String(process.pid));
     return true;
   } catch (e) {
+    void handleError(e, { module: 'chronos:cleanup', action: 'acquireLock' });
     logger.warn('获取清理锁失败', { error: (e as Error).message });
     return false;
   }
@@ -80,6 +82,7 @@ export async function cleanupOldMessageFilesInBackground(): Promise<void> {
           cleaned++;
         }
       } catch (err) {
+        void handleError(err, { module: 'chronos:cleanup', action: 'statSessionFile' });
         // Skip problematic files
       }
     }
@@ -88,6 +91,7 @@ export async function cleanupOldMessageFilesInBackground(): Promise<void> {
       logger.info(`清理了 ${cleaned} 个旧会话文件`);
     }
   } catch (e) {
+    void handleError(e, { module: 'chronos:cleanup', action: 'cleanupOldMessages' });
     logger.warn('清理过程出错', { error: (e as Error).message });
   }
 }
@@ -122,6 +126,7 @@ export async function cleanupStaleLocks(): Promise<void> {
       }
     }
   } catch (err) {
+    void handleError(err, { module: 'chronos:cleanup', action: 'cleanStaleLocks' });
     // Ignore errors
   }
 }

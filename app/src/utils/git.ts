@@ -7,6 +7,10 @@
 
 import crypto from 'node:crypto';
 import { execSync } from 'child_process';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
+
+const logger = new Logger({ module: 'utils:git', level: LogLevel.INFO });
 
 export interface GitInfo {
   branch: string | null;
@@ -33,7 +37,8 @@ function getCurrentBranch(cwd: string): string | null {
       stdio: ['pipe', 'pipe', 'ignore'],
     });
     return output.trim();
-  } catch {
+  } catch (error) {
+    handleError(error, { module: 'utils:git', action: 'getCurrentBranch' });
     return null;
   }
 }
@@ -46,7 +51,8 @@ function getRemoteUrl(cwd: string): string | null {
       stdio: ['pipe', 'pipe', 'ignore'],
     });
     return output.trim();
-  } catch {
+  } catch (error) {
+    handleError(error, { module: 'utils:git', action: 'getRemoteUrl' });
     return null;
   }
 }
@@ -59,7 +65,8 @@ function getCommitHash(cwd: string): string | null {
       stdio: ['pipe', 'pipe', 'ignore'],
     });
     return output.trim();
-  } catch {
+  } catch (error) {
+    handleError(error, { module: 'utils:git', action: 'getCommitHash' });
     return null;
   }
 }
@@ -72,7 +79,8 @@ function isWorkingTreeDirty(cwd: string): boolean {
       stdio: ['pipe', 'pipe', 'ignore'],
     });
     return output.trim().length > 0;
-  } catch {
+  } catch (error) {
+    handleError(error, { module: 'utils:git', action: 'isWorkingTreeDirty' });
     return false;
   }
 }
@@ -90,7 +98,8 @@ export function isInGitRepo(cwd?: string): boolean {
       stdio: ['pipe', 'pipe', 'ignore'],
     });
     return output.trim() === 'true';
-  } catch {
+  } catch (error) {
+    handleError(error, { module: 'utils:git', action: 'isInGitRepo' });
     return false;
   }
 }

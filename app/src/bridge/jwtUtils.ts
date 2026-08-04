@@ -2,6 +2,10 @@
  * Token刷新调度、验证、过期检测
  */
 import { randomUUID } from 'crypto';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+
+const logger = new Logger({ module: 'bridge:jwtutil', level: LogLevel.INFO });
 
 export interface JWTConfig {
   secret: string;
@@ -42,6 +46,7 @@ export function decodeToken(token: string): TokenPayload | null {
     if (parts.length !== 3) return null;
     return JSON.parse(base64Decode(parts[1]));
   } catch {
+    void handleError(new Error('Failed to decode JWT token'), { module: 'bridge:jwtutil', action: 'decodeToken' });
     return null;
   }
 }

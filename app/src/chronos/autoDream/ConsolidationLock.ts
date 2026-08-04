@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AutoDream分布式锁模块
  * 防止多进程同时执行内存整合
  */
@@ -8,6 +8,7 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { resolveMemoryDir, resolveSessionsDir } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = getLogger('ConsolidationLock');
 
@@ -101,6 +102,7 @@ export async function rollbackConsolidationLock(
     const t = priorMtime / 1000;
     await utimes(path, t, t);
   } catch (e: unknown) {
+    void handleError(e, { module: 'chronos:lock', action: 'rollbackLock' });
     logger.warn('整合锁回滚失败', {
       error: (e as Error).message,
     });
@@ -141,6 +143,7 @@ export async function recordConsolidation(): Promise<void> {
     await mkdir(getAutoMemPath(), { recursive: true });
     await writeFile(lockPath(), String(process.pid));
   } catch (e: unknown) {
+    void handleError(e, { module: 'chronos:lock', action: 'recordConsolidation' });
     logger.warn('记录整合时间写入失败', { error: (e as Error).message });
   }
 }

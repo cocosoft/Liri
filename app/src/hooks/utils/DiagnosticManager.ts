@@ -8,6 +8,7 @@ import { join } from 'path';
 import { resolveDataDir } from '@modules/core';
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('DiagnosticManager');
 
@@ -160,6 +161,7 @@ export class DiagnosticManager extends EventEmitter {
       this.eventBuffer = [];
     } catch (error) {
       logger.error(`Failed to write diagnostic log: ${error}`);
+      void handleError(error, { module: 'hooks:diagnostic', action: 'flushBuffer' });
     }
   }
 

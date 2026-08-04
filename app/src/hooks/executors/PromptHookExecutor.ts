@@ -11,6 +11,7 @@ import {
 } from '../types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 const logger = new Logger({
   module: 'hooks:executors:PromptHookExecutor',
   level: LogLevel.INFO,
@@ -47,6 +48,7 @@ export class PromptHookExecutor {
         },
       };
     } catch (error) {
+      handleError(error, { module: 'hooks:prompt', action: 'execute' });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

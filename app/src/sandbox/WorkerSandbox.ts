@@ -16,6 +16,7 @@ import {
   SandboxPlatform,
 } from './SandboxTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ module: 'sandbox:worker', level: LogLevel.INFO });
 
@@ -108,6 +109,7 @@ export class WorkerSandbox implements Sandbox {
       logger.info(`WorkerSandbox initialized for platform ${config.platform}`);
       return true;
     } catch (error) {
+      void handleError(error, { module: 'sandbox:worker', action: 'initialize' });
       logger.error('Failed to initialize WorkerSandbox:', { error });
       this.isInitialized = false;
       return false;
@@ -240,6 +242,7 @@ export class WorkerSandbox implements Sandbox {
       try {
         this.worker!.postMessage(request);
       } catch (error) {
+        void handleError(error, { module: 'sandbox:worker', action: 'execute' });
         clearTimeout(timer);
         this.pendingRequests.delete(requestId);
         resolve({

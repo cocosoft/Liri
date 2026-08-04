@@ -4,8 +4,10 @@ import { promisify } from 'util';
 import { configManager } from '@modules/config';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
+
 const logger = new Logger({
-  module: 'chronos:ChronosRemoteTrigger',
+  module: 'chronos:remote',
   level: LogLevel.INFO,
 });
 
@@ -98,6 +100,7 @@ export class ChronosRemoteTrigger {
           durationMs: Date.now() - startTime,
         };
       } catch (error) {
+        void handleError(error, { module: 'chronos:remote', action: 'triggerTask' });
         return {
           success: false,
           taskId,
@@ -194,7 +197,8 @@ export class PushNotificationService {
         return this.sendMacNotification(options);
       }
       return this.sendLinuxNotification(options);
-    } catch {
+    } catch (e) {
+      void handleError(new Error('发送通知失败'), { module: 'chronos:remote', action: 'sendNotification' });
       return false;
     }
   }
@@ -210,7 +214,8 @@ export class PushNotificationService {
       const command = `powershell -Command "New-BurntToastNotification -Text '${escapedTitle}', '${escapedBody}'"`;
       await execAsync(command);
       return true;
-    } catch {
+    } catch (e) {
+      void handleError(new Error('Windows通知发送失败'), { module: 'chronos:remote', action: 'sendWindowsNotification' });
       return false;
     }
   }
@@ -226,7 +231,8 @@ export class PushNotificationService {
       const command = `osascript -e 'display notification "${escapedBody}" with title "${escapedTitle}"'`;
       await execAsync(command);
       return true;
-    } catch {
+    } catch (e) {
+      void handleError(new Error('Mac通知发送失败'), { module: 'chronos:remote', action: 'sendMacNotification' });
       return false;
     }
   }
@@ -241,7 +247,8 @@ export class PushNotificationService {
       const command = `notify-send ${urgencyArg} "${options.title}" "${options.body}"`;
       await execAsync(command);
       return true;
-    } catch {
+    } catch (e) {
+      void handleError(new Error('Linux通知发送失败'), { module: 'chronos:remote', action: 'sendLinuxNotification' });
       return false;
     }
   }

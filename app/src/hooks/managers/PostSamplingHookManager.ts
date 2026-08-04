@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 采样后置Hook管理器
  */
 
@@ -9,6 +9,7 @@ import type {
   PostSamplingHookConfig,
 } from '../types/PostSampling';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('PostSamplingHookManager');
 
@@ -184,6 +185,7 @@ export class PostSamplingHookManager {
         error instanceof Error ? error.message : String(error);
 
       this.log(`Hook ${hookItem.name} failed: ${errorMessage}`);
+      void handleError(error, { module: 'hooks:postsampling', action: 'executeSingleHook' });
 
       return {
         hookName: hookItem.name,

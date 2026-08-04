@@ -11,6 +11,10 @@ import type {
   AcpSessionManagerEvents,
 } from './manager.types.js';
 import { getSessionActorQueue } from './session-actor-queue.js';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
+
+const logger = new Logger({ module: 'acp:core', level: LogLevel.INFO });
 
 export class AcpSessionManagerCore {
   private config: AcpSessionManagerConfig;
@@ -63,6 +67,7 @@ export class AcpSessionManagerCore {
         return events;
       } catch (err) {
         // @ignore-catch — 确保 activeRuns 清理后重新抛出
+        void handleError(err, { module: 'acp:core', action: 'runTurn' });
         throw err;
       } finally {
         this.state.activeRuns.delete(runId);
@@ -104,6 +109,7 @@ export class AcpSessionManagerCore {
     for (const [sessionId, handle] of this.state.sessions) {
       closePromises.push(
         this.config.runtime.close({ handle, reason }).catch((err) => {
+          void handleError(err, { module: 'acp:core', action: 'closeAll' });
           this.events.onError(
             err instanceof Error ? err : new Error(String(err))
           );

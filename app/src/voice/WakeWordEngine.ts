@@ -25,6 +25,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { VadDetector } from '@modules/services/voice/services/vadDetector';
 import { STTRegistry } from '@modules/services/voice/services/sttRegistry';
 
@@ -228,6 +229,7 @@ export class WakeWordEngine {
       });
       return result.text ?? '';
     } catch (err) {
+      void handleError(err, { module: 'voice:wakeword', action: 'transcribe' });
       logger.warn('唤醒引擎 · STT 转录失败（静默降级）', {
         error: String(err),
       });

@@ -20,7 +20,8 @@ import { ProjectContextService } from '../../../project/ProjectContextService';
 import { ImplicitEngineHook } from '../../../project/ImplicitEngineHook';
 import { ProjectItemStore } from '../../../workspace/ProjectItemStore';
 import type { ProjectContext } from '@modules/workspace/types';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { readBody, json } from './handler-utils';
 
@@ -112,10 +113,14 @@ export async function handleGetProjectContext(
   res: http.ServerResponse,
   projectId: string
 ): Promise<void> {
+  const otel = getOTelTracing();
+  const span = otel.startSpan('project:artifactHandlers:getContext');
+  span.setAttribute('projectId', projectId);
   try {
     const rulesPath = join(LIRI_PROJECTS_DIR, projectId, 'rules.md');
     if (existsSync(rulesPath)) {
       const entries = ProjectContextService.parseRulesFile(rulesPath);
+      span.setStatus({ code: SpanStatusCode.OK });
       json(res, 200, entries);
       return;
     }
@@ -134,6 +139,7 @@ export async function handleGetProjectContext(
       content: item.content,
       line: idx + 1,
     }));
+    span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, entries);
   } catch (e) {
     logger.error('解析项目上下文失败', { projectId, error: String(e) });
@@ -141,7 +147,10 @@ export async function handleGetProjectContext(
       module: 'project:artifactHandlers',
       action: 'getContext',
     });
+    span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
     json(res, 500, { error: '解析项目上下文失败' });
+  } finally {
+    span.end();
   }
 }
 
@@ -151,6 +160,9 @@ export async function handleSaveProjectContext(
   res: http.ServerResponse,
   projectId: string
 ): Promise<void> {
+  const otel = getOTelTracing();
+  const span = otel.startSpan('project:artifactHandlers:saveContext');
+  span.setAttribute('projectId', projectId);
   try {
     const body = await readBody(req);
     const { type, content, domain } = JSON.parse(body) as {
@@ -167,6 +179,7 @@ export async function handleSaveProjectContext(
       'knowledge',
     ];
     if (!type || !validTypes.includes(type) || !content) {
+      span.setStatus({ code: SpanStatusCode.OK });
       json(res, 400, {
         error:
           '缺少或无效的 type（需为 goal/scope/constraint/requirement/knowledge）或 content',
@@ -225,6 +238,7 @@ export async function handleSaveProjectContext(
     }
 
     writeFileSync(rulesPath, lines.join('\n') + '\n', 'utf-8');
+    span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, { ok: true, marker });
   } catch (e) {
     logger.error('写入项目上下文失败', { projectId, error: String(e) });
@@ -232,7 +246,10 @@ export async function handleSaveProjectContext(
       module: 'project:artifactHandlers',
       action: 'saveContext',
     });
+    span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
     json(res, 500, { error: '写入项目上下文失败' });
+  } finally {
+    span.end();
   }
 }
 
@@ -242,11 +259,15 @@ export async function handleEngineHook(
   res: http.ServerResponse,
   projectId: string
 ): Promise<void> {
+  const otel = getOTelTracing();
+  const span = otel.startSpan('project:artifactHandlers:engineHook');
+  span.setAttribute('projectId', projectId);
   try {
     const body = await readBody(req);
     const { text } = JSON.parse(body) as { text?: string };
 
     if (!text || text.length < 5) {
+      span.setStatus({ code: SpanStatusCode.OK });
       json(res, 200, { processed: false, reason: 'text too short' });
       return;
     }
@@ -256,6 +277,7 @@ export async function handleEngineHook(
       text,
       LIRI_PROJECTS_DIR
     );
+    span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, {
       processed: result.contexts > 0 || result.deliverables > 0,
       ...result,
@@ -266,7 +288,10 @@ export async function handleEngineHook(
       module: 'project:artifactHandlers',
       action: 'engineHook',
     });
+    span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
     json(res, 500, { error: '引擎钩子执行失败' });
+  } finally {
+    span.end();
   }
 }
 
@@ -276,6 +301,9 @@ export async function handleGetProjectHistory(
   res: http.ServerResponse,
   projectId: string
 ): Promise<void> {
+  const otel = getOTelTracing();
+  const span = otel.startSpan('project:artifactHandlers:getHistory');
+  span.setAttribute('projectId', projectId);
   try {
     const url = new URL(
       req.url || '/',
@@ -286,6 +314,7 @@ export async function handleGetProjectHistory(
       await import('../../../project/ProjectHistoryStore');
     const store = createProjectHistoryStore(projectId);
     const groups = store.getGrouped(since);
+    span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, groups);
   } catch (e) {
     logger.error('读取讨论记录失败', { projectId, error: String(e) });
@@ -293,7 +322,10 @@ export async function handleGetProjectHistory(
       module: 'project:artifactHandlers',
       action: 'getHistory',
     });
+    span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
     json(res, 500, { error: '读取讨论记录失败' });
+  } finally {
+    span.end();
   }
 }
 
@@ -303,6 +335,9 @@ export async function handleGetSummaries(
   res: http.ServerResponse,
   projectId: string
 ): Promise<void> {
+  const otel = getOTelTracing();
+  const span = otel.startSpan('project:artifactHandlers:getSummaries');
+  span.setAttribute('projectId', projectId);
   try {
     const summariesPath = join(
       resolveDataDir(),
@@ -311,11 +346,13 @@ export async function handleGetSummaries(
       'summaries.json'
     );
     if (!existsSync(summariesPath)) {
+      span.setStatus({ code: SpanStatusCode.OK });
       json(res, 200, []);
       return;
     }
     const raw = readFileSync(summariesPath, 'utf-8');
     const summaries = JSON.parse(raw);
+    span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, summaries);
   } catch (e) {
     logger.error('读取摘要失败', { projectId, error: String(e) });
@@ -323,7 +360,10 @@ export async function handleGetSummaries(
       module: 'project:artifactHandlers',
       action: 'getSummaries',
     });
+    span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
     json(res, 500, { error: '读取摘要失败' });
+  } finally {
+    span.end();
   }
 }
 
@@ -333,6 +373,9 @@ export async function handleListProjectFiles(
   res: http.ServerResponse,
   projectId: string
 ): Promise<void> {
+  const otel = getOTelTracing();
+  const span = otel.startSpan('project:artifactHandlers:listFiles');
+  span.setAttribute('projectId', projectId);
   try {
     const { createProjectStore } =
       await import('../../../workspace/ProjectStore.js');
@@ -344,10 +387,12 @@ export async function handleListProjectFiles(
     );
     const project = store.get(projectId);
     if (!project || !project.sandboxPath) {
+      span.setStatus({ code: SpanStatusCode.OK });
       json(res, 404, { error: '项目或文件夹不存在' });
       return;
     }
     if (!existsSync(project.sandboxPath)) {
+      span.setStatus({ code: SpanStatusCode.OK });
       json(res, 200, []);
       return;
     }
@@ -371,6 +416,7 @@ export async function handleListProjectFiles(
     const dirs = entries
       .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
       .map((d) => ({ name: d.name, type: 'dir' }));
+    span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, { files, dirs, sandboxPath: project.sandboxPath });
   } catch (e) {
     logger.error('读取文件列表失败', { projectId, error: String(e) });
@@ -378,6 +424,66 @@ export async function handleListProjectFiles(
       module: 'project:artifactHandlers',
       action: 'listFiles',
     });
+    span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
     json(res, 500, { error: '读取文件列表失败' });
+  } finally {
+    span.end();
+  }
+}
+
+/** POST /v1/projects/:projectId/files — 上传文件到项目 sandbox 文件夹 */
+export async function handleUploadProjectFile(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  projectId: string
+): Promise<void> {
+  const otel = getOTelTracing();
+  const span = otel.startSpan('project:artifactHandlers:uploadFile');
+  span.setAttribute('projectId', projectId);
+  try {
+    const body = await readBody(req);
+    const { filename, data } = JSON.parse(body) as { filename?: string; data?: string };
+    if (!filename || !data) {
+      span.setStatus({ code: SpanStatusCode.OK });
+      json(res, 400, { error: '缺少 filename 或 data 参数' });
+      return;
+    }
+
+    // 安全：拒绝含路径穿越的文件名
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      span.setStatus({ code: SpanStatusCode.OK });
+      json(res, 400, { error: '文件名不允许包含路径' });
+      return;
+    }
+
+    const { createProjectStore } = await import('../../../workspace/ProjectStore.js');
+    const { WorkItemStore } = await import('../../../workspace/WorkItemStore.js');
+    const store = createProjectStore(resolveDataDir(), new WorkItemStore(resolveDataDir()));
+    const project = store.get(projectId);
+    if (!project || !project.sandboxPath) {
+      span.setStatus({ code: SpanStatusCode.OK });
+      json(res, 404, { error: '项目或文件夹不存在' });
+      return;
+    }
+
+    // 确保 sandbox 目录存在
+    if (!existsSync(project.sandboxPath)) {
+      mkdirSync(project.sandboxPath, { recursive: true });
+    }
+
+    const destPath = join(project.sandboxPath, filename);
+    const buffer = Buffer.from(data, 'base64');
+    writeFileSync(destPath, buffer);
+
+    logger.info('文件已上传到项目', { projectId, filename, size: buffer.length });
+    span.setStatus({ code: SpanStatusCode.OK });
+    json(res, 200, { path: destPath, filename, size: buffer.length });
+  } catch (e) {
+    logger.error('上传项目文件失败', { projectId, error: String(e) });
+    await handleError(e, { module: 'project:artifactHandlers', action: 'uploadFile' });
+    span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+    json(res, 500, { error: '上传文件失败' });
+  } finally {
+    span.end();
   }
 }

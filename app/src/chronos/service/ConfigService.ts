@@ -7,9 +7,10 @@
 
 import { EventEmitter } from 'events';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
-  module: 'chronos:service:configService',
+  module: 'chronos:config',
   level: LogLevel.INFO,
 });
 
@@ -347,6 +348,7 @@ export class ConfigService extends EventEmitter {
         await updateFn();
         this.emit('hotUpdateComplete');
       } catch (error) {
+        void handleError(error, { module: 'chronos:config', action: 'hotUpdate' });
         this.emit('hotUpdateError', error);
       }
     }, intervalMs);

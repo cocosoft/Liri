@@ -72,8 +72,7 @@ function generateMuid(): string {
 function debugLog(msg: string): void {
   const line = `[${new Date().toISOString()}] ${msg}\n`;
   appendFileSync(join(LOG_DIR, 'edge_tts_debug.txt'), line);
-  // eslint-disable-next-line no-console
-  console.log(msg);
+  logger.debug(msg);
 }
 
 // ============ WebSocket Functions ============

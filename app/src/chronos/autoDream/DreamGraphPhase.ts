@@ -34,6 +34,7 @@
 import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join, basename } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import {
   resolveDomainDir,
   resolveKnowledgeDir,
@@ -45,7 +46,7 @@ import { SchemaLoader } from '@modules/knowledge/schema/SchemaLoader';
 import { DomainManager } from '@modules/knowledge/domain/DomainManager';
 
 const logger = new Logger({
-  module: 'chronos:autoDream:dreamGraphPhase',
+  module: 'chronos:graph',
   level: LogLevel.INFO,
 });
 
@@ -128,6 +129,7 @@ export async function runDreamGraphPhase(
       try {
         mdFiles = readdirSync(wikiDir).filter((f) => f.endsWith('.md'));
       } catch (err) {
+        void handleError(err, { module: 'chronos:graph', action: 'readDir' });
         const msg = `读取 wiki 目录失败 (${domain}): ${err instanceof Error ? err.message : String(err)}`;
         logger.error(msg);
         return {
@@ -210,6 +212,7 @@ export async function runDreamGraphPhase(
       edgesAdded: totalEdgesAdded,
     };
   } catch (err) {
+    void handleError(err, { module: 'chronos:graph', action: 'runGraphPhase' });
     const msg = `DreamGraphPhase 执行失败: ${err instanceof Error ? err.message : String(err)}`;
     logger.error(msg);
     return {

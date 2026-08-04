@@ -4,6 +4,10 @@
 
 import { isEnvTruthy } from './envUtils.js';
 import { configManager } from '@modules/config';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
+
+const logger = new Logger({ module: 'utils:proxy', level: LogLevel.INFO });
 
 /**
  * 获取代理URL
@@ -60,7 +64,8 @@ function extractHostFromUrl(url: string): string | null {
     }
     const parsedUrl = new URL(url);
     return parsedUrl.hostname;
-  } catch {
+  } catch (error) {
+    handleError(error, { module: 'utils:proxy', action: 'extractHostFromUrl' });
     return null;
   }
 }
@@ -134,7 +139,8 @@ function matchesCidrPattern(ip: string, cidr: string): boolean {
 
     // 检查是否在同一网络
     return (ipInt & mask) === (cidrInt & mask);
-  } catch {
+  } catch (error) {
+    handleError(error, { module: 'utils:proxy', action: 'matchesCidrPattern' });
     return false;
   }
 }

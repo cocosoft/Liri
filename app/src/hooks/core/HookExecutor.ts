@@ -10,6 +10,7 @@ import type {
   HookExecutionStats,
 } from '../types';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = getLogger('HookExecutor');
 
@@ -76,6 +77,7 @@ export class HookExecutor {
         durationMs,
       };
     } catch (error) {
+      void handleError(error, { module: 'hooks:executor', action: 'executeHook' });
       const durationMs = Date.now() - startTime;
       const errorResult: HookResult = {
         success: false,
@@ -223,7 +225,8 @@ export class HookExecutor {
       }
 
       return true;
-    } catch {
+    } catch (e) {
+      void handleError(e, { module: 'hooks:executor', action: 'isSafeData' });
       return false;
     }
   }

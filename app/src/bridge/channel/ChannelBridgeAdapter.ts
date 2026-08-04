@@ -12,7 +12,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity, handleError } from '@modules/error';
 import { channelRegistry } from '@modules/channels/registry/ChannelRegistry';
 import type { ChannelId, MessageContext } from '@modules/channels/types';
 import type {
@@ -225,6 +225,7 @@ export class ChannelBridgeAdapter {
       }
       return result;
     } catch (error) {
+      void handleError(error as Error, { module: 'bridge:adapter', action: 'reportProgress' });
       logger.error(`Bridge→Channel 回复失败`, error as Error);
       return false;
     }
@@ -252,6 +253,7 @@ export class ChannelBridgeAdapter {
       );
       return ok;
     } catch (error) {
+      void handleError(error as Error, { module: 'bridge:adapter', action: 'reportResult' });
       logger.error(`Bridge→Channel 结果回复失败`, error as Error);
       return false;
     }

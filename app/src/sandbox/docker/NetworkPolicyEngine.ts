@@ -6,6 +6,7 @@
 
 import { execSync } from 'child_process';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import type { DockerNetworkConfig } from './DockerNetworkPolicy';
 
 const logger = new Logger({
@@ -59,6 +60,7 @@ export class NetworkPolicyEngine {
     try {
       applyDomainBlacklist(containerName, config.blockedDomains, result);
     } catch (e) {
+      void handleError(e, { module: 'sandbox:network', action: 'applyDomainBlacklist' });
       const msg = `域名黑名单应用失败: ${(e as Error).message}`;
       logger.warn(msg);
       result.errors.push(msg);
@@ -67,6 +69,7 @@ export class NetworkPolicyEngine {
     try {
       applyPortWhitelist(containerName, config.allowedPorts, result);
     } catch (e) {
+      void handleError(e, { module: 'sandbox:network', action: 'applyPortWhitelist' });
       const msg = `端口白名单应用失败: ${(e as Error).message}`;
       logger.warn(msg);
       result.errors.push(msg);

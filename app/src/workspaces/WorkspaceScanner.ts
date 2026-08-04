@@ -26,6 +26,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { getPromptInjectionDetector } from '../security/injection/PromptInjectionDetector';
 import type { WorkspaceFile, WorkspaceFiles } from './types';
 
@@ -78,6 +79,7 @@ function readCached(filePath: string): WorkspaceFile | null {
       truncated,
     };
   } catch (_err) {
+    void handleError(new Error('readCached'), { module: 'workspaces:scanner', action: 'readCached' });
     return null;
   }
 }
@@ -113,6 +115,7 @@ function readAgentsDir(dir: string): WorkspaceFile[] {
       if (file) files.push(file);
     }
   } catch (_err) {
+    void handleError(new Error('readAgentsDir'), { module: 'workspaces:scanner', action: 'readAgentsDir' });
     // directory not accessible
   }
   return files;

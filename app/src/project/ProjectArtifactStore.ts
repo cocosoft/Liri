@@ -7,7 +7,9 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'project:ArtifactStore',
@@ -70,30 +72,66 @@ export class ProjectArtifactStore {
 
   /** 列出指定类型的所有构件 */
   list(projectId: string, kind?: ArtifactKind): ProjectArtifact[] {
-    const all = this.readAll(projectId);
-    if (kind) return all.filter((a) => a.kind === kind);
-    return all;
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ProjectArtifactStore.list');
+    try {
+      const all = this.readAll(projectId);
+      const result = kind ? all.filter((a) => a.kind === kind) : all;
+      span.setStatus({ code: SpanStatusCode.OK });
+      return result;
+    } catch (e) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+      void handleError(e, { module: 'project:ArtifactStore', action: 'list' });
+      return [];
+    } finally {
+      span.end();
+    }
   }
 
   /** 添加/更新构件 */
   save(artifact: ProjectArtifact): void {
-    const all = this.readAll(artifact.projectId);
-    const idx = all.findIndex((a) => a.id === artifact.id);
-    if (idx >= 0) {
-      all[idx] = artifact;
-    } else {
-      all.push(artifact);
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ProjectArtifactStore.save');
+    try {
+      const all = this.readAll(artifact.projectId);
+      const idx = all.findIndex((a) => a.id === artifact.id);
+      if (idx >= 0) {
+        all[idx] = artifact;
+      } else {
+        all.push(artifact);
+      }
+      this.writeAll(artifact.projectId, all);
+      span.setStatus({ code: SpanStatusCode.OK });
+    } catch (e) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+      void handleError(e, { module: 'project:ArtifactStore', action: 'save' });
+      throw e;
+    } finally {
+      span.end();
     }
-    this.writeAll(artifact.projectId, all);
   }
 
   /** 删除构件 */
   delete(projectId: string, artifactId: string): boolean {
-    const all = this.readAll(projectId);
-    const idx = all.findIndex((a) => a.id === artifactId);
-    if (idx < 0) return false;
-    all.splice(idx, 1);
-    this.writeAll(projectId, all);
-    return true;
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ProjectArtifactStore.delete');
+    try {
+      const all = this.readAll(projectId);
+      const idx = all.findIndex((a) => a.id === artifactId);
+      if (idx < 0) {
+        span.setStatus({ code: SpanStatusCode.OK });
+        return false;
+      }
+      all.splice(idx, 1);
+      this.writeAll(projectId, all);
+      span.setStatus({ code: SpanStatusCode.OK });
+      return true;
+    } catch (e) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+      void handleError(e, { module: 'project:ArtifactStore', action: 'delete' });
+      return false;
+    } finally {
+      span.end();
+    }
   }
 }

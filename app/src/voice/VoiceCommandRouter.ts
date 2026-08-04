@@ -14,6 +14,7 @@ import type {
   ToolProgressCallback,
 } from './VoiceToolBridge';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
   module: 'voice:commandRouter',
@@ -219,7 +220,8 @@ export class VoiceCommandRouter {
           if (match) {
             return rule;
           }
-        } catch {
+        } catch (e) {
+          void handleError(e, { module: 'voice:commandrouter', action: 'matchRule' });
           logger.warning('命令规则正则编译失败', { pattern: rule.pattern });
         }
       } else {
@@ -270,6 +272,7 @@ export class VoiceCommandRouter {
           };
       }
     } catch (error) {
+      void handleError(error, { module: 'voice:commandrouter', action: 'executeAction' });
       const errorMsg = error instanceof Error ? error.message : String(error);
       logger.error('命令执行失败', { error: errorMsg, pattern: rule.pattern });
       return {
@@ -328,6 +331,7 @@ export class VoiceCommandRouter {
         error: null,
       };
     } catch (error) {
+      void handleError(error, { module: 'voice:commandrouter', action: 'executeToolAction' });
       const errorMsg = error instanceof Error ? error.message : String(error);
       return {
         matched: true,

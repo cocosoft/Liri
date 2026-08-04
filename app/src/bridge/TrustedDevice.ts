@@ -1,7 +1,11 @@
-﻿import * as fs from 'fs';
+import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 import { resolvePyappHome } from '@modules/core';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+
+const logger = new Logger({ module: 'bridge:device', level: LogLevel.INFO });
 
 export interface TrustedDevice {
   deviceId: string;
@@ -30,6 +34,7 @@ export function loadTrustedDevices(): TrustedDevice[] {
     // 过滤过期设备
     return devices.filter((d) => !isDeviceExpired(d));
   } catch {
+    void handleError(new Error('Failed to load trusted devices'), { module: 'bridge:device', action: 'loadTrustedDevices' });
     return [];
   }
 }

@@ -6,6 +6,7 @@
 import { EventEmitter } from 'events';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'bridge:websocket:WebSocketClient',
   level: LogLevel.INFO,
@@ -110,6 +111,7 @@ export class WebSocketClient extends EventEmitter {
               this.emit('pong', message);
             }
           } catch (error) {
+            void handleError(error as Error, { module: 'bridge:ws', action: 'onmessage.parse' });
             this.emit(
               'error',
               new Error(`Failed to parse message: ${event.data}`)
@@ -134,6 +136,7 @@ export class WebSocketClient extends EventEmitter {
           }
         };
       } catch (error) {
+        void handleError(error as Error, { module: 'bridge:ws', action: 'connect' });
         this.setState('failed');
         this.emit('error', error);
         if (this.connectedReject) {
@@ -186,6 +189,7 @@ export class WebSocketClient extends EventEmitter {
       this.ws.send(JSON.stringify(messageWithMeta));
       this.emit('sent', messageWithMeta);
     } catch (error) {
+      void handleError(error as Error, { module: 'bridge:ws', action: 'send' });
       this.emit('error', new Error('Failed to send message'));
       this.messageQueue.push(messageWithMeta);
     }
@@ -249,6 +253,7 @@ export class WebSocketClient extends EventEmitter {
 
     this.reconnectTimer = setTimeout(() => {
       this.connect().catch((error) => {
+        void handleError(error as Error, { module: 'bridge:ws', action: 'reconnect' });
         this.emit('reconnect-error', error);
       });
     }, delay);

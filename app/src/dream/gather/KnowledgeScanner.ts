@@ -31,6 +31,7 @@ import { createHash } from 'crypto';
 import { resolvePyappHome } from '@modules/core';
 import type { KnowledgeDelta } from '../types';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'dream:gather:knowledgeScanner',
@@ -77,6 +78,7 @@ export class KnowledgeScanner {
       await this.scanDir(this.knowledgeRoot, sinceMs, results);
     } catch (e) {
       logger.warn('知识库扫描失败', { error: String(e) });
+      void handleError(e, { module: 'dream:scanner', action: 'scanChanges' });
     }
 
     return results;
@@ -96,6 +98,7 @@ export class KnowledgeScanner {
         isDirectory: () => boolean;
       }[];
     } catch {
+      void handleError(new Error('读取目录失败'), { module: 'dream:scanner', action: 'readDir' });
       return;
     }
 
@@ -134,6 +137,7 @@ export class KnowledgeScanner {
         results.push(scanned);
       } catch {
         /* skip unreadable files */
+        void handleError(new Error('读取知识文件失败'), { module: 'dream:scanner', action: 'readKnowledgeFile' });
       }
     }
   }
@@ -158,6 +162,7 @@ export class KnowledgeScanner {
       previous = JSON.parse(data) as KnowledgeDelta;
     } catch {
       /* first time scanning */
+      void handleError(new Error('读取delta文件失败'), { module: 'dream:scanner', action: 'computeDelta' });
     }
 
     if (!previous) {

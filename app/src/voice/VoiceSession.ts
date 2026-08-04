@@ -7,6 +7,7 @@
 
 import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { VoiceEventBus } from './VoiceEventBus';
 import { VoiceToolBridge } from './VoiceToolBridge';
 import type {
@@ -276,6 +277,7 @@ export class VoiceSession {
             });
             return JSON.stringify(result);
           } catch (err) {
+            void handleError(err instanceof Error ? err : new Error(String(err)), { module: 'voice:session', action: 'executeTool' });
             return JSON.stringify({
               error: err instanceof Error ? err.message : String(err),
             });
@@ -355,6 +357,7 @@ export class VoiceSession {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      void handleError(err instanceof Error ? err : new Error(msg), { module: 'voice:session', action: 'handleConfig' });
       this.logger.error('会话配置 · 失败', {
         sessionId: this.id,
         provider: config.provider,
@@ -452,6 +455,7 @@ export class VoiceSession {
         };
 
         this.transcriptManager.recordMessage(this.id, message).catch((err) => {
+          void handleError(err instanceof Error ? err : new Error(String(err)), { module: 'voice:session', action: 'recordMessage' });
           this.logger.error('转录持久化失败', {
             sessionId: this.id,
             error: String(err),
@@ -563,6 +567,7 @@ export class VoiceSession {
       try {
         this.adapter.disconnect();
       } catch (_err) {
+        void handleError(new Error('disconnectAdapter'), { module: 'voice:session', action: 'disconnectAdapter' });
         // 忽略断开时的错误
       }
       this.adapter = null;
@@ -684,6 +689,7 @@ export class VoiceSession {
         },
       })
       .catch((err: unknown) => {
+        void handleError(err instanceof Error ? err : new Error(String(err)), { module: 'voice:session', action: 'createMemory' });
         this.logger.warn('记忆写入失败', {
           error: err instanceof Error ? err.message : String(err),
         });

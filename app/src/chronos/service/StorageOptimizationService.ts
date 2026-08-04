@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import {
   readFile,
   writeFile,
@@ -17,7 +18,7 @@ import { existsSync } from 'fs';
 import { resolveDataDir } from '@modules/core';
 
 const logger = new Logger({
-  module: 'chronos:service:storageOptimizationService',
+  module: 'chronos:storage',
   level: LogLevel.INFO,
 });
 
@@ -251,6 +252,7 @@ export class StorageOptimizationService {
 
       return data;
     } catch (error) {
+      void handleError(error, { module: 'chronos:storage', action: 'readFromFile' });
       logger.error(`Failed to read from file ${filePath}:`, error);
       return null;
     }
@@ -278,6 +280,7 @@ export class StorageOptimizationService {
 
       return true;
     } catch (error) {
+      void handleError(error, { module: 'chronos:storage', action: 'writeToFile' });
       logger.error(`Failed to write to file ${filePath}:`, error);
       return false;
     }
@@ -307,6 +310,7 @@ export class StorageOptimizationService {
 
       return true;
     } catch (error) {
+      void handleError(error, { module: 'chronos:storage', action: 'deleteFile' });
       logger.error(`Failed to delete file ${filePath}:`, error);
       return false;
     }
@@ -394,6 +398,7 @@ export class StorageOptimizationService {
 
       await this.writeToFile(this.config.cacheFilePath, cacheData);
     } catch (error) {
+      void handleError(error, { module: 'chronos:storage', action: 'persistCache' });
       logger.error('Failed to persist cache:', error);
     }
   }
@@ -422,6 +427,7 @@ export class StorageOptimizationService {
         });
       }
     } catch (error) {
+      void handleError(error, { module: 'chronos:storage', action: 'loadCache' });
       logger.error('Failed to load cache:', error);
     }
   }
@@ -437,6 +443,7 @@ export class StorageOptimizationService {
       const files = await readdir(dirPath);
       return files;
     } catch (error) {
+      void handleError(error, { module: 'chronos:storage', action: 'listFiles' });
       logger.error(`Failed to list files in ${dirPath}:`, error);
       return [];
     }

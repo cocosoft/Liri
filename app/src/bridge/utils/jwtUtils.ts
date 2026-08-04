@@ -5,7 +5,7 @@
 
 import { decode, JwtPayload, verify } from 'jsonwebtoken';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity, handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'bridge:utils:jwtUtils',
@@ -78,6 +78,7 @@ class TokenRefreshScheduler {
     try {
       return decode(token, { complete: false }) as JwtPayload;
     } catch (error) {
+      void handleError(error as Error, { module: 'bridge:jwt', action: 'parseToken' });
       return null;
     }
   }
@@ -93,6 +94,7 @@ class TokenRefreshScheduler {
       Buffer.from(parts[1], 'base64url').toString('utf8');
       return true;
     } catch {
+      void handleError(new Error('Invalid token structure'), { module: 'bridge:jwt', action: 'validateTokenStructure' });
       return false;
     }
   }
@@ -220,6 +222,7 @@ class TokenRefreshScheduler {
       }
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
+      void handleError(err, { module: 'bridge:jwt', action: 'refreshToken' });
       logger.error(
         `${this.label}: Failed to refresh token for session ${sessionId}`,
         err.message

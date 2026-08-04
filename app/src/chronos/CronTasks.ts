@@ -3,6 +3,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { randomUUID } from 'crypto';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
@@ -65,6 +66,10 @@ export async function readCronTasksFile(
       }
       return validTasks;
     } catch (error) {
+      void handleError(error, {
+        module: 'chronos:tasks',
+        action: 'readCronTasksFile.sqlite',
+      });
       logger.error(
         '[CronTasks] error reading from SQLite, falling back to file',
         error
@@ -120,6 +125,10 @@ export async function readCronTasksFile(
     }
     return out;
   } catch (e) {
+    void handleError(e, {
+      module: 'chronos:tasks',
+      action: 'readCronTasksFile.file',
+    });
     logger.error('[CronTasks] error reading cron tasks file:', e);
     return [];
   }
@@ -140,6 +149,10 @@ export async function writeCronTasksFile(
       }
       return;
     } catch (error) {
+      void handleError(error, {
+        module: 'chronos:tasks',
+        action: 'writeCronTasksFile.sqlite',
+      });
       logger.error(
         '[CronTasks] error writing to SQLite, falling back to file',
         error
@@ -168,6 +181,10 @@ export async function hasCronTasksSync(dir?: string): Promise<boolean> {
       const count = await _sqliteStore.countTasks();
       return count > 0;
     } catch {
+      void handleError(new Error('SQLite 任务计数失败'), {
+        module: 'chronos:tasks',
+        action: 'hasCronTasksSync.sqlite',
+      });
       return false;
     }
   }
@@ -184,6 +201,10 @@ export async function hasCronTasksSync(dir?: string): Promise<boolean> {
     }
     return parsed.tasks.length > 0;
   } catch {
+    void handleError(new Error('读取 cron 任务文件失败'), {
+      module: 'chronos:tasks',
+      action: 'hasCronTasksSync.file',
+    });
     return false;
   }
 }
@@ -250,6 +271,10 @@ export async function removeCronTasks(
       await _sqliteStore.removeTasks(ids);
       return;
     } catch (error) {
+      void handleError(error, {
+        module: 'chronos:tasks',
+        action: 'removeCronTasks.sqlite',
+      });
       logger.error(
         '[CronTasks] error removing from SQLite, falling back',
         error
@@ -281,6 +306,10 @@ export async function markCronTasksFired(
       await _sqliteStore.markFired(ids, firedAt);
       return;
     } catch (error) {
+      void handleError(error, {
+        module: 'chronos:tasks',
+        action: 'markCronTasksFired.sqlite',
+      });
       logger.error(
         '[CronTasks] error marking fired in SQLite, falling back',
         error
@@ -341,6 +370,10 @@ export async function getCronTask(
     try {
       return await _sqliteStore.getTask(id);
     } catch (error) {
+      void handleError(error, {
+        module: 'chronos:tasks',
+        action: 'getCronTask.sqlite',
+      });
       logger.error(
         '[CronTasks] error getting task from SQLite, falling back',
         error
@@ -365,6 +398,10 @@ export async function updateCronTask(
       await _sqliteStore.updateTask(id, updates);
       return;
     } catch (error) {
+      void handleError(error, {
+        module: 'chronos:tasks',
+        action: 'updateCronTask.sqlite',
+      });
       logger.error(
         '[CronTasks] error updating task in SQLite, falling back',
         error

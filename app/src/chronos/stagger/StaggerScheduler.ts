@@ -5,8 +5,10 @@
 import { EventEmitter } from 'events';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
+
 const logger = new Logger({
-  module: 'chronos:stagger:StaggerScheduler',
+  module: 'chronos:stagger',
   level: LogLevel.INFO,
 });
 
@@ -105,6 +107,7 @@ export class StaggerScheduler extends EventEmitter {
 
       this.emit('stagger:complete', { taskId: task.id, taskName: task.name });
     } catch (error) {
+      void handleError(error, { module: 'chronos:stagger', action: 'executeWithDelay' });
       const message = error instanceof Error ? error.message : String(error);
 
       this.emit('stagger:error', {

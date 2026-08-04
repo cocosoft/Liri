@@ -17,6 +17,7 @@ import { execSync, exec } from 'child_process';
 import { promisify } from 'util';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 const logger = new Logger({
   module: 'sandbox:SandboxImpl',
   level: LogLevel.INFO,
@@ -170,6 +171,10 @@ export class WindowsSandbox extends BaseSandbox {
         executionTime: Date.now() - startTime,
       };
     } catch (error) {
+      void handleError(error, {
+        module: 'sandbox:impl',
+        action: 'WindowsSandbox.execute',
+      });
       const execErr = error as {
         code?: number;
         stdout?: string;
@@ -206,6 +211,10 @@ export class LinuxSandbox extends BaseSandbox {
       try {
         execSync('which bwrap', { stdio: 'ignore' });
       } catch {
+        void handleError(new Error('bubblewrap 未安装'), {
+          module: 'sandbox:impl',
+          action: 'LinuxSandbox.checkBwrap',
+        });
         return {
           success: false,
           exitCode: 1,
@@ -294,6 +303,10 @@ export class LinuxSandbox extends BaseSandbox {
         executionTime: Date.now() - startTime,
       };
     } catch (error) {
+      void handleError(error, {
+        module: 'sandbox:impl',
+        action: 'LinuxSandbox.execute',
+      });
       const execErr = error as {
         code?: number;
         stdout?: string;
@@ -356,6 +369,10 @@ export class MacOSSandbox extends BaseSandbox {
         executionTime: Date.now() - startTime,
       };
     } catch (error) {
+      void handleError(error, {
+        module: 'sandbox:impl',
+        action: 'MacOSSandbox.execute',
+      });
       const execErr = error as {
         code?: number;
         stdout?: string;
@@ -406,6 +423,10 @@ export class NoopSandbox extends BaseSandbox {
         executionTime: Date.now() - startTime,
       };
     } catch (error) {
+      void handleError(error, {
+        module: 'sandbox:impl',
+        action: 'NoopSandbox.execute',
+      });
       const execErr = error as {
         code?: number;
         stdout?: string;

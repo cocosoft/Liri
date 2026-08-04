@@ -10,7 +10,9 @@
 import type { Tool } from '../types/Tool';
 import { createToolResult } from '../types/ToolResult';
 import type { ToolUseContext } from '../types/ToolUseContext';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 import { resolveDataDir } from '@modules/core/paths';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
@@ -64,11 +66,16 @@ export class ReadProjectFileTool {
         input: Record<string, unknown>,
         _context: ToolUseContext
       ) => {
+        const otel = getOTelTracing();
+        const span = otel.startSpan('ReadProjectFileTool.execute');
         try {
           const projectId = String(input.projectId || '');
           const relativePath = String(input.relativePath || '');
 
+          span.setAttribute('projectId', projectId);
+
           if (!projectId || !relativePath) {
+            span.setStatus({ code: SpanStatusCode.OK });
             return createToolResult(null, {
               newMessages: [
                 {
@@ -83,6 +90,7 @@ export class ReadProjectFileTool {
 
           const project = projectStore.get(projectId);
           if (!project) {
+            span.setStatus({ code: SpanStatusCode.OK });
             return createToolResult(null, {
               newMessages: [
                 {
@@ -95,6 +103,7 @@ export class ReadProjectFileTool {
 
           const sandboxPath = project.sandboxPath;
           if (!sandboxPath) {
+            span.setStatus({ code: SpanStatusCode.OK });
             return createToolResult(null, {
               newMessages: [
                 { role: 'assistant' as const, content: '项目未配置文件夹路径' },
@@ -105,6 +114,7 @@ export class ReadProjectFileTool {
           // 路径安全校验：resolve + normalize + realpath
           const rawPath = resolve(sandboxPath, normalize(relativePath));
           if (!existsSync(rawPath)) {
+            span.setStatus({ code: SpanStatusCode.OK });
             return createToolResult(
               JSON.stringify({ error: '文件不存在', path: relativePath }),
               {
@@ -124,6 +134,7 @@ export class ReadProjectFileTool {
             !realPath.startsWith(realSandbox + '\\') &&
             !realPath.startsWith(realSandbox + '/')
           ) {
+            span.setStatus({ code: SpanStatusCode.OK });
             return createToolResult(null, {
               newMessages: [
                 {
@@ -142,8 +153,17 @@ export class ReadProjectFileTool {
                 `\n\n... (文件过大，已截断，完整大小: ${content.length} 字节)`
               : content;
 
+          span.setStatus({ code: SpanStatusCode.OK });
           return createToolResult(truncated);
         } catch (error) {
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: String(error),
+          });
+          void handleError(error, {
+            module: 'tools:read_project_file',
+            action: 'execute',
+          });
           const msg = error instanceof Error ? error.message : '未知错误';
           logger.error('读取项目文件失败', { error: msg });
           return createToolResult(null, {
@@ -151,6 +171,8 @@ export class ReadProjectFileTool {
               { role: 'assistant' as const, content: `读取文件失败: ${msg}` },
             ],
           });
+        } finally {
+          span.end();
         }
       },
 

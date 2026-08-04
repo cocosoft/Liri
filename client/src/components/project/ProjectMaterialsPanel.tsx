@@ -17,6 +17,7 @@ import {
   BookOpen,
   Folder,
   RefreshCw,
+  Upload,
 } from "lucide-react";
 import {
   fetchProjectContext,
@@ -25,6 +26,7 @@ import {
 import {
   fetchSummaries,
   fetchProjectFiles,
+  uploadProjectFile,
   type ProjectSummary,
   type ProjectFilesResult,
 } from "../../services/projectArtifactService";
@@ -60,6 +62,8 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
   const [summaries, setSummaries] = useState<ProjectSummary[]>([]);
   const [fileResult, setFileResult] = useState<ProjectFilesResult | null>(null);
   const [fileLoading, setFileLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadFiles = useCallback(async () => {
@@ -73,6 +77,22 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
       setFileLoading(false);
     }
   }, [projectId]);
+
+  const handleUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      await uploadProjectFile(projectId, file);
+      await loadFiles(); // 上传后刷新文件列表
+    } catch {
+      /* 上传失败静默，文件列表不更新即为反馈 */
+    } finally {
+      setUploading(false);
+      // 重置 input，允许重复上传同名文件
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }, [projectId, loadFiles]);
 
   useEffect(() => {
     fetchProjectContext(projectId)
@@ -101,10 +121,28 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
 
   if (contexts.length === 0 && summaries.length === 0 && !hasFiles) {
     return (
-      <div className="p-4 text-sm text-gray-400 text-center leading-relaxed">
-        暂无资料。
-        <br />
-        在聊天中描述项目目标、范围、约束，AI 会自动写入 rules.md。
+      <div className="p-4 space-y-3">
+        <div className="text-sm text-gray-400 text-center leading-relaxed">
+          暂无资料。
+          <br />
+          在聊天中描述项目目标、范围、约束，AI 会自动写入 rules.md。
+        </div>
+        <div className="flex justify-center">
+          <input
+            ref={fileInputRef}
+            type="file"
+            onChange={handleUpload}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${uploading ? "animate-pulse" : ""}`}
+          >
+            <Upload size={12} />
+            {uploading ? "上传中..." : "上传文件"}
+          </button>
+        </div>
       </div>
     );
   }
@@ -118,13 +156,27 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
 
   return (
     <div className="p-2 space-y-3">
-      {/* S4: sandbox 文件列表（30秒轮询 + 手动刷新） */}
-      {hasFiles && (
-        <div className="space-y-1">
-          <div className="text-xs text-gray-400 px-1 font-medium flex items-center justify-between">
-            <span className="flex items-center gap-1">
-              <Folder size={12} /> 项目文件
-            </span>
+      {/* S4: sandbox 文件列表（30秒轮询 + 手动刷新 + 上传） */}
+      <div className="space-y-1">
+        <div className="text-xs text-gray-400 px-1 font-medium flex items-center justify-between">
+          <span className="flex items-center gap-1">
+            <Folder size={12} /> 项目文件
+          </span>
+          <div className="flex items-center gap-1">
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleUpload}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className={`p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${uploading ? "animate-pulse" : ""}`}
+              title="上传文件"
+            >
+              <Upload size={12} />
+            </button>
             <button
               onClick={loadFiles}
               disabled={fileLoading}
@@ -134,33 +186,41 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
               <RefreshCw size={12} />
             </button>
           </div>
-          {fileResult!.dirs.map((d) => (
-            <div
-              key={`dir-${d.name}`}
-              className="px-2.5 py-1 rounded-md bg-gray-50 dark:bg-gray-800/50 text-xs flex items-center gap-1.5"
-            >
-              <Folder size={12} className="text-blue-400 shrink-0" />
-              <span className="text-gray-600 dark:text-gray-400 truncate">
-                {d.name}/
-              </span>
-            </div>
-          ))}
-          {fileResult!.files.map((f) => (
-            <div
-              key={`file-${f.name}`}
-              className="px-2.5 py-1 rounded-md bg-gray-50 dark:bg-gray-800/50 text-xs flex items-center gap-1.5"
-            >
-              <FileText size={12} className="text-gray-400 shrink-0" />
-              <span className="text-gray-700 dark:text-gray-300 truncate flex-1">
-                {f.name}
-              </span>
-              <span className="text-gray-400 flex-shrink-0">
-                {fmtSize(f.size)}
-              </span>
-            </div>
-          ))}
         </div>
-      )}
+        {hasFiles ? (
+          <>
+            {fileResult!.dirs.map((d) => (
+              <div
+                key={`dir-${d.name}`}
+                className="px-2.5 py-1 rounded-md bg-gray-50 dark:bg-gray-800/50 text-xs flex items-center gap-1.5"
+              >
+                <Folder size={12} className="text-blue-400 shrink-0" />
+                <span className="text-gray-600 dark:text-gray-400 truncate">
+                  {d.name}/
+                </span>
+              </div>
+            ))}
+            {fileResult!.files.map((f) => (
+              <div
+                key={`file-${f.name}`}
+                className="px-2.5 py-1 rounded-md bg-gray-50 dark:bg-gray-800/50 text-xs flex items-center gap-1.5"
+              >
+                <FileText size={12} className="text-gray-400 shrink-0" />
+                <span className="text-gray-700 dark:text-gray-300 truncate flex-1">
+                  {f.name}
+                </span>
+                <span className="text-gray-400 flex-shrink-0">
+                  {fmtSize(f.size)}
+                </span>
+              </div>
+            ))}
+          </>
+        ) : (
+          <div className="px-2.5 py-2 text-xs text-gray-400 text-center">
+            点击上传按钮添加文件到项目文件夹
+          </div>
+        )}
+      </div>
 
       {/* 项目上下文 */}
       {contexts.length > 0 && (

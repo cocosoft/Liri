@@ -8,6 +8,7 @@ import { join, resolve } from 'path';
 import { Logger } from '../monitoring/logs/Logger.js';
 import { configManager } from '@modules/config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error';
 import type { StartupConfig, PluginSource } from './StartupConfig.js';
 import { DEFAULT_STARTUP_CONFIG } from './StartupConfig.js';
 
@@ -501,6 +502,7 @@ export function loadStartupConfig(): StartupLoadResult {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     result.parseErrors = [message];
+    void handleError(err, { module: 'bootstrap:startupYaml', action: 'loadStartupConfig' });
     logger.error('加载 startup.yaml 失败', { error: message });
     return result;
   }

@@ -12,6 +12,7 @@ import {
   type MemoryType,
 } from '@modules/services/extractMemories';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('MemoryExtractionHook');
 
@@ -108,6 +109,7 @@ export function createMemoryExtractionHook(
         }
       } catch (err) {
         // Deep extraction failure is non-fatal
+        void handleError(new Error('深度记忆提取失败'), { module: 'hooks:memory', action: 'extractMemories' });
       }
     }
 
@@ -250,5 +252,6 @@ async function saveToMemory(
     await memoryManager.createMemory(memory);
   } catch (error) {
     logger.error('Failed to save memory:', { error });
+    void handleError(error, { module: 'hooks:memory', action: 'saveToMemory' });
   }
 }

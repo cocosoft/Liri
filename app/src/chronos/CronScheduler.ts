@@ -34,6 +34,7 @@ import {
 } from './cronJitterConfig';
 import { cronToHuman } from './cron';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { CronFileWatcher, cronFileWatcher } from './watcher/CronFileWatcher';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import { BaseTask } from '@modules/tasks/BaseTask';
@@ -201,12 +202,16 @@ export function createCronScheduler(
       void removeCronTasks(
         missed.map((t) => t.id),
         dir
-      ).catch((e) =>
+      ).catch((e) => {
+        void handleError(e, {
+          module: 'chronos:scheduler',
+          action: 'load.removeMissedTasks',
+        });
         logger.error(
           `[Chronos] failed to remove missed tasks`,
           e instanceof Error ? e : new Error(String(e))
-        )
-      );
+        );
+      });
     }
   }
 
@@ -272,12 +277,16 @@ export function createCronScheduler(
       } else {
         inFlight.add(t.id);
         void removeCronTasks([t.id], dir)
-          .catch((e) =>
+          .catch((e) => {
+            void handleError(e, {
+              module: 'chronos:scheduler',
+              action: 'check.removeCronTasks',
+            });
             logger.error(
               `[Chronos] failed to remove task ${t.id}`,
               e instanceof Error ? e : new Error(String(e))
-            )
-          )
+            );
+          })
           .finally(() => inFlight.delete(t.id));
         nextFireAt.delete(t.id);
       }
@@ -308,12 +317,16 @@ export function createCronScheduler(
           void removeCronTasks(
             missed.map((t) => t.id),
             dir
-          ).catch((e) =>
+          ).catch((e) => {
+            void handleError(e, {
+              module: 'chronos:scheduler',
+              action: 'check.removeMissedTasks',
+            });
             logger.error(
               `[Chronos] failed to remove missed tasks`,
               e instanceof Error ? e : new Error(String(e))
-            )
-          );
+            );
+          });
         }
 
         if (isOwner) {
@@ -322,12 +335,16 @@ export function createCronScheduler(
           if (firedFileRecurring.length > 0) {
             for (const id of firedFileRecurring) inFlight.add(id);
             void markCronTasksFired(firedFileRecurring, now, dir)
-              .catch((e) =>
+              .catch((e) => {
+                void handleError(e, {
+                  module: 'chronos:scheduler',
+                  action: 'check.markFired',
+                });
                 logger.error(
                   `[Chronos] failed to persist lastFiredAt`,
                   e instanceof Error ? e : new Error(String(e))
-                )
-              )
+                );
+              })
               .finally(() => {
                 for (const id of firedFileRecurring) inFlight.delete(id);
               });
@@ -350,6 +367,10 @@ export function createCronScheduler(
           if (!seen.has(id)) nextFireAt.delete(id);
         }
       } catch (error) {
+        void handleError(error, {
+          module: 'chronos:scheduler',
+          action: 'check',
+        });
         logger.error(
           `[Chronos] Error in check`,
           error instanceof Error ? error : new Error(String(error))
@@ -365,7 +386,13 @@ export function createCronScheduler(
       enablePoll = null;
     }
 
-    isOwner = await tryAcquireSchedulerLock(lockOpts).catch(() => false);
+    isOwner = await tryAcquireSchedulerLock(lockOpts).catch(() => {
+      void handleError(new Error('获取调度器锁失败'), {
+        module: 'chronos:scheduler',
+        action: 'enable.tryAcquireLock',
+      });
+      return false;
+    });
 
     if (stopped) {
       if (isOwner) {
@@ -378,7 +405,13 @@ export function createCronScheduler(
     if (!isOwner) {
       lockProbeTimer = setInterval(async () => {
         const owned = await tryAcquireSchedulerLock(lockOpts).catch(
-          () => false
+          () => {
+            void handleError(new Error('获取调度器锁失败(probe)'), {
+              module: 'chronos:scheduler',
+              action: 'enable.lockProbe',
+            });
+            return false;
+          }
         );
         if (stopped) {
           if (owned) void releaseSchedulerLock(lockOpts);

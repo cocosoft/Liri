@@ -5,6 +5,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { resolvePyappHome } from '@modules/core';
 
 const logger = new Logger({ module: 'utils:history', level: LogLevel.INFO });
@@ -43,6 +44,7 @@ export class HistoryManager {
       await fs.mkdir(dir, { recursive: true });
     } catch (error) {
       // 目录已存在，忽略错误
+      handleError(error, { module: 'utils:history', action: 'ensureConfigDir' });
     }
   }
 
@@ -57,6 +59,7 @@ export class HistoryManager {
       this.history = this.history.slice(-this.maxHistorySize);
     } catch (error) {
       // 文件不存在或解析失败，使用空历史
+      handleError(error, { module: 'utils:history', action: 'loadHistory' });
       this.history = [];
     }
   }
@@ -74,6 +77,7 @@ export class HistoryManager {
       );
     } catch (error) {
       // 保存失败，忽略错误
+      handleError(error, { module: 'utils:history', action: 'saveHistory' });
       logger.warning('Failed to save history:', { error });
     }
   }

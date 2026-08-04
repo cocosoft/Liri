@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
   module: 'sandbox:pluginHealthMonitor',
@@ -373,6 +374,7 @@ export class PluginHealthMonitor {
           break;
         }
       } catch (error) {
+        void handleError(error, { module: 'sandbox:health', action: 'attemptRecovery' });
         logger.error(
           `Recovery attempt ${attempt} for plugin ${pluginId} failed:`,
           { error }

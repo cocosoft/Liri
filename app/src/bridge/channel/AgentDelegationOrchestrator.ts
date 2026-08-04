@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type {
   ChannelId,
   MessageContext,
@@ -297,6 +298,7 @@ export class AgentDelegationOrchestrator {
       const ok = await entry.plugin!.outbound.sendText(target, message);
       return ok;
     } catch {
+      void handleError(new Error('Channel reply failed'), { module: 'bridge:agent', action: 'sendChannelReply' });
       return false;
     }
   }

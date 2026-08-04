@@ -29,6 +29,7 @@ import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { resolvePyappHome } from '@modules/core';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { providerManager, type ProviderType } from '@modules/ai';
 import { testEndpoints, formatSpeedResults } from '@modules/ai';
 import { fetchModels } from '@modules/ai';
@@ -692,7 +693,8 @@ async function handleSeed(): Promise<CommandResult> {
       }
     } catch (err) {
       // 预置失败不阻塞
-      console.error('预置AI提供商失败:', err);
+      logger.error('预置AI提供商失败', { error: String(err) });
+      void handleError(err, { module: 'commands:provider', action: 'presetProviders' });
     }
   }
 

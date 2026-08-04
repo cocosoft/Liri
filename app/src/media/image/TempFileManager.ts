@@ -12,6 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { resolveOutputDir } from '@modules/core/paths';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'media:tempFile' });
 
@@ -124,6 +125,7 @@ export class TempFileManager {
         size: stat.size,
       };
     } catch {
+      void handleError(new Error('Failed to get file info'), { module: 'media:tempFile', action: 'info' });
       return null;
     }
   }
@@ -156,6 +158,7 @@ export class TempFileManager {
         }
         this.files.delete(filePath);
       } catch (err) {
+        void handleError(err, { module: 'media:tempFile', action: 'cleanup' });
         logger.warn('TempFileManager · 清理文件失败', {
           path: filePath,
           error: String(err),

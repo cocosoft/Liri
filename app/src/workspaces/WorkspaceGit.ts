@@ -26,7 +26,7 @@
 import { execSync } from 'child_process';
 import { join } from 'path';
 import { existsSync, rmSync } from 'fs';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity, handleError } from '@modules/error';
 import type { WorktreeInfo } from './types';
 
 /**
@@ -99,6 +99,7 @@ export class WorkspaceGit {
 
       return worktreeInfo;
     } catch (error) {
+      void handleError(error instanceof Error ? error : new Error(String(error)), { module: 'workspaces:git', action: 'createWorktree' });
       this.removeWorktree(sessionId);
       throw error;
     }
@@ -120,6 +121,7 @@ export class WorkspaceGit {
         stdio: 'ignore',
       });
     } catch {
+      void handleError(new Error('removeWorktree'), { module: 'workspaces:git', action: 'removeWorktree' });
       if (existsSync(worktreeInfo.worktreePath)) {
         rmSync(worktreeInfo.worktreePath, { recursive: true, force: true });
       }
@@ -156,6 +158,7 @@ export class WorkspaceGit {
       });
       return result.toString().trim();
     } catch {
+      void handleError(new Error('getGitRoot'), { module: 'workspaces:git', action: 'getGitRoot' });
       return null;
     }
   }

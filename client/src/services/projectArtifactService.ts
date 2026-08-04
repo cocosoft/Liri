@@ -111,6 +111,33 @@ export async function fetchProjectFiles(
   return res.json();
 }
 
+/** S4: 上传文件到项目 sandbox 文件夹 */
+export async function uploadProjectFile(
+  projectId: string,
+  file: File,
+): Promise<{ path: string; filename: string; size: number }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(",")[1];
+      fetch(`${API_BASE}/${projectId}/files`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, data: base64 }),
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error(`上传失败: ${res.status}`);
+          return res.json();
+        })
+        .then(resolve)
+        .catch(reject);
+    };
+    reader.onerror = () => reject(new Error("读取文件失败"));
+    reader.readAsDataURL(file);
+  });
+}
+
 /** 讨论记录历史条目 */
 export interface HistoryEntry {
   ts: string;

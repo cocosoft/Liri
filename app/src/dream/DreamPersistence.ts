@@ -29,6 +29,7 @@ import { join } from 'path';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import type { DreamRecord, DreamCycleRecord, DreamCycleSummary } from './types';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'dream:dreamPersistence',
@@ -62,6 +63,7 @@ export class DreamPersistence {
         `[DreamPersistence] 已加载 ${this.records.length} 条梦境记录`
       );
     } catch {
+      void handleError(new Error('加载梦境记录失败'), { module: 'dream:persistence', action: 'load' });
       this.records = [];
       this.loaded = true;
     }
@@ -81,6 +83,7 @@ export class DreamPersistence {
         'utf-8'
       );
     } catch (e) {
+      void handleError(e instanceof Error ? e : new Error(String(e)), { module: 'dream:persistence', action: 'save' });
       logger.error(
         '[DreamPersistence] 保存记录失败',
         e instanceof Error ? e : new Error(String(e))
@@ -129,6 +132,7 @@ export class DreamPersistence {
       const data = await readFile(filePath, 'utf-8');
       return JSON.parse(data) as DreamCycleRecord;
     } catch {
+      void handleError(new Error('读取梦境周期记录失败'), { module: 'dream:persistence', action: 'getCycle' });
       return null;
     }
   }
@@ -151,6 +155,7 @@ export class DreamPersistence {
     try {
       files = await readdir(cyclesDir);
     } catch {
+      void handleError(new Error('列出梦境周期目录失败'), { module: 'dream:persistence', action: 'listCyclesReadDir' });
       return { cycles: [], total: 0 };
     }
 
@@ -162,6 +167,7 @@ export class DreamPersistence {
         const data = await readFile(join(cyclesDir, file), 'utf-8');
         cycles.push(JSON.parse(data) as DreamCycleRecord);
       } catch {
+        void handleError(new Error('解析梦境周期文件失败'), { module: 'dream:persistence', action: 'listCyclesParse' });
         // 损坏文件跳过
       }
     }
@@ -226,6 +232,7 @@ export class DreamPersistence {
     try {
       files = await readdir(cyclesDir);
     } catch {
+      void handleError(new Error('清理周期：读取目录失败'), { module: 'dream:persistence', action: 'pruneOldCyclesReadDir' });
       return 0;
     }
 
@@ -237,11 +244,12 @@ export class DreamPersistence {
         const data = await readFile(join(cyclesDir, file), 'utf-8');
         cycles.push({ file, record: JSON.parse(data) as DreamCycleRecord });
       } catch {
+        void handleError(new Error('清理周期：解析文件失败'), { module: 'dream:persistence', action: 'pruneOldCyclesParse' });
         // 损坏文件直接删除
         try {
           await unlink(join(cyclesDir, file));
         } catch {
-          /* ignore */
+          void handleError(new Error('清理周期：删除损坏文件失败'), { module: 'dream:persistence', action: 'pruneOldCyclesUnlinkDamaged' });
         }
       }
     }
@@ -270,7 +278,7 @@ export class DreamPersistence {
       try {
         await unlink(join(cyclesDir, file));
       } catch {
-        /* ignore */
+        void handleError(new Error('清理周期：删除过期文件失败'), { module: 'dream:persistence', action: 'pruneOldCyclesUnlinkExpired' });
       }
     }
 

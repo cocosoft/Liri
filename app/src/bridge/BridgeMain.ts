@@ -21,6 +21,7 @@ import { createWorkspaceGit } from '@modules/workspaces/WorkspaceGit.js';
 import { bridgeStateStore } from './state/BridgeStateStore.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'bridge:BridgeMain',
   level: LogLevel.INFO,
@@ -208,6 +209,7 @@ export class BridgeMain {
 
       await this.pollManager.start();
     } catch (error) {
+      void handleError(error as Error, { module: 'bridge:main', action: 'run' });
       const msg = error instanceof Error ? error.message : String(error);
       this.logger.logError(`Bridge 错误: ${msg}`);
       bridgeStateStore.setError(msg);
@@ -241,6 +243,7 @@ export class BridgeMain {
       try {
         await this.api.deregisterEnvironment(this.environmentId);
       } catch (error) {
+        void handleError(error as Error, { module: 'bridge:main', action: 'shutdown.deregister' });
         this.logger.logError(
           `注销环境失败: ${error instanceof Error ? error.message : String(error)}`
         );
@@ -309,6 +312,7 @@ export class BridgeMain {
           break;
       }
     } catch (error) {
+      void handleError(error as Error, { module: 'bridge:main', action: 'handleWork' });
       this.logger.logError(
         `处理工作失败: ${error instanceof Error ? error.message : String(error)}`
       );
@@ -354,6 +358,7 @@ export class BridgeMain {
           await this.worktreeManager!.createWorktree(sessionId);
         sessionDir = worktreeInfo.worktreePath;
       } catch (error) {
+        void handleError(error as Error, { module: 'bridge:main', action: 'handleSessionWork.createWorktree' });
         this.logger.logError(
           `创建工作树失败: ${error instanceof Error ? error.message : String(error)}`
         );
@@ -380,6 +385,7 @@ export class BridgeMain {
 
       this.logger.logVerbose(`已创建会话 ${sessionId}`);
     } catch (error) {
+      void handleError(error as Error, { module: 'bridge:main', action: 'handleSessionWork.createSession' });
       this.logger.logError(
         `创建会话失败: ${error instanceof Error ? error.message : String(error)}`
       );

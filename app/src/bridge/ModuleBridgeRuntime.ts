@@ -28,6 +28,7 @@ import type {
 } from '@modules/acp/runtime/types.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 const logger = new Logger({
   module: 'bridge:ModuleBridgeRuntime',
   level: LogLevel.INFO,
@@ -180,6 +181,10 @@ export class ModuleBridgeRuntime implements AcpRuntime {
           yield event;
         }
       } catch (error) {
+        void handleError(error, {
+          module: 'bridge:runtime',
+          action: 'runTurn',
+        });
         yield {
           type: 'text_delta',
           text: `错误: ${error instanceof Error ? error.message : String(error)}`,

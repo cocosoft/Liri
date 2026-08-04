@@ -8,6 +8,7 @@ import { EventEmitter } from 'events';
 import type { HookEvent } from '../types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 const logger = new Logger({
   module: 'hooks:managers:SessionHookManager',
   level: LogLevel.INFO,
@@ -293,6 +294,10 @@ export class SessionHookManager extends EventEmitter {
             hookEntry.onHookSuccess(hook, result);
           }
         } catch (error) {
+          void handleError(error, {
+            module: 'hooks:session',
+            action: 'executeSessionHook',
+          });
           results.push({
             success: false,
             error: error instanceof Error ? error.message : 'Unknown error',
@@ -330,6 +335,10 @@ export class SessionHookManager extends EventEmitter {
         hookId: hook.id,
       };
     } catch (error) {
+      void handleError(error, {
+        module: 'hooks:session',
+        action: 'executeFunctionHook',
+      });
       clearTimeout(timeoutId);
       return {
         success: false,

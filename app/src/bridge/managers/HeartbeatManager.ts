@@ -7,6 +7,7 @@ import type { BridgeApiClient } from '../types/index.js';
 import { bridgeStateStore } from '../state/BridgeStateStore.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 const logger = new Logger({
   module: 'bridge:managers:HeartbeatManager',
   level: LogLevel.INFO,
@@ -301,6 +302,11 @@ export class HeartbeatManager {
           this.failedHeartbeats++;
           info.consecutiveFailures++;
           info.consecutiveSuccesses = 0;
+
+          void handleError(error, {
+            module: 'bridge:heartbeat',
+            action: 'sendHeartbeat',
+          });
 
           this.onError(
             error instanceof Error ? error : new Error(String(error))

@@ -4,6 +4,7 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error/handleError';
 import { CacheFactory } from '@modules/cache/CacheFactory';
 
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -235,8 +236,10 @@ export class NetworkManager {
 
         if (attempt > retry) {
           if (error instanceof NetworkManagerError) {
+            handleError(error, { module: 'utils:network', action: 'request' });
             throw error;
           }
+          handleError(error, { module: 'utils:network', action: 'request' });
           throw new NetworkManagerError(
             error instanceof Error ? error.message : 'Network request failed',
             undefined

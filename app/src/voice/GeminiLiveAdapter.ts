@@ -5,6 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { randomUUID } from 'crypto';
 import type {
   VoiceSessionConfigEvent,
@@ -139,6 +140,7 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
           reject(new Error(`WebSocket 连接失败: ${err}`));
         };
       } catch (err) {
+        void handleError(err instanceof Error ? err : new Error(String(err)), { module: 'voice:adapter', action: 'createConnection' });
         this.logger.error('Gemini Live WebSocket 创建异常', {
           error: String(err),
         });
@@ -228,6 +230,7 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
         });
       }
     } catch (_err) {
+      void handleError(new Error('handleMessage'), { module: 'voice:adapter', action: 'handleMessage' });
       this.logger.warn('Gemini 消息解析失败', {
         data: String(event.data).slice(0, 100),
       });
@@ -337,6 +340,7 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
       try {
         await this.createConnection();
       } catch (_err) {
+        void handleError(new Error('scheduleReconnect'), { module: 'voice:adapter', action: 'scheduleReconnect' });
         // 重连失败由 onclose 处理
       }
     }, delay);
@@ -468,6 +472,7 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
     try {
       parsed = JSON.parse(output);
     } catch (_err) {
+      void handleError(new Error('sendToolResult'), { module: 'voice:adapter', action: 'sendToolResult' });
       parsed = { result: output };
     }
 

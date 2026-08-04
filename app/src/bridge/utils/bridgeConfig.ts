@@ -7,6 +7,7 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { BridgeConfig, PollConfig, BackoffConfig } from '../types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'bridge:utils:bridgeConfig',
   level: LogLevel.INFO,
@@ -45,6 +46,7 @@ export function readBridgeConfig(configPath: string): BridgeConfig {
     // 应用环境变量覆盖
     return applyEnvironmentOverrides(config.bridge || getDefaultBridgeConfig());
   } catch (error) {
+    void handleError(error as Error, { module: 'bridge:config', action: 'readBridgeConfig' });
     // 配置文件解析失败，返回默认配置，并应用环境变量覆盖
     return applyEnvironmentOverrides(getDefaultBridgeConfig());
   }
@@ -94,6 +96,7 @@ export function writeBridgeConfig(
     fullConfig.bridge = config;
     writeFileSync(configPath, JSON.stringify(fullConfig, null, 2));
   } catch (error) {
+    void handleError(error as Error, { module: 'bridge:config', action: 'writeBridgeConfig' });
     // 配置文件不存在或解析失败，创建新的配置文件
     const fullConfig = {
       bridge: config,
@@ -155,6 +158,7 @@ function getMachineName(): string {
     const { hostname } = require('os');
     return hostname();
   } catch (error) {
+    void handleError(error as Error, { module: 'bridge:config', action: 'getMachineName' });
     return 'localhost';
   }
 }

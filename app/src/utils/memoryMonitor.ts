@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 const logger = new Logger({
   module: 'utils:memoryMonitor',
   level: LogLevel.INFO,
@@ -182,6 +183,7 @@ export class MemoryMonitor {
           persistentSize: cache.getPersistentSize(),
         });
       } catch (error) {
+        handleError(error, { module: 'utils:memory', action: 'cleanCache' });
         logger.error('Failed to clean cache', error as Error);
       }
     }
@@ -191,6 +193,7 @@ export class MemoryMonitor {
       try {
         await callback();
       } catch (error) {
+        handleError(error, { module: 'utils:memory', action: 'cleanupCallback' });
         logger.error('Failed to execute cleanup callback', error as Error);
       }
     }
@@ -201,6 +204,7 @@ export class MemoryMonitor {
         global.gc();
         logger.info('Garbage collection triggered');
       } catch (error) {
+        handleError(error, { module: 'utils:memory', action: 'gc' });
         logger.error('Failed to trigger garbage collection', error as Error);
       }
     }
@@ -310,6 +314,7 @@ export class ResourceManager {
         this.resources.delete(name);
         logger.debug('Resource unregistered', { name });
       } catch (error) {
+        handleError(error, { module: 'utils:memory', action: 'unregisterResource' });
         logger.error('Failed to cleanup resource: ' + String(error), { name });
       }
     }
@@ -341,6 +346,7 @@ export class ResourceManager {
               result
                 .then(() => resolve())
                 .catch((error) => {
+                  handleError(error, { module: 'utils:memory', action: 'cleanupAll' });
                   logger.error('Failed to cleanup resource: ' + String(error), {
                     name,
                   });
@@ -350,6 +356,7 @@ export class ResourceManager {
               resolve();
             }
           } catch (error) {
+            handleError(error, { module: 'utils:memory', action: 'cleanupAll' });
             logger.error('Failed to cleanup resource: ' + String(error), {
               name,
             });

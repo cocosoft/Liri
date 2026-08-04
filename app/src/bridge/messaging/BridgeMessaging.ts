@@ -1,10 +1,10 @@
-﻿/**
+/**
  * 桥接消息处理
  * 提供消息的格式化、解析和安全过滤功能
  */
 
 import type { Message } from '@modules/types/message.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity, handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -184,6 +184,7 @@ export function parseBridgeMessage(str: string): BridgeMessage | null {
 
     return json as BridgeMessage;
   } catch {
+    void handleError(new Error('Failed to parse bridge message'), { module: 'bridge:messaging', action: 'parseBridgeMessage' });
     return null;
   }
 }

@@ -3,6 +3,11 @@
  * P2 — 对标 OpenClaw 的流程系统
  */
 
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+
+const logger = new Logger({ module: 'flows:engine', level: LogLevel.INFO });
+
 /**
  * 流程步骤
  */
@@ -213,6 +218,7 @@ export class FlowEngine {
 
       return result;
     } catch (err) {
+      void handleError(err, { module: 'flows:engine', action: 'executeStep' });
       const errorResult: FlowStepResult = {
         success: false,
         error: err instanceof Error ? err.message : String(err),

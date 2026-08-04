@@ -4,6 +4,10 @@ import type {
   AcpRuntimeControl,
 } from '../runtime/types.js';
 import { AcpRuntimeError } from '../runtime/errors.js';
+import { handleError } from '@modules/error';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('acp:controls');
 
 export interface RuntimeControlRequest {
   control: AcpRuntimeControl;
@@ -98,6 +102,7 @@ export async function executeRuntimeControl(
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    void handleError(error, { module: 'acp:controls', action: 'executeRuntimeControl' });
     return { success: false, error: message };
   }
 }

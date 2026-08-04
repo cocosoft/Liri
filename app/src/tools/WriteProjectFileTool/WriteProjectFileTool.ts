@@ -10,7 +10,9 @@
 import type { Tool } from '../types/Tool';
 import { createToolResult } from '../types/ToolResult';
 import type { ToolUseContext } from '../types/ToolUseContext';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 import { resolveDataDir } from '@modules/core/paths';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
@@ -70,12 +72,17 @@ export class WriteProjectFileTool {
         input: Record<string, unknown>,
         _context: ToolUseContext
       ) => {
+        const otel = getOTelTracing();
+        const span = otel.startSpan('WriteProjectFileTool.execute');
         try {
           const projectId = String(input.projectId || '');
           const relativePath = String(input.relativePath || '');
           const content = String(input.content || '');
 
+          span.setAttribute('projectId', projectId);
+
           if (!projectId || !relativePath) {
+            span.setStatus({ code: SpanStatusCode.OK });
             return createToolResult(null, {
               newMessages: [
                 {
@@ -90,6 +97,7 @@ export class WriteProjectFileTool {
 
           const project = projectStore.get(projectId);
           if (!project) {
+            span.setStatus({ code: SpanStatusCode.OK });
             return createToolResult(null, {
               newMessages: [
                 {
@@ -102,6 +110,7 @@ export class WriteProjectFileTool {
 
           const sandboxPath = project.sandboxPath;
           if (!sandboxPath) {
+            span.setStatus({ code: SpanStatusCode.OK });
             return createToolResult(null, {
               newMessages: [
                 { role: 'assistant' as const, content: '项目未配置文件夹路径' },
@@ -114,6 +123,7 @@ export class WriteProjectFileTool {
 
           // 确保 sandbox 存在
           if (!existsSync(sandboxPath)) {
+            span.setStatus({ code: SpanStatusCode.OK });
             return createToolResult(null, {
               newMessages: [
                 {
@@ -134,6 +144,7 @@ export class WriteProjectFileTool {
               !realTarget.startsWith(realSandbox + '\\') &&
               !realTarget.startsWith(realSandbox + '/')
             ) {
+              span.setStatus({ code: SpanStatusCode.OK });
               return createToolResult(null, {
                 newMessages: [
                   {
@@ -158,6 +169,7 @@ export class WriteProjectFileTool {
                   !realCheck.startsWith(realSandbox + '\\') &&
                   !realCheck.startsWith(realSandbox + '/')
                 ) {
+                  span.setStatus({ code: SpanStatusCode.OK });
                   return createToolResult(null, {
                     newMessages: [
                       {
@@ -178,6 +190,7 @@ export class WriteProjectFileTool {
 
           logger.info('项目文件已写入', { projectId, path: relativePath });
 
+          span.setStatus({ code: SpanStatusCode.OK });
           return createToolResult(
             JSON.stringify({ path: relativePath, sandboxPath }),
             {
@@ -190,6 +203,14 @@ export class WriteProjectFileTool {
             }
           );
         } catch (error) {
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: String(error),
+          });
+          void handleError(error, {
+            module: 'tools:write_project_file',
+            action: 'execute',
+          });
           const msg = error instanceof Error ? error.message : '未知错误';
           logger.error('写入项目文件失败', { error: msg });
           return createToolResult(null, {
@@ -197,6 +218,8 @@ export class WriteProjectFileTool {
               { role: 'assistant' as const, content: `写入文件失败: ${msg}` },
             ],
           });
+        } finally {
+          span.end();
         }
       },
 

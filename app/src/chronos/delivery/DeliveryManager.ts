@@ -4,6 +4,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = getLogger('DeliveryManager');
 
@@ -121,6 +122,10 @@ export class DeliveryManager {
             timestamp: Date.now(),
           };
         } catch (err) {
+          void handleError(err, {
+            module: 'chronos:delivery',
+            action: 'executeDelivery.file',
+          });
           return {
             success: false,
             planId: plan.id,
@@ -151,6 +156,10 @@ export class DeliveryManager {
             timestamp: Date.now(),
           };
         } catch (err) {
+          void handleError(err, {
+            module: 'chronos:delivery',
+            action: 'executeDelivery.webhook',
+          });
           return {
             success: false,
             planId: plan.id,

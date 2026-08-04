@@ -29,6 +29,7 @@ import { resolveDataSubDir } from '@modules/core';
 import { join } from 'path';
 import { readdir, readFile, unlink } from 'fs/promises';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { DreamCycleRecord } from './types';
 
 const logger = new Logger({
@@ -58,6 +59,7 @@ export async function recoverCheckpoints(): Promise<{
     files = await readdir(checkpointsDir);
   } catch {
     // 目录不存在，无需恢复
+    void handleError(new Error('检查点目录不存在'), { module: 'dream:checkpoint', action: 'readCheckpointsDir' });
     return { recovered: 0, cleaned: 0 };
   }
 
@@ -87,6 +89,7 @@ export async function recoverCheckpoints(): Promise<{
     );
   } catch {
     existingCycleIds = new Set();
+    void handleError(new Error('读取cycles目录失败'), { module: 'dream:checkpoint', action: 'readCyclesDir' });
   }
 
   for (const file of checkpointFiles) {
@@ -124,11 +127,13 @@ export async function recoverCheckpoints(): Promise<{
       }
     } catch (e) {
       // 损坏的检查点文件直接删除
+      void handleError(e, { module: 'dream:checkpoint', action: 'processCheckpoint' });
       try {
         await unlink(checkpointPath);
         cleaned++;
       } catch {
         /* ignore */
+        void handleError(new Error('清理损坏检查点失败'), { module: 'dream:checkpoint', action: 'unlinkDamagedCheckpoint' });
       }
       logger.warn(`[DreamCheckpoint] 损坏的检查点文件已删除: ${file}`, {
         error: String(e),

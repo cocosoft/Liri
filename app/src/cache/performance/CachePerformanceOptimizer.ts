@@ -1,4 +1,5 @@
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 const logger = new Logger({
   module: 'cache:performance:CachePerformanceOptimizer',
   level: LogLevel.INFO,
@@ -193,6 +194,10 @@ export class CachePerformanceOptimizer implements ICachePerformanceOptimizer {
             break;
         }
       } catch (error) {
+        void handleError(error, {
+          module: 'cache:performance',
+          action: 'executeBatch',
+        });
         results.push({
           key: op.key,
           success: false,

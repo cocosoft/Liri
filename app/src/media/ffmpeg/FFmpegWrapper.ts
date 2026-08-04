@@ -3,6 +3,10 @@
  * 对标 OpenClaw 的 FFmpeg 集成
  */
 import { spawn } from 'child_process';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
+
+const logger = new Logger({ level: LogLevel.INFO, module: 'media:ffmpeg' });
 
 /**
  * FFmpeg 选项
@@ -110,6 +114,7 @@ export class FFmpegWrapper {
         try {
           resolve(JSON.parse(stdout));
         } catch {
+          void handleError(new Error('Failed to parse ffprobe output'), { module: 'media:ffmpeg', action: 'probeParse' });
           resolve(null);
         }
       });

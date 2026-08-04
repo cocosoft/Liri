@@ -19,6 +19,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ module: 'RuleEngine', level: LogLevel.INFO });
 
@@ -132,7 +133,8 @@ export class RuleEngine {
       const content = fs.readFileSync(filePath, 'utf-8');
       this.cache.set(filePath, { content, mtime: stat.mtimeMs });
       return content;
-    } catch {
+    } catch (e) {
+      void handleError(e, { module: 'workspace:rules', action: 'readRule' });
       return null;
     }
   }

@@ -4,6 +4,10 @@
  */
 import fs from 'fs';
 import path from 'path';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
+
+const logger = new Logger({ level: LogLevel.INFO, module: 'media:base64' });
 
 export interface Base64EncodeOptions {
   includeDataUri: boolean;
@@ -35,6 +39,7 @@ export class Base64Manager {
 
       return base64;
     } catch {
+      void handleError(new Error('Failed to encode file to base64'), { module: 'media:base64', action: 'encodeFromFile' });
       return null;
     }
   }
@@ -57,6 +62,7 @@ export class Base64Manager {
 
       return Buffer.from(clean, 'base64').toString('utf-8');
     } catch {
+      void handleError(new Error('Failed to decode base64 to string'), { module: 'media:base64', action: 'decodeToString' });
       return null;
     }
   }
@@ -80,6 +86,7 @@ export class Base64Manager {
 
       return true;
     } catch {
+      void handleError(new Error('Failed to decode base64 to file'), { module: 'media:base64', action: 'decodeToFile' });
       return false;
     }
   }
@@ -106,6 +113,7 @@ export class Base64Manager {
 
       return /^[A-Za-z0-9+/]*={0,2}$/.test(clean.trim());
     } catch {
+      void handleError(new Error('Failed to validate base64'), { module: 'media:base64', action: 'isValid' });
       return false;
     }
   }

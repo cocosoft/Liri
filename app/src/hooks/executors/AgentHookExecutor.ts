@@ -11,6 +11,7 @@ import {
 } from '../types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 const logger = new Logger({
   module: 'hooks:executors:AgentHookExecutor',
   level: LogLevel.INFO,
@@ -62,6 +63,7 @@ export class AgentHookExecutor {
         },
       };
     } catch (error) {
+      handleError(error, { module: 'hooks:agent', action: 'execute' });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

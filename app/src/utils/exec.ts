@@ -7,6 +7,7 @@ import { execSync as cpExecSync } from 'child_process';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({ module: 'utils:exec', level: LogLevel.INFO });
+import { handleError } from '@modules/error/handleError';
 
 /**
  * 执行命令并返回输出
@@ -22,6 +23,7 @@ export function execSyncWithOutput(
     const stdout = cpExecSync(command, { ...options, encoding: 'utf8' });
     return { stdout, stderr: '' };
   } catch (error: unknown) {
+    void handleError(error, { module: 'utils:exec', action: 'execSyncWithOutput' });
     return {
       stdout: (error as { stdout?: string }).stdout || '',
       stderr: (error as { stderr?: string }).stderr || '',

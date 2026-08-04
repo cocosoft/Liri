@@ -16,6 +16,7 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ module: 'utils:withRetry', level: LogLevel.INFO });
 
@@ -110,6 +111,7 @@ export async function withRetry<T>(
       return await fn();
     } catch (error: unknown) {
       lastError = error instanceof Error ? error : new Error(String(error));
+      void handleError(lastError, { module: 'utils:retry', action: 'withRetry' });
 
       if (attempt === fullConfig.maxRetries) {
         throw lastError;
@@ -159,6 +161,7 @@ export async function withRetryAsync<T>(
     } catch (error: unknown) {
       state.lastError =
         error instanceof Error ? error : new Error(String(error));
+      void handleError(state.lastError, { module: 'utils:retry', action: 'withRetryAsync' });
 
       if (attempt === fullConfig.maxRetries) {
         state.endTime = Date.now();

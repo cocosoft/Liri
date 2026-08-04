@@ -1,9 +1,10 @@
-﻿/**
+/**
  * 超时控制器
  * 实现命令执行超时控制
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error/handleError';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -187,6 +188,7 @@ export async function executeWithTimeout<T>(
       timedOut: false,
     };
   } catch (error) {
+    void handleError(error, { module: 'sandbox:timeout', action: 'executeWithTimeout' });
     if (timeoutId) {
       clearTimeout(timeoutId);
     }

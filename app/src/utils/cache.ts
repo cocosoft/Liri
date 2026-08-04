@@ -7,6 +7,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 import { jsonStringify } from './json.js';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import type { ICache, CacheStats } from '@modules/cache/types';
 
 const logger = new Logger({ module: 'utils:cache', level: LogLevel.INFO });
@@ -648,6 +649,7 @@ export class PersistentCache<T = unknown> {
       const data = Array.from(this.cache.entries());
       writeFileSync(this.filePath, JSON.stringify(data));
     } catch (error) {
+      void handleError(error, { module: 'utils:cache', action: 'persistentCache' });
       logger.error(
         'Failed to save cache',
         error instanceof Error ? error : new Error(String(error))
@@ -671,6 +673,7 @@ export class PersistentCache<T = unknown> {
         this.cleanup();
       }
     } catch (error) {
+      void handleError(error, { module: 'utils:cache', action: 'persistentCache' });
       logger.error(
         'Failed to load cache',
         error instanceof Error ? error : new Error(String(error))

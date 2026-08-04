@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * 数据收集器
  * 实现高级数据收集和预处理功能
@@ -6,6 +6,7 @@
 
 import type { AnalyticsEvent, SessionAnalytics } from './types.js';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('DataCollector');
 
@@ -203,6 +204,7 @@ export class DataCollector {
         this.events.push(...parsedData.events);
       }
     } catch (error) {
+      void handleError(error instanceof Error ? error : new Error(String(error)), { module: 'analytics:collector', action: 'importData' });
       logger.error('导入数据失败:', error);
     }
   }

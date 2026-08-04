@@ -6,6 +6,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { join } from 'path';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
@@ -91,7 +92,8 @@ export async function loadVoiceWakeConfig(): Promise<VoiceWakeConfig> {
           ? parsed.updatedAtMs
           : 0,
     };
-  } catch {
+  } catch (e) {
+    void handleError(e, { module: 'voice:wakemanager', action: 'loadConfig' });
     logger.warn('VoiceWakeManager · 配置文件不存在，使用默认值', {
       defaultTriggers: defaultVoiceWakeTriggers(),
     });
@@ -234,6 +236,7 @@ export async function startWakeListening(triggers?: string[]): Promise<void> {
           try {
             cb(detection);
           } catch (err) {
+            void handleError(err, { module: 'voice:wakemanager', action: 'wakeCallback' });
             logger.error('VoiceWakeManager · 唤醒回调异常', {
               error: String(err),
             });
@@ -248,6 +251,7 @@ export async function startWakeListening(triggers?: string[]): Promise<void> {
       triggers: activeTriggers,
     });
   } catch (err) {
+    void handleError(err, { module: 'voice:wakemanager', action: 'startListening' });
     logger.error('VoiceWakeManager · 启动唤醒监听失败', {
       error: String(err),
     });

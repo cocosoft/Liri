@@ -8,6 +8,10 @@
 export type Platform = 'win32' | 'darwin' | 'linux' | 'wsl' | 'unknown';
 
 import { existsSync, readFileSync } from 'node:fs';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
+
+const logger = new Logger({ module: 'utils:platform', level: LogLevel.INFO });
 
 /**
  * 获取当前平台
@@ -25,8 +29,8 @@ export function getPlatform(): Platform {
         if (isWSL) {
           return 'wsl';
         }
-      } catch {
-        // 忽略错误
+      } catch (error) {
+        handleError(error, { module: 'utils:platform', action: 'detectWSL' });
       }
     }
     return platform as Platform;
@@ -79,8 +83,8 @@ export function getWslVersion(): string | null {
         return match[1];
       }
     }
-  } catch {
-    // 忽略错误
+  } catch (error) {
+    handleError(error, { module: 'utils:platform', action: 'getWslVersion' });
   }
 
   return null;

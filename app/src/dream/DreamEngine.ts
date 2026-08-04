@@ -41,6 +41,7 @@ import {
 } from '../chronos/autoDream/AutoDream';
 import { globalEventBus, SystemEvents } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'dream:dreamEngine',
@@ -147,6 +148,7 @@ export class DreamEngine {
         `[DreamEngine] 梦境执行失败: ${errMsg}`,
         e instanceof Error ? e : new Error(errMsg)
       );
+      void handleError(e, { module: 'dream:engine', action: 'executeDreamCycle' });
     }
 
     // 保存兼容 DreamRecord

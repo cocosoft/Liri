@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 钩子诊断日志服务
  * 提供详细的钩子执行日志记录功能
  */
@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { resolveLogsDir } from '@modules/core';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('HookDiagnosticService');
 
@@ -215,6 +216,7 @@ export class HookDiagnosticService {
       fs.appendFileSync(this.logPath, line, 'utf-8');
     } catch (error) {
       logger.error('Failed to write hook diagnostic log:', { error });
+      void handleError(error, { module: 'hooks:diag', action: 'writeLogToFile' });
     }
   }
 

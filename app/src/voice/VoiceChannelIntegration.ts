@@ -11,6 +11,7 @@ import {
   isVoiceAvailable,
 } from '../services/voice/services/environmentRuntimeDetector';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
   module: 'voice:channelIntegration',
@@ -101,6 +102,7 @@ export class VoiceChannelIntegration {
         error: result.error,
       };
     } catch (error) {
+      void handleError(error, { module: 'voice:channel', action: 'sendVoiceMessage' });
       const errorMsg = error instanceof Error ? error.message : String(error);
       logger.error('TTS 语音消息发送异常', { error: errorMsg });
       return { success: false, error: errorMsg };

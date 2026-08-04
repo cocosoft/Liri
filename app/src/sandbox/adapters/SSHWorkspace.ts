@@ -19,6 +19,7 @@ import {
 import type { SSHSandboxConfig } from '../SSHSandbox';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 const logger = new Logger({
   module: 'sandbox:adapters:SSHWorkspace',
   level: LogLevel.INFO,
@@ -143,6 +144,7 @@ export class SSHWorkspace extends WorkspaceBase {
         executionTime: Date.now() - startTime,
       };
     } catch (error) {
+      void handleError(error, { module: 'sandbox:sshws', action: 'execute' });
       const execErr = error as {
         code?: number;
         stdout?: string;

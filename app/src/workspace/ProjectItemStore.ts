@@ -33,8 +33,9 @@ import { Database } from '@modules/core/external/sqlite3';
 import { resolveDataDir } from '@modules/core/paths';
 import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, renameSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { AppError, ErrorCategory, ErrorSeverity, handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'workspace:ProjectItemStore',
@@ -213,70 +214,83 @@ export class ProjectItemStore {
   async initialize(): Promise<void> {
     if (this.db) return;
 
-    const dir = join(resolveDataDir(), 'projects', this.projectId);
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    }
-
-    this.db = await new Promise<Database>((resolve, reject) => {
-      const db = new Database(this.dbPath, (err: Error | null) => {
-        if (err) reject(err);
-        else resolve(db);
-      });
-    });
-
-    // P0-7: 开启 WAL 模式（支持并发读、单写者队列，避免同项目多会话写锁冲突）
-    await new Promise<void>((resolve) => {
-      this.db!.run('PRAGMA journal_mode=WAL', () => resolve());
-    });
-
-    await new Promise<void>((resolve, reject) => {
-      this.db!.run(CREATE_TABLE_SQL, (err: Error | null) => {
-        if (err) {
-          reject(
-            new AppError(
-              'ProjectItemStore 建表失败',
-              ErrorCategory.DATABASE,
-              ErrorSeverity.HIGH,
-              undefined,
-              { error: String(err) }
-            )
-          );
-        } else {
-          // 建索引（不阻塞）
-          this.db!.run(
-            `CREATE INDEX IF NOT EXISTS idx_items_project ON ${TABLE_NAME}(project_id)`,
-            () => {}
-          );
-          this.db!.run(
-            `CREATE INDEX IF NOT EXISTS idx_items_kind ON ${TABLE_NAME}(kind)`,
-            () => {}
-          );
-          this.db!.run(
-            `CREATE INDEX IF NOT EXISTS idx_items_type ON ${TABLE_NAME}(type)`,
-            () => resolve()
-          );
-        }
-      });
-    });
-
-    // FTS5 失败不阻塞
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ProjectItemStore.init');
+    span.setAttribute('projectId', this.projectId);
     try {
+      const dir = join(resolveDataDir(), 'projects', this.projectId);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+
+      this.db = await new Promise<Database>((resolve, reject) => {
+        const db = new Database(this.dbPath, (err: Error | null) => {
+          if (err) reject(err);
+          else resolve(db);
+        });
+      });
+
+      // P0-7: 开启 WAL 模式（支持并发读、单写者队列，避免同项目多会话写锁冲突）
+      await new Promise<void>((resolve) => {
+        this.db!.run('PRAGMA journal_mode=WAL', () => resolve());
+      });
+
       await new Promise<void>((resolve, reject) => {
-        this.db!.run(
-          `CREATE VIRTUAL TABLE IF NOT EXISTS project_items_fts
-           USING fts5(title, content, summary, tokenize='unicode61')`,
-          (err: Error | null) => {
-            if (err) reject(err);
-            else resolve();
+        this.db!.run(CREATE_TABLE_SQL, (err: Error | null) => {
+          if (err) {
+            reject(
+              new AppError(
+                'ProjectItemStore 建表失败',
+                ErrorCategory.DATABASE,
+                ErrorSeverity.HIGH,
+                undefined,
+                { error: String(err) }
+              )
+            );
+          } else {
+            // 建索引（不阻塞）
+            this.db!.run(
+              `CREATE INDEX IF NOT EXISTS idx_items_project ON ${TABLE_NAME}(project_id)`,
+              () => {}
+            );
+            this.db!.run(
+              `CREATE INDEX IF NOT EXISTS idx_items_kind ON ${TABLE_NAME}(kind)`,
+              () => {}
+            );
+            this.db!.run(
+              `CREATE INDEX IF NOT EXISTS idx_items_type ON ${TABLE_NAME}(type)`,
+              () => resolve()
+            );
           }
-        );
+        });
       });
+
+      // FTS5 失败不阻塞
+      try {
+        await new Promise<void>((resolve, reject) => {
+          this.db!.run(
+            `CREATE VIRTUAL TABLE IF NOT EXISTS project_items_fts
+             USING fts5(title, content, summary, tokenize='unicode61')`,
+            (err: Error | null) => {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
+      } catch (e) {
+        logger.warn('FTS5 创建失败，搜索降级为 LIKE', {
+          projectId: this.projectId,
+          error: (e as Error)?.message ?? String(e),
+        });
+      }
+
+      span.setStatus({ code: SpanStatusCode.OK });
     } catch (e) {
-      logger.warn('FTS5 创建失败，搜索降级为 LIKE', {
-        projectId: this.projectId,
-        error: (e as Error)?.message ?? String(e),
-      });
+      void handleError(e, { module: 'workspace:ProjectItemStore', action: 'init' });
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+      throw e;
+    } finally {
+      span.end();
     }
   }
 
@@ -353,90 +367,140 @@ export class ProjectItemStore {
 
   async upsert(item: ProjectItem): Promise<void> {
     this.ensureDb();
-    await new Promise<void>((resolve, reject) => {
-      this.db!.run(
-        UPSERT_SQL,
-        [
-          item.id,
-          item.projectId,
-          item.kind,
-          item.type ?? null,
-          item.title,
-          item.content,
-          item.summary ?? null,
-          item.sessionId ?? null,
-          item.messageId ?? null,
-          toJsonStr(item.refIds),
-          item.phase ?? null,
-          toJsonStr(item.tags),
-          item.createdAt,
-          item.updatedAt,
-        ],
-        (err: Error | null) => {
-          if (err) reject(err);
-          else resolve();
-        }
-      );
-    });
-    // P2-1: 同步 FTS5（异步 fire-and-forget，不在主 Promise 内阻塞）
-    const rowid = await this._getRowid(item.id);
-    if (rowid !== null) {
-      this._syncFts(rowid, item.title, item.content, item.summary);
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ProjectItemStore.upsert');
+    span.setAttribute('projectId', this.projectId);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run(
+          UPSERT_SQL,
+          [
+            item.id,
+            item.projectId,
+            item.kind,
+            item.type ?? null,
+            item.title,
+            item.content,
+            item.summary ?? null,
+            item.sessionId ?? null,
+            item.messageId ?? null,
+            toJsonStr(item.refIds),
+            item.phase ?? null,
+            toJsonStr(item.tags),
+            item.createdAt,
+            item.updatedAt,
+          ],
+          (err: Error | null) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+      // P2-1: 同步 FTS5（异步 fire-and-forget，不在主 Promise 内阻塞）
+      const rowid = await this._getRowid(item.id);
+      if (rowid !== null) {
+        this._syncFts(rowid, item.title, item.content, item.summary);
+      }
+      span.setStatus({ code: SpanStatusCode.OK });
+    } catch (e) {
+      void handleError(e, { module: 'workspace:ProjectItemStore', action: 'upsert' });
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+      throw e;
+    } finally {
+      span.end();
     }
   }
 
   async upsertBatch(items: ProjectItem[]): Promise<void> {
     this.ensureDb();
-    await new Promise<void>((resolve, reject) => {
-      this.db!.run('BEGIN TRANSACTION', (err: Error | null) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ProjectItemStore.upsert');
+    span.setAttribute('projectId', this.projectId);
     try {
-      for (const item of items) {
-        await this.upsert(item);
-      }
       await new Promise<void>((resolve, reject) => {
-        this.db!.run('COMMIT', (err: Error | null) => {
+        this.db!.run('BEGIN TRANSACTION', (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         });
       });
+      try {
+        for (const item of items) {
+          await this.upsert(item);
+        }
+        await new Promise<void>((resolve, reject) => {
+          this.db!.run('COMMIT', (err: Error | null) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+      } catch (e) {
+        await new Promise<void>((resolve) => {
+          this.db!.run('ROLLBACK', () => resolve());
+        });
+        throw e;
+      }
+      span.setStatus({ code: SpanStatusCode.OK });
     } catch (e) {
-      await new Promise<void>((resolve) => {
-        this.db!.run('ROLLBACK', () => resolve());
-      });
+      void handleError(e, { module: 'workspace:ProjectItemStore', action: 'upsertBatch' });
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
       throw e;
+    } finally {
+      span.end();
     }
   }
 
   async getById(id: string): Promise<ProjectItem | null> {
     this.ensureDb();
-    return new Promise<ProjectItem | null>((resolve, reject) => {
-      this.db!.get(
-        `SELECT * FROM ${TABLE_NAME} WHERE id = ?`,
-        id,
-        (err: Error | null, row: ItemRow | undefined) => {
-          if (err) reject(err);
-          else resolve(row ? rowToItem(row) : null);
-        }
-      );
-    });
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ProjectItemStore.get');
+    span.setAttribute('projectId', this.projectId);
+    try {
+      const result = await new Promise<ProjectItem | null>((resolve, reject) => {
+        this.db!.get(
+          `SELECT * FROM ${TABLE_NAME} WHERE id = ?`,
+          id,
+          (err: Error | null, row: ItemRow | undefined) => {
+            if (err) reject(err);
+            else resolve(row ? rowToItem(row) : null);
+          }
+        );
+      });
+      span.setStatus({ code: SpanStatusCode.OK });
+      return result;
+    } catch (e) {
+      void handleError(e, { module: 'workspace:ProjectItemStore', action: 'get' });
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+      throw e;
+    } finally {
+      span.end();
+    }
   }
 
   async list(kind?: ItemKind): Promise<ProjectItem[]> {
     this.ensureDb();
-    const sql = kind
-      ? `SELECT * FROM ${TABLE_NAME} WHERE project_id = ? AND kind = ? ORDER BY updated_at DESC`
-      : `SELECT * FROM ${TABLE_NAME} WHERE project_id = ? ORDER BY kind, updated_at DESC`;
-    const params = kind ? [this.projectId, kind] : [this.projectId];
-    return new Promise<ProjectItem[]>((resolve, reject) => {
-      this.db!.all(sql, params, (err: Error | null, rows: ItemRow[]) => {
-        if (err) reject(err);
-        else resolve(rows.map(rowToItem));
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ProjectItemStore.list');
+    span.setAttribute('projectId', this.projectId);
+    try {
+      const sql = kind
+        ? `SELECT * FROM ${TABLE_NAME} WHERE project_id = ? AND kind = ? ORDER BY updated_at DESC`
+        : `SELECT * FROM ${TABLE_NAME} WHERE project_id = ? ORDER BY kind, updated_at DESC`;
+      const params = kind ? [this.projectId, kind] : [this.projectId];
+      const result = await new Promise<ProjectItem[]>((resolve, reject) => {
+        this.db!.all(sql, params, (err: Error | null, rows: ItemRow[]) => {
+          if (err) reject(err);
+          else resolve(rows.map(rowToItem));
+        });
       });
-    });
+      span.setStatus({ code: SpanStatusCode.OK });
+      return result;
+    } catch (e) {
+      void handleError(e, { module: 'workspace:ProjectItemStore', action: 'list' });
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+      throw e;
+    } finally {
+      span.end();
+    }
   }
 
   async listByType(type: string): Promise<ProjectItem[]> {
@@ -456,71 +520,97 @@ export class ProjectItemStore {
 
   async search(query: string, limit = 20): Promise<ProjectItem[]> {
     this.ensureDb();
-    // P2-1 / P3-3: FTS5 JOIN 查询，保留 rank 排序
-    const tokenizedQuery = bigramTokenize(query);
-    if (tokenizedQuery) {
-      try {
-        const ftsRows = await new Promise<ItemRow[]>((resolve, reject) => {
-          this.db!.all(
-            `SELECT pi.* FROM ${TABLE_NAME} pi
-             JOIN project_items_fts fts ON pi.rowid = fts.rowid
-             WHERE project_items_fts MATCH ?
-             ORDER BY rank
-             LIMIT ?`,
-            tokenizedQuery,
-            limit,
-            (err: Error | null, rows: ItemRow[]) => {
-              if (err) reject(err);
-              else resolve(rows ?? []);
-            }
-          );
-        });
-        if (ftsRows.length > 0) {
-          return ftsRows.map(rowToItem);
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ProjectItemStore.search');
+    span.setAttribute('projectId', this.projectId);
+    try {
+      // P2-1 / P3-3: FTS5 JOIN 查询，保留 rank 排序
+      const tokenizedQuery = bigramTokenize(query);
+      if (tokenizedQuery) {
+        try {
+          const ftsRows = await new Promise<ItemRow[]>((resolve, reject) => {
+            this.db!.all(
+              `SELECT pi.* FROM ${TABLE_NAME} pi
+               JOIN project_items_fts fts ON pi.rowid = fts.rowid
+               WHERE project_items_fts MATCH ?
+               ORDER BY rank
+               LIMIT ?`,
+              tokenizedQuery,
+              limit,
+              (err: Error | null, rows: ItemRow[]) => {
+                if (err) reject(err);
+                else resolve(rows ?? []);
+              }
+            );
+          });
+          if (ftsRows.length > 0) {
+            span.setStatus({ code: SpanStatusCode.OK });
+            return ftsRows.map(rowToItem);
+          }
+        } catch {
+          /* FTS 不可用，降级 */
         }
-      } catch {
-        /* FTS 不可用，降级 */
       }
-    }
 
-    // LIKE 降级
-    const likePattern = `%${query}%`;
-    return new Promise<ProjectItem[]>((resolve, reject) => {
-      this.db!.all(
-        `SELECT * FROM ${TABLE_NAME}
-         WHERE project_id = ?
-           AND (title LIKE ? OR content LIKE ? OR summary LIKE ?)
-         ORDER BY updated_at DESC
-         LIMIT ?`,
-        this.projectId,
-        likePattern,
-        likePattern,
-        likePattern,
-        limit,
-        (err: Error | null, rows: ItemRow[]) => {
-          if (err) reject(err);
-          else resolve(rows.map(rowToItem));
-        }
-      );
-    });
+      // LIKE 降级
+      const likePattern = `%${query}%`;
+      const result = await new Promise<ProjectItem[]>((resolve, reject) => {
+        this.db!.all(
+          `SELECT * FROM ${TABLE_NAME}
+           WHERE project_id = ?
+             AND (title LIKE ? OR content LIKE ? OR summary LIKE ?)
+           ORDER BY updated_at DESC
+           LIMIT ?`,
+          this.projectId,
+          likePattern,
+          likePattern,
+          likePattern,
+          limit,
+          (err: Error | null, rows: ItemRow[]) => {
+            if (err) reject(err);
+            else resolve(rows.map(rowToItem));
+          }
+        );
+      });
+      span.setStatus({ code: SpanStatusCode.OK });
+      return result;
+    } catch (e) {
+      void handleError(e, { module: 'workspace:ProjectItemStore', action: 'search' });
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+      throw e;
+    } finally {
+      span.end();
+    }
   }
 
   async delete(id: string): Promise<void> {
     this.ensureDb();
-    // P2-1: 先查 rowid 用于 FTS 同步删除
-    const rowid = await this._getRowid(id);
-    await new Promise<void>((resolve, reject) => {
-      this.db!.run(
-        `DELETE FROM ${TABLE_NAME} WHERE id = ?`,
-        id,
-        (err: Error | null) => {
-          if (err) reject(err);
-          else resolve();
-        }
-      );
-    });
-    if (rowid !== null) {
-      this._deleteFts(rowid);
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ProjectItemStore.delete');
+    span.setAttribute('projectId', this.projectId);
+    try {
+      // P2-1: 先查 rowid 用于 FTS 同步删除
+      const rowid = await this._getRowid(id);
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run(
+          `DELETE FROM ${TABLE_NAME} WHERE id = ?`,
+          id,
+          (err: Error | null) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+      if (rowid !== null) {
+        this._deleteFts(rowid);
+      }
+      span.setStatus({ code: SpanStatusCode.OK });
+    } catch (e) {
+      void handleError(e, { module: 'workspace:ProjectItemStore', action: 'delete' });
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+      throw e;
+    } finally {
+      span.end();
     }
   }
 
@@ -550,150 +640,162 @@ export class ProjectItemStore {
 
   async migrateFromLegacy(): Promise<{ migrated: number }> {
     this.ensureDb();
-    const projDir = join(resolveDataDir(), 'projects', this.projectId);
-    let migrated = 0;
-
-    // 迁移 rules.md（### [type] header 格式）
-    const rulesPath = join(projDir, 'rules.md');
-    if (existsSync(rulesPath)) {
-      try {
-        const content = readFileSync(rulesPath, 'utf-8');
-        const sections = content.split(/^### /gm).filter(Boolean);
-        for (const section of sections) {
-          const lines = section.split('\n');
-          const header = lines[0].trim();
-          const body = lines.slice(1).join('\n').trim();
-          if (!body) continue;
-
-          const headerMatch = header.match(/^\[(\w+)\]\s*(.+)/);
-          const itemType = headerMatch?.[1] ?? 'unknown';
-          const itemTitle = headerMatch?.[2] ?? header;
-          const itemId = `mig_ctx_${itemType}_${migrated}`;
-
-          await this.upsert({
-            id: itemId,
-            projectId: this.projectId,
-            kind: 'context',
-            type: itemType,
-            title: itemTitle,
-            content: body,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
-          migrated++;
-        }
-        try {
-          renameSync(rulesPath, rulesPath + '.bak');
-        } catch {
-          /* ok */
-        }
-      } catch (e) {
-        logger.warn('迁移 rules.md 失败', {
-          projectId: this.projectId,
-          error: (e as Error)?.message ?? String(e),
-        });
-      }
-    }
-
-    // 迁移 artifacts.json
-    const artifactsPath = join(projDir, 'artifacts.json');
-    if (existsSync(artifactsPath)) {
-      try {
-        const raw = readFileSync(artifactsPath, 'utf-8');
-        const artifacts: Array<{
-          id?: string;
-          title?: string;
-          description?: string;
-          createdAt?: string;
-        }> = JSON.parse(raw);
-
-        for (let i = 0; i < artifacts.length; i++) {
-          const a = artifacts[i];
-          await this.upsert({
-            id: a.id ?? `mig_art_${i}`,
-            projectId: this.projectId,
-            kind: 'artifact',
-            type: 'artifact',
-            title: a.title ?? '未命名成果',
-            content: a.description ?? '',
-            createdAt: a.createdAt ?? new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
-          migrated++;
-        }
-        try {
-          renameSync(artifactsPath, artifactsPath + '.bak');
-        } catch {
-          /* ok */
-        }
-      } catch (e) {
-        logger.warn('迁移 artifacts.json 失败', {
-          projectId: this.projectId,
-          error: (e as Error)?.message ?? String(e),
-        });
-      }
-    }
-
-    // P2-3: 迁移 summaries.json
-    const summariesPath = join(projDir, 'summaries.json');
-    if (existsSync(summariesPath)) {
-      try {
-        const raw = readFileSync(summariesPath, 'utf-8');
-        const summaries: Array<{
-          id?: string;
-          type?: string;
-          title?: string;
-          content?: string;
-          sessionId?: string;
-          createdAt?: string;
-        }> = JSON.parse(raw);
-
-        for (let i = 0; i < summaries.length; i++) {
-          const s = summaries[i];
-          await this.upsert({
-            id: s.id ?? `mig_sum_${i}`,
-            projectId: this.projectId,
-            kind: 'context',
-            type: s.type ?? 'summary',
-            title: s.title ?? '阶段性小结',
-            content: s.content ?? '',
-            sessionId: s.sessionId,
-            createdAt: s.createdAt ?? new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
-          migrated++;
-        }
-        try {
-          renameSync(summariesPath, summariesPath + '.bak');
-        } catch {
-          /* ok */
-        }
-      } catch (e) {
-        logger.warn('迁移 summaries.json 失败', {
-          projectId: this.projectId,
-          error: (e as Error)?.message ?? String(e),
-        });
-      }
-    }
-
-    // P2-1: 迁移完成后重建 FTS 索引（兜底，单条 upsert 已同步）
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ProjectItemStore.migrateFromLegacy');
+    span.setAttribute('projectId', this.projectId);
     try {
-      await new Promise<void>((resolve, reject) => {
-        this.db!.run(
-          `INSERT INTO project_items_fts(project_items_fts)
-           VALUES ('rebuild')`,
-          (err: Error | null) => {
-            if (err) reject(err);
-            else resolve();
-          }
-        );
-      });
-    } catch {
-      /* FTS rebuild 失败不影响迁移结果 */
-    }
+      const projDir = join(resolveDataDir(), 'projects', this.projectId);
+      let migrated = 0;
 
-    logger.info('S2 迁移完成', { projectId: this.projectId, migrated });
-    return { migrated };
+      // 迁移 rules.md（### [type] header 格式）
+      const rulesPath = join(projDir, 'rules.md');
+      if (existsSync(rulesPath)) {
+        try {
+          const content = readFileSync(rulesPath, 'utf-8');
+          const sections = content.split(/^### /gm).filter(Boolean);
+          for (const section of sections) {
+            const lines = section.split('\n');
+            const header = lines[0].trim();
+            const body = lines.slice(1).join('\n').trim();
+            if (!body) continue;
+
+            const headerMatch = header.match(/^\[(\w+)\]\s*(.+)/);
+            const itemType = headerMatch?.[1] ?? 'unknown';
+            const itemTitle = headerMatch?.[2] ?? header;
+            const itemId = `mig_ctx_${itemType}_${migrated}`;
+
+            await this.upsert({
+              id: itemId,
+              projectId: this.projectId,
+              kind: 'context',
+              type: itemType,
+              title: itemTitle,
+              content: body,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+            migrated++;
+          }
+          try {
+            renameSync(rulesPath, rulesPath + '.bak');
+          } catch {
+            /* ok */
+          }
+        } catch (e) {
+          logger.warn('迁移 rules.md 失败', {
+            projectId: this.projectId,
+            error: (e as Error)?.message ?? String(e),
+          });
+        }
+      }
+
+      // 迁移 artifacts.json
+      const artifactsPath = join(projDir, 'artifacts.json');
+      if (existsSync(artifactsPath)) {
+        try {
+          const raw = readFileSync(artifactsPath, 'utf-8');
+          const artifacts: Array<{
+            id?: string;
+            title?: string;
+            description?: string;
+            createdAt?: string;
+          }> = JSON.parse(raw);
+
+          for (let i = 0; i < artifacts.length; i++) {
+            const a = artifacts[i];
+            await this.upsert({
+              id: a.id ?? `mig_art_${i}`,
+              projectId: this.projectId,
+              kind: 'artifact',
+              type: 'artifact',
+              title: a.title ?? '未命名成果',
+              content: a.description ?? '',
+              createdAt: a.createdAt ?? new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+            migrated++;
+          }
+          try {
+            renameSync(artifactsPath, artifactsPath + '.bak');
+          } catch {
+            /* ok */
+          }
+        } catch (e) {
+          logger.warn('迁移 artifacts.json 失败', {
+            projectId: this.projectId,
+            error: (e as Error)?.message ?? String(e),
+          });
+        }
+      }
+
+      // P2-3: 迁移 summaries.json
+      const summariesPath = join(projDir, 'summaries.json');
+      if (existsSync(summariesPath)) {
+        try {
+          const raw = readFileSync(summariesPath, 'utf-8');
+          const summaries: Array<{
+            id?: string;
+            type?: string;
+            title?: string;
+            content?: string;
+            sessionId?: string;
+            createdAt?: string;
+          }> = JSON.parse(raw);
+
+          for (let i = 0; i < summaries.length; i++) {
+            const s = summaries[i];
+            await this.upsert({
+              id: s.id ?? `mig_sum_${i}`,
+              projectId: this.projectId,
+              kind: 'context',
+              type: s.type ?? 'summary',
+              title: s.title ?? '阶段性小结',
+              content: s.content ?? '',
+              sessionId: s.sessionId,
+              createdAt: s.createdAt ?? new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+            migrated++;
+          }
+          try {
+            renameSync(summariesPath, summariesPath + '.bak');
+          } catch {
+            /* ok */
+          }
+        } catch (e) {
+          logger.warn('迁移 summaries.json 失败', {
+            projectId: this.projectId,
+            error: (e as Error)?.message ?? String(e),
+          });
+        }
+      }
+
+      // P2-1: 迁移完成后重建 FTS 索引（兜底，单条 upsert 已同步）
+      try {
+        await new Promise<void>((resolve, reject) => {
+          this.db!.run(
+            `INSERT INTO project_items_fts(project_items_fts)
+             VALUES ('rebuild')`,
+            (err: Error | null) => {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
+      } catch {
+        /* FTS rebuild 失败不影响迁移结果 */
+      }
+
+      logger.info('S2 迁移完成', { projectId: this.projectId, migrated });
+      span.setStatus({ code: SpanStatusCode.OK });
+      return { migrated };
+    } catch (e) {
+      void handleError(e, { module: 'workspace:ProjectItemStore', action: 'migrateFromLegacy' });
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+      throw e;
+    } finally {
+      span.end();
+    }
   }
 
   async close(): Promise<void> {

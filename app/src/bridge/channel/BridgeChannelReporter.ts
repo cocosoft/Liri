@@ -9,6 +9,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { channelRegistry } from '@modules/channels/registry/ChannelRegistry';
 import type { ChannelId } from '@modules/channels/types';
 
@@ -86,6 +87,7 @@ export class BridgeChannelReporter {
       }
       return sendResult;
     } catch (error) {
+      void handleError(error as Error, { module: 'bridge:reporter', action: 'reportTask' });
       logger.error(`Bridge→Channel 上报失败: ${report.taskId}`, error as Error);
       return false;
     }
@@ -156,6 +158,7 @@ export class BridgeChannelReporter {
         lines.join('\n')
       );
     } catch (error) {
+      void handleError(error as Error, { module: 'bridge:reporter', action: 'reportSummary' });
       logger.error('摘要上报失败', error as Error);
       return false;
     }

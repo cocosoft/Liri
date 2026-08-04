@@ -8,6 +8,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 const logger = new Logger({
   module: 'sandbox:worker-script',
   level: LogLevel.INFO,
@@ -66,6 +67,7 @@ parentPort.on('message', async (request: ExecuteRequest) => {
 
     parentPort!.postMessage(response);
   } catch (error) {
+    void handleError(error, { module: 'sandbox:script', action: 'execute' });
     const execErr = error as {
       code?: number;
       stdout?: string;

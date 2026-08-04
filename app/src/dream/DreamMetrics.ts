@@ -28,7 +28,14 @@
 import { resolveDataSubDir } from '@modules/core';
 import { join } from 'path';
 import { readFile, writeFile, mkdir } from 'fs/promises';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { DreamTriggerSource } from './types';
+
+const logger = new Logger({
+  module: 'dream:metrics',
+  level: LogLevel.INFO,
+});
 
 export interface DreamMetricsData {
   /** 累计周期数（按触发源分组） */
@@ -80,6 +87,7 @@ export async function readMetrics(): Promise<DreamMetricsData> {
     const parsed = JSON.parse(data);
     return { ...DEFAULT_METRICS, ...parsed };
   } catch {
+    void handleError(new Error('读取指标文件失败'), { module: 'dream:metrics', action: 'readMetrics' });
     return { ...DEFAULT_METRICS };
   }
 }

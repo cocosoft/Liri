@@ -1,10 +1,11 @@
-﻿/**
+/**
  * VoiceToolBridge
  * 实时语音流中的工具调用 ↔ Agent 工具系统桥接
  * 采用异步模式：beginAsyncToolCall → Agent 执行 → finishAsyncToolCall + sendToolResult
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import type { VoiceToolCallEvent, VoiceToolDeclaration } from './types';
 
 /** 活跃工具调用记录 */
@@ -120,7 +121,8 @@ export class VoiceToolBridge {
       let input: Record<string, unknown>;
       try {
         input = JSON.parse(call.arguments);
-      } catch {
+      } catch (e) {
+        void handleError(e, { module: 'voice:toolbridge', action: 'parseArgs' });
         input = { _raw: call.arguments };
       }
 
@@ -141,6 +143,7 @@ export class VoiceToolBridge {
         this.onToolResult(call.id, output);
       }
     } catch (err) {
+      void handleError(err, { module: 'voice:toolbridge', action: 'executeTool' });
       clearTimeout(timeoutId);
       this.activeTools.delete(call.id);
       const msg = err instanceof Error ? err.message : String(err);

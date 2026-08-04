@@ -27,6 +27,7 @@ import {
 } from './utils/TimeoutController';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 const logger = new Logger({
   module: 'sandbox:SandboxManager',
   level: LogLevel.INFO,
@@ -356,6 +357,10 @@ export class SandboxManager {
         error: result.error,
       };
     } catch (error) {
+      void handleError(error, {
+        module: 'sandbox:manager',
+        action: 'execute',
+      });
       return {
         success: false,
         exitCode: 1,

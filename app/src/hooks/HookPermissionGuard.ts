@@ -11,6 +11,7 @@
  *   4. 无 Hook → 按 Settings 规则正常判断
  */
 import { Logger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({ module: 'hooks:guard' });
 
@@ -120,6 +121,7 @@ export async function executeHookChainWithIsolation<T>(
         hook: hook.name,
         error: errors[errors.length - 1].error,
       });
+      void handleError(err, { module: 'hooks:permguard', action: 'executeHookChainWithIsolation' });
     }
   }
 

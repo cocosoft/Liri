@@ -1,10 +1,11 @@
-﻿/**
+/**
  * Analytics事件队列
  * 管理事件的队列和分发
  */
 
 import type { AnalyticsSink } from './types';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('AnalyticsEventQueue');
 
@@ -118,6 +119,7 @@ export class AnalyticsEventQueue {
           this.sink.logEvent(event.eventName, event.metadata);
         }
       } catch (error) {
+        void handleError(error instanceof Error ? error : new Error(String(error)), { module: 'analytics:queue', action: 'drainQueue' });
         logger.error('Error processing analytics event:', error);
       }
     }

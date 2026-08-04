@@ -8,8 +8,10 @@ import https from 'https';
 import { EventEmitter } from 'events';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
+
 const logger = new Logger({
-  module: 'chronos:webhook:WebhookManager',
+  module: 'chronos:webhook',
   level: LogLevel.INFO,
 });
 
@@ -102,6 +104,7 @@ export class WebhookManager extends EventEmitter {
 
         lastError = `HTTP ${result.statusCode}`;
       } catch (error) {
+        void handleError(error, { module: 'chronos:webhook', action: 'sendRequest' });
         lastError = error instanceof Error ? error.message : String(error);
 
         const errorEvent: WebhookEvent = {

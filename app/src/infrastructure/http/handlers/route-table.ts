@@ -95,6 +95,7 @@ import {
   handleGetProjectHistory,
   handleGetSummaries,
   handleListProjectFiles,
+  handleUploadProjectFile,
 } from './project-artifact-handlers';
 
 // P0b: Project CRUD handlers
@@ -1332,6 +1333,11 @@ export async function dispatchRoute(
   if (method === 'GET' && url.match(/^\/v1\/projects\/(.+)\/files$/)) {
     const match = url.match(/^\/v1\/projects\/(.+)\/files$/)!;
     await handleListProjectFiles(req, res, match[1]);
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/projects\/(.+)\/files$/)) {
+    const match = url.match(/^\/v1\/projects\/(.+)\/files$/)!;
+    await handleUploadProjectFile(req, res, match[1]);
     return true;
   }
   if (method === 'GET' && url.match(/^\/v1\/projects\/(.+)\/artifacts$/)) {

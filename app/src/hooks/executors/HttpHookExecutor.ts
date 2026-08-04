@@ -13,6 +13,7 @@ import { request } from 'https';
 import { URL } from 'url';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 const logger = new Logger({
   module: 'hooks:executors:HttpHookExecutor',
   level: LogLevel.INFO,
@@ -82,6 +83,7 @@ export class HttpHookExecutor {
         },
       };
     } catch (error) {
+      void handleError(error, { module: 'hooks:http', action: 'execute' });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

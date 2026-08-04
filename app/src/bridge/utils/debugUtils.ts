@@ -7,6 +7,7 @@
 import { BridgeConfig, PollConfig, BackoffConfig } from '../types';
 
 import { Logger, LogLevel as MonitoringLogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = new Logger({
   module: 'bridge:utils:debugUtils',
   level: MonitoringLogLevel.INFO,
@@ -24,6 +25,7 @@ export function debugBody(body: unknown): string {
   try {
     return JSON.stringify(body, null, 2);
   } catch (error) {
+    void handleError(error as Error, { module: 'bridge:debug', action: 'debugBody' });
     return String(body);
   }
 }
@@ -220,6 +222,7 @@ export class DebugStatusChecker {
       };
     } catch (error) {
       clearTimeout(timeout);
+      void handleError(error as Error, { module: 'bridge:debug', action: 'checkNetwork' });
       return {
         success: false,
         latencyMs: Date.now() - startTime,
@@ -382,6 +385,7 @@ export async function retry<T>(
       return await fn();
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
+      void handleError(lastError, { module: 'bridge:debug', action: 'retry' });
       if (attempt < maxAttempts) {
         await delay(delayMs * attempt);
       }

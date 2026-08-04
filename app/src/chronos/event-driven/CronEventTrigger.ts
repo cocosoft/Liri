@@ -1,8 +1,9 @@
 import { EventEmitter } from 'events';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
-  module: 'chronos:event-driven:cronEventTrigger',
+  module: 'chronos:event',
   level: LogLevel.INFO,
 });
 
@@ -33,6 +34,7 @@ export class CronEventTrigger extends EventEmitter {
       try {
         await rule.action();
       } catch (e) {
+        void handleError(e, { module: 'chronos:event', action: 'ruleAction' });
         logger.error('[CronEventTrigger] 规则执行失败', {
           ruleId: rule.id,
           error: String(e),

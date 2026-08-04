@@ -3,6 +3,7 @@
  * 监听 Chronos 定时任务执行结果，通过 ChannelRegistry 广播到所有已启用的通道
  */
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { globalEventBus, SystemEvents } from '@modules/core';
 import { channelRegistry } from '@modules/channels/registry/ChannelRegistry';
 
@@ -65,7 +66,7 @@ export function initializeTaskResultDelivery(): void {
         );
       })
       .catch((error) => {
-        logger.error('[F-10] 任务完成结果投递失败', { error });
+        void handleError(error, { module: 'chronos:deliver', action: 'broadcastTaskCompleted' });
       });
   });
 
@@ -84,7 +85,7 @@ export function initializeTaskResultDelivery(): void {
         );
       })
       .catch((error) => {
-        logger.error('[F-10] 任务失败结果投递失败', { error });
+        void handleError(error, { module: 'chronos:deliver', action: 'broadcastTaskFailed' });
       });
   });
 

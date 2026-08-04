@@ -7,6 +7,7 @@
 import { resolve, normalize, sep } from 'path';
 import { existsSync, statSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { configManager } from '@modules/config';
 
 const logger = new Logger({
@@ -408,6 +409,10 @@ export class IsolationManager {
     try {
       return normalize(resolve(path)).toLowerCase();
     } catch {
+      void handleError(new Error('路径规范化失败'), {
+        module: 'sandbox:isolation',
+        action: 'normalizePath',
+      });
       return path.toLowerCase();
     }
   }

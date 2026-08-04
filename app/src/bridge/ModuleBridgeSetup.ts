@@ -9,6 +9,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger.js';
+import { handleError } from '@modules/error/handleError';
 import { initModuleBridge } from './ModuleBridgeInit.js';
 import { createAcpWebSocketServer } from '@modules/acp/server.js';
 import type { ModuleBridgeDependencies } from './ModuleBridgeRuntime.js';
@@ -72,6 +73,10 @@ export async function setupModuleBridgeOnStartup(): Promise<void> {
     };
     logger.info('[Bridge] TaskRegistry 已接入');
   } catch {
+    void handleError(new Error('TaskRegistry 动态导入失败'), {
+      module: 'bridge:setup',
+      action: 'setupModuleBridgeOnStartup.importTaskRegistry',
+    });
     logger.info('[Bridge] TaskRegistry 暂未就绪，跳过');
   }
 
@@ -85,6 +90,10 @@ export async function setupModuleBridgeOnStartup(): Promise<void> {
     });
     logger.info('[Bridge] ACP 模块桥接初始化完成');
   } catch (error) {
+    void handleError(error, {
+      module: 'bridge:setup',
+      action: 'initModuleBridge',
+    });
     logger.error('[Bridge] ACP 模块桥接初始化失败', error as Error);
     return;
   }
@@ -111,6 +120,10 @@ async function startAcpRemoteServer(runtime: AcpRuntime): Promise<void> {
       `[Bridge] ACP 远程 WebSocket 服务已启动: ws://${config.host}:${config.port}${config.path}`
     );
   } catch (error) {
+    void handleError(error, {
+      module: 'bridge:setup',
+      action: 'startAcpRemoteServer',
+    });
     logger.error('[Bridge] ACP 远程 WebSocket 服务启动失败', error as Error);
   }
 }

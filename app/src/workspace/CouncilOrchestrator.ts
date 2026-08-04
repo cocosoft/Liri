@@ -21,6 +21,7 @@ import type { CouncilConfig } from './CouncilEngine.js';
 import { globalEventBus } from '../core/events/EventBus.js';
 import { OrchestrationEventType } from '../agent/events/OrchestrationEvents.js';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import aiService, { type AIMessage, AIMessageRole } from '@modules/ai';
 import { getAgentRoleStore } from './AgentRoleStore.js';
 import { getAgentRegistry } from '../agent/registry/AgentRegistry.js';
@@ -245,7 +246,10 @@ export class CouncilOrchestrator {
         timestamp: Date.now(),
       });
     } catch (_err) {
-      // EventBus 发射失败不应阻塞主流程
+      void handleError(
+        _err instanceof Error ? _err : new Error('EventBus publish failed'),
+        { module: 'workspace:council', action: 'publishCouncilStart' }
+      );
     }
 
     // 3. 执行辩论
@@ -264,7 +268,10 @@ export class CouncilOrchestrator {
         timestamp: Date.now(),
       });
     } catch (_err) {
-      // EventBus 发射失败不应阻塞主流程
+      void handleError(
+        _err instanceof Error ? _err : new Error('EventBus publish failed'),
+        { module: 'workspace:council', action: 'publishCouncilEnd' }
+      );
     }
 
     // 5. 写入缓存（超出上限时删除最旧条目）
@@ -295,6 +302,10 @@ export class CouncilOrchestrator {
         }));
       }
     } catch (_err) {
+      void handleError(
+        _err instanceof Error ? _err : new Error('loadAgents failed'),
+        { module: 'workspace:council', action: 'loadAgents' }
+      );
       logger.warn('从数据库加载 Agent 角色失败');
     }
 
@@ -551,7 +562,10 @@ export class CouncilOrchestrator {
         return { content: parsed.content, keyPoints: parsed.keyPoints };
       }
     } catch (_err) {
-      // 不是 JSON，使用全文作为 content
+      void handleError(
+        _err instanceof Error ? _err : new Error('Statement JSON parse failed'),
+        { module: 'workspace:council', action: 'parseStatementResponse' }
+      );
     }
 
     return { content: response, keyPoints: [] };
@@ -585,7 +599,12 @@ export class CouncilOrchestrator {
         minorityOpinion: parsed.minorityOpinion ?? null,
       };
     } catch (_err) {
-      // JSON 解析失败，回退：从文本中推断
+      void handleError(
+        _err instanceof Error
+          ? _err
+          : new Error('Consensus JSON parse failed'),
+        { module: 'workspace:council', action: 'parseConsensusResponse' }
+      );
       logger.warn('Consensus JSON 解析失败，使用文本回退');
     }
 

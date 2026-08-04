@@ -28,6 +28,7 @@ import type {
   CouncilAgentDeltaData,
 } from '../agent/events/OrchestrationEvents.js';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ module: 'CouncilEngine', level: LogLevel.INFO });
 
@@ -256,6 +257,10 @@ export class CouncilEngine {
               deltaData
             );
           } catch (err) {
+            void handleError(err, {
+              module: 'workspace:engine',
+              action: 'agentStatement',
+            });
             const errorMsg = err instanceof Error ? err.message : String(err);
             logger.warn(
               `Agent ${agent.name}（${agent.agentId}）在第 ${round} 轮发言失败，跳过`,
@@ -346,6 +351,7 @@ export class CouncilEngine {
 
       return session;
     } catch (error) {
+      void handleError(error, { module: 'workspace:engine', action: 'runDebate' });
       const errorMsg = error instanceof Error ? error.message : String(error);
 
       this.emit({

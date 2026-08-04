@@ -9,6 +9,7 @@
 
 import { EventBusImpl } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import type {
   VoiceClientEvent,
   VoiceServerEvent,
@@ -92,12 +93,14 @@ export class VoiceEventBus
         const result: unknown = listener(data);
         if (result instanceof Promise) {
           result.catch((error: Error) => {
+            void handleError(error, { module: 'voice:eventbus', action: 'publishAsync' });
             this.emitError(
               error instanceof Error ? error : new Error(String(error))
             );
           });
         }
       } catch (error) {
+        void handleError(error, { module: 'voice:eventbus', action: 'publishSync' });
         this.emitError(
           error instanceof Error ? error : new Error(String(error))
         );
@@ -115,6 +118,7 @@ export class VoiceEventBus
       try {
         handler(state, previous);
       } catch (err) {
+        void handleError(err, { module: 'voice:eventbus', action: 'setState' });
         this.logger.error('事件总线 · 状态处理器异常', { error: String(err) });
         this.emitError(err instanceof Error ? err : new Error(String(err)));
       }

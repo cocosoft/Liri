@@ -15,6 +15,7 @@ import type {
 } from '../types/index.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 const logger = new Logger({
   module: 'hooks:executors:StopHookExecutor',
   level: LogLevel.INFO,
@@ -125,6 +126,7 @@ export class StopHookExecutor {
           preventedContinuation = true;
         }
       } catch (error) {
+        handleError(error, { module: 'hooks:stop', action: 'executeHook' });
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         hookErrors.push(errorMessage);
@@ -200,7 +202,8 @@ export class StopHookExecutor {
       try {
         const output = JSON.parse(result.output as string);
         return output.preventContinuation === true;
-      } catch {
+      } catch (error) {
+        handleError(error, { module: 'hooks:stop', action: 'parseOutput' });
         return false;
       }
     }

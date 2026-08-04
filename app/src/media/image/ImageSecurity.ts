@@ -1,5 +1,6 @@
 import { Logger, LogLevel } from '@modules/monitoring';
 import fs from 'fs';
+import { handleError } from '@modules/error/handleError';
 import {
   imageFormatDetector,
   ImageFormatDetector,
@@ -151,6 +152,7 @@ export class ImageSecurity {
 
       return { name: 'file_exists', passed: true };
     } catch (error) {
+      void handleError(error, { module: 'media:imageSecurity', action: 'securityCheck' });
       return {
         name: 'file_exists',
         passed: false,
@@ -171,6 +173,7 @@ export class ImageSecurity {
       }
       return { name: 'file_size', passed: true };
     } catch (error) {
+      void handleError(error, { module: 'media:imageSecurity', action: 'securityCheck' });
       return {
         name: 'file_size',
         passed: false,
@@ -196,6 +199,7 @@ export class ImageSecurity {
 
       return { name: 'format', passed: true };
     } catch (error) {
+      void handleError(error, { module: 'media:imageSecurity', action: 'securityCheck' });
       return {
         name: 'format',
         passed: false,
@@ -238,6 +242,7 @@ export class ImageSecurity {
 
       return { name: 'dimensions', passed: true };
     } catch (error) {
+      void handleError(error, { module: 'media:imageSecurity', action: 'securityCheck' });
       return {
         name: 'dimensions',
         passed: false,
@@ -279,6 +284,7 @@ export class ImageSecurity {
 
       return { name: 'mime_consistency', passed: true };
     } catch (error) {
+      void handleError(error, { module: 'media:imageSecurity', action: 'securityCheck' });
       return {
         name: 'mime_consistency',
         passed: true,

@@ -1,4 +1,8 @@
+import { handleError } from '@modules/error';
+import { getLogger } from '@modules/monitoring';
+
 type Task<T = void> = () => Promise<T>;
+const logger = getLogger('acp:actor');
 
 interface QueuedTask<T> {
   task: Task<T>;
@@ -41,6 +45,7 @@ export class SessionActorQueue {
       const result = await item.task();
       item.resolve(result);
     } catch (error) {
+      void handleError(error, { module: 'acp:actor', action: 'processNext' });
       item.reject(error);
     }
 

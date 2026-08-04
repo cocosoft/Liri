@@ -19,6 +19,7 @@ import { DreamAgentExecutor } from './DreamAgentExecutor';
 import type { DreamExecutionResult } from './DreamAgentExecutor';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = getLogger('AutoDream');
 import { BaseTask } from '@modules/tasks/BaseTask';
@@ -237,6 +238,7 @@ export async function initAutoDream(): Promise<void> {
     try {
       lastAt = await readLastConsolidatedAt();
     } catch (e: unknown) {
+      void handleError(e, { module: 'chronos:autodream', action: 'readLastConsolidatedAt' });
       logger.warn('读取上次整合时间失败', { error: (e as Error).message });
       return;
     }
@@ -263,6 +265,7 @@ export async function initAutoDream(): Promise<void> {
     try {
       sessionIds = await listSessionsTouchedSince(lastAt);
     } catch (e: unknown) {
+      void handleError(e, { module: 'chronos:autodream', action: 'listSessionsTouchedSince' });
       logger.warn('列出会话失败', { error: (e as Error).message });
       return;
     }
@@ -282,6 +285,7 @@ export async function initAutoDream(): Promise<void> {
     try {
       priorMtime = await tryAcquireConsolidationLock();
     } catch (e: unknown) {
+      void handleError(e, { module: 'chronos:autodream', action: 'tryAcquireLock' });
       logger.warn('获取锁失败', { error: (e as Error).message });
       return;
     }
@@ -352,6 +356,7 @@ ${sessionIds.map((id) => `- ${id}`).join('\n')}`;
     try {
       result = await executor.waitForResult();
     } catch (e: unknown) {
+      void handleError(e, { module: 'chronos:autodream', action: 'waitForResult' });
       result = {
         success: false,
         filesTouched: [],
@@ -372,12 +377,14 @@ ${sessionIds.map((id) => `- ${id}`).join('\n')}`;
       try {
         await recordConsolidation();
       } catch (err) {
+        void handleError(err, { module: 'chronos:autodream', action: 'recordConsolidation' });
         // non-fatal: lock timestamp update failure
       }
 
       try {
         await runKnowledgeRain();
       } catch (e) {
+        void handleError(e, { module: 'chronos:autodream', action: 'runKnowledgeRain' });
         logger.warn('知识雨执行失败', {
           error: e instanceof Error ? e.message : String(e),
         });

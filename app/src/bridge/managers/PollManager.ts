@@ -12,6 +12,7 @@ import type {
 import { bridgeStateStore } from '../state/BridgeStateStore.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 const logger = new Logger({
   module: 'bridge:managers:PollManager',
   level: LogLevel.INFO,
@@ -241,6 +242,10 @@ export class PollManager {
 
         await this.executePoll();
       } catch (error) {
+        void handleError(error, {
+          module: 'bridge:poll',
+          action: 'runPollLoop',
+        });
         this.handlePollError(
           error instanceof Error ? error : new Error(String(error))
         );
@@ -287,6 +292,10 @@ export class PollManager {
         this.emptyPolls++;
       }
     } catch (error) {
+      void handleError(error, {
+        module: 'bridge:poll',
+        action: 'executePoll',
+      });
       throw error;
     }
   }

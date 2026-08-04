@@ -9,6 +9,7 @@ import type {
   SandboxExecuteResult,
 } from './SandboxTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import { spawn, type ChildProcess } from 'child_process';
 
 const logger = new Logger({ module: 'sandbox:ssh', level: LogLevel.INFO });
@@ -132,6 +133,7 @@ export class SSHSandbox {
       return this.connected;
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
+      void handleError(err instanceof Error ? err : new Error(errMsg), { module: 'sandbox:ssh', action: 'connect' });
       logger.error(`SSH 连接失败: ${errMsg}`);
 
       if (this.fallbackHost) {
@@ -241,6 +243,7 @@ export class SSHSandbox {
       };
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
+      void handleError(err instanceof Error ? err : new Error(errMsg), { module: 'sandbox:ssh', action: 'execute' });
 
       return {
         success: false,

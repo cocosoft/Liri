@@ -28,6 +28,7 @@
 import type { Duplex } from 'stream';
 import * as net from 'net';
 import { resolveLogger, type ILogger } from '@modules/core';
+import { handleError } from '@modules/error/handleError';
 import {
   OpCode,
   DEFAULT_MAX_MESSAGE_SIZE,
@@ -119,6 +120,10 @@ export class AcpWsClient {
     try {
       this.socket.write(frame);
     } catch (_err) {
+      void handleError(
+        _err instanceof Error ? _err : new Error('WebSocket send failed'),
+        { module: 'acp:wsclient', action: 'send' }
+      );
       this.socket.destroy();
     }
   }
@@ -140,7 +145,10 @@ export class AcpWsClient {
     try {
       this.socket.write(encodeWebSocketFrame(OpCode.CLOSE, closePayload));
     } catch (_err) {
-      // 忽略关闭时的写入错误
+      void handleError(
+        _err instanceof Error ? _err : new Error('WebSocket close failed'),
+        { module: 'acp:wsclient', action: 'close' }
+      );
     }
 
     this.socket.end();

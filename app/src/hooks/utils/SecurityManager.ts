@@ -1,8 +1,9 @@
-﻿import { EventEmitter } from 'events';
+import { EventEmitter } from 'events';
 import { join, resolve, dirname } from 'path';
 import { resolveProjectRoot, resolveSecurityDir } from '@modules/core';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('SecurityManager');
 
@@ -236,6 +237,7 @@ export class SecurityManager extends EventEmitter {
         'Failed to load security config',
         error instanceof Error ? error : undefined
       );
+      void handleError(error, { module: 'hooks:security', action: 'loadSecurityConfig' });
     }
   }
 
@@ -255,6 +257,7 @@ export class SecurityManager extends EventEmitter {
         'Failed to save security config',
         error instanceof Error ? error : undefined
       );
+      void handleError(error, { module: 'hooks:security', action: 'saveSecurityConfig' });
     }
   }
 
@@ -523,6 +526,7 @@ export class SecurityManager extends EventEmitter {
         error: 'Path is outside workspace and not in allowed paths',
       };
     } catch {
+      void handleError(new Error('路径解析失败'), { module: 'hooks:security', action: 'validatePath' });
       return { valid: false, error: 'Failed to resolve path' };
     }
   }
@@ -580,6 +584,7 @@ export class SecurityManager extends EventEmitter {
       const parsedUrl = new URL(url);
       return ['http:', 'https:'].includes(parsedUrl.protocol);
     } catch {
+      void handleError(new Error('URL 验证失败'), { module: 'hooks:security', action: 'validateUrl' });
       return false;
     }
   }
@@ -781,6 +786,7 @@ export class SecurityManager extends EventEmitter {
         'Failed to set workspace as trusted',
         error instanceof Error ? error : undefined
       );
+      void handleError(error, { module: 'hooks:security', action: 'setWorkspaceTrusted' });
     }
   }
 

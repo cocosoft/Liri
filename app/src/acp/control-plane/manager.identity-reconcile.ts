@@ -6,6 +6,10 @@ import {
   formatSessionIdentity,
   type AcpSessionIdentity,
 } from '../runtime/session-identity.js';
+import { handleError } from '@modules/error';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('acp:reconcile');
 
 export interface PendingSessionIdentity {
   sessionKey: string;
@@ -73,6 +77,7 @@ export async function reconcilePendingSessionIdentities(
       pendingIdentities.delete(key);
       reconciled.push(key);
     } catch (error) {
+      void handleError(error, { module: 'acp:reconcile', action: 'reconcileSession' });
       errors.push(
         `failed to reconcile session ${identity.sessionKey}: ${error instanceof Error ? error.message : String(error)}`
       );

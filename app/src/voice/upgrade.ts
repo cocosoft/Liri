@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { Socket } from 'net';
 import { createHash, randomUUID } from 'crypto';
@@ -161,7 +162,8 @@ function handleDataFrame(conn: InternalConnection): void {
         try {
           const event = JSON.parse(text) as VoiceClientEvent;
           conn.messageHandler?.(event);
-        } catch (_err) {
+        } catch (e) {
+          void handleError(e, { module: 'voice:upgrade', action: 'parseFrame' });
           logger.warn('无法解析 WebSocket 消息', { text: text.slice(0, 100) });
         }
         break;
@@ -199,8 +201,8 @@ function sendTextFrame(conn: InternalConnection, text: string): void {
     const payload = Buffer.from(text, 'utf-8');
     const frame = buildFrame(OpCode.TEXT, payload);
     conn.socket.write(frame);
-  } catch (_err) {
-    // 忽略发送错误
+  } catch (e) {
+    void handleError(e, { module: 'voice:upgrade', action: 'sendTextFrame' });
   }
 }
 
@@ -211,8 +213,8 @@ function sendCloseFrame(conn: InternalConnection): void {
   try {
     const frame = buildFrame(OpCode.CLOSE, Buffer.from([0x03, 0xe8]));
     conn.socket.write(frame);
-  } catch (_err) {
-    // 忽略关闭帧发送错误
+  } catch (e) {
+    void handleError(e, { module: 'voice:upgrade', action: 'sendCloseFrame' });
   }
 }
 
@@ -223,8 +225,8 @@ function sendPongFrame(conn: InternalConnection, payload: Buffer): void {
   try {
     const frame = buildFrame(OpCode.PONG, payload);
     conn.socket.write(frame);
-  } catch (_err) {
-    // 忽略 pong 发送错误
+  } catch (e) {
+    void handleError(e, { module: 'voice:upgrade', action: 'sendPongFrame' });
   }
 }
 

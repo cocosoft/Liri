@@ -9,7 +9,8 @@ import type http from 'http';
 import { resolveDataDir } from '@modules/core';
 import { createProjectStore } from '../../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../../workspace/WorkItemStore.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import {
   migrateLegacyFiles,
@@ -35,6 +36,8 @@ export async function handleListProjects(
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
+  const otel = getOTelTracing();
+  const span = otel.startSpan('project:handlers:listProjects');
   try {
     const url = new URL(
       req.url || '/',
@@ -43,13 +46,17 @@ export async function handleListProjects(
     const workspaceId = url.searchParams.get('workspaceId') || 'default';
     const store = getProjectStore();
     const projects = store.list(workspaceId);
+    span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, projects);
   } catch (e) {
     await handleError(e, {
       module: 'project:handlers',
       action: 'listProjects',
     });
+    span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
     json(res, 500, { error: '获取项目列表失败' });
+  } finally {
+    span.end();
   }
 }
 
@@ -58,12 +65,15 @@ export async function handleCreateProject(
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
+  const otel = getOTelTracing();
+  const span = otel.startSpan('project:handlers:createProject');
   try {
     const body = await readBody(req);
     const { name, description, workspaceId, tags, sandboxPath, template } =
       JSON.parse(body);
 
     if (!name) {
+      span.setStatus({ code: SpanStatusCode.OK });
       json(res, 400, { error: '缺少 name' });
       return;
     }
@@ -79,6 +89,8 @@ export async function handleCreateProject(
     });
 
     logger.info('项目已创建', { projectId: project.id, name });
+    span.setAttribute('projectId', project.id);
+    span.setStatus({ code: SpanStatusCode.OK });
     json(res, 201, project);
   } catch (e) {
     logger.error('创建项目失败', { error: String(e) });
@@ -86,7 +98,10 @@ export async function handleCreateProject(
       module: 'project:handlers',
       action: 'createProject',
     });
+    span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
     json(res, 500, { error: '创建项目失败' });
+  } finally {
+    span.end();
   }
 }
 
@@ -96,17 +111,25 @@ export async function handleGetProject(
   res: http.ServerResponse,
   projectId: string
 ): Promise<void> {
+  const otel = getOTelTracing();
+  const span = otel.startSpan('project:handlers:getProject');
+  span.setAttribute('projectId', projectId);
   try {
     const store = getProjectStore();
     const project = store.get(projectId);
     if (!project) {
+      span.setStatus({ code: SpanStatusCode.OK });
       json(res, 404, { error: '项目不存在' });
       return;
     }
+    span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, project);
   } catch (e) {
     await handleError(e, { module: 'project:handlers', action: 'getProject' });
+    span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
     json(res, 500, { error: '获取项目失败' });
+  } finally {
+    span.end();
   }
 }
 
@@ -116,22 +139,30 @@ export async function handleUpdateProject(
   res: http.ServerResponse,
   projectId: string
 ): Promise<void> {
+  const otel = getOTelTracing();
+  const span = otel.startSpan('project:handlers:updateProject');
+  span.setAttribute('projectId', projectId);
   try {
     const body = await readBody(req);
     const updates = JSON.parse(body);
     const store = getProjectStore();
     const project = store.update(projectId, updates);
     if (!project) {
+      span.setStatus({ code: SpanStatusCode.OK });
       json(res, 404, { error: '项目不存在' });
       return;
     }
+    span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, project);
   } catch (e) {
     await handleError(e, {
       module: 'project:handlers',
       action: 'updateProject',
     });
+    span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
     json(res, 500, { error: '更新项目失败' });
+  } finally {
+    span.end();
   }
 }
 
@@ -141,9 +172,13 @@ export async function handleDeleteProject(
   res: http.ServerResponse,
   projectId: string
 ): Promise<void> {
+  const otel = getOTelTracing();
+  const span = otel.startSpan('project:handlers:deleteProject');
+  span.setAttribute('projectId', projectId);
   try {
     const store = getProjectStore();
     const deleted = store.delete(projectId);
+    span.setStatus({ code: SpanStatusCode.OK });
     json(
       res,
       deleted ? 200 : 404,
@@ -154,7 +189,10 @@ export async function handleDeleteProject(
       module: 'project:handlers',
       action: 'deleteProject',
     });
+    span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
     json(res, 500, { error: '删除项目失败' });
+  } finally {
+    span.end();
   }
 }
 
@@ -163,6 +201,8 @@ export async function handleMigrateProjects(
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
+  const otel = getOTelTracing();
+  const span = otel.startSpan('project:handlers:migrate');
   try {
     const body = await readBody(req);
     const { worktrees } = JSON.parse(body) as {
@@ -183,6 +223,7 @@ export async function handleMigrateProjects(
       wtResult = migrateWorktrees(worktrees);
     }
 
+    span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, {
       files: fileResult,
       worktrees: wtResult,
@@ -190,7 +231,10 @@ export async function handleMigrateProjects(
   } catch (e) {
     logger.error('迁移失败', { error: String(e) });
     await handleError(e, { module: 'project:handlers', action: 'migrate' });
+    span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
     json(res, 500, { error: '迁移失败' });
+  } finally {
+    span.end();
   }
 }
 
@@ -199,14 +243,20 @@ export async function handleMigrateFiles(
   _req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
+  const otel = getOTelTracing();
+  const span = otel.startSpan('project:handlers:migrateFiles');
   try {
     const result = migrateLegacyFiles();
+    span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, result);
   } catch (e) {
     await handleError(e, {
       module: 'project:handlers',
       action: 'migrateFiles',
     });
+    span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
     json(res, 500, { error: '文件迁移失败' });
+  } finally {
+    span.end();
   }
 }

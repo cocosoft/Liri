@@ -5,6 +5,10 @@
 
 import { configManager } from '@modules/config';
 import { execSync } from 'child_process';
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
+
+const logger = new Logger({ module: 'hooks:shell', level: LogLevel.INFO });
 
 /**
  * Shell 类型
@@ -269,7 +273,8 @@ export class ShellHookDetector {
       ) {
         return 'powershell';
       }
-    } catch {
+    } catch (error) {
+      handleError(error, { module: 'hooks:shell', action: 'detectShellType' });
       return 'unknown';
     }
 
@@ -302,7 +307,8 @@ export class ShellHookDetector {
 
         return output.split('\n')[0].trim();
       }
-    } catch {
+    } catch (error) {
+      handleError(error, { module: 'hooks:shell', action: 'detectVersion' });
       return 'unknown';
     }
 
@@ -323,7 +329,8 @@ export class ShellHookDetector {
         );
 
         return output.split('\n')[1]?.trim() || '';
-      } catch {
+      } catch (error) {
+        handleError(error, { module: 'hooks:shell', action: 'getParentProcessName' });
         return '';
       }
     }
@@ -335,7 +342,8 @@ export class ShellHookDetector {
       });
 
       return output.trim();
-    } catch {
+    } catch (error) {
+      handleError(error, { module: 'hooks:shell', action: 'getParentProcessName' });
       return '';
     }
   }
@@ -357,7 +365,8 @@ export class ShellHookDetector {
           output.toLowerCase().includes('wsl')
         );
       }
-    } catch {
+    } catch (error) {
+      handleError(error, { module: 'hooks:shell', action: 'checkWSL' });
       return false;
     }
 

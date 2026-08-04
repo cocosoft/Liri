@@ -29,6 +29,7 @@ import { resolveDataSubDir } from '@modules/core';
 import { join } from 'path';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'dream:coldStorage',
@@ -122,6 +123,7 @@ export class ColdStorage {
       const data = await readFile(this.storagePath, 'utf-8');
       return JSON.parse(data) as ArchivedMemory[];
     } catch {
+      void handleError(new Error('读取冷存储文件失败'), { module: 'dream:coldstorage', action: 'readAll' });
       return [];
     }
   }

@@ -8,6 +8,7 @@ import { EventEmitter } from 'events';
 import type { HookEvent } from '../types';
 import { diagnosticManager } from './DiagnosticManager';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('AsyncHookRegistry');
 
@@ -215,6 +216,7 @@ export class AsyncHookRegistry extends EventEmitter {
             }
           } catch (error) {
             logger.error(`Hooks: Failed to parse hook output: ${error}`);
+            void handleError(error, { module: 'hooks:async', action: 'parseHookOutput' });
           }
 
           return {
@@ -334,6 +336,7 @@ export class AsyncHookRegistry extends EventEmitter {
         });
       } catch (error) {
         logger.error(`Hooks: Error getting hook progress: ${error}`);
+        void handleError(error, { module: 'hooks:async', action: 'getHookProgress' });
       }
     }, 1000);
 

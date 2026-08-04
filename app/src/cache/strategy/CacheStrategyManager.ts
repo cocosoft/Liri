@@ -1,5 +1,6 @@
 //
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({
   module: 'cache:strategy:cacheStrategyManager',
@@ -842,6 +843,10 @@ export class CacheStrategyManager implements ICacheStrategyManager {
             await this.set(key, value, undefined, CachePriority.HIGH);
           }
         } catch (error) {
+          void handleError(error, {
+            module: 'cache:strategy',
+            action: 'preWarm',
+          });
           logger.warning(`Failed to pre-warm key ${key}:`, { error });
         }
       });
@@ -944,6 +949,10 @@ export class CacheStrategyManager implements ICacheStrategyManager {
       try {
         listener(event);
       } catch (error) {
+        void handleError(error, {
+          module: 'cache:strategy',
+          action: 'triggerEventListener',
+        });
         logger.warning('Cache event listener error:', { error });
       }
     }

@@ -765,7 +765,7 @@ export default function ProjectsPage() {
               )}
 
               {/* ChatArea：消息列表 + 输入框 — fluid 模式，项目页全宽无 max-w-3xl 居中 */}
-              <div className="flex-1 min-h-0">
+              <div className="flex-1 min-h-0 flex flex-col">
                 <ChatArea fluid />
               </div>
             </div>

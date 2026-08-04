@@ -2,6 +2,13 @@
  * CronTaskTimer 定时器管理
  * 对标 OpenClaw 的 timer 机制
  */
+import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError';
+
+const logger = new Logger({
+  module: 'chronos:timer',
+  level: LogLevel.INFO,
+});
 
 /**
  * 定时器状态
@@ -117,8 +124,9 @@ export class CronTaskTimer {
       }
 
       handle.nextRun = Date.now() + handle.interval;
-      // @ignore-catch — 定时任务回调fire-and-forget，失败由任务自身处理
-      this.callback(taskId).catch(() => {});
+      this.callback(taskId).catch((e) => {
+        void handleError(e, { module: 'chronos:timer', action: 'timerCallback' });
+      });
     }, 60000);
 
     this.intervals.set(taskId, intervalId);

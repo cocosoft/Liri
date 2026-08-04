@@ -5,6 +5,7 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@modules/error/handleError';
 import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
@@ -122,6 +123,7 @@ export class ImageProcessor {
         dimensions: this.getDimensions(output),
       };
     } catch (err) {
+      void handleError(err, { module: 'media:image', action: 'convert' });
       const msg = err instanceof Error ? err.message : String(err);
       logger.error('图片格式转换失败', { input, format, error: msg });
       return {
@@ -168,6 +170,7 @@ export class ImageProcessor {
         dimensions: this.getDimensions(output),
       };
     } catch (err) {
+      void handleError(err, { module: 'media:image', action: 'resize' });
       const msg = err instanceof Error ? err.message : String(err);
       logger.error('图片调整大小失败', { input, output, error: msg });
       return {
@@ -206,6 +209,7 @@ export class ImageProcessor {
         dimensions: this.getDimensions(output),
       };
     } catch (err) {
+      void handleError(err, { module: 'media:image', action: 'crop' });
       const msg = err instanceof Error ? err.message : String(err);
       logger.error('图片裁剪失败', { input, error: msg });
       return {
@@ -237,6 +241,7 @@ export class ImageProcessor {
         dimensions: this.getDimensions(output),
       };
     } catch (err) {
+      void handleError(err, { module: 'media:image', action: 'rotate' });
       const msg = err instanceof Error ? err.message : String(err);
       logger.error('图片旋转失败', { input, error: msg });
       return {
@@ -273,6 +278,7 @@ export class ImageProcessor {
         dimensions: this.getDimensions(output),
       };
     } catch (err) {
+      void handleError(err, { module: 'media:image', action: 'flip' });
       const msg = err instanceof Error ? err.message : String(err);
       logger.error('图片翻转失败', { input, error: msg });
       return {
@@ -345,6 +351,7 @@ export class ImageProcessor {
         dimensions: this.getDimensions(output),
       };
     } catch (err) {
+      void handleError(err, { module: 'media:image', action: 'watermark' });
       const msg = err instanceof Error ? err.message : String(err);
       logger.error('水印添加失败', { input, error: msg });
       return {
@@ -387,6 +394,7 @@ export class ImageProcessor {
         dimensions: this.getDimensions(output),
       };
     } catch (err) {
+      void handleError(err, { module: 'media:image', action: 'adjust' });
       const msg = err instanceof Error ? err.message : String(err);
       logger.error('图片调整失败', { input, error: msg });
       return {
@@ -498,6 +506,7 @@ export class ImageProcessor {
       });
       return outPath;
     } catch (error) {
+      void handleError(error, { module: 'media:image', action: 'normalizeExifOrientation' });
       logger.warn('ImageProcessor.normalizeExifOrientation() · 失败', {
         error: (error as Error).message,
       });

@@ -466,13 +466,14 @@ jobs:
           Write-Host "Copying sidecar: $($side.Name) -> src-tauri/binaries/liri_terminal-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
           Copy-Item $side.FullName "src-tauri/binaries/liri_terminal-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}" -Force
 
-          # 只复制运行时必需的 2 个原生模块（sharp + pdfjs-dist），不复制全部 480+ 包
-          # pyapp.ts 的 Module._resolveFilename hook 在 exeDir/deps/node_modules/ 查找
+          # 只复制运行时必需的外部模块（sharp + pdfjs-dist）及其完整依赖树，不复制全部 480+ 包
+          # Bun --compile 的 external 解析从 exe 同级 node_modules 查找（pyapp.ts 已 chdir 到 exe 目录），
+          # tauri resources 将 binaries/deps → $RESOURCES/node_modules，与 exe 同级
           New-Item -ItemType Directory -Force -Path src-tauri/binaries/deps/node_modules
-          if (Test-Path ../dist/deps/node_modules) {
-            Get-ChildItem -Path ../dist/deps/node_modules -Force | Copy-Item -Destination src-tauri/binaries/deps/node_modules -Recurse -Force
+          if (Test-Path ../dist/node_modules) {
+            Get-ChildItem -Path ../dist/node_modules -Force | Copy-Item -Destination src-tauri/binaries/deps/node_modules -Recurse -Force
           } else {
-            Write-Warning "dist/deps/node_modules not found, copying from app/node_modules (sharp + pdfjs-dist only)"
+            Write-Warning "dist/node_modules not found, copying from app/node_modules (sharp + pdfjs-dist only)"
             foreach ($pkg in @('sharp', 'pdfjs-dist')) {
               $src = "../app/node_modules/$pkg"
               if (Test-Path $src) {
@@ -502,13 +503,13 @@ jobs:
           echo "Copying sidecar from ../dist/${SIDEFILE} -> src-tauri/binaries/liri_terminal-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
           cp "../dist/${SIDEFILE}" "src-tauri/binaries/liri_terminal-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
 
-          # 只复制运行时必需的 2 个原生模块（sharp + pdfjs-dist），不复制全部 480+ 包
-          # pyapp.ts 的 Module._resolveFilename hook 在 exeDir/deps/node_modules/ 查找
+          # 只复制运行时必需的外部模块（sharp + pdfjs-dist）及其完整依赖树，不复制全部 480+ 包
+          # Bun --compile 的 external 解析从 exe 同级 node_modules 查找（pyapp.ts 已 chdir 到 exe 目录）
           mkdir -p src-tauri/binaries/deps/node_modules
-          if [ -d ../dist/deps/node_modules ]; then
-            cp -a ../dist/deps/node_modules/. src-tauri/binaries/deps/node_modules/
+          if [ -d ../dist/node_modules ]; then
+            cp -a ../dist/node_modules/. src-tauri/binaries/deps/node_modules/
           else
-            echo "WARNING: dist/deps/node_modules not found, copying from app/node_modules (sharp + pdfjs-dist only)"
+            echo "WARNING: dist/node_modules not found, copying from app/node_modules (sharp + pdfjs-dist only)"
             for pkg in sharp pdfjs-dist; do
               if [ -d "../app/node_modules/$pkg" ]; then
                 cp -a "../app/node_modules/$pkg/." "src-tauri/binaries/deps/node_modules/$pkg/"

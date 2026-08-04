@@ -35,7 +35,7 @@
       "../../app/docs": "app/docs",
       "../../app/config": "app/config",
       "../../app/seed/pyapp": "app/data/pyapp",
-      "binaries/deps": "deps"
+      "binaries/deps": "node_modules"
     },
     "icon": [
       "icons/icon.png",

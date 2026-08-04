@@ -124,16 +124,17 @@ function main(): void {
     process.exit(1);
   }
 
-  // bundle 模式：直接放入 node_modules/，Bun 标准模块解析可直接找到
-  // compile 模式：放入 deps/node_modules/，由 Module._resolveFilename hook 解析
-  const depsDir = bundleMode
-    ? path.join(targetDir, 'node_modules')
-    : path.join(targetDir, 'deps', 'node_modules');
+  // 统一放入 <target>/node_modules/：
+  // compile 模式（exe 同级）下 Bun 的 external 解析从真实 CWD 的 node_modules 查找
+  // （pyapp.ts 已 chdir 到 exe 目录）；bundle 模式（pkg/）下 bun run 从脚本目录查找。
+  const depsDir = path.join(targetDir, 'node_modules');
   /**
-   * 收集包的所有依赖（dependencies + optionalDependencies）中匹配前缀的原生包。
-   * 递归解析：原生包可能也有自己的原生依赖。
+   * 递归收集包的全部运行时依赖（dependencies + optionalDependencies）。
+   * Bun --compile 的 external 解析从 exe 同级 node_modules 按包名查找，
+   * 因此 sharp/pdfjs-dist 及其全部依赖（如 sharp 的 detect-libc/semver、
+   * @img/* 原生包）都必须拷贝，缺失任一都会在运行时解析失败。
    */
-  function collectNativeDepsRecursive(
+  function collectAllDepsRecursive(
     pkgPath: string,
     collected: Set<string> = new Set()
   ): Array<{ name: string; srcPath: string }> {
@@ -142,23 +143,21 @@ function main(): void {
       const pkgJsonPath = path.join(pkgPath, 'package.json');
       if (!fs.existsSync(pkgJsonPath)) return result;
       const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'));
-      const allDeps = { ...(pkgJson.dependencies || {}), ...(pkgJson.optionalDependencies || {}) };
+      const allDeps = {
+        ...(pkgJson.dependencies || {}),
+        ...(pkgJson.optionalDependencies || {}),
+        ...(pkgJson.peerDependencies || {}),
+      };
 
       for (const depName of Object.keys(allDeps)) {
         if (collected.has(depName)) continue;
-        // 只收集原生相关包（@img/*、@emnapi/* 等，规避拷贝整个 npm 生态）
-        if (
-          depName.startsWith('@img/') ||
-          depName.startsWith('@emnapi/')
-        ) {
-          const depPath = resolvePackagePath(depName);
-          if (depPath) {
-            collected.add(depName);
-            result.push({ name: depName, srcPath: depPath });
-            // 递归解析该原生包的原生依赖
-            const nested = collectNativeDepsRecursive(depPath, collected);
-            result.push(...nested);
-          }
+        const depPath = resolvePackagePath(depName);
+        if (depPath) {
+          collected.add(depName);
+          result.push({ name: depName, srcPath: depPath });
+          // 递归解析该依赖的运行时依赖
+          const nested = collectAllDepsRecursive(depPath, collected);
+          result.push(...nested);
         }
       }
     } catch {
@@ -185,12 +184,12 @@ function main(): void {
     copyRecursive(srcPath, destPath);
     copiedCount++;
 
-    // 复制该包的原生依赖（递归解析）到目标 node_modules
-    const nativeDeps = collectNativeDepsRecursive(srcPath);
-    for (const nd of nativeDeps) {
+    // 复制该包的全部运行时依赖（递归）到目标 node_modules
+    const allDeps = collectAllDepsRecursive(srcPath);
+    for (const nd of allDeps) {
       const ndDest = path.join(depsDir, nd.name);
       if (fs.existsSync(ndDest)) continue; // 已存在，跳过
-      console.log(`[复制]   原生依赖 ${nd.name}: ${nd.srcPath} → ${ndDest}`);
+      console.log(`[复制]   依赖 ${nd.name}: ${nd.srcPath} → ${ndDest}`);
       copyRecursive(nd.srcPath, ndDest);
     }
   }

@@ -137,8 +137,16 @@ process.env.INIT_CWD = process.env.INIT_CWD || projectRoot;
 
 // ── 策略 1: process.chdir() ──
 // Bun 编译 exe 中 chdir 可能不生效，但正常 Node/Bun 环境下可靠
+// 编译模式下 chdir 到 exe 所在目录：Bun --compile 的 external 依赖
+// （sharp/pdfjs-dist，需 --compile-autoload-package-json）运行时从真实 CWD 的
+// node_modules 解析，chdir(exeDir) 确保找到 exe 同级的 node_modules；
+// JS 层 process.cwd() 由策略 2 统一返回 projectRoot，业务代码不受影响。
 try {
-  process.chdir(projectRoot);
+  process.chdir(
+    isCompiledBinary
+      ? dirname(resolve(process.execPath || ''))
+      : projectRoot
+  );
 } catch (e) {
   if (process.env['LIRI_DEBUG']) {
     bootLogger.error('chdir failed, trying fallback strategies', {
@@ -159,16 +167,12 @@ try {
 // 仅在 --compile 模式生效：编译 exe 中 cwd 可能返回虚拟路径
 // 相比直接赋值 process.cwd = fn，defineProperty 的拦截更彻底
 if (isCompiledBinary) {
-  const origCwd = process.cwd.bind(process);
-
   Object.defineProperty(process, 'cwd', {
     value: (): string => {
-      const actual = origCwd();
-      // 如果 cwd 是根路径（如 \ 或 D:\），返回 projectRoot
-      if (actual === '\\' || actual === '/' || /^[A-Za-z]:\\$/.test(actual)) {
-        return projectRoot;
-      }
-      return actual;
+      // 编译模式下统一返回 projectRoot：
+      // 真实 cwd 已 chdir 到 exe 目录（供 Bun external 解析），
+      // 业务代码始终以 projectRoot 作为工作目录
+      return projectRoot;
     },
     writable: true,
     configurable: true,
@@ -388,12 +392,14 @@ if (process.env['LIRI_DEBUG']) {
   });
 }
 
-// ── 策略 7: 模块解析重定向（bun build --compile 外部依赖兜底） ──
-// 仅在 --compile 模式生效：编译 exe 无法通过系统 require 找到 --external 标记的包
-// Bun 编译的单文件 exe 中，模块根路径为虚拟路径（如 B:/~BUN/root/liri_terminal），
-// 导致 --external 标记的包（如 sharp）无法通过系统 require 找到。
-// 此处 hook Module._resolveFilename，用 process.execPath 定位实际 exe 目录，
-// 并搜索多个可能的 node_modules 位置（同级目录 + binaries/ 子目录）。
+// ── 策略 7: 模块解析重定向（Node 兼容层兜底，实际生效机制见下） ──
+// 实测（Bun 1.3.14 Windows）：编译 exe 中 --external 包（sharp/pdfjs-dist）的
+// 解析走 Bun 原生解析器，不经 Node 的 Module._resolveFilename，因此本 hook 不生效。
+// 真正生效的机制：
+//   1. 构建命令加 --compile-autoload-package-json（Bun external 从真实 CWD 的 node_modules 解析）
+//   2. 策略 1 chdir 到 exe 目录（确保 CWD 指向 exe 同级 node_modules）
+//   3. copy-external-deps 把 external 包及其完整依赖树放到 exe 同级 node_modules/
+// 本 hook 仅作为 Node 兼容层的兜底保留（某些内部 require 可能经过 Node 解析路径）。
 if (isCompiledBinary) {
   try {
     const Module = require('module') as {

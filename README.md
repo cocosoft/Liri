@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/190615273/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/190615273/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.35-blue)
+![Version](https://img.shields.io/badge/version-0.4.36-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •

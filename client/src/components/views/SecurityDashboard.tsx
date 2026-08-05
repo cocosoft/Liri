@@ -192,6 +192,62 @@ function SecurityDashboard() {
         </div>
       )}
 
+      {/* 权限拒绝监测（DenialTracker 指标） */}
+      {status?.denialStats && status.denialStats.totalDenials > 0 && (
+        <div className={`${bgCard} border rounded-lg mb-6`}>
+          <div
+            className={`px-4 py-3 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}
+          >
+            <h2 className={`text-sm font-semibold ${textPrimary}`}>
+              权限拒绝监测
+            </h2>
+          </div>
+          <div className="p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <div className={`text-sm ${textSecondary}`}>累计拒绝</div>
+              <div className={`text-2xl font-bold mt-1 ${textPrimary}`}>
+                {status.denialStats.totalDenials}
+              </div>
+            </div>
+            <div>
+              <div className={`text-sm ${textSecondary}`}>连续拒绝</div>
+              <div className={`text-2xl font-bold mt-1 ${textPrimary}`}>
+                {status.denialStats.consecutiveDenials}
+              </div>
+            </div>
+            <div>
+              <div className={`text-sm ${textSecondary}`}>拒绝率</div>
+              <div className={`text-2xl font-bold mt-1 ${textPrimary}`}>
+                {(status.denialStats.averageDenialRate * 100).toFixed(1)}%
+              </div>
+            </div>
+            <div>
+              <div className={`text-sm ${textSecondary}`}>被拒最多工具</div>
+              <div className="mt-1 space-y-1">
+                {status.denialStats.topDeniedTools.map((t) => (
+                  <div
+                    key={t.tool}
+                    className="flex items-center justify-between text-xs"
+                  >
+                    <span className="font-mono">{t.tool}</span>
+                    <span className={`font-medium ${textPrimary}`}>
+                      {t.count} 次
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          {status.denialStats.suggestion && (
+            <div
+              className={`px-4 py-2 border-t text-xs ${badgeMedium} ${isDark ? "border-gray-700" : "border-gray-200"}`}
+            >
+              {status.denialStats.suggestion}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 最近审计事件 */}
       {status && status.recentEvents.length > 0 && (
         <div className={`${bgCard} border rounded-lg overflow-hidden`}>

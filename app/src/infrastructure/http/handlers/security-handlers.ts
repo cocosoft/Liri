@@ -6,10 +6,11 @@ import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { queryAuditLogs, getAuditLogStats } from '@modules/security';
+import { denialTracker } from '@modules/permission';
 
 /**
  * GET /v1/security/dashboard — 安全仪表盘数据
- * 返回规则总数、风险分布、决策分布、最近安全事件
+ * 返回规则总数、风险分布、决策分布、权限拒绝统计、最近安全事件
  */
 export async function handleSecurityDashboard(
   _ctx: HandlerCtx,
@@ -34,6 +35,13 @@ export async function handleSecurityDashboard(
       decisionDistribution[dc] = (decisionDistribution[dc] || 0) + 1;
     }
 
+    // 权限拒绝监测统计（DenialTracker 内存态）
+    const denialStats = denialTracker.getStats();
+    const topDeniedTools = Array.from(denialStats.toolDenials.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([tool, count]) => ({ tool, count }));
+
     // 返回最近 20 条摘要
     const recentEventSummaries = recentEvents.slice(0, 20).map((event) => ({
       id: `${event.sessionContext.sessionId}-${event.timestamp.getTime()}`,
@@ -52,6 +60,13 @@ export async function handleSecurityDashboard(
         recentEvents: recentEventSummaries,
         riskDistribution,
         decisionDistribution,
+        denialStats: {
+          totalDenials: denialStats.totalDenials,
+          consecutiveDenials: denialStats.consecutiveDenials,
+          averageDenialRate: Number(denialStats.averageDenialRate.toFixed(4)),
+          suggestion: denialStats.suggestion,
+          topDeniedTools,
+        },
       })
     );
   } catch (error) {
@@ -67,6 +82,13 @@ export async function handleSecurityDashboard(
         recentEvents: [],
         riskDistribution: {},
         decisionDistribution: {},
+        denialStats: {
+          totalDenials: 0,
+          consecutiveDenials: 0,
+          averageDenialRate: 0,
+          suggestion: undefined,
+          topDeniedTools: [],
+        },
       })
     );
   }

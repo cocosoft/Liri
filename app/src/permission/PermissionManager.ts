@@ -391,6 +391,40 @@ export class PermissionManager {
   }
 
   /**
+   * OTel 角色 deny 计数器（惰性初始化；Meter 未就绪时 noop 兜底）
+   */
+  private roleDenyCounter: Counter | null = null;
+
+  /**
+   * 确保角色 deny 计数器已创建
+   */
+  private ensureRoleDenyCounter(): void {
+    if (this.roleDenyCounter) return;
+    try {
+      this.roleDenyCounter = metrics
+        .getMeter('liri-permission')
+        .createCounter('Liri.permission.role_denies', {
+          description: '角色规则权限拒绝次数（tool+role 维度）',
+        });
+    } catch {
+      // @ignore-catch: metrics 未初始化时不启用计数
+    }
+  }
+
+  /**
+   * 记录角色 deny 指标（每次角色规则拒绝 +1）
+   * @param toolName 工具名称
+   * @param role 角色名
+   */
+  private recordRoleDeny(toolName: string, role: string): void {
+    this.ensureRoleDenyCounter();
+    this.roleDenyCounter?.add(1, {
+      tool: toolName,
+      role,
+    });
+  }
+
+  /**
    * 审计权限决策：将每次权限决策记录到安全审计日志
    * @param decision 权限决策
    * @param toolName 工具名称
@@ -808,6 +842,7 @@ export class PermissionManager {
       );
       if (denyRule) {
         this.denialTracker.trackDenial(toolName);
+        this.recordRoleDeny(toolName, roleObj.name);
         return createDenyDecision(
           `Denied by role rule: ${denyRule.id} (${roleObj.name})`
         );

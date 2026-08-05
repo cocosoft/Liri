@@ -10,8 +10,10 @@ import {
   RegisteredPermissionHook,
   PermissionHookMetadata,
 } from './types/PermissionHook';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { SpanStatusCode, metrics } from '@opentelemetry/api';
+import type { Span, Counter } from '@opentelemetry/api';
 
 const logger = new Logger({
   module: 'permission:permissionHookService',
@@ -98,11 +100,50 @@ export class PermissionHookService {
   }
 
   /**
-   * 执行权限钩子
+   * 执行权限钩子（Otel 插桩入口：span + 决策计数）
    * @param context 钩子上下文
    * @returns 权限决策或null
    */
   async executeHooks(
+    context: PermissionHookContext
+  ): Promise<PermissionHookDecision | null> {
+    // Otel span：每次 hook 执行可观测（OTel 未初始化时 noop 兜底，不影响主链路）
+    let span: Span | null = null;
+    try {
+      span = getOTelTracing().startSpan('permission.hook.execute', {
+        tool: context.toolName,
+      });
+    } catch {
+      // @ignore-catch: OTel 未初始化时跳过插桩
+    }
+
+    try {
+      const decision = await this.executeHooksInner(context);
+      const behavior = decision ? decision.behavior : 'passthrough';
+      if (span) {
+        span.setAttribute('decision', behavior);
+        getOTelTracing().endSpan(span, SpanStatusCode.OK);
+      }
+      this.recordHookDecision(context.toolName, behavior);
+      return decision;
+    } catch (error) {
+      if (span) {
+        getOTelTracing().recordError(
+          span,
+          error instanceof Error ? error : new Error(String(error))
+        );
+        getOTelTracing().endSpan(span, SpanStatusCode.ERROR);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 执行权限钩子（内部实现）
+   * @param context 钩子上下文
+   * @returns 权限决策或null
+   */
+  private async executeHooksInner(
     context: PermissionHookContext
   ): Promise<PermissionHookDecision | null> {
     const hooks = this.getEnabledHooks();
@@ -193,6 +234,40 @@ export class PermissionHookService {
   clearHooks(): void {
     this.hooks.clear();
     logger.info('Cleared all permission hooks');
+  }
+
+  /**
+   * OTel hook 决策计数器（惰性初始化；Meter 未就绪时 noop 兜底）
+   */
+  private hookDecisionCounter: Counter | null = null;
+
+  /**
+   * 确保 hook 决策计数器已创建
+   */
+  private ensureHookDecisionCounter(): void {
+    if (this.hookDecisionCounter) return;
+    try {
+      this.hookDecisionCounter = metrics
+        .getMeter('liri-permission')
+        .createCounter('Liri.permission.hook_decisions', {
+          description: '权限 hook 决策计数（allow/deny/ask/passthrough）',
+        });
+    } catch {
+      // @ignore-catch: metrics 未初始化时不启用计数
+    }
+  }
+
+  /**
+   * 记录 hook 决策指标（每次决策 +1）
+   * @param toolName 工具名称
+   * @param behavior 决策行为
+   */
+  private recordHookDecision(toolName: string, behavior: string): void {
+    this.ensureHookDecisionCounter();
+    this.hookDecisionCounter?.add(1, {
+      behavior,
+      tool: toolName,
+    });
   }
 }
 

@@ -6,6 +6,8 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { metrics } from '@opentelemetry/api';
+import type { Counter } from '@opentelemetry/api';
 
 const logger = new Logger({
   module: 'permission:trackers:denialTracker',
@@ -78,6 +80,11 @@ export class DenialTracker {
   private lastDenialTime: number = 0;
   private listeners: Array<(record: DenialRecord) => void> = [];
 
+  /**
+   * OTel 拒绝计数器（惰性初始化；Meter 未就绪时 noop 兜底）
+   */
+  private denialCounter: Counter | null = null;
+
   constructor(config: Partial<DenialTrackerConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
@@ -115,6 +122,10 @@ export class DenialTracker {
       `DenialTracker: Recorded denial for ${params.toolName}, consecutive: ${this.consecutiveCount}`
     );
 
+    // OTel 拒绝指标：每次拒绝 +1（tool 维度）
+    this.ensureDenialCounter();
+    this.denialCounter?.add(1, { tool: params.toolName });
+
     // 通知监听器
     for (const listener of this.listeners) {
       try {
@@ -128,6 +139,22 @@ export class DenialTracker {
     }
 
     return record;
+  }
+
+  /**
+   * 确保拒绝计数器已创建
+   */
+  private ensureDenialCounter(): void {
+    if (this.denialCounter) return;
+    try {
+      this.denialCounter = metrics
+        .getMeter('liri-permission')
+        .createCounter('Liri.permission.denials', {
+          description: '权限拒绝次数（tool 维度）',
+        });
+    } catch {
+      // @ignore-catch: metrics 未初始化时不启用计数
+    }
   }
 
   /**

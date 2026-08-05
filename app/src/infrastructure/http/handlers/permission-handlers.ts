@@ -34,6 +34,7 @@ import {
   PermissionBehavior,
   PermissionRule,
 } from '@modules/permission/types/PermissionRule';
+import { createFineGrainedPermissionManager } from '@modules/permission/FineGrainedPermissionManager';
 
 const VALID_BEHAVIORS: string[] = ['allow', 'deny', 'ask'];
 
@@ -132,6 +133,117 @@ export async function handleDeletePermissionRule(
     manager.removeRule(ruleId);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ message: '权限规则已删除' }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+// ========== D 体系（细粒度权限，P2-7 桥接）==========
+// 只读 API：复用 CLI 核心（FineGrainedPermissionManager），
+// 让休眠的 D 体系从 CLI 独占变为 HTTP 可消费。
+// 数据模型为 resource+operation（文件存于 permissions/{rules,roles,users,resources}.json），
+// 与 A 体系（toolName → tool_rules.json）语义不同，通过 PermissionService 门面统一出口。
+// 写操作（grant/revoke/role/user CRUD）保持 CLI 路径（commands/builtin/permissions/Permissions.ts），
+// HTTP 侧暂只读，避免扩大风险面。
+
+/** D 体系权限规则（persistence 模型，与 A 体系 PermissionRule 同名不同义） */
+interface DgPermissionRule {
+  id: string;
+  resourceId: string;
+  operation: string;
+  action: string;
+  condition?: string;
+  priority: number;
+  toolName?: string;
+  behavior?: string;
+  contentPattern?: string;
+}
+
+function serializeDgRule(rule: DgPermissionRule): Record<string, unknown> {
+  return {
+    id: rule.id,
+    resourceId: rule.resourceId,
+    operation: rule.operation,
+    action: rule.action,
+    condition: rule.condition,
+    priority: rule.priority,
+    toolName: rule.toolName,
+    behavior: rule.behavior,
+    contentPattern: rule.contentPattern,
+  };
+}
+
+/**
+ * 列出细粒度角色 GET /v1/permissions/roles
+ */
+export async function handleListPermissionRoles(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const storage = createFineGrainedPermissionManager().getStorage();
+    const roles = await storage.getAllRoles();
+    const result = roles.map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      permissionCount: r.permissions.length,
+      permissions: r.permissions.map((p) => serializeDgRule(p)),
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    }));
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 列出细粒度用户 GET /v1/permissions/users
+ */
+export async function handleListPermissionUsers(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const storage = createFineGrainedPermissionManager().getStorage();
+    const users = await storage.getAllUsers();
+    const result = users.map((u) => ({
+      id: u.id,
+      name: u.name,
+      roles: u.roles,
+      permissionCount: u.permissions.length,
+      createdAt: u.createdAt,
+      updatedAt: u.updatedAt,
+    }));
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 列出细粒度资源 GET /v1/permissions/resources
+ */
+export async function handleListPermissionResources(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const storage = createFineGrainedPermissionManager().getStorage();
+    const resources = await storage.getAllResources();
+    const result = resources.map((r) => ({
+      id: r.id,
+      type: r.type,
+      name: r.name,
+      path: r.path,
+      description: r.description,
+      parentId: r.parentId,
+    }));
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result));
   } catch (err) {
     sendError(res, err);
   }

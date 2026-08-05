@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 工作空间管理器
  * 统一管理各种 Workspace 实例的创建和生命周期
  * 对标 AgentScope WorkspaceManager
@@ -15,6 +15,7 @@ import {
 } from './SandboxTypes';
 import type { SSHSandboxConfig } from './SSHSandbox';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { configManager } from '@modules/config';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -122,11 +123,7 @@ export class WorkspaceManager {
   private buildConfig(options: WorkspaceCreateOptions): SandboxConfig {
     return {
       platform: options.platform || this.detectPlatform(),
-      allowedPermissions: options.permissions || [
-        SandboxPermission.READ_FILE,
-        SandboxPermission.WRITE_FILE,
-        SandboxPermission.EXECUTE,
-      ],
+      allowedPermissions: options.permissions || this.getDefaultPermissions(),
       filesystemWhitelist: [],
       networkWhitelist: [],
       environmentWhitelist: [],
@@ -134,6 +131,36 @@ export class WorkspaceManager {
       maxMemory: 256,
       workingDirectory: options.workingDirectory || process.cwd(),
     };
+  }
+
+  /**
+   * P2-8：沙箱默认权限策略（配置化 + 灰度，默认 full 保持现状兼容）
+   *
+   * 环境变量 PERMISSION_SANDBOX_DEFAULT：
+   * - full     = READ_FILE + WRITE_FILE + EXECUTE（现状，默认）
+   * - standard = READ_FILE + WRITE_FILE（去掉 EXECUTE）
+   * - readonly = READ_FILE（仅可读，最严格）
+   *
+   * 收窄建议：Docker 平台可配 full，本机 Local 可配 standard/readonly。
+   * 单工作区仍可通过 options.permissions 覆盖。
+   */
+  private getDefaultPermissions(): SandboxPermission[] {
+    const policy = configManager
+      .env('PERMISSION_SANDBOX_DEFAULT', 'full')
+      ?.toLowerCase();
+    switch (policy) {
+      case 'readonly':
+        return [SandboxPermission.READ_FILE];
+      case 'standard':
+        return [SandboxPermission.READ_FILE, SandboxPermission.WRITE_FILE];
+      case 'full':
+      default:
+        return [
+          SandboxPermission.READ_FILE,
+          SandboxPermission.WRITE_FILE,
+          SandboxPermission.EXECUTE,
+        ];
+    }
   }
 
   /**

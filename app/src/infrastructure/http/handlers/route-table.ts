@@ -154,6 +154,9 @@ import {
   handleListPermissionRules,
   handleAddPermissionRule,
   handleDeletePermissionRule,
+  handleListPermissionRoles,
+  handleListPermissionUsers,
+  handleListPermissionResources,
 } from './permission-handlers';
 
 // Media handlers
@@ -2068,6 +2071,19 @@ export async function dispatchRoute(
       res,
       url.match(/^\/v1\/permissions\/rules\/(.+)$/)![1]
     );
+    return true;
+  }
+  // D 体系（细粒度权限）只读 API（P2-7 桥接）
+  if (method === 'GET' && url === '/v1/permissions/roles') {
+    await handleListPermissionRoles(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/permissions/users') {
+    await handleListPermissionUsers(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/permissions/resources') {
+    await handleListPermissionResources(req, res);
     return true;
   }
 

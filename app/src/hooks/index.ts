@@ -76,7 +76,6 @@ export {
 } from './CancelRequest';
 
 // 核心React Hooks
-export { useCanUseTool } from './useCanUseTool';
 export { useSettings } from './useSettings';
 export { useMergedTools, useTools, useToolByName } from './useMergedTools';
 export { useTypeahead, useCommandCompletion } from './useTypeahead';

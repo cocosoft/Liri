@@ -86,6 +86,7 @@ function PermissionPage() {
     loadConfig();
     loadPermissions();
     loadRules();
+    loadUsers();
   }, [loadConfig]);
 
   const loadPermissions = async () => {
@@ -156,6 +157,38 @@ function PermissionPage() {
         module: "permission:page",
         action: "deleteRule",
       });
+    }
+  };
+
+  // P2-7：细粒度用户列表（D 体系 /v1/permissions/users，只读）
+  const loadUsers = async () => {
+    try {
+      const list = await permissionService.listUsers();
+      setUsers(
+        list.map((u) => ({
+          id: u.id,
+          username: u.name,
+          email: "",
+          role:
+            u.roles.includes("admin") || u.roles.includes("system")
+              ? "admin"
+              : u.roles.includes("guest")
+                ? "guest"
+                : "user",
+          trustLevel:
+            u.roles.includes("admin") || u.roles.includes("system")
+              ? 4
+              : u.roles.includes("guest")
+                ? 0
+                : 2,
+          permissions: u.roles,
+          lastActive: u.updatedAt
+            ? new Date(u.updatedAt).toLocaleString()
+            : "—",
+        })),
+      );
+    } catch (e) {
+      handleClientError(e, { module: "permission:page", action: "loadUsers" });
     }
   };
 
@@ -255,7 +288,8 @@ function PermissionPage() {
                 <p
                   className={`text-xs p-3 rounded-lg text-center ${isDark ? "bg-gray-700/50 text-gray-400" : "bg-gray-50 text-gray-500"}`}
                 >
-                  暂无用户数据（用户权限管理 API 待接入）
+                  暂无用户数据（细粒度用户管理可通过 CLI /permissions
+                  user 配置）
                 </p>
               ) : (
                 users.map((user) => (
@@ -479,7 +513,7 @@ function PermissionPage() {
                 <div
                   className={`${isDark ? "bg-gray-800" : "bg-white"} rounded-lg border ${isDark ? "border-gray-700" : "border-gray-200"} p-6`}
                 >
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-2">
                     <h3
                       className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
                     >
@@ -493,6 +527,14 @@ function PermissionPage() {
                       {rulesLoading ? "加载中..." : "刷新"}
                     </button>
                   </div>
+                  {/* P2-10：与 RuleEngine 对话行为规则区分（rule-handlers.ts 的 /v1/workspaces/:id/rules 是对话规则，与本页工具权限规则无关） */}
+                  <p
+                    className={`text-xs mb-4 ${isDark ? "text-gray-500" : "text-gray-500"}`}
+                  >
+                    工具权限规则：控制 AI 能否调用某个工具（allow/deny/ask），
+                    数据存于 permissions/tool_rules.json。与"对话行为规则"
+                    （RuleEngine，约束 Agent 回复行为）不是一回事，勿混用。
+                  </p>
 
                   <div className="flex gap-3 mb-4 text-xs">
                     <span
@@ -550,8 +592,8 @@ function PermissionPage() {
                     <p
                       className={`text-xs p-3 rounded-lg text-center ${isDark ? "bg-gray-700/50 text-gray-400" : "bg-gray-50 text-gray-500"}`}
                     >
-                      暂无权限规则。添加后，工具调用将按
-                      allow/deny/ask 判定（无规则匹配时按默认行为放行或拒绝）。
+                      暂无权限规则。添加后，工具调用将按 allow/deny/ask
+                      判定（无规则匹配时按默认行为放行或拒绝）。
                     </p>
                   ) : (
                     <div className="space-y-2">
@@ -614,7 +656,7 @@ function PermissionPage() {
                 <p
                   className={`${isDark ? "text-gray-500" : "text-gray-400"}`}
                 >
-                  暂无用户数据：用户权限管理 API 待接入后，可在此查看信任等级与角色。
+                  暂无用户数据：细粒度用户管理可通过 CLI /permissions user 配置后，在此查看信任等级与角色。
                 </p>
               </div>
             )}

@@ -36,6 +36,7 @@ import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { SkillInjectionService } from '@modules/skills/services/SkillInjectionService';
 import { SkillRegistry } from '@modules/skills/SkillRegistry';
 import { getSkillHub } from '@modules/skills/SkillHub';
+import { loadBuiltinEnabled } from '@modules/skills/BuiltinEnabledStore';
 import { FileSkillLoader } from '@modules/skills/loaders/sources/FileSkillLoader';
 import { SkillSource } from '@modules/skills/types';
 import {
@@ -71,8 +72,13 @@ export async function initBuiltinSkills(): Promise<void> {
     skillFileName: 'SKILL.md',
   });
   const skills = await loader.loadSkills();
+  // 3.5.7：恢复内置技能禁用状态（持久化 builtin-enabled.json），避免重启后复活
+  const builtinEnabled = loadBuiltinEnabled();
   for (const skill of skills) {
     skillRegistry.register(skill);
+    if (builtinEnabled.has(skill.name)) {
+      skillRegistry.setEnabled(skill.name, builtinEnabled.get(skill.name)!);
+    }
   }
   // v1.5：绑定 SkillHub 只读投影（幂等），后续 setEnabled 经 skill-updated 事件自动刷新
   getSkillHub().bindTo(skillRegistry);

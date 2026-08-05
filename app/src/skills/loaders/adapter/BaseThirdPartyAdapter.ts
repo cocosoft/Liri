@@ -38,6 +38,10 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { SkillSource, SkillLoadMethod } from '@modules/skills/types';
 import type { Skill } from '@modules/skills/types';
 import type { SkillRegistry } from '@modules/skills/SkillRegistry';
+import {
+  loadBuiltinEnabled,
+  persistBuiltinEnabled,
+} from '@modules/skills/BuiltinEnabledStore';
 import { LocalSkillStore } from './LocalSkillStore';
 import { SkillAuditService } from './SkillAuditService';
 import { SkillSearchEngine } from './SkillSearchEngine';
@@ -158,12 +162,42 @@ export abstract class BaseThirdPartyAdapter<
 
     try {
       await this.localStore.initialize();
+      this.recoverFromCrashes();
       logger.info(`${this.displayName} 初始化完成`);
       this.initialized = true;
       this.emit('initialized');
     } catch (error) {
       logger.error(`${this.displayName} 初始化失败`, error as Error);
       throw error;
+    }
+  }
+
+  /**
+   * 5.5：.bak 崩溃恢复 + .tmp 残留清理
+   * 启动时遍历已安装技能：正式目录缺失且 `.bak` 存在 → 自动还原；
+   * 清理 updateSkill 中断残留的 `.tmp` 目录。失败仅告警，不影响启动。
+   */
+  private recoverFromCrashes(): void {
+    try {
+      const installed = this.localStore.getAllSkillsSync();
+      for (const skill of installed) {
+        const installPath = (skill as { installPath?: string }).installPath;
+        if (!installPath) continue;
+
+        const bakPath = `${installPath}.bak`;
+        if (!existsSync(installPath) && existsSync(bakPath)) {
+          renameSync(bakPath, installPath);
+          logger.warn(`崩溃恢复：已从 .bak 还原技能目录 ${installPath}`);
+        }
+
+        const tmpPath = `${installPath}.tmp`;
+        if (existsSync(tmpPath)) {
+          rmSync(tmpPath, { recursive: true, force: true });
+          logger.warn(`崩溃恢复：已清理 .tmp 残留 ${tmpPath}`);
+        }
+      }
+    } catch (error) {
+      logger.warn('崩溃恢复扫描失败，跳过（不影响启动）', error as Error);
     }
   }
 
@@ -444,6 +478,7 @@ export abstract class BaseThirdPartyAdapter<
     await this.localStore.setEnabled(skillId, true);
     if (this.skillRegistry) {
       this.skillRegistry.setEnabled(skillId, true);
+      this.persistBuiltinState(skillId, true);
     }
     this.emit('skill:enabled', { id: skillId });
 
@@ -461,12 +496,32 @@ export abstract class BaseThirdPartyAdapter<
     await this.localStore.setEnabled(skillId, false);
     if (this.skillRegistry) {
       this.skillRegistry.setEnabled(skillId, false);
+      this.persistBuiltinState(skillId, false);
     }
     this.emit('skill:disabled', { id: skillId });
 
     if (skill) {
       this.auditService.recordToggle(skill.meta.id, skill.meta.name, false);
     }
+  }
+
+  /**
+   * 内置技能启用状态持久化（3.5.7）
+   * 仅当目标技能为内置（source=OFFICIAL 且 loadedFrom=builtin）时写入 builtin-enabled.json，
+   * 保证"内置技能禁用后重启不复活"。非内置技能（走 index.json）不在此持久化。
+   */
+  private persistBuiltinState(skillId: string, enabled: boolean): void {
+    const skill = this.skillRegistry?.get(skillId, { includeDisabled: true });
+    if (
+      !skill ||
+      skill.source !== SkillSource.OFFICIAL ||
+      skill.loadedFrom !== 'builtin'
+    ) {
+      return;
+    }
+    const state = loadBuiltinEnabled();
+    state.set(skillId, enabled);
+    persistBuiltinEnabled(state);
   }
 
   /**

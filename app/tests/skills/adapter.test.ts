@@ -24,6 +24,11 @@ class FakeAdapter extends BaseThirdPartyAdapter<InstalledThirdPartySkill> {
   readonly name = 'fake';
   readonly displayName = 'Fake 市场';
 
+  /** 显式构造：注入 skillsPath，避免落到真实用户技能目录 */
+  constructor(skillsPath?: string) {
+    super(skillsPath ? { skillsPath } : {});
+  }
+
   remoteCalls: Array<{ query: string; opts?: unknown }> = [];
   doInstallError: Error | null = null;
 
@@ -222,5 +227,43 @@ describe('BaseThirdPartyAdapter（阶段 1）', () => {
     // 正式目录仍为旧内容
     expect(existsSync(installPath)).toBe(true);
     expect(readFileSync(join(installPath, 'SKILL.md'), 'utf-8')).toBe('# Old Version');
+  });
+
+  it('4.3：getSkillInstallPath 将仓库形态 id 映射为安全目录名', () => {
+    const store = adapter.getLocalStore();
+    expect(store.getSkillInstallPath('github:owner/repo')).toBe(
+      join(dir, 'github_owner_repo')
+    );
+    expect(store.getSkillInstallPath('hermes:org/skill-name')).toBe(
+      join(dir, 'hermes_org_skill-name')
+    );
+    // 普通技能 id 不受影响
+    expect(store.getSkillInstallPath('normal-skill')).toBe(
+      join(dir, 'normal-skill')
+    );
+  });
+
+  it('5.5：initialize 时正式目录缺失且 .bak 存在 → 自动还原，.tmp 残留被清理', async () => {
+    const crashPath = join(dir, 'crash-skill');
+    // 索引指向 crashPath（正式目录缺失 → 模拟 updateSkill 中断）
+    await adapter.localStore.addSkill(
+      makeInstalled('crash-skill', { installPath: crashPath })
+    );
+
+    const bakDir = `${crashPath}.bak`;
+    mkdirSync(bakDir, { recursive: true });
+    writeFileSync(join(bakDir, 'SKILL.md'), '# Old', 'utf-8');
+
+    const tmpDir = `${crashPath}.tmp`;
+    mkdirSync(tmpDir, { recursive: true });
+    writeFileSync(join(tmpDir, 'SKILL.md'), '# Tmp', 'utf-8');
+
+    // 新实例触发 recoverFromCrashes（已初始化的实例不会重复执行）
+    const adapter2 = new FakeAdapter(dir);
+    await adapter2.initialize();
+
+    expect(existsSync(join(crashPath, 'SKILL.md'))).toBe(true);
+    expect(existsSync(bakDir)).toBe(false);
+    expect(existsSync(tmpDir)).toBe(false);
   });
 });

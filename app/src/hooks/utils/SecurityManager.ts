@@ -5,6 +5,16 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
+// ── hooks 专用安全状态（第三套实现，与 config.permission 面板配置隔离）──
+// 本模块（SecurityManager）为 hooks（HookExecutor）提供独立安全状态：
+// trustState（isTrusted/isInteractive/trustDialogAccepted）与 sandboxConfig
+// 是 hooks 专用语义，不在 config.permission 中；trustedWorkspaces/customRules
+// 字段虽与设置页"信任工作区/自定义规则"同名，但属于本模块私有态（持久化
+// security.json），不消费设置页面板配置（面板配置 → config.permission →
+// permission/filesystem.ts 消费，见安全功能拉通方案 §4.2b 附带清理）。
+// 评估结论（2026-08-05）：维持隔离、不合并——合并会引入 hooks 语义与
+// 面板配置的耦合，成本高于收益；如需统一，作为后续独立任务评审。
+
 const logger = getLogger('SecurityManager');
 
 /**

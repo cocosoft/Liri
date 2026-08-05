@@ -144,7 +144,7 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
         layer={{ primary: "系统边界" }}
         title="信任工作区"
         question="允许 AI 碰哪些本地路径"
-        relation="应用内强制兜底，任何一级无法覆盖"
+        relation="此处白名单决定文件读写门禁，与工具权限规则互补；应用内强制兜底，任何一级无法覆盖"
         isDark={isDark}
       />
       {/* 权限模式 */}

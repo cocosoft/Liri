@@ -160,3 +160,78 @@ describe('injectTrustedWorkspaceFromEnv（仅合并 trustedWorkspaces）', () =>
     }
   });
 });
+
+describe('ConfigManager 点号路径读写一致（M0 语义统一，§六b）', () => {
+  it('setValue 点号写入 → getConfigValue 点号回退读取一致', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'cfg-test-'));
+    tmpDirs.push(tmpDir);
+    const configPath = join(tmpDir, 'config.json');
+    writeFileSync(configPath, JSON.stringify({ migrationVersion: 3 }));
+
+    const cm = new ConfigManager(configPath);
+    cm.enableConfigs();
+
+    cm.setValue('permission.trustedWorkspaces', [
+      { path: '/ws', trustLevel: 'work', enabled: true },
+    ]);
+    // 整块读取（getConfigValue 顶层）
+    const permission =
+      cm.getConfigValue<Record<string, unknown>>('permission')!;
+    expect(permission['trustedWorkspaces']).toEqual([
+      { path: '/ws', trustLevel: 'work', enabled: true },
+    ]);
+    // 点号路径直接回退读取
+    expect(cm.getConfigValue('permission.trustedWorkspaces')).toEqual([
+      { path: '/ws', trustLevel: 'work', enabled: true },
+    ]);
+  });
+
+  it('setConfigValue flat 写入 → getConfigValue flat 读取对称', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'cfg-test-'));
+    tmpDirs.push(tmpDir);
+    const configPath = join(tmpDir, 'config.json');
+    writeFileSync(configPath, JSON.stringify({ migrationVersion: 3 }));
+
+    const cm = new ConfigManager(configPath);
+    cm.enableConfigs();
+
+    cm.setConfigValue('permission', {
+      mode: 'strict',
+      customRules: { directoryRules: { blacklist: [] } },
+    });
+    expect(cm.getConfigValue('permission')).toEqual({
+      mode: 'strict',
+      customRules: { directoryRules: { blacklist: [] } },
+    });
+    // 点号路径也能读取嵌套字段
+    expect(cm.getConfigValue<{ mode: string }>('permission')!.mode).toBe(
+      'strict'
+    );
+  });
+
+  it('历史 flat key 写入（不推荐）点号回退仍可读，迁移后清除', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'cfg-test-'));
+    tmpDirs.push(tmpDir);
+    const configPath = join(tmpDir, 'config.json');
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        migrationVersion: 2,
+        'permission.workspaces': {
+          mode: 'default',
+          trustedWorkspaces: [],
+        },
+      })
+    );
+
+    const cm = new ConfigManager(configPath);
+    cm.enableConfigs();
+
+    // 迁移后 flat key 已合并进 permission 整块
+    expect(cm.getConfigValue('permission.workspaces')).toBeUndefined();
+    const permission =
+      cm.getConfigValue<Record<string, unknown>>('permission')!;
+    expect(permission['mode']).toBe('default');
+    expect(permission['trustedWorkspaces']).toEqual([]);
+  });
+});

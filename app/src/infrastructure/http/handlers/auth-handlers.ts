@@ -28,7 +28,11 @@ import { RoleType } from '@modules/permission/Permission';
 // 演进项（真实用户体系基础）：用户持久化到 {data}/auth/users.json（密码哈希），
 // tokens 保持内存（重启后需重新登录）
 const authUserStore = new AuthUserStore();
-const tokens = new Map<string, { username: string; permissions: string[] }>();
+/** 会话令牌（内存态，重启失效）。导出供测试注入与诊断。 */
+export const authTokens = new Map<
+  string,
+  { username: string; permissions: string[] }
+>();
 
 /** E↔A 打通：将认证权限映射为角色并注入工具权限决策（登录时调用） */
 function applyAuthRoleToPermissionManager(permissions: string[]): void {
@@ -46,6 +50,23 @@ function clearAuthRoleFromPermissionManager(): void {
 }
 
 // ========== Auth Handlers ==========
+
+/**
+ * 管理写 API 鉴权（M0d）
+ * - 无 Authorization 头 → 'ok'（本地回环信任基线，维持现状行为）
+ * - 携带无效 token → 'unauthorized'（401）
+ * - 有效 token 但非 admin 角色 → 'forbidden'（403）
+ * - admin 角色 → 'ok'
+ */
+export type AdminCheckResult = 'ok' | 'unauthorized' | 'forbidden';
+export function checkAdminRequest(req: http.IncomingMessage): AdminCheckResult {
+  const authHeader = req.headers['authorization'] || '';
+  if (!authHeader.startsWith('Bearer ')) return 'ok';
+  const token = authHeader.slice(7);
+  const session = authTokens.get(token);
+  if (!session) return 'unauthorized';
+  return session.permissions.includes('admin') ? 'ok' : 'forbidden';
+}
 
 /**
  * 用户登录 POST /v1/auth/login
@@ -68,10 +89,10 @@ export async function handleAuthLogin(
       return;
     }
 
-    const user = authUserStore.verify(username, password)
-      ? { username, password: '' }
+    const storedUser = authUserStore.verify(username, password)
+      ? authUserStore.getUser(username)
       : undefined;
-    if (!user) {
+    if (!storedUser) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
@@ -81,13 +102,17 @@ export async function handleAuthLogin(
       return;
     }
 
+    const isAdmin = storedUser.role === 'admin';
+    const permissions = isAdmin
+      ? ['admin', 'read', 'write']
+      : ['read', 'write'];
     const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    tokens.set(token, {
+    authTokens.set(token, {
       username,
-      permissions: ['read', 'write'],
+      permissions,
     });
     // E↔A 打通：登录成功注入认证角色到工具权限决策
-    applyAuthRoleToPermissionManager(['read', 'write']);
+    applyAuthRoleToPermissionManager(permissions);
 
     const now = Date.now();
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -98,7 +123,7 @@ export async function handleAuthLogin(
           id: `user_${now}`,
           username,
           email: '',
-          role: 'user',
+          role: isAdmin ? 'admin' : 'user',
           trustLevel: 2,
           created_at: now,
         },
@@ -143,7 +168,7 @@ export async function handleAuthRegister(
 
     authUserStore.addUser(username, password);
     const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    tokens.set(token, {
+    authTokens.set(token, {
       username,
       permissions: ['read', 'write'],
     });
@@ -183,7 +208,7 @@ export async function handleAuthLogout(
     const token = authHeader.replace('Bearer ', '');
 
     if (token) {
-      tokens.delete(token);
+      authTokens.delete(token);
     }
     // E↔A 打通：登出清除认证角色，恢复默认工具权限行为
     clearAuthRoleFromPermissionManager();
@@ -206,7 +231,7 @@ export async function handleAuthMe(
     const authHeader = req.headers['authorization'] || '';
     const token = authHeader.replace('Bearer ', '');
 
-    const session = tokens.get(token);
+    const session = authTokens.get(token);
     if (!session) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: 'Not authenticated' } }));
@@ -242,7 +267,7 @@ export async function handleAuthPermissions(
     const authHeader = req.headers['authorization'] || '';
     const token = authHeader.replace('Bearer ', '');
 
-    const session = tokens.get(token);
+    const session = authTokens.get(token);
     if (!session) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: 'Not authenticated' } }));

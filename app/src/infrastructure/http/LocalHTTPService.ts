@@ -513,11 +513,23 @@ export class LocalHTTPService {
       return;
     }
 
-    // 共享密钥校验：确保请求来自被授权的 Tauri 客户端
+    // 共享密钥校验：确保请求来自被授权的 Tauri 客户端；
+    // 兼容登录会话：携带有效 Bearer 登录 token 的请求同样放行（M0d）
     if (!this.verifyRequestAuth(req)) {
-      res.writeHead(401, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Unauthorized' } }));
-      return;
+      const authHeader = req.headers['authorization'] || '';
+      const sessionToken = authHeader.startsWith('Bearer ')
+        ? authHeader.slice(7)
+        : '';
+      let validSession = false;
+      if (sessionToken) {
+        const { authTokens } = await import('./handlers/auth-handlers');
+        validSession = authTokens.has(sessionToken);
+      }
+      if (!validSession) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Unauthorized' } }));
+        return;
+      }
     }
 
     const url = req.url?.split('?')[0] || '';

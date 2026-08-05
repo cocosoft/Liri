@@ -362,6 +362,47 @@ export async function handleDeletePermissionUser(
 }
 
 /**
+ * 更新细粒度用户 PUT /v1/permissions/users/{userId}
+ * body: { roles?: string[] }（省略 roles 时保留原角色）
+ */
+export async function handleUpdatePermissionUser(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  userId: string
+): Promise<void> {
+  try {
+    const body = await readRequestBody(req);
+    const { roles } = JSON.parse(body);
+
+    const storage = createFineGrainedPermissionManager().getStorage();
+    const existing = await storage.getUser(userId);
+    if (!existing) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '用户不存在' } }));
+      return;
+    }
+
+    const nextRoles =
+      Array.isArray(roles) && roles.length > 0
+        ? (roles as string[]).filter(
+            (r): r is RoleType =>
+              typeof r === 'string' && VALID_ROLE_TYPES.includes(r)
+          )
+        : existing.roles;
+
+    await storage.updateUser({
+      ...existing,
+      roles: nextRoles,
+      updatedAt: Date.now(),
+    });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ message: '细粒度用户已更新' }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
  * 创建细粒度角色 POST /v1/permissions/roles
  * body: { name: 'admin'|'user'|'guest'|'system', description?: string }
  */

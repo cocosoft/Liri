@@ -423,7 +423,20 @@ export class ConfigManager {
       const parsedConfig = JSON.parse(fileContent);
 
       // 迁移配置
+      const needPersistMigration = ConfigMigration.needsMigration(parsedConfig);
       const migratedConfig = ConfigMigration.migrate(parsedConfig);
+
+      // 迁移落盘（一次性：仅当确实发生迁移，失败 WARN 不阻断启动）
+      if (needPersistMigration) {
+        try {
+          this.atomicWriteConfig(migratedConfig as GlobalConfig);
+          logger.info('配置迁移结果已落盘');
+        } catch (migrateErr) {
+          logger.warn('配置迁移落盘失败（不阻断启动），下次启动将重试', {
+            error: String(migrateErr),
+          });
+        }
+      }
 
       // 合并默认配置
       const config: GlobalConfig = {
@@ -883,7 +896,11 @@ export class ConfigManager {
    */
   getConfigValue<T = unknown>(key: string): T | undefined {
     const config = this.getGlobalConfig();
-    return config[key] as T | undefined;
+    if (key in config) {
+      return config[key] as T | undefined;
+    }
+    // 点号路径回退：兼容 setValue（点号嵌套写入）的读取，统一读写语义
+    return this.getValue<T>(key);
   }
 
   /**

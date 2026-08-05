@@ -36,6 +36,9 @@ export {
   CURRENT_MIGRATION_VERSION,
 } from './ConfigMigration.js';
 
+// 导出环境变量注入
+export { injectTrustedWorkspaceFromEnv } from './envInject.js';
+
 export type {
   GlobalConfig,
   ProjectConfig,

@@ -9,9 +9,9 @@ interface UserNavItem {
   icon: string;
 }
 
-/** 懒加载子页面注册表 */
+/** 懒加载子页面注册表（M2：apikeys 归一为 ApiKeyContent 唯一实现） */
 const SUB_PAGE_REGISTRY: Record<string, React.LazyExoticComponent<React.FC>> = {
-  apikeys: lazy(() => import("./ApiKeyPage")),
+  apikeys: lazy(() => import("../settings/ApiKeyContent")),
   oauth: lazy(() => import("./OAuthPage")),
   permissions: lazy(() => import("./PermissionPage")),
 };

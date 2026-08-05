@@ -198,28 +198,11 @@ export function registerStandardHandlers(): void {
     handler: async (ctx: BootContext) => {
       logger.info('[Phase 5] 领域模块初始化');
 
-      // T1.2: 从环境变量读取信任的工作区
+      // T1.2: 从环境变量读取信任的工作区（仅合并 trustedWorkspaces 字段）
       try {
-        const { configManager } = await import('@modules/config');
-        const trustedWorkspace = process.env['LIRI_TRUSTED_WORKSPACE'];
-        if (trustedWorkspace) {
-          const existing = configManager.getConfigValue<any>('permission');
-          if (!existing?.trustedWorkspaces?.length) {
-            let wsPath = trustedWorkspace;
-            let wsLevel = 'development';
-            const pipeIdx = trustedWorkspace.lastIndexOf('|');
-            if (pipeIdx > 0) {
-              wsPath = trustedWorkspace.slice(0, pipeIdx);
-              wsLevel = trustedWorkspace.slice(pipeIdx + 1);
-            }
-            configManager.setConfigValue('permission', {
-              mode: 'default',
-              trustedWorkspaces: [
-                { path: wsPath, trustLevel: wsLevel, enabled: true },
-              ],
-            });
-          }
-        }
+        const { configManager, injectTrustedWorkspaceFromEnv } =
+          await import('@modules/config');
+        injectTrustedWorkspaceFromEnv(configManager);
       } catch (err) {
         // 非致命：env 读取失败时静默跳过
       }

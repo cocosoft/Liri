@@ -13,6 +13,8 @@ import LocalAgentPanel from "../settings/LocalAgentPanel";
 import NotificationsPanel from "../settings/NotificationsPanel";
 import TrustedWorkspacesPanel from "../settings/TrustedWorkspacesPanel";
 import CustomRulesPanel from "../settings/CustomRulesPanel";
+import SafetyPositionBanner from "../settings/SafetyPositionBanner";
+import SecurityOverviewContent from "../settings/SecurityOverviewContent";
 import VoiceSettings from "../settings/VoiceSettings";
 import KnowledgeIngestPanel from "../settings/KnowledgeIngestPanel";
 import LogViewerPage from "../views/LogViewerPage";
@@ -123,10 +125,11 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: "settings.categorySecurity",
     badgeClass: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
     items: [
+      // M1：概览 → 系统边界 → 用户级（§5.1 边界优先）
       {
-        id: "apikeys",
-        labelKey: "settings.apiKeys",
-        icon: KeyIcon,
+        id: "security-overview",
+        labelKey: "settings.securityOverview",
+        icon: ShieldIcon,
         zone: "security",
       },
       {
@@ -145,6 +148,12 @@ const NAV_GROUPS: NavGroup[] = [
         id: "permissions",
         labelKey: "settings.permissions",
         icon: ShieldIcon,
+        zone: "security",
+      },
+      {
+        id: "apikeys",
+        labelKey: "settings.apiKeys",
+        icon: KeyIcon,
         zone: "security",
       },
       {
@@ -213,6 +222,7 @@ const PAGE_DESCRIPTIONS: Record<string, string> = {
   user: "设置用户身份信息，用于个性化对话",
   memory: "管理持久化记忆和上下文信息",
   apikeys: "创建和管理 API 访问密钥",
+  "security-overview": "三级权限模型总览：系统边界、用户级、应用级归属与常见疑问",
   "trusted-workspaces": "管理可信任的工作区目录",
   "custom-rules": "配置自定义安全规则和约束",
   permissions: "管理权限策略和访问控制",
@@ -800,6 +810,8 @@ function SettingsPage() {
         return <UserPanel isDark={isDark} />;
       case "apikeys":
         return <ApiKeyContent />;
+      case "security-overview":
+        return <SecurityOverviewContent isDark={isDark} />;
       case "trusted-workspaces":
         return <TrustedWorkspacesPanel isDark={isDark} />;
       case "custom-rules":
@@ -951,18 +963,32 @@ function RouterConfigContent({
 }
 
 /** 权限管理内容 */
-function PermissionManagementContent({ isDark: _isDark }: { isDark: boolean }) {
+function PermissionManagementContent({ isDark }: { isDark: boolean }) {
   return (
     <div className="p-6">
+      <SafetyPositionBanner
+        layer={{ primary: "用户级", secondary: "应用级" }}
+        title="权限"
+        question="工具/操作允不允许执行（allow/deny/ask）"
+        relation="用户配置规则、应用级执行；认证身份注入角色后生效"
+        isDark={isDark}
+      />
       <PermissionPage />
     </div>
   );
 }
 
 /** OAuth 认证管理内容 */
-function OAuthManagementContent({ isDark: _isDark }: { isDark: boolean }) {
+function OAuthManagementContent({ isDark }: { isDark: boolean }) {
   return (
     <div className="p-6">
+      <SafetyPositionBanner
+        layer={{ primary: "用户级" }}
+        title="OAuth 认证"
+        question="第三方账号登录（方向待定，见方案 §4.4）"
+        relation="当前未接入；此处不承诺“可登录”"
+        isDark={isDark}
+      />
       <OAuthPage />
     </div>
   );

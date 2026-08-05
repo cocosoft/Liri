@@ -39,11 +39,15 @@ const logger = new Logger({
   level: LogLevel.INFO,
 });
 
+/** auth 用户角色 */
+export type AuthUserRole = 'admin' | 'user';
+
 /** 持久化用户记录（密码为哈希，不存明文） */
 export interface StoredAuthUser {
   username: string;
   passwordHash: string;
   salt: string;
+  role: AuthUserRole;
   createdAt: number;
 }
 
@@ -59,6 +63,7 @@ export class AuthUserStore {
   constructor(filePath?: string) {
     this.filePath = filePath ?? join(resolveDataSubDir('auth'), 'users.json');
     this.load();
+    this.seedAdminFromEnv();
   }
 
   /** 从磁盘加载用户（文件不存在视为无用户） */
@@ -77,6 +82,17 @@ export class AuthUserStore {
         action: 'load_users',
       });
     }
+  }
+
+  /**
+   * 首次启动播种 admin（仅当 LIRI_ADMIN_PASSWORD 环境变量设置且尚无任何用户时）。
+   * 不设置环境变量则不播种——不引入默认口令安全风险。
+   */
+  private seedAdminFromEnv(): void {
+    const password = process.env['LIRI_ADMIN_PASSWORD'];
+    if (!password || this.users.size > 0) return;
+    this.addUser('admin', password, 'admin');
+    logger.info('auth:adminSeeded', { username: 'admin' });
   }
 
   /** 保存用户到磁盘 */
@@ -102,16 +118,26 @@ export class AuthUserStore {
     return this.users.has(username);
   }
 
-  /** 注册用户（密码哈希落盘） */
-  addUser(username: string, password: string): void {
+  /** 注册用户（密码哈希落盘，默认 user 角色） */
+  addUser(
+    username: string,
+    password: string,
+    role: AuthUserRole = 'user'
+  ): void {
     const salt = randomBytes(8).toString('hex');
     this.users.set(username, {
       username,
       passwordHash: hashPassword(password, salt),
       salt,
+      role,
       createdAt: Date.now(),
     });
     this.save();
+  }
+
+  /** 获取用户记录（不存在返回 undefined） */
+  getUser(username: string): StoredAuthUser | undefined {
+    return this.users.get(username);
   }
 
   /** 校验用户密码（不存在返回 false） */

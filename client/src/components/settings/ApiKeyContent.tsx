@@ -1,11 +1,15 @@
 import { useState, useEffect } from "react";
 import { useApiKeyStore } from "../../stores/authStore";
+import { useConfigStore } from "../../stores/configStore";
 import { handleClientError } from "../../utils/handleError";
+import SafetyPositionBanner from "./SafetyPositionBanner";
 
 /** API 密钥管理面板 — 从 SettingsPage.tsx 提取 */
 function ApiKeyContent() {
   const { apiKeys, isLoading, error, loadApiKeys, createApiKey, deleteApiKey } =
     useApiKeyStore();
+  const { config } = useConfigStore();
+  const isDark = config.theme === "dark";
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
   const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
@@ -69,6 +73,14 @@ function ApiKeyContent() {
 
   return (
     <div className="p-6">
+      {/* 安全定位横幅（M1） */}
+      <SafetyPositionBanner
+        layer={{ primary: "用户级" }}
+        title="API 密钥"
+        question="程序凭什么访问（脚本/外部系统令牌）"
+        relation="用户创建的凭据；密钥权限映射角色（扩展项）"
+        isDark={isDark}
+      />
       <div className="flex items-center justify-end mb-6">
         <button
           onClick={() => {
@@ -88,6 +100,11 @@ function ApiKeyContent() {
           {error || createError}
         </div>
       )}
+
+      {/* M2：API 密钥为内存存储，重启后失效提示 */}
+      <div className="mb-4 p-3 rounded-lg text-xs bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800">
+        密钥仅保存在内存中，重启应用后全部失效，请按需重新创建。
+      </div>
 
       {isLoading && apiKeys.length === 0 ? (
         <div className="text-center py-12 text-gray-500">加载中...</div>

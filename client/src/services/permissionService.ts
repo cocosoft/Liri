@@ -88,6 +88,11 @@ export const permissionService = {
     return http.get<PermissionUser[]>("/v1/permissions/users");
   },
 
+  /** D 体系（细粒度权限）更新用户角色（M0e：PUT /v1/permissions/users/{id}） */
+  async updateUserRoles(userId: string, roles: string[]): Promise<void> {
+    return http.put(`/v1/permissions/users/${userId}`, { roles });
+  },
+
   /** D 体系（细粒度权限）资源列表（P2-7） */
   async listResources(): Promise<unknown[]> {
     return http.get<unknown[]>("/v1/permissions/resources");

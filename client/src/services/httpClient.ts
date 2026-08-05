@@ -68,6 +68,14 @@ function buildHeaders(extra?: Record<string, string>): Record<string, string> {
     headers["X-API-Key"] = secret;
   }
 
+  // 登录态注入：管理 API 鉴权（M0d，登录后携带 Bearer token；未登录不注入）
+  if (typeof localStorage !== "undefined") {
+    const authToken = localStorage.getItem("auth_token");
+    if (authToken) {
+      headers["Authorization"] = `Bearer ${authToken}`;
+    }
+  }
+
   // W3C TraceContext 传播：注入 traceparent 头
   propagation.inject(otelContext.active(), headers);
 

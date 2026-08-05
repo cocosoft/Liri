@@ -9,6 +9,7 @@ import {
 } from "./ConfigComponents";
 import { httpLegacy as http } from "../../services/httpClient";
 import { handleClientError } from "../../utils/handleError";
+import SafetyPositionBanner from "./SafetyPositionBanner";
 
 /** 工作空间信任级别 */
 type WorkspaceTrustLevel = "chat" | "work" | "development";
@@ -21,10 +22,11 @@ interface WorkspaceConfig {
   label?: string;
 }
 
-/** 权限配置 */
+/** 权限配置（整块存储，保留 customRules 避免覆盖自定义规则面板数据） */
 interface PermissionConfig {
   mode: "default" | "strict" | "permissive";
   trustedWorkspaces: WorkspaceConfig[];
+  customRules?: unknown;
 }
 
 interface TrustedWorkspacesPanelProps {
@@ -47,7 +49,7 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
   const loadConfig = async () => {
     try {
       const res = await http.get<{ key: string; value: PermissionConfig }>(
-        "/v1/config/permission.workspaces",
+        "/v1/config/permission",
       );
       if (res?.value) {
         setPermission(res.value);
@@ -61,13 +63,13 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
     }
   };
 
-  /** 保存权限配置 */
+  /** 保存权限配置（整块） */
   const saveConfig = async () => {
     setLoading(true);
     setSaved(false);
     setError(null);
     try {
-      await http.put("/v1/config/permission.workspaces", { value: permission });
+      await http.put("/v1/config/permission", { value: permission });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e) {
@@ -137,6 +139,14 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
 
   return (
     <ConfigSection isDark={isDark}>
+      {/* 安全定位横幅（M1） */}
+      <SafetyPositionBanner
+        layer={{ primary: "系统边界" }}
+        title="信任工作区"
+        question="允许 AI 碰哪些本地路径"
+        relation="应用内强制兜底，任何一级无法覆盖"
+        isDark={isDark}
+      />
       {/* 权限模式 */}
       <ConfigItem label="默认权限模式" isDark={isDark}>
         <SelectConfig

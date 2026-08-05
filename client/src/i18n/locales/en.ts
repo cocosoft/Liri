@@ -583,6 +583,7 @@ const en = {
     router: "Smart Router",
     sandbox: "Sandbox Manager",
     saveSettings: "Save Settings",
+    securityOverview: "Security Overview",
     skillMarket: "Skill Market",
     skills: "Skill Manager",
     soul: "Soul Persona",

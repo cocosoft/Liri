@@ -8,6 +8,7 @@ import {
 } from "./ConfigComponents";
 import { httpLegacy as http } from "../../services/httpClient";
 import { handleClientError } from "../../utils/handleError";
+import SafetyPositionBanner from "./SafetyPositionBanner";
 
 /** 命令规则 */
 interface CommandRule {
@@ -34,8 +35,10 @@ interface CustomRulesConfig {
   };
 }
 
-/** 权限配置 */
+/** 权限配置（整块存储，保留 mode/trustedWorkspaces 避免覆盖信任工作区面板数据） */
 interface PermissionConfig {
+  mode?: "default" | "strict" | "permissive";
+  trustedWorkspaces?: unknown[];
   customRules?: CustomRulesConfig;
 }
 
@@ -56,6 +59,7 @@ const RULE_TABS: { id: RuleTab; label: string }[] = [
 function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
   const { t } = useTranslation();
   const [config, setConfig] = useState<CustomRulesConfig>({});
+  const [permission, setPermission] = useState<PermissionConfig>({});
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,8 +70,9 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
   const loadConfig = async () => {
     try {
       const res = await http.get<{ key: string; value: PermissionConfig }>(
-        "/v1/config/permission.rules",
+        "/v1/config/permission",
       );
+      setPermission(res?.value ?? {});
       if (res?.value?.customRules) {
         setConfig(res.value.customRules);
       } else {
@@ -86,14 +91,14 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
     }
   };
 
-  /** 保存配置 */
+  /** 保存配置（整块，保留 mode/trustedWorkspaces） */
   const saveConfig = async () => {
     setLoading(true);
     setSaved(false);
     setError(null);
     try {
-      await http.put("/v1/config/permission.rules", {
-        value: { customRules: config },
+      await http.put("/v1/config/permission", {
+        value: { ...permission, customRules: config },
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -214,6 +219,14 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
 
   return (
     <ConfigSection isDark={isDark}>
+      {/* 安全定位横幅（M1） */}
+      <SafetyPositionBanner
+        layer={{ primary: "系统边界" }}
+        title="自定义规则"
+        question="哪些危险命令/目录必拦"
+        relation="强制兜底，黑名单命中即拒，allow 无法覆盖"
+        isDark={isDark}
+      />
       {/* 命令模式选择 */}
       <ConfigItem label="命令模式" isDark={isDark}>
         <SelectConfig

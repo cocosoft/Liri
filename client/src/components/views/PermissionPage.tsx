@@ -260,19 +260,24 @@ function PermissionPage() {
     );
   };
 
-  const updateUserTrustLevel = (userId: string, level: number) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, trustLevel: level } : u)),
-    );
-    if (selectedUser?.id === userId) {
-      setSelectedUser((prev) => (prev ? { ...prev, trustLevel: level } : null));
-    }
-  };
-
-  const updateUserRole = (userId: string, role: "admin" | "user" | "guest") => {
-    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
-    if (selectedUser?.id === userId) {
-      setSelectedUser((prev) => (prev ? { ...prev, role } : null));
+  // M0e：角色编辑持久化（PUT /v1/permissions/users/{id}），失败保留原值
+  const updateUserRole = async (
+    userId: string,
+    role: "admin" | "user" | "guest",
+  ) => {
+    try {
+      await permissionService.updateUserRoles(userId, [role]);
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, role } : u)),
+      );
+      if (selectedUser?.id === userId) {
+        setSelectedUser((prev) => (prev ? { ...prev, role } : null));
+      }
+    } catch (e) {
+      handleClientError(e, {
+        module: "permission:page",
+        action: "updateUserRole",
+      });
     }
   };
 
@@ -354,42 +359,34 @@ function PermissionPage() {
                       >
                         信任等级
                       </label>
-                      <div className="space-y-2">
-                        {TRUST_LEVELS.map((level) => (
-                          <button
-                            key={level.level}
-                            onClick={() =>
-                              updateUserTrustLevel(selectedUser.id, level.level)
-                            }
-                            className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                              selectedUser.trustLevel === level.level
-                                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                                : isDark
-                                  ? "border-gray-700 bg-gray-700/50 hover:bg-gray-700"
-                                  : "border-gray-200 hover:bg-gray-50"
-                            }`}
+                      {/* M0e：信任等级由角色派生，只读展示（避免假交互，CS04） */}
+                      <div
+                        className={`p-3 rounded-lg border ${isDark ? "border-gray-700 bg-gray-700/50" : "border-gray-200 bg-gray-50"}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span
+                            className={`font-medium ${isDark ? "text-gray-100" : "text-gray-900"}`}
                           >
-                            <div className="flex items-center justify-between">
-                              <span
-                                className={`font-medium ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                              >
-                                Lv.{level.level} {level.name}
-                              </span>
-                              <span
-                                className={`text-xs px-2 py-0.5 rounded ${getTrustLevelColor(level.level)}`}
-                              >
-                                {level.level === selectedUser.trustLevel
-                                  ? "当前"
-                                  : "选择"}
-                              </span>
-                            </div>
-                            <p
-                              className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                            >
-                              {level.description}
-                            </p>
-                          </button>
-                        ))}
+                            Lv.{selectedUser.trustLevel}{" "}
+                            {getTrustLevelInfo(selectedUser.trustLevel).name}
+                          </span>
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded ${getTrustLevelColor(selectedUser.trustLevel)}`}
+                          >
+                            当前
+                          </span>
+                        </div>
+                        <p
+                          className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                        >
+                          {getTrustLevelInfo(selectedUser.trustLevel).description}
+                        </p>
+                        <p
+                          className={`text-xs mt-2 ${isDark ? "text-gray-500" : "text-gray-500"}`}
+                        >
+                          信任等级由角色派生（admin/system=Lv.4，user=Lv.2，
+                          guest=Lv.0），只读展示。
+                        </p>
                       </div>
                     </div>
                     <div>

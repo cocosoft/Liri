@@ -63,7 +63,10 @@ import {
   syncSeedData,
 } from '@modules/core';
 import { modelRouter } from '@modules/ai';
-import { configManager } from './config/index.js';
+import {
+  configManager,
+  injectTrustedWorkspaceFromEnv,
+} from './config/index.js';
 import { isOfflineMode, setOfflineMode } from './entrypoints/shared-state.js';
 import {
   hydrateOnStartup,
@@ -1186,32 +1189,9 @@ export async function launch(options: LaunchOptions): Promise<void> {
     });
 
     // T1.2: 读取 LIRI_TRUSTED_WORKSPACE 环境变量，映射到 permission.trustedWorkspaces
-    // 仅在 config.json 中无 trustedWorkspaces 配置时注入
+    // 仅合并 trustedWorkspaces 字段，仅在 config.json 中无 trustedWorkspaces 配置时注入
     try {
-      const trustedWorkspace = configManager.env('LIRI_TRUSTED_WORKSPACE');
-      if (trustedWorkspace) {
-        const existing = configManager.getConfigValue<any>('permission');
-        if (!existing?.trustedWorkspaces?.length) {
-          let wsPath = trustedWorkspace;
-          let wsLevel: string = 'development';
-          // 支持语法扩展：LIRI_TRUSTED_WORKSPACE=path|level
-          const pipeIdx = trustedWorkspace.lastIndexOf('|');
-          if (pipeIdx > 0) {
-            wsPath = trustedWorkspace.slice(0, pipeIdx);
-            wsLevel = trustedWorkspace.slice(pipeIdx + 1);
-          }
-          configManager.setConfigValue('permission', {
-            mode: 'default',
-            trustedWorkspaces: [
-              {
-                path: wsPath,
-                trustLevel: wsLevel,
-                enabled: true,
-              },
-            ],
-          });
-        }
-      }
+      injectTrustedWorkspaceFromEnv(configManager);
     } catch (err) {
       // 非致命：env 读取失败时静默跳过（不记录到 initFailures，因依赖环境变量）
     }

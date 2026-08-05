@@ -147,6 +147,7 @@ import {
   handleAuthLogout,
   handleAuthMe,
   handleAuthPermissions,
+  checkAdminRequest,
 } from './auth-handlers';
 
 // Permission handlers（工具权限规则管理，P1-5 直接函数调用）
@@ -159,6 +160,7 @@ import {
   handleListPermissionResources,
   handleCreatePermissionUser,
   handleDeletePermissionUser,
+  handleUpdatePermissionUser,
   handleCreatePermissionRole,
   handleDeletePermissionRole,
   handleCreatePermissionResource,
@@ -200,6 +202,27 @@ export async function dispatchRoute(
   handlerCtx: HandlerCtx
 ): Promise<boolean> {
   const method = req.method || 'GET';
+
+  // ---- 管理写 API 鉴权（M0d：登录态非 admin → 403；无效 token → 401；无 token → 本地回环基线放行）----
+  if (
+    (method === 'POST' || method === 'PUT' || method === 'DELETE') &&
+    (url.startsWith('/v1/permissions/') ||
+      url.startsWith('/v1/apikeys') ||
+      url.startsWith('/v1/oauth/providers'))
+  ) {
+    const result = checkAdminRequest(req);
+    if (result !== 'ok') {
+      res.writeHead(result === 'unauthorized' ? 401 : 403, {
+        'Content-Type': 'application/json',
+      });
+      res.end(
+        JSON.stringify({
+          error: { message: '管理操作需要 admin 权限' },
+        })
+      );
+      return true;
+    }
+  }
 
   // ---- SSE Event Bus ----
   if (url === '/v1/events') {
@@ -2107,6 +2130,14 @@ export async function dispatchRoute(
     );
     return true;
   }
+  if (method === 'PUT' && url.match(/^\/v1\/permissions\/users\/(.+)$/)) {
+    await handleUpdatePermissionUser(
+      req,
+      res,
+      url.match(/^\/v1\/permissions\/users\/(.+)$/)![1]
+    );
+    return true;
+  }
   if (method === 'GET' && url === '/v1/permissions/resources') {
     await handleListPermissionResources(req, res);
     return true;
@@ -2792,6 +2823,22 @@ export async function dispatchRoute(
   }
   if (method === 'GET' && url === '/v1/auth/permissions') {
     await handleAuthPermissions(req, res);
+    return true;
+  }
+
+  // ---- OAuth Provider 运维入口（M3）----
+  if (method === 'GET' && url === '/v1/oauth/providers') {
+    const { handleListOAuthProviders } = await import('./oauth-handlers');
+    await handleListOAuthProviders(req, res);
+    return true;
+  }
+  if (method === 'PUT' && url.match(/^\/v1\/oauth\/providers\/(.+)$/)) {
+    const { handleUpdateOAuthProvider } = await import('./oauth-handlers');
+    await handleUpdateOAuthProvider(
+      req,
+      res,
+      url.match(/^\/v1\/oauth\/providers\/(.+)$/)![1]
+    );
     return true;
   }
 

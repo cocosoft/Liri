@@ -572,6 +572,7 @@ const zh = {
     router: "智能路由",
     sandbox: "沙箱管理",
     saveSettings: "保存设置",
+    securityOverview: "安全功能关系",
     skillMarket: "技能市场",
     skills: "技能管理",
     soul: "玲珑鸟人格",

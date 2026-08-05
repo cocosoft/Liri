@@ -24,3 +24,8 @@ export * from './flows';
 export * from './providers';
 export { createOAuthCrypto } from './utils/OAuthCrypto';
 export { createOAuthConfig } from './utils/OAuthConfig';
+export {
+  OAuthProviderStore,
+  createOAuthProviderStore,
+  type OAuthProviderInfo,
+} from './OAuthProviderStore';

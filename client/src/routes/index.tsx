@@ -95,7 +95,8 @@ const OfficeCalendarPage = lazy(
   () => import("../components/views/office/OfficeCalendarPage"),
 );
 // routes/index.tsx 原有保留路由
-const ApiKeyPage = lazy(() => import("../components/views/ApiKeyPage"));
+// M2：/apikeys 归一为 ApiKeyContent 唯一实现（方案 §5.4，替代 ApiKeyPage 重复实现）
+const ApiKeyPage = lazy(() => import("../components/settings/ApiKeyContent"));
 const OAuthPage = lazy(() => import("../components/views/OAuthPage"));
 
 /** 完整路由表——App.tsx（33 条）与 routes/index.tsx 原路由取并集，同名路由 App.tsx 优先（含 AuthGuard） */

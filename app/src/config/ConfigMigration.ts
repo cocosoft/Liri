@@ -13,7 +13,7 @@ const logger = new Logger({
 /**
  * 当前迁移版本
  */
-export const CURRENT_MIGRATION_VERSION = 2;
+export const CURRENT_MIGRATION_VERSION = 3;
 
 /**
  * 配置迁移器类
@@ -69,9 +69,50 @@ export class ConfigMigration {
         return this.migrateToV1(config);
       case 2:
         return this.migrateToV2(config);
+      case 3:
+        return this.migrateToV3(config);
       default:
         return config;
     }
+  }
+
+  /**
+   * 迁移到版本3：将历史 flat key（permission.workspaces / permission.rules）
+   * 合并进 permission 整块（config.permission），与后端消费结构对齐
+   * @param config 配置对象
+   * @returns 迁移后的配置
+   */
+  private static migrateToV3(config: any): any {
+    const migrated = { ...config };
+    const flatWorkspaces = migrated['permission.workspaces'];
+    const flatRules = migrated['permission.rules'];
+
+    if (flatWorkspaces || flatRules) {
+      const permission = { ...(migrated.permission ?? {}) };
+
+      if (flatWorkspaces) {
+        // 保留已存在的 permission.trustedWorkspaces（优先），否则合并历史 flat key
+        permission.mode = permission.mode ?? flatWorkspaces.mode ?? 'default';
+        permission.trustedWorkspaces =
+          permission.trustedWorkspaces ??
+          flatWorkspaces.trustedWorkspaces ??
+          [];
+        delete migrated['permission.workspaces'];
+      }
+
+      if (flatRules) {
+        permission.customRules =
+          permission.customRules ?? flatRules.customRules;
+        delete migrated['permission.rules'];
+      }
+
+      migrated.permission = permission;
+      logger.warn(
+        '配置已迁移：历史 permission.workspaces/permission.rules 已合并进 permission 整块'
+      );
+    }
+
+    return migrated;
   }
 
   /**

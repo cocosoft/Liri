@@ -438,9 +438,7 @@ export class QueryLogStore {
    * 错误统计（持久化来源 query_logs，重启不清零）
    * 统计 api_call / tool_call 中 success=0 的记录
    */
-  async getErrorStats(
-    limit: number = 10
-  ): Promise<{
+  async getErrorStats(limit: number = 10): Promise<{
     totalErrors: number;
     totalCalls: number;
     errorRate: number;
@@ -485,9 +483,7 @@ export class QueryLogStore {
           (err: Error | null, row: unknown) => {
             if (err) reject(err);
             else
-              resolve(
-                (row || { cnt: 0, errs: 0 }) as Record<string, number>
-              );
+              resolve((row || { cnt: 0, errs: 0 }) as Record<string, number>);
           }
         );
       }

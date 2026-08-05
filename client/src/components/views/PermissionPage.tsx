@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { useConfigStore } from "../../stores/configStore";
 import { authService, type Permission } from "../../services/authService";
-import { createLogger } from "@/utils/logger";
-
-const logger = createLogger("components:permission");
+import {
+  permissionService,
+  type PermissionRule,
+} from "../../services/permissionService";
+import { handleClientError } from "../../utils/handleError";
 
 interface UserPermission {
   id: string;
@@ -65,10 +67,25 @@ function PermissionPage() {
     [],
   );
   const [permissionsLoading, setPermissionsLoading] = useState(true);
+  // P1-5：工具权限规则（真实 API /v1/permissions/rules）
+  const [rules, setRules] = useState<PermissionRule[]>([]);
+  const [rulesSummary, setRulesSummary] = useState({
+    total: 0,
+    allow: 0,
+    deny: 0,
+    ask: 0,
+  });
+  const [rulesLoading, setRulesLoading] = useState(false);
+  const [ruleBehavior, setRuleBehavior] = useState<"allow" | "deny" | "ask">(
+    "deny",
+  );
+  const [ruleToolName, setRuleToolName] = useState("");
+  const [ruleContentPattern, setRuleContentPattern] = useState("");
 
   useEffect(() => {
     loadConfig();
     loadPermissions();
+    loadRules();
   }, [loadConfig]);
 
   const loadPermissions = async () => {
@@ -88,47 +105,57 @@ function PermissionPage() {
         })),
       );
     } catch (e) {
-      logger.error("加载权限失败，使用默认配置", e);
-      setSystemPermissions([
-        {
-          id: "network",
-          name: "网络访问",
-          description: "允许访问外部网络",
-          enabled: true,
-        },
-        {
-          id: "filesystem",
-          name: "文件系统",
-          description: "允许读写本地文件",
-          enabled: true,
-        },
-        {
-          id: "execute",
-          name: "代码执行",
-          description: "允许执行动态代码",
-          enabled: false,
-        },
-        {
-          id: "memory",
-          name: "内存访问",
-          description: "允许访问系统内存",
-          enabled: false,
-        },
-        {
-          id: "process",
-          name: "进程管理",
-          description: "允许创建和管理进程",
-          enabled: false,
-        },
-        {
-          id: "admin",
-          name: "管理员权限",
-          description: "允许系统级操作",
-          enabled: false,
-        },
-      ]);
+      // CS04：禁止 mock 回退。加载失败即空态 + 报错，不填充默认配置
+      handleClientError(e, {
+        module: "permission:page",
+        action: "loadPermissions",
+      });
+      setSystemPermissions([]);
     } finally {
       setPermissionsLoading(false);
+    }
+  };
+
+  // P1-5：工具权限规则加载/添加/删除
+  const loadRules = async () => {
+    setRulesLoading(true);
+    try {
+      const data = await permissionService.listRules();
+      setRules(data.rules);
+      setRulesSummary(data.summary);
+    } catch (e) {
+      handleClientError(e, { module: "permission:page", action: "loadRules" });
+    } finally {
+      setRulesLoading(false);
+    }
+  };
+
+  const addRule = async () => {
+    const toolName = ruleToolName.trim();
+    if (!toolName) return;
+    try {
+      await permissionService.addRule(
+        ruleBehavior,
+        toolName,
+        ruleContentPattern.trim() || undefined,
+      );
+      setRuleToolName("");
+      setRuleContentPattern("");
+      await loadRules();
+    } catch (e) {
+      handleClientError(e, { module: "permission:page", action: "addRule" });
+    }
+  };
+
+  const deleteRule = async (ruleId: string) => {
+    try {
+      await permissionService.deleteRule(ruleId);
+      await loadRules();
+    } catch (e) {
+      handleClientError(e, {
+        module: "permission:page",
+        action: "deleteRule",
+      });
     }
   };
 
@@ -441,6 +468,138 @@ function PermissionPage() {
                                 perm.enabled ? "left-7" : "left-1"
                               }`}
                             />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* P1-5：工具权限规则管理（真实 API /v1/permissions/rules） */}
+                <div
+                  className={`${isDark ? "bg-gray-800" : "bg-white"} rounded-lg border ${isDark ? "border-gray-700" : "border-gray-200"} p-6`}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3
+                      className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
+                    >
+                      工具权限规则
+                    </h3>
+                    <button
+                      onClick={loadRules}
+                      disabled={rulesLoading}
+                      className="px-3 py-1 text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 text-gray-700 dark:text-gray-300 rounded"
+                    >
+                      {rulesLoading ? "加载中..." : "刷新"}
+                    </button>
+                  </div>
+
+                  <div className="flex gap-3 mb-4 text-xs">
+                    <span
+                      className={isDark ? "text-gray-400" : "text-gray-600"}
+                    >
+                      总数: {rulesSummary.total}
+                    </span>
+                    <span className="text-green-600">
+                      允许: {rulesSummary.allow}
+                    </span>
+                    <span className="text-red-600">
+                      拒绝: {rulesSummary.deny}
+                    </span>
+                    <span className="text-yellow-600">
+                      询问: {rulesSummary.ask}
+                    </span>
+                  </div>
+
+                  <div className="flex gap-2 mb-4">
+                    <select
+                      value={ruleBehavior}
+                      onChange={(e) =>
+                        setRuleBehavior(
+                          e.target.value as "allow" | "deny" | "ask",
+                        )
+                      }
+                      className={`px-2 py-1.5 text-xs rounded border ${isDark ? "bg-gray-700 border-gray-600 text-gray-200" : "bg-white border-gray-300 text-gray-800"}`}
+                    >
+                      <option value="allow">允许</option>
+                      <option value="deny">拒绝</option>
+                      <option value="ask">询问</option>
+                    </select>
+                    <input
+                      placeholder="工具名（支持 glob，如 Bash）"
+                      value={ruleToolName}
+                      onChange={(e) => setRuleToolName(e.target.value)}
+                      className={`flex-1 px-2 py-1.5 text-xs rounded border ${isDark ? "bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500" : "bg-white border-gray-300 text-gray-800 placeholder-gray-400"}`}
+                    />
+                    <input
+                      placeholder="内容模式（可选，正则）"
+                      value={ruleContentPattern}
+                      onChange={(e) => setRuleContentPattern(e.target.value)}
+                      className={`flex-1 px-2 py-1.5 text-xs rounded border ${isDark ? "bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500" : "bg-white border-gray-300 text-gray-800 placeholder-gray-400"}`}
+                    />
+                    <button
+                      onClick={addRule}
+                      disabled={!ruleToolName.trim()}
+                      className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded"
+                    >
+                      添加
+                    </button>
+                  </div>
+
+                  {rules.length === 0 ? (
+                    <p
+                      className={`text-xs p-3 rounded-lg text-center ${isDark ? "bg-gray-700/50 text-gray-400" : "bg-gray-50 text-gray-500"}`}
+                    >
+                      暂无权限规则。添加后，工具调用将按
+                      allow/deny/ask 判定（无规则匹配时按默认行为放行或拒绝）。
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {rules.map((rule) => (
+                        <div
+                          key={rule.id}
+                          className={`flex items-center justify-between p-3 rounded-lg ${isDark ? "bg-gray-700/50" : "bg-gray-50"}`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span
+                              className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${
+                                rule.behavior === "allow"
+                                  ? isDark
+                                    ? "bg-green-900/30 text-green-400"
+                                    : "bg-green-100 text-green-700"
+                                  : rule.behavior === "deny"
+                                    ? isDark
+                                      ? "bg-red-900/30 text-red-400"
+                                      : "bg-red-100 text-red-700"
+                                    : isDark
+                                      ? "bg-yellow-900/30 text-yellow-400"
+                                      : "bg-yellow-100 text-yellow-700"
+                              }`}
+                            >
+                              {rule.behavior === "allow"
+                                ? "允许"
+                                : rule.behavior === "deny"
+                                  ? "拒绝"
+                                  : "询问"}
+                            </span>
+                            <span
+                              className={`font-mono text-sm truncate ${isDark ? "text-gray-100" : "text-gray-900"}`}
+                            >
+                              {rule.toolName}
+                            </span>
+                            {rule.contentPattern && (
+                              <span
+                                className={`text-xs font-mono truncate ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                              >
+                                {rule.contentPattern}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => deleteRule(rule.id)}
+                            className="text-xs text-red-500 hover:text-red-400 shrink-0 ml-2"
+                          >
+                            删除
                           </button>
                         </div>
                       ))}

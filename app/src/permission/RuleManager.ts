@@ -4,7 +4,7 @@
  */
 import { join, dirname } from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolveDataDir } from '@modules/core';
+import { resolvePermissionsDir } from '@modules/core';
 import {
   PermissionRule,
   PermissionBehavior,
@@ -51,9 +51,9 @@ export class RuleManager {
   private rules: PermissionRule[] = [];
 
   /**
-   * 规则存储路径
+   * 规则存储路径（P1-6：统一至权限数据目录 permissions/，与细粒度存储同目录）
    */
-  private ruleSource: string = join(resolveDataDir(), 'permission_rules.json');
+  private ruleSource: string = join(resolvePermissionsDir(), 'tool_rules.json');
 
   /**
    * 所有规则来源的优先级（数值越大优先级越高）

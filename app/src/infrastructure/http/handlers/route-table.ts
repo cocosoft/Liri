@@ -149,6 +149,13 @@ import {
   handleAuthPermissions,
 } from './auth-handlers';
 
+// Permission handlers（工具权限规则管理，P1-5 直接函数调用）
+import {
+  handleListPermissionRules,
+  handleAddPermissionRule,
+  handleDeletePermissionRule,
+} from './permission-handlers';
+
 // Media handlers
 import {
   handleMediaSubtitleGenerate,
@@ -2043,6 +2050,24 @@ export async function dispatchRoute(
   }
   if (method === 'PUT' && url === '/v1/settings/data-directory') {
     await self['handleSetDataDirectory'](req, res);
+    return true;
+  }
+
+  // ---- Permissions（工具权限规则管理，P1-5）----
+  if (method === 'GET' && url === '/v1/permissions/rules') {
+    await handleListPermissionRules(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/permissions/rules') {
+    await handleAddPermissionRule(req, res);
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/permissions\/rules\/(.+)$/)) {
+    await handleDeletePermissionRule(
+      req,
+      res,
+      url.match(/^\/v1\/permissions\/rules\/(.+)$/)![1]
+    );
     return true;
   }
 

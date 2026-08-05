@@ -132,6 +132,8 @@ export class ConfigManager {
   private configSnapshot: ConfigSnapshot;
   private configRecovery: ConfigRecovery;
   private configIO: ConfigIO;
+  /** 备份文件命名自增序号，避免同进程同毫秒多次写入覆盖同名备份 */
+  private backupSeq = 0;
 
   // --- 多源合并相关 ---
   private sourceConfigs: Map<string, Record<string, unknown>> = new Map();
@@ -648,6 +650,10 @@ export class ConfigManager {
       // 释放文件锁
       this.configIO.releaseLock(lockPath);
     }
+
+    // 清理旧备份移到锁外：清理仅删除旧文件，不涉及当前文件一致性，
+    // 避免持锁期间执行 readdir/stat/unlink 拉长锁持有时间（并发写配置排队）。
+    this.cleanupOldBackups();
   }
 
   /**
@@ -684,12 +690,13 @@ export class ConfigManager {
       }
 
       const fileBase = basename(this.globalConfigPath);
-      const backupPath = join(backupDir, `${fileBase}.backup.${Date.now()}`);
+      // 命名含 pid + 自增序号，避免同进程同毫秒多次写入覆盖同名备份
+      const backupPath = join(
+        backupDir,
+        `${fileBase}.backup.${Date.now()}.${process.pid}.${++this.backupSeq}`
+      );
 
       copyFileSync(this.globalConfigPath, backupPath);
-
-      // 清理旧备份，只保留最近5个
-      this.cleanupOldBackups();
     } catch (error) {
       logger.warn('创建配置备份失败', {
         error: error instanceof Error ? error.message : String(error),
@@ -698,7 +705,11 @@ export class ConfigManager {
   }
 
   /**
-   * 清理旧备份，只保留最近 5 个
+   * 清理旧备份，只保留最近 5 个普通备份和 5 个损坏备份
+   * - 普通备份与损坏备份分开保留：损坏备份是配置损坏时的现场证据，不被普通备份配额挤掉
+   * - 仅处理普通文件（readdirSync withFileTypes + isFile），避免 unlink 目录抛错中断清理
+   * - 排序含文件名 tie-break，避免同毫秒 mtime 相等时删除顺序不确定
+   * - 在文件锁外调用（见 atomicWriteConfig），清理仅删旧文件，不涉及当前文件一致性
    */
   private cleanupOldBackups(): void {
     try {
@@ -708,24 +719,53 @@ export class ConfigManager {
       }
 
       const fileBase = basename(this.globalConfigPath);
-      const files = readdirSync(backupDir)
-        .filter((f) => f.startsWith(fileBase))
-        .map((f) => {
-          const p = join(backupDir, f);
-          return { p, mtimeMs: statSync(p).mtimeMs };
-        })
-        .sort((a, b) => b.mtimeMs - a.mtimeMs);
+      const entries = readdirSync(backupDir, { withFileTypes: true });
 
-      // 只保留最近 5 个备份，删除更旧的
-      const KEEP_BACKUPS = 5;
-      for (const f of files.slice(KEEP_BACKUPS)) {
-        unlinkSync(f.p);
-      }
+      const backups = this.listBackups(entries, fileBase, '.backup.');
+      const corrupted = this.listBackups(entries, fileBase, '.corrupted.');
+
+      // 普通备份与损坏备份各自保留最近 5 个
+      this.removeExcessBackups(backups, 5);
+      this.removeExcessBackups(corrupted, 5);
     } catch (err) {
       // @ignore-catch: 备份清理失败不阻断（备份已创建，仅记录 WARN 供排查）
       logger.warn('清理旧备份失败', {
         error: err instanceof Error ? err.message : String(err),
       });
+    }
+  }
+
+  /**
+   * 列出指定后缀的备份文件（仅普通文件），按时间倒序、文件名 tie-break
+   */
+  private listBackups(
+    entries: import('fs').Dirent[],
+    fileBase: string,
+    suffix: string
+  ): { p: string; name: string; mtimeMs: number }[] {
+    return entries
+      .filter((e) => e.isFile() && e.name.startsWith(fileBase + suffix))
+      .map((e) => {
+        const p = join(this.getConfigBackupDir(), e.name);
+        return { p, name: e.name, mtimeMs: statSync(p).mtimeMs };
+      })
+      .sort((a, b) => b.mtimeMs - a.mtimeMs || b.name.localeCompare(a.name));
+  }
+
+  /**
+   * 删除超过保留上限的备份；单条删除失败不中断其余清理
+   * （并发场景下文件可能已被其他进程删除，ENOENT 属正常）
+   */
+  private removeExcessBackups(
+    backups: { p: string }[],
+    keepCount: number
+  ): void {
+    for (const backup of backups.slice(keepCount)) {
+      try {
+        unlinkSync(backup.p);
+      } catch {
+        // @ignore-catch: 并发清理时文件可能已被其他进程删除（ENOENT），跳过继续
+      }
     }
   }
 
@@ -744,12 +784,15 @@ export class ConfigManager {
       }
 
       const fileBase = basename(this.globalConfigPath);
+      // 命名含 pid + 自增序号，避免同进程同毫秒多次写入覆盖同名备份
       const corruptedPath = join(
         backupDir,
-        `${fileBase}.corrupted.${Date.now()}`
+        `${fileBase}.corrupted.${Date.now()}.${process.pid}.${++this.backupSeq}`
       );
 
       copyFileSync(this.globalConfigPath, corruptedPath);
+      // 损坏备份有独立保留配额（见 cleanupOldBackups），创建后同步清理避免无限累积
+      this.cleanupOldBackups();
       logger.info(`损坏的配置已备份到: ${corruptedPath}`);
     } catch (error) {
       logger.warn('备份损坏配置失败', {

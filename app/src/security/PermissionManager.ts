@@ -5,6 +5,8 @@
 
 import { Logger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { RuleManager } from '@modules/permission/RuleManager';
+import { PermissionBehavior } from '@modules/permission/types/PermissionRule';
 
 const logger = new Logger({ module: 'PermissionManager' });
 
@@ -120,6 +122,40 @@ export class PermissionManager {
 
   constructor(defaultAllow: boolean = true) {
     this.defaultAllow = defaultAllow;
+    // P0-3：从主权限模块（permission_rules.json）同步 deny 规则，消除"空壳恒放行"
+    this.syncRulesFromMainModule();
+  }
+
+  /**
+   * P0-3：同步主权限模块的 deny 规则（只读），使本管理器能拒绝已配置禁止的工具。
+   * 主模块为异步决策链路（ChatManager 工具执行门禁），本管理器为 SecurityIntegration 的同步补充视图；
+   * 两者共用同一规则存储，杜绝双实现规则不一致。
+   */
+  private syncRulesFromMainModule(): void {
+    try {
+      const mainRules = new RuleManager().loadRules();
+      for (const rule of mainRules) {
+        if (rule.behavior === PermissionBehavior.DENY && rule.toolName) {
+          this.rules.set(`deny:${rule.toolName}`, {
+            id: `deny:${rule.toolName}`,
+            type: PermissionType.TOOL,
+            name: rule.toolName,
+            allowed: false,
+            description: rule.contentPattern
+              ? `Deny ${rule.toolName} (pattern: ${rule.contentPattern})`
+              : `Deny ${rule.toolName}`,
+            createdAt: new Date(),
+          });
+        }
+      }
+      if (this.rules.size > 0) {
+        logger.info(`已从主权限模块同步 ${this.rules.size} 条 deny 规则`);
+      }
+    } catch (error) {
+      logger.warn('从主权限模块同步规则失败（保持默认行为）', {
+        error: String(error),
+      });
+    }
   }
 
   public static getInstance(): PermissionManager {

@@ -52,6 +52,7 @@ import {
 } from './SandboxIntegration';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { configManager } from '@modules/config';
 
 const logger = new Logger({
   module: 'permission:manager',
@@ -67,6 +68,12 @@ export class PermissionManager {
    * 权限模式（默认DEFAULT）
    */
   private mode: PermissionMode = PermissionMode.DEFAULT;
+
+  /**
+   * 默认行为（无规则匹配时）：allow = 默认放行（现状兼容）；deny = fail-closed（P0-2）
+   * 通过环境变量 PERMISSION_DEFAULT_BEHAVIOR 配置（值为 'deny' 时收窄，默认 'allow'）
+   */
+  private defaultBehavior: 'allow' | 'deny' = 'allow';
 
   /**
    * 权限检查器
@@ -123,6 +130,17 @@ export class PermissionManager {
     this.permissionHookService = PermissionHookService.getInstance();
     this.classifierManager = classifierManager;
     this.sandboxIntegrationService = sandboxIntegrationService;
+
+    // P0-2：读取默认行为配置（fail-closed 路径：PERMISSION_DEFAULT_BEHAVIOR=deny）
+    const configuredDefault = configManager
+      .env('PERMISSION_DEFAULT_BEHAVIOR', 'allow')
+      ?.toLowerCase();
+    this.defaultBehavior = configuredDefault === 'deny' ? 'deny' : 'allow';
+    if (this.defaultBehavior === 'deny') {
+      logger.warn(
+        '权限默认行为已配置为 deny（fail-closed），无规则匹配的工具将被拒绝'
+      );
+    }
 
     // 加载权限规则
     this.ruleManager.loadRules();
@@ -310,8 +328,12 @@ export class PermissionManager {
             : decision.type === PermissionDecisionType.DENY
               ? 'auto_denied'
               : 'pending',
+        // P0-2：默认放行（无规则匹配空转）标记为高危，便于发现权限空转
         riskLevel:
-          decision.type === PermissionDecisionType.DENY ? 'high' : 'medium',
+          decision.type === PermissionDecisionType.DENY ||
+          decision.reason === 'No matching rules, default allowing'
+            ? 'high'
+            : 'medium',
       };
       logSecurityAuditEvent(event);
     } catch (err) {
@@ -466,7 +488,10 @@ export class PermissionManager {
       );
     }
 
-    // 没有规则匹配，默认允许
+    // 没有规则匹配，按默认行为决定（P0-2：PERMISSION_DEFAULT_BEHAVIOR=deny 时 fail-closed）
+    if (this.defaultBehavior === 'deny') {
+      return createDenyDecision('No matching rules, default denying');
+    }
     return createAllowDecision('No matching rules, default allowing');
   }
 

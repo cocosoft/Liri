@@ -58,35 +58,8 @@ const TRUST_LEVELS = [
 function PermissionPage() {
   const { config, loadConfig } = useConfigStore();
   const isDark = config.theme === "dark";
-  const [users, setUsers] = useState<UserPermission[]>([
-    {
-      id: "1",
-      username: "admin",
-      email: "admin@example.com",
-      role: "admin",
-      trustLevel: 4,
-      permissions: ["all"],
-      lastActive: "2026-05-28 12:00",
-    },
-    {
-      id: "2",
-      username: "user1",
-      email: "user1@example.com",
-      role: "user",
-      trustLevel: 2,
-      permissions: ["read", "write", "execute"],
-      lastActive: "2026-05-28 11:30",
-    },
-    {
-      id: "3",
-      username: "guest",
-      email: "guest@example.com",
-      role: "guest",
-      trustLevel: 0,
-      permissions: ["read"],
-      lastActive: "2026-05-28 10:00",
-    },
-  ]);
+  // CS04：禁止 mock。权限用户管理 API 尚未提供，先渲染空态（"暂无用户数据"）
+  const [users, setUsers] = useState<UserPermission[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserPermission | null>(null);
   const [systemPermissions, setSystemPermissions] = useState<PermissionItem[]>(
     [],
@@ -251,39 +224,47 @@ function PermissionPage() {
               用户列表
             </h3>
             <div className="space-y-2">
-              {users.map((user) => (
-                <button
-                  key={user.id}
-                  onClick={() => setSelectedUser(user)}
-                  className={`w-full text-left p-3 rounded-lg transition-colors ${
-                    selectedUser?.id === user.id
-                      ? isDark
-                        ? "bg-blue-900/30 border border-blue-700"
-                        : "bg-blue-50 border border-blue-200"
-                      : isDark
-                        ? "bg-gray-700/50 hover:bg-gray-700"
-                        : "bg-gray-50 hover:bg-gray-100"
-                  }`}
+              {users.length === 0 ? (
+                <p
+                  className={`text-xs p-3 rounded-lg text-center ${isDark ? "bg-gray-700/50 text-gray-400" : "bg-gray-50 text-gray-500"}`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`font-medium ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                    >
-                      {user.username}
-                    </span>
-                    <span
-                      className={`text-xs px-1.5 py-0.5 rounded ${getRoleColor(user.role)}`}
-                    >
-                      {user.role}
-                    </span>
-                  </div>
-                  <p
-                    className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                  暂无用户数据（用户权限管理 API 待接入）
+                </p>
+              ) : (
+                users.map((user) => (
+                  <button
+                    key={user.id}
+                    onClick={() => setSelectedUser(user)}
+                    className={`w-full text-left p-3 rounded-lg transition-colors ${
+                      selectedUser?.id === user.id
+                        ? isDark
+                          ? "bg-blue-900/30 border border-blue-700"
+                          : "bg-blue-50 border border-blue-200"
+                        : isDark
+                          ? "bg-gray-700/50 hover:bg-gray-700"
+                          : "bg-gray-50 hover:bg-gray-100"
+                    }`}
                   >
-                    {user.email}
-                  </p>
-                </button>
-              ))}
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`font-medium ${isDark ? "text-gray-100" : "text-gray-900"}`}
+                      >
+                        {user.username}
+                      </span>
+                      <span
+                        className={`text-xs px-1.5 py-0.5 rounded ${getRoleColor(user.role)}`}
+                      >
+                        {user.role}
+                      </span>
+                    </div>
+                    <p
+                      className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                    >
+                      {user.email}
+                    </p>
+                  </button>
+                ))
+              )}
             </div>
           </div>
 
@@ -472,9 +453,9 @@ function PermissionPage() {
                 className={`${isDark ? "bg-gray-800" : "bg-white"} rounded-lg border ${isDark ? "border-gray-700" : "border-gray-200"} p-6 text-center`}
               >
                 <p
-                  className={`text-gray-400 ${isDark ? "text-gray-500" : "text-gray-400"}`}
+                  className={`${isDark ? "text-gray-500" : "text-gray-400"}`}
                 >
-                  请从左侧选择一个用户查看详情
+                  暂无用户数据：用户权限管理 API 待接入后，可在此查看信任等级与角色。
                 </p>
               </div>
             )}

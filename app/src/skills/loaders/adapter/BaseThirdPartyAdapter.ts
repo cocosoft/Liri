@@ -210,6 +210,13 @@ export abstract class BaseThirdPartyAdapter<
   }
 
   /**
+   * 获取 SkillRegistry 引用（可能为 null：未注入）
+   */
+  getSkillRegistry(): SkillRegistry | null {
+    return this.skillRegistry;
+  }
+
+  /**
    * 获取技能来源标识
    */
   getSource(): SkillSource {

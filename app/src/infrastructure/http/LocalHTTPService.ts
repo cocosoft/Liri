@@ -282,6 +282,14 @@ export interface LocalHTTPConfig {
   port: number;
 }
 
+/** SkillRegistry 最小接口（5.6：system 列表 status 反映真实启用状态） */
+interface SkillRegistryLike {
+  get(
+    name: string,
+    opts?: { includeDisabled?: boolean }
+  ): { name: string; isEnabled?: () => boolean } | undefined;
+}
+
 /** ClawHubAdapter 方法的最小接口（与真实实现对齐，v1.5 阶段 3：消除 as unknown as 断言） */
 interface ClawHubAdapterLike {
   initialize(): Promise<void>;
@@ -293,6 +301,7 @@ interface ClawHubAdapterLike {
   getSearchEngine(): SkillSearchEngine;
   getSkillDetail(id: string): Promise<unknown>;
   getRemoteVersion(id: string): Promise<string | null>;
+  getSkillRegistry(): SkillRegistryLike | null;
   installSkill(id: string, sourceUrl?: string): Promise<unknown>;
   uninstallSkill(id: string): Promise<unknown>;
   updateSkill(id: string): Promise<unknown>;
@@ -3325,6 +3334,21 @@ export class LocalHTTPService {
       const { existsSync } = await import('fs');
       const { join } = await import('path');
 
+      // 5.6：status 反映 registry 真实启用状态（内置/文件技能禁用后前端可感知并可重新启用）
+      const adapter = await this.getClawHubAdapter();
+      const registry = adapter.getSkillRegistry();
+      const resolveStatus = (name: string): string => {
+        try {
+          const skill = registry?.get(name, { includeDisabled: true });
+          if (skill && skill.isEnabled && !skill.isEnabled()) {
+            return 'disabled';
+          }
+        } catch {
+          // registry 查询异常时默认 enabled
+        }
+        return 'enabled';
+      };
+
       const skills: Record<string, unknown>[] = [];
       const seen = new Set<string>();
 
@@ -3364,7 +3388,7 @@ export class LocalHTTPService {
                 id: name,
                 name,
                 description,
-                status: 'enabled',
+                status: resolveStatus(name),
                 category,
                 parameters: [],
                 createdAt,
@@ -3413,7 +3437,7 @@ export class LocalHTTPService {
               id: name,
               name,
               description,
-              status: 'enabled',
+              status: resolveStatus(name),
               category,
               parameters: [],
               createdAt,

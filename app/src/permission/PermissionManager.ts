@@ -50,9 +50,11 @@ import {
   SandboxIntegrationService,
   sandboxIntegrationService,
 } from './SandboxIntegration';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
+import { SpanStatusCode, metrics } from '@opentelemetry/api';
+import type { Span, Counter } from '@opentelemetry/api';
 import { PermissionAction, OperationType, RoleType } from './Permission';
 import { createFineGrainedPermissionManager } from './FineGrainedPermissionManager';
 
@@ -165,13 +167,63 @@ export class PermissionManager {
   };
 
   /**
-   * 检查工具权限
+   * 检查工具权限（Otel 插桩入口：span + 决策计数）
    * @param toolOrName 工具对象或工具名称
    * @param input 工具输入
    * @param context 权限上下文（可选）
    * @returns 权限决策
    */
   async checkPermission(
+    toolOrName: Tool | string,
+    input: Record<string, unknown>,
+    context?: PermissionContext
+  ): Promise<PermissionDecision> {
+    const toolName =
+      typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
+
+    // Otel span：每次权限决策可观测（OTel 未初始化时 noop 兜底，不影响主链路）
+    let span: Span | null = null;
+    try {
+      span = getOTelTracing().startSpan('permission.check', {
+        tool: toolName,
+        mode: this.mode,
+      });
+    } catch {
+      // @ignore-catch: OTel 未初始化时跳过插桩
+    }
+
+    try {
+      const decision = await this.checkPermissionInner(
+        toolOrName,
+        input,
+        context
+      );
+      if (span) {
+        span.setAttribute('decision', String(decision.type));
+        getOTelTracing().endSpan(span, SpanStatusCode.OK);
+      }
+      this.recordDecisionMetric(toolName, decision.type);
+      return decision;
+    } catch (error) {
+      if (span) {
+        getOTelTracing().recordError(
+          span,
+          error instanceof Error ? error : new Error(String(error))
+        );
+        getOTelTracing().endSpan(span, SpanStatusCode.ERROR);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 检查工具权限（内部实现，决策主链路）
+   * @param toolOrName 工具对象或工具名称
+   * @param input 工具输入
+   * @param context 权限上下文（可选）
+   * @returns 权限决策
+   */
+  private async checkPermissionInner(
     toolOrName: Tool | string,
     input: Record<string, unknown>,
     context?: PermissionContext
@@ -299,6 +351,43 @@ export class PermissionManager {
     };
 
     return await this.permissionHookService.executeHooks(hookContext);
+  }
+
+  /**
+   * OTel 决策计数器（惰性初始化；Meter 未就绪时 noop 兜底）
+   */
+  private decisionCounter: Counter | null = null;
+
+  /**
+   * 确保决策计数器已创建
+   */
+  private ensureDecisionCounter(): void {
+    if (this.decisionCounter) return;
+    try {
+      this.decisionCounter = metrics
+        .getMeter('liri-permission')
+        .createCounter('Liri.permission.decisions', {
+          description: '权限决策计数（allow/deny/ask）',
+        });
+    } catch {
+      // @ignore-catch: metrics 未初始化时不启用计数
+    }
+  }
+
+  /**
+   * 记录权限决策指标（每次决策 +1）
+   * @param toolName 工具名称
+   * @param type 决策类型
+   */
+  private recordDecisionMetric(
+    toolName: string,
+    type: PermissionDecisionType
+  ): void {
+    this.ensureDecisionCounter();
+    this.decisionCounter?.add(1, {
+      decision: String(type),
+      tool: toolName,
+    });
   }
 
   /**

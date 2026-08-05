@@ -251,6 +251,7 @@ export class SandboxManager implements ISandboxManager {
     try {
       return JSON.stringify(input);
     } catch {
+      // @ignore-catch: 循环引用等极端输入下视为无命令
       return null;
     }
   }

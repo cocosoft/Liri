@@ -32,12 +32,7 @@
 import { PermissionManager } from './PermissionManager';
 import { globalWorkspaceManager } from '../sandbox/WorkspaceManager';
 import { SandboxPermission } from '../sandbox/SandboxTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'permission:service',
-  level: LogLevel.INFO,
-});
+import { handleError } from '@modules/error';
 
 export interface ToolAccessResult {
   allowed: boolean;
@@ -62,10 +57,13 @@ class PermissionServiceImpl {
       );
       return { allowed: result.allowed, reason: result.reason };
     } catch (error) {
-      logger.warn(`工具权限检查异常，按放行处理: ${toolName}`, {
-        error: String(error),
+      // 权限检查异常 → fail-closed 拒绝（与 PERMISSION_DEFAULT_BEHAVIOR=deny 方向一致），
+      // 错误经 handleError 统一记录到 ErrorTracker
+      await handleError(error, {
+        module: 'permission:service',
+        action: 'check_tool_permission',
       });
-      return { allowed: true, reason: 'permission check error, allow' };
+      return { allowed: false, reason: 'permission check error, deny' };
     }
   }
 
@@ -78,8 +76,9 @@ class PermissionServiceImpl {
       const workspace = globalWorkspaceManager.get('default');
       return workspace ? workspace.hasPermission(permission) : false;
     } catch (error) {
-      logger.warn(`沙箱权限检查异常，按拒绝处理: ${permission}`, {
-        error: String(error),
+      void handleError(error, {
+        module: 'permission:service',
+        action: 'check_file_permission',
       });
       return false;
     }

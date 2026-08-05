@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 文件权限存储
  * 使用文件系统存储权限数据
  */
@@ -6,6 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { resolvePermissionsDir } from '@modules/core';
+import { Logger, LogLevel } from '@modules/monitoring';
 import type {
   PermissionStorage,
   PermissionRule,
@@ -14,6 +15,11 @@ import type {
   Resource,
 } from './Permission.js';
 import { RoleType, ResourceType } from './Permission.js';
+
+const logger = new Logger({
+  module: 'permission:fileStorage',
+  level: LogLevel.INFO,
+});
 
 /**
  * 文件权限存储类
@@ -107,6 +113,8 @@ export class FilePermissionStorage implements PermissionStorage {
     if (!fs.existsSync(this.resourcesPath)) {
       fs.writeFileSync(this.resourcesPath, JSON.stringify([], null, 2));
     }
+
+    logger.info('权限存储初始化完成', { storagePath: this.storagePath });
   }
 
   /**

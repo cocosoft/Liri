@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * 增强权限规则引擎
  * 提供细粒度权限控制、动态规则评估、规则组合等高级功能
@@ -338,6 +338,7 @@ export class EnhancedPermissionEngine {
         try {
           return condition.evaluator(context);
         } catch {
+          // @ignore-catch: custom 条件求值器异常视为不匹配（fail-closed 方向）
           return false;
         }
       }

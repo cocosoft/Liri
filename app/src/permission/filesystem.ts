@@ -41,6 +41,7 @@ function getMergedDangerousFiles(): readonly string[] {
     if (userFiles.length === 0) return DANGEROUS_FILES;
     return [...DANGEROUS_FILES, ...userFiles];
   } catch {
+    // @ignore-catch: config 读取异常回退默认危险文件列表（fail-closed 方向）
     return DANGEROUS_FILES;
   }
 }
@@ -60,6 +61,7 @@ function getMergedDangerousDirectories(): readonly string[] {
     if (userDirs.length === 0) return DANGEROUS_DIRECTORIES;
     return [...DANGEROUS_DIRECTORIES, ...userDirs];
   } catch {
+    // @ignore-catch: config 读取异常回退默认危险目录列表（fail-closed 方向）
     return DANGEROUS_DIRECTORIES;
   }
 }

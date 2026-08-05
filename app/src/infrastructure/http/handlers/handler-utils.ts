@@ -30,6 +30,7 @@ import http from 'http';
 import path from 'path';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import {
   resolveOutputDir,
   resolveDownloadsDir,
@@ -129,7 +130,8 @@ export function sendError(
   status = 500
 ): void {
   const message = err instanceof Error ? err.message : String(err);
-  logger.error('API 错误', { error: message });
+  // 统一经 handleError 记录（Logger + ErrorTracker），替代手写 logger.error
+  void handleError(err, { module: 'infrastructure:http', action: 'api_error' });
   res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: { message, type: 'api_error' } }));
 }

@@ -16,11 +16,21 @@ interface AuditEventSummary {
 }
 
 interface SecurityStatus {
+  /** 权限规则总数（A 体系 tool_rules.json） */
   totalRules: number;
   activePolicies: number;
+  /** 审计事件总数 */
+  auditEventCount: number;
   recentEvents: AuditEventSummary[];
   riskDistribution: Record<string, number>;
   decisionDistribution: Record<string, number>;
+  denialStats?: {
+    totalDenials: number;
+    consecutiveDenials: number;
+    averageDenialRate: number;
+    suggestion?: string;
+    topDeniedTools: Array<{ tool: string; count: number }>;
+  };
 }
 
 /** 从后端获取安全状态数据 */
@@ -34,6 +44,7 @@ async function fetchSecurityStatus(): Promise<SecurityStatus> {
     return {
       totalRules: 0,
       activePolicies: 0,
+      auditEventCount: 0,
       recentEvents: [],
       riskDistribution: {},
       decisionDistribution: {},
@@ -124,7 +135,7 @@ function SecurityDashboard() {
       )}
 
       {/* 空状态 */}
-      {!loading && (!status || status.totalRules === 0) && (
+      {!loading && (!status || status.auditEventCount === 0) && (
         <div
           className={`p-6 ${bgCard} border rounded-lg ${textSecondary} text-center`}
         >
@@ -133,12 +144,12 @@ function SecurityDashboard() {
       )}
 
       {/* 状态概览卡片 */}
-      {status && status.totalRules > 0 && (
+      {status && status.auditEventCount > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className={`p-4 ${bgCard} border rounded-lg`}>
-            <div className={`text-sm ${textSecondary}`}>活跃规则数</div>
+            <div className={`text-sm ${textSecondary}`}>权限规则数</div>
             <div className={`text-2xl font-bold mt-1 ${textPrimary}`}>
-              {status.activePolicies}
+              {status.totalRules}
             </div>
           </div>
           <div className={`p-4 ${bgCard} border rounded-lg`}>

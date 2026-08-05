@@ -35,7 +35,7 @@ import {
   PermissionRule,
 } from '@modules/permission/types/PermissionRule';
 import { createFineGrainedPermissionManager } from '@modules/permission/FineGrainedPermissionManager';
-import { shadowedRuleDetector } from '@modules/permission';
+import { shadowedRuleDetector, permissionMetrics } from '@modules/permission';
 import {
   ResourceType,
   OperationType,
@@ -565,6 +565,31 @@ export async function handleDeletePermissionGrant(
     await storage.deleteRule(ruleId);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ message: '细粒度规则已撤销' }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 权限监测指标快照 GET /v1/permissions/metrics
+ *
+ * OTel Metrics 为 Push 模型（Console 导出），无法按需查询 Counter 当前值；
+ * 此处返回 PermissionMetricsStore 内存快照（与 OTel counter 同步双写，进程内累计）。
+ */
+export async function handleGetPermissionMetrics(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const metrics = permissionMetrics.snapshot();
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(
+      JSON.stringify({
+        generatedAt: Date.now(),
+        total: metrics.reduce((sum, m) => sum + m.count, 0),
+        metrics,
+      })
+    );
   } catch (err) {
     sendError(res, err);
   }

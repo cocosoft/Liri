@@ -57,6 +57,7 @@ import { SpanStatusCode, metrics } from '@opentelemetry/api';
 import type { Span, Counter } from '@opentelemetry/api';
 import { PermissionAction, OperationType, RoleType } from './Permission';
 import { createFineGrainedPermissionManager } from './FineGrainedPermissionManager';
+import { permissionMetrics } from './metrics/PermissionMetricsStore';
 
 const logger = new Logger({
   module: 'permission:manager',
@@ -388,6 +389,10 @@ export class PermissionManager {
       decision: String(type),
       tool: toolName,
     });
+    permissionMetrics.record('decision', {
+      decision: String(type),
+      tool: toolName,
+    });
   }
 
   /**
@@ -422,6 +427,7 @@ export class PermissionManager {
       tool: toolName,
       role,
     });
+    permissionMetrics.record('role_deny', { tool: toolName, role });
   }
 
   /**

@@ -134,3 +134,8 @@ export {
 export type { RiskOverrides } from './types/RiskClass';
 
 export { DenialTracker, denialTracker } from './trackers/DenialTracker';
+
+export {
+  PermissionMetricsStore,
+  permissionMetrics,
+} from './metrics/PermissionMetricsStore';

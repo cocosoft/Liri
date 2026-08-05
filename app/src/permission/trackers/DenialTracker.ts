@@ -8,6 +8,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { metrics } from '@opentelemetry/api';
 import type { Counter } from '@opentelemetry/api';
+import { permissionMetrics } from '../metrics/PermissionMetricsStore';
 
 const logger = new Logger({
   module: 'permission:trackers:denialTracker',
@@ -125,6 +126,7 @@ export class DenialTracker {
     // OTel 拒绝指标：每次拒绝 +1（tool 维度）
     this.ensureDenialCounter();
     this.denialCounter?.add(1, { tool: params.toolName });
+    permissionMetrics.record('denial', { tool: params.toolName });
 
     // 通知监听器
     for (const listener of this.listeners) {

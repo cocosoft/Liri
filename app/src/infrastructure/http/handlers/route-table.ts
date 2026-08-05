@@ -165,6 +165,7 @@ import {
   handleDeletePermissionResource,
   handleCreatePermissionGrant,
   handleDeletePermissionGrant,
+  handleGetPermissionMetrics,
 } from './permission-handlers';
 
 // Media handlers
@@ -2065,6 +2066,10 @@ export async function dispatchRoute(
   }
 
   // ---- Permissions（工具权限规则管理，P1-5）----
+  if (method === 'GET' && url === '/v1/permissions/metrics') {
+    await handleGetPermissionMetrics(req, res);
+    return true;
+  }
   if (method === 'GET' && url === '/v1/permissions/rules') {
     await handleListPermissionRules(req, res);
     return true;

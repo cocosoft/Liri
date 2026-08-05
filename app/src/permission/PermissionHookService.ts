@@ -14,6 +14,7 @@ import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { SpanStatusCode, metrics } from '@opentelemetry/api';
 import type { Span, Counter } from '@opentelemetry/api';
+import { permissionMetrics } from './metrics/PermissionMetricsStore';
 
 const logger = new Logger({
   module: 'permission:permissionHookService',
@@ -268,6 +269,7 @@ export class PermissionHookService {
       behavior,
       tool: toolName,
     });
+    permissionMetrics.record('hook', { behavior, tool: toolName });
   }
 }
 

@@ -7,6 +7,7 @@ import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { queryAuditLogs, getAuditLogStats } from '@modules/security';
 import { denialTracker } from '@modules/permission';
+import { PermissionManager } from '@modules/permission/PermissionManager';
 
 /**
  * GET /v1/security/dashboard — 安全仪表盘数据
@@ -42,6 +43,9 @@ export async function handleSecurityDashboard(
       .slice(0, 5)
       .map(([tool, count]) => ({ tool, count }));
 
+    // 权限规则数（A 体系 tool_rules.json 真实规则数，修正 totalRules 语义）
+    const ruleSummary = PermissionManager.getInstance().getRulesSummary();
+
     // 返回最近 20 条摘要
     const recentEventSummaries = recentEvents.slice(0, 20).map((event) => ({
       id: `${event.sessionContext.sessionId}-${event.timestamp.getTime()}`,
@@ -55,8 +59,9 @@ export async function handleSecurityDashboard(
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
-        totalRules: stats.totalEvents,
-        activePolicies: stats.totalEvents > 0 ? 1 : 0,
+        totalRules: ruleSummary.total,
+        activePolicies: ruleSummary.total > 0 ? 1 : 0,
+        auditEventCount: stats.totalEvents,
         recentEvents: recentEventSummaries,
         riskDistribution,
         decisionDistribution,
@@ -79,6 +84,7 @@ export async function handleSecurityDashboard(
       JSON.stringify({
         totalRules: 0,
         activePolicies: 0,
+        auditEventCount: 0,
         recentEvents: [],
         riskDistribution: {},
         decisionDistribution: {},

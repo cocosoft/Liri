@@ -7,6 +7,7 @@ import { AutoModeClassifier } from './AutoModeClassifier';
 import { SpanStatusCode, metrics } from '@opentelemetry/api';
 import type { Span, Counter } from '@opentelemetry/api';
 import { getOTelTracing } from '@modules/monitoring';
+import { permissionMetrics } from '../metrics/PermissionMetricsStore';
 import type {
   IAutoModeClassifier,
   ClassifierDecision,
@@ -184,10 +185,12 @@ export class ClassifierManager {
    */
   private recordClassification(toolName: string, shouldBlock: boolean): void {
     this.ensureClassificationCounter();
+    const decision = shouldBlock ? 'block' : 'pass';
     this.classificationCounter?.add(1, {
-      decision: shouldBlock ? 'block' : 'pass',
+      decision,
       tool: toolName,
     });
+    permissionMetrics.record('classification', { decision, tool: toolName });
   }
 
   /**

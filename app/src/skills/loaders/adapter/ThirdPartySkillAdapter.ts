@@ -83,8 +83,12 @@ export interface ThirdPartySkillAdapter extends SkillLoader {
   /**
    * 搜索技能（在对应市场中查询）
    * @param query 搜索关键字
+   * @param opts 过滤条件（category/tags/source，v1.5 透传修复）
    */
-  searchSkills(query: string): Promise<ThirdPartySkillSearchResult[]>;
+  searchSkills(
+    query: string,
+    opts?: { category?: string; tags?: string[]; source?: string }
+  ): Promise<ThirdPartySkillSearchResult[]>;
 
   /**
    * 获取技能详情

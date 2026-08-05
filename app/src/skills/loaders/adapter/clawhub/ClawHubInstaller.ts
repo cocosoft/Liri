@@ -25,7 +25,14 @@
  */
 
 import { join, dirname } from 'path';
-import { existsSync, mkdirSync, writeFileSync, rmSync, readdirSync } from 'fs';
+import {
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+  readdirSync,
+  statSync,
+} from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { LocalSkillStore } from '../LocalSkillStore';
 import type { ClawHubSkillMeta, InstalledClawHubSkill } from './ClawHubMeta';
@@ -60,12 +67,17 @@ export class ClawHubInstaller {
 
   /**
    * 安装技能
+   * @param skillId 技能 ID
+   * @param sourceUrl 来源 URL（可选）
+   * @param targetPath 目标安装目录（可选；updateSkill 原子替换时传入 .tmp 目录）
    */
   async install(
     skillId: string,
-    sourceUrl?: string
+    sourceUrl?: string,
+    targetPath?: string
   ): Promise<InstalledClawHubSkill> {
-    const installPath = this.localStore.getSkillInstallPath(skillId);
+    const installPath =
+      targetPath || this.localStore.getSkillInstallPath(skillId);
 
     if (existsSync(installPath)) {
       throw new Error(`技能已安装: ${skillId}`);
@@ -100,13 +112,16 @@ export class ClawHubInstaller {
       await this.writeSkillFiles(installPath, metaData, download.files);
     }
 
+    const files = this.collectFiles(installPath);
+    this.validateInstallSize(installPath, files);
+
     const installed: InstalledClawHubSkill = {
       meta: metaData,
       installPath,
       installedAt: Date.now(),
       updatedAt: Date.now(),
       enabled: true,
-      files: this.collectFiles(installPath),
+      files,
       sourceUrl: sourceUrl || '',
     };
 
@@ -308,7 +323,7 @@ export class ClawHubInstaller {
       return files;
     }
 
-    const collect = (dir: string) => {
+    const collect = (dir: string): void => {
       const entries = readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
         const fullPath = join(dir, entry.name);
@@ -322,5 +337,34 @@ export class ClawHubInstaller {
 
     collect(installPath);
     return files;
+  }
+
+  /**
+   * 安装校验（v1.5 阶段 4，修复 P3-7）：文件数 ≤50、总大小 ≤10MB
+   * 超限抛错，install 流程中断（安装目录由 Base 层在失败时清理）
+   */
+  private validateInstallSize(installPath: string, files: string[]): void {
+    const MAX_FILES = 50;
+    const MAX_BYTES = 10 * 1024 * 1024;
+
+    if (files.length > MAX_FILES) {
+      throw new Error(
+        `技能文件数超限（${files.length} > ${MAX_FILES}）: ${installPath}`
+      );
+    }
+
+    let total = 0;
+    for (const file of files) {
+      try {
+        total += statSync(file).size;
+      } catch {
+        // 文件可能已被移除，忽略
+      }
+    }
+    if (total > MAX_BYTES) {
+      throw new Error(
+        `技能总大小超限（${(total / 1024 / 1024).toFixed(1)}MB > 10MB）: ${installPath}`
+      );
+    }
   }
 }

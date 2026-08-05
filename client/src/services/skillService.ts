@@ -269,12 +269,15 @@ const skillService = {
   },
 
   /** 获取技能详情（市场） */
-  async getMarketDetail(skillId: string): Promise<InstalledSkill | null> {
+  async getMarketDetail(
+    skillId: string,
+  ): Promise<{ skill: InstalledSkill; remoteVersion?: string | null } | null> {
     try {
-      const res = await http.get<{ skill: InstalledSkill }>(
-        `/v1/skills/${encodeURIComponent(skillId)}`,
-      );
-      return res.skill || null;
+      const res = await http.get<{
+        skill: InstalledSkill;
+        remoteVersion?: string | null;
+      }>(`/v1/skills/${encodeURIComponent(skillId)}`);
+      return res || null;
     } catch (e) {
       handleClientError(e, {
         module: "services:skill",

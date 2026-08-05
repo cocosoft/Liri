@@ -65,6 +65,8 @@ function SkillMarketPage() {
     setPage,
     addCustomSource,
     removeCustomSource,
+    checkUpdates,
+    checkingUpdates,
   } = useSkillStore();
 
   const sourceFilter = useSkillStore((s) => s.sourceFilter);
@@ -556,6 +558,18 @@ function SkillMarketPage() {
               }`}
             >
               刷新
+            </button>
+            <button
+              onClick={() => checkUpdates(true)}
+              disabled={checkingUpdates}
+              className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors disabled:opacity-50 ${
+                isDark
+                  ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+              title="强制重新查询远端版本（绕过 24h 缓存）"
+            >
+              {checkingUpdates ? "检查中..." : "检查更新"}
             </button>
           </div>
         </div>

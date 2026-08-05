@@ -39,7 +39,6 @@ import {
 import type { IPluginAPI } from './api/index.js';
 import { BundledPluginManager } from './bundled/BundledPluginManager';
 import { RegistrationStub } from './stub/RegistrationStub';
-import { ClawHubAdapter } from '@modules/skills/loaders/adapter/clawhub/ClawHubAdapter';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import {
@@ -266,7 +265,9 @@ export class PluginSystem {
     const bundledManager = new BundledPluginManager();
     const bundledMeta = bundledManager.scan();
 
-    const clawhubFallback = ClawHubAdapter.getInstance().createFallbackLoader();
+    const clawhubFallback = (
+      await import('@modules/skills/loaders/adapter/clawhub/ClawHubAdapter')
+    ).ClawHubAdapter.getInstance().createFallbackLoader();
 
     this.registry.setFallback((pluginId: string) => {
       // 第一级：内置插件回退
@@ -294,6 +295,8 @@ export class PluginSystem {
       services: this._kernelRegistry.getRegisteredServices().length,
     });
     // 将 PluginRegistry 注入 ClawHubAdapter，使已安装技能注册到插件系统
+    const { ClawHubAdapter } =
+      await import('@modules/skills/loaders/adapter/clawhub/ClawHubAdapter');
     const clawhub = ClawHubAdapter.getInstance();
     clawhub.setPluginRegistry(this.registry);
 

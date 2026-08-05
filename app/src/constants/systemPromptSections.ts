@@ -35,6 +35,7 @@ import { resolveDataDir } from '@modules/core/paths';
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { SkillInjectionService } from '@modules/skills/services/SkillInjectionService';
 import { SkillRegistry } from '@modules/skills/SkillRegistry';
+import { getSkillHub } from '@modules/skills/SkillHub';
 import { FileSkillLoader } from '@modules/skills/loaders/sources/FileSkillLoader';
 import { SkillSource } from '@modules/skills/types';
 import {
@@ -73,6 +74,8 @@ export async function initBuiltinSkills(): Promise<void> {
   for (const skill of skills) {
     skillRegistry.register(skill);
   }
+  // v1.5：绑定 SkillHub 只读投影（幂等），后续 setEnabled 经 skill-updated 事件自动刷新
+  getSkillHub().bindTo(skillRegistry);
 }
 
 /**

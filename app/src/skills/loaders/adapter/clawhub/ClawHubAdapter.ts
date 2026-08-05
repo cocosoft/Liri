@@ -152,9 +152,10 @@ export class ClawHubAdapter extends BaseThirdPartyAdapter<InstalledClawHubSkill>
    */
   protected async doInstall(
     skillId: string,
-    sourceUrl?: string
+    sourceUrl?: string,
+    targetPath?: string
   ): Promise<InstalledClawHubSkill> {
-    return this.installer.install(skillId, sourceUrl);
+    return this.installer.install(skillId, sourceUrl, targetPath);
   }
 
   /**
@@ -165,12 +166,16 @@ export class ClawHubAdapter extends BaseThirdPartyAdapter<InstalledClawHubSkill>
   }
 
   /**
-   * 远程搜索（在 ClawHub 市场中查询）
+   * 远程搜索（在 ClawHub 市场中查询，v1.5 透传 category/tags）
    */
   protected async doSearchRemote(
-    query: string
+    query: string,
+    opts?: { category?: string; tags?: string[]; source?: string }
   ): Promise<ThirdPartySkillSearchResult[]> {
-    return this.apiClient.search(query);
+    return this.apiClient.search(query, {
+      category: opts?.category,
+      tags: opts?.tags,
+    });
   }
 
   // ============================================================
@@ -197,6 +202,45 @@ export class ClawHubAdapter extends BaseThirdPartyAdapter<InstalledClawHubSkill>
       tags: meta.tags,
       installed: false,
     };
+  }
+
+  /**
+   * 获取技能远端最新版本（P3-23 双形态）
+   * - repo 形态（github:/hermes:/gitee:）：拉取远端 SKILL.md 解析 frontmatter version
+   * - market 形态：向 ClawHub API 查询远端详情版本
+   * 失败时返回 null（前端静默降级，不显示"有更新"）
+   */
+  override async getRemoteVersion(skillId: string): Promise<string | null> {
+    // repo 形态
+    const repoMatch = skillId.match(/^(github|hermes|gitee):(.+)$/);
+    if (repoMatch) {
+      const prefix = repoMatch[1];
+      const repo = repoMatch[2];
+      for (const branch of ['main', 'master']) {
+        const rawUrl =
+          prefix === 'gitee'
+            ? `https://gitee.com/${repo}/raw/${branch}/SKILL.md`
+            : `https://raw.githubusercontent.com/${repo}/${branch}/SKILL.md`;
+        try {
+          const content = await this.apiClient.getText(rawUrl);
+          const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+          if (!fmMatch) return null;
+          const vMatch = fmMatch[1].match(/^version:\s*(.+)$/m);
+          return vMatch ? vMatch[1].trim() : null;
+        } catch {
+          // 尝试下一个分支
+        }
+      }
+      return null;
+    }
+
+    // market 形态
+    try {
+      const detail = await this.apiClient.getSkillDetail(skillId);
+      return detail?.version ?? null;
+    } catch {
+      return null;
+    }
   }
 
   /**

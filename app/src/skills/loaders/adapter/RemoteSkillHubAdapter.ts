@@ -307,10 +307,12 @@ export class RemoteSkillHubAdapter extends BaseThirdPartyAdapter<RemoteSkillData
 
   /**
    * 执行安装（下载 SKILL.md 并保存到本地）
+   * @param _targetPath 兼容 BaseThirdPartyAdapter 抽象签名（此适配器未启用，忽略）
    */
   protected async doInstall(
     skillId: string,
-    sourceUrl?: string
+    sourceUrl?: string,
+    _targetPath?: string
   ): Promise<RemoteSkillData> {
     const { hubId, skillId: rawId } = this.parseQualifiedId(skillId);
     const config = this.hubConfigs.find((c) => c.id === hubId);
@@ -427,9 +429,11 @@ export class RemoteSkillHubAdapter extends BaseThirdPartyAdapter<RemoteSkillData
 
   /**
    * 远程搜索（查询所有配置源的目录）
+   * @param _opts 兼容 BaseThirdPartyAdapter 抽象签名（此适配器未启用，忽略）
    */
   protected async doSearchRemote(
-    query: string
+    query: string,
+    _opts?: { category?: string; tags?: string[]; source?: string }
   ): Promise<ThirdPartySkillSearchResult[]> {
     await this.refreshCatalogCache();
 

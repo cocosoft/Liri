@@ -52,6 +52,9 @@ import {
   setAnalyticsDependencies,
 } from './handlers/analytics-handlers';
 import { setupInfrastructureDiagnostics } from '@modules/diagnostics/infrastructure-diagnostics';
+import type { SkillSearchEngine } from '@modules/skills/loaders/adapter/SkillSearchEngine';
+import type { LocalSkillStore } from '@modules/skills/loaders/adapter/LocalSkillStore';
+
 import {
   handleChatCompletions,
   handleQuestionAnswer,
@@ -279,28 +282,23 @@ export interface LocalHTTPConfig {
   port: number;
 }
 
-/** ClawHubAdapter 方法的最小接口 */
+/** ClawHubAdapter 方法的最小接口（与真实实现对齐，v1.5 阶段 3：消除 as unknown as 断言） */
 interface ClawHubAdapterLike {
+  initialize(): Promise<void>;
   getInstalledSkills(): Promise<unknown[]>;
   searchSkills(
     query: string,
-    opts: Record<string, unknown>
+    opts?: { category?: string; tags?: string[]; source?: string }
   ): Promise<unknown[]>;
-  getSearchEngine(): {
-    searchRemote(
-      query: string,
-      opts: Record<string, unknown>
-    ): Promise<unknown[]>;
-    getSourceNames(): string[];
-    addCustomSource(name: string, url: string): void;
-    removeCustomSource(name: string): void;
-  };
+  getSearchEngine(): SkillSearchEngine;
   getSkillDetail(id: string): Promise<unknown>;
+  getRemoteVersion(id: string): Promise<string | null>;
   installSkill(id: string, sourceUrl?: string): Promise<unknown>;
-  uninstallSkill(id: string): Promise<void>;
+  uninstallSkill(id: string): Promise<unknown>;
   updateSkill(id: string): Promise<unknown>;
   enableSkill(id: string): Promise<void>;
   disableSkill(id: string): Promise<void>;
+  getLocalStore(): LocalSkillStore;
 }
 
 /** PDCA Orchestrator 方法的最小接口 */
@@ -3264,35 +3262,29 @@ export class LocalHTTPService {
   // ──────────────────────────────────────────────
 
   /**
-   * 获取 ClawHubAdapter 实例
+   * 获取 ClawHubAdapter 实例（v1.5 阶段 3：instanceof 运行时收窄替代 as unknown as 断言）
    * 优先从 ThirdPartyAdapterRegistry 获取，fallback 到直接 import
    */
   private async getClawHubAdapter(): Promise<ClawHubAdapterLike> {
-    // 优先从注册表获取
+    const { ClawHubAdapter } =
+      await import('@modules/skills/loaders/adapter/clawhub/ClawHubAdapter');
+
+    // 优先从注册表获取（instanceof 收窄到真实类型；initialize 幂等）
     try {
       const { thirdPartyAdapterRegistry } =
         await import('@modules/skills/loaders/adapter/ThirdPartyAdapterRegistry');
       const registered = thirdPartyAdapterRegistry.get('clawhub');
-      if (registered) {
-        return registered as unknown as ClawHubAdapterLike;
+      if (registered instanceof ClawHubAdapter) {
+        await registered.initialize();
+        return registered;
       }
     } catch (_err) {
       // 注册表不可用时 fallback
     }
 
-    // Fallback: 直接 import
-    const { ClawHubAdapter } =
-      await import('@modules/skills/loaders/adapter/clawhub/ClawHubAdapter');
-
-    const adapter =
-      ClawHubAdapter.getInstance() as unknown as ClawHubAdapterLike & {
-        initialized?: boolean;
-        initialize(): Promise<void>;
-      };
-
-    if (!adapter.initialized) {
-      await adapter.initialize();
-    }
+    // Fallback: 单例
+    const adapter = ClawHubAdapter.getInstance();
+    await adapter.initialize();
 
     return adapter;
   }
@@ -3465,6 +3457,22 @@ export class LocalHTTPService {
     skillId: string
   ): Promise<void> {
     try {
+      const { validateSkillId } =
+        await import('@modules/skills/loaders/adapter/safeSkillId');
+      const decodedId = decodeURIComponent(skillId);
+      const idError = validateSkillId(decodedId);
+      if (idError) {
+        res.writeHead(400, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
+        res.end(
+          JSON.stringify({
+            error: { code: 'INVALID_PARAM', message: idError },
+          })
+        );
+        return;
+      }
+
       const { readFile } = await import('fs/promises');
       const { existsSync } = await import('fs');
       const { resolveProjectRoot, resolvePyappHome } =
@@ -3478,9 +3486,9 @@ export class LocalHTTPService {
           'src',
           'builtin',
           'skills',
-          decodeURIComponent(skillId)
+          decodedId
         ),
-        pathMod.join(resolvePyappHome(), 'skills', decodeURIComponent(skillId)),
+        pathMod.join(resolvePyappHome(), 'skills', decodedId),
       ];
 
       let skillFile = '';
@@ -3539,6 +3547,352 @@ export class LocalHTTPService {
           linkedFiles,
         })
       );
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理技能导出 GET /v1/skills/export（v1.5 阶段 2，修复 P1-1）
+   * 打包用户技能目录为 ZIP：skills/<id>/skill.json + SKILL.md + 其余文件
+   */
+  private async handleExportSkills(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { resolvePyappHome } = await import('@modules/core/paths');
+      const { default: AdmZipClass } = await import('adm-zip');
+
+      const userSkillsDir = path.join(resolvePyappHome(), 'skills');
+      const zip = new AdmZipClass();
+
+      if (fs.existsSync(userSkillsDir)) {
+        const entries = fs.readdirSync(userSkillsDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (!entry.isDirectory()) continue;
+          if (
+            entry.name.startsWith('.') ||
+            entry.name.endsWith('.tmp') ||
+            entry.name.endsWith('.bak')
+          ) {
+            continue; // 跳过隐藏/过渡目录（v1.5：导出不含 .tmp/.bak）
+          }
+          const skillDir = path.join(userSkillsDir, entry.name);
+          const zipPrefix = `skills/${entry.name}`;
+          // skill.json（元数据，从 SKILL.md frontmatter 提取）
+          const skillMd = path.join(skillDir, 'SKILL.md');
+          if (fs.existsSync(skillMd)) {
+            const raw = fs.readFileSync(skillMd, 'utf-8');
+            const fm = raw.match(/^---\n([\s\S]*?)\n---\n/);
+            const meta: Record<string, unknown> = {};
+            if (fm) {
+              for (const line of fm[1].split('\n')) {
+                const m = line.match(/^(\w[\w-]*):\s*(.+)$/);
+                if (m) meta[m[1]] = m[2].trim();
+              }
+            }
+            zip.addFile(
+              `${zipPrefix}/skill.json`,
+              Buffer.from(
+                JSON.stringify(
+                  { id: entry.name, ...meta, manifestVersion: '1.0' },
+                  null,
+                  2
+                ),
+                'utf-8'
+              )
+            );
+          }
+          zip.addLocalFolder(skillDir, zipPrefix);
+        }
+      }
+
+      const buffer = zip.toBuffer();
+      res.writeHead(200, {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': `attachment; filename="skills-export-${Date.now()}.zip"`,
+      });
+      res.end(buffer);
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理技能导入 POST /v1/skills/import（v1.5 阶段 2，修复 P1-2）
+   * 支持两种格式：
+   * - { zipBase64 }：ZIP 二进制 base64（由前端导出 ZIP 导入）
+   * - { skillId, files: Record<string,string> }：JSON 文件清单（含 SKILL.md）
+   * 落盘到 <pyappHome>/skills/<id>/；含权限的审批流在阶段 5 接入
+   */
+  private async handleImportSkill(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    try {
+      const { resolvePyappHome } = await import('@modules/core/paths');
+      const body = JSON.parse((await this.readRequestBody(req)) || '{}');
+
+      const userSkillsDir = path.join(resolvePyappHome(), 'skills');
+      let skillId = '';
+      let files: Record<string, string> = {};
+
+      if (typeof body.zipBase64 === 'string') {
+        const { default: AdmZipClass } = await import('adm-zip');
+        const zip = new AdmZipClass(Buffer.from(body.zipBase64, 'base64'));
+        for (const entry of zip.getEntries()) {
+          if (entry.isDirectory) continue;
+          const parts = entry.entryName
+            .replace(/\\/g, '/')
+            .split('/')
+            .filter(Boolean);
+          // 顶层目录名作为技能 id（skills/<id>/... 或 <id>/...）
+          const first = parts[0];
+          if (!skillId) skillId = first === 'skills' ? parts[1] || '' : first;
+          const rel = (
+            first === 'skills' ? parts.slice(2) : parts.slice(1)
+          ).join('/');
+          if (!rel) continue;
+          // zip-slip 防护（P3-19）：规范化路径必须落在技能目录内
+          if (
+            rel.includes('..') ||
+            rel.startsWith('/') ||
+            /^[a-zA-Z]:/.test(rel)
+          ) {
+            res.writeHead(400, {
+              'Content-Type': 'application/json; charset=utf-8',
+            });
+            res.end(
+              JSON.stringify({
+                error: {
+                  code: 'SKILL_IMPORT_REJECTED',
+                  message: `非法条目路径: ${entry.entryName}`,
+                },
+              })
+            );
+            return;
+          }
+          files[rel] = entry.getData().toString('utf-8');
+        }
+      } else if (body.skillId && body.files && typeof body.files === 'object') {
+        skillId = String(body.skillId);
+        files = body.files;
+      }
+
+      if (!skillId || Object.keys(files).length === 0) {
+        res.writeHead(400, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
+        res.end(
+          JSON.stringify({
+            error: {
+              code: 'INVALID_PARAM',
+              message: '需要 zipBase64 或 skillId+files',
+            },
+          })
+        );
+        return;
+      }
+
+      // 基础 id 校验（v1.5 阶段 4：safeSkillId 白名单）
+      const { validateSkillId } =
+        await import('@modules/skills/loaders/adapter/safeSkillId');
+      const idError = validateSkillId(skillId);
+      if (idError) {
+        res.writeHead(400, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
+        res.end(
+          JSON.stringify({
+            error: { code: 'INVALID_PARAM', message: idError },
+          })
+        );
+        return;
+      }
+
+      const target = path.join(userSkillsDir, skillId);
+      fs.mkdirSync(target, { recursive: true });
+      for (const [rel, content] of Object.entries(files)) {
+        const dest = path.join(target, rel);
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        fs.writeFileSync(dest, content, 'utf-8');
+      }
+
+      // 导入权限审批（v1.5 阶段 4，P3-13）：解析 SKILL.md permissions，
+      // 含敏感权限（file-write/command/host-access）→ 先落盘"未启用"，待用户确认
+      const skillMdPath = path.join(target, 'SKILL.md');
+      if (fs.existsSync(skillMdPath)) {
+        const { parseSkillPermissions, hasSensitivePermission } =
+          await import('@modules/skills/loaders/adapter/SkillPermission');
+        const permissions = parseSkillPermissions(
+          fs.readFileSync(skillMdPath, 'utf-8')
+        );
+        if (hasSensitivePermission(permissions)) {
+          fs.writeFileSync(path.join(target, '.enabled'), 'false', 'utf-8');
+        }
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, skillId }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理技能克隆 POST /v1/skills/:id/clone（v1.5 阶段 2，修复 P1-3）
+   * 复制技能目录为 <原名>-copy（冲突递增），保持与本地新建相同的落盘结构
+   */
+  private async handleCloneSkill(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    skillId: string
+  ): Promise<void> {
+    try {
+      const { resolvePyappHome } = await import('@modules/core/paths');
+      const userSkillsDir = path.join(resolvePyappHome(), 'skills');
+      const src = path.join(userSkillsDir, decodeURIComponent(skillId));
+
+      if (!fs.existsSync(src)) {
+        res.writeHead(404, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
+        res.end(
+          JSON.stringify({
+            error: { code: 'SKILL_NOT_FOUND', message: '技能未找到' },
+          })
+        );
+        return;
+      }
+
+      let newId = `${skillId}-copy`;
+      let counter = 2;
+      while (fs.existsSync(path.join(userSkillsDir, newId))) {
+        newId = `${skillId}-copy${counter}`;
+        counter++;
+      }
+
+      fs.cpSync(src, path.join(userSkillsDir, newId), { recursive: true });
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ success: true, skillId: newId }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理技能文件列表 GET /v1/skills/:id/files（v1.5 阶段 2，修复 P1-4）
+   * 返回技能目录内所有文件（相对路径 + 大小）
+   */
+  private async handleSkillFiles(
+    _req: http.IncomingMessage,
+    res: http.ServerResponse,
+    skillId: string
+  ): Promise<void> {
+    try {
+      const { resolvePyappHome } = await import('@modules/core/paths');
+      const userSkillsDir = path.join(resolvePyappHome(), 'skills');
+      const skillDir = path.join(userSkillsDir, decodeURIComponent(skillId));
+
+      if (!fs.existsSync(skillDir)) {
+        res.writeHead(404, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
+        res.end(
+          JSON.stringify({
+            error: { code: 'SKILL_NOT_FOUND', message: '技能未找到' },
+          })
+        );
+        return;
+      }
+
+      const files: Array<{ name: string; size: number }> = [];
+      const walk = (dir: string, prefix: string): void => {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const full = path.join(dir, entry.name);
+          const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+          if (entry.isDirectory()) {
+            walk(full, rel);
+          } else {
+            files.push({ name: rel, size: fs.statSync(full).size });
+          }
+        }
+      };
+      walk(skillDir, '');
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ files }));
+    } catch (err) {
+      this.sendError(res, err);
+    }
+  }
+
+  /**
+   * 处理系统技能关联文件内容 GET /v1/skills/system/:id/files/content?path=（v1.5 阶段 2，修复 P1-5）
+   * 带基础路径穿越拦截（../、绝对路径），阶段 4 强化为 safeSkillId
+   */
+  private async handleSystemSkillFileContent(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    skillId: string
+  ): Promise<void> {
+    try {
+      const urlObj = new URL(req.url!, `http://${req.headers.host}`);
+      const filePath = urlObj.searchParams.get('path') || '';
+
+      // 基础路径穿越拦截（P3-1）
+      if (!filePath || filePath.includes('..') || path.isAbsolute(filePath)) {
+        res.writeHead(400, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
+        res.end(
+          JSON.stringify({
+            error: { code: 'INVALID_PARAM', message: '非法文件路径' },
+          })
+        );
+        return;
+      }
+
+      const { resolveProjectRoot, resolvePyappHome } =
+        await import('@modules/core/paths');
+      const decodedId = decodeURIComponent(skillId);
+      const candidateDirs = [
+        path.join(
+          resolveProjectRoot(),
+          'app',
+          'src',
+          'builtin',
+          'skills',
+          decodedId
+        ),
+        path.join(resolvePyappHome(), 'skills', decodedId),
+      ];
+
+      let target = '';
+      for (const dir of candidateDirs) {
+        const candidate = path.join(dir, filePath);
+        if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+          target = candidate;
+          break;
+        }
+      }
+
+      if (!target) {
+        res.writeHead(404, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
+        res.end(
+          JSON.stringify({
+            error: { code: 'SKILL_NOT_FOUND', message: '文件未找到' },
+          })
+        );
+        return;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ content: fs.readFileSync(target, 'utf-8') }));
     } catch (err) {
       this.sendError(res, err);
     }
@@ -3789,8 +4143,16 @@ export class LocalHTTPService {
         return;
       }
 
+      // P3-23: 附带远端最新版本（repo/market 双形态；失败静默降级为 null）
+      let remoteVersion: string | null = null;
+      try {
+        remoteVersion = await adapter.getRemoteVersion(skillId);
+      } catch {
+        // 远端不可达时前端降级为"未知"，不显示"有更新"
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ skill }));
+      res.end(JSON.stringify({ skill, remoteVersion }));
     } catch (err) {
       this.sendError(res, err);
     }
@@ -5151,28 +5513,130 @@ export class LocalHTTPService {
 
   // ========== Skill CRUD Handlers ==========
 
+  /**
+   * 处理创建技能 POST /v1/skills（v1.5 阶段 3：显式 action 字段，修复 P0-3 协议错配）
+   * - { action: 'install', skillId, sourceUrl }：市场安装
+   * - { action: 'create', name, description, category }：本地新建
+   */
   private async handleCreateSkill(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
     try {
-      const body = await this.readRequestBody(req);
-      const { skillId, sourceUrl } = JSON.parse(body);
+      const body = JSON.parse((await this.readRequestBody(req)) || '{}');
+      const { action } = body;
 
-      if (!skillId) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'skillId is required' } }));
+      if (action === 'install') {
+        const { skillId, sourceUrl } = body;
+        if (!skillId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              error: { code: 'INVALID_PARAM', message: 'install 需要 skillId' },
+            })
+          );
+          return;
+        }
+        const adapter = await this.getClawHubAdapter();
+        const skill = await adapter.installSkill(skillId, sourceUrl);
+        if (!skill) {
+          // 3.6 安装结果如实反馈：失败/已存在 → 409
+          res.writeHead(409, { 'Content-Type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              error: {
+                code: 'SKILL_ALREADY_INSTALLED',
+                message: `技能安装失败或已存在: ${skillId}`,
+              },
+            })
+          );
+          return;
+        }
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
+        res.end(JSON.stringify(skill));
+        this.broadcastEvent('skill:created', { skill });
         return;
       }
 
-      const adapter = await this.getClawHubAdapter();
-      const skill = await adapter.installSkill(skillId, sourceUrl);
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(skill));
-      this.broadcastEvent('skill:created', { skill });
+      if (action === 'create') {
+        const { name, description, category } = body;
+        if (!name || typeof name !== 'string') {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              error: { code: 'INVALID_PARAM', message: 'create 需要 name' },
+            })
+          );
+          return;
+        }
+        const skill = await this.createLocalSkill(
+          name,
+          description || '',
+          category || 'general'
+        );
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
+        res.end(JSON.stringify(skill));
+        this.broadcastEvent('skill:created', { skill });
+        return;
+      }
+
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            code: 'INVALID_PARAM',
+            message: 'action 必填，取值 install|create',
+          },
+        })
+      );
     } catch (err) {
       this.sendError(res, err);
     }
+  }
+
+  /**
+   * 创建本地技能（写 SKILL.md 到 <pyappHome>/skills/<name>/）
+   */
+  private async createLocalSkill(
+    name: string,
+    description: string,
+    category: string
+  ): Promise<Record<string, unknown>> {
+    const { resolvePyappHome } = await import('@modules/core/paths');
+    const userSkillsDir = path.join(resolvePyappHome(), 'skills');
+    // 目录名清洗（v1.5 阶段 4：safeSkillId）
+    const { sanitizeSkillId } =
+      await import('@modules/skills/loaders/adapter/safeSkillId');
+    const safeName = sanitizeSkillId(name) || 'unnamed-skill';
+    const skillDir = path.join(userSkillsDir, safeName);
+
+    fs.mkdirSync(skillDir, { recursive: true });
+    const frontmatter = [
+      '---',
+      `name: ${name}`,
+      `description: ${description || ''}`,
+      `category: ${category || 'general'}`,
+      'version: 1.0.0',
+      '---',
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), frontmatter, 'utf-8');
+
+    return {
+      id: safeName,
+      name,
+      description,
+      status: 'enabled',
+      category: category || 'general',
+      version: '1.0.0',
+      source: 'user',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
   }
 
   private async handleUpdateSkillById(
@@ -5191,17 +5655,50 @@ export class LocalHTTPService {
     }
   }
 
+  /**
+   * 处理删除技能 DELETE /v1/skills/:id（v1.5 阶段 3：区分市场卸载与本地删除，修复 P2-2）
+   */
   private async handleDeleteSkill(
     req: http.IncomingMessage,
     res: http.ServerResponse,
     skillId: string
   ): Promise<void> {
     try {
+      const decoded = decodeURIComponent(skillId);
       const adapter = await this.getClawHubAdapter();
-      await adapter.uninstallSkill(skillId);
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({}));
-      this.broadcastEvent('skill:deleted', { skillId });
+
+      // 市场安装技能（索引内）：uninstallSkill（删目录 + 索引 + registry）
+      const installed = await adapter.getLocalStore().getSkill(decoded);
+      if (installed) {
+        await adapter.uninstallSkill(decoded);
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
+        res.end(JSON.stringify({ success: true }));
+        this.broadcastEvent('skill:deleted', { skillId: decoded });
+        return;
+      }
+
+      // 本地技能（目录扫描）：删目录
+      const { resolvePyappHome } = await import('@modules/core/paths');
+      const userSkillsDir = path.join(resolvePyappHome(), 'skills');
+      const skillDir = path.join(userSkillsDir, decoded);
+      if (fs.existsSync(skillDir)) {
+        fs.rmSync(skillDir, { recursive: true, force: true });
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
+        res.end(JSON.stringify({ success: true }));
+        this.broadcastEvent('skill:deleted', { skillId: decoded });
+        return;
+      }
+
+      res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({
+          error: { code: 'SKILL_NOT_FOUND', message: '技能未找到' },
+        })
+      );
     } catch (err) {
       this.sendError(res, err);
     }

@@ -43,6 +43,27 @@ export interface SkillHubSearchFilter {
 export class SkillHub {
   private entries: Map<string, SkillHubEntry> = new Map();
   private indexBySource: Map<string, Set<string>> = new Map();
+  /** 已绑定的 registry（幂等防重复订阅） */
+  private boundRegistry: SkillRegistry | null = null;
+
+  /**
+   * 绑定到 SkillRegistry（v1.5）
+   * 幂等订阅 registered/unregistered/cleared/skill-updated 事件并自动刷新快照；
+   * 立即执行一次初始刷新。同一 registry 重复绑定不重复订阅。
+   * @param registry SkillRegistry 实例
+   */
+  bindTo(registry: SkillRegistry): void {
+    if (this.boundRegistry === registry) return;
+    this.boundRegistry = registry;
+
+    const refresh = (): void => this.refreshFromRegistry(registry);
+    registry.on('registered', refresh);
+    registry.on('unregistered', refresh);
+    registry.on('cleared', refresh);
+    registry.on('skill-updated', refresh);
+
+    refresh();
+  }
 
   /**
    * 从 Registry 重建索引

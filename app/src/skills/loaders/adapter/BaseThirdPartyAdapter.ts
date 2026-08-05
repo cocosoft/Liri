@@ -33,12 +33,14 @@
  */
 
 import { EventEmitter } from 'events';
+import { existsSync, renameSync, rmSync } from 'fs';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { SkillSource, SkillLoadMethod } from '@modules/skills/types';
 import type { Skill } from '@modules/skills/types';
 import type { SkillRegistry } from '@modules/skills/SkillRegistry';
 import { LocalSkillStore } from './LocalSkillStore';
 import { SkillAuditService } from './SkillAuditService';
+import { SkillSearchEngine } from './SkillSearchEngine';
 import type {
   ThirdPartySkillAdapter,
   ThirdPartySkillSearchResult,
@@ -76,6 +78,12 @@ export abstract class BaseThirdPartyAdapter<
   /** SkillRegistry 引用（安装/卸载时同步通知） */
   protected skillRegistry: SkillRegistry | null = null;
 
+  /** 搜索引擎（懒创建缓存） */
+  private searchEngine: SkillSearchEngine | null = null;
+
+  /** per-skillId 单飞锁（v1.5 阶段 3.6：防 install/update/uninstall 并发竞态） */
+  private skillLocks = new Map<string, Promise<unknown>>();
+
   /** 是否已初始化 */
   protected initialized = false;
 
@@ -111,9 +119,14 @@ export abstract class BaseThirdPartyAdapter<
    * 执行安装（下载 + 解压 + 加载）
    * @param skillId 技能 ID
    * @param sourceUrl 来源 URL（可选）
+   * @param targetPath 安装目标路径（可选；用于 updateSkill 原子替换下载到临时目录）
    * @returns 安装后的内部技能对象
    */
-  protected abstract doInstall(skillId: string, sourceUrl?: string): Promise<T>;
+  protected abstract doInstall(
+    skillId: string,
+    sourceUrl?: string,
+    targetPath?: string
+  ): Promise<T>;
 
   /**
    * 执行卸载（删除文件）
@@ -124,9 +137,11 @@ export abstract class BaseThirdPartyAdapter<
   /**
    * 远程搜索（在对应市场中查询）
    * @param query 搜索关键字
+   * @param opts 过滤条件（category/tags/source，v1.5 透传修复）
    */
   protected abstract doSearchRemote(
-    query: string
+    query: string,
+    opts?: { category?: string; tags?: string[]; source?: string }
   ): Promise<ThirdPartySkillSearchResult[]>;
 
   // ============================================================
@@ -178,11 +193,18 @@ export abstract class BaseThirdPartyAdapter<
   /**
    * 搜索技能（本地 + 远程）
    * @param query 搜索关键词
+   * @param opts 过滤条件（v1.5 三处透传：聚合层 → 本地 searchLocal → 远程 doSearchRemote）
    */
-  async searchSkills(query: string): Promise<ThirdPartySkillSearchResult[]> {
+  async searchSkills(
+    query: string,
+    opts?: { category?: string; tags?: string[]; source?: string }
+  ): Promise<ThirdPartySkillSearchResult[]> {
     const [localResults, remoteResults] = await Promise.all([
-      this.localStore.searchLocal(query),
-      this.doSearchRemote(query).catch(
+      this.localStore.searchLocal(query, {
+        category: opts?.category,
+        tags: opts?.tags,
+      }),
+      this.doSearchRemote(query, opts).catch(
         () => [] as ThirdPartySkillSearchResult[]
       ),
     ]);
@@ -211,6 +233,22 @@ export abstract class BaseThirdPartyAdapter<
   }
 
   /**
+   * per-skillId 单飞锁：同一技能的 install/update/uninstall 串行执行，防 TOCTOU 竞态
+   */
+  private withSkillLock<T>(skillId: string, fn: () => Promise<T>): Promise<T> {
+    const prev = this.skillLocks.get(skillId) || Promise.resolve();
+    const next = prev.then(fn, fn);
+    this.skillLocks.set(skillId, next);
+    const cleanup = (): void => {
+      if (this.skillLocks.get(skillId) === next) {
+        this.skillLocks.delete(skillId);
+      }
+    };
+    next.then(cleanup, cleanup);
+    return next;
+  }
+
+  /**
    * 安装技能
    * @param skillId 技能 ID
    * @param sourceUrl 来源 URL（可选）
@@ -219,34 +257,114 @@ export abstract class BaseThirdPartyAdapter<
     skillId: string,
     sourceUrl?: string
   ): Promise<Skill | null> {
-    try {
-      const installed = await this.doInstall(skillId, sourceUrl);
+    return this.withSkillLock(skillId, async () => {
+      try {
+        const installed = await this.doInstall(skillId, sourceUrl);
 
-      await this.localStore.addSkill(installed);
+        await this.localStore.addSkill(installed);
 
-      this.emit('skill:installed', installed);
-      logger.info(
-        `技能已安装: ${installed.meta.name}@${installed.meta.version}`
-      );
+        this.emit('skill:installed', installed);
+        logger.info(
+          `技能已安装: ${installed.meta.name}@${installed.meta.version}`
+        );
 
-      this.auditService.recordInstall(
-        installed.meta.id,
-        installed.meta.name,
-        installed.meta.version,
-        true
-      );
+        this.auditService.recordInstall(
+          installed.meta.id,
+          installed.meta.name,
+          installed.meta.version,
+          true
+        );
 
-      // 同步通知 SkillRegistry
-      const unifiedSkill = this.toSkill(installed);
-      if (this.skillRegistry) {
-        this.skillRegistry.register(unifiedSkill);
+        // 同步通知 SkillRegistry
+        const unifiedSkill = this.toSkill(installed);
+        if (this.skillRegistry) {
+          this.skillRegistry.register(unifiedSkill);
+        }
+
+        return unifiedSkill;
+      } catch (error) {
+        logger.error(`安装技能失败: ${skillId}`, error as Error);
+        return null;
+      }
+    });
+  }
+
+  /**
+   * 更新技能（v1.5 阶段 1，修复 P0-1）
+   * 从索引读取 sourceUrl → 下载到临时目录 → 原子替换（旧目录 .bak → 新目录 → 删 .bak）→
+   * 更新索引 → 同步 SkillRegistry。失败自动回滚并保留旧版本。
+   * @param skillId 技能 ID
+   * @returns 更新后的统一 Skill（失败返回 null）
+   */
+  async updateSkill(skillId: string): Promise<Skill | null> {
+    return this.withSkillLock(skillId, async () => {
+      const existing = await this.localStore.getSkill(skillId);
+      if (!existing) {
+        logger.warn(`技能未安装，无法更新: ${skillId}`);
+        return null;
       }
 
-      return unifiedSkill;
-    } catch (error) {
-      logger.error(`安装技能失败: ${skillId}`, error as Error);
-      return null;
-    }
+      const installPath = existing.installPath;
+      const tmpPath = `${installPath}.tmp`;
+      const bakPath = `${installPath}.bak`;
+
+      try {
+        // 1. 重新拉取到临时目录（不触碰正式目录）
+        const updated = await this.doInstall(
+          skillId,
+          existing.sourceUrl,
+          tmpPath
+        );
+
+        // 2. 原子替换：正式 → .bak，临时 → 正式
+        if (existsSync(installPath)) {
+          renameSync(installPath, bakPath);
+        }
+        if (existsSync(tmpPath)) {
+          renameSync(tmpPath, installPath);
+        }
+
+        // 3. 清理 .bak
+        if (existsSync(bakPath)) {
+          rmSync(bakPath, { recursive: true, force: true });
+        }
+
+        // 4. 更新索引（修正 installPath 为正式路径）
+        updated.installPath = installPath;
+        updated.updatedAt = Date.now();
+        await this.localStore.updateSkill(skillId, updated);
+
+        // 5. 同步 SkillRegistry（替换旧注册）
+        const unifiedSkill = this.toSkill(updated);
+        if (this.skillRegistry) {
+          if (this.skillRegistry.has(skillId, { includeDisabled: true })) {
+            this.skillRegistry.unregister(skillId);
+          }
+          this.skillRegistry.register(unifiedSkill);
+        }
+
+        this.auditService.recordUpdate(
+          skillId,
+          existing.meta.name,
+          existing.meta.version,
+          updated.meta.version,
+          true
+        );
+        logger.info(`技能已更新: ${skillId} -> v${updated.meta.version}`);
+        return unifiedSkill;
+      } catch (error) {
+        // 回滚：正式目录缺失且 .bak 存在 → 还原旧版本
+        if (!existsSync(installPath) && existsSync(bakPath)) {
+          renameSync(bakPath, installPath);
+          logger.warn(`更新失败已回滚旧版本: ${skillId}`);
+        }
+        if (existsSync(tmpPath)) {
+          rmSync(tmpPath, { recursive: true, force: true });
+        }
+        logger.error(`更新技能失败: ${skillId}`, error as Error);
+        return null;
+      }
+    });
   }
 
   /**
@@ -254,30 +372,32 @@ export abstract class BaseThirdPartyAdapter<
    * @param skillId 技能 ID
    */
   async uninstallSkill(skillId: string): Promise<boolean> {
-    try {
-      const skill = await this.localStore.getSkill(skillId);
-      if (!skill) {
-        logger.warn(`技能未安装: ${skillId}`);
+    return this.withSkillLock(skillId, async () => {
+      try {
+        const skill = await this.localStore.getSkill(skillId);
+        if (!skill) {
+          logger.warn(`技能未安装: ${skillId}`);
+          return false;
+        }
+
+        await this.doUninstall(skill);
+        await this.localStore.removeSkill(skillId);
+
+        this.emit('skill:uninstalled', { id: skillId });
+        logger.info(`技能已卸载: ${skillId}`);
+
+        // 同步通知 SkillRegistry
+        if (this.skillRegistry) {
+          this.skillRegistry.unregister(skillId);
+        }
+
+        this.auditService.recordUninstall(skill.meta.id, skill.meta.name);
+        return true;
+      } catch (error) {
+        logger.error(`卸载技能失败: ${skillId}`, error as Error);
         return false;
       }
-
-      await this.doUninstall(skill);
-      await this.localStore.removeSkill(skillId);
-
-      this.emit('skill:uninstalled', { id: skillId });
-      logger.info(`技能已卸载: ${skillId}`);
-
-      // 同步通知 SkillRegistry
-      if (this.skillRegistry) {
-        this.skillRegistry.unregister(skillId);
-      }
-
-      this.auditService.recordUninstall(skill.meta.id, skill.meta.name);
-      return true;
-    } catch (error) {
-      logger.error(`卸载技能失败: ${skillId}`, error as Error);
-      return false;
-    }
+    });
   }
 
   /**
@@ -294,12 +414,37 @@ export abstract class BaseThirdPartyAdapter<
   }
 
   /**
-   * 启用技能
+   * 获取技能远端最新版本（P3-23 双形态）
+   * - market 形态：向来源 API 查询远端版本
+   * - repo 形态（github:/hermes:/gitee:）：拉取远端 SKILL.md 解析 frontmatter version
+   * 失败/不支持时返回 null（前端静默降级为"未知"，不显示"有更新"）
+   * @param skillId 技能 ID
+   */
+  async getRemoteVersion(skillId: string): Promise<string | null> {
+    return null;
+  }
+
+  /**
+   * 获取搜索引擎（v1.5 阶段 1，修复 P0-2）
+   * 懒创建并缓存 SkillSearchEngine 实例
+   */
+  getSearchEngine(): SkillSearchEngine {
+    if (!this.searchEngine) {
+      this.searchEngine = new SkillSearchEngine(this);
+    }
+    return this.searchEngine;
+  }
+
+  /**
+   * 启用技能（v1.5：同步 SkillRegistry.setEnabled，触发 skill-updated 事件）
    * @param skillId 技能 ID
    */
   async enableSkill(skillId: string): Promise<void> {
     const skill = await this.localStore.getSkill(skillId);
     await this.localStore.setEnabled(skillId, true);
+    if (this.skillRegistry) {
+      this.skillRegistry.setEnabled(skillId, true);
+    }
     this.emit('skill:enabled', { id: skillId });
 
     if (skill) {
@@ -308,12 +453,15 @@ export abstract class BaseThirdPartyAdapter<
   }
 
   /**
-   * 禁用技能
+   * 禁用技能（v1.5：同步 SkillRegistry.setEnabled，触发 skill-updated 事件）
    * @param skillId 技能 ID
    */
   async disableSkill(skillId: string): Promise<void> {
     const skill = await this.localStore.getSkill(skillId);
     await this.localStore.setEnabled(skillId, false);
+    if (this.skillRegistry) {
+      this.skillRegistry.setEnabled(skillId, false);
+    }
     this.emit('skill:disabled', { id: skillId });
 
     if (skill) {

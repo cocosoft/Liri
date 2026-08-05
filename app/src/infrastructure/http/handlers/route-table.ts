@@ -2055,6 +2055,26 @@ export async function dispatchRoute(
     await self['handleListSystemSkills'](req, res);
     return true;
   }
+  // 特定路由须在通用 (.+)$ 之前（v1.5 阶段 2：修复 P1-1~P1-5 被吞/404）
+  if (method === 'GET' && url === '/v1/skills/export') {
+    await self['handleExportSkills'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/skills/import') {
+    await self['handleImportSkill'](req, res);
+    return true;
+  }
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/skills\/system\/(.+)\/files\/content$/)
+  ) {
+    await self['handleSystemSkillFileContent'](
+      req,
+      res,
+      url.match(/^\/v1\/skills\/system\/(.+)\/files\/content$/)![1]
+    );
+    return true;
+  }
   if (method === 'GET' && url.match(/^\/v1\/skills\/system\/(.+)\/content$/)) {
     await self['handleSystemSkillContent'](
       req,
@@ -2091,6 +2111,14 @@ export async function dispatchRoute(
     );
     return true;
   }
+  if (method === 'GET' && url.match(/^\/v1\/skills\/(.+)\/files$/)) {
+    await self['handleSkillFiles'](
+      req,
+      res,
+      url.match(/^\/v1\/skills\/(.+)\/files$/)![1]
+    );
+    return true;
+  }
   if (method === 'GET' && url.match(/^\/v1\/skills\/(.+)$/)) {
     await self['handleGetSkillDetail'](
       req,
@@ -2101,6 +2129,14 @@ export async function dispatchRoute(
   }
   if (method === 'POST' && url === '/v1/skills/install') {
     await self['handleInstallSkill'](req, res);
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/skills\/(.+)\/clone$/)) {
+    await self['handleCloneSkill'](
+      req,
+      res,
+      url.match(/^\/v1\/skills\/(.+)\/clone$/)![1]
+    );
     return true;
   }
   if (method === 'POST' && url.match(/^\/v1\/skills\/(.+)\/uninstall$/)) {

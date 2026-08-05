@@ -17,6 +17,32 @@ import { createLogger } from "./logger";
 const logger = createLogger("error:handler");
 
 /**
+ * 从 API 错误响应中提取可读错误信息（5.7 统一解析 {error:{code,message}}）
+ * 优先取后端 `response.data.error.message`，附带错误码；无则退回原始 message。
+ */
+export function extractApiErrorMessage(e: unknown): string {
+  const anyErr = e as {
+    response?: {
+      data?: {
+        error?: { code?: string; message?: string };
+        message?: string;
+      };
+    };
+    message?: string;
+  };
+  const apiError = anyErr?.response?.data?.error;
+  if (apiError?.message) {
+    return apiError.code
+      ? `${apiError.message} (${apiError.code})`
+      : apiError.message;
+  }
+  if (anyErr?.response?.data?.message) {
+    return anyErr.response.data.message;
+  }
+  return anyErr?.message || String(e);
+}
+
+/**
  * 统一错误处理选项
  */
 export interface HandleErrorOptions {

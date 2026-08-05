@@ -75,11 +75,13 @@ export class AggregatedSkillSearch {
    * 聚合搜索
    * @param query 搜索关键字
    * @param filter 额外的本地过滤条件
+   * @param opts 远程搜索过滤条件（v1.5 透传修复）
    * @param timeoutMs 远程搜索超时（默认 5000ms）
    */
   async search(
     query: string,
     filter?: SkillHubSearchFilter,
+    opts?: { category?: string; tags?: string[]; source?: string },
     timeoutMs: number = 5000
   ): Promise<AggregatedSearchItem[]> {
     // 1. 查本地 Hub
@@ -88,7 +90,7 @@ export class AggregatedSkillSearch {
     // 2. 并行查所有 ThirdPartyAdapter
     const adapters = this.adapterRegistry.getAll();
     const remotePromises = adapters.map((adapter) =>
-      this.searchAdapterWithTimeout(adapter, query, timeoutMs)
+      this.searchAdapterWithTimeout(adapter, query, opts, timeoutMs)
     );
     const remoteResults = (await Promise.allSettled(remotePromises))
       .filter(
@@ -97,7 +99,7 @@ export class AggregatedSkillSearch {
       )
       .flatMap((r) => r.value);
 
-    // 3. 合并、去重
+    // 3. 合并、去重（按 id）
     const merged = this.mergeResults(localResults, remoteResults);
 
     // 4. 排序
@@ -126,10 +128,11 @@ export class AggregatedSkillSearch {
   private async searchAdapterWithTimeout(
     adapter: ThirdPartySkillAdapter,
     query: string,
+    opts: { category?: string; tags?: string[]; source?: string } | undefined,
     timeoutMs: number
   ): Promise<ThirdPartySkillSearchResult[]> {
     const result = await Promise.race([
-      adapter.searchSkills(query),
+      adapter.searchSkills(query, opts),
       new Promise<never>((_, reject) =>
         setTimeout(
           () => reject(new Error(`搜索超时: ${adapter.name}`)),
@@ -141,7 +144,7 @@ export class AggregatedSkillSearch {
   }
 
   /**
-   * 合并本地和远程结果，按名称去重
+   * 合并本地和远程结果，按 id 去重（v1.5：P3-12，原按 name 去重改为 id）
    */
   private mergeResults(
     local: AggregatedSearchItem[],
@@ -158,8 +161,8 @@ export class AggregatedSkillSearch {
 
     // 远程结果去重
     for (const r of remote) {
-      if (!seen.has(r.name)) {
-        seen.add(r.name);
+      if (!seen.has(r.id)) {
+        seen.add(r.id);
         merged.push({
           source: r.installed ? 'installed' : 'remote',
           name: r.name,

@@ -12,7 +12,8 @@ export type RegistryEvent =
   | 'before-register'
   | 'registered'
   | 'unregistered'
-  | 'cleared';
+  | 'cleared'
+  | 'skill-updated';
 
 /**
  * 事件处理器
@@ -29,6 +30,8 @@ export type RegistryEventHandler = (
 export class SkillRegistry {
   private skills: Map<string, Skill> = new Map();
   private listeners: Map<RegistryEvent, Set<RegistryEventHandler>> = new Map();
+  /** enabled 内存态（唯一真源为外部 index.json，启动时经 setEnabled 读入；默认 true） */
+  private enabledState: Map<string, boolean> = new Map();
 
   // ==================== 事件系统 ====================
 
@@ -73,6 +76,32 @@ export class SkillRegistry {
   // ==================== 核心操作 ====================
 
   /**
+   * 判断技能是否启用（单点过滤出口）
+   * 优先读 enabledState 内存态（启动时从 index.json 读入，运行时由 setEnabled 更新）
+   */
+  private isEnabledFor(skill: Skill): boolean {
+    const state = this.enabledState.get(skill.name);
+    if (state !== undefined) return state;
+    return skill.isEnabled?.() ?? true;
+  }
+
+  /**
+   * 设置技能启用/禁用状态（v1.5）
+   * 更新内存态 + 挂 isEnabled 钩子 + 触发 skill-updated 事件（SkillHub 依赖此刷新快照）
+   * @param skillName 技能名称
+   * @param enabled 是否启用
+   */
+  setEnabled(skillName: string, enabled: boolean): void {
+    const skill = this.skills.get(skillName);
+    this.enabledState.set(skillName, enabled);
+    if (skill) {
+      // 挂上钩子，外部通过 skill.isEnabled() 也能读到一致状态
+      skill.isEnabled = () => this.enabledState.get(skill.name) !== false;
+      this.emit('skill-updated', skill);
+    }
+  }
+
+  /**
    * 注册技能
    * 触发 before-register（可取消）和 registered 事件
    * @param skill 要注册的技能
@@ -93,26 +122,45 @@ export class SkillRegistry {
   unregister(skillName: string): void {
     const skill = this.skills.get(skillName);
     this.skills.delete(skillName);
+    this.enabledState.delete(skillName);
     if (skill) {
       this.emit('unregistered', skill);
     }
   }
 
   /**
-   * 获取技能
+   * 获取技能（运行时视图，默认过滤已禁用技能）
    * @param skillName 技能名称
+   * @param opts.includeDisabled 管理视图：包含已禁用技能
    * @returns 技能对象或undefined
    */
-  get(skillName: string): Skill | undefined {
-    return this.skills.get(skillName);
+  get(
+    skillName: string,
+    opts?: { includeDisabled?: boolean }
+  ): Skill | undefined {
+    const skill = this.skills.get(skillName);
+    if (!skill) return undefined;
+    if (!opts?.includeDisabled && !this.isEnabledFor(skill)) return undefined;
+    return skill;
   }
 
   /**
-   * 获取所有技能
+   * 获取所有技能（运行时视图，默认过滤已禁用技能）
+   * @param opts.includeDisabled 管理视图：包含已禁用技能
    * @returns 技能数组
    */
-  getAll(): Skill[] {
-    return Array.from(this.skills.values());
+  getAll(opts?: { includeDisabled?: boolean }): Skill[] {
+    const all = Array.from(this.skills.values());
+    if (opts?.includeDisabled) return all;
+    return all.filter((skill) => this.isEnabledFor(skill));
+  }
+
+  /**
+   * 获取所有技能（管理/导出全量视图，含已禁用）
+   * @returns 技能数组
+   */
+  listAll(): Skill[] {
+    return this.getAll({ includeDisabled: true });
   }
 
   /**
@@ -152,34 +200,40 @@ export class SkillRegistry {
    */
   clear(): void {
     this.skills.clear();
+    this.enabledState.clear();
     this.emit('cleared');
   }
 
   /**
-   * 检查技能是否存在
+   * 检查技能是否存在（运行时视图，默认过滤已禁用技能）
    * @param skillName 技能名称
+   * @param opts.includeDisabled 管理视图
    * @returns 是否存在
    */
-  has(skillName: string): boolean {
-    return this.skills.has(skillName);
+  has(skillName: string, opts?: { includeDisabled?: boolean }): boolean {
+    const skill = this.skills.get(skillName);
+    if (!skill) return false;
+    if (!opts?.includeDisabled && !this.isEnabledFor(skill)) return false;
+    return true;
   }
 
   /**
-   * 获取技能数量
+   * 获取技能数量（运行时视图，默认仅启用技能）
    * @returns 技能数量
    */
   size(): number {
-    return this.skills.size;
+    return this.getAll().length;
   }
 
   /**
-   * 按名称搜索技能
+   * 按名称搜索技能（运行时视图，默认过滤已禁用技能）
    * @param query 搜索关键词
+   * @param opts.includeDisabled 管理视图
    * @returns 技能数组
    */
-  search(query: string): Skill[] {
+  search(query: string, opts?: { includeDisabled?: boolean }): Skill[] {
     const lowerQuery = query.toLowerCase();
-    return this.getAll().filter(
+    return this.getAll(opts).filter(
       (skill) =>
         skill.name.toLowerCase().includes(lowerQuery) ||
         skill.description.toLowerCase().includes(lowerQuery) ||
@@ -211,7 +265,7 @@ export class SkillRegistry {
   countBySource(source: string): number {
     let count = 0;
     for (const skill of this.skills.values()) {
-      if (skill.source === source) count++;
+      if (skill.source === source && this.isEnabledFor(skill)) count++;
     }
     return count;
   }

@@ -54,8 +54,6 @@ import {
 } from './types/PluginTypes';
 import type { PluginInfo, SkillInfo } from './types/PluginDisplay.js';
 import type { Plugin, SkillContext } from '@modules/plugin-sdk';
-import { resolveProjectRoot } from '@modules/core';
-
 const logger = new Logger({ module: 'plugins:index', level: LogLevel.INFO });
 
 /**
@@ -110,7 +108,10 @@ export class PluginSystem {
    */
   constructor(options: PluginLoaderOptions = {}) {
     this._options = {
-      pluginDirectories: [join(resolveProjectRoot(), 'plugins')],
+      // 注意：pluginDirectories 不再在此处默认解析（join(resolveProjectRoot(), 'plugins')），
+      // 惰性交给 PluginLoader 首次使用时兜底——模块级 `new PluginSystem()` 若在
+      // 循环 import（paths→monitoring→core→plugins）期间调用 resolveProjectRoot，
+      // 会触发 paths 的 TDZ（ENV_LIRI_PROJECT_DIR before initialization）。
       autoLoad: false,
       autoActivate: false,
       validationEnabled: true,

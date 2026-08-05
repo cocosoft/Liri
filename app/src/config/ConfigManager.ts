@@ -12,6 +12,7 @@ import {
   unlinkSync,
   copyFileSync,
   statSync,
+  readdirSync,
   watchFile,
   unwatchFile,
 } from 'fs';
@@ -697,21 +698,33 @@ export class ConfigManager {
   }
 
   /**
-   * 清理旧备份
+   * 清理旧备份，只保留最近 5 个
    */
   private cleanupOldBackups(): void {
     try {
       const backupDir = this.getConfigBackupDir();
+      if (!existsSync(backupDir)) {
+        return;
+      }
+
       const fileBase = basename(this.globalConfigPath);
+      const files = readdirSync(backupDir)
+        .filter((f) => f.startsWith(fileBase))
+        .map((f) => {
+          const p = join(backupDir, f);
+          return { p, mtimeMs: statSync(p).mtimeMs };
+        })
+        .sort((a, b) => b.mtimeMs - a.mtimeMs);
 
-      const backups = readFileSync(backupDir, 'utf-8');
-      // 这里简化处理，实际应该读取目录列表
+      // 只保留最近 5 个备份，删除更旧的
+      const KEEP_BACKUPS = 5;
+      for (const f of files.slice(KEEP_BACKUPS)) {
+        unlinkSync(f.p);
+      }
     } catch (err) {
-      // 忽略清理错误
-
-      handleError(err, {
-        module: 'config:ConfigManager',
-        action: 'ignoreCleanupBackupError',
+      // @ignore-catch: 备份清理失败不阻断（备份已创建，仅记录 WARN 供排查）
+      logger.warn('清理旧备份失败', {
+        error: err instanceof Error ? err.message : String(err),
       });
     }
   }

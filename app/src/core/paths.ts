@@ -24,7 +24,11 @@ import {
 } from 'path';
 import { existsSync, mkdirSync, readFileSync } from 'fs';
 import * as os from 'os';
-import { Logger } from '@modules/monitoring';
+// 注意：直连 Logger 实现文件而非 @modules/monitoring barrel——barrel 会拉入
+// MonitoringService/BackupManager 等（它们静态 import @modules/core barrel），
+// 在循环 import（paths→monitoring→core→paths）期间触发 paths 的 TDZ。
+// Logger.ts 自身仅依赖 monitoring/logs 内部文件，不依赖 core。
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger.js';
 
 // ─── 环境变量键名 ─────────────────────────────
 

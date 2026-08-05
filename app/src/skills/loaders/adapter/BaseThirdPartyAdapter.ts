@@ -425,6 +425,20 @@ export abstract class BaseThirdPartyAdapter<
           this.skillRegistry.unregister(skillId);
         }
 
+        // 3.7：删除级联清理 usage/curation/provenance 三表（动态 import 避免冷启动依赖；尽力而为）
+        try {
+          const { getSkillDB } =
+            await import('@modules/skills/persistence/SkillDB');
+          const skillDB = getSkillDB();
+          await skillDB.clearUsage(skillId);
+          await skillDB.deleteCuration(skillId);
+          await skillDB.deleteProvenance(skillId);
+        } catch (error) {
+          logger.warn(`卸载时清理三表失败（不影响卸载结果）: ${skillId}`, {
+            error: String(error),
+          });
+        }
+
         this.auditService.recordUninstall(skill.meta.id, skill.meta.name);
         return true;
       } catch (error) {

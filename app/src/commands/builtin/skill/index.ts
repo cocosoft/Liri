@@ -188,8 +188,12 @@ export const skillCommand: Command = {
 
         case 'enable': {
           const enableSkill = restArgs;
-          const skillToEnable = registry.get(enableSkill);
+          // includeDisabled：被禁技能在运行时视图不可见，需管理视图查找后重新启用
+          const skillToEnable = registry.get(enableSkill, {
+            includeDisabled: true,
+          });
           if (skillToEnable) {
+            registry.setEnabled(enableSkill, true);
             return {
               success: true,
               type: 'text',
@@ -207,8 +211,11 @@ export const skillCommand: Command = {
 
         case 'disable': {
           const disableSkill = restArgs;
-          const skillToDisable = registry.get(disableSkill);
+          const skillToDisable = registry.get(disableSkill, {
+            includeDisabled: true,
+          });
           if (skillToDisable) {
+            registry.setEnabled(disableSkill, false);
             return {
               success: true,
               type: 'text',

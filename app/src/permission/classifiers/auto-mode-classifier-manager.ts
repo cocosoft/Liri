@@ -4,6 +4,9 @@
  */
 import { TTLCache } from '@modules/utils/cache';
 import { AutoModeClassifier } from './AutoModeClassifier';
+import { SpanStatusCode, metrics } from '@opentelemetry/api';
+import type { Span, Counter } from '@opentelemetry/api';
+import { getOTelTracing } from '@modules/monitoring';
 import type {
   IAutoModeClassifier,
   ClassifierDecision,
@@ -33,6 +36,11 @@ export class ClassifierManager {
     cacheTTL: 60000, // 1分钟
   };
 
+  /**
+   * OTel 预测结果计数器（惰性初始化；Meter 未就绪时 noop 兜底）
+   */
+  private classificationCounter: Counter | null = null;
+
   constructor() {
     this.cache = new TTLCache<ClassifierDecision>(1000, this.config.cacheTTL);
   }
@@ -57,13 +65,56 @@ export class ClassifierManager {
   }
 
   /**
-   * 分类工具使用
+   * 分类工具使用（Otel 插桩入口：span + 预测计数）
    * @param toolName 工具名称
    * @param input 工具输入
    * @param messages 对话历史
    * @returns 分类决策
    */
   async classify(
+    toolName: string,
+    input: Record<string, unknown>,
+    messages: Array<{ role: string; content: string }> = []
+  ): Promise<ClassifierDecision> {
+    // Otel span：每次分类预测可观测（OTel 未初始化时 noop 兜底，不影响主链路）
+    let span: Span | null = null;
+    try {
+      span = getOTelTracing().startSpan('permission.classify', {
+        tool: toolName,
+      });
+    } catch {
+      // @ignore-catch: OTel 未初始化时跳过插桩
+    }
+
+    try {
+      const decision = await this.classifyInner(toolName, input, messages);
+      if (span) {
+        span.setAttribute('shouldBlock', decision.shouldBlock);
+        span.setAttribute('unavailable', String(decision.unavailable ?? false));
+        getOTelTracing().endSpan(span, SpanStatusCode.OK);
+      }
+      this.recordClassification(toolName, decision.shouldBlock);
+      return decision;
+    } catch (error) {
+      if (span) {
+        getOTelTracing().recordError(
+          span,
+          error instanceof Error ? error : new Error(String(error))
+        );
+        getOTelTracing().endSpan(span, SpanStatusCode.ERROR);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 分类工具使用（内部实现，预测主链路）
+   * @param toolName 工具名称
+   * @param input 工具输入
+   * @param messages 对话历史
+   * @returns 分类决策
+   */
+  private async classifyInner(
     toolName: string,
     input: Record<string, unknown>,
     messages: Array<{ role: string; content: string }> = []
@@ -108,6 +159,35 @@ export class ClassifierManager {
    */
   clearCache(): void {
     this.cache.clear();
+  }
+
+  /**
+   * 确保预测计数器已创建
+   */
+  private ensureClassificationCounter(): void {
+    if (this.classificationCounter) return;
+    try {
+      this.classificationCounter = metrics
+        .getMeter('liri-permission')
+        .createCounter('Liri.permission.classifications', {
+          description: '分类器预测结果计数（block/pass）',
+        });
+    } catch {
+      // @ignore-catch: metrics 未初始化时不启用计数
+    }
+  }
+
+  /**
+   * 记录分类预测指标（每次预测 +1）
+   * @param toolName 工具名称
+   * @param shouldBlock 是否建议阻止
+   */
+  private recordClassification(toolName: string, shouldBlock: boolean): void {
+    this.ensureClassificationCounter();
+    this.classificationCounter?.add(1, {
+      decision: shouldBlock ? 'block' : 'pass',
+      tool: toolName,
+    });
   }
 
   /**

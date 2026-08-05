@@ -435,6 +435,82 @@ export class QueryLogStore {
   }
 
   /**
+   * 错误统计（持久化来源 query_logs，重启不清零）
+   * 统计 api_call / tool_call 中 success=0 的记录
+   */
+  async getErrorStats(
+    limit: number = 10
+  ): Promise<{
+    totalErrors: number;
+    totalCalls: number;
+    errorRate: number;
+    topErrors: Array<{ type: string; count: number }>;
+  }> {
+    await this.init();
+    if (!this.db) {
+      throw new AppError(
+        '数据库未初始化',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'QLS_007'
+      );
+    }
+
+    const rows = await new Promise<Array<Record<string, unknown>>>(
+      (resolve, reject) => {
+        this.db?.all(
+          `SELECT COALESCE(substr(error, 1, 80), 'unknown') AS err_type,
+                  COUNT(*) AS cnt
+           FROM ${QUERY_LOG_TABLE}
+           WHERE success = 0 AND error IS NOT NULL AND error != ''
+           GROUP BY err_type
+           ORDER BY cnt DESC
+           LIMIT ?`,
+          [limit],
+          (err: Error | null, rows: unknown[]) => {
+            if (err) reject(err);
+            else resolve((rows || []) as Array<Record<string, unknown>>);
+          }
+        );
+      }
+    );
+
+    const totals = await new Promise<Record<string, number>>(
+      (resolve, reject) => {
+        this.db?.get(
+          `SELECT COUNT(*) AS cnt,
+                  SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS errs
+           FROM ${QUERY_LOG_TABLE}
+           WHERE type IN ('api_call', 'tool_call')`,
+          (err: Error | null, row: unknown) => {
+            if (err) reject(err);
+            else
+              resolve(
+                (row || { cnt: 0, errs: 0 }) as Record<string, number>
+              );
+          }
+        );
+      }
+    );
+
+    const totalCalls = Number(totals.cnt || 0);
+    const totalErrors = Number(totals.errs || 0);
+
+    return {
+      totalErrors,
+      totalCalls,
+      errorRate:
+        totalCalls > 0
+          ? Math.round((totalErrors / totalCalls) * 10000) / 100
+          : 0,
+      topErrors: rows.map((r) => ({
+        type: r.err_type as string,
+        count: Number(r.cnt || 0),
+      })),
+    };
+  }
+
+  /**
    * 清理指定时间之前的日志
    */
   async prune(beforeTimestamp: number): Promise<number> {

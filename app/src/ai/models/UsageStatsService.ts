@@ -688,6 +688,44 @@ export class UsageStatsService {
     );
     return row?.total || 0;
   }
+
+  /**
+   * 延迟百分位统计（持久化来源 model_usage_logs.latency_ms，重启不清零）
+   */
+  async getLatencyStats(): Promise<{
+    sampleCount: number;
+    averageLatencyMs: number;
+    p50LatencyMs: number;
+    p95LatencyMs: number;
+    p99LatencyMs: number;
+  }> {
+    this.ensureInitialized();
+
+    const row = await this.getAsync<{ n: number; avg: number }>(
+      `SELECT COUNT(*) as n, COALESCE(AVG(latency_ms), 0) as avg
+       FROM ${USAGE_LOGS_TABLE} WHERE latency_ms > 0`
+    );
+    const n = row?.n || 0;
+
+    const percentile = async (p: number): Promise<number> => {
+      if (n === 0) return 0;
+      const offset = Math.max(0, Math.ceil(n * p) - 1);
+      const r = await this.getAsync<{ v: number }>(
+        `SELECT latency_ms as v FROM ${USAGE_LOGS_TABLE}
+         WHERE latency_ms > 0 ORDER BY latency_ms LIMIT 1 OFFSET ?`,
+        [offset]
+      );
+      return r?.v || 0;
+    };
+
+    return {
+      sampleCount: n,
+      averageLatencyMs: Math.round(row?.avg || 0),
+      p50LatencyMs: await percentile(0.5),
+      p95LatencyMs: await percentile(0.95),
+      p99LatencyMs: await percentile(0.99),
+    };
+  }
 }
 
 export const usageStatsService = UsageStatsService.getInstance();

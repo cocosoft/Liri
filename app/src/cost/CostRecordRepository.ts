@@ -714,6 +714,31 @@ export class CostRecordRepository {
     return Number(row?.cnt || 0);
   }
 
+  /**
+   * 统计活动会话数（session_cost_summaries 中未结束的会话）
+   */
+  async countActiveSessionSummaries(): Promise<number> {
+    await this.initDatabase();
+
+    const row = await new Promise<Record<string, unknown> | undefined>(
+      (resolve, reject) => {
+        this.db?.get(
+          `SELECT COUNT(*) AS cnt FROM ${COST_SESSION_SUMMARY_TABLE}
+           WHERE ended_at IS NULL`,
+          (err: Error | null, row: unknown) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(row as Record<string, unknown> | undefined);
+            }
+          }
+        );
+      }
+    );
+
+    return Number(row?.cnt || 0);
+  }
+
   async close(): Promise<void> {
     if (this.db) {
       this.db.close();

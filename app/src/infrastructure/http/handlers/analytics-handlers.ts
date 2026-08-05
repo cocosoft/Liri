@@ -333,6 +333,57 @@ export async function handleAnalyticsDashboard(
     // 使用独立累计器作为工具调用数据的回退（不受事件队列清空影响）
     const toolCallStats = analyticsService!.getToolCallStats();
 
+    // 错误统计：优先持久化 query_logs（重启不清零），回退内存事件
+    let persistedErrorStats: Awaited<
+      ReturnType<
+        import('@modules/query/QueryLogStore').QueryLogStore['getErrorStats']
+      >
+    > | null = null;
+    try {
+      const { getQueryLogStore } = await import('@modules/query/QueryLogStore');
+      persistedErrorStats = await getQueryLogStore().getErrorStats();
+    } catch (err) {
+      void handleError(err, {
+        module: 'infrastructure:http:analytics',
+        action: 'loadPersistedErrorStats',
+      });
+    }
+
+    // 延迟百分位：优先持久化 model_usage_logs.latency_ms（重启不清零），回退内存
+    let persistedLatencyStats: Awaited<
+      ReturnType<
+        import('@modules/ai/models/UsageStatsService').UsageStatsService['getLatencyStats']
+      >
+    > | null = null;
+    try {
+      const { usageStatsService } =
+        await import('@modules/ai/models/UsageStatsService');
+      await usageStatsService.initialize();
+      persistedLatencyStats = await usageStatsService.getLatencyStats();
+    } catch (err) {
+      void handleError(err, {
+        module: 'infrastructure:http:analytics',
+        action: 'loadPersistedLatencyStats',
+      });
+    }
+
+    // 会话统计：优先持久化 session_cost_summaries（重启不清零），回退内存
+    let persistedSessionCount: { total: number; active: number } | null = null;
+    try {
+      const { getCostRecordRepository } =
+        await import('@modules/cost/CostRecordRepository');
+      const repo = getCostRecordRepository();
+      persistedSessionCount = {
+        total: await repo.countSessionSummaries(),
+        active: await repo.countActiveSessionSummaries(),
+      };
+    } catch (err) {
+      void handleError(err, {
+        module: 'infrastructure:http:analytics',
+        action: 'loadPersistedSessionCount',
+      });
+    }
+
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
@@ -364,31 +415,59 @@ export async function handleAnalyticsDashboard(
                 : toolCallStats.topTools,
         },
         errors: {
-          totalErrors: errorEvents.length,
+          totalErrors:
+            persistedErrorStats && persistedErrorStats.totalCalls > 0
+              ? persistedErrorStats.totalErrors
+              : errorEvents.length,
           errorRate:
-            events.length > 0
-              ? Math.round((errorEvents.length / events.length) * 10000) / 100
-              : 0,
-          topErrors,
+            persistedErrorStats && persistedErrorStats.totalCalls > 0
+              ? persistedErrorStats.errorRate
+              : events.length > 0
+                ? Math.round((errorEvents.length / events.length) * 10000) / 100
+                : 0,
+          topErrors:
+            persistedErrorStats && persistedErrorStats.topErrors.length > 0
+              ? persistedErrorStats.topErrors
+              : topErrors,
         },
         performance: {
           averageLatencyMs:
-            latencies.length > 0
-              ? Math.round(
-                  (latencies.reduce((a, b) => a + b, 0) / latencies.length) *
-                    100
-                ) / 100
-              : 0,
-          p50LatencyMs: calcPercentile(latencies, 50),
-          p95LatencyMs: calcPercentile(latencies, 95),
-          p99LatencyMs: calcPercentile(latencies, 99),
-          totalMetrics: latencies.length,
+            persistedLatencyStats && persistedLatencyStats.sampleCount > 0
+              ? persistedLatencyStats.averageLatencyMs
+              : latencies.length > 0
+                ? Math.round(
+                    (latencies.reduce((a, b) => a + b, 0) / latencies.length) *
+                      100
+                  ) / 100
+                : 0,
+          p50LatencyMs:
+            persistedLatencyStats && persistedLatencyStats.sampleCount > 0
+              ? persistedLatencyStats.p50LatencyMs
+              : calcPercentile(latencies, 50),
+          p95LatencyMs:
+            persistedLatencyStats && persistedLatencyStats.sampleCount > 0
+              ? persistedLatencyStats.p95LatencyMs
+              : calcPercentile(latencies, 95),
+          p99LatencyMs:
+            persistedLatencyStats && persistedLatencyStats.sampleCount > 0
+              ? persistedLatencyStats.p99LatencyMs
+              : calcPercentile(latencies, 99),
+          totalMetrics:
+            persistedLatencyStats && persistedLatencyStats.sampleCount > 0
+              ? persistedLatencyStats.sampleCount
+              : latencies.length,
         },
         cost: { totalCostUSD: Math.round(totalCostUSD * 10000) / 10000 },
         session: {
           totalEvents: stats.totalEvents,
-          totalSessions: stats.totalSessions,
-          activeSessions: stats.activeSessions,
+          totalSessions:
+            persistedSessionCount && persistedSessionCount.total > 0
+              ? persistedSessionCount.total
+              : stats.totalSessions,
+          activeSessions:
+            persistedSessionCount && persistedSessionCount.total > 0
+              ? persistedSessionCount.active
+              : stats.activeSessions,
         },
         generatedAt: Date.now(),
       })

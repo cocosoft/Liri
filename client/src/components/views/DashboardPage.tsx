@@ -721,7 +721,7 @@ function DashboardPage() {
                                 </strong>
                               </span>
                               <span>
-                                工具种类:{" "}
+                                已用工具:{" "}
                                 <strong className="text-gray-900 dark:text-white">
                                   {analytics.tools.uniqueToolsUsed}
                                 </strong>
@@ -866,7 +866,7 @@ function DashboardPage() {
                             <div className="flex items-center justify-center py-4">
                               <div className="text-center">
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                  累计成本 (USD)
+                                  累计成本
                                 </p>
                                 <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
                                   {formatCost(

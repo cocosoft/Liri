@@ -169,8 +169,9 @@ export async function handleDeletePermissionRule(
 // 让休眠的 D 体系从 CLI 独占变为 HTTP 可消费。
 // 数据模型为 resource+operation（文件存于 permissions/{rules,roles,users,resources}.json），
 // 与 A 体系（toolName → tool_rules.json）语义不同，通过 PermissionService 门面统一出口。
-// 写操作（grant/revoke/role/user CRUD）保持 CLI 路径（commands/builtin/permissions/Permissions.ts），
-// HTTP 侧暂只读，避免扩大风险面。
+// 写操作（grant/revoke/role/user CRUD）已补全：
+// POST/DELETE /v1/permissions/{users,roles,resources} + /v1/permissions/grants（授权/撤销），
+// 输入枚举校验 + 运行时验证通过（与 CLI 共用 FineGrainedPermissionManager 存储）。
 
 /** D 体系权限规则（persistence 模型，与 A 体系 PermissionRule 同名不同义） */
 interface DgPermissionRule {

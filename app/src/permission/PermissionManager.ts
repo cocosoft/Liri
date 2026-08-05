@@ -53,6 +53,8 @@ import {
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
+import { PermissionAction, OperationType, RoleType } from './Permission';
+import { createFineGrainedPermissionManager } from './FineGrainedPermissionManager';
 
 const logger = new Logger({
   module: 'permission:manager',
@@ -74,6 +76,13 @@ export class PermissionManager {
    * 通过环境变量 PERMISSION_DEFAULT_BEHAVIOR 配置（值为 'deny' 时收窄，默认 'allow'）
    */
   private defaultBehavior: 'allow' | 'deny' = 'allow';
+
+  /**
+   * 当前认证用户角色（E↔A 打通，演进项）
+   * 由 auth 层登录时注入（setCurrentUserRole）；为 null 时行为与以往完全一致。
+   * 非 null 时，D 体系（FineGrained）中该角色的 deny 规则优先于工具决策（角色 deny 优先）。
+   */
+  private currentUserRole: string | null = null;
 
   /**
    * 权限检查器
@@ -439,6 +448,12 @@ export class PermissionManager {
       return createDenyDecision(`Denied by rule from ${denyRule.source}`);
     }
 
+    // E↔A 打通（演进项）：当前认证角色存在时，D 体系角色 deny 规则优先（角色 deny 优先）
+    if (this.currentUserRole) {
+      const roleDeny = await this.checkFineGrainedRoleDeny(toolName, input);
+      if (roleDeny) return roleDeny;
+    }
+
     const askRule = this.ruleManager.getAskRuleForTool(toolName, ruleContext);
     if (askRule) {
       return createAskDecision(`Asked by rule from ${askRule.source}`);
@@ -655,6 +670,67 @@ export class PermissionManager {
    */
   resetDenialTracker(): void {
     this.denialTracker.reset();
+  }
+
+  /**
+   * 设置当前认证用户角色（E↔A 打通，演进项）
+   * 由 auth 层登录/登出时调用；传 null 清除（恢复默认行为）。
+   */
+  setCurrentUserRole(role: string | null): void {
+    this.currentUserRole = role;
+    logger.info('permission:currentUserRole', { role });
+  }
+
+  /**
+   * 获取当前认证用户角色
+   */
+  getCurrentUserRole(): string | null {
+    return this.currentUserRole;
+  }
+
+  /**
+   * E↔A 打通：查询 D 体系（FineGrained）中当前角色的 deny 规则
+   * 工具以 Tool 类型资源参与决策（resourceId = toolName, operation = execute）。
+   * 直接按角色查询 storage（D 的 checkPermission 依赖 userId→roles，无 userId 时恒按 guest，
+   * 故此处按 currentUserRole 精确匹配角色规则）。
+   * 返回 deny 决策或 null（未配置/未命中 → 继续走 A 规则）。
+   */
+  private async checkFineGrainedRoleDeny(
+    toolName: string,
+    input: Record<string, unknown>
+  ): Promise<PermissionDecision | null> {
+    try {
+      const storage = createFineGrainedPermissionManager().getStorage();
+      const roleObj = await storage.getRoleByName(
+        this.currentUserRole as RoleType
+      );
+      if (!roleObj) return null;
+
+      const roleRules = [
+        ...roleObj.permissions,
+        ...(await storage.getRulesByRole(roleObj.id)),
+      ];
+      const denyRule = roleRules.find(
+        (r) =>
+          r.action === PermissionAction.DENY &&
+          (r.operation === OperationType.ALL ||
+            r.operation === OperationType.EXECUTE) &&
+          r.resourceId === toolName
+      );
+      if (denyRule) {
+        this.denialTracker.trackDenial(toolName);
+        return createDenyDecision(
+          `Denied by role rule: ${denyRule.id} (${roleObj.name})`
+        );
+      }
+    } catch (error) {
+      // 角色规则查询失败不应阻塞主决策链路（fail-open 于 A 规则）
+      void handleError(error, {
+        module: 'permission:manager',
+        action: 'check_role_rule',
+      });
+    }
+    return null;
   }
 
   /**

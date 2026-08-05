@@ -21,9 +21,29 @@
 
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
+import { AuthUserStore } from '../auth/AuthUserStore';
+import { PermissionManager } from '@modules/permission/PermissionManager';
+import { RoleType } from '@modules/permission/Permission';
 
-const users = new Map<string, { username: string; password: string }>();
+// 演进项（真实用户体系基础）：用户持久化到 {data}/auth/users.json（密码哈希），
+// tokens 保持内存（重启后需重新登录）
+const authUserStore = new AuthUserStore();
 const tokens = new Map<string, { username: string; permissions: string[] }>();
+
+/** E↔A 打通：将认证权限映射为角色并注入工具权限决策（登录时调用） */
+function applyAuthRoleToPermissionManager(permissions: string[]): void {
+  const role = permissions.includes('admin')
+    ? RoleType.ADMIN
+    : permissions.includes('write')
+      ? RoleType.USER
+      : RoleType.GUEST;
+  PermissionManager.getInstance().setCurrentUserRole(role);
+}
+
+/** 清除认证角色（登出时调用） */
+function clearAuthRoleFromPermissionManager(): void {
+  PermissionManager.getInstance().setCurrentUserRole(null);
+}
 
 // ========== Auth Handlers ==========
 
@@ -48,8 +68,10 @@ export async function handleAuthLogin(
       return;
     }
 
-    const user = users.get(username);
-    if (!user || user.password !== password) {
+    const user = authUserStore.verify(username, password)
+      ? { username, password: '' }
+      : undefined;
+    if (!user) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
@@ -64,6 +86,8 @@ export async function handleAuthLogin(
       username,
       permissions: ['read', 'write'],
     });
+    // E↔A 打通：登录成功注入认证角色到工具权限决策
+    applyAuthRoleToPermissionManager(['read', 'write']);
 
     const now = Date.now();
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -107,7 +131,7 @@ export async function handleAuthRegister(
       return;
     }
 
-    if (users.has(username)) {
+    if (authUserStore.hasUser(username)) {
       res.writeHead(409, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
@@ -117,12 +141,14 @@ export async function handleAuthRegister(
       return;
     }
 
-    users.set(username, { username, password });
+    authUserStore.addUser(username, password);
     const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     tokens.set(token, {
       username,
       permissions: ['read', 'write'],
     });
+    // E↔A 打通：注册成功注入认证角色到工具权限决策
+    applyAuthRoleToPermissionManager(['read', 'write']);
 
     const now = Date.now();
     res.writeHead(201, { 'Content-Type': 'application/json' });
@@ -159,6 +185,8 @@ export async function handleAuthLogout(
     if (token) {
       tokens.delete(token);
     }
+    // E↔A 打通：登出清除认证角色，恢复默认工具权限行为
+    clearAuthRoleFromPermissionManager();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({}));

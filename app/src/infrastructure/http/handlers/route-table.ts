@@ -157,6 +157,14 @@ import {
   handleListPermissionRoles,
   handleListPermissionUsers,
   handleListPermissionResources,
+  handleCreatePermissionUser,
+  handleDeletePermissionUser,
+  handleCreatePermissionRole,
+  handleDeletePermissionRole,
+  handleCreatePermissionResource,
+  handleDeletePermissionResource,
+  handleCreatePermissionGrant,
+  handleDeletePermissionGrant,
 } from './permission-handlers';
 
 // Media handlers
@@ -2082,8 +2090,63 @@ export async function dispatchRoute(
     await handleListPermissionUsers(req, res);
     return true;
   }
+  if (method === 'POST' && url === '/v1/permissions/users') {
+    await handleCreatePermissionUser(req, res);
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/permissions\/users\/(.+)$/)) {
+    await handleDeletePermissionUser(
+      req,
+      res,
+      url.match(/^\/v1\/permissions\/users\/(.+)$/)![1]
+    );
+    return true;
+  }
   if (method === 'GET' && url === '/v1/permissions/resources') {
     await handleListPermissionResources(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/permissions/resources') {
+    await handleCreatePermissionResource(req, res);
+    return true;
+  }
+  if (
+    method === 'DELETE' &&
+    url.match(/^\/v1\/permissions\/resources\/(.+)$/)
+  ) {
+    await handleDeletePermissionResource(
+      req,
+      res,
+      url.match(/^\/v1\/permissions\/resources\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/permissions/roles') {
+    await handleListPermissionRoles(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/permissions/roles') {
+    await handleCreatePermissionRole(req, res);
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/permissions\/roles\/(.+)$/)) {
+    await handleDeletePermissionRole(
+      req,
+      res,
+      url.match(/^\/v1\/permissions\/roles\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/permissions/grants') {
+    await handleCreatePermissionGrant(req, res);
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/permissions\/grants\/(.+)$/)) {
+    await handleDeletePermissionGrant(
+      req,
+      res,
+      url.match(/^\/v1\/permissions\/grants\/(.+)$/)![1]
+    );
     return true;
   }
 

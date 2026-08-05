@@ -25,6 +25,16 @@ const SOURCE_OPTIONS: {
   { value: "mcp", label: "MCP", dotColor: "bg-cyan-500" },
 ];
 
+/** Uint8Array → base64（ZIP 导入传输用，分块避免栈溢出） */
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
 function SkillMarketPage() {
   const { t } = useTranslation();
   const { config } = useConfigStore();
@@ -67,6 +77,7 @@ function SkillMarketPage() {
     removeCustomSource,
     checkUpdates,
     checkingUpdates,
+    enableSkill,
   } = useSkillStore();
 
   const sourceFilter = useSkillStore((s) => s.sourceFilter);
@@ -77,6 +88,11 @@ function SkillMarketPage() {
   );
   const [showDetail, setShowDetail] = useState(false);
   const [uninstallTarget, setUninstallTarget] = useState<string | null>(null);
+  /** 导入权限审批目标（含敏感权限技能，默认未启用） */
+  const [approvalTarget, setApprovalTarget] = useState<{
+    skillId: string;
+    name: string;
+  } | null>(null);
   const [localSearch, setLocalSearch] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -245,6 +261,22 @@ function SkillMarketPage() {
 
       setIsImporting(true);
       try {
+        // ZIP 导入（5.4）：完整技能包，含权限审批
+        if (file.name.endsWith(".zip")) {
+          const buf = await file.arrayBuffer();
+          const zipBase64 = bytesToBase64(new Uint8Array(buf));
+          const result = await skillService.importSkillZip(zipBase64);
+          addToast("success", `导入成功: ${result.skillId}`);
+          if (result.requiresApproval) {
+            // 含敏感权限 → 已默认未启用，弹审批确认
+            setApprovalTarget({
+              skillId: result.skillId,
+              name: result.skillId,
+            });
+          }
+          return;
+        }
+
         const text = await file.text();
         let skills: Array<{
           name: string;
@@ -272,7 +304,7 @@ function SkillMarketPage() {
             },
           ];
         } else {
-          addToast("error", "仅支持 .json 和 .md 文件");
+          addToast("error", "仅支持 .json、.md 和 .zip 文件");
           return;
         }
 
@@ -301,6 +333,19 @@ function SkillMarketPage() {
     },
     [addToast, loadInstalled],
   );
+
+  /** 导入权限审批：确认后启用含敏感权限的技能（5.4） */
+  const handleApproveSkill = useCallback(async () => {
+    if (!approvalTarget) return;
+    try {
+      await enableSkill(approvalTarget.skillId);
+      addToast("success", `已启用 "${approvalTarget.name}"`);
+    } catch {
+      addToast("error", "启用失败");
+    } finally {
+      setApprovalTarget(null);
+    }
+  }, [approvalTarget, enableSkill, addToast]);
 
   // ── 克隆技能 ──────────────────────────────────────
 
@@ -509,7 +554,7 @@ function SkillMarketPage() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".json,.md"
+              accept=".json,.md,.zip"
               className="hidden"
               onChange={handleImportFile}
             />
@@ -1289,6 +1334,17 @@ function SkillMarketPage() {
         variant="danger"
         onConfirm={handleUninstall}
         onCancel={() => setUninstallTarget(null)}
+      />
+
+      {/* ── 导入权限审批对话框（5.4）── */}
+      <ConfirmDialog
+        open={approvalTarget !== null}
+        title="导入权限审批"
+        message={`技能「${approvalTarget?.name ?? ""}」包含敏感权限（文件写入/命令执行/宿主机访问），已默认禁用。确认后才会启用。`}
+        confirmText="启用"
+        cancelText="保持禁用"
+        onConfirm={handleApproveSkill}
+        onCancel={() => setApprovalTarget(null)}
       />
     </div>
   );

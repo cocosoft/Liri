@@ -3331,20 +3331,29 @@ export class LocalHTTPService {
       const { parseSkillFrontmatter } =
         await import('@modules/skills/utils/skillParser');
       const { readdir, readFile, stat } = await import('fs/promises');
-      const { existsSync } = await import('fs');
+      const { existsSync, readFileSync } = await import('fs');
       const { join } = await import('path');
 
-      // 5.6：status 反映 registry 真实启用状态（内置/文件技能禁用后前端可感知并可重新启用）
+      // 5.6：status 反映真实启用状态 —— 本地技能（导入审批 .enabled 标记）优先，其次 registry
       const adapter = await this.getClawHubAdapter();
       const registry = adapter.getSkillRegistry();
+      const userSkillsDir = join(resolvePyappHome(), 'skills');
       const resolveStatus = (name: string): string => {
         try {
+          // 本地技能：.enabled 文件为导入权限审批标记（true/false）
+          const enabledFile = join(userSkillsDir, name, '.enabled');
+          if (existsSync(enabledFile)) {
+            return readFileSync(enabledFile, 'utf-8').trim() === 'true'
+              ? 'enabled'
+              : 'disabled';
+          }
+          // registry 真实状态（内置/市场技能）
           const skill = registry?.get(name, { includeDisabled: true });
           if (skill && skill.isEnabled && !skill.isEnabled()) {
             return 'disabled';
           }
         } catch {
-          // registry 查询异常时默认 enabled
+          // 状态解析异常时默认 enabled
         }
         return 'enabled';
       };
@@ -3460,8 +3469,7 @@ export class LocalHTTPService {
       const builtinDir = join(projectRoot, 'app', 'src', 'builtin', 'skills');
       await scanDir(builtinDir, 'builtin');
 
-      // 扫描用户技能
-      const userSkillsDir = join(resolvePyappHome(), 'skills');
+      // 扫描用户技能（userSkillsDir 已在 resolveStatus 前声明）
       await scanDir(userSkillsDir, 'user');
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -3745,6 +3753,7 @@ export class LocalHTTPService {
 
       // 导入权限审批（v1.5 阶段 4，P3-13）：解析 SKILL.md permissions，
       // 含敏感权限（file-write/command/host-access）→ 先落盘"未启用"，待用户确认
+      let requiresApproval = false;
       const skillMdPath = path.join(target, 'SKILL.md');
       if (fs.existsSync(skillMdPath)) {
         const { parseSkillPermissions, hasSensitivePermission } =
@@ -3754,11 +3763,12 @@ export class LocalHTTPService {
         );
         if (hasSensitivePermission(permissions)) {
           fs.writeFileSync(path.join(target, '.enabled'), 'false', 'utf-8');
+          requiresApproval = true;
         }
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: true, skillId }));
+      res.end(JSON.stringify({ success: true, skillId, requiresApproval }));
     } catch (err) {
       this.sendError(res, err);
     }
@@ -4273,8 +4283,10 @@ export class LocalHTTPService {
 
       if (enabled === true) {
         await adapter.enableSkill(skillId);
+        await this.applyLocalSkillEnabled(skillId, true);
       } else if (enabled === false) {
         await adapter.disableSkill(skillId);
+        await this.applyLocalSkillEnabled(skillId, false);
       } else {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(
@@ -5728,6 +5740,32 @@ export class LocalHTTPService {
     }
   }
 
+  /**
+   * 本地技能启用状态落盘（5.4 导入审批闭环）
+   * 本地目录技能（~/.pyapp/skills/<id>/SKILL.md，不在市场 index）以 `.enabled` 文件为状态真源：
+   * 启用 = 删除标记；禁用 = 写 'false'。市场技能由 adapter 的 index.json 管理，此处跳过。
+   */
+  private async applyLocalSkillEnabled(
+    skillId: string,
+    enabled: boolean
+  ): Promise<void> {
+    try {
+      const { resolvePyappHome } = await import('@modules/core/paths');
+      const skillDir = path.join(resolvePyappHome(), 'skills', skillId);
+      if (!fs.existsSync(path.join(skillDir, 'SKILL.md'))) return;
+      const enabledFile = path.join(skillDir, '.enabled');
+      if (enabled) {
+        fs.rmSync(enabledFile, { force: true });
+      } else {
+        fs.writeFileSync(enabledFile, 'false', 'utf-8');
+      }
+    } catch (error) {
+      logger.warn(`本地技能启用状态落盘失败: ${skillId}`, {
+        error: String(error),
+      });
+    }
+  }
+
   private async handleEnableSkill(
     req: http.IncomingMessage,
     res: http.ServerResponse,
@@ -5736,6 +5774,7 @@ export class LocalHTTPService {
     try {
       const adapter = await this.getClawHubAdapter();
       await adapter.enableSkill(skillId);
+      await this.applyLocalSkillEnabled(skillId, true);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ id: skillId, status: 'enabled' }));
       this.broadcastEvent('skill:enabled', { skillId });
@@ -5752,6 +5791,7 @@ export class LocalHTTPService {
     try {
       const adapter = await this.getClawHubAdapter();
       await adapter.disableSkill(skillId);
+      await this.applyLocalSkillEnabled(skillId, false);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ id: skillId, status: 'disabled' }));
       this.broadcastEvent('skill:disabled', { skillId });

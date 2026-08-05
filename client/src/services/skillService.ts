@@ -378,6 +378,18 @@ const skillService = {
     await http.post("/v1/skills/import", { skills });
   },
 
+  /** 导入技能（ZIP 格式，base64 传输；返回是否含敏感权限需审批） */
+  async importSkillZip(
+    zipBase64: string,
+  ): Promise<{ success: boolean; skillId: string; requiresApproval: boolean }> {
+    const res = await http.post<{
+      success: boolean;
+      skillId: string;
+      requiresApproval: boolean;
+    }>("/v1/skills/import", { zipBase64 });
+    return res;
+  },
+
   /** 克隆技能 */
   async cloneSkill(skillId: string): Promise<InstalledSkill> {
     const res = await http.post<{ skill: InstalledSkill }>(

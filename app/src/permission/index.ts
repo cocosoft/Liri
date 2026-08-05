@@ -100,7 +100,15 @@ export {
 export * from './EnhancedPermissionEngine.js';
 
 export {
-  PermissionCacheKey,
+  ShadowedRuleDetector,
+  shadowedRuleDetector,
+} from './utils/ShadowedRuleDetector';
+export type {
+  ShadowedRuleInfo,
+  ShadowedRuleDetectionResult,
+} from './utils/ShadowedRuleDetector';
+
+export {
   PermissionCache,
   PermissionRuleValidator,
   permissionCache,

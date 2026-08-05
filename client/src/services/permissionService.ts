@@ -21,6 +21,19 @@ export interface PermissionRulesSummary {
 export interface PermissionRulesResponse {
   rules: PermissionRule[];
   summary: PermissionRulesSummary;
+  /** 影子规则（遮蔽冲突）检测：deny/allow 规则互相遮蔽时提示，防止权限配置漏洞 */
+  shadowDetection?: {
+    shadowedCount: number;
+    isValid: boolean;
+    suggestions: string[];
+    shadowedRules: Array<{
+      reason: string;
+      severity: "warning" | "error";
+      shadowingIndex: number;
+      shadowedRule: PermissionRule;
+      shadowingRule: PermissionRule;
+    }>;
+  };
 }
 
 /** D 体系（细粒度权限）角色（P2-7 桥接） */

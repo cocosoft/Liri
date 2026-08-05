@@ -81,6 +81,12 @@ function PermissionPage() {
   );
   const [ruleToolName, setRuleToolName] = useState("");
   const [ruleContentPattern, setRuleContentPattern] = useState("");
+  // 影子规则（遮蔽冲突）检测结果
+  const [shadowDetection, setShadowDetection] = useState<{
+    shadowedCount: number;
+    isValid: boolean;
+    suggestions: string[];
+  } | null>(null);
 
   useEffect(() => {
     loadConfig();
@@ -124,6 +130,7 @@ function PermissionPage() {
       const data = await permissionService.listRules();
       setRules(data.rules);
       setRulesSummary(data.summary);
+      setShadowDetection(data.shadowDetection ?? null);
     } catch (e) {
       handleClientError(e, { module: "permission:page", action: "loadRules" });
     } finally {
@@ -552,6 +559,31 @@ function PermissionPage() {
                       询问: {rulesSummary.ask}
                     </span>
                   </div>
+
+                  {/* 影子规则（遮蔽冲突）检测提示 */}
+                  {shadowDetection && shadowDetection.shadowedCount > 0 && (
+                    <div
+                      className={`mb-4 p-3 rounded-lg text-xs ${
+                        shadowDetection.isValid
+                          ? isDark
+                            ? "bg-yellow-900/30 text-yellow-400"
+                            : "bg-yellow-50 text-yellow-700"
+                          : isDark
+                            ? "bg-red-900/30 text-red-400"
+                            : "bg-red-50 text-red-700"
+                      }`}
+                    >
+                      <p className="font-medium mb-1">
+                        ⚠ 规则冲突检测：{shadowDetection.shadowedCount}{" "}
+                        条规则被遮蔽（规则顺序或通配导致失效）
+                      </p>
+                      <ul className="list-disc pl-4 space-y-0.5">
+                        {shadowDetection.suggestions.map((s, i) => (
+                          <li key={i}>{s}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   <div className="flex gap-2 mb-4">
                     <select

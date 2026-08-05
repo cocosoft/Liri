@@ -35,6 +35,7 @@ import {
   PermissionRule,
 } from '@modules/permission/types/PermissionRule';
 import { createFineGrainedPermissionManager } from '@modules/permission/FineGrainedPermissionManager';
+import { shadowedRuleDetector } from '@modules/permission';
 import {
   ResourceType,
   OperationType,
@@ -66,6 +67,7 @@ function serializeRule(rule: PermissionRule): Record<string, unknown> {
 
 /**
  * 列出工具权限规则 GET /v1/permissions/rules
+ * 附带影子规则（遮蔽冲突）检测结果：deny 被更宽泛规则遮蔽时提示，防止权限配置漏洞
  */
 export async function handleListPermissionRules(
   _req: http.IncomingMessage,
@@ -75,8 +77,26 @@ export async function handleListPermissionRules(
     const manager = PermissionManager.getInstance();
     const rules = manager.getRules() as PermissionRule[];
     const summary = manager.getRulesSummary();
+    const shadowDetection = shadowedRuleDetector.detect(rules);
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ rules: rules.map(serializeRule), summary }));
+    res.end(
+      JSON.stringify({
+        rules: rules.map(serializeRule),
+        summary,
+        shadowDetection: {
+          shadowedCount: shadowDetection.shadowedCount,
+          isValid: shadowDetection.isValid,
+          suggestions: shadowDetection.suggestions,
+          shadowedRules: shadowDetection.shadowedRules.map((s) => ({
+            reason: s.reason,
+            severity: s.severity,
+            shadowingIndex: s.shadowingIndex,
+            shadowedRule: serializeRule(s.shadowedRule),
+            shadowingRule: serializeRule(s.shadowingRule),
+          })),
+        },
+      })
+    );
   } catch (err) {
     sendError(res, err);
   }

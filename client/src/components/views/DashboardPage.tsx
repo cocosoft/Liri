@@ -721,7 +721,7 @@ function DashboardPage() {
                                 </strong>
                               </span>
                               <span>
-                                唯一工具:{" "}
+                                工具种类:{" "}
                                 <strong className="text-gray-900 dark:text-white">
                                   {analytics.tools.uniqueToolsUsed}
                                 </strong>

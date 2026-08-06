@@ -6011,8 +6011,8 @@ export class LocalHTTPService {
         }),
       });
 
-      // 4. 绑定入站消息处理器
-      this.bindChannelMessageHandler(channelType, plugin);
+      // 4. 绑定入站消息处理器（统一管线，P0-3）
+      this.bindInboundHandler(channelType, plugin);
 
       return true;
     } catch (err) {
@@ -6025,8 +6025,8 @@ export class LocalHTTPService {
     }
   }
 
-  /** 绑定入站消息 → AI → 出站 回路 */
-  private bindChannelMessageHandler(
+  /** 绑定入站消息 → AI → 出站 回路（P0-3：内部走 routeChannelMessage 统一管线） */
+  private bindInboundHandler(
     channelType: string,
     plugin: IChannelPlugin
   ): void {

@@ -4,6 +4,7 @@
  */
 import { EventEmitter } from 'events';
 import http from 'http';
+import { createHash } from 'crypto';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,
@@ -18,6 +19,67 @@ const logger = new Logger({
   module: 'channels:webhook:WebhookChannel',
   level: LogLevel.INFO,
 });
+
+// ── 4.2（P0-2）：webhook 入站真实性校验 ──
+
+/** 时间戳允许窗口（5 分钟），超出视为重放/伪造 */
+const WEBHOOK_TS_WINDOW_MS = 5 * 60 * 1000;
+
+/** 防重放缓存：`timestamp_bodyHash` → 首次接收时间（上限 500 条，超限清旧） */
+const replayCache = new Map<string, number>();
+
+function cleanupReplayCache(): void {
+  const now = Date.now();
+  if (replayCache.size > 500) {
+    for (const [key, time] of replayCache) {
+      if (now - time > WEBHOOK_TS_WINDOW_MS) replayCache.delete(key);
+    }
+  }
+}
+
+export interface WebhookVerifyResult {
+  ok: boolean;
+  status: number;
+  reason?: string;
+}
+
+/**
+ * 校验 webhook 请求真实性（secret + 时间戳防重放）
+ * - secret：`X-Webhook-Token` 或 `Authorization: Bearer <secret>` 与配置一致
+ * - 时间戳：`X-Webhook-Timestamp` 在 ±5 分钟窗口内，且同 body 短窗口内不重复
+ */
+export function verifyWebhookRequest(
+  headers: Record<string, string | string[] | undefined>,
+  body: string,
+  secret?: string
+): WebhookVerifyResult {
+  if (secret) {
+    const raw = headers['x-webhook-token'] ?? headers['authorization'] ?? '';
+    const presented = String(raw).replace(/^Bearer\s+/i, '');
+    if (!presented || presented !== secret) {
+      return { ok: false, status: 401, reason: '无效的 webhook secret' };
+    }
+  }
+
+  const tsRaw = headers['x-webhook-timestamp'];
+  if (tsRaw !== undefined && String(tsRaw).length > 0) {
+    const ts = Number(tsRaw);
+    if (
+      !Number.isFinite(ts) ||
+      Math.abs(Date.now() - ts) > WEBHOOK_TS_WINDOW_MS
+    ) {
+      return { ok: false, status: 401, reason: '请求时间戳超出允许窗口' };
+    }
+    const replayKey = `${tsRaw}_${createHash('sha256').update(body).digest('hex')}`;
+    if (replayCache.has(replayKey)) {
+      return { ok: false, status: 409, reason: '检测到重放请求' };
+    }
+    replayCache.set(replayKey, Date.now());
+    cleanupReplayCache();
+  }
+
+  return { ok: true, status: 200 };
+}
 
 /**
  * Webhook 配置
@@ -85,6 +147,25 @@ export class WebhookChannel extends EventEmitter {
             });
             req.on('end', () => {
               try {
+                // 4.2（P0-2）：webhook 真实性校验（secret + 时间戳防重放）
+                const verify = verifyWebhookRequest(
+                  req.headers as Record<string, string | string[] | undefined>,
+                  body,
+                  this.config.secret
+                );
+                if (!verify.ok) {
+                  res.writeHead(verify.status, {
+                    'Content-Type': 'application/json',
+                  });
+                  res.end(
+                    JSON.stringify({
+                      success: false,
+                      error: verify.reason || 'webhook 校验失败',
+                    })
+                  );
+                  return;
+                }
+
                 const payload = JSON.parse(body);
                 const message: WebhookMessage = {
                   id: `wh-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,

@@ -617,7 +617,7 @@ async function tryDynamicRegister(
     });
 
     // 4. 绑定入站消息处理器
-    bindChannelMessageHandler(channelType, plugin);
+    bindInboundHandler(channelType, plugin);
 
     return true;
   } catch (err) {
@@ -631,7 +631,7 @@ async function tryDynamicRegister(
 }
 
 /** 绑定入站消息 → AI → 出站 回路 */
-function bindChannelMessageHandler(channelType: string, plugin: any): void {
+function bindInboundHandler(channelType: string, plugin: any): void {
   if (!plugin.inbound) return;
 
   const _processingMessages = new Set<string>();

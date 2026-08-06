@@ -65,10 +65,73 @@ export class MCPMarketplace {
   }
 
   /**
-   * 搜索 MCP 服务器市场
+   * 市场搜索（P4-2：成功落盘缓存；网络失败离线回退缓存，TTL 10 分钟）
    */
   async search(params: SearchParams): Promise<SearchResult[]> {
-    return await this.registryHub.search(params);
+    try {
+      const results = await this.registryHub.search(params);
+      try {
+        this.persistSearchCache(params, results);
+      } catch {
+        // @ignore-catch 缓存写盘失败不影响主流程
+      }
+      return results;
+    } catch (error) {
+      const cached = this.readSearchCache(params);
+      if (cached) {
+        logger.warn('市场搜索失败，回退本地缓存', { error: String(error) });
+        return cached;
+      }
+      throw error;
+    }
+  }
+
+  /** 市场搜索缓存文件路径（~/.pyapp/mcp/cache/marketplace-search.json） */
+  private get searchCachePath(): string {
+    return path.join(this.getMCPHome(), 'cache', 'marketplace-search.json');
+  }
+
+  private persistSearchCache(
+    params: SearchParams,
+    results: SearchResult[]
+  ): void {
+    const cacheFile = this.searchCachePath;
+    fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
+    fs.writeFileSync(
+      cacheFile,
+      JSON.stringify({
+        key: this.searchCacheKey(params),
+        timestamp: Date.now(),
+        results,
+      }),
+      'utf8'
+    );
+  }
+
+  private readSearchCache(params: SearchParams): SearchResult[] | null {
+    try {
+      const cacheFile = this.searchCachePath;
+      if (!fs.existsSync(cacheFile)) return null;
+      const entry = JSON.parse(fs.readFileSync(cacheFile, 'utf8')) as {
+        key: string;
+        timestamp: number;
+        results: SearchResult[];
+      };
+      if (entry.key !== this.searchCacheKey(params)) return null;
+      if (Date.now() - entry.timestamp > 10 * 60 * 1000) return null;
+      return entry.results;
+    } catch {
+      return null;
+    }
+  }
+
+  private searchCacheKey(params: SearchParams): string {
+    return JSON.stringify({
+      q: params.query || '',
+      c: params.category || '',
+      r: params.registry || '',
+      s: params.sourceRegistry || '',
+    });
   }
 
   /**

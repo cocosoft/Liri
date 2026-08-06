@@ -848,20 +848,20 @@ Agent 系统分为三个独立命令，职责分明：
 /subagent-run run general "长时间任务" --background
 
 # 指定模型运行
-/subagent-run run plan "制定重构计划" --model sonnet
+/subagent-run run plan "制定重构计划" --model your-model-id
 
 # 以 JSON 格式列出所有 Agent
 /subagent-run list --json
 ```
 
-支持的 Agent 类型：`general`, `explore`, `plan`, `verification`, `claude-code-guide`, `statusline-setup`
+支持的 Agent 类型：`general`, `explore`, `plan`, `verification`, `code-guide`, `statusline-setup`
 
 #### 参数说明
 
 | 参数 | 适用子命令 | 说明 |
 |------|------------|------|
 | `--background` / `--bg` | `run` | 在后台运行任务，立即返回控制权 |
-| `--model <model>` | `run` | 指定模型（如 sonnet, opus, haiku），覆盖 Agent 定义的默认模型 |
+| `--model <model>` | `run` | 指定模型 ID（填写已注册的模型 ID），覆盖 Agent 定义的默认模型 |
 | `--json` | `list`, `bg-list` | 以 JSON 格式输出，便于程序化处理 |
 
 ### Agent 实例管理
@@ -894,7 +894,7 @@ Agent 系统分为三个独立命令，职责分明：
 | `--type <type>` | `create` | 指定 Agent 类型（默认: general） |
 | `--json` | `list` | 以 JSON 格式输出已注册实例和活跃子代理 |
 
-可用类型：`general`, `explore`, `plan`, `verification`, `claude-code-guide`, `statusline-setup`
+可用类型：`general`, `explore`, `plan`, `verification`, `code-guide`, `statusline-setup`
 
 别名: `/agents_tool`
 
@@ -953,8 +953,8 @@ Agent 按来源分组，高优先级覆盖低优先级同名 Agent：
 
 | 来源 | 优先级 | 说明 |
 |------|--------|------|
-| 用户设置 | 高 | `~/.claude/agents/` 目录下的配置文件 |
-| 项目设置 | 中 | 项目 `.claude/agents/` 目录下的配置文件 |
+| 用户设置 | 高 | `~/.pyapp/agents/` 目录下的配置文件 |
+| 项目设置 | 中 | 项目 `.pyapp/agents/` 目录下的配置文件 |
 | 内置 | 低 | 应用内置的通用 Agent（general-purpose, explore, plan, verification 等） |
 
 ### 自定义 Agent 文件格式
@@ -966,7 +966,7 @@ Agent 按来源分组，高优先级覆盖低优先级同名 Agent：
 name: my-agent
 description: 我的自定义助手
 tools: file_read, file_write, grep
-model: sonnet
+model: your-model-id
 memory: project
 color: blue
 ---

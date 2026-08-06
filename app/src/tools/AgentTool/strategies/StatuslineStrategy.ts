@@ -114,7 +114,7 @@ export const STATUSLINE_SETUP_AGENT_DEFINITION: BuiltInAgentDefinition = {
   tools: ['Read', 'FileEdit'],
   source: 'built-in',
   baseDir: 'built-in',
-  model: 'sonnet',
+  model: '', // 空 = 走模型体系 fallback，不硬编码模型名
   color: 'orange',
   getSystemPrompt: () => STATUSLINE_SYSTEM_PROMPT,
 };

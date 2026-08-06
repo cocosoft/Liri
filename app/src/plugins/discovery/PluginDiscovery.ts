@@ -4,7 +4,11 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { resolveProjectRoot, resolvePyappHome } from '@modules/core';
+import {
+  resolvePluginsDir,
+  resolvePluginsInstalledDir,
+  resolveProjectRoot,
+} from '@modules/core';
 import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
 
@@ -211,8 +215,9 @@ export class PluginDiscovery {
     const cwd = resolveProjectRoot();
 
     this.scanPaths.set('builtin', [path.join(cwd, 'plugins', 'builtin')]);
-    this.scanPaths.set('installed', [path.join(cwd, 'plugins', 'installed')]);
-    this.scanPaths.set('user', [path.join(resolvePyappHome(), 'plugins')]);
+    // 2026-08-06 路径收敛：installed/user 统一到 ~/.pyapp/plugins 注册表（原 installed 指向项目根的双基地已废弃）
+    this.scanPaths.set('installed', [resolvePluginsInstalledDir()]);
+    this.scanPaths.set('user', [resolvePluginsDir()]);
     this.scanPaths.set('project', [path.join(cwd, '.pyapp', 'plugins')]);
     this.scanPaths.set('global', [
       configManager.env('LIRI_PLUGIN_PATH') || path.join(cwd, 'plugins'),

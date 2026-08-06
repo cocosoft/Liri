@@ -6,6 +6,7 @@
 
 import { join } from 'path';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { resolveUserSettingsPath } from '@modules/core';
 import { PluginConfig, PluginRepository } from '../types';
 import { Logger, LogLevel } from '@modules/monitoring';
 
@@ -20,7 +21,7 @@ const logger = new Logger({
  * @returns 插件配置
  */
 export function readPluginConfig(
-  configPath: string = './settings.json'
+  configPath: string = resolveUserSettingsPath()
 ): PluginConfig {
   if (!existsSync(configPath)) {
     return {
@@ -55,7 +56,7 @@ export function readPluginConfig(
  * @param config 插件配置
  */
 export function writePluginConfig(
-  configPath: string = './settings.json',
+  configPath: string = resolveUserSettingsPath(),
   config: PluginConfig
 ): void {
   try {
@@ -87,7 +88,7 @@ export function writePluginConfig(
  * @param pluginId 插件标识符
  */
 export function enablePlugin(
-  configPath: string = './settings.json',
+  configPath: string = resolveUserSettingsPath(),
   pluginId: string
 ): void {
   const config = readPluginConfig(configPath);
@@ -112,7 +113,7 @@ export function enablePlugin(
  * @param pluginId 插件标识符
  */
 export function disablePlugin(
-  configPath: string = './settings.json',
+  configPath: string = resolveUserSettingsPath(),
   pluginId: string
 ): void {
   const config = readPluginConfig(configPath);
@@ -136,7 +137,7 @@ export function disablePlugin(
  * @param pluginId 插件标识符
  */
 export function removePlugin(
-  configPath: string = './settings.json',
+  configPath: string = resolveUserSettingsPath(),
   pluginId: string
 ): void {
   const config = readPluginConfig(configPath);
@@ -159,7 +160,7 @@ export function removePlugin(
  * @param repository 仓库配置
  */
 export function addPluginRepository(
-  configPath: string = './settings.json',
+  configPath: string = resolveUserSettingsPath(),
   name: string,
   repository: PluginRepository
 ): void {
@@ -174,7 +175,7 @@ export function addPluginRepository(
  * @param name 仓库名称
  */
 export function removePluginRepository(
-  configPath: string = './settings.json',
+  configPath: string = resolveUserSettingsPath(),
   name: string
 ): void {
   const config = readPluginConfig(configPath);
@@ -191,7 +192,7 @@ export function removePluginRepository(
  * @returns 是否启用
  */
 export function isPluginEnabled(
-  configPath: string = './settings.json',
+  configPath: string = resolveUserSettingsPath(),
   pluginId: string
 ): boolean {
   const config = readPluginConfig(configPath);
@@ -205,7 +206,7 @@ export function isPluginEnabled(
  * @returns 是否已安装
  */
 export function isPluginInstalled(
-  configPath: string = './settings.json',
+  configPath: string = resolveUserSettingsPath(),
   pluginId: string
 ): boolean {
   const config = readPluginConfig(configPath);

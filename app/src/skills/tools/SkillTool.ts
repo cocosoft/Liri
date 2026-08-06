@@ -2,9 +2,8 @@
  * 支持Inline模式、Fork模式、权限检查、参数验证等功能
  */
 
-import { join } from 'path';
-import { homedir } from 'os';
-import type { SkillDefinition, SkillSource } from '../utils/skillParser';
+import { resolve, relative, isAbsolute } from 'path';
+import type { SkillDefinition } from '../utils/skillParser';
 import { SkillParser } from '../utils/skillParser';
 import { Logger, LogLevel } from '@modules/monitoring';
 
@@ -182,24 +181,15 @@ export class SkillTool {
         context.currentDirectory
       );
 
-      // 提取Shell命令
-      const shellCommands = this.parser.extractShellCommands(processedContent);
+      // S1-2：shell 执行已永久禁用，无命令提取/执行
 
       // 根据执行模式处理
       let result: SkillExecutionResult;
 
       if (context.context === 'fork') {
-        result = await this.executeInForkMode(
-          context,
-          processedContent,
-          shellCommands
-        );
+        result = await this.executeInForkMode(context, processedContent);
       } else {
-        result = await this.executeInInlineMode(
-          context,
-          processedContent,
-          shellCommands
-        );
+        result = await this.executeInInlineMode(context, processedContent);
       }
 
       // 记录技能使用
@@ -254,15 +244,18 @@ export class SkillTool {
       }
     }
 
-    // 检查路径权限
+    // 检查路径权限（S1-3：includes → 归一化后 relative + 前缀边界，防 /home/user2 误判）
     if (skill.frontmatter.paths) {
       const paths = Array.isArray(skill.frontmatter.paths)
         ? skill.frontmatter.paths
         : [skill.frontmatter.paths];
 
-      const isPathAllowed = paths.some((path) =>
-        context.currentDirectory.includes(path)
-      );
+      const cwd = resolve(context.currentDirectory);
+      const isPathAllowed = paths.some((allowedPath) => {
+        const allowed = resolve(allowedPath);
+        const rel = relative(allowed, cwd);
+        return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+      });
 
       if (!isPathAllowed) {
         return {
@@ -273,7 +266,8 @@ export class SkillTool {
       }
     }
 
-    if (this.hasSafeAttributes(skill)) {
+    // S1-3：仅"无任何危险能力"的技能可免确认（原 hasSafeAttributes 有 description 即放行，形同虚设）
+    if (!this.hasDangerousCapabilities(skill)) {
       return {
         allowed: true,
         requiresConfirmation: false,
@@ -325,32 +319,16 @@ export class SkillTool {
    */
   private async executeInInlineMode(
     context: SkillExecutionContext,
-    processedContent: string,
-    shellCommands: string[]
+    processedContent: string
   ): Promise<SkillExecutionResult> {
     // 在Inline模式下，技能内容作为用户消息注入当前对话
-    const toolsUsed: string[] = [];
-
-    // 执行Shell命令（如果启用）
-    if (shellCommands.length > 0 && context.skill.frontmatter.shell) {
-      for (const command of shellCommands) {
-        try {
-          await this.executeShellCommand(command, context.currentDirectory);
-          toolsUsed.push('shell');
-        } catch (error) {
-          logger.warning(`Shell command failed: ${command}`, { error });
-        }
-      }
-    }
-
+    // S1-2：shell 执行永久禁用
     return {
       success: true,
       output: processedContent,
       executionTime: 0,
-      toolsUsed,
-      stats: {
-        toolCalls: shellCommands.length,
-      },
+      toolsUsed: [],
+      stats: {},
     };
   }
 
@@ -359,37 +337,11 @@ export class SkillTool {
    */
   private async executeInForkMode(
     context: SkillExecutionContext,
-    processedContent: string,
-    shellCommands: string[]
+    processedContent: string
   ): Promise<SkillExecutionResult> {
     // 在Fork模式下，技能在子代理中独立执行
     // 这里简化实现，实际应该创建子代理进程
-
-    const toolsUsed: string[] = [];
-    let output = processedContent;
-
-    // 执行Shell命令
-    if (shellCommands.length > 0 && context.skill.frontmatter.shell) {
-      const commandOutputs: string[] = [];
-
-      for (const command of shellCommands) {
-        try {
-          const result = await this.executeShellCommand(
-            command,
-            context.currentDirectory
-          );
-          commandOutputs.push(`Command: ${command}\nOutput: ${result}`);
-          toolsUsed.push('shell');
-        } catch (error) {
-          commandOutputs.push(
-            `Command: ${command}\nError: ${error instanceof Error ? error.message : String(error)}`
-          );
-        }
-      }
-
-      output +=
-        '\n\n## Command Execution Results\n' + commandOutputs.join('\n\n');
-    }
+    // S1-2：shell 执行永久禁用
 
     // 应用上下文修改器
     if (context.skill.frontmatter.model) {
@@ -405,40 +357,24 @@ export class SkillTool {
 
     return {
       success: true,
-      output,
+      output: processedContent,
       executionTime: 0,
-      toolsUsed,
-      stats: {
-        toolCalls: shellCommands.length,
-      },
+      toolsUsed: [],
+      stats: {},
     };
   }
 
   /**
-   * 执行Shell命令（简化实现）
+   * 是否含危险能力（S1-3：shell / 路径访问 / 工具调用 / hooks 均为危险能力）
+   * 含任一危险能力 → 执行必须用户确认
    */
-  private async executeShellCommand(
-    command: string,
-    cwd: string
-  ): Promise<string> {
-    // 这里简化实现，实际应该使用子进程执行命令
-    logger.debug(`Executing shell command: ${command} in ${cwd}`);
-
-    // 模拟命令执行
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    return `Command executed successfully: ${command}`;
-  }
-
-  /**
-   * 检查安全属性
-   */
-  private hasSafeAttributes(skill: SkillDefinition): boolean {
-    // 简化实现：检查是否包含安全属性
-    const safeAttributes = ['description', 'when-to-use', 'argument-hint'];
-
-    return safeAttributes.some(
-      (attr) => skill.frontmatter[attr as keyof typeof skill.frontmatter]
+  private hasDangerousCapabilities(skill: SkillDefinition): boolean {
+    const fm = skill.frontmatter;
+    return Boolean(
+      fm.shell ||
+      (fm.paths?.length ?? 0) > 0 ||
+      (fm['allowed-tools']?.length ?? 0) > 0 ||
+      fm.hooks
     );
   }
 

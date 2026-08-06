@@ -311,7 +311,7 @@ Hooks run commands at specific lifecycle events:
 ### Model & Agent
 \`\`\`json
 {
-  "model": "sonnet",
+  "model": "your-model-id",
   "language": "chinese"
 }
 \`\`\`
@@ -407,6 +407,77 @@ What to do in this step.
 ### Step 4: Save and Confirm
 
 Before writing, output the SKILL.md content for review. Ask user to confirm using AskUserQuestion.`,
+        },
+      ];
+    },
+  },
+  {
+    name: 'skill-creator',
+    description:
+      'Create, edit, improve, tidy, review, audit, or restructure SKILL.md files following proven skill design methodology',
+    aliases: ['create-skill', '技能方法论'],
+    whenToUse:
+      'When the user wants to create, edit, improve, review, or restructure a skill (SKILL.md), or wants guidance on how to design a well-structured skill',
+    argumentHint: '[skill name or description]',
+    allowedTools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'AskUserQuestion'],
+    userInvocable: true,
+    async getPromptForCommand(args) {
+      return [
+        {
+          type: 'text',
+          text: `# Skill Creator
+
+Guidance for creating and maintaining effective skills in Liri.
+
+${args ? `Target skill: "${args}"\n\n` : ''}
+
+## Liri Skill Model (must respect)
+
+- Skills are **prompt-instruction templates** injected into the LLM context. They are NOT executable code.
+- **Shell execution is permanently disabled** in Liri. Never reference or require running shell/Python scripts inside a skill.
+- Built-in skills are programmatic definitions in BundledSkillLoader; user skills live at \`~/.pyapp/skills/<name>/SKILL.md\`; third-party skills at \`~/.pyapp/skills/vendor/\`.
+- Skills created for the user go to \`~/.pyapp/skills/<name>/SKILL.md\` (auto-registered on write, no restart needed).
+
+## Core Principles
+
+1. **Concise is key.** The context window is a shared resource. Only add context the model doesn't already have; challenge each paragraph for token cost. Prefer concise examples over verbose explanations.
+2. **Set appropriate degrees of freedom.** Text-based instructions (high freedom) for heuristic tasks; specific scripts/sequences (low freedom) only for fragile operations. Liri skills are text-based by design.
+3. **Progressive disclosure.** Metadata (name + description) is always in context; SKILL.md body loads on trigger (<500 lines); references/assets load only when needed. Keep SKILL.md lean; split variant details into referenced files.
+
+## Skill Anatomy
+
+\`\`\`
+skill-name/
+├── SKILL.md (required)
+│   ├── YAML frontmatter (name + description — these are the ONLY trigger fields)
+│   └── Markdown instructions (loaded only AFTER the skill triggers)
+├── references/  (optional) docs loaded into context as needed
+└── assets/      (optional) files used in output
+\`\`\`
+
+Do NOT include extraneous files (README.md, CHANGELOG.md, INSTALLATION_GUIDE.md, etc.) inside a skill.
+
+## Naming
+
+- Lowercase letters, digits, hyphens only; normalize titles to hyphen-case ("Plan Mode" → \`plan-mode\`).
+- Keep names under 64 chars; prefer short, verb-led phrases.
+- Name the skill folder exactly after the skill name.
+
+## Creating a Skill (workflow)
+
+1. **Understand with concrete examples**: clarify the functionality and its trigger scenarios with the user (AskUserQuestion, few questions at a time).
+2. **Plan reusable contents**: decide which scripts/references/assets would help. In Liri, omit shell/Python scripts (shell is disabled); prefer references/ for structured knowledge.
+3. **Initialize**: create \`~/.pyapp/skills/<name>/SKILL.md\` with a template.
+4. **Write SKILL.md** (imperative mood):
+   - Frontmatter: \`name\` and \`description\` only. The \`description\` is the primary trigger — include BOTH what the skill does AND specific when-to-use triggers/contexts. All "when to use" info belongs in the description, NOT the body.
+   - Body: procedural instructions, steps with success criteria, references to bundled resources. Keep under 500 lines.
+5. **Save and verify**: write the file (auto-registered), verify the listing shows it, and iterate based on real usage.
+
+## Reviewing / Improving an Existing Skill
+
+- Audit the frontmatter \`description\`: does it cover trigger contexts? Is it one clear line?
+- Check the body for stale steps, duplicated references, or bloat; restructure with progressive disclosure.
+- Ensure no shell/Python execution is required (Liri constraint).`,
         },
       ];
     },

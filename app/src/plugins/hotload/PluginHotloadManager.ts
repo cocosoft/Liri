@@ -9,7 +9,7 @@
  * - 优雅卸载：依次执行 deactivate → saveContext → unload
  */
 
-import { resolveProjectRoot } from '@modules/core';
+import { resolvePluginsInstalledDir } from '@modules/core';
 import { configManager } from '@modules/config';
 import {
   watch,
@@ -380,7 +380,7 @@ export class PluginHotloadManager {
     if (envDir) {
       return resolve(envDir);
     }
-    return resolve(resolveProjectRoot(), 'plugins');
+    return resolvePluginsInstalledDir();
   }
 
   /**

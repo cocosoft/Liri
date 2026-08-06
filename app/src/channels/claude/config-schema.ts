@@ -10,7 +10,7 @@ export interface ClaudeConfig {
 }
 
 const DEFAULTS: Partial<ClaudeConfig> = {
-  model: 'claude-3-opus-20240229',
+  model: '', // 空 = 由模型体系提供默认模型（不硬编码）
   maxTokens: 4096,
 };
 

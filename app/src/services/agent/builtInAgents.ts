@@ -40,7 +40,7 @@ export function getBuiltInAgents(): BuiltInAgentDefinition[] {
     },
     VERIFICATION_AGENT_DEFINITION as unknown as BuiltInAgentDefinition,
     {
-      agentType: 'claude-code-guide',
+      agentType: 'code-guide',
       whenToUse: 'Code review and best practices',
       source: 'built-in',
       baseDir: 'built-in',

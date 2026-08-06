@@ -259,6 +259,30 @@ export async function truncateApiMessages(
   sessions: Map<string, ChatSession>,
   sessionId?: string
 ): Promise<void> {
+  // P1-3 fix: Skills 作为 User Message 注入 — 在最后一条 user message 前插入。
+  // 注意：ensureFresh() 无外部调用点，cache.l1 恒为空；且原注入代码位于上下文超限路径尾部，
+  // 正常请求（未超限）早退导致技能列表从未注入 LLM。这里在早退前统一刷新并注入。
+  try {
+    await skillInjectionService.ensureFresh();
+    const injected = skillInjectionService.injectSkillsIntoMessageHistory(
+      apiMessages as Array<{
+        role: string;
+        content: string;
+        metadata?: Record<string, unknown>;
+      }>
+    );
+    // 直接替换数组内容（保持引用）
+    apiMessages.length = 0;
+    for (const msg of injected)
+      apiMessages.push(msg as Record<string, unknown>);
+  } catch (err) {
+    // Skills 注入失败不阻塞主流程
+    await handleError(err, {
+      module: 'chat:context-pipeline',
+      action: 'injectSkills',
+    });
+  }
+
   if (maxContextTokens <= 0) return;
 
   const RESPONSE_BUFFER_TOKENS = Math.round(maxContextTokens * 0.15);
@@ -342,28 +366,6 @@ export async function truncateApiMessages(
         summaryLength: summaryContent.length,
       });
     }
-  }
-
-  // P1-3: Skills 作为 User Message 注入 — 在最后一条 user message 前插入，
-  // 确保上下文压缩后 skills 列表仍然存在，且不破坏 System Prompt 的 cache_control 前缀
-  try {
-    const injected = skillInjectionService.injectSkillsIntoMessageHistory(
-      apiMessages as Array<{
-        role: string;
-        content: string;
-        metadata?: Record<string, unknown>;
-      }>
-    );
-    // 直接替换数组内容（保持引用）
-    apiMessages.length = 0;
-    for (const msg of injected)
-      apiMessages.push(msg as Record<string, unknown>);
-  } catch (err) {
-    // Skills 注入失败不阻塞主流程
-    await handleError(err, {
-      module: 'chat:context-pipeline',
-      action: 'injectSkills',
-    });
   }
 }
 

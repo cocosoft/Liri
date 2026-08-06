@@ -19,6 +19,21 @@ import { setConfigValue, getConfig } from '@modules/config';
 import { writeSoulMd, readSoulMd } from '@modules/services/soul/SoulReader';
 import { writeUserMd, readUserMd } from '@modules/services/soul/UserReader';
 import { detectUnifiedProviders } from '@modules/ai';
+
+/**
+ * 引导推荐供应商（仅引导预设展示，非业务选择，禁止硬编码供应商名）。
+ * 优先级：① 环境变量 LIRI_RECOMMENDED_PROVIDER 显式指定（需命中引导预设）
+ *        ② 已配置（.env）供应商中首个命中引导预设的
+ *        ③ 均无 → 不推荐（不预设 deepseek）
+ */
+function resolveRecommendedProvider(): string {
+  const explicit = process.env['LIRI_RECOMMENDED_PROVIDER'];
+  if (explicit && PROVIDER_INFO[explicit]) return explicit;
+  for (const p of detectUnifiedProviders()) {
+    if (PROVIDER_INFO[p.name]) return p.name;
+  }
+  return '';
+}
 import {
   OnboardHintKey,
   showHintIfNeeded,
@@ -374,7 +389,7 @@ async function testApiConnection(
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-3-haiku-20240307',
+          model: '', // 连通测试仅验证 key 有效性（400 亦视为有效），不硬编码模型名
           max_tokens: 10,
           messages: [{ role: 'user', content: 'hi' }],
         }),
@@ -492,15 +507,23 @@ async function runModelSection(
   console.log(`  步骤 ${step}/${total}: 选择 AI 模型`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('');
-  console.log('  Liri 需要 AI 模型来回答问题。DeepSeek 推荐首选：');
-  console.log('  ✅ 注册即送 500 万 tokens 免费额度，无需付费即可开始使用');
+  const recommended = resolveRecommendedProvider();
+  const recName = recommended ? PROVIDER_INFO[recommended]?.name : '';
+  if (recName) {
+    console.log(`  Liri 需要 AI 模型来回答问题。${recName} 推荐首选：`);
+    if (PROVIDER_INFO[recommended]?.hasFreeTier) {
+      console.log('  ✅ 提供免费额度，无需付费即可开始使用');
+    }
+  } else {
+    console.log('  Liri 需要 AI 模型来回答问题。请选择一家 AI 服务商：');
+  }
   console.log('');
 
   const providerKeys = Object.keys(PROVIDER_INFO);
   for (let i = 0; i < providerKeys.length; i++) {
     const key = providerKeys[i];
     const info = PROVIDER_INFO[key];
-    const isRecommended = key === 'deepseek';
+    const isRecommended = recommended !== '' && key === recommended;
     const badge = isRecommended ? ' ★推荐' : '';
     const freeTag = info.hasFreeTier ? ' ✅ 免费额度' : '';
     console.log(`  ${i + 1}. ${info.name}${badge}${freeTag}`);
@@ -524,7 +547,7 @@ async function runModelSection(
     return [];
   }
 
-  let selectedProvider = 'deepseek';
+  let selectedProvider = providerKeys[0];
 
   if (
     providerChoice.toLowerCase() !== 'skip' &&
@@ -964,8 +987,8 @@ const onboardCommand = {
       '',
       '1. 首次配置 - 设置 AI 模型',
       '   /onboard                                      ← 启动配置向导',
-      '   /config set ai.provider deepseek              ← 选择 AI 提供商',
-      '   /config set ai.deepseek.apiKey sk-你的密钥     ← 设置 API 密钥',
+      `   /config set ai.provider <供应商名>              ← 选择 AI 提供商`,
+      `   /config set ai.<供应商名>.apiKey sk-你的密钥     ← 设置 API 密钥`,
       '',
       '2. 核心命令',
       '   /chat         开始与 AI 对话',
@@ -1123,15 +1146,23 @@ export async function runOnboard(
     console.log(`  步骤 1/${totalSteps}: 选择 AI 模型`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('');
-    console.log('  Liri 需要 AI 模型来回答问题。DeepSeek 推荐首选：');
-    console.log('  ✅ 注册即送 500 万 tokens 免费额度，无需付费即可开始使用');
+    const recommended = resolveRecommendedProvider();
+    const recName = recommended ? PROVIDER_INFO[recommended]?.name : '';
+    if (recName) {
+      console.log(`  Liri 需要 AI 模型来回答问题。${recName} 推荐首选：`);
+      if (PROVIDER_INFO[recommended]?.hasFreeTier) {
+        console.log('  ✅ 提供免费额度，无需付费即可开始使用');
+      }
+    } else {
+      console.log('  Liri 需要 AI 模型来回答问题。请选择一家 AI 服务商：');
+    }
     console.log('');
 
     const providerKeys = Object.keys(PROVIDER_INFO);
     for (let i = 0; i < providerKeys.length; i++) {
       const key = providerKeys[i];
       const info = PROVIDER_INFO[key];
-      const isRecommended = key === 'deepseek';
+      const isRecommended = recommended !== '' && key === recommended;
       const isCurrent = existingConfig.provider === key;
       const badge = isCurrent ? ' ★当前' : isRecommended ? ' ★推荐' : '';
       const freeTag = info.hasFreeTier ? ' ✅ 免费额度' : '';
@@ -1165,17 +1196,15 @@ export async function runOnboard(
       return [];
     }
 
-    let selectedProvider = 'deepseek';
-    switch (providerChoice) {
-      case '2':
-        selectedProvider = 'anthropic';
-        break;
-      case '3':
-        selectedProvider = 'openai';
-        break;
-      default:
-        selectedProvider = 'deepseek';
-        break;
+    let selectedProvider = providerKeys[0];
+    // 按列表序号映射（消除固定 1→deepseek/2→anthropic/3→openai 的硬编码）
+    const choiceIdx = Number(providerChoice);
+    if (
+      !Number.isNaN(choiceIdx) &&
+      choiceIdx >= 1 &&
+      choiceIdx <= providerKeys.length
+    ) {
+      selectedProvider = providerKeys[choiceIdx - 1];
     }
 
     const providerInfo = PROVIDER_INFO[selectedProvider];

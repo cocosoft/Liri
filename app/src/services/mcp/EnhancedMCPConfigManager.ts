@@ -39,8 +39,11 @@ export class EnhancedMCPConfigManager {
    */
   async loadConfigs(): Promise<Record<string, ScopedMcpServerConfig>> {
     try {
+      // 2026-08-06 新增来源：插件声明的外部服务（J-22），优先级最低（用户显式配置可覆盖）
+      const pluginConfigs = await this.loadPluginConfigs();
       // 加载不同来源的配置
       const configs = {
+        ...pluginConfigs,
         ...this.loadGlobalConfig(),
         ...this.loadUserConfig(),
         ...this.loadProjectConfig(),
@@ -56,6 +59,57 @@ export class EnhancedMCPConfigManager {
       });
       return {};
     }
+  }
+
+  /**
+   * 加载插件声明的 MCP 服务器配置（J-22 接线）
+   * 插件 manifest 的 mcpServers 字段（PluginMcpServer[]：{ name, url, ... }）在此注册到 MCP 配置源，
+   * scope='dynamic' + pluginSource 标记来源。动态 import 避免 services/mcp ↔ plugins 循环依赖。
+   */
+  private async loadPluginConfigs(): Promise<
+    Record<string, ScopedMcpServerConfig>
+  > {
+    const configs: Record<string, ScopedMcpServerConfig> = {};
+    try {
+      const { pluginSystem } = await import('@modules/plugins');
+      const plugins = pluginSystem.getLoader().getAllPlugins();
+
+      for (const plugin of plugins) {
+        const servers = plugin.mcpServers ?? [];
+        if (!Array.isArray(servers) || servers.length === 0) continue;
+
+        for (const server of servers) {
+          const { name, ...rest } = server as {
+            name?: unknown;
+            [key: string]: unknown;
+          };
+          if (typeof name !== 'string' || !name) {
+            logger.warn(
+              `[${plugin.name}] 插件声明的 MCP 服务器缺少 name，已跳过`
+            );
+            continue;
+          }
+          const parsed = McpServerConfigSchema.safeParse(rest);
+          if (!parsed.success) {
+            logger.warn(
+              `[${plugin.name}] 插件声明无效的 MCP 服务器 ${name}: ${parsed.error.message}`
+            );
+            continue;
+          }
+          configs[name] = {
+            ...parsed.data,
+            scope: 'dynamic',
+            pluginSource: plugin.name,
+          };
+        }
+      }
+    } catch (error) {
+      // 插件系统未初始化/不可用时静默降级（插件 mcpServers 为可选能力）
+      logger.debug(
+        `插件 MCP 配置加载不可用: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    return configs;
   }
 
   /**

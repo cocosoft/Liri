@@ -4,11 +4,10 @@
  *       + hermes-agent 6级降级探测链 + parse_context_limit_from_error
  *
  * 多层 fallback 解析模型上下文窗口大小：
- *   1. DB model_registry 动态读取（context_window 字段）
- *   2. 已知模型硬编码映射（fallback）
- *   3. 运行时降级探测（P1-7: 256K→128K→64K→32K→16K→8K）
- *   4. 1M 启发式检测
- *   5. 默认 200K
+ *   1. DB model_registry 动态读取（context_window 字段，唯一事实来源）
+ *   2. 1M 启发式检测
+ *   3. 默认 200K
+ * 说明：context_window 为模型注册数据（DB model_registry），代码不维护硬编码模型名表。
  */
 import { Logger, LogLevel } from '@modules/monitoring';
 import { Database } from '@modules/core/external/sqlite3';
@@ -27,25 +26,8 @@ const CONTEXT_PROBE_TIERS = [
   256_000, 128_000, 64_000, 32_000, 16_000, 8_000,
 ] as const;
 
-/** 已知模型的上下文窗口映射（DB 无记录时的 hardcoded fallback） */
-const KNOWN_CONTEXT_WINDOWS: Record<string, number> = {
-  'claude-3-5-sonnet': 200_000,
-  'claude-3-opus': 200_000,
-  'claude-3-haiku': 200_000,
-  'claude-3.5-sonnet': 200_000,
-  'claude-sonnet-4': 200_000,
-  'gpt-4': 128_000,
-  'gpt-4o': 128_000,
-  'gpt-4-turbo': 128_000,
-  'gpt-4.1': 1_000_000,
-  'gemini-1.5-pro': 2_000_000,
-  'gemini-2.0-flash': 1_000_000,
-  'deepseek-v3': 128_000,
-  'deepseek-r1': 128_000,
-  'deepseek-chat': 128_000,
-  'deepseek-reasoner': 128_000,
-  'deepseek-coder': 128_000,
-};
+/** 1M 上下文关键词（启发式，非供应商特定） */
+const ONE_M_CONTEXT_KEYWORDS = ['1m', '1.5-pro', '2.0'] as const;
 
 export interface ContextWindowInfo {
   tokens: number;
@@ -95,39 +77,26 @@ export async function resolveContextWindowAsync(
 
 /**
  * 解析模型上下文窗口大小（同步，不含 DB 查询）
- * 优先级：known model → 1M 启发式 → config override → default
+ * 优先级：config override → 1M 启发式 → default
+ * 注：模型级 context_window 以 DB model_registry 为事实来源（resolveContextWindowAsync）；
+ * 同步路径仅用于预算估算，不再维护硬编码模型名表。
  */
 export function resolveContextWindow(
   model: string,
   configOverride?: number
 ): ContextWindowInfo {
-  // 1. 检查已知模型映射
+  // 1. 显式配置覆盖优先
+  if (configOverride) {
+    return { tokens: configOverride, source: 'config' };
+  }
+
+  // 2. 1M context 启发式检测（模型名含 1m 关键词）
   const normalized = model.toLowerCase();
-  for (const [key, tokens] of Object.entries(KNOWN_CONTEXT_WINDOWS)) {
-    if (normalized.includes(key)) {
-      return {
-        tokens: configOverride ?? tokens,
-        source: configOverride ? 'config' : 'known_model',
-      };
-    }
+  if (ONE_M_CONTEXT_KEYWORDS.some((k) => normalized.includes(k))) {
+    return { tokens: 1_000_000, source: 'known_model' };
   }
 
-  // 2. 1M context 检测（模型名含 1m 关键词）
-  if (
-    normalized.includes('1m') ||
-    normalized.includes('1.5-pro') ||
-    normalized.includes('2.0')
-  ) {
-    return {
-      tokens: configOverride ?? 1_000_000,
-      source: configOverride ? 'config' : 'known_model',
-    };
-  }
-
-  return {
-    tokens: configOverride ?? DEFAULT_CONTEXT_WINDOW,
-    source: configOverride ? 'config' : 'default',
-  };
+  return { tokens: DEFAULT_CONTEXT_WINDOW, source: 'default' };
 }
 
 /**

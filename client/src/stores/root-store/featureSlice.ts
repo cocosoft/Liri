@@ -12,6 +12,27 @@ import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("root-store:featureSlice");
 
+// ─── 版本分层（tier）占位 ─────────────────────────────
+
+export type Tier = "base" | "pro";
+
+/**
+ * 当前版本（license 就绪前的占位来源）。
+ * 优先级：环境变量 VITE_TIER → localStorage liri_tier → base。
+ * license 体系恢复后由 licenseStore 驱动。
+ */
+export function getCurrentTier(): Tier {
+  const envTier = import.meta.env.VITE_TIER as string | undefined;
+  if (envTier === "pro" || envTier === "base") return envTier;
+  try {
+    const stored = localStorage.getItem("liri_tier");
+    if (stored === "pro" || stored === "base") return stored;
+  } catch {
+    /* localStorage 不可用时默认 base */
+  }
+  return "base";
+}
+
 // ─── 内置模块 ──────────────────────────────────────────
 
 const BUILTIN_MODULES: FeatureModule[] = [
@@ -23,6 +44,7 @@ const BUILTIN_MODULES: FeatureModule[] = [
     enabled: true,
     available: true,
     pinned: true,
+    tier: "base",
   },
   {
     id: "media",
@@ -32,6 +54,7 @@ const BUILTIN_MODULES: FeatureModule[] = [
     enabled: true,
     available: true,
     pinned: false,
+    tier: "base",
   },
   {
     id: "office",
@@ -41,6 +64,7 @@ const BUILTIN_MODULES: FeatureModule[] = [
     enabled: true,
     available: true,
     pinned: false,
+    tier: "pro",
   },
   {
     id: "calendar",
@@ -50,6 +74,7 @@ const BUILTIN_MODULES: FeatureModule[] = [
     enabled: true,
     available: true,
     pinned: false,
+    tier: "pro",
   },
   {
     id: "translation",
@@ -59,6 +84,7 @@ const BUILTIN_MODULES: FeatureModule[] = [
     enabled: true,
     available: true,
     pinned: false,
+    tier: "base",
   },
   {
     id: "knowledge",
@@ -68,6 +94,7 @@ const BUILTIN_MODULES: FeatureModule[] = [
     enabled: true,
     available: true,
     pinned: false,
+    tier: "base",
   },
 ];
 
@@ -85,6 +112,9 @@ export interface FeatureSlice {
   registerModule: (module: FeatureModule) => void;
   unregisterModule: (id: string) => void;
   getModule: (id: string) => FeatureModule | undefined;
+
+  /** 按当前版本（tier）过滤后对用户可见的模块（一处过滤入口） */
+  getVisibleModules: () => FeatureModule[];
 
   // ─── 用户操作 ───
 
@@ -136,6 +166,14 @@ export const createFeatureSlice: StateCreator<
   },
 
   getModule: (id) => get().modules.find((m) => m.id === id),
+
+  // 一处过滤：base 版隐藏 pro 模块；license 就绪后由 tier 来源驱动
+  getVisibleModules: () => {
+    const tier = getCurrentTier();
+    return get().modules.filter(
+      (m) => (m.tier ?? "base") === "base" || tier === "pro",
+    );
+  },
 
   // ─── 开关 ───
   toggleModule: (id) => {

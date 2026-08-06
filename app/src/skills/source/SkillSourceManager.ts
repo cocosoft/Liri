@@ -100,29 +100,11 @@ export class SkillSourceManager {
 
     try {
       if (fs.existsSync(source.basePath)) {
-        const files = fs.readdirSync(source.basePath);
-
-        for (const file of files) {
-          if (
-            !file.endsWith('.ts') &&
-            !file.endsWith('.js') &&
-            !file.endsWith('.md')
-          )
-            continue;
-
-          try {
-            const skills = await this.loader.loadSkills();
-            for (const skill of skills) {
-              source.skills.push(skill);
-              loaded++;
-            }
-          } catch (err) {
-            failed++;
-            errors.push(
-              `${file}: ${err instanceof Error ? err.message : String(err)}`
-            );
-          }
-        }
+        // S2-3：loadSkills() 移出循环只调用一次（原实现按文件数重复加载 N 次全量 → 重复堆积）
+        source.skills = [];
+        const skills = await this.loader.loadSkills();
+        source.skills.push(...skills);
+        loaded = skills.length;
       }
     } catch (err) {
       errors.push(

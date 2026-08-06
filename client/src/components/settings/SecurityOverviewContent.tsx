@@ -51,7 +51,8 @@ const LAYERS: LayerBlock[] = [
   },
   {
     layer: "应用级",
-    color: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+    color:
+      "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
     desc: "Liri 直接执行：应用运行时按配置做决策",
     members: ["权限执行（allow/deny/ask）"],
   },
@@ -96,10 +97,7 @@ function SecurityOverviewContent({ isDark }: SecurityOverviewContentProps) {
       {/* 三级模型图 */}
       <div className="grid gap-3 md:grid-cols-3">
         {LAYERS.map((l) => (
-          <div
-            key={l.layer}
-            className={`rounded-lg border p-4 ${card}`}
-          >
+          <div key={l.layer} className={`rounded-lg border p-4 ${card}`}>
             <span
               className={`inline-block text-xs px-2 py-0.5 rounded mb-2 ${l.color}`}
             >

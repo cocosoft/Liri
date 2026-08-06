@@ -18,18 +18,18 @@ const pluginManager = PluginManager.getInstance();
 
 /**
  * 插件技能加载器
- * 从插件中加载技�?
+ * 从插件中加载技能
  */
 export class PluginSkillLoader extends SkillLoader {
   /**
-   * 加载插件技�?
-   * @returns 技能列�?
+   * 加载插件技能
+   * @returns 技能列表
    */
   async loadSkills(): Promise<Skill[]> {
     const skills: Skill[] = [];
 
     try {
-      // 获取所有插�?
+      // 获取所有插件
       const plugins = pluginManager.getAllPlugins();
 
       for (const plugin of plugins) {
@@ -41,13 +41,13 @@ export class PluginSkillLoader extends SkillLoader {
             try {
               const skillFilePath = join(plugin.path, skillPath);
 
-              // 检查技能文件是否存�?
+              // 检查技能文件是否存在
               if (!existsSync(skillFilePath)) {
                 logger.warning(`Skill file not found: ${skillFilePath}`);
                 continue;
               }
 
-              // 读取技能文件内�?
+              // 读取技能文件内容
               const content = await import('fs/promises').then((fs) =>
                 fs.readFile(skillFilePath, 'utf-8')
               );
@@ -72,7 +72,7 @@ export class PluginSkillLoader extends SkillLoader {
                 continue;
               }
 
-              // 创建技能对�?
+              // 创建技能对象
               const skill = createSkillCommand({
                 skillName,
                 frontmatter,
@@ -98,8 +98,8 @@ export class PluginSkillLoader extends SkillLoader {
   }
 
   /**
-   * 获取技能来�?
-   * @returns 技能来�?
+   * 获取技能来源
+   * @returns 技能来源
    */
   getSource(): SkillSource {
     return SkillSource.THIRD_PARTY;

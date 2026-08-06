@@ -50,7 +50,9 @@ const myCommand: Command = {
 
 ## 添加新技能
 
-创建 Markdown 文件（YAML front matter）：
+内置技能是**程序化定义**（`BundledSkillLoader` 内联数组，9 个：debug/loop/simplify/remember/verify/batch/stuck/update-config/skillify），非 SKILL.md 文件。`app/src/builtin/skills/`（SKILL.md 目录）不存在，`src/skills/builtin/` 目录已废弃删除（原 verify.ts 已降级为 `query/verifyProject.ts` 工具函数，被 TAORLoop/PDCA 直接调用，非技能）。
+
+用户技能是 Markdown 文件（YAML front matter）：
 
 ```markdown
 ---
@@ -64,8 +66,9 @@ user-invocable: true
 ```
 
 清单：
-- 内置技能放 `src/skills/builtin/`
-- 用户技能放 `~/.pyapp/skills/`
+- 内置技能：修改 `src/skills/loaders/sources/BundledSkillLoader.ts`（数组添加定义，启动注册到 SkillRegistry）
+- 用户技能：放 `~/.pyapp/skills/<name>/SKILL.md`（写盘后自动注册，`reloadUserSkills`）
+- 第三方技能（ClawHub 市场安装）：自动存 `~/.pyapp/skills/vendor/<name>/`，与用户技能物理隔离
 
 YAML front matter 支持条件：
 

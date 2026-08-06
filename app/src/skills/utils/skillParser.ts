@@ -29,6 +29,7 @@ export interface SkillFrontmatter {
   description?: string;
   'allowed-tools'?: string[];
   arguments?: string | string[];
+  aliases?: string[];
   'argument-hint'?: string;
   'when-to-use'?: string;
   version?: string;
@@ -207,6 +208,7 @@ export class SkillParser {
         switch (key) {
           case 'allowed-tools':
           case 'arguments':
+          case 'aliases':
           case 'paths':
             frontmatter[key] = this.parseArrayValue(value);
             break;
@@ -465,24 +467,30 @@ export function parseSkillFrontmatter(content: string): {
 export function createSkillCommand(options: CreateSkillCommandOptions): Skill {
   const { skillName, frontmatter: fm, content, source, loadedFrom } = options;
   const fm_ = fm as Record<string, unknown>;
+  // S2-2：aliases 取独立字段（原错误地把参数列表当别名）
+  const aliases = (fm_['aliases'] as string[] | undefined) ?? [];
   const skill: Skill = {
     name: skillName,
     description: (fm_.description as string) || '',
     source,
     loadMethod: SkillLoadMethod.FILE_SYSTEM,
     loadedFrom,
-    aliases: (fm_.arguments as string[]) || [],
+    aliases,
     argumentHint: fm_['argument-hint'] as string | undefined,
-    whenToUse: fm_.when_to_use as string | undefined,
+    // S2-2：whenToUse 读连字符字段（原误读下划线 when_to_use）
+    whenToUse: fm_['when-to-use'] as string | undefined,
     version: fm_.version as string | undefined,
     model: fm_.model as string | undefined,
     disableModelInvocation: !!(fm_['disable-model-invocation'] as
       | boolean
       | undefined),
-    userInvocable: !!(fm_['user-invocable'] as boolean | undefined),
+    // S2-2：未写 user-invocable 时默认 true（与 SkillHub.toEntry 对齐）
+    userInvocable:
+      fm_['user-invocable'] === undefined ? true : !!fm_['user-invocable'],
     context: fm_.context as 'fork' | undefined,
     agent: fm_.agent as string | undefined,
-    effort: fm_.effort as string | undefined,
+    // S2-2：effort 解析为数值后统一转字符串（Skill.effort 为 string）
+    effort: fm_.effort === undefined ? undefined : String(fm_.effort),
     paths: fm_.paths as string[] | undefined,
     contentLength: content.length,
     isHidden: false,

@@ -17,7 +17,7 @@ const EXPLORE_AGENT_CONFIG: BuiltinAgentConfig = {
   name: 'Explore Agent',
   description: 'Explore codebase and provide insights',
   whenToUse: 'When user wants to understand or explore the codebase',
-  model: 'haiku',
+  model: '', // 元数据字段；实际调用使用 context.model（模型体系），空值不硬编码
   systemPrompt: `You are exploring the codebase to provide insights.
 Follow these principles:
 1. Understand the overall structure

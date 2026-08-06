@@ -114,16 +114,14 @@ function OAuthPage() {
               <div
                 className={`rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} p-12 text-center`}
               >
-                <p
-                  className={`${isDark ? "text-gray-400" : "text-gray-500"}`}
-                >
+                <p className={`${isDark ? "text-gray-400" : "text-gray-500"}`}>
                   未接入 OAuth 登录（未配置 Provider）
                 </p>
                 <p
                   className={`mt-1 text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}
                 >
-                  可通过环境变量 OAUTH_GITHUB_CLIENT_ID /
-                  OAUTH_GOOGLE_CLIENT_ID 或运维 API 配置
+                  可通过环境变量 OAUTH_GITHUB_CLIENT_ID / OAUTH_GOOGLE_CLIENT_ID
+                  或运维 API 配置
                 </p>
               </div>
             ) : (
@@ -148,7 +146,10 @@ function OAuthPage() {
                         <p
                           className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}
                         >
-                          来源：{provider.source === "env" ? "环境变量（只读）" : "本地配置"}
+                          来源：
+                          {provider.source === "env"
+                            ? "环境变量（只读）"
+                            : "本地配置"}
                           {provider.updatedAt
                             ? ` · 更新于 ${new Date(provider.updatedAt).toLocaleString()}`
                             : ""}
@@ -166,7 +167,9 @@ function OAuthPage() {
                             : "bg-gray-200 text-gray-600"
                       }`}
                     >
-                      {provider.enabled ? t("common.enabled") : t("common.disabled")}
+                      {provider.enabled
+                        ? t("common.enabled")
+                        : t("common.disabled")}
                     </span>
                   </div>
 
@@ -192,7 +195,9 @@ function OAuthPage() {
                       <p
                         className={`font-mono ${isDark ? "text-gray-200" : "text-gray-800"}`}
                       >
-                        {provider.hasClientSecret ? "******（已配置）" : "未配置"}
+                        {provider.hasClientSecret
+                          ? "******（已配置）"
+                          : "未配置"}
                       </p>
                     </div>
                     {provider.redirectUri && (
@@ -240,9 +245,7 @@ function OAuthPage() {
             className={`rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} p-6`}
           >
             <div className="text-center py-12">
-              <p
-                className={`${isDark ? "text-gray-400" : "text-gray-500"}`}
-              >
+              <p className={`${isDark ? "text-gray-400" : "text-gray-500"}`}>
                 会话令牌为内存态（重启后失效），无列表 API。
               </p>
               <p

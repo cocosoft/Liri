@@ -5,7 +5,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePluginsCacheDir } from '@modules/core';
 import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -91,7 +91,8 @@ interface CacheMeta {
 const DEFAULT_CACHE_TTL_MS = 3600 * 1000;
 
 function getCacheDir(): string {
-  return join(resolvePyappHome(), 'cache');
+  // 2026-08-06 路径收敛：市场缓存统一 ~/.pyapp/plugins/cache
+  return resolvePluginsCacheDir();
 }
 
 function getCacheFilePath(): string {

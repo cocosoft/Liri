@@ -1,6 +1,12 @@
 /**
  * MCP官方注册表
- * 预置常用MCP服务器配置，支持一键安装
+ * 预置官方 modelcontextprotocol/servers 仓库的参考服务器，支持一键安装
+ *
+ * 对齐说明（2026-08-06）：
+ * 官方仓库当前仅维护 7 个活跃参考服务器（Everything / Fetch / Filesystem /
+ * Git / Memory / Sequential Thinking / Time），其余（GitHub、PostgreSQL、Slack、
+ * Brave Search 等）均已归档至 servers-archived。本列表严格保持与官方仓库一致，
+ * 仅含活跃服务器，安装命令与官方 README 完全一致。
  * */
 
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -22,6 +28,22 @@ interface RegistryServer {
 
 const OFFICIAL_SERVERS: RegistryServer[] = [
   {
+    name: 'everything',
+    description: 'MCP 参考/测试服务器（prompts/resources/tools 全能力演示）',
+    command: 'npx',
+    args: ['-y', '@modelcontextprotocol/server-everything'],
+    category: 'testing',
+    isOfficial: true,
+  },
+  {
+    name: 'fetch',
+    description: '网页内容获取（Python，uvx 启动）',
+    command: 'uvx',
+    args: ['mcp-server-fetch'],
+    category: 'utility',
+    isOfficial: true,
+  },
+  {
     name: 'filesystem',
     description: '文件系统访问',
     command: 'npx',
@@ -30,91 +52,11 @@ const OFFICIAL_SERVERS: RegistryServer[] = [
     isOfficial: true,
   },
   {
-    name: 'github',
-    description: 'GitHub API集成',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-github'],
-    category: 'development',
-    isOfficial: true,
-  },
-  {
     name: 'git',
-    description: 'Git仓库操作',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-git'],
+    description: 'Git仓库操作（Python，uvx 启动）',
+    command: 'uvx',
+    args: ['mcp-server-git'],
     category: 'development',
-    isOfficial: true,
-  },
-  {
-    name: 'postgres',
-    description: 'PostgreSQL数据库',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-postgres'],
-    category: 'database',
-    isOfficial: true,
-  },
-  {
-    name: 'sqlite',
-    description: 'SQLite数据库',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-sqlite'],
-    category: 'database',
-    isOfficial: true,
-  },
-  {
-    name: 'redis',
-    description: 'Redis缓存',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-redis'],
-    category: 'database',
-    isOfficial: true,
-  },
-  {
-    name: 'docker',
-    description: 'Docker容器管理',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-docker'],
-    category: 'infrastructure',
-    isOfficial: true,
-  },
-  {
-    name: 'kubernetes',
-    description: 'Kubernetes集群管理',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-kubernetes'],
-    category: 'infrastructure',
-    isOfficial: true,
-  },
-  {
-    name: 'sentry',
-    description: 'Sentry错误追踪',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-sentry'],
-    category: 'monitoring',
-    isOfficial: true,
-  },
-  {
-    name: 'playwright',
-    description: '浏览器自动化',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-playwright'],
-    category: 'testing',
-    isOfficial: true,
-  },
-  {
-    name: 'puppeteer',
-    description: '无头浏览器',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-puppeteer'],
-    category: 'testing',
-    isOfficial: true,
-  },
-  {
-    name: 'brave-search',
-    description: 'Brave搜索',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-brave-search'],
-    category: 'search',
     isOfficial: true,
   },
   {
@@ -134,51 +76,11 @@ const OFFICIAL_SERVERS: RegistryServer[] = [
     isOfficial: true,
   },
   {
-    name: 'everart',
-    description: 'AI图像生成',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-everart'],
-    category: 'creative',
-    isOfficial: true,
-  },
-  {
-    name: 'cloudflare',
-    description: 'Cloudflare API',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-cloudflare'],
-    category: 'infrastructure',
-    isOfficial: true,
-  },
-  {
-    name: 'linear',
-    description: 'Linear项目管理',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-linear'],
-    category: 'project-management',
-    isOfficial: true,
-  },
-  {
-    name: 'slack',
-    description: 'Slack消息',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-slack'],
-    category: 'communication',
-    isOfficial: true,
-  },
-  {
-    name: 'jira',
-    description: 'Jira项目管理',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-jira'],
-    category: 'project-management',
-    isOfficial: true,
-  },
-  {
-    name: 'fetch',
-    description: '网页内容获取',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-fetch'],
-    category: 'utility',
+    name: 'time',
+    description: '时间与时区转换（Python，uvx 启动）',
+    command: 'uvx',
+    args: ['mcp-server-time'],
+    category: 'system',
     isOfficial: true,
   },
 ];

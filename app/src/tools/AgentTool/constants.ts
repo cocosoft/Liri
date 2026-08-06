@@ -63,9 +63,9 @@ export const BUILTIN_AGENTS = {
     description: 'Verify code changes or test results',
     supportBackground: true,
   },
-  'claude-code-guide': {
+  'code-guide': {
     name: 'Code Guide',
-    type: 'claude-code-guide' as const,
+    type: 'code-guide' as const,
     description: 'Code review and best practices guidance',
     supportBackground: true,
   },

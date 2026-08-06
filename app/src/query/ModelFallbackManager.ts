@@ -29,6 +29,7 @@
 
 /** 故障转移配置 */
 import { Logger, LogLevel } from '@modules/monitoring';
+import { resolveContextWindowAsync } from '@modules/context/window/ContextWindowResolver';
 const logger = new Logger({
   module: 'query:ModelFallbackManager',
   level: LogLevel.INFO,
@@ -76,19 +77,6 @@ function shouldFallback(error: Error, config: FallbackConfig): boolean {
   return config.retryOnErrors.some((pattern) => msg.includes(pattern));
 }
 
-/**
- * 已知模型的 context window 大小
- */
-const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
-  'claude-sonnet-4-20250514': 200_000,
-  'claude-3-5-sonnet': 200_000,
-  'claude-3-haiku': 200_000,
-  'gpt-4o': 128_000,
-  'gpt-4-turbo': 128_000,
-  'deepseek-chat': 128_000,
-  'deepseek-reasoner': 64_000,
-};
-
 export class ModelFallbackManager {
   private config: FallbackConfig;
   private attempts: number = 0;
@@ -132,9 +120,9 @@ export class ModelFallbackManager {
       this.attempts++;
       this.usedModels.add(model);
 
-      // P1: 检查目标模型 context window
+      // P1: 检查目标模型 context window（DB model_registry 为唯一事实来源）
       if (currentTokenUsage) {
-        const targetMax = MODEL_CONTEXT_WINDOWS[model] ?? 128_000;
+        const { tokens: targetMax } = await resolveContextWindowAsync(model);
         if (currentTokenUsage > targetMax * 0.9) {
           // 上下文可能超限 → 标记需要压缩（由调用方处理）
         }
@@ -153,13 +141,6 @@ export class ModelFallbackManager {
     throw new Error(
       `All ${this.attempts + 1} model attempts failed (primary: ${primaryModel})`
     );
-  }
-
-  /**
-   * 获取备选模型的 context window 大小
-   */
-  getModelMaxTokens(modelName: string): number {
-    return MODEL_CONTEXT_WINDOWS[modelName] ?? 128_000;
   }
 
   /**

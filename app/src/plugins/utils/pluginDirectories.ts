@@ -1,21 +1,25 @@
-﻿/**
+/**
  * 插件目录管理
  * 负责管理插件的目录结构和路径
  */
 
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePluginsDir } from '@modules/core';
 import { configManager } from '@modules/config';
 
 /**
  * 获取插件目录
+ * 2026-08-06 路径收敛：统一走 core/paths 注册表 resolvePluginsDir()（~/.pyapp/plugins/），
+ * 仅允许 Liri_PLUGINS_DIR 环境变量覆盖。
  * @returns 插件目录路径
  */
 export function getPluginsDirectory(): string {
+  // 2026-08-06 环境变量规范：标准 key 为 LIRI_PLUGINS_DIR，兼容旧驼峰 key Liri_PLUGINS_DIR
   const baseDir =
+    configManager.env('LIRI_PLUGINS_DIR') ||
     configManager.env('Liri_PLUGINS_DIR') ||
-    join(resolvePyappHome(), 'plugins');
+    resolvePluginsDir();
 
   // 确保目录存在
   if (!existsSync(baseDir)) {
@@ -45,8 +49,8 @@ export function getPluginCachePath(): string {
  * @returns 插件种子目录列表
  */
 export function getPluginSeedDirs(): string[] {
-  // 可以从环境变量或配置文件中获取种子目录
-  const seedDirs = configManager.env('PY_COPILOT_PLUGIN_SEED_DIRS') || '';
+  // 2026-08-06 环境变量规范：PY_COPILOT_PLUGIN_SEED_DIRS → LIRI_PLUGIN_SEED_DIRS（LIRI_ 前缀）
+  const seedDirs = configManager.env('LIRI_PLUGIN_SEED_DIRS') || '';
   return seedDirs.split(';').filter((dir) => dir.trim() !== '');
 }
 

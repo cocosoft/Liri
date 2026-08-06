@@ -73,15 +73,15 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
               Liri
             </h1>
             <p className="text-gray-500 dark:text-gray-400 leading-relaxed">
-              欢迎使用 Liri Client。在开始之前，我们先做一些基本设置。
-              你可以随时在设置页面中修改这些配置。
+              欢迎使用 Liri，你的 AI 助手。开始之前先做一点准备工作，
+              之后就可以直接开始对话了。
             </p>
           </div>
           <button
             onClick={() => setStep("configure")}
             className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
           >
-            开始设置
+            开始准备
           </button>
         </div>
       </div>
@@ -92,13 +92,13 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="max-w-md w-full mx-4">
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">
-          基本配置
+          准备工作
         </h2>
 
         <div className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              数据目录
+              我的数据存放位置
             </label>
             <input
               type="text"
@@ -108,13 +108,13 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
               className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-              后端数据、插件、知识库等文件将存储在这里
+              你的对话、资料和设置都会保存在这里
             </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              HTTP 端口
+              网络端口
             </label>
             <input
               type="number"
@@ -125,7 +125,7 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
               className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-              后端 HTTP 服务监听的端口（默认 7890）
+              一般保持默认即可
             </p>
           </div>
 
@@ -137,7 +137,7 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
 
           {saving && (
             <div className="text-sm text-blue-600 dark:text-blue-400 text-center py-2">
-              保存配置中...
+              准备中...
             </div>
           )}
 
@@ -147,7 +147,7 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
               disabled={saving || !dataDir.trim()}
               className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
             >
-              完成设置
+              开始使用
             </button>
           </div>
         </div>

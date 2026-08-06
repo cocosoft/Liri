@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -45,6 +45,28 @@ const LEGACY_FLAG_MAP: Record<string, { flag: string; envVar: string }> = {
   COMMAND_PIPELINE: {
     flag: 'COMMAND_PIPELINE',
     envVar: 'FEATURE_COMMAND_PIPELINE',
+  },
+
+  // ───── Pro 版能力开关（版本分层，默认由 FEATURE_PRO_* 或 tier 驱动）─────
+  PRO_VIDEO_GENERATION: {
+    flag: 'PRO_VIDEO_GENERATION',
+    envVar: 'FEATURE_PRO_VIDEO_GENERATION',
+  },
+  PRO_OFFICE_SUITE: {
+    flag: 'PRO_OFFICE_SUITE',
+    envVar: 'FEATURE_PRO_OFFICE_SUITE',
+  },
+  PRO_PDCA_FULL: {
+    flag: 'PRO_PDCA_FULL',
+    envVar: 'FEATURE_PRO_PDCA_FULL',
+  },
+  PRO_SECURITY_SUITE: {
+    flag: 'PRO_SECURITY_SUITE',
+    envVar: 'FEATURE_PRO_SECURITY_SUITE',
+  },
+  PRO_SWARM: {
+    flag: 'PRO_SWARM',
+    envVar: 'FEATURE_PRO_SWARM',
   },
 };
 

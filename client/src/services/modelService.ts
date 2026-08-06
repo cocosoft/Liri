@@ -48,4 +48,16 @@ export const modelService = {
       `/v1/models/${encodeURIComponent(id)}`,
     );
   },
+
+  /** 测试模型连通（POST /v1/models/test，modelId 为模型名，providerId 为供应商 UUID） */
+  async test(
+    modelId: string,
+    providerId: string,
+  ): Promise<{ success: boolean; response?: unknown; error?: string }> {
+    return await http.post<{
+      success: boolean;
+      response?: unknown;
+      error?: string;
+    }>("/v1/models/test", { modelId, providerId });
+  },
 };

@@ -20,6 +20,7 @@ import type { Skill } from '@modules/skills/types';
 import { BaseThirdPartyAdapter } from './BaseThirdPartyAdapter';
 import type { ThirdPartySkillSearchResult } from './ThirdPartySkillAdapter';
 import type { InstalledThirdPartySkill, ThirdPartySkillMeta } from './types';
+import { checkSsrf } from '../../../tools/WebFetchTool/ssrf';
 
 const logger = new Logger({
   module: 'skills:remoteHubAdapter',
@@ -321,6 +322,26 @@ export class RemoteSkillHubAdapter extends BaseThirdPartyAdapter<RemoteSkillData
       throw new Error(`未知的远程源: ${hubId}`);
     }
 
+    // S0-3：rawId 净化 —— 拦截 .. / 绝对路径（否则可穿越写出）
+    if (
+      !rawId ||
+      rawId.includes('..') ||
+      rawId.startsWith('/') ||
+      /^[a-zA-Z]:/.test(rawId)
+    ) {
+      throw new Error(`非法技能 ID: ${skillId}`);
+    }
+
+    // S0-3：用户提供的 sourceUrl 必须通过 SSRF 校验（内网/环回/元数据拦截）
+    if (sourceUrl) {
+      const ssrfResult = await checkSsrf(sourceUrl);
+      if (ssrfResult.blocked) {
+        throw new Error(
+          `技能源地址被安全策略拦截（SSRF）: ${ssrfResult.reason}`
+        );
+      }
+    }
+
     // 从目录中获取技能信息
     const catalogEntry = this.findInCatalog(hubId, rawId);
     if (!catalogEntry) {
@@ -363,8 +384,8 @@ export class RemoteSkillHubAdapter extends BaseThirdPartyAdapter<RemoteSkillData
       throw new Error(`下载技能文件失败: ${skillId}`);
     }
 
-    // 创建安装目录
-    const installDir = join(this.localStore.getSkillsPath(), rawId);
+    // 创建安装目录（S0-3：复用 getSkillInstallPath 替换 :/\ 非法字符）
+    const installDir = this.localStore.getSkillInstallPath(rawId);
     if (!existsSync(installDir)) {
       mkdirSync(installDir, { recursive: true });
     }
@@ -413,7 +434,16 @@ export class RemoteSkillHubAdapter extends BaseThirdPartyAdapter<RemoteSkillData
    */
   protected async doUninstall(skill: RemoteSkillData): Promise<void> {
     const { skillId: rawId } = this.parseQualifiedId(skill.meta.id);
-    const installDir = join(this.localStore.getSkillsPath(), rawId);
+    // S0-3：卸载前净化 rawId，防穿越删除
+    if (
+      !rawId ||
+      rawId.includes('..') ||
+      rawId.startsWith('/') ||
+      /^[a-zA-Z]:/.test(rawId)
+    ) {
+      throw new Error(`非法技能 ID: ${rawId}`);
+    }
+    const installDir = this.localStore.getSkillInstallPath(rawId);
 
     if (!existsSync(installDir)) {
       logger.warn(`技能目录不存在，跳过: ${installDir}`);

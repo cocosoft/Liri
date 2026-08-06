@@ -26,6 +26,13 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import {
+  profilePhaseStart,
+  profilePhaseEnd,
+} from '@modules/performance/StartupProfiler';
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { resolvePyappHome } from '@modules/core/paths';
 
 const logger = new Logger({
   module: 'services:mcp:index',
@@ -34,7 +41,6 @@ const logger = new Logger({
 import { enhancedMcpConfigManager } from './EnhancedMCPConfigManager';
 import { mcpConnectionManager } from './MCPConnectionManager';
 import { mcpToolBridge } from './MCPToolBridge';
-import { mcpProxyIntegration } from './MCPProxyIntegration';
 import { getCommandManager } from './commandManager';
 import { resourceManager } from './resourceManager';
 import { mcpCacheManager } from './MCPCacheManager';
@@ -88,30 +94,35 @@ export class MCPSystem {
 
     try {
       logger.info('Initializing MCP system');
+      profilePhaseStart('mcp_init');
+
+      // P0-4：确保落盘前提目录存在（servers.json / cache / 配置均位于 ~/.pyapp/mcp/）
+      mkdirSync(join(resolvePyappHome(), 'mcp'), { recursive: true });
 
       // 加载配置
+      profilePhaseStart('mcp_config_load');
       const configs = await enhancedMcpConfigManager.loadConfigs();
+      profilePhaseEnd('mcp_config_load');
       logger.info(`Loaded ${Object.keys(configs).length} MCP server configs`);
 
       // 初始化连接管理器
+      profilePhaseStart('mcp_connection_init');
       await mcpConnectionManager.initialize(configs);
+      profilePhaseEnd('mcp_connection_init');
 
       // 初始化MCP工具桥接器（将MCP工具注册到ToolManager）
+      profilePhaseStart('mcp_tool_bridge');
       await mcpToolBridge.initialize();
+      profilePhaseEnd('mcp_tool_bridge');
 
-      // 初始化Claude AI集成
-      await mcpProxyIntegration.initialize();
-
-      // 预取官方MCP注册表
+      // 预取官方MCP注册表（后台非阻塞）
       prefetchOfficialMcpUrls().catch((err) =>
         logger.warn(
           `Failed to prefetch MCP registry: ${err instanceof Error ? err.message : String(err)}`
         )
       );
 
-      // 监听服务器连接状态变化
-      this.setupServerStateListeners();
-
+      profilePhaseEnd('mcp_init');
       this.initialized = true;
       logger.info('MCP system initialized successfully');
     } catch (error) {
@@ -121,14 +132,6 @@ export class MCPSystem {
       });
       throw error;
     }
-  }
-
-  /**
-   * 设置服务器状态监听器
-   */
-  private setupServerStateListeners(): void {
-    // 这里可以添加服务器状态变化的监听器
-    // 例如，当服务器连接状态变化时，通知Claude AI集成
   }
 
   /**
@@ -199,28 +202,6 @@ export class MCPSystem {
    */
   getRegisteredMcpToolCount(): number {
     return mcpToolBridge.getRegisteredCount();
-  }
-
-  /**
-   * 获取Claude AI服务器状态
-   */
-  getProxyServerStatus() {
-    return mcpProxyIntegration.getProxyServerStatus();
-  }
-
-  /**
-   * 执行Claude AI命令
-   */
-  async executeProxyCommand(
-    serverName: string,
-    commandName: string,
-    args: any
-  ) {
-    return await mcpProxyIntegration.executeProxyCommand(
-      serverName,
-      commandName,
-      args
-    );
   }
 
   /**
@@ -381,9 +362,6 @@ export class MCPSystem {
   async cleanup(): Promise<void> {
     try {
       logger.info('Cleaning up MCP system');
-
-      // 清理Claude AI集成
-      mcpProxyIntegration.cleanup();
 
       // 清理MCP工具桥接器
       await mcpToolBridge.cleanup();

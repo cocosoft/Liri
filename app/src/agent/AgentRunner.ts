@@ -20,7 +20,7 @@ export type SubagentType =
   | 'test-writer'
   | 'custom';
 
-export type AgentModel = 'sonnet' | 'opus' | 'haiku';
+export type AgentModel = string; // 模型 ID，由配置/模型体系提供（DB 为唯一事实来源，禁止硬编码模型名）
 
 export type AgentIsolation = 'worktree' | 'remote' | 'none';
 
@@ -214,5 +214,5 @@ export class AgentRunner {
 export const GENERAL_PURPOSE_AGENT = {
   type: 'general-purpose' as SubagentType,
   description: 'General purpose subagent for task delegation',
-  model: 'haiku' as AgentModel,
+  model: '' as AgentModel, // 空 = 走模型体系 fallback（resolveModelRoute），不硬编码
 };

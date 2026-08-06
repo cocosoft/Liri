@@ -299,9 +299,6 @@ export class CommandManager {
     // 检查auth/provider状态（简化实现，后续可根据实际需求扩展）
     for (const a of command.availability) {
       switch (a) {
-        case 'claude-ai':
-          // 检查Claude AI可用性
-          return this.checkClaudeAIAvailability();
         case 'console':
           // 检查控制台可用性
           return this.checkConsoleAvailability();
@@ -320,14 +317,6 @@ export class CommandManager {
       }
     }
     return false;
-  }
-
-  /**
-   * 检查Claude AI可用性（简化实现）
-   */
-  private checkClaudeAIAvailability(): boolean {
-    // 简化实现，实际应根据环境变量或配置检查
-    return configManager.env('CLAUDE_AI_ENABLED') === 'true';
   }
 
   /**

@@ -16,7 +16,6 @@ import {
   parseAgentFromMarkdown,
   parseAgentsFromJson,
 } from '@modules/services/agent/parseAgent';
-import { pluginLoader } from '@modules/plugins/PluginLoader';
 import type { LoadedPlugin } from '@modules/types/plugin';
 
 // 缓存插件Agent
@@ -52,11 +51,16 @@ export async function loadPluginAgents(): Promise<PluginAgentDefinition[]> {
 
 /**
  * 获取已安装的插件
+ * 2026-08-06 修复：从 PluginSystem 加载器获取已加载插件（原实现硬编码返回 []，导致插件 Agent 恒为空）
  */
 async function getInstalledPlugins(): Promise<LoadedPlugin[]> {
-  // 这里应该从插件配置或存储中获取已安装的插件
-  // 暂时返回空数组，实际实现需要根据插件系统的具体设计
-  return [];
+  try {
+    const { pluginSystem } = await import('@modules/plugins');
+    return pluginSystem.getLoader().getAllPlugins();
+  } catch (error) {
+    logger.error('Failed to get installed plugins:', error as Error);
+    return [];
+  }
 }
 
 /**

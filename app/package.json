@@ -44,6 +44,8 @@
     "lint:fix": "eslint src --ext .ts --fix",
     "lint:arch": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-architecture.ts",
     "lint:size": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-file-size.ts",
+    "lint:models": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-models.ts",
+    "lint:mock": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-mock.ts",
     "format": "prettier --write src",
     "format:check": "prettier --check src",
     "codegen": "bun run src/tools/codegen/cli.ts",

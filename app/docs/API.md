@@ -30,8 +30,7 @@ Liri 提供了以下核心模块的 API：
 ### 导入
 
 ```typescript
-import { aiService, AIService, AIModelType, AIMessage, AIResponse } from './src/ai';
-import { ClaudeClient } from './src/ai/clients/claudeClient';
+import aiService, { AIService, AIModelType, AIMessage, AIResponse } from './src/ai';
 ```
 
 ### 配置
@@ -39,7 +38,7 @@ import { ClaudeClient } from './src/ai/clients/claudeClient';
 ```typescript
 // 更新配置
 aiService.updateConfig({
-  defaultModel: AIModelType.GPT_4,
+  defaultModel: 'your-model-id',
   apiKey: 'your_api_key',
   timeout: 30000
 });
@@ -60,49 +59,12 @@ console.log(response.content);
 // 自定义模型和参数
 const response = await aiService.generate(
   [{ role: 'user', content: 'Write a poem about AI' }],
-  AIModelType.CLAUDE_3_SONNET,
+  'your-model-id',
   {
     temperature: 0.7,
     max_tokens: 500
   }
 );
-```
-
-### 使用Claude客户端
-
-```typescript
-// 创建Claude客户端实例
-const claudeClient = new ClaudeClient('your_anthropic_api_key');
-
-// 生成响应
-const response = await claudeClient.generate({
-  model: 'claude-3-sonnet-20240229',
-  messages: [
-    { role: 'user', content: 'Write a poem about AI' }
-  ],
-  temperature: 0.7,
-  max_tokens: 500
-});
-
-console.log(response.content);
-
-// 流式生成
-const stream = claudeClient.stream({
-  model: 'claude-3-sonnet-20240229',
-  messages: [
-    { role: 'user', content: 'Write a story about a robot' }
-  ],
-  temperature: 0.7,
-  max_tokens: 1000
-});
-
-for await (const chunk of stream) {
-  process.stdout.write(chunk.content);
-}
-
-// 获取模型信息
-const modelInfo = await claudeClient.getModelInfo(AIModelType.CLAUDE_3_SONNET);
-console.log('Model info:', modelInfo);
 ```
 
 ### 流式响应
@@ -1658,7 +1620,7 @@ import type { QueryEngineConfig, QueryParams, QueryResult, SDKMessage, SessionSt
 // 创建查询引擎实例
 const engine = createQueryEngine({
   apiKey: 'your-api-key',
-  model: 'claude-sonnet-4-20250514',
+  model: 'your-model-id',
   maxTokens: 4096,
   systemPrompt: 'You are a helpful assistant.',
   maxToolRoundtrips: 20,

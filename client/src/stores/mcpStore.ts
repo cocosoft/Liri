@@ -230,13 +230,16 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       set({ installedServers: servers });
     } catch (e) {
       handleClientError(e, { module: "stores:mcp", action: "loadInstalled" });
-      // 静默失败
+      // P3-2 统一错误态：加载失败不再静默
+      set({ error: e instanceof Error ? e.message : "加载已安装列表失败" });
     }
   },
 
   // ── 安装 ──
 
   install: async (serverId) => {
+    // P3-2 幂等：已有操作进行中则忽略重复点击，防双发
+    if (get().operatingId) return;
     set({ operatingId: serverId, error: null });
     try {
       await mcpMarketplaceService.install(serverId);
@@ -252,6 +255,8 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
   // ── 卸载 ──
 
   uninstall: async (serverId) => {
+    // P3-2 幂等：已有操作进行中则忽略重复点击，防双发
+    if (get().operatingId) return;
     set({ operatingId: serverId, error: null });
     try {
       await mcpMarketplaceService.uninstall(serverId);
@@ -331,7 +336,8 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       set({ availableRegistries: registries });
     } catch (e) {
       handleClientError(e, { module: "stores:mcp", action: "loadRegistries" });
-      // 静默失败
+      // P3-2 统一错误态
+      set({ error: e instanceof Error ? e.message : "加载注册表源失败" });
     }
   },
 
@@ -497,7 +503,8 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       });
     } catch (e) {
       handleClientError(e, { module: "stores:mcp", action: "loadAllTools" });
-      // 静默失败
+      // P3-2 统一错误态：工具列表加载失败不再静默
+      set({ error: e instanceof Error ? e.message : "加载 MCP 工具列表失败" });
     } finally {
       set({ toolsLoading: false });
     }

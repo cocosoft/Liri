@@ -940,17 +940,14 @@ export class TAORLoop {
         }
         if (this.stopped) break;
 
-        // Phase 2: Auto-verify skill（工具验证：编译/测试/TODO扫描）
+        // Phase 2: Auto-verify（机械验证：编译/测试/TODO扫描）
+        // 2026-08-06：原 import skills/builtin/verify.js 绕过技能体系直连假 skill，
+        // 归一化为直接调用 query/verifyProject.ts 工具函数。
         let toolVerifyPassed = true;
         if (this.config.enableAutoVerify) {
           try {
-            // 异步 + 超时保护
-            const verifyPromise = import('../skills/builtin/verify.js').then(
-              (m) =>
-                m.default.impl?.kind === 'executable'
-                  ? m.default.impl.execute([])
-                  : Promise.resolve('')
-            );
+            const { verifyProject } = await import('./verifyProject.js');
+            const verifyPromise = verifyProject();
             const verifyResult = await Promise.race([
               verifyPromise,
               new Promise<string>((_, reject) =>

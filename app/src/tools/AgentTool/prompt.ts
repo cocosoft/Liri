@@ -19,7 +19,7 @@ export const AGENT_TOOL_PROMPT = `你是一个子代理管理助手。使用Agen
   "description": "3-5字任务简述",
   "prompt": "子代理要执行的具体任务",
   "subagent_type": "general",
-  "model": "sonnet",
+  "model": "your-model-id",
   "run_in_background": false
 }
 \`\`\`
@@ -31,7 +31,7 @@ export const AGENT_TOOL_PROMPT = `你是一个子代理管理助手。使用Agen
 | description | string | 是 | - | 任务的简短描述（3-5字） |
 | prompt | string | 是 | - | 子代理要执行的具体任务指令 |
 | subagent_type | string | 否 | general | 专业子代理类型 |
-| model | string | 否 | - | 模型覆盖（sonnet / opus / haiku） |
+| model | string | 否 | - | 模型覆盖（模型 ID，缺省走模型体系） |
 | run_in_background | boolean | 否 | false | 是否在后台运行 |
 | name | string | 否 | - | 子代理名称（可被SendMessage寻址） |
 | cwd | string | 否 | - | 工作目录绝对路径 |

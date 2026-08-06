@@ -31,7 +31,7 @@ const COMPACT_MAX_OUTPUT_TOKENS = 20_000;
 const MODEL_CONTEXT_WINDOW_DEFAULT = 200_000;
 
 export function getCompactConfig(model: string): CompactConfig {
-  // BUG-H fix: unify 1M detection with ContextWindowResolver (no brackets — e.g. "claude-sonnet-4-1m")
+  // BUG-H fix: unify 1M detection with ContextWindowResolver (no brackets — e.g. "model-name-1m")
   const normalized = model.toLowerCase();
   const contextWindow =
     normalized.includes('1m') ||

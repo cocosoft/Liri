@@ -136,7 +136,8 @@ export class WorkspaceManager {
   /**
    * P2-8：沙箱默认权限策略（配置化 + 灰度，默认 full 保持现状兼容）
    *
-   * 环境变量 PERMISSION_SANDBOX_DEFAULT：
+   * 优先级：config.json sandbox.permissionLevel（S1 管理页可配置）
+   *       → 环境变量 PERMISSION_SANDBOX_DEFAULT（启动时注入）
    * - full     = READ_FILE + WRITE_FILE + EXECUTE（现状，默认）
    * - standard = READ_FILE + WRITE_FILE（去掉 EXECUTE）
    * - readonly = READ_FILE（仅可读，最严格）
@@ -145,9 +146,12 @@ export class WorkspaceManager {
    * 单工作区仍可通过 options.permissions 覆盖。
    */
   private getDefaultPermissions(): SandboxPermission[] {
-    const policy = configManager
-      .env('PERMISSION_SANDBOX_DEFAULT', 'full')
-      ?.toLowerCase();
+    const configured = configManager.getValue<string>(
+      'sandbox.permissionLevel'
+    );
+    const policy = (
+      configured ?? configManager.env('PERMISSION_SANDBOX_DEFAULT', 'full')
+    )?.toLowerCase();
     switch (policy) {
       case 'readonly':
         return [SandboxPermission.READ_FILE];

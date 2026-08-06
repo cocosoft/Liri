@@ -26,7 +26,6 @@
 
 import { configManager, enableConfigs } from '@modules/config';
 import { initializeCommands } from '@modules/commands';
-import { getExtensibilityService } from '@modules/core/extensibility/index.js';
 import {
   profileCheckpoint,
   profileReport,
@@ -184,21 +183,16 @@ export async function init(): Promise<void> {
         }
       })(),
 
-      // 初始化可扩展性服务（包含插件系统）
-      // Extensibility 子系统止血开关：设置 USE_LEGACY_EXTENSIBILITY=true 可启用旧的独立子系统
-      // 默认跳过，使用 plugins/ PluginSystem 作为唯一插件入口
+      // 初始化插件系统（plugins/ PluginSystem 为唯一插件入口）
+      // 2026-08-06 打通默认启用：移除 USE_LEGACY_EXTENSIBILITY 止血开关，
+      // 插件系统默认 initialize（轻量操作：注册内核服务 + 链式回退，不加载插件代码）
       (async () => {
-        if (configManager.env('USE_LEGACY_EXTENSIBILITY') !== 'true') {
-          profileCheckpoint('load_plugins_skip');
-          return { success: true, duration: 0, skipped: true };
-        }
         profileCheckpoint('load_plugins_start');
         getStartupChainProfiler().markPhaseStart('extensibility_init');
         const startTime = Date.now();
         try {
-          const extensibilityService = getExtensibilityService();
-          await extensibilityService.init();
-          await extensibilityService.startAllModules();
+          const { pluginSystem } = await import('@modules/plugins');
+          await pluginSystem.initialize();
           const duration = Date.now() - startTime;
           if (duration > 100) {
             logger.warning(`插件系统加载较慢: ${duration}ms`);
@@ -900,6 +894,23 @@ async function startDeferredPrefetches(): Promise<void> {
           // 注入 SkillRegistry 引用，使安装/卸载操作同步通知 Registry
           adapter.setSkillRegistry(skillRegistry);
           thirdPartyAdapterRegistry.register(adapter);
+          // 2026-08-06：启动时将已安装的第三方技能（vendor 索引中 enabled 的）注册进 registry，
+          // 否则重启后已安装技能从 SkillTool/注入链路消失（仅安装时实时注册，启动不加载）
+          try {
+            const installed = await adapter.loadSkills();
+            for (const skill of installed) {
+              skillRegistry.register(skill);
+            }
+            if (installed.length > 0) {
+              logger.info(
+                `已加载 ${installed.length} 个已安装的第三方技能到 SkillRegistry`
+              );
+            }
+          } catch (loadErr) {
+            logger.warning('加载已安装第三方技能失败（非关键）', {
+              error: String(loadErr),
+            });
+          }
           logger.info('ClawHubAdapter 已注册到 ThirdPartyAdapterRegistry');
         } catch (error) {
           logger.warning('ClawHubAdapter 注册失败（非关键）', {

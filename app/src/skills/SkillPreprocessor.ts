@@ -1,10 +1,9 @@
 /**
  * 技能预处理器
  * 对标 Hermes curator 的 preprocessing 能力
- * 支持模板变量替换（如 ${SKILL_DIR}）和内联 Shell 执行（如 !`command`）
+ * 支持模板变量替换（如 ${SKILL_DIR}）。
+ * S1-2：shell 执行已永久禁用（此前 enableShellExecution 预留入口，无真实能力需求）。
  */
-import path from 'path';
-import { execSync } from 'child_process';
 import { configManager } from '@modules/config';
 
 /**
@@ -14,8 +13,6 @@ export interface PreprocessOptions {
   skillDir: string;
   workspaceDir?: string;
   variables?: Record<string, string>;
-  enableShellExecution: boolean;
-  shellTimeoutMs: number;
 }
 
 /**
@@ -23,8 +20,6 @@ export interface PreprocessOptions {
  */
 export const DEFAULT_PREPROCESS_OPTIONS: PreprocessOptions = {
   skillDir: '',
-  enableShellExecution: false,
-  shellTimeoutMs: 5000,
 };
 
 /**
@@ -75,12 +70,8 @@ export class SkillPreprocessor {
    * @returns 预处理后的内容
    */
   preprocess(content: string): string {
-    let processed = content;
-
-    processed = this.resolveTemplateVariables(processed);
-    processed = this.resolveInlineShell(processed);
-
-    return processed;
+    // S1-2：shell 执行永久禁用，仅做模板变量替换
+    return this.resolveTemplateVariables(content);
   }
 
   /**
@@ -117,34 +108,6 @@ export class SkillPreprocessor {
     }
 
     return result;
-  }
-
-  /**
-   * 解析内联 Shell 执行
-   * 支持 !`command` 格式
-   * @param content 原始内容
-   * @returns 替换后的内容
-   */
-  private resolveInlineShell(content: string): string {
-    if (!this.options.enableShellExecution) {
-      return content;
-    }
-
-    const shellPattern = /!`([^`]+)`/g;
-
-    return content.replace(shellPattern, (_match, command: string) => {
-      try {
-        const output = execSync(command.trim(), {
-          timeout: this.options.shellTimeoutMs,
-          encoding: 'utf-8',
-          shell: process.platform === 'win32' ? 'powershell.exe' : '/bin/bash',
-        });
-
-        return output.trim();
-      } catch {
-        return `[SHELL_ERROR: ${command.trim()}]`;
-      }
-    });
   }
 
   /**

@@ -76,6 +76,8 @@ export interface SkillDefinition {
   deferred?: boolean;
   /** 提示模板 */
   promptTemplate?: string;
+  /** 提示生成器（2026-08-06：注册表技能执行时从 impl.getPromptForCommand 取真实内容） */
+  promptProvider?: (args?: Record<string, unknown>) => Promise<string>;
   /** 命令 */
   command?: string;
   /** 参数模式 */

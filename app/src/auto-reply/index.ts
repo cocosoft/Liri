@@ -27,4 +27,5 @@ export type {
   ReplyContext,
   ReplyResult,
   AutoReplyConfig,
+  StoredPattern,
 } from './AutoReplyEngine.js';

@@ -155,9 +155,9 @@ const LAZY_MODULE_STRATEGY: Record<string, LazyModuleConfig> = {
     loadMode: DynamicLoadMode.ON_DEMAND,
   },
   mcp: {
-    priority: ModuleLoadPriority.DEFERRED,
-    trigger: 'MCP 协议首次请求时加载',
-    loadMode: DynamicLoadMode.ON_DEMAND,
+    // 2026-08-06 P0-3：从 DEFERRED 提升为 CRITICAL —— doc 模块声明依赖 mcp，且需"启动即用"（MCP 工具在 doc 注册前就绪）
+    priority: ModuleLoadPriority.CRITICAL,
+    trigger: '启动必需（doc 模块依赖 mcp 注册 MCP 工具）',
   },
   plugins: {
     priority: ModuleLoadPriority.CRITICAL,

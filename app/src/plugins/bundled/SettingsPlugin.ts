@@ -4,17 +4,18 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { resolvePyappHome } from '@modules/core';
+import { resolveUserSettingsPath } from '@modules/core';
 
 const logger = new Logger({
   module: 'plugins:bundled:settingsPlugin',
   level: LogLevel.INFO,
 });
-const SETTINGS_FILE = join(resolvePyappHome(), 'settings.json');
+// 2026-08-06 路径收敛：统一走注册表 resolveUserSettingsPath()（~/.pyapp/settings.json）
+const SETTINGS_FILE = resolveUserSettingsPath();
 
 export interface SettingsConfig {
   theme: 'light' | 'dark' | 'system';
@@ -138,7 +139,7 @@ export class SettingsPlugin implements Plugin {
 
   private saveSettings(): void {
     try {
-      const dir = resolvePyappHome();
+      const dir = dirname(SETTINGS_FILE);
       if (!existsSync(dir)) {
         mkdirSync(dir, { recursive: true });
       }

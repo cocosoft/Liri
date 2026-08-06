@@ -3,6 +3,9 @@
  */
 
 import { EventEmitter } from 'events';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { join } from 'path';
+import { resolvePluginsConfigDir } from '@modules/core';
 import { PluginConfig } from '../types/PluginTypes';
 import { Logger, LogLevel } from '@modules/monitoring';
 
@@ -104,6 +107,49 @@ export class PluginConfigManager extends EventEmitter {
   private configs: Map<string, PluginConfig> = new Map();
   private schemas: Map<string, ConfigSchema[]> = new Map();
   private defaultConfigs: Map<string, PluginConfig> = new Map();
+  /** 2026-08-06 新增：配置持久化文件（~/.pyapp/plugins/config/config.json） */
+  private configFilePath = join(resolvePluginsConfigDir(), 'config.json');
+
+  /**
+   * 加载持久化配置（插件系统初始化时调用）
+   * 2026-08-06 新增：配置落盘，重启不丢失
+   */
+  loadPersistedConfigs(): void {
+    try {
+      if (!existsSync(this.configFilePath)) return;
+      const raw = readFileSync(this.configFilePath, 'utf-8');
+      const parsed = JSON.parse(raw) as Record<string, PluginConfig>;
+      for (const [pluginId, config] of Object.entries(parsed)) {
+        this.configs.set(pluginId, config);
+      }
+      logger.info(
+        `Loaded persisted plugin configs: ${Object.keys(parsed).length}`
+      );
+    } catch (error) {
+      logger.error('Failed to load persisted plugin configs', { error });
+    }
+  }
+
+  /**
+   * 持久化全部配置（setConfig 后调用）
+   * 2026-08-06 新增：原子写盘
+   */
+  private persistConfigs(): void {
+    try {
+      const dir = resolvePluginsConfigDir();
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+      const data = Object.fromEntries(this.configs.entries());
+      writeFileSync(
+        this.configFilePath,
+        JSON.stringify(data, null, 2),
+        'utf-8'
+      );
+    } catch (error) {
+      logger.error('Failed to persist plugin configs', { error });
+    }
+  }
 
   /**
    * 设置插件配置架构
@@ -153,6 +199,9 @@ export class PluginConfigManager extends EventEmitter {
     const mergedConfig = { ...currentConfig, ...config };
 
     this.configs.set(pluginId, mergedConfig);
+
+    // 2026-08-06 新增：配置落盘持久化
+    this.persistConfigs();
 
     this.emit('configUpdated', { pluginId, config: mergedConfig });
 
@@ -214,6 +263,9 @@ export class PluginConfigManager extends EventEmitter {
    */
   resetConfig(pluginId: string): void {
     this.configs.delete(pluginId);
+
+    // 2026-08-06 修复：重置后同步落盘，避免磁盘残留已删除配置
+    this.persistConfigs();
 
     this.emit('configReset', { pluginId });
 

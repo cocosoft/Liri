@@ -9,6 +9,7 @@
 import { readFile, mkdir, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { createHash } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { Skill } from '../types';
 import { SkillSource, SkillLoadMethod } from '../types';
@@ -247,6 +248,7 @@ export class SkillInjectionService {
       const snapshot = JSON.parse(raw) as {
         prompt: string;
         mtime: string;
+        checksum?: string;
         skills: Array<{
           name: string;
           description: string;
@@ -258,6 +260,14 @@ export class SkillInjectionService {
 
       const currentMtime = await this.computeSnapshotMtime();
       if (currentMtime !== snapshot.mtime) return false;
+
+      // S2-4：弱完整性校验 —— checksum 不匹配视为损坏缓存，重建
+      if (snapshot.checksum) {
+        const expected = createHash('sha256')
+          .update(`${snapshot.prompt}|${JSON.stringify(snapshot.skills)}`)
+          .digest('hex');
+        if (expected !== snapshot.checksum) return false;
+      }
 
       this.cache.l1.clear();
       for (const s of snapshot.skills) {
@@ -315,16 +325,23 @@ export class SkillInjectionService {
       const mtime = await this.computeSnapshotMtime();
       const prompt = this.getInjectionPrompt();
 
+      const skills = active.map((s) => ({
+        name: s.name,
+        description: s.description,
+        contentLength: s.contentLength,
+        allowedTools: s.allowedTools,
+        source: s.source,
+      }));
+      // S2-4：弱完整性校验 —— 落盘时带 checksum，加载时校验防缓存损坏
+      const checksum = createHash('sha256')
+        .update(`${prompt}|${JSON.stringify(skills)}`)
+        .digest('hex');
+
       const snapshot = {
         prompt,
         mtime,
-        skills: active.map((s) => ({
-          name: s.name,
-          description: s.description,
-          contentLength: s.contentLength,
-          allowedTools: s.allowedTools,
-          source: s.source,
-        })),
+        checksum,
+        skills,
       };
 
       await writeFile(cachePath, JSON.stringify(snapshot, null, 2), 'utf-8');
@@ -337,14 +354,29 @@ export class SkillInjectionService {
   }
 
   /**
-   * 计算快照 mtime 签名
+   * 计算快照 mtime 签名（S2-4：加入内容哈希与内容长度，版本号不变但内容变化时缓存失效）
    */
   private async computeSnapshotMtime(): Promise<string> {
     const allSkills = this.registry.getAll();
-    const entries = allSkills
-      .map((s) => `${s.name}:${s.version ?? '1.0.0'}`)
-      .sort();
-    return entries.join('|');
+    const entries: string[] = [];
+    for (const s of allSkills) {
+      let contentHash = '';
+      if (s.impl.kind === 'prompt') {
+        try {
+          const prompts = await s.impl.getPromptForCommand('', {});
+          contentHash = createHash('sha256')
+            .update(JSON.stringify(prompts ?? []))
+            .digest('hex')
+            .slice(0, 8);
+        } catch {
+          /* 内容不可得时仅用元数据签名 */
+        }
+      }
+      entries.push(
+        `${s.name}:${s.version ?? '1.0.0'}:${s.contentLength ?? 0}:${contentHash}`
+      );
+    }
+    return entries.sort().join('|');
   }
 
   /**

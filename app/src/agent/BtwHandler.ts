@@ -56,7 +56,7 @@ export class BtwHandler {
     this.config = {
       ...DEFAULT_CONFIG,
       ...config,
-      model: config.model ?? 'haiku',
+      model: config.model ?? '', // 空 = 走模型体系 fallback，不硬编码默认模型
       maxContextMessages:
         config.maxContextMessages ?? DEFAULT_CONFIG.maxContextMessages!,
     };

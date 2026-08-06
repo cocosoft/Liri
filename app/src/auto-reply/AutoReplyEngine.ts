@@ -4,6 +4,9 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { resolveDataSubDir } from '@modules/core';
 
 /**
  * AutoReplyEngine 自动回复引擎
@@ -46,6 +49,13 @@ export interface ReplyResult {
   latency: number;
 }
 
+/** pattern 的持久化结构（S2：RegExp 无法直接 JSON 序列化，落盘用此结构） */
+export interface StoredPattern {
+  type: 'regexp' | 'substring';
+  value: string;
+  flags?: string;
+}
+
 /**
  * 自动回复配置
  */
@@ -67,13 +77,19 @@ export class AutoReplyEngine {
     matched: 0,
     failed: 0,
   };
+  /** 规则持久化文件路径（构造时传入则启用落盘） */
+  private storagePath: string | null = null;
 
-  constructor(config?: Partial<AutoReplyConfig>) {
+  constructor(config?: Partial<AutoReplyConfig>, storagePath?: string) {
     this.config = {
       enabled: config?.enabled !== false,
       defaultCooldown: config?.defaultCooldown || 5000,
       maxRules: config?.maxRules || 100,
     };
+    if (storagePath) {
+      this.storagePath = storagePath;
+      this.loadFromStorage();
+    }
   }
 
   /**
@@ -96,8 +112,25 @@ export class AutoReplyEngine {
     }
 
     this.rules.set(newRule.id, newRule);
+    this.persist();
 
     return newRule;
+  }
+
+  /**
+   * 更新规则（整体更新非 id 字段）
+   */
+  updateRule(
+    id: string,
+    updates: Partial<Omit<ReplyRule, 'id'>>
+  ): ReplyRule | null {
+    const existing = this.rules.get(id);
+    if (!existing) return null;
+
+    const updated: ReplyRule = { ...existing, ...updates };
+    this.rules.set(id, updated);
+    this.persist();
+    return updated;
   }
 
   /**
@@ -167,6 +200,7 @@ export class AutoReplyEngine {
     if (!rule) return false;
 
     rule.enabled = enabled;
+    this.persist();
 
     return true;
   }
@@ -175,7 +209,9 @@ export class AutoReplyEngine {
    * 删除规则
    */
   deleteRule(id: string): boolean {
-    return this.rules.delete(id);
+    const deleted = this.rules.delete(id);
+    if (deleted) this.persist();
+    return deleted;
   }
 
   /**
@@ -209,6 +245,74 @@ export class AutoReplyEngine {
     return false;
   }
 
+  // ─── 规则持久化（S2：文件 JSON，参照 permissions/tool_rules.json 模式）───
+
+  /** pattern 的落盘结构（RegExp 无法直接 JSON 序列化） */
+  private static serializePattern(p: RegExp | string): StoredPattern {
+    if (p instanceof RegExp) {
+      return { type: 'regexp', value: p.source, flags: p.flags };
+    }
+    return { type: 'substring', value: p };
+  }
+
+  private static deserializePattern(p: StoredPattern): RegExp | string {
+    if (p.type === 'regexp') {
+      return new RegExp(p.value, p.flags ?? '');
+    }
+    return p.value;
+  }
+
+  private persist(): void {
+    if (!this.storagePath) return;
+    try {
+      const data = Array.from(this.rules.values()).map((r) => ({
+        id: r.id,
+        name: r.name,
+        pattern: AutoReplyEngine.serializePattern(r.pattern),
+        response: typeof r.response === 'function' ? '' : r.response,
+        priority: r.priority,
+        channel: r.channel,
+        enabled: r.enabled,
+        cooldown: r.cooldown,
+      }));
+      mkdirSync(dirname(this.storagePath), { recursive: true });
+      writeFileSync(this.storagePath, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (e) {
+      // 落盘失败不影响内存规则，仅上报
+      void handleError(e, { module: 'auto-reply:engine', action: 'persist' });
+    }
+  }
+
+  private loadFromStorage(): void {
+    if (!this.storagePath || !existsSync(this.storagePath)) return;
+    try {
+      const raw = JSON.parse(readFileSync(this.storagePath, 'utf-8')) as Array<{
+        id: string;
+        name: string;
+        pattern: StoredPattern;
+        response: string;
+        priority: number;
+        channel?: string;
+        enabled: boolean;
+        cooldown?: number;
+      }>;
+      for (const r of raw) {
+        this.rules.set(r.id, {
+          id: r.id,
+          name: r.name,
+          pattern: AutoReplyEngine.deserializePattern(r.pattern),
+          response: r.response,
+          priority: r.priority,
+          channel: r.channel,
+          enabled: r.enabled,
+          cooldown: r.cooldown,
+        });
+      }
+    } catch (e) {
+      void handleError(e, { module: 'auto-reply:engine', action: 'load' });
+    }
+  }
+
   /**
    * 检查冷却
    */
@@ -236,4 +340,7 @@ export class AutoReplyEngine {
   }
 }
 
-export const autoReplyEngine = new AutoReplyEngine();
+export const autoReplyEngine = new AutoReplyEngine(
+  undefined,
+  join(resolveDataSubDir('auto-reply'), 'rules.json')
+);

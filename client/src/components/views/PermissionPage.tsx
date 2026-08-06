@@ -300,8 +300,8 @@ function PermissionPage() {
                 <p
                   className={`text-xs p-3 rounded-lg text-center ${isDark ? "bg-gray-700/50 text-gray-400" : "bg-gray-50 text-gray-500"}`}
                 >
-                  暂无用户数据（细粒度用户管理可通过 CLI /permissions
-                  user 配置）
+                  暂无用户数据（细粒度用户管理可通过 CLI /permissions user
+                  配置）
                 </p>
               ) : (
                 users.map((user) => (
@@ -379,7 +379,10 @@ function PermissionPage() {
                         <p
                           className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
                         >
-                          {getTrustLevelInfo(selectedUser.trustLevel).description}
+                          {
+                            getTrustLevelInfo(selectedUser.trustLevel)
+                              .description
+                          }
                         </p>
                         <p
                           className={`text-xs mt-2 ${isDark ? "text-gray-500" : "text-gray-500"}`}
@@ -682,10 +685,9 @@ function PermissionPage() {
               <div
                 className={`${isDark ? "bg-gray-800" : "bg-white"} rounded-lg border ${isDark ? "border-gray-700" : "border-gray-200"} p-6 text-center`}
               >
-                <p
-                  className={`${isDark ? "text-gray-500" : "text-gray-400"}`}
-                >
-                  暂无用户数据：细粒度用户管理可通过 CLI /permissions user 配置后，在此查看信任等级与角色。
+                <p className={`${isDark ? "text-gray-500" : "text-gray-400"}`}>
+                  暂无用户数据：细粒度用户管理可通过 CLI /permissions user
+                  配置后，在此查看信任等级与角色。
                 </p>
               </div>
             )}

@@ -267,7 +267,7 @@ SubAgent 命令帮助:
   name: my-agent
   description: 我的自定义助手
   tools: file_read,file_write,grep
-  model: claude-sonnet-4
+  model: your-model-id
   ---
 
 相关命令:
@@ -1263,14 +1263,12 @@ MCP系统帮助:
   /model help                  显示详细帮助
 
 常用别名:
-  sonnet, sonnet[1m]        - Claude Sonnet 4.6
-  opus, opus[1m], best      - Claude Opus 4.6
-  haiku                     - Claude 3.5 Haiku
+  （别名由模型管理中的关键词映射决定，如 pro/best/flash/mini 等）
 
 示例:
   /model
-  /model sonnet
-  /model info claude-sonnet-4-6
+  /model <model-id|alias>
+  /model info <model-id>
   /model all
   /model --json
 

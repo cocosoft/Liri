@@ -4,8 +4,8 @@
 
 import { EventEmitter } from 'events';
 import { join } from 'path';
-import { existsSync, readdirSync } from 'fs';
-import { resolveProjectRoot } from '@modules/core';
+import { existsSync, mkdirSync, readdirSync, readFileSync } from 'fs';
+import { resolvePluginsInstalledDir } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
 import {
   PluginState,
@@ -40,7 +40,8 @@ export class PluginLoader extends EventEmitter {
     super();
 
     this.options = {
-      pluginDirectories: [join(resolveProjectRoot(), 'plugins')],
+      // 2026-08-06 路径收敛：默认插件目录统一为 ~/.pyapp/plugins/installed（原项目根 plugins/ 双基地已废弃）
+      pluginDirectories: [resolvePluginsInstalledDir()],
       autoLoad: true,
       autoActivate: false,
       validationEnabled: true,
@@ -86,12 +87,13 @@ export class PluginLoader extends EventEmitter {
 
   /**
    * 创建插件目录
+   * 2026-08-06 修复：真实创建目录（原实现仅打 warning 不建目录）
    */
   private async createPluginDirectories(): Promise<void> {
     for (const dir of this.options.pluginDirectories || []) {
       if (!existsSync(dir)) {
-        // 这里应该创建目录，但为了简化先跳过
-        logger.warning(`Plugin directory does not exist: ${dir}`);
+        mkdirSync(dir, { recursive: true });
+        logger.info(`Created plugin directory: ${dir}`);
       }
     }
   }
@@ -163,6 +165,8 @@ export class PluginLoader extends EventEmitter {
         source: manifest.id,
         enabled: false,
         config: {},
+        // 2026-08-06 修复：发现时即填充 manifest，供展示层（getPluginInfoList）读取
+        manifest: manifest as unknown as NonNullable<LoadedPlugin['manifest']>,
         stats: {
           loadCount: 0,
           activateCount: 0,
@@ -184,19 +188,37 @@ export class PluginLoader extends EventEmitter {
 
   /**
    * 加载插件清单
+   * 2026-08-06 修复：真实读取并解析 plugin.json（原实现返回硬编码 Mock 清单，违反 CS04）
    */
   private async loadManifest(pluginPath: string): Promise<PluginMetadata> {
     const manifestPath = join(pluginPath, 'plugin.json');
 
-    // 这里应该读取和解析JSON文件
-    // 为了简化，返回一个模拟的清单
+    if (!existsSync(manifestPath)) {
+      throw new Error(`plugin.json not found: ${manifestPath}`);
+    }
+
+    const raw = readFileSync(manifestPath, 'utf-8');
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+
     return {
-      id: `plugin-${Date.now()}`,
-      name: 'Test Plugin',
-      version: '1.0.0',
-      description: 'Test plugin for demonstration',
-      author: 'Test Author',
-      type: PluginType.TOOL,
+      id: typeof parsed.id === 'string' ? parsed.id : '',
+      name: typeof parsed.name === 'string' ? parsed.name : '',
+      version: typeof parsed.version === 'string' ? parsed.version : '',
+      description:
+        typeof parsed.description === 'string' ? parsed.description : '',
+      author: typeof parsed.author === 'string' ? parsed.author : '',
+      type:
+        parsed.type === PluginType.THEME ||
+        parsed.type === PluginType.LANGUAGE ||
+        parsed.type === PluginType.INTEGRATION ||
+        parsed.type === PluginType.UTILITY ||
+        parsed.type === PluginType.CUSTOM
+          ? (parsed.type as PluginType)
+          : PluginType.TOOL,
+      main: typeof parsed.main === 'string' ? parsed.main : undefined,
+      entryPoint:
+        typeof parsed.entryPoint === 'string' ? parsed.entryPoint : undefined,
+      ...parsed,
     };
   }
 
@@ -296,9 +318,30 @@ export class PluginLoader extends EventEmitter {
       // 更新插件状态
       plugin.state = PluginState.LOADING;
 
-      // 这里应该加载插件的实际代码
-      // 为了简化，模拟加载过程
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // 2026-08-06 修复：真实解析清单并动态加载插件入口（原实现 setTimeout(100ms) 模拟，违反 CS04）
+      const manifest = await this.loadManifest(plugin.path);
+      plugin.manifest = {
+        ...(plugin.manifest ?? {}),
+        ...manifest,
+      } as unknown as NonNullable<LoadedPlugin['manifest']>;
+      // 同步清单中声明的 paths 字段（Agent/命令/技能）
+      const strArray = (v: unknown): string[] | undefined =>
+        Array.isArray(v)
+          ? v.filter((x): x is string => typeof x === 'string')
+          : undefined;
+      plugin.agentsPaths = strArray(manifest.agentsPaths);
+      plugin.commandsPaths = strArray(manifest.commandsPaths);
+      plugin.skillsPaths = strArray(manifest.skillsPaths);
+      // 2026-08-06 同步 manifest 声明的外部服务（mcpServers），供 EnhancedMCPConfigManager 接线（J-22）
+      plugin.mcpServers = Array.isArray(manifest.mcpServers)
+        ? (manifest.mcpServers as Array<Record<string, unknown>>)
+        : undefined;
+
+      const entryPoint = manifest.entryPoint || manifest.main;
+      if (entryPoint) {
+        const entryPath = join(plugin.path, entryPoint);
+        plugin.instance = await import(entryPath);
+      }
 
       // 更新插件状态和统计信息
       plugin.state = PluginState.LOADED;
@@ -550,13 +593,20 @@ export class PluginLoader extends EventEmitter {
 
 /**
  * 从插件系统加载 Agent 定义
+ * 2026-08-06 修复：真实返回已加载插件声明的 agents 路径（原实现硬编码返回 []）
  */
-export async function loadPluginAgents(): Promise<any[]> {
+export async function loadPluginAgents(): Promise<string[]> {
   try {
     const loader = new PluginLoader();
     await loader.loadAllPlugins();
 
-    return [];
+    const agentsPaths: string[] = [];
+    for (const plugin of loader.getLoadedPlugins()) {
+      if (plugin.agentsPaths) {
+        agentsPaths.push(...plugin.agentsPaths);
+      }
+    }
+    return agentsPaths;
   } catch {
     return [];
   }

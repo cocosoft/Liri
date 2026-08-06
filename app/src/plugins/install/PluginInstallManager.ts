@@ -10,7 +10,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { resolveProjectRoot } from '@modules/core';
+import { resolvePluginsInstalledDir } from '@modules/core';
 import { PluginRegistry } from '../core/PluginRegistry.js';
 import { NpmDistributor } from '../distribution/NpmDistributor.js';
 import { pluginSecurityScanner } from '../utils/pluginSecurityScanner.js';
@@ -77,8 +77,8 @@ export class PluginInstallPaths {
   private basePath: string;
 
   constructor(basePath?: string) {
-    this.basePath =
-      basePath || path.join(resolveProjectRoot(), 'plugins', 'installed');
+    // 2026-08-06 路径收敛：安装目录统一为 ~/.pyapp/plugins/installed
+    this.basePath = basePath || resolvePluginsInstalledDir();
   }
 
   getBasePath(): string {
@@ -192,23 +192,7 @@ export class PluginInstallManager {
       };
     }
 
-    if (!options.skipDependencies) {
-      try {
-        const deps: string[] = [];
-        if (deps.length > 0) {
-          for (const dep of deps) {
-            await this.install({
-              source: 'registry',
-              sourcePath: dep,
-            });
-          }
-        }
-      } catch (err) {
-        warnings.push(
-          `依赖安装警告: ${err instanceof Error ? err.message : String(err)}`
-        );
-      }
-    }
+    // 2026-08-06 清理：原 skipDependencies 依赖安装分支为死代码（deps 恒为空数组），已删除；依赖安装待插件依赖解析机制落地后接入
 
     const record: InstallRecord = {
       pluginName: options.sourcePath,

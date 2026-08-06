@@ -102,6 +102,7 @@ export class SystemHealthChecker extends EventEmitter {
     checks.push(await this.checkPermissions());
     checks.push(await this.checkApplicationConfig());
     checks.push(await this.checkOptionalDependencies());
+    checks.push(await this.checkMCPStatus());
 
     const overallStatus = this.determineOverallStatus(checks);
     const resourceUsage = await this.getResourceUsage();
@@ -460,6 +461,30 @@ export class SystemHealthChecker extends EventEmitter {
       message: parts.join('; '),
       suggestions: allSuggestions,
     };
+  }
+
+  /**
+   * 检查 MCP 系统状态（P0-5：启动健康报告含 MCP 摘要）
+   */
+  private async checkMCPStatus(): Promise<HealthCheckItem> {
+    try {
+      const { mcpSystem } = await import('@modules/services/mcp');
+      const servers = mcpSystem.getServers();
+      const serverCount = Array.isArray(servers) ? servers.length : 0;
+      const toolCount = mcpSystem.getRegisteredMcpToolCount();
+      return {
+        name: 'MCP 服务',
+        status: 'healthy',
+        message: `MCP 服务器 ${serverCount} 个，桥接工具 ${toolCount} 个`,
+      };
+    } catch {
+      // MCP 未初始化（未配置/模块未加载）不视为异常
+      return {
+        name: 'MCP 服务',
+        status: 'healthy',
+        message: 'MCP 系统未初始化（未配置服务器）',
+      };
+    }
   }
 
   /**

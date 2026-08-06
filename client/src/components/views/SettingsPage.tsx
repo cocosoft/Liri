@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { useRootStore } from "../../stores/root-store";
+import { getCurrentTier } from "../../stores/root-store/featureSlice";
 import { chatService } from "../../services/chatService";
 import { appConfigService } from "../../services/appConfigService";
 import { setBackendPort as setBackendUrlPort } from "../../services/backendUrl";
@@ -222,7 +223,8 @@ const PAGE_DESCRIPTIONS: Record<string, string> = {
   user: "设置用户身份信息，用于个性化对话",
   memory: "管理持久化记忆和上下文信息",
   apikeys: "创建和管理 API 访问密钥",
-  "security-overview": "三级权限模型总览：系统边界、用户级、应用级归属与常见疑问",
+  "security-overview":
+    "三级权限模型总览：系统边界、用户级、应用级归属与常见疑问",
   "trusted-workspaces": "管理可信任的工作区目录",
   "custom-rules": "配置自定义安全规则和约束",
   permissions: "管理权限策略和访问控制",
@@ -260,6 +262,26 @@ interface SetDataDirectoryResponse {
 
 /** 侧边栏选中项持久化 */
 const ACTIVE_NAV_KEY = "liri-settings-active-nav";
+
+/** Pro 版专属导航项（F3：对外服务密钥 / OAuth 归安全五件套，base 版隐藏入口） */
+const PRO_NAV_ITEMS = new Set(["apikeys", "oauth"]);
+
+/** Base 简单视角导航项（U3：换大脑+外观=config / 通知 / 语音 / 我的信息 / 本月用量） */
+const SIMPLE_NAV_ITEMS = new Set([
+  "config",
+  "notifications",
+  "voice",
+  "user",
+  "cost",
+]);
+
+/** 简单视角导航标签白话覆盖（U1：值 = i18n terms.plain 的 key） */
+const SIMPLE_NAV_PLAIN: Record<string, string> = {
+  config: "terms.plain.brain", // 常规设置 → 换大脑
+  cost: "terms.plain.spend", // 用量统计 → 本月花费
+  notifications: "terms.plain.reminder", // 通知 → 提醒
+};
+
 function getPersistedNav(fallback: string): string {
   try {
     const s = localStorage.getItem(ACTIVE_NAV_KEY);
@@ -280,7 +302,41 @@ function SettingsPage() {
     return () => leaveModule();
   }, [enterModule, leaveModule]);
 
-  const [activeNav, setActiveNav] = useState(() => getPersistedNav("config"));
+  const [activeNav, setActiveNav] = useState(() => {
+    const nav = getPersistedNav("config");
+    // 非 pro 版回退持久化的 Pro 专属项（base 隐藏 apikeys/oauth 入口）
+    return getCurrentTier() !== "pro" && PRO_NAV_ITEMS.has(nav)
+      ? "config"
+      : nav;
+  });
+  /** 视图模式（U3）：base 默认简单视角，pro 恒高级；用户可手动切换（localStorage 持久化） */
+  const [viewMode, setViewMode] = useState<"simple" | "advanced">(() => {
+    try {
+      const stored = localStorage.getItem("liri-settings-view-mode");
+      if (stored === "simple" || stored === "advanced") return stored;
+    } catch {
+      /* ignore */
+    }
+    return getCurrentTier() === "pro" ? "advanced" : "simple";
+  });
+  const switchViewMode = (mode: "simple" | "advanced") => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("liri-settings-view-mode", mode);
+    } catch {
+      /* ignore */
+    }
+  };
+  /** 简单视角下持久化的高级 nav 项不可见 → 回退 config（避免空白页） */
+  const effectiveNav =
+    viewMode === "simple" && !SIMPLE_NAV_ITEMS.has(activeNav)
+      ? "config"
+      : activeNav;
+  /** U1：简单视角用白话术语覆盖 nav 标签（换大脑/本月花费/提醒） */
+  const navLabel = (item: { id: string; labelKey: string }) =>
+    viewMode === "simple" && SIMPLE_NAV_PLAIN[item.id]
+      ? t(SIMPLE_NAV_PLAIN[item.id])
+      : t(item.labelKey);
   const [backendStatus, setBackendStatus] = useState<BackendStatus>({
     running: false,
     port: null,
@@ -311,6 +367,8 @@ function SettingsPage() {
 
   /** 导航切换 */
   const switchNav = (id: string) => {
+    // 非 pro 版禁止切到 Pro 专属项（base 隐藏 apikeys/oauth 入口）
+    if (getCurrentTier() !== "pro" && PRO_NAV_ITEMS.has(id)) return;
     setActiveNav(id);
     try {
       localStorage.setItem(ACTIVE_NAV_KEY, id);
@@ -487,33 +545,46 @@ function SettingsPage() {
       <main className="flex-1 min-w-0 overflow-y-auto bg-white dark:bg-gray-800">
         {/* 当前页面标题栏 */}
         <div className="sticky top-0 z-10 px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm">
-          <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">
-            {t("settings.title")}
-            <span className="mx-1.5 text-gray-300 dark:text-gray-600">/</span>
-            <span className="text-gray-900 dark:text-gray-100">
-              {(() => {
-                for (const group of NAV_GROUPS) {
-                  const item = group.items.find((i) => i.id === activeNav);
-                  if (item) return t(item.labelKey);
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              {t("settings.title")}
+              <span className="mx-1.5 text-gray-300 dark:text-gray-600">/</span>
+              <span className="text-gray-900 dark:text-gray-100">
+                {(() => {
+                  for (const group of NAV_GROUPS) {
+                    const item = group.items.find((i) => i.id === effectiveNav);
+                    if (item) return navLabel(item);
+                  }
+                  return "";
+                })()}
+              </span>
+            </h2>
+            {/* U3：视图模式切换（pro 恒高级，不显示开关） */}
+            {getCurrentTier() !== "pro" && (
+              <button
+                onClick={() =>
+                  switchViewMode(viewMode === "simple" ? "advanced" : "simple")
                 }
-                return "";
-              })()}
-            </span>
-          </h2>
+                className="px-3 py-1.5 text-xs rounded-lg border transition-colors border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                {viewMode === "simple" ? "高级设置" : "简单模式"}
+              </button>
+            )}
+          </div>
         </div>
         <div className="max-w-4xl mx-auto">
           {/* 页面标题 */}
           {(() => {
             for (const group of NAV_GROUPS) {
-              const item = group.items.find((i) => i.id === activeNav);
+              const item = group.items.find((i) => i.id === effectiveNav);
               if (item) {
                 return (
                   <div className="px-6 pt-6 pb-4">
                     <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                      {t(item.labelKey)}
+                      {navLabel(item)}
                     </h1>
                     {(() => {
-                      const desc = PAGE_DESCRIPTIONS[activeNav];
+                      const desc = PAGE_DESCRIPTIONS[effectiveNav];
                       return desc ? (
                         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                           {desc}
@@ -545,7 +616,15 @@ function SettingsPage() {
         </div>
         {/* 分组导航项 */}
         {group.items.map((item) => {
-          const isActive = activeNav === item.id;
+          // F3：base 版隐藏 Pro 专属入口（对外服务密钥 / OAuth）
+          if (getCurrentTier() !== "pro" && PRO_NAV_ITEMS.has(item.id)) {
+            return null;
+          }
+          // U3：简单视角只显示 Base 核心 5 项
+          if (viewMode === "simple" && !SIMPLE_NAV_ITEMS.has(item.id)) {
+            return null;
+          }
+          const isActive = effectiveNav === item.id;
           const IconComponent = item.icon;
           return (
             <button
@@ -558,7 +637,7 @@ function SettingsPage() {
               }`}
             >
               <IconComponent size={18} />
-              <span className="truncate">{t(item.labelKey)}</span>
+              <span className="truncate">{navLabel(item)}</span>
             </button>
           );
         })}
@@ -567,7 +646,7 @@ function SettingsPage() {
   }
 
   function renderContent() {
-    switch (activeNav) {
+    switch (effectiveNav) {
       case "config":
         return (
           <>
@@ -578,20 +657,22 @@ function SettingsPage() {
               toggleTheme={toggleTheme}
               collapsible
             />
-            <BackendServicePanel
-              isDark={isDark}
-              backendStatus={backendStatus}
-              backendPort={backendPort}
-              setBackendPort={setBackendPort}
-              handleSavePort={handleSavePort}
-              portSaved={portSaved}
-              error={error}
-              loading={loading}
-              handleStopBackend={handleStopBackend}
-              handleStartBackend={handleStartBackend}
-              checkBackendStatus={checkBackendStatus}
-              collapsible
-            />
+            {viewMode === "simple" ? null : (
+              <BackendServicePanel
+                isDark={isDark}
+                backendStatus={backendStatus}
+                backendPort={backendPort}
+                setBackendPort={setBackendPort}
+                handleSavePort={handleSavePort}
+                portSaved={portSaved}
+                error={error}
+                loading={loading}
+                handleStopBackend={handleStopBackend}
+                handleStartBackend={handleStartBackend}
+                checkBackendStatus={checkBackendStatus}
+                collapsible
+              />
+            )}
             <AIConfigPanel
               isDark={isDark}
               collapsible
@@ -603,158 +684,163 @@ function SettingsPage() {
                 })
               }
             />
-            <FeatureFlagsPanel
-              isDark={isDark}
-              collapsible
-              features={
-                ((config.features as Record<string, unknown>) || {
-                  autoCompact: true,
-                  showTurnDuration: true,
-                  fileCheckpointing: true,
-                  terminalProgressBar: true,
-                  showStatusInTerminalTab: false,
-                  respectGitignore: true,
-                  copyFullResponse: false,
-                  todoEnabled: true,
-                  showExpandedTodos: false,
-                  alwaysOn: false,
-                }) as unknown as Parameters<
-                  typeof FeatureFlagsPanel
-                >[0]["features"]
-              }
-              onUpdate={(u) =>
-                setConfig("features", {
-                  ...((config.features as object) || {}),
-                  ...u,
-                })
-              }
-            />
-            <LocalAgentPanel
-              isDark={isDark}
-              collapsible
-              localAgent={
-                (() => {
-                  const raw = (config.ai as Record<string, unknown>)
-                    ?.localAgent as Record<string, unknown> | undefined;
-                  // 深合并默认值，确保 routing 不会因残缺的已存储数据而丢失
-                  return {
-                    enabled: false,
-                    routing: {
-                      strategy: "cloud-first" as const,
-                      fallbackToCloud: true,
-                    },
-                    ...(raw || {}),
-                  };
-                })() as unknown as Parameters<
-                  typeof LocalAgentPanel
-                >[0]["localAgent"]
-              }
-              ollama={
-                ((
-                  (config.ai as Record<string, unknown>)?.localAgent as Record<
-                    string,
-                    unknown
-                  >
-                )?.ollama || {
-                  enabled: false,
-                  baseUrl: "http://localhost:11434",
-                  defaultModel: "llama3",
-                  timeout: 120000,
-                }) as unknown as Parameters<typeof LocalAgentPanel>[0]["ollama"]
-              }
-              onUpdateLocalAgent={(u) =>
-                setConfig("ai", {
-                  ...((config.ai as object) || {}),
-                  localAgent: {
-                    // 提供 routing 默认值，防止首次启用时 routing 为 undefined 导致崩溃
-                    routing: {
-                      strategy: "cloud-first" as const,
-                      fallbackToCloud: true,
-                    },
-                    ...(((config.ai as Record<string, unknown>)
-                      ?.localAgent as object) || {}),
-                    ...u,
-                  },
-                })
-              }
-              onUpdateOllama={(u) =>
-                setConfig("ai", {
-                  ...((config.ai as object) || {}),
-                  localAgent: {
-                    // 提供 routing 默认值，防止首次启用时 routing 为 undefined 导致崩溃
-                    routing: {
-                      strategy: "cloud-first" as const,
-                      fallbackToCloud: true,
-                    },
-                    ...(((config.ai as Record<string, unknown>)
-                      ?.localAgent as object) || {}),
-                    ollama: {
-                      ...(((
-                        (config.ai as Record<string, unknown>)
-                          ?.localAgent as Record<string, unknown>
-                      )?.ollama as object) || {}),
+            {/* U3：简单视角隐藏高级配置（功能开关/本地 Agent/自动更新/通知），走"高级设置" */}
+            {viewMode === "simple" ? null : (
+              <>
+                <FeatureFlagsPanel
+                  isDark={isDark}
+                  collapsible
+                  features={
+                    ((config.features as Record<string, unknown>) || {
+                      autoCompact: true,
+                      showTurnDuration: true,
+                      fileCheckpointing: true,
+                      terminalProgressBar: true,
+                      showStatusInTerminalTab: false,
+                      respectGitignore: true,
+                      copyFullResponse: false,
+                      todoEnabled: true,
+                      showExpandedTodos: false,
+                      alwaysOn: false,
+                    }) as unknown as Parameters<
+                      typeof FeatureFlagsPanel
+                    >[0]["features"]
+                  }
+                  onUpdate={(u) =>
+                    setConfig("features", {
+                      ...((config.features as object) || {}),
                       ...u,
-                    },
-                  },
-                })
-              }
-            />
-            <AutoUpdatePanel
-              isDark={isDark}
-              collapsible
-              autoUpdate={
-                (config.autoUpdate as {
-                  enabled: boolean;
-                  checkIntervalMs: number;
-                  channel: "stable" | "beta";
-                  checkOnStartup: boolean;
-                  verbose: boolean;
-                }) || {
-                  enabled: true,
-                  checkIntervalMs: 86400000,
-                  channel: "stable",
-                  checkOnStartup: true,
-                  verbose: false,
-                }
-              }
-              onUpdate={(u) =>
-                setConfig("autoUpdate", {
-                  ...((config.autoUpdate as object) || {}),
-                  ...u,
-                })
-              }
-            />
-            <NotificationsPanel
-              isDark={isDark}
-              collapsible
-              notifications={
-                ((config.notifications as Record<string, unknown>) || {
-                  preferredChannel: "auto",
-                  idleThresholdMs: 60000,
-                  taskCompleteEnabled: true,
-                  inputNeededEnabled: true,
-                  agentPushEnabled: true,
-                  dndEnabled: false,
-                  dndStartHour: 22,
-                  dndEndHour: 8,
-                  categoryBadges: {
-                    approval: true,
-                    todo: true,
-                    system: true,
-                    mention: true,
-                  },
-                  desktopNotifyMinUnread: 1,
-                }) as unknown as Parameters<
-                  typeof NotificationsPanel
-                >[0]["notifications"]
-              }
-              onUpdate={(u) =>
-                setConfig("notifications", {
-                  ...((config.notifications as object) || {}),
-                  ...u,
-                })
-              }
-            />
+                    })
+                  }
+                />
+                <LocalAgentPanel
+                  isDark={isDark}
+                  collapsible
+                  localAgent={
+                    (() => {
+                      const raw = (config.ai as Record<string, unknown>)
+                        ?.localAgent as Record<string, unknown> | undefined;
+                      // 深合并默认值，确保 routing 不会因残缺的已存储数据而丢失
+                      return {
+                        enabled: false,
+                        routing: {
+                          strategy: "cloud-first" as const,
+                          fallbackToCloud: true,
+                        },
+                        ...(raw || {}),
+                      };
+                    })() as unknown as Parameters<
+                      typeof LocalAgentPanel
+                    >[0]["localAgent"]
+                  }
+                  ollama={
+                    ((
+                      (config.ai as Record<string, unknown>)
+                        ?.localAgent as Record<string, unknown>
+                    )?.ollama || {
+                      enabled: false,
+                      baseUrl: "http://localhost:11434",
+                      defaultModel: "llama3",
+                      timeout: 120000,
+                    }) as unknown as Parameters<
+                      typeof LocalAgentPanel
+                    >[0]["ollama"]
+                  }
+                  onUpdateLocalAgent={(u) =>
+                    setConfig("ai", {
+                      ...((config.ai as object) || {}),
+                      localAgent: {
+                        // 提供 routing 默认值，防止首次启用时 routing 为 undefined 导致崩溃
+                        routing: {
+                          strategy: "cloud-first" as const,
+                          fallbackToCloud: true,
+                        },
+                        ...(((config.ai as Record<string, unknown>)
+                          ?.localAgent as object) || {}),
+                        ...u,
+                      },
+                    })
+                  }
+                  onUpdateOllama={(u) =>
+                    setConfig("ai", {
+                      ...((config.ai as object) || {}),
+                      localAgent: {
+                        // 提供 routing 默认值，防止首次启用时 routing 为 undefined 导致崩溃
+                        routing: {
+                          strategy: "cloud-first" as const,
+                          fallbackToCloud: true,
+                        },
+                        ...(((config.ai as Record<string, unknown>)
+                          ?.localAgent as object) || {}),
+                        ollama: {
+                          ...(((
+                            (config.ai as Record<string, unknown>)
+                              ?.localAgent as Record<string, unknown>
+                          )?.ollama as object) || {}),
+                          ...u,
+                        },
+                      },
+                    })
+                  }
+                />
+                <AutoUpdatePanel
+                  isDark={isDark}
+                  collapsible
+                  autoUpdate={
+                    (config.autoUpdate as {
+                      enabled: boolean;
+                      checkIntervalMs: number;
+                      channel: "stable" | "beta";
+                      checkOnStartup: boolean;
+                      verbose: boolean;
+                    }) || {
+                      enabled: true,
+                      checkIntervalMs: 86400000,
+                      channel: "stable",
+                      checkOnStartup: true,
+                      verbose: false,
+                    }
+                  }
+                  onUpdate={(u) =>
+                    setConfig("autoUpdate", {
+                      ...((config.autoUpdate as object) || {}),
+                      ...u,
+                    })
+                  }
+                />
+                <NotificationsPanel
+                  isDark={isDark}
+                  collapsible
+                  notifications={
+                    ((config.notifications as Record<string, unknown>) || {
+                      preferredChannel: "auto",
+                      idleThresholdMs: 60000,
+                      taskCompleteEnabled: true,
+                      inputNeededEnabled: true,
+                      agentPushEnabled: true,
+                      dndEnabled: false,
+                      dndStartHour: 22,
+                      dndEndHour: 8,
+                      categoryBadges: {
+                        approval: true,
+                        todo: true,
+                        system: true,
+                        mention: true,
+                      },
+                      desktopNotifyMinUnread: 1,
+                    }) as unknown as Parameters<
+                      typeof NotificationsPanel
+                    >[0]["notifications"]
+                  }
+                  onUpdate={(u) =>
+                    setConfig("notifications", {
+                      ...((config.notifications as object) || {}),
+                      ...u,
+                    })
+                  }
+                />
+              </>
+            )}
           </>
         );
       case "notifications":

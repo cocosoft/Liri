@@ -161,8 +161,6 @@ export {
   EFFORT_TO_BUDGET,
   buildThinkingConfig,
   parseEffortArg,
-  modelSupportsThinking,
-  modelSupportsAdaptiveThinking,
   getThinkingBudgetForModel,
   shouldEnableThinkingByDefault,
 } from './clients/thinking';

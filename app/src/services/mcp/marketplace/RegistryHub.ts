@@ -13,6 +13,7 @@ import { OfficialRegistryAdapter } from './adapters/OfficialRegistryAdapter';
 import { GitHubRegistryAdapter } from './adapters/GitHubRegistryAdapter';
 import { SmitheryRegistryAdapter } from './adapters/SmitheryRegistryAdapter';
 import { NPMRegistryAdapter } from './adapters/NPMRegistryAdapter';
+import { RegistryPresetAdapter } from './adapters/RegistryPresetAdapter';
 
 const logger = new Logger({
   module: 'services:mcp:registryHub',
@@ -48,6 +49,47 @@ export class RegistryHub {
       this.registerAdapter(new NPMRegistryAdapter());
     } catch (error) {
       logger.warn('注册 NPM 注册表适配器失败', error as Error);
+    }
+    // 2026-08-06：预设主流 MCP 市场（无公开搜索 API，来源入口 + 手动安装）
+    try {
+      this.registerAdapter(
+        new RegistryPresetAdapter('mcpso', 'MCP.so', 'mcpso', 'https://mcp.so/')
+      );
+      this.registerAdapter(
+        new RegistryPresetAdapter(
+          'mcpmarket',
+          'MCPMarket.cn',
+          'mcpmarket',
+          'https://mcpmarket.cn/'
+        )
+      );
+      this.registerAdapter(
+        new RegistryPresetAdapter(
+          'modelscope',
+          '魔搭 MCP 广场',
+          'modelscope',
+          'https://modelscope.cn/mcp'
+        )
+      );
+      this.registerAdapter(
+        new RegistryPresetAdapter(
+          'mcpmarketplaceio',
+          'mcp-marketplace.io',
+          'mcpmarketplaceio',
+          'https://mcp-marketplace.io/'
+        )
+      );
+      // mcpservers.org：Awesome MCP Servers 目录（无公开搜索 API，官网中文版入口）
+      this.registerAdapter(
+        new RegistryPresetAdapter(
+          'mcpservers',
+          'mcpservers.org',
+          'mcpservers',
+          'https://mcpservers.org/zh-CN/'
+        )
+      );
+    } catch (error) {
+      logger.warn('注册预设 MCP 市场适配器失败', error as Error);
     }
   }
 

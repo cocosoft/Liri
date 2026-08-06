@@ -130,6 +130,12 @@ const mcpCommand = {
       return this.runToolAction(runMatch[1]);
     }
 
+    // 2026-08-06 新增：安装 MCP 服务器（从市场）/mcp install <serverId>
+    const installMatch = cleanArgs.match(/^install\s+(.+)$/);
+    if (installMatch) {
+      return await this.installServer(installMatch[1].trim());
+    }
+
     const parts = cleanArgs.split(/\s+/);
     const subcommand = parts[0];
 
@@ -158,6 +164,26 @@ const mcpCommand = {
     }
   },
 
+  /**
+   * 安装 MCP 服务器（从市场）
+   * 2026-08-06 新增：复用 mcpSystem.marketplace.install 链路，与 HTTP 端点 /v1/mcp/marketplace/servers/:serverId/install 同源
+   */
+  async installServer(serverName: string) {
+    try {
+      const { mcpSystem } = await import('@modules/services/mcp');
+      if (!mcpSystem || !mcpSystem.marketplace) {
+        return { success: false, message: 'MCP 市场服务未初始化' };
+      }
+      await mcpSystem.marketplace.install(serverName);
+      return { success: true, message: `已安装 MCP 服务器: ${serverName}` };
+    } catch (error) {
+      return {
+        success: false,
+        message: `安装失败: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  },
+
   showHelp() {
     return {
       success: true,
@@ -174,6 +200,8 @@ const mcpCommand = {
         '  /mcp --tools (-t)      - 显示 MCP 工具列表',
         '  /mcp --test (-e)       - 测试 MCP 连接',
         '  /mcp status            - 显示 MCP 系统状态',
+        '  /mcp install <name>    - 从市场安装 MCP 服务器（2026-08-06 新增）',
+        '  /mcp run <action>      - 执行 MCP 工具动作',
         '  /mcp --json            - 以 JSON 格式输出',
         '  /mcp help              - 显示本帮助',
         '',

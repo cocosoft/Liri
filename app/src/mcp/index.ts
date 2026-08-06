@@ -78,12 +78,6 @@ export {
 // ── 客户端 ──
 export { MCPClientImpl } from './client/MCPClient.js';
 
-// ── 协议 ──
-export {
-  MCPProtocolValidator,
-  MCPProtocolError,
-} from './protocol/MCPProtocol.js';
-
 // ── 管理 ──
 export { MCPManager } from './managers/MCPManager.js';
 export type {
@@ -103,37 +97,6 @@ export type { MCPToolInfo } from '../services/mcp/MCPToolRegistry.js';
 // ── 工具 ──
 export { MCPTool } from './MCPTool.js';
 export type { MCPToolParams } from './MCPTool.js';
-
-// ── 增强管理器 ──
-export { EnhancedMCPManager } from './EnhancedMCPManager.js';
-export type {
-  MCPPerformanceMetrics,
-  MCPServerHealthCheck,
-  MCPConnectionAnalytics,
-  MCPToolUsageAnalytics,
-  MCPResourceAnalytics,
-  MCPOptimizationRecommendation,
-  MCPSystemReport,
-  EnhancedMCPManagerConfig,
-} from './EnhancedMCPManager.js';
-
-// ── 智能分析器 ──
-export { IntelligentMCPAnalyzer } from './IntelligentMCPAnalyzer.js';
-export type { MCPAnalysisResult } from './IntelligentMCPAnalyzer.js';
-
-// ── 自动发现 ──
-export { MCPAutoDiscovery, getMCPAutoDiscovery } from './MCPAutoDiscovery';
-export type { MCPDiscoveryEntry, MCPDiscoveryConfig } from './MCPAutoDiscovery';
-export {
-  MCPCompatibilityTester,
-  getMCPCompatibilityTester,
-} from './MCPCompatibilityTester';
-export type {
-  MCPTestCase,
-  MCPTestResult,
-  MCPCompatibilityReport,
-  MCPRegressionConfig,
-} from './MCPCompatibilityTester';
 
 // ── 工具函数 ──
 export {
@@ -217,27 +180,6 @@ export { createMcpCommand } from './cli/mcpCommand.js';
 
 // ── MCP Server ──
 export { startMCPServer } from '../entrypoints/mcp.js';
-
-// ── Loopback 服务器 ──
-export {
-  MCPLoopbackServer,
-  getMCPLoopbackServer,
-} from '../services/mcp/MCPLoopbackServer.js';
-export type { MCPLoopbackOptions } from '../services/mcp/MCPLoopbackServer.js';
-
-// ── 漂移分析 ──
-export {
-  classifyToolListDrift,
-  isDriftAcceptable,
-  calcDriftSeverity,
-  suggestDriftAction,
-} from './drift.js';
-export type {
-  DriftKind,
-  DriftAction,
-  DriftReport,
-  McpToolSpec,
-} from './drift.js';
 
 // ── 插件 MCP 工具暴露 ──
 export {

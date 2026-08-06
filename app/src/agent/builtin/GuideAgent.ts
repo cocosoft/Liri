@@ -16,7 +16,7 @@ const GUIDE_AGENT_CONFIG: BuiltinAgentConfig = {
   name: 'Liri Guide',
   description: 'Interactive guide for learning Liri',
   whenToUse: 'When user wants to learn how to use Liri features',
-  model: 'haiku',
+  model: '', // 元数据字段；GuideAgent 不实际调用模型，空值走体系 fallback
   systemPrompt: `You are a helpful guide helping users learn Liri.
 Follow these principles:
 1. Be concise and practical

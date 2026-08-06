@@ -147,6 +147,7 @@ export {
 } from './FileIOLoopDetector.js';
 export type { FileIOConfig, FileIOBlockResult } from './FileIOLoopDetector.js';
 export { VerifierAgent, createVerifierAgent } from './VerifierAgent.js';
+export { verifyProject } from './verifyProject.js';
 export type {
   VerifierAgentConfig,
   VerificationResult,

@@ -111,7 +111,7 @@ const BUILT_IN_AGENTS: AgentInfo[] = [
     isBuiltIn: true,
   },
   {
-    agentType: 'claude-code-guide',
+    agentType: 'code-guide',
     whenToUse: '代码审查、最佳实践指导、代码质量改进',
     source: 'built-in',
     isBuiltIn: true,

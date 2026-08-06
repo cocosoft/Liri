@@ -85,7 +85,21 @@ export class StdioTransport extends MCPTransport {
       await this.killProcess();
     }
 
-    this.process = spawn(this.command, this.args, {
+    // Windows 兼容：npx/npm/bun/uvx/pnpm 等是 .cmd 脚本，spawn 无法直接执行，
+    // 用 cmd /c 包装（官方 modelcontextprotocol/servers README 同款做法）。
+    // 仅对裸命令名（非路径、非 .exe/.cmd 结尾）包装，绝对路径可执行文件不受影响。
+    const isWin = process.platform === 'win32';
+    const needsWinWrapper =
+      isWin &&
+      !this.command.includes('/') &&
+      !this.command.includes('\\') &&
+      !/\.(exe|cmd|bat|com)$/i.test(this.command);
+    const spawnCmd = needsWinWrapper ? 'cmd' : this.command;
+    const spawnArgs = needsWinWrapper
+      ? ['/c', this.command, ...this.args]
+      : this.args;
+
+    this.process = spawn(spawnCmd, spawnArgs, {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: this.env,
     });

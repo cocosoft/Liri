@@ -21,6 +21,7 @@ export function registerBuiltinModules(): void {
     enabled: true,
     available: true,
     pinned: true,
+    tier: "base",
     paths: ["/chat"],
   });
 
@@ -32,7 +33,8 @@ export function registerBuiltinModules(): void {
     enabled: true,
     available: true,
     pinned: false,
-    paths: ["/media", "/image", "/video", "/tts"],
+    tier: "base",
+    paths: ["/media", "/image", "/tts"],
   });
 
   store.registerModule({
@@ -43,6 +45,7 @@ export function registerBuiltinModules(): void {
     enabled: true,
     available: true,
     pinned: false,
+    tier: "pro",
     paths: ["/office"],
   });
 
@@ -54,6 +57,7 @@ export function registerBuiltinModules(): void {
     enabled: true,
     available: true,
     pinned: false,
+    tier: "pro",
     paths: ["/calendar"],
   });
 
@@ -65,6 +69,7 @@ export function registerBuiltinModules(): void {
     enabled: true,
     available: true,
     pinned: false,
+    tier: "base",
     paths: ["/translate"],
   });
 
@@ -76,6 +81,7 @@ export function registerBuiltinModules(): void {
     enabled: true,
     available: true,
     pinned: false,
+    tier: "base",
     paths: ["/knowledge", "/files"],
   });
 

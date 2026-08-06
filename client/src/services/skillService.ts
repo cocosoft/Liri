@@ -1,6 +1,6 @@
 import { httpLegacy as http } from "./httpClient";
 import { handleClientError } from "../utils/handleError";
-import { getBackendBaseUrl } from "./backendUrl";
+import { getBackendBaseUrl, getApiSecret } from "./backendUrl";
 
 export type SkillStatus = "enabled" | "disabled" | "draft";
 
@@ -175,7 +175,13 @@ const skillService = {
   },
 
   async create(data: SkillCreateData): Promise<Skill> {
-    const response = await http.post<Skill>("/v1/skills", data);
+    // S2-1：后端要求显式 action 字段（此前缺失导致 400）
+    const response = await http.post<Skill>("/v1/skills", {
+      action: "create",
+      name: data.name,
+      description: data.description,
+      category: data.category,
+    });
     return response;
   },
 
@@ -340,12 +346,25 @@ const skillService = {
     });
   },
 
-  /** 导出所有已安装技能为 JSON */
-  async exportAll(): Promise<InstalledSkill[]> {
-    const res = await http.get<{ skills: InstalledSkill[] }>(
-      "/v1/skills/export",
-    );
-    return res.skills || [];
+  /** 导出所有技能为 ZIP 并触发浏览器下载（S2-1：后端返回 zip 二进制，非 JSON） */
+  async exportAll(): Promise<Blob> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    const secret = getApiSecret();
+    if (secret) headers["X-API-Key"] = secret;
+    if (typeof localStorage !== "undefined") {
+      const authToken = localStorage.getItem("auth_token");
+      if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+    }
+    const res = await fetch(`${getBackendBaseUrl()}/v1/skills/export`, {
+      headers,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(text || `HTTP ${res.status}`);
+    }
+    return res.blob();
   },
 
   /** 获取可用技能市场来源列表 */
@@ -390,12 +409,12 @@ const skillService = {
     return res;
   },
 
-  /** 克隆技能 */
-  async cloneSkill(skillId: string): Promise<InstalledSkill> {
-    const res = await http.post<{ skill: InstalledSkill }>(
+  /** 克隆技能（S2-1：后端返回 { success, skillId }） */
+  async cloneSkill(skillId: string): Promise<string> {
+    const res = await http.post<{ success: boolean; skillId: string }>(
       `/v1/skills/${encodeURIComponent(skillId)}/clone`,
     );
-    return res.skill;
+    return res.skillId;
   },
 };
 

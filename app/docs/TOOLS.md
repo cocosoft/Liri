@@ -213,7 +213,7 @@ Agent({
 // 创建研究子代理
 Agent({
   task: "研究 React Server Components",
-  model: "claude-sonnet"
+  model: "your-model-id"
 })
 ```
 

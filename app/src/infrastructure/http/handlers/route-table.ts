@@ -170,6 +170,21 @@ import {
   handleGetPermissionMetrics,
 } from './permission-handlers';
 
+// Sandbox handlers（沙箱配置与状态，S1 直接函数调用）
+import {
+  handleGetSandboxConfig,
+  handleUpdateSandboxConfig,
+  handleGetSandboxStatus,
+} from './sandbox-handlers';
+
+// Auto-reply handlers（自动回复规则管理，S2 直接函数调用）
+import {
+  handleListAutoReplyRules,
+  handleCreateAutoReplyRule,
+  handleUpdateAutoReplyRule,
+  handleDeleteAutoReplyRule,
+} from './auto-reply-handlers';
+
 // Media handlers
 import {
   handleMediaSubtitleGenerate,
@@ -2186,6 +2201,46 @@ export async function dispatchRoute(
     return true;
   }
 
+  // ---- Sandbox（沙箱配置与状态，S1）----
+  if (method === 'GET' && url === '/v1/sandbox/config') {
+    await handleGetSandboxConfig(req, res);
+    return true;
+  }
+  if (method === 'PUT' && url === '/v1/sandbox/config') {
+    await handleUpdateSandboxConfig(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/sandbox/status') {
+    await handleGetSandboxStatus(req, res);
+    return true;
+  }
+
+  // ---- Auto-reply（自动回复规则管理，S2）----
+  if (method === 'GET' && url === '/v1/auto-reply/rules') {
+    await handleListAutoReplyRules(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/auto-reply/rules') {
+    await handleCreateAutoReplyRule(req, res);
+    return true;
+  }
+  if (method === 'PUT' && url.match(/^\/v1\/auto-reply\/rules\/(.+)$/)) {
+    await handleUpdateAutoReplyRule(
+      req,
+      res,
+      url.match(/^\/v1\/auto-reply\/rules\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/auto-reply\/rules\/(.+)$/)) {
+    await handleDeleteAutoReplyRule(
+      req,
+      res,
+      url.match(/^\/v1\/auto-reply\/rules\/(.+)$/)![1]
+    );
+    return true;
+  }
+
   // ---- Skills (ClawHub 生态对接) ----
   if (method === 'GET' && url === '/v1/skills') {
     await self['handleListSkills'](req, res);
@@ -2711,24 +2766,32 @@ export async function dispatchRoute(
     return true;
   }
 
-  // ---- MCP Marketplace ----
+  // ---- MCP Marketplace（P1-1：切 mcp-marketplace-handlers 纯函数，消除与 LocalHTTPService 内联的双份实现） ----
   if (method === 'GET' && url === '/v1/mcp/marketplace/search') {
-    await self['handleMCPMarketplaceSearch'](req, res);
+    const { handleMCPMarketplaceSearch } =
+      await import('./mcp-marketplace-handlers');
+    await handleMCPMarketplaceSearch(req, res);
     return true;
   }
   if (method === 'GET' && url === '/v1/mcp/marketplace/registries') {
-    await self['handleMCPMarketplaceRegistries'](req, res);
+    const { handleMCPMarketplaceRegistries } =
+      await import('./mcp-marketplace-handlers');
+    await handleMCPMarketplaceRegistries(req, res);
     return true;
   }
   if (method === 'GET' && url === '/v1/mcp/marketplace/categories') {
-    await self['handleMCPMarketplaceCategories'](req, res);
+    const { handleMCPMarketplaceCategories } =
+      await import('./mcp-marketplace-handlers');
+    await handleMCPMarketplaceCategories(req, res);
     return true;
   }
   if (
     method === 'GET' &&
     url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)$/)
   ) {
-    await self['handleMCPMarketplaceServerDetail'](
+    const { handleMCPMarketplaceServerDetail } =
+      await import('./mcp-marketplace-handlers');
+    await handleMCPMarketplaceServerDetail(
       req,
       res,
       url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)$/)![1]
@@ -2736,14 +2799,18 @@ export async function dispatchRoute(
     return true;
   }
   if (method === 'GET' && url === '/v1/mcp/marketplace/installed') {
-    await self['handleMCPInstalledServers'](req, res);
+    const { handleMCPInstalledServers } =
+      await import('./mcp-marketplace-handlers');
+    await handleMCPInstalledServers(req, res);
     return true;
   }
   if (
     method === 'POST' &&
     url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/install$/)
   ) {
-    await self['handleMCPInstallServer'](
+    const { handleMCPInstallServer } =
+      await import('./mcp-marketplace-handlers');
+    await handleMCPInstallServer(
       req,
       res,
       url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/install$/)![1]
@@ -2754,7 +2821,9 @@ export async function dispatchRoute(
     method === 'POST' &&
     url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/uninstall$/)
   ) {
-    await self['handleMCPUninstallServer'](
+    const { handleMCPUninstallServer } =
+      await import('./mcp-marketplace-handlers');
+    await handleMCPUninstallServer(
       req,
       res,
       url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/uninstall$/)![1]
@@ -2765,7 +2834,9 @@ export async function dispatchRoute(
     method === 'POST' &&
     url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/toggle$/)
   ) {
-    await self['handleMCPToggleServer'](
+    const { handleMCPToggleServer } =
+      await import('./mcp-marketplace-handlers');
+    await handleMCPToggleServer(
       req,
       res,
       url.match(/^\/v1\/mcp\/marketplace\/servers\/(.+)\/toggle$/)![1]
@@ -2773,9 +2844,70 @@ export async function dispatchRoute(
     return true;
   }
 
+  // ---- Plugin Marketplace（2026-08-06 新增：Liri 应用插件市场，J-13） ----
+  if (method === 'GET' && url === '/v1/plugins/marketplace/search') {
+    const { handlePluginMarketplaceSearch } =
+      await import('./plugin-marketplace-handlers');
+    await handlePluginMarketplaceSearch(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/plugins/marketplace/categories') {
+    const { handlePluginMarketplaceCategories } =
+      await import('./plugin-marketplace-handlers');
+    await handlePluginMarketplaceCategories(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/plugins/marketplace/installed') {
+    const { handlePluginInstalledList } =
+      await import('./plugin-marketplace-handlers');
+    await handlePluginInstalledList(req, res);
+    return true;
+  }
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/plugins\/marketplace\/plugins\/(.+)$/)
+  ) {
+    const { handlePluginMarketplaceDetail } =
+      await import('./plugin-marketplace-handlers');
+    await handlePluginMarketplaceDetail(
+      req,
+      res,
+      url.match(/^\/v1\/plugins\/marketplace\/plugins\/(.+)$/)![1]
+    );
+    return true;
+  }
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/plugins\/marketplace\/plugins\/(.+)\/install$/)
+  ) {
+    const { handlePluginInstall } =
+      await import('./plugin-marketplace-handlers');
+    await handlePluginInstall(
+      req,
+      res,
+      url.match(/^\/v1\/plugins\/marketplace\/plugins\/(.+)\/install$/)![1]
+    );
+    return true;
+  }
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/plugins\/marketplace\/plugins\/(.+)\/uninstall$/)
+  ) {
+    const { handlePluginUninstall } =
+      await import('./plugin-marketplace-handlers');
+    await handlePluginUninstall(
+      req,
+      res,
+      url.match(/^\/v1\/plugins\/marketplace\/plugins\/(.+)\/uninstall$/)![1]
+    );
+    return true;
+  }
+
   // ---- MCP Server Verify ----
   if (method === 'POST' && url.match(/^\/v1\/mcp\/servers\/(.+)\/verify$/)) {
-    await self['handleMCPVerifyServer'](
+    const { handleMCPVerifyServer } =
+      await import('./mcp-marketplace-handlers');
+    await handleMCPVerifyServer(
       req,
       res,
       url.match(/^\/v1\/mcp\/servers\/(.+)\/verify$/)![1]
@@ -2792,11 +2924,13 @@ export async function dispatchRoute(
 
   // ---- MCP Tools ----
   if (method === 'GET' && url === '/v1/mcp/tools') {
-    await self['handleMCPListTools'](req, res);
+    const { handleMCPListTools } = await import('./mcp-marketplace-handlers');
+    await handleMCPListTools(req, res);
     return true;
   }
   if (method === 'PATCH' && url.match(/^\/v1\/mcp\/tools\/(.+)\/toggle$/)) {
-    await self['handleMCPToggleTool'](
+    const { handleMCPToggleTool } = await import('./mcp-marketplace-handlers');
+    await handleMCPToggleTool(
       req,
       res,
       url.match(/^\/v1\/mcp\/tools\/(.+)\/toggle$/)![1]

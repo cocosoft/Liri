@@ -1,62 +1,38 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useConfigStore } from "../../stores/configStore";
+import {
+  autoReplyService,
+  type AutoReplyRule,
+  type AutoReplyPattern,
+} from "../../services/autoReplyService";
+import { handleClientError } from "../../utils/handleError";
 
-interface AutoReplyRule {
-  id: string;
-  name: string;
-  keywords: string[];
-  reply: string;
-  priority: number;
-  enabled: boolean;
-  createdAt: string;
-  usageCount: number;
+/** 关键词（逗号分隔）→ pattern：单关键词用 substring，多关键词拼正则 */
+function keywordsToPattern(keywords: string): AutoReplyPattern {
+  const kws = keywords
+    .split(/[,，]/)
+    .map((k) => k.trim())
+    .filter(Boolean);
+  if (kws.length === 1) return { type: "substring", value: kws[0] };
+  const escaped = kws.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  return { type: "regexp", value: `(?:${escaped.join("|")})` };
+}
+
+/** pattern → 关键词展示 */
+function patternToKeywords(p: AutoReplyPattern): string {
+  if (p.type === "substring") return p.value;
+  const inner = p.value
+    .replace(/^\(\?:/, "")
+    .replace(/\)$/, "")
+    .replace(/\\/g, "");
+  return inner.split("|").join(", ");
 }
 
 function AutoReplyPage() {
   const { config, loadConfig } = useConfigStore();
   const isDark = config.theme === "dark";
-  const [rules, setRules] = useState<AutoReplyRule[]>([
-    {
-      id: "1",
-      name: "欢迎消息",
-      keywords: ["你好", "您好", "hi", "hello"],
-      reply: "您好！欢迎使用本系统，请问有什么可以帮助您的？",
-      priority: 1,
-      enabled: true,
-      createdAt: "2026-05-28 09:00",
-      usageCount: 156,
-    },
-    {
-      id: "2",
-      name: "帮助请求",
-      keywords: ["帮助", "help", "怎么用", "教程"],
-      reply: "您可以查看帮助中心获取详细使用指南，或联系管理员获取支持。",
-      priority: 2,
-      enabled: true,
-      createdAt: "2026-05-27 10:00",
-      usageCount: 89,
-    },
-    {
-      id: "3",
-      name: "常见问题",
-      keywords: ["问题", "故障", "错误", "报错"],
-      reply: "遇到问题请先查看常见问题文档，如仍无法解决请提交工单。",
-      priority: 3,
-      enabled: false,
-      createdAt: "2026-05-26 14:00",
-      usageCount: 42,
-    },
-    {
-      id: "4",
-      name: "反馈",
-      keywords: ["反馈", "意见", "建议"],
-      reply: "感谢您的反馈！我们会认真听取每一条建议并持续改进。",
-      priority: 2,
-      enabled: true,
-      createdAt: "2026-05-25 11:00",
-      usageCount: 67,
-    },
-  ]);
+  const [rules, setRules] = useState<AutoReplyRule[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingRule, setEditingRule] = useState<AutoReplyRule | null>(null);
   const [newRule, setNewRule] = useState({
@@ -66,78 +42,79 @@ function AutoReplyPage() {
     priority: 1,
   });
 
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await autoReplyService.listRules();
+      setRules(data.rules);
+    } catch (e) {
+      handleClientError(e, { module: "views:AutoReplyPage", action: "load" });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadConfig();
-  }, [loadConfig]);
+    load();
+  }, [loadConfig, load]);
 
-  const toggleRule = (ruleId: string) => {
-    setRules((prev) =>
-      prev.map((r) => (r.id === ruleId ? { ...r, enabled: !r.enabled } : r)),
-    );
+  const toggleRule = async (rule: AutoReplyRule) => {
+    try {
+      const updated = await autoReplyService.updateRule(rule.id, {
+        enabled: !rule.enabled,
+      });
+      setRules((prev) => prev.map((r) => (r.id === rule.id ? updated : r)));
+    } catch (e) {
+      handleClientError(e, { module: "views:AutoReplyPage", action: "toggle" });
+    }
   };
 
-  const deleteRule = (ruleId: string) => {
-    setRules((prev) => prev.filter((r) => r.id !== ruleId));
+  const deleteRule = async (ruleId: string) => {
+    try {
+      await autoReplyService.deleteRule(ruleId);
+      setRules((prev) => prev.filter((r) => r.id !== ruleId));
+    } catch (e) {
+      handleClientError(e, { module: "views:AutoReplyPage", action: "delete" });
+    }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!newRule.name || !newRule.keywords || !newRule.reply) return;
-
-    const keywordsArray = newRule.keywords
-      .split(",")
-      .map((k) => k.trim())
-      .filter(Boolean);
-    const rule: AutoReplyRule = {
-      id: Date.now().toString(),
-      name: newRule.name,
-      keywords: keywordsArray,
-      reply: newRule.reply,
-      priority: newRule.priority,
-      enabled: true,
-      createdAt: new Date().toLocaleString(),
-      usageCount: 0,
-    };
-
-    setRules((prev) => [...prev, rule]);
-    setShowForm(false);
-    setNewRule({ name: "", keywords: "", reply: "", priority: 1 });
+    try {
+      const created = await autoReplyService.createRule({
+        name: newRule.name,
+        pattern: keywordsToPattern(newRule.keywords),
+        response: newRule.reply,
+        priority: newRule.priority,
+      });
+      setRules((prev) => [...prev, created]);
+      setShowForm(false);
+      setNewRule({ name: "", keywords: "", reply: "", priority: 1 });
+    } catch (e) {
+      handleClientError(e, { module: "views:AutoReplyPage", action: "create" });
+    }
   };
 
-  const handleEdit = (rule: AutoReplyRule) => {
-    setEditingRule(rule);
-    setNewRule({
-      name: rule.name,
-      keywords: rule.keywords.join(", "),
-      reply: rule.reply,
-      priority: rule.priority,
-    });
-    setShowForm(true);
-  };
-
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!editingRule || !newRule.name || !newRule.keywords || !newRule.reply)
       return;
-
-    const keywordsArray = newRule.keywords
-      .split(",")
-      .map((k) => k.trim())
-      .filter(Boolean);
-    setRules((prev) =>
-      prev.map((r) =>
-        r.id === editingRule.id
-          ? {
-              ...r,
-              name: newRule.name,
-              keywords: keywordsArray,
-              reply: newRule.reply,
-              priority: newRule.priority,
-            }
-          : r,
-      ),
-    );
-    setShowForm(false);
-    setEditingRule(null);
-    setNewRule({ name: "", keywords: "", reply: "", priority: 1 });
+    try {
+      const updated = await autoReplyService.updateRule(editingRule.id, {
+        name: newRule.name,
+        pattern: keywordsToPattern(newRule.keywords),
+        response: newRule.reply,
+        priority: newRule.priority,
+      });
+      setRules((prev) =>
+        prev.map((r) => (r.id === editingRule.id ? updated : r)),
+      );
+      setShowForm(false);
+      setEditingRule(null);
+      setNewRule({ name: "", keywords: "", reply: "", priority: 1 });
+    } catch (e) {
+      handleClientError(e, { module: "views:AutoReplyPage", action: "update" });
+    }
   };
 
   const getPriorityColor = (priority: number) => {
@@ -214,7 +191,7 @@ function AutoReplyPage() {
                 <label
                   className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}
                 >
-                  关键词（逗号分隔）
+                  匹配关键词（逗号分隔）
                 </label>
                 <input
                   type="text"
@@ -321,7 +298,7 @@ function AutoReplyPage() {
             <span
               className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}
             >
-              使用次数
+              匹配方式
             </span>
             <span
               className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}
@@ -330,10 +307,16 @@ function AutoReplyPage() {
             </span>
           </div>
 
-          {rules.length === 0 ? (
+          {!loading && rules.length === 0 ? (
             <div className="text-center py-12">
               <p className={`${isDark ? "text-gray-400" : "text-gray-500"}`}>
                 暂无自动回复规则
+              </p>
+            </div>
+          ) : loading ? (
+            <div className="text-center py-12">
+              <p className={`${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                加载中...
               </p>
             </div>
           ) : (
@@ -356,19 +339,21 @@ function AutoReplyPage() {
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {rule.keywords.map((keyword) => (
-                      <span
-                        key={keyword}
-                        className={`text-xs px-1.5 py-0.5 rounded ${isDark ? "bg-blue-900/30 text-blue-400" : "bg-blue-100 text-blue-700"}`}
-                      >
-                        {keyword}
-                      </span>
-                    ))}
+                    {patternToKeywords(rule.pattern)
+                      .split(",")
+                      .map((keyword) => (
+                        <span
+                          key={keyword}
+                          className={`text-xs px-1.5 py-0.5 rounded ${isDark ? "bg-blue-900/30 text-blue-400" : "bg-blue-100 text-blue-700"}`}
+                        >
+                          {keyword}
+                        </span>
+                      ))}
                   </div>
                   <p
                     className={`text-xs truncate ${isDark ? "text-gray-400" : "text-gray-500"}`}
                   >
-                    {rule.reply}
+                    {rule.response}
                   </p>
                   <span
                     className={`text-xs px-2 py-0.5 rounded-full ${getPriorityColor(rule.priority)}`}
@@ -378,17 +363,26 @@ function AutoReplyPage() {
                   <span
                     className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
                   >
-                    {rule.usageCount}
+                    {rule.pattern.type === "regexp" ? "关键词组" : "包含匹配"}
                   </span>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => handleEdit(rule)}
+                      onClick={() => {
+                        setEditingRule(rule);
+                        setNewRule({
+                          name: rule.name,
+                          keywords: patternToKeywords(rule.pattern),
+                          reply: rule.response,
+                          priority: rule.priority,
+                        });
+                        setShowForm(true);
+                      }}
                       className={`px-2 py-1 text-xs rounded ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-300" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
                     >
                       编辑
                     </button>
                     <button
-                      onClick={() => toggleRule(rule.id)}
+                      onClick={() => toggleRule(rule)}
                       className={`px-2 py-1 text-xs rounded ${rule.enabled ? "bg-yellow-50 hover:bg-yellow-100 text-yellow-700" : "bg-green-50 hover:bg-green-100 text-green-700"}`}
                     >
                       {rule.enabled ? "禁用" : "启用"}

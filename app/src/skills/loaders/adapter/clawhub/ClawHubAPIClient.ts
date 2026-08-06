@@ -30,11 +30,15 @@ import http from 'http';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { ThirdPartySkillSearchResult } from '../ThirdPartySkillAdapter';
 import type { ClawHubSkillMeta } from './ClawHubMeta';
+import { checkSsrf } from '../../../../tools/WebFetchTool/ssrf';
 
 const logger = new Logger({
   module: 'skills:clawHubApi',
   level: LogLevel.INFO,
 });
+
+/** 重定向最大跳数（S1-4） */
+const MAX_REDIRECTS = 3;
 
 /**
  * ClawHub API 搜索响应
@@ -221,10 +225,22 @@ export class ClawHubAPIClient {
   }
 
   /**
-   * HTTP GET 文本请求
+   * HTTP GET 文本请求（S1-4：重定向最多 3 跳、仅 http/https、目标 SSRF 校验）
    */
-  private httpGetText(url: string): Promise<string> {
+  private httpGetText(url: string, redirectCount = 0): Promise<string> {
     return new Promise((resolve, reject) => {
+      // 协议白名单：仅 http/https
+      try {
+        const proto = new URL(url).protocol;
+        if (proto !== 'http:' && proto !== 'https:') {
+          reject(new Error(`仅支持 http/https 地址: ${url}`));
+          return;
+        }
+      } catch {
+        reject(new Error(`无效 URL: ${url}`));
+        return;
+      }
+
       const isHttps = url.startsWith('https');
       const client = isHttps ? https : http;
 
@@ -235,28 +251,46 @@ export class ClawHubAPIClient {
           headers: { 'User-Agent': 'Liri-ClawHub/1.0' },
         },
         (res) => {
-          if (res.statusCode === 301 || res.statusCode === 302) {
+          const status = res.statusCode;
+          if (
+            status === 301 ||
+            status === 302 ||
+            status === 303 ||
+            status === 307 ||
+            status === 308
+          ) {
             const redirectUrl = res.headers.location;
-            if (redirectUrl) {
-              this.httpGetText(redirectUrl).then(resolve).catch(reject);
+            if (!redirectUrl) {
+              reject(new Error(`重定向缺少 Location: ${url}`));
               return;
             }
+            if (redirectCount >= MAX_REDIRECTS) {
+              reject(new Error(`重定向次数超限（>${MAX_REDIRECTS}）: ${url}`));
+              return;
+            }
+            const target = new URL(redirectUrl, url).toString();
+            checkSsrf(target)
+              .then((ssrf) => {
+                if (ssrf.blocked) {
+                  reject(new Error(`重定向目标被 SSRF 拦截: ${ssrf.reason}`));
+                  return;
+                }
+                this.httpGetText(target, redirectCount + 1)
+                  .then(resolve)
+                  .catch(reject);
+              })
+              .catch(reject);
+            return;
           }
 
           const chunks: Buffer[] = [];
           res.on('data', (chunk: Buffer) => chunks.push(chunk));
           res.on('end', () => {
             const body = Buffer.concat(chunks).toString('utf-8');
-            if (
-              res.statusCode &&
-              res.statusCode >= 200 &&
-              res.statusCode < 300
-            ) {
+            if (status && status >= 200 && status < 300) {
               resolve(body);
             } else {
-              reject(
-                new Error(`HTTP ${res.statusCode}: ${body.slice(0, 200)}`)
-              );
+              reject(new Error(`HTTP ${status}: ${body.slice(0, 200)}`));
             }
           });
         }

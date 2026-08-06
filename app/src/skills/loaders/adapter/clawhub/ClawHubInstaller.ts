@@ -37,6 +37,7 @@ import { Logger, LogLevel } from '@modules/monitoring';
 import type { LocalSkillStore } from '../LocalSkillStore';
 import type { ClawHubSkillMeta, InstalledClawHubSkill } from './ClawHubMeta';
 import { ClawHubAPIClient } from './ClawHubAPIClient';
+import { validateSkillId } from '../safeSkillId';
 
 const logger = new Logger({
   module: 'skills:clawHubInstaller',
@@ -76,6 +77,10 @@ export class ClawHubInstaller {
     sourceUrl?: string,
     targetPath?: string
   ): Promise<InstalledClawHubSkill> {
+    // S1-4：skillId 拦截 ..（其余非法字符由 getSkillInstallPath 替换为 _）
+    if (skillId.includes('..')) {
+      throw new Error(`非法技能 ID: ${skillId}`);
+    }
     const installPath =
       targetPath || this.localStore.getSkillInstallPath(skillId);
 
@@ -304,6 +309,11 @@ export class ClawHubInstaller {
     );
 
     for (const [filePath, content] of Object.entries(files)) {
+      // S1-4：远程返回的文件路径必须落在安装目录内（zip-slip 防护）
+      const relErr = this.skillRelError(filePath);
+      if (relErr) {
+        throw new Error(`非法技能文件路径: ${filePath} (${relErr})`);
+      }
       const fullPath = join(installPath, filePath);
       const dir = dirname(fullPath);
       if (!existsSync(dir)) {
@@ -311,6 +321,27 @@ export class ClawHubInstaller {
       }
       writeFileSync(fullPath, content, 'utf-8');
     }
+  }
+
+  /**
+   * 校验技能内相对文件路径（S1-4：拦截 .. / 绝对路径 / Windows 保留名，逐段复用 safeSkillId）
+   */
+  private skillRelError(rel: string): string | null {
+    if (!rel) return '空路径';
+    const normalized = rel.replace(/\\/g, '/');
+    if (
+      normalized.includes('..') ||
+      normalized.startsWith('/') ||
+      /^[a-zA-Z]:/.test(normalized)
+    ) {
+      return '路径穿越';
+    }
+    for (const seg of normalized.split('/')) {
+      if (!seg || seg === '.') continue;
+      const err = validateSkillId(seg);
+      if (err) return err;
+    }
+    return null;
   }
 
   /**

@@ -781,9 +781,7 @@ export const chatService = {
         progressParts.push(`${receivedThinkingBlocks} 次思考`);
       }
       const progressInfo =
-        progressParts.length > 0
-          ? progressParts.join("、")
-          : "尚未产生内容";
+        progressParts.length > 0 ? progressParts.join("、") : "尚未产生内容";
       yield {
         type: "error",
         content: `连接已断开，且无可用检查点。${progressInfo}，请重新发送以继续任务（将从当前进度重新生成）`,

@@ -79,8 +79,6 @@ export {
   resetSkillUsageTracker,
 } from './SkillUsageTracker';
 export type { SkillUsageRecord, SkillUsageSummary } from './SkillUsageTracker';
-export { SkillGuard, skillGuard } from './SkillGuard';
-export type { SkillGuardResult } from './SkillGuard';
 export {
   SkillProvenanceTracker,
   skillProvenanceTracker,

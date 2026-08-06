@@ -28,7 +28,7 @@
 
 import { join } from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { resolveUserSkillsDir } from '@modules/core';
+import { resolveVendorSkillsDir } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
 import type { InstalledThirdPartySkill, LocalSkillSearchResult } from './types';
 
@@ -112,7 +112,9 @@ export class LocalSkillStore<
     config: LocalSkillStoreConfig = {},
     searchExtractor?: SearchFieldExtractor<T>
   ) {
-    this.skillsPath = config.skillsPath || resolveUserSkillsDir();
+    // 2026-08-06：第三方技能（ClawHub 等市场安装）默认存 ~/.pyapp/skills/vendor/，
+    // 与用户手工创建的技能（~/.pyapp/skills/）物理隔离，避免来源混淆。
+    this.skillsPath = config.skillsPath || resolveVendorSkillsDir();
     this.searchExtractor =
       searchExtractor || (defaultSearchExtractor as SearchFieldExtractor<T>);
   }

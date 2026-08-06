@@ -543,6 +543,49 @@ export function resolveUserSkillsDir(
   return join(resolvePyappHome(env), 'skills');
 }
 
+/**
+ * 第三方技能目录（~/.pyapp/skills/vendor/）
+ * 2026-08-06：ClawHub 等市场安装的技能独立存放，与用户手工创建的技能物理隔离。
+ */
+export function resolveVendorSkillsDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveUserSkillsDir(env), 'vendor');
+}
+
+// ─── 插件系统路径（~/.pyapp/plugins/，2026-08-06 纳入注册表） ────
+
+/**
+ * 插件根目录（~/.pyapp/plugins/）
+ * 2026-08-06：统一插件系统基目录（原项目根 plugins/ 与 ~/.pyapp/plugins/ 双基地冲突已收敛）。
+ */
+export function resolvePluginsDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolvePyappHome(env), 'plugins');
+}
+
+/** 插件安装目录（~/.pyapp/plugins/installed/）—— npm 安装的插件落盘位置 */
+export function resolvePluginsInstalledDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolvePluginsDir(env), 'installed');
+}
+
+/** 插件缓存目录（~/.pyapp/plugins/cache/）—— 插件市场 catalog 等缓存 */
+export function resolvePluginsCacheDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolvePluginsDir(env), 'cache');
+}
+
+/** 插件配置目录（~/.pyapp/plugins/config/）—— 插件配置持久化 */
+export function resolvePluginsConfigDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolvePluginsDir(env), 'config');
+}
+
 /** 用户级权限（~/.pyapp/permissions/） */
 export function resolveUserPermissionsDir(
   env: NodeJS.ProcessEnv = process.env
@@ -832,6 +875,11 @@ export function ensureDataDirectories(
     resolveKnowledgeRawDir(env),
     resolveInboundBaseDir(env),
     resolveUserSkillsDir(env),
+    resolveVendorSkillsDir(env),
+    resolvePluginsDir(env),
+    resolvePluginsInstalledDir(env),
+    resolvePluginsCacheDir(env),
+    resolvePluginsConfigDir(env),
     resolveUserPermissionsDir(env),
     resolveOutputDir(env),
     resolveMediaDir(env),
@@ -889,6 +937,11 @@ export const KNOWLEDGE_DIR = resolveKnowledgeDir();
 export const KNOWLEDGE_RAW_DIR = resolveKnowledgeRawDir();
 export const INBOUND_DIR = resolveInboundBaseDir();
 export const USER_SKILLS_DIR = resolveUserSkillsDir();
+export const VENDOR_SKILLS_DIR = resolveVendorSkillsDir();
+export const PLUGINS_DIR = resolvePluginsDir();
+export const PLUGINS_INSTALLED_DIR = resolvePluginsInstalledDir();
+export const PLUGINS_CACHE_DIR = resolvePluginsCacheDir();
+export const PLUGINS_CONFIG_DIR = resolvePluginsConfigDir();
 export const USER_PERMISSIONS_DIR = resolveUserPermissionsDir();
 export const USER_ATTACHMENTS_DIR = resolveAttachmentsDir();
 export const ATTACHMENTS_DIR = resolveAttachmentsDir();

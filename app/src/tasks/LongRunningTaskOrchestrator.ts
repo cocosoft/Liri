@@ -535,11 +535,30 @@ export class LongRunningTaskOrchestrator {
     });
 
     try {
+      // 2026-08-06：PDCA C（Review）接入机械验证（verifyProject）——先跑编译/测试，
+      // 结果作为 Reviewer 输入上下文，形成"机械验证 + LLM 语义审查"两级防线。
+      let mechanicalVerify = '';
+      try {
+        const { verifyProject } = await import('../query/verifyProject.js');
+        const verifyResult = await Promise.race([
+          verifyProject(),
+          new Promise<string>((_, reject) =>
+            setTimeout(() => reject(new Error('verify_timeout')), 30000)
+          ),
+        ]).catch((err) => `verify skipped: ${String(err)}`);
+        if (typeof verifyResult === 'string' && verifyResult) {
+          mechanicalVerify = verifyResult;
+        }
+      } catch (_err) {
+        // @ignore-catch: 机械验证失败不阻塞 Review（降级为仅语义审查）
+      }
+
       const reviewPrompt = [
         `审查以下步骤的执行结果：`,
         `步骤: ${step.description}`,
         step.acceptanceCriteria ? `验收标准: ${step.acceptanceCriteria}` : '',
         `实际输出: ${step.result || '(无输出)'}`,
+        mechanicalVerify ? `机械验证结果:\n${mechanicalVerify}` : '',
         `请输出 JSON 审查结果: {"pass":bool,"score":0-100,"issues":[{"severity":"critical|major|minor","description":"..."}],"summary":"..."}`,
       ].join('\n');
 

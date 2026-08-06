@@ -1,7 +1,17 @@
 /**
  * 第三方注册表类型（用于标注具体来源，不影响宏观分类）
+ * 2026-08-06：扩展主流 MCP 市场（MCP.so / MCPMarket.cn / 魔搭 MCP 广场 / mcp-marketplace.io / mcpservers.org）
  */
-export type ThirdPartyRegistry = 'github' | 'npm' | 'smithery' | 'manual';
+export type ThirdPartyRegistry =
+  | 'github'
+  | 'npm'
+  | 'smithery'
+  | 'mcpso'
+  | 'mcpmarket'
+  | 'modelscope'
+  | 'mcpmarketplaceio'
+  | 'mcpservers'
+  | 'manual';
 
 /**
  * MCP 注册表宏观分类（公开 API 层）

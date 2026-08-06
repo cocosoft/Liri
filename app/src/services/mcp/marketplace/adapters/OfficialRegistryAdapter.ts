@@ -20,6 +20,13 @@ const logger = new Logger({
 
 const OFFICIAL_REGISTRY_API = 'https://registry.modelcontextprotocol.io/v0';
 
+/** 根据启动命令推断安装类型：uvx 为 Python(pypi)，其余默认 npm */
+function getInstallTypes(
+  command?: string
+): Array<'npm' | 'pypi' | 'docker' | 'binary'> {
+  return command === 'uvx' ? ['pypi'] : ['npm'];
+}
+
 export class OfficialRegistryAdapter implements RegistryAdapter {
   readonly id = 'official';
   readonly registryType = 'official' as const;
@@ -51,7 +58,7 @@ export class OfficialRegistryAdapter implements RegistryAdapter {
           author: 'official',
           categories: [s.category].filter(Boolean),
           isOfficial: true,
-          installTypes: ['npm'],
+          installTypes: getInstallTypes(s.command),
           rating: 0,
           installCount: 0,
           lastUpdated: '',
@@ -84,7 +91,7 @@ export class OfficialRegistryAdapter implements RegistryAdapter {
         author: 'official',
         categories: [server.category].filter(Boolean),
         isOfficial: true,
-        installTypes: ['npm'],
+        installTypes: getInstallTypes(server.command),
         rating: 0,
         installCount: 0,
         lastUpdated: '',

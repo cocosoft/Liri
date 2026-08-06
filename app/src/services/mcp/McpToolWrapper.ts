@@ -87,8 +87,13 @@ export class McpToolWrapper implements Tool {
     _context: ToolUseContext,
     _onProgress?: unknown
   ): Promise<ToolResult> {
+    const start = Date.now();
     const client = this.getClient();
     if (!client) {
+      // P4-5：工具调用审计（未连接）
+      logger.warn(
+        `MCP 工具调用审计（未连接）: server=${this.serverName} tool=${this.toolName}`
+      );
       return {
         success: false,
         error: `MCP server "${this.serverName}" is not connected`,
@@ -112,6 +117,12 @@ export class McpToolWrapper implements Tool {
           .filter(Boolean)
           .join('\n') || '';
 
+      // P4-5：工具调用审计（server/tool/耗时/结果）
+      logger.info(
+        `MCP 工具调用审计: server=${this.serverName} tool=${this.toolName} ` +
+          `success=${!result.isError} duration=${Date.now() - start}ms`
+      );
+
       return {
         success: !result.isError,
         output: textContent,
@@ -122,6 +133,10 @@ export class McpToolWrapper implements Tool {
         mcpMeta: result._meta ? { _meta: result._meta } : undefined,
       };
     } catch (error) {
+      logger.warn(
+        `MCP 工具调用审计（失败）: server=${this.serverName} tool=${this.toolName} ` +
+          `duration=${Date.now() - start}ms`
+      );
       return {
         success: false,
         error: `MCP tool call failed: ${error instanceof Error ? error.message : String(error)}`,

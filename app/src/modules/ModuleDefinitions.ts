@@ -416,6 +416,23 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     description: 'MCP模块，提供模型控制协议支持',
     dependencies: ['core', 'infrastructure', 'featureflags', 'oauth'],
     optionalDependencies: ['memory', 'monitoring'],
+    // 2026-08-06 P0-1：补模块生命周期接线（原仅元数据、无 instance → 注册后 initialize 空操作，MCP 从未实际初始化）
+    async initialize() {
+      const { mcpSystem } = await import('@modules/services/mcp');
+      // 3 秒超时保护：MCP 初始化失败/超时仅 warn 不阻塞启动（参照 prefetchOfficialMcpUrls 风格）
+      await Promise.race([
+        mcpSystem.initialize(),
+        new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error('mcp_init_timeout')), 3000)
+        ),
+      ]).catch((err) => {
+        logger.warn(`MCP 系统初始化超时或失败（非阻塞）: ${String(err)}`);
+      });
+    },
+    async destroy() {
+      const { mcpSystem } = await import('@modules/services/mcp');
+      await mcpSystem.cleanup();
+    },
   },
 
   'plugin-sdk': {
@@ -897,6 +914,7 @@ export const MODULE_INITIALIZATION_ORDER: string[] = [
   'channels',
   'tools',
   'commands',
+  'mcp', // MCP 模块：doc 依赖 mcp（L825），须在 doc 之前 CRITICAL 初始化，兑现"启动即用"
   'doc', // 办公模块：需在 CRITICAL 阶段初始化以注册 MCP 工具
 
   // ==================== DEFERRED 阶段 ====================
@@ -914,7 +932,6 @@ export const MODULE_INITIALIZATION_ORDER: string[] = [
   'chronos',
   'cost',
   'lsp',
-  'mcp',
   'query',
   'knowledge',
 

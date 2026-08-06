@@ -38,7 +38,6 @@ import {
 } from './api/index.js';
 import type { IPluginAPI } from './api/index.js';
 import { BundledPluginManager } from './bundled/BundledPluginManager';
-import { RegistrationStub } from './stub/RegistrationStub';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import {
@@ -256,6 +255,8 @@ export class PluginSystem {
       KernelServiceId.CONFIG_MANAGER,
       this.configManager
     );
+    // 2026-08-06 新增：加载持久化插件配置（~/.pyapp/plugins/config/config.json）
+    this.configManager.loadPersistedConfigs();
     this._kernelRegistry.register(
       KernelServiceId.EVENT_SYSTEM,
       this.eventSystem

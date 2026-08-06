@@ -299,6 +299,20 @@ export const FEATURE_FLAGS = {
   FILE_CONVERTER_EPUB: true,
   /** ZIP 递归转换 */
   FILE_CONVERTER_ZIP: true,
+
+  // ───── 版本分层（Pro 版能力，默认关闭）─────
+  // 占位默认 false；可用 FEATURE_PRO_* 环境变量开启。
+  // license 体系恢复后，默认值由 tier 决定（见版本划分方案）。
+  /** Pro：视频生成 */
+  PRO_VIDEO_GENERATION: false,
+  /** Pro：办公套件（文档/邮件/日历） */
+  PRO_OFFICE_SUITE: false,
+  /** Pro：PDCA 完整流程 */
+  PRO_PDCA_FULL: false,
+  /** Pro：安全五件套（信任工作区/自定义规则/智能路由） */
+  PRO_SECURITY_SUITE: false,
+  /** Pro：Swarm 编排 */
+  PRO_SWARM: false,
 } as const;
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;

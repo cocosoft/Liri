@@ -244,12 +244,12 @@ function TaskAssignment() {
                   setPhaseMapping(next);
                 }}
                 className={`ml-4 shrink-0 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px] ${
-                  !phaseMapping[phase.key] ? "text-gray-400 dark:text-gray-500" : ""
+                  !phaseMapping[phase.key]
+                    ? "text-gray-400 dark:text-gray-500"
+                    : ""
                 }`}
               >
-                <option value="">
-                  — 默认 —
-                </option>
+                <option value="">— 默认 —</option>
                 {Object.entries(modelsByProvider).map(
                   ([provider, providerModels]) => {
                     const available = getAvailableModels(

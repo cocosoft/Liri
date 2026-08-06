@@ -533,13 +533,38 @@ async function updatePlugin(name: string): Promise<CommandResult> {
 
 /**
  * 搜索插件
+ * 2026-08-06 修复：桥接 PluginMarketplace 真实搜索（原实现仅返回提示文案）
  */
 async function searchPlugins(query: string): Promise<CommandResult> {
-  return {
-    success: true,
-    type: 'text',
-    message: `搜索: "${query}" — 请访问 npm registry 或 PyAPP Hub 搜索插件`,
-  };
+  try {
+    const { pluginMarketplace } = await import('@modules/plugins/marketplace');
+    const result = pluginMarketplace.search({ query, page: 1, pageSize: 20 });
+
+    if (result.plugins.length === 0) {
+      return {
+        success: true,
+        type: 'text',
+        message: `未找到与 "${query}" 匹配的插件。可运行 /plugins list 查看已安装插件。`,
+      };
+    }
+
+    const lines = result.plugins.map(
+      (p) =>
+        `- ${p.name} — ${(p as { description?: string }).description || '无描述'}`
+    );
+
+    return {
+      success: true,
+      type: 'text',
+      message: `找到 ${result.total} 个插件：\n${lines.join('\n')}`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      type: 'error',
+      error: `搜索失败: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
 }
 
 export default pluginsCommand;

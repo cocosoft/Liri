@@ -28,7 +28,7 @@ const AGENT_TYPES = [
   'explore',
   'plan',
   'verification',
-  'claude-code-guide',
+  'code-guide',
   'statusline-setup',
 ] as const;
 
@@ -138,7 +138,7 @@ function getPromptForCommand(): Promise<Array<{ type: 'text'; text: string }>> {
         '2. **create <name> [--type <type>]** - 创建并注册新的 Agent 实例',
         '3. **delete <name|id>** - 删除 Agent 实例或停止运行中的子代理',
         '',
-        '可用类型：general, explore, plan, verification, claude-code-guide, statusline-setup',
+        '可用类型：general, explore, plan, verification, code-guide, statusline-setup',
         '',
         '示例：',
         '  /agent-instance list',

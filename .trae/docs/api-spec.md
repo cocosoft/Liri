@@ -399,6 +399,20 @@
 | POST | `/v1/mcp/marketplace/servers/{id}/uninstall` | ✅ | `mcpMarketplaceService.uninstall` |
 | POST | `/v1/mcp/marketplace/servers/{id}/toggle` | ✅ | `mcpMarketplaceService.toggleServer` |
 
+### §3.22.1 插件市场（2026-08-06 新增，J-13）
+
+> 服务对象为 Liri 应用插件（PluginMarketplace），与 MCP 市场（服务 MCP 协议服务器）不同。
+
+| 方法 | 路径 | 后端状态 | 前端调用方 |
+|------|------|----------|-----------|
+| GET | `/v1/plugins/marketplace/search?query=&page=&pageSize=` | ✅ | `pluginMarketplaceService.search` |
+| GET | `/v1/plugins/marketplace/categories` | ✅ | `pluginMarketplaceService.getCategories` |
+| GET | `/v1/plugins/marketplace/installed` | ✅ | `pluginMarketplaceService.getInstalledPlugins` |
+| GET | `/v1/plugins/marketplace/plugins/{id}` | ✅ | `pluginMarketplaceService.getPluginDetail` |
+| POST | `/v1/plugins/marketplace/plugins/{id}/install` | ✅ | `pluginMarketplaceService.install` |
+| POST | `/v1/plugins/marketplace/plugins/{id}/uninstall` | ✅ | `pluginMarketplaceService.uninstall` |
+
+
 ### §3.23 MCP 服务器 & 工具
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |

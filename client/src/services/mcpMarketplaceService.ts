@@ -1,65 +1,21 @@
 import { httpLegacy as http } from "./httpClient";
+import type {
+  ServerDetail,
+  SearchResult,
+  InstalledMCPServer as InstalledMCPServerBase,
+  ThirdPartyRegistry,
+  RegistryType,
+} from "@mcp-types";
 
-export type ThirdPartyRegistry = "github" | "npm" | "smithery" | "manual";
-
-export type RegistryType = "official" | "third_party";
-
-export type MCPSource = "builtin" | "official" | "third_party";
-
-export interface MCPServerSummary {
-  name: string;
-  title: string;
-  description: string;
-  registry: RegistryType;
-  sourceRegistry?: ThirdPartyRegistry;
-  author: string;
-  categories: string[];
-  isOfficial: boolean;
-  installTypes: string[];
-  rating: number;
-  installCount: number;
-  lastUpdated: string;
-  protocolVersion: string;
-}
-
-export interface ServerToolDef {
-  name: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-}
-
-export interface ServerDetail extends MCPServerSummary {
-  readme: string;
-  tools: ServerToolDef[];
-  requiredEnv: Array<{
-    name: string;
-    description: string;
-    required: boolean;
-    defaultValue?: string;
-  }>;
-  exampleConfig: Record<string, unknown>;
-  license: string;
-  repository: string;
-  knownIssues: string[];
-}
-
-export interface SearchResult {
-  server: MCPServerSummary;
-  score?: number;
-}
+export type { ThirdPartyRegistry, RegistryType, MCPSource } from "@mcp-types";
+export type { MCPServerSummary, ServerDetail, SearchResult } from "@mcp-types";
 
 export type MCPTransport = "http" | "stdio" | "unknown";
 
-export interface InstalledMCPServer {
-  name: string;
-  title: string;
-  installedFrom: MCPSource;
-  sourceRegistry?: ThirdPartyRegistry;
-  installedAt: number;
-  updatedAt: number;
-  version: string;
-  enabled: boolean;
-  autoUpdate: boolean;
+/**
+ * 前端扩展已安装服务器类型（后端为唯一事实源，此处仅补充运行时字段）
+ */
+export interface InstalledMCPServer extends InstalledMCPServerBase {
   connected?: boolean;
   configInFile?: boolean;
   transport?: MCPTransport;

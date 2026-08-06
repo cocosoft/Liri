@@ -31,7 +31,7 @@ export type AgentType =
   | 'explore'
   | 'plan'
   | 'verification'
-  | 'claude-code-guide'
+  | 'code-guide'
   | 'statusline-setup'
   | 'custom';
 
@@ -53,7 +53,7 @@ export interface SubTask {
   /** Agent名称 */
   name?: string;
   /** 模型覆盖 */
-  model?: 'sonnet' | 'opus' | 'haiku';
+  model?: string; // 模型 ID，由配置/模型体系提供（不硬编码）
 }
 
 export interface AgentInput {
@@ -64,7 +64,7 @@ export interface AgentInput {
   /** Agent类型 */
   subagent_type?: AgentType;
   /** 模型覆盖 */
-  model?: 'sonnet' | 'opus' | 'haiku';
+  model?: string; // 模型 ID，由配置/模型体系提供（不硬编码）
   /** 是否后台运行 */
   run_in_background?: boolean;
   /** Agent名称 */

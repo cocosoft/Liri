@@ -35,7 +35,7 @@ export interface BuiltinAgentConfig {
   name: string;
   description: string;
   whenToUse: string;
-  model: 'sonnet' | 'opus' | 'haiku';
+  model: string; // 模型 ID，由配置/模型体系提供（不硬编码）
   systemPrompt: string;
 }
 

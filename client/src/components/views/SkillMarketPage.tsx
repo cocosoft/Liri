@@ -228,21 +228,15 @@ function SkillMarketPage() {
 
   const handleExport = useCallback(async () => {
     try {
-      const data = await skillService.exportAll();
-      if (data.length === 0) {
-        addToast("info", "没有可导出的已安装技能");
-        return;
-      }
-      const blob = new Blob([JSON.stringify(data, null, 2)], {
-        type: "application/json",
-      });
+      // S2-1：导出为 ZIP 二进制并触发下载（后端返回 application/zip）
+      const blob = await skillService.exportAll();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `pyapp-skills-export-${Date.now()}.json`;
+      a.download = `pyapp-skills-export-${Date.now()}.zip`;
       a.click();
       URL.revokeObjectURL(url);
-      addToast("success", `已导出 ${data.length} 个技能`);
+      addToast("success", "已导出技能 ZIP 包");
     } catch {
       addToast("error", t("skill.exportFailed"));
     }

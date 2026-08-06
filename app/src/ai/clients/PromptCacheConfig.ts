@@ -41,29 +41,6 @@ export const DEFAULT_CACHE_CONFIG: PromptCacheConfig = {
 };
 
 /**
- * 支持提示缓存的模型列表
- * 仅 Claude 3.5 Sonnet 及以上支持
- */
-export const CACHE_SUPPORTED_MODELS: string[] = [
-  'claude-3-5-sonnet-20241022',
-  'claude-3-5-haiku-20241022',
-  'claude-sonnet-4-6',
-  'claude-sonnet-4-5-20250929',
-  'claude-haiku-4-5-20251001',
-  'claude-opus-4-6',
-  'claude-opus-4-5-20251101',
-];
-
-/**
- * 检查模型是否支持提示缓存
- * @param model 模型名称
- * @returns 是否支持
- */
-export function isCacheSupported(model: string): boolean {
-  return CACHE_SUPPORTED_MODELS.includes(model);
-}
-
-/**
  * 根据策略计算缓存断点位置
  * @param messageCount 消息总数
  * @param config 缓存配置

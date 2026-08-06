@@ -27,25 +27,6 @@ export const EFFORT_TO_BUDGET: Record<ThinkingEffort, number> = {
   high: 32000,
 };
 
-/**
- * 模型感知的 budget 乘数
- * 根据模型能力动态放大 thinking budget，充分发挥高端模型潜力
- */
-export const MODEL_BUDGET_MULTIPLIERS: Record<string, number> = {
-  'claude-opus-4': 2.0, // effort=high → 64K
-  'claude-sonnet-4': 1.5, // effort=high → 48K
-  'claude-3.5-sonnet': 1.0, // 32K（与当前 high 值一致）
-};
-
-/**
- * 各模型的 thinking budget 硬上限（token）
- * 防止乘数放大导致超出模型实际支持范围
- */
-export const MAX_BUDGET_PER_MODEL: Record<string, number> = {
-  'claude-opus-4': 64000,
-  'claude-sonnet-4': 48000,
-};
-
 export function buildThinkingConfig(
   options: ThinkingOptions = {},
   model?: string
@@ -98,33 +79,13 @@ export function parseEffortArg(
   return undefined;
 }
 
-export function modelSupportsThinking(model: string): boolean {
-  const canonical = model.toLowerCase();
-
-  // Claude 3（不含 3.5+）不支持 extended thinking
-  if (canonical.includes('claude-3') && !canonical.includes('claude-3.5')) {
-    return false;
-  }
-
-  // DeepSeek、OpenAI o1/o3 等通过 reasoning_content 支持推理内容展示
-  return true;
-}
-
-export function modelSupportsAdaptiveThinking(model: string): boolean {
-  const canonical = model.toLowerCase();
-
-  if (canonical.includes('opus') && canonical.includes('4')) {
-    return true;
-  }
-  if (canonical.includes('sonnet') && canonical.includes('4')) {
-    return true;
-  }
-
-  return false;
-}
-
+/**
+ * 计算 thinking budget（effort 映射，budget 由配置/effort 决定）
+ * 说明：模型是否支持 thinking 由模型体系 capabilities 判定（DB model_registry），
+ * 此处不按模型名硬编码。
+ */
 export function getThinkingBudgetForModel(
-  model: string,
+  _model: string,
   effort?: ThinkingEffort,
   overrideBudget?: number
 ): number {
@@ -133,24 +94,7 @@ export function getThinkingBudgetForModel(
   }
 
   const eff = effort ?? DEFAULT_THINKING_EFFORT;
-  const base = EFFORT_TO_BUDGET[eff] ?? DEFAULT_THINKING_BUDGET_TOKENS;
-
-  // 根据模型型号动态计算 budget
-  const canonicalModel = model.toLowerCase();
-  const multiplier =
-    Object.entries(MODEL_BUDGET_MULTIPLIERS).find(([key]) =>
-      canonicalModel.includes(key)
-    )?.[1] ?? 1.0;
-
-  const computed = Math.floor(base * multiplier);
-
-  // 应用硬上限
-  const maxBudget =
-    Object.entries(MAX_BUDGET_PER_MODEL).find(([key]) =>
-      canonicalModel.includes(key)
-    )?.[1] ?? 64000;
-
-  return Math.min(computed, maxBudget);
+  return EFFORT_TO_BUDGET[eff] ?? DEFAULT_THINKING_BUDGET_TOKENS;
 }
 
 export function shouldEnableThinkingByDefault(): boolean {

@@ -170,7 +170,8 @@ function checkModelStatus(report: DoctorReport): void {
 
     if (existsSync(modelsConfigPath)) {
       report.model.health = 'ok';
-      report.model.models = ['', 'deepseek-v4-pro', 'deepseek-v4-flash'];
+      // 不硬编码模型名（CS04/model-usage）：模型列表由模型体系提供
+      report.model.models = [];
     } else {
       report.model.health = 'unavailable';
     }

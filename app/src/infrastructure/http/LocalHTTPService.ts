@@ -497,7 +497,21 @@ export class LocalHTTPService {
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // S2-5：CORS 收紧 —— 仅放行 localhost / 127.0.0.1 任意端口（含 Tauri dev 5173/1420）；
+    // 无 Origin（Tauri 原生/非浏览器）保持 * 兼容
+    const origin = req.headers.origin;
+    if (origin) {
+      try {
+        const { hostname } = new URL(origin);
+        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+          res.setHeader('Access-Control-Allow-Origin', origin);
+        }
+      } catch {
+        // 非法 Origin：不设置 CORS 头（浏览器将拦截跨域）
+      }
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
     res.setHeader(
       'Access-Control-Allow-Methods',
       'GET, POST, PUT, PATCH, DELETE, OPTIONS'
@@ -3283,6 +3297,22 @@ export class LocalHTTPService {
   // ──────────────────────────────────────────────
 
   /**
+   * 技能写盘后重载用户技能 registry（2026-08-06）
+   * 使 LLM 通过 SkillTool 同步 / SkillInjectionService 注入立即可感知新建技能，无需重启。
+   */
+  private async reloadUserSkillsAfterWrite(): Promise<void> {
+    try {
+      const { reloadUserSkills } =
+        await import('@modules/constants/systemPromptSections');
+      await reloadUserSkills();
+    } catch (err) {
+      logger.warning('用户技能重载失败（不影响已落盘文件）', {
+        error: String(err),
+      });
+    }
+  }
+
+  /**
    * 获取 ClawHubAdapter 实例（v1.5 阶段 3：instanceof 运行时收窄替代 as unknown as 断言）
    * 优先从 ThirdPartyAdapterRegistry 获取，fallback 到直接 import
    */
@@ -3373,10 +3403,18 @@ export class LocalHTTPService {
       const skills: Record<string, unknown>[] = [];
       const seen = new Set<string>();
 
-      const scanDir = async (dir: string, source: string) => {
+      const scanDir = async (
+        dir: string,
+        source: string,
+        opts?: {
+          /** 排除的子目录名（如 vendor，避免第三方技能被误标为 user） */
+          exclude?: string[];
+        }
+      ) => {
         if (!existsSync(dir)) return;
         const entries = await readdir(dir, { withFileTypes: true });
         for (const entry of entries) {
+          if (opts?.exclude?.includes(entry.name)) continue;
           // 子目录：查找 SKILL.md
           if (entry.isDirectory()) {
             const skillDir = join(dir, entry.name);
@@ -3482,13 +3520,113 @@ export class LocalHTTPService {
       await scanDir(builtinDir, 'builtin');
 
       // 扫描用户技能（userSkillsDir 已在 resolveStatus 前声明）
-      await scanDir(userSkillsDir, 'user');
+      // 2026-08-06：排除 vendor 子目录（第三方技能独立，避免误标为 user）
+      await scanDir(userSkillsDir, 'user', { exclude: ['vendor'] });
+
+      // 2026-08-06：扫描第三方技能（~/.pyapp/skills/vendor/），标为 third_party
+      const { resolveVendorSkillsDir } = await import('@modules/core/paths');
+      await scanDir(resolveVendorSkillsDir(), 'third_party');
+
+      // 2026-08-06：补充 BundledSkillLoader 注册的内置技能（BUILTIN 源，程序化定义非 SKILL.md 文件）
+      // 归一化：按 skill.source 映射真实来源（builtin/official/third_party），不再硬编码 builtin
+      try {
+        const { skillRegistry: builtinRegistry } =
+          await import('@modules/constants/systemPromptSections');
+        for (const skill of builtinRegistry.getAll({ includeDisabled: true })) {
+          if (seen.has(skill.name)) continue;
+          seen.add(skill.name);
+          const sourceMap: Record<string, string> = {
+            builtin: 'builtin',
+            official: 'official',
+            third_party: 'third_party',
+          };
+          skills.push({
+            id: skill.name,
+            name: skill.name,
+            description: skill.description || '',
+            status: resolveStatus(skill.name),
+            category: 'general',
+            parameters: [],
+            createdAt: 0,
+            updatedAt: 0,
+            usageCount: 0,
+            lastUsedAt: null,
+            source: sourceMap[String(skill.source)] || 'builtin',
+            version: skill.version || '1.0.0',
+            filePath: `registry:${skill.name}`,
+            frontmatter: {
+              author: '',
+              version: skill.version || '1.0.0',
+              category: 'general',
+            },
+          });
+        }
+      } catch (_err) {
+        // @ignore-catch: 内置技能注册表不可用时跳过（不阻断用户技能列表）
+      }
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ skills, total: skills.length }));
     } catch (err) {
       this.sendError(res, err);
     }
+  }
+
+  /**
+   * 校验技能 ID（解码后），非法时写入 400 响应并返回 null（S0-1 统一入口）
+   */
+  private async validateSkillIdParam(
+    rawId: string,
+    res: http.ServerResponse
+  ): Promise<string | null> {
+    const { validateSkillId } =
+      await import('@modules/skills/loaders/adapter/safeSkillId');
+    const decoded = decodeURIComponent(rawId);
+    const idError = validateSkillId(decoded);
+    if (idError) {
+      res.writeHead(400, {
+        'Content-Type': 'application/json; charset=utf-8',
+      });
+      res.end(
+        JSON.stringify({
+          error: { code: 'INVALID_PARAM', message: idError },
+        })
+      );
+      return null;
+    }
+    return decoded;
+  }
+
+  /**
+   * 校验技能内相对文件路径（S0-2：拦截 .. / 绝对路径 / Windows 保留名，逐段复用 safeSkillId）
+   * @returns 错误消息（合法返回 null）
+   */
+  private async skillRelError(rel: string): Promise<string | null> {
+    if (!rel) return '空路径';
+    const normalized = rel.replace(/\\/g, '/');
+    if (normalized.includes('..')) return `非法条目路径: ${rel}`;
+    if (path.isAbsolute(normalized) || /^[a-zA-Z]:/.test(normalized)) {
+      return `非法条目路径: ${rel}`;
+    }
+    const { validateSkillId } =
+      await import('@modules/skills/loaders/adapter/safeSkillId');
+    for (const seg of normalized.split('/')) {
+      if (!seg || seg === '.') continue;
+      const err = validateSkillId(seg);
+      if (err) return `非法条目路径: ${rel} (${err})`;
+    }
+    return null;
+  }
+
+  /**
+   * frontmatter 字段值清洗（S0-4）：去除换行（防 --- 注入）并限制长度
+   */
+  private sanitizeSkillFrontmatterValue(value: string, maxLen: number): string {
+    return value
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/^---\s*/, '')
+      .slice(0, maxLen)
+      .trim();
   }
 
   /**
@@ -3545,6 +3683,35 @@ export class LocalHTTPService {
       }
 
       if (!skillFile) {
+        // 2026-08-06：内置技能为程序化定义（BundledSkillLoader），无 SKILL.md 文件；
+        // 回退读取 registry 中 BUILTIN 源技能的 prompt 内容
+        try {
+          const { skillRegistry: builtinRegistry } =
+            await import('@modules/constants/systemPromptSections');
+          const bundled = builtinRegistry.get(decodedId);
+          if (bundled?.impl?.kind === 'prompt') {
+            const prompts = await bundled.impl.getPromptForCommand('', {});
+            const content = prompts.map((p) => p.text).join('\n');
+            res.writeHead(200, {
+              'Content-Type': 'application/json; charset=utf-8',
+            });
+            res.end(
+              JSON.stringify({
+                content,
+                rawContent: content,
+                frontmatter: {
+                  name: bundled.name,
+                  description: bundled.description,
+                  version: bundled.version || '1.0.0',
+                },
+                linkedFiles: [],
+              })
+            );
+            return;
+          }
+        } catch (_err) {
+          // @ignore-catch: 内置技能回退失败则正常 404
+        }
         res.writeHead(404, {
           'Content-Type': 'application/json; charset=utf-8',
         });
@@ -3698,12 +3865,9 @@ export class LocalHTTPService {
             first === 'skills' ? parts.slice(2) : parts.slice(1)
           ).join('/');
           if (!rel) continue;
-          // zip-slip 防护（P3-19）：规范化路径必须落在技能目录内
-          if (
-            rel.includes('..') ||
-            rel.startsWith('/') ||
-            /^[a-zA-Z]:/.test(rel)
-          ) {
+          // zip-slip 防护（S0-2 强化）：规范化路径必须落在技能目录内
+          const relErr = await this.skillRelError(rel);
+          if (relErr) {
             res.writeHead(400, {
               'Content-Type': 'application/json; charset=utf-8',
             });
@@ -3711,7 +3875,7 @@ export class LocalHTTPService {
               JSON.stringify({
                 error: {
                   code: 'SKILL_IMPORT_REJECTED',
-                  message: `非法条目路径: ${entry.entryName}`,
+                  message: `${relErr}（来源: ${entry.entryName}）`,
                 },
               })
             );
@@ -3722,6 +3886,63 @@ export class LocalHTTPService {
       } else if (body.skillId && body.files && typeof body.files === 'object') {
         skillId = String(body.skillId);
         files = body.files;
+        // S0-2：JSON files 分支 rel 校验（此前遗漏，可写出任意路径）
+        for (const rel of Object.keys(files)) {
+          const relErr = await this.skillRelError(rel);
+          if (relErr) {
+            res.writeHead(400, {
+              'Content-Type': 'application/json; charset=utf-8',
+            });
+            res.end(
+              JSON.stringify({
+                error: { code: 'SKILL_IMPORT_REJECTED', message: relErr },
+              })
+            );
+            return;
+          }
+        }
+      } else if (Array.isArray(body.skills)) {
+        // S2-1 双兼容：{ skills: [{ name, description, category }] } 简易导入
+        const { sanitizeSkillId } =
+          await import('@modules/skills/loaders/adapter/safeSkillId');
+        const imported: string[] = [];
+        for (const item of body.skills) {
+          if (!item || typeof item.name !== 'string' || !item.name.trim()) {
+            continue;
+          }
+          const name = item.name.trim();
+          const safeName = sanitizeSkillId(name) || 'unnamed-skill';
+          const skillDir = path.join(userSkillsDir, safeName);
+          fs.mkdirSync(skillDir, { recursive: true });
+          const frontmatter = [
+            '---',
+            `name: ${this.sanitizeSkillFrontmatterValue(name, 200)}`,
+            `description: ${this.sanitizeSkillFrontmatterValue(
+              String(item.description ?? ''),
+              1000
+            )}`,
+            `category: ${this.sanitizeSkillFrontmatterValue(
+              String(item.category ?? 'general'),
+              100
+            )}`,
+            'version: 1.0.0',
+            '---',
+            '',
+          ].join('\n');
+          fs.writeFileSync(
+            path.join(skillDir, 'SKILL.md'),
+            frontmatter,
+            'utf-8'
+          );
+          imported.push(safeName);
+        }
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+        });
+        res.end(JSON.stringify({ success: true, imported }));
+        // 写盘后重载 registry，使新技能立即可被 SkillTool/注入感知（不阻塞响应）
+        void this.reloadUserSkillsAfterWrite();
+        return;
       }
 
       if (!skillId || Object.keys(files).length === 0) {
@@ -3781,6 +4002,8 @@ export class LocalHTTPService {
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, skillId, requiresApproval }));
+      // 写盘后重载 registry，使新技能立即可被 SkillTool/注入感知（不阻塞响应）
+      void this.reloadUserSkillsAfterWrite();
     } catch (err) {
       this.sendError(res, err);
     }
@@ -3796,9 +4019,12 @@ export class LocalHTTPService {
     skillId: string
   ): Promise<void> {
     try {
+      const decoded = await this.validateSkillIdParam(skillId, res);
+      if (decoded === null) return;
+
       const { resolvePyappHome } = await import('@modules/core/paths');
       const userSkillsDir = path.join(resolvePyappHome(), 'skills');
-      const src = path.join(userSkillsDir, decodeURIComponent(skillId));
+      const src = path.join(userSkillsDir, decoded);
 
       if (!fs.existsSync(src)) {
         res.writeHead(404, {
@@ -3838,9 +4064,12 @@ export class LocalHTTPService {
     skillId: string
   ): Promise<void> {
     try {
+      const decoded = await this.validateSkillIdParam(skillId, res);
+      if (decoded === null) return;
+
       const { resolvePyappHome } = await import('@modules/core/paths');
       const userSkillsDir = path.join(resolvePyappHome(), 'skills');
-      const skillDir = path.join(userSkillsDir, decodeURIComponent(skillId));
+      const skillDir = path.join(userSkillsDir, decoded);
 
       if (!fs.existsSync(skillDir)) {
         res.writeHead(404, {
@@ -3885,17 +4114,21 @@ export class LocalHTTPService {
     skillId: string
   ): Promise<void> {
     try {
+      // S0-1：skillId 与 filePath 双重校验
+      const decodedId = await this.validateSkillIdParam(skillId, res);
+      if (decodedId === null) return;
+
       const urlObj = new URL(req.url!, `http://${req.headers.host}`);
       const filePath = urlObj.searchParams.get('path') || '';
 
-      // 基础路径穿越拦截（P3-1）
-      if (!filePath || filePath.includes('..') || path.isAbsolute(filePath)) {
+      const pathErr = await this.skillRelError(filePath);
+      if (pathErr) {
         res.writeHead(400, {
           'Content-Type': 'application/json; charset=utf-8',
         });
         res.end(
           JSON.stringify({
-            error: { code: 'INVALID_PARAM', message: '非法文件路径' },
+            error: { code: 'INVALID_PARAM', message: pathErr },
           })
         );
         return;
@@ -3903,7 +4136,6 @@ export class LocalHTTPService {
 
       const { resolveProjectRoot, resolvePyappHome } =
         await import('@modules/core/paths');
-      const decodedId = decodeURIComponent(skillId);
       const candidateDirs = [
         path.join(
           resolveProjectRoot(),
@@ -4311,575 +4543,6 @@ export class LocalHTTPService {
 
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: true, enabled }));
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  // ========== MCP Marketplace Handlers ==========
-
-  /**
-   * 处理 MCP 市场搜索请求 GET /v1/mcp/marketplace/search?query=xx&category=xx
-   */
-  private async handleMCPMarketplaceSearch(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const parsedUrl = new URL(
-        req.url!,
-        `http://${req.headers.host || 'localhost'}`
-      );
-      const query = parsedUrl.searchParams.get('query') || '';
-      const category = parsedUrl.searchParams.get('category') || undefined;
-      const registry = parsedUrl.searchParams.get('registry') as
-        | RegistryType
-        | undefined;
-      const sourceRegistry = parsedUrl.searchParams.get('sourceRegistry') as
-        | ThirdPartyRegistry
-        | undefined;
-
-      const { mcpSystem } = await import('@modules/services/mcp');
-
-      if (!mcpSystem || !mcpSystem.marketplace) {
-        res.writeHead(503, {
-          'Content-Type': 'application/json; charset=utf-8',
-        });
-        res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
-        return;
-      }
-
-      const results = await mcpSystem.marketplace.search({
-        query,
-        category,
-        registry,
-        sourceRegistry,
-      });
-
-      if (!results || !Array.isArray(results)) {
-        res.writeHead(200, {
-          'Content-Type': 'application/json; charset=utf-8',
-        });
-        res.end(JSON.stringify([]));
-        return;
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(results));
-    } catch (err) {
-      await handleError(err, {
-        module: 'infra:http',
-        action: 'mcp_marketplace_search',
-      });
-      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(
-        JSON.stringify({
-          error: {
-            message: '搜索失败',
-            detail: err instanceof Error ? err.message : String(err),
-          },
-        })
-      );
-    }
-  }
-
-  /**
-   * 处理获取 MCP 市场注册表列表 GET /v1/mcp/marketplace/registries
-   * 返回可用第三方注册表源（GitHub/NPM/Smithery 等）
-   */
-  private async handleMCPMarketplaceRegistries(
-    _req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const { mcpSystem } = await import('@modules/services/mcp');
-
-      if (!mcpSystem || !mcpSystem.marketplace) {
-        res.writeHead(503, {
-          'Content-Type': 'application/json; charset=utf-8',
-        });
-        res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
-        return;
-      }
-
-      const marketplace = mcpSystem.marketplace;
-      if (!marketplace.registryHub) {
-        res.writeHead(503, {
-          'Content-Type': 'application/json; charset=utf-8',
-        });
-        res.end(JSON.stringify({ error: { message: '注册表中心未初始化' } }));
-        return;
-      }
-
-      const adapters = marketplace.registryHub.getAdapters();
-      if (!adapters || !Array.isArray(adapters)) {
-        res.writeHead(200, {
-          'Content-Type': 'application/json; charset=utf-8',
-        });
-        res.end(JSON.stringify({ registries: [] }));
-        return;
-      }
-
-      const registries = adapters
-        .filter((a) => a && a.registryType === 'third_party')
-        .map((a) => ({
-          id: (a.sourceRegistry as string) || a.id,
-          name: a.displayName || 'Unknown',
-          sourceRegistry: a.sourceRegistry,
-        }));
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ registries }));
-    } catch (err) {
-      await handleError(err, {
-        module: 'infra:http',
-        action: 'mcp_registries',
-      });
-      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(
-        JSON.stringify({
-          error: {
-            message: '获取注册表列表失败',
-            detail: err instanceof Error ? err.message : String(err),
-          },
-        })
-      );
-    }
-  }
-
-  /**
-   * 处理获取 MCP 市场分类请求 GET /v1/mcp/marketplace/categories
-   */
-  private async handleMCPMarketplaceCategories(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const { mcpSystem } = await import('@modules/services/mcp');
-
-      if (!mcpSystem || !mcpSystem.marketplace) {
-        res.writeHead(503, {
-          'Content-Type': 'application/json; charset=utf-8',
-        });
-        res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
-        return;
-      }
-
-      const categories = await mcpSystem.marketplace.getCategories();
-
-      if (!categories || !Array.isArray(categories)) {
-        res.writeHead(200, {
-          'Content-Type': 'application/json; charset=utf-8',
-        });
-        res.end(JSON.stringify([]));
-        return;
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(categories));
-    } catch (err) {
-      await handleError(err, {
-        module: 'infra:http',
-        action: 'mcp_categories',
-      });
-      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(
-        JSON.stringify({
-          error: {
-            message: '获取分类列表失败',
-            detail: err instanceof Error ? err.message : String(err),
-          },
-        })
-      );
-    }
-  }
-
-  /**
-   * 处理获取 MCP 服务器详情请求 GET /v1/mcp/marketplace/servers/:serverId
-   */
-  private async handleMCPMarketplaceServerDetail(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    serverId: string
-  ): Promise<void> {
-    try {
-      const { mcpSystem } = await import('@modules/services/mcp');
-
-      if (!mcpSystem || !mcpSystem.marketplace) {
-        res.writeHead(503, {
-          'Content-Type': 'application/json; charset=utf-8',
-        });
-        res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
-        return;
-      }
-
-      const detail = await mcpSystem.marketplace.getServerDetail(serverId);
-
-      if (!detail) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Server not found' } }));
-        return;
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(detail));
-    } catch (err) {
-      await handleError(err, {
-        module: 'infra:http',
-        action: 'mcp_server_detail',
-      });
-      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(
-        JSON.stringify({
-          error: {
-            message: '获取服务器详情失败',
-            detail: err instanceof Error ? err.message : String(err),
-          },
-        })
-      );
-    }
-  }
-
-  /**
-   * 处理获取已安装 MCP 服务器列表 GET /v1/mcp/marketplace/installed
-   */
-  private async handleMCPInstalledServers(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const { mcpSystem } = await import('@modules/services/mcp');
-
-      if (!mcpSystem || !mcpSystem.marketplace) {
-        res.writeHead(503, {
-          'Content-Type': 'application/json; charset=utf-8',
-        });
-        res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
-        return;
-      }
-
-      const servers = mcpSystem.marketplace.getInstalledServers();
-      if (!servers || !Array.isArray(servers)) {
-        res.writeHead(200, {
-          'Content-Type': 'application/json; charset=utf-8',
-        });
-        res.end(JSON.stringify([]));
-        return;
-      }
-
-      const detailed = servers.map((s) => {
-        const detail = mcpSystem.marketplace.getInstalledServerDetail(s.name);
-        return {
-          ...s,
-          connected: detail.connected,
-          configInFile: detail.config ? true : false,
-        };
-      });
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(detailed));
-    } catch (err) {
-      await handleError(err, {
-        module: 'infra:http',
-        action: 'mcp_installed_list',
-      });
-      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(
-        JSON.stringify({
-          error: {
-            message: '获取已安装服务器列表失败',
-            detail: err instanceof Error ? err.message : String(err),
-          },
-        })
-      );
-    }
-  }
-
-  /**
-   * 处理安装 MCP 服务器请求 POST /v1/mcp/marketplace/servers/:serverId/install
-   */
-  private async handleMCPInstallServer(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    serverId: string
-  ): Promise<void> {
-    try {
-      const { mcpSystem } = await import('@modules/services/mcp');
-
-      if (!mcpSystem || !mcpSystem.marketplace) {
-        res.writeHead(503, {
-          'Content-Type': 'application/json; charset=utf-8',
-        });
-        res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
-        return;
-      }
-
-      await mcpSystem.marketplace.install(serverId);
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: true, serverId }));
-    } catch (err) {
-      await handleError(err, {
-        module: 'infra:http',
-        action: 'mcp_install_server',
-        context: { serverId },
-      });
-      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(
-        JSON.stringify({
-          error: {
-            message: `安装服务器失败: ${serverId}`,
-            detail: err instanceof Error ? err.message : String(err),
-          },
-        })
-      );
-    }
-  }
-
-  /**
-   * 处理卸载 MCP 服务器请求 POST /v1/mcp/marketplace/servers/:serverId/uninstall
-   */
-  private async handleMCPUninstallServer(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    serverId: string
-  ): Promise<void> {
-    try {
-      const { mcpSystem } = await import('@modules/services/mcp');
-
-      if (!mcpSystem || !mcpSystem.marketplace) {
-        res.writeHead(503, {
-          'Content-Type': 'application/json; charset=utf-8',
-        });
-        res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
-        return;
-      }
-
-      await mcpSystem.marketplace.uninstall(serverId);
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: true, serverId }));
-    } catch (err) {
-      await handleError(err, {
-        module: 'infra:http',
-        action: 'mcp_uninstall',
-        context: { serverId },
-      });
-      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(
-        JSON.stringify({
-          error: {
-            message: `卸载服务器失败: ${serverId}`,
-            detail: err instanceof Error ? err.message : String(err),
-          },
-        })
-      );
-    }
-  }
-
-  /**
-   * 处理切换 MCP 服务器启用状态 POST /v1/mcp/marketplace/servers/:serverId/toggle
-   */
-  private async handleMCPToggleServer(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    serverId: string
-  ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const parsedBody = body ? JSON.parse(body) : {};
-      const enabled = parsedBody.enabled;
-
-      if (enabled === undefined) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'enabled field is required (true/false)' },
-          })
-        );
-        return;
-      }
-
-      const { mcpSystem } = await import('@modules/services/mcp');
-
-      if (!mcpSystem || !mcpSystem.marketplace) {
-        res.writeHead(503, {
-          'Content-Type': 'application/json; charset=utf-8',
-        });
-        res.end(JSON.stringify({ error: { message: 'MCP 市场服务未初始化' } }));
-        return;
-      }
-
-      await mcpSystem.marketplace.toggleServer(serverId, enabled);
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: true, serverId, enabled }));
-    } catch (err) {
-      await handleError(err, {
-        module: 'infra:http',
-        action: 'mcp_toggle_server',
-        context: { serverId },
-      });
-      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(
-        JSON.stringify({
-          error: {
-            message: `切换服务器状态失败: ${serverId}`,
-            detail: err instanceof Error ? err.message : String(err),
-          },
-        })
-      );
-    }
-  }
-
-  /**
-   * 处理验证 MCP 服务器连接 POST /v1/mcp/servers/:serverId/verify
-   */
-  private async handleMCPVerifyServer(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    serverId: string
-  ): Promise<void> {
-    try {
-      const { getMCPServerManager } =
-        await import('@modules/services/mcp/MCPServerManager');
-      const { mcpSystem } = await import('@modules/services/mcp');
-
-      const manager = getMCPServerManager();
-      const detail = mcpSystem.marketplace.getInstalledServerDetail(serverId);
-
-      if (!detail.metadata) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            success: false,
-            error: `服务器 "${serverId}" 未安装`,
-          })
-        );
-        return;
-      }
-
-      const server = manager.getServer(serverId);
-      if (!server) {
-        res.writeHead(200, {
-          'Content-Type': 'application/json; charset=utf-8',
-        });
-        res.end(
-          JSON.stringify({
-            success: false,
-            connected: false,
-            status: 'not_found',
-          })
-        );
-        return;
-      }
-
-      // 尝试连接
-      const wasConnected = detail.connected;
-      const success = await server.connect();
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(
-        JSON.stringify({
-          success,
-          connected: success,
-          status: success ? 'connected' : 'failed',
-          wasConnected,
-        })
-      );
-    } catch (err) {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(
-        JSON.stringify({
-          success: false,
-          connected: false,
-          status: 'error',
-          error: err instanceof Error ? err.message : String(err),
-        })
-      );
-    }
-  }
-
-  /**
-   * 处理列出所有 MCP 工具 GET /v1/mcp/tools
-   */
-  private async handleMCPListTools(
-    req: http.IncomingMessage,
-    res: http.ServerResponse
-  ): Promise<void> {
-    try {
-      const { getMCPServerManager } =
-        await import('@modules/services/mcp/MCPServerManager');
-      const { mcpSystem } = await import('@modules/services/mcp');
-      const manager = getMCPServerManager();
-      const serverInfos = manager.getServerInfos();
-
-      const tools: Array<{
-        name: string;
-        description: string;
-        server: string;
-        inputSchema: Record<string, unknown>;
-        enabled: boolean;
-      }> = [];
-
-      for (const info of serverInfos) {
-        for (const tool of info.tools || []) {
-          const enabled = !mcpSystem.marketplace.isToolDisabled(
-            info.name,
-            tool.name
-          );
-          tools.push({
-            name: tool.name,
-            description: tool.description || '',
-            server: info.name,
-            inputSchema: (tool.inputSchema as Record<string, unknown>) || {},
-            enabled,
-          });
-        }
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ tools, total: tools.length }));
-    } catch (err) {
-      this.sendError(res, err);
-    }
-  }
-
-  /**
-   * 处理切换 MCP 工具启用状态 PATCH /v1/mcp/tools/:toolName/toggle
-   * body: { enabled: boolean, server?: string }
-   */
-  private async handleMCPToggleTool(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    toolName: string
-  ): Promise<void> {
-    try {
-      const body = await this.readRequestBody(req);
-      const parsedBody = body ? JSON.parse(body) : {};
-      const enabled = parsedBody.enabled;
-      const serverName = parsedBody.server as string | undefined;
-
-      if (enabled === undefined) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: { message: 'enabled field is required (true/false)' },
-          })
-        );
-        return;
-      }
-
-      // 工具级启用/禁用通过 marketplace 的 tool toggle 实现
-      const { mcpSystem } = await import('@modules/services/mcp');
-      await mcpSystem.marketplace.toggleTool(
-        serverName || toolName,
-        toolName,
-        enabled
-      );
-
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ success: true, tool: toolName, enabled }));
     } catch (err) {
       this.sendError(res, err);
     }
@@ -5660,14 +5323,24 @@ export class LocalHTTPService {
     const { sanitizeSkillId } =
       await import('@modules/skills/loaders/adapter/safeSkillId');
     const safeName = sanitizeSkillId(name) || 'unnamed-skill';
+    // S0-4：frontmatter 注入防护 —— 拦截 \n / --- 注入，限制长度
+    const cleanName = this.sanitizeSkillFrontmatterValue(name, 200) || safeName;
+    const cleanDescription = this.sanitizeSkillFrontmatterValue(
+      description,
+      1000
+    );
+    const cleanCategory = this.sanitizeSkillFrontmatterValue(
+      category || 'general',
+      100
+    );
     const skillDir = path.join(userSkillsDir, safeName);
 
     fs.mkdirSync(skillDir, { recursive: true });
     const frontmatter = [
       '---',
-      `name: ${name}`,
-      `description: ${description || ''}`,
-      `category: ${category || 'general'}`,
+      `name: ${cleanName}`,
+      `description: ${cleanDescription}`,
+      `category: ${cleanCategory}`,
       'version: 1.0.0',
       '---',
       '',
@@ -5676,10 +5349,10 @@ export class LocalHTTPService {
 
     return {
       id: safeName,
-      name,
-      description,
+      name: cleanName,
+      description: cleanDescription,
       status: 'enabled',
-      category: category || 'general',
+      category: cleanCategory,
       version: '1.0.0',
       source: 'user',
       createdAt: Date.now(),
@@ -5693,14 +5366,105 @@ export class LocalHTTPService {
     skillId: string
   ): Promise<void> {
     try {
+      const decoded = await this.validateSkillIdParam(skillId, res);
+      if (decoded === null) return;
+
+      const body = JSON.parse((await this.readRequestBody(req)) || '{}');
+
+      // S2-1 ④：PUT 携带本地技能内容更新字段 → 更新本地 SKILL.md（原实现丢弃 body）
+      if (body && typeof body === 'object' && Object.keys(body).length > 0) {
+        const { resolvePyappHome } = await import('@modules/core/paths');
+        const skillMdPath = path.join(
+          resolvePyappHome(),
+          'skills',
+          decoded,
+          'SKILL.md'
+        );
+        if (fs.existsSync(skillMdPath)) {
+          const updated = await this.updateLocalSkill(
+            decoded,
+            body as Record<string, unknown>,
+            skillMdPath
+          );
+          res.writeHead(200, {
+            'Content-Type': 'application/json; charset=utf-8',
+          });
+          res.end(JSON.stringify({ success: true, skill: updated }));
+          this.broadcastEvent('skill:updated', { skill: updated });
+          // 内容更新后重载 registry（新技能/改名场景），不阻塞响应
+          void this.reloadUserSkillsAfterWrite();
+          return;
+        }
+      }
+
+      // 市场技能更新（fallback）
       const adapter = await this.getClawHubAdapter();
-      const skill = await adapter.updateSkill(skillId);
+      const skill = await adapter.updateSkill(decoded);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(skill));
+      res.end(JSON.stringify({ success: true, skill }));
       this.broadcastEvent('skill:updated', { skill });
     } catch (err) {
       this.sendError(res, err);
     }
+  }
+
+  /**
+   * 更新本地技能 SKILL.md（S2-1 ④：前端 PUT body → 本地内容更新）
+   */
+  private async updateLocalSkill(
+    skillId: string,
+    updates: Record<string, unknown>,
+    skillMdPath: string
+  ): Promise<Record<string, unknown>> {
+    const raw = fs.readFileSync(skillMdPath, 'utf-8');
+    const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n/);
+    const oldBody = fmMatch ? raw.slice(fmMatch[0].length) : raw;
+    const oldFm: Record<string, string> = {};
+    if (fmMatch) {
+      for (const line of fmMatch[1].split('\n')) {
+        const m = line.match(/^(\w[\w-]*):\s*(.+)$/);
+        if (m) oldFm[m[1]] = m[2].trim();
+      }
+    }
+
+    const name = this.sanitizeSkillFrontmatterValue(
+      String(updates.name ?? oldFm.name ?? skillId),
+      200
+    );
+    const description = this.sanitizeSkillFrontmatterValue(
+      String(updates.description ?? oldFm.description ?? ''),
+      1000
+    );
+    const category = this.sanitizeSkillFrontmatterValue(
+      String(updates.category ?? oldFm.category ?? 'general'),
+      100
+    );
+    const bodyText =
+      typeof updates.content === 'string' ? updates.content : oldBody;
+    const version = oldFm.version ?? '1.0.0';
+
+    const frontmatter = [
+      '---',
+      `name: ${name}`,
+      `description: ${description}`,
+      `category: ${category}`,
+      `version: ${version}`,
+      '---',
+      '',
+    ].join('\n');
+    fs.writeFileSync(skillMdPath, `${frontmatter}\n${bodyText}`, 'utf-8');
+
+    return {
+      id: skillId,
+      name,
+      description,
+      category,
+      status: 'enabled',
+      version,
+      source: 'user',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
   }
 
   /**
@@ -5712,7 +5476,9 @@ export class LocalHTTPService {
     skillId: string
   ): Promise<void> {
     try {
-      const decoded = decodeURIComponent(skillId);
+      // S0-1：%2F 等解码后校验，防路径穿越删除
+      const decoded = await this.validateSkillIdParam(skillId, res);
+      if (decoded === null) return;
       const adapter = await this.getClawHubAdapter();
 
       // 市场安装技能（索引内）：uninstallSkill（删目录 + 索引 + registry）
@@ -5738,6 +5504,8 @@ export class LocalHTTPService {
         });
         res.end(JSON.stringify({ success: true }));
         this.broadcastEvent('skill:deleted', { skillId: decoded });
+        // 删除后重载 registry，移除已注销用户技能（不阻塞响应）
+        void this.reloadUserSkillsAfterWrite();
         return;
       }
 
@@ -5762,6 +5530,16 @@ export class LocalHTTPService {
     enabled: boolean
   ): Promise<void> {
     try {
+      // S0-1：非法 ID 直接跳过（如 %2F 解码后的路径穿越）
+      const { validateSkillId } =
+        await import('@modules/skills/loaders/adapter/safeSkillId');
+      const idError = validateSkillId(skillId);
+      if (idError) {
+        logger.warn(`本地技能启用状态落盘跳过（非法 ID）: ${skillId}`, {
+          error: idError,
+        });
+        return;
+      }
       const { resolvePyappHome } = await import('@modules/core/paths');
       const skillDir = path.join(resolvePyappHome(), 'skills', skillId);
       if (!fs.existsSync(path.join(skillDir, 'SKILL.md'))) return;

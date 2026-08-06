@@ -17,6 +17,7 @@ import {
   FileIcon,
   McpIcon,
   ChannelIcon,
+  PluginIcon,
   ThemeIcon,
   SettingsIcon,
   CouncilIcon,
@@ -57,6 +58,7 @@ const MENU_LABEL_KEYS: Record<string, string> = {
   skills: "skill.title",
   files: "nav.files",
   mcp: "mcp.title",
+  plugins: "pluginMarket.title",
   channels: "channels.title",
   "council-roles": "agent.title",
   theme: "settings.theme",
@@ -69,6 +71,7 @@ const MANAGEMENT_ITEMS: MenuItem[] = [
   { id: "skills", label: "技能", icon: SkillIcon, path: "/skills" },
   { id: "files", label: "文件", icon: FileIcon, path: "/files" },
   { id: "mcp", label: "MCP", icon: McpIcon, path: "/market/mcp" },
+  { id: "plugins", label: "插件", icon: PluginIcon, path: "/market/plugins" },
   { id: "channels", label: "频道", icon: ChannelIcon, path: "/channels" },
   {
     id: "council-roles",

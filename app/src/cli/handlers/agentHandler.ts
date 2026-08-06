@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Agent处理器
  * 处理CLI中的Agent相关命令
  */
@@ -226,7 +226,7 @@ export class AgentHandler {
         name: agentName,
         type: agentType,
         status: 'stopped',
-        model: 'gpt-4',
+        model: '', // 空 = 走模型体系 fallback（resolveModelRoute），不硬编码默认模型
         tasks: 0,
       };
 
@@ -268,17 +268,7 @@ export class AgentHandler {
    */
   private async fetchAgents(): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 200));
-    if (this.agents.length === 0) {
-      this.agents = [
-        {
-          name: 'default-agent',
-          type: 'assistant',
-          status: 'running',
-          model: 'gpt-4',
-          tasks: 2,
-        },
-      ];
-    }
+    // CS04: 无 agent 时保持为空，不注入假数据
   }
 
   /**

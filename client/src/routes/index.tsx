@@ -73,10 +73,12 @@ const SkillMarketPage = lazy(
   () => import("../components/views/SkillMarketPage"),
 );
 const MCPMarketPage = lazy(() => import("../components/views/MCPMarketPage"));
+const PluginMarketPage = lazy(
+  () => import("../components/views/PluginMarketPage"),
+);
 const ModelPage = lazy(() => import("../components/views/ModelPage"));
 const TTSPage = lazy(() => import("../components/views/TTSPage"));
 const ImagePage = lazy(() => import("../components/views/ImagePage"));
-const VideoPage = lazy(() => import("../components/views/VideoPage"));
 const MediaPage = lazy(() => import("../components/views/MediaPage"));
 const TerminalPage = lazy(() => import("../components/views/TerminalPage"));
 const LogViewerPage = lazy(() => import("../components/views/LogViewerPage"));
@@ -229,16 +231,6 @@ export const routes: RouteObject[] = [
     element: (
       <AuthGuard>
         <ImagePage />
-      </AuthGuard>
-    ),
-  },
-
-  // 视频处理
-  {
-    path: "/video",
-    element: (
-      <AuthGuard>
-        <VideoPage />
       </AuthGuard>
     ),
   },
@@ -497,6 +489,14 @@ export const routes: RouteObject[] = [
     element: (
       <AuthGuard>
         <MCPMarketPage />
+      </AuthGuard>
+    ),
+  },
+  {
+    path: "/market/plugins",
+    element: (
+      <AuthGuard>
+        <PluginMarketPage />
       </AuthGuard>
     ),
   },

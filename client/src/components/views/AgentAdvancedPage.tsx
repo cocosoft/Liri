@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useConfigStore } from "../../stores/configStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { workspaceService } from "../../services/workspaceService";
+import { configService } from "../../services/configService";
 import AgentStrategySelector from "../Agent/AgentStrategySelector";
 import AgentSwarmView from "../Agent/AgentSwarmView";
 import AgentTrajectoryView from "../Agent/AgentTrajectoryView";
@@ -26,6 +27,7 @@ function AgentAdvancedPage() {
       connections: string[];
     }>
   >([]);
+  // 身份配置：加载时从后端配置读取，更新时持久化（刷新后保留）
   const [identity, setIdentity] = useState({
     name: "Assistant",
     description: "An intelligent AI assistant",
@@ -33,6 +35,27 @@ function AgentAdvancedPage() {
     fastMode: false,
     remoteAgents: [] as string[],
   });
+
+  useEffect(() => {
+    configService
+      .get("agent.identity")
+      .then((v) => {
+        if (v && typeof v === "object") {
+          setIdentity((prev) => ({ ...prev, ...(v as Partial<typeof prev>) }));
+        }
+      })
+      .catch(() => {
+        // @ignore-catch: 读取失败保持默认占位
+      });
+  }, []);
+
+  const handleIdentityUpdate = (newIdentity: Partial<typeof identity>) => {
+    const next = { ...identity, ...newIdentity };
+    setIdentity(next);
+    configService.set("agent.identity", next).catch(() => {
+      // @ignore-catch: 网络失败由 configService 内存回退兜底
+    });
+  };
 
   const tabs: { key: AgentTab; label: string }[] = [
     { key: "strategy", label: "策略选择" },
@@ -127,9 +150,7 @@ function AgentAdvancedPage() {
             <AgentIdentityConfig
               isDark={isDark}
               config={identity}
-              onUpdate={(newIdentity) =>
-                setIdentity({ ...identity, ...newIdentity })
-              }
+              onUpdate={handleIdentityUpdate}
             />
           )}
 

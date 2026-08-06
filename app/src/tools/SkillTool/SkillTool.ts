@@ -96,6 +96,39 @@ export class SkillTool implements Tool {
   }
 
   /**
+   * 2026-08-06：从真实 SkillRegistry（systemPromptSections 单例）同步技能，
+   * 使 LLM 可通过 Skill 工具调用注册表内技能（含 skillify/update-config 等 bundled 技能）。
+   * 幂等：每次执行时同步，仅注册缺失技能（用户新建技能写盘后重载 registry 即可感知）。
+   * prompt 型技能绑定 promptProvider，执行时取 impl.getPromptForCommand 真实内容。
+   */
+  private async ensureSyncedFromRegistry(): Promise<void> {
+    try {
+      const { skillRegistry } =
+        await import('@modules/constants/systemPromptSections');
+      for (const skill of skillRegistry.getAll({ includeDisabled: true })) {
+        if (this.skills.has(skill.name)) continue;
+        const enabled = !(skill.isEnabled && skill.isEnabled() === false);
+        if (skill.impl.kind !== 'prompt') continue;
+        const impl = skill.impl;
+        this.registerSkill({
+          name: skill.name,
+          description: skill.description || '',
+          type: 'prompt',
+          source: skill.source === 'builtin' ? 'builtin' : 'user',
+          enabled,
+          tags: [],
+          promptProvider: async (args) => {
+            const prompts = await impl.getPromptForCommand(args ?? {}, {});
+            return prompts.map((p) => p.text).join('\n');
+          },
+        });
+      }
+    } catch {
+      // @ignore-catch: 注册表不可用时仅保留硬编码内置技能
+    }
+  }
+
+  /**
    * 获取工具信息
    */
   getInfo(): ToolInfo {
@@ -251,23 +284,28 @@ export class SkillTool implements Tool {
   ): Promise<string> {
     switch (skill.type) {
       case 'prompt':
-        return this.executePromptSkill(skill, args);
+        return await this.executePromptSkill(skill, args);
       case 'command':
-        return this.executeCommandSkill(skill, args);
+        return await this.executeCommandSkill(skill, args);
       case 'agent':
-        return this.executeAgentSkill(skill, args);
+        return await this.executeAgentSkill(skill, args);
       default:
-        return this.executeGenericSkill(skill, args);
+        return await this.executeGenericSkill(skill, args);
     }
   }
 
   /**
    * 执行Prompt类型的Skill
    */
-  private executePromptSkill(
+  private async executePromptSkill(
     skill: SkillDefinition,
     args?: Record<string, unknown>
-  ): string {
+  ): Promise<string> {
+    // 2026-08-06：注册表技能优先返回真实 prompt 内容（impl.getPromptForCommand）
+    if (skill.promptProvider) {
+      const rendered = await skill.promptProvider(args);
+      return `[Prompt Skill: ${skill.name}]\n\n${rendered}`;
+    }
     const template = skill.promptTemplate || `Execute skill: ${skill.name}`;
     const rendered = this.renderTemplate(template, args);
 
@@ -282,10 +320,10 @@ export class SkillTool implements Tool {
   /**
    * 执行Command类型的Skill
    */
-  private executeCommandSkill(
+  private async executeCommandSkill(
     skill: SkillDefinition,
     args?: Record<string, unknown>
-  ): string {
+  ): Promise<string> {
     const command = skill.command || `echo "Skill ${skill.name} executed"`;
 
     return (
@@ -300,10 +338,10 @@ export class SkillTool implements Tool {
   /**
    * 执行Agent类型的Skill
    */
-  private executeAgentSkill(
+  private async executeAgentSkill(
     skill: SkillDefinition,
     args?: Record<string, unknown>
-  ): string {
+  ): Promise<string> {
     return (
       `[Agent Skill: ${skill.name}]\n\n` +
       `Description: ${skill.description}\n\n` +
@@ -315,10 +353,10 @@ export class SkillTool implements Tool {
   /**
    * 执行通用Skill
    */
-  private executeGenericSkill(
+  private async executeGenericSkill(
     skill: SkillDefinition,
     args?: Record<string, unknown>
-  ): string {
+  ): Promise<string> {
     return (
       `[Skill: ${skill.name}]\n\n` +
       `Description: ${skill.description}\n\n` +
@@ -357,6 +395,9 @@ export class SkillTool implements Tool {
     input: Record<string, unknown>,
     context?: ToolUseContext
   ): Promise<ToolResult<unknown>> {
+    // 2026-08-06：执行前确保已从真实 SkillRegistry 同步技能（含 skillify 等 bundled 技能）
+    await this.ensureSyncedFromRegistry();
+
     const validation = this.validateInput(input);
     if (!validation.result) {
       return {

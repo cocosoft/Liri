@@ -18,7 +18,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@shared/*": ["../shared/*"]
+      "@shared/*": ["../shared/*"],
+      "@mcp-types": ["../app/src/services/mcp/marketplace/types.ts"]
     }
   },
   "include": ["src"],

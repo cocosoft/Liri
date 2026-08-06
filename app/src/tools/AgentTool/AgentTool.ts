@@ -88,14 +88,14 @@ const AGENT_PARAMS = [
     name: 'subagent_type',
     type: 'string' as const,
     description:
-      'The type of specialized agent to use: general, explore, plan, verification, claude-code-guide, statusline-setup',
+      'The type of specialized agent to use: general, explore, plan, verification, code-guide, statusline-setup',
     required: false,
     default: 'general',
   },
   {
     name: 'model',
     type: 'string' as const,
-    description: 'Optional model override: sonnet, opus, haiku',
+    description: 'Optional model override: a registered model ID',
     required: false,
   },
   {
@@ -261,8 +261,8 @@ export class AgentTool implements Tool {
         return 'plan';
       case 'verification':
         return 'verification';
-      case 'claude-code-guide':
-        return 'claude-code-guide';
+      case 'code-guide':
+        return 'code-guide';
       case 'statusline-setup':
         return 'statusline-setup';
       default:
@@ -376,7 +376,7 @@ export class AgentTool implements Tool {
         return 'You are a planning agent. Your goal is to create a detailed plan for implementing a feature or fixing an issue.';
       case 'verification':
         return VERIFICATION_SYSTEM_PROMPT;
-      case 'claude-code-guide':
+      case 'code-guide':
         return 'You are a code guide assistant. Your goal is to help users write clean, efficient, and maintainable code by providing best practices and code review feedback.';
       case 'statusline-setup':
         return STATUSLINE_SYSTEM_PROMPT;

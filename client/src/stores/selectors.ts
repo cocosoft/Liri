@@ -74,14 +74,14 @@ export const selectSessionsByModule = (moduleType: string) => {
 
 // ─── Feature Selectors ─────────────────────────────────
 
-/** 已启用的功能模块列表 */
+/** 已启用的功能模块列表（按当前版本 tier 过滤，base 版不含 pro 模块） */
 export const selectEnabledModules = (state: RootState) => {
-  return state.modules.filter((m) => m.enabled);
+  return state.getVisibleModules().filter((m) => m.enabled);
 };
 
-/** 已固定的模块 ID 列表 */
+/** 已固定的模块列表（按当前版本 tier 过滤） */
 export const selectPinnedModules = (state: RootState) => {
-  return state.modules.filter((m) => m.pinned);
+  return state.getVisibleModules().filter((m) => m.pinned);
 };
 
 // ─── Transition Selectors ──────────────────────────────

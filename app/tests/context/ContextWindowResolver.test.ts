@@ -15,18 +15,6 @@ import {
 
 describe('ContextWindowResolver — 上下文窗口解析', () => {
   describe('resolveContextWindow', () => {
-    it('resolves known Claude model', () => {
-      const result = resolveContextWindow('claude-3-5-sonnet');
-      expect(result.tokens).toBe(200_000);
-      expect(result.source).toBe('known_model');
-    });
-
-    it('resolves known GPT model', () => {
-      const result = resolveContextWindow('gpt-4o');
-      expect(result.tokens).toBe(128_000);
-      expect(result.source).toBe('known_model');
-    });
-
     it('resolves 1M context model from name pattern', () => {
       const result = resolveContextWindow('gemini-2.0-flash');
       expect(result.tokens).toBe(1_000_000);
@@ -38,15 +26,22 @@ describe('ContextWindowResolver — 上下文窗口解析', () => {
       expect(result.source).toBe('default');
     });
 
+    it('sync path 不再维护模型名表：gpt-4o 回退默认 200K', () => {
+      const result = resolveContextWindow('gpt-4o');
+      expect(result.tokens).toBe(200_000);
+      expect(result.source).toBe('default');
+    });
+
+    it('sync path 对 deepseek 系列同样回退默认（具体窗口由 DB async 路径提供）', () => {
+      const result = resolveContextWindow('deepseek-v3');
+      expect(result.tokens).toBe(200_000);
+      expect(result.source).toBe('default');
+    });
+
     it('respects config override', () => {
       const result = resolveContextWindow('gpt-4o', 256_000);
       expect(result.tokens).toBe(256_000);
       expect(result.source).toBe('config');
-    });
-
-    it('resolves DeepSeek models', () => {
-      const result = resolveContextWindow('deepseek-v3');
-      expect(result.tokens).toBe(128_000);
     });
   });
 });

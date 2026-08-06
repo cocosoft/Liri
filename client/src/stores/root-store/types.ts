@@ -185,6 +185,8 @@ export interface FeatureModule {
   paths?: string[];
   /** 模块自带视图组件（动态渲染） */
   component?: React.ComponentType<{ sessionId: string }>;
+  /** 版本分层：base（默认）/ pro（Pro 专属）。license 就绪前由本地 tier 占位决定可见性 */
+  tier?: "base" | "pro";
 }
 
 // ─── Git ───────────────────────────────────────────────

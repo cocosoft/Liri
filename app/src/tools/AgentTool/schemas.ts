@@ -13,7 +13,7 @@ export const AgentInputSchema = z.strictObject({
       'explore',
       'plan',
       'verification',
-      'claude-code-guide',
+      'code-guide',
       'statusline-setup',
       'custom',
     ])
@@ -21,9 +21,9 @@ export const AgentInputSchema = z.strictObject({
     .default('general')
     .describe('The type of specialized agent to use'),
   model: z
-    .enum(['sonnet', 'opus', 'haiku'])
+    .string()
     .optional()
-    .describe('Optional model override'),
+    .describe('Optional model override (model ID from the model registry)'),
   run_in_background: z
     .boolean()
     .optional()

@@ -41,7 +41,8 @@ interface SafetyPositionBannerProps {
 const LAYER_STYLE: Record<SafetyLayer, string> = {
   系统边界: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
   用户级: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  应用级: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+  应用级:
+    "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
 };
 
 function SafetyPositionBanner({
@@ -63,7 +64,9 @@ function SafetyPositionBanner({
         </span>
         {layer.secondary && (
           <>
-            <span className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+            <span
+              className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
+            >
               →
             </span>
             <span
@@ -79,7 +82,9 @@ function SafetyPositionBanner({
           {title}
         </span>
       </div>
-      <p className={`text-xs mt-2 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+      <p
+        className={`text-xs mt-2 ${isDark ? "text-gray-400" : "text-gray-600"}`}
+      >
         回答的问题：{question}
       </p>
       {relation && (

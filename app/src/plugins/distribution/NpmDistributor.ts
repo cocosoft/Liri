@@ -5,7 +5,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
-import { resolveProjectRoot } from '@modules/core';
+import { resolvePluginsInstalledDir } from '@modules/core';
 import { execSync } from 'child_process';
 import {
   existsSync,
@@ -13,6 +13,7 @@ import {
   writeFileSync,
   mkdirSync,
   unlinkSync,
+  readdirSync,
 } from 'fs';
 import { join } from 'path';
 import { handleError } from '@modules/error';
@@ -51,7 +52,8 @@ export class NpmDistributor {
   private registry: string;
 
   constructor(pluginsDir?: string, registry?: string) {
-    this.pluginsDir = pluginsDir || join(resolveProjectRoot(), 'plugins');
+    // 2026-08-06 路径收敛：插件安装统一落盘 ~/.pyapp/plugins/installed（原项目根 plugins/ 废弃）
+    this.pluginsDir = pluginsDir || resolvePluginsInstalledDir();
     this.registry = registry || 'https://registry.npmjs.org/';
     this.ensurePluginsDir();
   }
@@ -176,9 +178,8 @@ export class NpmDistributor {
       const nodeDir = join(this.pluginsDir, 'node_modules');
       if (!existsSync(nodeDir)) return info;
 
-      const { readdirSync, statSync } = require('fs');
+      // 2026-08-06 修复：改用 ESM import（原 require('fs') CJS 混用）
       const entries = readdirSync(nodeDir, { withFileTypes: true });
-
       for (const entry of entries) {
         if (
           !entry.isDirectory() ||

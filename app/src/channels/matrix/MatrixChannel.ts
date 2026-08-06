@@ -125,6 +125,7 @@ class MatrixChannelPlugin extends BaseChannelPlugin {
       accessToken: '',
       userId: '',
       autoJoinRooms: false,
+      syncTimeoutMs: 30000,
     };
   }
 

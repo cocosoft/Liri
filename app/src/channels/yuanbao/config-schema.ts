@@ -4,27 +4,40 @@
  */
 
 export interface YuanbaoConfig {
-  apiKey: string;
-  apiUrl: string;
+  enabled?: boolean;
+  appId?: string;
+  appKey: string;
+  botId?: string;
+  apiBaseUrl: string;
+  webhookSecret?: string;
+  timeout?: number;
 }
 
 const DEFAULTS: Partial<YuanbaoConfig> = {};
 
 export function getDefaultYuanbaoConfig(): YuanbaoConfig {
   return {
-    apiKey: '',
-    apiUrl: '',
+    enabled: false,
+    appId: '',
+    appKey: '',
+    botId: '',
+    apiBaseUrl: 'https://api.yuanbao.tencent.com',
+    webhookSecret: '',
+    timeout: 10000,
   };
 }
 
 export function validateYuanbaoConfig(raw: Record<string, unknown>): string[] {
   const errors: string[] = [];
 
-  if (!raw['apiKey'] || typeof raw['apiKey'] !== 'string') {
-    errors.push('apiKey: 必须是非空字符串（元宝 API Key）');
+  if (!raw['appKey'] || typeof raw['appKey'] !== 'string') {
+    errors.push('appKey: 必须是非空字符串（元宝 API Key）');
   }
-  if (raw['apiUrl'] !== undefined && typeof raw['apiUrl'] !== 'string') {
-    errors.push('apiUrl: 必须是字符串');
+  if (
+    raw['apiBaseUrl'] !== undefined &&
+    typeof raw['apiBaseUrl'] !== 'string'
+  ) {
+    errors.push('apiBaseUrl: 必须是字符串');
   }
 
   return errors;

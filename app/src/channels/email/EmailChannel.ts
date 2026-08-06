@@ -699,6 +699,8 @@ class EmailChannelPlugin extends BaseChannelPlugin {
       pass: '',
       fromAddress: '',
       fromName: 'Liri',
+      maxRetries: 3,
+      timeout: 30000,
     };
   }
 

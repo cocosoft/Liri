@@ -183,6 +183,8 @@ class GoogleChatChannelPlugin extends BaseChannelPlugin {
       privateKey: '',
       spaceIds: [],
       webhookPort: 8088,
+      scope: 'https://www.googleapis.com/auth/chat.bot',
+      tokenUrl: 'https://oauth2.googleapis.com/token',
     };
   }
 

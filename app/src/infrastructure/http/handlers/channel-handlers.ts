@@ -32,6 +32,17 @@ const logger = new Logger({
   level: LogLevel.INFO,
 });
 
+/**
+ * 获取渠道解密后的配置（P0-4：DB 中敏感字段为密文，回显/恢复/合并前统一解密）
+ */
+async function getDecryptedOptions(
+  channelId: string
+): Promise<Record<string, unknown>> {
+  const { ChannelSecretStore } =
+    await import('@modules/channels/secrets/ChannelSecretStore');
+  return ChannelSecretStore.getInstance().get(channelId);
+}
+
 // ========== Channel Dynamic Registration Table ==========
 
 const CHANNEL_TABLE: Array<{
@@ -229,7 +240,8 @@ export async function handleListChannels(
         // 优先使用 DB 持久化的 enabled 状态，而非 ChannelInterface 的硬编码值
         enabled: cfg?.enabled ?? ch.enabled,
         connected: (ch as any).connected ?? false,
-        config: cfg?.options || {},
+        // P0-4：敏感字段密文落库，回显前解密
+        config: cfg?.options ? await getDecryptedOptions(ch.name) : {},
       });
     }
 
@@ -461,7 +473,10 @@ export async function handleUpdateChannel(
         enabled: enabled !== undefined ? enabled : channelAfterDyn.enabled,
         connected: latestChannel?.connected ?? channelAfterDyn.connected,
         registered: true,
-        config: latestConfig?.options || {},
+        // P0-4：DB 中敏感字段为密文，回显解密
+        config: latestConfig?.options
+          ? await getDecryptedOptions(channelId)
+          : {},
       })
     );
 
@@ -490,13 +505,12 @@ export async function handleApplyChannelConfig(
     for (const config of savedConfigs) {
       const existing = channelRegistry.get(config.type);
       if (!existing) {
-        const dynRegistered = await tryDynamicRegister(
-          config.type,
-          config.options
-        );
+        // P0-4：DB 中敏感字段为密文，动态注册前解密（否则 applyConfig 拿到密文连接失败）
+        const decrypted = await getDecryptedOptions(config.type);
+        const dynRegistered = await tryDynamicRegister(config.type, decrypted);
         if (dynRegistered) {
           registeredCount++;
-          // 恢复持久化的配置（含 enabled 状态）
+          // 恢复持久化的配置（含 enabled 状态）——options 保留原样（密文或明文）
           channelRegistry.updateConfig(config.type, {
             name: config.name,
             enabled: config.enabled,
@@ -589,13 +603,17 @@ async function tryDynamicRegister(
     channelBootstrapper.registerPluginChannel(channelType, () => plugin);
 
     // 3. 写入配置（合并前端传入的凭据）
+    // P0-4：已存配置可能为密文，先解密再与前端明文合并，最后统一加密落库
+    const { encryptOptions } =
+      await import('@modules/channels/secrets/encryption');
+    const existingDecrypted = await getDecryptedOptions(channelType);
     channelRegistry.updateConfig(channelType, {
       name: entry.name,
       enabled: false,
-      options: {
-        ...(channelRegistry.getConfig(channelType)?.options || {}),
+      options: encryptOptions({
+        ...existingDecrypted,
         ...(config || {}),
-      },
+      }),
     });
 
     // 4. 绑定入站消息处理器
@@ -677,6 +695,7 @@ function bindChannelMessageHandler(channelType: string, plugin: any): void {
   }
 
   plugin.inbound.setMessageHandler(async (message: any) => {
+    // 帧级去重兜底（routeChannelMessage 内部另有 messageId/内容级去重）
     if (_processingMessages.has(message.messageId)) return;
     _processingMessages.add(message.messageId);
 
@@ -687,89 +706,45 @@ function bindChannelMessageHandler(channelType: string, plugin: any): void {
 
       const coreAPI = getCoreAPI();
 
-      // 进度消息节流：相同内容不重复发送
-      let _lastProgressMsg = '';
-      const throttledProgress = (msg: string) => {
-        if (msg === _lastProgressMsg) return;
-        _lastProgressMsg = msg;
-        if (plugin.outbound) {
-          plugin.outbound
-            .sendText(message.conversationId ?? message.senderId, msg)
-            .catch(() => {
-              // 进度推送失败不计入主流程
+      // 2026-08-06（P0-3）：动态注册通道统一走 routeChannelMessage 单管线，
+      // 与 env 注册通道共享帧验证 + DM 策略授权 + 去重 + 共享会话写入 + Inbox 桥接。
+      // 原内联实现的 120s 超时由路由内部 CHAT_TIMEOUT_MS 承担；进度推送由出站回调保留。
+      const { routeChannelMessage } =
+        await import('@modules/channels/routing/messageRouter');
+      await routeChannelMessage(message, {
+        coreAPI,
+        channelName: channelType,
+        enableTracing: true,
+        dmPolicy: {
+          policy: plugin.security?.dmPolicy ?? 'open',
+          allowFrom: plugin.security?.allowFrom ?? [],
+        },
+        onOutbound: async (content, target) => {
+          logger.info(`[${label}] Liri reply`, { content });
+
+          if (!plugin.outbound) return;
+
+          // 发送回复（失败时加入重试队列）
+          try {
+            await plugin.outbound.sendText(target, content);
+          } catch (err) {
+            logger.warn(`[${channelType}] 首次发送失败，加入重试队列`, {
+              target,
+              error: String(err),
             });
-        }
-      };
-
-      // 1. 为 AI 处理添加超时保护（120 秒）
-      let timeoutHandle: NodeJS.Timeout;
-      const chatPromise = coreAPI.chat({
-        content: message.content,
-        sessionId: message.conversationId ?? message.senderId,
-        metadata: {
-          channel: message.channelId,
-          sender: message.senderId,
-          messageType: message.messageType,
-          isDirectMessage: message.isDirectMessage,
-          rawPayload: message.rawPayload,
-        },
-        onProgress: (event) => {
-          throttledProgress(event.message);
+            const retryKey = `${target}_${message.messageId || Date.now()}`;
+            _pendingOutboundReplies.set(retryKey, {
+              target,
+              content,
+              retryCount: 0,
+              lastAttemptAt: Date.now(),
+              channelType,
+            });
+            schedulePendingFlush();
+          }
         },
       });
-
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutHandle = setTimeout(() => {
-          reject(new Error(`[${label}] 请求处理超时（120秒）`));
-        }, 120_000);
-      });
-
-      let response: any;
-      try {
-        response = await Promise.race([chatPromise, timeoutPromise]);
-        clearTimeout(timeoutHandle!);
-      } catch (error) {
-        clearTimeout(timeoutHandle!);
-        throw error;
-      }
-
-      if (response.content && plugin.outbound) {
-        logger.info(`[${label}] Liri reply`, { content: response.content });
-
-        // 2. 发送回复（失败时加入重试队列）
-        const target = message.conversationId ?? message.senderId;
-        try {
-          await plugin.outbound.sendText(target, response.content);
-        } catch (err) {
-          logger.warn(`[${channelType}] 首次发送失败，加入重试队列`, {
-            target,
-            error: String(err),
-          });
-          const retryKey = `${target}_${message.messageId || Date.now()}`;
-          _pendingOutboundReplies.set(retryKey, {
-            target,
-            content: response.content,
-            retryCount: 0,
-            lastAttemptAt: Date.now(),
-            channelType,
-          });
-          schedulePendingFlush();
-        }
-      }
     } catch (error) {
-      // 3. 超时时通知用户
-      const errorMsg = String(error);
-      if (errorMsg.includes('超时') && plugin.outbound) {
-        try {
-          await plugin.outbound.sendText(
-            message.conversationId ?? message.senderId,
-            '⏱️ 请求处理超时（120秒），请稍后重试或简化您的问题。'
-          );
-        } catch (_err) {
-          // 超时通知发送失败不处理
-        }
-      }
-
       await handleError(error, {
         module: 'infra:http',
         action: 'channel_inbound_message',
@@ -801,5 +776,89 @@ export async function handleWechatCliStatus(
     res.end(JSON.stringify({ success: true, data: status }));
   } catch (err) {
     ctx.sendError(res, err);
+  }
+}
+
+// ========== Channel Health（4.12 / P2-6）==========
+
+/**
+ * 获取所有通道字段渲染元数据（4.1 / P0-1）
+ * GET /v1/channels/schema — 前端表单渲染依据，替代前端硬编码 PLATFORM_FIELDS
+ */
+export async function handleChannelSchema(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { buildChannelSchema } =
+      await import('@modules/channels/config-metadata');
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(buildChannelSchema()));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+let _healthMonitorPromise: Promise<unknown> | null = null;
+
+/**
+ * 获取全局 ChannelHealthMonitor 实例（懒加载单例，避免每请求重复注册检查项）
+ */
+async function getChannelHealthMonitor(): Promise<ChannelHealthMonitorLike> {
+  if (!_healthMonitorPromise) {
+    _healthMonitorPromise = (async () => {
+      const { channelRegistry } =
+        await import('@modules/channels/registry/ChannelRegistry');
+      const { ChannelHealthMonitor } =
+        await import('@modules/channels/monitoring/ChannelHealthMonitor');
+      const monitor = new ChannelHealthMonitor(channelRegistry, {
+        autoStart: false,
+      });
+      monitor.registerAllChannels();
+      return monitor;
+    })();
+  }
+  return _healthMonitorPromise as Promise<ChannelHealthMonitorLike>;
+}
+
+/** ChannelHealthMonitor 最小接口（避免静态 import 违反模块边界 lint） */
+interface ChannelHealthMonitorLike {
+  getReport(): Promise<
+    Array<{
+      channelId: string;
+      healthy: boolean;
+      connected: boolean;
+      latencyMs: number;
+      status: string;
+      error?: string;
+    }>
+  >;
+  getStats(): Promise<{
+    total: number;
+    healthy: number;
+    unhealthy: number;
+    overallStatus: string;
+  }>;
+}
+
+/**
+ * 获取所有通道健康状态聚合（P2-6 / 4.12）
+ * GET /v1/channels/health
+ */
+export async function handleChannelHealth(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const monitor = await getChannelHealthMonitor();
+    const [channels, stats] = await Promise.all([
+      monitor.getReport(),
+      monitor.getStats(),
+    ]);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ channels, stats }));
+  } catch (err) {
+    sendError(res, err);
   }
 }

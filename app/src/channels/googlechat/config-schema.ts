@@ -4,24 +4,25 @@
  */
 
 export interface GoogleChatConfig {
-  serviceAccountEmail: string;
-  serviceAccountKey: string;
-  spaceId?: string;
+  clientEmail: string;
+  privateKey: string;
+  spaceIds?: string[];
   webhookPort?: number;
   scope?: string;
   tokenUrl?: string;
 }
 
 const DEFAULTS: Partial<GoogleChatConfig> = {
-  webhookPort: 8084,
+  webhookPort: 8088,
   scope: 'https://www.googleapis.com/auth/chat.bot',
   tokenUrl: 'https://oauth2.googleapis.com/token',
 };
 
 export function getDefaultGoogleChatConfig(): GoogleChatConfig {
   return {
-    serviceAccountEmail: '',
-    serviceAccountKey: '',
+    clientEmail: '',
+    privateKey: '',
+    spaceIds: [],
     webhookPort: DEFAULTS.webhookPort,
     scope: DEFAULTS.scope,
     tokenUrl: DEFAULTS.tokenUrl,
@@ -32,17 +33,11 @@ export function validateGoogleChatConfig(
   raw: Record<string, unknown>
 ): string[] {
   const errors: string[] = [];
-  if (
-    !raw['serviceAccountEmail'] ||
-    typeof raw['serviceAccountEmail'] !== 'string'
-  ) {
-    errors.push('serviceAccountEmail: 必须是一个非空字符串');
+  if (!raw['clientEmail'] || typeof raw['clientEmail'] !== 'string') {
+    errors.push('clientEmail: 必须是一个非空字符串');
   }
-  if (
-    !raw['serviceAccountKey'] ||
-    typeof raw['serviceAccountKey'] !== 'string'
-  ) {
-    errors.push('serviceAccountKey: 必须是一个非空字符串');
+  if (!raw['privateKey'] || typeof raw['privateKey'] !== 'string') {
+    errors.push('privateKey: 必须是一个非空字符串');
   }
   if (raw['webhookPort'] !== undefined) {
     const p = Number(raw['webhookPort']);

@@ -252,6 +252,8 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
       appId: '',
       appPassword: '',
       webhookPort: 8089,
+      microsoftLoginBase: 'https://login.microsoftonline.com',
+      botFrameworkBase: 'https://smba.trafficmanager.net/amer',
     };
   }
 

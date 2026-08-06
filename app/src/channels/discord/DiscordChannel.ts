@@ -264,7 +264,15 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
   }
 
   protected getDefaultConfig(): Record<string, unknown> {
-    return { botToken: '', clientId: '', gatewayIntents: 512 };
+    return {
+      botToken: '',
+      clientId: '',
+      gatewayIntents: 512,
+      gatewayUrl: 'wss://gateway.discord.gg/?v=10&encoding=json',
+      restBaseUrl: 'https://discord.com/api/v10',
+      reconnectDelayMs: 5000,
+      maxReconnectAttempts: 10,
+    };
   }
 
   protected validateConfig(config: Record<string, unknown>): string[] {
@@ -928,5 +936,6 @@ export function createDiscordChannel(): IChannelPlugin {
 }
 
 export const discordChannel = createDiscordChannel();
-export const discordChannelPlugin = createDiscordChannel();
+// P1-3 单例统一：Plugin 导出为同一实例别名，避免双实例
+export const discordChannelPlugin = discordChannel;
 export { buildDiscordEmbed };

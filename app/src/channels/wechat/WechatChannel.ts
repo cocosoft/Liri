@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 个人微信 Bot 通道插件
  * 厂商: 腾讯, 协议: weixin-cli HTTP Bridge
  * 前置: npx -y @tencent-weixin/openclaw-weixin-cli@latest install
@@ -374,7 +374,8 @@ export function createWechatChannel(): IChannelPlugin {
 }
 
 export const wechatChannel = createWechatChannel();
-export const wechatChannelPlugin = createWechatChannel();
+// P1-3 单例统一：Plugin 导出为同一实例别名，避免双实例
+export const wechatChannelPlugin = wechatChannel;
 
 // 保持旧版导出兼容
 export function parseWechatXML(_xml: string): Record<string, string> {

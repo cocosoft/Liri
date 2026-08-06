@@ -3,6 +3,31 @@ import type { Channel, UpdateChannelRequest } from "../types";
 import { channelService } from "../services/channelService";
 import { handleClientError } from "@/utils/handleError";
 
+// ─── 工具函数 ──────────────────────────────────────────
+
+/**
+ * 等待通道连接状态变化（P2-5 / 4.13）
+ * 轮询 GET /v1/channels/health，替代固定 sleep(2000)：
+ * 连接状态与保存前不同（或超时）即返回，保存流程更快且不依赖硬编码等待。
+ */
+async function waitForChannelConnected(
+  id: string,
+  prevConnected: boolean,
+  timeoutMs: number
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      const health = await channelService.getHealth();
+      const ch = health.channels?.find((c) => c.channelId === id);
+      if (ch && ch.connected !== prevConnected) return;
+    } catch {
+      // 单次轮询失败继续，避免健康接口抖动影响保存流程
+    }
+  }
+}
+
 // ─── 筛选类型 ──────────────────────────────────────────
 
 type StatusFilter =
@@ -289,8 +314,8 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
         });
         // apply 可能触发连接重置，忽略连接错误
       }
-      // 等待 Gateway 重连后刷新
-      await new Promise((r) => setTimeout(r, 2000));
+      // 等待通道连接状态稳定后刷新（P2-5 / 4.13：长轮询替代固定 sleep(2000)）
+      await waitForChannelConnected(editingChannel.id, updated.connected, 3000);
       await get().refreshChannels();
       set({ showFormModal: false, editingChannel: null });
     } catch (e) {

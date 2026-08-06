@@ -95,6 +95,9 @@ export type {
   ChannelFormData,
   UpdateChannelRequest,
   ChannelHealth,
+  ChannelHealthAggregate,
+  PlatformFieldDef,
+  ChannelSchema,
   ChannelPluginInfo,
 } from "./channel";
 

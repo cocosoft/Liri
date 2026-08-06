@@ -1,8 +1,31 @@
 import { EventEmitter } from 'events';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import type { GatewayChannel } from '../core/gateway/types';
-import { ChannelStatus } from '../core/gateway/types';
+
+// 2026-08-06（4.9/P1-6）：core/gateway 桥接层已删除，以下类型自该层内联至本地
+/** 通道状态枚举（原 core/gateway/types.ts） */
+export enum ChannelStatus {
+  /** 待机 */
+  IDLE = 'idle',
+  /** 连接中 */
+  CONNECTING = 'connecting',
+  /** 已连接 */
+  CONNECTED = 'connected',
+  /** 已断开 */
+  DISCONNECTED = 'disconnected',
+  /** 错误 */
+  ERROR = 'error',
+  /** 已停止 */
+  STOPPED = 'stopped',
+}
+
+/** GatewayChannel 最小接口（原 core/gateway/types.ts，本模块仅用到 name/status/isConnected/healthCheck） */
+interface GatewayChannel {
+  readonly name: string;
+  readonly status: ChannelStatus;
+  isConnected(): boolean;
+  healthCheck(): Promise<boolean>;
+}
 
 /** 全局单例 */
 let _healthMonitor: HealthMonitor | null = null;

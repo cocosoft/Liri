@@ -4,19 +4,27 @@
  */
 
 export interface ZaloConfig {
+  enabled?: boolean;
   appId: string;
-  secretKey: string;
+  appSecret: string;
   accessToken: string;
   oauthCode?: string;
+  refreshToken?: string;
+  webhookUrl?: string;
+  apiVersion?: string;
 }
 
 const DEFAULTS: Partial<ZaloConfig> = {};
 
 export function getDefaultZaloConfig(): ZaloConfig {
   return {
+    enabled: false,
     appId: '',
-    secretKey: '',
+    appSecret: '',
     accessToken: '',
+    refreshToken: '',
+    webhookUrl: '',
+    apiVersion: '2.0',
   };
 }
 
@@ -26,8 +34,8 @@ export function validateZaloConfig(raw: Record<string, unknown>): string[] {
   if (!raw['appId'] || typeof raw['appId'] !== 'string') {
     errors.push('appId: 必须是非空字符串（Zalo App ID）');
   }
-  if (!raw['secretKey'] || typeof raw['secretKey'] !== 'string') {
-    errors.push('secretKey: 必须是非空字符串（Zalo Secret Key）');
+  if (!raw['appSecret'] || typeof raw['appSecret'] !== 'string') {
+    errors.push('appSecret: 必须是非空字符串（Zalo Secret Key）');
   }
   if (!raw['accessToken'] || typeof raw['accessToken'] !== 'string') {
     errors.push('accessToken: 必须是非空字符串（Zalo Access Token）');

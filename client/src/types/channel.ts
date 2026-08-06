@@ -61,6 +61,39 @@ export interface ChannelHealth {
   lastHeartbeatAt?: number;
 }
 
+/** 所有通道健康聚合（GET /v1/channels/health，P2-6 / 4.12） */
+export interface ChannelHealthAggregate {
+  channels: Array<{
+    channelId: string;
+    healthy: boolean;
+    connected: boolean;
+    latencyMs: number;
+    status: string;
+    error?: string;
+  }>;
+  stats: {
+    total: number;
+    healthy: number;
+    unhealthy: number;
+    overallStatus: string;
+  };
+}
+
+/** 渠道配置字段定义（GET /v1/channels/schema，4.1：后端单一来源） */
+export interface PlatformFieldDef {
+  key: string;
+  label: string;
+  placeholder: string;
+  type: "text" | "password" | "number";
+  required?: boolean;
+}
+
+/** 渠道字段渲染 schema 响应体 */
+export interface ChannelSchema {
+  platforms: Record<string, PlatformFieldDef[]>;
+  generic: PlatformFieldDef[];
+}
+
 export interface ChannelPluginInfo {
   name: string;
   version: string;

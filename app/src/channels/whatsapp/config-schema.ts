@@ -4,9 +4,11 @@
  */
 
 export interface WhatsAppConfig {
+  enabled?: boolean;
   phoneNumberId: string;
   accessToken: string;
-  webhookVerifyToken: string;
+  verifyToken: string;
+  businessAccountId?: string;
   apiVersion: string;
 }
 
@@ -16,9 +18,11 @@ const DEFAULTS: Partial<WhatsAppConfig> = {
 
 export function getDefaultWhatsAppConfig(): WhatsAppConfig {
   return {
+    enabled: false,
     phoneNumberId: '',
     accessToken: '',
-    webhookVerifyToken: '',
+    verifyToken: '',
+    businessAccountId: '',
     apiVersion: DEFAULTS.apiVersion!,
   };
 }

@@ -4,7 +4,10 @@
  */
 
 export interface SignalConfig {
+  enabled?: boolean;
+  account?: string;
   phoneNumber: string;
+  signalCliPath?: string;
   signalServiceUrl: string;
   registrationLockPin?: string;
 }
@@ -15,7 +18,10 @@ const DEFAULTS: Partial<SignalConfig> = {
 
 export function getDefaultSignalConfig(): SignalConfig {
   return {
+    enabled: false,
+    account: '',
     phoneNumber: '',
+    signalCliPath: 'signal-cli',
     signalServiceUrl: DEFAULTS.signalServiceUrl!,
   };
 }

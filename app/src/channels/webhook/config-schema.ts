@@ -4,20 +4,25 @@
  */
 
 export interface WebhookConfig {
-  port: number;
+  listenPort: number;
+  listenHost: string;
   path: string;
+  endpoints: string[];
   secret: string;
 }
 
 const DEFAULTS: Partial<WebhookConfig> = {
-  port: 9000,
+  listenPort: 9100,
+  listenHost: '0.0.0.0',
   path: '/webhook',
 };
 
 export function getDefaultWebhookConfig(): WebhookConfig {
   return {
-    port: DEFAULTS.port!,
+    listenPort: DEFAULTS.listenPort!,
+    listenHost: DEFAULTS.listenHost!,
     path: DEFAULTS.path!,
+    endpoints: [],
     secret: '',
   };
 }
@@ -25,13 +30,13 @@ export function getDefaultWebhookConfig(): WebhookConfig {
 export function validateWebhookConfig(raw: Record<string, unknown>): string[] {
   const errors: string[] = [];
 
-  if (!raw['secret'] || typeof raw['secret'] !== 'string') {
-    errors.push('secret: 必须是非空字符串（Webhook 签名密钥）');
+  if (raw['secret'] !== undefined && typeof raw['secret'] !== 'string') {
+    errors.push('secret: 必须是字符串');
   }
-  if (raw['port'] !== undefined) {
-    const p = Number(raw['port']);
+  if (raw['listenPort'] !== undefined) {
+    const p = Number(raw['listenPort']);
     if (!Number.isInteger(p) || p < 1024 || p > 65535) {
-      errors.push('port: 必须在 1024-65535 范围内');
+      errors.push('listenPort: 必须在 1024-65535 范围内');
     }
   }
   if (raw['path'] !== undefined && typeof raw['path'] !== 'string') {

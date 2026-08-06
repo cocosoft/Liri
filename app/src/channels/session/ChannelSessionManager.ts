@@ -266,6 +266,9 @@ export class ChannelSessionManager extends EventEmitter {
 
   /**
    * 清理空闲会话
+   *
+   * P2-1（4.10）：除标记 idle 外，已关闭会话与"已 idle 且再次超时"的会话直接回收，
+   * 确保 session Map 有界（配合模块级 10 分钟定时器）。
    */
   cleanIdle(): number {
     const now = Date.now();
@@ -273,10 +276,27 @@ export class ChannelSessionManager extends EventEmitter {
 
     for (const [sessionId, session] of this.sessions.entries()) {
       if (session.status === 'closed') {
+        // 已关闭会话直接回收
+        this.sessions.delete(sessionId);
+        count++;
         continue;
       }
 
       if (now - session.lastActivityAt > this.idleTimeout) {
+        if (session.status === 'idle') {
+          // 已标记 idle 且再次超时 → 回收
+          this.sessions.delete(sessionId);
+          const event: ChannelSessionEvent = {
+            sessionId,
+            type: 'closed',
+            timestamp: now,
+          };
+          this.emit('session:closed', event);
+          channelEventBus.publish(ChannelEvents.SESSION_CLOSED, event);
+          count++;
+          continue;
+        }
+
         session.status = 'idle';
 
         const event: ChannelSessionEvent = {
@@ -380,3 +400,22 @@ export class ChannelSessionManager extends EventEmitter {
 }
 
 export const channelSessionManager = new ChannelSessionManager();
+
+// P2-1（4.10）：空闲会话清理定时器（每 10 分钟），防 session Map 无限增长。
+// .unref() 不阻塞进程退出；超时 30min 的空闲会话由 cleanIdle() 回收。
+setInterval(
+  () => {
+    try {
+      const cleaned = channelSessionManager.cleanIdle();
+      if (cleaned > 0) {
+        logger.info(`空闲会话清理完成: ${cleaned} 个`);
+      }
+    } catch (err) {
+      void handleError(err, {
+        module: 'channels:session',
+        action: 'cleanIdleInterval',
+      });
+    }
+  },
+  10 * 60 * 1000
+).unref();

@@ -104,7 +104,7 @@ export class DeliveryRouter {
     const target = DeliveryTarget.fromOrigin(platform, conversationId);
 
     return this._withChannelLock(platform, async () => {
-      const check = this._checkChannel(channel);
+      const check = await this._prepareChannel(channel);
       if (check) return check;
 
       const otel = getOTelTracing();
@@ -178,7 +178,7 @@ export class DeliveryRouter {
     const channel = this.registry.get(target.platform);
 
     return this._withChannelLock(target.platform, async () => {
-      const check = this._checkChannel(channel);
+      const check = await this._prepareChannel(channel);
       if (check) return check;
 
       const otel = getOTelTracing();
@@ -330,6 +330,31 @@ export class DeliveryRouter {
       };
     }
     return null;
+  }
+
+  /**
+   * 投递前准备：检查 + 自动重连（P2-4 / 4.13）
+   * 未连接通道尝试 connect() 一次，成功则继续投递，避免"未连接即失败丢消息"。
+   */
+  private async _prepareChannel(
+    channel: ChannelInterface | undefined
+  ): Promise<DeliveryResult | null> {
+    const check = this._checkChannel(channel);
+    if (!check) return null; // 检查通过
+
+    if (check.error === '通道未连接' && channel) {
+      try {
+        const ok = await channel.connect();
+        if (ok) return null; // 重连成功，继续投递
+        return { ...check, error: '自动重连失败' };
+      } catch (err) {
+        return {
+          ...check,
+          error: `自动重连异常: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+    }
+    return check;
   }
 
   /** Per-channel 串行化：确保同一 channel 的消息按序发送 */

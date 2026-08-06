@@ -496,6 +496,11 @@ export async function lazyConnectChannels(): Promise<void> {
             coreAPI,
             channelName: channel.name,
             enableTracing: true,
+            // 2026-08-06（P0-2）：传入渠道 DM 策略配置，启用授权检查（未提供时默认不拦截）
+            dmPolicy: {
+              policy: plugin.security?.dmPolicy ?? 'open',
+              allowFrom: plugin.security?.allowFrom ?? [],
+            },
             onOutbound: async (content, target) => {
               logger.info('[TRACE] setupChannels onOutbound 回调被调用', {
                 channelName: channel.name,

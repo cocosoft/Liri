@@ -4,7 +4,10 @@
  */
 
 export interface ClaudeConfig {
+  enabled?: boolean;
   apiKey: string;
+  apiUrl?: string;
+  organizationId?: string;
   model: string;
   maxTokens: number;
 }
@@ -16,7 +19,10 @@ const DEFAULTS: Partial<ClaudeConfig> = {
 
 export function getDefaultClaudeConfig(): ClaudeConfig {
   return {
+    enabled: false,
     apiKey: '',
+    apiUrl: 'https://api.anthropic.com/v1',
+    organizationId: '',
     model: DEFAULTS.model!,
     maxTokens: DEFAULTS.maxTokens!,
   };

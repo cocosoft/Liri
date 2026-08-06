@@ -171,6 +171,10 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       verifyToken: '',
       webhookPort: 8083,
       useWebSocket: false,
+      wsReconnectDelayMs: 5000,
+      wsMaxReconnectAttempts: 10,
+      wsPingIntervalS: 30,
+      apiBase: 'https://open.feishu.cn/open-apis',
     };
   }
 
@@ -1190,4 +1194,5 @@ export function createFeishuChannel(): IChannelPlugin {
 }
 
 export const feishuChannel = createFeishuChannel();
-export const feishuChannelPlugin = createFeishuChannel();
+// P1-3 单例统一：Plugin 导出为同一实例别名，避免双实例
+export const feishuChannelPlugin = feishuChannel;

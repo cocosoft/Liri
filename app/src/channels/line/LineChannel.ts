@@ -166,6 +166,7 @@ class LineChannelPlugin extends BaseChannelPlugin {
       channelAccessToken: '',
       channelSecret: '',
       webhookPort: 8086,
+      apiBase: 'https://api.line.me/v2/bot',
     };
   }
 

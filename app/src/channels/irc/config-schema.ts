@@ -32,7 +32,11 @@ export function getDefaultIrcConfig(): IrcConfig {
   return {
     server: '',
     port: DEFAULTS.port!,
-    nickname: '',
+    nickname: 'Liri_bot',
+    username: 'Liri_bot',
+    realname: 'Liri Bot',
+    password: '',
+    nickservPassword: '',
     channels: [],
     tls: DEFAULTS.tls!,
     reconnectDelayMs: DEFAULTS.reconnectDelayMs,

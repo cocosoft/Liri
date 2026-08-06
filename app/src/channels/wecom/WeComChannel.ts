@@ -338,4 +338,5 @@ export function createWecomChannel(): IChannelPlugin {
 }
 
 export const wecomChannel = createWecomChannel();
-export const wecomChannelPlugin = createWecomChannel();
+// P1-3 单例统一：Plugin 导出为同一实例别名，避免双实例
+export const wecomChannelPlugin = wecomChannel;

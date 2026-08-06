@@ -176,7 +176,7 @@ class NostrChannelPlugin extends BaseChannelPlugin {
   }
 
   protected getDefaultConfig(): Record<string, unknown> {
-    return { relays: [], privateKey: '', publicKey: '' };
+    return { relays: ['wss://relay.damus.io'], privateKey: '', publicKey: '' };
   }
 
   protected validateConfig(_config: Record<string, unknown>): string[] {

@@ -72,6 +72,7 @@ export class ClaudeChannel extends BaseChannelPlugin {
       apiUrl: 'https://api.anthropic.com/v1',
       organizationId: '',
       model: '',
+      maxTokens: 4096,
     };
   }
 

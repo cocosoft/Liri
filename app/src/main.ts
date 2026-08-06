@@ -747,9 +747,6 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
     await channelRegistry.initPersistence();
     logger.info('main.ts 通道持久化初始化完成');
 
-    // 启用主动同步：ChannelPluginRegistry 状态变更 → 实时反映到 ChannelRegistry
-    channelRegistry.setupActiveSync();
-
     // 从 DB 恢复已保存的通道配置（注册到内存）
     await setupChannelsFromConfig();
     logger.info('通道配置已从 DB 恢复');

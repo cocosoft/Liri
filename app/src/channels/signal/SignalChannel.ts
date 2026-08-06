@@ -74,6 +74,7 @@ export class SignalChannel extends BaseChannelPlugin {
       account: '',
       phoneNumber: '',
       signalCliPath: 'signal-cli',
+      signalServiceUrl: 'https://chat.signal.org',
     };
   }
 

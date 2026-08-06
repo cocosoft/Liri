@@ -273,6 +273,10 @@ class IrcChannelPlugin extends BaseChannelPlugin {
       nickservPassword: '',
       channels: [],
       tls: false,
+      reconnectDelayMs: 5000,
+      maxReconnectAttempts: 10,
+      lineMax: 480,
+      msgChunkMax: 350,
     };
   }
 

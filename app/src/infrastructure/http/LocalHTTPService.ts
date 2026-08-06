@@ -5666,6 +5666,14 @@ export class LocalHTTPService {
       const latestConfig = channelRegistry.getConfig(channelId);
       const latestChannel = channelRegistry.get(channelId);
 
+      // P0-4：DB 中敏感字段为密文，回显解密
+      let displayConfig: Record<string, unknown> = {};
+      if (latestConfig?.options) {
+        const { ChannelSecretStore } =
+          await import('@modules/channels/secrets/ChannelSecretStore');
+        displayConfig = ChannelSecretStore.getInstance().get(channelId);
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
@@ -5675,7 +5683,7 @@ export class LocalHTTPService {
           enabled: enabled !== undefined ? enabled : channelAfterDyn.enabled,
           connected: latestChannel?.connected ?? channelAfterDyn.connected,
           registered: true,
-          config: latestConfig?.options || {},
+          config: displayConfig,
         })
       );
 
@@ -5705,13 +5713,17 @@ export class LocalHTTPService {
       for (const config of savedConfigs) {
         const existing = channelRegistry.get(config.type);
         if (!existing) {
+          // P0-4：DB 中敏感字段为密文，动态注册前解密
+          const { ChannelSecretStore } =
+            await import('@modules/channels/secrets/ChannelSecretStore');
+          const decrypted = ChannelSecretStore.getInstance().get(config.type);
           const dynRegistered = await this.tryDynamicRegister(
             config.type,
-            config.options
+            decrypted
           );
           if (dynRegistered) {
             registeredCount++;
-            // 恢复持久化的配置（含 enabled 状态）
+            // 恢复持久化的配置（含 enabled 状态）——options 保留原样（密文或明文）
             channelRegistry.updateConfig(config.type, {
               name: config.name,
               enabled: config.enabled,
@@ -5983,13 +5995,20 @@ export class LocalHTTPService {
       channelBootstrapper.registerPluginChannel(channelType, () => plugin);
 
       // 3. 写入配置（合并前端传入的凭据）
+      // P0-4：已存配置可能为密文，先解密再与前端明文合并，最后统一加密落库
+      const { encryptOptions } =
+        await import('@modules/channels/secrets/encryption');
+      const { ChannelSecretStore } =
+        await import('@modules/channels/secrets/ChannelSecretStore');
+      const existingDecrypted =
+        ChannelSecretStore.getInstance().get(channelType);
       channelRegistry.updateConfig(channelType, {
         name: entry.name,
         enabled: false,
-        options: {
-          ...(channelRegistry.getConfig(channelType)?.options || {}),
+        options: encryptOptions({
+          ...existingDecrypted,
           ...(config || {}),
-        },
+        }),
       });
 
       // 4. 绑定入站消息处理器
@@ -6017,6 +6036,7 @@ export class LocalHTTPService {
 
     plugin.inbound.setMessageHandler(
       async (message: import('@modules/channels/types').MessageContext) => {
+        // 帧级去重兜底（routeChannelMessage 内部另有 messageId/内容级去重）
         if (_processingMessages.has(message.messageId)) return;
         _processingMessages.add(message.messageId);
 
@@ -6024,30 +6044,28 @@ export class LocalHTTPService {
           const sender = message.senderName || message.senderId || 'unknown';
           const label = channelType.toUpperCase();
           logger.info(`[${label}] 收到消息: ${sender}`);
-          logger.debug(message.content);
 
           const coreAPI = getCoreAPI();
-          const response = await coreAPI.chat({
-            content: message.content,
-            sessionId: message.conversationId ?? message.senderId,
-            metadata: {
-              channel: message.channelId,
-              sender: message.senderId,
-              messageType: message.messageType,
-              isDirectMessage: message.isDirectMessage,
-              rawPayload: message.rawPayload,
+
+          // 2026-08-06（P0-3）：动态注册通道统一走 routeChannelMessage 单管线，
+          // 与 env 注册通道共享帧验证 + DM 策略授权 + 去重 + 共享会话写入 + Inbox 桥接。
+          const { routeChannelMessage } =
+            await import('@modules/channels/routing/messageRouter');
+          await routeChannelMessage(message, {
+            coreAPI,
+            channelName: channelType,
+            enableTracing: true,
+            dmPolicy: {
+              policy: plugin.security?.dmPolicy ?? 'open',
+              allowFrom: plugin.security?.allowFrom ?? [],
+            },
+            onOutbound: async (content, target) => {
+              logger.info(`[${label}] 回复消息`);
+              if (plugin.outbound) {
+                await plugin.outbound.sendText(target, content);
+              }
             },
           });
-
-          if (response.content && plugin.outbound) {
-            logger.info(`[${label}] 回复消息`);
-            logger.debug(response.content);
-
-            await plugin.outbound.sendText(
-              message.conversationId ?? message.senderId,
-              response.content
-            );
-          }
         } catch (error) {
           await handleError(error, {
             module: 'infra:http',

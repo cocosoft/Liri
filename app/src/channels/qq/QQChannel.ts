@@ -219,6 +219,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
     return {
       appId: '',
       clientSecret: '',
+      homeChannelId: '',
       webhookPort: 8086,
       wsHost: 'api.sgroup.qq.com',
     };
@@ -1755,4 +1756,5 @@ export function createQQChannel(): IChannelPlugin {
 }
 
 export const qqChannel = createQQChannel();
-export const qqChannelPlugin = createQQChannel();
+// P1-3 单例统一：Plugin 导出为同一实例别名，避免双实例
+export const qqChannelPlugin = qqChannel;

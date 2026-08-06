@@ -19,6 +19,7 @@ export function getDefaultWeComConfig(): WeComConfig {
     agentId: '',
     corpSecret: '',
     token: '',
+    encodingAESKey: '',
   };
 }
 

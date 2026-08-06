@@ -503,4 +503,5 @@ export function createDingtalkChannel(): IChannelPlugin {
 }
 
 export const dingtalkChannel = createDingtalkChannel();
-export const dingtalkChannelPlugin = createDingtalkChannel();
+// P1-3 单例统一：Plugin 导出为同一实例别名，避免双实例
+export const dingtalkChannelPlugin = dingtalkChannel;

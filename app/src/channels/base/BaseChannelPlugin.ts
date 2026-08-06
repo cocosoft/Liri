@@ -29,6 +29,8 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import { MultiAccountManager } from '@modules/channels/accounts';
 import type { ResolvedAccount } from '@modules/channels/accounts';
+// 2026-08-06（P0-2）：授权行为与 dmPolicy 一致的默认实现
+import { DmPolicyEngine } from '../policy/DmPolicy';
 
 export interface ChannelPluginState {
   connected: boolean;
@@ -358,7 +360,18 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
       );
     },
 
-    authorizeMessage: async (_ctx: MessageContext) => ({ allowed: true }),
+    authorizeMessage: async (ctx: MessageContext) => {
+      // 2026-08-06（P0-2）：默认授权行为与 dmPolicy 一致（委托 DmPolicyEngine），
+      // 修复"默认 dmPolicy=pairing 但 authorizeMessage 恒放行"的自相矛盾。
+      // 子类可通过覆写 security 保留自定义逻辑。
+      const engine = new DmPolicyEngine({
+        policy: this.security.dmPolicy,
+        allowFrom: this.security.allowFrom ?? [],
+        pairingCodeTimeoutMs: this.security.pairingCodeTimeoutMs,
+        maxPairingAttempts: this.security.maxPairingAttempts,
+      });
+      return engine.authorize(ctx);
+    },
   };
 
   // ─── 入站消息处理器 ─────────────────────────────────────

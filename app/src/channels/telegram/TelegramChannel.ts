@@ -382,8 +382,15 @@ class TelegramChannel extends BaseChannelPlugin {
         this.logger.info(`Telegram 配对码: ${userId} → ${code}`);
         return code;
       },
-      validatePairingCode: async (_userId: string, code: string) => {
-        return code.length === 6;
+      validatePairingCode: async (userId: string, code: string) => {
+        // 2026-08-06（P0-2）：真实校验配对码（原实现仅校验长度，形同虚设）。
+        // 配对码由 DmPolicyEngine.authorize → PairingStore.generateCode 生成并持久化，
+        // 此处核对待批列表（channelId + userId + code 精确匹配、未过期）。
+        const { PairingStore } = await import('../policy/PairingStore');
+        const store = new PairingStore();
+        return store
+          .listPending(this.id)
+          .some((p) => p.userId === userId && p.code === code);
       },
       listApprovedUsers: async () => [],
       removeApprovedUser: async (_userId: string) => {},
@@ -411,7 +418,12 @@ class TelegramChannel extends BaseChannelPlugin {
   }
 
   protected getDefaultConfig(): Record<string, unknown> {
-    return { botToken: '', webhookPort: 8443, webhookUrl: '' };
+    return {
+      botToken: '',
+      webhookPort: 8443,
+      webhookUrl: '',
+      pollingIntervalMs: 300,
+    };
   }
 
   protected validateConfig(config: Record<string, unknown>): string[] {
@@ -871,5 +883,6 @@ export function createTelegramChannel(): IChannelPlugin {
 }
 
 export const telegramChannel = createTelegramChannel();
-export const telegramChannelPlugin = createTelegramChannel();
+// P1-3 单例统一：Plugin 导出为同一实例别名，避免双实例
+export const telegramChannelPlugin = telegramChannel;
 export { escapeMarkdownV2, buildInlineKeyboard };

@@ -117,6 +117,8 @@ import {
   handleDeleteChannel,
   handleUpdateChannel,
   handleApplyChannelConfig,
+  handleChannelHealth,
+  handleChannelSchema,
 } from './channel-handlers';
 
 // Channel plugin handlers（直接函数调用）
@@ -219,11 +221,13 @@ export async function dispatchRoute(
   const method = req.method || 'GET';
 
   // ---- 管理写 API 鉴权（M0d：登录态非 admin → 403；无效 token → 401；无 token → 本地回环基线放行）----
+  // M1（2026-08-06）：skill 管理写操作（install/uninstall/delete/import/clone/update/toggle/create）并入 admin 权限体系
   if (
     (method === 'POST' || method === 'PUT' || method === 'DELETE') &&
     (url.startsWith('/v1/permissions/') ||
       url.startsWith('/v1/apikeys') ||
-      url.startsWith('/v1/oauth/providers'))
+      url.startsWith('/v1/oauth/providers') ||
+      url.startsWith('/v1/skills'))
   ) {
     const result = checkAdminRequest(req);
     if (result !== 'ok') {
@@ -1970,6 +1974,16 @@ export async function dispatchRoute(
   // ---- Channels ----
   if (method === 'GET' && url === '/v1/channels') {
     await handleListChannels(req, res);
+    return true;
+  }
+  // P0-1（4.1）：字段渲染元数据端点，先于 /v1/channels/(.+) 匹配
+  if (method === 'GET' && url === '/v1/channels/schema') {
+    await handleChannelSchema(req, res);
+    return true;
+  }
+  // P2-6（4.12）：健康聚合接口必须先于 /v1/channels/(.+) 匹配，否则被 handleGetChannel 吞掉
+  if (method === 'GET' && url === '/v1/channels/health') {
+    await handleChannelHealth(req, res);
     return true;
   }
   if (method === 'GET' && url.match(/^\/v1\/channels\/(.+)$/)) {

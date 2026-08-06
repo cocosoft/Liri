@@ -5,8 +5,8 @@
 
 export interface MSTeamsConfig {
   tenantId: string;
-  clientId: string;
-  clientSecret: string;
+  appId: string;
+  appPassword: string;
   botEndpoint?: string;
   webhookPort?: number;
   microsoftLoginBase?: string;
@@ -14,7 +14,7 @@ export interface MSTeamsConfig {
 }
 
 const DEFAULTS: Partial<MSTeamsConfig> = {
-  webhookPort: 8085,
+  webhookPort: 8089,
   microsoftLoginBase: 'https://login.microsoftonline.com',
   botFrameworkBase: 'https://smba.trafficmanager.net/amer',
 };
@@ -22,8 +22,8 @@ const DEFAULTS: Partial<MSTeamsConfig> = {
 export function getDefaultMSTeamsConfig(): MSTeamsConfig {
   return {
     tenantId: '',
-    clientId: '',
-    clientSecret: '',
+    appId: '',
+    appPassword: '',
     webhookPort: DEFAULTS.webhookPort,
     microsoftLoginBase: DEFAULTS.microsoftLoginBase,
     botFrameworkBase: DEFAULTS.botFrameworkBase,
@@ -35,11 +35,11 @@ export function validateMSTeamsConfig(raw: Record<string, unknown>): string[] {
   if (!raw['tenantId'] || typeof raw['tenantId'] !== 'string') {
     errors.push('tenantId: 必须是一个非空字符串');
   }
-  if (!raw['clientId'] || typeof raw['clientId'] !== 'string') {
-    errors.push('clientId: 必须是一个非空字符串');
+  if (!raw['appId'] || typeof raw['appId'] !== 'string') {
+    errors.push('appId: 必须是一个非空字符串');
   }
-  if (!raw['clientSecret'] || typeof raw['clientSecret'] !== 'string') {
-    errors.push('clientSecret: 必须是一个非空字符串');
+  if (!raw['appPassword'] || typeof raw['appPassword'] !== 'string') {
+    errors.push('appPassword: 必须是一个非空字符串');
   }
   if (raw['webhookPort'] !== undefined) {
     const p = Number(raw['webhookPort']);

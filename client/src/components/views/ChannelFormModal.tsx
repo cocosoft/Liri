@@ -7,8 +7,12 @@
  */
 
 import { useState, useCallback, useEffect } from "react";
-import type { Channel, UpdateChannelRequest } from "../../types";
-import { getPlatformFields, type PlatformFieldDef } from "./platformFields";
+import type {
+  Channel,
+  UpdateChannelRequest,
+  PlatformFieldDef,
+} from "../../types";
+import { channelService } from "../../services/channelService";
 import { maskSecretValue, normalizeSecretInput } from "../../utils/secretMask";
 import PluginInstallCard from "./PluginInstallCard";
 import WechatQrCard from "./WechatQrCard";
@@ -184,6 +188,28 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
   const [textFields, setTextFields] = useState<Record<string, string>>({});
   const [secretFields, setSecretFields] = useState<Record<string, string>>({});
 
+  // 渠道字段渲染 schema（4.1：从后端 GET /v1/channels/schema 拉取，替代前端硬编码）
+  const [schema, setSchema] = useState<{
+    platforms: Record<string, PlatformFieldDef[]>;
+    generic: PlatformFieldDef[];
+  } | null>(null);
+
+  // 拉取一次 schema（拉取失败时回退空列表，不阻塞表单其他功能）
+  useEffect(() => {
+    let cancelled = false;
+    channelService
+      .getSchema()
+      .then((loaded) => {
+        if (!cancelled) setSchema(loaded);
+      })
+      .catch(() => {
+        // @ignore-catch — schema 拉取失败时表单字段为空，凭据仍可手工配置
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // 每次 channel 变化时初始化表单（用 useEffect 避免 render 中 setState）
   const [lastChannelId, setLastChannelId] = useState<string | null>(null);
 
@@ -201,7 +227,7 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
     const cfg = channel.config || {};
     const texts: Record<string, string> = {};
     const secrets: Record<string, string> = {};
-    const fields = getPlatformFields(channel.type);
+    const fields = schema?.platforms?.[channel.type] ?? schema?.generic ?? [];
     for (const f of fields) {
       const val = cfg[f.key];
       if (val !== undefined && val !== null) {
@@ -215,7 +241,7 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
     }
     setTextFields(texts);
     setSecretFields(secrets);
-  }, [channel, lastChannelId]);
+  }, [channel, lastChannelId, schema]);
 
   // 构建保存数据 — 使用 useCallback 必须在条件返回之前
   const buildSaveData = useCallback((): UpdateChannelRequest => {
@@ -235,7 +261,9 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
   }, [name, enabled, textFields, secretFields]);
 
   // 派生数据 — 必须在条件返回之前
-  const fields = channel ? getPlatformFields(channel.type) : [];
+  const fields = channel
+    ? (schema?.platforms?.[channel.type] ?? schema?.generic ?? [])
+    : [];
   const pluginRequired = channel ? needsPlugin(channel.type) : null;
 
   if (!visible || !channel) return null;

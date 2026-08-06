@@ -4,10 +4,11 @@
  */
 
 export interface TwitterConfig {
+  enabled?: boolean;
   apiKey: string;
-  apiSecret: string;
+  apiSecretKey: string;
   accessToken: string;
-  accessSecret: string;
+  accessTokenSecret: string;
   bearerToken?: string;
 }
 
@@ -15,10 +16,12 @@ const DEFAULTS: Partial<TwitterConfig> = {};
 
 export function getDefaultTwitterConfig(): TwitterConfig {
   return {
+    enabled: false,
     apiKey: '',
-    apiSecret: '',
+    apiSecretKey: '',
     accessToken: '',
-    accessSecret: '',
+    accessTokenSecret: '',
+    bearerToken: '',
   };
 }
 
@@ -28,14 +31,17 @@ export function validateTwitterConfig(raw: Record<string, unknown>): string[] {
   if (!raw['apiKey'] || typeof raw['apiKey'] !== 'string') {
     errors.push('apiKey: 必须是非空字符串（Twitter API Key）');
   }
-  if (!raw['apiSecret'] || typeof raw['apiSecret'] !== 'string') {
-    errors.push('apiSecret: 必须是非空字符串（Twitter API Secret）');
+  if (!raw['apiSecretKey'] || typeof raw['apiSecretKey'] !== 'string') {
+    errors.push('apiSecretKey: 必须是非空字符串（Twitter API Secret）');
   }
   if (!raw['accessToken'] || typeof raw['accessToken'] !== 'string') {
     errors.push('accessToken: 必须是非空字符串（Twitter Access Token）');
   }
-  if (!raw['accessSecret'] || typeof raw['accessSecret'] !== 'string') {
-    errors.push('accessSecret: 必须是非空字符串（Twitter Access Secret）');
+  if (
+    !raw['accessTokenSecret'] ||
+    typeof raw['accessTokenSecret'] !== 'string'
+  ) {
+    errors.push('accessTokenSecret: 必须是非空字符串（Twitter Access Secret）');
   }
 
   return errors;

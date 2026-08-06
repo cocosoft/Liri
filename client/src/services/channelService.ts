@@ -2,6 +2,8 @@ import type {
   Channel,
   UpdateChannelRequest,
   ChannelHealth,
+  ChannelHealthAggregate,
+  ChannelSchema,
   ChannelPluginInfo,
 } from "../types";
 import { httpLegacy as http } from "./httpClient";
@@ -46,6 +48,16 @@ export const channelService = {
   /** 健康检查 */
   health: async (id: string): Promise<ChannelHealth> => {
     return http.get<ChannelHealth>(`/v1/channels/${id}/health`);
+  },
+
+  /** 获取所有通道健康聚合（P2-6 / 4.12） */
+  getHealth: async (): Promise<ChannelHealthAggregate> => {
+    return http.get<ChannelHealthAggregate>("/v1/channels/health");
+  },
+
+  /** 获取渠道字段渲染 schema（4.1：后端单一来源，前端表单渲染依据） */
+  getSchema: async (): Promise<ChannelSchema> => {
+    return http.get<ChannelSchema>("/v1/channels/schema");
   },
 
   /** 应用配置（触发 Gateway 重载） */

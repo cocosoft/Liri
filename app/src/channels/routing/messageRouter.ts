@@ -44,6 +44,11 @@ import type { MessageContext } from '../types/IChannel';
 import type { SessionSpanContext } from '../../ai/telemetry/SessionSpanTracer';
 import { channelSessionManager } from '../session/ChannelSessionManager';
 import { isBridgeEnabled } from '../setupChannels';
+// 2026-08-06 接入（P0-2）：DM 策略授权引擎（pairing/allowlist/open）
+import { DmPolicyEngine } from '../policy/DmPolicy';
+import type { DmPolicyConfig } from '../policy/DmPolicy';
+// 2026-08-06 接入（P1-5）：渠道入站限流（按渠道+sender 令牌桶）
+import { checkRateLimit } from './rateLimiter';
 
 const logger = new Logger({ level: LogLevel.INFO, module: 'channels:routing' });
 
@@ -109,6 +114,8 @@ export interface RouteMessageOptions {
   channelName?: string;
   /** 是否启用端到端追踪 */
   enableTracing?: boolean;
+  /** 2026-08-06 新增（P0-2）：DM 策略配置（pairing/allowlist/open），提供则执行授权检查 */
+  dmPolicy?: Partial<DmPolicyConfig>;
 }
 
 /**
@@ -228,6 +235,40 @@ export async function routeChannelMessage(
       valid: false,
       errorCode: validation.errorCode || 'INVALID_FRAME',
       errorMessage: validation.errors?.join('; ') || '消息格式无效',
+    };
+  }
+
+  // ①-② DM 策略授权（2026-08-06 接入，P0-2）：
+  // 各渠道 security.dmPolicy（pairing/allowlist/open）由调用方经 options.dmPolicy 传入，
+  // 未授权消息在进入去重/会话/LLM 链路前即被拦截。
+  if (options.dmPolicy) {
+    const dmEngine = new DmPolicyEngine(options.dmPolicy);
+    const authResult = await dmEngine.authorize(message);
+    if (!authResult.allowed) {
+      logger.warning('消息未通过 DM 策略授权', {
+        channelName,
+        senderId: message.senderId,
+        reason: authResult.reason,
+      });
+      return {
+        valid: false,
+        errorCode: 'UNAUTHORIZED',
+        errorMessage: authResult.reason || '发送者未获授权',
+      };
+    }
+  }
+
+  // ①-③ 入站限流（2026-08-06 接入，P1-5）：按渠道+sender 令牌桶，
+  // 超限直接拒绝（不触发 LLM 调用），防止 open 渠道被刷爆成本
+  if (!checkRateLimit(channelName, message.senderId)) {
+    logger.warning('消息触发限流', {
+      channelName,
+      senderId: message.senderId,
+    });
+    return {
+      valid: false,
+      errorCode: 'RATE_LIMITED',
+      errorMessage: '发送过于频繁，请稍后再试',
     };
   }
 

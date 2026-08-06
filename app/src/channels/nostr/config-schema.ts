@@ -16,6 +16,7 @@ const DEFAULTS: Partial<NostrConfig> = {
 export function getDefaultNostrConfig(): NostrConfig {
   return {
     relays: DEFAULTS.relays!,
+    privateKey: '',
     publicKey: '',
   };
 }

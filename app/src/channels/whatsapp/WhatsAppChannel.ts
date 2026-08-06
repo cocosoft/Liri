@@ -80,6 +80,7 @@ export class WhatsAppChannel extends BaseChannelPlugin {
       accessToken: '',
       verifyToken: '',
       businessAccountId: '',
+      apiVersion: 'v21.0',
     };
   }
 

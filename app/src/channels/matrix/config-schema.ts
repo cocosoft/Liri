@@ -7,7 +7,7 @@ export interface MatrixConfig {
   homeserverUrl: string;
   userId: string;
   accessToken: string;
-  autoJoinRooms?: string[];
+  autoJoinRooms?: boolean;
   syncTimeoutMs?: number;
   apiBase?: string;
 }
@@ -21,7 +21,7 @@ export function getDefaultMatrixConfig(): MatrixConfig {
     homeserverUrl: '',
     userId: '',
     accessToken: '',
-    autoJoinRooms: [],
+    autoJoinRooms: false,
     syncTimeoutMs: DEFAULTS.syncTimeoutMs,
   };
 }
@@ -39,9 +39,9 @@ export function validateMatrixConfig(raw: Record<string, unknown>): string[] {
   }
   if (
     raw['autoJoinRooms'] !== undefined &&
-    !Array.isArray(raw['autoJoinRooms'])
+    typeof raw['autoJoinRooms'] !== 'boolean'
   ) {
-    errors.push('autoJoinRooms: 必须是字符串数组');
+    errors.push('autoJoinRooms: 必须是布尔值');
   }
   if (raw['syncTimeoutMs'] !== undefined) {
     const t = Number(raw['syncTimeoutMs']);

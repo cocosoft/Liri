@@ -1,13 +1,11 @@
 /**
  * ChannelRegistry 通道注册中心
  *
- * 统一通道注册代理，以 ChannelPluginRegistry（core/gateway/）为唯一单源，
- * ChannelRegistry 作为其薄代理对外提供 ChannelInterface 视图。
+ * 统一通道注册代理，注册 IChannelPlugin / ChannelInterface 并提供
+ * ChannelInterface 视图与 DB 持久化（channel_configs 表）。
  *
- * 双轨兼容：
- * - register() 保持原有的本地缓存逻辑（用于 IChannelPlugin / ChannelInterface 直接注册）
- * - 读取方法优先返回已注册的 ChannelPlugin 适配结果，本地缓存作为补充
- * - 未匹配到本地缓存时自动从 ChannelPluginRegistry 同步
+ * 2026-08-06（4.9/P1-6）：移除 core/gateway（ChannelPluginRegistry）桥接层依赖，
+ * 双轨适配分支（adaptPluginToChannelInterface / setupActiveSync）已删除。
  *
  * 持久化：通过 channel_configs 表将配置（name/enabled/options）存入 app.db，
  * 重启后自动恢复。
@@ -16,9 +14,6 @@
 import { EventEmitter } from 'events';
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
-import { ChannelPluginRegistry } from '../../core/gateway/ChannelPluginRegistry';
-import type { ChannelPlugin } from '../../core/gateway/ChannelPlugin';
-import { ChannelStatus } from '../../core/gateway/types';
 import type { IChannelPlugin } from '../types/IChannel';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus';
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -74,14 +69,16 @@ export interface ChannelInterface {
 /**
  * 将 IChannelPlugin 适配为 ChannelInterface
  * connect 时自动从 ChannelSecretStore 注入已存储的凭据
+ * @param enabledOverride 持久化的 enabled 状态（P1-1：DB 配置为准，缺省视为启用）
  */
 export function adaptPluginToInterface(
-  plugin: IChannelPlugin
+  plugin: IChannelPlugin,
+  enabledOverride?: boolean
 ): ChannelInterface {
   return {
     name: plugin.id,
     type: plugin.id,
-    enabled: true,
+    enabled: enabledOverride ?? true,
     get connected() {
       return plugin.lifecycle.getStatus().connected;
     },
@@ -171,84 +168,9 @@ export interface ChannelMessage {
   metadata?: Record<string, unknown>;
 }
 
-/** ChannelPlugin 状态 → ChannelInterface 状态判断 */
-function isPluginConnected(plugin: ChannelPlugin): boolean {
-  return (
-    plugin.status === ChannelStatus.CONNECTED ||
-    plugin.status === ChannelStatus.CONNECTING
-  );
-}
-
-/**
- * 将 ChannelPlugin 适配为 ChannelInterface
- * ChannelPlugin 不包含 sendMessage 等通道特有工具方法，
- * 此处提供包装实现，实际发送能力由 ChannelManager 的同步注册补充。
- */
-export function adaptPluginToChannelInterface(
-  plugin: ChannelPlugin
-): ChannelInterface {
-  return {
-    name: plugin.id,
-    type: plugin.id,
-    enabled: true,
-    get connected() {
-      return isPluginConnected(plugin);
-    },
-    connect: async () => {
-      try {
-        await plugin.connect();
-        return isPluginConnected(plugin);
-      } catch (err) {
-        await handleError(err, {
-          module: 'channels:registry',
-          action: 'connect',
-          context: { pluginId: plugin.id },
-        });
-        return false;
-      }
-    },
-    disconnect: async () => {
-      try {
-        await plugin.disconnect();
-      } catch (err) {
-        await handleError(err, {
-          module: 'channels:registry',
-          action: 'disconnect',
-          context: { pluginId: plugin.id },
-        });
-      }
-    },
-    sendMessage: async (_target: string, text: string) => {
-      // 尝试使用 outbound 属性（部分 ChannelPlugin 实现可能包含）
-      const pluginWithOutbound = plugin as unknown as {
-        outbound?: {
-          sendText(
-            target: string,
-            message: string
-          ): Promise<{ success: boolean }>;
-        };
-      };
-      if (pluginWithOutbound.outbound?.sendText) {
-        const result = await pluginWithOutbound.outbound.sendText(
-          _target,
-          text
-        );
-        return result.success;
-      }
-      // 兜底：ChannelPlugin 无 outbound 属性，发送能力由 ChannelManager 补充
-      return false;
-    },
-    getStatus: () => ({
-      status: plugin.status,
-      connected: isPluginConnected(plugin),
-      type: plugin.id,
-    }),
-  };
-}
-
 /**
  * 通道注册中心
- * 薄代理模式：优先从 ChannelPluginRegistry 读取，本地缓存作为补充
+ * 统一注册 IChannelPlugin / ChannelInterface，DB 持久化由 channel_configs 表承载
  */
 export class ChannelRegistry extends EventEmitter {
   private channels: Map<string, ChannelInterface> = new Map();
@@ -287,73 +209,6 @@ export class ChannelRegistry extends EventEmitter {
     );
 
     this.persistenceReady = true;
-  }
-
-  /**
-   * 设置主动同步：订阅 ChannelPluginRegistry 事件，实时同步到本地缓存
-   *
-   * 替代之前仅在 getAll() 时被动调用的 syncFromPluginRegistry()。
-   * 插件状态变更（注册/注销/连接/断开/错误）→ 立即反映到 ChannelRegistry。
-   */
-  setupActiveSync(): void {
-    const registry = ChannelPluginRegistry.getInstance();
-
-    registry.setCallbacks({
-      onRegistered: (plugin: ChannelPlugin) => {
-        const name = plugin.id;
-        if (!this.channels.has(name)) {
-          const adapted = adaptPluginToChannelInterface(plugin);
-          this.channels.set(name, adapted);
-          logger.debug(`主动同步: 插件已注册 ${name}`);
-        }
-      },
-
-      onUnregistered: (id: string) => {
-        if (this.channels.has(id)) {
-          this.channels.delete(id);
-          logger.debug(`主动同步: 插件已注销 ${id}`);
-        }
-      },
-
-      onConnected: (id: string) => {
-        const cached = this.channels.get(id);
-        if (cached) {
-          const plugin = registry.lookup(id);
-          if (plugin) {
-            const adapted = adaptPluginToChannelInterface(plugin);
-            this.channels.set(id, adapted);
-            logger.debug(`主动同步: 插件已连接 ${id}`);
-          }
-        }
-      },
-
-      onDisconnected: (id: string) => {
-        const cached = this.channels.get(id);
-        if (cached) {
-          const plugin = registry.lookup(id);
-          if (plugin) {
-            const adapted = adaptPluginToChannelInterface(plugin);
-            this.channels.set(id, adapted);
-            logger.debug(`主动同步: 插件已断开 ${id}`);
-          }
-        }
-      },
-
-      onError: (id: string, error: Error) => {
-        void handleError(error, {
-          module: 'channels:registry',
-          action: 'syncOnError',
-          context: { pluginId: id },
-        });
-        const plugin = registry.lookup(id);
-        if (plugin) {
-          const adapted = adaptPluginToChannelInterface(plugin);
-          this.channels.set(id, adapted);
-        }
-      },
-    });
-
-    logger.info('主动同步已启用: ChannelPluginRegistry → ChannelRegistry');
   }
 
   /** 创建 channel_configs 表 */
@@ -507,17 +362,6 @@ export class ChannelRegistry extends EventEmitter {
     return successCount;
   }
 
-  /** 从 ChannelPluginRegistry 同步已有插件到本地缓存 */
-  private syncFromPluginRegistry(): void {
-    const registry = ChannelPluginRegistry.getInstance();
-    for (const plugin of registry.getAll()) {
-      const name = plugin.id;
-      if (!this.channels.has(name)) {
-        this.channels.set(name, adaptPluginToChannelInterface(plugin));
-      }
-    }
-  }
-
   /**
    * 注册通道（支持 ChannelInterface 和 IChannelPlugin）
    * 内存更新始终成功；DB 持久化失败时记录警告但不阻止通道运行
@@ -529,6 +373,12 @@ export class ChannelRegistry extends EventEmitter {
       adapted = adaptPluginToInterface(channel as IChannelPlugin);
     } else {
       adapted = channel as ChannelInterface;
+    }
+
+    // P1-1：DB 持久化配置为准 — 已存在配置时用其 enabled 覆盖（前端禁用后重启不再连接）
+    const persistedEnabled = this.configs.get(adapted.name)?.enabled;
+    if (persistedEnabled !== undefined) {
+      adapted.enabled = persistedEnabled;
     }
 
     // 去重守卫：检查是否为重复注册（相同名称、相同类型）
@@ -612,26 +462,15 @@ export class ChannelRegistry extends EventEmitter {
 
   /**
    * 获取通道
-   * 查询顺序：本地缓存 → ChannelPluginRegistry
    */
   get(name: string): ChannelInterface | undefined {
-    if (this.channels.has(name)) {
-      return this.channels.get(name);
-    }
-    const registry = ChannelPluginRegistry.getInstance();
-    const plugin = registry.lookup(name);
-    if (!plugin) return undefined;
-
-    const adapted = adaptPluginToChannelInterface(plugin);
-    this.channels.set(name, adapted);
-    return adapted;
+    return this.channels.get(name);
   }
 
   /**
    * 获取所有通道
    */
   getAll(): ChannelInterface[] {
-    this.syncFromPluginRegistry();
     return Array.from(this.channels.values());
   }
 
@@ -670,6 +509,9 @@ export class ChannelRegistry extends EventEmitter {
     }
     if (changes.enabled !== undefined) {
       config.enabled = changes.enabled;
+      // P1-1：同步内存 ChannelInterface.enabled，使 getEnabled()/lazyConnectChannels 立即生效
+      const ch = this.channels.get(name);
+      if (ch) ch.enabled = changes.enabled;
     }
     if (changes.options !== undefined) {
       config.options = { ...config.options, ...changes.options };

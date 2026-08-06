@@ -1,15 +1,16 @@
 {
-  "plugin": {
-    "name": "example-plugin",
-    "version": "1.0.0",
-    "description": "示例插件",
-    "main": "src/index.ts",
-    "author": "Liri",
-    "license": "MIT",
-    "categories": ["utility"],
-    "tags": ["example", "demo"],
-    "dependencies": [],
-    "commands": [],
-    "tools": []
-  }
+  "id": "example-plugin",
+  "name": "example-plugin",
+  "version": "1.0.0",
+  "description": "示例插件（Liri 官方示例，平铺 manifest 格式）",
+  "author": "Liri",
+  "license": "MIT",
+  "type": "tool",
+  "main": "src/index.ts",
+  "entryPoint": "src/index.ts",
+  "categories": ["utility"],
+  "tags": ["example", "demo"],
+  "dependencies": [],
+  "commands": [],
+  "tools": []
 }

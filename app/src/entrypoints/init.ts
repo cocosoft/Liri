@@ -193,6 +193,9 @@ export async function init(): Promise<void> {
         try {
           const { pluginSystem } = await import('@modules/plugins');
           await pluginSystem.initialize();
+          // 2026-08-06 修复（Q1）：启动即发现并加载已安装文件插件（~/.pyapp/plugins/installed/），
+          // 避免"插件装了但未被加载导致不可用"；加载失败不阻塞启动
+          await pluginSystem.loadInstalledPlugins();
           const duration = Date.now() - startTime;
           if (duration > 100) {
             logger.warning(`插件系统加载较慢: ${duration}ms`);

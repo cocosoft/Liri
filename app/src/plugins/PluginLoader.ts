@@ -25,5 +25,3 @@ export class PluginLoader {
 }
 
 export const pluginLoader = new PluginLoader();
-
-export { loadPluginAgents } from './core/PluginLoader';

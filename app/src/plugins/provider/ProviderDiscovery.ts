@@ -9,6 +9,7 @@ import {
 } from './ProviderCatalog.js';
 import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
+import { existsSync, readFileSync } from 'fs';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -188,9 +189,8 @@ export class ProviderDiscovery {
       const configPath = configManager.env('LIRI_PROVIDER_CONFIG');
       if (!configPath) return results;
 
-      const fs = require('fs');
-      if (fs.existsSync(configPath)) {
-        const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      if (existsSync(configPath)) {
+        const config = JSON.parse(readFileSync(configPath, 'utf-8'));
         if (Array.isArray(config.providers)) {
           for (const p of config.providers) {
             results.push({

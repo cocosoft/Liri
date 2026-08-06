@@ -161,6 +161,8 @@ export class SkillSearchEngine {
       /^10\./.test(hostname) ||
       /^192\.168\./.test(hostname) ||
       /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
+      // 2026-08-06 修复：补 169.254.0.0/16 链路本地段（云元数据/AWS metadata 所在网段）
+      hostname.startsWith('169.254.') ||
       hostname === '0.0.0.0' ||
       hostname === '[::1]' ||
       hostname === '::1';

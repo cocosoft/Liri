@@ -216,6 +216,14 @@ export class RemoteSkillHubAdapter extends BaseThirdPartyAdapter<RemoteSkillData
 
     for (const url of urls) {
       try {
+        // 2026-08-06 修复（M3）：目录 URL 复用 SSRF 校验（与 doInstall 的 sourceUrl 校验一致），
+        // 防止 catalogUrl/fallbackUrls 被配置为内网/回环地址导致 SSRF
+        const ssrfResult = await checkSsrf(url);
+        if (ssrfResult.blocked) {
+          logger.warn(`目录 URL 被 SSRF 拦截: ${url}`);
+          continue;
+        }
+
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 10_000);
 

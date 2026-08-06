@@ -259,7 +259,8 @@ export class LocalSkillStore<
   getSkillInstallPath(skillId: string): string {
     // 4.3：仓库形态 skillId（github:owner/repo 等）含 `:`/`/`，在 Windows 下为非法路径字符，
     // 统一映射为 `_`（如 github:owner/repo → github_owner_repo），保证目录可创建。
-    const safeId = skillId.replace(/[:\/\\]/g, '_');
+    // 2026-08-06 修复（低危 8）：补全 Windows 非法字符 < > " | ? * 及控制字符，防止目录创建失败
+    const safeId = skillId.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
     return join(this.skillsPath, safeId);
   }
 

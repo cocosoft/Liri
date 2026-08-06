@@ -11,6 +11,9 @@ const logger = new Logger({
   module: 'utils:loadPluginAgents',
   level: LogLevel.INFO,
 });
+// 2026-08-06 修复（Q3）：移除模块级缓存。
+// 原 pluginAgentsCache 一旦缓存（可能缓存空数组）永不失效，且 clearPluginAgentCache 无调用方，
+// 导致插件加载后 Agent 列表不刷新。loadPluginAgents 由 Agent 源在加载时低频调用，实时读取成本可忽略。
 import { PluginAgentDefinition } from '@modules/services/agent/types';
 import {
   parseAgentFromMarkdown,
@@ -18,18 +21,10 @@ import {
 } from '@modules/services/agent/parseAgent';
 import type { LoadedPlugin } from '@modules/types/plugin';
 
-// 缓存插件Agent
-let pluginAgentsCache: PluginAgentDefinition[] | null = null;
-
 /**
- * 从插件加载Agent定义
+ * 从插件加载Agent定义（实时读取，无缓存）
  */
 export async function loadPluginAgents(): Promise<PluginAgentDefinition[]> {
-  // 检查缓存
-  if (pluginAgentsCache) {
-    return pluginAgentsCache;
-  }
-
   try {
     // 获取已安装的插件
     const plugins = await getInstalledPlugins();
@@ -40,8 +35,6 @@ export async function loadPluginAgents(): Promise<PluginAgentDefinition[]> {
       agents.push(...pluginAgents);
     }
 
-    // 更新缓存
-    pluginAgentsCache = agents;
     return agents;
   } catch (error) {
     logger.error('Failed to load plugin agents:', error as Error);
@@ -255,11 +248,4 @@ function parseFrontmatter(content: string): Record<string, unknown> {
   }
 
   return frontmatter;
-}
-
-/**
- * 清除插件Agent缓存
- */
-export function clearPluginAgentCache(): void {
-  pluginAgentsCache = null;
 }

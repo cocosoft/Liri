@@ -308,6 +308,15 @@ export class PluginSystem {
     });
   }
 
+  /**
+   * 发现并加载已安装的文件插件（~/.pyapp/plugins/installed/）
+   * 2026-08-06 修复（Q1）：提供公开入口，供启动链与 CLI 调用，
+   * 避免"插件装了但从未被发现/加载导致不可用"。幂等：仅首次执行。
+   */
+  async loadInstalledPlugins(): Promise<void> {
+    await this.ensurePluginsLoaded();
+  }
+
   private async ensureInitialized(): Promise<void> {
     if (!this._isInitialized) {
       await this.initialize();

@@ -1,6 +1,7 @@
 //
 /**
- * 支持完整的Frontmatter解析、参数替换、Shell执行等功能
+ * Frontmatter 解析、参数替换与技能内容处理工具
+ * 2026-08-06：移除 Shell 执行声明（S1-2 shell 永久禁用，extractShellCommands 死代码已删除）
  */
 
 import { readFile, stat } from 'fs/promises';
@@ -363,30 +364,6 @@ export class SkillParser {
     }
 
     return result;
-  }
-
-  /**
-   * 提取Shell命令
-   */
-  extractShellCommands(content: string): string[] {
-    const commands: string[] = [];
-
-    // 匹配 !command 格式
-    const inlineCommands = content.match(/!\s*([^\n]+)/g) || [];
-    commands.push(...inlineCommands.map((cmd) => cmd.replace(/^!\s*/, '')));
-
-    // 匹配 ```! 代码块格式
-    const codeBlockRegex = /```!\s*\n([\s\S]*?)\n```/g;
-    const codeBlockMatches = content.matchAll(codeBlockRegex);
-
-    for (const match of codeBlockMatches) {
-      const commandsInBlock = match[1]
-        .split('\n')
-        .filter((cmd) => cmd.trim().length > 0);
-      commands.push(...commandsInBlock);
-    }
-
-    return commands;
   }
 
   /**

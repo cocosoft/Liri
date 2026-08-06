@@ -60,6 +60,9 @@ const pluginsCommand = {
       if (firstArg === 'search') {
         return await searchPlugins(parts.slice(1).join(' '));
       }
+      if (firstArg === 'load') {
+        return await loadPluginCommand(parts[1] || '');
+      }
 
       if (
         cleanArgs === 'help' ||
@@ -126,6 +129,7 @@ const pluginsCommand = {
   /plugins remove <name>     - 移除已安装插件
   /plugins update [name]     - 更新插件（不指定名称则更新全部）
   /plugins search <query>    - 搜索插件
+  /plugins load <name>       - 加载已安装的插件（发现+加载，幂等）
   /plugins help               - 显示此帮助
 
 子命令说明:
@@ -417,13 +421,32 @@ async function installPlugin(name: string): Promise<CommandResult> {
       success: result.success,
       version: result.version,
     });
+
+    if (result.success) {
+      // 2026-08-06 修复（Q1）：安装成功后尝试加载进插件系统（npm 包含 plugin.json 时成功）
+      let loaded = false;
+      try {
+        const { pluginSystem } = await import('@modules/plugins');
+        await pluginSystem.loadInstalledPlugins();
+        const loadResult = await pluginSystem.loadPlugin(name);
+        loaded = loadResult.success;
+      } catch {
+        loaded = false;
+      }
+      return {
+        success: true,
+        type: 'text',
+        message: `插件 ${name} v${result.version} 安装成功${
+          loaded ? '，已加载' : '（包未含 plugin.json，仅落盘）'
+        }`,
+        data: { ...result, loaded },
+      };
+    }
+
     return {
-      success: result.success,
-      type: 'text',
-      message: result.success
-        ? `插件 ${name} v${result.version} 安装成功`
-        : `插件安装失败: ${result.error}`,
-      data: result,
+      success: false,
+      type: 'error',
+      error: `插件安装失败: ${result.error}`,
     };
   } catch (error) {
     logger.error('插件安装失败', error as Error);
@@ -431,6 +454,47 @@ async function installPlugin(name: string): Promise<CommandResult> {
       success: false,
       type: 'error',
       error: `插件安装失败: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+/**
+ * 加载已安装的插件（发现 installed 目录 + 加载指定插件，幂等）
+ * 2026-08-06 新增（Q1）：/plugins load <name>
+ */
+async function loadPluginCommand(name: string): Promise<CommandResult> {
+  if (!name) {
+    return {
+      success: false,
+      type: 'error',
+      error: '请指定插件名称: /plugins load <name>',
+    };
+  }
+
+  try {
+    const { pluginSystem } = await import('@modules/plugins');
+    // 先发现 installed 目录（幂等，仅首次执行），再加载指定插件
+    await pluginSystem.loadInstalledPlugins();
+    const result = await pluginSystem.loadPlugin(name);
+    if (result.success) {
+      return {
+        success: true,
+        type: 'text',
+        message: `插件 ${name} 加载成功`,
+        data: result,
+      };
+    }
+    return {
+      success: false,
+      type: 'error',
+      error: `插件加载失败: ${result.error || 'unknown'}`,
+    };
+  } catch (error) {
+    logger.error('插件加载失败', error as Error);
+    return {
+      success: false,
+      type: 'error',
+      error: `插件加载失败: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
 }

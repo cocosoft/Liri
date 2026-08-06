@@ -181,51 +181,16 @@ export class ClawHubAPIClient {
 
   /**
    * HTTP GET JSON 请求
+   * 2026-08-06 修复（M2）：复用 httpGetText 安全链路（协议白名单 + 重定向最多 3 跳 + 目标 SSRF 校验），
+   * 消除与 httpGetText 的校验不一致（原实现直接 client.get，无任何 SSRF/重定向防护）。
    */
-  private httpGetJson<T>(url: string): Promise<T> {
-    return new Promise((resolve, reject) => {
-      const isHttps = url.startsWith('https');
-      const client = isHttps ? https : http;
-
-      const req = client.get(
-        url,
-        {
-          timeout: this.timeout,
-          headers: { 'User-Agent': 'Liri-ClawHub/1.0' },
-        },
-        (res) => {
-          const chunks: Buffer[] = [];
-          res.on('data', (chunk: Buffer) => chunks.push(chunk));
-          res.on('end', () => {
-            try {
-              const body = Buffer.concat(chunks).toString('utf-8');
-              if (
-                res.statusCode &&
-                res.statusCode >= 200 &&
-                res.statusCode < 300
-              ) {
-                resolve(JSON.parse(body) as T);
-              } else {
-                reject(
-                  new Error(`HTTP ${res.statusCode}: ${body.slice(0, 200)}`)
-                );
-              }
-            } catch (error) {
-              reject(error);
-            }
-          });
-        }
-      );
-      req.on('error', reject);
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error(`请求超时: ${url}`));
-      });
-    });
+  private async httpGetJson<T>(url: string): Promise<T> {
+    const body = await this.httpGetText(url);
+    return JSON.parse(body) as T;
   }
 
   /**
-   * HTTP GET 文本请求（S1-4：重定向最多 3 跳、仅 http/https、目标 SSRF 校验）
+   * HTTP GET 文本请求（S1-4 + M2：仅 http/https、初始与重定向目标均做 SSRF 校验、重定向最多 3 跳）
    */
   private httpGetText(url: string, redirectCount = 0): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -241,6 +206,24 @@ export class ClawHubAPIClient {
         return;
       }
 
+      // 2026-08-06 修复（M2）：初始 URL 同样做 SSRF 校验（统一 SSRF 校验基元，与重定向目标一致）
+      checkSsrf(url)
+        .then((ssrf) => {
+          if (ssrf.blocked) {
+            reject(new Error(`目标地址被 SSRF 拦截: ${ssrf.reason}`));
+            return;
+          }
+          this.doHttpGetText(url, redirectCount).then(resolve).catch(reject);
+        })
+        .catch(reject);
+    });
+  }
+
+  /**
+   * 实际 HTTP GET（已被 httpGetText 校验通过后执行）
+   */
+  private doHttpGetText(url: string, redirectCount: number): Promise<string> {
+    return new Promise((resolve, reject) => {
       const isHttps = url.startsWith('https');
       const client = isHttps ? https : http;
 

@@ -46,8 +46,12 @@ function makeSelf(): { self: Record<string, Function>; calls: string[] } {
   return { self, calls };
 }
 
-function makeReq(method: string): { method: string } {
-  return { method };
+function makeReq(method: string): {
+  method: string;
+  headers: Record<string, string>;
+} {
+  // headers 必须存在（admin 鉴权 checkAdminRequest 读取 req.headers.authorization）
+  return { method, headers: {} };
 }
 
 function makeRes(): {

@@ -5,7 +5,7 @@ import {
   createSkillCommand,
 } from '@modules/skills/utils/skillParser';
 import { validateSkillFrontmatter } from '@modules/skills/utils/skillValidator';
-import { join } from 'path';
+import { join, resolve, sep } from 'path';
 import { existsSync } from 'fs';
 import { PluginManager } from '@modules/plugins/managers/PluginManager';
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -39,7 +39,19 @@ export class PluginSkillLoader extends SkillLoader {
           const skillPaths = plugin.manifest.skills as string[];
           for (const skillPath of skillPaths) {
             try {
-              const skillFilePath = join(plugin.path, skillPath);
+              // 2026-08-06 修复（低危 6）：skillPath 落界校验，
+              // 防止插件清单被篡改后（skillPath 含 ../）路径穿越读取插件目录外任意文件
+              const resolvedSkillPath = resolve(plugin.path, skillPath);
+              if (
+                resolvedSkillPath !== plugin.path &&
+                !resolvedSkillPath.startsWith(plugin.path + sep)
+              ) {
+                logger.warning(
+                  `Skill path escapes plugin directory, skipped: ${skillPath}`
+                );
+                continue;
+              }
+              const skillFilePath = resolvedSkillPath;
 
               // 检查技能文件是否存在
               if (!existsSync(skillFilePath)) {

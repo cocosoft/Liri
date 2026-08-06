@@ -199,26 +199,37 @@ export class PluginLoader extends EventEmitter {
 
     const raw = readFileSync(manifestPath, 'utf-8');
     const parsed = JSON.parse(raw) as Record<string, unknown>;
+    // 2026-08-06 修复（Q2）：兼容 { plugin: {...} } 包裹格式（npm 包/example-plugin），
+    // 以及 main 作为 entryPoint 的别名（npm 包通常用 main 字段声明入口）
+    const base =
+      parsed && typeof parsed.plugin === 'object' && parsed.plugin !== null
+        ? (parsed.plugin as Record<string, unknown>)
+        : parsed;
+
+    const entryPoint =
+      typeof base.entryPoint === 'string'
+        ? base.entryPoint
+        : typeof base.main === 'string'
+          ? base.main
+          : undefined;
 
     return {
-      id: typeof parsed.id === 'string' ? parsed.id : '',
-      name: typeof parsed.name === 'string' ? parsed.name : '',
-      version: typeof parsed.version === 'string' ? parsed.version : '',
-      description:
-        typeof parsed.description === 'string' ? parsed.description : '',
-      author: typeof parsed.author === 'string' ? parsed.author : '',
+      id: typeof base.id === 'string' ? base.id : '',
+      name: typeof base.name === 'string' ? base.name : '',
+      version: typeof base.version === 'string' ? base.version : '',
+      description: typeof base.description === 'string' ? base.description : '',
+      author: typeof base.author === 'string' ? base.author : '',
       type:
-        parsed.type === PluginType.THEME ||
-        parsed.type === PluginType.LANGUAGE ||
-        parsed.type === PluginType.INTEGRATION ||
-        parsed.type === PluginType.UTILITY ||
-        parsed.type === PluginType.CUSTOM
-          ? (parsed.type as PluginType)
+        base.type === PluginType.THEME ||
+        base.type === PluginType.LANGUAGE ||
+        base.type === PluginType.INTEGRATION ||
+        base.type === PluginType.UTILITY ||
+        base.type === PluginType.CUSTOM
+          ? (base.type as PluginType)
           : PluginType.TOOL,
-      main: typeof parsed.main === 'string' ? parsed.main : undefined,
-      entryPoint:
-        typeof parsed.entryPoint === 'string' ? parsed.entryPoint : undefined,
-      ...parsed,
+      main: typeof base.main === 'string' ? base.main : undefined,
+      entryPoint,
+      ...base,
     };
   }
 
@@ -588,27 +599,6 @@ export class PluginLoader extends EventEmitter {
     this.isInitialized = false;
 
     this.emit('destroyed');
-  }
-}
-
-/**
- * 从插件系统加载 Agent 定义
- * 2026-08-06 修复：真实返回已加载插件声明的 agents 路径（原实现硬编码返回 []）
- */
-export async function loadPluginAgents(): Promise<string[]> {
-  try {
-    const loader = new PluginLoader();
-    await loader.loadAllPlugins();
-
-    const agentsPaths: string[] = [];
-    for (const plugin of loader.getLoadedPlugins()) {
-      if (plugin.agentsPaths) {
-        agentsPaths.push(...plugin.agentsPaths);
-      }
-    }
-    return agentsPaths;
-  } catch {
-    return [];
   }
 }
 

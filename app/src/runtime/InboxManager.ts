@@ -327,43 +327,18 @@ export class InboxManager {
         `Inbox item submitted: ${item.title}`
       );
 
-      // SSE 实时推送新 Inbox 项到前端
+      // SSE 实时推送新 Inbox 项到前端（P1-1: 附带 sessionId 供前端定位会话实时展示决策卡片）
       void broadcastEvent('inbox:new', {
         id,
         type: item.type,
         title: item.title,
         status: 'pending',
+        sessionId: item.sessionId,
         channelId: item.channelId,
         traceId: item.traceId,
       });
 
-      // 桥接写入通知中心（fire-and-forget，失败不影响 Inbox 主流程）
-      void (async () => {
-        try {
-          const { notificationPersistence } =
-            await import('@modules/runtime/NotificationPersistence.js');
-          await notificationPersistence().create({
-            category:
-              item.type === 'approval' || item.type === 'authorization'
-                ? 'approval'
-                : 'todo',
-            priority: 'normal',
-            title: item.title,
-            content: item.message || '',
-            source: 'inbox',
-            source_ref: id,
-            actions:
-              item.type === 'approval' || item.type === 'authorization'
-                ? [
-                    { label: '批准', action: 'approve', style: 'primary' },
-                    { label: '拒绝', action: 'reject', style: 'danger' },
-                  ]
-                : [{ label: '查看', action: 'view', style: 'primary' }],
-          });
-        } catch {
-          /* 通知写入失败不影响 Inbox 主流程 */
-        }
-      })();
+      // P0-1: 移除桥接写入消息中心（approval/todo 决策类不再进消息中心，决策 100% 走会话流式 InboxBlock）
 
       // 自动注入 Inbox block 到聊天消息（会话内可见交互卡片）
       if (sessionId) {
@@ -452,6 +427,7 @@ export class InboxManager {
         id,
         status: 'replied',
         reply,
+        sessionId: item.sessionId,
       });
 
       // 桥接：按 Inbox source_ref 标记对应通知为已处理
@@ -608,6 +584,7 @@ export class InboxManager {
       void broadcastEvent('inbox:update', {
         id: item.id,
         status: 'expired',
+        sessionId: item.sessionId,
       });
 
       if (item.channelSessionId) {

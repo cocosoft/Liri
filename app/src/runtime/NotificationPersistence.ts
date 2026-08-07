@@ -80,14 +80,15 @@ export interface NotificationListParams {
   category?: NotificationCategory;
   status?: NotificationStatus;
   priority?: NotificationPriority;
-  cursor?: number; // created_at 游标
+  /** 分页游标：P0-6 复合格式 "created_at:id"（兼容旧纯 created_at 数字） */
+  cursor?: number | string;
   limit?: number;
   userId?: string;
 }
 
 export interface NotificationListResult {
   items: NotificationItem[];
-  nextCursor: number | null;
+  nextCursor: number | string | null;
   hasMore: boolean;
 }
 
@@ -185,6 +186,27 @@ export class NotificationPersistence {
         (err: Error | null) => {
           if (err) reject(err);
           else resolve();
+        }
+      );
+    });
+
+    // P0-4: 存量 actions 清洗（幂等）——决策类消息已移出消息中心，
+    // 存量 approval/todo/question/authorization 清空 actions 并归档，避免简化面板长期兼容废弃渲染分支
+    await new Promise<void>((resolve, reject) => {
+      this.db!.run(
+        `UPDATE notifications SET actions = '[]', status = 'dismissed', updated_at = ?,
+           resolved_at = COALESCE(resolved_at, ?)
+         WHERE category IN ('approval','todo','question','authorization')
+           AND actions != '[]'`,
+        Math.floor(Date.now() / 1000),
+        Math.floor(Date.now() / 1000),
+        (err: Error | null) => {
+          if (err) {
+            logger.warn('存量 approval/todo actions 清洗失败（非致命）', {
+              error: String(err),
+            });
+          }
+          resolve();
         }
       );
     });
@@ -353,15 +375,24 @@ export class NotificationPersistence {
       values.push(params.priority);
     }
     if (params.cursor) {
-      conditions.push('created_at < ?');
-      values.push(params.cursor);
+      // P0-6: 复合游标 "created_at:id"，消除同秒多条数据的漏/重
+      const [createdAt, id] = String(params.cursor).split(':');
+      const cursorTs = Number(createdAt);
+      if (id) {
+        conditions.push('(created_at < ? OR (created_at = ? AND id < ?))');
+        values.push(cursorTs, cursorTs, id);
+      } else {
+        // 兼容旧格式游标（纯 created_at）
+        conditions.push('created_at < ?');
+        values.push(cursorTs);
+      }
     }
 
     const whereClause =
       conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    // 查询 limit+1 判断 hasMore
-    const sql = `SELECT * FROM notifications ${whereClause} ORDER BY created_at DESC LIMIT ?`;
+    // 查询 limit+1 判断 hasMore；复合游标需按 (created_at, id) 排序保证确定性
+    const sql = `SELECT * FROM notifications ${whereClause} ORDER BY created_at DESC, id DESC LIMIT ?`;
     values.push(limit + 1);
 
     const items = await new Promise<NotificationItem[]>((resolve, reject) => {
@@ -378,9 +409,10 @@ export class NotificationPersistence {
     const hasMore = items.length > limit;
     if (hasMore) items.pop();
 
+    const last = items[items.length - 1];
     return {
       items,
-      nextCursor: items.length > 0 ? items[items.length - 1].created_at : null,
+      nextCursor: last != null ? `${last.created_at}:${last.id}` : null,
       hasMore,
     };
   }
@@ -468,33 +500,38 @@ export class NotificationPersistence {
       conditions.push('category = ?');
       values.push(category);
     }
-    values.push(limit);
 
-    return new Promise<number>((resolve, reject) => {
-      db.run(
-        `UPDATE notifications SET status = 'read', read_at = ?, updated_at = ?
-         WHERE id IN (
-           SELECT id FROM notifications WHERE ${conditions.join(' AND ')} LIMIT ?
-         )`,
-        [now, now, ...values],
-        function (this: { changes: number }, err: Error | null) {
-          if (err) reject(err);
-          else {
-            if (this.changes > 0) {
-              void broadcastEvent('notification:bulk-updated', {
-                category: category || 'all',
-                updated_count: this.changes,
-              });
-              void (async () => {
-                const count = await self._scopeCount(userId);
-                void broadcastEvent('notification:count', count);
-              })();
-            }
-            resolve(this.changes);
+    // P0-4: 循环处理直到未读清空，避免超过 limit 条时剩余未读静默保留
+    let totalChanged = 0;
+    for (;;) {
+      const changed = await new Promise<number>((resolve, reject) => {
+        db.run(
+          `UPDATE notifications SET status = 'read', read_at = ?, updated_at = ?
+           WHERE id IN (
+             SELECT id FROM notifications WHERE ${conditions.join(' AND ')} LIMIT ?
+           )`,
+          [now, now, ...values, limit],
+          function (this: { changes: number }, err: Error | null) {
+            if (err) reject(err);
+            else resolve(this.changes);
           }
-        }
-      );
-    });
+        );
+      });
+      totalChanged += changed;
+      if (changed < limit) break; // 本批不足 limit（或为 0），未读已处理完
+    }
+
+    if (totalChanged > 0) {
+      void broadcastEvent('notification:bulk-updated', {
+        category: category || 'all',
+        updated_count: totalChanged,
+      });
+      void (async () => {
+        const count = await self._scopeCount(userId);
+        void broadcastEvent('notification:count', count);
+      })();
+    }
+    return totalChanged;
   }
 
   async dismiss(id: string, userId: string = 'default'): Promise<boolean> {
@@ -674,78 +711,20 @@ export class NotificationPersistence {
     return items;
   }
 
-  // ─── 操作（幂等） ─────────────────────────────
-
-  async performAction(
-    id: string,
-    action: string,
-    actionToken?: string,
-    userId: string = 'default'
-  ): Promise<{ success: boolean; status: NotificationStatus; error?: string }> {
-    const item = await this.get(id);
-    if (!item)
-      return { success: false, status: 'dismissed', error: '通知不存在' };
-
-    // 已终态
-    if (['resolved', 'dismissed', 'expired'].includes(item.status)) {
-      return {
-        success: false,
-        status: item.status as NotificationStatus,
-        error: '操作已处理',
-      };
-    }
-
-    // 幂等检查
-    if (item.action_token && actionToken && item.action_token !== actionToken) {
-      return {
-        success: false,
-        status: item.status as NotificationStatus,
-        error: 'action_token 无效',
-      };
-    }
-
-    const db = await this._getDb();
-    const now = Math.floor(Date.now() / 1000);
-    const self = this;
-
-    return new Promise<{ success: boolean; status: NotificationStatus }>(
-      (resolve, reject) => {
-        db.run(
-          `UPDATE notifications SET status = 'resolved', resolved_at = ?, updated_at = ?, action_token = NULL WHERE id = ? AND user_id = ?`,
-          now,
-          now,
-          id,
-          userId,
-          function (this: { changes: number }, err: Error | null) {
-            if (err) reject(err);
-            else {
-              if (this.changes > 0) {
-                void broadcastEvent('notification:update', {
-                  id,
-                  status: 'resolved',
-                  updated_at: now,
-                });
-                void (async () => {
-                  const count = await self._scopeCount(userId);
-                  void broadcastEvent('notification:count', count);
-                })();
-              }
-              resolve({ success: this.changes > 0, status: 'resolved' });
-            }
-          }
-        );
-      }
-    );
-  }
-
   // ─── 过期调度 ────────────────────────────────
 
   private _startExpireScheduler(): void {
     this.expireTimer = setInterval(
       () => {
-        this._checkExpired().catch((err) => {
-          logger.warn('过期检查失败', { error: String(err) });
-        });
+        this._checkExpired()
+          .catch((err) => {
+            logger.warn('过期检查失败', { error: String(err) });
+          })
+          .then(() =>
+            this._physicalCleanup().catch((err) => {
+              logger.warn('物理清理失败', { error: String(err) });
+            })
+          );
       },
       2 * 60 * 1000
     ); // 每 2 分钟
@@ -790,6 +769,34 @@ export class NotificationPersistence {
     }
 
     logger.info(`已过期 ${expiredIds.length} 条通知`);
+  }
+
+  /**
+   * P3-1: 物理清理，对齐前端 footer"保留最近 1000 条、30 天自动归档"：
+   * 1) 删除 30 天前的记录
+   * 2) 保留最近 1000 条，删除超量最旧记录
+   */
+  private async _physicalCleanup(): Promise<void> {
+    const db = await this._getDb();
+    const now = Math.floor(Date.now() / 1000);
+    const cutoff30d = now - 30 * 24 * 3600;
+
+    await new Promise<void>((resolve, reject) => {
+      db.run(
+        `DELETE FROM notifications WHERE created_at < ?`,
+        [cutoff30d],
+        (err: Error | null) => (err ? reject(err) : resolve())
+      );
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      db.run(
+        `DELETE FROM notifications WHERE id IN (
+           SELECT id FROM notifications ORDER BY created_at DESC LIMIT -1 OFFSET 1000
+         )`,
+        (err: Error | null) => (err ? reject(err) : resolve())
+      );
+    });
   }
 
   // ─── 辅助 ────────────────────────────────────

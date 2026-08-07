@@ -10,7 +10,7 @@
  * PATCH /v1/notifications/:id/dismiss  — 归档
  * PATCH /v1/notifications/batch        — 批量操作
  * DELETE /v1/notifications/:id         — 删除
- * POST /v1/notifications/:id/action    — 执行操作
+ * （P0-2 已移除 POST /v1/notifications/:id/action — 假按钮决策语义废除）
  */
 
 import type http from 'http';
@@ -243,47 +243,6 @@ export async function handleDeleteNotification(
   }
 }
 
-// ─── 执行操作 ──────────────────────────────────────
-
-/** POST /v1/notifications/:id/action */
-export async function handleNotificationAction(
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
-  _ctx: HandlerCtx
-): Promise<void> {
-  try {
-    const id = extractNotificationId(req);
-    if (!id) {
-      sendError(res, '缺少 id', 400);
-      return;
-    }
-    const body = await readRequestBody(req);
-    const { action, action_token } = JSON.parse(body);
-
-    if (!action) {
-      sendError(res, '缺少 action', 400);
-      return;
-    }
-
-    const result = await notificationPersistence().performAction(
-      id,
-      action,
-      action_token
-    );
-    if (!result.success) {
-      sendJSON(res, 409, {
-        error: result.error,
-        current_status: result.status,
-      });
-      return;
-    }
-    sendJSON(res, 200, { success: true, status: result.status });
-  } catch (e) {
-    await handleError(e, { module: 'http:notification', action: 'action' });
-    sendError(res, '操作失败', 500);
-  }
-}
-
 // ─── 创建 ───────────────────────────────────────────
 
 /** POST /v1/notifications — 创建通知 */
@@ -307,6 +266,18 @@ export async function handleCreateNotification(
 
     if (!category || !title) {
       sendError(res, '缺少 category 或 title', 400);
+      return;
+    }
+
+    // P0-3: 收件箱化 —— 只允许告知/记录类 category；决策类（approval/todo/question/authorization）一律拒绝，
+    // 决策 100% 走会话流式 InboxBlock
+    const ALLOWED_CATEGORIES = new Set(['notice', 'system', 'record']);
+    if (!ALLOWED_CATEGORIES.has(category)) {
+      sendError(
+        res,
+        `不支持的 category: ${category}（仅允许 notice/system/record）`,
+        400
+      );
       return;
     }
 

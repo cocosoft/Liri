@@ -146,6 +146,138 @@ export interface StreamChunk {
   _meta?: Record<string, unknown>;
 }
 
+/**
+ * P2-1: 共享 SSE chunk 解析 —— 流式主链路与断线 resume 路径共用。
+ * 修复前 resume 只识别 text/error/status，恢复后 thinking/tool_call/question 等决策块丢失。
+ * 纯解析无副作用（tool_completed 的 window.dispatchEvent 等副作用仍由主链路处理）。
+ */
+function parseSseChunk(chunk: Record<string, unknown>): StreamChunk | null {
+  const pyappType = chunk.__pyapp_type as string | undefined;
+  const choices = chunk.choices as
+    | Array<{
+        delta?: Record<string, unknown>;
+        finish_reason?: string;
+      }>
+    | undefined;
+  const delta = choices?.[0]?.delta;
+  const deltaContent = (delta?.content as string) || "";
+
+  if (pyappType === "thinking") {
+    return { type: "thinking", content: deltaContent };
+  }
+  if (pyappType === "status") {
+    return {
+      type: "status",
+      content: deltaContent,
+      statusType: (chunk.__pyapp_status_type as StreamChunk["statusType"]) ||
+        undefined,
+    };
+  }
+  if (pyappType === "context_state") {
+    return {
+      type: "context_state",
+      content: deltaContent,
+      watermarkState: chunk.watermarkState as StreamChunk["watermarkState"],
+    };
+  }
+  if (pyappType === "tool_completed") {
+    return {
+      type: "tool_completed",
+      content: "",
+      tool_call_id: chunk.tool_call_id as string,
+      tool_name: chunk.tool_name as string,
+      result_data: chunk.result_data as Record<string, unknown>,
+    };
+  }
+  if (pyappType === "error") {
+    return {
+      type: "error",
+      content: deltaContent || "Unknown error",
+      errorCode: (chunk.__pyapp_error_code as StreamChunk["errorCode"]) ||
+        "UNKNOWN",
+    };
+  }
+  if (pyappType === "tool_call") {
+    const tc = (delta?.tool_calls as
+      | Array<{ id?: string; function?: { name?: string; arguments?: unknown } }>
+      | undefined)?.[0];
+    if (tc) {
+      const rawArgs = tc.function?.arguments;
+      let parsedArgs: Record<string, unknown> = {};
+      if (typeof rawArgs === "string") {
+        try {
+          parsedArgs = JSON.parse(rawArgs || "{}");
+        } catch {
+          parsedArgs = {};
+        }
+      } else if (rawArgs && typeof rawArgs === "object") {
+        parsedArgs = rawArgs as Record<string, unknown>;
+      }
+      return {
+        type: "tool_call",
+        content: "",
+        toolCall: {
+          id: tc.id || "",
+          name: tc.function?.name || "",
+          arguments: parsedArgs,
+          status: (chunk.__pyapp_tool_status as
+            | "running"
+            | "completed"
+            | "failed") || "running",
+        },
+        _meta: chunk.__pyapp_meta as Record<string, unknown> | undefined,
+      };
+    }
+  }
+  if (pyappType === "usage" && chunk.usage) {
+    const u = chunk.usage as Record<string, unknown>;
+    return {
+      type: "usage",
+      content: "",
+      usage: {
+        inputTokens: (u.prompt_tokens as number) || 0,
+        outputTokens: (u.completion_tokens as number) || 0,
+        totalTokens: (u.total_tokens as number) || 0,
+        estimatedCostUsd: u.estimated_cost_usd as number | undefined,
+        cacheReadTokens: u.cache_read_input_tokens as number | undefined,
+        cacheCreationTokens:
+          u.cache_creation_input_tokens as number | undefined,
+      },
+      finishReason: choices?.[0]?.finish_reason || undefined,
+      _meta: chunk.__pyapp_meta as Record<string, unknown> | undefined,
+    };
+  }
+  if (choices?.[0]?.finish_reason === "error") {
+    return { type: "error", content: "AI 服务返回错误，请检查 API 密钥和模型配置" };
+  }
+  if (choices?.[0]?.finish_reason) {
+    return {
+      type: "usage",
+      content: "",
+      finishReason: choices[0].finish_reason,
+      _meta: chunk.__pyapp_meta as Record<string, unknown> | undefined,
+    };
+  }
+  if (pyappType === "question" && chunk.__pyapp_question) {
+    return {
+      type: "question",
+      content: "",
+      questionData: chunk.__pyapp_question as QuestionData,
+    };
+  }
+  if (pyappType === "todo" && chunk.__pyapp_todo) {
+    return {
+      type: "todo",
+      content: "",
+      todoData: chunk.__pyapp_todo as import("../types").TaskCardData,
+    };
+  }
+  if (deltaContent) {
+    return { type: "text", content: deltaContent };
+  }
+  return null;
+}
+
 async function getTauriCore() {
   if (typeof window === "undefined") {
     return null;
@@ -676,29 +808,10 @@ export const chatService = {
                 const data = line.slice(6);
                 if (data === "[DONE]") return;
                 try {
+                  // P2-1: 复用与主链路一致的共享解析，恢复后 thinking/tool_call/question 等决策块不丢失
                   const chunk = JSON.parse(data);
-                  // 简单类型识别（与 streamMessage 内联逻辑一致）
-                  const pyappType = chunk.__pyapp_type;
-                  if (
-                    pyappType === "text" &&
-                    chunk.choices?.[0]?.delta?.content
-                  ) {
-                    yield {
-                      type: "text",
-                      content: chunk.choices[0].delta.content,
-                    } as StreamChunk;
-                  } else if (pyappType === "error") {
-                    yield {
-                      type: "error",
-                      content: chunk.content || "",
-                      errorCode: chunk.__pyapp_error_code || "UNKNOWN",
-                    } as StreamChunk;
-                  } else if (pyappType === "status" || chunk.content) {
-                    yield {
-                      type: "status",
-                      content: chunk.content || "",
-                    } as StreamChunk;
-                  }
+                  const parsed = parseSseChunk(chunk);
+                  if (parsed) yield parsed;
                 } catch {
                   /* skip malformed */
                 }

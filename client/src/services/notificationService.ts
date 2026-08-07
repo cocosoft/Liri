@@ -83,37 +83,12 @@ export const notificationService = {
     return unwrap(res, "NOTIF_DISMISS");
   },
 
-  /** PATCH /v1/notifications/batch */
-  batchUpdate: async (
-    ids: string[],
-    status: "read" | "dismissed",
-  ): Promise<{ updatedCount: number }> => {
-    const res = await http.patch<{ updatedCount: number }>(
-      "/v1/notifications/batch",
-      { ids, status },
-    );
-    return unwrap(res, "NOTIF_BATCH");
-  },
-
   /** DELETE /v1/notifications/:id */
   delete: async (id: string): Promise<{ success: boolean }> => {
     const res = await http.delete<{ success: boolean }>(
       `/v1/notifications/${id}`,
     );
     return unwrap(res, "NOTIF_DELETE");
-  },
-
-  /** POST /v1/notifications/:id/action */
-  performAction: async (
-    id: string,
-    action: string,
-    actionToken?: string,
-  ): Promise<{ success: boolean; status: string }> => {
-    const res = await http.post<{ success: boolean; status: string }>(
-      `/v1/notifications/${id}/action`,
-      { action, action_token: actionToken },
-    );
-    return unwrap(res, "NOTIF_ACTION");
   },
 
   /** POST /v1/notifications — 创建通知 */

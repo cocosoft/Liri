@@ -9,17 +9,14 @@ import { useNotificationStore } from "../../stores/notificationStore";
 import type {
   NotificationCategory,
   NotificationItem,
-  NotificationAction,
 } from "../../types/notification";
 
-// ─── 分类配置 ──────────────────────────────────────────
+// ─── 分类配置（P0-4 收件箱化：仅告知型 notice/system，决策类已移出） ───
 
 const CATEGORIES: { key: NotificationCategory | "all"; label: string }[] = [
   { key: "all", label: "全部" },
-  { key: "approval", label: "审批" },
-  { key: "todo", label: "待办" },
   { key: "system", label: "系统" },
-  { key: "mention", label: "@我" },
+  { key: "notice", label: "日历" },
 ];
 
 // ─── 格式化 ──────────────────────────────────────────
@@ -80,7 +77,6 @@ function priorityStyles(priority: string): { bar: string; badge: string } {
 function NotificationCard({ item }: { item: NotificationItem }) {
   const markRead = useNotificationStore((s) => s.markRead);
   const dismiss = useNotificationStore((s) => s.dismiss);
-  const performAction = useNotificationStore((s) => s.performAction);
   const pStyles = priorityStyles(item.priority);
   const isExpired = item.status === "expired";
   const isResolved = item.status === "resolved";
@@ -140,37 +136,6 @@ function NotificationCard({ item }: { item: NotificationItem }) {
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2 leading-relaxed">
             {item.content}
           </p>
-        )}
-
-        {/* 操作按钮 */}
-        {!isExpired && !isResolved && item.actions.length > 0 && (
-          <div className="flex gap-2 mt-2">
-            {item.actions.map((act: NotificationAction, i: number) => (
-              <button
-                key={i}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (act.confirmText && !window.confirm(act.confirmText))
-                    return;
-                  performAction(
-                    item.id,
-                    act.action,
-                    item.action_token ?? undefined,
-                  );
-                }}
-                className={`text-xs px-2.5 py-1 rounded font-medium transition-colors ${
-                  act.style === "danger"
-                    ? "bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400"
-                    : act.style === "secondary"
-                      ? "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
-                      : "bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400"
-                }`}
-                disabled={false}
-              >
-                {act.label}
-              </button>
-            ))}
-          </div>
         )}
 
         {/* 底部信息 */}

@@ -117,8 +117,8 @@ interface NotificationStore {
   isLoading: boolean;
   /** 是否有更多 */
   hasMore: boolean;
-  /** 游标 */
-  nextCursor: number | null;
+  /** 游标（P0-6 复合格式 "created_at:id"） */
+  nextCursor: number | string | null;
   /** 面板是否打开 */
   panelOpen: boolean;
   /** 全部已读进行中 */
@@ -130,15 +130,11 @@ interface NotificationStore {
   closePanel: () => void;
   loadItems: (reset?: boolean) => Promise<void>;
   loadCounts: () => Promise<void>;
+  /** P0-5: 断线重连后增量补拉最新一页（按复合游标），避免只刷计数不补列表 */
+  syncLatest: () => Promise<void>;
   markRead: (id: string) => Promise<void>;
   readAll: () => Promise<void>;
   dismiss: (id: string) => Promise<void>;
-  performAction: (
-    id: string,
-    action: string,
-    actionToken?: string,
-  ) => Promise<boolean>;
-  deleteNotification: (id: string) => Promise<void>;
 
   /** SSE 事件处理 */
   handleSseNew: (item: NotificationItem) => void;
@@ -230,6 +226,25 @@ export const useNotificationStore = create<NotificationStore>()((set, get) => ({
     }
   },
 
+  syncLatest: async () => {
+    const { activeCategory } = get();
+    try {
+      const params: NotificationListParams = { limit: 50 };
+      if (activeCategory !== "all") params.category = activeCategory;
+      const result = await notificationService.list(params);
+      set((s) => ({
+        items: mergeItems(s.items, result.items),
+        nextCursor: result.nextCursor,
+        hasMore: result.hasMore,
+      }));
+    } catch (e) {
+      handleClientError(e, {
+        module: "stores:notification",
+        action: "syncLatest",
+      });
+    }
+  },
+
   markRead: async (id: string) => {
     try {
       await notificationService.markRead(id);
@@ -286,49 +301,6 @@ export const useNotificationStore = create<NotificationStore>()((set, get) => ({
         module: "stores:notification",
         action: "dismiss",
       });
-    }
-  },
-
-  performAction: async (id: string, action: string, actionToken?: string) => {
-    try {
-      const result = await notificationService.performAction(
-        id,
-        action,
-        actionToken,
-      );
-      if (result.success) {
-        set((s) => ({
-          items: s.items.map((item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  status: "resolved" as const,
-                  resolved_at: Math.floor(Date.now() / 1000),
-                }
-              : item,
-          ),
-        }));
-        get().loadCounts();
-      }
-      return result.success;
-    } catch (e) {
-      handleClientError(e, {
-        module: "stores:notification",
-        action: "performAction",
-      });
-      return false;
-    }
-  },
-
-  deleteNotification: async (id: string) => {
-    try {
-      await notificationService.delete(id);
-      set((s) => ({
-        items: s.items.filter((item) => item.id !== id),
-      }));
-      get().loadCounts();
-    } catch (e) {
-      handleClientError(e, { module: "stores:notification", action: "delete" });
     }
   },
 

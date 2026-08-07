@@ -78,7 +78,6 @@ import {
   handleDismiss,
   handleBatch,
   handleDeleteNotification,
-  handleNotificationAction,
   handleCreateNotification,
 } from './notification-handlers';
 
@@ -2563,10 +2562,6 @@ export async function dispatchRoute(
       }
       if (suffix === '/dismiss' && method === 'PATCH') {
         await handleDismiss(req, res, handlerCtx);
-        return true;
-      }
-      if (suffix === '/action' && method === 'POST') {
-        await handleNotificationAction(req, res, handlerCtx);
         return true;
       }
       if (!suffix && method === 'DELETE') {

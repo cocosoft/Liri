@@ -49,13 +49,14 @@ export interface NotificationListParams {
   category?: NotificationCategory;
   status?: NotificationStatus;
   priority?: NotificationPriority;
-  cursor?: number;
+  /** 分页游标（P0-6 复合格式 "created_at:id"，兼容旧纯 created_at） */
+  cursor?: number | string;
   limit?: number;
 }
 
 export interface NotificationListResult {
   items: NotificationItem[];
-  nextCursor: number | null;
+  nextCursor: number | string | null;
   hasMore: boolean;
 }
 

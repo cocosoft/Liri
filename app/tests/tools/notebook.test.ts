@@ -388,6 +388,19 @@ describe('JupyterNotebookConverter (P1-1 标准 nbformat 对齐)', () => {
     expect(j.cells[1].source.join('')).toBe('# Title');
   });
 
+  it('toJupyter 满足 nbformat.validate 必填（cell.id + kernelspec.display_name）', () => {
+    const nb = new NotebookImpl('nb-1', 'Test');
+    nb.addCell(new CodeCellImpl('c1', 'print(1)', 'python'));
+    nb.addCell(new MarkdownCellImpl('c2', '# Title'));
+    const j = JupyterNotebookConverter.toJupyter(nb) as any;
+    // cell 必须带 id（nbformat 5.x 起为硬性要求）
+    expect(j.cells[0].id).toBe('c1');
+    expect(j.cells[1].id).toBe('c2');
+    // 内部默认 kernelspec 仅有 language/name，必须补齐 display_name
+    expect(j.metadata.kernelspec.display_name).toBe('Python 3');
+    expect(j.metadata.kernelspec.language).toBe('python');
+  });
+
   it('fromJupyter → toJupyter roundtrip 保留内容', () => {
     const nb = new NotebookImpl('nb-1', 'RT');
     nb.addCell(new CodeCellImpl('c1', 'x = 1', 'python'));

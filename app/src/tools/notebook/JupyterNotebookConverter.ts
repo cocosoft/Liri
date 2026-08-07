@@ -29,6 +29,15 @@ function splitLines(text: string): string[] {
   return lines;
 }
 
+/** kernelspec 缺 display_name 时按语言补默认显示名（nbformat 4.x 必填） */
+const KERNELSPEC_DISPLAY_NAME: Record<string, string> = {
+  python: 'Python 3',
+  javascript: 'JavaScript (Node.js)',
+  typescript: 'TypeScript',
+  bash: 'Bash',
+  powershell: 'PowerShell',
+};
+
 /**
  * Jupyter Notebook 转换器
  */
@@ -51,11 +60,28 @@ export class JupyterNotebookConverter {
    * 内部 Notebook → 标准 Jupyter nbformat 4.x
    */
   static toJupyter(notebook: Notebook): object {
+    const metadata: Record<string, unknown> = {
+      title: notebook.name,
+      ...(notebook.metadata ?? {}),
+    };
+    // nbformat 4.x schema 要求 kernelspec 必填 display_name；
+    // 内部默认 kernelspec 仅有 language/name，此处补齐避免 validate 失败
+    const kernelspec = metadata.kernelspec as
+      | Record<string, unknown>
+      | undefined;
+    if (kernelspec && typeof kernelspec.display_name !== 'string') {
+      const language = String(kernelspec.language ?? 'python').toLowerCase();
+      metadata.kernelspec = {
+        ...kernelspec,
+        display_name: KERNELSPEC_DISPLAY_NAME[language] ?? 'Python 3',
+      };
+    }
     return {
       cells: notebook.cells.map((cell) => {
         if (cell.type === 'code') {
           const codeCell = cell as CodeCell;
           return {
+            id: cell.id,
             cell_type: 'code',
             metadata: { ...(codeCell.metadata ?? {}) },
             execution_count: null,
@@ -65,15 +91,13 @@ export class JupyterNotebookConverter {
         }
         const markdownCell = cell as MarkdownCell;
         return {
+          id: cell.id,
           cell_type: 'markdown',
           metadata: { ...(markdownCell.metadata ?? {}) },
           source: splitLines(markdownCell.content),
         };
       }),
-      metadata: {
-        title: notebook.name,
-        ...(notebook.metadata ?? {}),
-      },
+      metadata,
       nbformat: 4,
       nbformat_minor: 5,
     };

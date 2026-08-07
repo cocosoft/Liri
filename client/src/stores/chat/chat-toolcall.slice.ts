@@ -181,6 +181,7 @@ export class ChronologicalBlockBuilder {
       toolCallId: this.currentToolCallId ?? undefined,
       groupId: this.currentGroupId,
     });
+    this.markBlocksDirty();
   }
 
   /** 添加工具调用块，冻结当前文本 */

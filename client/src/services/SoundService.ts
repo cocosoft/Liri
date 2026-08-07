@@ -13,6 +13,7 @@
 import { useConfigStore } from "../stores/configStore";
 import { createLogger } from "@/utils/logger";
 import { handleClientError } from "../utils/handleError";
+import { sendNotification } from "../utils/notifications";
 
 const logger = createLogger("services:soundService");
 
@@ -104,11 +105,9 @@ export function playCompletionSound(): void {
   if (now - lastCompletionTime < COMPLETION_THROTTLE_MS) return;
   lastCompletionTime = now;
 
-  // Tab 隐藏时：弹浏览器通知不播声音
+  // Tab 隐藏时：弹浏览器通知不播声音（P3-2 统一入口）
   if (document.visibilityState !== "visible") {
-    if (Notification.permission === "granted") {
-      new Notification("Liri", { body: "已完成任务" });
-    }
+    sendNotification("Liri", "已完成任务");
     return;
   }
 

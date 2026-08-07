@@ -46,6 +46,9 @@ export function generateGroupId(): string {
  */
 export class ChronologicalBlockBuilder {
   private blocks: MessageBlock[] = [];
+  /** P2-3 增量快照缓存：仅数组结构变化（push）时重建，内容原地修改不触发拷贝 */
+  private blocksCache: MessageBlock[] = [];
+  private blocksDirty = true;
   private activeTextBlock: MessageBlock | null = null;
   private activeThinkingBlock: MessageBlock | null = null;
   private hasToolCallSinceLastText = false;
@@ -53,6 +56,11 @@ export class ChronologicalBlockBuilder {
   private currentGroupId: string = generateGroupId();
   /** tool_completed 事件可能先于 tool_call 块到达，暂存结果数据等待块创建后应用 */
   private pendingResults = new Map<string, Record<string, unknown>>();
+
+  /** blocks 数组结构变化（push/reset）时置脏，使 getBlocks 重新拷贝 */
+  private markBlocksDirty(): void {
+    this.blocksDirty = true;
+  }
 
   /** 追加文本块，工具调用后自动新建（同时分配新 groupId） */
   addText(content: string, isStreaming: boolean): void {
@@ -66,6 +74,7 @@ export class ChronologicalBlockBuilder {
         groupId: this.currentGroupId,
       };
       this.blocks.push(newBlock);
+      this.markBlocksDirty();
       this.activeTextBlock = newBlock;
       this.hasToolCallSinceLastText = false;
     } else {
@@ -85,6 +94,7 @@ export class ChronologicalBlockBuilder {
         groupId: this.currentGroupId,
       };
       this.blocks.push(newBlock);
+      this.markBlocksDirty();
       this.activeThinkingBlock = newBlock;
     } else {
       this.activeThinkingBlock.content += content;
@@ -128,6 +138,7 @@ export class ChronologicalBlockBuilder {
         toolCallId: this.currentToolCallId ?? undefined,
         groupId: this.currentGroupId,
       });
+      this.markBlocksDirty();
       return;
     }
 
@@ -236,6 +247,7 @@ export class ChronologicalBlockBuilder {
         toolCallId: toolCall.id,
         groupId: this.currentGroupId,
       });
+      this.markBlocksDirty();
       this.hasToolCallSinceLastText = true;
       // 消费已应用的待处理结果
       if (pendingResult) {
@@ -301,6 +313,7 @@ export class ChronologicalBlockBuilder {
       },
       groupId: this.currentGroupId,
     });
+    this.markBlocksDirty();
     // 标记自上次文本后有新 block，使后续文本创建新 text block（排在 question 之后）
     this.hasToolCallSinceLastText = true;
   }
@@ -335,6 +348,7 @@ export class ChronologicalBlockBuilder {
       isStreaming: false,
       groupId: this.currentGroupId,
     });
+    this.markBlocksDirty();
   }
 
   /**
@@ -381,6 +395,7 @@ export class ChronologicalBlockBuilder {
       isStreaming: true,
       groupId: this.currentGroupId,
     });
+    this.markBlocksDirty();
   }
 
   /** 冻结所有块（流式结束或中断时调用） */
@@ -396,14 +411,19 @@ export class ChronologicalBlockBuilder {
     this.activeThinkingBlock = null;
   }
 
-  /** 获取构建好的 blocks */
+  /** 获取构建好的 blocks（P2-3：结构未变时复用缓存数组，避免每 chunk O(n) 拷贝） */
   getBlocks(): MessageBlock[] {
-    return [...this.blocks];
+    if (this.blocksDirty) {
+      this.blocksCache = [...this.blocks];
+      this.blocksDirty = false;
+    }
+    return this.blocksCache;
   }
 
   /** 重置构建器 */
   reset(): void {
     this.blocks = [];
+    this.markBlocksDirty();
     this.activeTextBlock = null;
     this.activeThinkingBlock = null;
     this.hasToolCallSinceLastText = false;

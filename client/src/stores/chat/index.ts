@@ -68,7 +68,7 @@ withStoreLogging(useChatStore, "chatStore", [
   "isStreaming",
   "streamingStatus",
   "executionPhase",
-  "abortController",
+  "streamControllers",
   "rollbackSnapshot",
   "sessionFiles",
 ]);

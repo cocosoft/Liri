@@ -84,6 +84,16 @@ export function clearToolResultCache(): void {
   _toolResultFullCache.clear();
 }
 
+/** P2-2: 移除指定会话的流控制器，返回新对象（不可变更新） */
+function removeStreamController(
+  controllers: Record<string, AbortController>,
+  sid: string,
+): Record<string, AbortController> {
+  const next = { ...controllers };
+  delete next[sid];
+  return next;
+}
+
 /** Message Slice 状态和操作 */
 export interface MessageSlice {
   messages: Message[];
@@ -114,8 +124,11 @@ export interface MessageSlice {
   pendingReplyToId: string | null;
   /** 正在编辑的消息（用户消息） */
   editTarget: Message | null;
-  /** 中止控制器：用于取消正在进行的流式请求 */
-  abortController: AbortController | null;
+  /**
+   * 流控制器索引（P2-2 多会话并行）：sessionId → AbortController。
+   * 取代原单一 abortController —— 不同会话的流互不中止，可并行流式。
+   */
+  streamControllers: Record<string, AbortController>;
   /** 消息队列：流式输出中用户发送的新消息（放开输入限制后使用） */
   messageQueue: Array<{ content: string; sessionId?: string }>;
   /** P2-6: 中止恢复提示 — 上次任务被中止，有可恢复的检查点 */
@@ -185,7 +198,7 @@ export const createMessageSlice: StateCreator<
   replyMessage: null,
   pendingReplyToId: null,
   editTarget: null,
-  abortController: null,
+  streamControllers: {},
   messageQueue: [],
   rollbackSnapshot: null,
   hasPendingQuestion: false,
@@ -379,13 +392,14 @@ export const createMessageSlice: StateCreator<
     workMode?: "plan" | "do",
     attachedImages?: AttachedImage[],
   ) => {
-    // J1: 取消上一个未完成的流式请求
-    const prevController = get().abortController;
+    // P2-2: 只取消同会话的旧流（多会话并行——不再互相中止）
+    const sid = sessionId || "default";
+    const prevController = get().streamControllers[sid];
     if (prevController) {
       prevController.abort();
     }
 
-    const abortController = new AbortController();
+    const controller = new AbortController();
 
     const messageQueueEnabled =
       useFeatureFlagStore.getState().flags.message_queue;
@@ -396,7 +410,7 @@ export const createMessageSlice: StateCreator<
       isStreaming: true,
       error: null,
       errorCode: null,
-      abortController,
+      streamControllers: { ...get().streamControllers, [sid]: controller },
     });
 
     // 编辑消息：如果存在 editTarget，截断其后的消息
@@ -500,22 +514,20 @@ export const createMessageSlice: StateCreator<
         ? chatService.streamMessageWithReconnect(
             content,
             sessionId,
-            abortController.signal,
+            controller.signal,
             { workMode, images: attachedImages },
           )
-        : chatService.streamMessage(
-            content,
-            sessionId,
-            abortController.signal,
-            { workMode, images: attachedImages },
-          );
+        : chatService.streamMessage(content, sessionId, controller.signal, {
+            workMode,
+            images: attachedImages,
+          });
       const blockBuilder = new ChronologicalBlockBuilder();
       const extractor = createThinkExtractor();
 
       // P1-5: 幽灵块检测 — 超过 30s 无 chunk 时 ping 后端确认任务是否仍在执行
       let lastChunkTime = Date.now();
       ghostCheckTimer = setInterval(async () => {
-        if (abortController.signal.aborted) {
+        if (controller.signal.aborted) {
           clearInterval(ghostCheckTimer);
           return;
         }
@@ -537,7 +549,7 @@ export const createMessageSlice: StateCreator<
                 { sessionId },
               );
               clearInterval(ghostCheckTimer);
-              abortController.abort();
+              controller.abort();
             }
           }
         } catch {
@@ -547,7 +559,7 @@ export const createMessageSlice: StateCreator<
 
       for await (const rawChunk of generator) {
         // 检查是否已被中止
-        if (abortController.signal.aborted) break;
+        if (controller.signal.aborted) break;
 
         const chunks = Array.from(extractor.extract(rawChunk));
         for (const chunk of chunks) {
@@ -556,7 +568,7 @@ export const createMessageSlice: StateCreator<
       }
 
       // 处理未闭合的 think 标签
-      if (!abortController.signal.aborted) {
+      if (!controller.signal.aborted) {
         for (const chunk of extractor.flush()) {
           await processChunk(chunk);
         }
@@ -917,12 +929,17 @@ export const createMessageSlice: StateCreator<
 
       // 立即重置流式状态，让 UI 立刻响应（ThinkingBlock 收缩、tool_call 停止旋转）
       // 不等待 updateMessageBlocks 和 doAutoRename 完成
+      // P2-2: 仅清理本会话控制器，其他会话流不受影响
+      const nextControllers = removeStreamController(
+        get().streamControllers,
+        sid,
+      );
       set({
         isSending: false,
         isInputBlocked: false,
-        isStreaming: false,
+        isStreaming: Object.keys(nextControllers).length > 0,
         streamingStatus: "",
-        abortController: null,
+        streamControllers: nextControllers,
         executionPhase: null,
       });
 
@@ -992,7 +1009,7 @@ export const createMessageSlice: StateCreator<
         "warn",
       );
       // P2-2: 断线重连 — 非用户取消的中断尝试从检查点恢复消息
-      if (!abortController.signal.aborted && sessionId) {
+      if (!controller.signal.aborted && sessionId) {
         try {
           const base = await import("../../services/backendUrl").then((m) =>
             m.getBackendBaseUrl(),
@@ -1014,26 +1031,20 @@ export const createMessageSlice: StateCreator<
           // 检查点恢复失败静默处理
         }
       }
-      if (!abortController.signal.aborted) {
-        set({
-          error: String(error),
-          isSending: false,
-          isInputBlocked: false,
-          isStreaming: false,
-          streamingStatus: "",
-          abortController: null,
-          executionPhase: null,
-        });
-      } else {
-        set({
-          isSending: false,
-          isInputBlocked: false,
-          isStreaming: false,
-          streamingStatus: "",
-          abortController: null,
-          executionPhase: null,
-        });
-      }
+      // P2-2: 错误/中止统一清理本会话控制器，其他会话流不受影响
+      const nextControllers = removeStreamController(
+        get().streamControllers,
+        sid,
+      );
+      set({
+        error: !controller.signal.aborted ? String(error) : null,
+        isSending: false,
+        isInputBlocked: false,
+        isStreaming: Object.keys(nextControllers).length > 0,
+        streamingStatus: "",
+        streamControllers: nextControllers,
+        executionPhase: null,
+      });
       // 消息排队：即使出错也消费队列
       tryDequeue();
     }
@@ -1077,20 +1088,25 @@ export const createMessageSlice: StateCreator<
       return;
     }
 
-    // 边界条件3：中止当前流式请求，防止冲突
-    const prevController = get().abortController;
+    // 边界条件3：中止本会话的旧流（P2-2: 只影响本会话）
+    const sid = sessionId || messages[0]?.session_id || "default";
+    const prevController = get().streamControllers[sid];
     if (prevController) {
       prevController.abort();
     }
 
     // 移除最后一条 assistant 及之后的所有消息（含可能的部分生成空消息），然后重新发送
     const truncated = messages.slice(0, lastUserIdx + 1);
+    const nextControllers = removeStreamController(
+      get().streamControllers,
+      sid,
+    );
     set({
       messages: truncated,
-      isStreaming: false,
+      isStreaming: Object.keys(nextControllers).length > 0,
       isSending: false,
       isInputBlocked: false,
-      abortController: null,
+      streamControllers: nextControllers,
     });
 
     // 检测工作模式：若当前工作项活跃，传递 Plan/Do 模式到后端
@@ -1128,7 +1144,7 @@ export const createMessageSlice: StateCreator<
         error: String(error),
         isSending: false,
         isInputBlocked: false,
-        isStreaming: false,
+        isStreaming: Object.keys(get().streamControllers).length > 0,
       });
     }
   },
@@ -1167,20 +1183,25 @@ export const createMessageSlice: StateCreator<
       return;
     }
 
-    // 边界条件3：中止当前流式请求，防止冲突
-    const prevController = get().abortController;
+    // 边界条件3：中止本会话的旧流（P2-2: 只影响本会话）
+    const sid = sessionId || messages[0]?.session_id || "default";
+    const prevController = get().streamControllers[sid];
     if (prevController) {
       prevController.abort();
     }
 
     // 移除该用户消息及其之后的所有消息（含可能的部分生成空消息），然后重新发送
     const truncated = messages.slice(0, userMsgIdx + 1);
+    const nextControllers = removeStreamController(
+      get().streamControllers,
+      sid,
+    );
     set({
       messages: truncated,
-      isStreaming: false,
+      isStreaming: Object.keys(nextControllers).length > 0,
       isSending: false,
       isInputBlocked: false,
-      abortController: null,
+      streamControllers: nextControllers,
     });
 
     try {
@@ -1210,7 +1231,7 @@ export const createMessageSlice: StateCreator<
         error: String(error),
         isSending: false,
         isInputBlocked: false,
-        isStreaming: false,
+        isStreaming: Object.keys(get().streamControllers).length > 0,
       });
     }
   },
@@ -1219,11 +1240,14 @@ export const createMessageSlice: StateCreator<
    * 取消当前流式请求（J1）
    */
   stopMessage: () => {
-    const controller = get().abortController;
+    // P2-2: 仅中止当前 UI 会话的流，其他会话流不受影响
+    const state = get();
+    const sessionId = state.messages[0]?.session_id ?? "";
+    const controller = sessionId
+      ? state.streamControllers[sessionId]
+      : undefined;
     if (controller) {
       // P2-6: 保存中止恢复点（fire-and-forget，不阻塞 UI）
-      const state = get();
-      const sessionId = state.messages[0]?.session_id ?? "";
       if (sessionId) {
         const assistantMsg = [...state.messages]
           .reverse()
@@ -1260,12 +1284,16 @@ export const createMessageSlice: StateCreator<
       }
 
       controller.abort();
+      const nextControllers = removeStreamController(
+        get().streamControllers,
+        sessionId,
+      );
       set({
-        isStreaming: false,
+        isStreaming: Object.keys(nextControllers).length > 0,
         isSending: false,
         isInputBlocked: false,
         streamingStatus: "",
-        abortController: null,
+        streamControllers: nextControllers,
       });
       // 消息排队：停止后也消费队列
       const messageQueueEnabled =

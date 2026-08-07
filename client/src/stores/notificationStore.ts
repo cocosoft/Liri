@@ -7,6 +7,7 @@
 import { create } from "zustand";
 import { notificationService } from "../services/notificationService";
 import { handleClientError } from "@/utils/handleError";
+import { sendNotification } from "../utils/notifications";
 import { useConfigStore } from "./configStore";
 import type {
   NotificationItem,
@@ -75,7 +76,7 @@ function filteredTotal(raw: NotificationCountResult): number {
   return f.approval + f.todo + f.system + f.notice + f.mention;
 }
 
-/** 桌面通知（如果条件满足） */
+/** 桌面通知（如果条件满足；P3-2 统一入口发送） */
 function maybeShowDesktopNotification(item: NotificationItem): void {
   if (typeof Notification === "undefined") return;
   if (Notification.permission !== "granted") return;
@@ -96,14 +97,7 @@ function maybeShowDesktopNotification(item: NotificationItem): void {
     if (filteredTotal(counts) < desktopNotifyMinUnread) return;
   }
 
-  try {
-    new Notification(item.title, {
-      body: item.content || undefined,
-      tag: item.id,
-    });
-  } catch {
-    /* 桌面通知失败静默 */
-  }
+  sendNotification(item.title, item.content || "", { tag: item.id });
 }
 
 interface NotificationStore {

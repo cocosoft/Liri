@@ -530,7 +530,7 @@ export class ImageGenerateTool extends BaseTool {
           .map((img, i) =>
             img.localUrl
               ? `Image #${i + 1}: ![Image #${i + 1}](${img.localUrl})`
-              : `Image #${i + 1}: (display URL not available)`
+              : `Image #${i + 1}: (⚠️ 图片未能保存到本地媒体库，请告知用户可稍后重试或检查网络；远程地址: ${(img.url || '').slice(0, 200)})`
           )
           .join('\n') +
         `\n(You can reference these images in follow-up requests, e.g. "change the style to watercolor" or "make it larger".)`,
@@ -688,7 +688,7 @@ export class ImageGenerateTool extends BaseTool {
           .map((img, i) =>
             img.localUrl
               ? `Image #${i + 1}: ![Image #${i + 1}](${img.localUrl})`
-              : `Image #${i + 1}: (display URL not available)`
+              : `Image #${i + 1}: (⚠️ 图片未能保存到本地媒体库，请告知用户可稍后重试或检查网络；远程地址: ${(img.url || '').slice(0, 200)})`
           )
           .join('\n') +
         `\n(You can reference these images in follow-up requests, e.g. "change the style to watercolor" or "make it larger".)`,

@@ -30,6 +30,7 @@ import { modelService } from "../../services/modelService";
 import { http } from "../../services/httpClient";
 import { useToastStore } from "../../stores/toastStore";
 import { createLogger } from "../../utils/logger";
+import { friendlyErrorSummary } from "../../utils/friendlyError";
 import ImageViewer from "../ChatArea/ImageViewer/ImageViewer";
 import VideoPlayer from "./media/VideoPlayer";
 import ImageUploadDrop from "./image/ImageUploadDrop";
@@ -414,6 +415,18 @@ function MediaPage() {
     }
   }, [loadGallery]);
 
+  // 监听对话中 AI 生图完成事件（chatService 派发 pyapp:image_generated），
+  // 自动刷新媒体库，与 ImagePage 的 useImageGallery 保持一致行为。
+  useEffect(() => {
+    const handler = () => {
+      loadGallery();
+    };
+    window.addEventListener("pyapp:image_generated", handler);
+    return () => {
+      window.removeEventListener("pyapp:image_generated", handler);
+    };
+  }, [loadGallery]);
+
   // ──── 轮询 ────
   const handleTaskCompleted = useCallback(() => {
     loadGallery();
@@ -551,7 +564,8 @@ function MediaPage() {
           progress: 0,
           error: errMsg,
         });
-        addToast("error", `图片生成失败: ${errMsg}`);
+        // 对用户显示友好信息，原始错误保留在任务详情中便于排查
+        addToast("error", `图片生成失败：${friendlyErrorSummary(e)}`);
         logger.error("图片生成失败", { error: errMsg });
       }
     } else {
@@ -597,7 +611,8 @@ function MediaPage() {
           status: "failed",
           error: errMsg,
         });
-        addToast("error", `视频生成失败: ${errMsg}`);
+        // 对用户显示友好信息，原始错误保留在任务详情中便于排查
+        addToast("error", `视频生成失败：${friendlyErrorSummary(e)}`);
         logger.error("视频生成失败", { error: errMsg });
       }
     }

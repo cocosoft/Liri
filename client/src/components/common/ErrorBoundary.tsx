@@ -4,6 +4,9 @@ import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("components:errorBoundary");
 
+/** 动态导入失败的最大连续自动重试次数（间隔 800ms） */
+const MAX_DYNAMIC_IMPORT_RETRY = 3;
+
 interface ErrorBoundaryProps extends WithTranslation {
   /** 自定义 fallback UI，默认显示通用错误页 */
   fallback?: ReactNode;
@@ -31,30 +34,43 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     logger.error("Caught error: " + String(error), errorInfo.componentStack);
     this.props.onError?.(error, errorInfo.componentStack ?? "");
 
-    // 动态导入失败（vite dev 依赖重新优化 504 / 网络瞬时）时自动重试一次：
-    // lazy 组件重新挂载会再次 fetch 模块，通常可自愈；仅重试一次避免无限循环。
+    // 动态导入失败（vite dev 依赖重新优化 504 / 网络瞬时）时自动重试：
+    // lazy 组件重新挂载会再次 fetch 模块，通常可自愈。此 ErrorBoundary 为单例包裹全部
+    // lazy 路由（App.tsx），vite 每次新增依赖都会再次 re-optimize —— 因此用连续失败计数
+    // 而非一次性标记，使后续 re-optimize 仍可自动重试；上限 3 次防止模块持续不可用时无限循环。
     const msg = String(error?.message ?? error);
     if (
-      !this.autoRetried &&
+      this.autoRetryCount < MAX_DYNAMIC_IMPORT_RETRY &&
       /failed to fetch dynamically imported module|failed to resolve module specifier/i.test(
         msg,
       )
     ) {
-      this.autoRetried = true;
-      setTimeout(() => {
+      this.autoRetryCount++;
+      this.retryTimer = window.setTimeout(() => {
+        this.retryTimer = null;
         this.setState({ hasError: false, error: null });
       }, 800);
     }
   }
 
-  /** 动态导入失败自动重试标记（仅一次） */
-  private autoRetried = false;
+  componentWillUnmount(): void {
+    if (this.retryTimer !== null) {
+      window.clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
+  }
+
+  /** 动态导入失败连续自动重试计数 */
+  private autoRetryCount = 0;
+  /** 自动重试定时器（组件卸载时清理，避免 setState on unmounted） */
+  private retryTimer: number | null = null;
 
   handleRefresh = (): void => {
     window.location.reload();
   };
 
   handleReset = (): void => {
+    this.autoRetryCount = 0;
     this.setState({ hasError: false, error: null });
   };
 

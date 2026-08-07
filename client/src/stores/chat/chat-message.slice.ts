@@ -1475,20 +1475,6 @@ export const createMessageSlice: StateCreator<
   setMessages: (messages: Message[]) => {
     // BUG F2 修复: 每次加载新消息时清理旧缓存，防止内存无限增长
     _toolResultFullCache.clear();
-    const t0 = performance.now();
-    const inputBlocks = messages.reduce(
-      (c, m) => c + (Array.isArray(m.blocks) ? m.blocks.length : 0),
-      0,
-    );
-    const inputChars = messages.reduce(
-      (c, m) => c + (typeof m.content === "string" ? m.content.length : 0),
-      0,
-    );
-    logger.info("[Diag:setMsg] ═══ 开始处理消息", {
-      count: messages.length,
-      totalBlocks: inputBlocks,
-      totalChars: inputChars,
-    });
 
     // 会话切换锁：挂起流式写入，防止 loadSessions 覆盖流式数据
     _sessionSwitchLock = true;
@@ -1504,7 +1490,6 @@ export const createMessageSlice: StateCreator<
       // Phase 1: 收集 tool 角色消息，建立 toolCallId → content 映射
       // 这些工具结果在后端作为独立消息持久化，前端需合并回 assistant 消息的 blocks 中
       // 同时缓存全量结果到 _toolResultFullCache，block 中只存截断摘要
-      const tP1 = performance.now();
       const toolResultsByCallId = new Map<string, string>();
       const filteredMessages: Message[] = [];
 
@@ -1522,18 +1507,11 @@ export const createMessageSlice: StateCreator<
           filteredMessages.push(msg);
         }
       }
-      logger.info("[Diag:setMsg] Phase1 过滤tool消息", {
-        ms: (performance.now() - tP1).toFixed(1),
-        toolResults: toolResultsByCallId.size,
-        remaining: filteredMessages.length,
-      });
 
       // Phase 2: 合并连续的 assistant 消息
       // 多轮工具调用时，后端将每轮 LLM 回复存为独立 assistant 消息，
       // 导致加载历史后出现多个"🤖 Liri"气泡。此处合并为一条消息，与流式体验一致。
-      const tP2 = performance.now();
       const mergedMessages: Message[] = [];
-      let mergedCount = 0;
       for (const msg of filteredMessages) {
         if (msg.role !== "assistant") {
           mergedMessages.push(msg);
@@ -1543,7 +1521,6 @@ export const createMessageSlice: StateCreator<
         const lastIdx = mergedMessages.length - 1;
         const lastMsg = mergedMessages[lastIdx];
         if (lastMsg && lastMsg.role === "assistant") {
-          mergedCount++;
           mergedMessages[lastIdx] = {
             ...lastMsg,
             content: (lastMsg.content || "") + (msg.content || ""),
@@ -1564,14 +1541,8 @@ export const createMessageSlice: StateCreator<
           mergedMessages.push({ ...msg });
         }
       }
-      logger.info("[Diag:setMsg] Phase2 合并assistant消息", {
-        ms: (performance.now() - tP2).toFixed(1),
-        merged: mergedCount,
-        resultCount: mergedMessages.length,
-      });
 
       // Phase 3: 处理合并后的消息，将工具结果合并到对应 assistant 消息的 tool_call 块中
-      const tP3 = performance.now();
       const enhancedMessages = mergedMessages.map((msg) => {
         if (msg.role !== "assistant") return msg;
 
@@ -1626,17 +1597,8 @@ export const createMessageSlice: StateCreator<
         const newBlocks = rebuildBlocksFromContent(msg);
         return { ...msg, blocks: newBlocks, tool_calls: undefined };
       });
-      const outBlocks = enhancedMessages.reduce(
-        (c, m) => c + (Array.isArray(m.blocks) ? m.blocks.length : 0),
-        0,
-      );
-      logger.info("[Diag:setMsg] Phase3 重建blocks+合并工具结果", {
-        ms: (performance.now() - tP3).toFixed(1),
-        outputBlocks: outBlocks,
-      });
 
       // Phase 4: 从历史消息中的 tool_call 块中提取文件路径（仅同步收集，不做异步路径解析）
-      const tP4 = performance.now();
       const sessionFilesList: FilePreview[] = [];
       const addedPaths = new Set<string>();
 
@@ -1656,10 +1618,6 @@ export const createMessageSlice: StateCreator<
           );
         }
       }
-      logger.info("[Diag:setMsg] Phase4 提取文件路径", {
-        ms: (performance.now() - tP4).toFixed(1),
-        filesFound: sessionFilesList.length,
-      });
 
       // 检测是否有待用户回答的 question 块
       const hasQuestion = enhancedMessages.some((m) =>
@@ -1703,14 +1661,7 @@ export const createMessageSlice: StateCreator<
         );
         _pendingSwitchChunks = [];
       }
-      logger.info("[Diag:setMsg] ✅ 处理完成", {
-        totalMs: (performance.now() - t0).toFixed(1),
-      });
     } catch (e) {
-      logger.error("[Diag:setMsg] ❌ 处理失败", {
-        error: String(e),
-        totalMs: (performance.now() - t0).toFixed(1),
-      });
       // 确保会话切换锁一定释放，防止锁泄漏导致后续流式输出永久阻塞
       _sessionSwitchLock = false;
       _pendingSwitchChunks = [];

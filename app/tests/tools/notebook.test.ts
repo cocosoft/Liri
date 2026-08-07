@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
-import { unlinkSync, existsSync, readFileSync, rmSync } from 'fs';
+import { unlinkSync, existsSync, readFileSync, rmSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
@@ -493,6 +493,35 @@ describe('JupyterNotebookConverter (P1-1 标准 nbformat 对齐)', () => {
       const loaded = manager.openNotebook(join(dir, 'p1-test.ipynb'));
       expect(loaded.cells.length).toBe(1);
       expect((loaded.cells[0] as any).code).toBe('print("hi")');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('打开存量自定义格式文件后保存写回标准 nbformat（P1-1 迁移兼容）', () => {
+    const dir = join(tmpdir(), `pyapp-notebook-migrate-${randomUUID()}`);
+    try {
+      mkdirSync(dir, { recursive: true });
+      // 构造存量自定义格式（NotebookImpl.toJSON：cells[].type/createdAt，非标准）
+      const legacy = new NotebookImpl('nb-legacy', '旧格式');
+      legacy.addCell(new CodeCellImpl('c1', 'print(1)', 'python'));
+      legacy.addCell(new MarkdownCellImpl('c2', '# Old'));
+      const legacyPath = join(dir, 'legacy.ipynb');
+      writeFileSync(legacyPath, JSON.stringify(legacy.toJSON()));
+
+      const manager = new NotebookManager(dir);
+      // 旧格式可正常读取（fromJSON 兜底，isJupyterFormat 识别为非标准）
+      const opened = manager.openNotebook(legacyPath);
+      expect(opened.cells.length).toBe(2);
+      expect((opened.cells[0] as any).code).toBe('print(1)');
+
+      // 保存后写回标准 nbformat（首次打开写回，§六 风险提示预期行为）
+      manager.saveNotebook(opened);
+      const saved = JSON.parse(readFileSync(legacyPath, 'utf8')) as any;
+      expect(saved.nbformat).toBe(4);
+      expect(saved.cells[0].cell_type).toBe('code');
+      expect(saved.cells[0].source.join('')).toBe('print(1)');
+      expect(saved.cells[1].cell_type).toBe('markdown');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

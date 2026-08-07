@@ -108,6 +108,7 @@ export class NotificationPersistence {
   private dbPath: string;
   private db: Database | null = null;
   private expireTimer: ReturnType<typeof setInterval> | null = null;
+  private disposed = false;
 
   constructor(dbPath: string = resolveDbPath()) {
     this.dbPath = dbPath;
@@ -119,15 +120,25 @@ export class NotificationPersistence {
   }
 
   async dispose(): Promise<void> {
+    this.disposed = true;
     if (this.expireTimer) {
       clearInterval(this.expireTimer);
       this.expireTimer = null;
+    }
+    if (this.db) {
+      await new Promise<void>((resolve) => {
+        this.db!.close(() => resolve());
+      });
+      this.db = null;
     }
   }
 
   // ─── 内部 DB 管理 ───────────────────────────────
 
   private async _getDb(): Promise<Database> {
+    if (this.disposed) {
+      throw new Error('NotificationPersistence 已 dispose，禁止访问数据库');
+    }
     if (this.db) return this.db;
     this.db = await new Promise<Database>((resolve, reject) => {
       const db = new Database(this.dbPath, (err: Error | null) => {
@@ -331,8 +342,8 @@ export class NotificationPersistence {
       expires_at: item.expires_at,
     });
 
-    // 更新角标计数
-    void this._broadcastCount(userId);
+    // 更新角标计数（fire-and-forget；dispose 竞态下广播无意义，静默忽略）
+    void this._broadcastCount(userId).catch(() => {});
 
     return item;
   }

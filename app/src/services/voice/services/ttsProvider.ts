@@ -80,9 +80,11 @@ class TTSCache {
   /**
    * 生成缓存键
    *
-   * 复合键：文本 SHA-256 + 语音 + 语言 + 语速 + 格式
+   * 复合键：Provider + 文本 SHA-256 + 语音 + 语言 + 语速 + 格式。
+   * 3.6/P2-3：键含 Provider，避免相同文本在不同 Provider 下的合成结果互相污染；
+   * `v2` 前缀使存量缓存键一次性失效。
    */
-  private buildKey(options: TTSSpeakOptions): string {
+  private buildKey(options: TTSSpeakOptions, providerName?: string): string {
     const textHash = createHash('sha256')
       .update(options.text)
       .digest('hex')
@@ -91,14 +93,17 @@ class TTSCache {
     const lang = options.language || '';
     const speed = options.speed ?? 1.0;
     const fmt = options.format || '';
-    return `${textHash}:${voice}:${lang}:${speed}:${fmt}`;
+    return `v2|${providerName || ''}:${textHash}:${voice}:${lang}:${speed}:${fmt}`;
   }
 
   /**
    * 获取缓存
    */
-  get(options: TTSSpeakOptions): TTSSpeakResult | undefined {
-    const key = this.buildKey(options);
+  get(
+    options: TTSSpeakOptions,
+    providerName?: string
+  ): TTSSpeakResult | undefined {
+    const key = this.buildKey(options, providerName);
     const entry = this.store.get(key);
     if (!entry) return undefined;
 
@@ -123,10 +128,14 @@ class TTSCache {
   /**
    * 写入缓存
    */
-  set(options: TTSSpeakOptions, result: TTSSpeakResult): void {
+  set(
+    options: TTSSpeakOptions,
+    result: TTSSpeakResult,
+    providerName?: string
+  ): void {
     if (!result.success || !result.audioData) return;
 
-    const key = this.buildKey(options);
+    const key = this.buildKey(options, providerName);
 
     if (this.store.has(key)) {
       this.store.delete(key);
@@ -180,7 +189,7 @@ class TTSCache {
  * TTS 队列配置
  */
 interface TTSQueueConfig {
-  /** 是否启用队列（默认 false，保持向后兼容） */
+  /** 是否启用队列（3.7/P2-4：默认 true，串行化并发合成、保证顺序） */
   enabled: boolean;
   /** 队列处理并发数（默认 1，串行处理） */
   concurrency: number;
@@ -223,7 +232,7 @@ class TTSPriorityQueue {
 
   constructor(config?: Partial<TTSQueueConfig>) {
     this.config = {
-      enabled: false,
+      enabled: true,
       concurrency: 1,
       ...config,
     };
@@ -293,21 +302,26 @@ class TTSPriorityQueue {
    * 处理单个条目
    */
   private async processItem(item: TTSQueueItem): Promise<void> {
-    try {
-      const result = await TTSRegistry.speakInternal(
-        item.options,
-        item.providerName,
-        item.skipCache
-      );
-      item.resolve(result);
-      this.totalProcessed++;
-    } catch (error) {
-      item.reject(error instanceof Error ? error : new Error(String(error)));
+    // 3.7/P2-4：入队后被取消的任务直接拒绝，不进入合成
+    if (item.options.signal?.aborted) {
+      item.reject(new Error('TTS 合成已被用户取消'));
       this.totalFailed++;
-    } finally {
-      this.active--;
-      this.processNext();
+    } else {
+      try {
+        const result = await TTSRegistry.speakInternal(
+          item.options,
+          item.providerName,
+          item.skipCache
+        );
+        item.resolve(result);
+        this.totalProcessed++;
+      } catch (error) {
+        item.reject(error instanceof Error ? error : new Error(String(error)));
+        this.totalFailed++;
+      }
     }
+    this.active--;
+    this.processNext();
   }
 
   /**
@@ -769,6 +783,11 @@ class ChunkedSynthesizer {
       while (queue.length > 0 && inFlight.size < this.config.maxConcurrency) {
         const chunk = queue.shift()!;
         const promise = (async () => {
+          // 3.7/P2-4：取消后不再发起新分片合成
+          if (options.signal?.aborted) {
+            results.push({ success: false, error: 'TTS 合成已被用户取消' });
+            return;
+          }
           try {
             const result = await provider.speak({
               ...options,
@@ -878,6 +897,24 @@ const chunkConfig: ChunkConfig = {
 export class TTSRegistry {
   private static providers: Map<string, TTSProvider> = new Map();
   private static defaultProviderName: string = '';
+  /** 3.8/P1-3：Provider 优先级列表（成本从低到高，如 ['edge','piper','openai']），空 = 注册顺序 */
+  private static providerPriority: string[] = [];
+
+  /**
+   * 配置 Provider 优先级（3.8/P1-3）
+   * 影响 VoiceService 故障转移时的选择顺序（同健康评分时优先级高者优先）。
+   */
+  static setProviderPriority(names: string[]): void {
+    TTSRegistry.providerPriority = [...names];
+    logger.info('TTS Provider 优先级已配置', { priority: names });
+  }
+
+  /**
+   * 获取 Provider 优先级列表
+   */
+  static getProviderPriority(): string[] {
+    return [...TTSRegistry.providerPriority];
+  }
 
   /**
    * 注册 TTS 提供者
@@ -1002,6 +1039,11 @@ export class TTSRegistry {
       return { success: false, error };
     }
 
+    // 3.7/P2-4：合成开始前检查取消信号
+    if (options.signal?.aborted) {
+      return { success: false, error: 'TTS 合成已被用户取消' };
+    }
+
     // 长文本自动走分片合成
     if (options.text.length > chunkConfig.maxChunkSize) {
       return TTSRegistry.chunkedSpeak(options, providerName, skipCache);
@@ -1009,7 +1051,7 @@ export class TTSRegistry {
 
     // 缓存检查
     if (!skipCache) {
-      const cached = ttsCache.get(options);
+      const cached = ttsCache.get(options, providerName);
       if (cached) {
         return cached;
       }
@@ -1036,7 +1078,7 @@ export class TTSRegistry {
           }
 
           // 写入缓存
-          ttsCache.set(options, result);
+          ttsCache.set(options, result, providerName);
           return result;
         } catch (error) {
           void handleError(error, {
@@ -1079,6 +1121,11 @@ export class TTSRegistry {
       };
     }
 
+    // 3.7/P2-4：分片合成开始前检查取消信号
+    if (options.signal?.aborted) {
+      return { success: false, error: 'TTS 合成已被用户取消' };
+    }
+
     const chunks = chunkedSynthesizer.splitText(options.text);
     const totalChars = options.text.length;
     const numChunks = chunks.length;
@@ -1091,7 +1138,7 @@ export class TTSRegistry {
 
     // 缓存检查
     if (!skipCache) {
-      const cached = ttsCache.get(options);
+      const cached = ttsCache.get(options, providerName);
       if (cached) {
         return cached;
       }
@@ -1153,7 +1200,7 @@ export class TTSRegistry {
         };
 
         // 写入缓存
-        ttsCache.set(options, result);
+        ttsCache.set(options, result, providerName);
 
         logger.info('TTS 分片合成完成', {
           totalChars,
@@ -1165,6 +1212,93 @@ export class TTSRegistry {
         return result;
       }
     )();
+  }
+
+  /**
+   * 流式合成（3.5/P1-5，G6 边合成边播）
+   *
+   * 长文本按语义边界分片，逐片合成并即时回调 onChunk，调用方可在每片完成后
+   * 立即播放，感知延迟从"整段合成时长"降到"首片合成时长"（目标 ≤800ms）。
+   *
+   * 与 chunkedSpeak 的区别：
+   *   - chunkedSpeak：并行合成全部分片 → 交叉淡化拼接 → 返回完整 PCM（等全部完成才可播放）
+   *   - speakStreaming：串行合成（保证顺序）→ 每片完成即回调 onChunk（可即时播放）
+   *
+   * 单分片（text ≤ maxChunkSize）直接复用 speakInternal（含缓存）。
+   * 打断：options.signal abort 时停止后续分片（3.7/P2-4 中断透传）。
+   *
+   * @param options 合成选项（可含 signal）
+   * @param onChunk 每片合成完成的回调（index 从 0 开始，total 为总片数）
+   * @param providerName 提供者名称
+   */
+  static async speakStreaming(
+    options: TTSSpeakOptions,
+    onChunk: (
+      result: TTSSpeakResult,
+      index: number,
+      total: number
+    ) => void | Promise<void>,
+    providerName?: string
+  ): Promise<TTSSpeakResult> {
+    const provider = TTSRegistry.getProvider(providerName);
+    if (!provider) {
+      return {
+        success: false,
+        error: `TTS 提供者不可用: ${providerName || '默认'}`,
+      };
+    }
+
+    if (options.signal?.aborted) {
+      return { success: false, error: 'TTS 合成已被用户取消' };
+    }
+
+    const chunks = chunkedSynthesizer.splitText(options.text);
+    const total = chunks.length;
+
+    // 单片直接复用 speakInternal（含缓存与重试语义）
+    if (total === 1) {
+      const result = await TTSRegistry.speakInternal(options, providerName);
+      if (result.success) {
+        await onChunk(result, 0, 1);
+      }
+      return result;
+    }
+
+    logger.info('TTS 流式合成开始', {
+      numChunks: total,
+      totalChars: options.text.length,
+      provider: provider.name,
+    });
+
+    let lastError: string | undefined;
+    for (let i = 0; i < total; i++) {
+      // 3.7/P2-4：取消后不再合成后续分片
+      if (options.signal?.aborted) {
+        return { success: false, error: 'TTS 合成已被用户取消' };
+      }
+
+      const chunkOptions: TTSSpeakOptions = { ...options, text: chunks[i] };
+      const result = await TTSRegistry.speakInternal(
+        chunkOptions,
+        providerName
+      );
+
+      if (result.success) {
+        await onChunk(result, i, total);
+      } else {
+        lastError = result.error || 'TTS 分片合成失败';
+        logger.warn('TTS 流式分片合成失败', {
+          index: i,
+          error: lastError,
+        });
+        // 方案 5 容错：单分片失败不阻塞后续分片
+      }
+    }
+
+    if (lastError) {
+      return { success: false, error: lastError };
+    }
+    return { success: true };
   }
 
   /**

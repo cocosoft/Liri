@@ -48,6 +48,9 @@ const OA_EVENT = {
   RESPONSE_FUNCTION_CALL_DELTA: 'response.function_call_arguments.delta',
   RESPONSE_FUNCTION_CALL_DONE: 'response.function_call_arguments.done',
   RESPONSE_DONE: 'response.done',
+  /** 3.11/P2-1：用户侧音频转写完成（用户说了什么，服务端转写） */
+  CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_COMPLETED:
+    'conversation.item.input_audio_transcription.completed',
   ERROR: 'error',
   RATE_LIMITS_UPDATED: 'rate_limits.updated',
 } as const;
@@ -184,6 +187,11 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
           prefix_padding_ms: 300,
           silence_duration_ms: 500,
         },
+        // 3.11/P2-1：启用用户侧转写，否则
+        // conversation.item.input_audio_transcription.completed 事件永不触发
+        input_audio_transcription: {
+          model: 'whisper-1',
+        },
       },
     };
 
@@ -241,6 +249,24 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
       case OA_EVENT.RESPONSE_CREATED:
       case OA_EVENT.CONVERSATION_ITEM_CREATED:
         break;
+
+      case OA_EVENT.RESPONSE_DONE: {
+        // TokenTracker：response.done 事件携带 response.usage（input/output/total_tokens），
+        // 此前该事件未处理 → 语音会话 token 统计恒为 0（VoiceSession usage.metrics 死分支）
+        const usage = (
+          parsed.response as
+            | { usage?: { input_tokens?: number; output_tokens?: number } }
+            | undefined
+        )?.usage;
+        if (usage) {
+          this.sendToClient?.({
+            type: 'usage.metrics',
+            inputTokens: usage.input_tokens ?? 0,
+            outputTokens: usage.output_tokens ?? 0,
+          });
+        }
+        break;
+      }
 
       case OA_EVENT.INPUT_AUDIO_SPEECH_STARTED:
         this.sendToClient?.({
@@ -322,6 +348,19 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
           type: 'turn.ended',
         });
         break;
+
+      case OA_EVENT.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_COMPLETED: {
+        // 3.11/P2-1：用户侧转写完成 → 归档 user transcript + 上抛（供会话摘要/历史落库）
+        const transcript = parsed.transcript as string | undefined;
+        if (transcript) {
+          this.transcript.push({ role: 'user', text: transcript });
+          this.sendToClient?.({
+            type: 'transcript.user',
+            text: transcript,
+          });
+        }
+        break;
+      }
 
       case OA_EVENT.ERROR: {
         const errBody = (parsed.error as Record<string, unknown>) ?? {};

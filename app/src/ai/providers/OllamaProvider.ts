@@ -174,7 +174,7 @@ export class OllamaProvider extends BaseAIProvider {
       let toolCalls: ParsedToolCall[] = [];
 
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await this.readStreamChunkWithTimeout(reader);
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });

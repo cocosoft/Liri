@@ -16,6 +16,8 @@ export interface SynthesisHistoryItem {
   voice: string;
   speed: number;
   createdAt: number;
+  /** 合成耗时（毫秒，请求发出 → audioUrl 可用） */
+  durationMs?: number;
 }
 
 /** TTSHistoryItem 组件 Props */
@@ -37,6 +39,7 @@ function TTSHistoryItem({ item, onReSynthesize }: TTSHistoryItemProps) {
         <p className="truncate text-gray-700 dark:text-gray-300">{item.text}</p>
         <p className="text-xs text-gray-400">
           {new Date(item.createdAt).toLocaleTimeString()} · {item.charCount}字
+          {item.durationMs != null ? ` · ${item.durationMs}ms` : ""}
         </p>
       </div>
       <button

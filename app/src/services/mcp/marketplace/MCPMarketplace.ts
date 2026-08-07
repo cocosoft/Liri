@@ -121,6 +121,7 @@ export class MCPMarketplace {
       if (Date.now() - entry.timestamp > 10 * 60 * 1000) return null;
       return entry.results;
     } catch {
+      // @ignore-catch — 缓存读取失败返回 null（非关键路径，失败走在线查询）
       return null;
     }
   }

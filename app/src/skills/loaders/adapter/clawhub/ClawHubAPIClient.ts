@@ -202,6 +202,7 @@ export class ClawHubAPIClient {
           return;
         }
       } catch {
+        // @ignore-catch — URL 解析失败以 reject 上抛（参数校验错误，由调用方处理）
         reject(new Error(`无效 URL: ${url}`));
         return;
       }

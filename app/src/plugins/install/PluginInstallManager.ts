@@ -108,6 +108,7 @@ export class PluginInstallPaths {
       fs.mkdirSync(this.getDataPath(pluginName), { recursive: true });
       return true;
     } catch {
+      // @ignore-catch — 安装/卸载操作失败返回 false（失败由调用方提示，不抛错）
       return false;
     }
   }
@@ -228,6 +229,7 @@ export class PluginInstallManager {
       this.saveHistory();
       return true;
     } catch {
+      // @ignore-catch — 安装/卸载操作失败返回 false（失败由调用方提示，不抛错）
       return false;
     }
   }
@@ -391,6 +393,7 @@ export class PluginInstallManager {
         }
       }
     } catch {
+      // @ignore-catch — 安装历史持久化失败清空内存态（非关键路径）
       this.installHistory.clear();
     }
   }

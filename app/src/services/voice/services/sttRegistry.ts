@@ -36,8 +36,12 @@ import { LocalSTTProvider } from './localSTTProvider';
 import { CloudSTTProvider } from './cloudSTTProvider';
 import { StreamSTTProvider } from './streamSTTProvider';
 import { SenseVoiceSTTProvider } from './senseVoiceSTTProvider';
+// 2026-08-06 接入（3.1/P0-1）：STT 入口格式嗅探 + ffmpeg 转码兜底
+import { normalizeAudioForSTT } from './audioNormalizer';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { getMetricsService } from '@modules/monitoring';
+import type { HistogramMetric } from '@modules/monitoring';
 
 const logger = new Logger({
   module: 'voice:sttRegistry',
@@ -408,8 +412,8 @@ class STTCache {
   }
 }
 
-/** 默认故障转移链 */
-const DEFAULT_FAILOVER_CHAIN = ['cloud', 'local', 'stream'];
+/** 默认故障转移链（本地优先 + 云端兜底，对齐方案 §4.2 混合路由） */
+const DEFAULT_FAILOVER_CHAIN = ['local', 'cloud', 'stream'];
 
 /**
  * 故障转移配置
@@ -473,6 +477,9 @@ export class STTRegistry {
   private sttCache: STTCache = new STTCache();
   /** 是否跳过缓存（用于调试/测试） */
   private skipCache: boolean = false;
+
+  /** STT 转录耗时直方图（§4.2 端到端延迟观测，按 Provider 维度） */
+  private sttLatencyHistograms = new Map<string, HistogramMetric>();
 
   /** 故障转移链配置 */
   private failoverConfig: FailoverConfig = {
@@ -928,6 +935,12 @@ export class STTRegistry {
       }
     }
 
+    // ========== 格式归一化（3.1/P0-1）==========
+    // 前端录音可能是 webm/ogg/mp4，本地 STT 只认 PCM/WAV → 嗅探 + ffmpeg 转码兜底。
+    // 缓存键仍用原始音频（避免转码改变指纹破坏命中），Provider 使用归一化后数据。
+    const normalized = await normalizeAudioForSTT(audioData);
+    const sttAudio = normalized.buffer;
+
     // ========== 故障转移：按链选择候选 Provider ==========
     const providers = this.getFailoverCandidatesInstance(providerId);
 
@@ -972,15 +985,20 @@ export class STTRegistry {
       try {
         // 请求级超时
         const timeout = options?.timeout ?? 0;
+        const attemptStart = Date.now();
         if (timeout > 0) {
           result = await this.withTimeout(
-            provider.transcribe(audioData, options),
+            provider.transcribe(sttAudio, options),
             timeout,
             `Provider ${provider.id} 转录超时（${timeout}ms）`
           );
         } else {
-          result = await provider.transcribe(audioData, options);
+          result = await provider.transcribe(sttAudio, options);
         }
+
+        // §4.2 端到端延迟观测：按 Provider 记录转录耗时（混合路由切换阈值数据源）
+        const latencyMs = Date.now() - attemptStart;
+        this.observeSttLatency(provider.id, latencyMs);
 
         // 转录成功 → 记录恢复，写入缓存
         this.recordProviderSuccess(provider.id);
@@ -989,6 +1007,7 @@ export class STTRegistry {
         logger.info('STT 转录成功', {
           provider: provider.id,
           confidence: result.confidence,
+          latencyMs,
         });
         return result;
       } catch (error) {
@@ -1019,6 +1038,23 @@ export class STTRegistry {
       isFinal: true,
       provider: undefined,
     };
+  }
+
+  /**
+   * 记录 STT 转录耗时（§4.2 端到端延迟观测）
+   * 按 Provider 维度记录直方图，供混合路由切换阈值（本地 > N 秒才切云端）参考。
+   */
+  private observeSttLatency(providerId: string, latencyMs: number): void {
+    let histogram = this.sttLatencyHistograms.get(providerId);
+    if (!histogram) {
+      histogram = getMetricsService().createHistogram({
+        name: 'voice.stt.latency_ms',
+        description: `STT 转录耗时（${providerId}，ms）`,
+        labels: { provider: providerId, module: 'voice:stt' },
+      });
+      this.sttLatencyHistograms.set(providerId, histogram);
+    }
+    histogram.observe(latencyMs);
   }
 
   /**

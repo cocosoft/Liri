@@ -30,7 +30,25 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
     logger.error("Caught error: " + String(error), errorInfo.componentStack);
     this.props.onError?.(error, errorInfo.componentStack ?? "");
+
+    // 动态导入失败（vite dev 依赖重新优化 504 / 网络瞬时）时自动重试一次：
+    // lazy 组件重新挂载会再次 fetch 模块，通常可自愈；仅重试一次避免无限循环。
+    const msg = String(error?.message ?? error);
+    if (
+      !this.autoRetried &&
+      /failed to fetch dynamically imported module|failed to resolve module specifier/i.test(
+        msg,
+      )
+    ) {
+      this.autoRetried = true;
+      setTimeout(() => {
+        this.setState({ hasError: false, error: null });
+      }, 800);
+    }
   }
+
+  /** 动态导入失败自动重试标记（仅一次） */
+  private autoRetried = false;
 
   handleRefresh = (): void => {
     window.location.reload();

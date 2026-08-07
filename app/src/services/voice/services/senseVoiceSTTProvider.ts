@@ -8,7 +8,12 @@
  * 依赖：
  * - Python 3.8+
  * - sherpa-onnx (`pip install sherpa-onnx`)
- * - SenseVoiceSmall 模型（自动下载到 models 目录）
+ * - SenseVoiceSmall 模型（首次使用需手动下载，详见下方"模型下载"）
+ *
+ * 模型下载（代码不自动下载，首次使用前需手动放置）：
+ *   目标路径: <models>/sherpa-onnx/SenseVoiceSmall/model.onnx
+ *   官方下载: https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17
+ *   国内镜像: https://hf-mirror.com/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17
  *
  * 用法：
  * ```ts
@@ -17,11 +22,18 @@
  * ```
  */
 
-import { spawn, ChildProcess, execSync } from 'child_process';
+import { spawn, ChildProcess, execFileSync } from 'child_process';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { join, isAbsolute, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
-import { writeFileSync, unlinkSync, existsSync, mkdirSync } from 'fs';
+import {
+  writeFileSync,
+  unlinkSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+} from 'fs';
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getPlatform } from '@modules/utils/platform';
@@ -43,176 +55,16 @@ const PROVIDER_NAME = 'SenseVoice (sherpa-onnx)';
 /** Python 可执行文件名称（平台相关） */
 const PYTHON_CMD = getPlatform() === 'win32' ? 'python' : 'python3';
 
+/** 3.9/P2-5：worker 脚本目录（当前文件所在目录，独立 .py 随代码分发） */
+const workerScriptDir = dirname(fileURLToPath(import.meta.url));
+
 /**
- * 构建 SenseVoice 长驻 Python 工作进程脚本
+ * 构建 SenseVoice 长驻 Python 工作进程脚本（3.9/P2-5：脚本独立文件 sensevoice_worker.py）
  *
- * 使用 sherpa-onnx OfflineRecognizer 进行语音识别。
- * 启动时加载 SenseVoiceSmall 模型，通过 stdin/stdout JSON-line 协议通信。
- *
- * 输入（stdin 每行一个 JSON）：
- *   首行（整包配置）: {"model":"SenseVoiceSmall","device":"cpu","download_root":"..."}
- *   请求（per-request）: {"id":"req-1","audio_path":"/tmp/1.wav","language":"zh"}
- *   关闭: {"command":"shutdown"}
- *
- * 输出（stdout 每行一个 JSON）：
- *   就绪: {"status":"ready"}
- *   成功: {"id":"req-1","status":"ok","text":"...","segments":[...],"language":"zh","duration":2.5}
- *   失败: {"id":"req-1","status":"error","message":"..."}
+ * 使用 sherpa-onnx OfflineRecognizer 进行语音识别（详见 sensevoice_worker.py 头部协议注释）。
  */
 function buildSenseVoiceWorkerScript(): string {
-  return `
-import sys, json, os, warnings
-warnings.filterwarnings("ignore")
-
-import numpy as np
-import soundfile as sf
-
-TARGET_SR = 16000
-
-def resample_audio(audio_data, sample_rate):
-    """重采样到 16kHz（SenseVoice 要求）"""
-    if sample_rate == TARGET_SR:
-        return audio_data
-    try:
-        from scipy import signal
-        duration = len(audio_data) / sample_rate
-        target_len = int(duration * TARGET_SR)
-        return signal.resample(audio_data, target_len)
-    except ImportError:
-        ratio = TARGET_SR / sample_rate
-        target_len = int(len(audio_data) * ratio)
-        indices = (np.arange(target_len) / ratio).astype(int)
-        indices = np.clip(indices, 0, len(audio_data) - 1)
-        return audio_data[indices]
-
-def build_recognizer(model_name, device, download_root):
-    """构建 sherpa-onnx OfflineRecognizer"""
-    from sherpa_onnx import (
-        OfflineRecognizer,
-        OfflineRecognizerConfig,
-        OfflineModelConfig,
-        OfflineSenseVoiceModelConfig,
-    )
-
-    model_dir = os.path.join(download_root, "sherpa-onnx", model_name)
-    os.makedirs(model_dir, exist_ok=True)
-
-    sense_voice_config = OfflineSenseVoiceModelConfig(
-        model=os.path.join(model_dir, "model.onnx"),
-        use_itn=True,
-    )
-
-    model_config = OfflineModelConfig(
-        sense_voice=sense_voice_config,
-        debug=False,
-        provider="cpu" if device == "cpu" else "cuda",
-    )
-
-    config = OfflineRecognizerConfig(
-        model=model_config,
-    )
-
-    return OfflineRecognizer(config)
-
-def main():
-    config_line = sys.stdin.readline()
-    if not config_line:
-        return
-    config = json.loads(config_line)
-
-    model_name = config.get("model", "SenseVoiceSmall")
-    device = config.get("device", "cpu")
-    download_root = config.get("download_root", os.path.expanduser("~/.pyapp/models"))
-
-    try:
-        recognizer = build_recognizer(model_name, device, download_root)
-    except Exception as e:
-        # 模型未下载时给出友好提示
-        error_msg = str(e)
-        if "model.onnx" in error_msg or "No such file" in error_msg:
-            error_msg = (
-                f"SenseVoice 模型未找到。请确保模型已下载到: "
-                f"{download_root}/sherpa-onnx/{model_name}/model.onnx\\n"
-                f"可从 HuggingFace 下载: "
-                f"https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17"
-            )
-        sys.stdout.write(json.dumps({"status": "error", "message": error_msg}) + "\\n")
-        sys.stdout.flush()
-        return
-
-    sys.stdout.write(json.dumps({"status": "ready"}) + "\\n")
-    sys.stdout.flush()
-
-    for line in sys.stdin:
-        line = line.strip()
-        if not line:
-            continue
-
-        request = {}
-        try:
-            request = json.loads(line)
-            if request.get("command") == "shutdown":
-                break
-
-            audio_path = request["audio_path"]
-            audio_data, sample_rate = sf.read(audio_path)
-
-            # 多声道转单声道
-            if audio_data.ndim > 1:
-                audio_data = audio_data.mean(axis=1)
-
-            if sample_rate != TARGET_SR:
-                audio_data = resample_audio(audio_data, sample_rate)
-
-            # 转为 float32（sherpa-onnx 要求）
-            audio_data = audio_data.astype(np.float32)
-
-            # 创建流式识别
-            stream = recognizer.create_stream()
-            stream.accept_waveform(TARGET_SR, audio_data)
-            recognizer.decode_stream(stream)
-
-            result_text = stream.result.text
-            segments = []
-
-            # SenseVoice 支持时间戳时有 tokens 信息
-            if hasattr(stream.result, "tokens") and stream.result.tokens:
-                start_time = 0.0
-                for token in stream.result.tokens:
-                    segments.append({
-                        "text": token,
-                        "start": start_time,
-                        "end": start_time + 0.3,
-                        "confidence": 0.9,
-                    })
-                    start_time += 0.3
-
-            duration = len(audio_data) / TARGET_SR
-
-            result = {
-                "id": request.get("id", "unknown"),
-                "status": "ok",
-                "text": result_text.strip(),
-                "segments": segments,
-                "language": request.get("language", "zh"),
-                "duration": duration,
-            }
-            sys.stdout.write(json.dumps(result, ensure_ascii=False) + "\\n")
-            sys.stdout.flush()
-
-        except Exception as e:
-            import traceback
-            error_result = {
-                "id": request.get("id", "unknown"),
-                "status": "error",
-                "message": str(e),
-            }
-            sys.stdout.write(json.dumps(error_result) + "\\n")
-            sys.stdout.flush()
-
-if __name__ == "__main__":
-    main()
-`.trim();
+  return readFileSync(join(workerScriptDir, 'sensevoice_worker.py'), 'utf-8');
 }
 
 /** 默认配置 */
@@ -366,8 +218,11 @@ export class SenseVoiceSTTProvider implements STTProvider {
     }
 
     try {
-      execSync(
-        `"${this.config.pythonCmd}" -c "import sherpa_onnx; print('ok')"`,
+      // 3.10/P2-6：execFileSync 参数数组（杜绝 shell 拼接注入）+ pythonCmd 白名单/路径校验
+      assertSafePythonCmd(this.config.pythonCmd!);
+      execFileSync(
+        this.config.pythonCmd!,
+        ['-c', "import sherpa_onnx; print('ok')"],
         { stdio: 'pipe', timeout: 5000 }
       );
       this._cachedAvailable = true;
@@ -805,6 +660,23 @@ export class SenseVoiceSTTProvider implements STTProvider {
 }
 
 // ===== 验证函数 =====
+
+/**
+ * 校验 pythonCmd 安全性（3.10/P2-6）
+ *
+ * 仅允许常见的裸命令名（python/python3 等，无路径分隔符与空白）或绝对路径，
+ * 防止在 spawn/execFile 之前被注入 shell 元字符。
+ *
+ * @throws 非法 pythonCmd 时抛出错误
+ */
+function assertSafePythonCmd(cmd: string): void {
+  if (isAbsolute(cmd)) return;
+  if (/[\\/\s]/.test(cmd)) {
+    throw new Error(
+      `非法 pythonCmd: "${cmd}"（仅允许 python/python3 等命令名或绝对路径）`
+    );
+  }
+}
 
 /**
  * 验证 SenseVoice 配置参数

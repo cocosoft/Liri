@@ -17,6 +17,7 @@ import StatusFloatBar from "./StatusFloatBar";
 import ChatInput from "./ChatInput";
 import { ContextWatermark } from "../chat/ContextWatermark";
 import VoiceSubtitleOverlay from "../VoiceSubtitleOverlay";
+import VoiceSessionIndicator from "../VoiceSessionIndicator";
 import { createLogger } from "@/utils/logger";
 import { useNavigate } from "react-router-dom";
 
@@ -417,6 +418,11 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
       {/* 底部区域：AI 状态栏 + 输入区（flex-col，StatusFloatBar 自然贴着输入区上方） */}
       <div className="shrink-0 flex flex-col bg-gray-50 dark:bg-gray-900">
         <StatusFloatBar fluid={fluid} />
+
+        {/* 语音会话状态指示器（录音/转录/播放） */}
+        <div className="flex justify-center">
+          <VoiceSessionIndicator isDark={isDark} />
+        </div>
 
         {/* 上下文水位指示器 — 紧凑圆点，居中，hover 展开详情 */}
         <div className="flex justify-center">

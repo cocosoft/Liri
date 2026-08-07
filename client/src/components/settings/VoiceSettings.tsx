@@ -73,6 +73,11 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
 
   /** STT 引擎列表（从后端动态加载） */
   const [sttProviders, setSttProviders] = useState<string[]>([]);
+  /** TTS 音色列表（聊天自动朗读用，edge 提供） */
+  const [voices, setVoices] = useState<
+    { id: string; name: string; language: string }[]
+  >([]);
+  const [voiceLoading, setVoiceLoading] = useState(false);
 
   /** 添加新唤醒词，更新 store */
   const addTrigger = useCallback(() => {
@@ -112,6 +117,19 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
         // 加载失败时使用默认列表
         setSttProviders(["local", "cloud", "stream"]);
       });
+  }, []);
+
+  /** 加载 TTS 音色列表（聊天自动朗读用，默认 edge） */
+  useEffect(() => {
+    setVoiceLoading(true);
+    voiceService
+      .getVoices("edge")
+      .then(setVoices)
+      .catch(() => {
+        // 音色列表不可用时留空，下拉提供手动输入回退
+        setVoices([]);
+      })
+      .finally(() => setVoiceLoading(false));
   }, []);
 
   const handleSave = async () => {
@@ -232,6 +250,23 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
             })}
           </div>
         </div>
+
+        <ConfigItem
+          label="流式字幕识别"
+          description="按住说话时实时显示后端流式 STT 字幕；关闭时降级浏览器语音识别"
+          isDark={isDark}
+        >
+          <ToggleConfig
+            isDark={isDark}
+            checked={localConfig.useStreamingSTT !== false}
+            onChange={() =>
+              setLocalConfig({
+                ...localConfig,
+                useStreamingSTT: !(localConfig.useStreamingSTT !== false),
+              })
+            }
+          />
+        </ConfigItem>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -426,6 +461,36 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
               })
             }
           />
+        </ConfigItem>
+
+        <ConfigItem
+          label="TTS 音色"
+          description="AI回复朗读使用的音色（可输入或从列表选择）"
+          isDark={isDark}
+        >
+          <input
+            type="text"
+            list="voice-options"
+            value={localConfig.voiceId || ""}
+            onChange={(e) =>
+              setLocalConfig({ ...localConfig, voiceId: e.target.value })
+            }
+            placeholder={
+              voiceLoading ? "加载音色中..." : "如 zh-CN-XiaoxiaoNeural"
+            }
+            className={`w-full px-3 py-2 rounded-lg border ${
+              isDark
+                ? "bg-gray-800 border-gray-700 text-white"
+                : "bg-white border-gray-300 text-gray-900"
+            } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+          />
+          <datalist id="voice-options">
+            {voices.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name} ({v.language})
+              </option>
+            ))}
+          </datalist>
         </ConfigItem>
 
         <div className="flex justify-end">

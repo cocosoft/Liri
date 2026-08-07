@@ -189,6 +189,7 @@ export class LocalServerStore {
 
       return cached.data;
     } catch {
+      // @ignore-catch — 本地存储读取失败返回 null（磁盘读写异常不中断调用链）
       return null;
     }
   }

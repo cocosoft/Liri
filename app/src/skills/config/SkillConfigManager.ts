@@ -148,6 +148,7 @@ export class SkillConfigManager {
         return true;
       }
     } catch {
+      // @ignore-catch — 配置读写失败返回 false（非关键路径，失败按未配置处理）
       return false;
     }
 
@@ -169,6 +170,7 @@ export class SkillConfigManager {
       fs.writeFileSync(targetPath, JSON.stringify(data, null, 2), 'utf-8');
       return true;
     } catch {
+      // @ignore-catch — 配置读写失败返回 false（非关键路径，失败按未配置处理）
       return false;
     }
   }

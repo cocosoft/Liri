@@ -1,7 +1,7 @@
 /**
  * 深度链接协议处理器
  *
- * 解析 claude-cli:// 或 pyapp:// URI 协议
+ * 解析 pyapp-cli:// 或 pyapp:// URI 协议
  * 提取查询参数(q)、工作目录(cwd)、仓库(repo)
  * 安全校验：控制字符过滤、长度限制、repo slug 验证
  *

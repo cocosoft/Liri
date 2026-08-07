@@ -58,6 +58,8 @@ export default defineConfig({
       '/v1': {
         target: 'http://127.0.0.1:7890',
         changeOrigin: true,
+        // 3.4/P1-1：启用 WebSocket 升级转发（流式 STT 端点 /v1/voice/stt）
+        ws: true,
         configure: (proxy) => {
           proxy.on('error', (err, _req, res) => {
             if ((err as NodeJS.ErrnoException).code === 'ECONNREFUSED') {

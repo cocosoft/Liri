@@ -217,8 +217,19 @@
 | GET | `/v1/voice/stream/{id}` | ✅ | `voiceService.getAudioStream` |
 | POST | `/v1/voice/tts` | ✅ | `voiceService.synthesizeSpeech` |
 | GET | `/v1/voice/providers` | ✅ | `voiceService.getProviders` |
+| GET | `/v1/voice/health` | ✅ | `voiceService.checkTTSHealth` |
 | GET | `/v1/voice/voices` | ✅ | `voiceService.getVoices` |
 | POST | `/v1/voice/wakeword/{id}/test` | ✅ | `voiceService.testWakeWord` |
+| POST | `/v1/voice/wake/start` | ✅ | `voiceStore`（`client/src/stores/voiceStore.ts`） |
+| POST | `/v1/voice/wake/stop` | ✅ | `voiceStore`（`client/src/stores/voiceStore.ts`） |
+| GET | `/v1/voice/wake/status` | ✅ | 无前端调用方（后端监控自用） |
+
+**WebSocket 升级端点（语音）**：
+
+| 路径 | 类型 | 后端状态 | 前端调用方 | 说明 |
+|------|------|----------|-----------|------|
+| `/v1/voice/stt` | WS 升级 | ✅ | `voiceService.createSTTStream` | 3.4/P1-1 流式 STT：TEXT config → PCM16 二进制帧 → 节流 interim → finalize 最终转录（`STTStreamServer`） |
+| `/v1/voice` | WS 升级 | ✅ | `client/src/services/voice` | 实时语音会话（OpenAI Realtime / Gemini Live）：`session.config`/`audio.append`/`transcript.*`/`audio.delta` 等（`upgrade.ts` → `VoiceSession`） |
 
 ### §3.10 文件
 

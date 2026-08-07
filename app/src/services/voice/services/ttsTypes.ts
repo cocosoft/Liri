@@ -33,6 +33,8 @@ export interface TTSSpeakOptions {
   format?: string;
   /** 队列优先级（仅启用 TTS 队列时生效） */
   priority?: TTSQueuePriority;
+  /** 3.7/P2-4：取消信号，abort 时中断排队与进行中的合成（透传到 speakInternal） */
+  signal?: AbortSignal;
 }
 
 /** TTS 合成结果 */

@@ -280,8 +280,11 @@ export class OpenAIProvider extends BaseAIProvider {
       let stopReason: 'stop' | 'tool_calls' | 'max_tokens' = 'stop';
       let toolCalls: ParsedToolCall[] = [];
 
+      // P2-13 修复：reader.read() 无数据超时（60s），防止 Provider 流挂起导致
+      // streamMessage 卡在 await gen.next()、会话互斥锁（SimpleMutex）永久不释放。
+      // 统一走 BaseAIProvider.readStreamChunkWithTimeout。
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await this.readStreamChunkWithTimeout(reader);
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });

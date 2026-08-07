@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import { useConfigStore } from "../../stores/configStore";
 import { useRootStore } from "../../stores/root-store";
 import { useMediaStore, type GalleryItem } from "../../stores/mediaStore";
@@ -25,6 +26,7 @@ import { BottomInputBar } from "./media/BottomInputBar";
 import { EditLayer } from "./media/EditLayer";
 import { videoService } from "../../services/videoService";
 import { imageService } from "../../services/imageService";
+import { modelService } from "../../services/modelService";
 import { http } from "../../services/httpClient";
 import { useToastStore } from "../../stores/toastStore";
 import { createLogger } from "../../utils/logger";
@@ -115,6 +117,7 @@ interface ImageMetadata {
 function MediaPage() {
   const { config } = useConfigStore();
   const isDark = config.theme === "dark";
+  const navigate = useNavigate();
 
   const enterModule = useRootStore((s) => s.enterModule);
   const leaveModule = useRootStore((s) => s.leaveModule);
@@ -122,6 +125,33 @@ function MediaPage() {
     enterModule({ moduleType: "media" });
     return () => leaveModule();
   }, [enterModule, leaveModule]);
+
+  // ──── 生图 / 生视频模型可用性检查（缺失时友好引导到模型管理） ────
+  const [modelHints, setModelHints] = useState<{
+    image: boolean;
+    video: boolean;
+  } | null>(null);
+  const [hintDismissed, setHintDismissed] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    modelService
+      .list()
+      .then((models) => {
+        if (cancelled) return;
+        const enabled = models.filter((m) => m.enabled);
+        setModelHints({
+          image: enabled.some((m) => m.type === "image"),
+          video: enabled.some((m) => m.type === "video"),
+        });
+      })
+      .catch(() => {
+        // 后端未就绪等瞬时问题：不打扰用户，放行后续生成（由生成 API 报错兜底）
+        if (!cancelled) setModelHints({ image: true, video: true });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // ──── Store ────
   const galleryItems = useMediaStore((s) => s.galleryItems);
@@ -472,6 +502,15 @@ function MediaPage() {
     if (!prompt.trim() && !selectedImageUrl) return;
 
     if (mode === "image") {
+      // 未配置生图模型时友好引导，避免直接报错
+      if (modelHints?.image === false) {
+        addToast(
+          "warning",
+          "未配置生图模型，请先到「模型」页中配置",
+          "点击左侧导航「模型」进入模型管理",
+        );
+        return;
+      }
       // 图片生成（纳入任务队列）
       const taskId = `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       addGenerationTask({
@@ -516,6 +555,15 @@ function MediaPage() {
         logger.error("图片生成失败", { error: errMsg });
       }
     } else {
+      // 未配置生视频模型时友好引导，避免直接报错
+      if (modelHints?.video === false) {
+        addToast(
+          "warning",
+          "未配置生视频模型，请先到「模型」页中配置",
+          "点击左侧导航「模型」进入模型管理",
+        );
+        return;
+      }
       // 视频生成（纳入任务队列）
       const taskId = `vid_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       addGenerationTask({
@@ -564,6 +612,7 @@ function MediaPage() {
     loadGallery,
     addGenerationTask,
     updateGenerationTask,
+    modelHints,
   ]);
 
   // ──── 打开 lightbox ────
@@ -677,6 +726,48 @@ function MediaPage() {
     <div
       className={`flex h-full w-full flex-col ${isDark ? "bg-gray-900" : "bg-gray-50"}`}
     >
+      {/* ========== 模型配置提示条（生图/生视频模型未配置时显示） ========== */}
+      {modelHints &&
+        !hintDismissed &&
+        (!modelHints.image || !modelHints.video) && (
+          <div
+            className={`flex items-center gap-2 border-b px-3 py-1.5 text-xs ${
+              isDark
+                ? "border-amber-700 bg-amber-900/30 text-amber-200"
+                : "border-amber-200 bg-amber-50 text-amber-700"
+            }`}
+          >
+            <span aria-hidden="true">⚠️</span>
+            <span className="flex-1">
+              {!modelHints.image && "未配置生图模型"}
+              {!modelHints.image && !modelHints.video && " / "}
+              {!modelHints.video && "未配置生视频模型"}
+              ，请在「模型」页配置后再进行生成。
+            </span>
+            <button
+              onClick={() => navigate("/models?tab=models")}
+              className={`rounded px-2 py-0.5 font-medium transition-colors ${
+                isDark
+                  ? "bg-amber-700 text-white hover:bg-amber-600"
+                  : "bg-amber-500 text-white hover:bg-amber-600"
+              }`}
+            >
+              前往模型管理
+            </button>
+            <button
+              onClick={() => setHintDismissed(true)}
+              className={`rounded px-1.5 py-0.5 transition-colors ${
+                isDark
+                  ? "text-amber-300 hover:bg-amber-800"
+                  : "text-amber-600 hover:bg-amber-100"
+              }`}
+              aria-label="关闭提示"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
       {/* ========== 顶部：模板轮播 ========== */}
       <TemplateCarousel isDark={isDark} />
 

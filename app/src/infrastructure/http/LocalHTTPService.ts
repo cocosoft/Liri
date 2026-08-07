@@ -12,6 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import type { ServerResponse } from 'http';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { createChatManager } from '@modules/chat/ChatManager';
 import { costTracker } from '@modules/cost/CostTracker';
@@ -25,6 +26,8 @@ import type {
   RegistryType,
   ThirdPartyRegistry,
 } from '@modules/services/mcp/marketplace/types';
+// 3.4/P1-1：流式 STT WebSocket 端点（前端按住说话实时字幕 + 统一转录链路）
+import { upgradeSTTStreamConnection } from '../../voice/STTStreamServer';
 
 import {
   handleMonitorSummary,
@@ -417,6 +420,37 @@ export class LocalHTTPService {
     this.server.timeout = 0; // 禁用请求超时，支持长时间 SSE 流
     this.server.keepAliveTimeout = 60000 * 5; // 5分钟
     this.server.headersTimeout = 60000 * 6; // 6分钟（必须大于 keepAliveTimeout）
+
+    // 3.4/P1-1：流式 STT WebSocket 升级分发（/v1/voice/stt）
+    this.server.on('upgrade', (req, socket, head) => {
+      try {
+        const url = (req.url ?? '').split('?')[0];
+        if (url !== '/v1/voice/stt') {
+          socket.destroy();
+          return;
+        }
+
+        // 将 upgrade 首包放回 socket 缓冲，保证首个 WS 帧不丢失
+        if (head && head.length > 0) {
+          socket.unshift(head);
+        }
+
+        // upgradeToVoiceConnection 需要 ServerResponse 形态对象（res.writeHead/res.socket）
+        const fakeRes = {
+          writeHead: () => socket,
+          end: () => socket,
+          socket,
+        } as unknown as ServerResponse;
+
+        upgradeSTTStreamConnection(req, fakeRes);
+      } catch (err) {
+        void handleError(err, {
+          module: 'infra:http',
+          action: 'upgrade_stt_stream',
+        });
+        socket.destroy();
+      }
+    });
 
     // P3-2: 超时事件监听 — 审计用。虽 server.timeout=0，但 socket 层仍可能触发
     this.server.on('timeout', (socket) => {

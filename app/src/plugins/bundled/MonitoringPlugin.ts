@@ -106,6 +106,7 @@ export class MonitoringPlugin implements Plugin {
       const memMb = (status.memory.heapUsed / 1024 / 1024).toFixed(2);
       return `系统状态: 运行 ${uptimeMin} 分钟, 内存 ${memMb} MB`;
     } catch {
+      // @ignore-catch — 系统状态采集失败返回提示文案（非关键路径）
       return '获取系统状态失败';
     }
   }

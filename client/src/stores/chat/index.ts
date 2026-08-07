@@ -70,4 +70,5 @@ withStoreLogging(useChatStore, "chatStore", [
   "executionPhase",
   "abortController",
   "rollbackSnapshot",
+  "sessionFiles",
 ]);

@@ -10,7 +10,7 @@ import {
   type HookResult,
 } from './PluginHooks.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 const logger = new Logger({
   module: 'plugins:hooks:GlobalRunner',
   level: LogLevel.INFO,
@@ -73,44 +73,58 @@ export class GlobalRunner extends EventEmitter {
       return { success: true, results: [], durationMs: 0, errorCount: 0 };
     }
 
-    const startTime = Date.now();
+    // 插件 hook 生命周期统一 OTel span（type/stage 维度，覆盖顺序/并行/竞速三种策略）
+    return getOTelTracing().wrap(
+      {
+        name: 'plugins.hooks.run',
+        attributes: {
+          'plugins.hook_type': type,
+          'plugins.hook_stage': stage,
+        },
+      },
+      async () => {
+        const startTime = Date.now();
 
-    this.emit('global:before', { type, stage, timestamp: startTime });
+        this.emit('global:before', { type, stage, timestamp: startTime });
 
-    const hooks = pluginHooks.getHooks(type).filter((h) => h.stage === stage);
+        const hooks = pluginHooks
+          .getHooks(type)
+          .filter((h) => h.stage === stage);
 
-    if (hooks.length === 0) {
-      return { success: true, results: [], durationMs: 0, errorCount: 0 };
-    }
+        if (hooks.length === 0) {
+          return { success: true, results: [], durationMs: 0, errorCount: 0 };
+        }
 
-    let results: HookResult[] = [];
+        let results: HookResult[] = [];
 
-    switch (this.strategy) {
-      case 'sequential':
-        results = await this.runSequential(hooks, type, stage, data);
-        break;
+        switch (this.strategy) {
+          case 'sequential':
+            results = await this.runSequential(hooks, type, stage, data);
+            break;
 
-      case 'parallel':
-        results = await this.runParallel(hooks, type, stage, data);
-        break;
+          case 'parallel':
+            results = await this.runParallel(hooks, type, stage, data);
+            break;
 
-      case 'race':
-        results = await this.runRace(hooks, type, stage, data);
-        break;
-    }
+          case 'race':
+            results = await this.runRace(hooks, type, stage, data);
+            break;
+        }
 
-    const errorCount = results.filter((r) => r.error !== undefined).length;
+        const errorCount = results.filter((r) => r.error !== undefined).length;
 
-    const runResult: GlobalRunResult = {
-      success: errorCount === 0,
-      results,
-      durationMs: Date.now() - startTime,
-      errorCount,
-    };
+        const runResult: GlobalRunResult = {
+          success: errorCount === 0,
+          results,
+          durationMs: Date.now() - startTime,
+          errorCount,
+        };
 
-    this.emit('global:after', { type, stage, result: runResult });
+        this.emit('global:after', { type, stage, result: runResult });
 
-    return runResult;
+        return runResult;
+      }
+    )();
   }
 
   /**

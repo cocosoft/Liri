@@ -15,17 +15,11 @@
  *   pm.destroy();
  */
 
-import { readFileSync, writeFileSync, unlinkSync } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
-import { randomUUID } from 'crypto';
 import { Logger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { PCMAudioPlayer } from './audioPlayer';
-import {
-  AudioFormatConverter,
-  isFFmpegAvailable,
-} from './audioFormatConverter';
+import { isFFmpegAvailable } from './audioFormatConverter';
+import { transcodeToPcm16 } from './audioNormalizer';
 import { decodeWav } from './audioPipeline';
 
 const logger = new Logger({ module: 'voice:playback' });
@@ -117,6 +111,9 @@ export class PlaybackManager {
   /**
    * 将任意格式音频转换为 PCM16 裸数据
    *
+   * 3.13/P2-9：统一播放解码策略——WAV/PCM 剥离头，其余格式（mp3/opus/m4a 等）
+   * 复用 audioNormalizer 的 ffmpeg 管道转 PCM16（无临时文件、单一实现）。
+   *
    * @param audioData 原始音频 Buffer
    * @param audioFormat 原始格式
    * @returns PCM16 裸数据 Buffer
@@ -137,8 +134,15 @@ export class PlaybackManager {
     }
 
     if (isFFmpegAvailable()) {
-      // 非 PCM16 格式（如 MP3/Opus）：通过 ffmpeg 转换为 WAV
-      return this.convertToPcm(audioData, audioFormat);
+      // 非 PCM16 格式（如 MP3/Opus）：ffmpeg 管道转 PCM16 16k mono
+      try {
+        return await transcodeToPcm16(audioData);
+      } catch (error) {
+        logger.warn('PlaybackManager · 管道转码失败，返回原始数据', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return audioData;
+      }
     }
 
     // ffmpeg 不可用，尝试直接作为 PCM16 播放（可能失败但不崩溃）
@@ -155,53 +159,6 @@ export class PlaybackManager {
       return wavBuffer;
     }
     return wavBuffer.subarray(WAV_HEADER_SIZE);
-  }
-
-  /**
-   * 通过 ffmpeg 将任意格式音频转换为 PCM16
-   * 使用临时文件进行格式转换
-   */
-  private async convertToPcm(
-    audioData: Buffer,
-    audioFormat?: string
-  ): Promise<Buffer> {
-    const ext = audioFormat === 'mp3' ? '.mp3' : '.bin';
-    const tmpInput = join(tmpdir(), `tts_play_${randomUUID()}${ext}`);
-    const tmpOutput = join(tmpdir(), `tts_play_${randomUUID()}.wav`);
-
-    try {
-      writeFileSync(tmpInput, audioData);
-
-      const convResult = AudioFormatConverter.convert({
-        inputPath: tmpInput,
-        outputPath: tmpOutput,
-        targetFormat: 'wav',
-      });
-
-      if (convResult.success && convResult.outputPath) {
-        const wavBuffer = readFileSync(convResult.outputPath);
-        return this.stripWavHeader(wavBuffer);
-      }
-
-      logger.warn('PlaybackManager · 格式转换失败，返回原始数据');
-      return audioData;
-    } catch (error) {
-      logger.warn('PlaybackManager · 转换异常', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return audioData;
-    } finally {
-      try {
-        unlinkSync(tmpInput);
-      } catch (err) {
-        /* ignore */
-      }
-      try {
-        unlinkSync(tmpOutput);
-      } catch (err) {
-        /* ignore */
-      }
-    }
   }
 
   /**

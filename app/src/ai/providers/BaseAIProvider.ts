@@ -62,6 +62,15 @@ import { getCACertificates } from '@modules/utils/caCerts';
 
 const logger = new Logger({ module: 'ai:baseProvider', level: LogLevel.INFO });
 
+/**
+ * readStreamChunkWithTimeout 的流读取诊断状态（按 reader 隔离，
+ * 避免同一 provider 实例并发流时状态交叉）
+ */
+const streamReadState = new WeakMap<
+  ReadableStreamDefaultReader<Uint8Array>,
+  { chunkCount: number; lastChunkAt: number; startedAt: number }
+>();
+
 /** TaskType → RouteKey 映射，用于 resolveModel 中的任务类型路由 */
 const TASK_TO_ROUTE: Record<string, RouteKeyType> = {
   chat: RouteKey.CHAT,
@@ -570,6 +579,89 @@ export abstract class BaseAIProvider implements AIProvider {
   // ============================================================
 
   /**
+   * P2-13/T-1 统一修复：带无数据超时的 reader.read()。
+   * Provider 返回 200 后 SSE body 流中断时，原生 reader.read() 会永久挂起，
+   * 导致 streamMessage 卡在 await gen.next()、会话互斥锁（SimpleMutex）永久不释放。
+   * 各 Provider 的流式读取统一调用此方法。
+   *
+   * 诊断日志（module: ai:baseProvider，排查超时用）：
+   * - debug：每块读取（序号/字节数）、流正常结束
+   * - warn：超时（idle 时长/已读块数/总耗时）、读取异常、cancel 失败
+   *
+   * @param reader - response.body.getReader() 返回的 reader
+   * @param timeoutMs - 无数据超时（默认 60s）
+   */
+  protected async readStreamChunkWithTimeout(
+    reader: ReadableStreamDefaultReader<Uint8Array>,
+    timeoutMs: number = 60_000
+  ): Promise<{ done: boolean; value: Uint8Array | undefined }> {
+    // 每次流式调用共享的读取诊断状态（按 reader 隔离）
+    let state = streamReadState.get(reader);
+    if (!state) {
+      state = { chunkCount: 0, lastChunkAt: Date.now(), startedAt: Date.now() };
+      streamReadState.set(reader, state);
+    }
+    state.chunkCount++;
+
+    try {
+      const result = (await Promise.race([
+        reader.read(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => {
+            const idleMs = Date.now() - state.lastChunkAt;
+            logger.warn(
+              `[${this.id}] 流式读取超时（${timeoutMs / 1000}s 无数据）`,
+              {
+                timeoutMs,
+                idleMs,
+                chunkCount: state.chunkCount,
+                totalMs: Date.now() - state.startedAt,
+              }
+            );
+            reject(
+              new Error(
+                `${this.id} stream: ${timeoutMs / 1000}s 无数据，连接可能挂起`
+              )
+            );
+          }, timeoutMs)
+        ),
+      ])) as ReadableStreamReadResult<Uint8Array>;
+
+      if (result.done) {
+        logger.debug(`[${this.id}] 流式读取结束`, {
+          chunkCount: state.chunkCount,
+          totalMs: Date.now() - state.startedAt,
+        });
+        streamReadState.delete(reader);
+      } else {
+        state.lastChunkAt = Date.now();
+        logger.debug(`[${this.id}] 流式读取到块`, {
+          chunkIndex: state.chunkCount,
+          bytes: result.value?.length ?? 0,
+        });
+      }
+      return { done: result.done, value: result.value };
+    } catch (err) {
+      // 挂起超时或读取异常：取消底层流后透出错误，交由上层 finally 释放会话锁
+      try {
+        reader.cancel();
+      } catch (cancelErr) {
+        logger.warn(`[${this.id}] 流式读取取消失败`, {
+          error:
+            cancelErr instanceof Error ? cancelErr.message : String(cancelErr),
+        });
+      }
+      logger.warn(`[${this.id}] 流式读取异常`, {
+        error: err instanceof Error ? err.message : String(err),
+        chunkCount: state.chunkCount,
+        totalMs: Date.now() - state.startedAt,
+      });
+      streamReadState.delete(reader);
+      throw err;
+    }
+  }
+
+  /**
    * 读取 SSE 流，按格式分发到具体解析器。
    *
    * @param response - fetch Response 对象（需 response.body 可读）
@@ -598,7 +690,7 @@ export abstract class BaseAIProvider implements AIProvider {
 
     try {
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await this.readStreamChunkWithTimeout(reader);
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });

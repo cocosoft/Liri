@@ -102,6 +102,12 @@ export interface VoiceTranscriptDoneEvent {
   text: string;
 }
 
+/** 3.11/P2-1：用户侧转写完成（用户说了什么，Provider 服务端转写后上抛） */
+export interface VoiceTranscriptUserEvent {
+  type: 'transcript.user';
+  text: string;
+}
+
 export interface VoiceToolCallEvent {
   type: 'tool.call';
   id: string;
@@ -181,6 +187,7 @@ export type VoiceServerEvent =
   | VoiceAudioDeltaEvent
   | VoiceTranscriptDeltaEvent
   | VoiceTranscriptDoneEvent
+  | VoiceTranscriptUserEvent
   | VoiceToolCallEvent
   | VoiceToolProgressEvent
   | VoiceToolCancelledEvent
@@ -293,6 +300,9 @@ export interface VoiceConnection {
   send(event: VoiceServerEvent): void;
 
   onMessage(handler: (event: VoiceClientEvent) => void): void;
+
+  /** 3.4/P1-1：注册二进制帧处理器（流式 STT PCM 推流） */
+  onBinary(handler: (data: Buffer) => void): void;
 
   onClose(handler: (code: number, reason: string) => void): void;
 

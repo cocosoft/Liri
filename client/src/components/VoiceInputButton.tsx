@@ -8,10 +8,16 @@ import {
   useImperativeHandle,
 } from "react";
 import { createLogger } from "@/utils/logger";
+import { getSupportedMimeType, getRecordedBlobType } from "../utils/audioMime";
+import { getPcmWorkletUrl, PCM_WORKLET_PROCESSOR } from "../utils/pcmWorklet";
 
 const logger = createLogger("components:voiceInput");
 import { useVoiceStore } from "../stores/voiceStore";
-import { voiceService } from "../services/voiceService";
+import {
+  voiceService,
+  createSTTStream,
+  type STTStreamClient,
+} from "../services/voiceService";
 import { handleClientError } from "../utils/handleError";
 
 // 浏览器 SpeechRecognition API 类型声明（非标准 API，手动补充）
@@ -107,6 +113,17 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
       typeof SpeechRecognition
     > | null>(null);
     const [micWarning, setMicWarning] = useState<string | null>(null);
+    /** 按住说话已录制秒数（电平可视化增强） */
+    const [recordingSeconds, setRecordingSeconds] = useState(0);
+    const recordingStartRef = useRef<number | null>(null);
+
+    // 3.4/P1-1：流式 STT（字幕与最终转录统一走后端链路）
+    const sttStreamRef = useRef<STTStreamClient | null>(null);
+    const pcmCollectorRef = useRef<{ stop: () => void } | null>(null);
+    const streamingActiveRef = useRef(false);
+    /** 停止请求标记：async 采集器启动期间（worklet 加载等）用户已松手 → 避免 AudioContext 泄漏 */
+    const stopRequestedRef = useRef(false);
+    const finalTextRef = useRef("");
 
     /** 浏览器 SpeechRecognition 是否可用 */
     const hasSpeechRecognition =
@@ -118,6 +135,14 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
         stopAudioAnalysis();
         cleanupStream();
         stopSubtitleRecognition();
+        recordingStartRef.current = null;
+        // 3.4/P1-1：组件卸载时关闭流式 STT 连接
+        streamingActiveRef.current = false;
+        stopRequestedRef.current = true;
+        pcmCollectorRef.current?.stop();
+        pcmCollectorRef.current = null;
+        sttStreamRef.current?.close();
+        sttStreamRef.current = null;
       };
     }, []);
 
@@ -160,6 +185,12 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
         const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
         const normalizedLevel = Math.min(100, (average / 128) * 100);
         useVoiceStore.setState({ audioLevel: normalizedLevel });
+        // 顺带更新已录制时长（rAF 循环中计算，避免额外定时器）
+        if (recordingStartRef.current) {
+          setRecordingSeconds(
+            Math.floor((Date.now() - recordingStartRef.current) / 1000),
+          );
+        }
         animationRef.current = requestAnimationFrame(updateLevel);
       };
 
@@ -261,6 +292,179 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
       }
     }, []);
 
+    /**
+     * 3.4/P1-1 + 3.1 推荐项：PCM16 采集（AudioWorklet 优先，ScriptProcessorNode 降级）
+     * 将麦克风流降采样为 16kHz mono PCM16 原始字节，逐块推给流式 STT。
+     * AudioWorklet 独立线程处理减少主线程压力；运行环境不支持（addModule 失败）
+     * 或模块加载失败时回退 ScriptProcessorNode（兼容 WKWebView/Firefox）。
+     */
+    const startPcmCollector = async (
+      stream: MediaStream,
+    ): Promise<{ stop: () => void }> => {
+      const audioContext = new AudioContext({ sampleRate: 16000 });
+      const source = audioContext.createMediaStreamSource(stream);
+
+      // AudioWorklet 优先
+      const workletUrl = getPcmWorkletUrl();
+      if (workletUrl) {
+        try {
+          await audioContext.audioWorklet.addModule(workletUrl);
+          const node = new AudioWorkletNode(
+            audioContext,
+            PCM_WORKLET_PROCESSOR,
+          );
+          node.port.onmessage = (e: MessageEvent) => {
+            sttStreamRef.current?.sendPcm(new Uint8Array(e.data));
+          };
+          source.connect(node);
+          logger.debug("PCM 采集使用 AudioWorklet");
+          return {
+            stop: () => {
+              try {
+                node.port.close();
+                node.disconnect();
+                source.disconnect();
+                audioContext.close();
+              } catch {
+                // 停止采集失败不影响主流程
+              }
+            },
+          };
+        } catch (err) {
+          logger.warn("AudioWorklet 初始化失败，降级 ScriptProcessorNode", err);
+        }
+      }
+
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+
+      processor.onaudioprocess = (e) => {
+        const input = e.inputBuffer.getChannelData(0);
+        const pcm = new Int16Array(input.length);
+        for (let i = 0; i < input.length; i++) {
+          const s = Math.max(-1, Math.min(1, input[i]));
+          pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+        }
+        sttStreamRef.current?.sendPcm(new Uint8Array(pcm.buffer));
+      };
+
+      return {
+        stop: () => {
+          try {
+            processor.disconnect();
+            source.disconnect();
+            audioContext.close();
+          } catch {
+            // 停止采集失败不影响主流程
+          }
+        },
+      };
+    };
+
+    /** 3.4/P1-1：结束流式 STT（发 finalize，结果由 onFinal 回调处理） */
+    const stopStreamingSTT = () => {
+      stopRequestedRef.current = true;
+      pcmCollectorRef.current?.stop();
+      pcmCollectorRef.current = null;
+      sttStreamRef.current?.finalize();
+      // 连接保留到 onFinal 到达后关闭（避免 final 帧丢失）
+    };
+
+    /**
+     * 3.4/P1-1：启动流式 STT（字幕与最终转录统一走后端）
+     * 流式不可用时降级到浏览器 SpeechRecognition（保留降级开关）。
+     */
+    const startStreamingSTT = async (stream: MediaStream) => {
+      // 新一轮录音启动，清除上一轮可能残留的停止请求标记
+      stopRequestedRef.current = false;
+      // 3.4 降级开关：关闭流式时直接用浏览器 SpeechRecognition
+      const useStreaming =
+        useVoiceStore.getState().settings?.config?.useStreamingSTT !== false;
+
+      if (!useStreaming) {
+        startSubtitleRecognition();
+        return;
+      }
+
+      try {
+        const settings = useVoiceStore.getState().settings?.config;
+        const sttStream = await createSTTStream({
+          language: settings?.sttLanguage || subtitleLang.split("-")[0],
+          providerId: settings?.sttProviderId || undefined,
+        });
+        if (stopRequestedRef.current) {
+          // 连接建立期间用户已松手 → 直接关闭，不启动采集
+          sttStream.close();
+          return;
+        }
+        sttStreamRef.current = sttStream;
+
+        sttStream.onInterim((text) => {
+          if (!streamingActiveRef.current) return;
+          if (text) {
+            useVoiceStore.setState({
+              interimText: text,
+              subtitleStatus: "listening",
+            });
+          }
+        });
+
+        sttStream.onFinal((text) => {
+          if (!streamingActiveRef.current) return;
+          stopRequestedRef.current = true;
+          // 转录完成即停采集器：后端自动 final（如静音检测）时用户未松手，
+          // handleMouseUp 不会走 stopStreamingSTT，此处必须主动回收，避免 AudioContext 空转。
+          // 正常路径（stopStreamingSTT 已 stop）下重复调用幂等无害。
+          pcmCollectorRef.current?.stop();
+          pcmCollectorRef.current = null;
+          finalTextRef.current = text;
+          useVoiceStore.setState({
+            interimText: "",
+            finalText: text,
+            subtitleStatus: text ? "done" : "idle",
+          });
+          if (text) {
+            onTranscribed?.(text);
+            if (autoSubmit && onShouldSubmit) {
+              onShouldSubmit(text);
+            }
+          }
+          // 转录完成，关闭连接
+          sttStreamRef.current?.close();
+          sttStreamRef.current = null;
+          streamingActiveRef.current = false;
+        });
+
+        sttStream.onError((err) => {
+          logger.warn("流式 STT 错误，降级到浏览器识别", err);
+          stopRequestedRef.current = true;
+          sttStreamRef.current?.close();
+          sttStreamRef.current = null;
+          streamingActiveRef.current = false;
+          pcmCollectorRef.current?.stop();
+          pcmCollectorRef.current = null;
+          startSubtitleRecognition();
+        });
+
+        streamingActiveRef.current = true;
+        pcmCollectorRef.current = await startPcmCollector(stream);
+        // 竞态保护：await worklet 加载期间用户已松手（stopRequestedRef 已置位）
+        // → 立即回收采集器，避免 AudioContext / worklet 节点泄漏。
+        // 不重置 streamingActiveRef：stopStreamingSTT 已发 finalize，
+        // onFinal 仍会到达并完成 UI 收尾（done/idle）。
+        if (stopRequestedRef.current && pcmCollectorRef.current) {
+          pcmCollectorRef.current.stop();
+          pcmCollectorRef.current = null;
+        }
+      } catch (err) {
+        // 流式 STT 不可用（后端未启用/连接失败）→ 降级
+        logger.warn("流式 STT 启动失败，降级到浏览器 SpeechRecognition", err);
+        streamingActiveRef.current = false;
+        startSubtitleRecognition();
+      }
+    };
+
     /** 暴露给父组件的录音控制方法 */
     useImperativeHandle(ref, () => ({
       start: handleMouseDown,
@@ -359,7 +563,9 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
         streamRef.current = stream;
         audioChunksRef.current = [];
 
-        const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+        const recorder = new MediaRecorder(stream, {
+          mimeType: getSupportedMimeType(),
+        });
         mediaRecorderRef.current = recorder;
 
         // 收集音频数据块
@@ -373,10 +579,18 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
           cleanupStream();
           stopAudioAnalysis();
           useVoiceStore.setState({ audioLevel: 0 });
+          recordingStartRef.current = null;
+          setRecordingSeconds(0);
 
-          // 收集完整音频 Blob
+          // 3.4/P1-1：流式路径 —— 最终转录由 onFinal 回调处理，不重复文件级转写
+          if (streamingActiveRef.current) {
+            useVoiceStore.setState({ subtitleStatus: "processing" });
+            return;
+          }
+
+          // 收集完整音频 Blob（格式与录音一致，供后端嗅探）
           const audioBlob = new Blob(audioChunksRef.current, {
-            type: "audio/webm",
+            type: getRecordedBlobType(),
           });
           audioChunksRef.current = [];
 
@@ -416,10 +630,12 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
         };
 
         recorder.start();
+        recordingStartRef.current = Date.now();
+        setRecordingSeconds(0);
         await startRecording();
         startAudioAnalysis(stream);
-        // 同步启动浏览器 SpeechRecognition 获取实时字幕
-        startSubtitleRecognition();
+        // 3.4/P1-1：启动流式 STT（字幕与最终转录统一走后端；不可用时降级浏览器 SpeechRecognition）
+        startStreamingSTT(stream);
       } catch (e) {
         logger.error("无法启动录音", e);
         setMicWarning(t("voice.micAccessFailed"));
@@ -436,10 +652,22 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
       ) {
         mediaRecorderRef.current.stop();
         await stopRecording();
-        // 停止浏览器 SpeechRecognition
-        stopSubtitleRecognition();
-        // 标记字幕状态为处理中（等待后端 STT 结果）
-        useVoiceStore.setState({ subtitleStatus: "processing" });
+
+        // 3.4/P1-1：无论流式是否已启动，都标记停止请求。
+        // 若 startStreamingSTT 仍在 await（createSTTStream / worklet 加载），
+        // 由 startStreamingSTT 内部的 stopRequestedRef 检查完成清理。
+        stopRequestedRef.current = true;
+
+        // 3.4/P1-1：流式路径 → finalize 获取最终转录；降级路径 → 停止浏览器 SpeechRecognition
+        if (streamingActiveRef.current) {
+          stopStreamingSTT();
+          // finalize 已由 stopStreamingSTT 之前的 onFinal 链路处理
+          useVoiceStore.setState({ subtitleStatus: "processing" });
+        } else {
+          stopSubtitleRecognition();
+          // 标记字幕状态为处理中（等待后端 STT 结果）
+          useVoiceStore.setState({ subtitleStatus: "processing" });
+        }
       }
     };
 
@@ -452,6 +680,42 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
           <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-max max-w-48 px-2 py-1 text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded shadow whitespace-nowrap">
             {micWarning}
           </div>
+        )}
+        {/* 录音时长徽章（按住说话时显示） */}
+        {isRecording && (
+          <span className="absolute -top-5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[10px] leading-none font-medium tabular-nums rounded-full bg-red-500/90 text-white shadow">
+            {recordingSeconds}s
+          </span>
+        )}
+        {/* 电平指示环（实时音量可视化） */}
+        {isRecording && (
+          <svg
+            className="absolute -inset-1 pointer-events-none"
+            viewBox="0 0 48 48"
+            fill="none"
+          >
+            <circle
+              cx="24"
+              cy="24"
+              r="21"
+              className="text-red-500/25"
+              stroke="currentColor"
+              strokeWidth="3"
+            />
+            <circle
+              cx="24"
+              cy="24"
+              r="21"
+              className="text-red-500"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeDasharray={2 * Math.PI * 21}
+              strokeDashoffset={2 * Math.PI * 21 * (1 - audioLevel / 100)}
+              transform="rotate(-90 24 24)"
+              style={{ transition: "stroke-dashoffset 60ms linear" }}
+            />
+          </svg>
         )}
         <button
           onMouseDown={handleMouseDown}

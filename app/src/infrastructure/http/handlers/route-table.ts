@@ -25,6 +25,7 @@ import {
   handleTTSSynthesize,
   handleListVoiceProviders,
   handleListVoices,
+  handleVoiceHealth,
   handleTestWakeWord,
   handleWakeStart,
   handleWakeStop,
@@ -775,6 +776,10 @@ export async function dispatchRoute(
   }
   if (method === 'GET' && url === '/v1/voice/providers') {
     await handleListVoiceProviders(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/voice/health') {
+    await handleVoiceHealth(req, res);
     return true;
   }
   if (method === 'GET' && url === '/v1/voice/voices') {

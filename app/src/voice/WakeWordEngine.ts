@@ -29,7 +29,7 @@ import { handleError } from '@modules/error/handleError';
 import { VadDetector } from '@modules/services/voice/services/vadDetector';
 import { STTRegistry } from '@modules/services/voice/services/sttRegistry';
 
-const logger = new Logger({ module: 'voice:wakeWord', level: LogLevel.INFO });
+const logger = new Logger({ module: 'voice:wakeword', level: LogLevel.INFO });
 
 /** 唤醒检测回调结果 */
 export interface WakeWordResult {

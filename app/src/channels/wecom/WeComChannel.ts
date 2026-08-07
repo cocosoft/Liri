@@ -19,7 +19,7 @@ import { handleError } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
-  module: 'channels\wecom\WeComChannel',
+  module: 'channels:wecom:WeComChannel',
   level: LogLevel.INFO,
 });
 

@@ -23,13 +23,21 @@
 
 import { spawn, ChildProcess } from 'child_process';
 import { tmpdir } from 'os';
-import { join } from 'path';
-import { randomUUID } from 'crypto';
-import { writeFileSync, unlinkSync, existsSync, mkdirSync } from 'fs';
+import { join, isAbsolute, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import {
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  unlinkSync,
+  readFileSync,
+} from 'fs';
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getPlatform } from '@modules/utils/platform';
 import { resolveModelsDir } from '@modules/core/paths';
+// 2026-08-06 接入（3.2/P1-2）：stdin 二进制直传，需嗅探容器以决定如何打包 PCM
+import { detectAudioContainer } from './audioNormalizer';
 import type { STTProvider, STTStreamConnection } from './sttProvider';
 import type {
   STTProviderType,
@@ -47,124 +55,19 @@ const PROVIDER_NAME = 'Local Whisper';
 /** Python 可执行文件名称（平台相关） */
 const PYTHON_CMD = getPlatform() === 'win32' ? 'python' : 'python3';
 
+/** 3.9/P2-5：worker 脚本目录（当前文件所在目录，独立 .py 随代码分发） */
+const workerScriptDir = dirname(fileURLToPath(import.meta.url));
+
 /**
- * 构建长驻 Python 工作进程脚本
+ * 构建长驻 Python 工作进程脚本（3.9/P2-5：脚本独立文件 whisper_worker.py）
  *
- * 启动时加载 faster-whisper 模型一次，通过 stdin/stdout JSON-line 协议通信：
- *
- * 输入（stdin 每行一个 JSON）：
- *   首行（整包配置）: {"model":"base","device":"cpu","compute_type":"int8","beam_size":5,"vad_filter":true,"vad_min_silence_ms":500,"pid":12345}
- *   请求（仅 per-request 数据）: {"id":"req-1","audio_path":"/tmp/1.wav","language":"en","initial_prompt":"..."}
- *   关闭: {"command":"shutdown"}
- *
- * 输出（stdout 每行一个 JSON）：
- *   就绪: {"status":"ready","pid":12345}
- *   成功: {"id":"req-1","status":"ok","text":"...","segments":[...],"language":"en","duration":2.5}
- *   失败: {"id":"req-1","status":"error","message":"..."}
+ * stdin/stdout 协议（详见 whisper_worker.py 头部协议注释）：
+ *   stdin 首行整包配置；请求 protocol=2 二进制直传（首行 JSON 头 + 原始 PCM16 二进制体），
+ *   protocol=1 保留 audio_path 兼容分支；stdout JSON 行（ready / chunk / finalize / error）。
  */
-function buildWorkerScript(): string {
-  return `
-import sys, json, signal, traceback, warnings
-import numpy as np
-import soundfile as sf
-from faster_whisper import WhisperModel
-
-TARGET_SR = 16000
-
-def resample_audio(audio_data, sample_rate):
-    if sample_rate == TARGET_SR:
-        return audio_data
-    try:
-        from scipy import signal
-        duration = len(audio_data) / sample_rate
-        target_len = int(duration * TARGET_SR)
-        return signal.resample(audio_data, target_len)
-    except ImportError:
-        ratio = TARGET_SR / sample_rate
-        target_len = int(len(audio_data) * ratio)
-        indices = (np.arange(target_len) / ratio).astype(int)
-        indices = np.clip(indices, 0, len(audio_data) - 1)
-        return audio_data[indices]
-
-def main():
-    config_line = sys.stdin.readline()
-    if not config_line:
-        return
-    config = json.loads(config_line)
-
-    # 从 init config 读取全量配置作为全局默认值
-    beam_size = config.get("beam_size", 5)
-    vad_filter = config.get("vad_filter", True)
-    vad_min_silence_ms = config.get("vad_min_silence_ms", 500)
-
-    model = WhisperModel(
-        config["model"],
-        device=config["device"],
-        compute_type=config["compute_type"],
-        download_root=config.get("download_root")
-    )
-
-    sys.stdout.write(json.dumps({"status": "ready", "pid": config.get("pid", 0)}) + "\\n")
-    sys.stdout.flush()
-
-    for line in sys.stdin:
-        line = line.strip()
-        if not line:
-            continue
-
-        request = {}
-        try:
-            request = json.loads(line)
-            if request.get("command") == "shutdown":
-                break
-
-            audio_path = request["audio_path"]
-            audio_data, sample_rate = sf.read(audio_path)
-            if sample_rate != TARGET_SR:
-                audio_data = resample_audio(audio_data, sample_rate)
-
-            segments, info = model.transcribe(
-                audio_data,
-                language=request.get("language", "en"),
-                beam_size=request.get("beam_size", beam_size),
-                initial_prompt=request.get("initial_prompt"),
-                vad_filter=request.get("vad_filter", vad_filter),
-                vad_parameters=dict(
-                    min_silence_duration_ms=request.get("vad_min_silence_ms", vad_min_silence_ms)
-                ),
-            )
-
-            result = {
-                "id": request.get("id", "unknown"),
-                "status": "ok",
-                "text": " ".join(seg.text for seg in segments),
-                "segments": [
-                    {
-                        "text": seg.text,
-                        "start": seg.start,
-                        "end": seg.end,
-                        "confidence": getattr(seg, "avg_logprob", 0)
-                    }
-                    for seg in segments
-                ],
-                "language": info.language,
-                "duration": info.duration,
-            }
-            sys.stdout.write(json.dumps(result) + "\\n")
-            sys.stdout.flush()
-
-        except Exception as e:
-            error_result = {
-                "id": request.get("id", "unknown"),
-                "status": "error",
-                "message": str(e),
-            }
-            sys.stdout.write(json.dumps(error_result) + "\\n")
-            sys.stdout.flush()
-
-if __name__ == "__main__":
-    main()
-`.trim();
+export function buildWorkerScript(): string {
+  // 独立 .py 文件随代码分发，避免 TS 模板字符串转义与维护成本
+  return readFileSync(join(workerScriptDir, 'whisper_worker.py'), 'utf-8');
 }
 
 /** 默认配置 */
@@ -199,6 +102,25 @@ const MAX_RESTART_ATTEMPTS = 3;
 
 /** 重启间隔（毫秒） */
 const RESTART_DELAY_MS = 1_000;
+
+/**
+ * stdin 直传音频上限（字节，25MB，对齐方案 §6 风险缓解承诺）
+ * 超过该体积一次性读入内存会撑爆 Python worker 进程，
+ * 超限抛错交 registry 故障转移 / 提示用户分片。
+ */
+const MAX_AUDIO_INPUT_BYTES = 25 * 1024 * 1024;
+
+/**
+ * stdin 音频大小校验（§6 风险缓解）
+ * 超过 25MB 一次性读入会撑爆 worker 进程，抛错交 registry 故障转移。
+ */
+export function assertAudioInputSize(audioData: Buffer): void {
+  if (audioData.length > MAX_AUDIO_INPUT_BYTES) {
+    throw new Error(
+      `本地 STT 音频超过 ${Math.round(MAX_AUDIO_INPUT_BYTES / 1024 / 1024)}MB 上限，请分片转录或改用云端 STT`
+    );
+  }
+}
 
 /** LocalSTTProvider 配置项 */
 export interface LocalSTTConfig {
@@ -341,9 +263,12 @@ export class LocalSTTProvider implements STTProvider {
     }
 
     try {
-      const { execSync } = require('child_process');
-      execSync(
-        `"${this.config.pythonCmd}" -c "import faster_whisper; print(faster_whisper.__version__)"`,
+      // 3.10/P2-6：execFileSync 参数数组（杜绝 shell 拼接注入）+ pythonCmd 白名单/路径校验
+      const { execFileSync } = require('child_process');
+      assertSafePythonCmd(this.config.pythonCmd!);
+      execFileSync(
+        this.config.pythonCmd!,
+        ['-c', 'import faster_whisper; print(faster_whisper.__version__)'],
         { stdio: 'pipe', timeout: 5000 }
       );
       this._cachedAvailable = true;
@@ -358,7 +283,12 @@ export class LocalSTTProvider implements STTProvider {
 
   /**
    * 文件级转录
-   * 将音频写入临时文件，通过长驻进程转录，解析 JSON 结果
+   * 3.2/P1-2：stdin「首行 JSON 头 + 原始 PCM 二进制体」直传长驻进程，不再写临时文件。
+   *
+   * 音频格式处理（配合 3.1 入口归一化）：
+   * - WAV（有 RIFF 头）→ 解析头提取采样率/声道，剥离头后直传 PCM
+   * - PCM16 原始字节（3.1 ffmpeg 转码产物或原生 PCM）→ 直传，默认 16k mono
+   * - webm/ogg/mp4（ffmpeg 不可用时入口透传）→ 本地 worker 无法解析，抛错交故障转移
    *
    * @param audioData 音频数据（WAV/PCM）
    * @param options 转录选项
@@ -367,7 +297,6 @@ export class LocalSTTProvider implements STTProvider {
     audioData: Buffer,
     options?: STTTranscribeOptions
   ): Promise<STTResult> {
-    const audioPath = join(tmpdir(), `stt_${randomUUID()}.wav`);
     const language = options?.language ? options.language.split('-')[0] : 'en';
     const model = options?.model || this.config.model!;
 
@@ -387,18 +316,50 @@ export class LocalSTTProvider implements STTProvider {
             language
           );
 
-          // 写入音频临时文件
-          writeFileSync(audioPath, audioData);
+          // §6 风险缓解：stdin 一次性读入上限 25MB，超限抛错交故障转移
+          assertAudioInputSize(audioData);
 
           // 确保长驻进程已启动并就绪
           await this.ensureWorker();
 
-          // 发送转录请求并等待结果
-          const resultJson = await this.sendRequest(
-            audioPath,
+          // 嗅探容器 → 决定如何打包 PCM 载荷
+          const container = detectAudioContainer(audioData);
+          let pcm: Buffer;
+          let sampleRate: number;
+          let channels: number;
+          if (container === 'wav') {
+            const wav = parseWavHeader(audioData);
+            if (!wav) {
+              throw new Error(
+                '本地 STT 无法解析 WAV 头（数据损坏或非 PCM 编码）'
+              );
+            }
+            pcm = audioData.subarray(wav.dataOffset);
+            sampleRate = wav.sampleRate;
+            channels = wav.channels;
+          } else if (
+            container === 'webm' ||
+            container === 'ogg' ||
+            container === 'mp4'
+          ) {
+            // 入口 ffmpeg 不可用时透传的原格式，worker 无法解析 → 抛错触发 registry 故障转移
+            throw new Error(
+              `本地 STT 无法解析 ${container} 格式（请安装 ffmpeg 或使用云端 STT）`
+            );
+          } else {
+            // PCM16 原始字节（转码产物或原生 PCM），默认 16k mono
+            pcm = audioData;
+            sampleRate = 16000;
+            channels = 1;
+          }
+
+          // 发送二进制转录请求并等待结果
+          const resultJson = await this.sendBinaryRequest(pcm, {
+            sampleRate,
+            channels,
             language,
-            options
-          );
+            options,
+          });
           const parsed = JSON.parse(resultJson);
 
           return {
@@ -427,12 +388,6 @@ export class LocalSTTProvider implements STTProvider {
             provider: PROVIDER_ID,
             error: { code: 'TRANSCRIBE_FAILED', message: errorMsg },
           };
-        } finally {
-          try {
-            unlinkSync(audioPath);
-          } catch (err) {
-            // 临时文件清理失败不影响主流程
-          }
         }
       }
     )();
@@ -669,16 +624,24 @@ export class LocalSTTProvider implements STTProvider {
   // ===== 请求-响应管理 =====
 
   /**
-   * 发送转录请求到工作进程并等待结果
+   * 发送二进制转录请求到工作进程并等待结果
    *
-   * @param audioPath 音频文件路径
-   * @param language 语言代码
+   * 3.2/P1-2：stdin「首行 JSON 头 + 原始 PCM 二进制体」。头携带 protocol=2 与
+   * audio_len，worker 端 `read_exact` 精确读满后继续循环读下一个请求头。
+   * 不写临时文件、不 base64 膨胀，规避磁盘往返与 33% 体积开销。
+   *
+   * @param pcm PCM16 原始二进制数据（已剥离容器头）
+   * @param meta 传输元数据
    * @returns 转录结果 JSON 字符串（response 对象序列化）
    */
-  private sendRequest(
-    audioPath: string,
-    language: string,
-    options?: STTTranscribeOptions
+  private sendBinaryRequest(
+    pcm: Buffer,
+    meta: {
+      sampleRate: number;
+      channels: number;
+      language: string;
+      options?: STTTranscribeOptions;
+    }
   ): Promise<string> {
     return new Promise((resolve, reject) => {
       const reqId = `req_${++this._requestIdCounter}`;
@@ -699,20 +662,28 @@ export class LocalSTTProvider implements STTProvider {
 
       // 从 options 中提取 keyterms 作为 initial_prompt（间接支持关键词）
       let initialPrompt: string | undefined;
-      if (options?.keyterms?.length) {
-        initialPrompt = options.keyterms.join(', ');
+      if (meta.options?.keyterms?.length) {
+        initialPrompt = meta.options.keyterms.join(', ');
       }
 
       try {
-        // 请求消息只携带 per-request 数据，全局配置已打包在 init config 中
-        const request = JSON.stringify({
+        // 首行 JSON 头：协议版本 + PCM 元信息；后接原始 PCM 二进制体
+        const header = JSON.stringify({
           id: reqId,
-          audio_path: audioPath,
-          language,
+          protocol: 2,
+          audio_len: pcm.length,
+          sample_rate: meta.sampleRate,
+          channels: meta.channels,
+          language: meta.language,
           initial_prompt: initialPrompt,
         });
 
-        this._workerProcess?.stdin?.write(request + '\n');
+        const stdin = this._workerProcess?.stdin;
+        if (!stdin) {
+          throw new Error('工作进程未就绪（stdin 不可用）');
+        }
+        stdin.write(header + '\n');
+        stdin.write(pcm);
       } catch (err) {
         this._pendingRequests.delete(reqId);
         clearTimeout(timeout);
@@ -822,6 +793,72 @@ export class LocalSTTProvider implements STTProvider {
 }
 
 // ===== 验证函数 =====
+
+/**
+ * 校验 pythonCmd 安全性（3.10/P2-6）
+ *
+ * 仅允许常见的裸命令名（python/python3 等，无路径分隔符与空白）或绝对路径，
+ * 防止在 spawn/execFile 之前被注入 shell 元字符。
+ *
+ * @throws 非法 pythonCmd 时抛出错误
+ */
+function assertSafePythonCmd(cmd: string): void {
+  if (isAbsolute(cmd)) return;
+  if (/[\\/\s]/.test(cmd)) {
+    throw new Error(
+      `非法 pythonCmd: "${cmd}"（仅允许 python/python3 等命令名或绝对路径）`
+    );
+  }
+}
+
+/**
+ * 解析 WAV 头，提取 PCM 元信息（3.2/P1-2）
+ *
+ * 遍历 RIFF chunk，定位 fmt 块读取采样率/声道数，返回 data 区偏移。
+ * 仅支持未压缩 PCM（audioFormat=1）与 WAVE_FORMAT_EXTENSIBLE（0xFFFE，PCM 子类型）。
+ *
+ * @param buffer WAV 文件字节
+ * @returns 采样率/声道数/data 偏移；无法解析返回 null
+ */
+export function parseWavHeader(
+  buffer: Buffer
+): { sampleRate: number; channels: number; dataOffset: number } | null {
+  if (
+    buffer.length < 44 ||
+    buffer.toString('latin1', 0, 4) !== 'RIFF' ||
+    buffer.toString('latin1', 8, 12) !== 'WAVE'
+  ) {
+    return null;
+  }
+
+  let offset = 12;
+  let fmt: { sampleRate: number; channels: number } | null = null;
+  let dataOffset: number | null = null;
+
+  while (offset + 8 <= buffer.length) {
+    const chunkId = buffer.toString('latin1', offset, offset + 4);
+    const chunkSize = buffer.readUInt32LE(offset + 4);
+    if (chunkId === 'fmt ') {
+      // fmt 块至少 16 字节
+      if (offset + 8 + 16 > buffer.length) return null;
+      const audioFormat = buffer.readUInt16LE(offset + 8);
+      // 仅未压缩 PCM / extensible（PCM 子类型）
+      if (audioFormat !== 1 && audioFormat !== 0xfffe) return null;
+      fmt = {
+        channels: buffer.readUInt16LE(offset + 10),
+        sampleRate: buffer.readUInt32LE(offset + 12),
+      };
+    } else if (chunkId === 'data') {
+      dataOffset = offset + 8;
+      break;
+    }
+    // chunk 按偶数字节对齐
+    offset += 8 + chunkSize + (chunkSize % 2);
+  }
+
+  if (!fmt || dataOffset === null) return null;
+  return { ...fmt, dataOffset };
+}
 
 /**
  * 验证配置参数白名单

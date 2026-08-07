@@ -13,7 +13,7 @@ import { handleClientError } from "@/utils/handleError";
 async function waitForChannelConnected(
   id: string,
   prevConnected: boolean,
-  timeoutMs: number
+  timeoutMs: number,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {

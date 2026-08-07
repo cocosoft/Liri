@@ -22,7 +22,7 @@ import { TTLCache } from '@modules/utils/cache';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
-  module: 'channels\googlechat\GoogleChatChannel',
+  module: 'channels:googlechat:GoogleChatChannel',
   level: LogLevel.INFO,
 });
 

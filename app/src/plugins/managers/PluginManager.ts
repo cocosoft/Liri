@@ -1,4 +1,4 @@
-﻿/**
+/**
  * PluginManager - 插件管理器
  * 代理到 PluginSystem 的单例，消除双轨实现
  * 使用 DI 模式避免循环依赖（plugins/index.ts ↔ managers/PluginManager）
@@ -99,6 +99,7 @@ export class PluginManager {
           disabled.push({ repository: id } as LoadedPlugin);
         }
       } catch {
+        // @ignore-catch — 加载失败计入 disabled 列表（个别插件异常不阻塞批量加载）
         disabled.push({ repository: id } as LoadedPlugin);
       }
     }
@@ -128,6 +129,7 @@ export class PluginManager {
       getPS().getLoader().activatePlugin(pluginId);
       return true;
     } catch {
+      // @ignore-catch — 插件能力校验/卸载失败返回 false（失败由调用方提示，不抛错）
       return false;
     }
   }
@@ -140,6 +142,7 @@ export class PluginManager {
       getPS().getLoader().deactivatePlugin(pluginId);
       return true;
     } catch {
+      // @ignore-catch — 插件能力校验/卸载失败返回 false（失败由调用方提示，不抛错）
       return false;
     }
   }
@@ -152,6 +155,7 @@ export class PluginManager {
       getPS().getLoader().unloadPlugin(pluginId);
       return true;
     } catch {
+      // @ignore-catch — 插件能力校验/卸载失败返回 false（失败由调用方提示，不抛错）
       return false;
     }
   }

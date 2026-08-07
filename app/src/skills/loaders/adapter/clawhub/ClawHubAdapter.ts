@@ -239,6 +239,7 @@ export class ClawHubAdapter extends BaseThirdPartyAdapter<InstalledClawHubSkill>
       const detail = await this.apiClient.getSkillDetail(skillId);
       return detail?.version ?? null;
     } catch {
+      // @ignore-catch — 安装分支全部失败返回 null（外部网络依赖，降级由调用方处理）
       return null;
     }
   }

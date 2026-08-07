@@ -101,6 +101,12 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
    */
   private createConnection(): Promise<void> {
     return new Promise((resolve, reject) => {
+      // 认证方式说明（3.3/P1-4 安全加固）：
+      // - `?key=` query 是 Gemini Live BidiGenerateContent WS 端点官方支持且唯一文档化的
+      //   认证方式（Google 官方论坛确认，2025-07 官方回复）；REST 端点支持 x-goog-api-key
+      //   header，但本项目使用的全局 WebSocket（undici 实现）不允许自定义握手 header。
+      // - 因此保留 query 认证；泄露防护依赖双保险：① 本 URL 仅存在于内存、不写入任何日志；
+      //   ② 日志/OTel 侧 LogRedact 已全局脱敏 `key=` query 与 X-Goog-Api-Key header。
       const wsUrl = `${GEMINI_WS_BASE}/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${this.config.apiKey}`;
 
       try {
@@ -170,6 +176,8 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
           },
         },
       },
+      // 3.11/P2-1：启用用户侧输入转写，否则 serverContent.inputTranscription 永不返回
+      inputAudioTranscription: {},
     };
 
     if (this.config.systemInstruction) {
@@ -219,6 +227,21 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
         return;
       }
 
+      if (msg.usageMetadata) {
+        // TokenTracker：usageMetadata 为 BidiGenerateContentServerMessage 顶层 oneof 字段，
+        // 每个服务端消息都可能携带；此前未解析 → 语音会话 token 统计恒为 0
+        const um = msg.usageMetadata as {
+          promptTokenCount?: number;
+          responseTokenCount?: number;
+        };
+        this.sendToClient?.({
+          type: 'usage.metrics',
+          inputTokens: um.promptTokenCount ?? 0,
+          outputTokens: um.responseTokenCount ?? 0,
+        });
+        return;
+      }
+
       if (msg.toolCall) {
         this.handleToolCall(msg.toolCall);
         return;
@@ -232,8 +255,8 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
           message: msg.error.message ?? 'Gemini API 返回错误',
         });
       }
-    } catch (_err) {
-      void handleError(new Error('handleMessage'), {
+    } catch (err) {
+      void handleError(err instanceof Error ? err : new Error(String(err)), {
         module: 'voice:adapter',
         action: 'handleMessage',
       });
@@ -247,6 +270,18 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
    * 处理 serverContent 消息
    */
   private handleServerContent(content: Record<string, unknown>): void {
+    // 3.11/P2-1：用户侧输入转写（启用 inputAudioTranscription 后由服务端返回）
+    const inputTranscription = content.inputTranscription as
+      | { text?: string }
+      | undefined;
+    if (inputTranscription?.text) {
+      this.transcript.push({ role: 'user', text: inputTranscription.text });
+      this.sendToClient?.({
+        type: 'transcript.user',
+        text: inputTranscription.text,
+      });
+    }
+
     const modelTurn = content.modelTurn as Record<string, unknown> | undefined;
     const parts = modelTurn?.parts as ModelTurnPart[] | undefined;
     if (!parts) return;
@@ -345,8 +380,8 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
     this.reconnect.timer = setTimeout(async () => {
       try {
         await this.createConnection();
-      } catch (_err) {
-        void handleError(new Error('scheduleReconnect'), {
+      } catch (err) {
+        void handleError(err instanceof Error ? err : new Error(String(err)), {
           module: 'voice:adapter',
           action: 'scheduleReconnect',
         });
@@ -480,8 +515,8 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
     let parsed: unknown;
     try {
       parsed = JSON.parse(output);
-    } catch (_err) {
-      void handleError(new Error('sendToolResult'), {
+    } catch (err) {
+      void handleError(err instanceof Error ? err : new Error(String(err)), {
         module: 'voice:adapter',
         action: 'sendToolResult',
       });

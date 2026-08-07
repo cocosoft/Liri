@@ -1,23 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { voiceService, type STTResult } from "../../services/voiceService";
+import {
+  voiceService,
+  createSTTStream,
+  type STTResult,
+  type STTStreamClient,
+} from "../../services/voiceService";
+import { getSupportedMimeType } from "../../utils/audioMime";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("components:sttTest");
-
-/**
- * 获取浏览器支持的录音 MIME type
- * 按优先级探测，都不支持时返回空字符串（由 MediaRecorder 自行决定）
- */
-const getSupportedMimeType = (): string => {
-  const types = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/ogg;codecs=opus",
-    "audio/mp4",
-    "audio/mp4;codecs=mp4a.40.2",
-  ];
-  return types.find((type) => MediaRecorder.isTypeSupported(type)) || "";
-};
 
 /** 转录历史记录 */
 interface HistoryItem {
@@ -80,6 +71,14 @@ function STTTestPage() {
   // S3.4: 音频播放器 ref（用于控制播放速度）
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+
+  // ── 流式 STT（/v1/voice/stt WS 实时识别）──
+  const sttStreamRef = useRef<STTStreamClient | null>(null);
+  const pcmCollectorRef = useRef<{ stop: () => void } | null>(null);
+  const [streamingActive, setStreamingActive] = useState(false);
+  const [streamInterim, setStreamInterim] = useState("");
+  const [streamFinal, setStreamFinal] = useState("");
+  const [streamError, setStreamError] = useState<string | null>(null);
 
   /**
    * 开始录音
@@ -353,6 +352,79 @@ function STTTestPage() {
     setElapsed(0);
   }, []);
 
+  /** 停止流式识别（发 finalize，结果由 onFinal 回调处理） */
+  const stopStreaming = useCallback(() => {
+    setStreamingActive(false);
+    pcmCollectorRef.current?.stop();
+    pcmCollectorRef.current = null;
+    sttStreamRef.current?.finalize();
+    // 连接保留到 onFinal 到达后关闭（避免 final 帧丢失）
+    sttStreamRef.current = null;
+  }, []);
+
+  /**
+   * 开始流式实时识别（PCM16 采集 → /v1/voice/stt WS）
+   * 与文件转录互斥路径：实时推流，interim 实时字幕 + final 最终结果
+   */
+  const startStreaming = useCallback(async () => {
+    setStreamError(null);
+    setStreamFinal("");
+    setStreamInterim("");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+      const sttStream = await createSTTStream({
+        language: language.split("-")[0] || "zh",
+        providerId: providerId || undefined,
+      });
+      sttStreamRef.current = sttStream;
+
+      sttStream.onInterim((text) => setStreamInterim(text));
+      sttStream.onFinal((text) => {
+        setStreamFinal(text);
+        setStreamInterim("");
+      });
+      sttStream.onError((err) => {
+        setStreamError(err.message);
+        stopStreaming();
+      });
+
+      // PCM16 16kHz mono 采集（ScriptProcessorNode，测试场景兼容性优先）
+      const audioContext = new AudioContext({ sampleRate: 16000 });
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+      processor.onaudioprocess = (e) => {
+        const input = e.inputBuffer.getChannelData(0);
+        const pcm = new Int16Array(input.length);
+        for (let i = 0; i < input.length; i++) {
+          const s = Math.max(-1, Math.min(1, input[i]));
+          pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+        }
+        sttStreamRef.current?.sendPcm(new Uint8Array(pcm.buffer));
+      };
+
+      pcmCollectorRef.current = {
+        stop: () => {
+          try {
+            processor.disconnect();
+            source.disconnect();
+            audioContext.close();
+            stream.getTracks().forEach((t) => t.stop());
+          } catch {
+            // 停止采集失败不影响主流程
+          }
+        },
+      };
+
+      setStreamingActive(true);
+    } catch (err) {
+      setStreamError(err instanceof Error ? err.message : "流式识别启动失败");
+    }
+  }, [language, providerId, stopStreaming]);
+
   // S1.3: 组件卸载时清理音频资源
   useEffect(() => {
     return () => {
@@ -360,6 +432,11 @@ function STTTestPage() {
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }
+      // 流式识别资源清理
+      pcmCollectorRef.current?.stop();
+      pcmCollectorRef.current = null;
+      sttStreamRef.current?.close();
+      sttStreamRef.current = null;
     };
   }, []);
 
@@ -798,6 +875,79 @@ function STTTestPage() {
                   清除
                 </button>
               </div>
+            </div>
+
+            {/* S3.5: 流式实时识别（/v1/voice/stt WS） */}
+            <div
+              className={`rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 p-5`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <h2
+                  className={`text-lg font-semibold text-gray-800 dark:text-gray-200`}
+                >
+                  流式实时识别
+                </h2>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full ${
+                    streamingActive
+                      ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
+                      : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+                  }`}
+                >
+                  {streamingActive ? "识别中" : "已停止"}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                实时推流 PCM16 → 后端 /v1/voice/stt，interim 实时字幕 + final
+                最终结果
+              </p>
+
+              <div className="flex items-center gap-3 mb-3">
+                <button
+                  onClick={streamingActive ? stopStreaming : startStreaming}
+                  disabled={isProcessing}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    streamingActive
+                      ? "bg-red-600 hover:bg-red-700 text-white"
+                      : "bg-indigo-500 hover:bg-indigo-600 text-white"
+                  } disabled:opacity-50`}
+                >
+                  {streamingActive ? "停止识别" : "开始流式识别"}
+                </button>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  语言：{language} · 提供者：{providerId || "默认"}
+                </span>
+              </div>
+
+              {streamError && (
+                <div className="mb-3 p-3 rounded-lg text-sm bg-red-50 text-red-600 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800">
+                  {streamError}
+                </div>
+              )}
+
+              {streamingActive && (
+                <div className="p-3 rounded-lg text-sm min-h-12 bg-gray-50 dark:bg-gray-700/50">
+                  <span className="text-xs text-gray-400 dark:text-gray-500 mr-2">
+                    实时字幕：
+                  </span>
+                  {streamInterim || (
+                    <span className="text-gray-400 dark:text-gray-500">
+                      正在聆听...
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {streamFinal && (
+                <div
+                  className={`mt-3 p-3 rounded-lg text-sm bg-green-50 text-gray-900 dark:bg-green-900/20 dark:text-gray-100`}
+                >
+                  <span className="text-xs font-medium text-green-600 dark:text-green-400 mr-2">
+                    最终结果：
+                  </span>
+                  {streamFinal}
+                </div>
+              )}
             </div>
 
             {result && (

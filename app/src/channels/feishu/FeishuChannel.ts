@@ -29,7 +29,7 @@ import { claimMessage, finalizeMessage } from '../dedup/index.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
-  module: 'channels\feishu\FeishuChannel',
+  module: 'channels:feishu:FeishuChannel',
   level: LogLevel.INFO,
 });
 

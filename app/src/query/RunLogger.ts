@@ -34,6 +34,37 @@ import { resolveDataDir } from '@modules/core/paths';
 /** 停止原因类型 */
 type StopReason = 'completed' | 'aborted' | 'error' | 'timeout' | 'max_turns';
 
+/**
+ * 细粒度 TAOR trace 条目（U 类增强：每步骤/每工具调用持久化）
+ * 与 RunLogEntry（run 汇总）同写当天 JSONL，用 type 字段区分。
+ */
+export interface TAORTraceEntry {
+  type: 'step' | 'tool' | 'loop';
+  runId: string;
+  sessionId: string;
+  ts: string;
+  /** 轮次（仅 step/tool） */
+  turn?: number;
+  /** 阶段名（仅 step） */
+  phase?: string;
+  /** 步骤/工具名称 */
+  name?: string;
+  /** 步骤描述 */
+  description?: string;
+  /** 状态：enter/ok/error */
+  status?: string;
+  /** 耗时（ms） */
+  durationMs?: number;
+  /** 工具参数摘要（截断） */
+  argsHead?: string;
+  /** 工具结果摘要（截断） */
+  resultHead?: string;
+  /** 错误信息 */
+  error?: string;
+  /** 循环事件（仅 type=loop）：start/end/detected/compressed/... */
+  event?: string;
+}
+
 /** 运行日志条目 */
 interface RunLogEntry {
   runId: string;
@@ -122,9 +153,27 @@ export class RunLogger {
   }
 
   /**
+   * 记录一条细粒度 TAOR trace（每步骤/每工具调用）
+   * 与 run 汇总同写当天 JSONL（type 字段区分），保证时序一致。
+   */
+  async recordTrace(entry: TAORTraceEntry): Promise<void> {
+    this.writeQueue = this.writeQueue
+      .then(() => this._ensureDir())
+      .then(() => this._appendToFile(entry))
+      .catch((err) => {
+        process.stderr.write(
+          `[RunLogger] trace write failed: ${String(err)}\n`
+        );
+      });
+    return this.writeQueue;
+  }
+
+  /**
    * 追加一行 JSON 到当天日志文件
    */
-  private async _appendToFile(entry: RunLogEntry): Promise<void> {
+  private async _appendToFile(
+    entry: RunLogEntry | TAORTraceEntry
+  ): Promise<void> {
     const line = JSON.stringify(entry) + '\n';
     await appendFile(getDailyLogPath(), line, 'utf-8');
   }

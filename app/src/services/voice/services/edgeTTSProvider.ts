@@ -387,6 +387,19 @@ export class EdgeTTSProvider implements TTSProvider {
   private responseLatencies: number[] = [];
   private readonly MAX_LATENCIES = 100;
 
+  /**
+   * 空闲连接池（3.8/P1-3 连接复用）
+   * voice → 最近一次空闲连接：合成完成后不关闭，`turn.end` 区分轮次，
+   * 下次同 voice 合成直接复用（免握手）。每个 voice 至多保留 1 个空闲连接。
+   */
+  private idlePool = new Map<
+    string,
+    {
+      conn: WsConnection;
+      ping: ReturnType<typeof setInterval> | null;
+    }
+  >();
+
   constructor(config?: EdgeTTSConfig) {
     this.config = {
       voice: 'zh-CN-XiaoxiaoNeural',
@@ -572,13 +585,26 @@ export class EdgeTTSProvider implements TTSProvider {
       closeConnection(this.wsConnection);
       this.wsConnection = null;
     }
+    // 关闭并清空空闲连接池
+    for (const { conn, ping } of this.idlePool.values()) {
+      if (ping) clearInterval(ping);
+      try {
+        closeConnection(conn);
+      } catch (err) {
+        void handleError(err, {
+          module: 'services:voice:edgeTTS',
+          action: 'stop:pool',
+        });
+      }
+    }
+    this.idlePool.clear();
   }
 
   /**
    * 执行 Edge TTS 合成
    *
    * 流程：
-   * 1. WebSocket 连接 + 心跳保活
+   * 1. WebSocket 连接 + 心跳保活（优先复用池中同 voice 空闲连接，3.8/P1-3）
    * 2. 发送 synthesis.context
    * 3. 发送 SSML
    * 4. 接收音频二进制数据
@@ -586,125 +612,228 @@ export class EdgeTTSProvider implements TTSProvider {
    * 6. 记录响应延迟
    *
    * 使用自适应超时（基于历史 P99 延迟），默认 20s，上限 60s。
+   * turn.end 后连接不关闭，归还池中供下次同 voice 合成复用；连接失效自动降级新建。
    */
   private async synthesize(text: string, voice: string): Promise<Buffer> {
     const audioChunks: Buffer[] = [];
     const startTime = Date.now();
+    const timeoutMs = this.calculateTimeout();
+    const pooled = this.takeIdleConnection(voice);
 
     return new Promise((resolve, reject) => {
-      const timeoutMs = this.calculateTimeout();
+      let conn: WsConnection | null = null;
+      let ping: ReturnType<typeof setInterval> | null = null;
 
       const timeout = setTimeout(() => {
-        this.stopHeartbeat();
-        if (this.wsConnection) {
+        if (ping) clearInterval(ping);
+        if (conn) {
+          if (this.wsConnection === conn) {
+            this.wsConnection = null;
+          }
           try {
-            this.wsConnection.socket.destroy();
+            conn.socket.destroy();
           } catch (error) {
             void handleError(error, {
               module: 'services:voice:edgeTTS',
               action: 'synthesize:timeout',
             });
           }
-          this.wsConnection = null;
         }
         reject(new Error(`Edge TTS 合成超时（${timeoutMs}ms）`));
       }, timeoutMs);
 
-      // 构建带动态参数的完整路径
-      const connectionId = randomUUID().replace(/-/g, '');
-      const secMsGec = generateSecMsGec();
-      const wsPath = `${EDGE_TTS_PATH}&ConnectionId=${connectionId}&Sec-MS-GEC=${secMsGec}&Sec-MS-GEC-Version=${SEC_MS_GEC_VERSION}`;
-      const muid = generateMuid();
+      // 合成完成：归还连接入池（保持心跳）或关闭失效连接
+      const finish = (buf: Buffer): void => {
+        clearTimeout(timeout);
+        this.recordLatency(Date.now() - startTime);
+        if (this.wsConnection === conn) {
+          this.wsConnection = null;
+        }
+        if (conn && conn.socket.writable && !conn.socket.destroyed) {
+          this.returnIdleConnection(voice, conn, ping);
+        } else if (conn) {
+          if (ping) clearInterval(ping);
+          try {
+            closeConnection(conn);
+          } catch (error) {
+            void handleError(error, {
+              module: 'services:voice:edgeTTS',
+              action: 'synthesize:finish',
+            });
+          }
+        }
+        resolve(buf);
+      };
 
-      wsConnect({
-        host: EDGE_TTS_HOST,
-        path: wsPath,
-        port: 443,
-        userAgent: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROMIUM_MAJOR_VERSION}.0.0.0 Safari/537.36 Edg/${CHROMIUM_MAJOR_VERSION}.0.0.0`,
-        origin: 'chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold',
-        cookie: `muid=${muid};`,
-      })
-        .then((conn) => {
-          this.wsConnection = conn;
-          this.startHeartbeat(conn);
+      // 连接就绪后统一挂载处理器并发送合成请求
+      const onConnectionReady = (
+        c: WsConnection,
+        p: ReturnType<typeof setInterval> | null
+      ): void => {
+        conn = c;
+        ping = p;
+        // 登记活跃连接，供 stop() 中止进行中的合成（连接复用池改造后保留此契约）
+        this.wsConnection = c;
 
-          conn.onClose = () => {
-            this.stopHeartbeat();
-            clearTimeout(timeout);
-            if (this.wsConnection === conn) {
-              this.wsConnection = null;
-            }
-          };
+        c.onClose = () => {
+          if (ping) clearInterval(ping);
+          clearTimeout(timeout);
+          if (this.wsConnection === c) {
+            this.wsConnection = null;
+          }
+          // 连接已关闭，若仍在池中则移除
+          this.idlePool.delete(voice);
+        };
 
-          conn.onError = (error) => {
-            this.stopHeartbeat();
+        c.onError = (error) => {
+          if (ping) clearInterval(ping);
+          clearTimeout(timeout);
+          if (this.wsConnection === c) {
+            this.wsConnection = null;
+          }
+          try {
+            closeConnection(c);
+          } catch (closeErr) {
+            void handleError(closeErr, {
+              module: 'services:voice:edgeTTS',
+              action: 'synthesize:wsOnError:close',
+            });
+          }
+          void handleError(error, {
+            module: 'services:voice:edgeTTS',
+            action: 'synthesize:wsOnError',
+          });
+          reject(error);
+        };
+
+        // 文本帧处理：等待 turn.end 信号
+        c.onText = (data: Buffer) => {
+          const payload = data.toString('utf8');
+
+          // turn.end 表示合成结束，聚合所有音频块并返回
+          if (payload.includes('turn.end')) {
+            const totalBytes = audioChunks.reduce(
+              (sum, ch) => sum + ch.length,
+              0
+            );
+            logger.info('Edge TTS 合成完成', {
+              audioChunks: audioChunks.length,
+              totalBytes,
+              duration: Date.now() - startTime,
+              reused: pooled !== null,
+            });
+            finish(Buffer.concat(audioChunks));
+          }
+          // 其他文本帧（Context 确认、turn.start、WordBoundary）正常忽略
+        };
+
+        // 二进制帧处理：提取音频数据
+        c.onBinary = (data: Buffer) => {
+          const audioData = extractAudioFromBinaryFrame(data);
+
+          if (audioData && audioData.length > 0) {
+            audioChunks.push(audioData);
+          } else {
+            // 非音频帧（turn.start/end 的响应帧），正常跳过
+            logger.debug('跳过非音频二进制帧', { length: data.length });
+          }
+        };
+
+        // 发送 synthesis context（含请求头的文本帧）
+        const contextPayload = buildContext(voice);
+        sendWsFrame(c, WsOpcode.TEXT, Buffer.from(contextPayload, 'utf8'));
+
+        // 发送 SSML（含请求头的文本帧）
+        const ssmlPayload = buildSsmlPayload(
+          text,
+          voice,
+          this.config.rate,
+          this.config.pitch
+        );
+        sendWsFrame(c, WsOpcode.TEXT, Buffer.from(ssmlPayload, 'utf8'));
+      };
+
+      if (pooled) {
+        // 复用池中空闲连接（心跳沿用）
+        onConnectionReady(pooled.conn, pooled.ping);
+      } else {
+        // 新建连接
+        const connectionId = randomUUID().replace(/-/g, '');
+        const secMsGec = generateSecMsGec();
+        const wsPath = `${EDGE_TTS_PATH}&ConnectionId=${connectionId}&Sec-MS-GEC=${secMsGec}&Sec-MS-GEC-Version=${SEC_MS_GEC_VERSION}`;
+        const muid = generateMuid();
+
+        wsConnect({
+          host: EDGE_TTS_HOST,
+          path: wsPath,
+          port: 443,
+          userAgent: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROMIUM_MAJOR_VERSION}.0.0.0 Safari/537.36 Edg/${CHROMIUM_MAJOR_VERSION}.0.0.0`,
+          origin: 'chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold',
+          cookie: `muid=${muid};`,
+        })
+          .then((c) => {
+            onConnectionReady(c, startWsHeartbeat(c));
+          })
+          .catch((error) => {
             clearTimeout(timeout);
             void handleError(error, {
               module: 'services:voice:edgeTTS',
-              action: 'synthesize:wsOnError',
+              action: 'synthesize:wsHandshake',
             });
             reject(error);
-          };
-
-          // 文本帧处理：等待 turn.end 信号
-          conn.onText = (data: Buffer) => {
-            const payload = data.toString('utf8');
-
-            // turn.end 表示合成结束，聚合所有音频块并返回
-            if (payload.includes('turn.end')) {
-              const totalBytes = audioChunks.reduce(
-                (sum, c) => sum + c.length,
-                0
-              );
-              logger.info('Edge TTS 合成完成', {
-                audioChunks: audioChunks.length,
-                totalBytes,
-                duration: Date.now() - startTime,
-              });
-              this.stopHeartbeat();
-              clearTimeout(timeout);
-              this.recordLatency(Date.now() - startTime);
-              conn.socket.end();
-              resolve(Buffer.concat(audioChunks));
-            }
-            // 其他文本帧（Context 确认、turn.start、WordBoundary）正常忽略
-          };
-
-          // 二进制帧处理：提取音频数据
-          conn.onBinary = (data: Buffer) => {
-            const audioData = extractAudioFromBinaryFrame(data);
-
-            if (audioData && audioData.length > 0) {
-              audioChunks.push(audioData);
-            } else {
-              // 非音频帧（turn.start/end 的响应帧），正常跳过
-              logger.debug('跳过非音频二进制帧', { length: data.length });
-            }
-          };
-
-          // 发送 synthesis context（含请求头的文本帧）
-          const contextPayload = buildContext(voice);
-          sendWsFrame(conn, WsOpcode.TEXT, Buffer.from(contextPayload, 'utf8'));
-
-          // 发送 SSML（含请求头的文本帧）
-          const ssmlPayload = buildSsmlPayload(
-            text,
-            voice,
-            this.config.rate,
-            this.config.pitch
-          );
-          sendWsFrame(conn, WsOpcode.TEXT, Buffer.from(ssmlPayload, 'utf8'));
-        })
-        .catch((error) => {
-          this.stopHeartbeat();
-          clearTimeout(timeout);
-          void handleError(error, {
-            module: 'services:voice:edgeTTS',
-            action: 'synthesize:wsHandshake',
           });
-          reject(error);
-        });
+      }
     });
+  }
+
+  /**
+   * 从空闲连接池中取同 voice 连接（有效才复用）
+   * @returns 有效连接 + 其心跳；无空闲或连接失效返回 null
+   */
+  private takeIdleConnection(voice: string): {
+    conn: WsConnection;
+    ping: ReturnType<typeof setInterval> | null;
+  } | null {
+    const entry = this.idlePool.get(voice);
+    if (!entry) return null;
+    this.idlePool.delete(voice);
+    if (!entry.conn.socket.writable || entry.conn.socket.destroyed) {
+      if (entry.ping) clearInterval(entry.ping);
+      try {
+        closeConnection(entry.conn);
+      } catch (error) {
+        void handleError(error, {
+          module: 'services:voice:edgeTTS',
+          action: 'takeIdleConnection',
+        });
+      }
+      return null;
+    }
+    return entry;
+  }
+
+  /**
+   * 归还空闲连接入池（保留心跳，供同 voice 下次合成复用）
+   * 每 voice 至多保留 1 个空闲连接，多余的先关闭。
+   */
+  private returnIdleConnection(
+    voice: string,
+    conn: WsConnection,
+    ping: ReturnType<typeof setInterval> | null
+  ): void {
+    const existing = this.idlePool.get(voice);
+    if (existing && existing.conn !== conn) {
+      if (existing.ping) clearInterval(existing.ping);
+      try {
+        closeConnection(existing.conn);
+      } catch (error) {
+        void handleError(error, {
+          module: 'services:voice:edgeTTS',
+          action: 'returnIdleConnection',
+        });
+      }
+    }
+    this.idlePool.set(voice, { conn, ping });
   }
 
   /**

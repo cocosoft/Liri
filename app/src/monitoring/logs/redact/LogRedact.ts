@@ -31,6 +31,12 @@ const DEFAULT_PATTERNS: RedactPattern[] = [
     replacement: '$1: ***REDACTED***',
   },
   {
+    name: 'url-key-param',
+    // URL/WS 查询参数中的 key= 值（如 Gemini Live `wss://...?key=AIza...`）
+    pattern: /([?&]key=)[^&\s'"}]+/gi,
+    replacement: '$1***REDACTED***',
+  },
+  {
     name: 'token',
     pattern: /(token|bearer)['":]\s*['"]?([^'"\s,}]+)/gi,
     replacement: '$1: ***REDACTED***',

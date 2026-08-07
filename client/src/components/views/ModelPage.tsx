@@ -54,7 +54,9 @@ function ProviderPage() {
   const isDark = config.theme === "dark";
 
   const [activeTab, setActiveTab] = useState<"providers" | "models" | "tasks">(
-    "providers",
+    () =>
+      (new URLSearchParams(window.location.search).get("tab") as
+        "providers" | "models" | "tasks") || "providers",
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [showPresets, setShowPresets] = useState(false);

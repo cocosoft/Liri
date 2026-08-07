@@ -17,7 +17,7 @@ import type { WakeDetectionResult } from './types';
 import { broadcastWakeEvent } from './WakeWebSocketServer';
 
 const logger = new Logger({
-  module: 'voice:wakeManager',
+  module: 'voice:wakemanager',
   level: LogLevel.INFO,
 });
 

@@ -93,6 +93,7 @@ function normalizeUrl(url: string): string | undefined {
     u.search = '';
     return u.toString().replace(/\/$/, '');
   } catch {
+    // @ignore-catch — URL 规范化失败降级返回 undefined（非法 URL 不中断调用链）
     return undefined;
   }
 }

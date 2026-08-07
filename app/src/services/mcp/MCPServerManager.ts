@@ -207,6 +207,7 @@ export class MCPServerManager {
           try {
             safeResult = JSON.parse(cleaned);
           } catch {
+            // @ignore-catch — 脱敏后 JSON 解析失败退回原文（安全过滤容错，不抛错）
             safeResult = cleaned;
           }
         }

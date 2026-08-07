@@ -470,6 +470,18 @@ async function handleStreamingChat(
         logger.info('SSE 客户端已断开，停止流式输出', {
           sessionId: request.session_id,
         });
+        // P2-10 修复：客户端断开时必须关闭 async generator + 中止底层 LLM 流，
+        // 否则 streamMessage 的会话互斥锁（SimpleMutex）永不释放，
+        // 后续同一会话请求会 SimpleMutex: acquire timeout after 30000ms。
+        try {
+          coreAPI.chatManager?.abortSessionStream(request.session_id ?? '');
+        } catch {
+          // @ignore-catch — 中止操作本身不应抛出；即使失败也继续关闭生成器
+        }
+        await Promise.race([
+          generator.return(undefined as never),
+          new Promise<void>((r) => setTimeout(r, 5000)),
+        ]);
         break;
       }
       const chunk = result.value as ChatStreamChunk;

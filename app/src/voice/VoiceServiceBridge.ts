@@ -110,6 +110,15 @@ export interface VoiceBridgeConfig {
       /** 默认语音 ID（默认 zh_CN-hf_female） */
       defaultVoice?: string;
     };
+    /** TTS 队列与 Provider 优先级（3.8/3.7 配置化，方案 §7 迁移清单） */
+    tts?: {
+      /** Provider 优先级（低成本优先，如 ['edge','piper','openai']）；缺省时按注册序 */
+      providerPriority?: string[];
+      /** 优先级队列启用（3.7 默认 true） */
+      queueEnabled?: boolean;
+      /** 队列并发数（默认 1 = 串行） */
+      queueConcurrency?: number;
+    };
     /** STT 配置 */
     stt?: {
       /** OpenAI Whisper API 密钥（默认复用 openAIApiKey） */
@@ -385,6 +394,21 @@ export class VoiceServiceBridge {
             })
           );
         }
+      }
+
+      // 3.8/3.7 配置化接线（方案 §7 迁移清单）：Provider 优先级 + 队列
+      const ttsConfig = this.config.service?.tts;
+      if (ttsConfig?.providerPriority?.length) {
+        TTSRegistry.setProviderPriority(ttsConfig.providerPriority);
+      }
+      if (
+        ttsConfig?.queueEnabled !== undefined ||
+        ttsConfig?.queueConcurrency !== undefined
+      ) {
+        TTSRegistry.configureQueue({
+          enabled: ttsConfig.queueEnabled,
+          concurrency: ttsConfig.queueConcurrency,
+        });
       }
     }
 

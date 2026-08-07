@@ -6,9 +6,9 @@
  * 基于 edge-tts Python 库 v7+ 实现，使用正确的 DRM 生成 Sec-MS-GEC。
  *
  * 运行：bun run src/services/voice/services/edgeTTSDebugDump.ts
- * 输出：E:\PY\CODES\PY_APP\logs\edge_tts_debug.txt
- *        E:\PY\CODES\PY_APP\logs\edge_tts_frames\*.bin
- *        E:\PY\CODES\PY_APP\logs\edge_tts_output.mp3
+ * 输出：{resolveLogsDir}/edge_tts_debug.txt
+ *       {resolveLogsDir}/edge_tts_frames/*.bin
+ *       {resolveLogsDir}/edge_tts_output.mp3
  */
 
 import { connect as tlsConnect, TLSSocket } from 'tls';
@@ -16,6 +16,7 @@ import { randomUUID, randomBytes, createHash } from 'crypto';
 import { writeFileSync, appendFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { handleError } from '@modules/error';
+import { resolveLogsDir } from '@modules/core/paths';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -32,7 +33,7 @@ const S_TO_NS = 1e9;
 const CHROMIUM_FULL_VERSION = '143.0.3650.75';
 const SEC_MS_GEC_VERSION = `1-${CHROMIUM_FULL_VERSION}`;
 
-const LOG_DIR = 'E:\\PY\\CODES\\PY_APP\\logs';
+const LOG_DIR = resolveLogsDir();
 const DUMP_DIR = join(LOG_DIR, 'edge_tts_frames');
 
 // ============ WebSocket Opcodes ============

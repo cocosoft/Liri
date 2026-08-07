@@ -174,6 +174,7 @@ export class ProviderAuth {
       });
       return response.ok;
     } catch {
+      // @ignore-catch — 认证校验失败返回 false（外部服务异常按未认证处理）
       return false;
     }
   }

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * REPL工具实现
  */
 
@@ -100,9 +100,11 @@ export class REPLToolImpl implements REPLTool {
         });
       };
 
-      if (session.options.timeout) {
-        timeoutId = setTimeout(handleTimeout, session.options.timeout);
-      }
+      // P2-14 修复：无条件设置超时（默认 60s）。
+      // python -i 交互 REPL 执行完代码不会退出进程，若仅依赖 process exit 触发 resolve，
+      // Promise 将永久挂起（无 timeout 配置时），导致 executeTool → streamMessage 会话锁泄漏。
+      const timeoutMs = session.options.timeout ?? 60_000;
+      timeoutId = setTimeout(handleTimeout, timeoutMs);
 
       const handleStdout = (data: Buffer) => {
         output += data.toString();

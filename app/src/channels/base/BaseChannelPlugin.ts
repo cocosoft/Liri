@@ -101,6 +101,7 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
       const span = otel.startSpan(name, attrs);
       return span;
     } catch {
+      // @ignore-catch — OTel span 创建失败返回 null（可观测性降级，不影响主流程）
       return null;
     }
   }

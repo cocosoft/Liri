@@ -32,8 +32,7 @@ import { createErrorRecoveryManager } from './ErrorRecoveryManager.js';
 import type { ErrorRecoveryManager } from './ErrorRecoveryManager.js';
 import { createCircuitBreaker } from './CircuitBreaker.js';
 import type { CircuitBreaker } from './CircuitBreaker.js';
-import { createRunLogger } from './RunLogger.js';
-import type { RunLogger } from './RunLogger.js';
+import { createRunLogger, RunLogger } from './RunLogger.js';
 import { createPathGuard } from './PathGuard.js';
 import type { PathGuard } from './PathGuard.js';
 import { createFileIOLoopDetector } from './FileIOLoopDetector.js';
@@ -49,6 +48,17 @@ import { estimateMessagesTokens } from '../ai/tokenizer/TokenEstimator';
 import type { ChatMessage } from '../ai/models/types';
 
 const logger = new Logger({ module: 'query:taorLoop' });
+
+/** trace 持久化用：将值安全截断为 JSON 摘要（默认 500 字符） */
+function truncateForTrace(value: unknown, maxLen = 500): string {
+  try {
+    const s = JSON.stringify(value);
+    if (!s) return '';
+    return s.length > maxLen ? `${s.slice(0, maxLen)}…` : s;
+  } catch {
+    return String(value).slice(0, maxLen);
+  }
+}
 
 // ─── TAORLoop 依赖注入接口 ────────────────────────────
 /**
@@ -262,6 +272,8 @@ export class TAORLoop {
   private circuitBreaker: CircuitBreaker;
   private runLogger: RunLogger;
   private lastRunLog?: Record<string, unknown>;
+  /** 当前 run 的唯一 ID（trace 持久化关联） */
+  private runId: string = '';
   // Phase 1: 路径安全守卫
   private pathGuard: PathGuard;
   // Phase 2: 文件IO循环检测
@@ -538,6 +550,16 @@ export class TAORLoop {
     this.turnCount = 0;
     this.stopped = false;
     this.stopReason = 'completed';
+    this.runId = RunLogger.generateRunId(this.config.sessionId);
+
+    // trace：loop start（持久化，不阻塞主循环）
+    void this.runLogger.recordTrace({
+      type: 'loop',
+      runId: this.runId,
+      sessionId: this.config.sessionId,
+      ts: new Date().toISOString(),
+      event: 'start',
+    });
 
     // Phase 4: 注入 callModel 到验证器（支持独立 local 模型）
     if (this.verifier) {
@@ -824,6 +846,20 @@ export class TAORLoop {
           turn: this.turnCount,
           'tool.count': effectiveToolCalls.length,
         });
+        // trace：每个工具调用开始（enter）
+        const toolStartTs = Date.now();
+        for (const tc of effectiveToolCalls) {
+          void this.runLogger.recordTrace({
+            type: 'tool',
+            runId: this.runId,
+            sessionId: this.config.sessionId,
+            ts: new Date().toISOString(),
+            turn: this.turnCount,
+            name: tc.name,
+            argsHead: truncateForTrace(tc.arguments),
+            status: 'enter',
+          });
+        }
         let rawResults: Array<{
           toolCallId?: string;
           toolName?: string;
@@ -866,6 +902,23 @@ export class TAORLoop {
             role: 'user',
             content: `[SYSTEM] 上一轮 ${effectiveToolCalls.length} 个工具调用在执行阶段发生异常，请告知用户遇到了什么问题，并根据当前已完成的部分给出总结或建议下一步操作。`,
           } as ChatMessage);
+        }
+        // trace：每个工具调用结束（ok/error，含耗时与结果摘要）
+        for (let i = 0; i < effectiveToolCalls.length; i++) {
+          const tc = effectiveToolCalls[i];
+          const r = rawResults[i];
+          void this.runLogger.recordTrace({
+            type: 'tool',
+            runId: this.runId,
+            sessionId: this.config.sessionId,
+            ts: new Date().toISOString(),
+            turn: this.turnCount,
+            name: tc.name,
+            status: r?.error ? 'error' : 'ok',
+            durationMs: Date.now() - toolStartTs,
+            resultHead: r ? truncateForTrace(r.result ?? r) : undefined,
+            error: r?.error ? String(r.error).slice(0, 500) : undefined,
+          });
         }
 
         // Loop 检测（工具执行后记录结果）
@@ -1177,6 +1230,17 @@ export class TAORLoop {
     this.currentPhase = TAORPhase.COMPLETED;
     this.emitPhase(TAORPhase.COMPLETED, this.turnCount, this.stopReason);
 
+    // trace：loop end（持久化，含汇总指标）
+    void this.runLogger.recordTrace({
+      type: 'loop',
+      runId: this.runId,
+      sessionId: this.config.sessionId,
+      ts: new Date().toISOString(),
+      event: 'end',
+      status: this.stopReason,
+      durationMs: totalDuration,
+    });
+
     // Durable Resume: 非正常完成时自动保存检查点
     if (this.config.enableCheckpoint && this.stopReason !== 'completed') {
       try {
@@ -1214,7 +1278,7 @@ export class TAORLoop {
         totalTokens: finalBudget.totalTokensUsed,
       };
       await this.runLogger.record({
-        runId: `run_${this.config.sessionId}_${Date.now()}`,
+        runId: this.runId || `run_${this.config.sessionId}_${Date.now()}`,
         sessionId: this.config.sessionId,
         startedAt: new Date(this.startTime).toISOString(),
         endedAt: new Date().toISOString(),
@@ -1529,6 +1593,20 @@ export class TAORLoop {
     description?: string
   ): void {
     this.phaseCallbacks.onPhase?.({ phase, round, description });
+    // trace：每个阶段步骤记录（持久化，fire-and-forget 不阻塞主循环）
+    if (this.runId) {
+      void this.runLogger.recordTrace({
+        type: 'step',
+        runId: this.runId,
+        sessionId: this.config.sessionId,
+        ts: new Date().toISOString(),
+        turn: round,
+        phase,
+        name: phase,
+        description,
+        status: 'enter',
+      });
+    }
   }
 
   /**

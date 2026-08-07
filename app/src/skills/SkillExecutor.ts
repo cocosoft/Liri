@@ -7,7 +7,7 @@ import type { Skill, SkillContext, SkillResult } from './types';
 import { SkillRegistry } from './SkillRegistry';
 import { ParallelExecutor } from '../tools/executor/ParallelExecutor';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 const logger = new Logger({
   module: 'skills:SkillExecutor',
   level: LogLevel.INFO,
@@ -44,45 +44,55 @@ export class SkillExecutor {
       };
     }
 
-    try {
-      // 根据受歧视联合类型路由执行路径
-      if (skill.impl.kind !== 'executable') {
-        return {
-          success: false,
-          error: `Skill '${skillName}' is not executable (kind: ${skill.impl.kind})`,
-        };
+    // 技能执行统一 OTel span（技能名维度）
+    return getOTelTracing().wrap(
+      {
+        name: 'skills.execute',
+        attributes: { 'skills.name': skillName },
+      },
+      async () => {
+        try {
+          // 根据受歧视联合类型路由执行路径
+          if (skill.impl.kind !== 'executable') {
+            return {
+              success: false,
+              error: `Skill '${skillName}' is not executable (kind: ${skill.impl.kind})`,
+            };
+          }
+
+          // 验证技能执行条件
+          if (skill.impl.validate && !skill.impl.validate(context)) {
+            return {
+              success: false,
+              error: `Skill '${skillName}' validation failed`,
+            };
+          }
+
+          // 执行技能
+          const startTime = Date.now();
+          const result = (await skill.impl.execute(context)) as
+            | Record<string, unknown>
+            | undefined;
+          const durationMs = Date.now() - startTime;
+
+          // 添加上下文信息
+          return {
+            ...result,
+            success: true,
+            usage: {
+              ...(result?.usage as Record<string, unknown> | undefined),
+              durationMs,
+            },
+          };
+        } catch (error) {
+          // @ignore-catch — 技能执行失败以结构化结果返回（SkillResult 契约），由调用方消费 error 字段，不抛错
+          return {
+            success: false,
+            error: `Error executing skill '${skillName}': ${error}`,
+          };
+        }
       }
-
-      // 验证技能执行条件
-      if (skill.impl.validate && !skill.impl.validate(context)) {
-        return {
-          success: false,
-          error: `Skill '${skillName}' validation failed`,
-        };
-      }
-
-      // 执行技能
-      const startTime = Date.now();
-      const result = (await skill.impl.execute(context)) as
-        | Record<string, unknown>
-        | undefined;
-      const durationMs = Date.now() - startTime;
-
-      // 添加上下文信息
-      return {
-        ...result,
-        success: true,
-        usage: {
-          ...(result?.usage as Record<string, unknown> | undefined),
-          durationMs,
-        },
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Error executing skill '${skillName}': ${error}`,
-      };
-    }
+    )();
   }
 
   /**

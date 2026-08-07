@@ -14,7 +14,7 @@ import { TTLCache } from '@modules/utils/cache';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
-  module: 'channels\matrix\MatrixChannel',
+  module: 'channels:matrix:MatrixChannel',
   level: LogLevel.INFO,
 });
 

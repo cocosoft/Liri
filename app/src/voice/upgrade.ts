@@ -43,6 +43,8 @@ interface InternalConnection {
   state: ConnState;
   connectedAt: number;
   messageHandler: ((event: VoiceClientEvent) => void) | null;
+  /** 3.4/P1-1：二进制帧处理器（流式 STT 音频推流） */
+  binaryHandler: ((data: Buffer) => void) | null;
   closeHandler: ((code: number, reason: string) => void) | null;
   errorHandler: ((error: Error) => void) | null;
   buffer: Buffer;
@@ -172,6 +174,12 @@ function handleDataFrame(conn: InternalConnection): void {
         break;
       }
 
+      // 3.4/P1-1：二进制帧（流式 STT PCM 音频推流）→ 转交 binaryHandler
+      case OpCode.BINARY: {
+        conn.binaryHandler?.(frame.payload);
+        break;
+      }
+
       case OpCode.CLOSE: {
         logger.info('WebSocket 收到关闭帧', { connId: conn.id });
         conn.state = ConnState.CLOSING;
@@ -275,6 +283,7 @@ export function upgradeToVoiceConnection(
     state: ConnState.OPEN,
     connectedAt: Date.now(),
     messageHandler: null,
+    binaryHandler: null,
     closeHandler: null,
     errorHandler: null,
     buffer: Buffer.alloc(0),
@@ -309,6 +318,10 @@ export function upgradeToVoiceConnection(
 
     onMessage(handler: (event: VoiceClientEvent) => void): void {
       conn.messageHandler = handler;
+    },
+
+    onBinary(handler: (data: Buffer) => void): void {
+      conn.binaryHandler = handler;
     },
 
     onClose(handler: (code: number, reason: string) => void): void {

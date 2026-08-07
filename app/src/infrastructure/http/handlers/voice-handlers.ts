@@ -556,6 +556,43 @@ export async function handleListVoiceProviders(
 }
 
 /**
+ * 处理语音子系统健康检查 GET /v1/voice/health
+ * 返回 TTS/STT 提供者数量与可用状态，供前端 checkTTSHealth 使用。
+ */
+export async function handleVoiceHealth(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { TTSRegistry } =
+      await import('../../../services/voice/services/ttsProvider');
+    const { STTRegistry } =
+      await import('../../../services/voice/services/sttRegistry');
+
+    const ttsProviders = TTSRegistry.getProviderNames();
+    const sttProviders = STTRegistry.getProviderIds();
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        status: 'ok',
+        tts: {
+          available: ttsProviders.length > 0,
+          providers: ttsProviders,
+        },
+        stt: {
+          available: sttProviders.length > 0,
+          providers: sttProviders,
+        },
+      })
+    );
+  } catch (err) {
+    void handleError(err, { module: 'http:voice', action: 'health' });
+    sendError(res, err);
+  }
+}
+
+/**
  * 处理列出语音列表请求 GET /v1/voice/voices
  *
  * 支持查询参数：

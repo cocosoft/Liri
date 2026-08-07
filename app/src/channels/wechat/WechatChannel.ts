@@ -27,7 +27,7 @@ import { WeixinCliManager, type CliStatus } from './cli-manager';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
-  module: 'channels\wechat\WechatChannel',
+  module: 'channels:wechat:WechatChannel',
   level: LogLevel.INFO,
 });
 

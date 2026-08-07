@@ -192,6 +192,7 @@ export class SmitheryRegistryAdapter implements RegistryAdapter {
               try {
                 resolve(JSON.parse(body));
               } catch {
+                // @ignore-catch — 响应体 JSON 解析失败 resolve(null)（非法响应降级，由调用方聚合处理）
                 resolve(null);
               }
             } else {

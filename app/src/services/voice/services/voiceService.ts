@@ -31,6 +31,8 @@ import { VadDetector } from './vadDetector';
 import { EnvironmentDetector } from './environmentDetector';
 import { TTSRegistry } from './ttsProvider';
 import type { TTSSpeakResult } from './ttsProvider';
+import { TTSQueuePriority } from './ttsTypes';
+import type { TTSSpeakOptions } from './ttsTypes';
 import { STTRegistry } from './sttRegistry';
 import { TTSPersonaManager } from './ttsPersonaManager';
 import { AudioLevelMeter } from './audioLevelMeter';
@@ -44,7 +46,7 @@ import type { AudioPreprocessOptions } from './audioPipeline';
 import { pcm16BufferToSamples } from './audioUtils';
 import type { AudioFormat } from './audioFormatConverter';
 import { Recorder, type RecordingMethod } from './recorder';
-import { TTSMetricsCollector, MetricsHook } from './metrics';
+import { TTSMetricsCollector } from './metrics';
 import { PlaybackManager } from './playbackManager';
 import {
   checkVoiceDependencies,
@@ -57,39 +59,6 @@ import {
 } from './recordingDetector';
 
 const logger = new Logger({ module: 'voice:service' });
-
-/**
- * 日志采样配置（方案 17）
- *
- * 按级别定义采样率，ERROR 全采样，DEBUG 仅 1%，避免日志过多。
- */
-const SAMPLE_RATES: Record<string, number> = {
-  error: 1.0,
-  warn: 0.2,
-  info: 0.05,
-  debug: 0.01,
-};
-
-/** 关键事件列表：这些事件即使 INFO 级别也跳过采样（方案 17） */
-const CRITICAL_EVENTS = new Set([
-  'VoiceService',
-  '熔断器',
-  '故障转移',
-  'Provider 切换',
-]);
-
-/**
- * shouldSample — 判断是否应该记录日志（方案 17）
- *
- * @param level 日志级别
- * @param message 日志消息（用于匹配关键事件）
- * @returns true 表示应该记录
- */
-function shouldSample(level: string, message?: string): boolean {
-  if (message && CRITICAL_EVENTS.has(message)) return true;
-  const rate = SAMPLE_RATES[level] ?? 1.0;
-  return Math.random() < rate;
-}
 
 /**
  * 文本归一化（STT 后处理）
@@ -145,118 +114,8 @@ function readWavDuration(filePath: string): number {
 }
 
 // ---------------------------------------------------------------
-// 重试与退避策略（方案 3）
-// ---------------------------------------------------------------
-
-/** 错误分类 */
-type ErrorCategory = 'retryable' | 'non_retryable' | 'unknown';
-
-/** 重试选项 */
-interface RetryOptions {
-  maxRetries: number;
-  baseDelayMs: number;
-  maxDelayMs: number;
-}
-
-/**
- * 错误分类
- *
- * 4xx（客户端错误）→ non_retryable，不重试
- * 5xx/超时/断网 → retryable，自动重试
- * 未知错误保守处理：返回 retryable
- */
-function categorizeError(error: unknown, provider: string): ErrorCategory {
-  const msg = String(error);
-
-  // 不可重试：4xx、认证失败、参数错误
-  if (msg.includes('401') || msg.includes('403') || msg.includes('invalid')) {
-    return 'non_retryable';
-  }
-  if (msg.includes('bad request') || msg.includes('not found')) {
-    return 'non_retryable';
-  }
-
-  // 可重试：5xx、超时、连接断开、WebSocket 断开
-  if (msg.includes('500') || msg.includes('502') || msg.includes('503')) {
-    return 'retryable';
-  }
-  if (
-    msg.includes('timeout') ||
-    msg.includes('ETIMEDOUT') ||
-    msg.includes('ECONNRESET')
-  ) {
-    return 'retryable';
-  }
-  if (msg.includes('ECONNREFUSED') || msg.includes('ENOTFOUND')) {
-    return 'retryable';
-  }
-  if (msg.includes('WebSocket closed') || msg.includes('socket')) {
-    return 'retryable';
-  }
-
-  logger.warn('未知错误分类', { provider, error: msg });
-  return 'retryable'; // 保守策略：未知错误也重试
-}
-
-/**
- * 指数退避重试
- *
- * @param fn 要重试的异步函数
- * @param provider Provider 名称（用于日志）
- * @param options 重试选项
- */
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  provider: string,
-  options: RetryOptions = {
-    maxRetries: 3,
-    baseDelayMs: 1000,
-    maxDelayMs: 10_000,
-  }
-): Promise<T> {
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt <= options.maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error;
-      const category = categorizeError(error, provider);
-
-      if (category === 'non_retryable') {
-        throw error; // 不重试，直接抛出
-      }
-
-      if (attempt < options.maxRetries) {
-        const delay = Math.min(
-          options.baseDelayMs * Math.pow(2, attempt),
-          options.maxDelayMs
-        );
-        logger.warn('TTS 请求重试', {
-          provider,
-          attempt: attempt + 1,
-          maxRetries: options.maxRetries,
-          delay,
-          error: String(error),
-        });
-        await new Promise((r) => setTimeout(r, delay));
-      }
-    }
-  }
-  throw lastError;
-}
-
-// ---------------------------------------------------------------
 // 内部类型
 // ---------------------------------------------------------------
-
-/** Speak 队列任务 */
-interface SpeakTask {
-  id: string;
-  options: VoiceOutputOptions;
-  resolve: (result: boolean) => void;
-  reject: (error: unknown) => void;
-}
 
 /**
  * TTS 熔断器（方案 4）
@@ -331,174 +190,6 @@ class CircuitBreaker {
 }
 
 // ---------------------------------------------------------------
-// TTS 输出 LRU 缓存（方案 11：去重 + 缓存）
-// ---------------------------------------------------------------
-
-/** LRU 缓存节点 */
-interface LRUNode {
-  key: string;
-  value: Buffer;
-  prev: LRUNode | null;
-  next: LRUNode | null;
-}
-
-/**
- * TTSCache — TTS 音频输出 LRU 缓存
- *
- * 缓存 TTS 合成结果（PCM16 Buffer），避免相同文本重复合成。
- * 使用双向链表实现 LRU 淘汰策略，最多缓存 maxSize 条。
- * 缓存键为 text + voice + speed 拼接，确保粒度精准。
- *
- * @example
- *   const ttsCache = new TTSCache(50);
- *   const key = ttsCache.makeKey('你好', 'zh-CN-XiaoxiaoNeural', 1.0);
- *   ttsCache.set(key, pcmBuffer);
- *   const cached = ttsCache.get(key);
- */
-class TTSCache {
-  private maxSize: number;
-  private map = new Map<string, LRUNode>();
-  private head: LRUNode | null = null;
-  private tail: LRUNode | null = null;
-
-  constructor(maxSize: number = 50) {
-    this.maxSize = maxSize;
-  }
-
-  /**
-   * 构建缓存键
-   *
-   * @param text TTS 文本
-   * @param voice 语音 ID
-   * @param speed 语速
-   * @returns 缓存键字符串
-   */
-  static makeKey(text: string, voice?: string, speed?: number): string {
-    return `${voice || ''}|${speed ?? 1.0}|${text}`;
-  }
-
-  /**
-   * 获取缓存
-   *
-   * @param key 缓存键
-   * @returns PCM16 Buffer，或 undefined（未命中）
-   */
-  get(key: string): Buffer | undefined {
-    const node = this.map.get(key);
-    if (!node) return undefined;
-
-    // 移到链表头（最近使用）
-    this.moveToHead(node);
-    return node.value;
-  }
-
-  /**
-   * 写入缓存
-   *
-   * @param key 缓存键
-   * @param value PCM16 Buffer
-   */
-  set(key: string, value: Buffer): void {
-    const existing = this.map.get(key);
-    if (existing) {
-      existing.value = value;
-      this.moveToHead(existing);
-      return;
-    }
-
-    // 淘汰最久未使用的条目
-    if (this.map.size >= this.maxSize) {
-      this.evictTail();
-    }
-
-    const node: LRUNode = {
-      key,
-      value,
-      prev: null,
-      next: this.head,
-    };
-
-    if (this.head) {
-      this.head.prev = node;
-    }
-    this.head = node;
-    if (!this.tail) {
-      this.tail = node;
-    }
-
-    this.map.set(key, node);
-  }
-
-  /**
-   * 主动失效指定 key
-   *
-   * @param key 缓存键
-   */
-  delete(key: string): void {
-    const node = this.map.get(key);
-    if (!node) return;
-
-    this.removeNode(node);
-    this.map.delete(key);
-  }
-
-  /**
-   * 清空缓存
-   */
-  clear(): void {
-    this.map.clear();
-    this.head = null;
-    this.tail = null;
-  }
-
-  /**
-   * 当前缓存大小
-   */
-  get size(): number {
-    return this.map.size;
-  }
-
-  /** 将节点移到链表头 */
-  private moveToHead(node: LRUNode): void {
-    if (node === this.head) return;
-    this.removeNode(node);
-
-    node.next = this.head;
-    node.prev = null;
-    if (this.head) {
-      this.head.prev = node;
-    }
-    this.head = node;
-    if (!this.tail) {
-      this.tail = node;
-    }
-  }
-
-  /** 移除节点 */
-  private removeNode(node: LRUNode): void {
-    if (node.prev) {
-      node.prev.next = node.next;
-    }
-    if (node.next) {
-      node.next.prev = node.prev;
-    }
-    if (node === this.head) {
-      this.head = node.next;
-    }
-    if (node === this.tail) {
-      this.tail = node.prev;
-    }
-  }
-
-  /** 淘汰尾节点 */
-  private evictTail(): void {
-    if (!this.tail) return;
-    this.map.delete(this.tail.key);
-    this.removeNode(this.tail);
-  }
-}
-
-// ---------------------------------------------------------------
 // 语音服务类
 // ---------------------------------------------------------------
 
@@ -515,14 +206,8 @@ export class VoiceService {
   private recorder: Recorder;
   /** 音频播放管理器（方案 B） */
   private playbackManager: PlaybackManager;
-  /** Speak 串行队列 */
-  private speakQueue: SpeakTask[] = [];
-  /** 队列是否正在处理中 */
-  private isProcessingQueue = false;
   /** 熔断器（按 Provider 名索引） */
   private breakers = new Map<string, CircuitBreaker>();
-  /** TTS 输出 LRU 缓存（方案 11） */
-  private ttsCache: TTSCache;
   /** TTS 配置版本号（方案 13） */
   private configVersion: number = 0;
   /** 当前合成操作的 AbortController（方案 15） */
@@ -570,7 +255,6 @@ export class VoiceService {
       this.emit(event as import('../models/types').VoiceEventType, data);
     };
 
-    this.ttsCache = new TTSCache(50);
     this.metricsCollector = new TTSMetricsCollector();
   }
 
@@ -1078,53 +762,14 @@ export class VoiceService {
   }
 
   /**
-   * 将 TTS 文本按边界切分为块
+   * 流式播报 TTS（3.5/P1-5，G6 边合成边播）
    *
-   * 分片规则：800 字符/块，按 `。！？；\n\n` 切分，
-   * 超长块在最后标点处二次切分。
-   * 100 字以下不分片。
-   */
-  private static chunkTextForTTS(text: string): string[] {
-    if (text.length <= 100) return [text];
-
-    const SENTENCE_BOUNDARY = /[。！？；\n\n]/;
-    const MAX_CHUNK_SIZE = 800;
-    const chunks: string[] = [];
-
-    let start = 0;
-    while (start < text.length) {
-      let end = Math.min(start + MAX_CHUNK_SIZE, text.length);
-
-      if (end < text.length) {
-        // 从 end 向前找边界标点
-        let boundary = -1;
-        for (let i = end; i > start; i--) {
-          if (SENTENCE_BOUNDARY.test(text[i - 1])) {
-            boundary = i;
-            break;
-          }
-        }
-        if (boundary > start) {
-          end = boundary;
-        }
-      }
-
-      chunks.push(text.slice(start, end).trim());
-      start = end;
-    }
-
-    return chunks.filter((c) => c.length > 0);
-  }
-
-  /**
-   * 入队 speak 任务并返回 Promise
+   * 不再自行按 800 字符分片入队（chunkTextForTTS 已移除，P2-2 双分片器收敛），
+   * 长文本统一交给 TTSRegistry.speakStreaming（ChunkedSynthesizer 1000 字符
+   * 语义分片），每片合成完成立即播放，感知延迟从"整段合成时长"降到"首片合成时长"。
    *
-   * 如果文本超过 100 字符，自动分片后为每片创建独立的队列任务。
-   * 返回的 Promise 在所有分片完成后 resolve(true)，
-   * 任一任务 reject 不阻塞后续任务（方案 5 队列容错）。
-   *
-   * 方案 15：分片循环发射 progress 事件（{ current, total }），
-   * 支持通过 AbortSignal 中断。
+   * 中断：AbortController 经 options.signal 透传到 TTSRegistry（3.7/P2-4），
+   * stopSpeaking() abort 即可打断排队与进行中的合成。
    */
   async speak(options: VoiceOutputOptions): Promise<void> {
     const otel = getOTelTracing();
@@ -1141,92 +786,67 @@ export class VoiceService {
         // 方案 15：创建新的 AbortController
         const abortController = new AbortController();
         this.speakAbortController = abortController;
+        const signal = abortController.signal;
 
-        return new Promise<void>((resolve, reject) => {
-          const chunks = VoiceService.chunkTextForTTS(options.text);
-          let completedCount = 0;
-          let hasError = false;
+        try {
+          // 解析人设 → Provider + 熔断检查 + 故障转移（方案 4 + 方案 24）
+          const { providerName, resolvedVoice, resolvedSpeed } =
+            this.resolveSpeakConfig(options);
 
-          for (const chunk of chunks) {
-            const task: SpeakTask = {
-              id: randomUUID(),
-              options: { ...options, text: chunk },
-              resolve: () => {
-                completedCount++;
-                // 方案 15：每次分片完成后发射 progress 事件
-                this.emit('progress', {
-                  current: completedCount,
-                  total: chunks.length,
-                  chunk,
-                });
-                if (completedCount === chunks.length) {
-                  resolve();
-                }
-              },
-              reject: (error) => {
-                if (!hasError) {
-                  hasError = true;
-                  reject(error);
-                }
-                // 已 reject 的任务不再影响队列（方案 5：单个任务失败不阻塞后续）
-              },
-            };
-            this.speakQueue.push(task);
-          }
+          const speakOptions: TTSSpeakOptions = {
+            text: options.text,
+            voice: resolvedVoice,
+            speed: resolvedSpeed,
+            priority: TTSQueuePriority.NORMAL,
+            signal,
+          };
 
-          this.emit('start', { totalChunks: chunks.length });
-          this.processQueue();
-        }).finally(() => {
+          this.emit('start', { totalChunks: 0 });
+
+          // 逐片合成 → 逐片播放（边合成边播）
+          await TTSRegistry.speakStreaming(
+            speakOptions,
+            async (chunkResult, index, total) => {
+              if (signal.aborted) return;
+              // 每片结果计入熔断器与健康评分（方案 4 + 方案 24）
+              if (chunkResult.success) {
+                this.getBreaker(providerName).onSuccess();
+                this.recordProviderResult(providerName, true);
+              } else {
+                this.getBreaker(providerName).onFailure();
+                this.recordProviderResult(providerName, false);
+              }
+              await this.playSynthesizedAudio(chunkResult);
+              this.emit('progress', {
+                current: index + 1,
+                total,
+              });
+            },
+            providerName
+          );
+        } finally {
           // 方案 15：清除 AbortController
           if (this.speakAbortController === abortController) {
             this.speakAbortController = null;
           }
-        });
+        }
       }
     )();
   }
 
   /**
-   * 串行处理 speak 队列
+   * 解析播报配置：人设 → Provider 名 + 熔断检查 + 故障转移（方案 4 + 方案 24）
    *
-   * 每个任务用 try/catch 包裹（方案 5 队列容错），
-   * 单个任务失败只记录日志，不阻塞后续任务。
+   * 从 executeSpeakTask/executeWithProvider 抽取，speak() 流式路径共用。
+   *
+   * @param options 播报选项
+   * @returns 最终 Provider 名与解析后的语音/语速
    */
-  private async processQueue(): Promise<void> {
-    if (this.isProcessingQueue || this.speakQueue.length === 0) return;
-    this.isProcessingQueue = true;
-
-    while (this.speakQueue.length > 0) {
-      const task = this.speakQueue.shift()!;
-
-      try {
-        await this.executeSpeakTask(task);
-        task.resolve(true);
-      } catch (error) {
-        // 方案 5：单个任务失败不阻塞队列
-        void handleError(error, {
-          module: 'services:voice',
-          action: 'speak 任务执行失败',
-          context: { taskId: task.id },
-        });
-        task.reject(error);
-        // 继续处理下一个任务
-      }
-    }
-
-    this.isProcessingQueue = false;
-    this.emit('queue_drained');
-  }
-
-  /**
-   * 执行单个 speak 任务
-   * 包含人设解析 → TTS 合成 → PCM 播放
-   * 含 LRU 缓存（方案 11）和 TTS 配置版本号（方案 13）
-   */
-  private async executeSpeakTask(task: SpeakTask): Promise<void> {
-    const options = task.options;
-
-    // 解析人设配置（如果指定了 personaId）
+  private resolveSpeakConfig(options: VoiceOutputOptions): {
+    providerName: string;
+    resolvedVoice?: string;
+    resolvedSpeed?: number;
+  } {
     let resolvedVoice = options.voice;
     let resolvedSpeed = options.speed;
     let resolvedProvider: string | undefined;
@@ -1244,154 +864,53 @@ export class VoiceService {
       }
     }
 
-    const providerName = resolvedProvider ?? 'unknown';
+    const primaryProvider = resolvedProvider ?? 'unknown';
 
-    // 熔断器检查 + 自动故障转移（方案 4 + 方案 24）
-    const breaker = this.getBreaker(providerName);
+    // 熔断器检查 + 自动故障转移
+    const breaker = this.getBreaker(primaryProvider);
     if (!breaker.allowRequest()) {
       logger.warn('VoiceService · 熔断器已打开，执行故障转移', {
-        provider: providerName,
+        provider: primaryProvider,
         breakerState: breaker.getState(),
       });
       try {
-        const fallbackProvider = this.selectProviderWithFallback(providerName);
-        if (fallbackProvider !== providerName) {
+        const fallbackProvider =
+          this.selectProviderWithFallback(primaryProvider);
+        if (fallbackProvider !== primaryProvider) {
           logger.warn('VoiceService · 自动切换到备用 Provider', {
-            primary: providerName,
+            primary: primaryProvider,
             fallback: fallbackProvider,
           });
-          return this.executeWithProvider(task, fallbackProvider);
+          return {
+            providerName: fallbackProvider,
+            resolvedVoice,
+            resolvedSpeed,
+          };
         }
       } catch (err) {
         // selectProviderWithFallback 已抛出明确错误
       }
       throw new Error(
-        `TTS 熔断器已打开（${providerName}），所有 Provider 均不可用`
+        `TTS 熔断器已打开（${primaryProvider}），所有 Provider 均不可用`
       );
     }
 
-    return this.executeWithProvider(task, providerName);
-  }
-
-  /**
-   * executeWithProvider — 用指定 Provider 执行 speak 任务（方案 24）
-   *
-   * 封装 TTS 合成 + 缓存 + 播放逻辑，供 executeSpeakTask 和故障转移调用。
-   * 方案 21：在合成和播放前后添加 metrics 埋点。
-   */
-  private async executeWithProvider(
-    task: SpeakTask,
-    providerName: string
-  ): Promise<void> {
-    const options = task.options;
-
-    // 解析人设配置（如果指定了 personaId）
-    let resolvedVoice = options.voice;
-    let resolvedSpeed = options.speed;
-    let resolvedProvider: string | undefined;
-
-    if (options.personaId) {
-      const persona = TTSPersonaManager.get(options.personaId);
-      if (persona) {
-        resolvedVoice = options.voice ?? persona.voice;
-        resolvedSpeed = options.speed ?? persona.speed;
-        resolvedProvider = persona.provider;
-      } else {
-        logger.warn('VoiceService · 人设不存在', {
-          personaId: options.personaId,
-        });
-      }
-    }
-
-    // LRU 缓存检查（方案 11）：相同文本+语音+语速跳过重复合成
-    const cacheKey = TTSCache.makeKey(
-      options.text,
-      resolvedVoice,
-      resolvedSpeed
-    );
-    const cachedData = this.ttsCache.get(cacheKey);
-
-    // 缓存击中 → 直接播放，跳过 TTS 合成
-    if (cachedData) {
-      if (shouldSample('debug', 'VoiceService')) {
-        logger.debug('VoiceService · TTS 缓存命中', { cacheKey });
-      }
-      const cachedResult: TTSSpeakResult = {
-        success: true,
-        audioData: cachedData,
-      };
-      return this.playSynthesizedAudio(cachedResult);
-    }
-
-    // 方案 21：TTS 合成开始埋点
-    this.metricsCollector.startHook(MetricsHook.TTS_SYNTHESIS, {
-      provider: providerName,
-      textLength: options.text.length,
-      voice: resolvedVoice,
-    });
-
-    const synthesisStartTime = Date.now();
-
-    const result = await withRetry(
-      () =>
-        TTSRegistry.speak(
-          {
-            text: options.text,
-            voice: resolvedVoice,
-            speed: resolvedSpeed,
-          },
-          providerName
-        ),
-      providerName
-    );
-
-    const synthesisLatency = Date.now() - synthesisStartTime;
-
-    // 方案 21：TTS 合成结束埋点
-    this.metricsCollector.endHook(MetricsHook.TTS_SYNTHESIS);
-
-    if (!result.success) {
-      this.getBreaker(providerName).onFailure();
-      this.recordProviderResult(providerName, false, synthesisLatency); // 方案 24
-      // 方案 21：记录 Provider 失败
-      this.metricsCollector.recordProviderResult(providerName, false);
-      throw new Error(result.error ?? 'TTS 合成失败');
-    }
-
-    // 合成成功，通知熔断器
-    this.getBreaker(providerName).onSuccess();
-    this.recordProviderResult(providerName, true, synthesisLatency); // 方案 24
-    // 方案 21：记录 Provider 成功
-    this.metricsCollector.recordProviderResult(providerName, true);
-
-    // 将合成结果写入缓存（方案 11）
-    if (result.audioData) {
-      this.ttsCache.set(cacheKey, result.audioData);
-    }
-
-    // 将合成音频送入 PCMAudioPlayer 播放
-    await this.playSynthesizedAudio(result);
+    return { providerName: primaryProvider, resolvedVoice, resolvedSpeed };
   }
 
   /**
    * 停止语音输出
    *
-   * 清空待处理队列并停止当前播放
-   * 方案 15：调用 AbortController.abort() 中断底层合成操作
+   * 3.5/3.7：流式合成下不再有 speak 队列，AbortController.abort() 经
+   * options.signal 透传到 TTSRegistry 打断进行中的合成与后续分片；
+   * 播放侧由 playbackManager 停止当前播放。
    */
   stopSpeaking(): void {
-    // 方案 15：中断正在进行的合成
+    // 方案 15 + 3.7/P2-4：中断正在进行的合成（透传到 TTSRegistry）
     if (this.speakAbortController) {
       this.speakAbortController.abort();
       this.speakAbortController = null;
     }
-
-    // 清空所有待处理队列任务
-    const pendingTasks = this.speakQueue.splice(0);
-    for (const task of pendingTasks) {
-      task.reject(new Error('语音输出已被用户停止'));
-    }
-    this.isProcessingQueue = false;
 
     TTSRegistry.stopAll();
     this.isSpeaking = false;
@@ -1607,7 +1126,8 @@ export class VoiceService {
       throw new Error('TTS · 没有已注册的 Provider，无法进行语音合成');
     }
 
-    // 按健康评分降序排序
+    // 3.8/P1-3：按 Provider 优先级排序（成本低优先），同优先级内按健康评分降序
+    const priority = TTSRegistry.getProviderPriority();
     const scored = providers
       .map((name) => ({ name, health: this.getProviderHealth(name) }))
       .filter(
@@ -1618,7 +1138,14 @@ export class VoiceService {
           health: import('../models/types').ProviderHealth;
         } => entry.health !== null
       )
-      .sort((a, b) => b.health.score - a.health.score);
+      .sort((a, b) => {
+        const rankA = priority.indexOf(a.name);
+        const rankB = priority.indexOf(b.name);
+        const ra = rankA === -1 ? priority.length : rankA;
+        const rb = rankB === -1 ? priority.length : rankB;
+        if (ra !== rb) return ra - rb;
+        return b.health.score - a.health.score;
+      });
 
     // 如果指定了优先 Provider 且可用（评分 > 0），直接使用
     if (preferredProvider) {

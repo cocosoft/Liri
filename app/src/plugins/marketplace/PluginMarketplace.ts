@@ -406,6 +406,7 @@ export class PluginMarketplace {
 
       return true;
     } catch {
+      // @ignore-catch — 市场操作失败返回 false（外部网络依赖，失败按不可用处理）
       return false;
     }
   }
@@ -578,6 +579,7 @@ export class PluginMarketplace {
       const raw = readFileSync(filePath, 'utf-8');
       return JSON.parse(raw) as CacheMeta;
     } catch {
+      // @ignore-catch — 缓存元数据解析失败返回 null（损坏缓存按无缓存处理）
       return null;
     }
   }

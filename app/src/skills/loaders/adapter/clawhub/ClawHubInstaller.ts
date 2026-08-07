@@ -172,6 +172,7 @@ export class ClawHubInstaller {
           skillContent = await this.apiClient.getText(rawUrl);
           break;
         } catch {
+          // @ignore-catch — 该安装分支失败尝试下一分支（多镜像容错）
           continue;
         }
       }
@@ -182,6 +183,7 @@ export class ClawHubInstaller {
           skillContent = await this.apiClient.getText(rawUrl);
           break;
         } catch {
+          // @ignore-catch — 该安装分支失败尝试下一分支（多镜像容错）
           continue;
         }
       }

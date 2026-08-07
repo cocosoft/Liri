@@ -384,6 +384,7 @@ export class RemoteSkillHubAdapter extends BaseThirdPartyAdapter<RemoteSkillData
           break;
         }
       } catch {
+        // @ignore-catch — 单项远程技能读取失败跳过（批量加载容错，不中断）
         continue;
       }
     }

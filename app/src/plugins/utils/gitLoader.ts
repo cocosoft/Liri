@@ -10,7 +10,7 @@ import { execFile } from 'child_process';
 import { existsSync } from 'fs';
 import { Logger } from '@modules/monitoring';
 
-const logger = new Logger({ module: 'GitLoader' });
+const logger = new Logger({ module: 'plugins:gitLoader' });
 
 const execFileAsync = promisify(execFile);
 

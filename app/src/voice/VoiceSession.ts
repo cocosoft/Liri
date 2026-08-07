@@ -30,6 +30,8 @@ import type { UnifiedMessage } from '@modules/session/types/Message';
 import { MemoryManagerImpl } from '../memory/MemoryManager';
 import { getAlertManager } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring';
+import { getMetricsService } from '@modules/monitoring';
+import type { HistogramMetric } from '@modules/monitoring';
 
 /** 提供商标识到构造函数的映射 */
 const PROVIDER_ADAPTERS: Record<
@@ -112,6 +114,15 @@ export class VoiceSession {
 
   /** 记忆管理器（集成注入） */
   private memoryManager: MemoryManagerImpl | null = null;
+
+  /**
+   * 端到端延迟观测（§4.2 混合路由切换阈值数据源）
+   * turn.started 记录本轮开始时间，首个 audio.delta 时记录端到端响应延迟。
+   */
+  private turnStartMs: number = 0;
+
+  /** 端到端延迟直方图（惰性创建，按 provider 维度） */
+  private e2eLatencyHistogram: HistogramMetric | null = null;
 
   constructor(
     connection: VoiceConnection,
@@ -441,6 +452,56 @@ export class VoiceSession {
         code: event.code,
         message: event.message,
       });
+    }
+
+    // §4.2 端到端延迟观测：本轮开始计时（用户音频到达 → 模型响应）
+    if (event.type === 'turn.started') {
+      this.turnStartMs = Date.now();
+    }
+
+    // 首个音频回包即端到端首包延迟（STT + LLM + TTS 首包）
+    if (event.type === 'audio.delta' && this.turnStartMs > 0) {
+      const latencyMs = Date.now() - this.turnStartMs;
+      if (this.e2eLatencyHistogram === null) {
+        this.e2eLatencyHistogram = getMetricsService().createHistogram({
+          name: 'voice.session.e2e_latency_ms',
+          description:
+            '实时语音会话端到端响应延迟（turn.started → 首个音频回包，ms）',
+          labels: { module: 'voice:session' },
+        });
+      }
+      this.e2eLatencyHistogram.observe(latencyMs);
+      this.turnStartMs = 0;
+    }
+
+    // 用户侧转写完成（3.11/P2-1）——持久化到 TranscriptManager（USER 角色）
+    if (event.type === 'transcript.user') {
+      this.logger.info('用户侧转写完成', {
+        sessionId: this.id,
+        textLength: event.text.length,
+      });
+
+      if (this.transcriptManager) {
+        const message: UnifiedMessage = {
+          id: randomUUID(),
+          sessionId: this.id,
+          type: MessageType.USER,
+          role: MessageRole.USER,
+          content: event.text,
+          timestamp: Date.now(),
+        };
+
+        this.transcriptManager.recordMessage(this.id, message).catch((err) => {
+          void handleError(
+            err instanceof Error ? err : new Error(String(err)),
+            { module: 'voice:session', action: 'recordMessage' }
+          );
+          this.logger.error('用户侧转写持久化失败', {
+            sessionId: this.id,
+            error: String(err),
+          });
+        });
+      }
     }
 
     // 转录完成——持久化到 TranscriptManager

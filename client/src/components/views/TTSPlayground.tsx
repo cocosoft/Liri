@@ -60,6 +60,8 @@ function TTSPlayground({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const [playError, setPlayError] = useState<string | null>(null);
+  /** 合成耗时（请求发出 → audioUrl 可用），G6 感知延迟观测 */
+  const [synthesisMs, setSynthesisMs] = useState<number | null>(null);
 
   // ── 保存历史 ──
   const saveHistory = useCallback((items: SynthesisHistoryItem[]): void => {
@@ -80,9 +82,11 @@ function TTSPlayground({
     setSynthesisError(null);
     setAudioUrl(null);
     setPlayError(null);
+    setSynthesisMs(null);
 
     const controller = new AbortController();
     abortRef.current = controller;
+    const t0 = performance.now();
 
     try {
       const response = await fetch(`${getBackendBaseUrl()}/v1/voice/tts`, {
@@ -108,6 +112,7 @@ function TTSPlayground({
 
       if (result.audioUrl) {
         setAudioUrl(result.audioUrl);
+        setSynthesisMs(Math.round(performance.now() - t0));
 
         // 写入历史
         const item: SynthesisHistoryItem = {
@@ -118,6 +123,7 @@ function TTSPlayground({
           voice: activeVoice,
           speed,
           createdAt: Date.now(),
+          durationMs: Math.round(performance.now() - t0),
         };
         saveHistory([...history, item]);
       } else {
@@ -245,6 +251,15 @@ function TTSPlayground({
             关闭
           </button>
         </div>
+      )}
+
+      {/* 合成耗时（G6 感知延迟观测） */}
+      {synthesisMs != null && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+          合成耗时：
+          <span className="font-medium tabular-nums">{synthesisMs}ms</span>
+          {synthesisMs <= 800 ? " ✓" : ""}
+        </p>
       )}
 
       {/* 播放器 */}

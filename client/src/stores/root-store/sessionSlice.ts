@@ -484,7 +484,8 @@ export const createSessionSlice: StateCreator<
           const { modelSwitchService } =
             await import("@/services/modelSwitchService");
           const current = await modelSwitchService.getCurrent();
-          if (current.modelId !== session.modelId) {
+          // 用 UUID 比较（current.modelUuid 是 UUID，session.modelId 是 UUID）
+          if (current.modelUuid && current.modelUuid !== session.modelId) {
             await modelSwitchService.switch(session.modelId);
           }
           if (import.meta.env.DEV)

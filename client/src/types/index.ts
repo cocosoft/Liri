@@ -58,6 +58,7 @@ export type {
   KnowledgeSource,
   KnowledgeBase,
   KnowledgeFile,
+  KnowledgeSortBy,
 } from "./knowledge";
 
 // ─── FAQ ───

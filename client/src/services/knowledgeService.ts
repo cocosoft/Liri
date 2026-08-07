@@ -22,6 +22,22 @@ function unwrap<T>(
   return res.data as T;
 }
 
+/** P3-2: 统一"按知识库拉取文件列表"逻辑（listFiles 与 getFileByDocPath 共用） */
+async function fetchFiles(
+  base?: string,
+  offset?: number,
+  limit?: number,
+): Promise<{ items: KnowledgeFile[]; total: number }> {
+  const params = new URLSearchParams();
+  if (base) params.set("base", base);
+  if (offset !== undefined) params.set("offset", String(offset));
+  if (limit !== undefined) params.set("limit", String(limit));
+  const qs = params.toString();
+  const url = qs ? `/v1/knowledge?${qs}` : "/v1/knowledge";
+  const res = await http.get<{ items: KnowledgeFile[]; total: number }>(url);
+  return unwrap(res, "KNOWLEDGE_LIST_FILES");
+}
+
 // ─── knowledgeService ────────────────────────────────────
 
 export const knowledgeService = {
@@ -91,10 +107,11 @@ export const knowledgeService = {
         tags: r.tags ?? [],
         category: r.category,
         docPath: r.docPath,
-        size: 0,
-        updated_at: 0,
+        // P2-7: 优先使用后端真实元数据，缺失时回退默认值
+        size: r.size ?? 0,
+        updated_at: r.updated_at ?? 0,
         created_at: 0,
-        source: "manual" as const,
+        source: r.source ?? "manual",
         base: base ?? "",
       },
       score: r.score,
@@ -109,14 +126,20 @@ export const knowledgeService = {
     offset?: number,
     limit?: number,
   ): Promise<{ items: KnowledgeFile[]; total: number }> => {
-    const params = new URLSearchParams();
-    if (base) params.set("base", base);
-    if (offset !== undefined) params.set("offset", String(offset));
-    if (limit !== undefined) params.set("limit", String(limit));
-    const qs = params.toString();
-    const url = qs ? `/v1/knowledge?${qs}` : "/v1/knowledge";
-    const res = await http.get<{ items: KnowledgeFile[]; total: number }>(url);
-    return unwrap(res, "KNOWLEDGE_LIST_FILES");
+    return fetchFiles(base, offset, limit);
+  },
+
+  /** P3-2: 按 docPath 从列表接口拉取真实文件元数据（搜索结果占位元数据的统一获取通道） */
+  getFileByDocPath: async (
+    docPath: string,
+    base?: string,
+  ): Promise<KnowledgeFile | null> => {
+    try {
+      const { items } = await fetchFiles(base, 0, 100000);
+      return items.find((i) => i.docPath === docPath) ?? null;
+    } catch {
+      return null;
+    }
   },
 
   listBases: async (): Promise<KnowledgeBase[]> => {
@@ -159,7 +182,7 @@ export const knowledgeService = {
   cloneBase: async (name: string, newName: string): Promise<KnowledgeBase> => {
     const res = await http.post<KnowledgeBase>(
       `/v1/knowledge/bases/${encodeURIComponent(name)}/clone`,
-      { newName },
+      { target: newName },
     );
     return unwrap(res, "KNOWLEDGE_CLONE_BASE");
   },
@@ -171,7 +194,7 @@ export const knowledgeService = {
   ): Promise<KnowledgeBase> => {
     const res = await http.post<KnowledgeBase>(
       `/v1/knowledge/bases/${encodeURIComponent(name)}/duplicate`,
-      { newName },
+      { target: newName },
     );
     return unwrap(res, "KNOWLEDGE_DUPLICATE_BASE");
   },
@@ -377,16 +400,16 @@ export const knowledgeService = {
     return res.ok ? (res.data?.content ?? null) : null;
   },
 
-  /** 从快照恢复文档 */
+  /** 从快照恢复文档，返回恢复后的内容（失败返回 null） */
   restoreSnapshot: async (
     title: string,
     snapshot: string,
-  ): Promise<boolean> => {
-    const res = await http.post<{ restored: boolean }>(
+  ): Promise<string | null> => {
+    const res = await http.post<{ restored: boolean; content: string | null }>(
       "/v1/knowledge/restore",
       { title, snapshot },
     );
-    return res.ok ? (res.data?.restored ?? false) : false;
+    return res.ok ? (res.data?.content ?? null) : null;
   },
 
   /** 获取知识库健康指标 */
@@ -410,9 +433,10 @@ export const knowledgeService = {
       structureErrors: number;
       consistencyWarnings: number;
       qualityIssues: number;
+      lintScore: number;
     }>("/v1/knowledge/health");
     const data = unwrap(res, "KNOWLEDGE_HEALTH");
-    return { ...data, lintScore: 0 };
+    return data;
   },
 
   /** 软删除文档（移至回收站） */

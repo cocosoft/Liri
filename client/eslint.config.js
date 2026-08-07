@@ -50,6 +50,8 @@ export default [
       'no-console': 'warn',
       'no-debugger': 'error',
       'no-empty': 'off',
+      // 防 `${borderColor}` 类 bug 复发：字符串字面量里出现 `${}` 直接报错
+      'no-template-curly-in-string': 'error',
     },
   },
   {

@@ -73,6 +73,8 @@ export async function handleListKnowledge(
       }
 
       const content = doc.content || '';
+      let category = doc.category || '根目录';
+      let tags: string[] = [];
       const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
       if (fmMatch) {
         const fmLines = fmMatch[1].split('\n');
@@ -80,6 +82,30 @@ export async function handleListKnowledge(
           if (line.startsWith('source:')) {
             const val = line.split(':')[1]?.trim().replace(/"/g, '') || '';
             if (val) source = val;
+          } else if (line.startsWith('category:')) {
+            const val = line.split(':')[1]?.trim().replace(/"/g, '') || '';
+            if (val) category = val;
+          } else if (line.startsWith('tags:')) {
+            const val = line.split(':').slice(1).join(':').trim();
+            if (val) {
+              if (val.startsWith('[') && val.endsWith(']')) {
+                try {
+                  const parsed = JSON.parse(val);
+                  if (Array.isArray(parsed)) tags = parsed.map(String);
+                } catch {
+                  tags = val
+                    .slice(1, -1)
+                    .split(',')
+                    .map((t) => t.trim().replace(/^['"]|['"]$/g, ''))
+                    .filter(Boolean);
+                }
+              } else {
+                tags = val
+                  .split(',')
+                  .map((t) => t.trim().replace(/^['"]|['"]$/g, ''))
+                  .filter(Boolean);
+              }
+            }
           }
         }
       }
@@ -88,8 +114,8 @@ export async function handleListKnowledge(
         id: docPath,
         title: doc.title || '',
         content: content.slice(0, 500) || '',
-        category: doc.category || '根目录',
-        tags: [],
+        category,
+        tags,
         docPath,
         size,
         updated_at: updatedAt,
@@ -148,29 +174,83 @@ export async function handleSearchKnowledge(
       await import('@modules/knowledge/KnowledgeRouter');
     const { knowledgeDocsProvider } =
       await import('@modules/docs/FileDocsProvider');
+    const { getDefaultKnowledgeBaseRegistry } =
+      await import('@modules/knowledge/KnowledgeBaseRegistry');
+    const { stat, open } = await import('fs/promises');
+    const { join } = await import('path');
+    const registry = getDefaultKnowledgeBaseRegistry();
+    const knowledgeRoot = registry.getKnowledgeRoot();
+
     const router = new KnowledgeRouter(knowledgeDocsProvider);
     const routes = await router.search(query, {
       maxResults: 20,
       ...(domain ? ({ domain } as any) : {}),
     });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let result = routes.map((route: any) => ({
-      id: `knowledge-${route.docPath}`,
-      title: route.title,
-      content: route.snippet || '',
-      category: route.category || '根目录',
-      score: route.score,
-      matchType: route.matchType,
-      docPath: route.docPath,
-      tags: route.tags ?? [],
-    }));
 
-    // 按标签过滤（SearchTarget）
-    if (filterTags && filterTags.length > 0) {
-      result = result.filter((r: any) =>
-        filterTags.some((t: string) => r.tags?.includes(t))
-      );
-    }
+    // P2-2: 按标签过滤（大小写不敏感）
+    const filtered = filterTags?.length
+      ? routes.filter((route: any) =>
+          filterTags.some((t: string) =>
+            (route.tags ?? []).some(
+              (tag: string) => tag.toLowerCase() === t.toLowerCase()
+            )
+          )
+        )
+      : routes;
+
+    // P2-7: 补充 size/updated_at/source（stat + frontmatter 头部解析）
+    const result = await Promise.all(
+      filtered.map(async (route: any) => {
+        let size = 0;
+        let updatedAt = 0;
+        let source = 'manual';
+        try {
+          const fullPath = join(knowledgeRoot, route.docPath);
+          const fileStat = await stat(fullPath);
+          size = fileStat.size;
+          updatedAt = fileStat.mtimeMs;
+          // 仅读取文件头部（frontmatter 所在区域）解析 source
+          const fileHandle = await open(fullPath, 'r');
+          try {
+            const head = Buffer.alloc(2048);
+            const { bytesRead } = await fileHandle.read(
+              head,
+              0,
+              head.length,
+              0
+            );
+            const fmMatch = head
+              .toString('utf-8', 0, bytesRead)
+              .match(/^---\n([\s\S]*?)\n---/);
+            const sourceLine = fmMatch?.[1]
+              .split('\n')
+              .find((l: string) => l.trim().startsWith('source:'));
+            if (sourceLine) {
+              const val =
+                sourceLine.split(':')[1]?.trim().replace(/"/g, '') || '';
+              if (val) source = val;
+            }
+          } finally {
+            await fileHandle.close();
+          }
+        } catch {
+          // 文件不存在等异常时保持默认值
+        }
+        return {
+          id: `knowledge-${route.docPath}`,
+          title: route.title,
+          content: route.snippet || '',
+          category: route.category || '根目录',
+          score: route.score,
+          matchType: route.matchType,
+          docPath: route.docPath,
+          tags: route.tags ?? [],
+          size,
+          updated_at: updatedAt,
+          source,
+        };
+      })
+    );
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
@@ -195,13 +275,18 @@ export async function handleCreateKnowledge(
       res.end(JSON.stringify({ error: { message: 'title is required' } }));
       return;
     }
-    const { resolvePyappHome } = await import('@modules/core/paths');
+    const { getDefaultKnowledgeBaseRegistry } =
+      await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { writeFile, mkdir } = await import('fs/promises');
-    const { join } = await import('path');
-    const userKnowledgeDir = join(resolvePyappHome(), 'knowledge');
-    const targetDir = category
-      ? join(userKnowledgeDir, category)
-      : userKnowledgeDir;
+    const { join, relative } = await import('path');
+
+    const registry = getDefaultKnowledgeBaseRegistry();
+    const knowledgeRoot = registry.getKnowledgeRoot();
+    // P2-3: 与列表 docPath 语义统一（相对路径）；"根目录"不建子目录
+    const useRootDir = !category || category === '根目录';
+    const targetDir = useRootDir
+      ? knowledgeRoot
+      : join(knowledgeRoot, category);
     await mkdir(targetDir, { recursive: true });
     const fileName = `${title.replace(/[\\/:*?"<>|]/g, '_')}.md`;
     const filePath = join(targetDir, fileName);
@@ -209,20 +294,20 @@ export async function handleCreateKnowledge(
       ? `# ${title}\n\n${content}\n`
       : `# ${title}\n\n`;
     await writeFile(filePath, fileContent, 'utf-8');
-    const newId = `knowledge-${Date.now()}`;
+    const docPath = relative(knowledgeRoot, filePath);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
-        id: newId,
+        id: docPath,
         title,
         content: content || '',
         category: category || '根目录',
-        docPath: filePath,
+        docPath,
         created_at: Date.now(),
         updated_at: Date.now(),
       })
     );
-    broadcastEvent('knowledge:created', { id: newId, title });
+    broadcastEvent('knowledge:created', { id: docPath, title });
   } catch (err) {
     sendError(res, err);
   }
@@ -1109,9 +1194,10 @@ export async function handleUpdateKnowledgeDoc(
 ): Promise<void> {
   try {
     const body = await readRequestBody(req);
-    const { docPath, content, title, tags, category } = JSON.parse(body);
+    const { docPath, content, title, tags, category, base } = JSON.parse(body);
 
-    if (!docPath || !content) {
+    // P2-4: 移动场景允许 content 为空（仅提供 base）
+    if (!docPath || (!content && !base)) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
@@ -1125,19 +1211,42 @@ export async function handleUpdateKnowledgeDoc(
       await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { getDefaultDigestService } =
       await import('@modules/knowledge/KnowledgeDigestService');
-    const { readFile, writeFile } = await import('fs/promises');
-    const { join } = await import('path');
+    const { readFile, writeFile, mkdir, rename } = await import('fs/promises');
+    const { join, relative, basename, dirname } = await import('path');
     const { existsSync } = await import('fs');
     const { knowledgeDocsProvider } =
       await import('@modules/docs/FileDocsProvider');
 
     const registry = getDefaultKnowledgeBaseRegistry();
-    const filePath = join(registry.getKnowledgeRoot(), docPath);
+    const knowledgeRoot = registry.getKnowledgeRoot();
+    let effectiveDocPath = docPath;
+    const filePath = join(knowledgeRoot, docPath);
 
+    // P2-4: 移动文档到目标知识库（base 语义与 list 的 baseName 一致）
+    if (base !== undefined) {
+      const sepIdx = Math.max(
+        docPath.lastIndexOf('/'),
+        docPath.lastIndexOf('\\')
+      );
+      const currentBase = sepIdx === -1 ? '' : docPath.slice(0, sepIdx);
+      const targetBase = base === '根目录' ? '' : base;
+      if (targetBase !== currentBase && existsSync(filePath)) {
+        const fileName = basename(docPath);
+        const newPath = targetBase
+          ? join(knowledgeRoot, targetBase, fileName)
+          : join(knowledgeRoot, fileName);
+        await mkdir(dirname(newPath), { recursive: true });
+        await rename(filePath, newPath);
+        effectiveDocPath = relative(knowledgeRoot, newPath);
+      }
+    }
+
+    // P2-4: 移动后使用新路径继续处理
+    const effectiveFilePath = join(knowledgeRoot, effectiveDocPath);
     let frontmatterLines: string[] = [];
 
-    if (existsSync(filePath)) {
-      const existingContent = await readFile(filePath, 'utf-8');
+    if (existsSync(effectiveFilePath)) {
+      const existingContent = await readFile(effectiveFilePath, 'utf-8');
       const lines = existingContent.split('\n');
 
       if (lines[0]?.trim() === '---') {
@@ -1180,7 +1289,7 @@ export async function handleUpdateKnowledgeDoc(
             '',
           ].join('\n');
 
-          await writeFile(filePath, newContent, 'utf-8');
+          await writeFile(effectiveFilePath, newContent, 'utf-8');
           knowledgeDocsProvider.clearCache();
 
           try {
@@ -1198,11 +1307,11 @@ export async function handleUpdateKnowledgeDoc(
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(
             JSON.stringify({
-              docPath,
+              docPath: effectiveDocPath,
               updatedAt: new Date().toISOString(),
             })
           );
-          broadcastEvent('knowledge:updated', { id: docPath });
+          broadcastEvent('knowledge:updated', { id: effectiveDocPath });
           return;
         }
       }
@@ -1218,7 +1327,7 @@ export async function handleUpdateKnowledgeDoc(
       '',
     ].join('\n');
 
-    await writeFile(filePath, newContent, 'utf-8');
+    await writeFile(effectiveFilePath, newContent, 'utf-8');
     knowledgeDocsProvider.clearCache();
 
     try {
@@ -1236,11 +1345,11 @@ export async function handleUpdateKnowledgeDoc(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
-        docPath,
+        docPath: effectiveDocPath,
         updatedAt: new Date().toISOString(),
       })
     );
-    broadcastEvent('knowledge:updated', { id: docPath });
+    broadcastEvent('knowledge:updated', { id: effectiveDocPath });
   } catch (err) {
     sendError(res, err);
   }
@@ -1471,9 +1580,10 @@ export async function handleRestoreSnapshot(
     const { KnowledgeBaseWriter } =
       await import('@modules/knowledge/KnowledgeBaseWriter.js');
     const writer = new KnowledgeBaseWriter();
-    const restored = await writer.restoreSnapshot(title, snapshot);
+    const content = await writer.restoreSnapshot(title, snapshot);
+    const restored = content !== null;
     res.writeHead(restored ? 200 : 404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ restored }));
+    res.end(JSON.stringify({ restored, content }));
   } catch (err) {
     sendError(res, err);
   }

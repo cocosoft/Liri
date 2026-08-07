@@ -177,15 +177,15 @@ export class KnowledgeBaseWriter {
   }
 
   /**
-   * 从快照恢复文档
+   * 从快照恢复文档，返回恢复后的内容（失败返回 null）
    */
   async restoreSnapshot(
     title: string,
     snapshotFileName: string
-  ): Promise<boolean> {
+  ): Promise<string | null> {
     const snapDir = this.getSnapshotDir(title);
     const snapPath = join(snapDir, snapshotFileName);
-    if (!existsSync(snapPath)) return false;
+    if (!existsSync(snapPath)) return null;
 
     try {
       const content = await readFile(snapPath, 'utf-8');
@@ -205,9 +205,9 @@ export class KnowledgeBaseWriter {
         filePath,
       });
 
-      return true;
+      return content;
     } catch (_err) {
-      return false;
+      return null;
     }
   }
 

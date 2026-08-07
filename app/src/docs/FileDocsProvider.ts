@@ -21,6 +21,8 @@ export interface FileDocEntry {
   category: string;
   fileName: string;
   source?: string;
+  /** frontmatter tags（供标签过滤搜索使用） */
+  tags?: string[];
 }
 
 export interface SearchResult {
@@ -67,6 +69,37 @@ export class FileDocsProvider {
   private inferCategory(relativePath: string): string {
     const dir = dirname(relativePath);
     return dir === '.' ? '根目录' : dir;
+  }
+
+  /**
+   * 解析 frontmatter tags（支持 `tags: ["a","b"]` / `[a, b]` / `a, b` 格式）
+   */
+  private parseFrontmatterTags(content: string): string[] {
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    if (!fmMatch) return [];
+    const tagsLine = fmMatch[1]
+      .split('\n')
+      .find((l) => l.trim().startsWith('tags:'));
+    if (!tagsLine) return [];
+    const val = tagsLine.split(':').slice(1).join(':').trim();
+    if (!val) return [];
+    if (val.startsWith('[') && val.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed)) return parsed.map(String);
+      } catch {
+        // fallthrough to manual split
+      }
+      return val
+        .slice(1, -1)
+        .split(',')
+        .map((t) => t.trim().replace(/^['"]|['"]$/g, ''))
+        .filter(Boolean);
+    }
+    return val
+      .split(',')
+      .map((t) => t.trim().replace(/^['"]|['"]$/g, ''))
+      .filter(Boolean);
   }
 
   /**
@@ -231,6 +264,7 @@ export class FileDocsProvider {
             title: this.extractTitle(content),
             content,
             category: this.inferCategory(relativePath),
+            tags: this.parseFrontmatterTags(content),
             fileName: entry,
             source: sourceRoot,
           };
@@ -271,6 +305,7 @@ export class FileDocsProvider {
           title: this.extractTitle(content),
           content,
           category: this.inferCategory(relativePath),
+          tags: this.parseFrontmatterTags(content),
           fileName: basename(relativePath),
           source: sourceRoot,
         };
@@ -296,6 +331,7 @@ export class FileDocsProvider {
           title: this.extractTitle(content),
           content,
           category: this.inferCategory(relativePath),
+          tags: this.parseFrontmatterTags(content),
           fileName: basename(relativePath),
           source: root,
         };

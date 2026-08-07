@@ -41,6 +41,8 @@ export interface KnowledgeRoute {
     | 'directory'
     | 'semantic';
   isKnowledgeDoc: boolean;
+  /** frontmatter tags（供标签过滤搜索使用） */
+  tags?: string[];
   /** 分块起始行（用于上下文富化时定位关联块） */
   startLine?: number;
   /** 分块结束行（用于上下文富化时定位关联块） */

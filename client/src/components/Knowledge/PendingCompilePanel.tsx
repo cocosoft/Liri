@@ -15,11 +15,14 @@ interface RawFileInfo {
 interface PendingCompilePanelProps {
   isDark: boolean;
   onCompileComplete?: () => void;
+  /** 抽屉模式下提供关闭入口 */
+  onClose?: () => void;
 }
 
 function PendingCompilePanel({
   isDark,
   onCompileComplete,
+  onClose,
 }: PendingCompilePanelProps) {
   const [rawFiles, setRawFiles] = useState<RawFileInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -135,19 +138,45 @@ function PendingCompilePanel({
             </span>
           )}
         </div>
-        <svg
-          className={`w-3.5 h-3.5 ${textSecondary} transition-transform ${expanded ? "rotate-180" : ""}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
+        <div className="flex items-center gap-2">
+          <svg
+            className={`w-3.5 h-3.5 ${textSecondary} transition-transform ${expanded ? "rotate-180" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+          {onClose && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+              className={`p-0.5 rounded ${textSecondary} hover:opacity-70`}
+              title="关闭待处理面板"
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {expanded && (
@@ -196,7 +225,9 @@ function PendingCompilePanel({
           )}
 
           {rawFiles.length > 0 && (
-            <div className="flex items-center gap-2 mt-2 pt-2 border-t ${borderColor}">
+            <div
+              className={`flex items-center gap-2 mt-2 pt-2 border-t ${borderColor}`}
+            >
               <button
                 onClick={handleCompileAll}
                 disabled={compiling}

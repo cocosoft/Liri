@@ -10,7 +10,8 @@ interface VersionHistoryProps {
   isDark: boolean;
   title: string;
   currentContent: string;
-  onRestored?: () => void;
+  /** P2-5: 恢复成功后回调恢复的内容，供上层刷新展示 */
+  onRestored?: (content: string) => void;
 }
 
 function VersionHistory({
@@ -67,11 +68,14 @@ function VersionHistory({
     if (!selectedSnapshot || !confirm("确定恢复到此版本？当前内容将被覆盖。"))
       return;
     setRestoring(true);
-    const ok = await knowledgeService.restoreSnapshot(title, selectedSnapshot);
+    const content = await knowledgeService.restoreSnapshot(
+      title,
+      selectedSnapshot,
+    );
     setRestoring(false);
-    if (ok) {
+    if (content !== null) {
       setOpen(false);
-      onRestored?.();
+      onRestored?.(content);
     } else {
       alert("恢复失败");
     }

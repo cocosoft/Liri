@@ -17,6 +17,10 @@ export interface KnowledgeSearchResult {
   matchType: string;
   docPath: string;
   tags?: string[];
+  /** P2-7: 后端补充的真实文件元数据 */
+  size?: number;
+  updated_at?: number;
+  source?: KnowledgeSource;
 }
 
 export type KnowledgeSource =
@@ -54,3 +58,6 @@ export interface KnowledgeSearchHit {
   domain?: string;
   snippet?: string;
 }
+
+/** 文档列表排序枚举（P3-1：自 DocFilterBar 收编，单一事实） */
+export type KnowledgeSortBy = "updated" | "title" | "created";

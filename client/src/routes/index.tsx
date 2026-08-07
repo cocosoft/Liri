@@ -34,12 +34,6 @@ const UsageCenterPage = lazy(
   () => import("../components/views/UsageCenterPage"),
 );
 const KnowledgePage = lazy(() => import("../components/views/KnowledgePage"));
-const FAQView = lazy(() => import("../components/views/FAQView"));
-const GraphView = lazy(() => import("../components/views/GraphView"));
-const AutoRAGConfigView = lazy(
-  () => import("../components/views/AutoRAGConfigView"),
-);
-const DataSourceView = lazy(() => import("../components/views/DataSourceView"));
 const DevPage = lazy(() => import("../components/views/DevPage"));
 const MemoryPage = lazy(() => import("../components/views/MemoryPage"));
 const SkillPage = lazy(() => import("../components/views/SkillPage"));
@@ -175,44 +169,28 @@ export const routes: RouteObject[] = [
     ),
   },
 
-  // FAQ 管理
+  // FAQ / 知识图谱 / RAG 配置 / 数据源 — P1-1 已页内化为 KnowledgePage Tab，独立路由重定向保留旧入口
   {
     path: "/knowledge/faq",
-    element: (
-      <AuthGuard>
-        <FAQView />
-      </AuthGuard>
-    ),
+    element: <Navigate to="/knowledge?tab=faq" replace />,
   },
 
   // 知识图谱
   {
     path: "/knowledge/graph",
-    element: (
-      <AuthGuard>
-        <GraphView />
-      </AuthGuard>
-    ),
+    element: <Navigate to="/knowledge?tab=graph" replace />,
   },
 
   // RAG 配置
   {
     path: "/knowledge/config",
-    element: (
-      <AuthGuard>
-        <AutoRAGConfigView />
-      </AuthGuard>
-    ),
+    element: <Navigate to="/knowledge?tab=config" replace />,
   },
 
   // 外部数据源
   {
     path: "/knowledge/datasources",
-    element: (
-      <AuthGuard>
-        <DataSourceView />
-      </AuthGuard>
-    ),
+    element: <Navigate to="/knowledge?tab=datasources" replace />,
   },
 
   // TTS 语音合成

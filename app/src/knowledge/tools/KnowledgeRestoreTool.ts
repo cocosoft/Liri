@@ -104,7 +104,8 @@ export class KnowledgeRestoreTool implements Tool {
     }
 
     try {
-      const success = await this.writer.restoreSnapshot(title, snapshot);
+      const content = await this.writer.restoreSnapshot(title, snapshot);
+      const success = content !== null;
 
       if (!success) {
         return {

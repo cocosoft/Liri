@@ -6,7 +6,7 @@
  * U1: 砍掉检索 Tab，侧边栏搜索结果在右侧展示
  */
 import { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useKnowledgeStore } from "../../stores/knowledgeStore";
 import { useConfigStore } from "../../stores/configStore";
 import { useRootStore } from "../../stores/root-store";
@@ -26,6 +26,14 @@ import StatsPanel from "../Knowledge/StatsPanel";
 import VersionHistory from "../Knowledge/VersionHistory";
 import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
 import { useSessionContextSync } from "../../hooks/useSessionContextSync";
+import { FAQPage } from "../Knowledge/FAQ/FAQPage";
+import { GraphPage } from "../Knowledge/Graph/GraphPage";
+import { AutoRAGPanel } from "../Knowledge/Settings/AutoRAGPanel";
+import { DataSourcePage } from "../Knowledge/DataSource/DataSourcePage";
+
+/** P1-1: 二级导航页内 Tab key（activeTab 由 URL query ?tab= 驱动） */
+type KnowledgeTabKey =
+  "knowledge" | "semantic" | "faq" | "graph" | "config" | "datasources";
 
 function KnowledgePageSkeleton() {
   return (
@@ -40,7 +48,7 @@ function KnowledgePageSkeleton() {
           ))}
         </div>
         <div className="flex-1 flex">
-          <div className="w-80 lg:w-96 border-r border-gray-200 dark:border-gray-700 p-4 space-y-3">
+          <div className="w-96 lg:w-[420px] border-r border-gray-200 dark:border-gray-700 p-4 space-y-3">
             <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded" />
             <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded" />
             <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded" />
@@ -57,7 +65,6 @@ function KnowledgePageSkeleton() {
 function KnowledgePage() {
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
-  const navigate = useNavigate();
 
   const enterModule = useRootStore((s) => s.enterModule);
   const leaveModule = useRootStore((s) => s.leaveModule);
@@ -78,8 +85,14 @@ function KnowledgePage() {
 
   const { toasts, show: showToast, dismiss } = useToast(3000);
   const [showStats, setShowStats] = useState(false);
+  // P1-3: 列表真实总数（与侧边栏分页列表口径一致，替代 store.items 全量计数）
+  const [listTotal, setListTotal] = useState(0);
 
-  const { activeTab, selectedBase, selectedFile, isInitialLoading } = view;
+  // P1-1: activeTab 由 URL query 驱动（?tab=xxx），根治"全局 store 残留"类问题
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") ?? "knowledge") as KnowledgeTabKey;
+
+  const { selectedBase, selectedFile, isInitialLoading } = view;
 
   useSessionContextSync("knowledge", {
     save: () => ({
@@ -115,7 +128,8 @@ function KnowledgePage() {
 
   function handleSelectBase(baseName: string | null) {
     setView({ selectedBase: baseName, selectedFile: null });
-    setEditor({ isEditing: false });
+    // P2-9: 清空编辑器草稿，避免残留内容误存到其他知识库
+    setEditor({ isEditing: false, editTitle: "", editContent: "" });
   }
 
   function handleSelectFile(file: KnowledgeFile) {
@@ -126,6 +140,20 @@ function KnowledgePage() {
       editTitle: file.title,
       editContent: file.content,
     });
+  }
+
+  /** P0-5 + P3-2: 搜索结果元数据为列表占位时，按 docPath 拉真实元数据（统一走 knowledgeService.getFileByDocPath） */
+  async function handleSelectSearchHit(hit: KnowledgeFile) {
+    try {
+      const real = await knowledgeService.getFileByDocPath(
+        hit.docPath,
+        hit.base || undefined,
+      );
+      handleSelectFile(real ?? hit);
+    } catch {
+      // 拉取失败时退回搜索命中本身
+      handleSelectFile(hit);
+    }
   }
 
   function startEditing() {
@@ -223,11 +251,19 @@ function KnowledgePage() {
   const isSearchActive = search.query.trim().length > 0;
   const searchResults = search.listResults;
 
-  const tabs = [
-    { key: "knowledge" as const, label: "知识库" },
-    { key: "semantic" as const, label: "语义索引" },
-    { key: "faq" as const, label: "FAQ" },
+  const tabs: { key: KnowledgeTabKey; label: string }[] = [
+    { key: "knowledge", label: "知识库" },
+    { key: "semantic", label: "语义索引" },
+    { key: "faq", label: "FAQ" },
+    { key: "graph", label: "知识图谱" },
+    { key: "config", label: "RAG 配置" },
+    { key: "datasources", label: "数据源" },
   ];
+
+  // P1-1: 全部页内切换，activeTab 同步到 URL query
+  function switchTab(key: KnowledgeTabKey) {
+    setSearchParams(key === "knowledge" ? {} : { tab: key });
+  }
 
   if (isInitialLoading) return <KnowledgePageSkeleton />;
 
@@ -244,14 +280,7 @@ function KnowledgePage() {
             {tabs.map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => {
-                  if (tab.key === "faq") {
-                    setView({ activeTab: "faq" });
-                    navigate("/knowledge/faq");
-                  } else {
-                    setView({ activeTab: tab.key });
-                  }
-                }}
+                onClick={() => switchTab(tab.key)}
                 className={`text-sm font-medium transition-colors pb-1 border-b-2 ${
                   activeTab === tab.key
                     ? "border-blue-500 text-blue-500"
@@ -271,7 +300,7 @@ function KnowledgePage() {
             className={`text-xs ${textSecondary} hover:text-blue-500 dark:hover:text-blue-400 transition-colors flex items-center gap-1`}
             title="知识统计"
           >
-            📊 {items.length > 0 ? items.length : ""}
+            📊 {listTotal > 0 ? listTotal : ""}
           </button>
         </div>
 
@@ -292,12 +321,7 @@ function KnowledgePage() {
                 >
                   ✕
                 </button>
-                <StatsPanel
-                  isDark={isDark}
-                  items={items}
-                  demoSearchDone={false}
-                  demoResultCount={0}
-                />
+                <StatsPanel isDark={isDark} items={items} />
               </div>
             </div>
           </div>
@@ -309,7 +333,9 @@ function KnowledgePage() {
           className="flex-1 overflow-hidden"
         >
           <div className="flex-1 flex overflow-hidden">
-            <div className="w-80 lg:w-96 flex-shrink-0 border-r ${borderColor} flex flex-col overflow-hidden">
+            <div
+              className={`w-96 lg:w-[420px] flex-shrink-0 border-r ${borderColor} flex flex-col overflow-hidden`}
+            >
               <div className="overflow-hidden flex-1">
                 <KnowledgeBaseList
                   isDark={isDark}
@@ -317,7 +343,7 @@ function KnowledgePage() {
                   onSelectBase={handleSelectBase}
                   onSelectFile={handleSelectFile}
                   selectedFileId={selectedFile?.id || null}
-                  externalSearchQuery={search.query}
+                  onTotalChange={setListTotal}
                 />
               </div>
             </div>
@@ -326,29 +352,6 @@ function KnowledgePage() {
               {/* U1: 搜索激活 → 展示搜索结果 */}
               {isSearchActive ? (
                 <div className="p-6 max-w-3xl mx-auto">
-                  {/* 匹配类型分布条 */}
-                  {searchResults.length > 0 && (
-                    <div className="mb-4 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                      <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
-                        匹配类型分布
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-green-600 dark:text-green-400 w-12">
-                          关键词
-                        </span>
-                        <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-green-400 dark:bg-green-600 rounded-full transition-all"
-                            style={{ width: "100%" }}
-                          />
-                        </div>
-                        <span className="text-[10px] text-purple-600 dark:text-purple-400 w-12 text-right">
-                          语义
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
                   {search.isListSearching ? (
                     <div className="text-center py-8 text-gray-400">
                       <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2" />
@@ -397,7 +400,7 @@ function KnowledgePage() {
                         <div
                           key={result.id}
                           className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 cursor-pointer transition-colors"
-                          onClick={() => handleSelectFile(result)}
+                          onClick={() => handleSelectSearchHit(result)}
                         >
                           <div className="flex items-center justify-between mb-1">
                             <h4
@@ -563,12 +566,15 @@ function KnowledgePage() {
                       isDark={isDark}
                       title={selectedFile.title}
                       currentContent={selectedFile.content}
-                      onRestored={() =>
+                      onRestored={(content) => {
+                        // P2-5: 恢复成功后刷新当前文档内容
+                        const updated = { ...selectedFile, content };
+                        setView({ selectedFile: updated });
                         setEditor({
-                          editTitle: selectedFile.title,
-                          editContent: selectedFile.content,
-                        })
-                      }
+                          editTitle: updated.title,
+                          editContent: content,
+                        });
+                      }}
                     />
                   )}
 
@@ -696,6 +702,42 @@ function KnowledgePage() {
             <SemanticIndexPage />
           </div>
         </div>
+
+        {/* ── FAQ Tab（P1-1 页内化） ── */}
+        <div
+          style={{ display: activeTab === "faq" ? "flex" : "none" }}
+          className="flex-1 overflow-hidden"
+        >
+          <div className="flex-1 overflow-y-auto">
+            <FAQPage base={selectedBase ?? ""} isDark={isDark} />
+          </div>
+        </div>
+
+        {/* ── 知识图谱 Tab（P1-1 页内化） ── */}
+        <div
+          style={{ display: activeTab === "graph" ? "flex" : "none" }}
+          className="flex-1 overflow-hidden"
+        >
+          <GraphPage isDark={isDark} />
+        </div>
+
+        {/* ── RAG 配置 Tab（P1-1 页内化） ── */}
+        <div
+          style={{ display: activeTab === "config" ? "flex" : "none" }}
+          className="flex-1 overflow-hidden"
+        >
+          <div className="flex-1 overflow-y-auto p-6 max-w-lg">
+            <AutoRAGPanel isDark={isDark} />
+          </div>
+        </div>
+
+        {/* ── 数据源 Tab（P1-1 页内化） ── */}
+        <div
+          style={{ display: activeTab === "datasources" ? "flex" : "none" }}
+          className="flex-1 overflow-hidden"
+        >
+          <DataSourcePage isDark={isDark} />
+        </div>
       </div>
     </div>
   );
@@ -764,7 +806,7 @@ function DetailsMenu(props: DetailsMenuProps) {
         <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 py-1">
           {item(props.onSendToChat, "发送到对话")}
           {item(props.onExportNotebook, "导出到 Notebook")}
-          {item(props.onZipExport, "ZIP 导出")}
+          {item(props.onZipExport, "导出")}
           {item(props.onVersionHistory, "历史版本")}
           <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
           {item(props.onTrash, "回收", "text-orange-600 dark:text-orange-400")}

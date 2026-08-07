@@ -22,16 +22,9 @@ interface HealthMetrics {
 interface StatsPanelProps {
   isDark: boolean;
   items: KnowledgeItem[];
-  demoSearchDone: boolean;
-  demoResultCount: number;
 }
 
-function StatsPanel({
-  isDark,
-  items,
-  demoSearchDone,
-  demoResultCount,
-}: StatsPanelProps) {
+function StatsPanel({ isDark, items }: StatsPanelProps) {
   const [health, setHealth] = useState<HealthMetrics | null>(null);
   const textPrimary = isDark ? "text-gray-100" : "text-gray-900";
   const textSecondary = isDark ? "text-gray-400" : "text-gray-500";
@@ -83,12 +76,6 @@ function StatsPanel({
                 <span className={`text-sm ${textSecondary}`}>标签分类数</span>
                 <span className={`text-sm font-medium ${textPrimary}`}>
                   {totalCategories}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className={`text-sm ${textSecondary}`}>检索匹配数</span>
-                <span className={`text-sm font-medium ${textPrimary}`}>
-                  {demoSearchDone ? demoResultCount : "-"}
                 </span>
               </div>
             </div>

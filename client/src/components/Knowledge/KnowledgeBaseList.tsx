@@ -5,6 +5,7 @@
  * W3: 搜索改为调用 knowledgeService.hybridSearch()，来源/分类筛选与搜索正交。
  */
 import type { KnowledgeFile } from "../../types";
+import { useEffect, useState } from "react";
 import FileUploadZone from "./FileUploadZone";
 import PendingCompilePanel from "./PendingCompilePanel";
 import KBaseSelector from "./KBaseSelector";
@@ -23,7 +24,7 @@ interface KnowledgeBaseListProps {
   onSelectFile: (file: KnowledgeFile) => void;
   selectedFileId: string | null;
   onRefreshBases?: () => void;
-  externalSearchQuery?: string;
+  onTotalChange?: (total: number) => void;
 }
 
 function KnowledgeBaseList({
@@ -33,7 +34,7 @@ function KnowledgeBaseList({
   onSelectFile,
   selectedFileId,
   onRefreshBases,
-  externalSearchQuery,
+  onTotalChange,
 }: KnowledgeBaseListProps) {
   const {
     bases,
@@ -77,8 +78,12 @@ function KnowledgeBaseList({
     selectedBase,
     onSelectBase,
     onRefreshBases,
-    externalSearchQuery,
   });
+
+  // P1-3: 上报列表真实总数（与分页列表口径一致）
+  useEffect(() => {
+    onTotalChange?.(total);
+  }, [total, onTotalChange]);
 
   // ── 计算显示列表 ──
   const isSearchActive =
@@ -109,8 +114,11 @@ function KnowledgeBaseList({
     ab = isDark ? "bg-gray-700" : "bg-blue-50",
     bc = isDark ? "border-gray-700" : "border-gray-200";
 
+  // P1-2: 待编译面板收进抽屉，由标题栏按钮开关
+  const [showCompileDrawer, setShowCompileDrawer] = useState(false);
+
   return (
-    <div className={`flex flex-col h-full ${bg}`}>
+    <div className={`relative flex flex-col h-full ${bg}`}>
       {/* 标题栏 */}
       <div
         className={`flex items-center justify-between px-4 py-3 border-b ${bc}`}
@@ -152,6 +160,25 @@ function KnowledgeBaseList({
                 strokeLinejoin="round"
                 strokeWidth={2}
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+          </button>
+          <button
+            onClick={() => setShowCompileDrawer((v) => !v)}
+            className={`p-1 rounded ${showCompileDrawer ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600" : t2} hover:opacity-70`}
+            title="待处理文件（编译队列）"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
               />
             </svg>
           </button>
@@ -341,42 +368,33 @@ function KnowledgeBaseList({
                     className="w-3 h-3 rounded cursor-pointer accent-blue-500"
                   />
                 </div>
+                {/* P4: 文档项 2 行化 — 标题+来源 / 摘要+大小+日期；base/分类移入详情面板展示 */}
                 <div
                   className="flex-1 min-w-0 cursor-pointer"
                   onClick={() => onSelectFile(file)}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium truncate ${t1}`}>
-                        {file.title || "未命名文档"}
-                      </p>
-                      <p className={`text-xs ${t2} mt-0.5 line-clamp-1`}>
-                        {file.content?.slice(0, 80) || "无内容"}
-                      </p>
-                    </div>
+                  <div className="flex items-center justify-between gap-1">
+                    <p className={`text-sm font-medium truncate ${t1}`}>
+                      {file.title || "未命名文档"}
+                    </p>
                     {file.source && (
                       <span
-                        className={`flex-shrink-0 ml-2 px-1.5 py-0.5 rounded text-[10px] ${isDark ? "bg-gray-700 text-gray-400" : "bg-gray-100 text-gray-500"}`}
+                        className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] ${isDark ? "bg-gray-700 text-gray-400" : "bg-gray-100 text-gray-500"}`}
                       >
                         {sourceLabels[file.source] || file.source}
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 mt-1.5">
-                    <span className={`text-[10px] ${tm}`}>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className={`text-xs ${t2} truncate`}>
+                      {file.content?.slice(0, 60) || "无内容"}
+                    </p>
+                    <span className={`ml-auto shrink-0 text-[10px] ${tm}`}>
                       {formatFileSize(file.size)}
                     </span>
                     {file.updated_at > 0 && (
-                      <span className={`text-[10px] ${tm}`}>
+                      <span className={`shrink-0 text-[10px] ${tm}`}>
                         {formatDate(file.updated_at)}
-                      </span>
-                    )}
-                    {file.base && (
-                      <span className={`text-[10px] ${tm}`}>{file.base}</span>
-                    )}
-                    {file.category && (
-                      <span className={`text-[10px] ${tm}`}>
-                        分类: {file.category}
                       </span>
                     )}
                   </div>
@@ -438,11 +456,16 @@ function KnowledgeBaseList({
         onUploadComplete={loadFiles}
       />
 
-      {/* 待编译面板 — 底部折叠 */}
-      <PendingCompilePanel
-        isDark={isDark}
-        onCompileComplete={() => loadFiles()}
-      />
+      {/* 待编译面板 — 收进抽屉，由标题栏按钮开关（P1-2 瘦身） */}
+      {showCompileDrawer && (
+        <div className="absolute inset-x-0 bottom-0 z-10">
+          <PendingCompilePanel
+            isDark={isDark}
+            onCompileComplete={() => loadFiles()}
+            onClose={() => setShowCompileDrawer(false)}
+          />
+        </div>
+      )}
 
       {/* 弹窗 */}
       {showBatchTagModal && (

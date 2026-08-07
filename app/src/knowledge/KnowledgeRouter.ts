@@ -72,6 +72,8 @@ interface WeightedDoc {
   source?: string;
   /** 域名称（从路径中解析，如 "domains/botany/wiki/doc.md" → "botany"） */
   domain?: string;
+  /** frontmatter tags（供标签过滤搜索使用） */
+  tags?: string[];
 }
 
 /** 混合搜索配置 */
@@ -107,11 +109,12 @@ interface IndexCacheEntry {
   isKnowledgeDoc: boolean;
   contentHash: string;
   domain?: string;
+  tags?: string[];
   tokens: string[];
 }
 
 interface IndexCache {
-  version: 1;
+  version: 2;
   docs: IndexCacheEntry[];
 }
 
@@ -225,6 +228,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
           isKnowledgeDoc,
           source: e.source,
           domain: domainMatch ? domainMatch[1] : undefined,
+          tags: e.tags,
         };
         this.docs.push(doc);
       }
@@ -273,6 +277,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
           .digest('hex')
           .slice(0, 16),
         domain: doc.domain,
+        tags: doc.tags,
         tokens,
       });
     }
@@ -296,7 +301,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
 
       const raw = await readFile(this.indexCachePath, 'utf-8');
       const cache: IndexCache = JSON.parse(raw);
-      if (cache.version !== 1 || !cache.docs?.length) return false;
+      if (cache.version !== 2 || !cache.docs?.length) return false;
 
       // 验证所有文档的 content hash 是否匹配
       const freshEntries = await this.buildProviderEntries();
@@ -320,6 +325,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
         content: '',
         isKnowledgeDoc: c.isKnowledgeDoc,
         domain: c.domain,
+        tags: c.tags,
       }));
       for (let i = 0; i < cache.docs.length; i++) {
         const c = cache.docs[i]!;
@@ -360,6 +366,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
           isKnowledgeDoc,
           source: e.source,
           domain: domainMatch ? domainMatch[1] : undefined,
+          tags: e.tags,
         });
       }
     }
@@ -373,7 +380,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
         await mkdir(cacheDir, { recursive: true });
       }
       const tmpPath = this.indexCachePath + '.tmp';
-      const cache: IndexCache = { version: 1, docs: entries };
+      const cache: IndexCache = { version: 2, docs: entries };
       await writeFile(tmpPath, JSON.stringify(cache), 'utf-8');
       const { rename } = await import('fs/promises');
       await rename(tmpPath, this.indexCachePath);
@@ -591,6 +598,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
           snippet: this.extractSnippet(doc.content, queryTokens),
           matchType: bestMatchType,
           isKnowledgeDoc: doc.isKnowledgeDoc,
+          tags: doc.tags,
         });
       }
     }
@@ -648,6 +656,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
           snippet: hit.entry.text.slice(0, 120),
           matchType: 'semantic' as const,
           isKnowledgeDoc: doc?.isKnowledgeDoc ?? true,
+          tags: doc?.tags,
           startLine: hit.entry.startLine,
           endLine: hit.entry.endLine,
           semanticScore: Math.round(hit.score * 100) / 100,
@@ -982,6 +991,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
               snippet: this.extractSnippet(doc.content, [entityLower]),
               matchType: 'semantic',
               isKnowledgeDoc: doc.isKnowledgeDoc,
+              tags: doc.tags,
             });
           }
         }

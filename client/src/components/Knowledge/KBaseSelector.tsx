@@ -40,7 +40,8 @@ function KBaseSelector({
 
   return (
     <div className="px-4 py-2">
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      {/* P4: 知识库 pills 允许换行（flex-wrap），避免全部挤压在单行横向滚动 */}
+      <div className="flex flex-wrap gap-1.5">
         <button
           onClick={() => onSelectBase(null)}
           className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${

@@ -263,7 +263,10 @@
 | POST | `/v1/knowledge/upload` | ✅ | 无前端调用方 |
 | POST | `/v1/knowledge/compile` | ✅ | 无前端调用方 |
 | GET | `/v1/knowledge/raw-files` | ✅ | 无前端调用方 |
-| PUT | `/v1/knowledge/docs` | ✅ | 无前端调用方 |
+| PUT | `/v1/knowledge/docs` | ✅ | `knowledgeService.updateDoc`（支持 `{ base }` 移动目录，2026-08-07 P2-4） |
+| POST | `/v1/knowledge/trash` | ✅ | `knowledgeService.trash` |
+| POST | `/v1/knowledge/restore` | ✅ | `knowledgeService.restoreSnapshot`（返回 `{ restored, content }`，2026-08-07 P2-5） |
+| POST | `/v1/knowledge/restore-trash` | ✅ | `knowledgeService.restoreTrash` |
 | POST | `/v1/knowledge/export-to-notebook` | ✅ | 无前端调用方 |
 | POST | `/v1/knowledge/import-from-file` | ✅ | 无前端调用方 |
 | POST | `/v1/knowledge/batch-delete` | ✅ | 无前端调用方 |
@@ -596,6 +599,10 @@ data: {"type":"done","result":{...}}
 | | `createBase` | `POST /v1/knowledge/bases` | `create_knowledge_base` | ❌ |
 | | `updateBase` | `PUT /v1/knowledge/bases/{name}` | `update_knowledge_base` | ❌ |
 | | `deleteBase` | `DELETE /v1/knowledge/bases/{name}` | `delete_knowledge_base` | ❌ |
+| | `updateDoc` | `PUT /v1/knowledge/docs` | — | ✅ (2026-08-07 P2-4 支持 base 移动) |
+| | `trash` | `POST /v1/knowledge/trash` | — | ✅ (2026-08-07) |
+| | `restoreSnapshot` | `POST /v1/knowledge/restore` | — | ✅ (2026-08-07 P2-5) |
+| | `restoreTrash` | `POST /v1/knowledge/restore-trash` | — | ✅ (2026-08-07) |
 | | `cloneBase` | `POST /v1/knowledge/bases/{name}/clone` | — | ✅ (v8.0 新增) |
 | | `duplicateBase` | `POST /v1/knowledge/bases/{name}/duplicate` | — | ✅ (v8.0 新增) |
 | | `listFAQ` | `GET /v1/knowledge/{base}/faq` | — | ✅ (v8.0 新增) |

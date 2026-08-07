@@ -125,6 +125,14 @@ export {
   PermissionPolicyManager,
 } from './PermissionPolicies';
 
+// 工具执行审批链路（P0-3/P0-6）：已批准命令放行缓存
+export {
+  ApprovedCommandRegistry,
+  getApprovedCommandRegistry,
+  normalizeCommand,
+  hashCommand,
+} from './ApprovedCommandRegistry';
+
 // Risk classification (Phase 3: OpenWorker-style)
 export {
   RiskClass,

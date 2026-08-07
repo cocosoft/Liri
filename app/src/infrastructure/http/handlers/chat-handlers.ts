@@ -361,11 +361,18 @@ async function handleStreamingChat(
       toolCallId?: string;
       resultData?: unknown;
     };
+    const rd = d.resultData as
+      | { pendingApproval?: boolean }
+      | undefined;
+    const isApprovalPending =
+      rd?.pendingApproval === true;
     if (
       d.toolName === 'image_generate' ||
       d.toolName === 'image_display' ||
       d.toolName === 'video_display' ||
-      d.toolName === 'audio_play'
+      d.toolName === 'audio_play' ||
+      // P2-2: 工具审批等待态信号（ask 决策）→ 前端渲染"⏳ 等待审批"
+      isApprovalPending
     ) {
       // P1-2: 检查客户端是否断开，避免 EPIPE
       if (res.destroyed || res.writableEnded) return;

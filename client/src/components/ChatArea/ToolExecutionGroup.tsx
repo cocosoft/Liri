@@ -49,6 +49,12 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
   }, [blocks]);
 
   const status = useMemo(() => {
+    // P2-2: 审批等待态优先（结构化标记，非字符串匹配）
+    for (const block of blocks) {
+      if (block.type === "tool_call" && block.toolCall?.pendingApproval) {
+        return "pending_approval";
+      }
+    }
     // 优先使用 tool_call 块自带的状态字段
     for (const block of blocks) {
       if (block.type === "tool_call" && block.toolCall?.status) {
@@ -67,6 +73,12 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
           icon: "\u{2705}",
           label: t("chat.completed"),
           color: "#9ece6a",
+        };
+      case "pending_approval":
+        return {
+          icon: "\u{23F3}",
+          label: t("chat.pendingApproval"),
+          color: "#e6c384",
         };
       case "failed":
         return { icon: "\u{274C}", label: t("chat.failed"), color: "#f7768e" };

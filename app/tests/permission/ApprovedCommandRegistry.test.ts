@@ -1,0 +1,115 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+/**
+ * 工具执行审批链路 P2-3 — ApprovedCommandRegistry 单元测试
+ *
+ * 覆盖：
+ * - approve/isApproved 命中
+ * - session 隔离（跨会话不共享）
+ * - hash 精确匹配（规范化后等价命令命中，实质变化不命中）
+ * - TTL 过期（超时后不再放行）
+ * - cleanup / clearSession / dispose
+ */
+import { describe, it, expect, afterEach } from 'bun:test';
+import {
+  ApprovedCommandRegistry,
+  normalizeCommand,
+  hashCommand,
+} from '../../src/permission/ApprovedCommandRegistry.js';
+
+describe('ApprovedCommandRegistry 放行缓存', () => {
+  afterEach(() => {
+    // 手动实例不残留定时器
+  });
+
+  it('approve 后 isApproved 命中（TTL 内）', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    const hash = hashCommand('rm -rf /tmp/abc');
+    reg.approve('session-1', hash);
+    expect(reg.isApproved('session-1', hash)).toBe(true);
+    reg.dispose();
+  });
+
+  it('未批准的命令 hash 不命中', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    const approved = hashCommand('rm -rf /tmp/abc');
+    const other = hashCommand('rm -rf /tmp/other');
+    reg.approve('session-1', approved);
+    expect(reg.isApproved('session-1', other)).toBe(false);
+    reg.dispose();
+  });
+
+  it('session 隔离：跨会话不共享放行', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    const hash = hashCommand('rm -rf /tmp/abc');
+    reg.approve('session-A', hash);
+    expect(reg.isApproved('session-A', hash)).toBe(true);
+    expect(reg.isApproved('session-B', hash)).toBe(false);
+    reg.dispose();
+  });
+
+  it('规范化等价命令命中（空白/大小写差异）', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    const hash = hashCommand('rm -rf /tmp/abc');
+    reg.approve('session-1', hash);
+    // 额外空白 + 大小写差异 → 规范化后相同（引号保留，统一为双引号）
+    expect(normalizeCommand('RM -RF   /TMP/ABC')).toBe(
+      normalizeCommand('rm -rf /tmp/abc')
+    );
+    expect(hashCommand('RM -RF   /TMP/ABC')).toBe(hash);
+    expect(reg.isApproved('session-1', hashCommand('RM -RF   /TMP/ABC'))).toBe(
+      true
+    );
+    reg.dispose();
+  });
+
+  it('命令实质变化不命中（防张冠李戴）', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    const hash = hashCommand('rm -rf /tmp/abc');
+    reg.approve('session-1', hash);
+    expect(
+      reg.isApproved('session-1', hashCommand('rm -rf /tmp/def'))
+    ).toBe(false);
+    reg.dispose();
+  });
+
+  it('TTL 过期后不再放行', async () => {
+    const reg = new ApprovedCommandRegistry(20, false); // 20ms TTL
+    const hash = hashCommand('rm -rf /tmp/abc');
+    reg.approve('session-1', hash);
+    expect(reg.isApproved('session-1', hash)).toBe(true);
+    await new Promise((r) => setTimeout(r, 40));
+    expect(reg.isApproved('session-1', hash)).toBe(false);
+    reg.dispose();
+  });
+
+  it('cleanup 清除过期条目，clearSession 清空会话', () => {
+    const reg = new ApprovedCommandRegistry(20, false);
+    const hash = hashCommand('rm -rf /tmp/abc');
+    reg.approve('session-1', hash);
+    reg.approve('session-2', hash);
+    reg.clearSession('session-1');
+    expect(reg.isApproved('session-1', hash)).toBe(false);
+    expect(reg.isApproved('session-2', hash)).toBe(true);
+    reg.dispose();
+  });
+});

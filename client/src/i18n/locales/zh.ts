@@ -191,6 +191,7 @@ const zh = {
     running: "运行中",
     completed: "已完成",
     failed: "失败",
+    pendingApproval: "等待审批",
     editMessage: "编辑消息",
     copyMessage: "复制消息",
     regenerate: "重新生成",

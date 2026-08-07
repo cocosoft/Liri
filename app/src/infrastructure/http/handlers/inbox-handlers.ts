@@ -21,6 +21,7 @@ import {
   type InboxItemStatus,
   type InboxItemType,
 } from '@modules/runtime/InboxManager.js';
+import { getApprovedCommandRegistry } from '@modules/permission/ApprovedCommandRegistry';
 
 const logger = new Logger({ module: 'http:inbox' });
 
@@ -268,6 +269,26 @@ export async function handleReplyInbox(
             error: String(pdcaErr),
           });
         }
+      }
+    }
+
+    // ── 工具审批放行：permission source + approve → 写入已批准命令放行缓存（P0-3）──
+    // ChatManager 提交审批时在 metadata 记录 commandHash；批准后 BashTool 执行前
+    // 命中缓存（session 隔离 + 60s TTL）跳过安全拦截层，AI 重发同一命令即可放行。
+    if (
+      current.type === 'approval' &&
+      current.source === 'permission' &&
+      (reply === 'approve' || selectedOption === 'approve')
+    ) {
+      const commandHash = current.metadata?.commandHash as
+        | string
+        | undefined;
+      if (commandHash && current.sessionId) {
+        getApprovedCommandRegistry().approve(current.sessionId, commandHash);
+        logger.info('工具审批已批准，写入命令放行缓存', {
+          sessionId: current.sessionId,
+          commandHash,
+        });
       }
     }
 

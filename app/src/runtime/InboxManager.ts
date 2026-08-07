@@ -59,9 +59,27 @@ export interface InboxItem {
 export class InboxManager {
   private db: Database | null = null;
   private dbPath: string;
+  private expireTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(dbPath?: string) {
     this.dbPath = dbPath ?? resolveDbPath();
+  }
+
+  /**
+   * 启动审批过期调度（P2-1 工具执行审批链路）
+   * 定期把超过 TTL 的 pending 审批置为 expired；前端展示"已超时过期"，reply 被拒。
+   */
+  startExpireScheduler(
+    ttlMs: number = 5 * 60 * 1000,
+    intervalMs: number = 2 * 60 * 1000
+  ): void {
+    if (this.expireTimer) return;
+    this.expireTimer = setInterval(() => {
+      this.expireOlderThan(ttlMs).catch((err) => {
+        logger.warn('审批过期清理失败', { error: String(err) });
+      });
+    }, intervalMs);
+    this.expireTimer.unref?.();
   }
 
   private async getDb(): Promise<Database> {
@@ -888,6 +906,9 @@ async function _injectInboxBlock(
 }
 
 export const inboxManager = new InboxManager();
+
+// P2-1: 审批过期调度 —— 启动后定期把超时 pending 审批置 expired
+inboxManager.startExpireScheduler();
 
 // Re-export unattended mode for convenience
 export { unattendedMode } from './UnattendedModeManager.js';

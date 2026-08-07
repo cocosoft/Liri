@@ -193,6 +193,7 @@ const en = {
     running: "Running",
     completed: "Completed",
     failed: "Failed",
+    pendingApproval: "Awaiting Approval",
     editMessage: "Edit Message",
     copyMessage: "Copy Message",
     regenerate: "Regenerate",

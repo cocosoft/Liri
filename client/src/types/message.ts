@@ -161,6 +161,8 @@ export interface ToolCall {
   arguments: Record<string, unknown>;
   result?: unknown;
   status?: "running" | "completed" | "failed";
+  /** P2-2: 工具审批等待态标记（ask 决策），区别于失败（结构化信号，非字符串匹配） */
+  pendingApproval?: boolean;
   /** 标记 result 为截断摘要，全量结果通过 getToolResultFull(id) 获取 */
   _hasFullResult?: boolean;
 }

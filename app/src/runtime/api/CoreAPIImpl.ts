@@ -50,6 +50,7 @@ import type {
 } from '@modules/tools/converter/engine/types';
 import { getConverterEngine } from '@modules/tools/converter/engine/ConverterEngine';
 import { FileTypeDetector } from '@modules/tools/converter/engine/FileTypeDetector';
+import { createPermissionManager } from '@modules/permission/PermissionManager';
 import type { ChatManager } from '@modules/chat/ChatManager';
 import { createChatManager } from '@modules/chat/ChatManager';
 import type { SessionManager } from '@modules/chat/types/session';
@@ -295,6 +296,8 @@ export class CoreAPIImpl implements CoreAPI {
       if (registry) {
         this.chatManager.setToolRegistry(registry);
       }
+      // P0-1: 装配权限管理器 —— 激活 ChatManager 工具执行点权限检查（工具执行审批链路）
+      this.chatManager.setPermissionManager(createPermissionManager());
 
       await this.chatManager.initialize();
 

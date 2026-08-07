@@ -221,6 +221,11 @@ export class ChronologicalBlockBuilder {
         arguments: mergedArgs,
         status: toolCall.status || ("completed" as const),
         result: toolCall.result || existingResult,
+        // P2-2: 审批等待信号可能先于 tool_call 块到达（tool_completed → pendingResults）
+        pendingApproval:
+          existing.toolCall?.pendingApproval ||
+          toolCall.pendingApproval ||
+          pendingResult?.pendingApproval === true,
       };
       existing.isStreaming = toolCall.status === "running";
       if (toolCall.status !== "running") {
@@ -237,7 +242,11 @@ export class ChronologicalBlockBuilder {
     } else {
       // 若存在待处理结果，直接注入到新创建的 toolCall 中
       const toolCallWithResult = pendingResult
-        ? { ...toolCall, result: { success: true, data: pendingResult } }
+        ? {
+            ...toolCall,
+            result: { success: true, data: pendingResult },
+            pendingApproval: pendingResult.pendingApproval === true,
+          }
         : toolCall;
       this.blocks.push({
         id: generateBlockId(),
@@ -281,6 +290,10 @@ export class ChronologicalBlockBuilder {
     );
     if (block && block.toolCall) {
       block.toolCall.result = { success: true, data: resultData };
+      // P2-2: 结构化审批等待信号 → 置 pendingApproval 标记（CS02：状态判断用持久化标记，非字符串匹配）
+      if (resultData.pendingApproval === true) {
+        block.toolCall.pendingApproval = true;
+      }
       block.isStreaming = false;
     } else {
       // tool_completed 先于 tool_call 块到达，暂存结果等待块创建后应用

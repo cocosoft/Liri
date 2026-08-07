@@ -149,11 +149,20 @@ function ToolCallGroup({
 
   const statusIcon = isStreaming
     ? "\u23F3"
-    : toolCall.status === "completed"
-      ? "\u2705"
-      : toolCall.status === "failed"
-        ? "\u274C"
-        : "\u{1F527}";
+    : toolCall.pendingApproval
+      ? "\u23F3"
+      : toolCall.status === "completed"
+        ? "\u2705"
+        : toolCall.status === "failed"
+          ? "\u274C"
+          : "\u{1F527}";
+
+  /** P2-2: 审批等待态徽标（区别于失败红色） */
+  const pendingBadge = toolCall.pendingApproval ? (
+    <span className="shrink-0 rounded bg-amber-400/20 px-1 py-0.5 text-[10px] text-amber-300">
+      ⏳ {t("chat.pendingApproval")}
+    </span>
+  ) : null;
 
   const humanSummary = getToolHumanSummary(toolCall);
   const displayName = getToolDisplayName(toolCall.name);
@@ -250,6 +259,7 @@ function ToolCallGroup({
           }}
         >
           <span className="shrink-0">{statusIcon}</span>
+          {pendingBadge}
           <span className="min-w-0 truncate">
             {humanSummary || displayName}
           </span>
@@ -281,6 +291,7 @@ function ToolCallGroup({
         style={{ background: "rgba(128, 128, 128, 0.05)", border: "none" }}
       >
         <span>{statusIcon}</span>
+        {pendingBadge}
         <span className="flex-1 font-medium text-gray-200 overflow-hidden text-ellipsis whitespace-nowrap min-w-0">
           {displayName}
         </span>

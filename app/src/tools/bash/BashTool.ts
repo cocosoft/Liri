@@ -33,6 +33,12 @@ import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { SandboxSecurityChecker } from '@modules/sandbox/SandboxSecurityChecker';
 import { completeSecuritySystem } from '@modules/security';
+// 工具执行审批链路（P0-4）：已批准命令放行缓存
+import {
+  ApprovedCommandRegistry,
+  getApprovedCommandRegistry,
+  hashCommand,
+} from '@modules/permission/ApprovedCommandRegistry';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -277,8 +283,12 @@ export class BashTool extends BaseTool {
 
   private securityAnalyzer: BashSecurityAnalyzer;
 
-  constructor() {
+  /** 已批准命令放行缓存（P0-4）：危险命令经审批批准后跳过安全拦截 */
+  private approvedRegistry: ApprovedCommandRegistry;
+
+  constructor(approvedRegistry: ApprovedCommandRegistry = getApprovedCommandRegistry()) {
     super();
+    this.approvedRegistry = approvedRegistry;
 
     // 动态参数描述
     const commandParamDesc = this.isWindows
@@ -376,6 +386,14 @@ export class BashTool extends BaseTool {
         data: createBashProgress('', '', undefined, true, false),
       });
 
+      // P0-4: 已批准命令放行通道 —— 用户审批批准的危险命令跳过全部安全拦截层
+      // （保留 Zod 输入校验 L333 + Windows 预处理 L351 + 审计日志，见下）
+      const isApproved = this.approvedRegistry.isApproved(
+        context.sessionId || '',
+        hashCommand(command)
+      );
+
+      if (!isApproved) {
       // 安全审计修复：安全检查强制运行，不可绕过
       // BUG08 修复：增强路径提取，支持 UNC、空格、--path= 形式
       const pathMatch = command.match(
@@ -513,6 +531,7 @@ export class BashTool extends BaseTool {
           metadata: { securityIntercepted: true, reason: 'sandbox_checker' },
         });
       }
+      } // 结束 !isApproved 安全拦截层（P0-4：已批准命令跳过）
 
       // F5 修复：操作审计日志
       completeSecuritySystem.auditAction({

@@ -46,7 +46,11 @@ const ACTION_STYLE: Record<
   },
 };
 
-export default function InboxBlock({ data, onResolved }: Props) {
+export default function InboxBlock({
+  data,
+  sessionId,
+  onResolved,
+}: Props) {
   const [status, setStatus] = useState(data.status);
   const [replying, setReplying] = useState(false);
   const addToast = useToastStore((s) => s.addToast);
@@ -61,11 +65,25 @@ export default function InboxBlock({ data, onResolved }: Props) {
       });
       if (res.ok) {
         setStatus("replied");
-        addToast(
-          "success",
-          `已${reply === "approve" ? "批准" : reply === "reject" ? "拒绝" : "回复"}`,
-        );
+        const label =
+          reply === "approve" ? "批准" : reply === "reject" ? "拒绝" : "回复";
+        addToast("success", `已${label}`);
         onResolved?.();
+
+        // P0-5: 批准后触发 LLM 重新发起 —— 向当前会话发送结构化批准消息，
+        // 经既有 sendMessage 触发新一轮生成，AI 收到批准信号后重新发起工具调用。
+        if (reply === "approve" && sessionId) {
+          try {
+            const { useChatStore } = await import("../../stores/chat");
+            const send = useChatStore.getState().sendMessage;
+            await send(
+              `[审批已批准] ${data.title}\n${data.content || ""}\n我已批准该操作，请继续执行。`,
+              sessionId,
+            );
+          } catch {
+            // 触发续跑失败不阻塞审批状态（用户可手动继续对话）
+          }
+        }
       } else {
         addToast("error", String(res.error || "操作失败"));
       }

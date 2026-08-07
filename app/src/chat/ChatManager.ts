@@ -5415,13 +5415,17 @@ ${llmPhaseSummary}`;
       };
     }
 
-    // 检查工具权限
+    // 检查工具权限（P0-2 三态化：allow 执行 / ask 提交审批卡片 / deny 拦截）
     if (this.permissionManager) {
       const pm = this.permissionManager as {
         checkPermissionForTool: (
           name: string,
           args: Record<string, unknown>
-        ) => Promise<{ allowed: boolean; reason?: string }>;
+        ) => Promise<{
+          allowed: boolean;
+          reason?: string;
+          decision?: { behavior: string; reason?: string };
+        }>;
       };
       const permissionResult = await pm.checkPermissionForTool(
         normalizedToolCall.name,
@@ -5429,12 +5433,62 @@ ${llmPhaseSummary}`;
       );
 
       if (!permissionResult.allowed) {
-        return {
-          toolCallId: toolCall.id,
-          toolName: normalizedToolCall.name,
-          result: null,
-          error: `Permission denied: ${permissionResult.reason || 'Tool execution not allowed'}`,
-        };
+        // ask 决策（评审：decision.behavior === 'ask'）→ 提交会话内审批卡片
+        if (permissionResult.decision?.behavior === 'ask') {
+          // P0-6: 已批准命令命中放行缓存（session+hash 精确匹配）→ 跳过 ask 直接执行，
+          // 避免批准后 LLM 重发同一命令时重复弹审批卡片（评审缺口 G 闭环）
+          const approvedHit = await this._isCommandApproved(
+            normalizedToolCall.name,
+            normalizedToolCall.arguments,
+            toolCall.sessionId
+          );
+          if (!approvedHit) {
+            const submitted = await this._submitToolApproval(
+              normalizedToolCall.name,
+              normalizedToolCall.arguments,
+              toolCall.sessionId,
+              toolCall.id
+            );
+            if (submitted) {
+              // 非失败语义：SSE 流不标记 error，前端据此渲染"⏳ 等待审批"
+              const approvalResult = {
+                status: 'awaiting_approval',
+                message: `工具 '${normalizedToolCall.name}' 需要审批，已提交审批卡片等待用户批准。用户批准后可继续执行，请勿编造替代方案。`,
+                pendingApproval: true,
+              } as const;
+              // P2-2: 通过 tool:completed 事件把 pendingApproval 信号传给前端
+              // （CoreAPIImpl 缓存进 tool_call 块 result，chat-handlers 转发 tool_completed SSE chunk）
+              eventNotificationService.emitCustomEvent('tool:completed', {
+                toolName: normalizedToolCall.name,
+                sessionId: toolCall.sessionId,
+                toolCallId: toolCall.id,
+                resultData: approvalResult,
+              });
+              return {
+                toolCallId: toolCall.id,
+                toolName: normalizedToolCall.name,
+                result: approvalResult,
+                error: undefined,
+              };
+            }
+            // Inbox 不可用降级：返回普通 ask 文本（P1-3）
+            return {
+              toolCallId: toolCall.id,
+              toolName: normalizedToolCall.name,
+              result: null,
+              error: `需要用户确认: ${permissionResult.reason || 'Tool requires approval'}`,
+            };
+          }
+          // approvedHit：视为已授权，继续向下执行
+        } else {
+          // deny → 拦截
+          return {
+            toolCallId: toolCall.id,
+            toolName: normalizedToolCall.name,
+            result: null,
+            error: `Permission denied: ${permissionResult.reason || 'Tool execution not allowed'}`,
+          };
+        }
       }
     }
 
@@ -5617,6 +5671,9 @@ ${llmPhaseSummary}`;
             error?: string;
             metadata?: { error?: string };
             output?: string;
+            status?: string;
+            requireApproval?: boolean;
+            approvalReason?: string;
           }>;
         };
         const toolResult = await registry.executeTool(
@@ -5626,6 +5683,55 @@ ${llmPhaseSummary}`;
           },
           context
         );
+
+        // P1-1: 工具返回"需要审批"结果（如 media:delete 删除文件、knowledge:write 覆盖）
+        // → 转会话内审批卡片，而非直接把"需审批"文本回喂 LLM
+        if (
+          (toolResult as { requireApproval?: boolean }).requireApproval ===
+            true ||
+          (toolResult as { status?: string }).status === 'requires_approval'
+        ) {
+          const approvalReason = (
+            toolResult as { approvalReason?: string }
+          ).approvalReason;
+          const submitted = await this._submitToolApproval(
+            normalizedToolCall.name,
+            normalizedToolCall.arguments,
+            toolCall.sessionId,
+            toolCall.id,
+            approvalReason
+          );
+          if (submitted) {
+            return {
+              toolCallId: toolCall.id,
+              toolName: normalizedToolCall.name,
+              result: {
+                status: 'awaiting_approval',
+                message: `工具 '${normalizedToolCall.name}' 需要审批（${
+                  approvalReason || '高风险操作'
+                }），已提交审批卡片等待用户批准。用户批准后可继续执行，请勿编造替代方案。`,
+                pendingApproval: true,
+              },
+              error: undefined,
+            };
+          }
+          // Inbox 不可用降级：返回工具原始"需审批"结果文本
+          const rawError =
+            typeof toolResult.error === 'string'
+              ? toolResult.error
+              : toolResult.metadata?.error
+                ? String(toolResult.metadata.error)
+                : undefined;
+          return {
+            toolCallId: toolCall.id,
+            toolName: normalizedToolCall.name,
+            result:
+              (toolResult as { output?: string }).output ||
+              toolResult.data ||
+              toolResult.result,
+            error: rawError,
+          };
+        }
 
         // 检查工具执行结果是否包含错误
         let error: string | undefined;
@@ -5740,6 +5846,96 @@ ${llmPhaseSummary}`;
         ErrorSeverity.HIGH,
         '1000'
       );
+    }
+  }
+
+  /**
+   * 检查命令是否已批准放行（P0-6 放行缓存）
+   *
+   * 命中 ApprovedCommandRegistry（session 隔离 + 规范化 hash 精确匹配）视为已授权，
+   * 仅对命令类工具生效（bash/shell/command）。批准后 LLM 重发同一命令时跳过 ask，
+   * 避免重复弹审批卡片。
+   */
+  private async _isCommandApproved(
+    toolName: string,
+    input: Record<string, unknown>,
+    sessionId: string | undefined
+  ): Promise<boolean> {
+    try {
+      if (toolName !== 'bash' && toolName !== 'shell' && toolName !== 'command') {
+        return false;
+      }
+      const command = typeof input.command === 'string' ? input.command : '';
+      if (!command || !sessionId) return false;
+      const { getApprovedCommandRegistry, hashCommand } = await import(
+        '@modules/permission'
+      );
+      return getApprovedCommandRegistry().isApproved(
+        sessionId,
+        hashCommand(command)
+      );
+    } catch {
+      // registry 不可用时按未批准处理，不影响安全底线（ask 仍会提交卡片）
+      return false;
+    }
+  }
+
+  /**
+   * 提交工具审批卡片到 Inbox（P0-2 工具执行审批链路）
+   *
+   * ask 决策 → 会话内审批卡片（InboxBlock）→ 用户批准后：
+   * - inbox-handlers 将 metadata.commandHash 写入 ApprovedCommandRegistry（放行缓存）
+   * - 前端 InboxBlock 向会话发送批准消息，触发 LLM 重新发起
+   *
+   * @returns 是否提交成功（Inbox 不可用时降级为 false，上层返回普通 ask 文本）
+   */
+  private async _submitToolApproval(
+    toolName: string,
+    input: Record<string, unknown>,
+    sessionId: string | undefined,
+    toolCallId: string,
+    approvalReason?: string
+  ): Promise<boolean> {
+    try {
+      const { inboxManager } = await import(
+        '@modules/runtime/InboxManager.js'
+      );
+      const { hashCommand } = await import('@modules/permission');
+      const command = typeof input.command === 'string' ? input.command : '';
+      const sid = sessionId || 'default';
+      await inboxManager.submit(
+        {
+          sessionId: sid,
+          type: 'approval',
+          title: `工具审批: ${toolName}`,
+          message:
+            (approvalReason ? `${approvalReason}\n` : '') +
+            `工具 '${toolName}' 请求执行（需人工确认）\n${
+              command
+                ? `命令: ${command}`
+                : `参数: ${JSON.stringify(input).slice(0, 300)}`
+            }`,
+          options: ['approve', 'deny'],
+          offlineCapable: true,
+          source: 'permission',
+          metadata: {
+            toolName,
+            sessionId: sid,
+            toolCallId,
+            commandHash: command ? hashCommand(command) : undefined,
+            inputPreview: JSON.stringify(input).slice(0, 300),
+          },
+        },
+        sid
+      );
+      return true;
+    } catch (err) {
+      // P1-3：Inbox 提交失败降级为普通 ask 文本，不静默
+      logger.warn('工具审批提交失败，降级为 ask 文本', {
+        toolName,
+        error: String(err),
+      });
+      return false;
     }
   }
 

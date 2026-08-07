@@ -68,7 +68,13 @@ const logger = new Logger({ module: 'ai:baseProvider', level: LogLevel.INFO });
  */
 const streamReadState = new WeakMap<
   ReadableStreamDefaultReader<Uint8Array>,
-  { chunkCount: number; lastChunkAt: number; startedAt: number }
+  {
+    chunkCount: number;
+    lastChunkAt: number;
+    startedAt: number;
+    /** 最近一块与上一块的间隔（ms），排查"是否有数据但极慢"与"完全挂起"的差异 */
+    lastIntervalMs: number;
+  }
 >();
 
 /** TaskType → RouteKey 映射，用于 resolveModel 中的任务类型路由 */
@@ -598,12 +604,24 @@ export abstract class BaseAIProvider implements AIProvider {
     // 每次流式调用共享的读取诊断状态（按 reader 隔离）
     let state = streamReadState.get(reader);
     if (!state) {
-      state = { chunkCount: 0, lastChunkAt: Date.now(), startedAt: Date.now() };
+      state = {
+        chunkCount: 0,
+        lastChunkAt: Date.now(),
+        startedAt: Date.now(),
+        lastIntervalMs: 0,
+      };
       streamReadState.set(reader, state);
     }
     state.chunkCount++;
 
     try {
+      // 每次读取前的"等待"标记：排查挂起时可确认最后一次 read() 已发出但未返回
+      logger.debug(`[${this.id}] 流式读取等待第 ${state.chunkCount} 块`, {
+        chunkIndex: state.chunkCount,
+        elapsedMs: Date.now() - state.startedAt,
+        lastChunkAt: new Date(state.lastChunkAt).toISOString(),
+      });
+
       // 每轮新建无数据超时计时器。关键：reader.read() 先返回（流活跃）时
       // 必须 clearTimeout —— 否则 timer 在 60s 后到期，对已 settle 的 race
       // 里的 promise 执行 reject，无人消费 → unhandledRejection。
@@ -619,6 +637,9 @@ export abstract class BaseAIProvider implements AIProvider {
               idleMs,
               chunkCount: state.chunkCount,
               totalMs: Date.now() - state.startedAt,
+              lastIntervalMs: state.lastIntervalMs,
+              lastChunkAt: new Date(state.lastChunkAt).toISOString(),
+              awaitingFirstChunk: state.chunkCount === 1,
             }
           );
           reject(
@@ -642,13 +663,17 @@ export abstract class BaseAIProvider implements AIProvider {
         logger.debug(`[${this.id}] 流式读取结束`, {
           chunkCount: state.chunkCount,
           totalMs: Date.now() - state.startedAt,
+          lastIntervalMs: state.lastIntervalMs,
         });
         streamReadState.delete(reader);
       } else {
-        state.lastChunkAt = Date.now();
+        const now = Date.now();
+        state.lastIntervalMs = now - state.lastChunkAt;
+        state.lastChunkAt = now;
         logger.debug(`[${this.id}] 流式读取到块`, {
           chunkIndex: state.chunkCount,
           bytes: result.value?.length ?? 0,
+          intervalMs: state.lastIntervalMs,
         });
       }
       return { done: result.done, value: result.value };
@@ -666,6 +691,8 @@ export abstract class BaseAIProvider implements AIProvider {
         error: err instanceof Error ? err.message : String(err),
         chunkCount: state.chunkCount,
         totalMs: Date.now() - state.startedAt,
+        lastIntervalMs: state.lastIntervalMs,
+        lastChunkAt: new Date(state.lastChunkAt).toISOString(),
       });
       streamReadState.delete(reader);
       throw err;
@@ -698,6 +725,13 @@ export abstract class BaseAIProvider implements AIProvider {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    const streamStartedAt = Date.now();
+
+    // 排查流式挂起：记录流开始（id/format/无数据超时配置）
+    logger.info(`[${this.id}] 流式读取开始`, {
+      format,
+      timeoutMs: 60_000, // readStreamChunkWithTimeout 默认无数据超时
+    });
 
     try {
       while (true) {
@@ -736,6 +770,9 @@ export abstract class BaseAIProvider implements AIProvider {
           }
         }
       }
+      logger.debug(`[${this.id}] 流式读取完成`, {
+        totalMs: Date.now() - streamStartedAt,
+      });
     } finally {
       reader.releaseLock();
     }

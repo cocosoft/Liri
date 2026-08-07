@@ -604,28 +604,39 @@ export abstract class BaseAIProvider implements AIProvider {
     state.chunkCount++;
 
     try {
+      // 每轮新建无数据超时计时器。关键：reader.read() 先返回（流活跃）时
+      // 必须 clearTimeout —— 否则 timer 在 60s 后到期，对已 settle 的 race
+      // 里的 promise 执行 reject，无人消费 → unhandledRejection。
+      // 修复前：流总时长 >60s 时（长回复/thinking），首个 timer 必误触发。
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          const idleMs = Date.now() - state.lastChunkAt;
+          logger.warn(
+            `[${this.id}] 流式读取超时（${timeoutMs / 1000}s 无数据）`,
+            {
+              timeoutMs,
+              idleMs,
+              chunkCount: state.chunkCount,
+              totalMs: Date.now() - state.startedAt,
+            }
+          );
+          reject(
+            new Error(
+              `${this.id} stream: ${timeoutMs / 1000}s 无数据，连接可能挂起`
+            )
+          );
+        }, timeoutMs);
+      });
+      // 双保险：极端时序下（clearTimeout 未生效）该 promise 的孤儿 rejection
+      // 不应触发全局 unhandledRejection；实际错误仍由 race 正常传递
+      timeoutPromise.catch(() => {});
+
       const result = (await Promise.race([
         reader.read(),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => {
-            const idleMs = Date.now() - state.lastChunkAt;
-            logger.warn(
-              `[${this.id}] 流式读取超时（${timeoutMs / 1000}s 无数据）`,
-              {
-                timeoutMs,
-                idleMs,
-                chunkCount: state.chunkCount,
-                totalMs: Date.now() - state.startedAt,
-              }
-            );
-            reject(
-              new Error(
-                `${this.id} stream: ${timeoutMs / 1000}s 无数据，连接可能挂起`
-              )
-            );
-          }, timeoutMs)
-        ),
+        timeoutPromise,
       ])) as ReadableStreamReadResult<Uint8Array>;
+      clearTimeout(timer);
 
       if (result.done) {
         logger.debug(`[${this.id}] 流式读取结束`, {

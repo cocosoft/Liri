@@ -327,8 +327,7 @@ export class PermissionChecker {
         | undefined;
 
       // P1-2: 命令类工具计算规范化 hash，供批准后写入 ApprovedCommandRegistry（放行缓存）
-      const command =
-        typeof input.command === 'string' ? input.command : '';
+      const command = typeof input.command === 'string' ? input.command : '';
       const isCommandTool =
         toolName === 'bash' || toolName === 'shell' || toolName === 'command';
       const commandHash =
@@ -339,7 +338,9 @@ export class PermissionChecker {
         type: 'approval',
         title: `工具审批: ${toolName}`,
         message: `工具 '${toolName}' 请求执行（风险等级: ${risk}）\n${
-          command ? `命令: ${command}` : `参数: ${JSON.stringify(input).slice(0, 300)}`
+          command
+            ? `命令: ${command}`
+            : `参数: ${JSON.stringify(input).slice(0, 300)}`
         }`,
         options:
           risk === RiskClass.EXTERNAL

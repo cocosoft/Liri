@@ -2,7 +2,11 @@
  * 权限管理器
  * 负责协调权限模式、权限检查器、拒绝跟踪器等组件，实现权限管理的核心逻辑
  */
-import { PermissionChecker, Tool, isInboxApprovalEnabled } from './PermissionChecker';
+import {
+  PermissionChecker,
+  Tool,
+  isInboxApprovalEnabled,
+} from './PermissionChecker';
 import { RuleManager, RuleContext } from './RuleManager';
 import { DenialTracker } from './trackers/DenialTracker';
 import { PermissionMode } from './PermissionMode';
@@ -1145,16 +1149,12 @@ export class PermissionManager {
       isInboxApprovalEnabled()
     ) {
       try {
-        const submittedDecision =
-          await this.permissionChecker.submitAskToInbox(
-            toolName,
-            input,
-            permissionContext
-          );
-        return this._checkPermissionForToolResult(
-          submittedDecision,
-          toolName
+        const submittedDecision = await this.permissionChecker.submitAskToInbox(
+          toolName,
+          input,
+          permissionContext
         );
+        return this._checkPermissionForToolResult(submittedDecision, toolName);
       } catch (err) {
         logger.warn('Failed to submit ask decision to Inbox', {
           toolName,

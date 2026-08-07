@@ -74,6 +74,8 @@ const streamReadState = new WeakMap<
     startedAt: number;
     /** 最近一块与上一块的间隔（ms），排查"是否有数据但极慢"与"完全挂起"的差异 */
     lastIntervalMs: number;
+    /** 当前轮 read 的连续无数据超时次数（读回数据即清零） */
+    strikes: number;
   }
 >();
 
@@ -599,7 +601,8 @@ export abstract class BaseAIProvider implements AIProvider {
    */
   protected async readStreamChunkWithTimeout(
     reader: ReadableStreamDefaultReader<Uint8Array>,
-    timeoutMs: number = 60_000
+    timeoutMs: number = 60_000,
+    timeoutRetries: number = 1
   ): Promise<{ done: boolean; value: Uint8Array | undefined }> {
     // 每次流式调用共享的读取诊断状态（按 reader 隔离）
     let state = streamReadState.get(reader);
@@ -609,6 +612,7 @@ export abstract class BaseAIProvider implements AIProvider {
         lastChunkAt: Date.now(),
         startedAt: Date.now(),
         lastIntervalMs: 0,
+        strikes: 0,
       };
       streamReadState.set(reader, state);
     }
@@ -628,26 +632,46 @@ export abstract class BaseAIProvider implements AIProvider {
       // 修复前：流总时长 >60s 时（长回复/thinking），首个 timer 必误触发。
       let timer: ReturnType<typeof setTimeout> | undefined;
       const timeoutPromise = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => {
-          const idleMs = Date.now() - state.lastChunkAt;
+        const failAfterExhausted = () => {
+          state.strikes++;
+          if (state.strikes > timeoutRetries) {
+            // 连续超时达到阈值：取消流并报错（真挂起）
+            const idleMs = Date.now() - state.lastChunkAt;
+            logger.warn(
+              `[${this.id}] 流式读取超时（${timeoutMs / 1000}s 无数据，已重试 ${timeoutRetries} 次）`,
+              {
+                timeoutMs,
+                idleMs,
+                chunkCount: state.chunkCount,
+                totalMs: Date.now() - state.startedAt,
+                lastIntervalMs: state.lastIntervalMs,
+                lastChunkAt: new Date(state.lastChunkAt).toISOString(),
+                awaitingFirstChunk: state.chunkCount === 1,
+              }
+            );
+            reject(
+              new Error(
+                `${this.id} stream: ${timeoutMs / 1000}s 无数据（重试 ${timeoutRetries} 次后仍无数据），连接可能挂起`
+              )
+            );
+            return;
+          }
+          // 首次超时：仅告警并继续等待（网络抖动/慢响应可恢复），即自动重试
           logger.warn(
-            `[${this.id}] 流式读取超时（${timeoutMs / 1000}s 无数据）`,
+            `[${this.id}] 流式读取超时（第 ${state.strikes}/${timeoutRetries + 1} 次，继续等待 ${timeoutMs / 1000}s）`,
             {
               timeoutMs,
-              idleMs,
+              strikes: state.strikes,
+              timeoutRetries,
               chunkCount: state.chunkCount,
               totalMs: Date.now() - state.startedAt,
               lastIntervalMs: state.lastIntervalMs,
               lastChunkAt: new Date(state.lastChunkAt).toISOString(),
-              awaitingFirstChunk: state.chunkCount === 1,
             }
           );
-          reject(
-            new Error(
-              `${this.id} stream: ${timeoutMs / 1000}s 无数据，连接可能挂起`
-            )
-          );
-        }, timeoutMs);
+          timer = setTimeout(failAfterExhausted, timeoutMs);
+        };
+        timer = setTimeout(failAfterExhausted, timeoutMs);
       });
       // 双保险：极端时序下（clearTimeout 未生效）该 promise 的孤儿 rejection
       // 不应触发全局 unhandledRejection；实际错误仍由 race 正常传递
@@ -670,6 +694,7 @@ export abstract class BaseAIProvider implements AIProvider {
         const now = Date.now();
         state.lastIntervalMs = now - state.lastChunkAt;
         state.lastChunkAt = now;
+        state.strikes = 0; // 读到数据即重置超时重试计数
         logger.debug(`[${this.id}] 流式读取到块`, {
           chunkIndex: state.chunkCount,
           bytes: result.value?.length ?? 0,

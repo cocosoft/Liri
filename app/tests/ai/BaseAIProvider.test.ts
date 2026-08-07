@@ -78,4 +78,37 @@ describe('BaseAIProvider.readStreamChunkWithTimeout', () => {
     expect(canceled).toBe(1);
     expect(unhandled).toHaveLength(0);
   });
+
+  it('首次无数据超时后流恢复（重试窗口内读到数据）不报错', async () => {
+    process.on('unhandledRejection', onUnhandled);
+    const provider = makeProvider();
+
+    let calls = 0;
+    let canceled = 0;
+    const reader = {
+      async read() {
+        calls++;
+        if (calls === 1) {
+          // 第一次调用挂起超过 timeout（20ms），模拟网络抖动/慢响应
+          await sleep(40);
+        }
+        return { done: false, value: new Uint8Array([1]) };
+      },
+      async cancel() {
+        canceled++;
+      },
+      releaseLock() {},
+    } as unknown as ReadableStreamDefaultReader<Uint8Array>;
+
+    // timeout=20ms, timeoutRetries=1：首次超时（20ms）后自动重试窗口内（40ms）读到数据
+    const r = await (provider as any).readStreamChunkWithTimeout(
+      reader,
+      20,
+      1
+    );
+    expect(r.done).toBe(false);
+    expect(calls).toBe(1); // 同一 read 挂起后恢复返回
+    expect(canceled).toBe(0); // 恢复后不应取消流
+    expect(unhandled).toHaveLength(0);
+  });
 });

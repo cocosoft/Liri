@@ -173,7 +173,7 @@ function buildHelpText(): string {
     '  /notebook create <name>                    - 创建新 Notebook',
     '  /notebook open <path>                      - 从 .ipynb 文件打开',
     '  /notebook save <id>                        - 保存 Notebook 到磁盘',
-    '  /notebook add-code <id> <code> [lang]      - 添加代码单元格',
+    '  /notebook add-code <id> <code> [--lang <lang>] - 添加代码单元格（语言默认 python）',
     '  /notebook add-md <id> <content>            - 添加 Markdown 单元格',
     '  /notebook execute <cellId>                 - 执行代码单元格',
     '  /notebook export <id> <format>             - 导出 (html|pdf|markdown)',
@@ -183,6 +183,7 @@ function buildHelpText(): string {
     '',
     'Options:',
     '  --json, -j   以 JSON 格式输出',
+    '  --lang <lang> add-code 指定代码语言（python|javascript|bash 等，默认 python）',
     '',
     'Supported Operations:',
     '  create     创建新的 Notebook 实例',
@@ -202,7 +203,7 @@ function buildHelpText(): string {
     'Examples:',
     '  /notebook create "数据分析"',
     '  /notebook open ./my_notebook.ipynb',
-    '  /notebook add-code <notebookId> "print(\\"hello\\")" python',
+    '  /notebook add-code <notebookId> "print(\\"hello\\")" --lang python',
     '  /notebook add-md <notebookId> "# Section 1\\nThis is markdown"',
     '  /notebook execute <cellId>',
     '  /notebook export <notebookId> markdown',
@@ -211,11 +212,11 @@ function buildHelpText(): string {
     '  /notebook read <notebookId>',
     '',
     'Scenarios:',
-    '  • 数据探索: create "EDA" → add-code <id> "import pandas as pd" python → add-md <id> "## 数据概况"',
+    '  • 数据探索: create "EDA" → add-code <id> "import pandas as pd" --lang python → add-md <id> "## 数据概况"',
     '  • 快速原型: open prototype.ipynb → execute <cellId> → 查看输出结果',
     '  • 报告生成: create "报告" → add-md <id> "# 分析结论" → export <id> html',
     '  • 批量执行: open notebook.ipynb → 按顺序 execute 各个代码单元格',
-    '  • 代码迁移: open legacy.ipynb → read → add-code <id> "重构代码" python → save <id>',
+    '  • 代码迁移: open legacy.ipynb → read → add-code <id> "重构代码" --lang python → save <id>',
     '',
     'Best Practices:',
     '  1. 创建后先用 add-md 添加说明单元格，再添加代码单元格',
@@ -236,7 +237,7 @@ function getPromptForCommand(): string {
     '  - create <name>: 创建新 Notebook',
     '  - open <path>: 从 .ipynb 文件加载',
     '  - save <id>: 保存到磁盘',
-    '  - add-code <id> <code> [lang]: 添加代码单元格',
+    '  - add-code <id> <code> [--lang <lang>]: 添加代码单元格',
     '  - add-md <id> <content>: 添加 Markdown 单元格',
     '  - execute <cellId>: 执行代码单元格（通过 REPL）',
     '  - export <id> <format>: 导出为 html/pdf/markdown',
@@ -344,23 +345,29 @@ export const notebookCommand: Command = {
 
         case 'add-code': {
           const id = parts[1];
-          const code = parts.slice(2).join(' ');
-          const langIndex = code.lastIndexOf(' ');
-          const language =
-            langIndex > 0 ? code.substring(langIndex + 1).trim() : 'python';
-          const codeContent =
-            langIndex > 0 ? code.substring(0, langIndex).trim() : code;
+          const rest = parts.slice(2);
+          // P2-3: 语言改为 --lang 显式参数，避免按最后一个空格猜语言导致代码含空格时误判
+          const langIdx = rest.indexOf('--lang');
+          let language = 'python';
+          let codeParts = rest;
+          if (langIdx !== -1 && rest[langIdx + 1]) {
+            language = rest[langIdx + 1]!;
+            codeParts = rest.filter(
+              (_, i) => i !== langIdx && i !== langIdx + 1
+            );
+          }
+          const code = codeParts.join(' ');
 
-          if (!id || !codeContent) {
+          if (!id || !code) {
             return {
               success: false,
               error:
-                '请指定 Notebook ID 和代码内容\n用法: /notebook add-code <id> <code> [language]',
+                '请指定 Notebook ID 和代码内容\n用法: /notebook add-code <id> <code> [--lang <language>]',
             };
           }
           result = await callAdapter('addCodeCell', {
             notebookId: id,
-            code: codeContent,
+            code,
             language,
           });
           break;

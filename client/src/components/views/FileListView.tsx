@@ -6,6 +6,8 @@ import type {
   FileSearchParams,
 } from "../../types";
 import SearchInput from "../common/SearchInput";
+import NotebookPreviewModal from "./NotebookPreviewModal";
+import { useConfigStore } from "../../stores/configStore";
 
 /**
  * 来源筛选选项配置
@@ -53,6 +55,13 @@ function FileListView() {
   const [selectedFile, setSelectedFile] = useState<FileRegistryRecord | null>(
     null,
   );
+  // P2-1: .ipynb 只读预览
+  const [previewNotebook, setPreviewNotebook] = useState<{
+    path: string;
+    name: string;
+  } | null>(null);
+
+  const isDark = useConfigStore((s) => s.config.theme === "dark");
 
   /** 执行搜索 */
   const doSearch = useCallback(() => {
@@ -364,6 +373,20 @@ function FileListView() {
                         )}
                       </div>
                       <div className="flex gap-2 mt-3">
+                        {record.originalName.endsWith(".ipynb") && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewNotebook({
+                                path: record.savedPath,
+                                name: record.originalName,
+                              });
+                            }}
+                            className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+                          >
+                            预览
+                          </button>
+                        )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -413,6 +436,16 @@ function FileListView() {
           </>
         )}
       </div>
+
+      {/* P2-1: .ipynb 只读预览弹窗 */}
+      {previewNotebook && (
+        <NotebookPreviewModal
+          filePath={previewNotebook.path}
+          fileName={previewNotebook.name}
+          isDark={isDark}
+          onClose={() => setPreviewNotebook(null)}
+        />
+      )}
     </div>
   );
 }

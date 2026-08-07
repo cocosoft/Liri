@@ -112,8 +112,9 @@ export function getBuiltinToolLoaders(): ToolLoader[] {
     createToolLoader(ToolFactory.prototype.createVideoGenerateTool),
     createToolLoader(ToolFactory.prototype.createMusicTool),
 
-    // Notebook 编辑工具
-    createToolLoader(ToolFactory.prototype.createNotebookEditTool),
+    // P0-2: 删除无条件注册 createNotebookEditTool（与下方 conditionalTool(NOTEBOOK) 重复，
+    // 且无条件注册导致 NOTEBOOK=false 时 notebook 仍默认可用）；notebook 只保留一条条件注册
+    // Notebook 编辑工具：见下方 conditionalTool(coreFeature('NOTEBOOK'), createNotebookTool)
 
     // 通用工具
     createToolLoader(ToolFactory.prototype.createSleepTool),

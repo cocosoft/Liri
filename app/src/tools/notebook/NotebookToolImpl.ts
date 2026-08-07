@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Notebook工具实现
  */
 
@@ -14,7 +14,9 @@ import {
 import { notebookManager } from './NotebookManager.js';
 import { CodeCellImpl, MarkdownCellImpl } from './types/Cell.js';
 import { REPLToolImpl } from '../repl/REPLToolImpl.js';
-import { REPLSession } from '../repl/types/index.js';
+import { REPLSessionStatus } from '../repl/types/index.js';
+import type { REPLSession } from '../repl/types/index.js';
+import { replSessionManager } from '../repl/REPLSessionManager';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -27,8 +29,10 @@ const logger = new Logger({
  * Notebook工具实现
  */
 export class NotebookToolImpl implements NotebookTool {
+  /** P0-1: REPL 会话闲置回收阈值（10min 无执行即回收，防子进程常驻泄漏） */
+  private static readonly REPL_IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+
   private replTool: REPLToolImpl;
-  private replSessions: Map<string, REPLSession> = new Map();
 
   /**
    * 构造函数
@@ -94,21 +98,22 @@ export class NotebookToolImpl implements NotebookTool {
 
   /**
    * 执行单元格
-   * 注：按语言复用 REPL 会话，避免会话泄漏
+   * P0-1: 复用 replSessionManager 中的 RUNNING 会话（不再自维护 Map、不复用已 STOPPED 会话）；
+   *       每次执行前回收闲置超时会话，防止子进程常驻泄漏。
    */
   async executeCell(cell: CodeCell): Promise<CellExecutionResult> {
     const startTime = Date.now();
     cell.executionState = CellExecutionState.RUNNING;
 
     try {
-      // 按语言复用 REPL 会话，避免每次创建新会话导致泄漏
-      const sessionId = `session-${cell.language}`;
-      let session = this.replSessions.get(sessionId);
+      // P0-1: 惰性回收闲置超时的 REPL 会话
+      this.recycleIdleReplSessions();
 
-      if (!session) {
-        session = await this.replTool.startREPL(cell.language);
-        this.replSessions.set(sessionId, session);
-      }
+      // P0-1: 复用同语言 RUNNING 会话；否则新建（残留的 STOPPED/ERROR 会话不被复用，直接重建）
+      const running = replSessionManager
+        .getSessionsByLanguage(cell.language)
+        .find((s) => s.status === REPLSessionStatus.RUNNING);
+      const session = running ?? (await this.replTool.startREPL(cell.language));
 
       // 执行代码
       const result = await this.replTool.executeCode(session, cell.code);
@@ -160,6 +165,22 @@ export class NotebookToolImpl implements NotebookTool {
         error: errorMessage,
         executionTime: cell.executionTime,
       };
+    }
+  }
+
+  /**
+   * P0-1: 回收闲置超时的 REPL 会话（进程 kill + 从管理器移除），防止子进程常驻泄漏。
+   * 默认 10min 无执行即回收；回收失败不影响主流程。
+   */
+  private recycleIdleReplSessions(): void {
+    const now = Date.now();
+    for (const session of replSessionManager.getSessions()) {
+      const idleMs = now - session.lastActivity.getTime();
+      if (idleMs > NotebookToolImpl.REPL_IDLE_TIMEOUT_MS) {
+        void this.replTool.stopREPL(session).catch(() => {
+          // 进程可能已退出或已在别处被回收，忽略
+        });
+      }
     }
   }
 

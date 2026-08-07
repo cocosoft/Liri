@@ -3,7 +3,7 @@
  * 覆盖 NotebookImpl、NotebookManager、NotebookToolImpl
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import { unlinkSync, existsSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -13,6 +13,15 @@ import { NotebookImpl } from '../../src/tools/notebook/types/Notebook.js';
 import { CodeCellImpl, MarkdownCellImpl } from '../../src/tools/notebook/types/Cell.js';
 import { NotebookManager } from '../../src/tools/notebook/NotebookManager.js';
 import { CellExecutionState } from '../../src/tools/notebook/types/NotebookTool.js';
+import { NotebookToolImpl } from '../../src/tools/notebook/NotebookToolImpl.js';
+import { REPLToolImpl } from '../../src/tools/repl/REPLToolImpl.js';
+import { REPLSessionStatus } from '../../src/tools/repl/types/REPLTool.js';
+import { replSessionManager } from '../../src/tools/repl/REPLSessionManager';
+import { getAllBaseTools } from '../../src/tools/ToolFactory.js';
+import { NotebookToolAdapter } from '../../src/tools/adapters/NotebookToolAdapter.js';
+import { FileRegistry } from '../../src/services/file/FileRegistry.js';
+import { notebookManager } from '../../src/tools/notebook/NotebookManager.js';
+import { JupyterNotebookConverter } from '../../src/tools/notebook/JupyterNotebookConverter.js';
 
 describe('NotebookImpl', () => {
 
@@ -231,4 +240,244 @@ describe('NotebookManager', () => {
     expect(loaded.cells.length).toBe(1);
   });
 
+});
+
+describe('NotebookToolImpl.executeCell (P0-1 REPL 会话修复)', () => {
+  let tool: NotebookToolImpl;
+  let startSpy: ReturnType<typeof spyOn>;
+  let execSpy: ReturnType<typeof spyOn>;
+
+  beforeEach(() => {
+    tool = new NotebookToolImpl();
+    // mock REPL：startREPL 创建 RUNNING 会话；executeCode 直接成功
+    startSpy = spyOn(REPLToolImpl.prototype, 'startREPL').mockImplementation(
+      async (language: string) => {
+        const s = replSessionManager.createSession(language);
+        s.setStatus(REPLSessionStatus.RUNNING);
+        return s;
+      }
+    );
+    execSpy = spyOn(REPLToolImpl.prototype, 'executeCode').mockImplementation(
+      async () => ({
+        success: true,
+        output: 'ok',
+        executionTime: 1,
+      })
+    );
+  });
+
+  afterEach(() => {
+    startSpy.mockRestore();
+    execSpy.mockRestore();
+    replSessionManager.clearSessions();
+  });
+
+  it('无会话时新建 REPL 会话', async () => {
+    const cell = new CodeCellImpl('c1', 'print(1)', 'python');
+    const result = await tool.executeCell(cell);
+    expect(result.success).toBe(true);
+    expect(startSpy).toHaveBeenCalledTimes(1);
+    expect(replSessionManager.getSessionCount()).toBe(1);
+  });
+
+  it('复用 RUNNING 会话，不重复 startREPL', async () => {
+    const cell1 = new CodeCellImpl('c1', 'print(1)', 'python');
+    const cell2 = new CodeCellImpl('c2', 'print(2)', 'python');
+    await tool.executeCell(cell1);
+    await tool.executeCell(cell2);
+    expect(startSpy).toHaveBeenCalledTimes(1);
+    expect(replSessionManager.getSessionCount()).toBe(1);
+  });
+
+  it('STOPPED 会话不被复用，自动重建（P0-1 核心回归）', async () => {
+    // 预置一个 STOPPED 会话，模拟 REPL 60s 超时后的状态
+    const stopped = replSessionManager.createSession('python');
+    stopped.setStatus(REPLSessionStatus.STOPPED);
+
+    const cell = new CodeCellImpl('c1', 'print(1)', 'python');
+    const result = await tool.executeCell(cell);
+    expect(result.success).toBe(true);
+    // 不复用 STOPPED 会话，而是重新 startREPL
+    expect(startSpy).toHaveBeenCalledTimes(1);
+    // STOPPED 残留 + 新建 RUNNING
+    expect(replSessionManager.getSessionCount()).toBe(2);
+  });
+
+});
+
+describe('Notebook Feature 开关 (P0-2)', () => {
+  it('getAllBaseTools 不含 notebook（无条件注册已删除）', () => {
+    const names = getAllBaseTools().map((t) => t.name);
+    expect(names).not.toContain('notebook');
+    // 同时确认条件注册路径仍存在（feature 开启时经 ToolManagerUtils conditionalTool 加载）
+    expect(names.length).toBeGreaterThan(0);
+  });
+});
+
+describe('Notebook 导出存储 (P0-3)', () => {
+  it('导出注册到 notebook zone 的 exports 子目录', async () => {
+    const spy = spyOn(FileRegistry.prototype, 'registerFile').mockResolvedValue({
+      action: 'created',
+      fileId: 'x',
+      savedPath: '/tmp/x.md',
+      savedName: 'x.md',
+      originalName: 'x.md',
+      md5: 'abc',
+    });
+    try {
+      const adapter = new NotebookToolAdapter();
+      const created = (await adapter.execute(
+        { action: 'create', name: 'p0-3-test' },
+        {} as any
+      )) as any;
+      const notebookId = created.data?.notebookId as string | undefined;
+      expect(notebookId).toBeDefined();
+
+      await adapter.execute(
+        { action: 'export', notebookId, format: 'markdown' },
+        {} as any
+      );
+
+      // registerNotebookExport 为 fire-and-forget，轮询等待 registerFile 被调用
+      let called = false;
+      for (let i = 0; i < 50; i++) {
+        if (spy.mock.calls.length > 0) {
+          called = true;
+          break;
+        }
+        await Bun.sleep(10);
+      }
+      expect(called).toBe(true);
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ storeZone: 'notebook', subDir: 'exports' })
+      );
+    } finally {
+      spy.mockRestore();
+      notebookManager.clearNotebooks();
+    }
+  });
+});
+
+describe('JupyterNotebookConverter (P1-1 标准 nbformat 对齐)', () => {
+  it('isJupyterFormat 识别标准 nbformat（cell_type）与自定义格式（type）', () => {
+    expect(
+      JupyterNotebookConverter.isJupyterFormat({ nbformat: 4, cells: [] })
+    ).toBe(true);
+    expect(
+      JupyterNotebookConverter.isJupyterFormat({
+        cells: [{ cell_type: 'code' }],
+      })
+    ).toBe(true);
+    expect(
+      JupyterNotebookConverter.isJupyterFormat({
+        id: 'x',
+        cells: [{ type: 'code' }],
+      })
+    ).toBe(false);
+  });
+
+  it('toJupyter 输出标准 nbformat 4.x（cell_type/source 行数组）', () => {
+    const nb = new NotebookImpl('nb-1', 'Test');
+    nb.addCell(new CodeCellImpl('c1', 'print(1)', 'python'));
+    nb.addCell(new MarkdownCellImpl('c2', '# Title'));
+    const j = JupyterNotebookConverter.toJupyter(nb) as any;
+    expect(j.nbformat).toBe(4);
+    expect(j.cells[0].cell_type).toBe('code');
+    expect(j.cells[0].source.join('')).toBe('print(1)');
+    expect(j.cells[1].cell_type).toBe('markdown');
+    expect(j.cells[1].source.join('')).toBe('# Title');
+  });
+
+  it('fromJupyter → toJupyter roundtrip 保留内容', () => {
+    const nb = new NotebookImpl('nb-1', 'RT');
+    nb.addCell(new CodeCellImpl('c1', 'x = 1', 'python'));
+    nb.addCell(new MarkdownCellImpl('c2', '## Doc'));
+    const back = JupyterNotebookConverter.fromJupyter(
+      JupyterNotebookConverter.toJupyter(nb)
+    );
+    expect(back.cells.length).toBe(2);
+    expect(back.cells[0].type).toBe('code');
+    expect((back.cells[0] as any).code).toBe('x = 1');
+    expect(back.cells[1].type).toBe('markdown');
+    expect((back.cells[1] as any).content).toBe('## Doc');
+  });
+
+  it('NotebookManager 保存写标准格式且可回读（含打开标准 ipynb）', () => {
+    const dir = join(tmpdir(), `pyapp-notebook-p1-${randomUUID()}`);
+    try {
+      const manager = new NotebookManager(dir);
+      const nb = manager.createNotebook('p1-test');
+      nb.addCell(new CodeCellImpl('c1', 'print("hi")', 'python'));
+      manager.saveNotebook(nb);
+
+      const raw = JSON.parse(
+        readFileSync(join(dir, 'p1-test.ipynb'), 'utf8')
+      ) as any;
+      expect(raw.nbformat).toBe(4);
+      expect(raw.cells[0].cell_type).toBe('code');
+      expect(raw.cells[0].source.join('')).toBe('print("hi")');
+
+      // 从标准文件回读
+      const loaded = manager.openNotebook(join(dir, 'p1-test.ipynb'));
+      expect(loaded.cells.length).toBe(1);
+      expect((loaded.cells[0] as any).code).toBe('print("hi")');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('NotebookToolAdapter.executeAllCells (P2-1 批量执行)', () => {
+  it('批量执行所有代码单元格（跳过 markdown）', async () => {
+    const startSpy = spyOn(REPLToolImpl.prototype, 'startREPL').mockImplementation(
+      async (language: string) => {
+        const s = replSessionManager.createSession(language);
+        s.setStatus(REPLSessionStatus.RUNNING);
+        return s;
+      }
+    );
+    const execSpy = spyOn(REPLToolImpl.prototype, 'executeCode').mockImplementation(
+      async () => ({
+        success: true,
+        output: 'ok',
+        executionTime: 1,
+      })
+    );
+    try {
+      const adapter = new NotebookToolAdapter();
+      const created = (await adapter.execute(
+        { action: 'create', name: 'p2-1' },
+        {} as any
+      )) as any;
+      const notebookId = created.data?.notebookId as string | undefined;
+      expect(notebookId).toBeDefined();
+
+      await adapter.execute(
+        { action: 'addCodeCell', notebookId, code: 'a = 1', language: 'python' },
+        {} as any
+      );
+      await adapter.execute(
+        { action: 'addCodeCell', notebookId, code: 'a = 2', language: 'python' },
+        {} as any
+      );
+      await adapter.execute(
+        { action: 'addMarkdownCell', notebookId, content: '# doc' },
+        {} as any
+      );
+
+      const res = (await adapter.execute(
+        { action: 'executeAllCells', notebookId },
+        {} as any
+      )) as any;
+      expect(res.success).toBe(true);
+      expect(res.data.total).toBe(2); // 仅代码单元格被批量执行
+      expect(res.data.succeeded).toBe(2);
+      expect(res.data.failed).toBe(0);
+    } finally {
+      startSpy.mockRestore();
+      execSpy.mockRestore();
+      replSessionManager.clearSessions();
+      notebookManager.clearNotebooks();
+    }
+  });
 });

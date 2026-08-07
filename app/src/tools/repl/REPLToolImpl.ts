@@ -3,13 +3,13 @@
  */
 
 import { spawn, ChildProcess } from 'child_process';
-import {
+import { REPLSessionStatus } from './types/REPLTool.js';
+import type {
   REPLTool,
   REPLSession,
   REPLResult,
   REPLOptions,
   REPLExecution,
-  REPLSessionStatus,
 } from './types/REPLTool.js';
 import { replSessionManager } from './REPLSessionManager';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
@@ -87,12 +87,32 @@ export class REPLToolImpl implements REPLTool {
     return new Promise((resolve) => {
       let output = '';
       let errorOutput = '';
-      let timeoutId: NodeJS.Timeout;
+      let timeoutId: NodeJS.Timeout | undefined;
+      let settled = false;
+      // 本次执行开始时已累计的 stderr 基线。
+      // 交互式 REPL 的 stderr 可能有启动横幅等常驻噪声，错误判定只统计本次执行增量。
+      const stderrBase = errorOutput.length;
+
+      // P3-1 根因修复：交互式 REPL（python -i / node -i 等）执行代码后进程不退出，
+      // 仅依赖 exit/timeout 会导致每次执行都要等满超时且已收集的输出被丢弃。
+      // 改为「完成标记协议」：代码后追加语言对应的标记输出命令，stdout 检测到标记即视为
+      // 执行完成并保留会话（不杀进程），exit/timeout 仅作兜底。
+      const marker = `__PYAPP_REPL_DONE_${Date.now()}_${Math.random()
+        .toString(36)
+        .slice(2, 8)}__`;
+      const markerCmd = getMarkerCommand(session.language, marker);
+
+      const finish = (result: REPLResult) => {
+        if (settled) return;
+        settled = true;
+        if (timeoutId) clearTimeout(timeoutId);
+        resolve(result);
+      };
 
       const handleTimeout = () => {
         process.kill();
         session.setStatus(REPLSessionStatus.STOPPED);
-        resolve({
+        finish({
           success: false,
           output: '',
           error: 'Execution timed out',
@@ -100,14 +120,35 @@ export class REPLToolImpl implements REPLTool {
         });
       };
 
-      // P2-14 修复：无条件设置超时（默认 60s）。
-      // python -i 交互 REPL 执行完代码不会退出进程，若仅依赖 process exit 触发 resolve，
-      // Promise 将永久挂起（无 timeout 配置时），导致 executeTool → streamMessage 会话锁泄漏。
-      const timeoutMs = session.options.timeout ?? 60_000;
-      timeoutId = setTimeout(handleTimeout, timeoutMs);
-
       const handleStdout = (data: Buffer) => {
         output += data.toString();
+        // 检测完成标记（随机 marker 避免与用户输出碰撞）
+        if (output.includes(marker)) {
+          if (timeoutId) clearTimeout(timeoutId);
+          stdout.removeListener('data', handleStdout);
+          stderr.removeListener('data', handleStderr);
+          process.removeListener('exit', handleExit);
+          // 移除标记行
+          output = output.replace(new RegExp(`.*${marker}\\r?\\n?`), '');
+          // 错误 traceback 可能比 stdout 的 marker 稍晚到达，
+          // 延时 200ms 收集残余 stderr，用本次执行增量判断成败
+          setTimeout(() => {
+            const newStderr = errorOutput.slice(stderrBase);
+            const execution: REPLExecution = {
+              id: `exec-${Date.now()}`,
+              code,
+              result: {
+                success: newStderr.trim() === '',
+                output: output.trim(),
+                error: newStderr.trim() || undefined,
+                executionTime: Date.now() - startTime,
+              },
+              timestamp: new Date(),
+            };
+            session.addExecution(execution);
+            finish(execution.result);
+          }, 200);
+        }
       };
 
       const handleStderr = (data: Buffer) => {
@@ -144,12 +185,22 @@ export class REPLToolImpl implements REPLTool {
         resolve(result);
       };
 
+      // P2-14 修复：无条件设置超时（默认 60s）。
+      // python -i 交互 REPL 执行完代码不会退出进程，若仅依赖 process exit 触发 resolve，
+      // Promise 将永久挂起（无 timeout 配置时），导致 executeTool → streamMessage 会话锁泄漏。
+      const timeoutMs = session.options.timeout ?? 60_000;
+      timeoutId = setTimeout(handleTimeout, timeoutMs);
+
       stdout.on('data', handleStdout);
       stderr.on('data', handleStderr);
       process.on('exit', handleExit);
 
       // 发送代码
       stdin.write(code + '\n');
+      // 追加完成标记命令（语言不支持时跳过，退回 exit/timeout 兜底）
+      if (markerCmd) {
+        stdin.write(markerCmd + '\n');
+      }
       stdin.write('\n'); // 额外的换行以确保执行
     });
   }
@@ -204,7 +255,9 @@ export class REPLToolImpl implements REPLTool {
     switch (language.toLowerCase()) {
       case 'python':
         command = 'python';
-        args = ['-i'];
+        // -q 关闭启动横幅；sys.ps1/ps2 清空交互提示符。
+        // 管道模式下（非 tty）CPython 将提示符输出到 stderr，会污染执行结果的错误判定。
+        args = ['-i', '-q', '-c', 'import sys; sys.ps1=""; sys.ps2="";'];
         break;
       case 'javascript':
         command = 'node';
@@ -251,5 +304,27 @@ export class REPLToolImpl implements REPLTool {
       stdout: childProcess.stdout,
       stderr: childProcess.stderr,
     };
+  }
+}
+
+/**
+ * 生成语言对应的完成标记命令。
+ * 交互式 REPL（python -i / node -i 等）执行代码后进程不退出，
+ * 通过追加该命令让 stdout 输出唯一 marker，检测到即视为执行完成。
+ * 语言不支持时返回空字符串，调用方跳过标记协议退回 exit/timeout 兜底。
+ */
+function getMarkerCommand(language: string, marker: string): string {
+  switch (language.toLowerCase()) {
+    case 'python':
+      return `print("${marker}")`;
+    case 'javascript':
+    case 'typescript':
+      return `console.log("${marker}")`;
+    case 'bash':
+      return `echo ${marker}`;
+    case 'powershell':
+      return `Write-Output "${marker}"`;
+    default:
+      return '';
   }
 }

@@ -1272,7 +1272,8 @@ export function getAllBaseTools(): Tool[] {
 
   tools.push(new MCPResourceTool());
   tools.push(MCPTool);
-  tools.push(new NotebookToolAdapter());
+  // P0-2: 删除无条件注册 notebook（原绕过 NOTEBOOK 开关）；notebook 仅经
+  // ToolManagerUtils 中 conditionalTool(coreFeature('NOTEBOOK')) 条件加载
   tools.push(new BrowserTool());
 
   tools.push(new CanvasTool());

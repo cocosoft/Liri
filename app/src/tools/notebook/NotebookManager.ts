@@ -13,6 +13,7 @@ import {
 import { join } from 'path';
 import { Notebook } from './types/index.js';
 import { NotebookImpl } from './types/Notebook.js';
+import { JupyterNotebookConverter } from './JupyterNotebookConverter.js';
 import { Logger, LogLevel } from '@modules/monitoring';
 import {
   AppError,
@@ -64,7 +65,13 @@ export class NotebookManager {
         try {
           const data = readFileSync(path, 'utf8');
           const notebookData = JSON.parse(data);
-          const notebook = NotebookImpl.fromJSON(notebookData);
+          // P1-1: 标准 Jupyter nbformat 与存量自定义格式双兼容
+          const notebook = JupyterNotebookConverter.isJupyterFormat(
+            notebookData
+          )
+            ? JupyterNotebookConverter.fromJupyter(notebookData)
+            : NotebookImpl.fromJSON(notebookData);
+          notebook.path = path;
           this.notebooks.set(notebook.id, notebook);
         } catch (error) {
           void handleError(error, {
@@ -93,7 +100,10 @@ export class NotebookManager {
     try {
       const data = readFileSync(path, 'utf8');
       const notebookData = JSON.parse(data);
-      const notebook = NotebookImpl.fromJSON(notebookData);
+      // P1-1: 标准 Jupyter nbformat 与存量自定义格式双兼容
+      const notebook = JupyterNotebookConverter.isJupyterFormat(notebookData)
+        ? JupyterNotebookConverter.fromJupyter(notebookData)
+        : NotebookImpl.fromJSON(notebookData);
       notebook.path = path;
       this.notebooks.set(notebook.id, notebook);
       return notebook;
@@ -108,13 +118,17 @@ export class NotebookManager {
   }
 
   /**
-   * 保存Notebook
+   * 保存Notebook（P1-1: 写标准 Jupyter nbformat 4.x）
    */
   saveNotebook(notebook: Notebook): void {
     try {
       const path =
         notebook.path || join(this.notebookDir, `${notebook.name}.ipynb`);
-      const data = JSON.stringify(notebook, null, 2);
+      const data = JSON.stringify(
+        JupyterNotebookConverter.toJupyter(notebook),
+        null,
+        2
+      );
       writeFileSync(path, data, 'utf8');
       (notebook as any).path = path;
       this.notebooks.set(notebook.id, notebook);
@@ -129,11 +143,15 @@ export class NotebookManager {
   }
 
   /**
-   * 保存Notebook到指定路径
+   * 保存Notebook到指定路径（P1-1: 写标准 Jupyter nbformat 4.x）
    */
   saveNotebookAs(notebook: Notebook, path: string): void {
     try {
-      const data = JSON.stringify(notebook, null, 2);
+      const data = JSON.stringify(
+        JupyterNotebookConverter.toJupyter(notebook),
+        null,
+        2
+      );
       writeFileSync(path, data, 'utf8');
       (notebook as any).path = path;
       this.notebooks.set(notebook.id, notebook);

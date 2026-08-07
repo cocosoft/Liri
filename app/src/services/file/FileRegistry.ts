@@ -172,6 +172,7 @@ export class FileRegistry {
       mimeType = '',
       description = '',
       storeZone = 'inbound',
+      subDir = '',
       mediaType = '',
       isArchive = false,
       archiveParentId = '',
@@ -223,7 +224,8 @@ export class FileRegistry {
       storeZone,
       source,
       mediaType,
-      savedName
+      savedName,
+      subDir
     );
 
     // Step 4: 写文件到磁盘（自动创建目录）
@@ -310,7 +312,8 @@ export class FileRegistry {
     storeZone: string,
     source: string,
     mediaType: string,
-    savedName: string
+    savedName: string,
+    subDir: string = ''
   ): string {
     let baseDir: string;
 
@@ -328,8 +331,11 @@ export class FileRegistry {
         break;
 
       case 'notebook':
-        // notebooks 保留现有位置
+        // notebooks 保留现有位置；P0-3: subDir 将导出文件隔离到子目录（如 exports/）
         baseDir = join(resolveDbPath(), '..', 'notebooks');
+        if (subDir) {
+          baseDir = join(baseDir, subDir);
+        }
         break;
 
       case 'inbound':
@@ -608,6 +614,7 @@ export class FileRegistry {
       mimeType = '',
       description = '',
       storeZone = 'inbound',
+      subDir = '',
       mediaType = '',
       isArchive = false,
       archiveParentId = '',
@@ -633,7 +640,8 @@ export class FileRegistry {
       storeZone,
       source,
       mediaType,
-      savedName
+      savedName,
+      subDir
     );
 
     const fileId = uuidv4().slice(0, 8);

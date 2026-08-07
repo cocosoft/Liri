@@ -22,10 +22,10 @@
  * REPL工具类型定义
  */
 
-export {
+export { REPLSessionStatus } from './REPLTool.js';
+export type {
   REPLTool,
   REPLOptions,
-  REPLSessionStatus,
   REPLResult,
   REPLExecution,
   REPLSession,

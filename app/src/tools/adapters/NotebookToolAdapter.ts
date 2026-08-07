@@ -450,6 +450,26 @@ export class NotebookToolAdapter implements Tool {
           };
         }
 
+        // P2-1: 批量执行所有代码单元格（原仅接口存在，Adapter 未暴露）
+        case 'executeAllCells': {
+          const notebook = this.resolveNotebook(params);
+          if (!notebook) {
+            return {
+              success: false,
+              error: 'Notebook not found',
+              output: 'Notebook not found',
+            };
+          }
+          const results = await this.notebookTool.executeAllCells(notebook);
+          const succeeded = results.filter((r) => r.success).length;
+          const failed = results.length - succeeded;
+          return {
+            success: true,
+            data: { results, total: results.length, succeeded, failed },
+            output: `Executed ${results.length} cells (${succeeded} succeeded, ${failed} failed)`,
+          };
+        }
+
         case 'export': {
           const notebook = this.resolveNotebook(params);
           if (!notebook) {
@@ -569,7 +589,8 @@ export class NotebookToolAdapter implements Tool {
   /**
    * registerNotebookExport — 注册 Notebook 导出文件到 FileRegistry
    *
-   * 将 Notebook 导出内容作为 artifact 保存到 FileRegistry 统一管理。
+   * P0-3: storeZone 从 artifact 改为 notebook（前端"笔记本"分类可见），
+   * 且写入 notebooks/exports/ 子目录，避免 .md/.html 与 NotebookManager 的 .ipynb 混目录。
    */
   private async registerNotebookExport(
     content: Buffer,
@@ -597,7 +618,8 @@ export class NotebookToolAdapter implements Tool {
           : format === 'pdf'
             ? 'application/pdf'
             : 'text/markdown',
-      storeZone: 'artifact',
+      storeZone: 'notebook',
+      subDir: 'exports',
       description: `Notebook 导出: ${notebook.name}`,
     });
   }

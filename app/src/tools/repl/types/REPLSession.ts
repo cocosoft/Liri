@@ -2,7 +2,8 @@
  * REPL会话类型定义
  */
 
-import { REPLOptions, REPLSessionStatus, REPLExecution } from './REPLTool.js';
+import { REPLSessionStatus } from './REPLTool.js';
+import type { REPLOptions, REPLExecution } from './REPLTool.js';
 
 /**
  * REPL会话

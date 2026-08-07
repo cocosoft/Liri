@@ -1,8 +1,9 @@
-﻿import { BaseConverter } from '../engine/BaseConverter';
+import { BaseConverter } from '../engine/BaseConverter';
 import type { ConversionResult, ConversionContext } from '../engine/types';
 import { PRIORITY_SPECIFIC_FILE_FORMAT } from '../engine/types';
 import { AppError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
+import { JupyterNotebookConverter } from '../../notebook/JupyterNotebookConverter.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -42,32 +43,30 @@ export class IpynbConverter extends BaseConverter {
       });
     }
 
+    // P1-1: 复用 JupyterNotebookConverter 解析标准 nbformat，消除重复的 cell_type/source 解析
+    const nb = JupyterNotebookConverter.fromJupyter(notebook);
     const parts: string[] = [];
     let title: string | undefined;
 
-    for (const cell of notebook.cells) {
-      const cellType = cell.cell_type || '';
-      const source = Array.isArray(cell.source)
-        ? cell.source.join('')
-        : cell.source || '';
-
-      if (!source) continue;
-
-      if (cellType === 'markdown') {
-        parts.push(source);
+    for (const cell of nb.cells) {
+      if (cell.type === 'markdown') {
+        const content = (cell as any).content || '';
+        if (!content) continue;
+        parts.push(content);
 
         if (!title) {
-          const titleMatch = source.match(/^#\s+(.+)/m);
+          const titleMatch = content.match(/^#\s+(.+)/m);
           if (titleMatch) {
             title = titleMatch[1].trim();
           }
         }
-      } else if (cellType === 'code') {
-        parts.push(
-          '```' + (cell.language || 'python') + '\n' + source + '\n```'
-        );
-      } else if (cellType === 'raw') {
-        parts.push('```\n' + source + '\n```');
+      } else {
+        const codeCell = cell as any;
+        const code = codeCell.code || '';
+        if (!code) continue;
+        const isRaw = codeCell.metadata?.originalCellType === 'raw';
+        const language = isRaw ? '' : codeCell.language || 'python';
+        parts.push('```' + language + '\n' + code + '\n```');
       }
     }
 

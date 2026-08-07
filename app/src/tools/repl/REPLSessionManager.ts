@@ -2,11 +2,8 @@
  * REPL会话管理
  */
 
-import {
-  REPLSession,
-  REPLSessionStatus,
-  REPLOptions,
-} from './types/REPLTool.js';
+import { REPLSessionStatus } from './types/REPLTool.js';
+import type { REPLSession, REPLOptions } from './types/REPLTool.js';
 import { REPLSessionImpl } from './types/REPLSession.js';
 
 /**

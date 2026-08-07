@@ -79,6 +79,8 @@ export interface RegisterFileInput {
   description?: string;
   /** 存储分区（默认 inbound） */
   storeZone?: StoreZone;
+  /** 分区内子目录（如 notebook 分区下 'exports'，P0-3：导出文件与 NotebookManager 的 .ipynb 隔离） */
+  subDir?: string;
   /** 媒体子类型（store_zone=media 时有效） */
   mediaType?: MediaType;
   /** 是否为压缩包 */

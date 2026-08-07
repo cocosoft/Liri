@@ -120,39 +120,55 @@ export class REPLToolImpl implements REPLTool {
         });
       };
 
+      // 错误 traceback 与 stdout 的 marker 走不同管道，到达顺序无保证。
+      // 用「静默重置」代替固定延时：stderr 有新数据就重置 200ms 计时，
+      // 直到 200ms 无新数据才判定完成，避免慢调度下丢 error。
+      let markerDetected = false;
+      let settleTimer: ReturnType<typeof setTimeout> | undefined;
+      const buildAndFinish = () => {
+        const newStderr = errorOutput.slice(stderrBase);
+        const execution: REPLExecution = {
+          id: `exec-${Date.now()}`,
+          code,
+          result: {
+            success: newStderr.trim() === '',
+            output: output.trim(),
+            error: newStderr.trim() || undefined,
+            executionTime: Date.now() - startTime,
+          },
+          timestamp: new Date(),
+        };
+        session.addExecution(execution);
+        finish(execution.result);
+      };
+      const scheduleSettleFinish = () => {
+        clearTimeout(settleTimer);
+        settleTimer = setTimeout(() => {
+          buildAndFinish();
+        }, 200);
+      };
+
+      const handleStderr = (data: Buffer) => {
+        errorOutput += data.toString();
+        if (markerDetected) scheduleSettleFinish();
+      };
+
       const handleStdout = (data: Buffer) => {
         output += data.toString();
         // 检测完成标记（随机 marker 避免与用户输出碰撞）
         if (output.includes(marker)) {
           if (timeoutId) clearTimeout(timeoutId);
           stdout.removeListener('data', handleStdout);
-          stderr.removeListener('data', handleStderr);
           process.removeListener('exit', handleExit);
           // 移除标记行
           output = output.replace(new RegExp(`.*${marker}\\r?\\n?`), '');
-          // 错误 traceback 可能比 stdout 的 marker 稍晚到达，
-          // 延时 200ms 收集残余 stderr，用本次执行增量判断成败
+          markerDetected = true;
+          scheduleSettleFinish();
+          // 兜底：stderr 持续输出时（如死循环日志）不能无限等，2s 后强制收尾
           setTimeout(() => {
-            const newStderr = errorOutput.slice(stderrBase);
-            const execution: REPLExecution = {
-              id: `exec-${Date.now()}`,
-              code,
-              result: {
-                success: newStderr.trim() === '',
-                output: output.trim(),
-                error: newStderr.trim() || undefined,
-                executionTime: Date.now() - startTime,
-              },
-              timestamp: new Date(),
-            };
-            session.addExecution(execution);
-            finish(execution.result);
-          }, 200);
+            if (!settled) buildAndFinish();
+          }, 2000);
         }
-      };
-
-      const handleStderr = (data: Buffer) => {
-        errorOutput += data.toString();
       };
 
       const handleExit = (code: number | null) => {

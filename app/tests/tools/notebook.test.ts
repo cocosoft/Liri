@@ -22,6 +22,7 @@ import { NotebookToolAdapter } from '../../src/tools/adapters/NotebookToolAdapte
 import { FileRegistry } from '../../src/services/file/FileRegistry.js';
 import { notebookManager } from '../../src/tools/notebook/NotebookManager.js';
 import { JupyterNotebookConverter } from '../../src/tools/notebook/JupyterNotebookConverter.js';
+import { notebookCommand } from '../../src/commands/tools/dev/notebook.js';
 
 describe('NotebookImpl', () => {
 
@@ -303,6 +304,36 @@ describe('NotebookToolImpl.executeCell (P0-1 REPL 会话修复)', () => {
     expect(replSessionManager.getSessionCount()).toBe(2);
   });
 
+  it('闲置超过 10min 的会话在下次执行时被回收（N-2 常驻泄漏回归）', async () => {
+    // 预置一个 11min 无活动的 RUNNING 会话（模拟泄漏场景）
+    const idle = replSessionManager.createSession('python');
+    idle.setStatus(REPLSessionStatus.RUNNING);
+    (idle as any).lastActivity = new Date(Date.now() - 11 * 60 * 1000);
+
+    // mock stopREPL 为真实移除（原实现会 removeSession）
+    const stopSpy = spyOn(REPLToolImpl.prototype, 'stopREPL').mockImplementation(
+      async (s: any) => {
+        replSessionManager.removeSession(s.id);
+      }
+    );
+
+    try {
+      const cell = new CodeCellImpl('c1', 'print(1)', 'python');
+      const result = await tool.executeCell(cell);
+
+      // 闲置会话被回收：stopREPL 收到 idle 会话
+      expect(stopSpy).toHaveBeenCalledTimes(1);
+      expect(stopSpy.mock.calls[0][0]).toBe(idle);
+      // 回收后无 RUNNING 可复用，重新 startREPL
+      expect(startSpy).toHaveBeenCalledTimes(1);
+      expect(result.success).toBe(true);
+      // 会话数量不净增长：idle 回收 + 新建 1
+      expect(replSessionManager.getSessionCount()).toBe(1);
+    } finally {
+      stopSpy.mockRestore();
+    }
+  });
+
 });
 
 describe('Notebook Feature 开关 (P0-2)', () => {
@@ -311,6 +342,34 @@ describe('Notebook Feature 开关 (P0-2)', () => {
     expect(names).not.toContain('notebook');
     // 同时确认条件注册路径仍存在（feature 开启时经 ToolManagerUtils conditionalTool 加载）
     expect(names.length).toBeGreaterThan(0);
+  });
+
+  it('feature 关闭（默认）时 /notebook 命令禁用（命令层/工具层一致性）', async () => {
+    const prev = process.env.FEATURE_NOTEBOOK;
+    delete process.env.FEATURE_NOTEBOOK; // 默认 NOTEBOOK: false
+    try {
+      const cmd = await notebookCommand.load();
+      const result = await cmd.execute('');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Notebook 功能未启用');
+    } finally {
+      if (prev === undefined) delete process.env.FEATURE_NOTEBOOK;
+      else process.env.FEATURE_NOTEBOOK = prev;
+    }
+  });
+
+  it('feature 开启时命令放行（help 分支可执行）', async () => {
+    const prev = process.env.FEATURE_NOTEBOOK;
+    process.env.FEATURE_NOTEBOOK = 'true';
+    try {
+      const cmd = await notebookCommand.load();
+      const result = await cmd.execute('');
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('notebook help');
+    } finally {
+      if (prev === undefined) delete process.env.FEATURE_NOTEBOOK;
+      else process.env.FEATURE_NOTEBOOK = prev;
+    }
   });
 });
 

@@ -192,7 +192,7 @@ export class NotificationPersistence {
 
     // P0-4: 存量 actions 清洗（幂等）——决策类消息已移出消息中心，
     // 存量 approval/todo/question/authorization 清空 actions 并归档，避免简化面板长期兼容废弃渲染分支
-    await new Promise<void>((resolve, reject) => {
+    await new Promise<void>((resolve) => {
       this.db!.run(
         `UPDATE notifications SET actions = '[]', status = 'dismissed', updated_at = ?,
            resolved_at = COALESCE(resolved_at, ?)

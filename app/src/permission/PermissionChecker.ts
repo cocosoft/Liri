@@ -11,6 +11,7 @@ import {
   createAskDecision,
 } from './types/PermissionDecision';
 import { PermissionContext } from './types/PermissionContext';
+import { hashCommand } from './ApprovedCommandRegistry';
 import { PermissionBehavior, isRuleMatch } from './types/PermissionRule';
 import {
   RiskClass,
@@ -39,6 +40,17 @@ const DEFAULT_ASK_TIMEOUT: AskTimeoutConfig = {
   timeoutMs: 30000,
   notifyUserOnTimeout: true,
 };
+
+/**
+ * P1-2: 交互模式 Inbox 审批提交开关。
+ * `PERMISSION_INBOX_APPROVAL_ENABLED` 环境变量控制（默认开启）；
+ * 仅作用于非无人值守的 ask 决策路径，无人值守行为不受影响。
+ */
+export function isInboxApprovalEnabled(): boolean {
+  const raw = process.env.PERMISSION_INBOX_APPROVAL_ENABLED;
+  if (raw === undefined || raw === '') return true;
+  return raw !== '0' && raw.toLowerCase() !== 'false';
+}
 
 /**
  * 带有超时的 ASK 决策
@@ -281,6 +293,8 @@ export class PermissionChecker {
       case RiskClass.EXTERNAL:
       case RiskClass.SHELL:
       default:
+        // P1-2: 提交由 PermissionManager.checkPermissionForTool 统一入口触发
+        // （submitAskToInbox），此处仅返回 ask 决策
         return createAskDecision(
           `'${toolName}' requires approval (risk: ${risk})`
         );
@@ -301,18 +315,32 @@ export class PermissionChecker {
       const sessionId = (context as unknown as Record<string, unknown>)
         ?.sessionId as string | undefined;
       if (!sessionId) {
-        return createAskDecision(`Inbox: no session context for ${toolName}`);
+        return createAskDecision(
+          `Inbox: no session context for ${toolName}`,
+          undefined,
+          { submittedToInbox: false }
+        );
       }
 
       const taskId = (context as unknown as Record<string, unknown>)?.taskId as
         | string
         | undefined;
 
+      // P1-2: 命令类工具计算规范化 hash，供批准后写入 ApprovedCommandRegistry（放行缓存）
+      const command =
+        typeof input.command === 'string' ? input.command : '';
+      const isCommandTool =
+        toolName === 'bash' || toolName === 'shell' || toolName === 'command';
+      const commandHash =
+        isCommandTool && command ? hashCommand(command) : undefined;
+
       await inboxManager.submit({
         sessionId,
         type: 'approval',
         title: `工具审批: ${toolName}`,
-        message: `工具 '${toolName}' 请求执行（风险等级: ${risk}）\n参数: ${JSON.stringify(input).slice(0, 500)}`,
+        message: `工具 '${toolName}' 请求执行（风险等级: ${risk}）\n${
+          command ? `命令: ${command}` : `参数: ${JSON.stringify(input).slice(0, 300)}`
+        }`,
         options:
           risk === RiskClass.EXTERNAL
             ? ['approve', 'deny', 'standing_rule']
@@ -323,6 +351,7 @@ export class PermissionChecker {
           toolName,
           risk,
           taskId,
+          commandHash,
           inputPreview: JSON.stringify(input).slice(0, 200),
         },
       });
@@ -331,10 +360,13 @@ export class PermissionChecker {
         toolName,
         risk,
         sessionId,
+        hasCommandHash: !!commandHash,
       });
 
       return createAskDecision(
-        `'${toolName}' queued in Inbox (risk: ${risk}). Awaiting approval.`
+        `'${toolName}' queued in Inbox (risk: ${risk}). Awaiting approval.`,
+        undefined,
+        { submittedToInbox: true, commandHash }
       );
     } catch (err) {
       logger.warn('Failed to submit to Inbox, falling back to ask', {
@@ -342,9 +374,27 @@ export class PermissionChecker {
         error: String(err),
       });
       return createAskDecision(
-        `'${toolName}' requires approval (Inbox unavailable)`
+        `'${toolName}' requires approval (Inbox unavailable)`,
+        undefined,
+        { submittedToInbox: false }
       );
     }
+  }
+
+  /**
+   * P1-2: 统一 Inbox 提交入口（唯一提交点）
+   *
+   * 由 PermissionManager.checkPermissionForTool 在 ask 决策时调用，
+   * 内部复用 `_submitToInbox`（含 commandHash 计算与 submittedToInbox 标记）。
+   * 无人值守路径不经过此入口，行为不变。
+   */
+  async submitAskToInbox(
+    toolName: string,
+    input: Record<string, unknown>,
+    context: PermissionContext
+  ): Promise<PermissionDecision> {
+    const risk = inferRiskClass(toolName);
+    return this._submitToInbox(toolName, input, context, risk);
   }
 
   /**

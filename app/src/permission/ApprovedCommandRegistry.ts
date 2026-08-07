@@ -80,7 +80,10 @@ export class ApprovedCommandRegistry {
   constructor(ttlMs: number = DEFAULT_TTL_MS, autoCleanup = true) {
     this.ttlMs = ttlMs;
     if (autoCleanup) {
-      this.cleanupTimer = setInterval(() => this.cleanup(), CLEANUP_INTERVAL_MS);
+      this.cleanupTimer = setInterval(
+        () => this.cleanup(),
+        CLEANUP_INTERVAL_MS
+      );
       // 避免定时器阻止进程退出（测试环境）
       this.cleanupTimer.unref?.();
     }

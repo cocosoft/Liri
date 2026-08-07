@@ -2,7 +2,7 @@
  * 权限管理器
  * 负责协调权限模式、权限检查器、拒绝跟踪器等组件，实现权限管理的核心逻辑
  */
-import { PermissionChecker, Tool } from './PermissionChecker';
+import { PermissionChecker, Tool, isInboxApprovalEnabled } from './PermissionChecker';
 import { RuleManager, RuleContext } from './RuleManager';
 import { DenialTracker } from './trackers/DenialTracker';
 import { PermissionMode } from './PermissionMode';
@@ -1107,7 +1107,8 @@ export class PermissionManager {
    */
   async checkPermissionForTool(
     toolName: string,
-    input: Record<string, unknown> = {}
+    input: Record<string, unknown> = {},
+    context?: Pick<PermissionContext, 'sessionId' | 'userId' | 'metadata'>
   ): Promise<{
     allowed: boolean;
     decision?: {
@@ -1116,9 +1117,75 @@ export class PermissionManager {
       reason?: string;
     };
     reason?: string;
+    /** P1-2: 审批卡片是否已由 PermissionChecker 提交到 Inbox */
+    submittedToInbox?: boolean;
+    /** P1-2: 命令类工具的规范化 hash（批准后写入放行缓存） */
+    commandHash?: string;
   }> {
-    const decision = await this.checkPermission(toolName, input);
+    // P1-2: 构造完整 PermissionContext（补 toolName/input），透传 sessionId 供统一提交
+    const permissionContext = createPermissionContext({
+      toolName,
+      input,
+      sessionId: context?.sessionId,
+      userId: context?.userId,
+      metadata: context?.metadata,
+    });
+    const decision = await this.checkPermission(
+      toolName,
+      input,
+      permissionContext
+    );
+
+    // P1-2: ask 决策统一提交 Inbox 审批卡片（唯一提交点，开关控制，避免重复提交）。
+    // 提交成功 → 决策携带 submittedToInbox:true + commandHash，供上层返回 awaiting_approval；
+    // 提交失败/开关关闭 → 保留原 ask 决策（上层降级为 ask 文本）。
+    if (
+      decision.type === PermissionDecisionType.ASK &&
+      decision.context?.submittedToInbox !== true &&
+      isInboxApprovalEnabled()
+    ) {
+      try {
+        const submittedDecision =
+          await this.permissionChecker.submitAskToInbox(
+            toolName,
+            input,
+            permissionContext
+          );
+        return this._checkPermissionForToolResult(
+          submittedDecision,
+          toolName
+        );
+      } catch (err) {
+        logger.warn('Failed to submit ask decision to Inbox', {
+          toolName,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    return this._checkPermissionForToolResult(decision, toolName);
+  }
+
+  /** P1-2: 归一化 checkPermissionForTool 返回结构（含 submittedToInbox/commandHash） */
+  private _checkPermissionForToolResult(
+    decision: PermissionDecision,
+    toolName: string
+  ): {
+    allowed: boolean;
+    decision?: {
+      behavior: PermissionBehavior;
+      updatedInput?: any;
+      reason?: string;
+    };
+    reason?: string;
+    submittedToInbox?: boolean;
+    commandHash?: string;
+  } {
     const allowed = decision.type === 'allow';
+    const submittedToInbox = decision.context?.submittedToInbox === true;
+    const commandHash =
+      typeof decision.context?.commandHash === 'string'
+        ? (decision.context.commandHash as string)
+        : undefined;
     return {
       allowed,
       decision: {
@@ -1127,6 +1194,8 @@ export class PermissionManager {
         reason: decision.reason,
       },
       reason: decision.reason,
+      submittedToInbox,
+      commandHash,
     };
   }
 }

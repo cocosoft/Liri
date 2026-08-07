@@ -5420,20 +5420,25 @@ ${llmPhaseSummary}`;
       const pm = this.permissionManager as {
         checkPermissionForTool: (
           name: string,
-          args: Record<string, unknown>
+          args: Record<string, unknown>,
+          context?: { sessionId?: string }
         ) => Promise<{
           allowed: boolean;
           reason?: string;
           decision?: { behavior: string; reason?: string };
+          /** P1-2: 审批卡片是否已由 PermissionChecker 提交到 Inbox */
+          submittedToInbox?: boolean;
         }>;
       };
       const permissionResult = await pm.checkPermissionForTool(
         normalizedToolCall.name,
-        normalizedToolCall.arguments
+        normalizedToolCall.arguments,
+        // P1-2: 透传 sessionId，供 PermissionChecker 统一提交审批卡片
+        { sessionId: toolCall.sessionId }
       );
 
       if (!permissionResult.allowed) {
-        // ask 决策（评审：decision.behavior === 'ask'）→ 提交会话内审批卡片
+        // ask 决策（评审：decision.behavior === 'ask'）→ 消费统一提交的审批卡片
         if (permissionResult.decision?.behavior === 'ask') {
           // P0-6: 已批准命令命中放行缓存（session+hash 精确匹配）→ 跳过 ask 直接执行，
           // 避免批准后 LLM 重发同一命令时重复弹审批卡片（评审缺口 G 闭环）
@@ -5443,13 +5448,8 @@ ${llmPhaseSummary}`;
             toolCall.sessionId
           );
           if (!approvedHit) {
-            const submitted = await this._submitToolApproval(
-              normalizedToolCall.name,
-              normalizedToolCall.arguments,
-              toolCall.sessionId,
-              toolCall.id
-            );
-            if (submitted) {
+            // P1-2: 卡片已由 PermissionChecker._submitToInbox 统一提交（决策携带 submittedToInbox）
+            if (permissionResult.submittedToInbox === true) {
               // 非失败语义：SSE 流不标记 error，前端据此渲染"⏳ 等待审批"
               const approvalResult = {
                 status: 'awaiting_approval',
@@ -5471,7 +5471,7 @@ ${llmPhaseSummary}`;
                 error: undefined,
               };
             }
-            // Inbox 不可用降级：返回普通 ask 文本（P1-3）
+            // Inbox 未提交（不可用/开关关闭）：返回普通 ask 文本（P1-3）
             return {
               toolCallId: toolCall.id,
               toolName: normalizedToolCall.name,
@@ -5691,9 +5691,8 @@ ${llmPhaseSummary}`;
             true ||
           (toolResult as { status?: string }).status === 'requires_approval'
         ) {
-          const approvalReason = (
-            toolResult as { approvalReason?: string }
-          ).approvalReason;
+          const approvalReason = (toolResult as { approvalReason?: string })
+            .approvalReason;
           const submitted = await this._submitToolApproval(
             normalizedToolCall.name,
             normalizedToolCall.arguments,
@@ -5862,14 +5861,17 @@ ${llmPhaseSummary}`;
     sessionId: string | undefined
   ): Promise<boolean> {
     try {
-      if (toolName !== 'bash' && toolName !== 'shell' && toolName !== 'command') {
+      if (
+        toolName !== 'bash' &&
+        toolName !== 'shell' &&
+        toolName !== 'command'
+      ) {
         return false;
       }
       const command = typeof input.command === 'string' ? input.command : '';
       if (!command || !sessionId) return false;
-      const { getApprovedCommandRegistry, hashCommand } = await import(
-        '@modules/permission'
-      );
+      const { getApprovedCommandRegistry, hashCommand } =
+        await import('@modules/permission');
       return getApprovedCommandRegistry().isApproved(
         sessionId,
         hashCommand(command)
@@ -5897,9 +5899,7 @@ ${llmPhaseSummary}`;
     approvalReason?: string
   ): Promise<boolean> {
     try {
-      const { inboxManager } = await import(
-        '@modules/runtime/InboxManager.js'
-      );
+      const { inboxManager } = await import('@modules/runtime/InboxManager.js');
       const { hashCommand } = await import('@modules/permission');
       const command = typeof input.command === 'string' ? input.command : '';
       const sid = sessionId || 'default';

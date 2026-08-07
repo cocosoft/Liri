@@ -361,11 +361,8 @@ async function handleStreamingChat(
       toolCallId?: string;
       resultData?: unknown;
     };
-    const rd = d.resultData as
-      | { pendingApproval?: boolean }
-      | undefined;
-    const isApprovalPending =
-      rd?.pendingApproval === true;
+    const rd = d.resultData as { pendingApproval?: boolean } | undefined;
+    const isApprovalPending = rd?.pendingApproval === true;
     if (
       d.toolName === 'image_generate' ||
       d.toolName === 'image_display' ||

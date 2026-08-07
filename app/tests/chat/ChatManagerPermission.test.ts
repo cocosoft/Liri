@@ -20,54 +20,32 @@
 // SOFTWARE.
 
 /**
- * 工具执行审批链路 P2-3 — ChatManager 权限三态化测试
+ * 工具执行审批链路 P2-3/P1-2 — ChatManager 权限三态化测试
  *
- * 覆盖（P0-2/P0-6）：
- * - ask 决策 → 提交审批卡片 → 返回 awaiting_approval（非失败语义，pendingApproval:true）
+ * 覆盖（P0-2/P0-6/P1-2）：
+ * - ask + submittedToInbox:true → 返回 awaiting_approval（非失败语义，pendingApproval:true）
+ * - ask + submittedToInbox:false → Inbox 未提交，降级返回普通 ask 文本（P1-3）
  * - deny 决策 → 拦截（error 语义）
  * - allow 决策 → 放行继续执行（无 toolRegistry 时报执行错误，证明已通过权限层）
  * - ask + 放行缓存命中（session+hash）→ 跳过 ask 不弹卡，直接放行执行
  *
- * 说明：不打桩整个 InboxManager 模块（避免 mock.module 全局泄漏破坏
- * src/runtime/__tests__/InboxManager.test.ts），仅打桩单例的 submit 方法。
+ * P1-2 统一提交后，ChatManager 不再自行提交审批卡片（提交由 PermissionChecker
+ * _submitToInbox 负责），本测试仅 mock permissionManager 决策结果。
  */
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach } from 'bun:test';
 
 import { ChatManagerImpl } from '../../src/chat/ChatManager.js';
 import type { ToolCall } from '../../src/chat/types/tool.js';
-import { inboxManager } from '../../src/runtime/InboxManager.js';
 import {
   getApprovedCommandRegistry,
   hashCommand,
 } from '../../src/permission/ApprovedCommandRegistry.js';
 
-/** 捕获 _submitToolApproval → inboxManager.submit 的调用 */
-const submittedTitles: string[] = [];
-let originalSubmit: typeof inboxManager.submit;
-
-beforeEach(() => {
-  submittedTitles.length = 0;
-  originalSubmit = inboxManager.submit;
-  // 打桩单例 submit：避免真实 DB 依赖
-  inboxManager.submit = (async (item: { title: string }) => {
-    submittedTitles.push(item.title);
-    return {
-      id: 'mock-approval',
-      title: item.title,
-      status: 'pending',
-    } as Awaited<ReturnType<typeof originalSubmit>>;
-  }) as typeof inboxManager.submit;
-});
-
-afterEach(() => {
-  // 恢复真实 submit（防止影响同进程其他测试文件）
-  inboxManager.submit = originalSubmit;
-});
-
 /** mock 权限管理器：checkPermissionForTool 返回预设决策 */
 function makePermissionManager(decision: {
   allowed: boolean;
   behavior?: 'ask' | 'deny';
+  submittedToInbox?: boolean;
 }) {
   return {
     checkPermissionForTool: async () => ({
@@ -76,20 +54,26 @@ function makePermissionManager(decision: {
         ? { behavior: decision.behavior, reason: `mock-${decision.behavior}` }
         : undefined,
       reason: 'mock-reason',
+      submittedToInbox:
+        decision.behavior === 'ask' ? decision.submittedToInbox : undefined,
     }),
   };
 }
 
-describe('ChatManager 权限三态化（P0-2）', () => {
+describe('ChatManager 权限三态化（P0-2/P1-2）', () => {
   let cm: ChatManagerImpl;
 
   beforeEach(() => {
     cm = new ChatManagerImpl();
   });
 
-  it('ask 决策 → 返回 awaiting_approval（非失败语义）且提交审批卡片', async () => {
+  it('ask + submittedToInbox:true → 返回 awaiting_approval（非失败语义）', async () => {
     cm.setPermissionManager(
-      makePermissionManager({ allowed: false, behavior: 'ask' })
+      makePermissionManager({
+        allowed: false,
+        behavior: 'ask',
+        submittedToInbox: true,
+      })
     );
     const result = await cm.executeTool({
       id: 'tool-1',
@@ -102,9 +86,24 @@ describe('ChatManager 权限三态化（P0-2）', () => {
       status: 'awaiting_approval',
       pendingApproval: true,
     });
-    // 审批卡片已提交（_submitToolApproval → inboxManager.submit）
-    expect(submittedTitles.length).toBe(1);
-    expect(submittedTitles[0]).toContain('工具审批');
+  });
+
+  it('ask + submittedToInbox:false → 降级返回普通 ask 文本（P1-3）', async () => {
+    cm.setPermissionManager(
+      makePermissionManager({
+        allowed: false,
+        behavior: 'ask',
+        submittedToInbox: false,
+      })
+    );
+    const result = await cm.executeTool({
+      id: 'tool-2',
+      name: 'bash',
+      arguments: { command: 'rm -rf /tmp/abc' },
+      sessionId: 'session-1',
+    } as ToolCall);
+    expect(result.error).toContain('需要用户确认');
+    expect(result.result).toBeNull();
   });
 
   it('deny 决策 → 拦截返回 error', async () => {
@@ -112,7 +111,7 @@ describe('ChatManager 权限三态化（P0-2）', () => {
       makePermissionManager({ allowed: false, behavior: 'deny' })
     );
     const result = await cm.executeTool({
-      id: 'tool-2',
+      id: 'tool-3',
       name: 'bash',
       arguments: { command: 'rm -rf /tmp/abc' },
       sessionId: 'session-1',
@@ -124,7 +123,7 @@ describe('ChatManager 权限三态化（P0-2）', () => {
   it('allow 决策 → 通过权限层继续执行（无 toolRegistry 时报执行错误）', async () => {
     cm.setPermissionManager(makePermissionManager({ allowed: true }));
     const result = await cm.executeTool({
-      id: 'tool-3',
+      id: 'tool-4',
       name: 'bash',
       arguments: { command: 'echo hi' },
       sessionId: 'session-1',
@@ -141,10 +140,14 @@ describe('ChatManager 权限三态化（P0-2）', () => {
       hashCommand('echo format-test')
     );
     cm.setPermissionManager(
-      makePermissionManager({ allowed: false, behavior: 'ask' })
+      makePermissionManager({
+        allowed: false,
+        behavior: 'ask',
+        submittedToInbox: true,
+      })
     );
     const result = await cm.executeTool({
-      id: 'tool-4',
+      id: 'tool-5',
       name: 'bash',
       arguments: { command: 'echo format-test' },
       sessionId: 'session-1',
@@ -152,22 +155,24 @@ describe('ChatManager 权限三态化（P0-2）', () => {
     // 非 awaiting_approval → 已放行；无 toolRegistry → 执行错误（而非审批卡片）
     expect(result.result).toBeNull();
     expect(result.error).toContain('No tool integration or tool registry');
-    // 未弹审批卡片
-    expect(submittedTitles.length).toBe(0);
     getApprovedCommandRegistry().clearSession('session-1');
   });
 
-  it('ask + 放行缓存未命中 → 仍提交审批卡片', async () => {
+  it('ask + 放行缓存未命中 → 仍返回 awaiting_approval', async () => {
     // 放行缓存中只有别的命令
     getApprovedCommandRegistry().approve(
       'session-1',
       hashCommand('echo other-command')
     );
     cm.setPermissionManager(
-      makePermissionManager({ allowed: false, behavior: 'ask' })
+      makePermissionManager({
+        allowed: false,
+        behavior: 'ask',
+        submittedToInbox: true,
+      })
     );
     const result = await cm.executeTool({
-      id: 'tool-5',
+      id: 'tool-6',
       name: 'bash',
       arguments: { command: 'rm -rf /tmp/abc' },
       sessionId: 'session-1',
@@ -176,7 +181,6 @@ describe('ChatManager 权限三态化（P0-2）', () => {
       status: 'awaiting_approval',
       pendingApproval: true,
     });
-    expect(submittedTitles.length).toBe(1);
     getApprovedCommandRegistry().clearSession('session-1');
   });
 });

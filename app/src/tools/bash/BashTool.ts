@@ -286,7 +286,9 @@ export class BashTool extends BaseTool {
   /** 已批准命令放行缓存（P0-4）：危险命令经审批批准后跳过安全拦截 */
   private approvedRegistry: ApprovedCommandRegistry;
 
-  constructor(approvedRegistry: ApprovedCommandRegistry = getApprovedCommandRegistry()) {
+  constructor(
+    approvedRegistry: ApprovedCommandRegistry = getApprovedCommandRegistry()
+  ) {
     super();
     this.approvedRegistry = approvedRegistry;
 
@@ -394,143 +396,155 @@ export class BashTool extends BaseTool {
       );
 
       if (!isApproved) {
-      // 安全审计修复：安全检查强制运行，不可绕过
-      // BUG08 修复：增强路径提取，支持 UNC、空格、--path= 形式
-      const pathMatch = command.match(
-        /(?:--?\w+=)?['"]?((?:\/[^\s'"]*|[A-Za-z]:[\\/][^\s'"]*|\\\\[^\s'"]+))['"]?/
-      );
-      if (pathMatch && !isPathSafe(pathMatch[1])) {
-        return createToolResult('路径安全检查失败: 禁止访问系统敏感目录', {
-          newMessages: [
-            {
-              role: 'system',
-              content: 'Error: 路径安全检查失败: 禁止访问系统敏感目录',
-            },
-          ],
-          metadata: { securityIntercepted: true, reason: 'path_safety' },
-        });
-      }
-
-      // 对标CC：危险命令列表检查
-      const lowerCommand = command.toLowerCase();
-      if (
-        DANGEROUS_COMMANDS.some((dangerousCommand) =>
-          lowerCommand.includes(dangerousCommand.toLowerCase())
-        )
-      ) {
-        return createToolResult('安全检查: 检测到危险命令', {
-          newMessages: [
-            {
-              role: 'system',
-              content: 'Error: 安全检查: 检测到危险命令',
-            },
-          ],
-          metadata: { securityIntercepted: true, reason: 'dangerous_command' },
-        });
-      }
-
-      // 对标CC：危险模式检查
-      if (DANGEROUS_PATTERNS.some((pattern) => pattern.test(command))) {
-        return createToolResult('安全检查: 检测到危险命令模式', {
-          newMessages: [
-            {
-              role: 'system',
-              content: 'Error: 安全检查: 检测到危险命令模式',
-            },
-          ],
-          metadata: { securityIntercepted: true, reason: 'dangerous_pattern' },
-        });
-      }
-
-      // 安全检查器分析
-      const securityResult = this.securityAnalyzer.analyze(command);
-
-      // AST级安全分析
-      const astResult = parseForSecurity(command);
-      if (
-        astResult.kind === 'simple' &&
-        astResult.commands.some((c) => isDangerousCommand(c.argv))
-      ) {
-        return createToolResult('AST安全分析: 检测到危险命令', {
-          newMessages: [
-            {
-              role: 'system',
-              content: 'Error: AST安全分析阻止了危险命令执行',
-            },
-          ],
-          metadata: { securityIntercepted: true, reason: 'ast_analysis' },
-        });
-      }
-
-      if (securityResult.behavior === 'deny') {
-        return createToolResult(
-          `安全检查失败: ${securityResult.message || '命令被阻止执行'}`,
-          {
+        // 安全审计修复：安全检查强制运行，不可绕过
+        // BUG08 修复：增强路径提取，支持 UNC、空格、--path= 形式
+        const pathMatch = command.match(
+          /(?:--?\w+=)?['"]?((?:\/[^\s'"]*|[A-Za-z]:[\\/][^\s'"]*|\\\\[^\s'"]+))['"]?/
+        );
+        if (pathMatch && !isPathSafe(pathMatch[1])) {
+          return createToolResult('路径安全检查失败: 禁止访问系统敏感目录', {
             newMessages: [
               {
                 role: 'system',
-                content: `Error: 安全检查失败: ${securityResult.message || '命令被阻止执行'}`,
+                content: 'Error: 路径安全检查失败: 禁止访问系统敏感目录',
+              },
+            ],
+            metadata: { securityIntercepted: true, reason: 'path_safety' },
+          });
+        }
+
+        // 对标CC：危险命令列表检查
+        const lowerCommand = command.toLowerCase();
+        if (
+          DANGEROUS_COMMANDS.some((dangerousCommand) =>
+            lowerCommand.includes(dangerousCommand.toLowerCase())
+          )
+        ) {
+          return createToolResult('安全检查: 检测到危险命令', {
+            newMessages: [
+              {
+                role: 'system',
+                content: 'Error: 安全检查: 检测到危险命令',
               },
             ],
             metadata: {
               securityIntercepted: true,
-              reason: 'security_analyzer_deny',
+              reason: 'dangerous_command',
             },
-          }
-        );
-      }
+          });
+        }
 
-      if (securityResult.behavior === 'ask') {
-        return createToolResult(
-          `需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`,
-          {
+        // 对标CC：危险模式检查
+        if (DANGEROUS_PATTERNS.some((pattern) => pattern.test(command))) {
+          return createToolResult('安全检查: 检测到危险命令模式', {
             newMessages: [
               {
                 role: 'system',
-                content: `Error: 需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`,
+                content: 'Error: 安全检查: 检测到危险命令模式',
               },
             ],
             metadata: {
               securityIntercepted: true,
-              reason: 'security_analyzer_ask',
+              reason: 'dangerous_pattern',
             },
-          }
-        );
-      }
+          });
+        }
 
-      // F3 修复：命令白名单检查 — 仅允许安全的基命令
-      if (!isBaseCommandAllowed(command)) {
-        return createToolResult(
-          `安全检查: 命令 "${command.split(/\s+/)[0]}" 不在允许列表中`,
-          {
+        // 安全检查器分析
+        const securityResult = this.securityAnalyzer.analyze(command);
+
+        // AST级安全分析
+        const astResult = parseForSecurity(command);
+        if (
+          astResult.kind === 'simple' &&
+          astResult.commands.some((c) => isDangerousCommand(c.argv))
+        ) {
+          return createToolResult('AST安全分析: 检测到危险命令', {
             newMessages: [
               {
                 role: 'system',
-                content: `Error: 安全检查: 命令 "${command.split(/\s+/)[0]}" 不在允许列表中`,
+                content: 'Error: AST安全分析阻止了危险命令执行',
               },
             ],
-            metadata: {
-              securityIntercepted: true,
-              reason: 'command_whitelist',
-            },
-          }
-        );
-      }
+            metadata: { securityIntercepted: true, reason: 'ast_analysis' },
+          });
+        }
 
-      // F2 修复：沙箱安全检查器二次校验（独立于工具层安全检查）
-      const sandboxCheckResult =
-        sandboxSecurityChecker.checkDangerousCommands(command);
-      if (!sandboxCheckResult.allowed) {
-        return createToolResult(`沙箱安全检查: ${sandboxCheckResult.reason}`, {
-          newMessages: [
+        if (securityResult.behavior === 'deny') {
+          return createToolResult(
+            `安全检查失败: ${securityResult.message || '命令被阻止执行'}`,
             {
-              role: 'system',
-              content: `Error: 沙箱安全检查: ${sandboxCheckResult.reason}`,
-            },
-          ],
-          metadata: { securityIntercepted: true, reason: 'sandbox_checker' },
-        });
-      }
+              newMessages: [
+                {
+                  role: 'system',
+                  content: `Error: 安全检查失败: ${securityResult.message || '命令被阻止执行'}`,
+                },
+              ],
+              metadata: {
+                securityIntercepted: true,
+                reason: 'security_analyzer_deny',
+              },
+            }
+          );
+        }
+
+        if (securityResult.behavior === 'ask') {
+          return createToolResult(
+            `需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`,
+            {
+              newMessages: [
+                {
+                  role: 'system',
+                  content: `Error: 需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`,
+                },
+              ],
+              metadata: {
+                securityIntercepted: true,
+                reason: 'security_analyzer_ask',
+              },
+            }
+          );
+        }
+
+        // F3 修复：命令白名单检查 — 仅允许安全的基命令
+        if (!isBaseCommandAllowed(command)) {
+          return createToolResult(
+            `安全检查: 命令 "${command.split(/\s+/)[0]}" 不在允许列表中`,
+            {
+              newMessages: [
+                {
+                  role: 'system',
+                  content: `Error: 安全检查: 命令 "${command.split(/\s+/)[0]}" 不在允许列表中`,
+                },
+              ],
+              metadata: {
+                securityIntercepted: true,
+                reason: 'command_whitelist',
+              },
+            }
+          );
+        }
+
+        // F2 修复：沙箱安全检查器二次校验（独立于工具层安全检查）
+        const sandboxCheckResult =
+          sandboxSecurityChecker.checkDangerousCommands(command);
+        if (!sandboxCheckResult.allowed) {
+          return createToolResult(
+            `沙箱安全检查: ${sandboxCheckResult.reason}`,
+            {
+              newMessages: [
+                {
+                  role: 'system',
+                  content: `Error: 沙箱安全检查: ${sandboxCheckResult.reason}`,
+                },
+              ],
+              metadata: {
+                securityIntercepted: true,
+                reason: 'sandbox_checker',
+              },
+            }
+          );
+        }
       } // 结束 !isApproved 安全拦截层（P0-4：已批准命令跳过）
 
       // F5 修复：操作审计日志

@@ -280,9 +280,7 @@ export async function handleReplyInbox(
       current.source === 'permission' &&
       (reply === 'approve' || selectedOption === 'approve')
     ) {
-      const commandHash = current.metadata?.commandHash as
-        | string
-        | undefined;
+      const commandHash = current.metadata?.commandHash as string | undefined;
       if (commandHash && current.sessionId) {
         getApprovedCommandRegistry().approve(current.sessionId, commandHash);
         logger.info('工具审批已批准，写入命令放行缓存', {

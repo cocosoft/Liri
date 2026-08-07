@@ -1,20 +1,14 @@
 /**
  * NotebookPreviewModal — .ipynb 只读预览（P2-1）
  *
- * 读取标准 Jupyter nbformat 4 文件（P1 后 NotebookManager 保存的标准格式），
- * 渲染 markdown cell（MarkdownRenderer）与 code/raw cell（代码块）。
+ * 复用后端 IpynbConverter（POST /v1/files/convert）将标准 nbformat 4 转 Markdown，
+ * 前端只渲染（markdown cell 原文 + code/raw cell fenced code block 均由后端转换），
+ * 避免前端重复实现 nbformat 解析（实现唯一性，方案 §三 P2-1）。
  * 仅查看，不提供编辑。
  */
 import { useEffect, useState } from "react";
 import { fileService } from "../../services/fileService";
 import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
-
-interface JupyterCell {
-  cell_type: "markdown" | "code" | "raw";
-  source: string | string[];
-  metadata?: Record<string, unknown>;
-  outputs?: unknown[];
-}
 
 interface NotebookPreviewModalProps {
   filePath: string;
@@ -23,20 +17,11 @@ interface NotebookPreviewModalProps {
   isDark: boolean;
 }
 
-/** Jupyter source（string | string[]）归一化为字符串 */
-function sourceToText(source: string | string[]): string {
-  return Array.isArray(source) ? source.join("") : source;
-}
-
-/** 解析标准 nbformat 4.x 的 cells；失败返回空数组 */
-function parseCells(text: string): JupyterCell[] {
-  try {
-    const data = JSON.parse(text);
-    if (Array.isArray(data.cells)) return data.cells as JupyterCell[];
-  } catch {
-    /* 解析失败返回空 */
-  }
-  return [];
+/** POST /v1/files/convert 的返回结构（ConverterEngine → IpynbConverter 输出 markdown/title） */
+interface ConvertResponse {
+  markdown?: string;
+  title?: string;
+  error?: { message?: string };
 }
 
 function NotebookPreviewModal({
@@ -45,15 +30,24 @@ function NotebookPreviewModal({
   onClose,
   isDark,
 }: NotebookPreviewModalProps) {
-  const [content, setContent] = useState("");
+  const [markdown, setMarkdown] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const text = await fileService.readFile(filePath);
-        setContent(text);
+        const result = (await fileService.convert({
+          filePath,
+          outputFormat: "markdown",
+        })) as ConvertResponse;
+        if (result?.error) {
+          setError(result.error.message || "转换失败");
+        } else if (typeof result?.markdown === "string") {
+          setMarkdown(result.markdown);
+        } else {
+          setError("无法转换 Notebook 内容（非标准 nbformat 或为空）");
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
@@ -61,8 +55,6 @@ function NotebookPreviewModal({
       }
     })();
   }, [filePath]);
-
-  const cells = content ? parseCells(content) : [];
 
   return (
     <div
@@ -92,7 +84,7 @@ function NotebookPreviewModal({
             </button>
           </div>
 
-          <div className="overflow-y-auto p-4 space-y-3">
+          <div className="overflow-y-auto p-4">
             {loading ? (
               <div className="text-center py-8 text-gray-400">
                 <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2" />
@@ -102,47 +94,12 @@ function NotebookPreviewModal({
               <div className="text-center py-8 text-red-500 text-sm">
                 读取失败：{error}
               </div>
-            ) : cells.length === 0 ? (
+            ) : markdown.trim() === "" ? (
               <div className="text-center py-8 text-gray-400 text-sm">
-                无法解析 Notebook 内容（非标准 nbformat 或为空）
+                Notebook 内容为空
               </div>
             ) : (
-              cells.map((cell, i) =>
-                cell.cell_type === "markdown" ? (
-                  <div
-                    key={i}
-                    className={`px-3 py-2 rounded-lg ${
-                      isDark ? "bg-gray-700/40" : "bg-gray-50"
-                    }`}
-                  >
-                    <MarkdownRenderer content={sourceToText(cell.source)} />
-                  </div>
-                ) : (
-                  <div
-                    key={i}
-                    className={`rounded-lg border overflow-hidden ${
-                      isDark ? "border-gray-700" : "border-gray-200"
-                    }`}
-                  >
-                    <div
-                      className={`px-2 py-1 text-[10px] ${
-                        isDark
-                          ? "bg-gray-700 text-gray-400"
-                          : "bg-gray-100 text-gray-500"
-                      }`}
-                    >
-                      {cell.cell_type === "code" ? "代码" : "RAW"}
-                    </div>
-                    <pre
-                      className={`text-xs p-3 overflow-x-auto font-mono ${
-                        isDark ? "bg-gray-900" : "bg-gray-50"
-                      }`}
-                    >
-                      {sourceToText(cell.source)}
-                    </pre>
-                  </div>
-                ),
-              )
+              <MarkdownRenderer content={markdown} />
             )}
           </div>
         </div>

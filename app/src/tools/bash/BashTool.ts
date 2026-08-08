@@ -391,10 +391,19 @@ export class BashTool extends BaseTool {
       // P0-4: 已批准命令放行通道 —— 用户审批批准的危险命令跳过全部安全拦截层
       // （保留 Zod 输入校验 L333 + Windows 预处理 L351 + 审计日志，见下）
       // P0-2: 统一用 hashCommandForExecution（与提交审批端一致，幂等于已预处理命令）
+      const approvedHash = hashCommandForExecution(command);
       const isApproved = this.approvedRegistry.isApproved(
         context.sessionId || '',
-        hashCommandForExecution(command)
+        approvedHash
       );
+      // P0-4: 放行即绕过安全拦截层，必须审计记录（session + hash + 命令）确保可追溯
+      if (isApproved) {
+        logger.info('已批准命令放行（跳过安全拦截层）', {
+          sessionId: context.sessionId,
+          hash: approvedHash,
+          command: command.slice(0, 500),
+        });
+      }
 
       if (!isApproved) {
         // 安全审计修复：安全检查强制运行，不可绕过

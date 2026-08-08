@@ -281,11 +281,18 @@ export async function handleReplyInbox(
       (reply === 'approve' || selectedOption === 'approve')
     ) {
       const commandHash = current.metadata?.commandHash as string | undefined;
+      // P0-3: 携带批准命令原文（提取命令名供命令名级放行）
+      const command = current.metadata?.command as string | undefined;
       if (commandHash && current.sessionId) {
-        getApprovedCommandRegistry().approve(current.sessionId, commandHash);
+        getApprovedCommandRegistry().approve(
+          current.sessionId,
+          commandHash,
+          command
+        );
         logger.info('工具审批已批准，写入命令放行缓存', {
           sessionId: current.sessionId,
           commandHash,
+          hasCommand: !!command,
         });
       }
     }

@@ -35,6 +35,7 @@ import {
   normalizeCommand,
   hashCommand,
   hashCommandForExecution,
+  getBaseCommand,
 } from '../../src/permission/ApprovedCommandRegistry.js';
 
 describe('ApprovedCommandRegistry 放行缓存', () => {
@@ -139,5 +140,65 @@ describe('hashCommandForExecution（P0-2 执行级统一 hash）', () => {
     expect(hashCommandForExecution('echo hi > /dev/null')).toBe(
       hashCommandForExecution('echo hi > NUL')
     );
+  });
+});
+
+describe('getBaseCommand（P0-3 命令名提取）', () => {
+  it('提取首个 token（规范化后）', () => {
+    expect(getBaseCommand('DIR   /b  X')).toBe('dir');
+    expect(getBaseCommand('  net user %username% ')).toBe('net');
+    expect(getBaseCommand('')).toBe('');
+  });
+});
+
+describe('命令名级放行 isCommandNameApproved（P0-3）', () => {
+  it('批准非危险命令 → 同命令名参数漂移放行', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    const hash = hashCommand('dir /b x');
+    reg.approve('session-1', hash, 'dir /b x');
+    // 精确 hash miss（参数不同），命令名级命中
+    expect(reg.isApproved('session-1', hashCommand('dir /b y'))).toBe(false);
+    expect(reg.isCommandNameApproved('session-1', 'dir /b y')).toBe(true);
+    reg.dispose();
+  });
+
+  it('危险命令名（rm）不允许命令名级放行，仅精确 hash', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    const hash = hashCommand('rm -rf /tmp/a');
+    reg.approve('session-1', hash, 'rm -rf /tmp/a');
+    // 同命令名不同参数 → 精确 miss + 命令名级被门控 → 不放行
+    expect(reg.isApproved('session-1', hashCommand('rm -rf /tmp/b'))).toBe(
+      false
+    );
+    expect(reg.isCommandNameApproved('session-1', 'rm -rf /tmp/b')).toBe(
+      false
+    );
+    // 精确同 hash → 放行
+    expect(reg.isApproved('session-1', hash)).toBe(true);
+    reg.dispose();
+  });
+
+  it('命令名级放行 session 隔离', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    reg.approve('session-A', hashCommand('dir'), 'dir');
+    expect(reg.isCommandNameApproved('session-A', 'dir /b')).toBe(true);
+    expect(reg.isCommandNameApproved('session-B', 'dir /b')).toBe(false);
+    reg.dispose();
+  });
+
+  it('未携带 command 的批准记录不启用命令名级放行', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    reg.approve('session-1', hashCommand('dir'));
+    expect(reg.isCommandNameApproved('session-1', 'dir /b')).toBe(false);
+    reg.dispose();
+  });
+
+  it('命令名级放行 TTL 过期后失效', async () => {
+    const reg = new ApprovedCommandRegistry(20, false);
+    reg.approve('session-1', hashCommand('dir'), 'dir');
+    expect(reg.isCommandNameApproved('session-1', 'dir')).toBe(true);
+    await new Promise((r) => setTimeout(r, 40));
+    expect(reg.isCommandNameApproved('session-1', 'dir')).toBe(false);
+    reg.dispose();
   });
 });

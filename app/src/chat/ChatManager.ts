@@ -5874,11 +5874,13 @@ ${llmPhaseSummary}`;
       const command = typeof input.command === 'string' ? input.command : '';
       if (!command || !sessionId) return false;
       // P0-2: 统一 hashCommandForExecution，与提交审批端（PermissionChecker）hash 一致
+      // P0-3: 精确 hash 命中 或 命令名级放行命中（非危险命令，安全层仍兜底）→ 跳过 ask 弹卡
       const { getApprovedCommandRegistry, hashCommandForExecution } =
         await import('@modules/permission');
-      return getApprovedCommandRegistry().isApproved(
-        sessionId,
-        hashCommandForExecution(command)
+      const registry = getApprovedCommandRegistry();
+      return (
+        registry.isApproved(sessionId, hashCommandForExecution(command)) ||
+        registry.isCommandNameApproved(sessionId, command)
       );
     } catch {
       // registry 不可用时按未批准处理，不影响安全底线（ask 仍会提交卡片）
@@ -5928,6 +5930,8 @@ ${llmPhaseSummary}`;
             sessionId: sid,
             toolCallId,
             commandHash: command ? hashCommandForExecution(command) : undefined,
+            // P0-3: 携带原始命令，批准后写入放行缓存时提取命令名供命令名级放行
+            command: command || undefined,
             inputPreview: JSON.stringify(input).slice(0, 300),
           },
         },

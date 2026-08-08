@@ -93,6 +93,50 @@ export function hashCommandForExecution(command: string): string {
 interface ApprovalEntry {
   hash: string;
   expiresAt: number;
+  /** P0-3: 批准命令的命令名（首个 token），供命令名级放行 */
+  baseCommand?: string;
+}
+
+/**
+ * P0-3: 命令名级放行禁用的危险命令名。
+ * 危险命令的参数漂移不得放行（如批准 `rm -rf A` 后 `rm -rf B` 必须精确 hash 命中）。
+ * 来源：BashTool.DANGEROUS_COMMANDS 的命令名维度 + Windows 破坏性命令补充。
+ */
+const DANGEROUS_BASE_NAMES = new Set([
+  'rm',
+  'del',
+  'erase',
+  'rd',
+  'rmdir',
+  'format',
+  'shutdown',
+  'reboot',
+  'poweroff',
+  'sudo',
+  'su',
+  'chmod',
+  'chown',
+  'mkfs',
+  'fdisk',
+  'dd',
+  'kill',
+  'killall',
+  'pkill',
+  'taskkill',
+  'reg',
+  'diskpart',
+  'mount',
+  'umount',
+  'useradd',
+  'userdel',
+  'passwd',
+  'chroot',
+  'init',
+]);
+
+/** 提取命令名（首个 token，已规范化），空命令返回空串 */
+export function getBaseCommand(command: string): string {
+  return normalizeCommand(command).split(/\s+/)[0] || '';
 }
 
 export class ApprovedCommandRegistry {
@@ -112,19 +156,23 @@ export class ApprovedCommandRegistry {
     }
   }
 
-  /** 记录一条已批准命令（幂等） */
-  approve(sessionId: string, hash: string): void {
+  /** 记录一条已批准命令（幂等）；传入 command 时记录命令名供命令名级放行（P0-3） */
+  approve(sessionId: string, hash: string, command?: string): void {
     if (!sessionId || !hash) return;
     let sessionMap = this.store.get(sessionId);
     if (!sessionMap) {
       sessionMap = new Map();
       this.store.set(sessionId, sessionMap);
     }
-    sessionMap.set(hash, { hash, expiresAt: Date.now() + this.ttlMs });
+    sessionMap.set(hash, {
+      hash,
+      expiresAt: Date.now() + this.ttlMs,
+      baseCommand: command ? getBaseCommand(command) : undefined,
+    });
     logger.info('危险命令已批准（放行缓存写入）', { sessionId, hash });
   }
 
-  /** 命令是否已批准（session 隔离 + 未过期） */
+  /** 命令是否已批准（session 隔离 + 未过期，精确 hash 匹配） */
   isApproved(sessionId: string, hash: string): boolean {
     if (!sessionId || !hash) return false;
     const sessionMap = this.store.get(sessionId);
@@ -136,6 +184,26 @@ export class ApprovedCommandRegistry {
       return false;
     }
     return true;
+  }
+
+  /**
+   * P0-3: 命令名级放行 — 同 session 内批准过该命令名且该命令名非危险命令。
+   *
+   * 用途：仅用于 ChatManager 跳过 ask 弹卡（避免 LLM 重发文本漂移导致重复弹卡）；
+   * BashTool 安全拦截层仍作为兜底执行（危险命令参数漂移会被安全层拦截）。
+   * 危险命令必须精确 hash 命中（isApproved），防止 `rm -rf A` 放行 `rm -rf B`。
+   */
+  isCommandNameApproved(sessionId: string, command: string): boolean {
+    if (!sessionId || !command) return false;
+    const base = getBaseCommand(command);
+    if (!base || DANGEROUS_BASE_NAMES.has(base)) return false;
+    const sessionMap = this.store.get(sessionId);
+    if (!sessionMap) return false;
+    const now = Date.now();
+    for (const entry of sessionMap.values()) {
+      if (entry.baseCommand === base && now <= entry.expiresAt) return true;
+    }
+    return false;
   }
 
   /** 清除某会话的全部批准（会话切换/结束时可调用） */

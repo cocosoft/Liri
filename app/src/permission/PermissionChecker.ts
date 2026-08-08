@@ -354,6 +354,8 @@ export class PermissionChecker {
           risk,
           taskId,
           commandHash,
+          // P0-3: 携带原始命令，批准后写入放行缓存时提取命令名供命令名级放行
+          command: command || undefined,
           inputPreview: JSON.stringify(input).slice(0, 200),
         },
       });

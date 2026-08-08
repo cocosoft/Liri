@@ -7,6 +7,7 @@
 import { execSync, spawnSync } from 'child_process';
 import { existsSync, mkdirSync, unlinkSync, statSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { deflateRawSync } from 'zlib';
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
@@ -328,6 +329,245 @@ function createFallbackMarkdown(
   return { fileName, filePath };
 }
 
+// ─── 方案六 P1-3：officecli 不可用时的原生 docx 生成 fallback ───────────────
+// 纯 Node 实现（zlib + 手写 ZIP 结构），零第三方依赖。
+// 支持标题（#/##/###）、列表（- /*）、段落，输出标准 .docx（Word 可打开）。
+
+/** CRC32 表（标准多项式 0xEDB88320） */
+const CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(buf: Buffer): number {
+  let crc = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) {
+    crc = CRC_TABLE[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+/** XML 文本转义 */
+function xmlEscape(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+/** 生成带样式的段落 XML */
+function paragraphWithStyle(text: string, style: string): string {
+  return `<w:p><w:pPr><w:pStyle w:val="${style}"/></w:pPr><w:r><w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r></w:p>`;
+}
+
+/** Markdown 行 → OOXML 段落（与 markdownToBatchCommands 语义一致） */
+function markdownLineToParagraph(line: string): string {
+  const trimmed = line.trim();
+  if (!trimmed) return '<w:p/>';
+
+  if (trimmed.startsWith('### ')) {
+    return paragraphWithStyle(trimmed.slice(4), 'Heading3');
+  }
+  if (trimmed.startsWith('## ')) {
+    return paragraphWithStyle(trimmed.slice(3), 'Heading2');
+  }
+  if (trimmed.startsWith('# ')) {
+    return paragraphWithStyle(trimmed.slice(2), 'Heading1');
+  }
+  if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+    // 列表项：与 officecli 路径一致使用 • 前缀段落，避免依赖 numbering.xml
+    return `<w:p><w:r><w:t xml:space="preserve">• ${xmlEscape(trimmed.slice(2))}</w:t></w:r></w:p>`;
+  }
+  return `<w:p><w:r><w:t xml:space="preserve">${xmlEscape(trimmed)}</w:t></w:r></w:p>`;
+}
+
+/** 手写最小 ZIP 打包（deflate 压缩） */
+function buildZip(entries: { name: string; data: Buffer }[]): Buffer {
+  const chunks: Buffer[] = [];
+  const central: Buffer[] = [];
+  let offset = 0;
+
+  for (const entry of entries) {
+    const nameBuf = Buffer.from(entry.name, 'utf-8');
+    const crc = crc32(entry.data);
+    const compressed = deflateRawSync(entry.data);
+
+    // local file header
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0); // signature
+    local.writeUInt16LE(20, 4); // version needed
+    local.writeUInt16LE(0x0800, 6); // flags: UTF-8 文件名
+    local.writeUInt16LE(8, 8); // method: deflate
+    local.writeUInt16LE(0, 10); // mod time
+    local.writeUInt16LE(0x21, 12); // mod date
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(compressed.length, 18);
+    local.writeUInt32LE(entry.data.length, 22);
+    local.writeUInt16LE(nameBuf.length, 26);
+    local.writeUInt16LE(0, 28); // extra length
+
+    chunks.push(local, nameBuf, compressed);
+
+    // central directory header
+    const centralHeader = Buffer.alloc(46);
+    centralHeader.writeUInt32LE(0x02014b50, 0); // signature
+    centralHeader.writeUInt16LE(20, 4); // version made by
+    centralHeader.writeUInt16LE(20, 6); // version needed
+    centralHeader.writeUInt16LE(0x0800, 8); // flags
+    centralHeader.writeUInt16LE(8, 10); // method
+    centralHeader.writeUInt16LE(0, 12); // time
+    centralHeader.writeUInt16LE(0x21, 14); // date
+    centralHeader.writeUInt32LE(crc, 16);
+    centralHeader.writeUInt32LE(compressed.length, 20);
+    centralHeader.writeUInt32LE(entry.data.length, 24);
+    centralHeader.writeUInt16LE(nameBuf.length, 28);
+    centralHeader.writeUInt16LE(0, 30); // extra len
+    centralHeader.writeUInt16LE(0, 32); // comment len
+    centralHeader.writeUInt16LE(0, 34); // disk start
+    centralHeader.writeUInt16LE(0, 36); // internal attrs
+    centralHeader.writeUInt32LE(0, 38); // external attrs
+    centralHeader.writeUInt32LE(offset, 42); // local header offset
+    central.push(centralHeader, nameBuf);
+
+    offset += local.length + nameBuf.length + compressed.length;
+  }
+
+  const centralDir = Buffer.concat(central);
+  const centralStart = offset;
+
+  // end of central directory
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0); // signature
+  eocd.writeUInt16LE(0, 4); // disk number
+  eocd.writeUInt16LE(0, 6); // cd start disk
+  eocd.writeUInt16LE(entries.length, 8); // entries on this disk
+  eocd.writeUInt16LE(entries.length, 10); // total entries
+  eocd.writeUInt32LE(centralDir.length, 12);
+  eocd.writeUInt32LE(centralStart, 16);
+  eocd.writeUInt16LE(0, 20); // comment length
+
+  return Buffer.concat([...chunks, centralDir, eocd]);
+}
+
+/**
+ * 原生 docx 生成（officecli 不可用时的 fallback）
+ * 生成标准 OOXML 结构的 .docx 文件，Word/WPS 可直接打开。
+ */
+function createNativeDocx(
+  title: string,
+  content: string,
+  outputDir: string
+): { fileName: string; filePath: string } {
+  const safeName = sanitizeFileName(title);
+  const fileName = `${safeName}.docx`;
+  const filePath = join(outputDir, fileName);
+
+  if (!existsSync(outputDir)) {
+    mkdirSync(outputDir, { recursive: true });
+  }
+
+  const paragraphs = content
+    .split('\n')
+    .map((line) => markdownLineToParagraph(line))
+    .join('');
+
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+${paragraphs}
+    <w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>
+  </w:body>
+</w:document>`;
+
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>`;
+
+  const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`;
+
+  const coreProps = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dc:title>${xmlEscape(title)}</dc:title>
+  <dc:creator>Liri AI</dc:creator>
+  <dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString()}</dcterms:created>
+  <dcterms:modified xsi:type="dcterms:W3CDTF">${new Date().toISOString()}</dcterms:modified>
+</cp:coreProperties>`;
+
+  const appProps = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
+  <Application>Liri AI</Application>
+</Properties>`;
+
+  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
+    <w:name w:val="Normal"/>
+    <w:rPr><w:sz w:val="21"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading1">
+    <w:name w:val="heading 1"/>
+    <w:pPr><w:keepNext/><w:spacing w:before="240" w:after="120"/></w:pPr>
+    <w:rPr><w:b/><w:sz w:val="32"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading2">
+    <w:name w:val="heading 2"/>
+    <w:pPr><w:keepNext/><w:spacing w:before="200" w:after="100"/></w:pPr>
+    <w:rPr><w:b/><w:sz w:val="28"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading3">
+    <w:name w:val="heading 3"/>
+    <w:pPr><w:keepNext/><w:spacing w:before="160" w:after="80"/></w:pPr>
+    <w:rPr><w:b/><w:sz w:val="24"/></w:rPr>
+  </w:style>
+</w:styles>`;
+
+  const docRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+
+  const zipBuffer = buildZip([
+    { name: '[Content_Types].xml', data: Buffer.from(contentTypes, 'utf-8') },
+    { name: '_rels/.rels', data: Buffer.from(rootRels, 'utf-8') },
+    { name: 'docProps/core.xml', data: Buffer.from(coreProps, 'utf-8') },
+    { name: 'docProps/app.xml', data: Buffer.from(appProps, 'utf-8') },
+    { name: 'word/document.xml', data: Buffer.from(documentXml, 'utf-8') },
+    {
+      name: 'word/_rels/document.xml.rels',
+      data: Buffer.from(docRels, 'utf-8'),
+    },
+    { name: 'word/styles.xml', data: Buffer.from(stylesXml, 'utf-8') },
+  ]);
+
+  writeFileSync(filePath, zipBuffer);
+
+  logger.info('原生 docx 生成成功（officecli 不可用，fallback）', {
+    fileName,
+    size: zipBuffer.length,
+  });
+
+  return { fileName, filePath };
+}
+
 export class DocGenerateTool extends BaseTool {
   name = 'doc_generate';
 
@@ -469,9 +709,13 @@ export class DocGenerateTool extends BaseTool {
           docType,
           outputDir
         );
+      } else if (docType === 'docx') {
+        // 方案六 P1-3：officecli 不可用且目标为 docx 时，使用原生 OOXML 生成 fallback
+        logger.info('DocGenerateTool: officecli 不可用，使用原生 docx 生成');
+        result = createNativeDocx(finalTitle, finalContent, outputDir);
       } else {
         logger.info('DocGenerateTool: officecli 不可用，使用 Markdown 回退');
-        // 回退：生成 Markdown 文件
+        // 回退：生成 Markdown 文件（xlsx/pptx 暂不提供原生生成）
         result = createFallbackMarkdown(
           finalTitle,
           finalContent,
@@ -509,10 +753,12 @@ export class DocGenerateTool extends BaseTool {
         size,
       };
 
-      // officecli 不可用时的提示信息
+      // officecli 不可用时的提示信息（docx 已走原生生成，非降级）
       const cliNote = cliAvailable
         ? ''
-        : '\n\n⚠️ officecli 未安装，已生成 Markdown 降级文件。安装 officecli 后可生成真正的 .docx/.xlsx/.pptx 文件。';
+        : docType === 'docx'
+          ? '\n\n⚠️ officecli 未安装，已使用内置原生 docx 生成器（非 Markdown 降级）。安装 officecli 可获得更丰富的格式支持。'
+          : '\n\n⚠️ officecli 未安装，已生成 Markdown 降级文件。安装 officecli 后可生成真正的 .xlsx/.pptx 文件。';
 
       return {
         success: true,

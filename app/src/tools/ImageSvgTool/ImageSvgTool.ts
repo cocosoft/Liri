@@ -199,6 +199,7 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
       // 方案四（P1-1）：校验传入模型是否具备图片生成能力（读 DB model_registry
       // capabilities，禁止把重排/嵌入模型当生成模型调用）；不具备则回退默认生成模型
       let model: string | undefined = input.model;
+      let modelFallbackNote = '';
       try {
         if (model) {
           const cfg = modelManager.getModelRegistry().getModel(model);
@@ -210,6 +211,8 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
               'ImageSvgTool · 指定模型不具备图片生成能力，回退默认生成模型',
               { model, capabilities: cfg?.capabilities ?? [] }
             );
+            // 方案四 4b：在工具结果中明确提示，避免 AI 误以为指定模型生效
+            modelFallbackNote = `（指定模型 "${model}" 不具备图片生成能力，已回退默认模型）`;
             model = undefined;
           }
         }
@@ -277,9 +280,11 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
           size,
           validation,
         },
-        output: filePath
-          ? `已生成 SVG 文件：${filePath}\n\n\`\`\`svg\n${svgCode}\n\`\`\``
-          : `\`\`\`svg\n${svgCode}\n\`\`\``,
+        output: `${
+          filePath
+            ? `已生成 SVG 文件：${filePath}\n\n\`\`\`svg\n${svgCode}\n\`\`\``
+            : `\`\`\`svg\n${svgCode}\n\`\`\``
+        }${modelFallbackNote}`,
       };
     } catch (error) {
       await handleError(error, {

@@ -864,6 +864,17 @@ export class BashTool extends BaseTool {
       );
     }
 
+    // 方案六 P1-5：对含全角冒号（：）等特殊字符且未加引号的路径 token 自动加引号，
+    // 避免 cmd.exe 解析含全角字符的文件路径失败（如 `标的1-标包10：云景....docx`）
+    processed = processed.replace(
+      /(^|[\s"'|;&,()<>])(?!["'])([^\s"'|;&,()<>]*：[^\s"'|;&,()<>]*)/g,
+      (match, prefix: string, token: string) => {
+        // 前缀为引号说明 token 已在引号上下文内，跳过避免双重包裹
+        if (prefix === '"' || prefix === "'") return match;
+        return `${prefix}"${token}"`;
+      }
+    );
+
     return { command: processed, warnings };
   }
 

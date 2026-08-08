@@ -117,6 +117,8 @@ const ALLOWED_POWERSHELL_COMMANDS = new Set([
   'echo',
   'write-host',
   'write-output',
+  // 方案八 8b：只读文本搜索放行（findstr 是 cmd.exe 只读工具）
+  'findstr',
 ]);
 
 /** 沙箱安全检查器实例（F2 修复：二次校验） */

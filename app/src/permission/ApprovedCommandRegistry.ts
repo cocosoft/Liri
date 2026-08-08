@@ -35,8 +35,11 @@ import { Logger } from '@modules/monitoring';
 
 const logger = new Logger({ module: 'permission:approvedCommands' });
 
-/** 批准记录默认 TTL（毫秒） */
-const DEFAULT_TTL_MS = 60_000;
+/** 批准记录默认 TTL（毫秒）— P0-1: 60s → 5min，匹配"批准→LLM 续跑"真实耗时（实测 75–131s） */
+const DEFAULT_TTL_MS = 300_000;
+
+/** 环境变量：批准放行缓存 TTL（毫秒） */
+const APPROVAL_TTL_ENV = 'PERMISSION_APPROVAL_TTL_MS';
 
 /** 定时清理间隔（毫秒） */
 const CLEANUP_INTERVAL_MS = 30_000;
@@ -65,6 +68,26 @@ export function hashCommand(command: string): string {
     h = ((h << 5) + h + normalized.charCodeAt(i)) >>> 0;
   }
   return h.toString(36);
+}
+
+/**
+ * 命令执行 hash — 提交审批与执行查询的统一入口（P0-2）。
+ *
+ * 与 BashTool.preprocessWindowsCommand 的命令文本转换保持一致：
+ * Windows 下 `/tmp` → `%TEMP%`、`/dev/null` → `NUL`，再规范化 + hash。
+ * 幂等：对已预处理的命令再次调用结果不变（`%TEMP%`/`NUL` 不再含 `/tmp`/`/dev/null`）。
+ *
+ * 目的：消除双端 hash 不一致——
+ * - 提交端（PermissionChecker/ChatManager）：对 LLM 原始命令调用本函数
+ * - 执行端（BashTool）：对 Windows 预处理后的命令调用本函数
+ * 两端结果一致，批准后重发同一命令可稳定命中放行缓存。
+ */
+export function hashCommandForExecution(command: string): string {
+  let c = command;
+  if (process.platform === 'win32') {
+    c = c.replace(/\/tmp\b/g, '%TEMP%').replace(/\/dev\/null\b/g, 'NUL');
+  }
+  return hashCommand(c);
 }
 
 interface ApprovalEntry {
@@ -142,10 +165,20 @@ export class ApprovedCommandRegistry {
 
 let _instance: ApprovedCommandRegistry | null = null;
 
+/** 解析放行缓存 TTL：优先环境变量 PERMISSION_APPROVAL_TTL_MS，否则默认 5 分钟（P0-1） */
+function resolveApprovalTtl(): number {
+  const raw = process.env[APPROVAL_TTL_ENV];
+  if (raw) {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return DEFAULT_TTL_MS;
+}
+
 /** 全局单例 */
 export function getApprovedCommandRegistry(): ApprovedCommandRegistry {
   if (!_instance) {
-    _instance = new ApprovedCommandRegistry();
+    _instance = new ApprovedCommandRegistry(resolveApprovalTtl());
   }
   return _instance;
 }

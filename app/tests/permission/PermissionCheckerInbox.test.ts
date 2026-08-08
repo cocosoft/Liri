@@ -39,7 +39,7 @@ import { createPermissionManager } from '../../src/permission/PermissionManager.
 import { PermissionBehavior } from '../../src/permission/types/PermissionRule.js';
 import { inboxManager } from '../../src/runtime/InboxManager.js';
 import { unattendedMode } from '../../src/runtime/UnattendedModeManager.js';
-import { hashCommand } from '../../src/permission/ApprovedCommandRegistry.js';
+import { hashCommandForExecution } from '../../src/permission/ApprovedCommandRegistry.js';
 import { resolvePermissionsDir } from '../../src/core/paths.js';
 
 /** 权限规则持久化文件（addRule 会写入磁盘，测试前后备份/恢复隔离） */
@@ -109,7 +109,7 @@ describe('PermissionManager 统一 Inbox 提交（P1-2）', () => {
     expect(submittedItems[0].sessionId).toBe('session-1');
     expect(submittedItems[0].type).toBe('approval');
     expect(submittedItems[0].metadata?.commandHash).toBe(
-      hashCommand('rm -rf /tmp/abc')
+      hashCommandForExecution('rm -rf /tmp/abc')
     );
   });
 

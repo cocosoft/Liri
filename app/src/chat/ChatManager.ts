@@ -5873,11 +5873,12 @@ ${llmPhaseSummary}`;
       }
       const command = typeof input.command === 'string' ? input.command : '';
       if (!command || !sessionId) return false;
-      const { getApprovedCommandRegistry, hashCommand } =
+      // P0-2: 统一 hashCommandForExecution，与提交审批端（PermissionChecker）hash 一致
+      const { getApprovedCommandRegistry, hashCommandForExecution } =
         await import('@modules/permission');
       return getApprovedCommandRegistry().isApproved(
         sessionId,
-        hashCommand(command)
+        hashCommandForExecution(command)
       );
     } catch {
       // registry 不可用时按未批准处理，不影响安全底线（ask 仍会提交卡片）
@@ -5903,7 +5904,8 @@ ${llmPhaseSummary}`;
   ): Promise<boolean> {
     try {
       const { inboxManager } = await import('@modules/runtime/InboxManager.js');
-      const { hashCommand } = await import('@modules/permission');
+      // P0-2: 统一 hashCommandForExecution，与执行端 BashTool hash 一致
+      const { hashCommandForExecution } = await import('@modules/permission');
       const command = typeof input.command === 'string' ? input.command : '';
       const sid = sessionId || 'default';
       await inboxManager.submit(
@@ -5925,7 +5927,7 @@ ${llmPhaseSummary}`;
             toolName,
             sessionId: sid,
             toolCallId,
-            commandHash: command ? hashCommand(command) : undefined,
+            commandHash: command ? hashCommandForExecution(command) : undefined,
             inputPreview: JSON.stringify(input).slice(0, 300),
           },
         },

@@ -11,7 +11,7 @@ import {
   createAskDecision,
 } from './types/PermissionDecision';
 import { PermissionContext } from './types/PermissionContext';
-import { hashCommand } from './ApprovedCommandRegistry';
+import { hashCommandForExecution } from './ApprovedCommandRegistry';
 import { PermissionBehavior, isRuleMatch } from './types/PermissionRule';
 import {
   RiskClass,
@@ -327,11 +327,12 @@ export class PermissionChecker {
         | undefined;
 
       // P1-2: 命令类工具计算规范化 hash，供批准后写入 ApprovedCommandRegistry（放行缓存）
+      // P0-2: 统一 hashCommandForExecution，与 BashTool 执行端 hash 一致
       const command = typeof input.command === 'string' ? input.command : '';
       const isCommandTool =
         toolName === 'bash' || toolName === 'shell' || toolName === 'command';
       const commandHash =
-        isCommandTool && command ? hashCommand(command) : undefined;
+        isCommandTool && command ? hashCommandForExecution(command) : undefined;
 
       await inboxManager.submit({
         sessionId,

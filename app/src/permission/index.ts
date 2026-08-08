@@ -131,6 +131,7 @@ export {
   getApprovedCommandRegistry,
   normalizeCommand,
   hashCommand,
+  hashCommandForExecution,
 } from './ApprovedCommandRegistry';
 
 // Risk classification (Phase 3: OpenWorker-style)

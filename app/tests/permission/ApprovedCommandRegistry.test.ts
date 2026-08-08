@@ -34,6 +34,7 @@ import {
   ApprovedCommandRegistry,
   normalizeCommand,
   hashCommand,
+  hashCommandForExecution,
 } from '../../src/permission/ApprovedCommandRegistry.js';
 
 describe('ApprovedCommandRegistry 放行缓存', () => {
@@ -111,5 +112,32 @@ describe('ApprovedCommandRegistry 放行缓存', () => {
     expect(reg.isApproved('session-1', hash)).toBe(false);
     expect(reg.isApproved('session-2', hash)).toBe(true);
     reg.dispose();
+  });
+});
+
+describe('hashCommandForExecution（P0-2 执行级统一 hash）', () => {
+  it('无路径转换命令：与 hashCommand 一致（平台无关）', () => {
+    expect(hashCommandForExecution('echo format-test')).toBe(
+      hashCommand('echo format-test')
+    );
+    expect(hashCommandForExecution('net user %username%')).toBe(
+      hashCommand('net user %username%')
+    );
+  });
+
+  it('Windows：原始 /tmp 命令与 BashTool 预处理后命令 hash 一致', () => {
+    // BashTool 预处理会把 /tmp 翻译为 %TEMP%；两端都用 hashCommandForExecution
+    // 应命中同一 hash（提交端原始命令 vs 执行端预处理命令）。
+    if (process.platform !== 'win32') return; // 仅 Windows 有路径转换
+    const raw = hashCommandForExecution('rm -rf /tmp/abc');
+    const preprocessed = hashCommandForExecution('rm -rf %TEMP%/abc');
+    expect(raw).toBe(preprocessed);
+  });
+
+  it('Windows：/dev/null 与 NUL 等价', () => {
+    if (process.platform !== 'win32') return;
+    expect(hashCommandForExecution('echo hi > /dev/null')).toBe(
+      hashCommandForExecution('echo hi > NUL')
+    );
   });
 });

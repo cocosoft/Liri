@@ -37,7 +37,7 @@ import { completeSecuritySystem } from '@modules/security';
 import {
   ApprovedCommandRegistry,
   getApprovedCommandRegistry,
-  hashCommand,
+  hashCommandForExecution,
 } from '@modules/permission/ApprovedCommandRegistry';
 
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -390,9 +390,10 @@ export class BashTool extends BaseTool {
 
       // P0-4: 已批准命令放行通道 —— 用户审批批准的危险命令跳过全部安全拦截层
       // （保留 Zod 输入校验 L333 + Windows 预处理 L351 + 审计日志，见下）
+      // P0-2: 统一用 hashCommandForExecution（与提交审批端一致，幂等于已预处理命令）
       const isApproved = this.approvedRegistry.isApproved(
         context.sessionId || '',
-        hashCommand(command)
+        hashCommandForExecution(command)
       );
 
       if (!isApproved) {

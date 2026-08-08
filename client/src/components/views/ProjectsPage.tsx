@@ -18,6 +18,7 @@ import { handleClientError } from "@/utils/handleError";
 import { triggerEngineHook } from "@/services/projectArtifactService";
 import CreateProjectModal from "@/components/Workspace/CreateProjectModal";
 import ChatArea from "@/components/ChatArea/ChatArea";
+import SessionHistorySidebar from "@/components/ChatArea/SessionHistorySidebar";
 import { ProjectMaterialsPanel } from "@/components/project/ProjectMaterialsPanel";
 import { ProjectDeliverablesPanel } from "@/components/project/ProjectDeliverablesPanel";
 import { ProjectHistoryPanel } from "@/components/project/ProjectHistoryPanel";
@@ -156,6 +157,7 @@ export default function ProjectsPage() {
   const sessions = useRootStore((s) => s.sessions);
   const switchWorkspace = useRootStore((s) => s.switchWorkspace);
   const createChatSession = useRootStore((s) => s.createChatSession);
+  const switchChatSession = useRootStore((s) => s.switchChatSession);
   const deleteWorkspace = useRootStore((s) => s.deleteWorkspace);
   const updateWorkspace = useRootStore((s) => s.updateWorkspace);
   const completeWorkspace = useRootStore((s) => s.completeWorkspace);
@@ -307,11 +309,23 @@ export default function ProjectsPage() {
       });
       await switchWorkspace(wid);
       const state = useRootStore.getState();
-      const projSessions = Object.values(state.sessions).filter(
-        (s) => s.workspaceId === wid,
-      );
+      const projSessions = Object.values(state.sessions)
+        .filter((s) => s.workspaceId === wid)
+        .sort((a, b) => b.updatedAt - a.updatedAt);
+      const currentId = state.currentSessionId;
       if (projSessions.length === 0) {
+        // 项目无会话：创建首个会话（清空消息并指向新会话）
         await createChatSession("对话 1");
+        return;
+      }
+      // 项目已有会话：切到当前会话（若属于本项目）或最近一条，
+      // 避免把对话模块的当前会话/消息带入项目模块
+      const targetId =
+        projSessions.find((s) => s.id === currentId)?.id ?? projSessions[0].id;
+      if (currentId !== targetId) {
+        // 先清空消息，避免项目页短暂显示对话模块残留的会话内容
+        await chatCoordinator.clearMessages();
+        await switchChatSession(targetId);
       }
     }
     init().catch((e) =>
@@ -320,7 +334,7 @@ export default function ProjectsPage() {
         action: "initProject",
       }),
     );
-  }, [selectedProjectId, selectedProject, switchWorkspace, createChatSession, enterModule]);
+  }, [selectedProjectId, selectedProject, switchWorkspace, switchChatSession, createChatSession, enterModule]);
 
   const handleSelectProject = (id: string) => {
     if (id !== selectedProjectId) {
@@ -765,20 +779,28 @@ export default function ProjectsPage() {
               </div>
             </header>
 
-            {/* ---------- 内容主体（ChatArea 包裹） ---------- */}
-            <div className="flex-1 min-h-0 flex flex-col relative bg-white dark:bg-gray-900">
-              {/* 无消息时显示欢迎大标题 */}
-              {!hasMessages && (
-                <div className="px-8 pt-16 pb-6 flex justify-center">
-                  <h1 className="text-2xl md:text-3xl font-semibold text-gray-800 dark:text-gray-100 text-center leading-tight">
-                    准备开始「{selectedProject.name}」项目了吗？
-                  </h1>
-                </div>
-              )}
+            {/* ---------- 内容主体：项目会话历史侧栏 + ChatArea ---------- */}
+            <div className="flex-1 min-h-0 flex">
+              {/* 项目会话历史列表（scope 到当前项目） */}
+              <SessionHistorySidebar
+                scopeModuleType="project"
+                scopeProjectId={selectedProjectId ?? undefined}
+                basePath="/projects"
+              />
+              <div className="flex-1 min-h-0 flex flex-col relative bg-white dark:bg-gray-900">
+                {/* 无消息时显示欢迎大标题 */}
+                {!hasMessages && (
+                  <div className="px-8 pt-16 pb-6 flex justify-center">
+                    <h1 className="text-2xl md:text-3xl font-semibold text-gray-800 dark:text-gray-100 text-center leading-tight">
+                      准备开始「{selectedProject.name}」项目了吗？
+                    </h1>
+                  </div>
+                )}
 
-              {/* ChatArea：消息列表 + 输入框 — fluid 模式，项目页全宽无 max-w-3xl 居中 */}
-              <div className="flex-1 min-h-0 flex flex-col">
-                <ChatArea fluid />
+                {/* ChatArea：消息列表 + 输入框 — fluid 模式，项目页全宽无 max-w-3xl 居中 */}
+                <div className="flex-1 min-h-0 flex flex-col">
+                  <ChatArea fluid />
+                </div>
               </div>
             </div>
           </>

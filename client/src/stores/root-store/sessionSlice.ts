@@ -567,11 +567,13 @@ export const createSessionSlice: StateCreator<
       // 同步 SessionHub：以「后端 workspaceId」为权威标记会话归属，而非当前
       // currentWorkspaceId —— 防止在项目 worktree 上下文中切换普通会话时
       // 被误标为用户项目会话（导致 /chat 页侧栏过滤隐藏）。
+      // 同时保留已有记录的模块类型，避免切换项目会话时被误标为 chat（projectId 由 workspaceId 兜底）。
+      const existingHub = get().sessions[id];
       get().createSession(
-        "chat",
+        existingHub?.moduleType ?? "chat",
         session.title,
         id,
-        session.workspaceId ?? get().sessions[id]?.workspaceId ?? "",
+        session.workspaceId ?? existingHub?.workspaceId ?? "",
       );
       if (import.meta.env.DEV)
         console.info("[Diag:switch] ⑤ store 更新 + SessionHub 同步", {

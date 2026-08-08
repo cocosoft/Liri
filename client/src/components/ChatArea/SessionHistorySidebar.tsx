@@ -267,19 +267,17 @@ function SessionHistorySidebar({
     // 0. 模块类型 + 项目过滤（替代旧的 worktree 作用域过滤）
     result = result.filter((s) => {
       const hub = rootSessions[s.id];
-      if (!hub) {
-        // 无 Hub 记录：按 workspaceId 推断 moduleType（迁移过渡期兜底）
-        const inferred = inferModuleTypeFromWorkspaceId(s.workspaceId ?? "");
-        if (inferred !== effectiveModuleType) return false;
-        if (effectiveModuleType === "project" && effectiveProjectId) {
-          return s.workspaceId === effectiveProjectId;
-        }
-        return true;
-      }
-      if (hub.moduleType !== effectiveModuleType) return false;
+      const moduleType =
+        hub?.moduleType ?? inferModuleTypeFromWorkspaceId(s.workspaceId ?? "");
+      const workspaceId = hub?.workspaceId ?? s.workspaceId;
+
+      // 项目作用域：workspaceId 是会话归属的权威信号
+      // （兼容 metadata.projectId / moduleType 缺失的历史会话）
       if (effectiveModuleType === "project" && effectiveProjectId) {
-        return hub.projectId === effectiveProjectId;
+        return workspaceId === effectiveProjectId;
       }
+
+      if (moduleType !== effectiveModuleType) return false;
       return true;
     });
 
@@ -388,7 +386,7 @@ function SessionHistorySidebar({
   }, [loadSessions]);
 
   const handleNewSession = async () => {
-    const title = t("chat.newSession") + ` ${sessions.length + 1}`;
+    const title = t("chat.newSession") + ` ${filteredSessions.length + 1}`;
     await createSession(title);
     navigate(basePath);
   };
@@ -535,8 +533,10 @@ function SessionHistorySidebar({
               d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
             />
           </svg>
-          {sessions.length > 0 && (
-            <span className="text-xs text-gray-400">{sessions.length}</span>
+          {filteredSessions.length > 0 && (
+            <span className="text-xs text-gray-400">
+              {filteredSessions.length}
+            </span>
           )}
         </div>
         <div className="hidden group-hover:flex flex-1 flex-col overflow-y-auto p-2">
@@ -642,7 +642,8 @@ function SessionHistorySidebar({
             <div className="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mb-2" />
             <p className="text-sm text-gray-400">加载中...</p>
           </div>
-        ) : sessions.length === 0 ? (
+        ) : sessions.length === 0 ||
+          (filteredSessions.length === 0 && !debouncedQuery.trim()) ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <svg
               className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2"

@@ -272,13 +272,21 @@ export async function handleReplyInbox(
       }
     }
 
-    // ── 工具审批放行：permission source + approve → 写入已批准命令放行缓存（P0-3）──
+    // ── 工具审批放行：permission source + 批准类 reply → 写入已批准命令放行缓存（P0-3）──
+    // 批准类 reply：approve（本次执行）/ allowlist_tool / allowlist_command（P2-4 白名单持久化）。
     // ChatManager 提交审批时在 metadata 记录 commandHash；批准后 BashTool 执行前
-    // 命中缓存（session 隔离 + 60s TTL）跳过安全拦截层，AI 重发同一命令即可放行。
+    // 命中缓存（session 隔离 + TTL）跳过安全拦截层，AI 重发同一命令即可放行。
+    const isApprovalReply =
+      reply === 'approve' ||
+      selectedOption === 'approve' ||
+      reply === 'allowlist_tool' ||
+      selectedOption === 'allowlist_tool' ||
+      reply === 'allowlist_command' ||
+      selectedOption === 'allowlist_command';
     if (
       current.type === 'approval' &&
       current.source === 'permission' &&
-      (reply === 'approve' || selectedOption === 'approve')
+      isApprovalReply
     ) {
       const commandHash = current.metadata?.commandHash as string | undefined;
       // P0-3: 携带批准命令原文（提取命令名供命令名级放行）
@@ -294,6 +302,19 @@ export async function handleReplyInbox(
           commandHash,
           hasCommand: !!command,
         });
+        // P2-4: 白名单持久化——allowlist_tool 写工具级 allow 规则，
+        // allowlist_command 写命令前缀级 allow 规则（contentPattern）
+        const isAllowlistReply =
+          reply === 'allowlist_tool' ||
+          selectedOption === 'allowlist_tool' ||
+          reply === 'allowlist_command' ||
+          selectedOption === 'allowlist_command';
+        if (isAllowlistReply) {
+          const commandLevel =
+            reply === 'allowlist_command' ||
+            selectedOption === 'allowlist_command';
+          await persistAllowlistRule(current, commandLevel);
+        }
         // P2-1: 批准后后端直接触发会话续跑（复用 checkpoint/resume 机制），
         // 不依赖前端发消息触发 LLM 自发重发。pendingApproval 工具重放时
         // 命中放行缓存直接执行，结果落盘，前端轮询刷新可见。
@@ -447,4 +468,68 @@ async function triggerResumeAfterApproval(sessionId: string): Promise<void> {
     }
   }
   logger.info('审批后自动续跑完成', { sessionId, resumed });
+}
+
+/**
+ * P2-4: 持久化白名单规则到 tool_rules.json（behavior: allow）。
+ * - 工具级（commandLevel=false）：`{behavior: allow, toolName}` → 该工具整体免审批
+ * - 命令前缀级（commandLevel=true）：`{behavior: allow, toolName, contentPattern}` → 仅匹配命令免审批
+ * 通过 PermissionManager 单例拿到共享 RuleManager，addRule 幂等去重 + 落盘。
+ */
+async function persistAllowlistRule(
+  current: { metadata?: Record<string, unknown>; sessionId?: string },
+  commandLevel: boolean
+): Promise<void> {
+  const toolName = current.metadata?.toolName as string | undefined;
+  if (!toolName) {
+    logger.warn('白名单持久化跳过：缺少 toolName', {
+      sessionId: current.sessionId,
+    });
+    return;
+  }
+  const command =
+    typeof current.metadata?.command === 'string'
+      ? (current.metadata.command as string)
+      : '';
+  const contentPattern =
+    commandLevel && command ? buildCommandContentPattern(command) : undefined;
+
+  const { PermissionManager } = await import(
+    '@modules/permission/PermissionManager.js'
+  );
+  const {
+    createPermissionRule,
+    PermissionBehavior,
+  } = await import('@modules/permission/types/PermissionRule.js');
+
+  const ruleManager = PermissionManager.getInstance().getRuleManager();
+  ruleManager.addRule(
+    createPermissionRule({
+      behavior: PermissionBehavior.ALLOW,
+      toolName,
+      contentPattern,
+    })
+  );
+  logger.info('白名单规则已持久化', {
+    toolName,
+    commandLevel,
+    contentPattern,
+    sessionId: current.sessionId,
+  });
+}
+
+/**
+ * P2-4: 生成命令前缀正则 —— 取命令前 2 个 token 拼接、转义正则特殊字符、尾部 `.*`。
+ * 例：`net user %username%` → `^net user.*`；单 token 命令 `dir` → `^dir.*`。
+ */
+function buildCommandContentPattern(command: string): string {
+  const tokens = command.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return '';
+  const prefix = tokens.slice(0, 2).join(' ');
+  return `^${escapeRegExp(prefix)}.*`;
+}
+
+/** 转义正则特殊字符，保证命令文本按字面匹配 */
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

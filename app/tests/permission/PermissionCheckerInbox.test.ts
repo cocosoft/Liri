@@ -60,6 +60,7 @@ interface SubmittedItem {
   type: string;
   title: string;
   metadata?: Record<string, unknown>;
+  options?: string[];
 }
 
 const submittedItems: SubmittedItem[] = [];
@@ -343,5 +344,38 @@ describe('RuleManager.addRule 幂等去重（P1-1）', () => {
     expect(rm2.getRules()).toHaveLength(1);
     const onDisk = JSON.parse(readFileSync(RULE_FILE, 'utf8'));
     expect(onDisk).toHaveLength(1); // 已回写
+  });
+});
+
+describe('P2-4 白名单按钮（approval options）', () => {
+  it('命令类工具审批卡片携带 allowlist_tool + allowlist_command 按钮', async () => {
+    const pm = createPermissionManager();
+    pm.addRule(PermissionBehavior.ASK, 'bash');
+    const result = await pm.checkPermissionForTool(
+      'bash',
+      { command: 'net user %username%' },
+      { sessionId: 'session-1' }
+    );
+    expect(result.decision?.behavior).toBe('ask');
+    expect(submittedItems.length).toBe(1);
+    expect(submittedItems[0].options).toContain('allowlist_tool');
+    expect(submittedItems[0].options).toContain('allowlist_command');
+  });
+
+  it('非命令类工具审批卡片不含白名单按钮（保持原 options）', async () => {
+    const pm = createPermissionManager();
+    pm.addRule(PermissionBehavior.ASK, 'write_file');
+    const result = await pm.checkPermissionForTool(
+      'write_file',
+      { path: '/tmp/x', content: 'hi' },
+      { sessionId: 'session-1' }
+    );
+    expect(result.decision?.behavior).toBe('ask');
+    const opts = submittedItems[0]?.options ?? [];
+    expect(opts).not.toContain('allowlist_tool');
+    expect(opts).not.toContain('allowlist_command');
+    // 基础按钮仍在
+    expect(opts).toContain('approve');
+    expect(opts).toContain('deny');
   });
 });

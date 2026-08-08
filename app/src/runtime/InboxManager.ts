@@ -362,7 +362,7 @@ export class InboxManager {
 
       // 自动注入 Inbox block 到聊天消息（会话内可见交互卡片）
       if (sessionId) {
-        const actions = _buildDefaultActions(item.type);
+        const actions = _buildDefaultActions(item);
         void _injectInboxBlock(sessionId, messageId, {
           inboxId: id,
           type: item.type,
@@ -841,19 +841,43 @@ export class InboxManager {
 
 // ─── Helper: Inbox Block 注入 ────────────────────────
 
-/** 根据 Inbox 类型生成默认操作按钮 */
-function _buildDefaultActions(type: InboxItemType): Array<{
+/** 根据 Inbox 类型 + options 生成操作按钮 */
+function _buildDefaultActions(item: {
+  type: InboxItemType;
+  options?: string[];
+}): Array<{
   label: string;
   reply: string;
   style: 'primary' | 'danger' | 'secondary';
 }> {
-  if (type === 'approval') {
-    return [
+  if (item.type === 'approval') {
+    const actions: Array<{
+      label: string;
+      reply: string;
+      style: 'primary' | 'danger' | 'secondary';
+    }> = [
       { label: '批准', reply: 'approve', style: 'primary' },
       { label: '拒绝', reply: 'reject', style: 'danger' },
     ];
+    // P2-4: 命令类工具的白名单按钮（粒度由用户每次点击自主选择）
+    const opts = item.options || [];
+    if (opts.includes('allowlist_tool')) {
+      actions.push({
+        label: '白名单·工具级',
+        reply: 'allowlist_tool',
+        style: 'secondary',
+      });
+    }
+    if (opts.includes('allowlist_command')) {
+      actions.push({
+        label: '白名单·仅此命令',
+        reply: 'allowlist_command',
+        style: 'secondary',
+      });
+    }
+    return actions;
   }
-  if (type === 'question') {
+  if (item.type === 'question') {
     return [
       { label: '确认', reply: 'confirm', style: 'primary' },
       { label: '取消', reply: 'cancel', style: 'secondary' },

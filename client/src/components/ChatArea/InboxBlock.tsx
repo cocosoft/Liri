@@ -67,14 +67,27 @@ export default function InboxBlock({
       if (res.ok) {
         setStatus("replied");
         const label =
-          reply === "approve" ? "批准" : reply === "reject" ? "拒绝" : "回复";
+          reply === "approve"
+            ? "批准"
+            : reply === "reject"
+              ? "拒绝"
+              : reply === "allowlist_tool"
+                ? "加入工具白名单"
+                : reply === "allowlist_command"
+                  ? "加入命令白名单"
+                  : "回复";
         addToast("success", `已${label}`);
         onResolved?.();
 
-        // P2-1: 批准后自动续跑 —— 优先后端 checkpoint/resume（不依赖 LLM 自发重发）。
+        // P2-1 + P2-4: 批准类 reply（含两个白名单按钮）后自动续跑 ——
+        // 优先后端 checkpoint/resume（不依赖 LLM 自发重发）。
         // 可恢复：显示"已批准，正在执行…"，轮询刷新消息看到后端续跑落盘结果；
         // 不可恢复：降级为原 sendMessage 触发 LLM 重发（放行缓存命中直接执行）。
-        if (reply === "approve" && sessionId) {
+        const isApproveLike =
+          reply === "approve" ||
+          reply === "allowlist_tool" ||
+          reply === "allowlist_command";
+        if (isApproveLike && sessionId) {
           setResuming(true);
           try {
             const resumed = await tryResumeAfterApproval(sessionId);

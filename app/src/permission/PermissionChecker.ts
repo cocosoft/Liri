@@ -409,8 +409,11 @@ export class PermissionChecker {
             ? `命令: ${command}`
             : `参数: ${JSON.stringify(input).slice(0, 300)}`
         }`,
-        options:
-          risk === RiskClass.EXTERNAL
+        // P2-4: 命令类工具提供「白名单·工具级/仅此命令」按钮（用户自主选择粒度），
+        // 批准分支在 inbox-handlers 持久化 allow 规则
+        options: isCommandTool
+          ? ['approve', 'deny', 'allowlist_tool', 'allowlist_command']
+          : risk === RiskClass.EXTERNAL
             ? ['approve', 'deny', 'standing_rule']
             : ['approve', 'deny'],
         offlineCapable: true,

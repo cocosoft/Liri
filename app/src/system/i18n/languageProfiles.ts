@@ -14,6 +14,78 @@
 
 import { configManager } from '@modules/config';
 import { detectSystemLocale } from '@modules/system/i18n/extended';
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
+import { resolvePyappHome } from '@modules/core/paths';
+
+/**
+ * 语言标点风格提示（默认表；可通过外部资源包 `~/.pyapp/i18n/language-packs.json`
+ * 的 `punctuation` 字段覆盖，见 loadLanguagePacks）
+ */
+export const LANG_PUNCT_HINTS: Record<LangKey, string> = {
+  'zh-CN': '中文全角标点（，。；：？！）',
+  'zh-TW': '繁體中文全形標點（，。；：？！）',
+  'en-US': '英文半角标点（,.;:?!）',
+  'ja-JP': '日本語全角句読点（、。！？）',
+  'ko-KR': '한국어 문장 부호（,.;:?!）',
+};
+
+/** 外部语言资源包：覆盖标点提示与字体 profile（已注册语言） */
+export interface LanguagePack {
+  punctuation?: Record<string, string>;
+  profiles?: Record<string, Partial<LanguageProfile>>;
+}
+
+let packCache: LanguagePack | null = null;
+
+/** 将资源包中的字体 profile 覆盖合并到默认 LANG_PROFILES（仅已注册语言） */
+function applyPackProfiles(pack: LanguagePack): void {
+  if (!pack.profiles) return;
+  for (const [key, partial] of Object.entries(pack.profiles)) {
+    const existing = LANG_PROFILES[key];
+    if (existing && partial) {
+      LANG_PROFILES[key] = { ...existing, ...partial };
+    }
+  }
+}
+
+/**
+ * 加载外部语言资源包（`~/.pyapp/i18n/language-packs.json`）。
+ * 结构示例：
+ * ```json
+ * { "punctuation": { "zh-CN": "自定义标点提示" },
+ *   "profiles": { "en-US": { "fontName": "Arial" } } }
+ * ```
+ * 仅首次调用加载并缓存；解析失败静默回退默认（不阻断）。
+ */
+export function loadLanguagePacks(): LanguagePack {
+  if (packCache) return packCache;
+  packCache = {};
+  try {
+    const packPath = join(resolvePyappHome(), 'i18n', 'language-packs.json');
+    if (existsSync(packPath)) {
+      const raw = JSON.parse(readFileSync(packPath, 'utf-8')) as LanguagePack;
+      packCache = {
+        punctuation: raw.punctuation ?? {},
+        profiles: raw.profiles ?? {},
+      };
+      applyPackProfiles(packCache);
+    }
+  } catch {
+    // @ignore-catch 资源包解析失败回退默认（不阻断 prompt 组装）
+  }
+  return packCache;
+}
+
+/** 读取语言标点风格提示：外部资源包优先，默认表兜底 */
+export function getPunctuationHint(lang: LangKey): string {
+  const pack = loadLanguagePacks();
+  return (
+    pack.punctuation?.[lang] ??
+    LANG_PUNCT_HINTS[lang] ??
+    LANG_PUNCT_HINTS['zh-CN']
+  );
+}
 
 /** 已注册语言（与前端 config.language 枚举一致） */
 export const SUPPORTED_LANGS = new Set([

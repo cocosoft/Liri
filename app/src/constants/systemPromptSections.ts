@@ -43,6 +43,10 @@ import {
   BUILTIN_EXAMPLES,
   renderFewShotPrompt,
 } from '@modules/tools/FewShotRegistry';
+import {
+  getPunctuationHint,
+  resolveLanguage,
+} from '@modules/system/i18n/languageProfiles';
 
 /** 技能注册表单例 */
 export const skillRegistry = new SkillRegistry();
@@ -659,6 +663,9 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
           }
         }
 
+        // 当前文档语言（方案 v4 §六：通用设置 → 系统语言 → 内容检测）
+        const docLang = resolveLanguage(undefined, '');
+
         const toolGuidance = [
           '## 项目上下文',
           '',
@@ -674,6 +681,9 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
           '- 禁止把脚本、临时文件直接散落在项目根目录',
           '- 交付文件生成后请用 `write_project_file` 写入 `output/`（会自动登记到「成果」）',
           '- 会话结束前请清理 `01_work/` 下的临时文件',
+          '',
+          '**文档语言与标点**（生成文档/报告内容时遵守）：',
+          `- 当前文档语言：${docLang}；请使用${getPunctuationHint(docLang)} 等对应语言标点风格`,
           '',
           '**可用工具**：',
           '- `read_project_file` — 读取项目文件夹中的文件（传入 projectId + relativePath）',

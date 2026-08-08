@@ -5649,6 +5649,9 @@ ${llmPhaseSummary}`;
       try {
         const context = {
           toolUseId: normalizedToolCall.id,
+          // AA-2: 透传 sessionId 供 BashTool 查放行缓存（isApproved(sessionId, hash)），
+          // 否则内层安全检查看不到批准记录，放行缓存结构性失效。
+          sessionId: toolCall.sessionId,
           options: {
             cwd: resolveProjectRoot(),
             env: process.env as Record<string, string>,

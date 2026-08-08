@@ -95,7 +95,9 @@ export class InboxManager {
   }
 
   private async _createTable(): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
+    // 修复: 原实现提前 return 导致 Phase 3/4/5（审计表、列迁移、session_inbox_map）成为死代码，
+    // 旧库 inbox_items 缺 channel_id 等列使 submit() 必抛 SQLiteError，审批链路整体降级。
+    await new Promise<void>((resolve, reject) => {
       this.db!.exec(
         `
         CREATE TABLE IF NOT EXISTS inbox_items (
@@ -400,7 +402,12 @@ export class InboxManager {
 
     try {
       const item = await this.get(id);
-      if (!item || item.status !== 'pending') {
+      // inbox-handlers 的 CAS 锁（tryUpdateStatus pending→processing）成功后调用本方法，
+      // 故 processing（已抢锁）与 pending 均应放行；其余状态视为已处理/不存在。
+      if (
+        !item ||
+        (item.status !== 'pending' && item.status !== 'processing')
+      ) {
         otel.endSpan(
           span,
           SpanStatusCode.ERROR,

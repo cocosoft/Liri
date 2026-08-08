@@ -54,7 +54,10 @@ import { createPermissionManager } from '@modules/permission/PermissionManager';
 import type { ChatManager } from '@modules/chat/ChatManager';
 import { createChatManager } from '@modules/chat/ChatManager';
 import type { SessionManager } from '@modules/chat/types/session';
-import type { UnifiedMessage } from '@modules/session/types/Message';
+import type {
+  UnifiedMessage,
+  FrontendMessageBlock,
+} from '@modules/session/types/Message';
 import type { Message } from '@modules/chat/types/message';
 import type { ToolManager } from '@modules/tools/core/ToolManager';
 import { globalToolManager } from '@modules/tools/core/ToolManager';
@@ -958,6 +961,9 @@ export class CoreAPIImpl implements CoreAPI {
       if (gateway) {
         const storedMessages = await gateway.getMessages(sessionId);
         if (storedMessages && storedMessages.length > 0) {
+          // 读时合成 pending 审批卡片：提交期的 blocks 注入存在竞态（详见 InboxManager），
+          // 读取时按会话动态附加，确保前端实时拿到审批交互卡片。
+          await this._attachPendingApprovalBlocks(sessionId, storedMessages);
           return storedMessages.map((m: UnifiedMessage) => ({
             id: m.id,
             role: m.role.toLowerCase(),
@@ -1029,6 +1035,70 @@ export class CoreAPIImpl implements CoreAPI {
         metadata: msg.metadata as Record<string, unknown> | undefined,
       };
     });
+  }
+
+  /**
+   * 读时合成 pending 审批卡片 blocks（P0-2 审批链路）
+   * 提交期的 blocks 注入（InboxManager._injectInboxBlock）会被流式持久化覆盖，
+   * 改为消息读取时按会话动态附加，确保前端实时拿到审批交互卡片。
+   */
+  private async _attachPendingApprovalBlocks(
+    sessionId: string,
+    messages: UnifiedMessage[]
+  ): Promise<void> {
+    try {
+      const { inboxManager } = await import('@modules/runtime/InboxManager.js');
+      // 直查 inbox_items.session_id（而非 JOIN session_inbox_map）：
+      // Web 提交的审批项无 channelSessionId 不写 map 表，getBySession 会漏掉。
+      const { items } = await inboxManager.list({
+        sessionId,
+        status: 'pending',
+        type: 'approval',
+      });
+      const pending = items;
+      if (pending.length === 0) return;
+
+      const lastAssistant = messages
+        .filter((m) => m.role === 'assistant')
+        .pop();
+      if (!lastAssistant) return;
+
+      const existing =
+        (lastAssistant.blocks as unknown as FrontendMessageBlock[]) ?? [];
+      const blocks = pending.map(
+        (item) =>
+          ({
+            id: item.id,
+            type: 'inbox',
+            content: '',
+            inboxData: {
+              inboxId: item.id,
+              type: item.type,
+              title: item.title,
+              content: item.message || '',
+              status: 'pending',
+              priority: 'normal',
+              actions: (item.options?.length
+                ? item.options
+                : ['approve', 'deny']
+              ).map((o) => ({
+                label: o === 'approve' ? '批准' : o === 'deny' ? '拒绝' : o,
+                reply: o,
+                style:
+                  o === 'deny' ? ('danger' as const) : ('primary' as const),
+              })),
+              channelSource: item.channelId,
+            },
+          }) as FrontendMessageBlock
+      );
+      lastAssistant.blocks = [...existing, ...blocks];
+    } catch (err) {
+      // 合成失败不影响消息读取
+      void handleError(err, {
+        module: 'runtime:api',
+        action: 'attach_pending_approval_blocks',
+      });
+    }
   }
 
   async updateMessageBlocks(

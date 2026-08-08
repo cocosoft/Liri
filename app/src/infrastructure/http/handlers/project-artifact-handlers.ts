@@ -367,6 +367,79 @@ export async function handleGetSummaries(
   }
 }
 
+/** DELETE /v1/projects/:projectId/files/:filename — 删除项目 sandbox 文件夹中的文件 */
+export async function handleDeleteProjectFile(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  projectId: string,
+  filename: string
+): Promise<void> {
+  const otel = getOTelTracing();
+  const span = otel.startSpan('project:artifactHandlers:deleteFile');
+  span.setAttribute('projectId', projectId);
+  span.setAttribute('filename', filename);
+  try {
+    // 安全：拒绝含路径穿越的文件名（与上传校验一致）
+    if (
+      !filename ||
+      filename.includes('..') ||
+      filename.includes('/') ||
+      filename.includes('\\')
+    ) {
+      span.setStatus({ code: SpanStatusCode.OK });
+      json(res, 400, { error: '文件名不允许包含路径' });
+      return;
+    }
+
+    const { createProjectStore } =
+      await import('../../../workspace/ProjectStore.js');
+    const { WorkItemStore } =
+      await import('../../../workspace/WorkItemStore.js');
+    const store = createProjectStore(
+      resolveDataDir(),
+      new WorkItemStore(resolveDataDir())
+    );
+    const project = store.get(projectId);
+    if (!project || !project.sandboxPath) {
+      span.setStatus({ code: SpanStatusCode.OK });
+      json(res, 404, { error: '项目或文件夹不存在' });
+      return;
+    }
+
+    const targetPath = join(project.sandboxPath, filename);
+    if (!existsSync(targetPath)) {
+      span.setStatus({ code: SpanStatusCode.OK });
+      json(res, 404, { error: '文件不存在' });
+      return;
+    }
+    const { statSync, unlinkSync } = await import('fs');
+    if (!statSync(targetPath).isFile()) {
+      span.setStatus({ code: SpanStatusCode.OK });
+      json(res, 400, { error: '仅支持删除文件，不支持删除目录' });
+      return;
+    }
+
+    unlinkSync(targetPath);
+    logger.info('项目文件已删除', { projectId, filename });
+    span.setStatus({ code: SpanStatusCode.OK });
+    json(res, 200, { deleted: filename });
+  } catch (e) {
+    logger.error('删除项目文件失败', {
+      projectId,
+      filename,
+      error: String(e),
+    });
+    await handleError(e, {
+      module: 'project:artifactHandlers',
+      action: 'deleteFile',
+    });
+    span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+    json(res, 500, { error: '删除文件失败' });
+  } finally {
+    span.end();
+  }
+}
+
 /** GET /v1/projects/:projectId/files — 列出项目 sandbox 文件夹中的文件（S4 chokidar 降级） */
 export async function handleListProjectFiles(
   _req: http.IncomingMessage,

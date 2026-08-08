@@ -138,6 +138,37 @@ export async function uploadProjectFile(
   });
 }
 
+/** S4: 批量上传文件到项目 sandbox 文件夹（逐文件串行，避免 base64 并发内存峰值） */
+export async function uploadProjectFiles(
+  projectId: string,
+  files: File[],
+): Promise<{ success: string[]; failed: string[] }> {
+  const success: string[] = [];
+  const failed: string[] = [];
+  for (const file of files) {
+    try {
+      await uploadProjectFile(projectId, file);
+      success.push(file.name);
+    } catch {
+      failed.push(file.name);
+    }
+  }
+  return { success, failed };
+}
+
+/** S4: 删除项目 sandbox 文件夹中的文件 */
+export async function deleteProjectFile(
+  projectId: string,
+  filename: string,
+): Promise<{ deleted: string }> {
+  const res = await fetch(
+    `${API_BASE}/${projectId}/files/${encodeURIComponent(filename)}`,
+    { method: "DELETE" },
+  );
+  if (!res.ok) throw new Error(`删除失败: ${res.status}`);
+  return res.json();
+}
+
 /** 讨论记录历史条目 */
 export interface HistoryEntry {
   ts: string;

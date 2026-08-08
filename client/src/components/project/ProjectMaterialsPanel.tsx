@@ -18,6 +18,7 @@ import {
   Folder,
   RefreshCw,
   Upload,
+  Trash2,
 } from "lucide-react";
 import {
   fetchProjectContext,
@@ -26,7 +27,8 @@ import {
 import {
   fetchSummaries,
   fetchProjectFiles,
-  uploadProjectFile,
+  uploadProjectFiles,
+  deleteProjectFile,
   type ProjectSummary,
   type ProjectFilesResult,
 } from "../../services/projectArtifactService";
@@ -63,6 +65,7 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
   const [fileResult, setFileResult] = useState<ProjectFilesResult | null>(null);
   const [fileLoading, setFileLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -80,18 +83,37 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
 
   const handleUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+      const files = e.target.files ? Array.from(e.target.files) : [];
+      if (files.length === 0) return;
       setUploading(true);
       try {
-        await uploadProjectFile(projectId, file);
+        const { failed } = await uploadProjectFiles(projectId, files);
         await loadFiles(); // 上传后刷新文件列表
-      } catch {
-        /* 上传失败静默，文件列表不更新即为反馈 */
+        if (failed.length > 0) {
+          window.alert(`以下文件上传失败：\n${failed.join("\n")}`);
+        }
       } finally {
         setUploading(false);
         // 重置 input，允许重复上传同名文件
         if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    },
+    [projectId, loadFiles],
+  );
+
+  const handleDeleteFile = useCallback(
+    async (filename: string) => {
+      if (!window.confirm(`确定删除文件「${filename}」？此操作不可恢复。`)) {
+        return;
+      }
+      setDeleting(filename);
+      try {
+        await deleteProjectFile(projectId, filename);
+        await loadFiles();
+      } catch (err) {
+        window.alert(`删除文件失败：${String(err)}`);
+      } finally {
+        setDeleting(null);
       }
     },
     [projectId, loadFiles],
@@ -134,6 +156,7 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
           <input
             ref={fileInputRef}
             type="file"
+            multiple
             onChange={handleUpload}
             className="hidden"
           />
@@ -169,6 +192,7 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
             <input
               ref={fileInputRef}
               type="file"
+              multiple
               onChange={handleUpload}
               className="hidden"
             />
@@ -206,7 +230,7 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
             {fileResult!.files.map((f) => (
               <div
                 key={`file-${f.name}`}
-                className="px-2.5 py-1 rounded-md bg-gray-50 dark:bg-gray-800/50 text-xs flex items-center gap-1.5"
+                className="group px-2.5 py-1 rounded-md bg-gray-50 dark:bg-gray-800/50 text-xs flex items-center gap-1.5"
               >
                 <FileText size={12} className="text-gray-400 shrink-0" />
                 <span className="text-gray-700 dark:text-gray-300 truncate flex-1">
@@ -215,6 +239,14 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
                 <span className="text-gray-400 flex-shrink-0">
                   {fmtSize(f.size)}
                 </span>
+                <button
+                  onClick={() => handleDeleteFile(f.name)}
+                  disabled={deleting === f.name}
+                  className="p-0.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+                  title="删除文件"
+                >
+                  <Trash2 size={12} />
+                </button>
               </div>
             ))}
           </>

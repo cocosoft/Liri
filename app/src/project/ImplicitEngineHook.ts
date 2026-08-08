@@ -77,7 +77,8 @@ export class ImplicitEngineHook {
       const m = text.match(regex);
       if (m?.[1]) {
         const content = m[1].trim().slice(0, 200);
-        if (content.length >= 2) {
+        // 方案七 7b：跳过明显误提取片段（如从"附件:【…】"误判出的"附件目录"）
+        if (content.length >= 2 && !/^附件|^【/.test(content)) {
           matches.push({
             intent: 'plan',
             contextType: type,
@@ -151,7 +152,15 @@ export class ImplicitEngineHook {
         contexts.push({ type: match.contextType, content: match.content });
       }
       if (match.intent === 'do') {
-        deliverables.push(match.content);
+        // 方案七 7a：产出识别锚定真实文件路径/文件名（含交付类扩展名），
+        // 丢弃纯文本碎片（如"**文件**：`E:\...pptx`（363"的截断片段）
+        const fileMatch = match.content.match(
+          /([^\s`（）()]*\.(?:docx|pptx|pdf|html|xlsx|md|png|jpe?g|svg))/i
+        );
+        const del = fileMatch?.[1]?.trim();
+        if (del && del.length >= 3) {
+          deliverables.push(del);
+        }
       }
     }
 

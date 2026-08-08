@@ -45,12 +45,59 @@ export async function handleListArtifacts(
     `http://${req.headers.host || 'localhost'}`
   );
   const kind = url.searchParams.get('kind') as ArtifactKind | null;
+  const effectiveKind =
+    kind === 'input' || kind === 'output' ? kind : undefined;
 
-  const artifacts = artifactStore.list(
-    projectId,
-    kind === 'input' || kind === 'output' ? kind : undefined
-  );
+  // 优先读 artifacts.json（旧格式）
+  let artifacts = artifactStore.list(projectId, effectiveKind);
+
+  // P0-1 修复：artifacts.json 可能已被 ProjectItemStore.migrateFromLegacy
+  // 迁移进 items.db 并改名 .bak（迁移未切换读取路径的历史缺陷）。
+  // json 为空时回退读取 items.db 的 project_items kind='artifact'。
+  if (artifacts.length === 0 && effectiveKind !== 'input') {
+    artifacts = await listArtifactsFromItemsDb(projectId);
+  }
+
   json(res, 200, artifacts);
+}
+
+/**
+ * P0-1 修复：从 items.db（S2 迁移目标存储）回退读取成果。
+ * S2 迁移把旧格式 artifacts.json（均为 output 型成果）迁入
+ * project_items kind='artifact'，此处映射回 ProjectArtifact 返回。
+ * 注：db 中无 input 型成果（input 为 context 类），故仅用于 output/全部场景。
+ */
+async function listArtifactsFromItemsDb(
+  projectId: string
+): Promise<ProjectArtifact[]> {
+  let store:
+    | import('../../../workspace/ProjectItemStore.js').ProjectItemStore
+    | null = null;
+  try {
+    const { ProjectItemStore } =
+      await import('../../../workspace/ProjectItemStore.js');
+    store = new ProjectItemStore(projectId, resolveDataDir());
+    await store.initialize();
+    const items = await store.list('artifact');
+    return items.map((item) => ({
+      id: item.id,
+      projectId: item.projectId,
+      kind: 'output' as const,
+      sessionId: item.sessionId,
+      refId: item.messageId,
+      title: item.title,
+      content: item.content,
+      createdAt: item.createdAt,
+    }));
+  } catch (e) {
+    logger.warn('回退读取 items.db 成果失败', {
+      projectId,
+      error: String(e),
+    });
+    return [];
+  } finally {
+    await store?.close().catch(() => {});
+  }
 }
 
 /** POST /v1/projects/:projectId/artifacts */

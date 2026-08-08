@@ -53,6 +53,18 @@ async function ensureSessionModelSync(sessionId?: string): Promise<void> {
     const current = await modelSwitchService.getCurrent();
     // 用 UUID 比较（current.modelId 是模型名，session.modelId 是 UUID）
     if (current.modelUuid && current.modelUuid !== session.modelId) {
+      // 方案六 P2-3：切换前校验目标模型已注册，不存在则跳过（回退当前/全局默认），
+      // 避免会话绑定已移除/未启用模型时每次发消息都报"模型不存在"
+      try {
+        const { modelService } = await import("./modelService");
+        const models = await modelService.list();
+        const target = models.find(
+          (m) => m.id === session.modelId || m.modelId === session.modelId,
+        );
+        if (!target) return;
+      } catch {
+        // 校验接口失败按原逻辑尝试切换
+      }
       await modelSwitchService.switch(session.modelId);
     }
   } catch (e) {
@@ -169,8 +181,8 @@ function parseSseChunk(chunk: Record<string, unknown>): StreamChunk | null {
     return {
       type: "status",
       content: deltaContent,
-      statusType: (chunk.__pyapp_status_type as StreamChunk["statusType"]) ||
-        undefined,
+      statusType:
+        (chunk.__pyapp_status_type as StreamChunk["statusType"]) || undefined,
     };
   }
   if (pyappType === "context_state") {
@@ -193,14 +205,19 @@ function parseSseChunk(chunk: Record<string, unknown>): StreamChunk | null {
     return {
       type: "error",
       content: deltaContent || "Unknown error",
-      errorCode: (chunk.__pyapp_error_code as StreamChunk["errorCode"]) ||
-        "UNKNOWN",
+      errorCode:
+        (chunk.__pyapp_error_code as StreamChunk["errorCode"]) || "UNKNOWN",
     };
   }
   if (pyappType === "tool_call") {
-    const tc = (delta?.tool_calls as
-      | Array<{ id?: string; function?: { name?: string; arguments?: unknown } }>
-      | undefined)?.[0];
+    const tc = (
+      delta?.tool_calls as
+        | Array<{
+            id?: string;
+            function?: { name?: string; arguments?: unknown };
+          }>
+        | undefined
+    )?.[0];
     if (tc) {
       const rawArgs = tc.function?.arguments;
       let parsedArgs: Record<string, unknown> = {};
@@ -220,10 +237,9 @@ function parseSseChunk(chunk: Record<string, unknown>): StreamChunk | null {
           id: tc.id || "",
           name: tc.function?.name || "",
           arguments: parsedArgs,
-          status: (chunk.__pyapp_tool_status as
-            | "running"
-            | "completed"
-            | "failed") || "running",
+          status:
+            (chunk.__pyapp_tool_status as "running" | "completed" | "failed") ||
+            "running",
         },
         _meta: chunk.__pyapp_meta as Record<string, unknown> | undefined,
       };
@@ -240,15 +256,18 @@ function parseSseChunk(chunk: Record<string, unknown>): StreamChunk | null {
         totalTokens: (u.total_tokens as number) || 0,
         estimatedCostUsd: u.estimated_cost_usd as number | undefined,
         cacheReadTokens: u.cache_read_input_tokens as number | undefined,
-        cacheCreationTokens:
-          u.cache_creation_input_tokens as number | undefined,
+        cacheCreationTokens: u.cache_creation_input_tokens as
+          number | undefined,
       },
       finishReason: choices?.[0]?.finish_reason || undefined,
       _meta: chunk.__pyapp_meta as Record<string, unknown> | undefined,
     };
   }
   if (choices?.[0]?.finish_reason === "error") {
-    return { type: "error", content: "AI 服务返回错误，请检查 API 密钥和模型配置" };
+    return {
+      type: "error",
+      content: "AI 服务返回错误，请检查 API 密钥和模型配置",
+    };
   }
   if (choices?.[0]?.finish_reason) {
     return {

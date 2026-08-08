@@ -814,6 +814,25 @@ export class ProjectItemStore {
         /* FTS rebuild 失败不影响迁移结果 */
       }
 
+      // 方案九（防复发）：迁移后自检 —— 若声明迁移了数据但读取不到任何记录，
+      // 说明迁移未落地（"迁移做了一半"），立即告警。原文件已保留 .bak 作为双保险。
+      if (migrated > 0) {
+        try {
+          const check = await this.list();
+          if (check.length === 0) {
+            logger.error('S2 迁移自检失败：迁移后读取不到任何数据', {
+              projectId: this.projectId,
+              migrated,
+            });
+          }
+        } catch (e) {
+          logger.warn('S2 迁移自检异常', {
+            projectId: this.projectId,
+            error: (e as Error)?.message ?? String(e),
+          });
+        }
+      }
+
       logger.info('S2 迁移完成', { projectId: this.projectId, migrated });
       span.setStatus({ code: SpanStatusCode.OK });
       return { migrated };

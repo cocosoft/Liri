@@ -376,9 +376,18 @@ export class SandboxSecurityChecker {
    */
   checkDangerousCommands(command: string): SecurityCheckResult {
     const lowerCommand = command.toLowerCase();
+    // 方案八 8b：危险词改为「token 边界匹配」，杜绝子串误伤。
+    // 旧实现用 includes()——如危险词 "ri"（Remove-Item 缩写）会误伤
+    // "transcripts"、"dir" 等任何含 "ri" 的正常命令。
+    const tokens = lowerCommand.split(/[\s;|&<>]+/).filter(Boolean);
 
     for (const dangerous of this.dangerousCommands) {
-      if (lowerCommand.includes(dangerous)) {
+      const d = dangerous.toLowerCase().trim();
+      if (!d) continue;
+      const matched = d.includes(' ')
+        ? lowerCommand.includes(d) // 带参数组合（如 "rm -rf"）整体匹配，组合本身足够具体
+        : tokens.includes(d); // 单 token 危险词：按独立 token 精确匹配
+      if (matched) {
         return {
           allowed: false,
           reason: `命令包含危险操作: "${dangerous}"`,

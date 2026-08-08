@@ -17,12 +17,36 @@ import { resolveDataDir } from '@modules/core/paths';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
 import { writeFileSync, existsSync, mkdirSync, realpathSync } from 'fs';
-import { resolve, normalize, dirname } from 'path';
+import { resolve, normalize, dirname, basename, extname, join } from 'path';
 
 const logger = new Logger({
   module: 'tools:write_project_file',
   level: LogLevel.INFO,
 });
+
+// P0-1 方案一 1b：交付类扩展名 —— 落盘后自动登记为项目「成果」
+const DELIVERABLE_EXTENSIONS = new Set([
+  '.docx',
+  '.pptx',
+  '.pdf',
+  '.html',
+  '.xlsx',
+  '.md',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.svg',
+]);
+
+/**
+ * 判断是否应为交付物（自动登记成果）。
+ * 排除：临时/隐藏文件（路径任一段以 `_` 开头，如 _chk*.py、_pptx_preview/、_temp_*）。
+ */
+function isDeliverablePath(relativePath: string): boolean {
+  const segments = relativePath.split(/[\\/]/);
+  if (segments.some((seg) => seg.startsWith('_'))) return false;
+  return DELIVERABLE_EXTENSIONS.has(extname(relativePath).toLowerCase());
+}
 
 // P4-1: Store 单例化
 let _workItemStore: WorkItemStore | null = null;
@@ -70,7 +94,7 @@ export class WriteProjectFileTool {
 
       execute: async (
         input: Record<string, unknown>,
-        _context: ToolUseContext
+        context: ToolUseContext
       ) => {
         const otel = getOTelTracing();
         const span = otel.startSpan('WriteProjectFileTool.execute');
@@ -118,8 +142,15 @@ export class WriteProjectFileTool {
             });
           }
 
+          // 方案二 2b：单段交付类文件（无目录前缀）自动落入 output/ 目录，
+          // 与提示词目录约定一致，避免交付物散落在项目根目录
+          let targetRelative = relativePath;
+          if (isDeliverablePath(relativePath) && !/[\\/]/.test(relativePath)) {
+            targetRelative = join('output', relativePath);
+          }
+
           // 路径安全校验
-          const rawPath = resolve(sandboxPath, normalize(relativePath));
+          const rawPath = resolve(sandboxPath, normalize(targetRelative));
 
           // 确保 sandbox 存在（P0-3: 不存在则自动创建，与上传接口行为对齐；
           // 自动建项目 delaySandbox 场景首次写入时在此落点创建）
@@ -185,16 +216,48 @@ export class WriteProjectFileTool {
 
           writeFileSync(rawPath, content, 'utf-8');
 
-          logger.info('项目文件已写入', { projectId, path: relativePath });
+          logger.info('项目文件已写入', { projectId, path: targetRelative });
+
+          // P0-1 方案一 1b：交付类文件自动登记为项目「成果」，让成果面板立即可见
+          try {
+            if (isDeliverablePath(targetRelative)) {
+              const { ProjectArtifactStore } =
+                await import('../../project/ProjectArtifactStore.js');
+              const artifactStore = new ProjectArtifactStore(
+                join(resolveDataDir(), 'projects')
+              );
+              artifactStore.save({
+                // 以「write + projectId + 相对路径」为稳定 id，重复写同路径走 upsert 更新
+                id: `write:${projectId}:${targetRelative}`,
+                projectId,
+                kind: 'output',
+                sessionId: context.sessionId,
+                title: basename(targetRelative),
+                content: targetRelative,
+                createdAt: new Date().toISOString(),
+              });
+            }
+          } catch (e) {
+            logger.warn('成果自动登记失败', {
+              projectId,
+              path: targetRelative,
+              error: String(e),
+            });
+          }
 
           span.setStatus({ code: SpanStatusCode.OK });
           return createToolResult(
-            JSON.stringify({ path: relativePath, sandboxPath }),
+            // 方案六 P2-2：返回绝对沙箱路径 + 字节数，供 AI 落盘后校验（防误报交付）
+            JSON.stringify({
+              path: targetRelative,
+              sandboxPath,
+              size: Buffer.byteLength(content, 'utf-8'),
+            }),
             {
               newMessages: [
                 {
                   role: 'assistant' as const,
-                  content: `文件已保存到项目文件夹: ${relativePath}`,
+                  content: `文件已保存到项目文件夹: ${targetRelative}`,
                 },
               ],
             }

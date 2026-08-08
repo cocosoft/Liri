@@ -102,6 +102,13 @@ export class ProjectArtifactStore {
       }
       this.writeAll(artifact.projectId, all);
       span.setStatus({ code: SpanStatusCode.OK });
+      // 方案八 8a：成果保存输出日志，便于审计与排障
+      logger.info('构件已保存', {
+        projectId: artifact.projectId,
+        artifactId: artifact.id,
+        kind: artifact.kind,
+        title: artifact.title.slice(0, 60),
+      });
     } catch (e) {
       span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
       void handleError(e, { module: 'project:ArtifactStore', action: 'save' });

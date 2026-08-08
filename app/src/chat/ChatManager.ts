@@ -5679,9 +5679,58 @@ ${llmPhaseSummary}`;
       }
 
       if (inputPath) {
-        const knownPaths = this.imageContextService.getKnownImagePaths(
+        let knownPaths = this.imageContextService.getKnownImagePaths(
           toolCall.sessionId
         );
+
+        // 方案五（P1-2）：将当前会话项目沙箱内的图片路径纳入白名单，
+        // 使 AI 能对项目内生成的图执行 image_analysis 等视觉质检
+        // （此前 knownPaths 仅附件目录，项目生成图被误拒）
+        try {
+          const session = this._chatSessions.get(toolCall.sessionId);
+          const projectId = session?.metadata?.projectId as string | undefined;
+          if (projectId) {
+            const { createProjectStore } =
+              await import('../workspace/ProjectStore.js');
+            const { WorkItemStore } =
+              await import('../workspace/WorkItemStore.js');
+            const store = createProjectStore(
+              resolveDataDir(),
+              new WorkItemStore(resolveDataDir())
+            );
+            const project = store.get(projectId);
+            if (project?.sandboxPath && fs.existsSync(project.sandboxPath)) {
+              const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.svg', '.webp'];
+              const collect = (dir: string, depth: number): string[] => {
+                if (depth > 3) return [];
+                let out: string[] = [];
+                let entries: import('fs').Dirent[] = [];
+                try {
+                  entries = fs.readdirSync(dir, { withFileTypes: true });
+                } catch {
+                  return out;
+                }
+                for (const e of entries) {
+                  if (out.length >= 200) break;
+                  const full = join(dir, e.name);
+                  if (e.isDirectory()) {
+                    if (e.name.startsWith('_')) continue;
+                    out = out.concat(collect(full, depth + 1));
+                  } else if (
+                    e.isFile() &&
+                    IMAGE_EXTS.some((x) => e.name.toLowerCase().endsWith(x))
+                  ) {
+                    out.push(full);
+                  }
+                }
+                return out;
+              };
+              knownPaths = knownPaths.concat(collect(project.sandboxPath, 0));
+            }
+          }
+        } catch {
+          // @ignore-catch 项目沙箱图片路径收集失败不阻断工具调用
+        }
 
         if (knownPaths.length > 0 && !knownPaths.includes(inputPath)) {
           const closestPath = this.imageContextService.findClosestPath(
@@ -6338,6 +6387,41 @@ ${llmPhaseSummary}`;
    * @param sessionId 会话ID
    */
   deleteSession(sessionId: string): void {
+    // 方案二 2c：删除项目会话时，惰性清理该项目沙箱根目录残留的临时/锁文件
+    // （`_` 前缀脚本、`_temp_*`、`~$` Office 锁文件），仅限沙箱根目录、按前缀白名单
+    const session = this._chatSessions.get(sessionId);
+    const projectId = session?.metadata?.projectId as string | undefined;
+    if (projectId) {
+      void (async () => {
+        try {
+          const { existsSync, readdirSync, unlinkSync } = fs;
+          const { createProjectStore } =
+            await import('../workspace/ProjectStore.js');
+          const { WorkItemStore } =
+            await import('../workspace/WorkItemStore.js');
+          const store = createProjectStore(
+            resolveDataDir(),
+            new WorkItemStore(resolveDataDir())
+          );
+          const project = store.get(projectId);
+          if (!project?.sandboxPath || !existsSync(project.sandboxPath)) return;
+          for (const e of readdirSync(project.sandboxPath, {
+            withFileTypes: true,
+          })) {
+            if (!e.isFile()) continue;
+            if (!(e.name.startsWith('_') || e.name.startsWith('~$'))) continue;
+            try {
+              unlinkSync(join(project.sandboxPath, e.name));
+            } catch {
+              /* 单个文件删除失败不阻塞 */
+            }
+          }
+        } catch {
+          // @ignore-catch 清理临时文件失败不阻塞会话删除
+        }
+      })();
+    }
+
     // 触发 ChatSessionEnd Hook
     this.hookChainManager.execute('chat', {
       event: 'chat.session-end',

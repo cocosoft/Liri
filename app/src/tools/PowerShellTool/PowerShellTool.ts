@@ -24,6 +24,7 @@ import {
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
+import { realpathSync, existsSync } from 'fs';
 import { DELETION_RULES } from '../../security/patterns/dangerousCommands';
 import { SandboxSecurityChecker } from '@modules/sandbox/SandboxSecurityChecker';
 import { completeSecuritySystem } from '@modules/security';
@@ -136,6 +137,50 @@ function isPowerShellCommandAllowed(command: string): boolean {
   }
 
   return false;
+}
+
+/**
+ * 方案三（P0-3）：判断是否为「项目沙箱内的安全删除」。
+ * 放行条件（3b 安全约束）：
+ *  - 命令为删除类（del / Remove-Item / ri / rm / erase）
+ *  - 目标解析后真实路径（realpath）仍在工作目录（项目沙箱）内，阻断符号链接逃逸
+ *  - 目标文件名以 `_` 或 `~$` 前缀（临时脚本/Office 锁文件）
+ *  - 拒绝通配符 / `.` / `..`（不允许整目录删除）
+ */
+function isSandboxSafeDelete(
+  command: string,
+  workingDirectory: string
+): boolean {
+  const lower = command.toLowerCase();
+  const isDelete =
+    /(^|[\s;|&])del(\s|\/)/.test(lower) ||
+    /(^|[\s;|&])remove-item(\s|-)/.test(lower) ||
+    /(^|[\s;|&])ri(\s|-)/.test(lower) ||
+    /(^|[\s;|&])rm(\s|-)/.test(lower) ||
+    /(^|[\s;|&])erase(\s)/.test(lower);
+  if (!isDelete) return false;
+
+  // 提取目标路径（优先引号路径，其次命令最后一个 token）
+  const quoted = command.match(/["']([^"']+)["']/);
+  const tokens = command.split(/\s+/).filter(Boolean);
+  const target = (quoted?.[1] ?? tokens[tokens.length - 1]).trim();
+  if (!target || target.includes('*') || target === '.' || target === '..') {
+    return false;
+  }
+
+  try {
+    const abs = path.resolve(workingDirectory, target);
+    if (!existsSync(abs)) return false;
+    const realAbs = realpathSync(abs);
+    const realCwd = realpathSync(workingDirectory);
+    const inside =
+      realAbs.startsWith(realCwd + '\\') || realAbs.startsWith(realCwd + '/');
+    if (!inside) return false;
+    const name = path.basename(realAbs);
+    return name.startsWith('_') || name.startsWith('~$');
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -366,71 +411,79 @@ export class PowerShellTool extends BaseTool {
         },
       });
 
-      // PowerShell 安全分析器检查
-      const securityResult = this.securityAnalyzer.analyze(command);
+      // 方案三（P0-3）：项目沙箱内的临时文件安全删除直接放行，
+      // 其余命令继续走完整安全检查链（安全分析器 → 白名单 → 沙箱危险命令）
+      const isSandboxSafeDeleteCommand = isSandboxSafeDelete(
+        command,
+        workingDirectory
+      );
+      if (!isSandboxSafeDeleteCommand) {
+        // PowerShell 安全分析器检查
+        const securityResult = this.securityAnalyzer.analyze(command);
 
-      if (securityResult.behavior === 'deny') {
-        return createFailureResult(
-          `安全检查失败: ${securityResult.message || '命令被阻止执行'}`,
-          {
-            executionTime: Date.now() - startTime,
-            errorLevel: ErrorLevel.FATAL,
-            metadata: {
-              errorCategory: 'security',
-              errorCode: 'SECURITY_DENIED',
-              securityIntercepted: true,
-            },
-          }
-        );
-      }
+        if (securityResult.behavior === 'deny') {
+          return createFailureResult(
+            `安全检查失败: ${securityResult.message || '命令被阻止执行'}`,
+            {
+              executionTime: Date.now() - startTime,
+              errorLevel: ErrorLevel.FATAL,
+              metadata: {
+                errorCategory: 'security',
+                errorCode: 'SECURITY_DENIED',
+                securityIntercepted: true,
+              },
+            }
+          );
+        }
 
-      if (securityResult.behavior === 'ask') {
-        return createFailureResult(
-          `需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`,
-          {
-            executionTime: Date.now() - startTime,
-            errorLevel: ErrorLevel.RECOVERABLE,
-            metadata: {
-              errorCategory: 'permission',
-              errorCode: 'USER_CONFIRMATION_REQUIRED',
-              securityIntercepted: true,
-            },
-          }
-        );
-      }
+        if (securityResult.behavior === 'ask') {
+          return createFailureResult(
+            `需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`,
+            {
+              executionTime: Date.now() - startTime,
+              errorLevel: ErrorLevel.RECOVERABLE,
+              metadata: {
+                errorCategory: 'permission',
+                errorCode: 'USER_CONFIRMATION_REQUIRED',
+                securityIntercepted: true,
+              },
+            }
+          );
+        }
 
-      // F3 修复：PowerShell 命令白名单检查
-      if (!isPowerShellCommandAllowed(command)) {
-        return createFailureResult(
-          `安全检查: PowerShell 命令 "${command.split(/\s+/)[0]}" 不在允许列表中`,
-          {
-            executionTime: Date.now() - startTime,
-            errorLevel: ErrorLevel.FATAL,
-            metadata: {
-              errorCategory: 'security',
-              errorCode: 'COMMAND_NOT_ALLOWED',
-              securityIntercepted: true,
-            },
-          }
-        );
-      }
+        // F3 修复：PowerShell 命令白名单检查
+        if (!isPowerShellCommandAllowed(command)) {
+          return createFailureResult(
+            `安全检查: PowerShell 命令 "${command.split(/\s+/)[0]}" 不在允许列表中`,
+            {
+              executionTime: Date.now() - startTime,
+              errorLevel: ErrorLevel.FATAL,
+              metadata: {
+                errorCategory: 'security',
+                errorCode: 'COMMAND_NOT_ALLOWED',
+                securityIntercepted: true,
+              },
+            }
+          );
+        }
 
-      // F2 修复：沙箱安全检查器二次校验
-      const sandboxCheckResult =
-        psSandboxChecker.checkDangerousCommands(command);
-      if (!sandboxCheckResult.allowed) {
-        return createFailureResult(
-          `沙箱安全检查: ${sandboxCheckResult.reason}`,
-          {
-            executionTime: Date.now() - startTime,
-            errorLevel: ErrorLevel.FATAL,
-            metadata: {
-              errorCategory: 'security',
-              errorCode: 'SANDBOX_SECURITY_DENIED',
-              securityIntercepted: true,
-            },
-          }
-        );
+        // F2 修复：沙箱安全检查器二次校验
+        const sandboxCheckResult =
+          psSandboxChecker.checkDangerousCommands(command);
+        if (!sandboxCheckResult.allowed) {
+          return createFailureResult(
+            `沙箱安全检查: ${sandboxCheckResult.reason}`,
+            {
+              executionTime: Date.now() - startTime,
+              errorLevel: ErrorLevel.FATAL,
+              metadata: {
+                errorCategory: 'security',
+                errorCode: 'SANDBOX_SECURITY_DENIED',
+                securityIntercepted: true,
+              },
+            }
+          );
+        }
       }
 
       // F5 修复：操作审计日志

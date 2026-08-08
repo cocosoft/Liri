@@ -11,7 +11,8 @@ import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import aiService from '../../ai/index';
 import type { AIMessage } from '../../ai/models/types';
-import { AIMessageRole } from '../../ai/models/types';
+import { AIMessageRole, ModelCapability } from '../../ai/models/types';
+import { modelManager } from '../../ai/models/ModelManager.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -195,7 +196,29 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
         style: input.style,
       });
 
-      const response = await aiService.generate(messages, input.model);
+      // 方案四（P1-1）：校验传入模型是否具备图片生成能力（读 DB model_registry
+      // capabilities，禁止把重排/嵌入模型当生成模型调用）；不具备则回退默认生成模型
+      let model: string | undefined = input.model;
+      try {
+        if (model) {
+          const cfg = modelManager.getModelRegistry().getModel(model);
+          const hasGen = cfg?.capabilities?.includes(
+            ModelCapability.IMAGE_GENERATION
+          );
+          if (!hasGen) {
+            logger.warn(
+              'ImageSvgTool · 指定模型不具备图片生成能力，回退默认生成模型',
+              { model, capabilities: cfg?.capabilities ?? [] }
+            );
+            model = undefined;
+          }
+        }
+      } catch {
+        // @ignore-catch 模型校验失败时回退默认模型，不阻塞生成
+        model = undefined;
+      }
+
+      const response = await aiService.generate(messages, model);
       const elapsed = Date.now() - startTime;
       const rawContent = response.content.trim();
       const svgCode = this.extractSvg(rawContent);

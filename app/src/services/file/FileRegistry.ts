@@ -245,6 +245,35 @@ export class FileRegistry {
     // Step 5: 写 DB 记录
     const fileId = uuidv4().slice(0, 8);
     try {
+      // 方案六 P1-4：按 saved_path 查重（覆盖大文件/显式跳过去重场景），
+      // 避免重复注册同路径文件触发唯一索引冲突（SQLITE_CONSTRAINT_UNIQUE）
+      const dup = await this.dbMutex.run(async () => {
+        return this.getAsync<FileRow>(
+          `SELECT * FROM ${FILES_TABLE}
+           WHERE saved_path = ? AND is_deleted = 0 LIMIT 1`,
+          [savedPath]
+        );
+      });
+      if (dup) {
+        await this.dbMutex.run(async () => {
+          await this.runAsync(
+            `UPDATE ${FILES_TABLE} SET ref_count = ref_count + 1, updated_at = strftime('%s', 'now') WHERE file_id = ?`,
+            [dup.file_id]
+          );
+        });
+        logger.info('文件注册去重（按路径）', {
+          fileId: dup.file_id,
+          originalName,
+        });
+        return {
+          action: 'duplicate',
+          fileId: dup.file_id,
+          savedPath,
+          savedName,
+          originalName,
+          md5,
+        };
+      }
       await this.dbMutex.run(async () => {
         await this.runAsync(
           `INSERT INTO ${FILES_TABLE}

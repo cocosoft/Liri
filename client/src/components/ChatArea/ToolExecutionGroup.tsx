@@ -236,6 +236,13 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
           )}
         </span>
 
+        {/* J-2.2: 审批等待态琥珀色徽标（分组折叠态也可见，区别于失败红） */}
+        {status === "pending_approval" && (
+          <span className="shrink-0 rounded bg-amber-400/20 px-1.5 py-0.5 text-[10px] text-amber-300">
+            ⏳ {t("chat.pendingApproval")}
+          </span>
+        )}
+
         {/* 错误信息 */}
         {status === "failed" && errorMessage && (
           <span className="text-[11px] text-red-400 truncate max-w-[200px] shrink">

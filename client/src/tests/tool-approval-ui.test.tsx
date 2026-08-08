@@ -16,7 +16,8 @@ import { useChatStore } from "../stores/chat";
 
 import InboxBlock from "../components/ChatArea/InboxBlock";
 import ToolCallGroup from "../components/ChatArea/ToolCallGroup";
-import type { InboxBlockData, ToolCall } from "../types";
+import ToolExecutionGroup from "../components/ChatArea/ToolExecutionGroup";
+import type { InboxBlockData, MessageBlock, ToolCall } from "../types";
 
 describe("ToolCallGroup 等待审批态（P2-2）", () => {
   it("pendingApproval=true → 渲染「⏳ 等待审批」徽标", () => {
@@ -39,6 +40,45 @@ describe("ToolCallGroup 等待审批态（P2-2）", () => {
       status: "completed",
     };
     render(<ToolCallGroup toolCall={toolCall} variant="card" />);
+    expect(screen.queryByText(/chat\.pendingApproval/)).toBeNull();
+  });
+});
+
+describe("ToolExecutionGroup 分组等待审批态（J-2.2）", () => {
+  function makeBlocks(toolCall: ToolCall): MessageBlock[] {
+    return [
+      {
+        id: "blk-tc",
+        type: "tool_call",
+        content: "",
+        toolCall,
+        isStreaming: false,
+        toolCallId: toolCall.id,
+        groupId: "grp-test",
+      },
+    ];
+  }
+
+  it("分组内 tool_call pendingApproval=true → 分组头渲染琥珀色「⏳ 等待审批」徽标", () => {
+    const blocks = makeBlocks({
+      id: "t3",
+      name: "bash",
+      arguments: { command: "sudo whoami" },
+      status: "completed",
+      pendingApproval: true,
+    });
+    render(<ToolExecutionGroup blocks={blocks} />);
+    expect(screen.getByText(/chat\.pendingApproval/)).toBeTruthy();
+  });
+
+  it("分组内 tool_call 无 pendingApproval → 不渲染等待审批徽标", () => {
+    const blocks = makeBlocks({
+      id: "t4",
+      name: "bash",
+      arguments: { command: "echo hi" },
+      status: "completed",
+    });
+    render(<ToolExecutionGroup blocks={blocks} />);
     expect(screen.queryByText(/chat\.pendingApproval/)).toBeNull();
   });
 });

@@ -216,18 +216,23 @@ export class ChronologicalBlockBuilder {
       const existingResult =
         existing.toolCall?.result ||
         (pendingResult ? { success: true, data: pendingResult } : undefined);
-      existing.toolCall = {
-        ...toolCall,
-        arguments: mergedArgs,
-        status: toolCall.status || ("completed" as const),
-        result: toolCall.result || existingResult,
-        // P2-2: 审批等待信号可能先于 tool_call 块到达（tool_completed → pendingResults）
-        pendingApproval:
-          existing.toolCall?.pendingApproval ||
-          toolCall.pendingApproval ||
-          pendingResult?.pendingApproval === true,
+      // J-2.2: 替换块对象（新引用）使 ChatMessage memo 比较器可感知 pendingApproval 等变化
+      this.blocks[existingIdx] = {
+        ...existing,
+        toolCall: {
+          ...toolCall,
+          arguments: mergedArgs,
+          status: toolCall.status || ("completed" as const),
+          result: toolCall.result || existingResult,
+          // P2-2: 审批等待信号可能先于 tool_call 块到达（tool_completed → pendingResults）
+          pendingApproval:
+            existing.toolCall?.pendingApproval ||
+            toolCall.pendingApproval ||
+            pendingResult?.pendingApproval === true,
+        },
+        isStreaming: toolCall.status === "running",
       };
-      existing.isStreaming = toolCall.status === "running";
+      this.markBlocksDirty();
       if (toolCall.status !== "running") {
         for (const b of this.blocks) {
           if (b.type === "status" && b.toolCallId === toolCall.id) {
@@ -253,7 +258,8 @@ export class ChronologicalBlockBuilder {
         type: "tool_call",
         content: "",
         toolCall: toolCallWithResult,
-        isStreaming: true,
+        // J-2.2: isStreaming 必须尊重 chunk 状态（completed/failed 不应标记为流式）
+        isStreaming: toolCall.status === "running",
         toolCallId: toolCall.id,
         groupId: this.currentGroupId,
       });
@@ -271,12 +277,17 @@ export class ChronologicalBlockBuilder {
     toolCallId: string,
     status: "running" | "completed" | "failed",
   ): void {
-    const block = this.blocks.find(
+    const idx = this.blocks.findIndex(
       (b) => b.type === "tool_call" && b.toolCall?.id === toolCallId,
     );
-    if (block && block.toolCall) {
-      block.toolCall.status = status;
-      block.isStreaming = status === "running";
+    if (idx !== -1 && this.blocks[idx].toolCall) {
+      // J-2.2: 替换块对象使 memo 可感知状态变化（同 updateToolCallResult）
+      this.blocks[idx] = {
+        ...this.blocks[idx],
+        toolCall: { ...this.blocks[idx].toolCall!, status },
+        isStreaming: status === "running",
+      };
+      this.markBlocksDirty();
     }
   }
 
@@ -285,16 +296,29 @@ export class ChronologicalBlockBuilder {
     toolCallId: string,
     resultData: Record<string, unknown>,
   ): void {
-    const block = this.blocks.find(
+    const idx = this.blocks.findIndex(
       (b) => b.type === "tool_call" && b.toolCall?.id === toolCallId,
     );
-    if (block && block.toolCall) {
-      block.toolCall.result = { success: true, data: resultData };
-      // P2-2: 结构化审批等待信号 → 置 pendingApproval 标记（CS02：状态判断用持久化标记，非字符串匹配）
-      if (resultData.pendingApproval === true) {
-        block.toolCall.pendingApproval = true;
-      }
-      block.isStreaming = false;
+    if (idx !== -1) {
+      const block = this.blocks[idx];
+      const toolCall = block.toolCall;
+      if (!toolCall) return;
+      // J-2.2: 替换块对象（新引用）触发缓存重建，使 ChatMessage memo 比较器能感知
+      // 原地修改（pendingApproval/result）——P2-3 缓存数组引用不变会让 memo 跳过重渲染
+      this.blocks[idx] = {
+        ...block,
+        toolCall: {
+          ...toolCall,
+          result: { success: true, data: resultData },
+          // P2-2: 结构化审批等待信号 → 置 pendingApproval 标记（CS02：状态判断用持久化标记，非字符串匹配）
+          pendingApproval:
+            resultData.pendingApproval === true
+              ? true
+              : toolCall.pendingApproval,
+        },
+        isStreaming: false,
+      };
+      this.markBlocksDirty();
     } else {
       // tool_completed 先于 tool_call 块到达，暂存结果等待块创建后应用
       this.pendingResults.set(toolCallId, resultData);

@@ -811,7 +811,14 @@ const ChatMessageMemo = memo(
       const prevTail = prevBlocks[prevBlocks.length - 1].id;
       const nextTail = nextBlocks[nextBlocks.length - 1].id;
       if (prevHead === nextHead && prevTail === nextTail) {
-        // 首尾 id 相同且长度相同 → blocks 结构未变，跳过 O(n) 遍历
+        // 首尾 id 相同且长度相同 → 数组结构未变。
+        // J-2.2: 但 P2-3 原地修改可能替换了块对象（如 toolCall.pendingApproval/result 更新），
+        // 需逐项比较块引用以触发重渲染；prevBlocks === nextBlocks（纯文本原地追加）时跳过 O(n)。
+        if (prevBlocks !== nextBlocks) {
+          for (let i = 0; i < prevBlocks.length; i++) {
+            if (prevBlocks[i] !== nextBlocks[i]) return false;
+          }
+        }
       } else {
         // 首尾变化时才做 O(n) 逐项比较
         for (let i = 0; i < prevBlocks.length; i++) {

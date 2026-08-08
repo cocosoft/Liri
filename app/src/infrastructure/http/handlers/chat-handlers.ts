@@ -212,7 +212,10 @@ async function handleNormalChat(
       return;
     }
 
-    if (response.finishReason === 'error' || !response.content) {
+    // 仅 LLM 调用真实失败（finishReason=error）才返回 500。
+    // 思考型模型（如 deepseek-v4-flash）在 max_tokens 预算被思考耗尽时 content 为空，
+    // 或响应仅为 tool_calls 时 content 也为空——此时并非错误，返回 200 空内容避免误报 500。
+    if (response.finishReason === 'error') {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(
         JSON.stringify({

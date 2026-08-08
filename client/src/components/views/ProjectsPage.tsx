@@ -166,7 +166,12 @@ export default function ProjectsPage() {
   const messages = useChatStore((s) => s.messages);
 
   useEffect(() => {
-    enterModule({ moduleType: "project" });
+    // P2-1: 仅当 moduleType 不是 project 或 projectId 为空时才 enterModule，
+    // 避免覆盖式（moduleContext = {...ctx}）清空已有 projectId（如从项目会话离开再进入）
+    const mc = useRootStore.getState().moduleContext;
+    if (mc.moduleType !== "project" || !mc.projectId) {
+      enterModule({ moduleType: "project" });
+    }
     // S5a: URL ?open= 参数用于自动选中项目，选中后清除参数避免刷新重复选中
     if (openParam && worktrees[openParam]) {
       searchParams.delete("open");
@@ -291,8 +296,15 @@ export default function ProjectsPage() {
       return;
     inited.current = selectedProjectId;
     const wid = selectedProjectId;
+    const project = selectedProject;
 
     async function init() {
+      // P0-4: 项目会话必须关联 projectId（createChatSession 从 moduleContext 读取）
+      enterModule({
+        moduleType: "project",
+        projectId: wid,
+        projectName: project.name,
+      });
       await switchWorkspace(wid);
       const state = useRootStore.getState();
       const projSessions = Object.values(state.sessions).filter(
@@ -308,7 +320,7 @@ export default function ProjectsPage() {
         action: "initProject",
       }),
     );
-  }, [selectedProjectId, selectedProject, switchWorkspace, createChatSession]);
+  }, [selectedProjectId, selectedProject, switchWorkspace, createChatSession, enterModule]);
 
   const handleSelectProject = (id: string) => {
     if (id !== selectedProjectId) {

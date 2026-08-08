@@ -387,17 +387,37 @@ export class BashTool {
         const inputRecord = input as Record<string, unknown>;
         const command = inputRecord.command as string;
         const timeout = (inputRecord.timeout as number) || 30000;
-        // 方案 C：优先使用显式 cwd，其次使用工作空间路径，最后回退到 process.cwd()
-        const workspacePath = (
-          await import('@modules/sandbox/SandboxConfigBuilder')
-        ).SandboxConfigBuilder.defaultWorkspacePath;
-        const cwd =
-          (inputRecord.cwd as string) || workspacePath || process.cwd();
+        const explicitCwd = inputRecord.cwd as string | undefined;
+        const sessionCwd = (context as { options?: { cwd?: string } }).options
+          ?.cwd;
+        // 方案 C 修正（P2-4 会话上下文化）：默认 cwd 用工具上下文注入的会话工作区路径
+        // （项目模块会话 = sandboxPath，其他模块未注入），不再依赖全局
+        // SandboxConfigBuilder.defaultWorkspacePath（跨会话/并发污染源）
+        const cwd = explicitCwd || sessionCwd || process.cwd();
+        const cwdSource = explicitCwd
+          ? 'explicit_input'
+          : sessionCwd
+            ? 'session_context'
+            : 'process_cwd_fallback';
+        // P2-4 验证日志：确认 cwd 是否按预期切换（项目模块 → sandboxPath，其他模块 → 项目根目录）
+        logger.info('BashTool cwd 解析', {
+          cwd,
+          cwdSource,
+          sessionId: context.sessionId,
+          contextCwd: sessionCwd ?? null,
+          processCwd: process.cwd(),
+        });
         const env = (inputRecord.env as Record<string, string>) || process.env;
 
         try {
           const cwdCheck = checkPathAccessibility(cwd, 'Bash工作目录');
           if (!cwdCheck.accessible) {
+            logger.warn('BashTool cwd 不可访问', {
+              cwd,
+              cwdSource,
+              sessionId: context.sessionId,
+              reason: cwdCheck.reason,
+            });
             return ToolUtils.createFailureResult(
               `${cwdCheck.reason}${cwdCheck.suggestions?.length ? `\n建议: ${cwdCheck.suggestions.join('; ')}` : ''}`,
               {

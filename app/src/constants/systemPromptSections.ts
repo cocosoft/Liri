@@ -33,6 +33,8 @@ import { basename, join } from 'path';
 import { resolveProjectRoot } from '@modules/core';
 import { resolveDataDir } from '@modules/core/paths';
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
+import { createProjectStore } from '../workspace/ProjectStore.js';
+import { WorkItemStore } from '../workspace/WorkItemStore.js';
 import { SkillInjectionService } from '@modules/skills/services/SkillInjectionService';
 import { SkillRegistry } from '@modules/skills/SkillRegistry';
 import { getSkillHub } from '@modules/skills/SkillHub';
@@ -47,6 +49,19 @@ export const skillRegistry = new SkillRegistry();
 
 /** 技能注入服务单例 */
 export const skillInjectionService = new SkillInjectionService(skillRegistry);
+
+// P1-2: 模块级单例，避免每次组装 prompt 都 new ProjectStore/WorkItemStore
+// （与 WriteProjectFileTool 的 P4-1 单例模式一致；若 dataDir 运行时变化需重新初始化）
+let _promptWorkItemStore: WorkItemStore | null = null;
+let _promptProjectStore: ReturnType<typeof createProjectStore> | null = null;
+function getPromptProjectStore() {
+  if (!_promptWorkItemStore || !_promptProjectStore) {
+    const dataDir = resolveDataDir();
+    _promptWorkItemStore = new WorkItemStore(dataDir);
+    _promptProjectStore = createProjectStore(dataDir, _promptWorkItemStore);
+  }
+  return _promptProjectStore;
+}
 
 /**
  * 初始化内建技能（BundledSkillLoader 程序化定义 → SkillRegistry 注册）
@@ -523,14 +538,8 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
         // S5b: 查询项目阶段与进度（来自 ProjectStore）
         let phaseInfo = '';
         try {
-          const {
-            createProjectStore,
-          } = require('../../workspace/ProjectStore.js');
-          const { WorkItemStore } = require('../../workspace/WorkItemStore.js');
-          const store = createProjectStore(
-            resolveDataDir(),
-            new WorkItemStore(resolveDataDir())
-          );
+          // P1-2: 复用模块级单例，避免每次组装都 new store + require
+          const store = getPromptProjectStore();
           const project = store.get(ctx.projectId);
           if (project) {
             const phaseLabel: Record<string, string> = {
@@ -556,7 +565,7 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
             }
           }
         } catch {
-          /* ProjectStore 查询失败不影响主流程 */
+          // @ignore-catch ProjectStore 查询失败不影响 prompt 组装主流程
         }
 
         // P3-5: 附加最近摘要（最近 1 条阶段性小结 + 2 条决策）
@@ -604,7 +613,7 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
             }
           }
         } catch {
-          /* 读取摘要失败不影响主流程 */
+          // @ignore-catch 读取摘要失败不影响 prompt 组装主流程
         }
 
         // 扫描文件列表
@@ -634,6 +643,7 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
                         : `${(size / (1024 * 1024)).toFixed(1)}MB`;
                   lines.push(`- ${f.name} (${sizeStr})`);
                 } catch {
+                  // @ignore-catch 单个文件 stat 失败仅回退无大小展示
                   lines.push(`- ${f.name}`);
                 }
               }
@@ -645,7 +655,7 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
               fileList = '\n' + lines.join('\n');
             }
           } catch {
-            /* 目录扫描失败不影响 */
+            // @ignore-catch 目录扫描失败不影响 prompt 组装主流程
           }
         }
 
@@ -688,6 +698,7 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
 
         return toolGuidance;
       } catch {
+        // @ignore-catch projectContext 段落组装失败返回 null（段落缺省，不阻断 prompt）
         return null;
       }
     },

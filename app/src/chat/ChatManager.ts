@@ -66,7 +66,6 @@ import { ImplicitEngineHook } from '../project/ImplicitEngineHook';
 import { createProjectStore } from '../workspace/ProjectStore.js';
 import { WorkItemStore } from '../workspace/WorkItemStore.js';
 import { resolveDataDir } from '@modules/core/paths';
-import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { getModelPricing } from '@modules/cost/ModelPricing.js';
 // eslint-disable-next-line module-registry/no-direct-module-import
@@ -1772,9 +1771,14 @@ export class ChatManagerImpl implements ChatManager {
         );
 
         if (!hasSystemMessage) {
-          const sysPrompt =
-            options?.systemPrompt ||
-            (await this.getOrAssembleSystemPrompt(session, content));
+          // P0-E 断点 0: 始终走组装（projectContext 段落必须注入），用户自定义 systemPrompt 追加为段落而非替换
+          const assembled = await this.getOrAssembleSystemPrompt(
+            session,
+            content
+          );
+          const sysPrompt = options?.systemPrompt
+            ? `${assembled}\n\n## 用户自定义系统提示\n${options.systemPrompt}`
+            : assembled;
           apiMessages.unshift({ role: 'system', content: sysPrompt });
         }
 
@@ -2949,6 +2953,56 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * P2-4: 获取会话绑定的工作区路径（仅项目模块会话有值 = sandboxPath）
+   * 用于工具默认 cwd 的会话上下文化，替代全局 SandboxConfigBuilder.defaultWorkspacePath
+   */
+  private getSessionWorkspacePath(sessionId?: string): string | undefined {
+    if (!sessionId) return undefined;
+    const session = this._chatSessions.get(sessionId);
+    const metadata = session?.metadata as Record<string, unknown> | undefined;
+    const workspacePath = metadata?.workspacePath as string | undefined;
+    // P2-2 收尾：仅接受绝对路径。存量会话的 workspacePath 可能是修复前的项目名（非路径），
+    // 不能作为工具默认 cwd；自动建项目沙箱路径为绝对路径（homedir 展开），校验通过
+    if (workspacePath && path.isAbsolute(workspacePath)) {
+      return workspacePath;
+    }
+    return undefined;
+  }
+
+  /**
+   * P0-D 配套: 获取会话绑定的真实工作区 ID（项目模块会话 = projectId）
+   * 供 create_project 工具使用，避免 AI 建的项目挂到 sessionId 名下（前端 projects 列表不可见）
+   */
+  private getSessionWorkspaceId(sessionId?: string): string | undefined {
+    if (!sessionId) return undefined;
+    const session = this._chatSessions.get(sessionId);
+    const metadata = session?.metadata as Record<string, unknown> | undefined;
+    const workspaceId = metadata?.workspaceId as string | undefined;
+    if (!workspaceId) return undefined;
+    // 项目模块下 workspaceId === projectId（sessionSlice 约定），返回真实工作区 ID
+    return workspaceId;
+  }
+
+  /**
+   * P0-D: 将内存 session 的 metadata（含 projectId/workspaceId/moduleType）持久化到 gateway 存储
+   * 自动建项目/跨会话去重关联项目/工具建项目后调用，防止重启后 projectId 丢失
+   */
+  async persistSessionMetadata(session: ChatSession): Promise<void> {
+    try {
+      const stored = await this.sessionGateway.getSession(session.id);
+      if (stored) {
+        stored.metadata = { ...stored.metadata, ...session.metadata };
+        await this.sessionGateway.updateSession(stored);
+      }
+    } catch (e) {
+      handleError(e, {
+        module: 'chat:manager',
+        action: '持久化会话 metadata 失败',
+      });
+    }
+  }
+
+  /**
    * P0: 自动建项目 — 检测到 goal + deliverables 时静默创建项目
    * 不启动 PDCA，不打断用户，仅关联 session 并弹 toast 提示
    */
@@ -2982,6 +3036,8 @@ export class ChatManagerImpl implements ChatManager {
             existingProjectId: matched.id,
             sessionId: session.id,
           });
+          // P0-D: 持久化 projectId 到 gateway 存储，防止重启后丢失
+          await this.persistSessionMetadata(session);
           return;
         }
       }
@@ -3000,7 +3056,10 @@ export class ChatManagerImpl implements ChatManager {
       }
       session.metadata.projectId = project.id;
 
-      // S5b: 写入项目上下文文件（供 system prompt 读取）
+      // P0-D: 持久化 projectId 到 gateway 存储，防止重启后丢失
+      await this.persistSessionMetadata(session);
+
+      // S5b: 项目上下文文件由 ProjectStore.create() 统一写入
       // P0: 迁移已有 context/artifacts 到新项目目录
       try {
         const {
@@ -3010,11 +3069,6 @@ export class ChatManagerImpl implements ChatManager {
         } = await import('fs');
         const projDir = join(dataDir, 'projects', project.id);
         mkdirSync(projDir, { recursive: true });
-        writeFileSync(
-          join(projDir, 'project-context.md'),
-          `## 项目上下文\n\n**名称**: ${project.name}\n**目标**: ${project.description}\n**文件夹**: ${project.sandboxPath}\n**创建时间**: ${project.createdAt}\n`,
-          'utf-8'
-        );
 
         // P0 context 迁移：复制 ImplicitEngineHook 已写入的 rules/artifacts
         // S2 上线前：物理复制（S2 后改为 items.db 引用）
@@ -3039,19 +3093,30 @@ export class ChatManagerImpl implements ChatManager {
       });
 
       // P0 增强：通知前端导航到新项目
-      eventNotificationService.emitCustomEvent('project:auto_created', {
+      // P2-2: 事件携带 sandboxPath，前端 worktree.path 用真实路径（此前 path=projectId 导致工具默认 cwd 错误）
+      const autoCreatedPayload = {
         projectId: project.id,
         name: project.name,
+        sandboxPath: project.sandboxPath,
+      };
+      logger.info('P0 自动建项目事件：emitCustomEvent 发出', {
+        event: 'project:auto_created',
+        ...autoCreatedPayload,
       });
+      eventNotificationService.emitCustomEvent(
+        'project:auto_created',
+        autoCreatedPayload
+      );
       // P0b-3: 同步广播到全局 SSE 事件总线，前端 worktree 同步创建
       try {
         const { broadcastEvent } =
           await import('../infrastructure/http/LocalHTTPServiceSSE');
-        broadcastEvent('project:auto_created', {
-          projectId: project.id,
-          name: project.name,
+        await broadcastEvent('project:auto_created', autoCreatedPayload);
+        logger.info('P0 自动建项目事件：SSE 广播完成', autoCreatedPayload);
+      } catch (e) {
+        logger.warn('P0 自动建项目 SSE 广播失败', {
+          error: (e as Error)?.message ?? String(e),
         });
-      } catch {
         /* SSE 广播失败不影响主流程 */
       }
     } catch (e) {
@@ -3406,9 +3471,14 @@ ${llmPhaseSummary}`;
         (m: Record<string, unknown>) => m.role === 'system'
       );
       if (!hasSystemMessage) {
-        const sysPrompt =
-          options?.systemPrompt ||
-          (await this.getOrAssembleSystemPrompt(session, content));
+        // P0-E 断点 0: 始终走组装（projectContext 段落必须注入），用户自定义 systemPrompt 追加为段落而非替换
+        const assembled = await this.getOrAssembleSystemPrompt(
+          session,
+          content
+        );
+        const sysPrompt = options?.systemPrompt
+          ? `${assembled}\n\n## 用户自定义系统提示\n${options.systemPrompt}`
+          : assembled;
         apiMessages.unshift({ role: 'system', content: sysPrompt });
       }
 
@@ -5659,7 +5729,15 @@ ${llmPhaseSummary}`;
           // 否则内层安全检查看不到批准记录，放行缓存结构性失效。
           sessionId: toolCall.sessionId,
           options: {
-            cwd: resolveProjectRoot(),
+            // 方案 C 修正（P2-4 会话上下文化）：项目模块会话用其 sandboxPath 作为工具默认 cwd，
+            // 其他模块保持项目根目录；移除对全局 SandboxConfigBuilder.defaultWorkspacePath 的依赖，
+            // 避免跨会话/并发污染（普通对话曾残留项目沙箱路径）
+            cwd:
+              this.getSessionWorkspacePath(toolCall.sessionId) ??
+              resolveProjectRoot(),
+            // CreateProjectTool workspaceId 语义：项目模块会话传真实工作区 ID（= projectId），
+            // 此前用 sessionId 导致 AI 建的项目挂错 workspace、前端 projects 列表不可见
+            workspaceId: this.getSessionWorkspaceId(toolCall.sessionId),
             env: process.env as Record<string, string>,
           },
         };
@@ -5993,11 +6071,12 @@ ${llmPhaseSummary}`;
     this._currentSessionId = session.id;
 
     // 持久化会话到 FileSystemUnifiedStorage
+    // P0-D: 完整持久化 metadata（含 projectId/workspaceId/moduleType），此前硬编码 {} 导致重启后全部丢失
     await this.sessionGateway
       .createSession({
         id: session.id,
         title: params.title ?? session.title,
-        metadata: {},
+        metadata: session.metadata,
       })
       .catch((e) => {
         handleError(e, {

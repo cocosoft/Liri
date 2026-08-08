@@ -675,6 +675,15 @@ export class CoreAPIImpl implements CoreAPI {
                       (s as unknown as Record<string, unknown>).metadata = {};
                     }
                     s.metadata.projectId = projectId;
+                    // P0-D: 持久化 projectId，防止重启后丢失
+                    void this.chatManager
+                      .persistSessionMetadata(s)
+                      .catch((e: unknown) =>
+                        handleError(e, {
+                          module: 'runtime:core-api',
+                          action: 'persistSessionMetadata_afterCreateProject',
+                        })
+                      );
                   }
                 }
               } catch {

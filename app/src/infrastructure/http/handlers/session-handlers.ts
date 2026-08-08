@@ -58,12 +58,7 @@ export async function handleListSessions(
           const md = s.metadata as Record<string, unknown> | undefined;
           if (moduleType && (md?.moduleType || 'chat') !== moduleType)
             return false;
-          if (
-            projectId &&
-            (md?.projectId ??
-              (s as unknown as Record<string, unknown>).workspaceId) !==
-              projectId
-          )
+          if (projectId && (md?.projectId as string | undefined) !== projectId)
             return false;
           return true;
         });

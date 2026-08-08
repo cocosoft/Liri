@@ -20,7 +20,8 @@ import type {
 import type { CouncilConfig } from './CouncilEngine.js';
 import { globalEventBus } from '../core/events/EventBus.js';
 import { OrchestrationEventType } from '../agent/events/OrchestrationEvents.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError';
 import aiService, { type AIMessage, AIMessageRole } from '@modules/ai';
 import { getAgentRoleStore } from './AgentRoleStore.js';
@@ -406,19 +407,29 @@ export class CouncilOrchestrator {
     userPrompt: string,
     options?: { maxTokens?: number }
   ): Promise<string> {
-    const messages: AIMessage[] = [];
+    const otel = getOTelTracing();
+    const span = otel.startSpan('CouncilOrchestrator.callAI');
+    try {
+      const messages: AIMessage[] = [];
 
-    if (systemPrompt) {
-      messages.push({ role: AIMessageRole.SYSTEM, content: systemPrompt });
+      if (systemPrompt) {
+        messages.push({ role: AIMessageRole.SYSTEM, content: systemPrompt });
+      }
+      messages.push({ role: AIMessageRole.USER, content: userPrompt });
+
+      const response = await aiService.generate(messages, undefined, {
+        max_tokens: options?.maxTokens ?? 512,
+        temperature: 0.7,
+      });
+
+      span.setStatus({ code: SpanStatusCode.OK });
+      return response.content ?? '';
+    } catch (e) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+      throw e;
+    } finally {
+      span.end();
     }
-    messages.push({ role: AIMessageRole.USER, content: userPrompt });
-
-    const response = await aiService.generate(messages, undefined, {
-      max_tokens: options?.maxTokens ?? 512,
-      temperature: 0.7,
-    });
-
-    return response.content ?? '';
   }
 
   // ============================================================

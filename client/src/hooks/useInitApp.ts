@@ -7,6 +7,9 @@ import { sseService } from "../services/sseService";
 import { appConfigService } from "../services/appConfigService";
 import { migrateLegacyData } from "../services/projectArtifactService";
 import { initBackendUrlFromConfig } from "../services/backendUrl";
+import { createLogger } from "../utils/logger";
+
+const logger = createLogger("hooks:use-init-app");
 
 // 初始化阶段状态机
 type InitPhase =
@@ -133,19 +136,47 @@ export function useInitApp() {
       // P0b-3: AI 自动建项目时，前端同步创建 worktree
       sseService.on("project:auto_created", (data) => {
         const { projectId, name } = data;
+        logger.info("project:auto_created 收到", {
+          projectId,
+          name,
+          sandboxPath: data.sandboxPath ?? null,
+        });
         if (projectId && name) {
           const { createWorkspace } = useRootStore.getState();
           const worktrees = useRootStore.getState().workspaceList;
           // 去重：已存在则跳过
-          if (!worktrees.some((w) => w.id === String(projectId))) {
+          const worktreeExists = worktrees.some(
+            (w) => w.id === String(projectId),
+          );
+          // P2-2: worktree.path 用事件携带的真实 sandboxPath（工具默认 cwd 依赖它），
+          // 兜底退回 projectId
+          const pathToUse = String(data.sandboxPath ?? projectId);
+          logger.info("project worktree 创建判定", {
+            projectId: String(projectId),
+            name: String(name),
+            pathToUse,
+            worktreeExists,
+            worktreeCount: worktrees.length,
+          });
+          if (!worktreeExists) {
             createWorkspace({
               id: String(projectId),
               name: String(name),
-              path: String(projectId),
+              path: pathToUse,
               workspaceSource: "system",
               workspaceType: "project",
             });
+            logger.info("project worktree 已创建", {
+              projectId: String(projectId),
+              name: String(name),
+              path: pathToUse,
+            });
           }
+        } else {
+          logger.warn("project:auto_created 事件缺少 projectId/name", {
+            projectId,
+            name,
+          });
         }
       });
       sseService.connect();

@@ -4,6 +4,7 @@
  */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useRootStore } from "@/stores/root-store";
 import { createProject } from "@/services/projectArtifactService";
 
@@ -20,6 +21,21 @@ export default function CreateProjectModal({ onClose }: Props) {
 
   const createWorkspace = useRootStore((s) => s.createWorkspace);
   const navigate = useNavigate();
+
+  const handleSelectFolder = async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: "选择项目文件夹",
+      });
+      if (typeof selected === "string") {
+        setPath(selected);
+      }
+    } catch {
+      // 非 Tauri 环境（浏览器 dev）下无系统对话框，保持手动输入
+    }
+  };
 
   const handleSubmit = async () => {
     setError("");
@@ -88,13 +104,21 @@ export default function CreateProjectModal({ onClose }: Props) {
         <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
           本地路径
         </label>
-        <input
-          type="text"
-          className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 mb-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-          placeholder="例如：E:/Projects/my-app"
-          value={path}
-          onChange={(e) => setPath(e.target.value)}
-        />
+        <div className="flex gap-2 mb-3">
+          <input
+            type="text"
+            className="flex-1 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            placeholder="例如：E:/Projects/my-app"
+            value={path}
+            onChange={(e) => setPath(e.target.value)}
+          />
+          <button
+            onClick={handleSelectFolder}
+            className="px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 whitespace-nowrap"
+          >
+            选择文件夹
+          </button>
+        </div>
 
         {/* 描述 */}
         <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">

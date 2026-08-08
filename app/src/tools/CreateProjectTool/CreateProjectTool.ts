@@ -70,8 +70,14 @@ export class CreateProjectTool {
         try {
           const name = String(input.name || '未命名项目');
           const description = String(input.description || '');
-          // P4-2: 从会话上下文取 workspaceId，fallback 到 'default'
-          const workspaceId = context.sessionId || 'default';
+          // P0-D 配套: 优先取会话真实 workspaceId（项目模块下 = projectId，由 ChatManager
+          // 工具上下文注入），fallback 到 sessionId/'default' — 此前固定用 sessionId 导致
+          // AI 建的项目挂错 workspace、前端 projects 列表不可见
+          const injectedWorkspaceId = (
+            context.options as Record<string, unknown> | undefined
+          )?.workspaceId as string | undefined;
+          const workspaceId =
+            injectedWorkspaceId || context.sessionId || 'default';
 
           const { projectStore } = getStores();
 

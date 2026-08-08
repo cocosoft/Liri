@@ -25,8 +25,10 @@ import type {
   WorkItemStatus,
 } from './types';
 import { WorkItemStore } from './WorkItemStore';
+import { resolveDataDir } from '@modules/core/paths';
 import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
 
 const logger = new Logger({
   module: 'workspace:ProjectStore',
@@ -165,6 +167,7 @@ export class ProjectStore {
       try {
         return JSON.parse(readFileSync(newPath, 'utf-8')) as Project;
       } catch {
+        // @ignore-catch 项目 JSON 损坏时按"不存在"处理，不阻断主流程
         return null;
       }
     }
@@ -189,6 +192,7 @@ export class ProjectStore {
         // 不删除旧文件以保安全，后续版本清理
         return project;
       } catch {
+        // @ignore-catch 旧路径 JSON 损坏时按"不存在"处理，不阻断主流程
         return null;
       }
     }
@@ -220,7 +224,7 @@ export class ProjectStore {
                 seen.add(project.id);
               }
             } catch {
-              // skip corrupted
+              // @ignore-catch 单个项目 JSON 损坏时跳过，不阻断列表
             }
           }
         }
@@ -248,7 +252,7 @@ export class ProjectStore {
               seen.add(project.id);
             }
           } catch {
-            // skip corrupted
+            // @ignore-catch 旧路径项目 JSON 损坏时跳过，不阻断列表与迁移
           }
         }
       }
@@ -260,6 +264,7 @@ export class ProjectStore {
 
       return projects;
     } catch {
+      // @ignore-catch 列表读取失败返回空数组，调用方按"无项目"处理
       return [];
     }
   }
@@ -282,6 +287,33 @@ export class ProjectStore {
     }
     const filePath = this.getFilePath(project.id);
     writeFileSync(filePath, JSON.stringify(project, null, 2), 'utf-8');
+    // P0-1/P0-2: 幂等补写项目上下文文件，覆盖 create/update/惰性迁移所有写路径
+    this.writeContextFile(project);
+  }
+
+  /**
+   * P0-1/P0-2: 写入项目上下文文件（供 systemPromptSections.projectContext 读取）
+   * 幂等：内容比对，名称/目标/文件夹/创建时间不一致才重写，避免高频 save 无谓 I/O
+   * best-effort：失败仅 warn，不影响项目保存/创建/迁移主流程
+   */
+  private writeContextFile(project: Project): void {
+    try {
+      const projDir = join(this.storeDir, project.id);
+      const contextPath = join(projDir, 'project-context.md');
+      const content = `## 项目上下文\n\n**名称**: ${project.name}\n**目标**: ${project.description}\n**文件夹**: ${project.sandboxPath}\n**创建时间**: ${project.createdAt}\n`;
+      if (existsSync(contextPath)) {
+        const existing = readFileSync(contextPath, 'utf-8');
+        if (existing === content) return;
+      }
+      mkdirSync(projDir, { recursive: true });
+      writeFileSync(contextPath, content, 'utf-8');
+    } catch (e) {
+      // @ignore-catch best-effort：context 补写失败不影响项目保存/创建/迁移主流程（方案 P0-2 异常隔离）
+      logger.warn('写入项目上下文文件失败', {
+        projectId: project.id,
+        error: String(e),
+      });
+    }
   }
 
   /**
@@ -328,14 +360,18 @@ export class ProjectStore {
         updatedAt: now,
       };
 
-      this.save(project);
+      this.save(project); // 项目上下文文件由 save() 幂等补写（P0-1/P0-2）
+
       logger.info('项目已创建', { projectId: id, name: params.name });
       span.setAttribute('projectId', id);
       span.setStatus({ code: SpanStatusCode.OK });
       return project;
     } catch (e) {
       span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
-      logger.error('创建项目失败', { error: String(e), name: params.name });
+      void handleError(e, {
+        module: 'workspace:ProjectStore',
+        action: 'create',
+      });
       throw e;
     } finally {
       span.end();
@@ -386,7 +422,11 @@ export class ProjectStore {
           logger.info('项目已删除', { projectId: id });
         }
       } catch (e) {
-        logger.error('删除项目目录失败', { projectId: id, error: String(e) });
+        // @ignore-catch 项目目录删除失败仅记录（项目实体仍删除），不阻断删除主流程
+        void handleError(e, {
+          module: 'workspace:ProjectStore',
+          action: 'deleteDirectory',
+        });
       }
 
       span.setStatus({ code: SpanStatusCode.OK });
@@ -493,6 +533,7 @@ export class ProjectStore {
     try {
       return readFileSync(rulesPath, 'utf-8');
     } catch {
+      // @ignore-catch 规则文件读取失败返回空串，调用方按"无规则"处理
       return '';
     }
   }
@@ -564,5 +605,17 @@ export function createProjectStore(
   liriDir: string,
   workItemStore: WorkItemStore
 ): ProjectStore {
+  // P1-1: 防御日志 — systemPromptSections 固定读 resolveDataDir()/projects/<id>/project-context.md，
+  // 若用非默认数据目录创建 store，context 会写错位置导致 AI 读不到，此处提前暴露
+  try {
+    if (liriDir !== resolveDataDir()) {
+      logger.warn(
+        'createProjectStore: liriDir 与 resolveDataDir() 不一致，project-context.md 将写到读取端不可见的位置',
+        { liriDir, dataDir: resolveDataDir() }
+      );
+    }
+  } catch {
+    /* 防御日志失败不影响创建 */
+  }
   return new ProjectStore(liriDir, workItemStore);
 }

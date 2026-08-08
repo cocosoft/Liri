@@ -51,6 +51,9 @@ const CONVERSATION_SECTION_NAMES = new Set([
   'shellDeclaration',
   'taskNegotiation',
   'sessionContext',
+  // P2-2 运行时验证发现：projectContext 段落此前被 conversation 模式过滤，
+  // 项目会话的文件夹/写文件工具引导永不注入（段落内部有 ctx.projectId 守卫，非项目会话返回 null）
+  'projectContext',
 ]);
 
 export interface AssembleOptions {

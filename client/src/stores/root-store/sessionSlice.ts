@@ -340,8 +340,11 @@ export const createSessionSlice: StateCreator<
       const ctx = get().moduleContext;
       const workspaceId =
         ctx.moduleType === "project" ? ctx.projectId : undefined;
+      // P2-2: workspacePath 应为真实 sandboxPath（worktree.path），而非项目名
       const workspacePath =
-        ctx.moduleType === "project" ? ctx.projectName : undefined;
+        ctx.moduleType === "project" && ctx.projectId
+          ? get().worktrees[ctx.projectId]?.path
+          : undefined;
 
       const session = await sessionService.create(title, {
         modelId,

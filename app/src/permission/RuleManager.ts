@@ -323,8 +323,7 @@ export class RuleManager {
   /** P2-5: 是否到达 Hash 校验间隔 */
   private shouldVerifyHash(): boolean {
     return (
-      Date.now() - this.lastHashCheckTime >=
-      RuleManager.HASH_CHECK_INTERVAL_MS
+      Date.now() - this.lastHashCheckTime >= RuleManager.HASH_CHECK_INTERVAL_MS
     );
   }
 

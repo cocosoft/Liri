@@ -35,7 +35,6 @@ import type {
   ChatRequest,
   ChatStreamChunk,
 } from '@modules/runtime/api/CoreAPI';
-import { SandboxConfigBuilder } from '@modules/sandbox/SandboxConfigBuilder';
 import { eventNotificationService } from '@modules/chat/services/EventNotificationService';
 import { DEFAULT_MODEL_SENTINEL } from '@modules/constants/common.js';
 
@@ -131,10 +130,9 @@ export async function handleChatCompletions(
     return;
   }
 
-  // 方案 C：将请求中的工作空间路径注入沙箱配置构建器，作为工具默认 cwd
-  if (request.workspace_path) {
-    SandboxConfigBuilder.defaultWorkspacePath = request.workspace_path;
-  }
+  // 方案 C 修正（P2-4 会话上下文化）：不再设置全局 SandboxConfigBuilder.defaultWorkspacePath
+  // （跨会话/并发污染源）。项目模块会话的工作区路径由 ChatManager 在工具执行上下文注入
+  // （仅项目模块），普通对话不受影响，统一回退 process.cwd()。
 
   if (request.stream) {
     return handleStreamingChat(res, request);

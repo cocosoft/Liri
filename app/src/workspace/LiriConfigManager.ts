@@ -357,6 +357,7 @@ export class LiriConfigManager {
       const content = readFileSync(filePath, 'utf-8');
       return JSON.parse(content) as T;
     } catch {
+      // @ignore-catch 配置 JSON 损坏时返回 null（调用方按"无配置"处理）
       return null;
     }
   }

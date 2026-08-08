@@ -27,7 +27,8 @@ import type {
   CouncilAgentSpeakingData,
   CouncilAgentDeltaData,
 } from '../agent/events/OrchestrationEvents.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError';
 
 const logger = new Logger({ module: 'CouncilEngine', level: LogLevel.INFO });
@@ -144,12 +145,15 @@ export class CouncilEngine {
     statementCallback: CouncilStatementCallback,
     consensusCallback: CouncilConsensusCallback
   ): Promise<CouncilSession> {
-    const session = this.activeSessions.get(sessionId);
-    if (!session) {
-      throw new Error(`Council session not found: ${sessionId}`);
-    }
-
+    const otel = getOTelTracing();
+    const span = otel.startSpan('CouncilEngine.runDebate');
+    span.setAttribute('sessionId', sessionId);
     try {
+      const session = this.activeSessions.get(sessionId);
+      if (!session) {
+        throw new Error(`Council session not found: ${sessionId}`);
+      }
+
       // 阶段 1：召集 Agent（通知所有 Agent 加入）
       session.phase = 'convening';
       for (const agent of session.agents) {
@@ -349,8 +353,10 @@ export class CouncilEngine {
         timestamp: Date.now(),
       });
 
+      span.setStatus({ code: SpanStatusCode.OK });
       return session;
     } catch (error) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(error) });
       void handleError(error, {
         module: 'workspace:engine',
         action: 'runDebate',
@@ -365,6 +371,8 @@ export class CouncilEngine {
       });
 
       throw error;
+    } finally {
+      span.end();
     }
   }
 

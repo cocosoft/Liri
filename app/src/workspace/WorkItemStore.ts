@@ -18,12 +18,19 @@ import type { WorkItem, WorkItemStatus, WorkItemType } from './types';
 import type { LiriConfigManager } from './LiriConfigManager';
 
 import { handleError } from '@modules/error';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
 
 /** .liri/workitems/ 子目录 */
 const WORKITEMS_DIR = 'workitems';
 
 /** 记忆条目标签 */
 const MEMORY_TAG = 'auto:workitem';
+
+const logger = new Logger({
+  module: 'workspace:WorkItemStore',
+  level: LogLevel.INFO,
+});
 
 /**
  * 工作项文件存储
@@ -65,56 +72,82 @@ export class WorkItemStore {
    * 列出指定工作空间的所有工作项
    */
   list(workspaceId: string): WorkItem[] {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('WorkItemStore.list');
+    span.setAttribute('workspaceId', workspaceId);
+    try {
+      const items = this.readItems(workspaceId);
+      span.setAttribute('count', items.length);
+      span.setStatus({ code: SpanStatusCode.OK });
+      return items;
+    } catch (e) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+      logger.warn('列出工作项失败', { workspaceId, error: String(e) });
+      return [];
+    } finally {
+      span.end();
+    }
+  }
+
+  private readItems(workspaceId: string): WorkItem[] {
     this.ensureDir();
 
-    try {
-      const files = readdirSync(this.itemsDir);
-      const items: WorkItem[] = [];
+    const files = readdirSync(this.itemsDir);
+    const items: WorkItem[] = [];
 
-      for (const file of files) {
-        if (!file.endsWith('.json')) continue;
-        try {
-          const content = readFileSync(join(this.itemsDir, file), 'utf-8');
-          const item = JSON.parse(content) as WorkItem;
-          if (item.workspaceId === workspaceId) {
-            items.push(item);
-          }
-        } catch (err) {
-          // 跳过损坏的文件
-
-          handleError(err, {
-            module: 'workspace:WorkItemStore',
-            action: 'skipCorruptedFile',
-          });
+    for (const file of files) {
+      if (!file.endsWith('.json')) continue;
+      try {
+        const content = readFileSync(join(this.itemsDir, file), 'utf-8');
+        const item = JSON.parse(content) as WorkItem;
+        if (item.workspaceId === workspaceId) {
+          items.push(item);
         }
+      } catch (err) {
+        // 跳过损坏的文件
+
+        handleError(err, {
+          module: 'workspace:WorkItemStore',
+          action: 'skipCorruptedFile',
+        });
       }
-
-      // 按创建时间倒序排列
-      items.sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-
-      return items;
-    } catch {
-      return [];
     }
+
+    // 按创建时间倒序排列
+    items.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    return items;
   }
 
   /**
    * 获取单个工作项
    */
   get(id: string): WorkItem | null {
-    const filePath = this.getItemPath(id);
-    if (!existsSync(filePath)) {
-      return null;
-    }
-
+    const otel = getOTelTracing();
+    const span = otel.startSpan('WorkItemStore.get');
+    span.setAttribute('itemId', id);
     try {
-      const content = readFileSync(filePath, 'utf-8');
-      return JSON.parse(content) as WorkItem;
-    } catch {
-      return null;
+      const filePath = this.getItemPath(id);
+      if (!existsSync(filePath)) {
+        span.setStatus({ code: SpanStatusCode.OK });
+        return null;
+      }
+
+      try {
+        const content = readFileSync(filePath, 'utf-8');
+        const item = JSON.parse(content) as WorkItem;
+        span.setStatus({ code: SpanStatusCode.OK });
+        return item;
+      } catch (e) {
+        // @ignore-catch 工作项文件损坏时返回 null（调用方按"不存在"处理），不阻断主流程
+        span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+        return null;
+      }
+    } finally {
+      span.end();
     }
   }
 
@@ -122,9 +155,22 @@ export class WorkItemStore {
    * 创建或更新工作项
    */
   save(item: WorkItem): void {
-    this.ensureDir();
-    const filePath = this.getItemPath(item.id);
-    writeFileSync(filePath, JSON.stringify(item, null, 2), 'utf-8');
+    const otel = getOTelTracing();
+    const span = otel.startSpan('WorkItemStore.save');
+    span.setAttribute('itemId', item.id);
+    span.setAttribute('workspaceId', item.workspaceId);
+    span.setAttribute('status', item.status);
+    try {
+      this.ensureDir();
+      const filePath = this.getItemPath(item.id);
+      writeFileSync(filePath, JSON.stringify(item, null, 2), 'utf-8');
+      span.setStatus({ code: SpanStatusCode.OK });
+    } catch (e) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+      throw e;
+    } finally {
+      span.end();
+    }
   }
 
   /**
@@ -222,14 +268,28 @@ export class WorkItemStore {
    * 删除工作项
    */
   delete(id: string): boolean {
-    const filePath = this.getItemPath(id);
-    if (!existsSync(filePath)) return false;
-
+    const otel = getOTelTracing();
+    const span = otel.startSpan('WorkItemStore.delete');
+    span.setAttribute('itemId', id);
     try {
-      unlinkSync(filePath);
-      return true;
-    } catch {
-      return false;
+      const filePath = this.getItemPath(id);
+      if (!existsSync(filePath)) {
+        span.setStatus({ code: SpanStatusCode.OK });
+        return false;
+      }
+
+      try {
+        unlinkSync(filePath);
+        span.setStatus({ code: SpanStatusCode.OK });
+        return true;
+      } catch (e) {
+        // @ignore-catch 工作项删除失败返回 false（调用方按"未删除"处理），不阻断主流程
+        span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+        logger.warn('删除工作项失败', { itemId: id, error: String(e) });
+        return false;
+      }
+    } finally {
+      span.end();
     }
   }
 
@@ -252,27 +312,44 @@ export class WorkItemStore {
     tags?: string[];
     priority?: number;
   }): WorkItem {
-    this.ensureDir();
+    const otel = getOTelTracing();
+    const span = otel.startSpan('WorkItemStore.create');
+    span.setAttribute('workspaceId', params.workspaceId);
+    span.setAttribute('title', params.title);
+    try {
+      this.ensureDir();
 
-    const now = new Date().toISOString();
-    const id = `wi_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const now = new Date().toISOString();
+      const id = `wi_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-    const item: WorkItem = {
-      id,
-      workspaceId: params.workspaceId,
-      title: params.title,
-      description: params.description || '',
-      type: params.type || 'task',
-      status: 'pending',
-      sessionId: params.sessionId,
-      tags: params.tags || [],
-      priority: params.priority || 3,
-      createdAt: now,
-      updatedAt: now,
-    };
+      const item: WorkItem = {
+        id,
+        workspaceId: params.workspaceId,
+        title: params.title,
+        description: params.description || '',
+        type: params.type || 'task',
+        status: 'pending',
+        sessionId: params.sessionId,
+        tags: params.tags || [],
+        priority: params.priority || 3,
+        createdAt: now,
+        updatedAt: now,
+      };
 
-    this.save(item);
-    return item;
+      this.save(item);
+      span.setAttribute('itemId', id);
+      span.setStatus({ code: SpanStatusCode.OK });
+      logger.info('工作项已创建', {
+        itemId: id,
+        workspaceId: params.workspaceId,
+      });
+      return item;
+    } catch (e) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(e) });
+      throw e;
+    } finally {
+      span.end();
+    }
   }
 }
 

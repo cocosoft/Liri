@@ -104,6 +104,12 @@ export interface ChatManager {
   saveSession(session: ChatSession): Promise<void>;
 
   /**
+   * P0-D: 将内存 session 的 metadata（含 projectId/workspaceId/moduleType）持久化到 gateway 存储
+   * 自动建项目/跨会话去重关联项目/工具建项目后调用，防止重启后 projectId 丢失
+   */
+  persistSessionMetadata(session: ChatSession): Promise<void>;
+
+  /**
    * 加载会话
    * @param sessionId 会话ID
    * @returns 会话对象

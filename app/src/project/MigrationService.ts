@@ -84,6 +84,7 @@ export function migrateLegacyFiles(): { copied: number; skipped: number } {
           files: files.length,
         });
       } catch (e) {
+        // @ignore-catch best-effort：单个项目文件迁移失败仅记录，不中断整体迁移
         logger.warn('迁移项目文件失败', {
           projectId: entry.name,
           error: String(e),
@@ -94,6 +95,7 @@ export function migrateLegacyFiles(): { copied: number; skipped: number } {
     writeMigrationMarker();
     logger.info('旧数据文件迁移完成', { copied, skipped });
   } catch (e) {
+    // @ignore-catch best-effort：整体迁移失败仅记录，不影响应用启动
     logger.error('文件迁移过程出错', { error: String(e) });
   }
 
@@ -107,7 +109,7 @@ function writeMigrationMarker(): void {
     }
     writeFileSync(MIGRATION_MARKER, new Date().toISOString(), 'utf-8');
   } catch {
-    /* 写标记失败不影响主流程 */
+    // @ignore-catch 写标记失败不影响主流程
   }
 }
 
@@ -150,6 +152,7 @@ export function migrateWorktrees(
       created++;
       logger.info('worktree 已迁移为 Project', { oldId: wt.id, name: wt.name });
     } catch (e) {
+      // @ignore-catch best-effort：单个 worktree 迁移失败仅记录，继续迁移其余
       logger.warn('worktree 迁移失败', { id: wt.id, error: String(e) });
     }
   }

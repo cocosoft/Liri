@@ -121,16 +121,13 @@ export class WriteProjectFileTool {
           // 路径安全校验
           const rawPath = resolve(sandboxPath, normalize(relativePath));
 
-          // 确保 sandbox 存在
+          // 确保 sandbox 存在（P0-3: 不存在则自动创建，与上传接口行为对齐；
+          // 自动建项目 delaySandbox 场景首次写入时在此落点创建）
           if (!existsSync(sandboxPath)) {
-            span.setStatus({ code: SpanStatusCode.OK });
-            return createToolResult(null, {
-              newMessages: [
-                {
-                  role: 'assistant' as const,
-                  content: '项目文件夹不存在，请先创建项目',
-                },
-              ],
+            mkdirSync(sandboxPath, { recursive: true });
+            logger.info('自动创建项目文件夹', {
+              projectId,
+              sandboxPath,
             });
           }
 

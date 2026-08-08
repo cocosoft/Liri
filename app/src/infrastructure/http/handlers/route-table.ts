@@ -1267,14 +1267,10 @@ export async function dispatchRoute(
   }
 
   // ---- Projects ----
+  // P1-1: 移除旧写路由（POST/PATCH/DELETE），仅保留只读（list/get）供数据迁移兼容；创建统一走 /v1/projects
   if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/projects$/)) {
     const workspaceId = url.match(/^\/v1\/workspaces\/(.+)\/projects$/)![1];
     await self['handleListProjects'](req, res, workspaceId);
-    return true;
-  }
-  if (method === 'POST' && url.match(/^\/v1\/workspaces\/(.+)\/projects$/)) {
-    const workspaceId = url.match(/^\/v1\/workspaces\/(.+)\/projects$/)![1];
-    await self['handleCreateProject'](req, res, workspaceId);
     return true;
   }
   if (method === 'GET' && url.match(/^\/v1\/workspaces\/(.+)\/templates$/)) {
@@ -1330,22 +1326,6 @@ export async function dispatchRoute(
   ) {
     const match = url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)$/)!;
     await self['handleGetProject'](req, res, match[1], match[2]);
-    return true;
-  }
-  if (
-    method === 'PATCH' &&
-    url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)$/)
-  ) {
-    const match = url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)$/)!;
-    await self['handleUpdateProject'](req, res, match[1], match[2]);
-    return true;
-  }
-  if (
-    method === 'DELETE' &&
-    url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)$/)
-  ) {
-    const match = url.match(/^\/v1\/workspaces\/(.+)\/projects\/(.+)$/)!;
-    await self['handleDeleteProject'](req, res, match[1], match[2]);
     return true;
   }
 

@@ -15,7 +15,8 @@ const DEFAULT_CHAT_PARAMS: ChatParams = {
   temperature: 0.7,
   topP: 0.9,
   maxTokens: 8192,
-  systemPrompt: "你是一个有帮助的AI助手，请用中文回答用户的问题。",
+  // P0-E: 默认 systemPrompt 置空，未设置时走后端 prompt 组装路径（projectContext 段落才能注入）
+  systemPrompt: "",
 };
 
 interface ConfigStore {

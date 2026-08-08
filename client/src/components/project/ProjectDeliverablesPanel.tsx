@@ -36,6 +36,15 @@ const DELIVERABLE_EXTENSIONS = [
 
 function isDeliverableFile(name: string): boolean {
   if (name.startsWith("_")) return false;
+  // 方案二收尾：只认 output/ 目录或根目录交付文件，排除输入/过程目录
+  if (
+    name.startsWith("00_input/") ||
+    name.startsWith("01_work/") ||
+    name.startsWith("02_") ||
+    name.startsWith("03_")
+  ) {
+    return false;
+  }
   const lower = name.toLowerCase();
   return DELIVERABLE_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }

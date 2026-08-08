@@ -1386,11 +1386,8 @@ export async function dispatchRoute(
     await handleUploadProjectFile(req, res, match[1]);
     return true;
   }
-  if (
-    method === 'DELETE' &&
-    url.match(/^\/v1\/projects\/(.+)\/files\/([^/]+)$/)
-  ) {
-    const match = url.match(/^\/v1\/projects\/(.+)\/files\/([^/]+)$/)!;
+  if (method === 'DELETE' && url.match(/^\/v1\/projects\/(.+)\/files\/(.+)$/)) {
+    const match = url.match(/^\/v1\/projects\/(.+)\/files\/(.+)$/)!;
     await handleDeleteProjectFile(
       req,
       res,

@@ -426,11 +426,13 @@ export async function handleDeleteProjectFile(
   span.setAttribute('projectId', projectId);
   span.setAttribute('filename', filename);
   try {
-    // 安全：拒绝含路径穿越的文件名（与上传校验一致）
+    // 安全校验：拒绝路径穿越 / 绝对路径 / 反斜杠；允许正斜杠相对路径（子目录文件）
     if (
       !filename ||
       filename.includes('..') ||
-      filename.includes('/') ||
+      filename.startsWith('/') ||
+      filename.startsWith('\\') ||
+      /^[a-zA-Z]:/.test(filename) ||
       filename.includes('\\')
     ) {
       span.setStatus({ code: SpanStatusCode.OK });
@@ -453,10 +455,22 @@ export async function handleDeleteProjectFile(
       return;
     }
 
+    const { realpathSync } = await import('fs');
     const targetPath = join(project.sandboxPath, filename);
     if (!existsSync(targetPath)) {
       span.setStatus({ code: SpanStatusCode.OK });
       json(res, 404, { error: '文件不存在' });
+      return;
+    }
+    // realpath 校验：删除目标必须在项目沙箱内（防符号链接逃逸）
+    const realSandbox = realpathSync(project.sandboxPath);
+    const realTarget = realpathSync(targetPath);
+    if (
+      !realTarget.startsWith(realSandbox + '\\') &&
+      !realTarget.startsWith(realSandbox + '/')
+    ) {
+      span.setStatus({ code: SpanStatusCode.OK });
+      json(res, 400, { error: '文件超出项目文件夹范围' });
       return;
     }
     const { statSync, unlinkSync } = await import('fs');
@@ -517,25 +531,47 @@ export async function handleListProjectFiles(
       return;
     }
     const { readdirSync: _readdir, statSync: _stat } = await import('fs');
-    const entries = _readdir(project.sandboxPath, { withFileTypes: true });
-    const files = entries
-      .filter((e) => e.isFile())
-      .map((f) => {
-        let size = 0;
-        try {
-          size = _stat(join(project.sandboxPath!, f.name)).size;
-        } catch {
-          /* 忽略 */
+    // 方案二收尾：递归列出沙箱文件，files 的 name/path 为相对路径（含子目录），
+    // 配合 00_input/01_work/output/ 目录约定；跳过隐藏/临时目录（_ 前缀）
+    const files: Array<{
+      name: string;
+      size: number;
+      type: string;
+      path: string;
+    }> = [];
+    const dirs: Array<{ name: string; type: 'dir' }> = [];
+    const walk = (dir: string, rel: string): void => {
+      let entries: import('fs').Dirent[] = [];
+      try {
+        entries = _readdir(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const e of entries) {
+        const full = join(dir, e.name);
+        const relPath = rel ? `${rel}/${e.name}` : e.name;
+        if (e.isDirectory()) {
+          if (rel === '' && !e.name.startsWith('.')) {
+            dirs.push({ name: e.name, type: 'dir' });
+          }
+          if (!e.name.startsWith('_')) walk(full, relPath);
+        } else if (e.isFile()) {
+          let size = 0;
+          try {
+            size = _stat(full).size;
+          } catch {
+            /* 忽略 */
+          }
+          files.push({
+            name: relPath,
+            size,
+            type: relPath.split('.').pop()?.toLowerCase() ?? 'other',
+            path: relPath,
+          });
         }
-        return {
-          name: f.name,
-          size,
-          type: f.name.split('.').pop()?.toLowerCase() ?? 'other',
-        };
-      });
-    const dirs = entries
-      .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
-      .map((d) => ({ name: d.name, type: 'dir' }));
+      }
+    };
+    walk(project.sandboxPath, '');
     span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, { files, dirs, sandboxPath: project.sandboxPath });
   } catch (e) {
@@ -598,12 +634,13 @@ export async function handleUploadProjectFile(
       return;
     }
 
-    // 确保 sandbox 目录存在
-    if (!existsSync(project.sandboxPath)) {
-      mkdirSync(project.sandboxPath, { recursive: true });
+    // 方案二收尾：上传的输入材料默认落入 00_input/（目录约定），自动创建
+    const inputDir = join(project.sandboxPath, '00_input');
+    if (!existsSync(inputDir)) {
+      mkdirSync(inputDir, { recursive: true });
     }
 
-    const destPath = join(project.sandboxPath, filename);
+    const destPath = join(inputDir, filename);
     const buffer = Buffer.from(data, 'base64');
     writeFileSync(destPath, buffer);
 

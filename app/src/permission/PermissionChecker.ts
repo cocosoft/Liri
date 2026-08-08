@@ -18,12 +18,69 @@ import {
   inferRiskClass,
   detectChainedCommand,
 } from './types/RiskClass';
+import { configManager } from '@modules/config';
 import { Logger, LogLevel } from '@modules/monitoring';
 
 const logger = new Logger({
   module: 'permission:checker',
   level: LogLevel.INFO,
 });
+
+/**
+ * P1-2: 命令内容级黑白名单决策（「设置→自定义规则」B 体系）。
+ *
+ * 读取与 BashSecurityAnalyzer 相同的配置 `permission.customRules.commandRules`：
+ * - 黑名单命中 → deny（无论模式）
+ * - whitelist 模式：白名单命中 → allow（免审批）；未命中 → deny（严格白名单）
+ * - blacklist 模式且未命中黑名单 → null（不阻断，交回工具级决策）
+ * 配置缺失/异常 → null（不阻断决策，安全底线不变）。
+ *
+ * 由 PermissionChecker.checkPermission 与 PermissionManager.handleDefault/handleAuto 共用，
+ * 保证「设置→自定义规则」的命令黑白名单在主决策链路生效。
+ */
+export function checkCommandCustomRules(
+  command: string
+): PermissionDecision | null {
+  try {
+    const permission = configManager.getConfigValue<{
+      customRules?: {
+        commandRules?: {
+          blacklist: Array<{ pattern: string }>;
+          whitelist: Array<{ pattern: string }>;
+          mode: 'whitelist' | 'blacklist';
+        };
+      };
+    }>('permission');
+    const rules = permission?.customRules?.commandRules;
+    if (!rules) return null;
+
+    const lower = command.toLowerCase();
+    const blacklist = rules.blacklist || [];
+    if (
+      blacklist.some((r) => lower.includes((r.pattern || '').toLowerCase()))
+    ) {
+      return createDenyDecision('命令命中自定义黑名单');
+    }
+
+    if (rules.mode === 'whitelist') {
+      const whitelist = rules.whitelist || [];
+      if (
+        whitelist.some((r) =>
+          lower.includes((r.pattern || '').toLowerCase())
+        )
+      ) {
+        return createAllowDecision('命令命中自定义白名单');
+      }
+      return createDenyDecision('命令未命中自定义白名单（whitelist 模式）');
+    }
+
+    // blacklist 模式且未命中黑名单 → 正常继续决策
+    return null;
+  } catch {
+    // 配置读取失败不阻断决策，安全底线不变
+    return null;
+  }
+}
 
 /**
  * 超时自动拒绝配置
@@ -179,6 +236,17 @@ export class PermissionChecker {
     // 检查工具是否被完全拒绝
     if (this.isToolDenied(toolOrName, context)) {
       return createDenyDecision('Tool is denied by permission rule');
+    }
+
+    // P1-2: 命令内容级黑白名单（「设置→自定义规则」B 体系）参与决策 —
+    // 与 BashSecurityAnalyzer 消费同一配置（permission.customRules.commandRules），
+    // 黑名单命中 deny、whitelist 模式命中 allow，使 UI 白名单能真正免审批。
+    if (
+      (toolName === 'bash' || toolName === 'shell' || toolName === 'command') &&
+      typeof input.command === 'string'
+    ) {
+      const cmdDecision = checkCommandCustomRules(input.command);
+      if (cmdDecision) return cmdDecision;
     }
 
     // 检查工具是否需要询问

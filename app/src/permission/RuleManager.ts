@@ -42,6 +42,36 @@ export interface RuleContext {
 }
 
 /**
+ * P1-1: 按 (source + toolName + contentPattern + behavior) 幂等去重，保留最旧规则。
+ * 供 saveRules/loadRules/addRule 复用，防止重复规则累积（历史曾出现 5 条重复 bash 规则）。
+ */
+export function deduplicateRules(rules: PermissionRule[]): PermissionRule[] {
+  const seen = new Map<string, PermissionRule>();
+  for (const rule of rules) {
+    const key = [
+      rule.source,
+      rule.behavior,
+      rule.toolName,
+      rule.contentPattern ?? '',
+    ].join('|');
+    const existing = seen.get(key);
+    if (!existing) {
+      seen.set(key, rule);
+      continue;
+    }
+    // 保留更早创建的规则；若同批 createdAt 相等则保留现有（first-wins）
+    const ruleTs =
+      rule.createdAt instanceof Date ? rule.createdAt.getTime() : 0;
+    const existingTs =
+      existing.createdAt instanceof Date ? existing.createdAt.getTime() : 0;
+    if (ruleTs < existingTs) {
+      seen.set(key, rule);
+    }
+  }
+  return Array.from(seen.values());
+}
+
+/**
  * 规则管理器类
  */
 export class RuleManager {
@@ -105,6 +135,17 @@ export class RuleManager {
             rule.updatedAt = new Date(rule.updatedAt);
           }
         });
+
+        // P1-1: 加载时清理历史重复规则（启动迁移），并回写文件
+        const deduped = deduplicateRules(this.rules);
+        if (deduped.length !== this.rules.length) {
+          logger.info('ruleDeduped: 加载时清理重复规则', {
+            before: this.rules.length,
+            after: deduped.length,
+          });
+          this.rules = deduped;
+          this.saveRules(this.rules);
+        }
       }
     } catch (error) {
       void handleError(error, {
@@ -127,10 +168,19 @@ export class RuleManager {
         mkdirSync(dataDir, { recursive: true });
       }
 
+      // P1-1: 防御性去重（文件级，防止历史/并发累积的重复项）
+      const deduped = deduplicateRules(rules);
+      if (deduped.length !== rules.length) {
+        logger.info('ruleDeduped: 保存时清理重复规则', {
+          before: rules.length,
+          after: deduped.length,
+        });
+      }
+
       // 保存规则文件
-      const rulesData = JSON.stringify(rules, null, 2);
+      const rulesData = JSON.stringify(deduped, null, 2);
       writeFileSync(this.ruleSource, rulesData);
-      this.rules = rules;
+      this.rules = deduped;
     } catch (error) {
       void handleError(error, {
         module: 'permission:rules',
@@ -140,12 +190,34 @@ export class RuleManager {
   }
 
   /**
-   * 添加规则
+   * 添加规则（P1-1: 幂等去重 — (source + toolName + contentPattern + behavior) 相同则复用旧规则）
    * @param rule 权限规则
    */
   addRule(rule: PermissionRule): void {
+    const existingIdx = this.rules.findIndex(
+      (r) =>
+        r.source === rule.source &&
+        r.toolName === rule.toolName &&
+        (r.contentPattern ?? null) === (rule.contentPattern ?? null) &&
+        r.behavior === rule.behavior
+    );
+    if (existingIdx !== -1) {
+      // 保留最旧规则，仅刷新 updatedAt，避免重复累积
+      const existing = this.rules[existingIdx];
+      existing.updatedAt = new Date();
+      this.saveRules(this.rules);
+      logger.info('ruleDeduped', {
+        id: existing.id,
+        rule: this.stringifyRule(existing),
+      });
+      return;
+    }
     this.rules.push(rule);
     this.saveRules(this.rules);
+    logger.info('ruleAdded', {
+      id: rule.id,
+      rule: this.stringifyRule(rule),
+    });
   }
 
   /**

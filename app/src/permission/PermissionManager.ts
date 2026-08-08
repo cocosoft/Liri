@@ -6,6 +6,7 @@ import {
   PermissionChecker,
   Tool,
   isInboxApprovalEnabled,
+  checkCommandCustomRules,
 } from './PermissionChecker';
 import { RuleManager, RuleContext } from './RuleManager';
 import { DenialTracker } from './trackers/DenialTracker';
@@ -587,6 +588,16 @@ export class PermissionManager {
       if (roleDeny) return roleDeny;
     }
 
+    // P1-2: 命令内容级黑白名单（「设置→自定义规则」B 体系）—
+    // 黑名单命中 deny；whitelist 模式命中 allow（覆盖工具级 ask 规则，实现"白名单免审批"）
+    if (
+      (toolName === 'bash' || toolName === 'shell' || toolName === 'command') &&
+      typeof input.command === 'string'
+    ) {
+      const cmdDecision = checkCommandCustomRules(input.command);
+      if (cmdDecision) return cmdDecision;
+    }
+
     const askRule = this.ruleManager.getAskRuleForTool(toolName, ruleContext);
     if (askRule) {
       return createAskDecision(`Asked by rule from ${askRule.source}`);
@@ -692,6 +703,15 @@ export class PermissionManager {
       }
 
       return createDenyDecision(`Denied by rule from ${denyRule.source}`);
+    }
+
+    // P1-2: 命令内容级黑白名单（「设置→自定义规则」B 体系）— 与 handleDefault 一致
+    if (
+      (toolName === 'bash' || toolName === 'shell' || toolName === 'command') &&
+      typeof input.command === 'string'
+    ) {
+      const cmdDecision = checkCommandCustomRules(input.command);
+      if (cmdDecision) return cmdDecision;
     }
 
     const askRule = this.ruleManager.getAskRuleForTool(toolName, ruleContext);

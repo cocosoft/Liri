@@ -259,7 +259,7 @@ import {
   handleDetectFileType,
   handleSendFileToAI,
 } from './handlers/files-handlers';
-import { handleEvents } from './handlers/config-handlers';
+import { handleEvents } from './LocalHTTPServiceSSE';
 import {
   handleGetBuddy,
   handleBuddyInteract,
@@ -2911,12 +2911,14 @@ export class LocalHTTPService {
 
   /**
    * 处理 SSE 事件订阅 — 委托给 LocalHTTPServiceSSE.handleEvents
+   * 修复: 原实现误委托给 config-handlers 的 handleEvents（独立 clients Set），
+   * 导致 /v1/events 客户端与 broadcastEvent 广播的客户端集合不一致，事件永不送达前端。
    */
   private async handleEvents(
     req: http.IncomingMessage,
     res: http.ServerResponse
   ): Promise<void> {
-    return handleEvents(this._handlerCtx, req, res);
+    return handleEvents(req, res);
   }
 
   /**

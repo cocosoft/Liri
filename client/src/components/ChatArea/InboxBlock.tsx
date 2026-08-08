@@ -53,6 +53,7 @@ export default function InboxBlock({
 }: Props) {
   const [status, setStatus] = useState(data.status);
   const [replying, setReplying] = useState(false);
+  const [resuming, setResuming] = useState(false);
   const addToast = useToastStore((s) => s.addToast);
 
   const handleAction = async (reply: string) => {
@@ -70,18 +71,25 @@ export default function InboxBlock({
         addToast("success", `已${label}`);
         onResolved?.();
 
-        // P0-5: 批准后触发 LLM 重新发起 —— 向当前会话发送结构化批准消息，
-        // 经既有 sendMessage 触发新一轮生成，AI 收到批准信号后重新发起工具调用。
+        // P2-1: 批准后自动续跑 —— 优先后端 checkpoint/resume（不依赖 LLM 自发重发）。
+        // 可恢复：显示"已批准，正在执行…"，轮询刷新消息看到后端续跑落盘结果；
+        // 不可恢复：降级为原 sendMessage 触发 LLM 重发（放行缓存命中直接执行）。
         if (reply === "approve" && sessionId) {
+          setResuming(true);
           try {
-            const { useChatStore } = await import("../../stores/chat");
-            const send = useChatStore.getState().sendMessage;
-            await send(
-              `[审批已批准] ${data.title}\n${data.content || ""}\n我已批准该操作，请继续执行。`,
-              sessionId,
-            );
+            const resumed = await tryResumeAfterApproval(sessionId);
+            if (!resumed) {
+              const { useChatStore } = await import("../../stores/chat");
+              const send = useChatStore.getState().sendMessage;
+              await send(
+                `[审批已批准] ${data.title}\n${data.content || ""}\n我已批准该操作，请继续执行。`,
+                sessionId,
+              );
+            }
           } catch {
             // 触发续跑失败不阻塞审批状态（用户可手动继续对话）
+          } finally {
+            setResuming(false);
           }
         }
       } else {
@@ -93,6 +101,35 @@ export default function InboxBlock({
       setReplying(false);
     }
   };
+
+  /**
+   * P2-1: 尝试后端自动续跑 —— 查最新检查点是否可恢复；可恢复则轮询刷新消息，
+   * 等待后端 resumeStream 重放 pendingApproval 工具并把结果落盘。
+   * @returns 是否已通过后端续跑（false 时调用方需降级触发）
+   */
+  async function tryResumeAfterApproval(sid: string): Promise<boolean> {
+    const base = (await import("../../services/backendUrl")).getBackendBaseUrl();
+    const latestResp = await fetch(
+      `${base}/v1/sessions/${sid}/checkpoints/latest`,
+    );
+    if (!latestResp.ok) return false;
+    const latest = await latestResp.json();
+    if (!latest.checkpointAvailable) return false;
+
+    const { sessionService } = await import("../../services/sessionService");
+    const { useChatStore } = await import("../../stores/chat");
+    // 轮询 4 次 × 2s：后端续跑（工具重放 + LLM）落盘后前端刷新可见
+    for (let i = 0; i < 4; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      try {
+        const messages = await sessionService.getMessages(sid);
+        useChatStore.getState().setMessages(messages);
+      } catch {
+        // 单次刷新失败继续等待
+      }
+    }
+    return true;
+  }
 
   const isPending = status === "pending";
   const isExpired = status === "expired";
@@ -152,8 +189,15 @@ export default function InboxBlock({
             );
           })}
 
+        {/* P2-1: 批准后自动续跑中 —— 避免用户感知空转 */}
+        {resuming && (
+          <span className="text-xs font-medium text-green-600 dark:text-green-400">
+            ✅ 已批准，正在执行…
+          </span>
+        )}
+
         {/* 已处理状态 */}
-        {!isPending && !isExpired && (
+        {!isPending && !isExpired && !resuming && (
           <span className="text-xs text-green-600 dark:text-green-400">
             ✅ 已处理
           </span>

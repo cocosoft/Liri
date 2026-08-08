@@ -24,6 +24,14 @@ function getMessageSearchText(message: Message): string {
   if (message.blocks) {
     for (const block of message.blocks) {
       if (!block.content) continue;
+      // P2-2: 与 ChatMessage/ChatMessageList 渲染去重逻辑一致——
+      // content 已包含的文本块不重复导出，避免"流式累积文本 + 最终快照"双源重复
+      if (
+        typeof message.content === "string" &&
+        message.content.includes(String(block.content))
+      ) {
+        continue;
+      }
       const prefix =
         block.type === "thinking"
           ? "💭 [思考中]\n"

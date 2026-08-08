@@ -65,9 +65,7 @@ export function checkCommandCustomRules(
     if (rules.mode === 'whitelist') {
       const whitelist = rules.whitelist || [];
       if (
-        whitelist.some((r) =>
-          lower.includes((r.pattern || '').toLowerCase())
-        )
+        whitelist.some((r) => lower.includes((r.pattern || '').toLowerCase()))
       ) {
         return createAllowDecision('命令命中自定义白名单');
       }

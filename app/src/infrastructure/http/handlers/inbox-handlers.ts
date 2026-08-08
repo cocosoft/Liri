@@ -294,6 +294,18 @@ export async function handleReplyInbox(
           commandHash,
           hasCommand: !!command,
         });
+        // P2-1: 批准后后端直接触发会话续跑（复用 checkpoint/resume 机制），
+        // 不依赖前端发消息触发 LLM 自发重发。pendingApproval 工具重放时
+        // 命中放行缓存直接执行，结果落盘，前端轮询刷新可见。
+        // fire-and-forget：无可恢复检查点或失败时由前端兜底（sendMessage）。
+        void triggerResumeAfterApproval(current.sessionId).catch(
+          (resumeErr: unknown) => {
+            logger.warn('审批后自动续跑失败（前端可兜底续跑）', {
+              sessionId: current.sessionId,
+              error: String(resumeErr),
+            });
+          }
+        );
       }
     }
 
@@ -406,4 +418,33 @@ export async function handleUndoApproval(
       500
     );
   }
+}
+
+/**
+ * P2-1: 批准后自动续跑 — 从最新自动检查点恢复工具循环。
+ *
+ * resumeStream 会重放 pendingApproval 工具（此时放行缓存已写入，直接执行），
+ * 并继续 LLM 循环直至完成，结果经 _addAndPersistMessage 落盘。
+ * fire-and-forget：无可恢复检查点或恢复失败时静默返回，由前端 sendMessage 兜底。
+ *
+ * @param sessionId 会话 ID
+ */
+async function triggerResumeAfterApproval(sessionId: string): Promise<void> {
+  const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
+  const chatManager = getCoreAPI().chatManager;
+  if (!chatManager || typeof chatManager.resumeStream !== 'function') {
+    logger.warn('审批后自动续跑跳过：ChatManager 不可用', { sessionId });
+    return;
+  }
+
+  // checkpointId 由 resumeStream 内部取最新自动检查点（参数仅兼容保留）
+  const gen = chatManager.resumeStream(sessionId, '');
+  let resumed = false;
+  for await (const _chunk of gen) {
+    if (!resumed) {
+      resumed = true;
+      logger.info('审批后自动续跑已启动', { sessionId });
+    }
+  }
+  logger.info('审批后自动续跑完成', { sessionId, resumed });
 }

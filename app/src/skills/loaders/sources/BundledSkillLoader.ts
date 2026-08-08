@@ -279,17 +279,22 @@ Settings load in order: user → project → local (later overrides earlier).
 
 ## Configuration Sections
 
-### Permissions
-\`\`\`json
-{
-  "permissions": {
-    "allow": ["Bash(npm:*)", "Read"],
-    "deny": ["Bash(rm -rf:*)"],
-    "ask": ["Write(/etc/*)"],
-    "defaultMode": "default" | "plan" | "acceptEdits"
-  }
-}
-\`\`\`
+### Permissions（Liri 权限体系速查表）
+
+Liri 的权限体系有三个来源，按层级参与决策：
+
+| 体系 | 文件/入口 | 规则形态 | 生效时机 |
+|------|-----------|---------|---------|
+| A 工具级规则 | \`~/.pyapp/data/permissions/tool_rules.json\` | \`{behavior: allow\|deny\|ask, toolName, contentPattern?}\` | 每次工具调用（决策主链路） |
+| B 命令级黑白名单 | 设置→自定义规则（配置 \`permission.customRules.commandRules\`） | \`{blacklist[], whitelist[], mode: blacklist\|whitelist}\` | bash/shell/command 命令内容级；黑名单命中 deny；whitelist 模式命中 allow（免审批）、未命中 deny |
+| 审批放行缓存 | ApprovedCommandRegistry（内存，session 隔离） | 批准时写入 \`{sessionId, commandHash, baseCommand}\`，TTL 默认 5 分钟（\`PERMISSION_APPROVAL_TTL_MS\`） | 批准后同命令重发不再弹审批；危险命令（rm/del/format/sudo 等）必须精确 hash 匹配 |
+
+#### 常见权限排障路径
+
+- 「bash 每次都弹审批卡」→ 检查 \`tool_rules.json\` 是否堆积重复 ask 规则（启动时自动去重），或在 B 体系 whitelist 加入该命令（免审批）
+- 「想关闭某个工具的审批」→ 在 A 体系写 \`{behavior: "allow", toolName: "<tool>"}\`，或在 B 体系 whitelist 加入命令
+- 「批准后命令没执行」→ 放行缓存 TTL 内（5 分钟）重发同命令即放行；批准后系统自动续跑（P2-1）
+- 「黑名单不生效」→ 确认 B 体系 mode 为 \`blacklist\` 且 pattern 与命令文本匹配
 
 ### Environment Variables
 \`\`\`json

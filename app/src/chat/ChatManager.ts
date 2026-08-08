@@ -4149,8 +4149,14 @@ ${llmPhaseSummary}`;
 
               // P2-5: 记录已完成工具名，用于心跳结构化数据
               completedToolNames.push(toolName);
-              // P2-1: 记录已完成 tool_call ID，用于检查点恢复
-              completedToolCallIds.push(toolCall.id);
+              // P2-1: 记录已完成 tool_call ID，用于检查点恢复。
+              // pendingApproval 工具不算完成——批准后 resume 需重放它（此时放行缓存命中直接执行）
+              const isPendingApprovalResult =
+                (toolResult as { result?: { pendingApproval?: boolean } })
+                  ?.result?.pendingApproval === true;
+              if (!isPendingApprovalResult) {
+                completedToolCallIds.push(toolCall.id);
+              }
 
               // P2-1: 工具执行完成后写入流式自动检查点
               await streamingCheckpoint.onToolCompleted({

@@ -494,13 +494,10 @@ async function persistAllowlistRule(
   const contentPattern =
     commandLevel && command ? buildCommandContentPattern(command) : undefined;
 
-  const { PermissionManager } = await import(
-    '@modules/permission/PermissionManager.js'
-  );
-  const {
-    createPermissionRule,
-    PermissionBehavior,
-  } = await import('@modules/permission/types/PermissionRule.js');
+  const { PermissionManager } =
+    await import('@modules/permission/PermissionManager.js');
+  const { createPermissionRule, PermissionBehavior } =
+    await import('@modules/permission/types/PermissionRule.js');
 
   const ruleManager = PermissionManager.getInstance().getRuleManager();
   ruleManager.addRule(

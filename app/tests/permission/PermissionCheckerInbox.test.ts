@@ -379,3 +379,89 @@ describe('P2-4 白名单按钮（approval options）', () => {
     expect(opts).toContain('deny');
   });
 });
+
+describe('P2-5 规则文件外部修改自动重载（hash 校验）', () => {
+  /** 绕过 30s 轮询间隔，直接触发校验 */
+  function forceCheck(rm: RuleManager): void {
+    (rm as unknown as { lastHashCheckTime: number }).lastHashCheckTime = 0;
+    rm.checkExternalChanges();
+  }
+
+  it('tool_rules.json 被外部修改后自动重载规则', () => {
+    const initial = createPermissionRule({
+      behavior: PermissionBehavior.ALLOW,
+      toolName: 'bash',
+      source: PermissionRuleSource.USER_SETTINGS,
+    });
+    writeFileSync(RULE_FILE, JSON.stringify([initial], null, 2));
+
+    const rm = new RuleManager();
+    rm.loadRules();
+    expect(rm.getRules()).toHaveLength(1);
+
+    // 模拟外部修改：直接写文件，绕过 RuleManager API
+    const external = createPermissionRule({
+      behavior: PermissionBehavior.DENY,
+      toolName: 'bash',
+      source: PermissionRuleSource.USER_SETTINGS,
+    });
+    writeFileSync(RULE_FILE, JSON.stringify([external], null, 2));
+
+    forceCheck(rm);
+
+    const after = rm.getRules();
+    expect(after).toHaveLength(1);
+    expect(after[0].behavior).toBe(PermissionBehavior.DENY);
+  });
+
+  it('自写（saveRules）后不误判为外部修改', () => {
+    const rm = new RuleManager();
+    rm.loadRules();
+    const rule = createPermissionRule({
+      behavior: PermissionBehavior.ALLOW,
+      toolName: 'bash',
+      source: PermissionRuleSource.USER_SETTINGS,
+    });
+    rm.addRule(rule);
+
+    // 绕过间隔后校验：hash 与自写一致，不应重载
+    forceCheck(rm);
+
+    const matches = rm
+      .getRules()
+      .filter(
+        (r) =>
+          r.toolName === 'bash' && r.behavior === PermissionBehavior.ALLOW
+      );
+    expect(matches).toHaveLength(1);
+  });
+
+  it('外部追加规则后保留现有规则并加载新增（增量感知）', () => {
+    const initial = createPermissionRule({
+      behavior: PermissionBehavior.ALLOW,
+      toolName: 'bash',
+      source: PermissionRuleSource.USER_SETTINGS,
+    });
+    writeFileSync(RULE_FILE, JSON.stringify([initial], null, 2));
+
+    const rm = new RuleManager();
+    rm.loadRules();
+    expect(rm.getRules()).toHaveLength(1);
+
+    // 外部追加一条 deny 规则（保留原 allow）
+    const denied = createPermissionRule({
+      behavior: PermissionBehavior.DENY,
+      toolName: 'write_file',
+      source: PermissionRuleSource.USER_SETTINGS,
+    });
+    writeFileSync(RULE_FILE, JSON.stringify([initial, denied], null, 2));
+
+    forceCheck(rm);
+
+    const after = rm.getRules();
+    expect(after).toHaveLength(2);
+    expect(after.some((r) => r.behavior === PermissionBehavior.DENY)).toBe(
+      true
+    );
+  });
+});

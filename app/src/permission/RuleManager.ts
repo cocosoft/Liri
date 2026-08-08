@@ -4,6 +4,7 @@
  */
 import { join, dirname } from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'crypto';
 import { resolvePermissionsDir } from '@modules/core';
 import {
   PermissionRule,
@@ -86,6 +87,18 @@ export class RuleManager {
   private ruleSource: string = join(resolvePermissionsDir(), 'tool_rules.json');
 
   /**
+   * P2-5: 规则文件 Hash（检测外部修改，语义同 ConfigManager）。
+   * loadRules/saveRules 后同步更新；checkExternalChanges 周期性比对。
+   */
+  private rulesFileHash: string | null = null;
+
+  /** P2-5: 上次 Hash 校验时间戳 */
+  private lastHashCheckTime = 0;
+
+  /** P2-5: Hash 校验间隔（毫秒），与 ConfigManager 一致 */
+  private static readonly HASH_CHECK_INTERVAL_MS = 30_000;
+
+  /**
    * 所有规则来源的优先级（数值越大优先级越高）
    */
   private static readonly SOURCE_PRIORITIES: Record<
@@ -125,6 +138,8 @@ export class RuleManager {
       if (existsSync(this.ruleSource)) {
         const rulesData = readFileSync(this.ruleSource, 'utf8');
         this.rules = JSON.parse(rulesData);
+        // P2-5: 记录文件 hash，供外部修改检测比对
+        this.rulesFileHash = this.computeHash(rulesData);
 
         // 转换日期字符串为Date对象
         this.rules.forEach((rule) => {
@@ -146,6 +161,9 @@ export class RuleManager {
           this.rules = deduped;
           this.saveRules(this.rules);
         }
+      } else {
+        // 文件不存在：重置 hash（外部删除后重新创建需重新校验）
+        this.rulesFileHash = null;
       }
     } catch (error) {
       void handleError(error, {
@@ -181,6 +199,8 @@ export class RuleManager {
       const rulesData = JSON.stringify(deduped, null, 2);
       writeFileSync(this.ruleSource, rulesData);
       this.rules = deduped;
+      // P2-5: 自写后同步 hash，避免下次校验误判为外部修改
+      this.rulesFileHash = this.computeHash(rulesData);
     } catch (error) {
       void handleError(error, {
         module: 'permission:rules',
@@ -247,6 +267,9 @@ export class RuleManager {
     source?: PermissionRuleSource,
     behavior?: PermissionBehavior
   ): PermissionRule[] {
+    // P2-5: 读取前检测外部文件修改（30s 惰性轮询），保证决策/列表使用最新规则
+    this.checkExternalChanges();
+
     let filteredRules = [...this.rules];
 
     if (source) {
@@ -261,6 +284,63 @@ export class RuleManager {
 
     // 按优先级排序，优先级高的在前
     return filteredRules.sort((a, b) => b.priority - a.priority);
+  }
+
+  /**
+   * P2-5: 检测规则文件外部修改（30s 惰性轮询，语义同 ConfigManager）。
+   * 文件 hash 变化时自动重载规则；由 getRules 等读取入口触发，决策/列表读取始终使用最新规则。
+   */
+  checkExternalChanges(): void {
+    if (!this.shouldVerifyHash()) return;
+    this.lastHashCheckTime = Date.now();
+    try {
+      const content = this.readRulesFileSnapshot();
+      if (content === null) {
+        // 文件被删除：若内存仍有规则，视为外部清空，重载为空
+        if (this.rulesFileHash !== null && this.rules.length > 0) {
+          logger.info('tool_rules.json 已删除，清空内存规则', {
+            before: this.rules.length,
+          });
+          this.rulesFileHash = null;
+          this.loadRules();
+        }
+        return;
+      }
+      const hash = this.computeHash(content);
+      if (this.rulesFileHash !== null && hash !== this.rulesFileHash) {
+        logger.info('tool_rules.json 外部修改检测，自动重载规则', {
+          before: this.rules.length,
+        });
+        this.loadRules();
+      }
+    } catch (error) {
+      logger.warn('tool_rules.json hash 校验失败，跳过本次校验', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /** P2-5: 是否到达 Hash 校验间隔 */
+  private shouldVerifyHash(): boolean {
+    return (
+      Date.now() - this.lastHashCheckTime >=
+      RuleManager.HASH_CHECK_INTERVAL_MS
+    );
+  }
+
+  /** P2-5: 无锁读取规则文件内容（用于 Hash 比对） */
+  private readRulesFileSnapshot(): string | null {
+    try {
+      if (!existsSync(this.ruleSource)) return null;
+      return readFileSync(this.ruleSource, 'utf8');
+    } catch {
+      return null;
+    }
+  }
+
+  /** P2-5: 计算规则文件内容 Hash */
+  private computeHash(content: string): string {
+    return createHash('sha256').update(content).digest('hex');
   }
 
   /**
@@ -328,6 +408,9 @@ export class RuleManager {
    */
   setRuleSource(ruleSource: string): void {
     this.ruleSource = ruleSource;
+    // P2-5: 切换源后重置 hash，新文件需重新加载与校验
+    this.rulesFileHash = null;
+    this.lastHashCheckTime = 0;
   }
 
   /**

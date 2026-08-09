@@ -125,10 +125,6 @@ export type { OpenAITTSConfig } from './services/openAITTSProvider';
 export { PiperTTSProvider } from './services/piperTTSProvider';
 export type { PiperTTSConfig } from './services/piperTTSProvider';
 
-// 导出文本预处理器
-export { TextPreprocessor, preprocessText } from './services/textPreprocessor';
-export type { TextPreprocessOptions } from './services/textPreprocessor';
-
 // 导出 TTS 多级配置覆盖
 export {
   TTSConfigOverlay,
@@ -175,8 +171,7 @@ export {
   resetCommandBackendCache,
 } from './services/commandTTSProvider';
 
-// 导出音频设备选择管理器
-export { AudioDeviceManager } from './services/audioDeviceManager';
+// 导出音频设备类型（AudioDeviceManager 类已删除）
 export type {
   AudioDevice,
   AudioDeviceConfig,

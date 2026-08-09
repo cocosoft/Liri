@@ -28,6 +28,8 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { TAORLoop } from '../../../query/TAORLoop.js';
+import type { HandlerCtx } from './handler-utils';
+import { createChatManager } from '@modules/chat/ChatManager';
 
 /** 活跃的 TAORLoop 实例注册表（由 ChatManager 和 PDCA 注册） */
 const activeLoops = new Map<string, TAORLoop>();
@@ -189,5 +191,94 @@ export async function handlePdcaResumeCheckpoint(
     sendJson(res, { resumed: success, checkpointId: params.checkpointId });
   } catch (e) {
     sendJson(res, { error: String(e) }, 500);
+  }
+}
+
+// ─── ChatManager Checkpoint 端点（从 LocalHTTPService.ts 迁移）─────
+
+/**
+ * 创建检查点 POST /v1/checkpoints
+ * { sessionId, label }
+ */
+export async function handleCreateCheckpoint(
+  ctx: HandlerCtx,
+  req: IncomingMessage,
+  res: ServerResponse
+): Promise<void> {
+  try {
+    const body = await ctx.readRequestBody(req);
+    const { sessionId, label } = JSON.parse(body);
+    const chatManager = createChatManager();
+    const cpId = await chatManager.createCheckpoint(sessionId, label);
+    sendJson(res, { id: cpId, sessionId, label });
+  } catch (err) {
+    ctx.sendError(res, err);
+  }
+}
+
+/**
+ * 获取检查点详情 GET /v1/checkpoints/:id
+ */
+export async function handleGetCheckpoint(
+  ctx: HandlerCtx,
+  req: IncomingMessage,
+  res: ServerResponse,
+  cpId: string
+): Promise<void> {
+  try {
+    const chatManager = createChatManager();
+    const allCheckpoints = await chatManager.listCheckpoints('');
+    let checkpoint: unknown = allCheckpoints.find((cp) => cp.id === cpId);
+    if (!checkpoint) {
+      const cp = await (
+        chatManager as unknown as {
+          getCheckpoint?: (id: string) => Promise<unknown>;
+        }
+      ).getCheckpoint?.(cpId);
+      if (cp) checkpoint = cp;
+    }
+    if (!checkpoint) {
+      sendJson(res, { error: { message: 'Checkpoint not found' } }, 404);
+      return;
+    }
+    sendJson(res, checkpoint);
+  } catch (err) {
+    ctx.sendError(res, err);
+  }
+}
+
+/**
+ * 回滚到检查点 POST /v1/checkpoints/:id/rollback
+ */
+export async function handleRollbackCheckpoint(
+  ctx: HandlerCtx,
+  req: IncomingMessage,
+  res: ServerResponse,
+  cpId: string
+): Promise<void> {
+  try {
+    const chatManager = createChatManager();
+    await chatManager.rollbackToCheckpoint(cpId);
+    sendJson(res, { success: true, checkpointId: cpId });
+  } catch (err) {
+    ctx.sendError(res, err);
+  }
+}
+
+/**
+ * 删除检查点 DELETE /v1/checkpoints/:id
+ */
+export async function handleDeleteCheckpoint(
+  ctx: HandlerCtx,
+  req: IncomingMessage,
+  res: ServerResponse,
+  cpId: string
+): Promise<void> {
+  try {
+    const chatManager = createChatManager();
+    await chatManager.deleteCheckpoint(cpId);
+    sendJson(res, { success: true, checkpointId: cpId });
+  } catch (err) {
+    ctx.sendError(res, err);
   }
 }

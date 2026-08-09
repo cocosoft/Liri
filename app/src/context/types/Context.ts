@@ -14,3 +14,29 @@ export interface SessionContext extends Context {
   agentName?: string;
   channelType?: string;
 }
+
+/**
+ * 协作者上下文（ContextFactory 创建）
+ */
+export interface TeammateContext extends Context {
+  name: string;
+  role: string;
+  status: string;
+}
+
+/**
+ * 用户上下文（ContextFactory 创建）
+ */
+export interface UserContext extends Context {
+  id: string;
+  name: string;
+  email: string;
+  preferences: Record<string, unknown>;
+}
+
+/**
+ * 工作负载上下文（ContextFactory 创建）
+ */
+export interface WorkloadContext extends Context {
+  workload: string;
+}

@@ -10,23 +10,21 @@
 import { Logger, LogLevel } from '@modules/monitoring';
 import { globalToolManager } from '@modules/tools';
 import { handleError } from '@modules/error';
-import {
-  createImageConvertTool,
-  createImageResizeTool,
-  createImageCropTool,
-  createImageRotateTool,
-  createImageWatermarkTool,
-  createImageAdjustTool,
-  createMediaInfoTool,
-  createMediaDeleteTool,
-  createMediaDeleteBatchTool,
-  createVideoCompressTool,
-  createVideoExtractAudioTool,
-  createVideoExtractThumbnailTool,
-  createQRGenerateTool,
-  createQRDecodeTool,
-  createPdfExtractTool,
-} from './tools';
+import { createImageConvertTool } from './tools/ImageConvertTool';
+import { createImageResizeTool } from './tools/ImageResizeTool';
+import { createImageCropTool } from './tools/ImageCropTool';
+import { createImageRotateTool } from './tools/ImageRotateTool';
+import { createImageWatermarkTool } from './tools/ImageWatermarkTool';
+import { createImageAdjustTool } from './tools/ImageAdjustTool';
+import { createMediaInfoTool } from './tools/MediaInfoTool';
+import { createMediaDeleteTool } from './tools/MediaDeleteTool';
+import { createMediaDeleteBatchTool } from './tools/MediaDeleteBatchTool';
+import { createVideoCompressTool } from './tools/VideoCompressTool';
+import { createVideoExtractAudioTool } from './tools/VideoExtractAudioTool';
+import { createVideoExtractThumbnailTool } from './tools/VideoExtractThumbnailTool';
+import { createQRGenerateTool } from './tools/QRGenerateTool';
+import { createQRDecodeTool } from './tools/QRDecodeTool';
+import { createPdfExtractTool } from './tools/PdfExtractTool';
 
 const logger = new Logger({ module: 'media:module', level: LogLevel.INFO });
 

@@ -6,7 +6,8 @@
 
 import { describe, it, expect, beforeEach } from 'bun:test';
 
-import { AppStateMachine, AppState } from '../../../src/state/app/index.js';
+import { AppStateMachine } from '../../../src/state/app/AppStateMachine.js';
+import { AppState } from '../../../src/state/app/types.js';
 import { IllegalTransitionError } from '../../../src/state/errors.js';
 
 describe('AppStateMachine', () => {

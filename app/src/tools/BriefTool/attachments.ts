@@ -5,7 +5,6 @@
 import { existsSync } from 'fs';
 import { stat } from 'fs/promises';
 import { extname, isAbsolute, resolve } from 'path';
-import { cwd } from '@modules/utils/process.js';
 
 import { Logger, LogLevel } from '@modules/monitoring';
 const logger = new Logger({
@@ -123,5 +122,5 @@ function resolvePath(path: string): string {
   if (isAbsolute(path)) {
     return path;
   }
-  return resolve(cwd(), path);
+  return resolve(process.cwd(), path);
 }

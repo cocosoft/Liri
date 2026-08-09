@@ -37,8 +37,8 @@ fi
 echo "3. 启动应用..."
 if [ "$NODE_ENV" = "production" ]; then
     echo "以生产模式启动..."
-    npx ts-node src/index.ts
+    npm run start
 else
     echo "以开发模式启动..."
-    npx ts-node src/index.ts
+    npm run dev
 fi

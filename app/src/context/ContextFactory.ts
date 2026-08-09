@@ -1,9 +1,11 @@
-import type { WorkloadContext } from './types/WorkloadContext';
-import type { TeammateContext } from './types/TeammateContext';
+import type {
+  WorkloadContext,
+  TeammateContext,
+  UserContext,
+  Context,
+} from './types/Context';
 import type { ToolUseContext } from './types/ToolUseContext';
 import type { SessionContext } from './types/SessionContext';
-import type { UserContext } from './types/UserContext';
-import type { Context } from './types/Context';
 
 export interface TeammateContextConfig {
   name: string;

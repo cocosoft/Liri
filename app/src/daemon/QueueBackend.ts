@@ -1,6 +1,6 @@
 import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring';
-import { TaskPriority } from './TaskPriority';
+import { TaskPriority } from './types';
 import type { Task, TaskResult } from './types';
 
 const logger = new Logger({

@@ -37,7 +37,10 @@ export type {
 export { normalizeText, isBlank, truncateText } from './normalize-text.js';
 export { createSharedRecord } from './record-shared.js';
 export type { SharedRecord } from './record-shared.js';
-export { generateSessionId, isValidSessionId } from './conversation-id.js';
+export {
+  generateSessionId,
+  isValidSessionId,
+} from './runtime/session-identity.js';
 
 export {
   AcpRuntimeError,
@@ -68,11 +71,7 @@ export {
   resetAcpRuntimeRegistryForTests,
 } from './runtime/registry.js';
 export type { AcpRuntimeRegistration } from './runtime/registry.js';
-export {
-  formatSessionIdentity,
-  parseSessionIdentity,
-  createSessionIdentity,
-} from './runtime/session-identity.js';
+export { formatSessionIdentity } from './runtime/session-identity.js';
 export type { AcpSessionIdentity } from './runtime/session-identity.js';
 
 export {
@@ -84,14 +83,6 @@ export {
   clearAllSessionMeta,
   getSessionMetaSnapshot,
 } from './runtime/session-meta.js';
-
-export {
-  generateRuntimeSessionName,
-  isValidRuntimeSessionName,
-  formatSessionIdentifier,
-  parseSessionIdentifier,
-  resetSessionIdentifierCounter,
-} from './runtime/session-identity.js';
 
 export {
   checkRuntimeAvailability,

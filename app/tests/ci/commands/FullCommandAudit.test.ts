@@ -17,12 +17,13 @@ describe('命令结构审计', () => {
   });
 
   it('主要入口文件应存在', () => {
-    expect(existsSync(join(SRC_DIR, 'index.ts'))).toBe(true);
+    // 编译入口 pyapp.ts + 模块入口 main.ts（src/index.ts 已按 §1.10 删除）
+    expect(existsSync(join(SRC_DIR, 'pyapp.ts'))).toBe(true);
     expect(existsSync(join(SRC_DIR, 'main.ts'))).toBe(true);
   });
 
   it('类型定义文件应存在', () => {
-    expect(existsSync(join(SRC_DIR, 'types/command.ts'))).toBe(true);
+    expect(existsSync(join(SRC_DIR, 'types/index.ts'))).toBe(true);
   });
 
   it('内置命令目录应有子命令', () => {

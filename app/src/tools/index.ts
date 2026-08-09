@@ -156,14 +156,6 @@ export {
   getDescription as grepDescription,
 } from './GrepTool/prompt';
 export {
-  GLOB_TOOL_NAME,
-  DESCRIPTION as globDescription,
-} from './GlobTool/prompt';
-export {
-  FILE_READ_TOOL_NAME,
-  DESCRIPTION as readDescription,
-} from './FileReadTool/prompt';
-export {
   FILE_WRITE_TOOL_NAME,
   getWriteToolDescription,
 } from './FileWriteTool/prompt';

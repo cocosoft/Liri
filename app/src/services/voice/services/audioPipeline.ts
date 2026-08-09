@@ -12,13 +12,10 @@
  *   const result = await stt.transcribe(data);
  */
 
-import { spawn } from 'child_process';
-import { createReadStream } from 'fs';
-import { readFile } from 'fs/promises';
-import { Readable } from 'stream';
 import { handleError } from '@modules/error';
 import { Logger, getOTelTracing } from '@modules/monitoring';
 import { isFFmpegAvailable } from './audioFormatConverter';
+import { ffmpegPipeConvert } from './audioNormalizer';
 
 const logger = new Logger({ module: 'voice:audio:pipeline' });
 
@@ -38,14 +35,6 @@ export interface STTFormatBuffer {
   sampleRate: 16000;
   channels: 1;
   format: 'pcm_s16le';
-}
-
-/** WAV Buffer（TTS 常用输出格式） */
-export interface TTSFormatBuffer {
-  data: Buffer;
-  format: 'wav';
-  sampleRate: number;
-  channels: number;
 }
 
 /**
@@ -292,53 +281,6 @@ export class AudioPipeline {
   }
 
   /**
-   * 转换为 TTS 输出格式：WAV 16kHz 单声道
-   *
-   * @returns WAV 格式的 Buffer 与元数据
-   */
-  async toTTSFormat(): Promise<TTSFormatBuffer> {
-    const otel = getOTelTracing();
-    return otel.wrap(
-      {
-        name: 'voice.audioPipeline.toTTSFormat',
-        attributes: {
-          inputFormat: this.inputFormat.format,
-          inputSampleRate: this.inputFormat.sampleRate,
-          inputChannels: this.inputFormat.channels,
-        },
-      },
-      async () => {
-        if (
-          this.inputFormat.format === 'wav' &&
-          this.inputFormat.sampleRate === 16000 &&
-          this.inputFormat.channels === 1
-        ) {
-          return {
-            data: this.data,
-            format: 'wav' as const,
-            sampleRate: 16000,
-            channels: 1,
-          };
-        }
-
-        const converted = await this.ffmpegConvert({
-          outputFormat: 'wav',
-          sampleRate: 16000,
-          channels: 1,
-        });
-
-        const parsed = parseWavHeader(converted);
-        return {
-          data: converted,
-          format: 'wav' as const,
-          sampleRate: parsed?.sampleRate ?? 16000,
-          channels: parsed?.channels ?? 1,
-        };
-      }
-    )();
-  }
-
-  /**
    * STT 输入音频前处理管线
    *
    * 4 阶段处理：
@@ -508,58 +450,6 @@ export class AudioPipeline {
     return new AudioPipeline(data, format);
   }
 
-  /**
-   * 从文件创建管线
-   *
-   * WAV 文件会自动从头部解析采样率和声道数。
-   * 非 WAV 文件（mp3/opus）需要显式传入 format 参数。
-   *
-   * @param path 文件路径
-   * @param format 格式描述（非 WAV 文件必需）
-   * @returns AudioPipeline 实例
-   */
-  static async fromFile(
-    path: string,
-    format?: AudioFormatDesc
-  ): Promise<AudioPipeline> {
-    const data = await readFile(path);
-
-    if (format) {
-      return new AudioPipeline(data, format);
-    }
-
-    // 尝试自动解析 WAV 头部
-    const parsed = parseWavHeader(data);
-    if (parsed) {
-      return new AudioPipeline(data, parsed);
-    }
-
-    throw new Error(
-      `AudioPipeline.fromFile · 无法自动检测文件格式，请显式传入 format 参数: ${path}`
-    );
-  }
-
-  /**
-   * 从可读流创建管线（收集所有数据到 Buffer）
-   *
-   * @param stream 可读流
-   * @param format 格式描述
-   * @returns AudioPipeline 实例
-   */
-  static async fromStream(
-    stream: Readable,
-    format: AudioFormatDesc
-  ): Promise<AudioPipeline> {
-    const chunks: Buffer[] = [];
-
-    for await (const chunk of stream) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    }
-
-    const data = Buffer.concat(chunks);
-    return new AudioPipeline(data, format);
-  }
-
   // ========== 私有方法 ==========
 
   /**
@@ -593,53 +483,8 @@ export class AudioPipeline {
       return this.tryJSWavFallback(opts);
     }
 
-    return new Promise((resolve, reject) => {
-      const args = [
-        '-i',
-        'pipe:0',
-        '-f',
-        opts.outputFormat,
-        '-ar',
-        String(opts.sampleRate),
-        '-ac',
-        String(opts.channels),
-        'pipe:1',
-      ];
-
-      const proc = spawn('ffmpeg', args, {
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-
-      const stdoutChunks: Buffer[] = [];
-      const stderrChunks: Buffer[] = [];
-
-      proc.stdout?.on('data', (chunk: Buffer) => {
-        stdoutChunks.push(chunk);
-      });
-
-      proc.stderr?.on('data', (chunk: Buffer) => {
-        stderrChunks.push(chunk);
-      });
-
-      proc.on('close', (code) => {
-        if (code === 0) {
-          resolve(Buffer.concat(stdoutChunks));
-        } else {
-          const stderr = Buffer.concat(stderrChunks)
-            .toString('utf8')
-            .slice(0, 500);
-          reject(new Error(`ffmpeg 转换失败 (exit ${code}): ${stderr}`));
-        }
-      });
-
-      proc.on('error', (err) => {
-        reject(new Error(`ffmpeg 进程启动失败: ${err.message}`));
-      });
-
-      // 写入数据并关闭 stdin
-      proc.stdin?.write(this.data);
-      proc.stdin?.end();
-    });
+    // P3：统一委托 ffmpegPipeConvert（audioNormalizer，单一管道实现）
+    return ffmpegPipeConvert(this.data, opts);
   }
 
   /**
@@ -706,114 +551,5 @@ export class AudioPipeline {
         `当前输入格式: ${this.inputFormat.format}，目标: ${opts.outputFormat}。` +
         '请安装 ffmpeg 或确保音频已是目标格式。'
     );
-  }
-}
-
-// ===========================================================
-// PCM 中间缓存（方案 A）
-// ===========================================================
-
-/** PCM 缓存项 */
-interface PCMCacheEntry {
-  /** 缓存数据（PCM16 16kHz mono Buffer） */
-  data: Buffer;
-  /** 缓存创建时间戳 */
-  createdAt: number;
-}
-
-/**
- * PCMCache — PCM 音频中间缓存
- *
- * 缓存 PCM16 16kHz mono 格式的音频数据，避免重复转换相同内容。
- * 配置 TTL 过期自动清理，支持主动失效。
- *
- * @example
- *   const cache = new PCMCache(60000); // TTL 60 秒
- *   cache.set('voice-zh-CN-hello', pcmBuffer);
- *   const cached = cache.get('voice-zh-CN-hello');
- */
-export class PCMCache {
-  /** 缓存容器 */
-  private store = new Map<string, PCMCacheEntry>();
-  /** TTL（毫秒），默认 60 秒 */
-  private ttl: number;
-
-  /**
-   * @param ttl 缓存 TTL（毫秒），默认 60000
-   */
-  constructor(ttl: number = 60000) {
-    this.ttl = ttl;
-  }
-
-  /**
-   * 获取缓存
-   *
-   * @param key 缓存键
-   * @returns PCM 数据，或 undefined（未命中 / 已过期）
-   */
-  get(key: string): Buffer | undefined {
-    const entry = this.store.get(key);
-    if (!entry) return undefined;
-
-    if (Date.now() - entry.createdAt > this.ttl) {
-      this.store.delete(key);
-      return undefined;
-    }
-
-    logger.debug('PCMCache · 命中缓存', { key, size: entry.data.length });
-    return entry.data;
-  }
-
-  /**
-   * 写入缓存
-   *
-   * @param key 缓存键
-   * @param data PCM16 16kHz mono 数据
-   */
-  set(key: string, data: Buffer): void {
-    this.store.set(key, {
-      data,
-      createdAt: Date.now(),
-    });
-  }
-
-  /**
-   * 主动失效指定 key
-   *
-   * @param key 缓存键
-   */
-  delete(key: string): void {
-    this.store.delete(key);
-  }
-
-  /**
-   * 清空全部缓存
-   */
-  clear(): void {
-    this.store.clear();
-  }
-
-  /**
-   * 清理过期条目
-   *
-   * @returns 清理的条目数
-   */
-  evictExpired(): number {
-    const now = Date.now();
-    let count = 0;
-    for (const [key, entry] of this.store) {
-      if (now - entry.createdAt > this.ttl) {
-        this.store.delete(key);
-        count++;
-      }
-    }
-    return count;
-  }
-
-  /**
-   * 当前缓存大小
-   */
-  get size(): number {
-    return this.store.size;
   }
 }

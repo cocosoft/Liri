@@ -72,7 +72,7 @@ import { ListPeersTool } from './ListPeersTool/ListPeersTool';
 import { SessionsTool } from './SessionsTool/SessionsTool';
 import { ClipboardTool } from './ClipboardTool/ClipboardTool';
 import { DocGenerateTool } from './DocGenerateTool/DocGenerateTool';
-import { createComputerUseTool } from './ComputerUseTool';
+import { createComputerUseTool } from './ComputerUseTool/ComputerUseTool';
 import { ImageTool } from './ImageTool/ImageTool';
 import { ImageAnalysisTool } from './ImageAnalysisTool/ImageAnalysisTool';
 import { VideoTool } from './VideoTool/VideoTool';

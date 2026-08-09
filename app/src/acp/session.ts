@@ -1,5 +1,5 @@
 import type { SessionId, AcpSession } from './types.js';
-import { generateSessionId } from './conversation-id.js';
+import { generateSessionId } from './runtime/session-identity.js';
 
 export interface AcpSessionStore {
   create(params: { sessionKey: string; cwd?: string }): Promise<AcpSession>;

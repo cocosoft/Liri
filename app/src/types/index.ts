@@ -158,3 +158,40 @@ export interface Tool {
 export interface AppConfig {
   [key: string]: unknown;
 }
+
+/**
+ * 命令
+ */
+export interface Command {
+  name: string;
+  description: string;
+  aliases?: string[];
+  execute(args: string[], context?: Record<string, unknown>): Promise<void>;
+}
+
+/**
+ * Webhook 钩子设置
+ */
+export interface HooksSettings {
+  enabled?: boolean;
+  url?: string;
+  events?: string[];
+  [key: string]: unknown;
+}
+
+/**
+ * 模型设置
+ */
+export interface ModelSetting {
+  provider: string;
+  model: string;
+  apiKey?: string;
+  baseUrl?: string;
+  maxTokens?: number;
+  temperature?: number;
+}
+
+/**
+ * 用户设置（@deprecated 请从 @modules/config/types 导入 SettingsJson）
+ */
+export type { SettingsJson } from '../config/types.js';

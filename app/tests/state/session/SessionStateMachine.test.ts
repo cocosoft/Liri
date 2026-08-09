@@ -7,7 +7,8 @@
 
 import { describe, it, expect, beforeEach } from 'bun:test';
 
-import { SessionStateMachine, SessionState } from '../../../src/state/session/index.js';
+import { SessionStateMachine } from '../../../src/state/session/SessionStateMachine.js';
+import { SessionState } from '../../../src/state/session/types.js';
 import { IllegalTransitionError } from '../../../src/state/errors.js';
 
 describe('SessionStateMachine', () => {

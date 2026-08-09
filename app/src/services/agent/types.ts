@@ -22,7 +22,7 @@
  * Agent系统类型定义
  */
 
-import type { HooksSettings } from '@modules/types/hooks.js';
+import type { HooksSettings } from '@modules/types';
 import type { AgentMcpServerSpec } from './agentMcpServer';
 
 export type AgentMemoryScope = 'user' | 'project' | 'local';

@@ -3,7 +3,15 @@
  * 从 TaskQueue.ts 提取，避免 QueueBackend ↔ TaskQueue 循环依赖
  */
 
-import { TaskPriority } from './TaskPriority';
+/**
+ * 任务优先级
+ */
+export enum TaskPriority {
+  LOW = 0,
+  NORMAL = 1,
+  HIGH = 2,
+  CRITICAL = 3,
+}
 
 /**
  * 任务接口

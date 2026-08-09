@@ -24,9 +24,6 @@ export * from './DataAggregator.js';
 export * from './CacheMonitor.js';
 export * from './CacheStrategy.js';
 export * from './CacheFactory.js';
-export * from './strategy/index.js';
-export * from './performance/index.js';
-export * from './monitor/index.js';
 export * from './types.js';
 
 export { CacheService } from './CacheService.js';
@@ -35,18 +32,18 @@ export {
   CacheStrategyManager,
   cacheStrategyManager,
   StrategyType,
-} from './strategy/index.js';
+} from './strategy/CacheStrategyManager.js';
 export type {
   StrategyConfig,
   StrategyEffectiveness,
   StrategySwitchEvent,
   ICacheStrategyManager,
-} from './strategy/index.js';
+} from './strategy/CacheStrategyManager.js';
 
 export {
   CachePerformanceOptimizer,
   cachePerformanceOptimizer,
-} from './performance/index.js';
+} from './performance/CachePerformanceOptimizer.js';
 export type {
   MemoryPool,
   BatchOperation,
@@ -56,16 +53,19 @@ export type {
   MemoryUsageReport,
   PerformanceMetrics,
   ICachePerformanceOptimizer,
-} from './performance/index.js';
+} from './performance/CachePerformanceOptimizer.js';
 
-export { EnhancedCacheMonitor, enhancedCacheMonitor } from './monitor/index.js';
+export {
+  EnhancedCacheMonitor,
+  enhancedCacheMonitor,
+} from './monitor/EnhancedCacheMonitor.js';
 export type {
   TrendPoint,
   TrendAnalysis,
   Anomaly,
   CacheReport,
   IEnhancedCacheMonitor,
-} from './monitor/index.js';
+} from './monitor/EnhancedCacheMonitor.js';
 
 export type { ICache } from './types.js';
 export { CacheFactory, CacheNames } from './CacheFactory.js';

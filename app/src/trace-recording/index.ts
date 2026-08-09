@@ -57,7 +57,7 @@ export {
 } from './interceptor/index';
 
 // SSE 重组层
-export { SSEReassembler } from './sse/index';
+export { SSEReassembler } from './sse/SSEReassembler';
 
 // 引擎层
 export {
@@ -69,13 +69,13 @@ export {
 export type { WriterStats } from './engine/index';
 
 // 查看层
-export { ViewerService } from './viewer/index';
+export { ViewerService } from './viewer/ViewerService';
 
 // 实时层
-export { LiveViewServer } from './live/index';
+export { LiveViewServer } from './live/LiveViewServer';
 
 // 导出层
-export { ExportService } from './export/index';
+export { ExportService } from './export/ExportService';
 
 // 插件层
 export { AITracePlugin } from './AITracePlugin';

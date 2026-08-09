@@ -11,7 +11,7 @@ import {
   AgentMemoryScope,
   AgentSource,
 } from '../models/types';
-import type { HooksSettings } from '@modules/types/hooks.js';
+import type { HooksSettings } from '@modules/types';
 import { parseFrontmatter } from '@modules/utils/frontmatterParser';
 import { parseYAML, parseJSON, AgentDefinitionFile } from './agentDefinition';
 import { Logger } from '@modules/monitoring';

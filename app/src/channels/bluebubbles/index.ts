@@ -47,8 +47,11 @@ export type {
 } from './accounts.js';
 
 export { BlueBubblesMonitor } from './monitor.js';
-export { BLUEBUBBLES_TOOL_HINTS, buildBlueBubblesContext } from './runtime.js';
-export type { BlueBubblesRuntimeContext } from './runtime.js';
+export {
+  BLUEBUBBLES_TOOL_HINTS,
+  buildBlueBubblesContext,
+} from './channel.runtime.js';
+export type { BlueBubblesRuntimeContext } from './channel.runtime.js';
 export { diagnoseBlueBubbles } from './doctor.js';
 export type {
   DiagnosisResult as BlueBubblesDiagnosisResult,

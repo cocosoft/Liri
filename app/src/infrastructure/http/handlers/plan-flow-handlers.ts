@@ -174,6 +174,48 @@ export async function handleListFlows(
 }
 
 /**
+ * 获取计划 DAG（步骤依赖拓扑）
+ * GET /v1/plans/:id/dag
+ * 从 PlanStep.dependsOn 构建 nodes + edges，供前端 DAG 可视化
+ */
+export async function handleGetPlanDAG(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  planId: string
+): Promise<void> {
+  try {
+    const { taskOrchestrator } =
+      await import('@modules/tasks/TaskOrchestrator');
+    const plan = taskOrchestrator.getPlan(planId);
+    if (!plan) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Plan not found' }));
+      return;
+    }
+
+    const nodes = plan.steps.map((s) => ({
+      id: s.id,
+      label: s.description,
+      status: s.status,
+      taskId: s.taskId,
+    }));
+
+    const edges: Array<{ from: string; to: string }> = [];
+    for (const s of plan.steps) {
+      for (const depId of s.dependsOn || []) {
+        edges.push({ from: depId, to: s.id });
+      }
+    }
+
+    const progress = taskOrchestrator.getPlanProgress(planId);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ planId, nodes, edges, progress }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
  * 获取指定流程
  */
 export async function handleGetFlow(

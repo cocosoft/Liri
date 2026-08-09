@@ -104,21 +104,31 @@ export interface NormalizedAudio {
   converted: boolean;
 }
 
+/** ffmpeg 管道转换参数 */
+export interface FfmpegPipeOptions {
+  outputFormat: string;
+  sampleRate: number;
+  channels: number;
+}
+
 /**
- * 转 PCM16 16kHz mono（ffmpeg 管道，参数数组避免注入）
- * 3.13/P2-9：导出供 PlaybackManager 播放解码复用（单一实现）
+ * ffmpeg 管道转码（参数数组避免注入，Buffer in / Buffer out）
+ * P3：由 transcodeToPcm16 泛化，AudioPipeline.ffmpegConvert 复用（单一实现）
  */
-export function transcodeToPcm16(input: Buffer): Promise<Buffer> {
+export function ffmpegPipeConvert(
+  input: Buffer,
+  opts: FfmpegPipeOptions
+): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const proc = spawn('ffmpeg', [
       '-i',
       'pipe:0',
       '-f',
-      's16le',
+      opts.outputFormat,
       '-ar',
-      '16000',
+      String(opts.sampleRate),
       '-ac',
-      '1',
+      String(opts.channels),
       'pipe:1',
     ]);
     const chunks: Buffer[] = [];
@@ -135,6 +145,18 @@ export function transcodeToPcm16(input: Buffer): Promise<Buffer> {
     });
     proc.stdin.write(input);
     proc.stdin.end();
+  });
+}
+
+/**
+ * 转 PCM16 16kHz mono（ffmpeg 管道，参数数组避免注入）
+ * 3.13/P2-9：导出供 PlaybackManager 播放解码复用（单一实现）
+ */
+export function transcodeToPcm16(input: Buffer): Promise<Buffer> {
+  return ffmpegPipeConvert(input, {
+    outputFormat: 's16le',
+    sampleRate: 16000,
+    channels: 1,
   });
 }
 

@@ -2,11 +2,15 @@
  * Skills handler 路由匹配测试（v1.5 阶段 2，P1-1~P1-5 回归）
  * 验证：export/import/clone/files/system-content 等特定路由在通用 (.+)$ 之前命中专用 handler，
  * 不再被吞（404/500 根因）。
+ *
+ * 2026-08-09 适配：route-table 反射改直连后，dispatchRoute 直接调用 handler 函数，
+ * 测试改用 spyOn 断言命中目标 handler（替代旧 self['handleX'] 反射 mock）。
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, spyOn } from 'bun:test';
 import { dispatchRoute } from '../../src/infrastructure/http/handlers/route-table';
 import { createHandlerCtx } from '../../src/infrastructure/http/handlers/handler-utils';
+import * as skillsHandlers from '../../src/infrastructure/http/handlers/skills-handlers';
 
 /** 技能路由可能命中的 handler 名 */
 const SKILL_HANDLERS = [
@@ -35,15 +39,19 @@ const SKILL_HANDLERS = [
   'handleDeleteSkill',
 ];
 
-function makeSelf(): { self: Record<string, Function>; calls: string[] } {
+type SkillHandlerKey = (typeof SKILL_HANDLERS)[number];
+
+function makeSpies(): { spies: Record<string, ReturnType<typeof spyOn>>; calls: string[] } {
   const calls: string[] = [];
-  const self: Record<string, Function> = {};
+  const spies: Record<string, ReturnType<typeof spyOn>> = {};
   for (const name of SKILL_HANDLERS) {
-    self[name] = async () => {
-      calls.push(name);
-    };
+    spies[name] = spyOn(skillsHandlers, name as keyof typeof skillsHandlers).mockImplementation(
+      async () => {
+        calls.push(name);
+      }
+    );
   }
-  return { self, calls };
+  return { spies, calls };
 }
 
 function makeReq(method: string): {
@@ -89,30 +97,36 @@ describe('Skills 路由匹配（P1-1~P1-5 回归）', () => {
   ];
 
   it.each(cases)('%s %s → 命中 %s', async (method, url, handler) => {
-    const { self, calls } = makeSelf();
-    const matched = await dispatchRoute(
-      makeReq(method) as never,
-      makeRes() as never,
-      url,
-      self,
-      () => {},
-      createHandlerCtx()
-    );
-    expect(matched).toBe(true);
-    expect(calls).toEqual([handler]);
+    const { spies, calls } = makeSpies();
+    try {
+      const matched = await dispatchRoute(
+        makeReq(method) as never,
+        makeRes() as never,
+        url,
+        () => {},
+        createHandlerCtx()
+      );
+      expect(matched).toBe(true);
+      expect(calls).toEqual([handler]);
+    } finally {
+      for (const spy of Object.values(spies)) spy.mockRestore();
+    }
   });
 
   it('仓库形态技能 id（含冒号/斜杠）可正确提取为参数', async () => {
-    const { self, calls } = makeSelf();
-    // url 中的 : 与 / 是 path 的一部分，路由按前缀匹配（install 为精确路径）
-    await dispatchRoute(
-      makeReq('POST') as never,
-      makeRes() as never,
-      '/v1/skills/install',
-      self,
-      () => {},
-      createHandlerCtx()
-    );
-    expect(calls).toEqual(['handleInstallSkill']);
+    const { spies, calls } = makeSpies();
+    try {
+      // url 中的 : 与 / 是 path 的一部分，路由按前缀匹配（install 为精确路径）
+      await dispatchRoute(
+        makeReq('POST') as never,
+        makeRes() as never,
+        '/v1/skills/install',
+        () => {},
+        createHandlerCtx()
+      );
+      expect(calls).toEqual(['handleInstallSkill']);
+    } finally {
+      for (const spy of Object.values(spies)) spy.mockRestore();
+    }
   });
 });

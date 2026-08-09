@@ -88,32 +88,32 @@ export type { CompileProgress } from './CompileProgressTracker';
 
 // ─── v7.9+ 新架构模块 ─────────────────────────
 
-export { KnowledgeGraph } from './graph';
-export type { Edge, EdgeQuery, GraphStats } from './graph';
+export { KnowledgeGraph } from './graph/KnowledgeGraph';
+export type { Edge, EdgeQuery, GraphStats } from './graph/KnowledgeGraph';
 
-export { SchemaLoader } from './schema';
+export { SchemaLoader } from './schema/SchemaLoader';
 export type {
   FieldDef,
   EntitySchema,
   EdgeSchema,
   XrefRule,
   SchemaContainer,
-} from './schema';
+} from './schema/SchemaLoader';
 
-export { WikiRenderer } from './wiki';
-export type { RenderEntityInput, IndexStats } from './wiki';
+export { WikiRenderer } from './wiki/WikiRenderer';
+export type { RenderEntityInput, IndexStats } from './wiki/WikiRenderer';
 
-export { WikiLinter, defaultRules } from './lint';
-export type { LintRule, LintReport } from './lint';
-export type { LintResult as WikiLintResult } from './lint';
+export { WikiLinter, defaultRules } from './lint/WikiLinter';
+export type { LintRule, LintReport } from './lint/WikiLinter';
+export type { LintResult as WikiLintResult } from './lint/WikiLinter';
 
-export { DomainManager } from './domain';
+export { DomainManager } from './domain/DomainManager';
 export type {
   DomainInfo,
   DomainConfig,
   DomainSummary,
   DomainQueryHints,
-} from './domain';
+} from './domain/DomainManager';
 
 export { IndexManager } from './IndexManager';
 export type { LogEntry } from './IndexManager';

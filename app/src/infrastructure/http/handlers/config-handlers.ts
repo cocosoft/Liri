@@ -279,3 +279,313 @@ export async function handleEvents(
     }
   });
 }
+
+// ========== 统一设置端点（从 LocalHTTPService.ts 迁移）==========
+
+/**
+ * 获取命名空间设置
+ * GET /v1/settings/{namespace}
+ */
+export async function handleGetSettings(
+  _ctx: HandlerCtx,
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  namespace: string
+): Promise<void> {
+  try {
+    const { configManager } = await import('@modules/config/ConfigManager');
+    const settingsKey = `settings.${namespace}`;
+    const value = configManager.getConfigValue(settingsKey);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ namespace, value: value ?? {} }));
+  } catch {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ namespace, value: {} }));
+  }
+}
+
+/**
+ * 设置命名空间配置
+ * PUT /v1/settings/{namespace}
+ */
+export async function handleSetSettings(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  namespace: string
+): Promise<void> {
+  try {
+    const body = await ctx.readRequestBody(req);
+    const values = JSON.parse(body || '{}');
+    const { configManager } = await import('@modules/config/ConfigManager');
+    const settingsKey = `settings.${namespace}`;
+    configManager.setConfigValue(settingsKey, values);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, namespace, value: values }));
+  } catch (err) {
+    ctx.sendError(res, err);
+  }
+}
+
+// ========== favicon / 数据目录设置（从 LocalHTTPService.ts 迁移）==========
+
+/**
+ * 处理 favicon 请求 — 返回 204 避免 404 控制台噪声
+ */
+export function handleFavicon(
+  _ctx: HandlerCtx,
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): void {
+  res.writeHead(204);
+  res.end();
+}
+
+/**
+ * 递归复制目录（带回滚令牌）
+ * @param src 源目录
+ * @param dest 目标目录
+ * @param fs fs 模块
+ * @param path path 模块
+ * @returns 复制结果统计
+ */
+function copyDirectory(
+  src: string,
+  dest: string,
+  fs: {
+    existsSync(p: string): boolean;
+    mkdirSync(p: string, opts?: { recursive?: boolean }): void;
+    readdirSync(
+      p: string,
+      opts?: { withFileTypes?: boolean }
+    ): Array<{ name: string; isDirectory(): boolean }>;
+    copyFileSync(src: string, dest: string): void;
+  },
+  path: { join(...segments: string[]): string }
+): { copied: number; skipped: number; errors: string[] } {
+  let copied = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+
+  if (!fs.existsSync(src)) {
+    return { copied, skipped, errors };
+  }
+
+  if (!fs.existsSync(dest)) {
+    fs.mkdirSync(dest, { recursive: true });
+  }
+
+  const entries = fs.readdirSync(src, { withFileTypes: true });
+
+  for (const entry of entries) {
+    // 跳过迁移标记文件本身，避免误复制
+    if (entry.name === '.migrating' || entry.name === '.migration_committed') {
+      continue;
+    }
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+
+    try {
+      if (entry.isDirectory()) {
+        const result = copyDirectory(srcPath, destPath, fs, path);
+        copied += result.copied;
+        skipped += result.skipped;
+        errors.push(...result.errors);
+      } else {
+        if (!fs.existsSync(destPath)) {
+          fs.copyFileSync(srcPath, destPath);
+          copied++;
+        } else {
+          skipped++;
+        }
+      }
+    } catch (err) {
+      errors.push(`复制 ${srcPath} 失败: ${(err as Error).message}`);
+    }
+  }
+
+  return { copied, skipped, errors };
+}
+
+/**
+ * 回滚数据迁移：删除目标目录中的已复制内容
+ * @param destDir 目标目录（将被清理）
+ * @param fs fs 模块
+ * @param path path 模块
+ * @param oldDir 原数据目录（保留不动）
+ */
+function rollbackMigration(
+  destDir: string,
+  fs: {
+    existsSync(p: string): boolean;
+    readdirSync(
+      p: string,
+      opts?: { withFileTypes?: boolean }
+    ): Array<{ name: string; isDirectory(): boolean }>;
+    rmSync(p: string, opts?: { recursive?: boolean; force?: boolean }): void;
+    unlinkSync(p: string): void;
+  },
+  path: { join(...segments: string[]): string },
+  _oldDir: string
+): void {
+  try {
+    // 清理目标目录中除 .migrating 令牌外的所有文件和子目录
+    if (fs.existsSync(destDir)) {
+      const entries = fs.readdirSync(destDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name === '.migrating') continue;
+        const entryPath = path.join(destDir, entry.name);
+        try {
+          if (entry.isDirectory()) {
+            fs.rmSync(entryPath, { recursive: true, force: true });
+          } else {
+            fs.unlinkSync(entryPath);
+          }
+        } catch (_err) {
+          // 静默忽略清理中的个别错误
+        }
+      }
+    }
+  } catch (_err) {
+    // 回滚清理失败不影响主流程，数据保留在原目录
+  }
+}
+
+/**
+ * 设置用户数据目录 PUT /v1/settings/data-directory
+ * 使用两阶段迁移：全部复制成功后才切换目录，复制失败则回滚清理
+ * @param req
+ * @param res
+ * @param options.migrate 是否迁移现有数据（默认 true）
+ */
+export async function handleSetDataDirectory(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await ctx.readRequestBody(req);
+    const payload = JSON.parse(body);
+    const { directory, migrate = true } = payload;
+
+    if (!directory || typeof directory !== 'string') {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: '目录路径不能为空',
+            type: 'invalid_request_error',
+          },
+        })
+      );
+      return;
+    }
+
+    const fs = await import('fs');
+    const path = await import('path');
+    const resolvedDir = path.resolve(directory);
+
+    // 验证目录可写
+    try {
+      if (!fs.existsSync(resolvedDir)) {
+        fs.mkdirSync(resolvedDir, { recursive: true });
+      }
+      const testFile = path.join(resolvedDir, '.write_test');
+      fs.writeFileSync(testFile, '');
+      fs.unlinkSync(testFile);
+    } catch (err) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: `无法创建或写入目录: ${(err as Error).message}`,
+            type: 'invalid_request_error',
+          },
+        })
+      );
+      return;
+    }
+
+    // 获取当前数据目录
+    const { resolvePyappHome, setUserDataDirOverride } =
+      await import('@modules/core/paths');
+    const currentDir = resolvePyappHome();
+
+    // 执行数据迁移（两阶段：先复制，成功后再切换）
+    let migrationResult: {
+      copied: number;
+      skipped: number;
+      errors: string[];
+    } | null = null;
+    if (migrate && currentDir !== resolvedDir && fs.existsSync(currentDir)) {
+      // 阶段一：写迁移令牌，标记迁移进行中
+      try {
+        fs.writeFileSync(
+          path.join(resolvedDir, '.migrating'),
+          Date.now().toString(),
+          'utf-8'
+        );
+      } catch (_err) {
+        // 非致命：令牌写入失败不影响迁移
+      }
+
+      migrationResult = copyDirectory(currentDir, resolvedDir, fs, path);
+
+      // 检查迁移是否出错，出错则执行回滚
+      if (migrationResult.errors.length > 0) {
+        rollbackMigration(resolvedDir, fs, path, currentDir);
+
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            success: false,
+            message: `数据迁移失败，已回滚，保留了 ${migrationResult.copied} 个已复制的文件作为备份参考`,
+            directory: resolvedDir,
+            migration: migrationResult,
+            rolledBack: true,
+            error: {
+              message: `迁移过程中出现 ${migrationResult.errors.length} 个错误，目录已回滚`,
+              type: 'migration_error',
+            },
+          })
+        );
+        return;
+      }
+
+      // 阶段二：写迁移完成标记
+      try {
+        fs.writeFileSync(
+          path.join(resolvedDir, '.migration_committed'),
+          Date.now().toString(),
+          'utf-8'
+        );
+      } catch (_err) {
+        // 非致命：标记写入失败不影响目录切换
+      }
+    }
+
+    // 设置全局覆盖
+    setUserDataDirOverride(resolvedDir);
+
+    // 持久化：ConfigManager（新） + settings.json（向后兼容）
+    const { configManager } = await import('@modules/config/ConfigManager');
+    configManager.setConfigValue('system.dataDirectory', resolvedDir);
+    const { updateUserSettings } =
+      await import('@modules/config/settings/userSettings');
+    await updateUserSettings({ dataDirectory: resolvedDir });
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        success: true,
+        message: migrationResult
+          ? `数据目录已更新，已迁移 ${migrationResult.copied} 个文件，跳过 ${migrationResult.skipped} 个文件`
+          : '数据目录已更新',
+        directory: resolvedDir,
+        migration: migrationResult,
+      })
+    );
+  } catch (error) {
+    ctx.sendError(res, error);
+  }
+}

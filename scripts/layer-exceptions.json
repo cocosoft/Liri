@@ -206,28 +206,6 @@
       "createdAt": "2026-06-19",
       "expiresAt": "2026-08-18",
       "owner": "@arch-lead"
-    },
-    {
-      "id": "BULK-019",
-      "ruleId": "R04-001",
-      "pattern": "app/src/tools/*/schemas.ts",
-      "description": "工具参数 schema + 验证函数大文件（815-5304 行）",
-      "rationale": "非碎片微文件，实为 Zod schema 定义 + validate 验证函数模块。合并到主文件会撑爆 R04-001 上限，改为工具层大文件治理（拆分 schema 与验证函数）",
-      "estimatedCount": 43,
-      "createdAt": "2026-08-09",
-      "expiresAt": "2026-10-31",
-      "owner": "@arch-lead"
-    },
-    {
-      "id": "BULK-020",
-      "ruleId": "R04-001",
-      "pattern": "app/src/tools/*/prompt.ts",
-      "description": "工具系统提示大文件（246-1925 行）",
-      "rationale": "非碎片微文件，实为工具系统提示。超 800 行的 13 个需评估提示精简或分段，与工具层大文件治理同步",
-      "estimatedCount": 13,
-      "createdAt": "2026-08-09",
-      "expiresAt": "2026-10-31",
-      "owner": "@arch-lead"
     }
   ],
   "perModuleExceptions": [
@@ -263,6 +241,16 @@
   ],
   "fileSizeExceptions": [
     {
+      "id": "FSZ-106",
+      "ruleId": "R04-001",
+      "file": "app/src/infrastructure/http/handlers/skills-handlers.ts",
+      "lines": 1568,
+      "targetLines": 800,
+      "plan": "由 LocalHTTPService 拆分产物，技能领域 24 handler + 10 辅助；后续按 ClawHub/本地/系统三子域再拆",
+      "expiresAt": "2026-09-30",
+      "owner": "@arch-lead"
+    },
+    {
       "id": "FSZ-001",
       "ruleId": "R04-001",
       "file": "app/src/infrastructure/http/LocalHTTPService.ts",
@@ -270,26 +258,6 @@
       "targetLines": 800,
       "plan": "按领域拆 Handler 模块 — 将 chat/session/tool/file/monitoring 等 60+ handler 拆分为独立 Handler 类，通过注册机制挂载",
       "expiresAt": "2026-09-30",
-      "owner": "@arch-lead"
-    },
-    {
-      "id": "FSZ-002",
-      "ruleId": "R04-001",
-      "file": "app/src/infrastructure/http/handlers/route-table.ts",
-      "lines": 3169,
-      "targetLines": 200,
-      "plan": "改造为注册式路由 — 每个 Handler 模块自行注册路由，主路由表仅做分发，消除 flat if/else 链",
-      "expiresAt": "2026-09-30",
-      "owner": "@arch-lead"
-    },
-    {
-      "id": "FSZ-003",
-      "ruleId": "R04-001",
-      "file": "app/src/permission/classifiers/AutoModeClassifier.ts",
-      "lines": 3008,
-      "targetLines": 200,
-      "plan": "策略化拆分 — 30+ 检测方法独立为 SecurityRule 策略类，通过责任链组合",
-      "expiresAt": "2026-10-31",
       "owner": "@arch-lead"
     },
     {
@@ -1330,6 +1298,17 @@
       "exports": 30,
       "plan": "CLI handler 聚合 barrel，按域拆分",
       "expiresAt": "2026-10-31",
+      "owner": "@arch-lead"
+    }
+  ],
+  "tinyFileExceptions": [
+    {
+      "id": "TNY-001",
+      "ruleId": "R07-001",
+      "file": "app/src/context/types/SessionContext.ts",
+      "lines": 6,
+      "plan": "与 Context.ts 内同名 SessionContext 接口字段不同（Context.ts 含 userId/agentName/channelType），归并需先解决同名接口冲突，属预存问题待产品决策",
+      "expiresAt": "2026-09-30",
       "owner": "@arch-lead"
     }
   ]

@@ -24,7 +24,7 @@
 
 import { AIModelType } from '@modules/ai';
 import type { ParsedToolCall } from '@modules/ai/models/types';
-import type { HooksSettings } from '@modules/types/hooks.js';
+import type { HooksSettings } from '@modules/types';
 import type { SkillLifecycleManager } from '@modules/tools/AgentTool/SkillLifecycleManager';
 
 /**

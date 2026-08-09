@@ -4,7 +4,7 @@ import { createSqliteCronStore } from '../chronos/service/SqliteCronStore';
 import { nextCronRunMs } from '../chronos/CronTasks';
 import { startHealthServer, stopHealthServer } from './HealthServer';
 import type { TaskQueue } from './TaskQueue';
-import { TaskPriority } from './TaskPriority';
+import { TaskPriority } from './types';
 import type { ManagedProcess } from './ProcessManager';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 

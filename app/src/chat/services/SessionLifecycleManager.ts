@@ -1,0 +1,561 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+/**
+ * SessionLifecycleManager — 会话生命周期门面（ChatManager 拆分第 1 步）
+ *
+ * 从 ChatManager.ts 提取：会话创建/切换/删除/加载/消息检索。
+ * 与 ChatManager 共享会话状态（Map 引用 + currentSessionId 端口）。
+ */
+
+import fs from 'fs';
+import { join } from 'path';
+import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { SpanStatusCode } from '@opentelemetry/api';
+import { handleError } from '@modules/error';
+import { SimpleMutex } from '@modules/core/SimpleMutex';
+import { resolveDataDir } from '@modules/core/paths';
+import { SessionGateway } from '@modules/session/SessionGateway';
+import { HookChainManager } from '@modules/hooks/core/HookChainManager.js';
+import { SessionAccessFacade } from './SessionAccessFacade';
+import { MessageService } from './MessageService.js';
+import { eventNotificationService } from './EventNotificationService.js';
+import { clearPathCheckCache } from './PathGuardService';
+import { getLocalSession, mapSessionStatusToState } from './ChatHelper';
+import type { ChatSession, CreateSessionParams } from '../types/session.js';
+import { SessionState } from '../types/session.js';
+import type { Message } from '../types/message.js';
+
+const logger = new Logger({
+  module: 'chat:sessionLifecycle',
+  level: LogLevel.INFO,
+});
+
+/**
+ * 当前会话 ID 访问端口（避免 ChatManager 直接引用被改动）
+ */
+export interface SessionCurrentIdPort {
+  get(): string | null;
+  set(id: string | null): void;
+}
+
+/**
+ * 会话生命周期门面依赖
+ */
+export interface SessionLifecycleDeps {
+  /** 会话内存 Map（与 ChatManager 共享引用） */
+  chatSessions: Map<string, ChatSession>;
+  /** 当前会话 ID 端口 */
+  currentSessionIdRef: SessionCurrentIdPort;
+  sessionLeaveTimes: Map<string, number>;
+  sessionMutexes: Map<string, SimpleMutex>;
+  sessionAbortControllers: Map<string, AbortController>;
+  sessionGateway: SessionGateway;
+  sessionAccess: SessionAccessFacade;
+  hookChainManager: HookChainManager;
+  messageService: MessageService;
+}
+
+/**
+ * 会话生命周期门面
+ */
+export class SessionLifecycleManager {
+  private readonly chatSessions: Map<string, ChatSession>;
+  private readonly currentId: SessionCurrentIdPort;
+  private readonly sessionLeaveTimes: Map<string, number>;
+  private readonly sessionMutexes: Map<string, SimpleMutex>;
+  private readonly sessionAbortControllers: Map<string, AbortController>;
+  private readonly sessionGateway: SessionGateway;
+  private readonly sessionAccess: SessionAccessFacade;
+  private readonly hookChainManager: HookChainManager;
+  private readonly messageService: MessageService;
+
+  constructor(deps: SessionLifecycleDeps) {
+    this.chatSessions = deps.chatSessions;
+    this.currentId = deps.currentSessionIdRef;
+    this.sessionLeaveTimes = deps.sessionLeaveTimes;
+    this.sessionMutexes = deps.sessionMutexes;
+    this.sessionAbortControllers = deps.sessionAbortControllers;
+    this.sessionGateway = deps.sessionGateway;
+    this.sessionAccess = deps.sessionAccess;
+    this.hookChainManager = deps.hookChainManager;
+    this.messageService = deps.messageService;
+  }
+
+  /**
+   * 从本地缓存获取会话
+   */
+  private _getLocalSession(
+    sessionId: string | null | undefined
+  ): ChatSession | undefined {
+    return getLocalSession(this.chatSessions, sessionId);
+  }
+
+  async createSession(params: CreateSessionParams): Promise<ChatSession> {
+    const now = new Date();
+    const sessionId =
+      params.id ||
+      'session_' +
+        Date.now().toString(36) +
+        Math.random().toString(36).slice(2);
+    const session: ChatSession = {
+      id: sessionId,
+      title: params.title,
+      state: SessionState.ACTIVE,
+      metadata: {
+        title: params.title,
+        description: params.description,
+        tags: params.tags,
+        mode: params.mode,
+        model: params.model,
+        creator: params.creator,
+        lastActivityAt: now,
+        totalMessages: params.initialMessages?.length || 0,
+        totalTokens: 0,
+        totalCost: 0,
+        titleAutoGenerated: false,
+        ...params.metadata,
+      },
+      messages: params.initialMessages || [],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.chatSessions.set(session.id, session);
+    this.currentId.set(session.id);
+
+    // 持久化会话到 FileSystemUnifiedStorage
+    // P0-D: 完整持久化 metadata（含 projectId/workspaceId/moduleType），此前硬编码 {} 导致重启后全部丢失
+    await this.sessionGateway
+      .createSession({
+        id: session.id,
+        title: params.title ?? session.title,
+        metadata: session.metadata,
+      })
+      .catch((e) => {
+        handleError(e, {
+          module: 'chat:manager',
+          action: '持久化会话创建失败',
+        });
+      });
+
+    // 触发 ChatSessionStart Hook
+    this.hookChainManager.execute('chat', {
+      event: 'chat.session-start',
+      data: { sessionId: session.id },
+      sessionId: session.id,
+    });
+
+    // 追踪会话活跃度
+    this.sessionAccess.trackActivityStart(session.id);
+
+    return session;
+  }
+
+  /**
+   * 确保会话已加载（内存缓存 → Gateway 降级 → 创建新会话）
+   */
+  private async _ensureSessionLoaded(sessionId: string): Promise<ChatSession> {
+    // Step 1: 内存缓存命中
+    const cached = this.chatSessions.get(sessionId);
+    if (cached) {
+      return cached;
+    }
+
+    // Step 2: 尝试从 Gateway（持久化存储）加载
+    try {
+      const storedSession = await this.sessionGateway.getSession(sessionId);
+      if (storedSession) {
+        const storedMessages = await this.sessionGateway.getMessages(sessionId);
+        const messages: Message[] = (storedMessages || []).map((m) => {
+          let content: string;
+          if (typeof m.content === 'string') {
+            content = m.content;
+          } else if (Array.isArray(m.content)) {
+            const textBlocks = m.content.filter((b) => b.type === 'text');
+            content =
+              textBlocks.length > 0
+                ? textBlocks
+                    .map((b) => (b as { type: 'text'; text: string }).text)
+                    .join('')
+                : '';
+          } else {
+            content = '';
+          }
+          return {
+            id: m.id,
+            role: m.role,
+            content,
+            createdAt: new Date(m.timestamp),
+            updatedAt: new Date(m.timestamp),
+            sessionId: storedSession.id,
+            toolCallId: m.metadata?.toolCallId,
+            metadata: m.metadata as Record<string, unknown> | undefined,
+            blocks: m.blocks as unknown as
+              | Record<string, unknown>[]
+              | undefined,
+            tool_calls: m.metadata?.tool_calls,
+          } as Message;
+        });
+        const chatSession: ChatSession = {
+          id: storedSession.id,
+          title: storedSession.title,
+          state: mapSessionStatusToState(storedSession.status),
+          metadata: {
+            title: storedSession.title || '',
+            ...storedSession.metadata,
+            totalMessages: messages.length,
+            lastActivityAt: new Date(storedSession.lastActivityAt),
+          },
+          messages,
+          createdAt: new Date(storedSession.createdAt),
+          updatedAt: new Date(storedSession.updatedAt),
+        };
+        this.chatSessions.set(storedSession.id, chatSession);
+        logger.info('从 Gateway 降级加载会话成功', { sessionId });
+        return chatSession;
+      }
+    } catch (e) {
+      logger.warn('Gateway 降级加载失败，将创建新会话', {
+        sessionId,
+        error: String(e),
+      });
+    }
+
+    // Step 3: Gateway 也未找到 → 创建新会话
+    logger.warn('会话未找到，创建新会话', { sessionId });
+    return await this.createSession({
+      title: 'New Session',
+      id: sessionId,
+    });
+  }
+
+  /**
+   * 统一获取或加载会话（替代 _getLocalSession || createSession 模式）
+   */
+  async getOrLoadSession(
+    sessionId: string,
+    metadata?: Record<string, unknown>
+  ): Promise<ChatSession> {
+    const cached = this.chatSessions.get(sessionId);
+    if (cached) {
+      return cached;
+    }
+
+    try {
+      const storedSession = await this.sessionGateway.getSession(sessionId);
+      if (storedSession) {
+        const storedMessages = await this.sessionGateway.getMessages(sessionId);
+        const messages: Message[] = (storedMessages || []).map((m) => {
+          let content: string;
+          if (typeof m.content === 'string') {
+            content = m.content;
+          } else if (Array.isArray(m.content)) {
+            const textBlocks = m.content.filter((b) => b.type === 'text');
+            content =
+              textBlocks.length > 0
+                ? textBlocks
+                    .map((b) => (b as { type: 'text'; text: string }).text)
+                    .join('')
+                : '';
+          } else {
+            content = '';
+          }
+          return {
+            id: m.id,
+            role: m.role,
+            content,
+            createdAt: new Date(m.timestamp),
+            updatedAt: new Date(m.timestamp),
+            sessionId: storedSession.id,
+            toolCallId: m.metadata?.toolCallId,
+            metadata: m.metadata as Record<string, unknown> | undefined,
+            blocks: m.blocks as unknown as
+              | Record<string, unknown>[]
+              | undefined,
+            tool_calls: m.metadata?.tool_calls,
+          } as Message;
+        });
+        const chatSession: ChatSession = {
+          id: storedSession.id,
+          title: storedSession.title,
+          state: mapSessionStatusToState(storedSession.status),
+          metadata: {
+            title: storedSession.title || '',
+            ...storedSession.metadata,
+            totalMessages: messages.length,
+            lastActivityAt: new Date(storedSession.lastActivityAt),
+          },
+          messages,
+          createdAt: new Date(storedSession.createdAt),
+          updatedAt: new Date(storedSession.updatedAt),
+        };
+        this.chatSessions.set(storedSession.id, chatSession);
+
+        // Session State Hydration
+        try {
+          const hydrated = this.sessionAccess.hydrateSession(chatSession);
+          if (hydrated.todos || (hydrated.recentFiles?.length ?? 0) > 0) {
+            chatSession.metadata = {
+              ...chatSession.metadata,
+              hydratedTodos: hydrated.todos,
+              hydratedRecentFiles: hydrated.recentFiles,
+              hydratedDecisions: hydrated.recentDecisions,
+            };
+          }
+        } catch (err) {
+          // 回灌失败不影响
+          handleError(err, {
+            module: 'chat:manager',
+            action: 'hydrateDecisions_loadGateway',
+          });
+        }
+        return chatSession;
+      }
+    } catch (e) {
+      logger.warn('Gateway 加载失败，将创建新会话', {
+        sessionId,
+        error: String(e),
+      });
+    }
+
+    return await this.createSession({
+      title: 'New Session', // <-- loadSession fallback
+      id: sessionId,
+      metadata,
+    });
+  }
+
+  /**
+   * 切换会话
+   * @param sessionId 会话ID
+   */
+  async switchSession(sessionId: string): Promise<void> {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('ChatManager.switchSession', {
+      'session.id': sessionId,
+    });
+    try {
+      // 记录离开当前会话的时间戳（用于回切召回）
+      const currentId = this.currentId.get();
+      if (currentId && currentId !== sessionId) {
+        this.sessionLeaveTimes.set(currentId, Date.now());
+      }
+
+      await this._ensureSessionLoaded(sessionId);
+      this.currentId.set(sessionId);
+
+      // 会话切换时清理路径校验缓存
+      clearPathCheckCache();
+
+      // 检测回切：离开超过 30 秒时发射召回事件
+      const leaveTime = this.sessionLeaveTimes.get(sessionId);
+      if (leaveTime && Date.now() - leaveTime > 30_000) {
+        this.sessionLeaveTimes.delete(sessionId);
+        eventNotificationService.emitCustomEvent('agent:memory:recalling', {
+          sessionId,
+          awayMs: Date.now() - leaveTime,
+        });
+      }
+
+      logger.info('会话切换成功', { sessionId });
+      otel.endSpan(span);
+    } catch (e) {
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR);
+      await handleError(e, {
+        module: 'chat:ChatManager',
+        action: 'switchSession',
+        context: { sessionId },
+        rethrow: false,
+      });
+    }
+  }
+
+  /**
+   * 获取当前会话
+   * @returns 当前会话对象
+   */
+  getCurrentSession(): ChatSession | undefined {
+    return this._getLocalSession(this.currentId.get());
+  }
+
+  /**
+   * 获取所有会话
+   * @returns 会话列表
+   */
+  getSessions(): ChatSession[] {
+    return Array.from(this.chatSessions.values());
+  }
+
+  /**
+   * 删除会话
+   * @param sessionId 会话ID
+   */
+  deleteSession(sessionId: string): void {
+    // 方案二 2c：删除项目会话时，惰性清理该项目沙箱根目录残留的临时/锁文件
+    // （`_` 前缀脚本、`_temp_*`、`~$` Office 锁文件），仅限沙箱根目录、按前缀白名单
+    const session = this.chatSessions.get(sessionId);
+    const projectId = session?.metadata?.projectId as string | undefined;
+    if (projectId) {
+      void (async () => {
+        try {
+          const { existsSync, readdirSync, unlinkSync } = fs;
+          const { createProjectStore } =
+            await import('../../workspace/ProjectStore.js');
+          const { WorkItemStore } =
+            await import('../../workspace/WorkItemStore.js');
+          const store = createProjectStore(
+            resolveDataDir(),
+            new WorkItemStore(resolveDataDir())
+          );
+          const project = store.get(projectId);
+          if (!project?.sandboxPath || !existsSync(project.sandboxPath)) return;
+          for (const e of readdirSync(project.sandboxPath, {
+            withFileTypes: true,
+          })) {
+            if (!e.isFile()) continue;
+            if (!(e.name.startsWith('_') || e.name.startsWith('~$'))) continue;
+            try {
+              unlinkSync(join(project.sandboxPath, e.name));
+            } catch {
+              /* 单个文件删除失败不阻塞 */
+            }
+          }
+        } catch {
+          // @ignore-catch 清理临时文件失败不阻塞会话删除
+        }
+      })();
+    }
+
+    // 触发 ChatSessionEnd Hook
+    this.hookChainManager.execute('chat', {
+      event: 'chat.session-end',
+      data: { sessionId },
+      sessionId,
+    });
+
+    this.chatSessions.delete(sessionId);
+    if (this.currentId.get() === sessionId) {
+      this.currentId.set(null);
+    }
+
+    // P2-2: 清理会话级资源 — 中止活跃流（如有）+ 删除 abort controller 与 mutex，
+    // 防止 _sessionAbortControllers / _sessionMutexes 孤儿条目长期累积
+    const pendingAbort = this.sessionAbortControllers.get(sessionId);
+    if (pendingAbort) {
+      pendingAbort.abort();
+    }
+    this.sessionAbortControllers.delete(sessionId);
+    this.sessionMutexes.delete(sessionId);
+
+    // 停止会话活跃度追踪
+    this.sessionAccess.trackActivityEnd(sessionId);
+
+    // 同步删除持久化存储
+    this.sessionGateway.deleteSession(sessionId).catch((e) => {
+      handleError(e, {
+        module: 'chat:manager',
+        action: '从Gateway删除会话失败',
+      });
+    });
+  }
+
+  /**
+   * 清除所有会话
+   */
+  async clearAllSessions(): Promise<void> {
+    const sessionIds = Array.from(this.chatSessions.keys());
+    for (const id of sessionIds) {
+      this.hookChainManager.execute('chat', {
+        event: 'chat.session-end',
+        data: { sessionId: id },
+        sessionId: id,
+      });
+    }
+    this.chatSessions.clear();
+    this.currentId.set(null);
+
+    // 清理持久化存储
+    const storedSessions = await this.sessionGateway.listSessions();
+    for (const stored of storedSessions) {
+      // @ignore-catch — 清理阶段best-effort删除会话，单个失败不阻塞其他
+      await this.sessionGateway.deleteSession(stored.id).catch(() => {});
+    }
+  }
+
+  /**
+   * 保存会话
+   * @param session 会话对象
+   */
+  async saveSession(session: ChatSession): Promise<void> {
+    this.chatSessions.set(session.id, session);
+  }
+
+  /**
+   * 加载会话
+   * @param sessionId 会话ID
+   * @returns 会话对象
+   */
+  async loadSession(sessionId: string): Promise<ChatSession | undefined> {
+    return this._getLocalSession(sessionId);
+  }
+
+  /**
+   * 加载所有会话
+   * @returns 会话列表
+   */
+  async loadSessions(): Promise<ChatSession[]> {
+    return Array.from(this.chatSessions.values());
+  }
+
+  /**
+   * 获取会话消息
+   * @param sessionId 会话ID
+   * @returns 消息列表
+   */
+  getSessionMessages(sessionId: string): Message[] {
+    const session = this._getLocalSession(sessionId);
+    return session?.messages || [];
+  }
+
+  /**
+   * 搜索消息
+   * @param query 搜索查询
+   * @param sessionId 会话ID（可选）
+   * @returns 消息列表
+   */
+  searchMessages(query: string, sessionId?: string): Message[] {
+    if (sessionId) {
+      const session = this._getLocalSession(sessionId);
+      if (session) {
+        return this.messageService.searchMessages(session.messages, query);
+      }
+      return [];
+    } else {
+      const allMessages: Message[] = [];
+      for (const session of this.chatSessions.values()) {
+        allMessages.push(...session.messages);
+      }
+      return this.messageService.searchMessages(allMessages, query);
+    }
+  }
+}

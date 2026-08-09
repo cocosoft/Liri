@@ -1467,6 +1467,8 @@ class ArchitectureLinter {
     private fileSizePatterns: RegExp[] = [];
     /** 桶文件例外（R06-010 豁免，路径统一为小写正斜杠） */
     private barrelExceptions: Set<string> = new Set();
+    /** 微小文件例外（R07-001 豁免，路径统一为小写正斜杠） */
+    private tinyFileExceptions: Set<string> = new Set();
 
     /** 加载分层例外清单 */
     async loadLayerExceptions(): Promise<void> {
@@ -1515,7 +1517,14 @@ class ArchitectureLinter {
             this.barrelExceptions.add(ex.file.replace(/\\/g, '/').toLowerCase());
         }
 
-        console.log(`已加载 ${this.layerExceptions.size} 条有效分层例外 + ${this.fileSizeExceptions.size} 条文件大小例外 + ${this.barrelExceptions.size} 条桶文件例外`);
+        // 加载微小文件例外（R07-001 豁免）
+        const tiny = data.tinyFileExceptions || [];
+        for (const ex of tiny) {
+            if (ex.expiresAt && new Date(ex.expiresAt) < new Date()) continue;
+            this.tinyFileExceptions.add(ex.file.replace(/\\/g, '/').toLowerCase());
+        }
+
+        console.log(`已加载 ${this.layerExceptions.size} 条有效分层例外 + ${this.fileSizeExceptions.size} 条文件大小例外 + ${this.barrelExceptions.size} 条桶文件例外 + ${this.tinyFileExceptions.size} 条微小文件例外`);
     }
 
     /** 判断文件是否在 R04-001 豁免清单中 */
@@ -1872,6 +1881,154 @@ class ArchitectureLinter {
         console.log(`命令碎片检查完成: ${totalFiles} 个命令 | 微文件 ${microFileCount}`);
     }
 
+    /** R07-003: 检查薄桶（re-export ≤2 符号的 index.ts，碎片归集防回潮） */
+    async checkThinBarrels(): Promise<void> {
+        // 与 checkBarrelFiles 一致的模块入口豁免（模块公共 API 边界）
+        const allowedModuleDirs = [
+            'src\\agent\\', 'src\\ai\\', 'src\\bridge\\', 'src\\channels\\',
+            'src\\cli\\', 'src\\commands\\', 'src\\common\\', 'src\\components\\',
+            'src\\config\\', 'src\\constants\\', 'src\\context\\', 'src\\core\\',
+            'src\\diagnostics\\', 'src\\error\\', 'src\\hooks\\', 'src\\infrastructure\\',
+            'src\\ink\\', 'src\\knowledge\\', 'src\\media\\', 'src\\memory\\',
+            'src\\monitoring\\', 'src\\oauth\\', 'src\\plugin-sdk\\', 'src\\plugins\\',
+            'src\\promptSuggestion\\', 'src\\sandbox\\', 'src\\services\\',
+            'src\\session\\', 'src\\skills\\', 'src\\state\\', 'src\\tasks\\',
+            'src\\testing\\', 'src\\tools\\', 'src\\trace-recording\\',
+            'src\\ui\\', 'src\\utils\\',
+        ];
+        const MAX_REEXPORT_SYMBOLS = 2;
+
+        let thinCount = 0;
+        const thinFiles: string[] = [];
+        for (const file of this.allFiles) {
+            const basename = file.split(/[/\\]/).pop() || '';
+            if (basename !== 'index.ts' && basename !== 'index.tsx') continue;
+            const relFile = relative(process.cwd(), file);
+            if (allowedModuleDirs.some(dir => relFile.startsWith(dir))) continue;
+
+            const content = readFileSync(file, 'utf-8');
+            // 纯 re-export 桶判定（与 checkBarrelFiles 相同逻辑）
+            const lines = content.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            const nonReExportLines = lines.filter(l => {
+                const t = l.replace(/\/\/.*$/, '').trim();
+                if (t.length === 0) return false;
+                if (t.startsWith('//') || t.startsWith('/*') || t.startsWith('*')) return false;
+                if (/^export\s+(type\s+)?\{\s*\}/.test(t)) return false;
+                if (/^export\s+(type\s+)?\*?\s*\{.*\}\s*from\s/.test(t)) return false;
+                if (/^export\s+\*\s+from\s/.test(t)) return false;
+                return true;
+            });
+            if (nonReExportLines.length > 0) continue;
+            // star 聚合（export * from）无法数符号，视为合法模块聚合跳过（R07-003 仅针对 named ≤2 薄桶）
+            if (/export\s*\*\s*from/.test(content)) continue;
+
+            // 统计 named re-export 符号数（star 无法数符号，视为合法聚合跳过）
+            let symbolCount = 0;
+            for (const m of content.matchAll(/export\s+(?:type\s+)?\{([^}]*)\}\s*from/g)) {
+                symbolCount += m[1].split(',').filter(s => s.trim().length > 0).length;
+            }
+            if (symbolCount > MAX_REEXPORT_SYMBOLS) continue;
+
+            thinCount++;
+            thinFiles.push(relFile);
+        }
+
+        if (thinCount > 0) {
+            this.violations.push({
+                ruleId: 'R07-003',
+                severity: 'warning',
+                file: thinFiles[0],
+                message: `存在 ${thinCount} 个薄桶（re-export ≤${MAX_REEXPORT_SYMBOLS} 符号）`,
+                suggestion: `薄桶应按 R07-003 删除并将引用改指实现文件\n  受影响文件:\n${thinFiles.slice(0, 10).map(f => `    - ${f}`).join('\n')}${thinFiles.length > 10 ? `\n    ... 及其他 ${thinFiles.length - 10} 个` : ''}`,
+            });
+        }
+        console.log(`\n[薄桶检查 R07-003] 发现 ${thinCount} 个薄桶（re-export ≤${MAX_REEXPORT_SYMBOLS} 符号）`);
+    }
+
+    /** R07-001: 检查 <10 行的微小源码文件（碎片化防回潮） */
+    async checkTinyFiles(): Promise<void> {
+        const MIN_LINES = 10;
+        const excludePatterns = [
+            /\.d\.ts$/, /\.test\.ts$/, /\.test\.tsx$/,
+            /[\\/]__tests__[\\/]/, /[\\/]__mocks__[\\/]/,
+            /[\\/]index\.ts$/, // barrel 由 R07-003 单独治理
+            /[\\/]ink[\\/]/, // ink 为本地化第三方库，保持库内文件结构
+        ];
+        // 纯 re-export 桶豁免：内容全部为 `export ... from '...'` 的文件交由 R07-003 治理
+        const reExportRe = /^export\s+(?:type\s+|default\s+)?[^;]*\s+from\s+['"]/;
+
+        let tinyCount = 0;
+        const tinyFiles: string[] = [];
+        for (const file of this.allFiles) {
+            const relPath = relative(process.cwd(), file);
+            if (excludePatterns.some(p => p.test(relPath))) continue;
+            if (this.isTinyFileExempt(relPath)) continue;
+            const content = readFileSync(file, 'utf-8');
+            const codeLines = content.split('\n')
+                .map(l => l.trim())
+                .filter(l => l && !l.startsWith('//') && !l.startsWith('/*') && !l.startsWith('*') && !l.startsWith('//#'));
+            if (codeLines.length > 0 && codeLines.every(l => reExportRe.test(l))) continue;
+            const lines = content.split('\n').length;
+            if (lines < MIN_LINES) {
+                tinyCount++;
+                tinyFiles.push(relPath);
+            }
+        }
+
+        if (tinyCount > 0) {
+            this.violations.push({
+                ruleId: 'R07-001',
+                severity: 'warning',
+                file: tinyFiles[0],
+                message: `存在 ${tinyCount} 个 <${MIN_LINES} 行微小源码文件`,
+                suggestion: `微小文件应按 R07-001 归并到同域模块\n  受影响文件:\n${tinyFiles.slice(0, 10).map(f => `    - ${f}`).join('\n')}${tinyFiles.length > 10 ? `\n    ... 及其他 ${tinyFiles.length - 10} 个` : ''}`,
+            });
+        }
+        console.log(`[微小文件检查 R07-001] 发现 ${tinyCount} 个 <${MIN_LINES} 行文件`);
+    }
+
+    /** R07-001 豁免：已登记的微小文件例外 */
+    isTinyFileExempt(relPath: string): boolean {
+        const normalized = relPath.replace(/\\/g, '/').toLowerCase();
+        const withAppPrefix = normalized.startsWith('app/') ? normalized : `app/${normalized}`;
+        return this.tinyFileExceptions.has(normalized) || this.tinyFileExceptions.has(withAppPrefix);
+    }
+
+    /** R07-002: 检查 license 文件头重复（模板复制防回潮，warning 级与 project_rules §1.2 建议不冲突） */
+    async checkLicenseHeaderDuplication(): Promise<void> {
+        const MAX_HEADER_COUNT = 10;
+        const headerCounts = new Map<string, { count: number; samples: string[] }>();
+
+        for (const file of this.allFiles) {
+            const relPath = relative(process.cwd(), file);
+            if (/\.test\.ts$/.test(relPath) || /\.test\.tsx$/.test(relPath)) continue;
+            const content = readFileSync(file, 'utf-8');
+            const lines = content.split('\n').slice(0, 21);
+            const firstLine = lines[0]?.trim() || '';
+            if (!firstLine.startsWith('/*') && !firstLine.startsWith('//')) continue;
+            const header = lines.join('\n').trim();
+            if (header.length < 40) continue;
+            const entry = headerCounts.get(header) || { count: 0, samples: [] };
+            entry.count++;
+            if (entry.samples.length < 3) entry.samples.push(relPath);
+            headerCounts.set(header, entry);
+        }
+
+        const duplicates = [...headerCounts.entries()].filter(([, v]) => v.count > MAX_HEADER_COUNT);
+        if (duplicates.length > 0) {
+            const [header, info] = duplicates.sort((a, b) => b[1].count - a[1].count)[0];
+            void header;
+            this.violations.push({
+                ruleId: 'R07-002',
+                severity: 'warning',
+                file: info.samples[0],
+                message: `相同文件头重复 ${info.count} 次（阈值 ${MAX_HEADER_COUNT}），存在模板复制`,
+                suggestion: `文件头（如 MIT license 21 行）在 ${info.count} 个文件中重复，建议仓库根只保留一份 LICENSE，源码文件不再复制\n  样例文件: ${info.samples.join(', ')}`,
+            });
+        }
+        console.log(`[license 头检查 R07-002] ${duplicates.length} 组重复文件头（>${MAX_HEADER_COUNT} 次）`);
+    }
+
     /** 运行所有检查 */
     async runAll(): Promise<RuleViolation[]> {
         await this.loadFiles();
@@ -1909,6 +2066,10 @@ class ArchitectureLinter {
             this.checkBarrelOverflow(),
             this.checkDuplicateImplement(),
             this.checkCommandFragments(),
+            // P4 碎片防回潮（R07 系列）
+            this.checkThinBarrels(),
+            this.checkTinyFiles(),
+            this.checkLicenseHeaderDuplication(),
         ]);
 
         // 分层合规检查（需按顺序在 loadFiles 之后执行）

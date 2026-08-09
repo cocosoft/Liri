@@ -2,7 +2,7 @@
  * env命令 - 环境变量管理
  */
 
-import { Command } from '../../types/command';
+import { Command } from '../../types';
 
 /**
  * env命令实现

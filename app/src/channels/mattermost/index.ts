@@ -47,8 +47,11 @@ export type {
 } from './accounts.js';
 
 export { MattermostMonitor } from './monitor.js';
-export { MATTERMOST_TOOL_HINTS, buildMattermostContext } from './runtime.js';
-export type { MattermostRuntimeContext } from './runtime.js';
+export {
+  MATTERMOST_TOOL_HINTS,
+  buildMattermostContext,
+} from './channel.runtime.js';
+export type { MattermostRuntimeContext } from './channel.runtime.js';
 export { diagnoseMattermost } from './doctor.js';
 export type {
   DiagnosisResult as MattermostDiagnosisResult,

@@ -14,9 +14,10 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 
-import { StateMachine, computeDefaultTerminal, StateMachineRegistry } from '../../../src/state/engine/index.js';
+import { StateMachine, computeDefaultTerminal } from '../../../src/state/engine/StateMachine.js';
+import { StateMachineRegistry } from '../../../src/state/engine/StateMachineRegistry.js';
 import { IllegalTransitionError, InvalidSnapshotError } from '../../../src/state/errors.js';
-import type { TransitionRules, StateSnapshot } from '../../../src/state/engine/index.js';
+import type { TransitionRules, StateSnapshot } from '../../../src/state/engine/types.js';
 
 // ============================================================
 // 测试用状态枚举

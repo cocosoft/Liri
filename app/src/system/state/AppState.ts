@@ -5,15 +5,17 @@
 
 import { create } from 'zustand';
 import type { Tool, ToolPermissionContext } from '@modules/types/tool.js';
-import type { Command } from '@modules/types/command.js';
 import type {
   MCPServerConnectionInfo,
   ServerResource,
 } from '@modules/mcp/types/index.js';
 import type { LoadedPlugin, PluginError } from '@modules/types/plugin.js';
 import type { TaskState } from './types.js';
-import type { SettingsJson } from '@modules/types/settings.js';
-import type { ModelSetting } from '@modules/types/model.js';
+import type {
+  Command,
+  SettingsJson,
+  ModelSetting,
+} from '@modules/types/index.js';
 
 export type AgentId = string;
 

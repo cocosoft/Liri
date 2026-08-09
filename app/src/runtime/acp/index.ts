@@ -77,8 +77,6 @@ export {
   AcpRuntimeRegistry,
   getAcpRuntimeRegistry,
   formatSessionIdentity,
-  parseSessionIdentity,
-  createSessionIdentity,
   buildServerArgs,
   buildAcpClientStripKeys,
   resolveAcpClientSpawnEnv,

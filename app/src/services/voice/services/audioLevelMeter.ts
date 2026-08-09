@@ -113,18 +113,6 @@ export class AudioLevelMeter {
   }
 
   /**
-   * 处理 Int16Array 格式的 PCM16 音频样本
-   *
-   * @param samples PCM16 音频样本
-   * @returns 当前窗口的电平结果（如窗口不足则返回 null）
-   */
-  processPCM16(samples: Int16Array): LevelResult | null {
-    const normalized = this.normalizePCM16(samples);
-    this.sampleBuffer = this.concatBuffer(this.sampleBuffer, normalized);
-    return this.processInternal();
-  }
-
-  /**
    * 重置电平表状态
    */
   reset(): void {
@@ -249,17 +237,6 @@ export class AudioLevelMeter {
       if (abs > peak) peak = abs;
     }
     return peak;
-  }
-
-  /**
-   * 将 PCM16 Int16Array 归一化为 Float64Array（范围 [-1, 1]）
-   */
-  private normalizePCM16(samples: Int16Array): Float64Array {
-    const result = new Float64Array(samples.length);
-    for (let i = 0; i < samples.length; i++) {
-      result[i] = samples[i] / 32768;
-    }
-    return result;
   }
 
   /**

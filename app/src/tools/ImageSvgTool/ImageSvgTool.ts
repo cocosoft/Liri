@@ -11,7 +11,7 @@ import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import aiService from '../../ai/index';
 import type { AIMessage } from '../../ai/models/types';
-import { AIMessageRole, ModelCapability } from '../../ai/models/types';
+import { AIMessageRole } from '../../ai/models/types';
 import { modelManager } from '../../ai/models/ModelManager.js';
 import fs from 'fs';
 import path from 'path';
@@ -196,28 +196,50 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
         style: input.style,
       });
 
-      // 方案四（P1-1）：校验传入模型是否具备图片生成能力（读 DB model_registry
-      // capabilities，禁止把重排/嵌入模型当生成模型调用）；不具备则回退默认生成模型
+      // SVG 生成是文本 LLM 任务（LLM 输出 SVG 代码），不需要 image_generation 能力。
+      // 校验仅排除 embedding/reranker 等非文本模型，避免把可用的 chat 模型误判回退。
+      // 回退时按 chat 任务路由解析（复用 modelRouter），而非空模型走全局默认 Provider
+      // fallback（可能解析到 reranker 等模型导致 400）。
+      const NON_TEXT_CAPS = [
+        'image_generation',
+        'video_generation',
+        'embedding',
+        'text_to_speech',
+        'speech_recognition',
+        'reranking',
+        'moderation',
+        'image_editing',
+      ];
       let model: string | undefined = input.model;
       let modelFallbackNote = '';
       try {
         if (model) {
           const cfg = modelManager.getModelRegistry().getModel(model);
-          const hasGen = cfg?.capabilities?.includes(
-            ModelCapability.IMAGE_GENERATION
+          const isTextModel = (cfg?.capabilities ?? []).some(
+            (c) => !NON_TEXT_CAPS.includes(c)
           );
-          if (!hasGen) {
+          if (!isTextModel) {
             logger.warn(
-              'ImageSvgTool · 指定模型不具备图片生成能力，回退默认生成模型',
+              'ImageSvgTool · 指定模型为非文本模型，回退 chat 任务模型',
               { model, capabilities: cfg?.capabilities ?? [] }
             );
-            // 方案四 4b：在工具结果中明确提示，避免 AI 误以为指定模型生效
-            modelFallbackNote = `（指定模型 "${model}" 不具备图片生成能力，已回退默认模型）`;
+            // 在工具结果中明确提示，避免 AI 误以为指定模型生效
+            modelFallbackNote = `（指定模型 "${model}" 为非文本模型，已回退 chat 任务模型）`;
             model = undefined;
           }
         }
+        if (!model) {
+          const { modelRouter } = await import('../../ai/modelRouter');
+          // 用 default 任务（当前指向可用文本模型 deepseek-v4-flash），
+          // chat 任务可能指向 enabled=0 的模型
+          const routed = await modelRouter.resolveAsync('default');
+          if (routed) {
+            model = routed;
+            modelFallbackNote = `（已按 default 任务路由到模型 "${routed}"）`;
+          }
+        }
       } catch {
-        // @ignore-catch 模型校验失败时回退默认模型，不阻塞生成
+        // @ignore-catch 模型校验/路由失败时保持空模型，由 Provider 默认路径处理
         model = undefined;
       }
 

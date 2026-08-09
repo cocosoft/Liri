@@ -1,4 +1,4 @@
-import type { KnowledgeConfigData } from "../types/config";
+import type { KnowledgeConfigData } from "../types/knowledge";
 import { http } from "./httpClient";
 
 function unwrap<T>(

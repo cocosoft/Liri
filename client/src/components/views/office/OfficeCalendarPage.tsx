@@ -10,7 +10,7 @@ import { CalendarIcon } from "../../../assets/icons/navigation";
 import { useRootStore } from "../../../stores/root-store";
 import { officeService } from "../../../services/officeService";
 import { notificationService } from "../../../services/notificationService";
-import { cronService } from "../../../services/cronService";
+import { cronService } from "../../../services/backgroundTaskService";
 import { useOfficeStore } from "../../../stores/officeStore";
 import { useConfigStore } from "../../../stores/configStore";
 import type {
@@ -19,7 +19,7 @@ import type {
   EventSource,
   EventStatus,
 } from "../../../types/office";
-import type { CronTask } from "../../../types/schedule";
+import type { CronTask } from "../../../types/project";
 import { solarToLunar } from "../../../utils/lunarCalendar";
 import { useSessionContextSync } from "../../../hooks/useSessionContextSync";
 import CalendarAddDialog, {

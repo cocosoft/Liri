@@ -1,5 +1,5 @@
 import { memo } from "react";
-import type { GraphEdge } from "../../../types/graph";
+import type { GraphEdge } from "../../../types/project";
 
 interface GraphNodeDetailProps {
   edges: GraphEdge[];

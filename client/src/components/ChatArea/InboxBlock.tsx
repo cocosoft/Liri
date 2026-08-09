@@ -46,11 +46,7 @@ const ACTION_STYLE: Record<
   },
 };
 
-export default function InboxBlock({
-  data,
-  sessionId,
-  onResolved,
-}: Props) {
+export default function InboxBlock({ data, sessionId, onResolved }: Props) {
   const [status, setStatus] = useState(data.status);
   const [replying, setReplying] = useState(false);
   const [resuming, setResuming] = useState(false);
@@ -121,7 +117,9 @@ export default function InboxBlock({
    * @returns 是否已通过后端续跑（false 时调用方需降级触发）
    */
   async function tryResumeAfterApproval(sid: string): Promise<boolean> {
-    const base = (await import("../../services/backendUrl")).getBackendBaseUrl();
+    const base = (
+      await import("../../services/backendUrl")
+    ).getBackendBaseUrl();
     const latestResp = await fetch(
       `${base}/v1/sessions/${sid}/checkpoints/latest`,
     );

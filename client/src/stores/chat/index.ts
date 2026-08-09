@@ -70,7 +70,9 @@ sseService.on("messages:deleted", (data: Record<string, unknown>) => {
 
 // §5 P2: 长程任务进度/完成实时提示（仅当前会话显示；任务消息由后端写回会话，
 // 此处仅提供"任务运行中"的即时反馈）
-const isTaskEventForCurrentSession = (data: Record<string, unknown>): boolean => {
+const isTaskEventForCurrentSession = (
+  data: Record<string, unknown>,
+): boolean => {
   const sid = data.sessionId as string | undefined;
   if (!sid) return false;
   const msg = useChatStore.getState().messages[0];
@@ -108,7 +110,9 @@ function nextPlanMsgId(): string {
 
 sseService.on("plan:task_card", (data: Record<string, unknown>) => {
   const sessionMatch = isPlanEventForCurrentSession(data);
-  planLogger.debug(`[plan:task_card] planId=${data.planId} sessionId=${data.sessionId} sessionMatch=${sessionMatch} title=${data.title} tasks=${(data.tasks as Array<unknown>)?.length ?? 0}`);
+  planLogger.debug(
+    `[plan:task_card] planId=${data.planId} sessionId=${data.sessionId} sessionMatch=${sessionMatch} title=${data.title} tasks=${(data.tasks as Array<unknown>)?.length ?? 0}`,
+  );
   if (!sessionMatch) return;
 
   const planId = data.planId as string;
@@ -144,7 +148,9 @@ sseService.on("plan:task_card", (data: Record<string, unknown>) => {
 
 sseService.on("plan:step_progress", (data: Record<string, unknown>) => {
   const sessionMatch = isPlanEventForCurrentSession(data);
-  planLogger.debug(`[plan:step_progress] planId=${data.planId} sessionId=${data.sessionId} sessionMatch=${sessionMatch} stepId=${data.stepId} status=${data.status} durationMs=${data.durationMs}`);
+  planLogger.debug(
+    `[plan:step_progress] planId=${data.planId} sessionId=${data.sessionId} sessionMatch=${sessionMatch} stepId=${data.stepId} status=${data.status} durationMs=${data.durationMs}`,
+  );
   if (!sessionMatch) return;
 
   const planId = data.planId as string;
@@ -179,7 +185,9 @@ sseService.on("plan:step_progress", (data: Record<string, unknown>) => {
 
 sseService.on("plan:completed", (data: Record<string, unknown>) => {
   const sessionMatch = isPlanEventForCurrentSession(data);
-  planLogger.debug(`[plan:completed] planId=${data.planId} sessionId=${data.sessionId} sessionMatch=${sessionMatch}`);
+  planLogger.debug(
+    `[plan:completed] planId=${data.planId} sessionId=${data.sessionId} sessionMatch=${sessionMatch}`,
+  );
   if (!sessionMatch) return;
 
   const planId = data.planId as string;

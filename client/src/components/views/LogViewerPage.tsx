@@ -172,9 +172,12 @@ function LogViewerPage() {
     }
 
     // P2（08-09）：加载检查点日志开关状态
-    configService.get("checkpointLog").then((val) => {
-      setCheckpointLogEnabled(val === true);
-    }).catch(() => {});
+    configService
+      .get("checkpointLog")
+      .then((val) => {
+        setCheckpointLogEnabled(val === true);
+      })
+      .catch(() => {});
   }, [activeTab]);
 
   useEffect(() => {

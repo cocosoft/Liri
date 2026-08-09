@@ -1,5 +1,5 @@
 import { useState, useCallback, memo } from "react";
-import type { FAQEntry } from "../../../types/faq";
+import type { FAQEntry } from "../../../types/knowledge";
 import { X, Eye, Edit3 } from "lucide-react";
 
 interface FAQEditorProps {

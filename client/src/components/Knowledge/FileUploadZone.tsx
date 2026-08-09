@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { knowledgeService } from "../../services/knowledgeService";
-import { readFileAsBase64 } from "../../utils/fileUtils";
+import { readFileAsBase64 } from "../../utils/format";
 import { handleClientError } from "../../utils/handleError";
 
 interface FileUploadZoneProps {

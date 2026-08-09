@@ -1,5 +1,5 @@
 import { memo, useRef, useEffect, useState, useCallback } from "react";
-import type { GraphEdge } from "../../../types/graph";
+import type { GraphEdge } from "../../../types/project";
 
 interface GraphCanvasProps {
   edges: GraphEdge[];

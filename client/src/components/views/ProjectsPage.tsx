@@ -366,7 +366,14 @@ export default function ProjectsPage() {
         action: "initProject",
       }),
     );
-  }, [selectedProjectId, selectedProject, switchWorkspace, switchChatSession, createChatSession, enterModule]);
+  }, [
+    selectedProjectId,
+    selectedProject,
+    switchWorkspace,
+    switchChatSession,
+    createChatSession,
+    enterModule,
+  ]);
 
   const handleSelectProject = (id: string) => {
     if (id !== selectedProjectId) {

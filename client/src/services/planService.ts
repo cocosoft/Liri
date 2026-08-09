@@ -32,7 +32,7 @@ export interface PlanStep {
 export interface DAGNode {
   id: string;
   description: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'blocked';
+  status: "pending" | "running" | "completed" | "failed" | "blocked";
   dependsOn?: string[];
 }
 

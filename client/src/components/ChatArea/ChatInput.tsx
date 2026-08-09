@@ -27,7 +27,7 @@ import type { FileAttachmentBarHandle } from "./FileAttachmentBar";
 import SlashCommandMenu, { SLASH_COMMANDS } from "./SlashCommandMenu";
 import MentionMenu, { type MentionItem } from "./MentionMenu";
 import { useChatDraft } from "./useChatDraft";
-import { readFileAsBase64 } from "../../utils/fileUtils";
+import { readFileAsBase64 } from "../../utils/format";
 import { handleClientError } from "../../utils/handleError";
 import type { Message, AttachedImage } from "../../types";
 

@@ -118,7 +118,9 @@ class SSEService {
       };
 
       this.eventSource.onerror = () => {
-        logger.warn(`[onerror] SSE 连接错误 failCount=${this.reconnectFailCount + 1} readyState=${this.eventSource?.readyState}`);
+        logger.warn(
+          `[onerror] SSE 连接错误 failCount=${this.reconnectFailCount + 1} readyState=${this.eventSource?.readyState}`,
+        );
         this.disconnect();
         this.reconnectFailCount++;
         // 首次断开：即时提示正在重连
@@ -185,9 +187,13 @@ class SSEService {
             const planId = data.planId as string | undefined;
             const sessionId = data.sessionId as string | undefined;
             if (evt === "plan:step_progress") {
-              logger.debug(`[dispatch] ${evt} planId=${planId} sessionId=${sessionId} stepId=${data.stepId} status=${data.status}`);
+              logger.debug(
+                `[dispatch] ${evt} planId=${planId} sessionId=${sessionId} stepId=${data.stepId} status=${data.status}`,
+              );
             } else {
-              logger.debug(`[dispatch] ${evt} planId=${planId} sessionId=${sessionId} title=${data.title ?? "-"} status=${data.status ?? "-"}`);
+              logger.debug(
+                `[dispatch] ${evt} planId=${planId} sessionId=${sessionId} title=${data.title ?? "-"} status=${data.status ?? "-"}`,
+              );
             }
           }
           this.dispatch(evt, data);
@@ -223,7 +229,9 @@ class SSEService {
    * 断开 SSE 连接，清理所有定时器
    */
   disconnect(): void {
-    logger.info(`[disconnect] 断开 SSE 连接 handlerCount=${this.handlers.size}`);
+    logger.info(
+      `[disconnect] 断开 SSE 连接 handlerCount=${this.handlers.size}`,
+    );
     if (this.eventSource) {
       this.eventSource.close();
       this.eventSource = null;
@@ -309,11 +317,15 @@ class SSEService {
    */
   private scheduleReconnect(): void {
     if (this.reconnectTimer) {
-      logger.debug(`[scheduleReconnect] 已有重连定时器，跳过 delay=${this.reconnectDelay}ms`);
+      logger.debug(
+        `[scheduleReconnect] 已有重连定时器，跳过 delay=${this.reconnectDelay}ms`,
+      );
       return; // 已调度
     }
 
-    logger.info(`[scheduleReconnect] 调度重连 delay=${this.reconnectDelay}ms failCount=${this.reconnectFailCount}`);
+    logger.info(
+      `[scheduleReconnect] 调度重连 delay=${this.reconnectDelay}ms failCount=${this.reconnectFailCount}`,
+    );
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();

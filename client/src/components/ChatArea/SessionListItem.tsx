@@ -7,7 +7,7 @@
  * - 删除按钮（hover 显示）
  * - 右键菜单触发
  */
-import { formatRelativeTime } from "../../utils/formatTime";
+import { formatRelativeTime } from "../../utils/format";
 import { useRootStore } from "../../stores/root-store";
 import { getModuleMeta } from "../../stores/root-store/moduleRegistry";
 

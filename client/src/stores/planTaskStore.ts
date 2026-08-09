@@ -30,7 +30,9 @@ export const usePlanTaskStore = create<PlanTaskState>()((set, get) => ({
 
   upsert: (planId: string, data: TaskCardData) => {
     const prev = get().tasks[planId];
-    logger.debug(`[upsert] planId=${planId} title="${data.title}" status=${data.status} tasks=${data.tasks.length} existed=${!!prev}`);
+    logger.debug(
+      `[upsert] planId=${planId} title="${data.title}" status=${data.status} tasks=${data.tasks.length} existed=${!!prev}`,
+    );
     set((s) => ({
       tasks: { ...s.tasks, [planId]: data },
     }));
@@ -43,11 +45,15 @@ export const usePlanTaskStore = create<PlanTaskState>()((set, get) => ({
   ) => {
     const current = get().tasks[planId];
     if (!current) {
-      logger.warn(`[updateTask] planId=${planId} not found in store, stepId=${stepId} update=${JSON.stringify(update)}`);
+      logger.warn(
+        `[updateTask] planId=${planId} not found in store, stepId=${stepId} update=${JSON.stringify(update)}`,
+      );
       return;
     }
     const task = current.tasks.find((t) => t.id === stepId);
-    logger.debug(`[updateTask] planId=${planId} stepId=${stepId} ${task?.status ?? "?"}→${update.status ?? "?"} ${task?.name ?? "?"}`);
+    logger.debug(
+      `[updateTask] planId=${planId} stepId=${stepId} ${task?.status ?? "?"}→${update.status ?? "?"} ${task?.name ?? "?"}`,
+    );
     set((s) => ({
       tasks: {
         ...s.tasks,
@@ -63,7 +69,9 @@ export const usePlanTaskStore = create<PlanTaskState>()((set, get) => ({
 
   remove: (planId: string) => {
     const prev = get().tasks[planId];
-    logger.debug(`[remove] planId=${planId} existed=${!!prev} totalPlans=${Object.keys(get().tasks).length}`);
+    logger.debug(
+      `[remove] planId=${planId} existed=${!!prev} totalPlans=${Object.keys(get().tasks).length}`,
+    );
     set((s) => {
       const { [planId]: _, ...rest } = s.tasks;
       return { tasks: rest };

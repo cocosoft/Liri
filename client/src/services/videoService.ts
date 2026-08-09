@@ -8,7 +8,7 @@
 
 import { toolService } from "./toolService";
 import { http } from "./httpClient";
-import type { ApiResponse } from "../types/api";
+import type { ApiResponse } from "../types/system";
 
 // 视频生成超时 10 分钟
 const VIDEO_GENERATE_TIMEOUT = 600_000;

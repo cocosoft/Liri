@@ -1,5 +1,5 @@
 import { memo } from "react";
-import type { GraphStats } from "../../../types/graph";
+import type { GraphStats } from "../../../types/project";
 
 interface GraphFilterPanelProps {
   stats: GraphStats | null;

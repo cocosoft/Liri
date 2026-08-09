@@ -1,8 +1,8 @@
 /** 前端类型定义统一入口 — 从子模块 re-export,向后兼容 */
 
 // ─── API 响应类型 ───
-export type { ApiError, ApiResponse } from "./api";
-export { isApiResponse, unwrapApiResponse } from "./api";
+export type { ApiError, ApiResponse } from "./system";
+export { isApiResponse, unwrapApiResponse } from "./system";
 
 // ─── 核心业务类型 ───
 export type { Session } from "./session";
@@ -62,21 +62,26 @@ export type {
 } from "./knowledge";
 
 // ─── FAQ ───
-export type { FAQEntry, FAQImportReport } from "./faq";
+export type { FAQEntry, FAQImportReport } from "./knowledge";
 
-// ─── 知识图谱 ───
-export type { GraphEdge, GraphStats, GraphEdgesResponse } from "./graph";
+// ─── 知识库配置 ───
+export type {
+  KnowledgeSearchConfig,
+  VectorStoreConfig,
+  KnowledgeConfigData,
+} from "./knowledge";
 
-// ─── 智能体 ───
-export type { AgentTask, AgentTaskTemplate, AgentProgress } from "./agent";
-
-// ─── 调度 ───
+// ─── 知识图谱 / 调度 ───
+export type { GraphEdge, GraphStats, GraphEdgesResponse } from "./project";
 export type {
   ScheduleConfig,
   ExecutionRecord,
   CronTask,
   ScheduleMode,
-} from "./schedule";
+} from "./project";
+
+// ─── 智能体 ───
+export type { AgentTask, AgentTaskTemplate, AgentProgress } from "./identity";
 
 // ─── 伙伴系统 ───
 export type {
@@ -113,7 +118,7 @@ export type {
 } from "./dream";
 
 // ─── 用户与权限 ───
-export type { User, ApiKey, Permission } from "./user";
+export type { User, ApiKey, Permission } from "./identity";
 
 // ─── 监控 ───
 export type {
@@ -122,7 +127,7 @@ export type {
   LogEntry,
   LogSource,
   SystemHealth,
-} from "./monitor";
+} from "./system";
 
 // ─── 用量与余额 ───
 export type {

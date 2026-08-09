@@ -26,12 +26,45 @@ const PADDING = 16;
 
 // ─── 状态样式映射 ──────────────────────────────────
 
-const STATUS_STYLE: Record<string, { bg: string; border: string; text: string; icon: string; pulse: boolean }> = {
-  pending:   { bg: "bg-white dark:bg-gray-800", border: "border-gray-300 dark:border-gray-600", text: "text-gray-600 dark:text-gray-400", icon: "○", pulse: false },
-  running:   { bg: "bg-blue-50 dark:bg-blue-900/30", border: "border-blue-500", text: "text-blue-700 dark:text-blue-300", icon: "◌", pulse: true },
-  completed: { bg: "bg-green-50 dark:bg-green-900/30", border: "border-green-500", text: "text-green-700 dark:text-green-300", icon: "✓", pulse: false },
-  failed:    { bg: "bg-red-50 dark:bg-red-900/30", border: "border-red-500", text: "text-red-700 dark:text-red-300", icon: "✗", pulse: false },
-  blocked:   { bg: "bg-orange-50 dark:bg-orange-900/30", border: "border-orange-400", text: "text-orange-700 dark:text-orange-300", icon: "⏸", pulse: false },
+const STATUS_STYLE: Record<
+  string,
+  { bg: string; border: string; text: string; icon: string; pulse: boolean }
+> = {
+  pending: {
+    bg: "bg-white dark:bg-gray-800",
+    border: "border-gray-300 dark:border-gray-600",
+    text: "text-gray-600 dark:text-gray-400",
+    icon: "○",
+    pulse: false,
+  },
+  running: {
+    bg: "bg-blue-50 dark:bg-blue-900/30",
+    border: "border-blue-500",
+    text: "text-blue-700 dark:text-blue-300",
+    icon: "◌",
+    pulse: true,
+  },
+  completed: {
+    bg: "bg-green-50 dark:bg-green-900/30",
+    border: "border-green-500",
+    text: "text-green-700 dark:text-green-300",
+    icon: "✓",
+    pulse: false,
+  },
+  failed: {
+    bg: "bg-red-50 dark:bg-red-900/30",
+    border: "border-red-500",
+    text: "text-red-700 dark:text-red-300",
+    icon: "✗",
+    pulse: false,
+  },
+  blocked: {
+    bg: "bg-orange-50 dark:bg-orange-900/30",
+    border: "border-orange-400",
+    text: "text-orange-700 dark:text-orange-300",
+    icon: "⏸",
+    pulse: false,
+  },
 };
 
 // ─── 布局算法 ──────────────────────────────────────
@@ -63,7 +96,9 @@ function layoutDAG(dag: DAGData): LayoutNode[] {
 
   // Kahn 算法
   const layers: string[][] = [];
-  let queue = nodes.filter((n) => (inDegree.get(n.id) || 0) === 0).map((n) => n.id);
+  let queue = nodes
+    .filter((n) => (inDegree.get(n.id) || 0) === 0)
+    .map((n) => n.id);
 
   while (queue.length > 0) {
     layers.push([...queue]);
@@ -121,32 +156,42 @@ export default function DAGView({ planId, onNodeClick }: DAGViewProps) {
 
   useEffect(() => {
     let cancelled = false;
-    planService.getDAG(planId).then((data) => {
-      if (cancelled) return;
-      if (!data) {
-        setError("无法加载 DAG 数据");
-        logger.warn("DAG 数据为空", { planId });
-      } else {
-        setDag(data);
-        logger.debug("DAG 数据加载成功", { planId, nodeCount: data.nodes.length });
-      }
-      setLoading(false);
-    }).catch((e) => {
-      if (cancelled) return;
-      handleClientError(e, { module: "views:DAGView", action: "getDAG", meta: { planId } });
-      setError("加载 DAG 失败");
-      setLoading(false);
-    });
-    return () => { cancelled = true; };
+    planService
+      .getDAG(planId)
+      .then((data) => {
+        if (cancelled) return;
+        if (!data) {
+          setError("无法加载 DAG 数据");
+          logger.warn("DAG 数据为空", { planId });
+        } else {
+          setDag(data);
+          logger.debug("DAG 数据加载成功", {
+            planId,
+            nodeCount: data.nodes.length,
+          });
+        }
+        setLoading(false);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        handleClientError(e, {
+          module: "views:DAGView",
+          action: "getDAG",
+          meta: { planId },
+        });
+        setError("加载 DAG 失败");
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [planId]);
 
   const layout = useMemo(() => (dag ? layoutDAG(dag) : []), [dag]);
 
   if (loading) {
     return (
-      <div className="p-4 text-center text-xs text-gray-400">
-        加载依赖图...
-      </div>
+      <div className="p-4 text-center text-xs text-gray-400">加载依赖图...</div>
     );
   }
 
@@ -160,9 +205,7 @@ export default function DAGView({ planId, onNodeClick }: DAGViewProps) {
 
   if (dag.nodes.length === 0) {
     return (
-      <div className="p-4 text-center text-xs text-gray-400">
-        暂无步骤
-      </div>
+      <div className="p-4 text-center text-xs text-gray-400">暂无步骤</div>
     );
   }
 
@@ -172,7 +215,7 @@ export default function DAGView({ planId, onNodeClick }: DAGViewProps) {
   const allY = layout.map((n) => n.y);
   const minY = Math.min(...allY);
   const maxY = Math.max(...allY);
-  const svgH = (maxY - minY) + NODE_H + PADDING * 2;
+  const svgH = maxY - minY + NODE_H + PADDING * 2;
 
   const layoutMap = new Map(layout.map((n) => [n.node.id, n]));
 

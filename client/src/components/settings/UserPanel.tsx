@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { fetchUser, saveUser } from "../../services/soulService";
+import { fetchUser, saveUser } from "../../services/userService";
 import { ConfigSection } from "./ConfigComponents";
 import { handleClientError } from "../../utils/handleError";
 

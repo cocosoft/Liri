@@ -4,7 +4,7 @@
  * 管理 AI 伙伴（Buddy Companion）的状态、交互与统计。
  */
 import { create } from "zustand";
-import { buddyService } from "../services/buddyService";
+import { buddyService } from "../services/userService";
 import { sseService } from "../services/sseService";
 import { handleClientError } from "@/utils/handleError";
 import type { BuddyCompanion, BuddyInteractionResult } from "../types";

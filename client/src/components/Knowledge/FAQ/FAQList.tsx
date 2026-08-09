@@ -1,5 +1,5 @@
 import { memo } from "react";
-import type { FAQEntry } from "../../../types/faq";
+import type { FAQEntry } from "../../../types/knowledge";
 import { FAQStatusBadge } from "./FAQStatusBadge";
 import { Pencil, Trash2, Star } from "lucide-react";
 

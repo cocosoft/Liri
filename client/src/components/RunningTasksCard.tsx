@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "react";
 import type { CronTask } from "../types";
-import { cronService } from "../services/cronService";
+import { cronService } from "../services/backgroundTaskService";
 
 // ─── 子组件 ───────────────────────────────────────
 

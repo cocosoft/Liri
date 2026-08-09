@@ -1,3 +1,39 @@
+/**
+ * 项目/调度领域类型
+ *
+ * 由 graph.ts + schedule.ts 归并（GR15-002）。
+ */
+
+// ─── 知识图谱 ───
+
+/** 边 */
+export interface GraphEdge {
+  id: string;
+  from: string;
+  to: string;
+  type: string;
+  direction: "directed" | "symmetric";
+  domain?: string;
+  attributes: Record<string, unknown>;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** 图统计 */
+export interface GraphStats {
+  totalEdges: number;
+  byType: Record<string, number>;
+  totalEntities: number;
+}
+
+/** 图数据 API 响应 */
+export interface GraphEdgesResponse {
+  edges: GraphEdge[];
+  stats: GraphStats;
+}
+
+// ─── 调度 ───
+
 export interface ScheduleConfig {
   type: "cron" | "interval" | "once";
   cronExpression?: string;

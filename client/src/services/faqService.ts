@@ -1,4 +1,4 @@
-import type { FAQEntry, FAQImportReport } from "../types/faq";
+import type { FAQEntry, FAQImportReport } from "../types/knowledge";
 import { http } from "./httpClient";
 
 function unwrap<T>(

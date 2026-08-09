@@ -1,6 +1,6 @@
 import { useState, useCallback, memo } from "react";
 import { X, Upload } from "lucide-react";
-import type { FAQImportReport } from "../../../types/faq";
+import type { FAQImportReport } from "../../../types/knowledge";
 
 interface FAQImportModalProps {
   isDark: boolean;

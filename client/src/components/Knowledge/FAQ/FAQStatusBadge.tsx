@@ -1,5 +1,5 @@
 import { memo } from "react";
-import type { FAQEntry } from "../../../types/faq";
+import type { FAQEntry } from "../../../types/knowledge";
 
 interface FAQStatusBadgeProps {
   status: FAQEntry["embeddingStatus"];

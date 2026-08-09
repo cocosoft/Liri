@@ -4,7 +4,7 @@
  * 管理定时任务的 CRUD、调度器状态查询等操作。
  */
 import { create } from "zustand";
-import { cronService } from "../services/cronService";
+import { cronService } from "../services/backgroundTaskService";
 import { handleClientError } from "@/utils/handleError";
 import type { CronTask, ScheduleMode } from "../types";
 

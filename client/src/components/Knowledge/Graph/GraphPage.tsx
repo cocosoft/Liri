@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { graphService } from "../../../services/graphService";
-import type { GraphEdge, GraphStats } from "../../../types/graph";
+import type { GraphEdge, GraphStats } from "../../../types/project";
 import { GraphFilterPanel } from "./GraphFilterPanel";
 import { GraphNodeDetail } from "./GraphNodeDetail";
 import { GraphCanvas } from "./GraphCanvas";

@@ -83,7 +83,11 @@ function AgentTaskSettings() {
       await executeTask(task.name);
       logger.info("任务重新执行", { taskId: task.id, taskName: task.name });
     } catch (e) {
-      handleClientError(e, { module: "settings:AgentTask", action: "rerun", meta: { taskId: task.id } });
+      handleClientError(e, {
+        module: "settings:AgentTask",
+        action: "rerun",
+        meta: { taskId: task.id },
+      });
     }
   };
 
@@ -97,7 +101,11 @@ function AgentTaskSettings() {
       await deleteTask(task.id);
       logger.info("任务已删除", { taskId: task.id });
     } catch (e) {
-      handleClientError(e, { module: "settings:AgentTask", action: "delete", meta: { taskId: task.id } });
+      handleClientError(e, {
+        module: "settings:AgentTask",
+        action: "delete",
+        meta: { taskId: task.id },
+      });
     }
     if (expandedId === task.id) setExpandedId(null);
   };
@@ -187,7 +195,11 @@ function AgentTaskSettings() {
                         onClick={(e) => {
                           e.stopPropagation();
                           cancelTask(task.id).catch((err: unknown) => {
-                            handleClientError(err, { module: "settings:AgentTask", action: "cancel", meta: { taskId: task.id } });
+                            handleClientError(err, {
+                              module: "settings:AgentTask",
+                              action: "cancel",
+                              meta: { taskId: task.id },
+                            });
                           });
                         }}
                         className="text-xs px-2 py-1 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded hover:bg-red-50 dark:hover:bg-red-900/30"

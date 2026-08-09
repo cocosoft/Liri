@@ -107,7 +107,6 @@ describe("审批等待态 pendingApproval 透传（J-2.2 回归）", () => {
   });
 });
 
-
 describe("ChronologicalBlockBuilder 增量快照缓存（P2-3）", () => {
   it("结构变化（push 新块）时 getBlocks 返回新引用", () => {
     const b = new ChronologicalBlockBuilder();

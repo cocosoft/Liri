@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { dreamService } from "../../services/dreamService";
+import { dreamService } from "../../services/backgroundTaskService";
 import { memoryService } from "../../services/memoryService";
 import type { DreamLogEntry, DreamLogResponse } from "../../types";
 import DreamCycleDetail from "./DreamCycleDetail";

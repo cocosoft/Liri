@@ -4,7 +4,7 @@ import MarkdownRenderer from "./MarkdownRenderer";
 import CodeBlock from "./CodeBlock";
 import FileTypeIcon from "./FileTypeIcon";
 import OfficePreview from "./OfficePreview";
-import { formatFileSize } from "../../utils/formatFileSize";
+import { formatFileSize } from "../../utils/format";
 import { handleClientError } from "../../utils/handleError";
 
 interface FilePreviewContentProps {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, memo } from "react";
 import { knowledgeConfigService } from "../../../services/knowledgeConfigService";
-import type { KnowledgeConfigData } from "../../../types/config";
+import type { KnowledgeConfigData } from "../../../types/knowledge";
 import { Loader2, Save } from "lucide-react";
 
 interface AutoRAGPanelProps {

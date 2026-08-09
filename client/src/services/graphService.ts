@@ -1,4 +1,4 @@
-import type { GraphEdgesResponse, GraphStats } from "../types/graph";
+import type { GraphEdgesResponse, GraphStats } from "../types/project";
 import { http } from "./httpClient";
 
 function unwrap<T>(

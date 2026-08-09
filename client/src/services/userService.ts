@@ -1,14 +1,12 @@
 /**
- * Soul/User API 服务
+ * 用户服务：伙伴系统 + Soul/User 身份 API
  *
- * 提供读取/保存 AI 人格定义 (SOUL.md) 和用户身份 (USER.md) 的 API 调用。
- *
- * Phase 2.2: 端点从 /v1/soul、/v1/user 迁移到统一设置端点
- *   GET/PUT /v1/settings/soul 和 /v1/settings/user。
- *   存储后端从文件系统改为 ConfigManager。
+ * 由 buddyService + soulService 归并（GR15-001）。
+ * 提供伙伴交互（/v1/buddy/*）与 AI 人格/用户身份（/v1/settings/soul、/v1/settings/user）API 调用。
  */
 
 import { httpLegacy as http } from "./httpClient";
+import type { BuddyCompanion, BuddyInteractionResult } from "../types";
 
 /** 新统一设置 API 响应结构 */
 interface SettingsResponse {
@@ -47,3 +45,28 @@ export async function saveUser(content: string): Promise<boolean> {
   await http.put("/v1/settings/user", { content });
   return true;
 }
+
+export const buddyService = {
+  getBuddy: async (name?: string): Promise<BuddyCompanion> => {
+    const params = name ? `?name=${encodeURIComponent(name)}` : "";
+    return http.get<BuddyCompanion>(`/v1/buddy/companion${params}`);
+  },
+
+  interact: async (
+    action: string,
+    name?: string,
+  ): Promise<BuddyInteractionResult> => {
+    return http.post<BuddyInteractionResult>("/v1/buddy/interact", {
+      action,
+      name,
+    });
+  },
+
+  getStats: async (): Promise<{
+    interactions: number;
+    dreamsCompleted: number;
+    totalXp: number;
+  }> => {
+    return http.get("/v1/buddy/stats");
+  },
+};

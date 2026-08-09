@@ -13,7 +13,7 @@ import { propagation, context as otelContext } from "@opentelemetry/api";
 import { handleClientError } from "../utils/handleError";
 import { getOTelTracing } from "../monitoring/otel";
 
-import type { ApiError, ApiResponse } from "../types/api";
+import type { ApiError, ApiResponse } from "../types/system";
 
 export interface HttpClientConfig {
   baseUrl?: string;

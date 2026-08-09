@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Plus, FileInput, Trash2 } from "lucide-react";
 import { faqService } from "../../../services/faqService";
-import type { FAQEntry, FAQImportReport } from "../../../types/faq";
+import type { FAQEntry, FAQImportReport } from "../../../types/knowledge";
 import { FAQList } from "./FAQList";
 import { FAQEditor } from "./FAQEditor";
 import { FAQSearchBar } from "./FAQSearchBar";

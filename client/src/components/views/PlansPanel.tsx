@@ -100,7 +100,9 @@ export default function PlansPanel() {
                       <span
                         className={`w-2 h-2 rounded-full ${dotColor} flex-shrink-0`}
                       />
-                      <span className={`text-sm font-medium ${textPrimary} truncate`}>
+                      <span
+                        className={`text-sm font-medium ${textPrimary} truncate`}
+                      >
                         {plan.description || `计划 ${plan.id.slice(0, 8)}`}
                       </span>
                       <span className="text-xs text-gray-400 ml-auto">

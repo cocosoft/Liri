@@ -5,7 +5,7 @@ import {
   forwardRef,
   useImperativeHandle,
 } from "react";
-import { readFileAsBase64 } from "../../utils/fileUtils";
+import { readFileAsBase64 } from "../../utils/format";
 import { handleClientError } from "../../utils/handleError";
 
 interface FileAttachment {

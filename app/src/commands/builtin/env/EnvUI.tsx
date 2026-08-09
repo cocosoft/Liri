@@ -13,7 +13,11 @@ export function EnvUI({ onDone, args = '' }: EnvUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'envCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'envCommand',
+          args
+        )
       }
     />
   );

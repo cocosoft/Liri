@@ -30,6 +30,7 @@ import { join } from 'path';
 import { readdir, readFile, unlink } from 'fs/promises';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { isCheckpointLogEnabled } from '../config/settings/CheckpointLogConfig';
 import type { DreamCycleRecord } from './types';
 
 const logger = new Logger({
@@ -73,6 +74,13 @@ export async function recoverCheckpoints(): Promise<{
     return { recovered: 0, cleaned: 0 };
   }
 
+  if (isCheckpointLogEnabled()) {
+    logger.info(
+      `[DreamCheckpoint] 开始恢复检查点，共 ${checkpointFiles.length} 个文件`,
+      { files: checkpointFiles }
+    );
+  }
+
   let recovered = 0;
   let cleaned = 0;
 
@@ -104,17 +112,33 @@ export async function recoverCheckpoints(): Promise<{
       const data = await readFile(checkpointPath, 'utf-8');
       const checkpoint: CheckpointData = JSON.parse(data);
 
+      if (isCheckpointLogEnabled()) {
+        logger.info('[DreamCheckpoint] 处理检查点文件', {
+          file,
+          cycleId: checkpoint.cycleId,
+          phase: checkpoint.phase,
+          timestamp: checkpoint.timestamp,
+        });
+      }
+
       if (checkpoint.phase === 'written_all') {
         // 检查 DreamCycleRecord 是否已写入
         if (existingCycleIds.has(checkpoint.cycleId)) {
           // 正常完成，清理检查点
           await unlink(checkpointPath);
           cleaned++;
-          logger.info(
-            `[DreamCheckpoint] 已完成周期 ${checkpoint.cycleId} 的检查点已清理`
-          );
+          if (isCheckpointLogEnabled()) {
+            logger.info(
+              `[DreamCheckpoint] 已完成周期 ${checkpoint.cycleId} 的检查点已清理 (cycle 记录存在)`
+            );
+          }
         } else {
           // 检查点声称完成但记录缺失 → 异常，标记为 failed
+          if (isCheckpointLogEnabled()) {
+            logger.info(
+              `[DreamCheckpoint] 周期 ${checkpoint.cycleId} 检查点为 written_all 但记录缺失，即将标记为 failed`
+            );
+          }
           await markCycleFailed(persistence, checkpoint.cycleId, checkpoint);
           await unlink(checkpointPath);
           recovered++;
@@ -124,6 +148,11 @@ export async function recoverCheckpoints(): Promise<{
         }
       } else {
         // 未完成的检查点 (gathered/analyzed/generated)
+        if (isCheckpointLogEnabled()) {
+          logger.info(
+            `[DreamCheckpoint] 未完成周期 ${checkpoint.cycleId} (phase=${checkpoint.phase})，即将标记为 failed`
+          );
+        }
         await markCycleFailed(persistence, checkpoint.cycleId, checkpoint);
         await unlink(checkpointPath);
         recovered++;
@@ -133,6 +162,11 @@ export async function recoverCheckpoints(): Promise<{
       }
     } catch (e) {
       // 损坏的检查点文件直接删除
+      if (isCheckpointLogEnabled()) {
+        logger.info(`[DreamCheckpoint] 损坏的检查点文件: ${file}`, {
+          error: String(e),
+        });
+      }
       void handleError(e, {
         module: 'dream:checkpoint',
         action: 'processCheckpoint',
@@ -154,9 +188,11 @@ export async function recoverCheckpoints(): Promise<{
   }
 
   if (recovered > 0 || cleaned > 0) {
-    logger.info(
-      `[DreamCheckpoint] 恢复完成: ${recovered} 个周期标记为 failed, ${cleaned} 个检查点已清理`
-    );
+    if (isCheckpointLogEnabled()) {
+      logger.info(
+        `[DreamCheckpoint] 恢复完成: ${recovered} 个周期标记为 failed, ${cleaned} 个检查点已清理`
+      );
+    }
   }
 
   return { recovered, cleaned };
@@ -195,4 +231,13 @@ async function markCycleFailed(
   };
 
   await persistence.saveCycle(failedRecord);
+
+  if (isCheckpointLogEnabled()) {
+    logger.info('[DreamCheckpoint] markCycleFailed 完成', {
+      cycleId,
+      phase: checkpoint.phase,
+      startedAt: checkpoint.timestamp,
+      completedAt: failedRecord.completedAt,
+    });
+  }
 }

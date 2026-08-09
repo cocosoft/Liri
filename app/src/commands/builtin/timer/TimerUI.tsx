@@ -13,7 +13,11 @@ export function TimerUI({ onDone, args = '' }: TimerUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'timerCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'timerCommand',
+          args
+        )
       }
     />
   );

@@ -13,7 +13,11 @@ export function DebugUI({ onDone, args = '' }: DebugUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'debugCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'debugCommand',
+          args
+        )
       }
     />
   );

@@ -13,7 +13,11 @@ export function OutputStyleUI({ onDone, args = '' }: OutputStyleUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'outputStyleCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'outputStyleCommand',
+          args
+        )
       }
     />
   );

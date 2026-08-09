@@ -13,7 +13,11 @@ export function UsageUI({ onDone, args = '' }: UsageUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'usageCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'usageCommand',
+          args
+        )
       }
     />
   );

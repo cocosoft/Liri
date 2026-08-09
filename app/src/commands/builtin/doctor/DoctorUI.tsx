@@ -13,7 +13,11 @@ export function DoctorUI({ onDone, args = '' }: DoctorUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'doctorCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'doctorCommand',
+          args
+        )
       }
     />
   );

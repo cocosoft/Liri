@@ -555,6 +555,7 @@ const zh = {
     notificationsBlockedAlert:
       "通知已被浏览器阻止，请在浏览器设置中允许本网站的通知",
     logs: "查看日志",
+    tasks: "任务管理",
     logViewerTitle: "日志浏览器",
     logViewerDesc: "浏览系统日志、LLM 会话记录和安全日志",
     logViewerTabLogs: "系统日志",
@@ -575,6 +576,8 @@ const zh = {
     logViewerExportCsv: "导出 CSV",
     logViewerNoSessions: "暂无 LLM 会话记录",
     logViewerNoLogs: "暂无日志",
+    /** P2（08-09）：检查点日志开关 */
+    checkpointLogToggle: "检查点日志",
     logViewerLoadMore: "加载更多",
     logViewerViewDetail: "查看详情 →",
     logViewerSessionPrefix: "会话",

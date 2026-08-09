@@ -14,7 +14,7 @@ export function ReloadPluginsUI({ onDone, args = '' }: ReloadPluginsUIProps) {
       onDone={onDone}
       execute={() =>
         resolveCommandExecutor(
-          import('./index.js'),
+          import('../command-registry.js'),
           'reloadPluginsCommand',
           args
         )

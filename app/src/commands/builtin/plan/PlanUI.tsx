@@ -13,7 +13,11 @@ export function PlanUI({ onDone, args = '' }: PlanUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'planCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'planCommand',
+          args
+        )
       }
     />
   );

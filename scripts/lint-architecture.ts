@@ -4,11 +4,22 @@
  * 在 CI 中运行：bun run scripts/lint-architecture.ts
  * AI 可在提交前手动调用检查架构合规性。
  *
- * 检查规则对应 .trae/rules/architecture-compliance.md 中的 R01-R04。
+ * 检查规则对应 .trae/rules/architecture-compliance.md 中的 R01-R06。
  */
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join, resolve, relative, dirname } from 'node:path';
+
+// JS/TS 保留字，排除被误判为"方法名"的控制流语句
+const RESERVED_WORDS = new Set([
+    'if', 'else', 'for', 'while', 'switch', 'catch', 'return',
+    'case', 'default', 'try', 'finally', 'do', 'with', 'class',
+    'new', 'typeof', 'instanceof', 'in', 'of', 'var', 'let', 'const',
+    'import', 'export', 'throw', 'yield', 'await', 'async', 'delete',
+    'void', 'this', 'super', 'break', 'continue', 'extends', 'function',
+    'get', 'set', 'static', 'private', 'public', 'protected', 'interface',
+    'type', 'enum', 'namespace', 'declare', 'implements', 'abstract',
+]);
 
 // ============ 类型定义 ============
 
@@ -605,13 +616,16 @@ class ArchitectureLinter {
             const content = readFileSync(file, 'utf-8');
             const lines = content.split('\n').length;
 
-            if (lines > 500) {
+            if (lines > 800) {
+                const relPath = relative(process.cwd(), file);
+                // R04-001 豁免：已登记 fileSizeExceptions 的文件不阻断
+                if (this.isFileSizeExempt(relPath)) continue;
                 this.violations.push({
                     ruleId: 'R04-001',
-                    severity: 'warning',
-                    file: relative(process.cwd(), file),
-                    message: `文件 ${lines} 行，超过 500 行限制`,
-                    suggestion: '考虑拆分为子目录下的多个文件',
+                    severity: 'error',
+                    file: relPath,
+                    message: `文件 ${lines} 行，超过 800 行限制`,
+                    suggestion: '必须拆分为子目录下的多个文件，或在例外表中登记',
                 });
             }
         }
@@ -1447,6 +1461,12 @@ class ArchitectureLinter {
 
     private layerExceptions: Set<string> = new Set();
     private exceptionData: { bulk: any[]; perModule: any[] } = { bulk: [], perModule: [] };
+    /** 文件大小例外（R04-001 豁免，路径统一为小写正斜杠） */
+    private fileSizeExceptions: Set<string> = new Set();
+    /** 文件大小 pattern 例外（R04-001，来自 bulkExceptions 中 ruleId=R04-001 的条目） */
+    private fileSizePatterns: RegExp[] = [];
+    /** 桶文件例外（R06-010 豁免，路径统一为小写正斜杠） */
+    private barrelExceptions: Set<string> = new Set();
 
     /** 加载分层例外清单 */
     async loadLayerExceptions(): Promise<void> {
@@ -1465,6 +1485,13 @@ class ArchitectureLinter {
             // 检查是否已过期
             if (ex.expiresAt && new Date(ex.expiresAt) < new Date()) continue;
             this.layerExceptions.add(`${ex.ruleId}:${ex.pattern}`);
+            // R04-001 的文件大小 pattern 例外单独收集（glob 简化：* → [^/]*）
+            if (ex.ruleId === 'R04-001' && typeof ex.pattern === 'string') {
+                const regexSrc = ex.pattern
+                    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+                    .replace(/\*/g, '[^/]*');
+                this.fileSizePatterns.push(new RegExp(`^${regexSrc}$`, 'i'));
+            }
         }
 
         // 加载按模块例外
@@ -1474,7 +1501,40 @@ class ArchitectureLinter {
             this.layerExceptions.add(`${ex.ruleId}:${ex.sourceModule}:${ex.targetModule}`);
         }
 
-        console.log(`已加载 ${this.layerExceptions.size} 条有效分层例外`);
+        // 加载文件大小例外（R04-001 豁免）
+        const fileSize = data.fileSizeExceptions || [];
+        for (const ex of fileSize) {
+            if (ex.expiresAt && new Date(ex.expiresAt) < new Date()) continue;
+            this.fileSizeExceptions.add(ex.file.replace(/\\/g, '/').toLowerCase());
+        }
+
+        // 加载桶文件例外（R06-010 豁免）
+        const barrels = data.barrelExceptions || [];
+        for (const ex of barrels) {
+            if (ex.expiresAt && new Date(ex.expiresAt) < new Date()) continue;
+            this.barrelExceptions.add(ex.file.replace(/\\/g, '/').toLowerCase());
+        }
+
+        console.log(`已加载 ${this.layerExceptions.size} 条有效分层例外 + ${this.fileSizeExceptions.size} 条文件大小例外 + ${this.barrelExceptions.size} 条桶文件例外`);
+    }
+
+    /** 判断文件是否在 R04-001 豁免清单中 */
+    isFileSizeExempt(relPath: string): boolean {
+        const normalized = relPath.replace(/\\/g, '/').toLowerCase();
+        // 适配两种 cwd：项目根（app/src/...）或 app 目录（src/...）
+        const withAppPrefix = normalized.startsWith('app/') ? normalized : `app/${normalized}`;
+        if (this.fileSizeExceptions.has(normalized) || this.fileSizeExceptions.has(withAppPrefix)) {
+            return true;
+        }
+        // pattern 例外匹配（BULK R04-001）
+        return this.fileSizePatterns.some((p) => p.test(normalized) || p.test(withAppPrefix));
+    }
+
+    /** 判断文件是否在 R06-010 桶文件豁免清单中 */
+    isBarrelExempt(relPath: string): boolean {
+        const normalized = relPath.replace(/\\/g, '/').toLowerCase();
+        const withAppPrefix = normalized.startsWith('app/') ? normalized : `app/${normalized}`;
+        return this.barrelExceptions.has(normalized) || this.barrelExceptions.has(withAppPrefix);
     }
 
     /** 判断跨层依赖是否已被豁免 */
@@ -1594,9 +1654,229 @@ class ArchitectureLinter {
         console.log(`分层检查完成: 检查 ${checked} 个文件 | 违规 ${violationCount} | 已豁免 ${exemptedCount}`);
     }
 
+    // ============ P1 新增检查（AR/GR 规则） ============
+
+    /** R06-009-1: 检查文件行数下限（碎片归集） */
+    async checkFileSizeLower(): Promise<void> {
+        const MIN_LINES = 100;
+        // 排除模式：类型定义、barrel、测试、.d.ts、配置文件
+        const excludePatterns = [
+            /[\\/]types\.ts$/, /[\\/]index\.ts$/, /[\\/]constants\.ts$/,
+            /\.d\.ts$/, /\.test\.ts$/, /\.test\.tsx$/,
+            /[\\/]__tests__[\\/]/, /[\\/]__mocks__[\\/]/,
+            /[\\/]config-schema\.ts$/, /[\\/]schemas\.ts$/,
+            // 排除已知合理的微文件
+            /[\\/]commands[\\/]builtin[\\/]/, // 命令声明待 P2 归集
+            /[\\/]channels[\\/].*[\\/]config-schema\.ts$/,
+        ];
+
+        let checked = 0;
+        let fragmentCount = 0;
+        for (const file of this.allFiles) {
+            const relPath = relative(process.cwd(), file);
+            if (excludePatterns.some(p => p.test(relPath))) continue;
+
+            const content = readFileSync(file, 'utf-8');
+            const lines = content.split('\n').length;
+
+            if (lines < MIN_LINES) {
+                this.violations.push({
+                    ruleId: 'R06-009-1',
+                    severity: 'warning',
+                    file: relPath,
+                    message: `文件仅 ${lines} 行，低于 ${MIN_LINES} 行下限，建议合并到相关文件`,
+                    suggestion: '检查是否可以合并到同领域的大文件，或与其他小文件聚合为数据驱动模块',
+                });
+                fragmentCount++;
+            }
+            checked++;
+        }
+        console.log(`文件下限检查完成: 检查 ${checked} 个文件 | 碎片 ${fragmentCount}`);
+    }
+
+    /** R06-006-2: 检查僵尸薄转发方法 */
+    async checkZombieForward(): Promise<void> {
+        let zombieCount = 0;
+
+        for (const file of this.allFiles) {
+            const content = readFileSync(file, 'utf-8');
+            const relPath = relative(process.cwd(), file);
+            const lines = content.split('\n');
+
+            // 查找方法签名，然后检查方法体是否只有一行 return
+            // 匹配: private/public/protected/async methodName(...) ... {
+            const methodRegex = /(?:private|public|protected|async|\s)+(?:static\s+)?(\w+)\s*\([^)]*\)[^{]*\{/g;
+            let match;
+            // 使用 while 循环检查每个匹配
+            const contentCopy = content;
+            const methodRegexGlobal = new RegExp(methodRegex.source, 'g');
+            while ((match = methodRegexGlobal.exec(contentCopy)) !== null) {
+                const methodName = match[1];
+                // 过滤保留字，排除 if/for/while 等控制流语句被误判为方法
+                if (RESERVED_WORDS.has(methodName)) continue;
+                const bodyStart = match.index + match[0].length;
+                const bodyMatch = contentCopy.slice(bodyStart);
+
+                // 找到匹配的 }
+                let depth = 1;
+                let bodyEnd = 0;
+                for (let i = 0; i < bodyMatch.length && depth > 0; i++) {
+                    if (bodyMatch[i] === '{') depth++;
+                    else if (bodyMatch[i] === '}') { depth--; if (depth === 0) bodyEnd = i; }
+                }
+                if (bodyEnd === 0) continue;
+
+                const body = bodyMatch.slice(0, bodyEnd).trim();
+                const bodyLines = body.split('\n').filter(l => l.trim() !== '');
+
+                // 僵尸方法：方法体仅一行 return xxx() 且无其他逻辑
+                if (bodyLines.length === 1) {
+                    const singleLine = bodyLines[0].trim();
+                    if (/^return\s+\w+\(/.test(singleLine) && !singleLine.includes('if') && !singleLine.includes('try') && !singleLine.includes('await')) {
+                        // 排除一些合理的一行方法（如 getter）
+                        const fullLine = lines[lines.length - 1]; // 近似行号
+                        this.violations.push({
+                            ruleId: 'R06-006-2',
+                            severity: 'warning',
+                            file: relPath,
+                            message: `方法 "${methodName}" 疑似僵尸薄转发（仅一行 return 调用）`,
+                            suggestion: '确认调用方是否已全部迁移，若已迁移则删除此方法。禁止新增此类方法',
+                        });
+                        zombieCount++;
+                    }
+                }
+            }
+        }
+        console.log(`僵尸转发检查完成: 疑似僵尸方法 ${zombieCount}`);
+    }
+
+    /** R06-010: 检查桶文件超限 */
+    async checkBarrelOverflow(): Promise<void> {
+        const MAX_BARREL_EXPORTS = 20;
+        const MODULE_ROOTS = ['chat', 'core', 'ai', 'permission', 'tools', 'channels',
+            'infrastructure', 'modules', 'services', 'query', 'session', 'memory',
+            'agent', 'dream', 'bridge', 'mcp', 'skills', 'plugins', 'notebook'];
+
+        let barrelCount = 0;
+        let overflowCount = 0;
+
+        for (const file of this.allFiles) {
+            const relPath = relative(process.cwd(), file);
+            const baseName = relPath.split(/[\\/]/).pop() || '';
+
+            // 只检查 index.ts
+            if (baseName !== 'index.ts') continue;
+
+            const content = readFileSync(file, 'utf-8');
+            const lines = content.split('\n').filter(l => l.trim() !== '');
+
+            // 判断是否为纯 barrel 文件（仅含 export/re-export）
+            const nonExportLines = lines.filter(l => {
+                const trimmed = l.trim();
+                return trimmed !== '' && !trimmed.startsWith('//') && !trimmed.startsWith('/*') &&
+                    !trimmed.startsWith('*') && !trimmed.startsWith('export') && !trimmed.startsWith('}');
+            });
+
+            // 如果有非 export 的代码，不是纯 barrel
+            if (nonExportLines.length > 0) continue;
+
+            const exportCount = lines.filter(l => l.trim().startsWith('export')).length;
+
+            if (exportCount > MAX_BARREL_EXPORTS) {
+                // R06-010 豁免：已登记 barrelExceptions 的 barrel 不报
+                if (this.isBarrelExempt(relPath)) continue;
+                this.violations.push({
+                    ruleId: 'R06-010',
+                    severity: 'warning',
+                    file: relPath,
+                    message: `Barrel 文件包含 ${exportCount} 个 export，超过 ${MAX_BARREL_EXPORTS} 上限`,
+                    suggestion: '考虑拆分为按子域分组的 barrel 文件，或减少非必要暴露',
+                });
+                overflowCount++;
+            }
+            barrelCount++;
+        }
+        console.log(`桶文件检查完成: ${barrelCount} 个 barrel | 超限 ${overflowCount}`);
+    }
+
+    /** R06-009-2: 检查已知重复实现 */
+    async checkDuplicateImplement(): Promise<void> {
+        // 已知重复实现对（来自架构暴胀分析）。
+        // 2026-08-09 处置记录：
+        // - session-identifiers ↔ session-identity：已归集合并（session-identifiers.ts 已删除）
+        // - audioNormalizer ↔ audioFormatConverter：ffmpeg 探测已去重（复用 isFFmpegAvailable）
+        // - audioUtils ↔ audioLevelMeter：确认为误报（/32768 为 PCM16 标准归一化，职责不同）
+        // 全部处置完毕，保留空列表作为防复发机制。新增重复实现对时在此登记。
+        const knownDuplicates: Array<{ files: string[]; description: string }> = [];
+
+        let foundCount = 0;
+        for (const dup of knownDuplicates) {
+            const found: string[] = [];
+            for (const file of this.allFiles) {
+                const baseName = file.split(/[\\/]/).pop() || '';
+                if (dup.files.includes(baseName)) {
+                    found.push(relative(process.cwd(), file));
+                }
+            }
+            if (found.length >= 2) {
+                for (const f of found) {
+                    this.violations.push({
+                        ruleId: 'R06-009-2',
+                        severity: 'warning',
+                        file: f,
+                        message: `已知重复实现: ${dup.description}`,
+                        suggestion: `合并到单一实现，删除重复文件。关联文件: ${found.join(', ')}`,
+                    });
+                }
+                foundCount++;
+            }
+        }
+        console.log(`重复实现检查完成: ${foundCount} 组已知重复`);
+    }
+
+    /** R06-009-2: 检查 commands/builtin 微文件碎片 */
+    async checkCommandFragments(): Promise<void> {
+        const commandsDir = join(this.srcPath, 'commands', 'builtin');
+        if (!existsSync(commandsDir)) {
+            console.log('命令碎片检查: commands/builtin 目录不存在，跳过');
+            return;
+        }
+
+        const entries = readdirSyncFull(commandsDir);
+        let microFileCount = 0;
+        let totalFiles = 0;
+
+        for (const entry of entries) {
+            if (!entry.isDirectory()) continue;
+            const indexPath = join(commandsDir, entry.name, 'index.ts');
+            if (!existsSync(indexPath)) continue;
+
+            const content = readFileSync(indexPath, 'utf-8');
+            const lines = content.split('\n').length;
+
+            totalFiles++;
+            if (lines < 50) {
+                microFileCount++;
+            }
+        }
+
+        if (microFileCount > 50) {
+            this.violations.push({
+                ruleId: 'R06-009-2',
+                severity: 'warning',
+                file: `commands/builtin/`,
+                message: `commands/builtin 下 ${microFileCount}/${totalFiles} 个命令声明文件 < 50 行，存在碎片化`,
+                suggestion: `建议归集为 1 个 command-registry.ts 数据表（${microFileCount} 个命令声明 → 1 个数据驱动文件），删除 license 头重复`,
+            });
+        }
+        console.log(`命令碎片检查完成: ${totalFiles} 个命令 | 微文件 ${microFileCount}`);
+    }
+
     /** 运行所有检查 */
     async runAll(): Promise<RuleViolation[]> {
         await this.loadFiles();
+        // 提前加载例外清单，供 checkFileSize 等检查使用（checkLayerCompliance 内部调用幂等）
+        await this.loadLayerExceptions();
 
         console.log('\n运行架构合规检查...\n');
 
@@ -1623,6 +1903,12 @@ class ArchitectureLinter {
             this.checkSessionModel(),
             this.checkModuleSingleExport(),
             this.checkMessageRouting(),
+            // P1 架构收敛新增检查项
+            this.checkFileSizeLower(),
+            this.checkZombieForward(),
+            this.checkBarrelOverflow(),
+            this.checkDuplicateImplement(),
+            this.checkCommandFragments(),
         ]);
 
         // 分层合规检查（需按顺序在 loadFiles 之后执行）

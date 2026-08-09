@@ -13,7 +13,11 @@ export function PermissionsUI({ onDone, args = '' }: PermissionsUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'permissionsCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'permissionsCommand',
+          args
+        )
       }
     />
   );

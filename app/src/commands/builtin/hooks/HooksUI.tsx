@@ -13,7 +13,11 @@ export function HooksUI({ onDone, args = '' }: HooksUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'hooksCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'hooksCommand',
+          args
+        )
       }
     />
   );

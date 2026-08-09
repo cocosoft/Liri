@@ -13,7 +13,11 @@ export function DesktopUI({ onDone, args = '' }: DesktopUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'desktopCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'desktopCommand',
+          args
+        )
       }
     />
   );

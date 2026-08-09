@@ -13,7 +13,11 @@ export function RestartUI({ onDone, args = '' }: RestartUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'restartCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'restartCommand',
+          args
+        )
       }
     />
   );

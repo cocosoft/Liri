@@ -102,5 +102,9 @@ export interface ChatManager {
    * @param answers 用户选择的答案列表
    * @returns 是否成功解析
    */
-  resolveInteraction(questionId: string, answers: string[]): boolean;
+  resolveInteraction(
+    questionId: string,
+    answers: string[],
+    sessionId?: string
+  ): boolean;
 }

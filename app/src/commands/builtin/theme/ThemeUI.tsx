@@ -13,7 +13,11 @@ export function ThemeUI({ onDone, args = '' }: ThemeUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'themeCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'themeCommand',
+          args
+        )
       }
     />
   );

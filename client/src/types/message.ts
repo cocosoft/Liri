@@ -82,6 +82,8 @@ export interface TaskCardData {
   title: string;
   tasks: TaskCardTask[];
   status: "planning" | "executing" | "done";
+  /** P2（08-09）：关联的 PlanDrivenLoop planId，用于 SSE 实时更新 */
+  planId?: string;
 }
 
 export interface TaskCardTask {

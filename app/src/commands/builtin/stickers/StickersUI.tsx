@@ -13,7 +13,11 @@ export function StickersUI({ onDone, args = '' }: StickersUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'stickersCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'stickersCommand',
+          args
+        )
       }
     />
   );

@@ -13,7 +13,11 @@ export function SearchUI({ onDone, args = '' }: SearchUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'searchCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'searchCommand',
+          args
+        )
       }
     />
   );

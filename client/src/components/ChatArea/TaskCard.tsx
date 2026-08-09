@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { TaskCardData, TaskCardTask } from "../../types";
+import { usePlanTaskStore } from "../../stores/planTaskStore";
 import DAGMiniMap from "./DAGMiniMap";
 import DAGFullScreen from "./DAGFullScreen";
 
@@ -43,7 +44,13 @@ function renderDepends(
 }
 
 export default function TaskCard({ data }: TaskCardProps) {
-  const { title, tasks, status } = data;
+  // P2（08-09）：当有 planId 时，从 planTaskStore 读取实时数据
+  const liveData = usePlanTaskStore((s) =>
+    data.planId ? s.tasks[data.planId] : null,
+  );
+  const merged = liveData ?? data;
+
+  const { title, tasks, status } = merged;
   const isExecuting = status === "executing";
   const isDone = status === "done";
   const total = tasks.length;

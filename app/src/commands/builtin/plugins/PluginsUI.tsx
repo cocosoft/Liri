@@ -13,7 +13,11 @@ export function PluginsUI({ onDone, args = '' }: PluginsUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'pluginsCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'pluginsCommand',
+          args
+        )
       }
     />
   );

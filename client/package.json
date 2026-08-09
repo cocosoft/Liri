@@ -12,6 +12,7 @@
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "typecheck": "tsc --noEmit",
+    "check:react": "node scripts/check-duplicate-react.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "build:tauri": "tauri build",

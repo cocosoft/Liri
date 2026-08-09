@@ -61,6 +61,8 @@ export interface PlanStep {
   description: string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   taskId: string;
+  /** P2（08-09）：前置依赖步骤 ID 列表，供 DAG 可视化 */
+  dependsOn?: string[];
   result?: string;
   error?: string;
   /** PDCA：验收标准 */

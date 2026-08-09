@@ -13,7 +13,11 @@ export function ExtraUsageUI({ onDone, args = '' }: ExtraUsageUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'extraUsageCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'extraUsageCommand',
+          args
+        )
       }
     />
   );

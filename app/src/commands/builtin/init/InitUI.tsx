@@ -13,7 +13,11 @@ export function InitUI({ onDone, args = '' }: InitUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'initCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'initCommand',
+          args
+        )
       }
     />
   );

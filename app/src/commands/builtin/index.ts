@@ -25,7 +25,7 @@
 
 // 基础命令
 export { helpCommand } from './help/index.js';
-export { statusCommand } from './status/index.js';
+export { statusCommand } from './command-registry.js';
 export { clearCommand } from './clear/index.js';
 export { exitCommand } from './exit/index.js';
 export { versionCommand } from './version/index.js';
@@ -49,76 +49,76 @@ export { copyCommand } from './copy/index.js';
 export { voiceCommand } from './voice/index.js';
 export { exportCommand } from './export/index.js';
 export { shareCommand } from './share/index.js';
-export { activityCommand } from './activity/index.js';
-export { costCommand } from './cost/index.js';
-export { tokensCommand } from './tokens/index.js';
-export { usageCommand } from './usage/index.js';
-export { doctorCommand } from './doctor/index.js';
-export { envCommand } from './env/index.js';
-export { fastCommand } from './fast/index.js';
-export { memoryCommand } from './memory/index.js';
-export { hooksCommand } from './hooks/index.js';
-export { mcpCommand } from './mcp/index.js';
-export { pluginsCommand } from './plugins/index.js';
+export { activityCommand } from './command-registry.js';
+export { costCommand } from './command-registry.js';
+export { tokensCommand } from './command-registry.js';
+export { usageCommand } from './command-registry.js';
+export { doctorCommand } from './command-registry.js';
+export { envCommand } from './command-registry.js';
+export { fastCommand } from './command-registry.js';
+export { memoryCommand } from './command-registry.js';
+export { hooksCommand } from './command-registry.js';
+export { mcpCommand } from './command-registry.js';
+export { pluginsCommand } from './command-registry.js';
 export { branchCommand } from './branch/index.js';
 
 // 新增高优先级命令
-export { addDirCommand } from './add-dir/index.js';
-export { contextCommand } from './context/index.js';
-export { renameCommand } from './rename/index.js';
-export { rewindCommand } from './rewind/index.js';
-export { initCommand } from './init/index.js';
+export { addDirCommand } from './command-registry.js';
+export { contextCommand } from './command-registry.js';
+export { renameCommand } from './command-registry.js';
+export { rewindCommand } from './command-registry.js';
+export { initCommand } from './command-registry.js';
 
 // 新增中优先级命令
-export { effortCommand } from './effort/index.js';
-export { keybindingsCommand } from './keybindings/index.js';
-export { permissionsCommand } from './permissions/index.js';
-export { privacySettingsCommand } from './privacy-settings/index.js';
-export { outputStyleCommand } from './output-style/index.js';
-export { filesCommand } from './files/index.js';
-export { sandboxToggleCommand } from './sandbox-toggle/index.js';
-export { remoteEnvCommand } from './remote-env/index.js';
-export { insightsCommand } from './insights/index.js';
-export { planCommand } from './plan/index.js';
-export { upgradeCommand } from './upgrade/index.js';
-export { passesCommand } from './passes/index.js';
-export { reloadPluginsCommand } from './reload-plugins/index.js';
+export { effortCommand } from './command-registry.js';
+export { keybindingsCommand } from './command-registry.js';
+export { permissionsCommand } from './command-registry.js';
+export { privacySettingsCommand } from './command-registry.js';
+export { outputStyleCommand } from './command-registry.js';
+export { filesCommand } from './command-registry.js';
+export { sandboxToggleCommand } from './command-registry.js';
+export { remoteEnvCommand } from './command-registry.js';
+export { insightsCommand } from './command-registry.js';
+export { planCommand } from './command-registry.js';
+export { upgradeCommand } from './command-registry.js';
+export { passesCommand } from './command-registry.js';
+export { reloadPluginsCommand } from './command-registry.js';
 
 // 新增额外命令
-export { terminalSetupCommand } from './terminalSetup/index.js';
-export { feedbackCommand } from './feedback/index.js';
-export { extraUsageCommand } from './extra-usage/index.js';
-export { releaseNotesCommand } from './release-notes/index.js';
-export { thinkbackCommand } from './thinkback/index.js';
-export { statuslineCommand } from './statusline/index.js';
-export { rateLimitOptionsCommand } from './rate-limit-options/index.js';
-export { chromeCommand } from './chrome/index.js';
-export { btwCommand } from './btw/index.js';
-export { tagCommand } from './tag/index.js';
+export { terminalSetupCommand } from './command-registry.js';
+export { feedbackCommand } from './command-registry.js';
+export { extraUsageCommand } from './command-registry.js';
+export { releaseNotesCommand } from './command-registry.js';
+export { thinkbackCommand } from './command-registry.js';
+export { statuslineCommand } from './command-registry.js';
+export { rateLimitOptionsCommand } from './command-registry.js';
+export { chromeCommand } from './command-registry.js';
+export { btwCommand } from './command-registry.js';
+export { tagCommand } from './command-registry.js';
 
 // 新增进一步提升的命令
-export { colorCommand } from './color/index.js';
-export { desktopCommand } from './desktop/index.js';
-export { mobileCommand } from './mobile/index.js';
-export { loginCommand } from './login/index.js';
-export { logoutCommand } from './logout/index.js';
-export { installGithubAppCommand } from './install-github-app/index.js';
-export { installSlackAppCommand } from './install-slack-app/index.js';
-export { stickersCommand } from './stickers/index.js';
-export { heapdumpCommand } from './heapdump/index.js';
-export { prCommentsCommand } from './pr-comments/index.js';
-export { searchCommand } from './search/index.js';
-export { restartCommand } from './restart/index.js';
-export { tutorialCommand } from './tutorial/index.js';
-export { debugCommand } from './debug/index.js';
-export { themeCommand } from './theme/index.js';
-export { keyboardCommand } from './keyboard/index.js';
+export { colorCommand } from './command-registry.js';
+export { desktopCommand } from './command-registry.js';
+export { mobileCommand } from './command-registry.js';
+export { loginCommand } from './command-registry.js';
+export { logoutCommand } from './command-registry.js';
+export { installGithubAppCommand } from './command-registry.js';
+export { installSlackAppCommand } from './command-registry.js';
+export { stickersCommand } from './command-registry.js';
+export { heapdumpCommand } from './command-registry.js';
+export { prCommentsCommand } from './command-registry.js';
+export { searchCommand } from './command-registry.js';
+export { restartCommand } from './command-registry.js';
+export { tutorialCommand } from './command-registry.js';
+export { debugCommand } from './command-registry.js';
+export { themeCommand } from './command-registry.js';
+export { keyboardCommand } from './command-registry.js';
 export { workspaceCommand } from './workspace/index.js';
-export { timerCommand } from './timer/index.js';
+export { timerCommand } from './command-registry.js';
 
 // 遗漏命令补充
 export { diffCommand } from './diff/index.js';
-export { reviewCommand } from './review/index.js';
+export { reviewCommand } from './command-registry.js';
 export { resumeCommand } from './resume/index.js';
 
 // AI Trace 录制模块命令
@@ -126,23 +126,23 @@ export { traceRecordingCommand } from './trace-recording/index.js';
 
 // CC 对标补充命令
 export { commitPushPrCommand } from './commit-push-pr/index.js';
-export { thinkbackPlayCommand } from './thinkback-play/index.js';
+export { thinkbackPlayCommand } from './command-registry.js';
 export { securityReviewCommand } from './security-review/index.js';
 
 // Gateway 通道管理命令
 export { gatewayCommand } from './gateway/index.js';
 
 // 文档与卸载命令
-export { docsCommand } from './docs/index.js';
-export { uninstallCommand } from './uninstall/index.js';
+export { docsCommand } from './command-registry.js';
+export { uninstallCommand } from './command-registry.js';
 
 // 入手指引、健康检查与任务管理
-export { onboardCommand } from './onboard/index.js';
-export { healthCommand } from './health/index.js';
-export { tasksCommand } from './tasks/index.js';
+export { onboardCommand } from './command-registry.js';
+export { healthCommand } from './command-registry.js';
+export { tasksCommand } from './command-registry.js';
 
 // 对话演示（离线模式预览）
-export { demoCommand } from './demo/index.js';
+export { demoCommand } from './command-registry.js';
 
 // 模型命令（来自 commands/model）
 export { modelCommand } from '../model/index.js';

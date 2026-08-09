@@ -15,8 +15,8 @@ import { EOL } from 'node:os';
 
 /** 超过此行数为警告 */
 const WARN_LINES = 500;
-/** 超过此行数为错误 */
-const ERROR_LINES = 1000;
+/** 超过此行数为错误（与 R04-001 MUST 800 行对齐） */
+const ERROR_LINES = 800;
 /** 排除目录 */
 const EXCLUDE_DIRS = new Set(['node_modules', '.git', 'dist', 'target', '.trae']);
 /** 检查的文件扩展名 */
@@ -140,7 +140,7 @@ async function main(): Promise<void> {
 
     // 退出码：有错误则失败
     if (errorCount > 0) {
-        console.log('存在 >1000 行的文件需要拆分（阻塞合并）。');
+        console.log('存在 >800 行的文件需要拆分（阻塞合并）。');
         process.exit(1);
     } else {
         console.log('警告级文件建议拆分，但不阻塞合并。');

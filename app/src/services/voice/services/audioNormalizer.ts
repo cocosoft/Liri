@@ -8,9 +8,10 @@
  * （由调用方对 cloud Provider 放行——OpenAI Whisper API 原生支持 webm/ogg）。
  */
 
-import { spawn, spawnSync } from 'child_process';
+import { spawn } from 'child_process';
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { isFFmpegAvailable } from './audioFormatConverter.js';
 
 const logger = new Logger({
   module: 'services:voice:services:audioNormalizer',
@@ -93,32 +94,6 @@ export function detectAudioContainer(buffer: Buffer): AudioContainer {
   return 'unknown';
 }
 
-let _ffmpegChecked = false;
-let _ffmpegAvailable = false;
-
-/** 检查系统 ffmpeg 是否可用（结果缓存） */
-export function isFfmpegAvailable(): boolean {
-  if (!_ffmpegChecked) {
-    try {
-      const r = spawnSync('ffmpeg', ['-version'], {
-        timeout: 5000,
-        stdio: 'ignore',
-      });
-      _ffmpegAvailable = r.status === 0 && r.error === undefined;
-    } catch {
-      _ffmpegAvailable = false;
-    }
-    _ffmpegChecked = true;
-  }
-  return _ffmpegAvailable;
-}
-
-/** 重置 ffmpeg 可用性缓存（测试用） */
-export function _resetFfmpegCache(): void {
-  _ffmpegChecked = false;
-  _ffmpegAvailable = false;
-}
-
 /** 归一化结果 */
 export interface NormalizedAudio {
   /** 实际用于转录的音频数据 */
@@ -175,7 +150,7 @@ export async function normalizeAudioForSTT(
     return { buffer: input, container, converted: false };
   }
 
-  if (!isFfmpegAvailable()) {
+  if (!isFFmpegAvailable()) {
     logger.warn(
       '检测到非 WAV 音频且 ffmpeg 不可用，原样透传（cloud Provider 可识别）',
       {

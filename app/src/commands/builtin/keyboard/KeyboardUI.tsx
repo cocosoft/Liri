@@ -13,7 +13,11 @@ export function KeyboardUI({ onDone, args = '' }: KeyboardUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'keyboardCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'keyboardCommand',
+          args
+        )
       }
     />
   );

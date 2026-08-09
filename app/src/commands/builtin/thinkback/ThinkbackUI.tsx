@@ -13,7 +13,11 @@ export function ThinkbackUI({ onDone, args = '' }: ThinkbackUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'thinkbackCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'thinkbackCommand',
+          args
+        )
       }
     />
   );

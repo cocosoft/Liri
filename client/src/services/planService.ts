@@ -23,6 +23,28 @@ export interface PlanStep {
   maxRetries: number;
   result?: string;
   error?: string;
+  /** P2（08-09）：前置依赖步骤 ID */
+  dependsOn?: string[];
+}
+
+// ─── DAG 可视化（P2，08-09） ──────────────────────────
+
+export interface DAGNode {
+  id: string;
+  description: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'blocked';
+  dependsOn?: string[];
+}
+
+export interface DAGEdge {
+  from: string;
+  to: string;
+}
+
+export interface DAGData {
+  planId: string;
+  nodes: DAGNode[];
+  edges: DAGEdge[];
 }
 
 export interface CreatePlanInput {
@@ -81,6 +103,18 @@ export const planService = {
       return true;
     } catch {
       return false;
+    }
+  },
+
+  /** P2（08-09）：获取计划的 DAG 结构 */
+  getDAG: async (id: string): Promise<DAGData | null> => {
+    try {
+      const res = await http.get<DAGData>(
+        `/v1/plans/${encodeURIComponent(id)}/dag`,
+      );
+      return res ?? (null as DAGData | null);
+    } catch {
+      return null;
     }
   },
 };

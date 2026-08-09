@@ -1,18 +1,21 @@
 /**
  * ResumeManager — Durable Resume 管理器
  *
- * 启动时扫描文件系统上的 TAOR 检查点，
+ * 启动时扫描 DB 中的 TAOR 检查点，
  * 检测未完成的会话并提供断点恢复能力。
  */
 
 import { Logger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { isCheckpointLogEnabled } from '../config/settings/CheckpointLogConfig';
 import { EventEmitter } from 'events';
 import { FileTAORCheckpointStorage } from './FileTAORCheckpointStorage.js';
+import { DBTAORCheckpointStorage } from './DBTAORCheckpointStorage.js';
 import {
   TAORPhase,
   type TAORCheckpoint,
   type CheckpointIntegrity,
+  type CheckpointStorage,
 } from './types.js';
 import type { TAORLoop, TAORLoopConfig } from './TAORLoop.js';
 
@@ -36,11 +39,11 @@ export interface ResumeProgressEvent {
 }
 
 export class ResumeManager {
-  private storage: FileTAORCheckpointStorage;
+  private storage: CheckpointStorage;
   private emitter: EventEmitter;
 
-  constructor(storage?: FileTAORCheckpointStorage) {
-    this.storage = storage ?? new FileTAORCheckpointStorage();
+  constructor(storage?: CheckpointStorage) {
+    this.storage = storage ?? new DBTAORCheckpointStorage();
     this.emitter = new EventEmitter();
   }
 
@@ -67,20 +70,51 @@ export class ResumeManager {
         return [];
       }
 
+      if (isCheckpointLogEnabled()) {
+        logger.info('[ResumeManager] 扫描到待恢复会话', {
+          count: sessionIds.length,
+          sessionIds: sessionIds.slice(0, 10), // 最多展示 10 个
+        });
+      }
+
       const now = Date.now();
       const candidates: ResumeCandidate[] = [];
 
       for (const sessionId of sessionIds) {
         const latest = await this.storage.getLatestIncomplete(sessionId);
-        if (!latest) continue;
+        if (!latest) {
+          if (isCheckpointLogEnabled()) {
+            logger.info('[ResumeManager] 会话无最新检查点，跳过', {
+              sessionId,
+            });
+          }
+          continue;
+        }
 
-        // 超过 24 小时的检查点视为过期
-        if (now - latest.createdAt > 24 * 60 * 60 * 1000) {
-          logger.info('Stale checkpoint ignored', {
+        const age = now - latest.createdAt;
+        const isExpired = age > 24 * 60 * 60 * 1000;
+
+        if (isCheckpointLogEnabled()) {
+          logger.info('[ResumeManager] 检查点状态', {
             sessionId,
             checkpointId: latest.id,
-            age: now - latest.createdAt,
+            phase: latest.phase,
+            type: latest.type,
+            age,
+            ageHours: Math.round(age / 3600000),
+            isExpired,
           });
+        }
+
+        // 超过 24 小时的检查点视为过期
+        if (isExpired) {
+          if (isCheckpointLogEnabled()) {
+            logger.info('[ResumeManager] 检查点已过期，忽略', {
+              sessionId,
+              checkpointId: latest.id,
+              ageHours: Math.round(age / 3600000),
+            });
+          }
           continue;
         }
 
@@ -89,7 +123,15 @@ export class ResumeManager {
           checkpoint: latest,
           savedAt: latest.createdAt,
           stopType: latest.type,
-          age: now - latest.createdAt,
+          age,
+        });
+      }
+
+      if (isCheckpointLogEnabled()) {
+        logger.info('[ResumeManager] 扫描完成', {
+          totalPending: sessionIds.length,
+          validCandidates: candidates.length,
+          expired: sessionIds.length - candidates.length,
         });
       }
 
@@ -108,7 +150,19 @@ export class ResumeManager {
     const latest = await this.storage.getLatestIncomplete(sessionId);
     if (!latest) return false;
     // 过期检查
-    if (Date.now() - latest.createdAt > 24 * 60 * 60 * 1000) return false;
+    const age = Date.now() - latest.createdAt;
+    const isExpired = age > 24 * 60 * 60 * 1000;
+    if (isCheckpointLogEnabled()) {
+      logger.info('[ResumeManager] hasPending 检查', {
+        sessionId,
+        checkpointId: latest.id,
+        phase: latest.phase,
+        ageHours: Math.round(age / 3600000),
+        isExpired,
+        result: !isExpired,
+      });
+    }
+    if (isExpired) return false;
     return true;
   }
 
@@ -154,27 +208,45 @@ export class ResumeManager {
     reExecuteTools: boolean;
     reason: string;
   } {
+    let strategy: {
+      skipToolExecution: boolean;
+      reExecuteTools: boolean;
+      reason: string;
+    };
     switch (integrity.phase) {
       case TAORPhase.ACT:
-        return {
+        strategy = {
           skipToolExecution: false,
           reExecuteTools: integrity.pendingToolCalls > 0,
           reason: `ACT 阶段中断，${integrity.pendingToolCalls} 个工具需重新执行`,
         };
+        break;
       case TAORPhase.OBSERVE:
-        return {
+        strategy = {
           skipToolExecution: true,
           reExecuteTools: false,
           reason: 'OBSERVE 阶段中断，工具已执行完，跳过进入 THINK',
         };
+        break;
       case TAORPhase.THINK:
       default:
-        return {
+        strategy = {
           skipToolExecution: false,
           reExecuteTools: false,
           reason: 'THINK 阶段中断，正常恢复',
         };
+        break;
     }
+    if (isCheckpointLogEnabled()) {
+      logger.info('[ResumeManager] 恢复策略', {
+        phase: integrity.phase,
+        pendingToolCalls: integrity.pendingToolCalls,
+        tokenConsistency: integrity.tokenConsistency,
+        messageCountMatch: integrity.messageCountMatch,
+        ...strategy,
+      });
+    }
+    return strategy;
   }
 }
 

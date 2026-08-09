@@ -13,7 +13,11 @@ export function ChromeUI({ onDone, args = '' }: ChromeUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'chromeCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'chromeCommand',
+          args
+        )
       }
     />
   );

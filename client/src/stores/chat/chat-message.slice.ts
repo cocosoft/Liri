@@ -102,8 +102,8 @@ export interface MessageSlice {
   isStreaming: boolean;
   /** 流式响应实时状态文本，用于 ChatInput 状态栏显示 */
   streamingStatus: string;
-  /** 是否有待用户回答的 question 块（用于控制完成提示音是否需要播放） */
-  hasPendingQuestion: boolean;
+  /** 按会话记录是否有待回答的 question 块（P2-3：多会话并行互不串扰） */
+  hasPendingQuestion: Record<string, boolean>;
   /** 执行阶段追踪数据，由后端 ExecutionPhaseTracker 通过流式事件推送 */
   executionPhase: {
     phase:
@@ -201,7 +201,7 @@ export const createMessageSlice: StateCreator<
   streamControllers: {},
   messageQueue: [],
   rollbackSnapshot: null,
-  hasPendingQuestion: false,
+  hasPendingQuestion: {},
   recoverySessionId: null,
 
   addMessage: (message: Message) => {
@@ -811,8 +811,15 @@ export const createMessageSlice: StateCreator<
               .length,
           });
           updatedMsg = { ...msg, blocks: newBlocks };
-          // 标记有待用户回答的 question
-          get().hasPendingQuestion || set({ hasPendingQuestion: true });
+          // P2-3: 按会话记录 pending question，多会话并行互不覆盖
+          if (!get().hasPendingQuestion[sid]) {
+            set({
+              hasPendingQuestion: {
+                ...get().hasPendingQuestion,
+                [sid]: true,
+              },
+            });
+          }
           // 需要用户关注时播放警示音
           playWarningSound();
         } else if (chunk.type === "todo" && chunk.todoData) {
@@ -920,7 +927,13 @@ export const createMessageSlice: StateCreator<
 
       // 检查最终 blocks 中是否有 question 块，更新 hasPendingQuestion
       const hasQuestion = finalBlocks.some((b) => b.type === "question");
-      set({ hasPendingQuestion: hasQuestion });
+      // P2-3: 仅更新本会话的 question 状态，不影响其他会话
+      set({
+        hasPendingQuestion: {
+          ...get().hasPendingQuestion,
+          [sid]: hasQuestion,
+        },
+      });
 
       // 流完成提示音（仅当无待回答 question 时播放）
       if (!hasQuestion) {
@@ -1651,6 +1664,12 @@ export const createMessageSlice: StateCreator<
       const hasQuestion = enhancedMessages.some((m) =>
         m.blocks?.some((b) => b.type === "question"),
       );
+      // P2-3: 按会话记录 pending question（setMessages 作用于当前会话）
+      const questionSessionId = messages[0]?.session_id ?? "default";
+      const pendingQuestion = {
+        ...get().hasPendingQuestion,
+        [questionSessionId]: hasQuestion,
+      };
 
       if (sessionFilesList.length > 0) {
         const currentFiles = get().sessionFiles;
@@ -1663,14 +1682,14 @@ export const createMessageSlice: StateCreator<
         set({
           messages: enhancedMessages,
           sessionFiles: merged,
-          hasPendingQuestion: hasQuestion,
+          hasPendingQuestion: pendingQuestion,
           streamingStatus: "",
           executionPhase: null,
         });
       } else {
         set({
           messages: enhancedMessages,
-          hasPendingQuestion: hasQuestion,
+          hasPendingQuestion: pendingQuestion,
           streamingStatus: "",
           executionPhase: null,
         });

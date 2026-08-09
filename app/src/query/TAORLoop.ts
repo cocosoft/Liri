@@ -44,6 +44,7 @@ import {
 import { VerifierAgent, createVerifierAgent } from './VerifierAgent.js';
 import type { VerifierAgentConfig } from './VerifierAgent.js';
 import { FileTAORCheckpointStorage } from './FileTAORCheckpointStorage.js';
+import { DBTAORCheckpointStorage } from './DBTAORCheckpointStorage.js';
 import { estimateMessagesTokens } from '../ai/tokenizer/TokenEstimator';
 import type { ChatMessage } from '../ai/models/types';
 
@@ -241,6 +242,28 @@ export class MemoryCheckpointStorage implements CheckpointStorage {
     }
     return count;
   }
+
+  async getLatestIncomplete(sessionId: string): Promise<TAORCheckpoint | null> {
+    const found = await this.findBySessionId(sessionId);
+    return found?.[0] ?? null;
+  }
+
+  async getPendingSessions(): Promise<string[]> {
+    return Array.from(
+      new Set(Array.from(this.checkpoints.values()).map((c) => c.sessionId))
+    );
+  }
+
+  async deleteSession(sessionId: string): Promise<number> {
+    let count = 0;
+    for (const [id, checkpoint] of this.checkpoints) {
+      if (checkpoint.sessionId === sessionId) {
+        this.checkpoints.delete(id);
+        count++;
+      }
+    }
+    return count;
+  }
 }
 
 export class TAORLoop {
@@ -313,7 +336,7 @@ export class TAORLoop {
       enableCheckpoint: config.enableCheckpoint !== false,
       checkpointInterval: config.checkpointInterval || 5,
       checkpointStorage:
-        config.checkpointStorage || new FileTAORCheckpointStorage(),
+        config.checkpointStorage || new DBTAORCheckpointStorage(),
       enableVerifier: config.enableVerifier !== false,
       verifierConfig: config.verifierConfig ?? {},
       verifyStrategy: config.verifyStrategy ?? 'AND',

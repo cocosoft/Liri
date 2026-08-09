@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { monitorService } from "../../services/monitorService";
+import { configService } from "../../services/configService";
 import type { LogEntry, LogSource } from "../../types";
 import type {
   SessionSummary,
@@ -33,6 +34,10 @@ function LogViewerPage() {
   const [logsTotal, setLogsTotal] = useState(0);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
+
+  // P2（08-09）：检查点日志开关
+  const [checkpointLogEnabled, setCheckpointLogEnabled] = useState(false);
+  const [checkpointLogLoading, setCheckpointLogLoading] = useState(false);
 
   const [levelFilter, setLevelFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<LogSource>("all");
@@ -165,6 +170,11 @@ function LogViewerPage() {
     } else if (activeTab === "sessions") {
       fetchSessions();
     }
+
+    // P2（08-09）：加载检查点日志开关状态
+    configService.get("checkpointLog").then((val) => {
+      setCheckpointLogEnabled(val === true);
+    }).catch(() => {});
   }, [activeTab]);
 
   useEffect(() => {
@@ -390,6 +400,53 @@ function LogViewerPage() {
                 >
                   {t("settings.logViewerExportCsv")}
                 </button>
+
+                {/* P2（08-09）：检查点日志开关 */}
+                <div
+                  className={`h-8 w-px ${isDark ? "bg-gray-600" : "bg-gray-300"}`}
+                />
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <span
+                    className={`text-sm ${isDark ? "text-gray-300" : "text-gray-600"}`}
+                  >
+                    {t("settings.checkpointLogToggle")}
+                  </span>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={checkpointLogEnabled}
+                      disabled={checkpointLogLoading}
+                      onChange={async (e) => {
+                        const enabled = e.target.checked;
+                        setCheckpointLogEnabled(enabled);
+                        setCheckpointLogLoading(true);
+                        try {
+                          await configService.set("checkpointLog", enabled);
+                        } catch {
+                          // 回退状态
+                          setCheckpointLogEnabled(!enabled);
+                        } finally {
+                          setCheckpointLogLoading(false);
+                        }
+                      }}
+                    />
+                    <div
+                      className={`w-10 h-5 rounded-full transition-colors ${
+                        checkpointLogEnabled
+                          ? "bg-blue-600"
+                          : isDark
+                            ? "bg-gray-600"
+                            : "bg-gray-300"
+                      } ${checkpointLogLoading ? "opacity-50" : ""}`}
+                    />
+                    <div
+                      className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                        checkpointLogEnabled ? "left-5" : "left-0.5"
+                      }`}
+                    />
+                  </div>
+                </label>
               </div>
             </div>
 

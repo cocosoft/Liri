@@ -14,7 +14,7 @@ export function ThinkbackPlayUI({ onDone, args = '' }: ThinkbackPlayUIProps) {
       onDone={onDone}
       execute={() =>
         resolveCommandExecutor(
-          import('./index.js'),
+          import('../command-registry.js'),
           'thinkbackPlayCommand',
           args
         )

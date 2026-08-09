@@ -162,6 +162,31 @@
 |------|------|----------|-----------|
 | POST | `/v1/chat/completions` | ✅ | `chatService.sendMessage`, `chatService.streamMessage` |
 
+#### §3.5.1 SSE 流式事件协议（P2-4 固化）
+
+`POST /v1/chat/completions`（`stream:true`）以 SSE 返回，每行 `data: <JSON>`。前端解析：[parseSseChunk](client/src/services/chatService.ts)、[chat-message.slice.ts streamMessage](client/src/stores/chat/chat-message.slice.ts)。
+
+**`__pyapp_type` 枚举**（后端 [chat-handlers.ts](app/src/infrastructure/http/handlers/chat-handlers.ts) 转发 `ChatStreamChunk.type`）：
+
+| __pyapp_type | 关键字段 | 含义 |
+|--------------|---------|------|
+| `text` | `choices[0].delta.content` | 流式文本增量 |
+| `thinking` | `choices[0].delta.content` | 思考过程（前端 thinking 块） |
+| `status` | `__pyapp_status_type` | 状态提示（`ai_thinking`/`retry`/`task_all_done`/`resume`/**`tool_retry`**） |
+| `context_state` | `watermarkState` | 上下文水位（压缩/召回） |
+| `error` | `__pyapp_error_code` | 流式错误（前端渲染错误块） |
+| `tool_call` | `__pyapp_tool_status`, `choices[0].delta.tool_calls` | 工具调用块（status: running/completed/failed） |
+| `question` | `__pyapp_question` | ask_user_question 交互（前端 question 块） |
+| `todo` | `todoData` | 任务列表块 |
+| `usage` | `choices[0].finish_reason`, `usage` | 用量统计 + finishReason（`length`=截断） |
+| `execution_phase` | `executionPhase` | 执行阶段进度 |
+| `tool_completed` | `tool_call_id`, `result_data`（含 `pendingApproval`） | 工具完成事件（生图/审批等待态） |
+
+**约定**：
+- `statusType` 联合类型已含 `tool_retry`（后端 CoreAPI.ts 与前端 chatService.ts 同步，改动需双端一致）
+- 审批等待态通过 `tool_completed` + `result_data.pendingApproval === true` 传递，非 error 语义
+- 事件总线 `/v1/events`（`broadcastEvent` → 前端 `sseService.on`）与对话流内转发**并存**：长程任务等无活跃 chatStream 的场景走事件总线
+
 ### §3.6 会话
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |

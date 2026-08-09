@@ -13,7 +13,11 @@ export function McpUI({ onDone, args = '' }: McpUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'mcpCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'mcpCommand',
+          args
+        )
       }
     />
   );

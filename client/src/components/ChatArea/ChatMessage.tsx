@@ -934,8 +934,14 @@ function AssistantMessage({
       };
       const store = useChatStore.getState();
       store.addMessage(newMsg);
-      // 用户已回答 question，清除待回答标记
-      useChatStore.setState({ hasPendingQuestion: false });
+      // 用户已回答 question，清除该会话的待回答标记（P2-3 按会话隔离）
+      const questionState = useChatStore.getState().hasPendingQuestion;
+      useChatStore.setState({
+        hasPendingQuestion: {
+          ...questionState,
+          [message.session_id]: false,
+        },
+      });
     },
   );
 

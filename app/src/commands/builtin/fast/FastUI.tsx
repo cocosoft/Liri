@@ -13,7 +13,11 @@ export function FastUI({ onDone, args = '' }: FastUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'fastCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'fastCommand',
+          args
+        )
       }
     />
   );

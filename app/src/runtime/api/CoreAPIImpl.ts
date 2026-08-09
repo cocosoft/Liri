@@ -1707,8 +1707,12 @@ export class CoreAPIImpl implements CoreAPI {
    * 解析待处理的用户交互（question 回答）
    * 当 LLM 通过 ask_user_question 工具向用户提问后，前端调用此方法提交回答
    */
-  resolveInteraction(questionId: string, answers: string[]): boolean {
-    return this.chatManager.resolveInteraction(questionId, answers);
+  resolveInteraction(
+    questionId: string,
+    answers: string[],
+    sessionId?: string
+  ): boolean {
+    return this.chatManager.resolveInteraction(questionId, answers, sessionId);
   }
 
   /**

@@ -14,7 +14,7 @@ export function SandboxToggleUI({ onDone, args = '' }: SandboxToggleUIProps) {
       onDone={onDone}
       execute={() =>
         resolveCommandExecutor(
-          import('./index.js'),
+          import('../command-registry.js'),
           'sandboxToggleCommand',
           args
         )

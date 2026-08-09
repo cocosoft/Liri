@@ -13,7 +13,11 @@ export function StatuslineUI({ onDone, args = '' }: StatuslineUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'statuslineCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'statuslineCommand',
+          args
+        )
       }
     />
   );

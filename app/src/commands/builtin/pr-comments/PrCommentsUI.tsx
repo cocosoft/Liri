@@ -13,7 +13,11 @@ export function PrCommentsUI({ onDone, args = '' }: PrCommentsUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'prCommentsCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'prCommentsCommand',
+          args
+        )
       }
     />
   );

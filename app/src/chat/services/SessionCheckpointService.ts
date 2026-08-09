@@ -8,6 +8,7 @@ import type {
 } from '../types/checkpoint';
 import type { CheckpointStorage } from '../types/checkpoint';
 import { Logger } from '@modules/monitoring';
+import { isCheckpointLogEnabled } from '../../config/settings/CheckpointLogConfig';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = new Logger({ module: 'chat:sessionCheckpoint' });
@@ -55,12 +56,14 @@ export class SessionCheckpointService implements CheckpointService {
 
     await this.storage.saveCheckpoint(checkpoint);
 
-    logger.info('Checkpoint created', {
-      checkpointId: checkpoint.id,
-      sessionId,
-      label: params.label,
-      autoCreated: checkpoint.autoCreated,
-    });
+    if (isCheckpointLogEnabled()) {
+      logger.info('Checkpoint created', {
+        checkpointId: checkpoint.id,
+        sessionId,
+        label: params.label,
+        autoCreated: checkpoint.autoCreated,
+      });
+    }
 
     return checkpoint;
   }
@@ -90,13 +93,15 @@ export class SessionCheckpointService implements CheckpointService {
 
     await this.storage.saveCheckpoint(checkpoint);
 
-    logger.info('Checkpoint saved with data', {
-      checkpointId: checkpoint.id,
-      sessionId,
-      messageCount: messages.length,
-      label,
-      autoCreated: checkpoint.autoCreated,
-    });
+    if (isCheckpointLogEnabled()) {
+      logger.info('Checkpoint saved with data', {
+        checkpointId: checkpoint.id,
+        sessionId,
+        messageCount: messages.length,
+        label,
+        autoCreated: checkpoint.autoCreated,
+      });
+    }
 
     return checkpoint;
   }
@@ -134,11 +139,13 @@ export class SessionCheckpointService implements CheckpointService {
 
     const diff = this.computeDiff(currentSession, checkpoint);
 
-    logger.info('Rolled back to checkpoint', {
-      checkpointId,
-      sessionId: checkpoint.sessionId,
-      diff,
-    });
+    if (isCheckpointLogEnabled()) {
+      logger.info('Rolled back to checkpoint', {
+        checkpointId,
+        sessionId: checkpoint.sessionId,
+        diff,
+      });
+    }
 
     return {
       messages: JSON.parse(JSON.stringify(checkpoint.messages)),
@@ -151,13 +158,17 @@ export class SessionCheckpointService implements CheckpointService {
   async deleteCheckpoint(checkpointId: string): Promise<void> {
     await this.storage.deleteCheckpoint(checkpointId);
 
-    logger.info('Checkpoint deleted', { checkpointId });
+    if (isCheckpointLogEnabled()) {
+      logger.info('Checkpoint deleted', { checkpointId });
+    }
   }
 
   async deleteSessionCheckpoints(sessionId: string): Promise<void> {
     await this.storage.deleteSessionCheckpoints(sessionId);
 
-    logger.info('All checkpoints deleted for session', { sessionId });
+    if (isCheckpointLogEnabled()) {
+      logger.info('All checkpoints deleted for session', { sessionId });
+    }
   }
 
   async getLatestCheckpoint(

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useConfigStore } from "../../stores/configStore";
-import { httpLegacy as http } from "../../services/httpClient";
+import { planService } from "../../services/planService";
+import type { Plan } from "../../services/planService";
+import DAGView from "./DAGView";
 import { SkeletonCard } from "../common/Skeleton";
 
 // 计划/流程数据接口
@@ -16,24 +18,27 @@ export default function PlansPanel() {
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
 
-  const [plans, setPlans] = useState<PlanFlowItem[]>([]);
+  const [plans, setPlans] = useState<Plan[]>([]);
   const [flows, setFlows] = useState<PlanFlowItem[]>([]);
   const [loading, setLoading] = useState(true);
+  /** P2（08-09）：展开的计划 ID */
+  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
       try {
-        const [plansRes, flowsRes] = await Promise.all([
-          http.get<{ data: PlanFlowItem[] }>("/v1/plans"),
-          http.get<{ data: PlanFlowItem[] }>("/v1/flows"),
+        const [plansData, flowsRes] = await Promise.all([
+          planService.list(),
+          import("../../services/httpClient").then((m) =>
+            m.httpLegacy.get<{ data: PlanFlowItem[] }>("/v1/flows"),
+          ),
         ]);
         if (cancelled) return;
 
-        const pData = plansRes?.data;
+        setPlans(Array.isArray(plansData) ? plansData : []);
         const fData = flowsRes?.data;
-        setPlans(Array.isArray(pData) ? pData : []);
         setFlows(Array.isArray(fData) ? fData : []);
       } catch {
         // 静默失败
@@ -72,21 +77,50 @@ export default function PlansPanel() {
           <p className={`text-sm ${textSecondary}`}>暂无计划</p>
         ) : (
           <div className="space-y-2">
-            {plans.map((plan, i: number) => (
-              <div
-                key={plan.id ?? i}
-                className={`${cardBg} ${borderColor} border rounded-lg p-3`}
-              >
-                <p className={`text-sm font-medium ${textPrimary}`}>
-                  {plan.name || plan.title || `计划 ${i + 1}`}
-                </p>
-                {plan.description && (
-                  <p className={`text-xs mt-1 ${textSecondary}`}>
-                    {plan.description}
-                  </p>
-                )}
-              </div>
-            ))}
+            {plans.map((plan) => {
+              const isExpanded = expandedPlanId === plan.id;
+              const statusColors: Record<string, string> = {
+                pending: "bg-gray-400",
+                running: "bg-blue-500",
+                completed: "bg-green-500",
+                failed: "bg-red-500",
+                aborted: "bg-orange-500",
+              };
+              const dotColor = statusColors[plan.status] || "bg-gray-400";
+
+              return (
+                <div key={plan.id}>
+                  <button
+                    onClick={() =>
+                      setExpandedPlanId(isExpanded ? null : plan.id)
+                    }
+                    className={`w-full text-left ${cardBg} ${borderColor} border rounded-lg p-3 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`w-2 h-2 rounded-full ${dotColor} flex-shrink-0`}
+                      />
+                      <span className={`text-sm font-medium ${textPrimary} truncate`}>
+                        {plan.description || `计划 ${plan.id.slice(0, 8)}`}
+                      </span>
+                      <span className="text-xs text-gray-400 ml-auto">
+                        {isExpanded ? "▲" : "▼"}
+                      </span>
+                    </div>
+                    <div className={`text-xs mt-1 ${textSecondary}`}>
+                      {plan.steps.length} 步骤 · {plan.status}
+                    </div>
+                  </button>
+
+                  {/* P2（08-09）：展开 DAG 图 */}
+                  {isExpanded && (
+                    <div className="mt-1 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                      <DAGView planId={plan.id} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

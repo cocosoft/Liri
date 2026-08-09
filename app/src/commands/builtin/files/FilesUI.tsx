@@ -13,7 +13,11 @@ export function FilesUI({ onDone, args = '' }: FilesUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'filesCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'filesCommand',
+          args
+        )
       }
     />
   );

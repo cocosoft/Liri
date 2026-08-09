@@ -48,6 +48,8 @@ import type { VerificationResult } from '../query/VerifierAgent.js';
 import { FileLockManager, fileLockManager } from './FileLockManager.js';
 import { inboxManager } from '@modules/runtime/InboxManager.js';
 import { syncPdcaWorkItemStatus } from './PdcaWorkItemBridge';
+import { globalToolManager } from '../tools/index.js';
+import type { ToolUseContext } from '../tools/types/Tool.js';
 
 const logger = new Logger({ module: 'tasks:longRunning' });
 
@@ -143,6 +145,17 @@ type ExecutorFn = (params: {
   isolation: ReturnType<typeof createAgentIsolation>;
 }) => Promise<string>;
 
+/**
+ * §5 P1: 任务消息回写格式（长程任务 → 对话会话）
+ * RC-C（08-09）：任务内工具已从 LLM 模拟改为真实执行（globalToolManager），
+ * content 为真实执行摘要文本，前端据 isTaskMessage 渲染为摘要样式。
+ */
+export interface TaskMessage {
+  role: 'user' | 'assistant' | 'tool';
+  content: string;
+  toolCallId?: string;
+}
+
 export class LongRunningTaskOrchestrator {
   private taskId: string;
   private planId: string | null = null;
@@ -150,6 +163,9 @@ export class LongRunningTaskOrchestrator {
   private lifecycle: LifecycleTracker;
   private isolation: ReturnType<typeof createAgentIsolation>;
   private executor: ExecutorFn;
+  /** §5 P1: 任务消息回写回调（runFullPdca 注入）与当前 sessionId */
+  private _onTaskMessage?: (sessionId: string, msgs: TaskMessage[]) => void;
+  private _sessionId: string | null = null;
   private decisionAwait: Promise<ReviewDecision> | null = null;
   private decisionResolve: ((d: ReviewDecision) => void) | null = null;
   private auditReport: AuditReport | null = null;
@@ -234,6 +250,11 @@ export class LongRunningTaskOrchestrator {
    */
   setTAORLoop(loop: TAORLoop): void {
     this.taorLoop = loop;
+    logger.info('[orchestrator] TAORLoop 已注入', {
+      taskId: this.taskId,
+      hasTAORLoop: !!this.taorLoop,
+      envEnabled: process.env.ENABLE_LOOP_V8_PHASE2,
+    });
   }
 
   // ─── Phase 1: PLAN ──────────────────────────────────
@@ -351,6 +372,102 @@ export class LongRunningTaskOrchestrator {
     return taskOrchestrator.getPlan(this.planId)!;
   }
 
+  /**
+   * §5 P2: 任务事件广播（/v1/events 常驻事件总线，前端 sseService.on 订阅）
+   * 动态 import 避免启动期循环依赖；广播失败不影响任务执行
+   */
+  private async _emitTaskEvent(
+    event: 'task:progress' | 'task:completed' | 'task:error',
+    payload: Record<string, unknown>
+  ): Promise<void> {
+    try {
+      const { broadcastEvent } =
+        await import('@modules/infrastructure/http/LocalHTTPServiceSSE.js');
+      await broadcastEvent(event, { taskId: this.taskId, ...payload });
+    } catch (e) {
+      // @ignore-catch — 事件广播失败不影响任务执行
+      logger.debug('任务事件广播失败', {
+        taskId: this.taskId,
+        event,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  /**
+   * §5 P1: 将任务消息回写到对话会话（注入的回调不存在或回写失败不阻断任务）
+   */
+  /**
+   * RC-C 修复：为长程任务内工具执行创建最小 ToolUseContext。
+   * 复用对话侧 ToolExecutor 真实执行，豁免审批（任务启动即用户授权）。
+   */
+  private _createToolContext(): ToolUseContext {
+    return {
+      abortController: this.isolation.abortController,
+      sessionId: this._sessionId ?? undefined,
+      options: {
+        commands: [],
+        debug: false,
+        mainLoopModel: '',
+        tools: globalToolManager.getAllTools(),
+        verbose: false,
+        thinkingConfig: {},
+        mcpClients: [],
+        mcpResources: {},
+        isNonInteractiveSession: true,
+        agentDefinitions: {},
+        cwd: this.isolation.workspace,
+      },
+      readFileState: {},
+      getAppState: () => ({}),
+      setAppState: () => {},
+      setInProgressToolUseIDs: () => {},
+      setResponseLength: (f) => f(0),
+      updateFileHistoryState: () => {},
+      updateAttributionState: () => {},
+      messages: [],
+    };
+  }
+
+  private _emitTaskMessage(msgs: TaskMessage[]): void {
+    if (!this._sessionId || !this._onTaskMessage) {
+      logger.debug(
+        '[orchestrator] _emitTaskMessage 跳过（无 sessionId 或回调）',
+        {
+          taskId: this.taskId,
+          hasSessionId: !!this._sessionId,
+          hasCallback: !!this._onTaskMessage,
+          msgCount: msgs.length,
+        }
+      );
+      return;
+    }
+    try {
+      logger.info('[orchestrator] _emitTaskMessage 回写消息', {
+        taskId: this.taskId,
+        sessionId: this._sessionId,
+        msgCount: msgs.length,
+        roles: msgs.map((m) => m.role),
+        contentPreviews: msgs.map((m) => m.content.slice(0, 60)),
+      });
+      this._onTaskMessage(this._sessionId, msgs);
+    } catch (e) {
+      logger.warn('任务消息回写失败（不影响任务执行）', {
+        taskId: this.taskId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+    // §5 P2: 顺带广播进度事件（fire-and-forget，限频由调用方控制：step 级）
+    const last = msgs[msgs.length - 1];
+    if (last) {
+      void this._emitTaskEvent('task:progress', {
+        sessionId: this._sessionId,
+        status: 'running',
+        stepDesc: last.content.slice(0, 120),
+      });
+    }
+  }
+
   private async executeSingleStep(step: PlanStep, plan: Plan): Promise<void> {
     taskOrchestrator.markStepRunning(step.id);
     this.stepDurations.set(step.id, { startMs: Date.now() });
@@ -359,6 +476,32 @@ export class LongRunningTaskOrchestrator {
       TaskStatus.RUNNING,
       `Executing step: ${step.description}`
     );
+
+    logger.info('[orchestrator] executeSingleStep 开始', {
+      taskId: this.taskId,
+      planId: plan.id,
+      stepId: step.id,
+      stepDesc: step.description.slice(0, 80),
+      hasTAORLoop: !!this.taorLoop,
+      envEnabled: process.env.ENABLE_LOOP_V8_PHASE2,
+      hasAcceptanceCriteria: !!step.acceptanceCriteria,
+      hasReviewResult: !!step.reviewResult,
+      retryCount: step.retryCount,
+      maxRetries: step.maxRetries,
+    });
+
+    if (step.retryCount > 0) {
+      logger.info('[orchestrator] 执行重试步骤', {
+        taskId: this.taskId,
+        stepId: step.id,
+        retryCount: step.retryCount,
+        maxRetries: step.maxRetries,
+        hasReviewResult: !!step.reviewResult,
+        reviewIssues: step.reviewResult?.issues
+          ?.slice(0, 3)
+          .map((i) => i.description),
+      });
+    }
 
     const execPrompt = [
       `执行以下步骤: ${step.description}`,
@@ -371,10 +514,17 @@ export class LongRunningTaskOrchestrator {
       .join('\n\n');
 
     // Phase 2: 委托 TAORLoop 编排（如果已注入且 ENABLE_LOOP_V8_PHASE2 启用）
-    if (this.taorLoop && process.env.ENABLE_LOOP_V8_PHASE2 === 'true') {
+    if (this.taorLoop && process.env.ENABLE_LOOP_V8_PHASE2 !== 'false') {
+      logger.info('[orchestrator] 进入 TAORLoop 分支（真实工具执行）', {
+        taskId: this.taskId,
+        stepId: step.id,
+        toolNames: computeToolNames(EXECUTOR_ROLE.toolsets),
+      });
+      let taorStart = 0;
       try {
         const isolation = this.isolation;
         const executor = this.executor;
+        const taskId = this.taskId;
         (this.taorLoop as any).config.sessionId = this.taskId;
 
         // 持久化缓冲区（PDCA 模式下保持消息上下文）
@@ -390,11 +540,20 @@ export class LongRunningTaskOrchestrator {
                   : `[${m.role}] ${JSON.stringify(m.content)}`
               )
               .join('\n\n');
+            const callStart = Date.now();
             const result = await executor({
               systemPrompt: EXECUTOR_ROLE.systemPrompt,
               userPrompt: execPrompt + '\n\n' + conversationContext,
               tools: computeToolNames(EXECUTOR_ROLE.toolsets),
               isolation,
+            });
+            const callElapsed = Date.now() - callStart;
+            logger.info('[orchestrator] callModel 完成', {
+              taskId,
+              stepId: step.id,
+              elapsedMs: callElapsed,
+              resultLength: result?.length ?? 0,
+              msgCount: msgs.length,
             });
             yield { type: 'text', content: result };
             yield { type: 'done' };
@@ -407,21 +566,64 @@ export class LongRunningTaskOrchestrator {
             }>,
             _signal: AbortSignal
           ) => {
-            // 为每个 tool call 调用 executor，获取工具执行结果
+            // RC-C 修复：真实工具执行（替代 LLM 模拟）
+            // 复用对话侧 ToolExecutor，豁免审批（任务启动即用户授权）
+            const toolContext = this._createToolContext();
+            const executeToolsStart = Date.now();
             const results: Array<{
               toolCallId?: string;
               toolName?: string;
               result?: unknown;
               error?: string;
             }> = [];
+            logger.info('[orchestrator] executeTools 开始执行', {
+              taskId: this.taskId,
+              stepId: step.id,
+              toolCount: toolCalls.length,
+              toolNames: toolCalls.map((tc) => tc.name),
+            });
             for (const tc of toolCalls) {
+              const toolStart = Date.now();
               try {
-                const toolPrompt = `执行工具调用:\n工具名: ${tc.name}\n参数: ${JSON.stringify(tc.arguments, null, 2)}`;
-                const toolResult = await executor({
-                  systemPrompt: EXECUTOR_ROLE.systemPrompt,
-                  userPrompt: execPrompt + '\n\n' + toolPrompt,
-                  tools: computeToolNames(EXECUTOR_ROLE.toolsets),
-                  isolation,
+                const tool = globalToolManager
+                  .getAllTools()
+                  .find((t) => t.name === tc.name);
+                if (!tool) {
+                  logger.warn('[orchestrator] 工具未注册', {
+                    taskId: this.taskId,
+                    stepId: step.id,
+                    toolName: tc.name,
+                    toolCallId: tc.id,
+                    registeredTools: globalToolManager
+                      .getAllTools()
+                      .map((t) => t.name),
+                  });
+                  results.push({
+                    toolCallId: tc.id,
+                    toolName: tc.name,
+                    error: `工具未注册: ${tc.name}`,
+                  });
+                  continue;
+                }
+                const toolResult = await tool.execute(
+                  tc.arguments,
+                  toolContext
+                );
+                const elapsed = Date.now() - toolStart;
+                const resultPreview: string =
+                  typeof toolResult === 'string'
+                    ? (toolResult as string).slice(0, 100)
+                    : typeof toolResult === 'object' && toolResult !== null
+                      ? JSON.stringify(toolResult).slice(0, 100)
+                      : String(toolResult).slice(0, 100);
+                logger.info('[orchestrator] 工具执行成功', {
+                  taskId: this.taskId,
+                  stepId: step.id,
+                  toolName: tc.name,
+                  toolCallId: tc.id,
+                  elapsedMs: elapsed,
+                  resultType: typeof toolResult,
+                  resultPreview,
                 });
                 results.push({
                   toolCallId: tc.id,
@@ -429,10 +631,16 @@ export class LongRunningTaskOrchestrator {
                   result: toolResult,
                 });
               } catch (e) {
+                const elapsed = Date.now() - toolStart;
                 await handleError(e, {
                   module: 'tasks:longRunning',
                   action: 'executeTools',
-                  context: { toolName: tc.name, stepId: step.id },
+                  context: {
+                    toolName: tc.name,
+                    stepId: step.id,
+                    toolCallId: tc.id,
+                    elapsedMs: elapsed,
+                  },
                 });
                 results.push({
                   toolCallId: tc.id,
@@ -441,6 +649,17 @@ export class LongRunningTaskOrchestrator {
                 });
               }
             }
+            logger.info('[orchestrator] executeTools 执行完毕', {
+              taskId: this.taskId,
+              stepId: step.id,
+              total: results.length,
+              success: results.filter((r) => !r.error).length,
+              failed: results.filter((r) => r.error).length,
+              failedNames: results
+                .filter((r) => r.error)
+                .map((r) => r.toolName),
+              totalElapsedMs: Date.now() - executeToolsStart,
+            });
             return results;
           },
           persistMessages: async (msgs: any[], _signal?: AbortSignal) => {
@@ -450,48 +669,100 @@ export class LongRunningTaskOrchestrator {
         });
 
         const messages: any[] = [{ role: 'user', content: execPrompt }];
+        taorStart = Date.now();
         const result = await this.taorLoop.run(messages, deps);
+        const taorElapsed = Date.now() - taorStart;
 
         taskOrchestrator.markStepCompleted(
           step.id,
-          `[TAORLoop] turns=${result.turnCount} tokens=${result.totalTokens}`
+          `[TAORLoop] turns=${result.turnCount} tokens=${result.totalTokens} elapsed=${taorElapsed}ms`
         );
         const log = (this.taorLoop as any).getLastRunLog?.();
-        logger.info('PDCA step completed via TAORLoop', {
-          stepId: step.id,
-          taorResult: log,
-        });
         const dur = this.stepDurations.get(step.id);
         if (dur) dur.endMs = Date.now();
+        const stepElapsed = dur && dur.endMs ? dur.endMs - dur.startMs : -1;
+        logger.info('[orchestrator] TAORLoop 步骤完成', {
+          taskId: this.taskId,
+          stepId: step.id,
+          turns: result.turnCount,
+          totalTokens: result.totalTokens,
+          taorElapsedMs: taorElapsed,
+          stepElapsedMs: stepElapsed,
+          persistedMsgCount: persistedMessages.length,
+          taorResult: log,
+        });
+        // §5 P1: 消费死缓冲 — step 完成后批量回写（此前 persistedMessages 只 push 从未消费）
+        if (persistedMessages.length > 0) {
+          this._emitTaskMessage(
+            persistedMessages.slice(-10).map((m) => ({
+              // P2（08-09）：保留原始 role（不再强制伪装为 assistant）
+              role: (m.role === 'user' || m.role === 'tool'
+                ? m.role
+                : 'assistant') as TaskMessage['role'],
+              content:
+                typeof m.content === 'string'
+                  ? m.content.slice(0, 500)
+                  : JSON.stringify(m.content).slice(0, 500),
+              toolCallId: m.toolCallId as string | undefined,
+            }))
+          );
+        }
         return;
       } catch (e) {
+        const taorElapsedOnFail = Date.now() - taorStart;
         await handleError(e, {
           module: 'tasks:longRunning',
           action: 'taorLoop_delegation',
           context: { stepId: step.id },
         });
-        logger.warn(
-          'TAORLoop delegation failed for step, falling back to direct executor',
-          {
-            stepId: step.id,
-            error: String(e),
-          }
-        );
+        logger.warn('[orchestrator] TAORLoop 执行失败，降级到默认 executor', {
+          taskId: this.taskId,
+          stepId: step.id,
+          stepDesc: step.description.slice(0, 60),
+          elapsedMs: taorElapsedOnFail,
+          error: String(e),
+          errorType: e instanceof Error ? e.constructor.name : typeof e,
+        });
       }
     }
 
     // 默认路径：直接调用 executor
+    logger.info('[orchestrator] 进入默认 executor 路径（纯 LLM 文本执行）', {
+      taskId: this.taskId,
+      stepId: step.id,
+      hasTAORLoop: !!this.taorLoop,
+      envEnabled: process.env.ENABLE_LOOP_V8_PHASE2,
+    });
     try {
+      const executorStart = Date.now();
       const result = await this.executor({
         systemPrompt: EXECUTOR_ROLE.systemPrompt,
         userPrompt: execPrompt,
         tools: computeToolNames(EXECUTOR_ROLE.toolsets),
         isolation: this.isolation,
       });
+      const executorElapsed = Date.now() - executorStart;
 
       taskOrchestrator.markStepCompleted(step.id, result);
       const dur = this.stepDurations.get(step.id);
       if (dur) dur.endMs = Date.now();
+      const stepElapsed = dur && dur.endMs ? dur.endMs - dur.startMs : -1;
+
+      logger.info('[orchestrator] 默认 executor 步骤完成', {
+        taskId: this.taskId,
+        stepId: step.id,
+        executorElapsedMs: executorElapsed,
+        stepElapsedMs: stepElapsed,
+        resultLength: result?.length ?? 0,
+      });
+
+      // §5 P1: 默认路径从零建立消息记录（此前直接 executor 路径无任何消息回写）
+      this._emitTaskMessage([
+        {
+          role: 'assistant',
+          content: `[任务步骤完成] ${step.description}\n${(result || '').slice(0, 500)}`,
+        },
+      ]);
 
       this.lifecycle.record(
         'progress',
@@ -506,6 +777,13 @@ export class LongRunningTaskOrchestrator {
       });
       const errMsg = e instanceof Error ? e.message : String(e);
       taskOrchestrator.markStepFailed(step.id, errMsg);
+      // §5 P1: 失败也回写执行摘要
+      this._emitTaskMessage([
+        {
+          role: 'assistant',
+          content: `[任务步骤失败] ${step.description} — ${errMsg}`,
+        },
+      ]);
       const dur = this.stepDurations.get(step.id);
       if (dur) dur.endMs = Date.now();
 
@@ -700,6 +978,19 @@ export class LongRunningTaskOrchestrator {
               TaskStatus.RUNNING,
               `Retry limit exceeded for: ${step.description}`
             );
+            logger.warn('[orchestrator] 重试上限超标，升级为 escalate', {
+              taskId: this.taskId,
+              planId: this.planId,
+              stepId: step.id,
+              stepDesc: step.description.slice(0, 60),
+              retryCount: step.retryCount,
+              maxRetries,
+              reviewScore: step.reviewResult?.score,
+              reviewPass: step.reviewResult?.pass,
+              reviewIssues: step.reviewResult?.issues
+                ?.slice(0, 3)
+                .map((i) => i.description),
+            });
             break;
           }
 
@@ -713,6 +1004,18 @@ export class LongRunningTaskOrchestrator {
             TaskStatus.RUNNING,
             `Retry #${step.retryCount} for: ${step.description}`
           );
+          logger.info('[orchestrator] 步骤重试已就绪', {
+            taskId: this.taskId,
+            planId: this.planId,
+            stepId: step.id,
+            stepDesc: step.description.slice(0, 60),
+            retryCount: step.retryCount,
+            maxRetries,
+            prevDurationMs: this.stepDurations.get(step.id)?.endMs
+              ? this.stepDurations.get(step.id)!.endMs! -
+                this.stepDurations.get(step.id)!.startMs
+              : undefined,
+          });
           break;
         }
 
@@ -776,6 +1079,23 @@ export class LongRunningTaskOrchestrator {
       decision = 'escalate';
     }
 
+    logger.info('[orchestrator] autoDecideStep 决策', {
+      taskId: this.taskId,
+      planId: this.planId,
+      stepId: step.id,
+      stepDesc: step.description.slice(0, 60),
+      decision,
+      isPassed,
+      retryCount: step.retryCount,
+      maxRetries,
+      reviewScore: step.reviewResult?.score,
+      reviewPass: step.reviewResult?.pass,
+      reviewIssues: step.reviewResult?.issues
+        ?.slice(0, 3)
+        .map((i) => `${i.severity}:${i.description}`.slice(0, 80)),
+      remainingRetries: maxRetries - step.retryCount,
+    });
+
     await this.decideStep(stepId, decision);
     return decision;
   }
@@ -789,9 +1109,27 @@ export class LongRunningTaskOrchestrator {
   async runFullPdca(
     description: string,
     sessionId: string,
-    opts?: { requirePlanApproval?: boolean }
+    opts?: {
+      requirePlanApproval?: boolean;
+      /** §5 P1: 任务消息回写回调（ChatManager._launchImplicitPdca 注入） */
+      onTaskMessage?: (sessionId: string, msgs: TaskMessage[]) => void;
+    }
   ): Promise<PdcaStatus> {
+    // §5 P1: 记录回写目标会话与回调，供 executeSingleStep 使用
+    this._sessionId = sessionId;
+    this._onTaskMessage = opts?.onTaskMessage;
     const requireApproval = opts?.requirePlanApproval ?? false;
+
+    const pdcaStart = Date.now();
+    logger.info('[orchestrator] runFullPdca 开始', {
+      taskId: this.taskId,
+      sessionId,
+      hasTAORLoop: !!this.taorLoop,
+      envEnabled: process.env.ENABLE_LOOP_V8_PHASE2,
+      hasOnTaskMessage: !!opts?.onTaskMessage,
+      requireApproval,
+      descPreview: description.slice(0, 80),
+    });
 
     // Plan
     const plan = await this.executePlanPhase(description, sessionId);
@@ -858,6 +1196,25 @@ export class LongRunningTaskOrchestrator {
         (terminalStatuses as readonly string[]).includes(s.status)
       );
 
+      logger.info('[orchestrator] PDCA 迭代完成', {
+        taskId: this.taskId,
+        planId: this.planId,
+        iteration: iterations,
+        maxIterations,
+        allDone,
+        stepStatuses: latestPlan.steps.map((s) => ({
+          id: s.id,
+          status: s.status,
+          decision: s.decision,
+          retryCount: s.retryCount,
+        })),
+        hasRetry:
+          !allDone &&
+          latestPlan.steps.some(
+            (s) => s.status === 'pending' && s.decision === undefined
+          ),
+      });
+
       if (!allDone) {
         // 有步骤需要重试
         const hasRetry = latestPlan.steps.some(
@@ -868,17 +1225,26 @@ export class LongRunningTaskOrchestrator {
           latestPlan.status = 'failed';
           latestPlan.completedAt = new Date().toISOString();
           taskOrchestrator['savePlan']?.(latestPlan);
-          logger.error('PDCA exceeded max iterations, forced abort', {
-            taskId: this.taskId,
-            planId: this.planId,
-            iterations,
-            maxIterations,
-            steps: latestPlan.steps.map((s) => ({
-              id: s.id,
-              status: s.status,
-              decision: s.decision,
-            })),
-          });
+          void handleError(
+            new AppError(
+              'PDCA exceeded max iterations, forced abort',
+              ErrorCategory.OPERATION,
+              ErrorSeverity.HIGH,
+              'PDCA_MAX_ITERATIONS',
+              {
+                taskId: this.taskId,
+                planId: this.planId,
+                iterations,
+                maxIterations,
+                steps: latestPlan.steps.map((s) => ({
+                  id: s.id,
+                  status: s.status,
+                  decision: s.decision,
+                })),
+              }
+            ),
+            { module: 'tasks:longRunning', action: 'runFullPdca' }
+          );
           break;
         }
       }
@@ -900,7 +1266,25 @@ export class LongRunningTaskOrchestrator {
     this.persistAuditReport(this.auditReport);
     this.lifecycle.record('finalized', TaskStatus.COMPLETED, 'PDCA completed');
 
-    return this.getStatus();
+    // §5 P2: 任务完成事件广播（前端按 sessionId 过滤渲染）
+    const _finalStatus = this.getStatus();
+    void this._emitTaskEvent('task:completed', {
+      sessionId: this._sessionId ?? '',
+      planId: this.planId,
+      status: _finalStatus.phase,
+    });
+
+    const pdcaElapsed = Date.now() - pdcaStart;
+    logger.info('[orchestrator] runFullPdca 结束', {
+      taskId: this.taskId,
+      planId: this.planId,
+      phase: _finalStatus.phase,
+      totalElapsedMs: pdcaElapsed,
+      stepCount: _finalStatus.plan?.steps.length ?? 0,
+      iterations,
+    });
+
+    return _finalStatus;
   }
 
   // ─── 报告 ───────────────────────────────────────────
@@ -1097,11 +1481,20 @@ export class LongRunningTaskOrchestrator {
           latestPlan.status = 'failed';
           latestPlan.completedAt = new Date().toISOString();
           taskOrchestrator['savePlan']?.(latestPlan);
-          logger.error('PDCA exceeded max iterations after approval', {
-            taskId: this.taskId,
-            iterations,
-            maxIterations,
-          });
+          void handleError(
+            new AppError(
+              'PDCA exceeded max iterations after approval',
+              ErrorCategory.OPERATION,
+              ErrorSeverity.HIGH,
+              'PDCA_MAX_ITERATIONS_APPROVAL',
+              {
+                taskId: this.taskId,
+                iterations,
+                maxIterations,
+              }
+            ),
+            { module: 'tasks:longRunning', action: 'runFullPdca' }
+          );
         }
       }
     }

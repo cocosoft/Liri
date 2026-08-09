@@ -13,7 +13,11 @@ export function AddDirUI({ onDone, args = '' }: AddDirUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'addDirCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'addDirCommand',
+          args
+        )
       }
     />
   );

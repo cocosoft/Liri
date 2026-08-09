@@ -13,7 +13,11 @@ export function ContextUI({ onDone, args = '' }: ContextUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'contextCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'contextCommand',
+          args
+        )
       }
     />
   );

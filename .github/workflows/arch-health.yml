@@ -1,0 +1,36 @@
+name: Architecture Health Report
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: arch-health
+  cancel-in-progress: false
+
+jobs:
+  health:
+    name: Generate Health Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Generate architecture health report
+      run: bun run scripts/architecture-health.ts --json --compare
+
+    - name: Upload health report as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: architecture-health-report
+        path: |
+          dev_docs/architecture-health.json
+          dev_docs/architecture-health-history.json
+        retention-days: 30
+        if-no-files-found: error

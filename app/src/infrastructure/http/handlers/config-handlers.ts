@@ -23,6 +23,7 @@ import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { broadcastEvent } from './handler-utils';
 import { handleError } from '@modules/error';
+import { refreshCheckpointLogConfig } from '@modules/config/settings/CheckpointLogConfig';
 
 // ========== Config Handlers ==========
 
@@ -76,6 +77,10 @@ export async function handleSetConfig(
     const { value } = JSON.parse(body);
     const { configManager } = await import('@modules/config/ConfigManager');
     configManager.setConfigValue(key, value);
+    // P2（08-09）：检查点日志开关变更时刷新缓存
+    if (key === 'checkpointLog') {
+      refreshCheckpointLogConfig();
+    }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, key, value }));
     broadcastEvent('config:updated', { key, value });

@@ -13,7 +13,11 @@ export function KeybindingsUI({ onDone, args = '' }: KeybindingsUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'keybindingsCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'keybindingsCommand',
+          args
+        )
       }
     />
   );

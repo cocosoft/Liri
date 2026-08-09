@@ -13,7 +13,11 @@ export function FeedbackUI({ onDone, args = '' }: FeedbackUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'feedbackCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'feedbackCommand',
+          args
+        )
       }
     />
   );

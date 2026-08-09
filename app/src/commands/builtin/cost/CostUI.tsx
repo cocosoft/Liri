@@ -13,7 +13,11 @@ export function CostUI({ onDone, args = '' }: CostUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'costCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'costCommand',
+          args
+        )
       }
     />
   );

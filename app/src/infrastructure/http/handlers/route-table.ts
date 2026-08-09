@@ -429,6 +429,14 @@ export async function dispatchRoute(
     await self['handleCreatePlan'](req, res);
     return true;
   }
+  if (method === 'GET' && url.match(/^\/v1\/plans\/([^/]+)\/dag$/)) {
+    await self['handleGetPlanDAG'](
+      req,
+      res,
+      url.match(/^\/v1\/plans\/([^/]+)\/dag$/)![1]
+    );
+    return true;
+  }
   if (method === 'GET' && url.match(/^\/v1\/plans\/([^/]+)$/)) {
     await self['handleGetPlan'](
       req,

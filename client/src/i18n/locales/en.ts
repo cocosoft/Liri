@@ -568,6 +568,7 @@ const en = {
     notificationsBlockedAlert:
       "Notifications are blocked. Please enable them in your browser settings.",
     logs: "Backend Log",
+    tasks: "Tasks",
     logViewerTitle: "Log Browser",
     logViewerDesc:
       "Browse system logs, LLM session records, and cost statistics",
@@ -589,6 +590,8 @@ const en = {
     logViewerExportCsv: "Export CSV",
     logViewerNoSessions: "No LLM sessions",
     logViewerNoLogs: "No logs",
+    /** P2（08-09）：Checkpoint log toggle */
+    checkpointLogToggle: "Checkpoint Log",
     logViewerLoadMore: "Load More",
     logViewerViewDetail: "View Details →",
     logViewerSessionPrefix: "Session",

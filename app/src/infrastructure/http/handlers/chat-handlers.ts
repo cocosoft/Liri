@@ -289,6 +289,11 @@ async function handleStreamingChat(
     'session.id': request.session_id ?? '',
     model: request.model ?? 'default',
   });
+  streamSpan.addEvent('sse.connection.established', {
+    'session.id': request.session_id ?? '',
+    model: request.model ?? 'default',
+    hasImages: !!request.images?.length,
+  });
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream; charset=utf-8',
@@ -306,8 +311,19 @@ async function handleStreamingChat(
     res.socket.setNoDelay(true);
   }
 
+  // P0-fix: SSE 保活心跳，防止 NAT/代理静默断开 TCP 连接（每 15s 发送 SSE 注释行）
+  const keepaliveInterval = setInterval(() => {
+    try {
+      res.write(': heartbeat\n\n');
+    } catch {
+      clearInterval(keepaliveInterval);
+    }
+  }, 15000);
+
   // S1: 客户端断开时通知后端中止工具执行 — 补全 close → AbortController 链路
   res.on('close', () => {
+    clearInterval(keepaliveInterval);
+    streamSpan.addEvent('sse.client.disconnected');
     if (request.session_id) {
       try {
         getCoreAPI().chatManager?.abortSessionStream(request.session_id);
@@ -452,6 +468,7 @@ async function handleStreamingChat(
     };
 
     const generator = coreAPI.chatStream(chatRequest);
+    streamSpan.addEvent('sse.generator.start');
 
     eventNotificationService.on('tool:completed', onToolCompleted);
     eventNotificationService.on('project:auto_created', onAutoProjectCreated);
@@ -707,6 +724,11 @@ async function handleStreamingChat(
       model,
       sessionId: request.session_id,
     });
+    streamSpan.addEvent('sse.stream.completed', {
+      finishReason: finalFinishReason,
+      'usage.inputTokens': streamUsage?.inputTokens ?? 0,
+      'usage.outputTokens': streamUsage?.outputTokens ?? 0,
+    });
     otel.endSpan(streamSpan, SpanStatusCode.OK);
     res.end();
   } catch (err) {
@@ -928,8 +950,8 @@ export async function handleQuestionAnswer(
 
     const coreAPI = getCoreAPI();
 
-    // 先尝试流式路径的交互解析
-    const resolved = coreAPI.resolveInteraction(questionId, answers);
+    // 先尝试流式路径的交互解析（P0-1: 传 sessionId 精确定位，多会话并行不串扰）
+    const resolved = coreAPI.resolveInteraction(questionId, answers, sessionId);
     if (resolved) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));

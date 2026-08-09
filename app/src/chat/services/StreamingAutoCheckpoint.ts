@@ -12,6 +12,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring';
+import { isCheckpointLogEnabled } from '../../config/settings/CheckpointLogConfig';
 import { handleError } from '@modules/error';
 import type { SessionCheckpointService } from './SessionCheckpointService';
 import type { SessionCheckpoint } from '../types/checkpoint';
@@ -116,15 +117,17 @@ export class StreamingAutoCheckpoint {
     this.stepIndex++;
     if (isFull) this.lastFullStep = this.stepIndex;
 
-    logger.info('流式自动检查点已创建', {
-      sessionId: this.sessionId,
-      stepIndex: checkpoint.id,
-      mode: isFull ? 'full' : 'delta',
-      version: this.version,
-      messageCount: isFull
-        ? state.messagesSnapshot.length
-        : state.newMessagesSinceLastCheckpoint.length,
-    });
+    if (isCheckpointLogEnabled()) {
+      logger.info('流式自动检查点已创建', {
+        sessionId: this.sessionId,
+        stepIndex: checkpoint.id,
+        mode: isFull ? 'full' : 'delta',
+        version: this.version,
+        messageCount: isFull
+          ? state.messagesSnapshot.length
+          : state.newMessagesSinceLastCheckpoint.length,
+      });
+    }
 
     return checkpoint;
   }
@@ -159,12 +162,14 @@ export class StreamingAutoCheckpoint {
       return null;
     }
 
-    logger.info('从自动检查点恢复', {
-      sessionId: this.sessionId,
-      checkpointId: latest.id,
-      stepIndex: state.stepIndex,
-      completedToolCount: state.completedToolCallIds.length,
-    });
+    if (isCheckpointLogEnabled()) {
+      logger.info('从自动检查点恢复', {
+        sessionId: this.sessionId,
+        checkpointId: latest.id,
+        stepIndex: state.stepIndex,
+        completedToolCount: state.completedToolCallIds.length,
+      });
+    }
 
     return {
       checkpoint: latest,

@@ -63,7 +63,7 @@ import { jsonStringify } from '../utils/slowOperations';
 import { getErrorParts } from '../utils/toolErrors';
 import { zodToJsonSchema } from '../utils/zodToJsonSchema';
 import { getDefaultAppState } from '../system/state/AppState.js';
-import { reviewCommand as review } from '../commands/builtin/review';
+import { reviewCommand as review } from '../commands/builtin/command-registry.js';
 import type { Command } from '../commands/types/index';
 import { profileCheckpoint } from '../performance/StartupProfiler.js';
 

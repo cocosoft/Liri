@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { resolveDataDir } from '@modules/core';
 import { Logger } from '@modules/monitoring';
+import { isCheckpointLogEnabled } from '../config/settings/CheckpointLogConfig';
 import { randomUUID } from 'crypto';
 
 import type { TAORCheckpoint, CheckpointStorage } from './types.js';
@@ -72,10 +73,12 @@ export class FileTAORCheckpointStorage implements CheckpointStorage {
     await fd.close();
     await fs.promises.rename(tmpPath, finalPath);
 
-    logger.info('TAOR checkpoint saved', {
-      id: checkpoint.id,
-      sessionId: checkpoint.sessionId,
-    });
+    if (isCheckpointLogEnabled()) {
+      logger.info('TAOR checkpoint saved', {
+        id: checkpoint.id,
+        sessionId: checkpoint.sessionId,
+      });
+    }
     return checkpoint.id;
   }
 
@@ -154,7 +157,9 @@ export class FileTAORCheckpointStorage implements CheckpointStorage {
         try {
           await fs.promises.unlink(path.join(this.storageDir, file));
           count++;
-          logger.info('Cleaned orphaned checkpoint tmp file', { file });
+          if (isCheckpointLogEnabled()) {
+            logger.info('Cleaned orphaned checkpoint tmp file', { file });
+          }
         } catch {
           continue;
         }
@@ -216,8 +221,9 @@ export class FileTAORCheckpointStorage implements CheckpointStorage {
           continue;
         }
       }
-      if (count > 0)
+      if (count > 0 && isCheckpointLogEnabled()) {
         logger.info('Cleaned up expired TAOR checkpoints', { count });
+      }
       return count;
     } catch {
       return 0;

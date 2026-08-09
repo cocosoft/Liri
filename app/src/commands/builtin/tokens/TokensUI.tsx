@@ -13,7 +13,11 @@ export function TokensUI({ onDone, args = '' }: TokensUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'tokensCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'tokensCommand',
+          args
+        )
       }
     />
   );

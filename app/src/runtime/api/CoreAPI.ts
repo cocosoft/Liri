@@ -148,7 +148,12 @@ export interface ChatStreamChunk {
     severity: 'normal' | 'warn' | 'compact';
   };
   /** 状态子类型 — 替代前端对 content 的字符串匹配 (CS02) */
-  statusType?: 'ai_thinking' | 'retry' | 'task_all_done' | 'resume';
+  statusType?:
+    | 'ai_thinking'
+    | 'retry'
+    | 'task_all_done'
+    | 'resume'
+    | 'tool_retry';
   /** 结构化错误码 — 替代前端对 error message 的字符串匹配 (CS02) */
   errorCode?:
     | 'UNKNOWN'
@@ -301,8 +306,12 @@ export interface CoreAPI {
     request: ChatRequest
   ): AsyncGenerator<ChatStreamChunk, ChatResponse, unknown>;
 
-  /** 解析待处理的用户交互（question 回答） */
-  resolveInteraction(questionId: string, answers: string[]): boolean;
+  /** 解析待处理的用户交互（question 回答），sessionId 可选（多会话精确定位） */
+  resolveInteraction(
+    questionId: string,
+    answers: string[],
+    sessionId?: string
+  ): boolean;
 
   /** 获取非流式路径中的待处理交互数据 */
   getPendingInteraction(sessionId: string): QuestionData | null;

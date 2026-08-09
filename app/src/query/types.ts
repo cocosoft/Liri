@@ -78,4 +78,10 @@ export interface CheckpointStorage {
   findBySessionId(sessionId: string): Promise<TAORCheckpoint[] | null>;
   delete(id: string): Promise<boolean>;
   cleanup(expireTime: number): Promise<number>;
+  /** 获取最新的未完成检查点（用于恢复） */
+  getLatestIncomplete(sessionId: string): Promise<TAORCheckpoint | null>;
+  /** 获取所有有未完成检查点的 session ID 列表 */
+  getPendingSessions(): Promise<string[]>;
+  /** 删除某 session 的所有检查点 */
+  deleteSession(sessionId: string): Promise<number>;
 }

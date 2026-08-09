@@ -13,7 +13,11 @@ export function UpgradeUI({ onDone, args = '' }: UpgradeUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'upgradeCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'upgradeCommand',
+          args
+        )
       }
     />
   );

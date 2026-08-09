@@ -14,7 +14,7 @@ export function TerminalSetupUI({ onDone, args = '' }: TerminalSetupUIProps) {
       onDone={onDone}
       execute={() =>
         resolveCommandExecutor(
-          import('./index.js'),
+          import('../command-registry.js'),
           'terminalSetupCommand',
           args
         )

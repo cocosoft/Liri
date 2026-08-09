@@ -8,9 +8,17 @@ const MAX_INGEST_FILE_SIZE = 50 * 1024 * 1024;
  * 当文件被读取或上传时，自动将其内容整理到知识库 raw/ 目录，
  * 为后续 KnowledgeCompiler 编译和做梦整理提供原料。
  */
-import { readFile, writeFile, mkdir, copyFile, stat } from 'fs/promises';
+import {
+  readFile,
+  writeFile,
+  mkdir,
+  copyFile,
+  stat,
+  readdir,
+} from 'fs/promises';
 import { join, extname, basename, resolve } from 'path';
 import { existsSync } from 'fs';
+import { createHash } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { AIService, AIMessage } from '@modules/ai';
@@ -314,6 +322,25 @@ export class FileIngestionService {
         };
       }
 
+      // 内容级去重：raw/ 已存在相同内容的文件则不重复摄取
+      // 解决"同一内容从不同路径重复摄取"的反馈回路问题（同名检查无法覆盖）
+      if (!options.force) {
+        const duplicatePath = await this.findDuplicateByContent(resolvedPath);
+        if (duplicatePath) {
+          logger.info('内容重复，跳过摄取', {
+            fileName,
+            existing: basename(duplicatePath),
+          });
+          return {
+            success: true,
+            rawPath: duplicatePath,
+            fileName,
+            category: options.category || 'other',
+            action: 'skipped',
+          };
+        }
+      }
+
       let category = options.category || 'other';
 
       if (isMediaOnlyFile(resolvedPath)) {
@@ -518,6 +545,33 @@ export class FileIngestionService {
     } catch (_err) {
       return 'reference';
     }
+  }
+
+  /**
+   * 内容级去重：扫描 raw/ 中是否已存在相同内容的文件
+   * 先按文件大小过滤（size 不等则内容必不同），再对同大小文件做 SHA-256 比对
+   */
+  private async findDuplicateByContent(
+    sourcePath: string
+  ): Promise<string | null> {
+    const sourceBuf = await readFile(sourcePath).catch(() => null);
+    if (!sourceBuf) return null;
+    const sourceHash = createHash('sha256').update(sourceBuf).digest('hex');
+    const sourceSize = sourceBuf.length;
+
+    const entries = await readdir(this.rawDir).catch(() => [] as string[]);
+    for (const name of entries) {
+      if (!name.endsWith('.md') && !name.endsWith('.txt')) continue;
+      const full = join(this.rawDir, name);
+      const st = await stat(full).catch(() => null);
+      if (!st || !st.isFile() || st.size !== sourceSize) continue;
+      const content = await readFile(full).catch(() => null);
+      if (!content || content.length !== sourceSize) continue;
+      if (createHash('sha256').update(content).digest('hex') === sourceHash) {
+        return full;
+      }
+    }
+    return null;
   }
 
   /**

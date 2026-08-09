@@ -13,7 +13,11 @@ export function ReviewUI({ onDone, args = '' }: ReviewUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'reviewCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'reviewCommand',
+          args
+        )
       }
     />
   );

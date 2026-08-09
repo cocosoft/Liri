@@ -17,7 +17,7 @@ export function InstallGithubAppUI({
       onDone={onDone}
       execute={() =>
         resolveCommandExecutor(
-          import('./index.js'),
+          import('../command-registry.js'),
           'installGithubAppCommand',
           args
         )

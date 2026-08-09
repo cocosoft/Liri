@@ -17,7 +17,7 @@ export function RateLimitOptionsUI({
       onDone={onDone}
       execute={() =>
         resolveCommandExecutor(
-          import('./index.js'),
+          import('../command-registry.js'),
           'rateLimitOptionsCommand',
           args
         )

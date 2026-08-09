@@ -49,7 +49,6 @@ const DreamPage = lazy(() => import("../components/views/DreamPage"));
 const LiriPage = lazy(() => import("../components/views/LiriPage"));
 const LoopPanel = lazy(() => import("../components/views/LoopPanel"));
 
-const TaskCenterPage = lazy(() => import("../components/views/TaskCenterPage"));
 const ProjectsPage = lazy(() => import("../components/views/ProjectsPage"));
 const ProjectOutputPage = lazy(
   () => import("../components/views/ProjectOutputPage"),
@@ -373,14 +372,10 @@ export const routes: RouteObject[] = [
     element: <Navigate to="/" replace />,
   },
 
-  // 任务中心 → 工作模块
+  // 任务中心 → 工作模块（已迁移至项目页面编排 Tab + 设置页 Agent 任务管理）
   {
     path: "/tasks",
-    element: (
-      <AuthGuard>
-        <TaskCenterPage />
-      </AuthGuard>
-    ),
+    element: <Navigate to="/projects" replace />,
   },
 
   // 频道管理

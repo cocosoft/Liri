@@ -13,7 +13,11 @@ export function LogoutUI({ onDone, args = '' }: LogoutUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'logoutCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'logoutCommand',
+          args
+        )
       }
     />
   );

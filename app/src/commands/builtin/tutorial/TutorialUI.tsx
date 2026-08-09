@@ -13,7 +13,11 @@ export function TutorialUI({ onDone, args = '' }: TutorialUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'tutorialCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'tutorialCommand',
+          args
+        )
       }
     />
   );

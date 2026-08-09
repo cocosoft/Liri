@@ -13,7 +13,11 @@ export function RenameUI({ onDone, args = '' }: RenameUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'renameCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'renameCommand',
+          args
+        )
       }
     />
   );

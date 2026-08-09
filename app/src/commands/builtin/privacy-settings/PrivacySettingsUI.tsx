@@ -17,7 +17,7 @@ export function PrivacySettingsUI({
       onDone={onDone}
       execute={() =>
         resolveCommandExecutor(
-          import('./index.js'),
+          import('../command-registry.js'),
           'privacySettingsCommand',
           args
         )

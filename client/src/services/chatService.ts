@@ -5,6 +5,7 @@ import { useConfigStore } from "../stores/configStore";
 import { createLogger } from "../utils/logger";
 import { handleClientError } from "../utils/handleError";
 import { getOTelTracing } from "../monitoring/otel";
+import { staleSessionCache } from "../stores/chat/chat-history.slice";
 
 const logger = createLogger("chatService");
 
@@ -145,7 +146,8 @@ export interface StreamChunk {
     severity: "normal" | "warn" | "compact";
   };
   /** 状态子类型 — SSE 协议增强字段 (CS02)，替代前端字符串匹配 */
-  statusType?: "ai_thinking" | "retry" | "task_all_done" | "resume";
+  statusType?:
+    "ai_thinking" | "retry" | "task_all_done" | "resume" | "tool_retry";
   /** 结构化错误码 — SSE 协议增强字段 (CS02)，替代前端字符串匹配 */
   errorCode?:
     | "UNKNOWN"
@@ -746,9 +748,13 @@ export const chatService = {
           errorMessage.includes("ERR_CONNECTION_RESET") ||
           errorMessage.includes("net::ERR_INCOMPLETE_CHUNKED_ENCODING");
         if (isConnectionReset) {
+          // P0-fix: 中断时失效会话缓存，确保下次切换从后端读取最新消息
+          if (sessionId) {
+            staleSessionCache(sessionId);
+          }
           yield {
             type: "error",
-            content: "连接已断开，请重试",
+            content: "连接已断开，请刷新页面重试（中断前的消息已保存）",
             errorCode: "CONNECTION_RESET",
           };
           return;

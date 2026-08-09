@@ -13,7 +13,11 @@ export function ActivityUI({ onDone, args = '' }: ActivityUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'activityCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'activityCommand',
+          args
+        )
       }
     />
   );

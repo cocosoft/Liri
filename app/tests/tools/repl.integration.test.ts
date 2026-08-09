@@ -65,4 +65,25 @@ describe('REPLToolImpl 真实 spawn（P3-1 完成标记协议）', () => {
     expect(r.success).toBe(true);
     expect(r.error).toBeUndefined();
   });
+
+  test.skipIf(!pythonAvailable)(
+    '阻塞代码超时后返回超时结果而非永久挂起（U-1 根因回归）',
+    async () => {
+      // U-1 修复前：executeCode 无超时（等进程退出）→ 永久挂起 → 会话锁泄漏。
+      // 修复后：session.options.timeout 无条件生效，超时 kill 进程 + resolve 超时结果。
+      const s = await tool.startREPL('python', { timeout: 1000 });
+      try {
+        const start = Date.now();
+        const r = await tool.executeCode(s, 'import time; time.sleep(10)');
+        const elapsed = Date.now() - start;
+        expect(r.success).toBe(false);
+        expect(r.error).toContain('timed out');
+        // 超时应在 1s 附近返回，而非等满 sleep(10)；留足余量避免慢机误判
+        expect(elapsed).toBeLessThan(5000);
+      } finally {
+        await tool.stopREPL(s);
+      }
+    },
+    15000 // 真实 spawn 集成测试，全量并行时给足余量
+  );
 });

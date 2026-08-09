@@ -13,7 +13,11 @@ export function TagUI({ onDone, args = '' }: TagUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'tagCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'tagCommand',
+          args
+        )
       }
     />
   );

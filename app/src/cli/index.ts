@@ -914,7 +914,7 @@ program
     ) => {
       try {
         const { docsCommand } =
-          await import('../commands/builtin/docs/index.js');
+          await import('../commands/builtin/command-registry.js');
 
         if (options.search) {
           const result = await docsCommand.load!().then((m) =>
@@ -965,7 +965,7 @@ program
           : type;
 
         const { uninstallCommand } =
-          await import('../commands/builtin/uninstall/index.js');
+          await import('../commands/builtin/command-registry.js');
         const result = await uninstallCommand.load!().then((m) =>
           (m as CommandImplementation).execute!(fullArgs, {} as CommandContext)
         );
@@ -984,7 +984,7 @@ program
   .action(async (action: string | undefined) => {
     try {
       const { onboardCommand } =
-        await import('../commands/builtin/onboard/index.js');
+        await import('../commands/builtin/command-registry.js');
 
       const args = action || '';
       const result = await onboardCommand.load!().then((m) =>
@@ -1005,7 +1005,7 @@ program
   .action(async (action: string | undefined, options: { quick?: boolean }) => {
     try {
       const { healthCommand } =
-        await import('../commands/builtin/health/index.js');
+        await import('../commands/builtin/command-registry.js');
 
       const args = options.quick ? 'quick' : action || '';
       const result = await healthCommand.load!().then((m) =>
@@ -1025,7 +1025,7 @@ program
   .action(async (action: string[] | undefined) => {
     try {
       const { tasksCommand } =
-        await import('../commands/builtin/tasks/index.js');
+        await import('../commands/builtin/command-registry.js');
 
       const args = action ? action.join(' ') : '';
       const result = await tasksCommand.load!().then((m) =>

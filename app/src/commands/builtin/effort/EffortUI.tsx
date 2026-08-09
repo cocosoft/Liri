@@ -13,7 +13,11 @@ export function EffortUI({ onDone, args = '' }: EffortUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'effortCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'effortCommand',
+          args
+        )
       }
     />
   );

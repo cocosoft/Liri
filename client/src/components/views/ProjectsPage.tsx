@@ -22,6 +22,9 @@ import SessionHistorySidebar from "@/components/ChatArea/SessionHistorySidebar";
 import { ProjectMaterialsPanel } from "@/components/project/ProjectMaterialsPanel";
 import { ProjectDeliverablesPanel } from "@/components/project/ProjectDeliverablesPanel";
 import { ProjectHistoryPanel } from "@/components/project/ProjectHistoryPanel";
+import PlansPanel from "./PlansPanel";
+import PdcaPipeline from "../Agent/PdcaPipeline";
+import { pdcaService } from "../../services/planService";
 import {
   DashboardIcon,
   ModelIcon,
@@ -144,6 +147,13 @@ export default function ProjectsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showSmartMenu, setShowSmartMenu] = useState(false);
+  const [rightPanelTab, setRightPanelTab] = useState<string>("materials");
+  const [pdcaTasks, setPdcaTasks] = useState<
+    { taskId: string; planId: string; phase: string; description: string }[]
+  >([]);
+  const [selectedPdcaTaskId, setSelectedPdcaTaskId] = useState<string | null>(
+    null,
+  );
   const [refreshKey, setRefreshKey] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -199,6 +209,28 @@ export default function ProjectsPage() {
     // 引擎写入后刷新右侧面板
     setRefreshKey((k) => k + 1);
   }, [messages, selectedProjectId]);
+
+  // §6线A：编排 tab — 获取 PDCA 任务列表
+  useEffect(() => {
+    if (!selectedProjectId) {
+      setPdcaTasks([]);
+      setSelectedPdcaTaskId(null);
+      return;
+    }
+    let cancelled = false;
+    pdcaService
+      .list()
+      .then((tasks) => {
+        if (cancelled) return;
+        setPdcaTasks(tasks);
+      })
+      .catch(() => {
+        /* 静默失败 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProjectId]);
 
   // 仅显示用户创建的项目，按最近会话时间排序 + 搜索过滤
   const projects = useMemo(() => {
@@ -821,97 +853,143 @@ export default function ProjectsPage() {
       </main>
 
       {/* ======================================== */}
-      {/*  右栏：资料 / 成果 / 讨论记录              */}
+      {/*  右栏：资料 / 编排 / 成果 / 讨论记录（Tab） */}
       {/* ======================================== */}
       <aside className="w-72 border-l border-gray-200 dark:border-gray-700 flex flex-col flex-shrink-0 bg-white dark:bg-gray-900">
-        {/* -- 项目资料 -- */}
-        <div className="border-b border-gray-100 dark:border-gray-800">
-          <div className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-            <svg
-              className="w-3.5 h-3.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+        {/* Tab 栏 */}
+        <div className="flex border-b border-gray-200 dark:border-gray-700 shrink-0">
+          {[
+            { id: "materials", label: "资料" },
+            { id: "orchestration", label: "编排" },
+            { id: "deliverables", label: "成果" },
+            { id: "discussion", label: "讨论" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setRightPanelTab(tab.id)}
+              className={`flex-1 px-2 py-2 text-xs font-medium transition-colors border-b-2 ${
+                rightPanelTab === tab.id
+                  ? "border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-500"
+                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
-            项目资料
-          </div>
-          <div className="max-h-40 overflow-y-auto">
-            {selectedProjectId ? (
-              <ProjectMaterialsPanel
-                projectId={selectedProjectId}
-                refreshKey={refreshKey}
-              />
-            ) : (
-              <div className="p-4 text-sm text-gray-400 text-center">
-                请先选择项目
-              </div>
-            )}
-          </div>
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        {/* -- 成果 -- */}
-        <div className="flex-1 overflow-y-auto border-b border-gray-100 dark:border-gray-800">
-          <div className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-            <svg
-              className="w-3.5 h-3.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-            成果
-          </div>
-          {selectedProjectId ? (
-            <ProjectDeliverablesPanel
-              projectId={selectedProjectId}
-              refreshKey={refreshKey}
-            />
-          ) : (
-            <div className="p-4 text-sm text-gray-400 text-center">
-              请先选择项目
+        {/* Tab 内容 */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {/* 资料 */}
+          {rightPanelTab === "materials" && (
+            <div>
+              {selectedProjectId ? (
+                <ProjectMaterialsPanel
+                  projectId={selectedProjectId}
+                  refreshKey={refreshKey}
+                />
+              ) : (
+                <div className="p-4 text-sm text-gray-400 text-center">
+                  请先选择项目
+                </div>
+              )}
             </div>
           )}
-        </div>
 
-        {/* -- 讨论记录 -- */}
-        <div className="max-h-48 overflow-y-auto">
-          <div className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-            <svg
-              className="w-3.5 h-3.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-              />
-            </svg>
-            讨论记录
-          </div>
-          {selectedProjectId ? (
-            <ProjectHistoryPanel
-              projectId={selectedProjectId}
-              refreshKey={refreshKey}
-            />
-          ) : (
-            <div className="p-4 text-sm text-gray-400 text-center">
-              请先选择项目
+          {/* 编排 */}
+          {rightPanelTab === "orchestration" && (
+            <div className="flex flex-col h-full">
+              {/* PlansPanel：计划与流程 */}
+              <div className="flex-1 overflow-y-auto min-h-0">
+                <PlansPanel />
+              </div>
+              {/* PDCA 任务列表 */}
+              {pdcaTasks.length > 0 && (
+                <div className="border-t border-gray-200 dark:border-gray-700">
+                  <div className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    PDCA 任务 ({pdcaTasks.length})
+                  </div>
+                  <div className="max-h-40 overflow-y-auto">
+                    {pdcaTasks.map((task) => (
+                      <button
+                        key={task.taskId}
+                        onClick={() =>
+                          setSelectedPdcaTaskId(
+                            selectedPdcaTaskId === task.taskId
+                              ? null
+                              : task.taskId,
+                          )
+                        }
+                        className={`w-full text-left px-3 py-2 text-xs border-b border-gray-100 dark:border-gray-800 transition-colors ${
+                          selectedPdcaTaskId === task.taskId
+                            ? "bg-blue-50 dark:bg-blue-900/20"
+                            : "hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                              task.phase === "completed"
+                                ? "bg-green-500"
+                                : task.phase === "execute"
+                                  ? "bg-blue-500"
+                                  : task.phase === "failed"
+                                    ? "bg-red-500"
+                                    : "bg-gray-400"
+                            }`}
+                          />
+                          <span className="text-gray-700 dark:text-gray-300 truncate">
+                            {task.description || task.taskId.slice(0, 8)}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  {/* 选中任务的 PdcaPipeline */}
+                  {selectedPdcaTaskId && (
+                    <div className="border-t border-gray-200 dark:border-gray-700 max-h-60 overflow-y-auto">
+                      <PdcaPipeline taskId={selectedPdcaTaskId} />
+                    </div>
+                  )}
+                </div>
+              )}
+              {pdcaTasks.length === 0 && selectedProjectId && (
+                <div className="p-4 text-sm text-gray-400 text-center">
+                  暂无 PDCA 任务
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 成果 */}
+          {rightPanelTab === "deliverables" && (
+            <div>
+              {selectedProjectId ? (
+                <ProjectDeliverablesPanel
+                  projectId={selectedProjectId}
+                  refreshKey={refreshKey}
+                />
+              ) : (
+                <div className="p-4 text-sm text-gray-400 text-center">
+                  请先选择项目
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 讨论记录 */}
+          {rightPanelTab === "discussion" && (
+            <div>
+              {selectedProjectId ? (
+                <ProjectHistoryPanel
+                  projectId={selectedProjectId}
+                  refreshKey={refreshKey}
+                />
+              ) : (
+                <div className="p-4 text-sm text-gray-400 text-center">
+                  请先选择项目
+                </div>
+              )}
             </div>
           )}
         </div>

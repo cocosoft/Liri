@@ -91,7 +91,7 @@ export {
   formatSessionIdentifier,
   parseSessionIdentifier,
   resetSessionIdentifierCounter,
-} from './runtime/session-identifiers.js';
+} from './runtime/session-identity.js';
 
 export {
   checkRuntimeAvailability,

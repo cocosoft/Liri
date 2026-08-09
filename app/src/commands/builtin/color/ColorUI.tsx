@@ -13,7 +13,11 @@ export function ColorUI({ onDone, args = '' }: ColorUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'colorCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'colorCommand',
+          args
+        )
       }
     />
   );

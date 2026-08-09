@@ -13,7 +13,11 @@ export function MobileUI({ onDone, args = '' }: MobileUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'mobileCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'mobileCommand',
+          args
+        )
       }
     />
   );

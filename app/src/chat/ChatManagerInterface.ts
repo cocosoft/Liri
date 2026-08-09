@@ -432,7 +432,11 @@ export interface ChatManager {
    * @param answers 用户选择的答案列表
    * @returns 是否成功解析（false 表示没有匹配的待处理交互）
    */
-  resolveInteraction(questionId: string, answers: string[]): boolean;
+  resolveInteraction(
+    questionId: string,
+    answers: string[],
+    sessionId?: string
+  ): boolean;
 
   /**
    * 获取非流式路径中的待处理交互数据

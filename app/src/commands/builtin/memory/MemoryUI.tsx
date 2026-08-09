@@ -13,7 +13,11 @@ export function MemoryUI({ onDone, args = '' }: MemoryUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'memoryCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'memoryCommand',
+          args
+        )
       }
     />
   );

@@ -13,7 +13,11 @@ export function LoginUI({ onDone, args = '' }: LoginUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'loginCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'loginCommand',
+          args
+        )
       }
     />
   );

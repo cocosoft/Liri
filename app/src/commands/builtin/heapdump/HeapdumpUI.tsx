@@ -13,7 +13,11 @@ export function HeapdumpUI({ onDone, args = '' }: HeapdumpUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'heapdumpCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'heapdumpCommand',
+          args
+        )
       }
     />
   );

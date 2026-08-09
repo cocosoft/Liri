@@ -13,7 +13,11 @@ export function RemoteEnvUI({ onDone, args = '' }: RemoteEnvUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'remoteEnvCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'remoteEnvCommand',
+          args
+        )
       }
     />
   );

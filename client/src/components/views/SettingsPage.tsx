@@ -29,6 +29,7 @@ import AppearancePanel from "../settings/AppearancePanel";
 import ApiKeyContent from "../settings/ApiKeyContent";
 import BackendServicePanel from "../settings/BackendServicePanel";
 import DataStoragePanel from "../settings/DataStoragePanel";
+import AgentTaskSettings from "../settings/AgentTaskSettings";
 import UsageCenterPage from "../views/UsageCenterPage";
 import {
   ConfigSection,
@@ -95,6 +96,12 @@ const NAV_GROUPS: NavGroup[] = [
         id: "logs",
         labelKey: "settings.logs",
         icon: FileIcon,
+        zone: "general",
+      },
+      {
+        id: "tasks",
+        labelKey: "settings.tasks",
+        icon: PlayIcon,
         zone: "general",
       },
     ],
@@ -218,6 +225,7 @@ const PAGE_DESCRIPTIONS: Record<string, string> = {
   config: "外观、后端服务、AI 模型、功能开关等通用配置",
   notifications: "管理系统通知偏好和推送方式",
   logs: "查看应用运行日志和诊断信息",
+  tasks: "管理跨项目的全局 Agent 任务，可过滤状态、终止或重新执行",
   router: "配置 LLM Judge 智能路由和模型分级策略",
   soul: "定义 AI 助手的人设和对话风格",
   user: "设置用户身份信息，用于个性化对话",
@@ -647,6 +655,8 @@ function SettingsPage() {
 
   function renderContent() {
     switch (effectiveNav) {
+      case "tasks":
+        return <AgentTaskSettings />;
       case "config":
         return (
           <>

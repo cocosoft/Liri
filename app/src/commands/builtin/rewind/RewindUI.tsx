@@ -13,7 +13,11 @@ export function RewindUI({ onDone, args = '' }: RewindUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'rewindCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'rewindCommand',
+          args
+        )
       }
     />
   );

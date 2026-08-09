@@ -227,8 +227,7 @@ jobs:
 
     - name: Run file size check
       run: |
-        bun run scripts/lint-file-size.ts || echo "File size check had errors (non-blocking)"
-      continue-on-error: true
+        bun run scripts/lint-file-size.ts
 
   command-test:
     name: Command Tests (Phase 1 + 2)

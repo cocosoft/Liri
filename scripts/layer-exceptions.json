@@ -1,15 +1,13 @@
 {
   "version": "2.0",
   "description": "Liri 分层例外清单（v2 — 适配 entry/ui/app/service/infra/core 六层模型）",
-  "lastUpdated": "2026-06-19",
-
+  "lastUpdated": "2026-08-09",
   "decayRules": {
     "batchExpiryDays": 60,
     "newExpiryDays": 30,
     "maxPerModule": 30,
     "warningDaysBeforeExpiry": 7
   },
-
   "bulkExceptions": [
     {
       "id": "BULK-001",
@@ -208,9 +206,30 @@
       "createdAt": "2026-06-19",
       "expiresAt": "2026-08-18",
       "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-019",
+      "ruleId": "R04-001",
+      "pattern": "app/src/tools/*/schemas.ts",
+      "description": "工具参数 schema + 验证函数大文件（815-5304 行）",
+      "rationale": "非碎片微文件，实为 Zod schema 定义 + validate 验证函数模块。合并到主文件会撑爆 R04-001 上限，改为工具层大文件治理（拆分 schema 与验证函数）",
+      "estimatedCount": 43,
+      "createdAt": "2026-08-09",
+      "expiresAt": "2026-10-31",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BULK-020",
+      "ruleId": "R04-001",
+      "pattern": "app/src/tools/*/prompt.ts",
+      "description": "工具系统提示大文件（246-1925 行）",
+      "rationale": "非碎片微文件，实为工具系统提示。超 800 行的 13 个需评估提示精简或分段，与工具层大文件治理同步",
+      "estimatedCount": 13,
+      "createdAt": "2026-08-09",
+      "expiresAt": "2026-10-31",
+      "owner": "@arch-lead"
     }
   ],
-
   "perModuleExceptions": [
     {
       "id": "PM-001",
@@ -233,14 +252,1085 @@
       "owner": "@arch-lead"
     }
   ],
-
   "outdatedHistory": [
     {
-      "id": "BULK-001-OLD",
+      "id": "BULK-007",
       "ruleId": "R00-001",
       "pattern": "domain -> infrastructure",
       "description": "旧分层模型例外，v2 层模型已替换",
       "deprecatedAt": "2026-06-19"
+    }
+  ],
+  "fileSizeExceptions": [
+    {
+      "id": "FSZ-001",
+      "ruleId": "R04-001",
+      "file": "app/src/infrastructure/http/LocalHTTPService.ts",
+      "lines": 7013,
+      "targetLines": 800,
+      "plan": "按领域拆 Handler 模块 — 将 chat/session/tool/file/monitoring 等 60+ handler 拆分为独立 Handler 类，通过注册机制挂载",
+      "expiresAt": "2026-09-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-002",
+      "ruleId": "R04-001",
+      "file": "app/src/infrastructure/http/handlers/route-table.ts",
+      "lines": 3169,
+      "targetLines": 200,
+      "plan": "改造为注册式路由 — 每个 Handler 模块自行注册路由，主路由表仅做分发，消除 flat if/else 链",
+      "expiresAt": "2026-09-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-003",
+      "ruleId": "R04-001",
+      "file": "app/src/permission/classifiers/AutoModeClassifier.ts",
+      "lines": 3008,
+      "targetLines": 200,
+      "plan": "策略化拆分 — 30+ 检测方法独立为 SecurityRule 策略类，通过责任链组合",
+      "expiresAt": "2026-10-31",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-004",
+      "ruleId": "R04-001",
+      "file": "app/src/ai/ModelManagementAPI.ts",
+      "lines": 2623,
+      "targetLines": 500,
+      "plan": "按子域拆分 — ProviderAPI / ModelAPI / PricingAPI / ConfigAPI / CapabilitiesAPI",
+      "expiresAt": "2026-10-31",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-005",
+      "ruleId": "R04-001",
+      "file": "app/src/chat/ChatManager.ts",
+      "lines": 5894,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-006",
+      "ruleId": "R04-001",
+      "file": "app/src/ink/ink/ink.tsx",
+      "lines": 1930,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-007",
+      "ruleId": "R04-001",
+      "file": "app/src/runtime/api/CoreAPIImpl.ts",
+      "lines": 1853,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-008",
+      "ruleId": "R04-001",
+      "file": "app/src/tools/ToolFactory.ts",
+      "lines": 1795,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-009",
+      "ruleId": "R04-001",
+      "file": "app/src/docs/ContextHelp.ts",
+      "lines": 1794,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-010",
+      "ruleId": "R04-001",
+      "file": "app/src/channels/qq/QQChannel.ts",
+      "lines": 1761,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-011",
+      "ruleId": "R04-001",
+      "file": "app/src/infrastructure/http/handlers/knowledge-handlers.ts",
+      "lines": 1759,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-012",
+      "ruleId": "R04-001",
+      "file": "app/src/query/TAORLoop.ts",
+      "lines": 1734,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-013",
+      "ruleId": "R04-001",
+      "file": "app/src/infrastructure/http/handlers/workspaces-handlers.ts",
+      "lines": 1712,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-014",
+      "ruleId": "R04-001",
+      "file": "app/src/commands/builtin/onboard/Onboard.ts",
+      "lines": 1643,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-015",
+      "ruleId": "R04-001",
+      "file": "app/src/tasks/LongRunningTaskOrchestrator.ts",
+      "lines": 1618,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-016",
+      "ruleId": "R04-001",
+      "file": "app/src/query/QueryEngine.ts",
+      "lines": 1604,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-017",
+      "ruleId": "R04-001",
+      "file": "app/src/tools/ExpansionTools.ts",
+      "lines": 1592,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-018",
+      "ruleId": "R04-001",
+      "file": "app/src/system/i18n/extended-translations.ts",
+      "lines": 1562,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-019",
+      "ruleId": "R04-001",
+      "file": "app/src/main.ts",
+      "lines": 1517,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-020",
+      "ruleId": "R04-001",
+      "file": "app/src/ink/ink/screen.ts",
+      "lines": 1488,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-021",
+      "ruleId": "R04-001",
+      "file": "app/src/tools/DocGenerateTool/DocGenerateTool.ts",
+      "lines": 1488,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-022",
+      "ruleId": "R04-001",
+      "file": "app/src/ink/ink/render-node-to-output.ts",
+      "lines": 1467,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-023",
+      "ruleId": "R04-001",
+      "file": "app/src/services/voice/services/ttsProvider.ts",
+      "lines": 1458,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-024",
+      "ruleId": "R04-001",
+      "file": "app/src/session/SessionGateway.ts",
+      "lines": 1445,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-025",
+      "ruleId": "R04-001",
+      "file": "app/src/ai/modelRouter.ts",
+      "lines": 1382,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-026",
+      "ruleId": "R04-001",
+      "file": "app/src/services/voice/services/sttRegistry.ts",
+      "lines": 1378,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-027",
+      "ruleId": "R04-001",
+      "file": "app/src/tools/ImageAnalysisTool/ImageAnalysisTool.ts",
+      "lines": 1368,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-028",
+      "ruleId": "R04-001",
+      "file": "app/src/ai/providers/BaseAIProvider.ts",
+      "lines": 1293,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-029",
+      "ruleId": "R04-001",
+      "file": "app/src/config/ConfigManager.ts",
+      "lines": 1251,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-030",
+      "ruleId": "R04-001",
+      "file": "app/src/services/voice/services/voiceService.ts",
+      "lines": 1248,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-031",
+      "ruleId": "R04-001",
+      "file": "app/src/governance/IntelligentGovernanceAnalyzer.ts",
+      "lines": 1230,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-032",
+      "ruleId": "R04-001",
+      "file": "app/src/permission/PermissionManager.ts",
+      "lines": 1230,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-033",
+      "ruleId": "R04-001",
+      "file": "app/src/infrastructure/http/handlers/memory-handlers.ts",
+      "lines": 1216,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-034",
+      "ruleId": "R04-001",
+      "file": "app/src/infrastructure/http/handlers/voice-handlers.ts",
+      "lines": 1214,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-035",
+      "ruleId": "R04-001",
+      "file": "app/src/channels/feishu/FeishuChannel.ts",
+      "lines": 1199,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-036",
+      "ruleId": "R04-001",
+      "file": "app/src/chat/types/message.ts",
+      "lines": 1196,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-037",
+      "ruleId": "R04-001",
+      "file": "app/src/modules/doc/api/officeHandlers.ts",
+      "lines": 1192,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-038",
+      "ruleId": "R04-001",
+      "file": "app/src/cli/index.ts",
+      "lines": 1190,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-039",
+      "ruleId": "R04-001",
+      "file": "app/src/memory/retrievers/MemoryRetriever.ts",
+      "lines": 1166,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-040",
+      "ruleId": "R04-001",
+      "file": "app/src/memory/MemoryManager.ts",
+      "lines": 1145,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-041",
+      "ruleId": "R04-001",
+      "file": "app/src/entrypoints/repl.ts",
+      "lines": 1142,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-042",
+      "ruleId": "R04-001",
+      "file": "app/src/chat/services/MessageService.ts",
+      "lines": 1136,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-043",
+      "ruleId": "R04-001",
+      "file": "app/src/memory/stores/MemoryStore.ts",
+      "lines": 1136,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-044",
+      "ruleId": "R04-001",
+      "file": "app/src/ai/providers/OpenAIProvider.ts",
+      "lines": 1122,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-045",
+      "ruleId": "R04-001",
+      "file": "app/src/knowledge/KnowledgeRouter.ts",
+      "lines": 1117,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-046",
+      "ruleId": "R04-001",
+      "file": "app/src/cache/strategy/CacheStrategyManager.ts",
+      "lines": 1115,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-047",
+      "ruleId": "R04-001",
+      "file": "app/src/channels/email/EmailChannel.ts",
+      "lines": 1107,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-048",
+      "ruleId": "R04-001",
+      "file": "app/src/docs/HelpSystem.ts",
+      "lines": 1106,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-049",
+      "ruleId": "R04-001",
+      "file": "app/src/memory/services/TeamMemoryService.ts",
+      "lines": 1093,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-050",
+      "ruleId": "R04-001",
+      "file": "app/src/tools/AgentTool/AgentTool.ts",
+      "lines": 1090,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-051",
+      "ruleId": "R04-001",
+      "file": "app/src/tasks/cron/index.test.ts",
+      "lines": 1083,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-052",
+      "ruleId": "R04-001",
+      "file": "app/src/tools/ToolExecutor.ts",
+      "lines": 1082,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-053",
+      "ruleId": "R04-001",
+      "file": "app/src/modules/ModuleDefinitions.ts",
+      "lines": 1063,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-054",
+      "ruleId": "R04-001",
+      "file": "app/src/sandbox/IntelligentSandboxAnalyzer.ts",
+      "lines": 1053,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-055",
+      "ruleId": "R04-001",
+      "file": "app/src/infrastructure/http/handlers/chat-handlers.ts",
+      "lines": 1040,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-056",
+      "ruleId": "R04-001",
+      "file": "app/src/ai/services/CapabilityService.ts",
+      "lines": 1024,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-057",
+      "ruleId": "R04-001",
+      "file": "app/src/memory/SmartMemoryAnalyzer.ts",
+      "lines": 1023,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-058",
+      "ruleId": "R04-001",
+      "file": "app/src/core/paths.ts",
+      "lines": 1013,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-059",
+      "ruleId": "R04-001",
+      "file": "app/src/plugins/hotload/PluginHotloadManager.ts",
+      "lines": 991,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-060",
+      "ruleId": "R04-001",
+      "file": "app/src/cost/CostRecordRepository.ts",
+      "lines": 990,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-061",
+      "ruleId": "R04-001",
+      "file": "app/src/chat/ToolLoopRunner.ts",
+      "lines": 989,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-062",
+      "ruleId": "R04-001",
+      "file": "app/src/keybindings/IntelligentKeybindingsAnalyzer.ts",
+      "lines": 989,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-063",
+      "ruleId": "R04-001",
+      "file": "app/src/lsp/IntelligentLSPAnalyzer.ts",
+      "lines": 988,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-064",
+      "ruleId": "R04-001",
+      "file": "app/src/tasks/__tests__/cg3_e2e.test.ts",
+      "lines": 985,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-065",
+      "ruleId": "R04-001",
+      "file": "app/src/tools/PowerShellTool/PowerShellTool.ts",
+      "lines": 985,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-066",
+      "ruleId": "R04-001",
+      "file": "app/src/services/executor/ShellExecutor.ts",
+      "lines": 979,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-067",
+      "ruleId": "R04-001",
+      "file": "app/src/tasks/db/SqliteTaskStore.ts",
+      "lines": 963,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-068",
+      "ruleId": "R04-001",
+      "file": "app/src/security/BashSecurityAnalyzer.ts",
+      "lines": 957,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-069",
+      "ruleId": "R04-001",
+      "file": "app/src/tools/TodoWriteTool/TodoWriteTool.ts",
+      "lines": 954,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-070",
+      "ruleId": "R04-001",
+      "file": "app/src/lsp/EnhancedLSPManager.ts",
+      "lines": 953,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-071",
+      "ruleId": "R04-001",
+      "file": "app/src/services/voice/services/edgeTTSProvider.ts",
+      "lines": 953,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-072",
+      "ruleId": "R04-001",
+      "file": "app/src/runtime/InboxManager.ts",
+      "lines": 946,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-073",
+      "ruleId": "R04-001",
+      "file": "app/src/plugins/index.ts",
+      "lines": 943,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-074",
+      "ruleId": "R04-001",
+      "file": "app/src/channels/discord/DiscordChannel.ts",
+      "lines": 942,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-075",
+      "ruleId": "R04-001",
+      "file": "app/src/commands/tasks/tasks.ts",
+      "lines": 941,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-076",
+      "ruleId": "R04-001",
+      "file": "app/src/entrypoints/init.ts",
+      "lines": 935,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-077",
+      "ruleId": "R04-001",
+      "file": "app/src/governance/EnhancedGovernanceManager.ts",
+      "lines": 929,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-078",
+      "ruleId": "R04-001",
+      "file": "app/src/ink/ink/selection.ts",
+      "lines": 922,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-079",
+      "ruleId": "R04-001",
+      "file": "app/src/keybindings/EnhancedKeybindingsManager.ts",
+      "lines": 918,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-080",
+      "ruleId": "R04-001",
+      "file": "app/src/ai/models/ModelPricingService.ts",
+      "lines": 906,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-081",
+      "ruleId": "R04-001",
+      "file": "app/src/tools/VideoGenerateTool/VideoGenerateTool.ts",
+      "lines": 903,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-082",
+      "ruleId": "R04-001",
+      "file": "app/src/sandbox/EnhancedSandboxManager.ts",
+      "lines": 901,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-083",
+      "ruleId": "R04-001",
+      "file": "app/src/security/SecurityAudit.ts",
+      "lines": 900,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-084",
+      "ruleId": "R04-001",
+      "file": "app/src/tools/bash/BashTool.ts",
+      "lines": 900,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-085",
+      "ruleId": "R04-001",
+      "file": "app/src/services/voice/services/localSTTProvider.ts",
+      "lines": 894,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-086",
+      "ruleId": "R04-001",
+      "file": "app/src/query/__tests__/CompactionIntegration.test.ts",
+      "lines": 891,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-087",
+      "ruleId": "R04-001",
+      "file": "app/src/utils/cache.ts",
+      "lines": 890,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-088",
+      "ruleId": "R04-001",
+      "file": "app/src/channels/telegram/TelegramChannel.ts",
+      "lines": 889,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-089",
+      "ruleId": "R04-001",
+      "file": "app/src/infrastructure/http/handlers/files-handlers.ts",
+      "lines": 875,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-090",
+      "ruleId": "R04-001",
+      "file": "app/src/infrastructure/http/handlers/channel-handlers.ts",
+      "lines": 865,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-091",
+      "ruleId": "R04-001",
+      "file": "app/src/security/securityUtils.ts",
+      "lines": 858,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-092",
+      "ruleId": "R04-001",
+      "file": "app/src/workspace/ProjectItemStore.ts",
+      "lines": 858,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-093",
+      "ruleId": "R04-001",
+      "file": "app/src/utils/computerUse/MacAdapter.ts",
+      "lines": 856,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-094",
+      "ruleId": "R04-001",
+      "file": "app/src/tools/utility-io-tools.ts",
+      "lines": 855,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-095",
+      "ruleId": "R04-001",
+      "file": "app/src/hooks/utils/SecurityManager.ts",
+      "lines": 846,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-096",
+      "ruleId": "R04-001",
+      "file": "app/src/services/voice/services/streamSTTProvider.ts",
+      "lines": 845,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-097",
+      "ruleId": "R04-001",
+      "file": "app/src/runtime/NotificationPersistence.ts",
+      "lines": 841,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-098",
+      "ruleId": "R04-001",
+      "file": "app/src/services/voice/services/recorder.ts",
+      "lines": 840,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-099",
+      "ruleId": "R04-001",
+      "file": "app/src/security/rollback/UndoManager.ts",
+      "lines": 839,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-100",
+      "ruleId": "R04-001",
+      "file": "app/src/commands/builtin/doctor/Doctor.ts",
+      "lines": 829,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-101",
+      "ruleId": "R04-001",
+      "file": "app/src/constants/systemPromptSections.ts",
+      "lines": 825,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-102",
+      "ruleId": "R04-001",
+      "file": "app/src/services/voice/services/audioPipeline.ts",
+      "lines": 820,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-103",
+      "ruleId": "R04-001",
+      "file": "app/src/commands/provider/provider.ts",
+      "lines": 805,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-104",
+      "ruleId": "R04-001",
+      "file": "app/src/commands/builtin/git/Git.ts",
+      "lines": 803,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-105",
+      "ruleId": "R04-001",
+      "file": "app/src/lsp/LSPClient.ts",
+      "lines": 803,
+      "targetLines": 800,
+      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    }
+  ],
+  "barrelExceptions": [
+    {
+      "id": "BRL-001",
+      "ruleId": "R06-010",
+      "file": "app/src/commands/builtin/index.ts",
+      "exports": 102,
+      "plan": "命令注册表 barrel：为保持公共 API 命名导出兼容，命令归集期间保留。二期按域拆分 barrel 后移除",
+      "expiresAt": "2026-09-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "BRL-002",
+      "ruleId": "R06-010",
+      "file": "app/src/cli/handlers/index.ts",
+      "exports": 30,
+      "plan": "CLI handler 聚合 barrel，按域拆分",
+      "expiresAt": "2026-10-31",
+      "owner": "@arch-lead"
     }
   ]
 }

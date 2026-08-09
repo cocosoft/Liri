@@ -1,5 +1,8 @@
 import { getBackendBaseUrl } from "./backendUrl";
 import { getOTelTracing } from "../monitoring/otel/OTelTracing";
+import { createLogger } from "../utils/logger";
+
+const logger = createLogger("sseService");
 
 /** 构建 W3C traceparent 查询参数 */
 function buildTraceparentParam(): string {
@@ -74,8 +77,12 @@ class SSEService {
    * 建立 SSE 连接
    */
   connect(): void {
-    if (this.eventSource) return;
+    if (this.eventSource) {
+      logger.debug("[connect] 已有连接，跳过");
+      return;
+    }
 
+    logger.info("[connect] 开始建立 SSE 连接");
     // 停止轮询（如果正在运行）
     this.stopPolling();
 
@@ -88,6 +95,7 @@ class SSEService {
       this.eventSource.onopen = () => {
         // 连接成功：重置重连间隔，启动心跳，停止轮询
         const wasReconnecting = this.reconnectFailCount > 0;
+        logger.info(`[onopen] SSE 连接成功 wasReconnecting=${wasReconnecting}`);
         this.reconnectDelay = INITIAL_RECONNECT_DELAY;
         this.reconnectFailCount = 0;
         this.startHeartbeat();
@@ -110,6 +118,7 @@ class SSEService {
       };
 
       this.eventSource.onerror = () => {
+        logger.warn(`[onerror] SSE 连接错误 failCount=${this.reconnectFailCount + 1} readyState=${this.eventSource?.readyState}`);
         this.disconnect();
         this.reconnectFailCount++;
         // 首次断开：即时提示正在重连
@@ -156,13 +165,32 @@ class SSEService {
         "knowledge:compile:completed",
         "knowledge:compile:aborted",
         "task:queue:progress",
+        // §5 P2: 长程任务进度/完成事件（LongRunningTaskOrchestrator 广播）
+        "task:progress",
+        "task:completed",
         // P0b-3: AI 自动建项目通知 — 前端监听后同步创建 worktree
         "project:auto_created",
+        // P2（08-09）：PlanDrivenLoop TaskCard 实时进度事件
+        "plan:task_card",
+        "plan:step_progress",
+        "plan:completed",
       ];
+      logger.info(`[connect] 注册进度事件监听 count=${progressEvents.length}`);
       for (const evt of progressEvents) {
         this.eventSource.addEventListener(evt, (e: Event) => {
           const msg = e as MessageEvent;
-          this.dispatch(evt, this.parse(msg.data));
+          const data = this.parse(msg.data);
+          // 对 plan 事件输出详细日志
+          if (evt.startsWith("plan:")) {
+            const planId = data.planId as string | undefined;
+            const sessionId = data.sessionId as string | undefined;
+            if (evt === "plan:step_progress") {
+              logger.debug(`[dispatch] ${evt} planId=${planId} sessionId=${sessionId} stepId=${data.stepId} status=${data.status}`);
+            } else {
+              logger.debug(`[dispatch] ${evt} planId=${planId} sessionId=${sessionId} title=${data.title ?? "-"} status=${data.status ?? "-"}`);
+            }
+          }
+          this.dispatch(evt, data);
         });
       }
     } catch {
@@ -195,6 +223,7 @@ class SSEService {
    * 断开 SSE 连接，清理所有定时器
    */
   disconnect(): void {
+    logger.info(`[disconnect] 断开 SSE 连接 handlerCount=${this.handlers.size}`);
     if (this.eventSource) {
       this.eventSource.close();
       this.eventSource = null;
@@ -279,8 +308,12 @@ class SSEService {
    * 使用指数退避策略：1s → 2s → 4s → 8s → 16s → 30s（上限）
    */
   private scheduleReconnect(): void {
-    if (this.reconnectTimer) return; // 已调度
+    if (this.reconnectTimer) {
+      logger.debug(`[scheduleReconnect] 已有重连定时器，跳过 delay=${this.reconnectDelay}ms`);
+      return; // 已调度
+    }
 
+    logger.info(`[scheduleReconnect] 调度重连 delay=${this.reconnectDelay}ms failCount=${this.reconnectFailCount}`);
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();

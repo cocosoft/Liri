@@ -13,7 +13,11 @@ export function InsightsUI({ onDone, args = '' }: InsightsUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'insightsCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'insightsCommand',
+          args
+        )
       }
     />
   );

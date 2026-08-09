@@ -21,7 +21,11 @@ export function BtwUI({ onDone, args = '' }: BtwUIProps) {
       onDone={onDone}
       // 动态导入命令执行器并执行 btwCommand
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'btwCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'btwCommand',
+          args
+        )
       }
     />
   );

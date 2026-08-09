@@ -13,7 +13,11 @@ export function PassesUI({ onDone, args = '' }: PassesUIProps) {
       args={args}
       onDone={onDone}
       execute={() =>
-        resolveCommandExecutor(import('./index.js'), 'passesCommand', args)
+        resolveCommandExecutor(
+          import('../command-registry.js'),
+          'passesCommand',
+          args
+        )
       }
     />
   );

@@ -224,7 +224,10 @@ export async function handleAddSessionMessage(
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
-          error: { message: 'message id is required', type: 'invalid_request_error' },
+          error: {
+            message: 'message id is required',
+            type: 'invalid_request_error',
+          },
         })
       );
       return;
@@ -233,7 +236,10 @@ export async function handleAddSessionMessage(
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
-          error: { message: 'message content is required', type: 'invalid_request_error' },
+          error: {
+            message: 'message content is required',
+            type: 'invalid_request_error',
+          },
         })
       );
       return;
@@ -267,7 +273,8 @@ export async function handleAddSessionMessage(
     const createdAt = new Date(data.timestamp ?? Date.now());
     const message: Message = {
       id: data.id,
-      role: data.role === 'assistant' ? MessageRole.ASSISTANT : MessageRole.USER,
+      role:
+        data.role === 'assistant' ? MessageRole.ASSISTANT : MessageRole.USER,
       content: data.content,
       createdAt,
       updatedAt: createdAt,

@@ -47,26 +47,30 @@ export enum BackgroundTaskState {
 }
 
 /** 后台任务状态转移规则表 */
-export const BACKGROUND_TASK_TRANSITIONS: TransitionRules<BackgroundTaskState> = {
-  [BackgroundTaskState.IDLE]: [BackgroundTaskState.RUNNING, BackgroundTaskState.SKIPPED],
-  [BackgroundTaskState.RUNNING]: [
-    BackgroundTaskState.COMPLETED,
-    BackgroundTaskState.FAILED,
-    BackgroundTaskState.IDLE,
-  ],
-  [BackgroundTaskState.SKIPPED]: [
-    BackgroundTaskState.RUNNING,
-    BackgroundTaskState.IDLE,
-  ],
-  [BackgroundTaskState.COMPLETED]: [
-    BackgroundTaskState.RUNNING,
-    BackgroundTaskState.IDLE,
-  ],
-  [BackgroundTaskState.FAILED]: [
-    BackgroundTaskState.RUNNING,
-    BackgroundTaskState.IDLE,
-  ],
-};
+export const BACKGROUND_TASK_TRANSITIONS: TransitionRules<BackgroundTaskState> =
+  {
+    [BackgroundTaskState.IDLE]: [
+      BackgroundTaskState.RUNNING,
+      BackgroundTaskState.SKIPPED,
+    ],
+    [BackgroundTaskState.RUNNING]: [
+      BackgroundTaskState.COMPLETED,
+      BackgroundTaskState.FAILED,
+      BackgroundTaskState.IDLE,
+    ],
+    [BackgroundTaskState.SKIPPED]: [
+      BackgroundTaskState.RUNNING,
+      BackgroundTaskState.IDLE,
+    ],
+    [BackgroundTaskState.COMPLETED]: [
+      BackgroundTaskState.RUNNING,
+      BackgroundTaskState.IDLE,
+    ],
+    [BackgroundTaskState.FAILED]: [
+      BackgroundTaskState.RUNNING,
+      BackgroundTaskState.IDLE,
+    ],
+  };
 
 export class BackgroundTaskStateMachine extends StateMachine<BackgroundTaskState> {
   /**

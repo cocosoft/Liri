@@ -89,7 +89,8 @@ function createTransitionHook(): (record: TransitionRecord<AppState>) => void {
       reason: record.reason,
     });
     try {
-      const { broadcastEvent } = require('@modules/infrastructure/http/LocalHTTPServiceSSE') as typeof import('@modules/infrastructure/http/LocalHTTPServiceSSE');
+      const { broadcastEvent } =
+        require('@modules/infrastructure/http/LocalHTTPServiceSSE') as typeof import('@modules/infrastructure/http/LocalHTTPServiceSSE');
       broadcastEvent('app:state', {
         state: record.to,
         from: record.from,

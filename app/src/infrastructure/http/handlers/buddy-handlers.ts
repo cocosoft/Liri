@@ -159,12 +159,15 @@ export async function handleGetBackgroundStatus(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const [{ getDreamStats, getDreamLogs }, { loadGrowthState }, { getBackgroundTaskLog }] =
-      await Promise.all([
-        import('@modules/buddy/dreamLogStore'),
-        import('@modules/buddy/growthPersistence'),
-        import('@modules/monitoring/BackgroundTaskEvent'),
-      ]);
+    const [
+      { getDreamStats, getDreamLogs },
+      { loadGrowthState },
+      { getBackgroundTaskLog },
+    ] = await Promise.all([
+      import('@modules/buddy/dreamLogStore'),
+      import('@modules/buddy/growthPersistence'),
+      import('@modules/monitoring/BackgroundTaskEvent'),
+    ]);
 
     const dreamStats = await getDreamStats();
     const recentLogs = await getDreamLogs(10);

@@ -356,10 +356,10 @@ export class ChatOrchestrator {
       if (prePersisted) {
         userMessage = prePersisted;
       } else {
-        userMessage = this.host.messageService.createUserMessage(
-          safeContent,
-          { sessionId: session.id, metadata: options?.metadata }
-        );
+        userMessage = this.host.messageService.createUserMessage(safeContent, {
+          sessionId: session.id,
+          metadata: options?.metadata,
+        });
         this.host.addAndPersistMessage(session.id, userMessage);
       }
       this.host.getSessionMachine(session.id).start('sendMessage');
